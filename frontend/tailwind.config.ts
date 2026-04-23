@@ -62,16 +62,34 @@ const config = {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        golden: {
+          dark: "hsl(var(--golden-dark))",
+          metallic: "hsl(var(--golden-metallic))",
+          soft: "hsl(var(--golden-soft))",
+          classic: "hsl(var(--golden-classic))",
+          darkHover: "hsl(var(--golden-dark-hover))",
+          darkLight: "hsl(var(--golden-dark-light))",
+          dark10: "hsl(var(--golden-dark-10))",
+          dark20: "hsl(var(--golden-dark-20))",
+          dark30: "hsl(var(--golden-dark-30))",
+          dark40: "hsl(var(--golden-dark-40))",
+          dark50: "hsl(var(--golden-dark-50))",
+          dark60: "hsl(var(--golden-dark-60))",
+          dark70: "hsl(var(--golden-dark-70))",
+          dark80: "hsl(var(--golden-dark-80))",
+          dark90: "hsl(var(--golden-dark-90))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+
     },
   },
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  plugins: [require("tailwindcss-animate")],
+  plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
 } satisfies Config;
 
 export default config;

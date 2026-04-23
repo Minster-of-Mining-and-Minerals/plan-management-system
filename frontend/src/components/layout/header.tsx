@@ -9,6 +9,11 @@ interface HeaderProps {
   title?: string;
 }
 
+const userData = {
+  name: "John Doe",
+  email: "john@example.com",
+  avatar: "/avatars/user.jpg",
+};
 
 export function Header({ title }: HeaderProps) {
   const notificationCount = 3; // Replace with actual notification count
@@ -28,7 +33,7 @@ export function Header({ title }: HeaderProps) {
           )}
           <span className="sr-only">Notifications</span>
         </Button>
-        <NavUser />
+        <NavUser user={userData} />
       </div>
     </header>
   );

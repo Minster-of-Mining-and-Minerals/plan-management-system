@@ -8,7 +8,6 @@ import {
 	useReactTable,
 } from "@tanstack/react-table";
 
-// Update these import paths to match your project structure
 import {
 	Table,
 	TableBody,
@@ -16,8 +15,8 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
-} from "@/components/ui/table"; // Update path
-import { Button } from "@/components/ui/button"; // Update path
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { useEffect } from "react";
 import {
@@ -26,7 +25,7 @@ import {
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@/components/ui/select"; // Update path
+} from "@/components/ui/select";
 import {
 	DoubleArrowLeftIcon,
 	DoubleArrowRightIcon,
@@ -86,26 +85,25 @@ export function DataTable<TData, TValue>({
 					{table.getHeaderGroups().map((headerGroup) => (
 						<TableRow
 							key={headerGroup.id}
-							className="bg-primary rounded-md hover:bg-primary/90 overflow-clip"
+							className="bg-golden-dark hover:bg-golden-darkHover rounded-md overflow-clip"
 						>
-							{headerGroup.headers.map((header) => {
-								return (
-									<TableHead
-										key={header.id}
-										className="text-primary-foreground font-bold first:rounded-l-md last:rounded-r-md py-5"
-									>
-										{header.isPlaceholder
-											? null
-											: flexRender(
-													header.column.columnDef.header,
-													header.getContext()
-											  )}
-									</TableHead>
-								);
-							})}
+							{headerGroup.headers.map((header) => (
+								<TableHead
+									key={header.id}
+									className="text-white font-bold first:rounded-l-md last:rounded-r-md py-5"
+								>
+									{header.isPlaceholder
+										? null
+										: flexRender(
+											header.column.columnDef.header,
+											header.getContext()
+										)}
+								</TableHead>
+							))}
 						</TableRow>
 					))}
 				</TableHeader>
+
 				<TableBody className="divide-none max-h-[500px] overflow-y-scroll">
 					{table.getRowModel().rows?.length ? (
 						table.getRowModel().rows.map((row, i) => (
@@ -113,21 +111,17 @@ export function DataTable<TData, TValue>({
 								key={row.id}
 								data-state={row.getIsSelected() ? "selected" : undefined}
 								className={`
-                                           bg-white shadow-sm transition-shadow duration-200
-                                            even:bg-[#F7F9FF]
-                                            ${
-																							i === 0
-																								? "first:rounded-t-lg"
-																								: "rounded-lg"
-																						}
-                                            ${
-																							i ===
-																							table.getRowModel().rows.length -
-																								1
-																								? "last:rounded-b-lg"
-																								: "rounded-xl"
-																						}
-                                           `}
+                                    bg-white shadow-sm transition-shadow duration-200
+                                    even:bg-[#F7F9FF]
+                                    ${i === 0
+										? "first:rounded-t-lg"
+										: "rounded-lg"
+									}
+                                    ${i === table.getRowModel().rows.length - 1
+										? "last:rounded-b-lg"
+										: "rounded-xl"
+									}
+                                `}
 							>
 								{row.getVisibleCells().map((cell) => (
 									<TableCell key={cell.id} className="px-4 py-3.5">
@@ -145,6 +139,8 @@ export function DataTable<TData, TValue>({
 					)}
 				</TableBody>
 			</Table>
+
+			{/* Pagination */}
 			<div className="flex flex-wrap pb-1 justify-end items-center gap-2">
 				<div>
 					<Select
@@ -176,7 +172,6 @@ export function DataTable<TData, TValue>({
 						onClick={() => table.setPageIndex(0)}
 						disabled={!table.getCanPreviousPage()}
 					>
-						<span className="sr-only">Go to first page</span>
 						<DoubleArrowLeftIcon className="h-4 w-4" />
 					</Button>
 					<Button
@@ -185,18 +180,14 @@ export function DataTable<TData, TValue>({
 						onClick={() => table.previousPage()}
 						disabled={!table.getCanPreviousPage()}
 					>
-						<span className="sr-only">Go to previous page</span>
 						<ChevronLeftIcon className="h-4 w-4" />
 					</Button>
 					<Button
 						variant="outline"
 						className="h-8 w-8 p-0"
-						onClick={() => {
-							table.nextPage();
-						}}
+						onClick={() => table.nextPage()}
 						disabled={!table.getCanNextPage()}
 					>
-						<span className="sr-only">Go to next page</span>
 						<ChevronRightIcon className="h-4 w-4" />
 					</Button>
 					<Button
@@ -205,7 +196,6 @@ export function DataTable<TData, TValue>({
 						onClick={() => table.setPageIndex(table.getPageCount() - 1)}
 						disabled={!table.getCanNextPage()}
 					>
-						<span className="sr-only">Go to last page</span>
 						<DoubleArrowRightIcon className="h-4 w-4" />
 					</Button>
 				</div>
@@ -213,4 +203,3 @@ export function DataTable<TData, TValue>({
 		</div>
 	);
 }
-

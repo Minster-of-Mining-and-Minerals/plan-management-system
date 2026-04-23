@@ -56,20 +56,20 @@ export default function Home() {
           {/* CTA Buttons */}
           <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
             <Link
-              href="/complaint"
+              href="/plans"
               className="px-8 py-4 bg-golden-dark text-white font-semibold rounded-xl 
                 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 
                 hover:bg-golden-darkHover transition-all duration-200 text-lg"
             >
-              {t('actions.complaint')}
+              {t('actions.plans')}
             </Link>
             <Link
-              href="/feedback"
+              href="/evaluations"
               className="px-8 py-4 bg-white text-primary font-semibold rounded-xl 
                 border border-primary/20 hover:border-primary/40 hover:bg-golden-metallic
                 transition-all duration-200 text-lg"
             >
-              {t('actions.feedback')}
+              {t('actions.evaluations')}
             </Link>
           </div>
 

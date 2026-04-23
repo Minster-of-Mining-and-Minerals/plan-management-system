@@ -1,23 +1,23 @@
 {
   "HomePage": {
-    "badge": "Official Public Complaint & Feedback Platform",
+    "badge": "Official Strategic Plan & Performance Evaluation Platform",
     "heading": {
-      "line1": "Ensure Transparency and Accountability",
-      "line2": "in the Mining Sector"
+      "line1": "Drive Progress through Strategic",
+      "line2": "Planning and Performance Evaluation"
     },
-    "description": "A secure and transparent digital platform established by the Ministry of Mining to receive, track, and resolve public complaints and feedback related to mining activities. Empowering citizens, improving service delivery, and strengthening governance through accountability.",
+    "description": "A comprehensive digital platform designed for the Ministry of Mining to manage strategic plans, monitor implementation progress, and evaluate performance outcomes. Enhancing efficiency, ensuring alignment with national goals, and fostering data-driven decision making.",
     "actions": {
-      "complaint": "Submit a Complaint",
-      "feedback": "Provide Feedback"
+      "plans": "View Strategic Plans",
+      "evaluations": "Check Evaluations"
     }
   },
   "PublicHeader": {
     "logoLine1": "Minister of Mining",
     "tabs": {
       "home": "Home",
-      "complaint": "Complaint",
-      "feedback": "Feedback",
-      "trackComplaint": "Track Complaint"
+      "plans": "Plans",
+      "evaluations": "Evaluations",
+      "reports": "Reports"
     },
     "login": "Login"
   },

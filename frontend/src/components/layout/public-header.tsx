@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { AlertTriangle, MessageSquare } from "lucide-react";
+import { FileText, ClipboardCheck, BarChart3, Home } from "lucide-react";
 // import LocaleSwitcher from "@/components/common/LanguageSwitcher/LocaleSwitcher";
 import { useTranslations } from "next-intl";
 import LocaleSwitcher from "../LanguageSwitcher/LocaleSwitcher";
@@ -28,22 +28,22 @@ const PublicHeader = () => {
     {
       label: t("tabs.home"),
       href: "/",
-      icon: MessageSquare,
+      icon: Home,
     },
     {
-      label: t("tabs.complaint"),
-      href: "/complaint",
-      icon: AlertTriangle,
+      label: t("tabs.plans"),
+      href: "/plans",
+      icon: FileText,
     },
     {
-      label: t("tabs.feedback"),
-      href: "/feedback",
-      icon: MessageSquare,
+      label: t("tabs.evaluations"),
+      href: "/evaluations",
+      icon: ClipboardCheck,
     },
     {
-      label: t("tabs.trackComplaint"),
-      href: "/track-complaint",
-      icon: AlertTriangle,
+      label: t("tabs.reports"),
+      href: "/reports",
+      icon: BarChart3,
     }
   ];
 
