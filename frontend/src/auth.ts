@@ -6,8 +6,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
   session: {
     strategy: "jwt",
-    maxAge: 5 * 60,
-    updateAge: 25 * 60,
+    maxAge: 7 * 24 * 60 * 60, // 7 days to match backend JWT
+    updateAge: 24 * 60 * 60,
   },
   pages: {
     signIn: "/login",
@@ -19,13 +19,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return {
           ...token,
           id: user.id,
-          role: user.role,
-          phone_number: user.phone_number,
-          profile_image: user.profile_image,
-          is_first_logged_in: user.is_first_logged_in,
-          roles: user.roles,
-          permissions: user.permissions,
           accessToken: user.accessToken,
+          is_first_logged_in: user.is_first_logged_in,
         };
       }
       if (token.exp && token.exp < Date.now() / 1000) {
@@ -37,16 +32,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       return {
         ...session,
-        accessToken: token.accessToken, // <-- ADD THIS LINE
+        accessToken: token.accessToken,
         user: {
           ...session.user,
           id: token.id as string,
-          role: token.role,
-          phone_number: token.phone_number,
-          profile_image: token.profile_image,
           is_first_logged_in: token.is_first_logged_in,
-          roles: token.roles,
-          permissions: token.permissions,
         },
       };
     },
@@ -58,45 +48,17 @@ declare module "next-auth" {
   interface User {
     accessToken?: string;
     id: string;
-    role?: string | null;
-    phone_number?: string | null;
-    profile_image?: string | null;
     is_first_logged_in?: boolean;
-    roles?: Array<{
-      role_id: string;
-      name: string;
-      permissions: Array<{
-        permission_id: string;
-        name: string;
-        key: string;
-      }>;
-    }>;
-    permissions?: string[] | null;
   }
 
   interface Session {
     accessToken?: string;
-    message?: string;
-    error?: string;
     user: {
       id: string;
       name?: string | null;
       email?: string | null;
       image?: string | null;
-      role?: string | null;
-      phone_number?: string | null;
-      profile_image?: string | null;
       is_first_logged_in?: boolean;
-      roles?: Array<{
-        role_id: string;
-        name: string;
-        permissions: Array<{
-          permission_id: string;
-          name: string;
-          key: string;
-        }>;
-      }>;
-      permissions?: string[] | null;
     };
   }
 }
@@ -105,19 +67,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     id?: string;
     accessToken?: string;
-    role?: string | null;
-    phone_number?: string | null;
-    profile_image?: string | null;
     is_first_logged_in?: boolean;
-    roles?: Array<{
-      role_id: string;
-      name: string;
-      permissions: Array<{
-        permission_id: string;
-        name: string;
-        key: string;
-      }>;
-    }>;
-    permissions?: string[] | null;
   }
 }

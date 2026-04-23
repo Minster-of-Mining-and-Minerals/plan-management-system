@@ -1,6 +1,5 @@
 import CredentialsProvider from "next-auth/providers/credentials";
 import type { NextAuthConfig } from "next-auth";
-import { Role } from "./redux/types/auth";
 
 export default {
   providers: [
@@ -34,20 +33,14 @@ export default {
           }
 
           const user = data.data.user;
-          const roles = data.data?.roles ?? [];
+
+          // Return ONLY lean data — roles/permissions fetched later via /me
           return {
             accessToken: data.token,
             id: user.user_id,
             email: user.email,
             name: user.full_name,
-            phone_number: user.phone_number,
-            profile_image: user.profile_image,
             is_first_logged_in: user.is_first_logged_in,
-            role: roles?.[0]?.name ?? null,
-            roles: roles ?? [],
-            permissions: data.roles?.flatMap((r: Role) =>
-              r.permissions.map((p: any) => p.name)
-            ),
           };
         } catch (err) {
           console.error("Authorize error:", err);

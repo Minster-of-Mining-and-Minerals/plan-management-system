@@ -25,7 +25,6 @@ module.exports = (sequelize, DataTypes) => {
       resource: {
         type: DataTypes.STRING(100),
         allowNull: false,
-        unique: true,
       },
       action: {
         type: DataTypes.STRING(100),

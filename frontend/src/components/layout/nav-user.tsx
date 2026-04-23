@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronsUpDown, LogOut, User } from "lucide-react";
+import { LogOut, User } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -11,40 +11,48 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/hooks/use-auth";
+import { logout } from "@/actions/user";
 
-interface NavUserProps {
-  user: {
-    name: string;
-    email: string;
-    avatar?: string;
-  };
-}
+export function NavUser() {
+  const { user, isLoading } = useAuth();
 
-export function NavUser({ user }: NavUserProps) {
   // Get initials for avatar fallback
-  const initials = user.name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+  const initials = user?.full_name
+    ? user.full_name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : "??";
 
-  const handleLogout = () => {
-    // TODO: Implement logout logic
-    console.log("Logout clicked");
+  const handleLogout = async () => {
+    await logout();
   };
+
+  if (isLoading || !user) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg p-2 animate-pulse">
+        <div className="h-8 w-8 rounded-lg bg-gray-200" />
+        <div className="hidden md:grid flex-1 space-y-1">
+          <div className="h-4 w-24 bg-gray-200 rounded" />
+          <div className="h-3 w-32 bg-gray-200 rounded" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button className="flex items-center gap-2 rounded-lg p-2 hover:bg-accent focus:outline-none  ">
           <Avatar className="h-8 w-8 rounded-lg">
-            <AvatarImage src={user.avatar} alt={user.name} />
+            <AvatarImage src={user.profile_image || ""} alt={user.full_name} />
             <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
           </Avatar>
-          {/* Hide name/email on mobile, show on md and up */}
           <div className="hidden md:grid flex-1 text-left text-sm leading-tight">
-            <span className="truncate font-semibold">{user.name}</span>
+            <span className="truncate font-semibold">{user.full_name}</span>
             <span className="truncate text-xs text-muted-foreground">
               {user.email}
             </span>
@@ -60,11 +68,11 @@ export function NavUser({ user }: NavUserProps) {
         <DropdownMenuLabel className="p-0 font-normal">
           <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
             <Avatar className="h-8 w-8 rounded-lg">
-              <AvatarImage src={user.avatar} alt={user.name} />
+              <AvatarImage src={user.profile_image || ""} alt={user.full_name} />
               <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
             </Avatar>
             <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-semibold">{user.name}</span>
+              <span className="truncate font-semibold">{user.full_name}</span>
               <span className="truncate text-xs text-muted-foreground">
                 {user.email}
               </span>
@@ -84,4 +92,4 @@ export function NavUser({ user }: NavUserProps) {
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
+}

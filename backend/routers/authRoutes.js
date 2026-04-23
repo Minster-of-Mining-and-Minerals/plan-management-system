@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const authController = require("../controllers/authController");
 const { validateLogin } = require("../validators/authValidator");
+const { authenticateToken } = require("../middlewares/authMiddleware");
 /**
  * @swagger
  * tags:
@@ -38,6 +39,22 @@ const { validateLogin } = require("../validators/authValidator");
  *         description: Invalid credentials
  */
 router.post("/login", validateLogin, authController.login);
+
+/**
+ * @swagger
+ * /api/auth/me:
+ *   get:
+ *     summary: Get current authenticated user with roles and permissions
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile with roles and permissions
+ *       401:
+ *         description: Unauthorized
+ */
+router.get("/me", authenticateToken, authController.getMe);
 
 /**
  * @swagger

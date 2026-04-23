@@ -42,14 +42,19 @@ export const getCurrentUser = async () => {
   return session?.user ?? null;
 };
 
-export const checkPermission = async (permissionKey: string) => {
-  const session = await auth();
-  if (!session?.user?.permissions) return false;
-  return session.user.permissions.includes(permissionKey);
+/**
+ * Server-side permission checks are no longer available since permissions
+ * are fetched client-side via /api/auth/me and stored in Redux.
+ * For client components, use the `useAuth` hook from @/hooks/use-auth:
+ *   const { hasPermission } = useAuth();
+ */
+export const checkPermission = async (_permissionKey: string): Promise<boolean> => {
+  return false;
 };
 
-export const hasRole = async (roleName: string) => {
-  const session = await auth();
-  if (!session?.user?.roles) return false;
-  return session.user.roles.some((role) => role.name === roleName);
+/**
+ * Use the `useAuth` hook from @/hooks/use-auth for role checking in client components.
+ */
+export const hasRole = async (_roleName: string): Promise<boolean> => {
+  return false;
 };

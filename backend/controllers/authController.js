@@ -56,13 +56,11 @@ const login = async (req, res) => {
       })),
     }));
 
-    // ===== Generate JWT Token =====
+    // ===== Generate JWT Token (lean - no roles/permissions to avoid cookie bloat) =====
     const token = jwt.sign(
       {
         user_id: user.user_id,
         email: user.email,
-        roles: userRoles.map((r) => r.name),
-        permissions: userRoles.flatMap((r) => r.permissions),
       },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
@@ -98,7 +96,7 @@ const login = async (req, res) => {
   }
 };
 
-// Logout (token invalidation example using a blacklist)
+// Logout
 const logout = async (req, res) => {
   try {
     res.status(200).json({ message: "Logout successful" });
@@ -109,4 +107,77 @@ const logout = async (req, res) => {
   }
 };
 
-module.exports = { login, logout };
+// Get current user profile with roles and permissions
+const getMe = async (req, res) => {
+  try {
+    const user = await User.findOne({
+      where: { user_id: req.user.user_id },
+      attributes: [
+        "user_id",
+        "full_name",
+        "email",
+        "phone_number",
+        "profile_image",
+        "is_first_logged_in",
+      ],
+      include: [
+        {
+          model: Role,
+          as: "roles",
+          through: { attributes: [] },
+          include: [
+            {
+              model: RolePermission,
+              as: "rolePermissions",
+              include: [
+                {
+                  model: Permission,
+                  as: "permission",
+                  attributes: ["permission_id", "resource", "action"],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+
+    const userRoles = user.roles.map((role) => ({
+      role_id: role.role_id,
+      name: role.name,
+      permissions: role.rolePermissions.map((rp) => ({
+        permission_id: rp.permission?.permission_id,
+        resource: rp.permission?.resource,
+        action: rp.permission?.action,
+      })),
+    }));
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        user: {
+          user_id: user.user_id,
+          full_name: user.full_name,
+          email: user.email,
+          phone_number: user.phone_number,
+          profile_image: user.profile_image,
+          is_first_logged_in: user.is_first_logged_in,
+        },
+        roles: userRoles,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
+  }
+};
+
+module.exports = { login, logout, getMe };

@@ -1,6 +1,29 @@
-// src/redux/apis/authApi.ts
+// src/redux/api/authApi.ts
 import { baseApi } from "../baseApi";
 import { AuthResponse, LoginCredentials } from "../types/auth";
+
+export interface MeResponse {
+  success: boolean;
+  data: {
+    user: {
+      user_id: string;
+      full_name: string;
+      email: string;
+      phone_number: string;
+      profile_image: string | null;
+      is_first_logged_in: boolean;
+    };
+    roles: Array<{
+      role_id: string;
+      name: string;
+      permissions: Array<{
+        permission_id: string;
+        resource: string;
+        action: string;
+      }>;
+    }>;
+  };
+}
 
 export const authApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -32,6 +55,14 @@ export const authApi = baseApi.injectEndpoints({
       invalidatesTags: ["User"],
     }),
 
+    getMe: builder.query<MeResponse, void>({
+      query: () => ({
+        url: "/auth/me",
+        method: "GET",
+      }),
+      providesTags: ["User"],
+    }),
+
     logout: builder.mutation<{ message: string }, void>({
       query: () => ({
         url: "/auth/logout",
@@ -51,4 +82,4 @@ export const authApi = baseApi.injectEndpoints({
   }),
 });
 
-export const { useLoginMutation, useLogoutMutation } = authApi;
+export const { useLoginMutation, useGetMeQuery, useLogoutMutation } = authApi;

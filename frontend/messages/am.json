@@ -1,0 +1,118 @@
+{
+  "HomePage": {
+    "badge": "ይፋዊ የህዝብ ቅሬታና አስተያየት መድረክ",
+    "heading": {
+      "line1": "ግልጽነትና ተጠያቂነትን ማረጋገጥ",
+      "line2": "በማዕድን ዘርፍ"
+    },
+    "description": "በማዕድን ሚኒስቴር የተቋቋመ ደህንነቱ የተጠበቀና ግልጽ ዲጂታል መድረክ፣ የህዝብ ቅሬታዎችንና አስተያየቶችን ለመቀበል፣ ለመከታተልና ለመፍታት። ዜጎችን ማበረታታት፣ አገልግሎትን ማሻሻልና ተጠያቂነትን ማጠናከር።",
+    "actions": {
+      "complaint": "ቅሬታ ያቅርቡ",
+      "feedback": "አስተያየት ይስጡ"
+    }
+  },
+  "PublicHeader": {
+    "logoLine1": "የማዕድን ሚኒስቴር",
+    "tabs": {
+      "home": "መነሻ",
+      "complaint": "ቅሬታ",
+      "feedback": "አስተያየት",
+      "trackComplaint": "ቅሬታ ይከታተሉ"
+    },
+    "login": "ግባ"
+  },
+  "ComplaintPage": {
+    "title": "ቅሬታ ያቅርቡ",
+    "subtitle": "ቅሬታዎን ለማቅረብ ከታች ያለውን ቅጽ በትክክል ይሙሉ። ትክክለኛና ሙሉ መረጃ መስጠት ቅሬታዎን በፍጥነት እንዲከናወን ይረዳል።",
+
+    "personalInfo": {
+      "title": "የግል መረጃ",
+      "optional": "(አማራጭ)",
+      "fullName": "ሙሉ ስም",
+      "fullNamePlaceholder": "ሙሉ ስምዎን ያስገቡ",
+      "phone": "ስልክ ቁጥር",
+      "phonePlaceholder": "የስልክ ቁጥርዎን ያስገቡ",
+      "email": "ኢሜይል",
+      "emailPlaceholder": "የኢሜይል አድራሻዎን ያስገቡ",
+      "city": "ከተማ / ክልል",
+      "cityPlaceholder": "ከተማዎን ወይም ክልሎትን ያስገቡ",
+      "subCityPlaceholder": "ክፍለ ከተማዎን ወይም ዞኑን ያስገቡ",
+      "subCity": "ክፍለ ከተማ / ዞን",
+      "woreda": "ወረዳ",
+      "woredaPlaceholder": "ወረዳዎን ያስገቡ"
+    },
+
+    "details": {
+      "title": "የ{category} ዝርዝሮች",
+      "category": "ምድብ",
+      "categoryPlaceholder": "ምድብ ይምረጡ",
+      "incidentDate": "የክስተቱ ቀን",
+      "sector": "{category}ን የሚቀበል ዘርፍ",
+      "sectorPlaceholder": "ዘርፍ ያስገቡ",
+      "department": "{category}ን የሚቀበል ክፍል",
+      "departmentPlaceholder": "{category}ን የሚቀበል ክፍል ያስገቡ",
+      "personConcerned": "የተመለከተው ሰው ስም",
+      "personConcernedPlaceholder": "የተመለከተው ሰው ስም ያስገቡ",
+      "description": "የ{category} መግለጫ",
+      "descriptionPlaceholder": "የ{category} ዝርዝር መግለጫ ያቀርቡ",
+      "requestedAction": "የሚፈለገው እርምጃ",
+      "requestedActionPlaceholder": "የሚወሰነውን እርምጃ ያስSpecify",
+      "evidence": "ማስረጃ",
+      "evidencePlaceholder": "የሚያግዙ ሰነዶች ወይም ማስረጃዎችን ያስገቡ",
+      "optional": "አማራጭ"
+    },
+    "toast": {
+      "success": {
+        "submitted": "ቅሬታዎ በተሳካ ሁኔታ ተልኳል።",
+        "errors": "አንዳንድ ስህተቶች ነበሩ። እባክዎ ቅጹን ያረጋግጡ እና ደግመው ይሞክሩ።"
+      }
+    },
+    "buttons": {
+      "cancel": "ሰርዝ",
+      "submit": "{category} አስገባ"
+    },
+
+    "tips": {
+      "title": "የቅሬታ መመሪያዎች",
+      "items": [
+        "መግለጫዎን ግልጽና አጭር ያድርጉ።",
+        "ተገቢ ቀናትና ዝርዝሮችን ያካትቱ።",
+        "አስፈላጊ ከሆነ የሚያግዙ ሰነዶችን ያያዙ።",
+        "ለክትትል የመገኛ መረጃዎን ያቅርቡ።",
+        "ያልተሟላ ወይም ግልጽ ያልሆነ ቅሬታ ለረዘም ጊዜ ሊወስድ ይችላል።"
+      ]
+    }
+  },
+  "Feedback": {
+    "title": "አስተያየት ያቅርቡ",
+    "description": "እባክዎ ከታች ያለውን ፎርም በመሙላት አስተያየትዎን ያቅርቡ። አስተያየትዎ በትክክል እንዲታወቅ ትክክለኛና ሙሉ መረጃ ያቅርቡ።",
+    "fields": {
+      "fullName": "ሙሉ ስም",
+      "fullNamePlaceholder": "ሙሉ ስምዎን ያስገቡ",
+      "fullNameOptional": "(አማራጭ)",
+      "sector": "ዘርፍ የሚቀበል አስተያየት",
+      "sectorPlaceholder": "ዘርፍ ይምረጡ",
+      "feedbackDescription": "መግለጫ",
+      "feedbackPlaceholder": "አስተያየትዎን በዝርዝር ይግለጹ",
+      "rating": "ደረጃ",
+      "selectRating": "ደረጃ ይምረጡ"
+    },
+    "toast": {
+      "success": {
+        "submitted": "አስተያየትዎ በተሳካ ሁኔታ ተልኳል።"
+      },
+      "error": {
+        "unexpected": "ያልታወቀ ስህተት አጋጥሟል። እባክዎ ከዚያ በኋላ ደግመው ይሞክሩ።",
+        "errors": "አንዳንድ ስህተቶች ነበሩ። እባክዎ ቅጹን ያረጋግጡ እና ደግመው ይሞክሩ።"
+      }
+    },
+    "actions": {
+      "submit": "አስተያየት ያቅርቡ",
+      "cancel": "ሰርዝ"
+    }
+  },
+  "LocaleSwitcher": {
+    "label": "ቋንቋ",
+    "locale": "{locale, select, en {እንግሊዝኛ} am {አማርኛ} other {ያልታወቀ}}"
+  }
+}
