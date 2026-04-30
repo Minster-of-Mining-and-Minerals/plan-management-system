@@ -4,9 +4,9 @@ const router = express.Router();
 const {
   validateCreateRole,
   validateUpdateRole,
-} = require("../validators/roleValidator");
+} = require("../../validators/user/roleValidator");
 
-const { authenticateToken } = require("../middlewares/authMiddleware");
+const { authenticateToken } = require("../../middlewares/authMiddleware");
 
 const {
   createRole,
@@ -14,7 +14,7 @@ const {
   getRoleById,
   updateRole,
   deleteRole,
-} = require("../controllers/roleController");
+} = require("../../controllers/user/roleController");
 
 router.post("/", validateCreateRole, createRole);
 router.get("/", getRoles);

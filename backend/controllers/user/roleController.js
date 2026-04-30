@@ -1,5 +1,5 @@
 // controllers/roleController.js
-const { Role, Permission, RolePermission } = require("../models");
+const { Role, Permission, RolePermission } = require("../../models");
 const { v4: uuidv4 } = require("uuid");
 const { Op } = require("sequelize");
 const { Sequelize } = require("sequelize");

@@ -12,12 +12,12 @@ const { swaggerUi, swaggerSpec } = require("./swagger");
 
 // ================== Here Import Routes=================
 
-const userRoute = require("./routers/userRoutes");
-const roleRoute = require("./routers/roleRoutes");
-const userRoleRoute = require("./routers/userRoleRoutes");
-const authRoute = require("./routers/authRoutes");
-const permissionRoute = require("./routers/permissionRoutes");
-const changePasswordRoutes = require("./routers/passwordChangeRoutes");
+const userRoute = require("./routers/user/userRoutes");
+const roleRoute = require("./routers/user/roleRoutes");
+const userRoleRoute = require("./routers/user/userRoleRoutes");
+const authRoute = require("./routers/user/authRoutes");
+const permissionRoute = require("./routers/user/permissionRoutes");
+const changePasswordRoutes = require("./routers/user/passwordChangeRoutes");
 
 // const issueFileAttachmentRoutes = require("./routers/issueAttachmentRoutes");
 // const fileAttachmentRoutes = require("./routers/attachementRoutes");

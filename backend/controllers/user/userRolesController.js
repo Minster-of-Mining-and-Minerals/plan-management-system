@@ -1,6 +1,6 @@
 
 
-const { User, Role, UserRoles } = require("../models");
+const { User, Role, UserRoles } = require("../../models");
 const { v4: uuidv4 } = require("uuid");
 
 

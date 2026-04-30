@@ -1,5 +1,5 @@
 const bcrypt = require("bcrypt");
-const { User } = require("../models");
+const { User } = require("../../models");
 
 exports.changePassword = async (req, res) => {
   const t = await User.sequelize.transaction();

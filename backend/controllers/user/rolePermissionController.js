@@ -1,4 +1,4 @@
-const { RolePermission, Role, Permission } = require("../models");
+const { RolePermission, Role, Permission } = require("../../models");
 const { v4: uuidv4 } = require("uuid");
 
 // Assign permission(s) to a role

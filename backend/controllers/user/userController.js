@@ -5,12 +5,12 @@ const {
   Role,
   UserRoles,
   sequelize,
-} = require("../models");
+} = require("../../models");
 const { v4: uuidv4, validate: isUuid } = require("uuid");
 const { Op } = require("sequelize");
 const bcrypt = require("bcrypt");
-const { generateRandomPassword } = require("../utils/password");
-const { sendEmail } = require("../utils/sendEmail");
+const { generateRandomPassword } = require("../../utils/password");
+const { sendEmail } = require("../../utils/sendEmail");
 
 const getUserTypes = async (req, res) => {
   try {

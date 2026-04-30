@@ -3,7 +3,7 @@ const router = express.Router();
 const {
   assignRolesToUser,
   removeRoleFromUser,
-} = require("../controllers/userRolesController");
+} = require("../../controllers/user/userRolesController");
 
 /**
  * @swagger

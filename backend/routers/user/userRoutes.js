@@ -11,7 +11,7 @@ const {
   getProfile,
   getUserTypes,
   getUserPositions,
-} = require("../controllers/userController");
+} = require("../../controllers/user/userController");
 
 // Middleware for authentication if needed (example)
 // const { authenticate } = require("../middlewares/authMiddleware");
