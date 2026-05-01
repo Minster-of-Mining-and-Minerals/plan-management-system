@@ -19,6 +19,14 @@ const baseQuery = fetchBaseQuery({
 export const baseApi = createApi({
   reducerPath: "api",
   baseQuery: baseQuery,
-  tagTypes: ["User", "Roles", "Permissions"],
+  tagTypes: [
+    "Attachment",
+    "User",
+    "Roles",
+    "Permissions",
+    "PermissionGroups",
+    "GovernmentStructures",
+    "InternalStructures"
+  ],
   endpoints: () => ({}),
 });

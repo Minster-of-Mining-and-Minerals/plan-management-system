@@ -1,11 +1,11 @@
 import { PermissionKey } from "@/lib/permissions";
 import {
   LayoutDashboard,
-  ClipboardCheck,
-  FileText,
   User2,
   Shield,
   Key,
+  Building2,
+  ListTree
 } from "lucide-react";
 
 export type NavItem = {
@@ -26,35 +26,6 @@ export const NAVIGATION: NavItem[] = [
     anyPermissions: ["DASHBOARD:VIEW"],
   },
   {
-    title: "Feedbacks",
-    url: "/feedbacks",
-    icon: ClipboardCheck,
-    anyPermissions: ["FEEDBACK:READ"],
-  },
-  {
-    title: "My Complaints",
-    url: "/my-complaints",
-    icon: ClipboardCheck,
-    anyPermissions: ["COMPLAINT:READ_OWN"],
-  },
-  {
-    title: "Compliants",
-    url: "/compliants",
-    icon: ClipboardCheck,
-    anyPermissions: ["COMPLAINT:READ_ALL"],
-  },
-  {
-    title: "Base Data",
-    url: "/basedata",
-    icon: FileText,
-    allPermissions: [
-      "SECTOR:READ",
-      "SECTOR:UPDATE",
-      "COMPLAINT_CATEGORIES:READ",
-      "COMPLAINT_CATEGORIES:UPDATE",
-    ],
-  },
-  {
     title: "Users",
     url: "/users",
     icon: User2,
@@ -71,6 +42,12 @@ export const NAVIGATION: NavItem[] = [
         url: "/users/roles",
         icon: Shield,
         allPermissions: ["ROLES:READ"],
+      },
+      {
+        title: "Permission Group Management",
+        url: "/users/permission-groups",
+        icon: Shield,
+        allPermissions: ["PERMISSION_GROUPS:READ"],
       },
       {
         title: "Permission Management",
