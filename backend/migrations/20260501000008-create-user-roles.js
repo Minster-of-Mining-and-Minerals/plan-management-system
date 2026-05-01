@@ -5,9 +5,9 @@ module.exports = {
     await queryInterface.createTable("user_roles", {
       user_role_id: {
         type: Sequelize.UUID,
-        allowNull: false,
-        primaryKey: true,
         defaultValue: Sequelize.UUIDV4,
+        primaryKey: true,
+        allowNull: false,
       },
       user_id: {
         type: Sequelize.UUID,
@@ -35,23 +35,23 @@ module.exports = {
       },
       assigned_at: {
         type: Sequelize.DATE,
+        defaultValue: Sequelize.fn("NOW"),
         allowNull: false,
-        defaultValue: Sequelize.literal("CURRENT_TIMESTAMP"),
       },
       is_active: {
         type: Sequelize.BOOLEAN,
-        allowNull: false,
         defaultValue: true,
+        allowNull: false,
       },
       created_at: {
         type: Sequelize.DATE,
         allowNull: false,
-        defaultValue: Sequelize.literal("CURRENT_TIMESTAMP"),
+        defaultValue: Sequelize.fn("NOW"),
       },
       updated_at: {
         type: Sequelize.DATE,
         allowNull: false,
-        defaultValue: Sequelize.literal("CURRENT_TIMESTAMP"),
+        defaultValue: Sequelize.fn("NOW"),
       },
     });
   },

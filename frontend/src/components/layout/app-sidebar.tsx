@@ -6,11 +6,11 @@ import {
   LayoutDashboard,
   Users,
   ClipboardCheck,
-  Car,
   FileText,
   ChevronRight,
   Shield,
   Key,
+  FolderTree,
 } from "lucide-react";
 
 import {
@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/collapsible"
 import Image from "next/image";
 
-// Navigation items - update these based on your app's needs
+// Navigation items
 const navigationItems = [
   {
     title: "Dashboard",
@@ -46,16 +46,6 @@ const navigationItems = [
     icon: ClipboardCheck,
   },
   {
-    title: "Students",
-    url: "/students",
-    icon: Users,
-  },
-  {
-    title: "Vehicles",
-    url: "/vehicles",
-    icon: Car,
-  },
-  {
     title: "Reports",
     url: "/reports",
     icon: FileText,
@@ -64,6 +54,11 @@ const navigationItems = [
 
 // Nested menu for User Management
 const userManagementItems = [
+  {
+    title: "User List",
+    url: "/users/list",
+    icon: Users,
+  },
   {
     title: "Role Management",
     url: "/users/roles",
@@ -75,6 +70,21 @@ const userManagementItems = [
     icon: Key,
   },
 ];
+
+// Nested menu for Structure Management
+const structureManagementItems = [
+  {
+    title: "Government Structure",
+    url: "/structures/government",
+    icon: FolderTree,
+  },
+  {
+    title: "Internal Structure",
+    url: "/structures/internal",
+    icon: FolderTree,
+  },
+];
+
 const stripLocale = (pathname: string) => {
   const segments = pathname.split("/");
   if (segments.length > 1 && ["en", "am"].includes(segments[1])) {
@@ -82,15 +92,17 @@ const stripLocale = (pathname: string) => {
   }
   return pathname;
 };
+
 export function AppSidebar() {
   const rawPathname = usePathname();
   const pathname = stripLocale(rawPathname);
+
   return (
     <Sidebar collapsible="icon" variant="floating" className="">
       <SidebarHeader className="py-10">
         <SidebarMenu>
           <SidebarMenuItem>
-            <Link href="/admin/dashboard" className="flex flex-col items-center">
+            <Link href="/dashboard" className="flex flex-col items-center">
               <Image
                 src="/logo-only.png"
                 alt="Minister of Mining Logo"
@@ -149,13 +161,48 @@ export function AppSidebar() {
                       className="text-primary hover:bg-golden-metallic px-5 py-5 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:justify-center data-[active=true]:bg-golden-dark data-[active=true]:text-primary-foreground"
                     >
                       <Users className="group-data-[collapsible=icon]:size-5" />
-                      <span className="text-base group-data-[collapsible=icon]:hidden">Users</span>
+                      <span className="text-base group-data-[collapsible=icon]:hidden">User Management</span>
                       <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 group-data-[collapsible=icon]:hidden" />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
                       {userManagementItems.map((subItem) => (
+                        <SidebarMenuSubItem key={subItem.title}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={pathname === subItem.url}
+                            className="text-primary hover:bg-golden-metallic group-data-[collapsible=icon]:justify-center data-[active=true]:bg-golden-metallic data-[active=true]:text-primary"
+                          >
+                            <Link href={subItem.url}>
+                              <subItem.icon className="h-4 w-4" />
+                              <span>{subItem.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
+              {/* Structures with nested menu */}
+              <Collapsible asChild defaultOpen={pathname.startsWith("/structures")} className="group/collapsible">
+                <SidebarMenuItem className="group-data-[collapsible=icon]:w-fit">
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      tooltip="Structures"
+                      isActive={pathname.startsWith("/structures")}
+                      className="text-primary hover:bg-golden-metallic px-5 py-5 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:justify-center data-[active=true]:bg-golden-dark data-[active=true]:text-primary-foreground"
+                    >
+                      <FolderTree className="group-data-[collapsible=icon]:size-5" />
+                      <span className="text-base group-data-[collapsible=icon]:hidden">Structure Management</span>
+                      <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 group-data-[collapsible=icon]:hidden" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {structureManagementItems.map((subItem) => (
                         <SidebarMenuSubItem key={subItem.title}>
                           <SidebarMenuSubButton
                             asChild

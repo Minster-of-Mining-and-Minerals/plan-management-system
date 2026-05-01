@@ -18,12 +18,26 @@ const authenticateToken = async (req, res, next) => {
     // Fetch user with roles and permissions
     const user = await db.User.findByPk(decoded.user_id, {
       attributes: { exclude: ["password"] },
-      // include: [
-      //   // {
-      //   //   model: db.UserType,
-      //   //   as: "userType",
-      //   // },
-      // ],
+      include: [
+        {
+          model: db.Role,
+          as: "roles",
+          through: { attributes: [] },
+          include: [
+            {
+              model: db.RolePermission,
+              as: "rolePermissions",
+              include: [
+                {
+                  model: db.Permission,
+                  as: "permission",
+                  attributes: ["resource", "action"],
+                },
+              ],
+            },
+          ],
+        },
+      ],
     });
 
     if (!user || !user.is_active) {
@@ -33,14 +47,18 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    // Extract permissions and roles
-    // const permissions = new Set();
-    // const roles = new Set();
+    // Flatten roles and permissions for easy checking
+    const roles = user.roles.map((r) => r.name);
+    const permissions = user.roles.flatMap((r) =>
+      r.rolePermissions.map((rp) => `${rp.permission?.resource}:${rp.permission?.action}`)
+    );
 
     req.user = {
       user_id: user.user_id,
       email: user.email,
       full_name: user.full_name,
+      roles,
+      permissions,
     };
 
     next();

@@ -7,6 +7,8 @@ const intlMiddleware = createMiddleware(routing);
 const publicRoutes = [
   "/",
   "/login",
+  "/forgot-password",
+  "/change-password",
 ];
 const authRoutes = ["/login"];
 

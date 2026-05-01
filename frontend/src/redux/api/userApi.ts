@@ -13,7 +13,14 @@ export const userApi = baseApi.injectEndpoints({
      * --------------------------- */
     getUsers: builder.query<
       User[],
-      { user_type_id?: string; is_active?: boolean; search?: string } | void
+      { 
+        government_structure_id?: string; 
+        internal_structure_id?: string; 
+        is_active?: boolean; 
+        search?: string;
+        page?: number;
+        limit?: number;
+      } | void
     >({
       query: (params) =>
         params ? { url: "/users", params } : { url: "/users" },
@@ -124,6 +131,32 @@ export const userApi = baseApi.injectEndpoints({
       transformResponse: (response: any): UserPosition[] => response.data ?? [],
       providesTags: ["User"],
     }),
+
+    /** ---------------------------
+     * EXPORT USERS
+     * --------------------------- */
+    exportUsers: builder.mutation<Blob, void>({
+      query: () => ({
+        url: "/users/export",
+        method: "GET",
+        responseHandler: (response) => response.blob(), // <-- handle file
+        cache: "no-cache",
+      }),
+    }),
+
+    /** ---------------------------
+     * CHANGE PASSWORD
+     * --------------------------- */
+    changePassword: builder.mutation<
+      { success: boolean; message: string },
+      { current_password: string; new_password: string; confirm_password: string; confirm_change: boolean }
+    >({
+      query: (body) => ({
+        url: "/change-password",
+        method: "PUT",
+        body,
+      }),
+    }),
   }),
 });
 
@@ -138,4 +171,6 @@ export const {
   useResetUserPasswordMutation,
   useGetUserTypesQuery,
   useGetUserPositionsQuery,
+  useExportUsersMutation,
+  useChangePasswordMutation,
 } = userApi;

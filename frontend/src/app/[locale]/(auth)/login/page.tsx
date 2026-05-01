@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { Link, useRouter } from "@/i18n/navigation";
+import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
@@ -15,6 +16,16 @@ export default function ExternalLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState("");
   const router = useRouter();
+
+  const { data: session, status, update } = useSession();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.push(callbackUrl);
+    }
+  }, [status, callbackUrl, router]);
 
   const [formData, setFormData] = useState({
     email: "",
@@ -31,14 +42,21 @@ export default function ExternalLogin() {
     }
 
     if (result?.success) {
-      router.push("/dashboard");
+      const newSession: any = await update(); // Force session refresh
+      const isFirstLogin = newSession?.user?.is_first_logged_in;
+
+      if (isFirstLogin) {
+        router.push("/change-password");
+      } else {
+        router.push(callbackUrl || "/dashboard");
+      }
     }
   };
 
   return (
     <div className="min-h-screen bg-[#F9FBFC]  flex items-center justify-center px-4">
       <div className="w-full relative max-w-6xl min-h-[80vh] shadow-2xl rounded-2xl border border-[#DCE7F1] overflow-hidden flex flex-col lg:flex-row">
-        
+
         {/* Back Button */}
         <Button
           onClick={() => router.push("/")}
@@ -52,7 +70,7 @@ export default function ExternalLogin() {
         <div className="w-full bg-cover bg-center p-8 flex items-center justify-center">
           <div className="backdrop-blur-md p-6 rounded-xl text-center">
             <img
-              src="/logo-aii.png"
+              src="/logo-mom.png"
               alt="Organization Logo"
               className="h-72 mx-auto mb-3 rounded-xl p-2"
             />

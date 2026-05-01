@@ -1,10 +1,11 @@
 const {
   User,
-  UserType,
-  UserPosition,
   Role,
   UserRoles,
   sequelize,
+  GovernmentStructure,
+  InternalStructure,
+  PermissionGroup,
 } = require("../../models");
 const { v4: uuidv4, validate: isUuid } = require("uuid");
 const { Op } = require("sequelize");
@@ -12,59 +13,11 @@ const bcrypt = require("bcrypt");
 const { generateRandomPassword } = require("../../utils/password");
 const { sendEmail } = require("../../utils/sendEmail");
 
-const getUserTypes = async (req, res) => {
-  try {
-    const userTypes = await UserType.findAll({
-      attributes: ["name", "description", "created_at", "updated_at"],
-      order: [["name", "ASC"]],
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "User types fetched successfully",
-      data: userTypes,
-    });
-  } catch (error) {
-    console.error("Error fetching user types:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch user types",
-      error: error.message,
-    });
-  }
-};
-const getUserPositions = async (req, res) => {
-  try {
-    const userPositions = await UserPosition.findAll({
-      attributes: [
-        "user_position_id",
-        "name",
-        "description",
-        "created_at",
-        "updated_at",
-      ],
-      order: [["name", "ASC"]],
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "User positions fetched successfully",
-      data: userPositions,
-    });
-  } catch (error) {
-    console.error("Error fetching user positions:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch user positions",
-      error: error.message,
-    });
-  }
-};
 
 const createUser = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    const { full_name, email, user_type_id, role_ids, phone_number } = req.body;
+    const { full_name, email, role_ids, phone_number, government_structure_id, internal_structure_id } = req.body;
 
     // ====== Check existing email ======
     const existingUser = await User.findOne({
@@ -78,14 +31,6 @@ const createUser = async (req, res) => {
         .json({ success: false, message: "User already exists." });
     }
 
-    // ====== Validate user type ======
-    const userType = await UserType.findByPk(user_type_id, { transaction: t });
-    if (!userType) {
-      await t.rollback();
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid user type." });
-    }
 
     // ====== MULTIPLE ROLE VALIDATION ======
     if (role_ids && Array.isArray(role_ids) && role_ids.length > 0) {
@@ -116,9 +61,10 @@ const createUser = async (req, res) => {
         email,
         password: hashedPassword,
         phone_number,
-        user_type_id,
         is_first_logged_in: true,
         is_active: true,
+        government_structure_id,
+        internal_structure_id,
         created_at: new Date(),
         updated_at: new Date(),
       },
@@ -178,10 +124,11 @@ const updateUser = async (req, res) => {
     const {
       full_name,
       email,
-      user_type_id,
       phone_number,
       is_active,
       role_ids,
+      government_structure_id,
+      internal_structure_id,
     } = req.body;
 
     // ====== Find user ======
@@ -210,18 +157,6 @@ const updateUser = async (req, res) => {
       }
     }
 
-    // ====== Validate user type ======
-    if (user_type_id) {
-      const userType = await UserType.findByPk(user_type_id, {
-        transaction: t,
-      });
-      if (!userType) {
-        await t.rollback();
-        return res
-          .status(400)
-          .json({ success: false, message: "Invalid user type." });
-      }
-    }
 
     // ====== Update user ======
     await user.update(
@@ -229,8 +164,9 @@ const updateUser = async (req, res) => {
         full_name: full_name ?? user.full_name,
         email: email ?? user.email,
         phone_number: phone_number ?? user.phone_number,
-        user_type_id: user_type_id ?? user.user_type_id,
         is_active: is_active ?? user.is_active,
+        government_structure_id: government_structure_id ?? user.government_structure_id,
+        internal_structure_id: internal_structure_id ?? user.internal_structure_id,
         updated_at: new Date(),
       },
       { transaction: t }
@@ -288,17 +224,19 @@ const getUsers = async (req, res) => {
   try {
     const {
       // institute_id,
-      user_type_id,
       is_active,
       search, // optional: for name/email search
+      government_structure_id,
+      internal_structure_id,
     } = req.query;
 
     // ====== Build filters dynamically ======
     const whereClause = {};
 
     // if (institute_id) whereClause.institute_id = institute_id;
-    if (user_type_id) whereClause.user_type_id = user_type_id;
     if (is_active !== undefined) whereClause.is_active = is_active === "true";
+    if (government_structure_id) whereClause.government_structure_id = government_structure_id;
+    if (internal_structure_id) whereClause.internal_structure_id = internal_structure_id;
 
     if (search) {
       whereClause[Op.or] = [
@@ -311,13 +249,6 @@ const getUsers = async (req, res) => {
     // ====== Fetch users with associations ======
     const users = await User.findAll({
       where: whereClause,
-      include: [
-        {
-          model: UserType,
-          as: "userType",
-          attributes: ["user_type_id", "name"],
-        },
-      ],
       order: [["created_at", "DESC"]],
     });
 
@@ -346,13 +277,21 @@ const getUserById = async (req, res) => {
     const user = await User.findByPk(user_id, {
       include: [
         {
-          model: UserType,
-          as: "userType",
-          attributes: ["user_type_id", "name"],
-        },
-        {
           model: Role,
           as: "roles",
+          through: { attributes: [] },
+        },
+        {
+          model: GovernmentStructure,
+          as: "governmentStructure",
+        },
+        {
+          model: InternalStructure,
+          as: "internalStructure",
+        },
+        {
+          model: PermissionGroup,
+          as: "permissionGroups",
           through: { attributes: [] },
         },
       ],
@@ -550,7 +489,6 @@ const getProfile = async (req, res) => {
         "full_name",
         "email",
         "phone_number",
-        "position",
         "profile_image",
         "is_first_logged_in",
         "last_login_at",
@@ -558,13 +496,6 @@ const getProfile = async (req, res) => {
         "is_active",
         "created_at",
         "updated_at",
-      ],
-      include: [
-        {
-          model: UserType,
-          as: "userType",
-          attributes: ["user_type_id", "name", "description"],
-        },
       ],
     });
 
@@ -593,6 +524,4 @@ module.exports = {
   toggleUserActiveStatus,
   resetUserPassword,
   getProfile,
-  getUserTypes,
-  getUserPositions,
 };

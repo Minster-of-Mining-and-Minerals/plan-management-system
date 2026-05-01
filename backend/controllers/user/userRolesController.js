@@ -27,7 +27,6 @@ const assignRolesToUser = async (req, res) => {
       UserRoles.create({
         user_role_id: uuidv4(),
         user_id: user.user_id,
-        user_type: user.user_type_id, 
         role_id: role.role_id,
         assigned_by: assigned_by || null,
         assigned_at: new Date(),

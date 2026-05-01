@@ -24,8 +24,9 @@ interface NavUserProps {
 
 export function NavUser({ user }: NavUserProps) {
   // Get initials for avatar fallback
-  const initials = user.name
+  const initials = (user.name || "Guest")
     .split(" ")
+    .filter(Boolean)
     .map((n) => n[0])
     .join("")
     .toUpperCase()

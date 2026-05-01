@@ -12,8 +12,8 @@ import { RootState } from "@/redux/store";
  *
  * Usage:
  *   const { user, roles, permissions, hasPermission, hasRole, isLoaded } = useAuth();
- *   if (hasPermission("users:read")) { ... }
- *   if (hasRole("Admin")) { ... }
+ *   if (hasPermission("USERS:READ")) { ... }
+ *   if (hasRole("Super Admin")) { ... }
  */
 export function useAuth() {
   const { data: session, status } = useSession();
@@ -26,32 +26,32 @@ export function useAuth() {
 
   /**
    * Check if the current user has a specific permission.
-   * @param permission - Permission key in "resource:action" format e.g. "users:read"
+   * @param permission - Permission key in "RESOURCE:ACTION" format e.g. "USERS:READ"
    */
   const hasPermission = (permission: string): boolean => {
-    return permissions.includes(permission);
+    return permissions.includes(permission.toUpperCase());
   };
 
   /**
    * Check if the current user has any of the given permissions.
    */
   const hasAnyPermission = (...perms: string[]): boolean => {
-    return perms.some((p) => permissions.includes(p));
+    return perms.some((p) => permissions.includes(p.toUpperCase()));
   };
 
   /**
    * Check if the current user has a specific role by name.
-   * @param roleName - Role name e.g. "Admin", "Manager"
+   * @param roleName - Role name e.g. "Super Admin"
    */
   const hasRole = (roleName: string): boolean => {
-    return roles.some((r) => r.name === roleName);
+    return roles.includes(roleName);
   };
 
   /**
    * Check if the current user has any of the given roles.
    */
   const hasAnyRole = (...roleNames: string[]): boolean => {
-    return roleNames.some((rn) => roles.some((r) => r.name === rn));
+    return roleNames.some((rn) => roles.includes(rn));
   };
 
   return {

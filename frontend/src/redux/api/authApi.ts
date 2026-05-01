@@ -13,15 +13,14 @@ export interface MeResponse {
       profile_image: string | null;
       is_first_logged_in: boolean;
     };
-    roles: Array<{
-      role_id: string;
-      name: string;
-      permissions: Array<{
-        permission_id: string;
-        resource: string;
-        action: string;
-      }>;
-    }>;
+  };
+}
+
+export interface PermissionsResponse {
+  success: boolean;
+  data: {
+    permissions: string[];
+    roles: string[];
   };
 }
 
@@ -35,7 +34,6 @@ export const authApi = baseApi.injectEndpoints({
       }),
       transformResponse: (response: any) => {
         const user = response?.data?.user ?? null;
-        const roles = response?.data?.roles ?? [];
 
         // Store token and user immediately
         if (response.token) {
@@ -48,7 +46,7 @@ export const authApi = baseApi.injectEndpoints({
         return {
           token: response.token,
           user,
-          roles,
+          roles: [], // Roles fetched later via getMyPermissions
           message: response.message,
         };
       },
@@ -58,6 +56,14 @@ export const authApi = baseApi.injectEndpoints({
     getMe: builder.query<MeResponse, void>({
       query: () => ({
         url: "/auth/me",
+        method: "GET",
+      }),
+      providesTags: ["User"],
+    }),
+
+    getMyPermissions: builder.query<PermissionsResponse, void>({
+      query: () => ({
+        url: "/auth/permissions",
         method: "GET",
       }),
       providesTags: ["User"],
@@ -79,7 +85,39 @@ export const authApi = baseApi.injectEndpoints({
       },
       invalidatesTags: ["User"],
     }),
+
+    requestOTP: builder.mutation<{ success: boolean; message: string }, { email: string }>({
+      query: (body) => ({
+        url: "/auth/forgot-password/request-otp",
+        method: "POST",
+        body,
+      }),
+    }),
+
+    verifyOTP: builder.mutation<{ success: boolean; message: string }, { email: string; otp: string }>({
+      query: (body) => ({
+        url: "/auth/forgot-password/verify-otp",
+        method: "POST",
+        body,
+      }),
+    }),
+
+    resetPassword: builder.mutation<{ success: boolean; message: string }, { email: string; otp: string; newPassword: string }>({
+      query: (body) => ({
+        url: "/auth/forgot-password/reset-password",
+        method: "POST",
+        body,
+      }),
+    }),
   }),
 });
 
-export const { useLoginMutation, useGetMeQuery, useLogoutMutation } = authApi;
+export const {
+  useLoginMutation,
+  useGetMeQuery,
+  useGetMyPermissionsQuery,
+  useLogoutMutation,
+  useRequestOTPMutation,
+  useVerifyOTPMutation,
+  useResetPasswordMutation,
+} = authApi;

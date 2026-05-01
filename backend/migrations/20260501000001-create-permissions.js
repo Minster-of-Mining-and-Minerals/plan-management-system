@@ -5,9 +5,9 @@ module.exports = {
     await queryInterface.createTable("permissions", {
       permission_id: {
         type: Sequelize.UUID,
-        allowNull: false,
-        primaryKey: true,
         defaultValue: Sequelize.UUIDV4,
+        primaryKey: true,
+        allowNull: false,
       },
       resource: {
         type: Sequelize.STRING(100),
@@ -19,18 +19,18 @@ module.exports = {
       },
       is_active: {
         type: Sequelize.BOOLEAN,
-        allowNull: false,
         defaultValue: true,
+        allowNull: false,
       },
       created_at: {
-        allowNull: false,
         type: Sequelize.DATE,
-        defaultValue: Sequelize.literal("CURRENT_TIMESTAMP"),
+        allowNull: false,
+        defaultValue: Sequelize.fn("NOW"),
       },
       updated_at: {
-        allowNull: false,
         type: Sequelize.DATE,
-        defaultValue: Sequelize.literal("CURRENT_TIMESTAMP"),
+        allowNull: false,
+        defaultValue: Sequelize.fn("NOW"),
       },
     });
   },

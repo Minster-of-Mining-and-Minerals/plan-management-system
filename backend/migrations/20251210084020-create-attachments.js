@@ -2,36 +2,34 @@
 
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable("user_types", {
-      user_type_id: {
+    await queryInterface.createTable("attachments", {
+      attachment_id: {
         type: Sequelize.UUID,
         allowNull: false,
         primaryKey: true,
         defaultValue: Sequelize.UUIDV4,
       },
-      name: {
-        type: Sequelize.STRING(100),
+      file_name: {
+        type: Sequelize.STRING(255),
         allowNull: false,
-        unique: true,
       },
-      description: {
-        type: Sequelize.TEXT,
+      file_path: {
+        type: Sequelize.STRING(500),
+        allowNull: false,
+      },
+      uploaded_by: {
+        type: Sequelize.UUID,
         allowNull: true,
       },
       created_at: {
-        allowNull: false,
         type: Sequelize.DATE,
-        defaultValue: Sequelize.literal("CURRENT_TIMESTAMP"),
-      },
-      updated_at: {
         allowNull: false,
-        type: Sequelize.DATE,
         defaultValue: Sequelize.literal("CURRENT_TIMESTAMP"),
       },
     });
   },
 
   async down(queryInterface, Sequelize) {
-    await queryInterface.dropTable("user_types");
+    await queryInterface.dropTable("attachments");
   },
 };

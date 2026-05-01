@@ -5,19 +5,9 @@ module.exports = {
     await queryInterface.createTable("users", {
       user_id: {
         type: Sequelize.UUID,
-        allowNull: false,
-        primaryKey: true,
         defaultValue: Sequelize.UUIDV4,
-      },
-      user_type_id: {
-        type: Sequelize.UUID,
-        allowNull: true,
-        references: {
-          model: "user_types",
-          key: "user_type_id",
-        },
-        onUpdate: "CASCADE",
-        onDelete: "SET NULL",
+        primaryKey: true,
+        allowNull: false,
       },
       full_name: {
         type: Sequelize.STRING(100),
@@ -35,6 +25,7 @@ module.exports = {
       phone_number: {
         type: Sequelize.STRING(50),
         allowNull: true,
+        unique: true,
       },
       profile_image: {
         type: Sequelize.STRING(255),
@@ -42,8 +33,8 @@ module.exports = {
       },
       is_first_logged_in: {
         type: Sequelize.BOOLEAN,
-        allowNull: false,
         defaultValue: true,
+        allowNull: false,
       },
       last_login_at: {
         type: Sequelize.DATE,
@@ -55,18 +46,50 @@ module.exports = {
       },
       is_active: {
         type: Sequelize.BOOLEAN,
-        allowNull: false,
         defaultValue: true,
+        allowNull: false,
+      },
+      government_structure_id: {
+        type: Sequelize.UUID,
+        allowNull: true,
+        references: {
+          model: "government_structures",
+          key: "government_structure_id",
+        },
+        onUpdate: "CASCADE",
+        onDelete: "SET NULL",
+      },
+      internal_structure_id: {
+        type: Sequelize.UUID,
+        allowNull: true,
+        references: {
+          model: "internal_structures",
+          key: "internal_structure_id",
+        },
+        onUpdate: "CASCADE",
+        onDelete: "SET NULL",
+      },
+      otp: {
+        type: Sequelize.STRING,
+        allowNull: true,
+      },
+      otp_expiry: {
+        type: Sequelize.DATE,
+        allowNull: true,
       },
       created_at: {
         type: Sequelize.DATE,
         allowNull: false,
-        defaultValue: Sequelize.literal("CURRENT_TIMESTAMP"),
+        defaultValue: Sequelize.fn("NOW"),
       },
       updated_at: {
         type: Sequelize.DATE,
         allowNull: false,
-        defaultValue: Sequelize.literal("CURRENT_TIMESTAMP"),
+        defaultValue: Sequelize.fn("NOW"),
+      },
+      deleted_at: {
+        type: Sequelize.DATE,
+        allowNull: true,
       },
     });
   },

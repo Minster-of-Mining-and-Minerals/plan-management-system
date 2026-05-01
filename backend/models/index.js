@@ -31,22 +31,24 @@ if (process.env.DATABASE_URL) {
   });
 }
 
-fs.readdirSync(__dirname)
-  .filter((file) => {
-    return (
+const loadModels = (dir) => {
+  fs.readdirSync(dir).forEach((file) => {
+    const fullPath = path.join(dir, file);
+    if (fs.statSync(fullPath).isDirectory()) {
+      loadModels(fullPath);
+    } else if (
       file.indexOf(".") !== 0 &&
       file !== basename &&
       file.slice(-3) === ".js" &&
       file.indexOf(".test.js") === -1
-    );
-  })
-  .forEach((file) => {
-    const model = require(path.join(__dirname, file))(
-      sequelize,
-      Sequelize.DataTypes
-    );
-    db[model.name] = model;
+    ) {
+      const model = require(fullPath)(sequelize, Sequelize.DataTypes);
+      db[model.name] = model;
+    }
   });
+};
+
+loadModels(__dirname);
 
 // Add new models
 

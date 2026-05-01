@@ -3,8 +3,8 @@
 import { useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useDispatch, useSelector } from "react-redux";
-import { setUserProfile, clearUserProfile } from "@/redux/slices/authSlice";
-import { useGetMeQuery } from "@/redux/api/authApi";
+import { setUser, setPermissions, clearUserProfile } from "@/redux/slices/authSlice";
+import { useGetMeQuery, useGetMyPermissionsQuery } from "@/redux/api/authApi";
 import { RootState } from "@/redux/store";
 
 /**
@@ -13,9 +13,10 @@ import { RootState } from "@/redux/store";
  * Placed inside ReduxProvider + SessionProvider.
  * On mount (and on session change):
  *  1. Saves the accessToken from NextAuth session to localStorage
- *  2. Calls GET /api/auth/me to fetch full user profile, roles, permissions
- *  3. Stores the result in Redux (authSlice)
- *  4. Clears Redux + localStorage on logout
+ *  2. Calls GET /api/auth/me to fetch user profile
+ *  3. Calls GET /api/auth/permissions to fetch roles & permissions
+ *  4. Stores the results in Redux (authSlice)
+ *  5. Clears Redux + localStorage on logout
  */
 export default function AuthInitializer({
   children,
@@ -27,32 +28,36 @@ export default function AuthInitializer({
   const isLoaded = useSelector((state: RootState) => state.auth.isLoaded);
 
   // Step 1: When session is ready, persist the accessToken to localStorage
-  // so that baseApi can attach it to all API requests via prepareHeaders
   useEffect(() => {
     if (session?.accessToken) {
       localStorage.setItem("authToken", session.accessToken);
     }
   }, [session?.accessToken]);
 
-  // Step 2: Fetch user profile + roles + permissions from /me
-  // Only when: authenticated + have token + haven't loaded yet
+  // Step 2: Fetch user profile from /me
   const { data: meData } = useGetMeQuery(undefined, {
+    skip: status !== "authenticated" || !session?.accessToken,
+  });
+
+  // Step 3: Fetch roles + permissions from /permissions
+  const { data: permissionsData } = useGetMyPermissionsQuery(undefined, {
     skip: status !== "authenticated" || !session?.accessToken || isLoaded,
   });
 
-  // Step 3: Populate Redux when /me responds
+  // Step 4: Populate Redux when data responds
   useEffect(() => {
-    if (meData?.data) {
-      dispatch(
-        setUserProfile({
-          user: meData.data.user,
-          roles: meData.data.roles,
-        })
-      );
+    if (meData?.data?.user) {
+      dispatch(setUser(meData.data.user));
     }
   }, [meData, dispatch]);
 
-  // Step 4: Clear on logout
+  useEffect(() => {
+    if (permissionsData?.data) {
+      dispatch(setPermissions(permissionsData.data));
+    }
+  }, [permissionsData, dispatch]);
+
+  // Step 5: Clear on logout
   useEffect(() => {
     if (status === "unauthenticated") {
       localStorage.removeItem("authToken");

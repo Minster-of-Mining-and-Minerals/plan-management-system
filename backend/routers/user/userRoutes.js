@@ -9,8 +9,6 @@ const {
   toggleUserActiveStatus,
   resetUserPassword,
   getProfile,
-  getUserTypes,
-  getUserPositions,
 } = require("../../controllers/user/userController");
 
 // Middleware for authentication if needed (example)
@@ -23,29 +21,6 @@ const {
  *   description: User management and retrieval
  */
 
-/**
- * @swagger
- * /users/types:
- *   get:
- *     summary: Get all user types
- *     tags: [Users]
- *     responses:
- *       200:
- *         description: List of user types
- */
-router.get("/types", getUserTypes);
-
-/**
- * @swagger
- * /users/positions:
- *   get:
- *     summary: Get all user positions
- *     tags: [Users]
- *     responses:
- *       200:
- *         description: List of user positions
- */
-router.get("/positions", getUserPositions);
 
 /**
  * @swagger
@@ -54,11 +29,6 @@ router.get("/positions", getUserPositions);
  *     summary: Get all users
  *     tags: [Users]
  *     parameters:
- *       - in: query
- *         name: user_type_id
- *         schema:
- *           type: string
- *         description: Filter by user type
  *       - in: query
  *         name: is_active
  *         schema:
@@ -121,15 +91,12 @@ router.get("/profile/me", getProfile);
  *             required:
  *               - full_name
  *               - email
- *               - user_type_id
  *             properties:
  *               full_name:
  *                 type: string
  *               email:
  *                 type: string
  *               phone_number:
- *                 type: string
- *               user_type_id:
  *                 type: string
  *               role_ids:
  *                 type: array
@@ -165,8 +132,6 @@ router.post("/", createUser);
  *               email:
  *                 type: string
  *               phone_number:
- *                 type: string
- *               user_type_id:
  *                 type: string
  *               role_ids:
  *                 type: array

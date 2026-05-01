@@ -20,6 +20,18 @@ module.exports = {
       { resource: "permissions", action: "read" },
       { resource: "permissions", action: "update" },
 
+      // Permission Group Management
+      { resource: "permission_groups", action: "create" },
+      { resource: "permission_groups", action: "read" },
+      { resource: "permission_groups", action: "update" },
+      { resource: "permission_groups", action: "delete" },
+      { resource: "permission_groups", action: "assign_permission" },
+      { resource: "permission_groups", action: "remove_permission" },
+      { resource: "permission_groups", action: "add_user" },
+      { resource: "permission_groups", action: "remove_user" },
+      { resource: "permission_groups", action: "add_structure" },
+      { resource: "permission_groups", action: "remove_structure" },
+
       // Role Management
       { resource: "roles", action: "create" },
       { resource: "roles", action: "read" },
@@ -27,59 +39,25 @@ module.exports = {
       { resource: "roles", action: "delete" },
       { resource: "roles", action: "assign_permission" },
 
-      // Organization Management
-      { resource: "organizations", action: "create" },
-      { resource: "organizations", action: "read" },
-      { resource: "organizations", action: "update" },
-      { resource: "organizations", action: "delete" },
+      // Government Structure Management
+      { resource: "government_structures", action: "create" },
+      { resource: "government_structures", action: "read" },
+      { resource: "government_structures", action: "update" },
+      { resource: "government_structures", action: "delete" },
 
-      // Organization Structure
-      { resource: "organization_structures", action: "create" },
-      { resource: "organization_structures", action: "read" },
-      { resource: "organization_structures", action: "update" },
-      { resource: "organization_structures", action: "delete" },
+      // Internal Structure Management
+      { resource: "internal_structures", action: "create" },
+      { resource: "internal_structures", action: "read" },
+      { resource: "internal_structures", action: "update" },
+      { resource: "internal_structures", action: "delete" },
 
-      // Project Management
-      { resource: "projects", action: "create" },
-      { resource: "projects", action: "read" },
-      { resource: "projects", action: "update" },
-      { resource: "projects", action: "delete" },
-      { resource: "projects", action: "assign_users" },
-
-      // Issue Management
-      { resource: "issues", action: "create" },
-      { resource: "issues", action: "read" },
-      { resource: "issues", action: "update" },
-      { resource: "issues", action: "delete" },
-      { resource: "issues", action: "assign" },
-      { resource: "issues", action: "accept" },
-      { resource: "issues", action: "resolve" },
-      { resource: "issues", action: "escalate" },
-      { resource: "issues", action: "view_own" },
-      { resource: "issues", action: "view_all" },
-
-      // Issue Priority & Category
-      { resource: "issue_priorities", action: "create" },
-      { resource: "issue_priorities", action: "read" },
-      { resource: "issue_priorities", action: "update" },
-      { resource: "issue_priorities", action: "delete" },
-
-      { resource: "issue_categories", action: "create" },
-      { resource: "issue_categories", action: "read" },
-      { resource: "issue_categories", action: "update" },
-      { resource: "issue_categories", action: "delete" },
-
-      // Issue Flow Management
-      { resource: "issue_flows", action: "create" },
-      { resource: "issue_flows", action: "read" },
-      { resource: "issue_flows", action: "update" },
-      { resource: "issue_flows", action: "delete" },
-
-      // Humnan Resource Management
-      { resource: "human_resources", action: "create" },
-      { resource: "human_resources", action: "read" },
-      { resource: "human_resources", action: "update" },
-      { resource: "human_resources", action: "delete" },
+      // Plan Management
+      { resource: "plans", action: "create" },
+      { resource: "plans", action: "read" },
+      { resource: "plans", action: "update" },
+      { resource: "plans", action: "delete" },
+      { resource: "plans", action: "approve" },
+      { resource: "plans", action: "submit" },
     ];
 
     for (const perm of permissions) {

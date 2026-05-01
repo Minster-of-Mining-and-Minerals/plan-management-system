@@ -1,17 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
-interface Permission {
-  permission_id: string;
-  resource: string;
-  action: string;
-}
-
-interface Role {
-  role_id: string;
-  name: string;
-  permissions: Permission[];
-}
-
 interface UserProfile {
   user_id: string;
   full_name: string;
@@ -21,10 +9,15 @@ interface UserProfile {
   is_first_logged_in: boolean;
 }
 
+interface PermissionsPayload {
+  permissions: string[];
+  roles: string[];
+}
+
 interface AuthState {
   user: UserProfile | null;
-  roles: Role[];
-  /** Flat permission keys as "resource:action" e.g. "users:read" */
+  roles: string[];
+  /** Flat permission keys as "RESOURCE:ACTION" e.g. "USERS:READ" */
   permissions: string[];
   isLoaded: boolean;
 }
@@ -40,16 +33,12 @@ export const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    setUserProfile: (
-      state,
-      action: PayloadAction<{ user: UserProfile; roles: Role[] }>
-    ) => {
-      state.user = action.payload.user;
+    setUser: (state, action: PayloadAction<UserProfile>) => {
+      state.user = action.payload;
+    },
+    setPermissions: (state, action: PayloadAction<PermissionsPayload>) => {
       state.roles = action.payload.roles;
-      // Build flat "resource:action" permission list for easy checking
-      state.permissions = action.payload.roles.flatMap((role) =>
-        role.permissions.map((p) => `${p.resource}:${p.action}`)
-      );
+      state.permissions = action.payload.permissions;
       state.isLoaded = true;
     },
     clearUserProfile: (state) => {
@@ -61,5 +50,5 @@ export const authSlice = createSlice({
   },
 });
 
-export const { setUserProfile, clearUserProfile } = authSlice.actions;
+export const { setUser, setPermissions, clearUserProfile } = authSlice.actions;
 export default authSlice.reducer;

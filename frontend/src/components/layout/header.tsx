@@ -4,19 +4,22 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { NavUser } from "./nav-user";
 import { Button } from "@/components/ui/button";
 import { Bell } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
 interface HeaderProps {
   title?: string;
 }
 
-const userData = {
-  name: "John Doe",
-  email: "john@example.com",
-  avatar: "/avatars/user.jpg",
-};
 
 export function Header({ title }: HeaderProps) {
+  const { user } = useAuth();
   const notificationCount = 3; // Replace with actual notification count
+
+  const userData = {
+    name: user?.full_name || "Guest",
+    email: user?.email || "",
+    avatar: user?.profile_image || undefined,
+  };
 
   return (
     <header className="flex z-30 sticky shadow-md top-2 border h-16 shrink-0 items-center gap-2 px-4 rounded-xl bg-sidebar text-sidebar-foreground m-2 mb-0">

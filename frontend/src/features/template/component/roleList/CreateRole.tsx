@@ -17,10 +17,11 @@ import { FooterActions } from "./FooterActions";
 import { RoleFormSkeleton } from "./Skeleton";
 import { ErrorState } from "./ErrorState";
 
-export default function CreateRole() {
-  const { id } = useParams<{ id?: string }>();
+export default function CreateRole({ roleId }: { roleId?: string }) {
+  const { id: paramId } = useParams<{ id?: string }>();
   const router = useRouter();
-  const isEditMode = Boolean(id && id !== "create");
+  const id = roleId || paramId;
+  const isEditMode = Boolean(id && id !== "create" && id !== "new");
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -87,17 +88,12 @@ export default function CreateRole() {
 
   // Populate form when role data is loaded (edit mode)
   useEffect(() => {
-    if (isEditMode && roleResponse?.data && resourceGroups.length > 0) {
-      const role = roleResponse.data;
-
-      // Normalize role_type to lowercase internal/external
-      const type =
-        role.role_type?.toLowerCase() === "external" ? "external" : "internal";
-
+    if (isEditMode && roleResponse && resourceGroups.length > 0) {
+      const role = roleResponse;
       // Set name and description
       setName(role.name || "");
       setDescription(role.description || "");
-      setRoleType(type);
+      // setRoleType(type);
 
       // Populate permission matrix with existing permissions
       if (role.rolePermissions && role.rolePermissions.length > 0) {
@@ -252,7 +248,7 @@ export default function CreateRole() {
         }).unwrap();
 
         toast.success("Role updated successfully!");
-        router.push("/role");
+        router.push("/users/roles");
       } else {
         await createRole({
           name: name.trim(),

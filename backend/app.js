@@ -12,15 +12,22 @@ const { swaggerUi, swaggerSpec } = require("./swagger");
 
 // ================== Here Import Routes=================
 
+// User Management Routes
 const userRoute = require("./routers/user/userRoutes");
 const roleRoute = require("./routers/user/roleRoutes");
 const userRoleRoute = require("./routers/user/userRoleRoutes");
 const authRoute = require("./routers/user/authRoutes");
 const permissionRoute = require("./routers/user/permissionRoutes");
+const permissionGroupRoute = require("./routers/user/permissionGroupRoutes");
 const changePasswordRoutes = require("./routers/user/passwordChangeRoutes");
+const forgotPasswordRoutes = require("./routers/user/forgotPasswordRoutes");
 
-// const issueFileAttachmentRoutes = require("./routers/issueAttachmentRoutes");
-// const fileAttachmentRoutes = require("./routers/attachementRoutes");
+// Structure Routes
+const governmentStructureRoutes = require("./routers/structure/governmentStructureRoutes");
+const internalStructureRoutes = require("./routers/structure/internalStructureRoutes");
+
+// ================== Attachment Routes ==========================
+const attachmentRoute = require("./routers/attachment-routes/attachmentRoute");
 
 const app = express();
 const appServer = http.createServer(app);
@@ -98,15 +105,24 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // ================== API Routes go here ==================
 
+
+// User Management Routes
 app.use("/api/users", userRoute);
 app.use("/api/roles", roleRoute);
 app.use("/api/user-roles", userRoleRoute);
 app.use("/api/auth", authRoute);
+app.use("/api/auth/forgot-password", forgotPasswordRoutes);
 app.use("/api/change-password", changePasswordRoutes);
 app.use("/api/permissions", permissionRoute);
+app.use("/api/permission-groups", permissionGroupRoute);
 
-// app.use("/api/issue-attachments", issueFileAttachmentRoutes);
-// app.use("/api/attachments", fileAttachmentRoutes);
+
+// Structure Routes
+app.use("/api/government-structures", governmentStructureRoutes);
+app.use("/api/internal-structures", internalStructureRoutes);
+
+// ================== Api Attachment Routes =====================
+app.use("/api/attachments", attachmentRoute);
 
 // ================== Root Endpoint ==================
 app.get("/", (req, res) => {

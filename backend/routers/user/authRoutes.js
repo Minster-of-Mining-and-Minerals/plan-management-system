@@ -58,6 +58,22 @@ router.get("/me", authenticateToken, authController.getMe);
 
 /**
  * @swagger
+ * /api/auth/permissions:
+ *   get:
+ *     summary: Get current authenticated user's roles and permissions
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User roles and permissions
+ *       401:
+ *         description: Unauthorized
+ */
+router.get("/permissions", authenticateToken, authController.getMyPermissions);
+
+/**
+ * @swagger
  * /api/auth/logout:
  *   post:
  *     summary: Logout user
