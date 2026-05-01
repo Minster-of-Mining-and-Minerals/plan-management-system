@@ -24,6 +24,15 @@ export const permissionGroupApi = baseApi.injectEndpoints({
         }),
 
         /** ---------------------------
+         * GET GROUP BY ID
+         * --------------------------- */
+        getPermissionGroupById: builder.query<PermissionGroup, string>({
+            query: (id) => `/permission-groups/${id}`,
+            transformResponse: (response: any): PermissionGroup => response.data,
+            providesTags: (_r, _e, id) => [{ type: "PermissionGroups", id }],
+        }),
+
+        /** ---------------------------
          * CREATE GROUP
          * --------------------------- */
         createPermissionGroup: builder.mutation<
@@ -164,6 +173,7 @@ export const permissionGroupApi = baseApi.injectEndpoints({
 
 export const {
     useGetPermissionGroupsQuery,
+    useGetPermissionGroupByIdQuery,
     useCreatePermissionGroupMutation,
     useUpdatePermissionGroupMutation,
     useDeletePermissionGroupMutation,

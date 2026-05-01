@@ -70,7 +70,7 @@ export function AppSidebar() {
                   Minister of Mining
                 </span>
                 <span className="truncate text-golden-dark">
-                  Compliance Management System
+                  Plan Management System
                 </span>
               </div>
             </Link>

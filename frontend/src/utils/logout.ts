@@ -4,10 +4,19 @@ import { signOut } from "next-auth/react";
  * Perform a thorough logout by clearing all browser storage and sessions.
  * This ensures no stale data remains in localStorage, sessionStorage, or cookies.
  */
+let isLoggingOut = false;
+
 export const performLogout = async (callbackUrl: string = "/login") => {
+  if (isLoggingOut) return;
+  isLoggingOut = true;
+
   // 1. Clear all browser storage
   if (typeof window !== "undefined") {
-    localStorage.clear();
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("user");
+    // Don't clear everything if we want to keep some preferences, 
+    // but the user's request suggests a clean state is better.
+    localStorage.clear(); 
     sessionStorage.clear();
 
     // 2. Clear all cookies (best effort from client side)
@@ -17,11 +26,19 @@ export const performLogout = async (callbackUrl: string = "/login") => {
       const eqPos = cookie.indexOf("=");
       const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
       document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
-      // Also try to clear for the current domain just in case
       document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=" + window.location.hostname;
     }
   }
 
   // 3. Use next-auth/react signOut for complete session clearing and redirect
-  await signOut({ callbackUrl, redirect: true });
+  try {
+    await signOut({ callbackUrl, redirect: true });
+  } catch (error) {
+    console.error("Logout error:", error);
+    if (typeof window !== "undefined") {
+        window.location.href = callbackUrl;
+    }
+  } finally {
+    isLoggingOut = false;
+  }
 };

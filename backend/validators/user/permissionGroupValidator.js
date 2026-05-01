@@ -49,6 +49,13 @@ const updatePermissionGroupSchema = Joi.object({
     name: Joi.string().trim().min(2).max(150).optional(),
     description: Joi.string().allow("", null).optional(),
     is_active: Joi.boolean().optional(),
+    permission_ids: Joi.array()
+        .items(
+            Joi.string().guid({ version: "uuidv4" }).messages({
+                "string.guid": "Each permission_id must be a valid UUID",
+            })
+        )
+        .optional(),
 });
 
 /**

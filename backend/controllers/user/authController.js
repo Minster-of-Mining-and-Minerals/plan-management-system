@@ -1,4 +1,5 @@
-const { User, Role, RolePermission, Permission, PermissionGroup } = require("../../models");
+const db = require("../../models");
+const { User, Role, RolePermission, Permission, PermissionGroup, GovernmentStructure, InternalStructure } = db;
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
@@ -8,6 +9,10 @@ const login = async (req, res) => {
 
     const user = await User.findOne({
       where: { email },
+      include: [
+        { model: GovernmentStructure, as: "governmentStructure" },
+        { model: InternalStructure, as: "internalStructure" },
+      ],
     });
 
     if (!user)
@@ -49,6 +54,8 @@ const login = async (req, res) => {
           phone_number: user.phone_number,
           profile_image: user.profile_image,
           is_first_logged_in: user.is_first_logged_in,
+          government_structure: user.governmentStructure ? user.governmentStructure : [],
+          internal_structure: user.internalStructure ? user.internalStructure : [],
         },
       },
     });
@@ -83,6 +90,12 @@ const getMe = async (req, res) => {
         "phone_number",
         "profile_image",
         "is_first_logged_in",
+        "government_structure_id",
+        "internal_structure_id",
+      ],
+      include: [
+        { model: GovernmentStructure, as: "governmentStructure" },
+        { model: InternalStructure, as: "internalStructure" },
       ],
     });
 
@@ -102,6 +115,8 @@ const getMe = async (req, res) => {
           phone_number: user.phone_number,
           profile_image: user.profile_image,
           is_first_logged_in: user.is_first_logged_in,
+          government_structure: user.governmentStructure ? user.governmentStructure : [],
+          internal_structure: user.internalStructure ? user.internalStructure : [],
         },
       },
     });

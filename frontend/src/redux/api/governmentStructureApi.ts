@@ -17,7 +17,7 @@ export const governmentStructureApi = baseApi.injectEndpoints({
          * --------------------------- */
         getGovernmentStructures: builder.query<
             GovernmentStructure[],
-            { is_active?: boolean; search?: string } | void
+            { is_active?: boolean; search?: string; parent_id?: string } | void
         >({
             query: (params) =>
                 params

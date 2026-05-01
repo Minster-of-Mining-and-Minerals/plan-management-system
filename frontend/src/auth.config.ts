@@ -41,6 +41,8 @@ export default {
             email: user.email,
             name: user.full_name,
             is_first_logged_in: user.is_first_logged_in,
+            government_structure: user.government_structure,
+            internal_structure: user.internal_structure,
           };
         } catch (err) {
           console.error("Authorize error:", err);

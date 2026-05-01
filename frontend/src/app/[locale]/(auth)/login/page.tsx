@@ -23,7 +23,9 @@ export default function ExternalLogin() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      router.push(callbackUrl);
+      // Avoid redirecting to login or empty path
+      const target = (callbackUrl === "/login" || !callbackUrl) ? "/dashboard" : callbackUrl;
+      router.replace(target as any);
     }
   }, [status, callbackUrl, router]);
 
@@ -46,9 +48,10 @@ export default function ExternalLogin() {
       const isFirstLogin = newSession?.user?.is_first_logged_in;
 
       if (isFirstLogin) {
-        router.push("/change-password");
+        router.replace("/change-password");
       } else {
-        router.push(callbackUrl || "/dashboard");
+        const target = (callbackUrl === "/login" || !callbackUrl) ? "/dashboard" : callbackUrl;
+        router.replace(target as any);
       }
     }
   };

@@ -67,7 +67,7 @@ export default function middleware(req: NextRequest) {
     console.log("  Redirecting unauthenticated user to login");
     const loginUrl = new URL(`/${locale}/login`, req.url);
     // Use the full pathname, not pathnameWithoutLocale
-    loginUrl.searchParams.set("callbackUrl", req.nextUrl.pathname);
+    loginUrl.searchParams.set("callbackUrl", pathnameWithoutLocale);
     return NextResponse.redirect(loginUrl);
   }
 

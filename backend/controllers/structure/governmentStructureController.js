@@ -62,7 +62,7 @@ const createGovernmentStructure = async (req, res) => {
  */
 const getGovernmentStructures = async (req, res) => {
     try {
-        const { is_active, search } = req.query;
+        const { is_active, search, parent_id } = req.query;
 
         const where = {};
 
@@ -74,7 +74,7 @@ const getGovernmentStructures = async (req, res) => {
             where.name = { [Op.iLike]: `%${search}%` };
         }
 
-        const structures = await GovernmentStructure.findAll({
+        let structures = await GovernmentStructure.findAll({
             where,
             include: [
                 { model: GovernmentStructure, as: "parent" },
@@ -91,6 +91,30 @@ const getGovernmentStructures = async (req, res) => {
             ],
             order: [["created_at", "ASC"]],
         });
+
+        if (parent_id) {
+            // Helper function to recursively find all descendants
+            const getDescendants = (pid, all) => {
+                let results = all.filter((s) => s.parent_id === pid);
+                let children = [];
+                for (let child of results) {
+                    children = children.concat(
+                        getDescendants(child.government_structure_id, all)
+                    );
+                }
+                return results.concat(children);
+            };
+
+            const root = structures.find(
+                (s) => s.government_structure_id === parent_id
+            );
+            if (root) {
+                const descendants = getDescendants(parent_id, structures);
+                structures = [root, ...descendants];
+            } else {
+                structures = [];
+            }
+        }
 
         return res.json({
             success: true,

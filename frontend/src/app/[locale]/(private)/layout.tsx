@@ -24,6 +24,9 @@ export default function PrivateLayout({
     if (status === "unauthenticated") {
       performLogout();
     }
+  }, [status]);
+
+  useEffect(() => {
     if (status === "authenticated" && isFirstLogin && !isChangePasswordPage) {
       router.push("/change-password");
     }

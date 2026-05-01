@@ -16,7 +16,22 @@ const { Op } = require("sequelize");
 const createInternalStructure = async (req, res) => {
     const t = await sequelize.transaction();
     try {
-        const { name, government_structure_id, parent_id, level } = req.body;
+        let { name, government_structure_id, parent_id, level } = req.body;
+
+        // If parent is provided, inherit its government_structure_id and calculate level
+        if (parent_id) {
+            const parent = await InternalStructure.findByPk(parent_id, { transaction: t });
+            if (parent) {
+                government_structure_id = parent.government_structure_id;
+                level = parent.level + 1;
+            } else {
+                await t.rollback();
+                return res.status(400).json({
+                    success: false,
+                    message: "Parent structure not found",
+                });
+            }
+        }
 
         // Validate government structure
         const gov = await GovernmentStructure.findByPk(government_structure_id, {
@@ -29,6 +44,25 @@ const createInternalStructure = async (req, res) => {
                 success: false,
                 message: "Invalid government structure ID",
             });
+        }
+
+        // If creating a root node (parent_id is null), check if one already exists for this gov structure
+        if (!parent_id) {
+            const rootExists = await InternalStructure.findOne({
+                where: {
+                    government_structure_id,
+                    parent_id: null,
+                },
+                transaction: t,
+            });
+
+            if (rootExists) {
+                await t.rollback();
+                return res.status(400).json({
+                    success: false,
+                    message: "An internal structure root already exists for this government body. You can only create child structures under it.",
+                });
+            }
         }
 
         // Check duplicate under same parent
@@ -78,7 +112,7 @@ const createInternalStructure = async (req, res) => {
  */
 const getInternalStructures = async (req, res) => {
     try {
-        const { is_active, search } = req.query;
+        const { is_active, search, government_structure_id } = req.query;
 
         const where = {};
 
@@ -86,10 +120,12 @@ const getInternalStructures = async (req, res) => {
             where.is_active = is_active === "true";
         }
 
+        if (government_structure_id) {
+            where.government_structure_id = government_structure_id;
+        }
+
         if (search) {
-            where[Op.or] = [
-                { name: { [Op.iLike]: `%${search}%` } },
-            ];
+            where[Op.or] = [{ name: { [Op.iLike]: `%${search}%` } }];
         }
 
         const data = await InternalStructure.findAll({

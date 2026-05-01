@@ -17,6 +17,7 @@ const {
 const {
     createPermissionGroup,
     getPermissionGroups,
+    getPermissionGroupById,
     updatePermissionGroup,
     deletePermissionGroup,
     addPermissionsToGroup,
@@ -40,6 +41,8 @@ const {
 router.post("/", validateCreatePermissionGroup, createPermissionGroup);
 
 router.get("/", getPermissionGroups);
+
+router.get("/:id", getPermissionGroupById);
 
 router.put("/:id", validateUpdatePermissionGroup, updatePermissionGroup);
 

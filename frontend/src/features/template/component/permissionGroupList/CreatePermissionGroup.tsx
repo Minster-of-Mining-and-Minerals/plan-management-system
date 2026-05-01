@@ -7,6 +7,7 @@ import { Permission, ResourceGroup, PermissionMatrix } from "../../types/role";
 import { useGetPermissionsQuery } from "@/redux/api/permissionApi";
 import {
   useCreatePermissionGroupMutation,
+  useGetPermissionGroupByIdQuery,
   useUpdatePermissionGroupMutation,
 } from "@/redux/api/permissionGroupApi";
 import { useGetPermissionGroupsQuery } from "@/redux/api/permissionGroupApi";
@@ -34,13 +35,12 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
   const { data: permissionsResponse, isLoading: loadingPermissions } =
     useGetPermissionsQuery();
 
-  // For simplicity in edit mode, we fetch all groups and find the one we need. 
-  // Ideally, there should be a getPermissionGroupById endpoint.
-  // Checking permissionGroupApi.ts, it doesn't seem to have getPermissionGroupById.
-  // Let's check again.
-  const { data: groups = [], isLoading: loadingGroups, isError: groupsError } = useGetPermissionGroupsQuery();
-  
-  const group = useMemo(() => groups.find(g => g.permission_group_id === id), [groups, id]);
+  const {
+    data: group,
+    isLoading: loadingGroup,
+    isError: groupError,
+    refetch: refetchGroup,
+  } = useGetPermissionGroupByIdQuery(id as string, { skip: !isEditMode });
 
   const [createGroup, { isLoading: isCreating }] = useCreatePermissionGroupMutation();
   const [updateGroup, { isLoading: isUpdating }] = useUpdatePermissionGroupMutation();
@@ -76,48 +76,34 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
 
   // Initialize permission matrix
   useEffect(() => {
-    if (resourceGroups.length > 0 && Object.keys(permissionMatrix).length === 0) {
-        const matrix: PermissionMatrix = {};
-        resourceGroups.forEach((group) => {
-          matrix[group.resource] = {};
-          group.permissions.forEach((permission) => {
-            matrix[group.resource][permission.action] = false;
-          });
+    if (resourceGroups.length > 0) {
+      const matrix: PermissionMatrix = {};
+
+      // 1. Initialize all to false based on available permissions
+      resourceGroups.forEach((group) => {
+        matrix[group.resource] = {};
+        group.permissions.forEach((permission) => {
+          matrix[group.resource][permission.action] = false;
         });
-        setPermissionMatrix(matrix);
-    }
-  }, [resourceGroups, permissionMatrix]);
+      });
 
-  // Populate form when group data is loaded (edit mode)
-  useEffect(() => {
-    if (isEditMode && group && resourceGroups.length > 0) {
-      // Set name and description
-      setName(group.name || "");
-      setDescription(group.description || "");
+      // 2. If in edit mode and group data is loaded, populate the matrix
+      if (isEditMode && group) {
+        setName(group.name || "");
+        setDescription(group.description || "");
 
-      // Populate permission matrix with existing permissions
-      if (group.permissions && group.permissions.length > 0) {
-        const matrix: PermissionMatrix = {};
-
-        // Initialize all to false first
-        resourceGroups.forEach((group) => {
-          matrix[group.resource] = {};
-          group.permissions.forEach((permission) => {
-            matrix[group.resource][permission.action] = false;
-          });
-        });
-
-        // Set selected permissions to true
-        group.permissions.forEach((p: any) => {
+        if (group.permissions && group.permissions.length > 0) {
+          group.permissions.forEach((p: any) => {
             if (matrix[p.resource]) {
-                matrix[p.resource][p.action] = true;
+              matrix[p.resource][p.action] = true;
             }
-        });
-
-        setPermissionMatrix(matrix);
+          });
+        }
       }
+
+      setPermissionMatrix(matrix);
     }
-  }, [isEditMode, group, resourceGroups]);
+  }, [resourceGroups, isEditMode, group]);
 
   // Helper functions
   const toggleResource = useCallback((resource: string) => {
@@ -234,18 +220,19 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
         // We might need to use addPermissionsToGroup and removePermissionFromGroup.
         // However, many systems handle this in one go. 
         // Let's check permissionGroupApi.ts again.
-        
+
         await updateGroup({
           id: id!,
           data: {
             name: name.trim(),
             description: description.trim(),
+            permission_ids: selectedPermissionIds,
           },
         }).unwrap();
 
         // For now, let's assume the user just wants to update basic info or the backend handles permissions in update.
         // If not, we'd need more complex logic to diff permissions.
-        
+
         toast.success("Permission group updated successfully!");
         router.push("/users/permission-groups");
       } else {
@@ -262,7 +249,7 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
     } catch (error: any) {
       toast.error(
         error?.data?.message ||
-          `Failed to ${isEditMode ? "update" : "create"} permission group`
+        `Failed to ${isEditMode ? "update" : "create"} permission group`
       );
     }
   };
@@ -275,13 +262,13 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
   };
 
   // Show loading state while fetching group data
-  if (isEditMode && loadingGroups) {
+  if (isEditMode && loadingGroup) {
     return <PermissionGroupFormSkeleton />;
   }
 
   // Show error state if group not found
-  if (isEditMode && !group && !loadingGroups) {
-    return <ErrorState message="Permission group not found" />;
+  if (isEditMode && groupError) {
+    return <ErrorState message="Permission group not found" onRetry={refetchGroup} />;
   }
 
   return (
@@ -323,8 +310,8 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
             name={name}
             selectedPermissionsCount={getSelectedPermissionsCount()}
             onSubmit={(e) => {
-                e.preventDefault();
-                handleSubmit(e as any);
+              e.preventDefault();
+              handleSubmit(e as any);
             }}
           />
         </form>
