@@ -13,6 +13,7 @@ export interface InternalStructure {
     children?: InternalStructure[];
     parent?: InternalStructure;
     users?: User[];
+    governmentStructure?: import("./governmentStructure").GovernmentStructure;
 }
 
 /**

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { DataTable } from "@/features/template/component/DataTable";
-import { TableLayout } from "@/features/template/component/TableLayout";
+import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { TableLayout } from "@/features/template/component/tableList/TableLayout";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,13 @@ import type { FilterField, ActionButton } from "@/types/tableLayout";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-export default function PermissionGroupList() {
-  const { data = [], isLoading, isError, refetch } = useGetPermissionGroupsQuery();
+export interface PermissionGroupListProps {
+  government_structure_id?: string;
+  hideLayout?: boolean;
+  sideActions?: ActionButton[];
+}
+export default function PermissionGroupList({ government_structure_id, hideLayout = false, sideActions }: PermissionGroupListProps) {
+  const { data = [], isLoading, isError, refetch } = useGetPermissionGroupsQuery({ government_structure_id });
   const [deleteGroup] = useDeletePermissionGroupMutation();
   const router = useRouter();
 
@@ -140,10 +145,11 @@ export default function PermissionGroupList() {
 
   return (
     <TableLayout
-      title="Permission Group Management"
-      description="View and manage user permission groups"
+      title={hideLayout ? undefined : "Permission Group Management"}
+      description={hideLayout ? undefined : "View and manage user permission groups"}
       actions={actions}
-      filters={filters}
+      sideActions={sideActions}
+      // filters={filters}
       filterColumnsPerRow={2}
     >
       <DataTable

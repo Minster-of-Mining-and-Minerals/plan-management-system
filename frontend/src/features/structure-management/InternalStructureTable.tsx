@@ -21,7 +21,14 @@ import { toast } from "sonner";
 import { CreateInternalStructureModal } from "./modals/CreateInternalStructureModal";
 import InternalHierarchyD3Tree from "./InternalStructureHierarchy";
 
-export default function InternalStructureTable() {
+export interface InternalStructureTableProps {
+    sideActions?: ActionButton[];
+    forced_government_structure_id?: string;
+    forced_parent_id?: string;
+    hideLayout?: boolean;
+}
+
+export default function InternalStructureTable({ forced_government_structure_id, forced_parent_id, hideLayout = false, sideActions }: InternalStructureTableProps) {
     const [toggleHierarchyView, setToggleHierarchyView] = useState(false);
     const searchParams = useSearchParams();
     const searchQuery = searchParams.get("search") || "";
@@ -33,6 +40,7 @@ export default function InternalStructureTable() {
 
     const [deleteStructure] = useDeleteInternalStructureMutation();
     const [selectedStructure, setSelectedStructure] = useState<InternalStructure | null>(null);
+    const [initialParentId, setInitialParentId] = useState<string | null>(null);
     const [isModalOpen, setModalOpen] = useState(false);
 
     const columns: ColumnDef<InternalStructure>[] = [
@@ -77,7 +85,7 @@ export default function InternalStructureTable() {
             cell: ({ row }) => (
                 <div className="flex items-center gap-1">
                     <Button
-                        onClick={() => router.push(`/structures/internal/${row.original.internal_structure_id}`)}
+                        onClick={() => router.push(`/internal-structures/${row.original.internal_structure_id}`)}
                         variant="ghost"
                         size="icon"
                         title="View Details"
@@ -94,6 +102,18 @@ export default function InternalStructureTable() {
                         title="Edit"
                     >
                         <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        onClick={() => {
+                            setSelectedStructure(null);
+                            setInitialParentId(row.original.internal_structure_id);
+                            setModalOpen(true);
+                        }}
+                        variant="ghost"
+                        size="icon"
+                        title="Add Child"
+                    >
+                        <Plus className="h-4 w-4" />
                     </Button>
                     <Button
                         onClick={() => handleDelete(row.original.internal_structure_id)}
@@ -121,7 +141,8 @@ export default function InternalStructureTable() {
         refetch,
     } = useGetInternalStructuresQuery({
         search: searchQuery,
-        government_structure_id: userGovId,
+        government_structure_id: forced_government_structure_id || userGovId,
+        parent_id: forced_parent_id,
     });
 
     const handleDelete = async (id: string) => {
@@ -161,11 +182,12 @@ export default function InternalStructureTable() {
     // Actions
     const actions: ActionButton[] = [
         {
-            label: "New Structure",
+            label: forced_parent_id ? "Add Child" : "Add Internal Structure",
             icon: <Plus className="h-4 w-4" />,
             variant: "default",
             onClick: () => {
                 setSelectedStructure(null);
+                setInitialParentId(forced_parent_id || null);
                 setModalOpen(true);
             },
         },
@@ -180,9 +202,10 @@ export default function InternalStructureTable() {
     return (
         <>
             <TableLayout
-                title="Internal Structure"
-                description="Manage internal organizational hierarchy and structures"
+                title={hideLayout ? undefined : "Internal Structure"}
+                description={hideLayout ? undefined : "Manage internal organizational hierarchy and structures"}
                 actions={actions}
+                sideActions={sideActions}
                 filters={filters}
                 filterColumnsPerRow={1}
                 showToggleHierarchyNode={true}
@@ -206,8 +229,10 @@ export default function InternalStructureTable() {
                 onClose={() => {
                     setModalOpen(false);
                     setSelectedStructure(null);
+                    setInitialParentId(null);
                 }}
                 structure={selectedStructure}
+                initialParentId={initialParentId}
             />
         </>
     );

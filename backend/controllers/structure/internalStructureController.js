@@ -112,7 +112,7 @@ const createInternalStructure = async (req, res) => {
  */
 const getInternalStructures = async (req, res) => {
     try {
-        const { is_active, search, government_structure_id } = req.query;
+        const { is_active, search, government_structure_id, parent_id } = req.query;
 
         const where = {};
 
@@ -122,6 +122,10 @@ const getInternalStructures = async (req, res) => {
 
         if (government_structure_id) {
             where.government_structure_id = government_structure_id;
+        }
+
+        if (parent_id) {
+            where.parent_id = parent_id === "null" ? null : parent_id;
         }
 
         if (search) {

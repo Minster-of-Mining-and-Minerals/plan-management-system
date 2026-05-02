@@ -33,6 +33,7 @@ export default function GovernmentStructureTable() {
 
     const [deleteStructure] = useDeleteGovernmentStructureMutation();
     const [selectedStructure, setSelectedStructure] = useState<GovernmentStructure | null>(null);
+    const [initialParentId, setInitialParentId] = useState<string | null>(null);
     const [isModalOpen, setModalOpen] = useState(false);
 
     const columns: ColumnDef<GovernmentStructure>[] = [
@@ -77,7 +78,7 @@ export default function GovernmentStructureTable() {
             cell: ({ row }) => (
                 <div className="flex items-center gap-1">
                     <Button
-                        onClick={() => router.push(`/structures/government/${row.original.government_structure_id}`)}
+                        onClick={() => router.push(`/government-structures/${row.original.government_structure_id}`)}
                         variant="ghost"
                         size="icon"
                         title="View Details"
@@ -94,6 +95,18 @@ export default function GovernmentStructureTable() {
                         title="Edit"
                     >
                         <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        onClick={() => {
+                            setSelectedStructure(null);
+                            setInitialParentId(row.original.government_structure_id);
+                            setModalOpen(true);
+                        }}
+                        variant="ghost"
+                        size="icon"
+                        title="Add Child"
+                    >
+                        <Plus className="h-4 w-4" />
                     </Button>
                     <Button
                         onClick={() => handleDelete(row.original.government_structure_id)}
@@ -161,11 +174,12 @@ export default function GovernmentStructureTable() {
     // Actions
     const actions: ActionButton[] = [
         {
-            label: "New Structure",
+            label: "Add Structure",
             icon: <Plus className="h-4 w-4" />,
             variant: "default",
             onClick: () => {
                 setSelectedStructure(null);
+                setInitialParentId(null);
                 setModalOpen(true);
             },
         },
@@ -207,8 +221,10 @@ export default function GovernmentStructureTable() {
                 onClose={() => {
                     setModalOpen(false);
                     setSelectedStructure(null);
+                    setInitialParentId(null);
                 }}
                 structure={selectedStructure}
+                initialParentId={initialParentId}
             />
         </>
     );

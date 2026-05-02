@@ -14,7 +14,7 @@ export const internalStructureApi = baseApi.injectEndpoints({
          * --------------------------- */
         getInternalStructures: builder.query<
             InternalStructure[],
-            { is_active?: boolean; search?: string; government_structure_id?: string } | void
+            { is_active?: boolean; search?: string; government_structure_id?: string; parent_id?: string } | void
         >({
             query: (params) =>
                 params

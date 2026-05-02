@@ -245,7 +245,7 @@ export function CreateGovernmentStructureModal({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className={`flex gap-6 ${isEditMode ? '' : ''}`}>
-              {!isEditMode && (
+              {!isEditMode && !initialParentId && (
                 <div className={`flex flex-col transition-all duration-500 ${hasSelectedParent ? 'w-1/2' : 'w-full'}`}>
                   <FormLabel className="block text-sm font-medium mb-2">
                     Select Parent Structure <span className="text-muted-foreground">(Optional)</span>
@@ -359,7 +359,7 @@ export function CreateGovernmentStructureModal({
                 <div
                   className={`flex flex-col gap-4 px-3 transition-all duration-500 ease-in-out overflow-hidden ${hasSelectedParent
                     ? "w-1/2 opacity-100 max-h-[500px] translate-x-0"
-                    : "w-0 opacity-0 max-h-0 translate-x-[-20px] pointer-events-none"
+                    : isEditMode || initialParentId ? "w-full opacity-100 max-h-[500px] translate-x-0" : "w-0 opacity-0 max-h-0 translate-x-[-20px] pointer-events-none"
                     }`}
                 >
                   <FormField

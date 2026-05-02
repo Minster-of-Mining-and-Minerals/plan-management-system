@@ -65,12 +65,12 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
     return (
       <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
         <div className="p-6 border-b">
-          <h3 className="text-xl font-bold text-[#094C81]">
+          <h3 className="text-xl font-bold text-golden-dark">
             Permission Matrix
           </h3>
         </div>
         <div className="p-8 text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-golden-dark/20 mx-auto"></div>
           <p className="text-sm text-gray-500 mt-2">Loading permissions...</p>
         </div>
       </div>
@@ -81,7 +81,7 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
     return (
       <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
         <div className="p-6 border-b">
-          <h3 className="text-xl font-bold text-[#094C81]">
+          <h3 className="text-xl font-bold text-golden-dark">
             Permission Matrix
           </h3>
         </div>
@@ -96,16 +96,16 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
       <div className="p-6 border-b">
         <div className="flex items-center justify-between">
-          <h3 className="text-xl font-bold text-[#094C81]">
+          <h3 className="text-xl font-bold text-golden-dark">
             Permission Matrix
           </h3>
           <div className="flex items-center space-x-2 text-sm">
-            <span className="text-[#094C81]">Selected:</span>
-            <span className="font-semibold text-[#094C81]">
+            <span className="text-golden-dark">Selected:</span>
+            <span className="font-semibold text-golden-dark">
               {getSelectedPermissionsCount()}
             </span>
-            <span className="text-[#094C81]">/</span>
-            <span className="text-[#094C81]">{getTotalPermissionsCount()}</span>
+            <span className="text-golden-dark">/</span>
+            <span className="text-golden-dark">{getTotalPermissionsCount()}</span>
           </div>
         </div>
       </div>
@@ -124,7 +124,7 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
                 {/* Resource Header */}
                 <div
                   onClick={() => toggleResource(group.resource)}
-                  className="flex transition-all hover:bg-[#094C81]/10 duration-200 cursor-pointer items-center justify-between p-4 bg-gray-50 rounded-t-lg"
+                  className="flex transition-all hover:bg-golden-dark/10 duration-200 cursor-pointer items-center justify-between p-4 bg-gray-50 rounded-t-lg"
                 >
                   <div className="flex items-center space-x-3 flex-1">
                     <button
@@ -136,28 +136,28 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
                       className="p-1 hover:bg-gray-200 rounded"
                     >
                       {isExpanded ? (
-                        <ChevronDown className="h-5 w-5 text-[#094C81] hover:text-[#073954]" />
+                        <ChevronDown className="h-5 w-5 text-golden-dark hover:text-[#073954]" />
                       ) : (
-                        <ChevronRight className="h-5 w-5 text-[#094C81] hover:text-[#073954]" />
+                        <ChevronRight className="h-5 w-5 text-golden-dark hover:text-[#073954]" />
                       )}
                     </button>
-                    <div className="p-2 text-[#094C81] bg-white rounded-lg shadow-sm">
+                    <div className="p-2 text-golden-dark bg-white rounded-lg shadow-sm">
                       {resourceIcons[group.resource] || (
                         <Shield className="h-4 w-4" />
                       )}
                     </div>
                     <div>
-                      <h3 className="font-semibold text-[#094C81] capitalize">
+                      <h3 className="font-semibold text-golden-dark capitalize">
                         {group.resource.replace(/_/g, " ")}
                       </h3>
-                      <p className="text-sm text-[#094C81]">
+                      <p className="text-sm text-golden-dark">
                         {group.permissions.length} permissions available
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
                     <span
-                      className={`px-2 py-1 text-xs font-medium border rounded-full text-[#094C81] ${getSelectionStatusClass(
+                      className={`px-2 py-1 text-xs font-medium border rounded-full text-golden-dark ${getSelectionStatusClass(
                         selectionStatus
                       )}`}
                     >
@@ -220,8 +220,8 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
                                     permissionMatrix[group.resource]?.[
                                       permission.action
                                     ]
-                                      ? "bg-[#094C81] border-[#094C81]"
-                                      : "border-[#094C81]"
+                                      ? "bg-golden-dark border-golden-dark"
+                                      : "border-golden-dark"
                                   }`}
                                 >
                                   {permissionMatrix[group.resource]?.[

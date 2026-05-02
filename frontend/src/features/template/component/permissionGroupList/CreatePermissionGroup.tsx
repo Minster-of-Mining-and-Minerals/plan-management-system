@@ -17,6 +17,7 @@ import { PermissionMatrix as PermissionMatrixComponent } from "./PermissionMatri
 import { FooterActions } from "./FooterActions";
 import { PermissionGroupFormSkeleton } from "./Skeleton";
 import { ErrorState } from "./ErrorState";
+import GroupManagement from "./GroupManagement";
 
 export default function CreatePermissionGroup({ groupId }: { groupId?: string }) {
   const { id: paramId } = useParams<{ id?: string }>();
@@ -314,6 +315,7 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
               handleSubmit(e as any);
             }}
           />
+          <GroupManagement groupId={isEditMode ? id : undefined} />
         </form>
       </div>
     </div>

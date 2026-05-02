@@ -16,6 +16,7 @@ import { buildSectorTree } from "@/utils/buildSectorTree";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import { CreateGovernmentStructureModal } from "./modals/CreateGovernmentStructureModal";
 import { useSession } from "next-auth/react";
+import { GitForkIcon } from "lucide-react";
  
 /**
  * Converts a StructureNode to D3Tree format
@@ -29,6 +30,7 @@ function convertToD3Tree(node: any): D3TreeNode {
       node_id: node_id,
       description: node.description || "",
       parent_id: node.parent_id ?? null,
+      parent_name: node.parent?.name || null,
       level: node.level,
       is_active: node.is_active,
     },
@@ -83,6 +85,13 @@ const CustomNode: React.FC<CustomNodeProps> = ({
               {isActive ? "Active" : "Inactive"}
             </span>
           </div>
+
+          {nodeDatum.attributes.parent_name && (
+            <div className="flex items-center gap-1.5 text-[11px] text-[#073954]/70 bg-blue-50 px-2 py-0.5 rounded-md w-fit mb-2">
+              <GitForkIcon className="w-3 h-3 rotate-180" />
+              <span>Parent: {nodeDatum.attributes.parent_name}</span>
+            </div>
+          )}
 
           {nodeDatum.attributes.description && (
             <p className="text-gray-500 w-full text-sm mb-3 line-clamp-2">

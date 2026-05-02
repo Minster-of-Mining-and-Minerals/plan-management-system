@@ -137,8 +137,8 @@ const UserViewPage = () => {
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#F9FBFC] gap-4">
         <XCircle className="h-16 w-16 text-red-500" />
         <h2 className="text-xl font-semibold text-[#094C81]">User Not Found</h2>
-        <Button variant="outline" onClick={() => router.back()}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
+        <Button variant="outline" onClick={() => router.push("/users/list")}>
+          Back to Users List
         </Button>
       </div>
     );

@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
 interface Crumb {
   title?: string;
@@ -19,45 +18,33 @@ const DetailHeader = ({
   breadcrumbs = [],
   className = "",
 }: DetailHeaderProps) => {
-  const router = useRouter();
-
   return (
     <div className={className}>
       {/* Breadcrumb Section */}
       {breadcrumbs.length > 0 && (
-        <div className="flex items-center gap-2 text-sm text-gray-600 mb-5">
+        <nav className="flex items-center gap-2 text-sm text-gray-400 mb-2">
           {breadcrumbs.map((crumb, idx) => (
             <div key={idx} className="flex items-center gap-2">
               {crumb.link ? (
                 <Link
                   href={crumb.link}
-                  className="text-[#094C81] hover:font-medium hover:text-[#073954]"
+                  className="hover:text-golden-dark transition-colors"
                 >
                   {crumb.title}
                 </Link>
               ) : (
-                <span className="font-medium text-gray-800">
+                <span className="font-medium text-gray-900">
                   {crumb.title}
                 </span>
               )}
 
               {idx < breadcrumbs.length - 1 && (
-                <ChevronRight className="h-4 w-4 text-gray-400" />
+                <ChevronRight className="h-3 w-3 text-gray-300" />
               )}
             </div>
           ))}
-        </div>
+        </nav>
       )}
-
-      {/* Back Button */}
-      <button
-        onClick={() => router.back()}
-        className="inline-flex items-center gap-2 rounded-md bg-slate-200 px-5 py-1
-          text-[#094C81] transition-colors hover:bg-slate-300 hover:text-[#073954]"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        <span>Back</span>
-      </button>
     </div>
   );
 };

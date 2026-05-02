@@ -315,25 +315,6 @@ export function CreateInternalStructureModal({
               />
             )}
 
-            {/* Context Info for Tree Mode */}
-            {isAddingFromTree && parentNode && (
-                <div className="bg-muted/50 p-4 rounded-lg border border-border space-y-2 mb-4">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <InfoIcon className="w-4 h-4" />
-                        <span>The new structure will inherit the following context:</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                            <p className="font-semibold text-foreground">Parent Structure</p>
-                            <p className="opacity-80">{parentNode.name}</p>
-                        </div>
-                        <div>
-                            <p className="font-semibold text-foreground">Government Body</p>
-                            <p className="opacity-80">{parentNode.governmentStructure?.name || "Inherited"}</p>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             <div className={`flex gap-6`}>
               {/* Parent Selector - Only in Full Mode */}
