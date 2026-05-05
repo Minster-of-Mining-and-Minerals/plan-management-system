@@ -14,6 +14,7 @@ module.exports = (sequelize, DataTypes) => {
             PlanNode.belongsTo(models.PlanNode, {
                 foreignKey: "parent_id",
                 as: "parent",
+                onDelete: "CASCADE",
             });
 
             PlanNode.hasMany(models.PlanNode, {
@@ -31,6 +32,8 @@ module.exports = (sequelize, DataTypes) => {
                 foreignKey: "plan_node_id",
                 as: "internalAssignments",
             });
+
+
         }
     }
 

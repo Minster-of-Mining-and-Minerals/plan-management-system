@@ -20,6 +20,7 @@ module.exports = (sequelize, DataTypes) => {
             PlanVersion.hasMany(models.PlanNode, {
                 foreignKey: "plan_version_id",
                 as: "planNodes",
+                onDelete: "CASCADE",
             });
         }
     }

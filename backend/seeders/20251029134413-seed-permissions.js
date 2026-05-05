@@ -58,6 +58,23 @@ module.exports = {
       { resource: "plans", action: "delete" },
       { resource: "plans", action: "approve" },
       { resource: "plans", action: "submit" },
+
+      // Plan Assignments
+      { resource: "plan_assignments", action: "create" },
+      { resource: "plan_assignments", action: "read" },
+      { resource: "plan_assignments", action: "update" },
+      { resource: "plan_assignments", action: "delete" },
+
+      // Assignment Actions
+      { resource: "plan_assignment_actions", action: "create" },
+      { resource: "plan_assignment_actions", action: "read" },
+      { resource: "plan_assignment_actions", action: "update" },
+      { resource: "plan_assignment_actions", action: "delete" },
+
+      // Action Logs
+      { resource: "action_logs", action: "create" },
+      { resource: "action_logs", action: "read" },
+      { resource: "action_logs", action: "update" },
     ];
 
     for (const perm of permissions) {

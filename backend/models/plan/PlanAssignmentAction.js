@@ -13,7 +13,7 @@ module.exports = (sequelize, DataTypes) => {
 
     PlanAssignmentAction.init(
         {
-            action_id: {
+            assignment_action_id: {
                 type: DataTypes.UUID,
                 defaultValue: DataTypes.UUIDV4,
                 primaryKey: true,

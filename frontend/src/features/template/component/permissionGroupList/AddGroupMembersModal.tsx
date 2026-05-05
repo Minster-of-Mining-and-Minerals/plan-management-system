@@ -17,7 +17,6 @@ import {
   useAddStructuresToGroupMutation,
 } from "@/redux/api/permissionGroupApi";
 import { toast } from "sonner";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";

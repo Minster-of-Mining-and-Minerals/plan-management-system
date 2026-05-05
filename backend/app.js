@@ -26,6 +26,10 @@ const forgotPasswordRoutes = require("./routers/user/forgotPasswordRoutes");
 const governmentStructureRoutes = require("./routers/structure/governmentStructureRoutes");
 const internalStructureRoutes = require("./routers/structure/internalStructureRoutes");
 
+// Plan Management Routes
+const planRoutes = require("./routers/plan/planRoutes");
+const planAssignmentRoutes = require("./routers/plan/planAssignmentRoutes");
+
 // ================== Attachment Routes ==========================
 const attachmentRoute = require("./routers/attachment-routes/attachmentRoute");
 
@@ -120,6 +124,10 @@ app.use("/api/permission-groups", permissionGroupRoute);
 // Structure Routes
 app.use("/api/government-structures", governmentStructureRoutes);
 app.use("/api/internal-structures", internalStructureRoutes);
+
+// Plan Management Routes
+app.use("/api/plan", planRoutes);
+app.use("/api/plan-assignments", planAssignmentRoutes);
 
 // ================== Api Attachment Routes =====================
 app.use("/api/attachments", attachmentRoute);

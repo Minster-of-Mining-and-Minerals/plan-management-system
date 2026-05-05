@@ -26,7 +26,13 @@ export const baseApi = createApi({
     "Permissions",
     "PermissionGroups",
     "GovernmentStructures",
-    "InternalStructures"
+    "InternalStructures",
+    "PlanVersions",
+    "PlanNodes",
+    "AssignmentActions",
+    "ExternalAssignments",
+    "InternalAssignments",
+    "ActionLogs",
   ],
   endpoints: () => ({}),
 });

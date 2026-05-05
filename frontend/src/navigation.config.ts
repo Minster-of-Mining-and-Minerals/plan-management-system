@@ -69,4 +69,18 @@ export const NAVIGATION: NavItem[] = [
       },
     ],
   },
+  {
+    title: "Plan Management",
+    url: "/plans",
+    icon: ListTree,
+    anyPermissions: ["PLANS:READ"],
+    children: [
+      {
+        title: "Plan Versions",
+        url: "/plans",
+        icon: ListTree,
+        allPermissions: ["PLANS:READ"],
+      }
+    ],
+  },
 ];

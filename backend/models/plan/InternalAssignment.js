@@ -8,7 +8,7 @@ module.exports = (sequelize, DataTypes) => {
                 foreignKey: "action_id",
                 as: "action",
             });
-            
+
             InternalAssignment.belongsTo(models.PlanNode, {
                 foreignKey: "plan_node_id",
                 as: "planNode",
@@ -72,6 +72,19 @@ module.exports = (sequelize, DataTypes) => {
                     fields: ["user_id"],
                 },
             ],
+            validate: {
+                eitherUserOrStructure() {
+                    if (!this.user_id && !this.internal_structure_id) {
+                        throw new Error("Must assign to either user or internal structure");
+                    }
+                },
+
+                notBothUserAndStructure() {
+                    if (this.user_id && this.internal_structure_id) {
+                        throw new Error("Cannot assign to both user and internal structure simultaneously");
+                    }
+                },
+            },
         }
     );
 

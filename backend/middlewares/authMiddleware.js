@@ -74,7 +74,7 @@ const authenticateToken = async (req, res, next) => {
 // Permission middleware
 const checkPermission = (resource, action) => {
   return (req, res, next) => {
-    const requiredPermission = `${resource}:${action}`;
+    const requiredPermission = `${resource.toLowerCase()}:${action.toLowerCase()}`;
 
     if (!req.user || !req.user.permissions) {
       return res.status(403).json({
