@@ -34,9 +34,14 @@ module.exports = (sequelize, DataTypes) => {
                 allowNull: false,
             },
 
-            role: {
-                type: DataTypes.ENUM("owner", "collaborator"),
-                defaultValue: "owner",
+            is_visible: {
+                type: DataTypes.BOOLEAN,
+                defaultValue: true,
+            },
+
+            requires_report: {
+                type: DataTypes.BOOLEAN,
+                defaultValue: true,
             },
         },
         {

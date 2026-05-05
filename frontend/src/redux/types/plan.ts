@@ -113,7 +113,7 @@ export interface PlanNodeHierarchy extends PlanNode {
  */
 
 export interface PlanAssignmentAction {
-    action_id: string;
+    assignment_action_id: string;
     name: string;
     code: string;
     description: string | null;
@@ -153,7 +153,8 @@ export interface ExternalAssignment {
     external_assignment_id: string;
     plan_node_id: string;
     government_structure_id: string;
-    role: "owner" | "collaborator";
+    is_visible: boolean;
+    requires_report: boolean;
     created_at: string;
     updated_at: string;
     planNode?: PlanNode;
@@ -163,11 +164,13 @@ export interface ExternalAssignment {
 export interface CreateExternalAssignmentPayload {
     plan_node_id: string;
     government_structure_id: string;
-    role?: "owner" | "collaborator";
+    is_visible: boolean;
+    requires_report: boolean;
 }
 
 export interface UpdateExternalAssignmentPayload {
-    role?: "owner" | "collaborator";
+    is_visible?: boolean;
+    requires_report?: boolean;
 }
 
 /**

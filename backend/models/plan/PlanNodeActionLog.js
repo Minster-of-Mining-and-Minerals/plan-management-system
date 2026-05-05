@@ -16,6 +16,7 @@ module.exports = (sequelize, DataTypes) => {
 
             PlanNodeActionLog.belongsTo(models.PlanAssignmentAction, {
                 foreignKey: "action_id",
+                targetKey: "assignment_action_id",
                 as: "action",
             });
         }

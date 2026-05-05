@@ -28,7 +28,7 @@ const createAssignmentAction = async (req, res) => {
 
         const action = await PlanAssignmentAction.create(
             {
-                action_id: uuidv4(),
+                assignment_action_id: uuidv4(),
                 name,
                 code,
                 description,
@@ -84,7 +84,7 @@ const getAssignmentActions = async (req, res) => {
 const createExternalAssignment = async (req, res) => {
     const t = await sequelize.transaction();
     try {
-        const { plan_node_id, government_structure_id, role } = req.body;
+        const { plan_node_id, government_structure_id, is_visible, requires_report } = req.body;
 
         // Verify plan node exists and its version is draft
         const planNode = await PlanNode.findByPk(plan_node_id, {
@@ -117,7 +117,8 @@ const createExternalAssignment = async (req, res) => {
                 external_assignment_id: uuidv4(),
                 plan_node_id,
                 government_structure_id,
-                role: role || "collaborator",
+                is_visible: is_visible !== undefined ? is_visible : true,
+                requires_report: requires_report !== undefined ? requires_report : true,
             },
             { transaction: t }
         );

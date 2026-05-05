@@ -6,6 +6,7 @@ module.exports = (sequelize, DataTypes) => {
         static associate(models) {
             InternalAssignment.belongsTo(models.PlanAssignmentAction, {
                 foreignKey: "action_id",
+                targetKey: "assignment_action_id",
                 as: "action",
             });
 

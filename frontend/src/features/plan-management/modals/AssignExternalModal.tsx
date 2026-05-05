@@ -18,6 +18,7 @@ import {
     FormItem,
     FormLabel,
     FormMessage,
+    FormDescription,
 } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +28,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
     useCreateExternalAssignmentMutation,
@@ -36,7 +38,8 @@ import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructure
 const formSchema = z.object({
     plan_node_id: z.string().uuid(),
     government_structure_id: z.string().uuid({ message: "Government structure is required" }),
-    role: z.enum(["owner", "collaborator"]),
+    is_visible: z.boolean().default(true),
+    requires_report: z.boolean().default(true),
 });
 
 interface AssignExternalModalProps {
@@ -58,7 +61,8 @@ export function AssignExternalModal({
         defaultValues: {
             plan_node_id: planNodeId,
             government_structure_id: "",
-            role: "collaborator",
+            is_visible: true,
+            requires_report: true,
         },
     });
 
@@ -67,7 +71,8 @@ export function AssignExternalModal({
             form.reset({
                 plan_node_id: planNodeId,
                 government_structure_id: "",
-                role: "collaborator",
+                is_visible: true,
+                requires_report: true,
             });
         }
     }, [isOpen, planNodeId, form]);
@@ -89,13 +94,13 @@ export function AssignExternalModal({
                     <DialogTitle>Assign External Government Structure</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                         <FormField
                             control={form.control}
                             name="government_structure_id"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Government Structure</FormLabel>
+                                    <FormLabel>Select Government Structure</FormLabel>
                                     <Select
                                         onValueChange={field.onChange}
                                         value={field.value}
@@ -118,32 +123,51 @@ export function AssignExternalModal({
                             )}
                         />
 
-                        <FormField
-                            control={form.control}
-                            name="role"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Assignment Role</FormLabel>
-                                    <Select
-                                        onValueChange={field.onChange}
-                                        value={field.value}
-                                    >
+                        <div className="space-y-4 pt-2 border-t">
+                            <FormField
+                                control={form.control}
+                                name="is_visible"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm">
+                                        <div className="space-y-0.5">
+                                            <FormLabel>Open for Visibility</FormLabel>
+                                            <FormDescription>
+                                                Allow this structure to view the node's progress and details.
+                                            </FormDescription>
+                                        </div>
                                         <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select a role" />
-                                            </SelectTrigger>
+                                            <Switch
+                                                checked={field.value}
+                                                onCheckedChange={field.onChange}
+                                            />
                                         </FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="owner">Owner / Responsible</SelectItem>
-                                            <SelectItem value="collaborator">Collaborator / Participant</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                                    </FormItem>
+                                )}
+                            />
 
-                        <DialogFooter className="mt-6">
+                            <FormField
+                                control={form.control}
+                                name="requires_report"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm">
+                                        <div className="space-y-0.5">
+                                            <FormLabel>Mandatory Reporting</FormLabel>
+                                            <FormDescription>
+                                                Restricts the assigned person to provide a mandatory report.
+                                            </FormDescription>
+                                        </div>
+                                        <FormControl>
+                                            <Switch
+                                                checked={field.value}
+                                                onCheckedChange={field.onChange}
+                                            />
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+
+                        <DialogFooter>
                             <Button
                                 type="button"
                                 variant="outline"

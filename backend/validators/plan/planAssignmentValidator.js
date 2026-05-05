@@ -51,11 +51,13 @@ const createExternalAssignmentSchema = Joi.object({
         "any.required": "government_structure_id is required",
     }),
 
-    role: Joi.string().valid("owner", "collaborator").default("collaborator"),
+    is_visible: Joi.boolean().default(true),
+    requires_report: Joi.boolean().default(true),
 });
 
 const updateExternalAssignmentSchema = Joi.object({
-    role: Joi.string().valid("owner", "collaborator").optional(),
+    is_visible: Joi.boolean().optional(),
+    requires_report: Joi.boolean().optional(),
 });
 
 /**

@@ -13,7 +13,7 @@ import {
     useDeleteExternalAssignmentMutation,
 } from "@/redux/api/planAssignmentApi";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
     ChevronLeft,
@@ -25,13 +25,18 @@ import {
     Target,
     BarChart3,
     CheckSquare,
-    User,
-    Shield
+    User as UserIcon,
+    Building,
+    UserPlus
 } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { AssignInternalModal } from "./modals/AssignInternalModal";
 import { AssignExternalModal } from "./modals/AssignExternalModal";
+import { TableLayout } from "@/features/template/component/tableList/TableLayout";
+import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { ColumnDef } from "@tanstack/react-table";
+import { InternalAssignment, ExternalAssignment } from "@/redux/types/plan";
+import { ActionButton } from "@/types/tableLayout";
 
 interface PlanNodeDetailViewProps {
     versionId: string;
@@ -41,6 +46,9 @@ interface PlanNodeDetailViewProps {
 export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetailViewProps) {
     const router = useRouter();
     
+    // Toggling state
+    const [activeTab, setActiveTab] = useState<"internal" | "external">("internal");
+
     // Queries
     const { data: version } = useGetPlanVersionByIdQuery(versionId);
     const { data: node, isLoading: isNodeLoading } = useGetPlanNodeByIdQuery(nodeId);
@@ -48,8 +56,8 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
     const { data: externalAssignments = [], isLoading: isExternalLoading } = useGetExternalAssignmentsByNodeQuery(nodeId);
 
     // Mutations
-    const [deleteInternal] = useDeleteInternalAssignmentMutation();
-    const [deleteExternal] = useDeleteExternalAssignmentMutation();
+    const [deleteInternal, { isLoading: isDeletingInternal }] = useDeleteInternalAssignmentMutation();
+    const [deleteExternal, { isLoading: isDeletingExternal }] = useDeleteExternalAssignmentMutation();
 
     // Modal States
     const [isInternalModalOpen, setInternalModalOpen] = useState(false);
@@ -97,6 +105,142 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
         }
     };
 
+    const internalColumns: ColumnDef<InternalAssignment>[] = [
+        {
+            id: "entity",
+            header: "Assigned To",
+            cell: ({ row }) => (
+                <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-full bg-gray-50 flex items-center justify-center text-primary border border-gray-100">
+                        {row.original.user_id ? <UserIcon className="h-4 w-4" /> : <Building className="h-4 w-4" />}
+                    </div>
+                    <div>
+                        <p className="font-semibold text-gray-900">
+                            {row.original.user?.name || row.original.internalStructure?.name}
+                        </p>
+                        <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">
+                            {row.original.user_id ? "User" : "Internal Structure"}
+                        </span>
+                    </div>
+                </div>
+            )
+        },
+        {
+            accessorKey: "action.name",
+            header: "Action / Responsibility",
+            cell: ({ row }) => (
+                <Badge variant="secondary" className="bg-purple-50 text-purple-700 border-purple-100">
+                    {row.original.action?.name}
+                </Badge>
+            )
+        },
+        {
+            accessorKey: "created_at",
+            header: "Assigned Date",
+            cell: ({ row }) => (
+                <span className="text-gray-500 text-sm">
+                    {new Date(row.original.created_at).toLocaleDateString()}
+                </span>
+            )
+        },
+        {
+            id: "actions",
+            header: "Actions",
+            cell: ({ row }) => (
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="text-gray-400 hover:text-red-500"
+                    onClick={() => handleDeleteInternal(row.original.internal_assignment_id)}
+                >
+                    <Trash2 className="h-4 w-4" />
+                </Button>
+            )
+        }
+    ];
+
+    const externalColumns: ColumnDef<ExternalAssignment>[] = [
+        {
+            accessorKey: "governmentStructure.name",
+            header: "Government Structure",
+            cell: ({ row }) => (
+                <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-full bg-orange-50 flex items-center justify-center text-orange-600 border border-orange-100">
+                        <Building2 className="h-4 w-4" />
+                    </div>
+                    <span className="font-semibold text-gray-900">
+                        {row.original.governmentStructure?.name}
+                    </span>
+                </div>
+            )
+        },
+        {
+            accessorKey: "is_visible",
+            header: "Visibility",
+            cell: ({ row }) => (
+                <Badge variant={row.original.is_visible ? "default" : "outline"} className={row.original.is_visible ? "bg-green-50 text-green-700 border-green-100" : ""}>
+                    {row.original.is_visible ? "Visible" : "Hidden"}
+                </Badge>
+            )
+        },
+        {
+            accessorKey: "requires_report",
+            header: "Reporting",
+            cell: ({ row }) => (
+                <Badge variant={row.original.requires_report ? "default" : "outline"} className={row.original.requires_report ? "bg-blue-50 text-blue-700 border-blue-100" : ""}>
+                    {row.original.requires_report ? "Mandatory" : "Optional"}
+                </Badge>
+            )
+        },
+        {
+            accessorKey: "created_at",
+            header: "Assigned Date",
+            cell: ({ row }) => (
+                <span className="text-gray-500 text-sm">
+                    {new Date(row.original.created_at).toLocaleDateString()}
+                </span>
+            )
+        },
+        {
+            id: "actions",
+            header: "Actions",
+            cell: ({ row }) => (
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="text-gray-400 hover:text-red-500"
+                    onClick={() => handleDeleteExternal(row.original.external_assignment_id)}
+                >
+                    <Trash2 className="h-4 w-4" />
+                </Button>
+            )
+        }
+    ];
+
+    const sideActions: ActionButton[] = [
+        {
+            label: `Internal (${internalAssignments.length})`,
+            icon: <Users className="h-4 w-4" />,
+            variant: activeTab === "internal" ? "default" : "outline",
+            onClick: () => setActiveTab("internal"),
+        },
+        {
+            label: `External (${externalAssignments.length})`,
+            icon: <Building2 className="h-4 w-4" />,
+            variant: activeTab === "external" ? "default" : "outline",
+            onClick: () => setActiveTab("external"),
+        },
+    ];
+
+    const actions: ActionButton[] = [
+        {
+            label: activeTab === "internal" ? "Assign Internal" : "Assign External",
+            icon: <UserPlus className="h-4 w-4" />,
+            variant: "default",
+            onClick: () => activeTab === "internal" ? setInternalModalOpen(true) : setExternalModalOpen(true),
+        },
+    ];
+
     if (isNodeLoading) {
         return <div className="p-8 text-center">Loading node details...</div>;
     }
@@ -107,7 +251,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
 
     return (
         <div className="space-y-6 max-w-7xl mx-auto">
-            {/* Header / Breadcrumbs */}
+            {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <Button 
@@ -155,135 +299,25 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                 </CardContent>
             </Card>
 
-            {/* Assignments Tabs */}
-            <Tabs defaultValue="internal" className="w-full">
-                <div className="flex items-center justify-between mb-4">
-                    <TabsList className="bg-gray-100 p-1 rounded-xl">
-                        <TabsTrigger value="internal" className="rounded-lg px-4 py-2 flex items-center gap-2">
-                            <Users className="h-4 w-4" />
-                            Internal Assignments
-                            {internalAssignments.length > 0 && (
-                                <Badge className="ml-2 bg-primary text-white border-none h-5 w-5 flex items-center justify-center p-0 rounded-full text-[10px]">
-                                    {internalAssignments.length}
-                                </Badge>
-                            )}
-                        </TabsTrigger>
-                        <TabsTrigger value="external" className="rounded-lg px-4 py-2 flex items-center gap-2">
-                            <Building2 className="h-4 w-4" />
-                            External Assignments
-                            {externalAssignments.length > 0 && (
-                                <Badge className="ml-2 bg-primary text-white border-none h-5 w-5 flex items-center justify-center p-0 rounded-full text-[10px]">
-                                    {externalAssignments.length}
-                                </Badge>
-                            )}
-                        </TabsTrigger>
-                    </TabsList>
-
-                    <div className="flex gap-2">
-                        <TabsContent value="internal" className="mt-0">
-                            <Button onClick={() => setInternalModalOpen(true)} className="gap-2 rounded-xl">
-                                <Plus className="h-4 w-4" /> Assign Internal
-                            </Button>
-                        </TabsContent>
-                        <TabsContent value="external" className="mt-0">
-                            <Button onClick={() => setExternalModalOpen(true)} className="gap-2 rounded-xl" variant="outline">
-                                <Plus className="h-4 w-4" /> Assign External
-                            </Button>
-                        </TabsContent>
-                    </div>
-                </div>
-
-                <TabsContent value="internal" className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {internalAssignments.length > 0 ? (
-                            internalAssignments.map((assignment) => (
-                                <Card key={assignment.internal_assignment_id} className="hover:shadow-md transition-shadow group">
-                                    <CardContent className="p-4 flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-10 w-10 rounded-full bg-gray-50 flex items-center justify-center text-primary border border-gray-100">
-                                                {assignment.user_id ? <User className="h-5 w-5" /> : <Building2 className="h-5 w-5" />}
-                                            </div>
-                                            <div>
-                                                <p className="font-semibold text-gray-900">
-                                                    {assignment.user?.name || assignment.internalStructure?.name}
-                                                </p>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <Badge variant="secondary" className="text-[10px] bg-purple-50 text-purple-700 border-purple-100">
-                                                        {assignment.action?.name}
-                                                    </Badge>
-                                                    {assignment.user_id && (
-                                                        <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">User</span>
-                                                    )}
-                                                    {assignment.internal_structure_id && (
-                                                        <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Structure</span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            onClick={() => handleDeleteInternal(assignment.internal_assignment_id)}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </CardContent>
-                                </Card>
-                            ))
-                        ) : (
-                            <div className="col-span-full py-12 text-center bg-white rounded-3xl border-2 border-dashed border-gray-100">
-                                <Users className="h-8 w-8 text-gray-300 mx-auto mb-3" />
-                                <h3 className="text-gray-500 font-medium">No internal assignments yet</h3>
-                                <p className="text-gray-400 text-sm">Assign users or structures to take responsibility for this node.</p>
-                            </div>
-                        )}
-                    </div>
-                </TabsContent>
-
-                <TabsContent value="external" className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {externalAssignments.length > 0 ? (
-                            externalAssignments.map((assignment) => (
-                                <Card key={assignment.external_assignment_id} className="hover:shadow-md transition-shadow group border-l-4 border-l-orange-500">
-                                    <CardContent className="p-4 flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-10 w-10 rounded-full bg-orange-50 flex items-center justify-center text-orange-600 border border-orange-100">
-                                                <Building2 className="h-5 w-5" />
-                                            </div>
-                                            <div>
-                                                <p className="font-semibold text-gray-900">
-                                                    {assignment.governmentStructure?.name}
-                                                </p>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <Badge variant="secondary" className="text-[10px] bg-orange-50 text-orange-700 border-orange-100 capitalize">
-                                                        {assignment.role}
-                                                    </Badge>
-                                                    <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">External Gov</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            onClick={() => handleDeleteExternal(assignment.external_assignment_id)}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </CardContent>
-                                </Card>
-                            ))
-                        ) : (
-                            <div className="col-span-full py-12 text-center bg-white rounded-3xl border-2 border-dashed border-gray-100">
-                                <Building2 className="h-8 w-8 text-gray-300 mx-auto mb-3" />
-                                <h3 className="text-gray-500 font-medium">No external assignments yet</h3>
-                                <p className="text-gray-400 text-sm">Assign external government structures to collaborate on this node.</p>
-                            </div>
-                        )}
-                    </div>
-                </TabsContent>
-            </Tabs>
+            {/* Togglable Table Section */}
+            <div className="w-full bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+                <h3 className="text-xl font-bold text-golden-dark mb-4 px-2">Assignments</h3>
+                <TableLayout
+                    actions={actions}
+                    sideActions={sideActions}
+                    filterColumnsPerRow={1}
+                >
+                    <DataTable
+                        columns={activeTab === "internal" ? internalColumns : externalColumns}
+                        data={activeTab === "internal" ? internalAssignments : externalAssignments}
+                        totalPageCount={1}
+                        handlePagination={() => {}}
+                        tablePageSize={100}
+                        currentIndex={0}
+                        isLoading={isInternalLoading || isExternalLoading || isDeletingInternal || isDeletingExternal}
+                    />
+                </TableLayout>
+            </div>
 
             {/* Modals */}
             <AssignInternalModal 

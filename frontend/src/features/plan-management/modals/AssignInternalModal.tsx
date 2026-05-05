@@ -218,7 +218,7 @@ export function AssignInternalModal({
                                         </FormControl>
                                         <SelectContent>
                                             {actions.map((action) => (
-                                                <SelectItem key={action.action_id} value={action.action_id}>
+                                                <SelectItem key={action.assignment_action_id} value={action.assignment_action_id}>
                                                     {action.name}
                                                 </SelectItem>
                                             ))}
