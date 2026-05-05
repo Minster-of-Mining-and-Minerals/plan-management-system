@@ -20,11 +20,12 @@ import {
     Flag, 
     BarChart3, 
     CheckSquare,
-    ChevronLeft
+    ChevronLeft,
+    Eye
 } from "lucide-react";
 import { CreatePlanNodeModal } from "./modals/CreatePlanNodeModal";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 
 interface NodeItemProps {
     node: PlanNodeHierarchy;
@@ -37,6 +38,9 @@ interface NodeItemProps {
 const NodeItem = ({ node, level, onAddChild, onEdit, onDelete }: NodeItemProps) => {
     const [isExpanded, setIsExpanded] = useState(true);
     const hasChildren = node.children && node.children.length > 0;
+    const router = useRouter();
+    const params = useParams();
+    const versionId = params.id as string;
 
     const getTypeIcon = (type: string) => {
         switch (type) {
@@ -95,6 +99,15 @@ const NodeItem = ({ node, level, onAddChild, onEdit, onDelete }: NodeItemProps) 
                 </div>
 
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                        onClick={() => router.push(`/plans/${versionId}/nodes/${node.plan_node_id}`)}
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        title="View Details"
+                    >
+                        <Eye className="h-4 w-4" />
+                    </Button>
                     <Button
                         onClick={() => onAddChild(node)}
                         variant="ghost"
