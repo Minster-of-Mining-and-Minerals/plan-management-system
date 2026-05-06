@@ -10,6 +10,7 @@ import {
 } from "../types/governmentStructure";
 
 export const governmentStructureApi = baseApi.injectEndpoints({
+    overrideExisting: true,
     endpoints: (builder) => ({
 
         /** ---------------------------

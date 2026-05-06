@@ -39,7 +39,7 @@ export const NAVIGATION: NavItem[] = [
   },
   {
     title: "Users",
-    url: "/users",
+    url: "/users/list",
     icon: User2,
     anyPermissions: ["USERS:READ", "ROLES:READ", "PERMISSIONS:READ"],
     children: [
