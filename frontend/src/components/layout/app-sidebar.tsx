@@ -116,10 +116,10 @@ export function AppSidebar() {
                           >
                             <Link
                               href={item.url}
-                              className="flex-1 flex group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:items-center"
+                              className="flex-1 flex items-center gap-4 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:items-center"
                             >
-                              <item.icon className="group-data-[collapsible=icon]:size-5" />
-                              <span className="text-base group-data-[collapsible=icon]:hidden">
+                              <item.icon className="group-data-[collapsible=icon]:size-5 shrink-0" />
+                              <span className="text-base whitespace-nowrap truncate group-data-[collapsible=icon]:hidden">
                                 {item.title}
                               </span>
                             </Link>
@@ -147,9 +147,9 @@ export function AppSidebar() {
                                       data-[active=true]:bg-golden-metallic
                                       data-[active=true]:text-primary"
                                   >
-                                    <Link href={child.url}>
-                                      <child.icon className="h-4 w-4" />
-                                      <span>{child.title}</span>
+                                    <Link href={child.url} className="flex items-center gap-4">
+                                      <child.icon className="h-4 w-4 shrink-0" />
+                                      <span className="whitespace-nowrap truncate">{child.title}</span>
                                     </Link>
                                   </SidebarMenuSubButton>
                                 </SidebarMenuSubItem>
@@ -181,10 +181,10 @@ export function AppSidebar() {
                     >
                       <Link
                         href={item.url}
-                        className="flex group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:items-center"
+                        className="flex items-center gap-4 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:items-center"
                       >
-                        <item.icon className="group-data-[collapsible=icon]:size-5" />
-                        <span className="text-base group-data-[collapsible=icon]:hidden">
+                        <item.icon className="group-data-[collapsible=icon]:size-5 shrink-0" />
+                        <span className="text-base whitespace-nowrap truncate group-data-[collapsible=icon]:hidden">
                           {item.title}
                         </span>
                       </Link>

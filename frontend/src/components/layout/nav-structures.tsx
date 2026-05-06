@@ -51,10 +51,10 @@ export function NavStructures({ structures, basePath }: NavStructuresProps) {
                 asChild
                 isActive={isActive || isChildActive}
               >
-                <Link href={url} className="flex items-center gap-2 w-full">
+                <Link href={url} className="flex items-center gap-4 w-full min-w-0">
                   <Building className="h-4 w-4 shrink-0" />
-                  <span className="truncate flex-1">{structure.name}</span>
-                  <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                  <span className="truncate flex-1 whitespace-nowrap">{structure.name}</span>
+                  <ChevronRight className="ml-auto h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                 </Link>
               </SidebarMenuSubButton>
             </CollapsibleTrigger>
@@ -71,9 +71,9 @@ export function NavStructures({ structures, basePath }: NavStructuresProps) {
     return (
       <SidebarMenuSubItem key={structure.government_structure_id}>
         <SidebarMenuSubButton asChild isActive={isActive}>
-          <Link href={url} className="flex items-center gap-2">
+          <Link href={url} className="flex items-center gap-4">
             <Building className="h-4 w-4 shrink-0" />
-            <span className="truncate">{structure.name}</span>
+            <span className="truncate whitespace-nowrap">{structure.name}</span>
           </Link>
         </SidebarMenuSubButton>
       </SidebarMenuSubItem>
