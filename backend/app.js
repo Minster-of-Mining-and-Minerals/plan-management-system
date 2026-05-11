@@ -23,12 +23,9 @@ const changePasswordRoutes = require("./routers/user/passwordChangeRoutes");
 const forgotPasswordRoutes = require("./routers/user/forgotPasswordRoutes");
 
 // Structure Routes
-const governmentStructureRoutes = require("./routers/structure/governmentStructureRoutes");
-const internalStructureRoutes = require("./routers/structure/internalStructureRoutes");
+const structureRoutes = require("./routers/structure/structureRoutes");
 
-// Plan Management Routes
-const planRoutes = require("./routers/plan/planRoutes");
-const planAssignmentRoutes = require("./routers/plan/planAssignmentRoutes");
+
 
 // ================== Attachment Routes ==========================
 const attachmentRoute = require("./routers/attachment-routes/attachmentRoute");
@@ -122,19 +119,16 @@ app.use("/api/permission-groups", permissionGroupRoute);
 
 
 // Structure Routes
-app.use("/api/government-structures", governmentStructureRoutes);
-app.use("/api/internal-structures", internalStructureRoutes);
+app.use("/api/structures", structureRoutes);
 
-// Plan Management Routes
-app.use("/api/plan", planRoutes);
-app.use("/api/plan-assignments", planAssignmentRoutes);
+
 
 // ================== Api Attachment Routes =====================
 app.use("/api/attachments", attachmentRoute);
 
 // ================== Root Endpoint ==================
 app.get("/", (req, res) => {
-  res.json({ message: "Welcome to Issue Tracking System API 🚀" });
+  res.json({ message: "Welcome to Land Authority Event Management System API 🚀" });
 });
 
 // ================== Error Handler ==================

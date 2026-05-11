@@ -39,14 +39,9 @@ export interface User {
   updated_at: string;
   roles?: Role[];
   permissionGroups?: PermissionGroup[];
-  government_structure_id?: string;
-  internal_structure_id?: string;
-  governmentStructure?: {
-    government_structure_id: string;
-    name: string;
-  };
-  internalStructure?: {
-    internal_structure_id: string;
+  structure_id?: string;
+  structure?: {
+    structure_id: string;
     name: string;
   };
 }
@@ -57,8 +52,7 @@ export interface CreateUserPayload {
   email: string;
   phone_number?: string;
   role_ids?: string[];
-  government_structure_id?: string;
-  internal_structure_id?: string;
+  structure_id?: string;
 }
 
 export interface UpdateUserPayload {
@@ -66,8 +60,7 @@ export interface UpdateUserPayload {
   email?: string;
   phone_number?: string;
   role_ids?: string[];
-  government_structure_id?: string;
-  internal_structure_id?: string;
+  structure_id?: string;
   is_active?: boolean;
 }
 

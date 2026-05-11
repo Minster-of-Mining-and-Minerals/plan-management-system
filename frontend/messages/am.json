@@ -1,116 +1,29 @@
 {
   "HomePage": {
-    "badge": "ይፋዊ የስትራቴጂክ ዕቅድ እና አፈጻጸም ግምገማ መድረክ",
+    "badge": "ይፋዊ የክስተት አስተዳደር እና አፈጻጸም ግምገማ መድረክ",
     "heading": {
-      "line1": "በስትራቴጂክ ዕቅድ እና አፈጻጸም",
-      "line2": "ግምገማ እድገትን ያረጋግጡ"
+      "line1": "የመሬት ባለስልጣን",
+      "line2": "የክስተት አስተዳደር ስርዓት"
     },
-    "description": "በማዕድን ሚኒስቴር የተቋቋመ የስትራቴጂክ ዕቅዶችን ለማስተዳደር፣ የአፈጻጸም ሂደትን ለመከታተል እና የውጤት ግምገማዎችን ለማድረግ የሚያስችል ሁለንተናዊ የዲጂታል መድረክ። ቅልጥፍናን ማሻሻል፣ ከሀገራዊ ግቦች ጋር መጣጣምን ማረጋገጥ እና በመረጃ ላይ የተመሰረተ ውሳኔ ሰጪነትን ማጠናከር።",
+    "description": "በመሬት ባለስልጣን የተቋቋመ ክስተቶችን ለማስተዳደር፣ የአፈጻጸም ሂደትን ለመከታተል እና የውጤት ግምገማዎችን ለማድረግ የሚያስችል ሁለንተናዊ የዲጂታል መድረክ። ቅልጥፍናን ማሻሻል፣ ከተቋማዊ ግቦች ጋር መጣጣምን ማረጋገጥ እና በመረጃ ላይ የተመሰረተ ውሳኔ ሰጪነትን ማጠናከር።",
     "actions": {
-      "plans": "ስትራቴጂክ ዕቅዶችን ይመልከቱ",
       "evaluations": "ግምገማዎችን ይፈትሹ"
     }
   },
   "PublicHeader": {
-    "logoLine1": "የማዕድን ሚኒስቴር",
+    "logoLine1": "የመሬት ባለስልጣን",
     "tabs": {
       "home": "መነሻ",
-      "plans": "ዕቅዶች",
       "evaluations": "ግምገማዎች",
       "reports": "ሪፖርቶች"
     },
     "login": "ግባ"
   },
-  "ComplaintPage": {
-    "title": "ቅሬታ ያቅርቡ",
-    "subtitle": "ቅሬታዎን ለማቅረብ ከታች ያለውን ቅጽ በትክክል ይሙሉ። ትክክለኛና ሙሉ መረጃ መስጠት ቅሬታዎን በፍጥነት እንዲከናወን ይረዳል።",
-
-    "personalInfo": {
-      "title": "የግል መረጃ",
-      "optional": "(አማራጭ)",
-      "fullName": "ሙሉ ስም",
-      "fullNamePlaceholder": "ሙሉ ስምዎን ያስገቡ",
-      "phone": "ስልክ ቁጥር",
-      "phonePlaceholder": "የስልክ ቁጥርዎን ያስገቡ",
-      "email": "ኢሜይል",
-      "emailPlaceholder": "የኢሜይል አድራሻዎን ያስገቡ",
-      "city": "ከተማ / ክልል",
-      "cityPlaceholder": "ከተማዎን ወይም ክልሎትን ያስገቡ",
-      "subCityPlaceholder": "ክፍለ ከተማዎን ወይም ዞኑን ያስገቡ",
-      "subCity": "ክፍለ ከተማ / ዞን",
-      "woreda": "ወረዳ",
-      "woredaPlaceholder": "ወረዳዎን ያስገቡ"
-    },
-
-    "details": {
-      "title": "የ{category} ዝርዝሮች",
-      "category": "ምድብ",
-      "categoryPlaceholder": "ምድብ ይምረጡ",
-      "incidentDate": "የክስተቱ ቀን",
-      "sector": "{category}ን የሚቀበል ዘርፍ",
-      "sectorPlaceholder": "ዘርፍ ያስገቡ",
-      "department": "{category}ን የሚቀበል ክፍል",
-      "departmentPlaceholder": "{category}ን የሚቀበል ክፍል ያስገቡ",
-      "personConcerned": "የተመለከተው ሰው ስም",
-      "personConcernedPlaceholder": "የተመለከተው ሰው ስም ያስገቡ",
-      "description": "የ{category} መግለጫ",
-      "descriptionPlaceholder": "የ{category} ዝርዝር መግለጫ ያቀርቡ",
-      "requestedAction": "የሚፈለገው እርምጃ",
-      "requestedActionPlaceholder": "የሚወሰነውን እርምጃ ያስSpecify",
-      "evidence": "ማስረጃ",
-      "evidencePlaceholder": "የሚያግዙ ሰነዶች ወይም ማስረጃዎችን ያስገቡ",
-      "optional": "አማራጭ"
-    },
-    "toast": {
-      "success": {
-        "submitted": "ቅሬታዎ በተሳካ ሁኔታ ተልኳል።",
-        "errors": "አንዳንድ ስህተቶች ነበሩ። እባክዎ ቅጹን ያረጋግጡ እና ደግመው ይሞክሩ።"
-      }
-    },
-    "buttons": {
-      "cancel": "ሰርዝ",
-      "submit": "{category} አስገባ"
-    },
-
-    "tips": {
-      "title": "የቅሬታ መመሪያዎች",
-      "items": [
-        "መግለጫዎን ግልጽና አጭር ያድርጉ።",
-        "ተገቢ ቀናትና ዝርዝሮችን ያካትቱ።",
-        "አስፈላጊ ከሆነ የሚያግዙ ሰነዶችን ያያዙ።",
-        "ለክትትል የመገኛ መረጃዎን ያቅርቡ።",
-        "ያልተሟላ ወይም ግልጽ ያልሆነ ቅሬታ ለረዘም ጊዜ ሊወስድ ይችላል።"
-      ]
-    }
-  },
-  "Feedback": {
-    "title": "አስተያየት ያቅርቡ",
-    "description": "እባክዎ ከታች ያለውን ፎርም በመሙላት አስተያየትዎን ያቅርቡ። አስተያየትዎ በትክክል እንዲታወቅ ትክክለኛና ሙሉ መረጃ ያቅርቡ።",
-    "fields": {
-      "fullName": "ሙሉ ስም",
-      "fullNamePlaceholder": "ሙሉ ስምዎን ያስገቡ",
-      "fullNameOptional": "(አማራጭ)",
-      "sector": "ዘርፍ የሚቀበል አስተያየት",
-      "sectorPlaceholder": "ዘርፍ ይምረጡ",
-      "feedbackDescription": "መግለጫ",
-      "feedbackPlaceholder": "አስተያየትዎን በዝርዝር ይግለጹ",
-      "rating": "ደረጃ",
-      "selectRating": "ደረጃ ይምረጡ"
-    },
-    "toast": {
-      "success": {
-        "submitted": "አስተያየትዎ በተሳካ ሁኔታ ተልኳል።"
-      },
-      "error": {
-        "unexpected": "ያልታወቀ ስህተት አጋጥሟል። እባክዎ ከዚያ በኋላ ደግመው ይሞክሩ።",
-        "errors": "አንዳንድ ስህተቶች ነበሩ። እባክዎ ቅጹን ያረጋግጡ እና ደግመው ይሞክሩ።"
-      }
-    },
-    "actions": {
-      "submit": "አስተያየት ያቅርቡ",
-      "cancel": "ሰርዝ"
-    }
-  },
+  "LocaleSwitcher": {
+    "label": "ቋንቋ",
+    "locale": "{locale, select, en {እንግሊዝኛ} am {አማርኛ} other {ያልታወቀ}}"
+  }
+}
   "LocaleSwitcher": {
     "label": "ቋንቋ",
     "locale": "{locale, select, en {እንግሊዝኛ} am {አማርኛ} other {ያልታወቀ}}"

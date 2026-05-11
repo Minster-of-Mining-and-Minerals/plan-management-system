@@ -103,9 +103,12 @@ export default function ChangePasswordPage() {
         <div className="w-full px-8 lg:px-16 py-12 flex items-center justify-center">
           <div className="w-full max-w-md">
             <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-golden-dark mb-2">
-                {isFirstLogin ? "Security Update" : "Change Password"}
+              <h1 className="text-2xl font-bold text-golden-dark mb-4">
+                Land Authority Event Management System
               </h1>
+              <h2 className="text-xl font-bold text-golden-dark mb-2">
+                {isFirstLogin ? "Security Update" : "Change Password"}
+              </h2>
               <p className="text-sm text-golden-dark/70">
                 {isFirstLogin
                   ? "For security reasons, you must change your temporary password before proceeding."

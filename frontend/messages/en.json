@@ -1,160 +1,29 @@
 {
   "HomePage": {
-    "badge": "Official Strategic Plan & Performance Evaluation Platform",
+    "badge": "Official Event Management & Performance Evaluation Platform",
     "heading": {
-      "line1": "Drive Progress through Strategic",
-      "line2": "Planning and Performance Evaluation"
+      "line1": "Land Authority",
+      "line2": "Event Management System"
     },
-    "description": "A comprehensive digital platform designed for the Ministry of Mining to manage strategic plans, monitor implementation progress, and evaluate performance outcomes. Enhancing efficiency, ensuring alignment with national goals, and fostering data-driven decision making.",
+    "description": "A comprehensive digital platform designed for the Land Authority to manage events, monitor implementation progress, and evaluate performance outcomes. Enhancing efficiency, ensuring alignment with organizational goals, and fostering data-driven decision making.",
     "actions": {
-      "plans": "View Strategic Plans",
       "evaluations": "Check Evaluations"
     }
   },
   "PublicHeader": {
-    "logoLine1": "Minister of Mining",
+    "logoLine1": "Land Authority",
     "tabs": {
       "home": "Home",
-      "plans": "Plans",
       "evaluations": "Evaluations",
       "reports": "Reports"
     },
     "login": "Login"
   },
-  "ComplaintPage": {
-    "title": "Submit a Complaint",
-    "subtitle": "Please fill out the form below to submit your complaint. Provide accurate and complete information to help us process your complaint efficiently.",
-    "personalInfo": {
-      "title": "Personal Information",
-      "optional": "(Optional)",
-      "fullName": "Full Name",
-      "fullNamePlaceholder": "Enter your full name",
-      "phone": "Phone Number",
-      "phonePlaceholder": "Enter your phone number",
-      "email": "Email",
-      "emailPlaceholder": "Enter your email address",
-      "city": "City/Region",
-      "cityPlaceholder": "Enter your city or region",
-      "subCity": "Subcity/Zone",
-      "subCityPlaceholder": "Enter your subcity or zone",
-      "woreda": "Woreda",
-      "woredaPlaceholder": "Enter your woreda"
-    },
-    "details": {
-      "title": "{category} Details",
-      "category": "Category",
-      "categoryPlaceholder": "Select Category",
-      "incidentDate": "Date of Incident",
-      "sector": "Sector Receiving the {category}",
-      "sectorPlaceholder": "Select Sector",
-      "department": "Department Receiving the {category}",
-      "departmentPlaceholder": "Enter the department",
-      "personConcerned": "Name of the Person Concerned",
-      "personConcernedPlaceholder": "Enter the name of the person concerned",
-      "description": "{category} Description",
-      "descriptionPlaceholder": "Provide a detailed description of your {category}",
-      "requestedAction": "Requested Action",
-      "requestedActionPlaceholder": "Specify the action you would like to be taken",
-      "evidence": "Evidence for the {category}",
-      "evidencePlaceholder": "Upload any supporting documents or evidence",
-      "optional": "Optional"
-    },
-    "toast": {
-      "success": {
-        "submitted": "Your complaint has been submitted successfully."
-      },
-      "error": {
-        "unexpected": "Server error occurred. Please try again.",
-        "errors": "There were some errors. Please check the form and try again."
-      }
-    },
-    "buttons": {
-      "cancel": "Cancel",
-      "submit": "Submit {category}",
-      "submitting": "Submitting {category}..."
-    },
-    "tips": {
-      "title": "Complaint Tips",
-      "items": [
-        "Be clear and concise in your description.",
-        "Include relevant dates and details.",
-        "Attach any supporting documents if necessary.",
-        "Provide your contact information for follow-up.",
-        "Incomplete or unclear complaints may take longer to process."
-      ]
-    }
-  },
-  "ComplaintTrackPage": {
-    "title": "Track Your Complaint",
-    "subtitle": "Enter your complaint tracking ID to view the current status and details of your submission.",
-    "trackingId": "Tracking ID",
-    "track": "Track Complaint",
-    "loading": "Checking complaint status...",
-    "errors": {
-      "required": "Tracking ID is required.",
-      "notFound": "No complaint was found with the provided tracking ID."
-    },
-    "details": {
-      "title": "Complaint Details",
-      "trackingId": "Tracking ID",
-      "category": "Complaint Category",
-      "sector": "Sector",
-      "department": "Department",
-      "incidentDate": "Date of Incident",
-      "submittedAt": "Date Submitted",
-      "description": "Complaint Description",
-      "requestedAction": "Requested Action"
-    },
-    "status": {
-      "submitted": "Submitted",
-      "underReview": "Under Review",
-      "resolved": "Resolved"
-    },
-    "personalInfo": {
-      "toggle": "Show / Hide Personal Information",
-      "fullName": "Full Name",
-      "phone": "Phone Number",
-      "email": "Email Address",
-      "city": "City"
-    },
-    "response": {
-      "title": "Official Response",
-      "status": "Response Status",
-      "date": "Response Date",
-      "description": "Response Description",
-      "attachments": "Response Attachments",
-      "noResponse": "No official response has been provided yet.",
-      "download": "Download"
-    }
-  },
-  "Feedback": {
-    "title": "Submit Feedback",
-    "description": "Please fill out the form below to submit your feedback. Provide accurate and complete information to help us process your feedback efficiently.",
-    "fields": {
-      "fullName": "Full Name",
-      "fullNameOptional": "(Optional)",
-      "fullNamePlaceholder": "Enter your full name",
-      "sector": "Sector Receiving the Feedback",
-      "sectorPlaceholder": "Select Sector",
-      "feedbackDescription": "Description",
-      "feedbackPlaceholder": "Describe your feedback in detail",
-      "rating": "Rating",
-      "selectRating": "Select a rating"
-    },
-    "toast": {
-      "success": {
-        "submitted": "Your feedback has been submitted successfully."
-      },
-      "error": {
-        "unexpected": "An unexpected error occurred. Please try again later.",
-        "errors": "There were some errors. Please check the form and try again."
-      }
-    },
-    "actions": {
-      "submit": "Submit Feedback",
-      "cancel": "Cancel"
-    }
-  },
+  "LocaleSwitcher": {
+    "label": "Language",
+    "locale": "{locale, select, en {English} am {Amharic} other {Unknown}}"
+  }
+}
   "LocaleSwitcher": {
     "label": "Language",
     "locale": "{locale, select, en {English} am {Amharic} other {Unknown}}"

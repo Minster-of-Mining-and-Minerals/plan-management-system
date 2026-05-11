@@ -23,5 +23,5 @@ export interface CustomNodeProps {
 export interface HierarchyD3TreeProps {
   data: any[];
   isLoading?: boolean;
-  type: 'government' | 'internal';
+
 }

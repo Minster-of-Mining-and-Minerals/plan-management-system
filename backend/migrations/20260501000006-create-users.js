@@ -49,22 +49,12 @@ module.exports = {
         defaultValue: true,
         allowNull: false,
       },
-      government_structure_id: {
+      structure_id: {
         type: Sequelize.UUID,
         allowNull: true,
         references: {
-          model: "government_structures",
-          key: "government_structure_id",
-        },
-        onUpdate: "CASCADE",
-        onDelete: "SET NULL",
-      },
-      internal_structure_id: {
-        type: Sequelize.UUID,
-        allowNull: true,
-        references: {
-          model: "internal_structures",
-          key: "internal_structure_id",
+          model: "structures",
+          key: "structure_id",
         },
         onUpdate: "CASCADE",
         onDelete: "SET NULL",

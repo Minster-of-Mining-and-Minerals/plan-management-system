@@ -20,14 +20,9 @@ module.exports = (sequelize, DataTypes) => {
         as: "permissionGroups",
       });
 
-      User.belongsTo(models.GovernmentStructure, {
-        foreignKey: "government_structure_id",
-        as: "governmentStructure",
-      });
-
-      User.belongsTo(models.InternalStructure, {
-        foreignKey: "internal_structure_id",
-        as: "internalStructure",
+      User.belongsTo(models.Structure, {
+        foreignKey: "structure_id",
+        as: "structure",
       });
     }
   }
@@ -78,11 +73,7 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.BOOLEAN,
         defaultValue: true,
       },
-      government_structure_id: {
-        type: DataTypes.UUID,
-        allowNull: true,
-      },
-      internal_structure_id: {
+      structure_id: {
         type: DataTypes.UUID,
         allowNull: true,
       },

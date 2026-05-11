@@ -14,8 +14,7 @@ export const userApi = baseApi.injectEndpoints({
     getUsers: builder.query<
       User[],
       { 
-        government_structure_id?: string; 
-        internal_structure_id?: string; 
+        structure_id?: string; 
         is_active?: boolean; 
         search?: string;
         page?: number;

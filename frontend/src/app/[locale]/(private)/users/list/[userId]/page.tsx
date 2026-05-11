@@ -10,7 +10,7 @@ import {
   useUpdateUserMutation 
 } from "@/redux/api/userApi";
 import { useGetRolesQuery } from "@/redux/api/roleApi";
-import { useGetGovernmentStructuresQuery, useGetInternalStructuresQuery } from "@/redux/api/structureApi";
+import { useGetStructuresQuery } from "@/redux/api/structureApi";
 import { 
   User2Icon, 
   Mail, 
@@ -49,8 +49,7 @@ const userFormSchema = z.object({
   email: z.string().email("Invalid email address"),
   phone_number: z.string().optional().nullable(),
   is_active: z.boolean(),
-  government_structure_id: z.string().optional().nullable(),
-  internal_structure_id: z.string().optional().nullable(),
+  structure_id: z.string().optional().nullable(),
   role_ids: z.array(z.string()).min(1, "At least one role must be assigned"),
 });
 
@@ -68,7 +67,7 @@ const UserViewPage = () => {
   const [isEditing, setIsEditing] = useState(false);
 
   const { data: allRoles = [] } = useGetRolesQuery({ is_active: true });
-  const { data: govStructures = [] } = useGetGovernmentStructuresQuery({ is_active: true });
+  const { data: govStructures = [] } = useGetStructuresQuery({ is_active: true });
   
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),
@@ -77,17 +76,11 @@ const UserViewPage = () => {
       email: "",
       phone_number: "",
       is_active: true,
-      government_structure_id: "",
-      internal_structure_id: "",
+      structure_id: "",
       role_ids: [],
     },
   });
 
-  const selectedGovId = form.watch("government_structure_id");
-  const { data: internalStructures = [] } = useGetInternalStructuresQuery(
-    { government_structure_id: selectedGovId || undefined, is_active: true },
-    { skip: !selectedGovId }
-  );
 
   useEffect(() => {
     if (user) {
@@ -96,8 +89,7 @@ const UserViewPage = () => {
         email: user.email,
         phone_number: user.phone_number || "",
         is_active: user.is_active,
-        government_structure_id: user.government_structure_id || "",
-        internal_structure_id: user.internal_structure_id || "",
+        structure_id: user.structure_id || "",
         role_ids: user.roles?.map((r) => r.role_id) || [],
       });
     }
@@ -112,8 +104,7 @@ const UserViewPage = () => {
           email: values.email,
           phone_number: values.phone_number || undefined,
           role_ids: values.role_ids,
-          government_structure_id: values.government_structure_id || undefined,
-          internal_structure_id: values.internal_structure_id || undefined,
+          structure_id: values.structure_id || undefined,
           is_active: values.is_active,
         },
       }).unwrap();
@@ -307,13 +298,13 @@ const UserViewPage = () => {
             <CardContent className="space-y-4">
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
-                  Government Structure
+                  Structure
                 </p>
                 {isEditing ? (
                   <div className="space-y-2">
                     <Controller
                       control={form.control}
-                      name="government_structure_id"
+                      name="structure_id"
                       render={({ field }) => (
                         <Select onValueChange={field.onChange} value={field.value || ""}>
                           <SelectTrigger className="w-full">
@@ -321,7 +312,7 @@ const UserViewPage = () => {
                           </SelectTrigger>
                           <SelectContent>
                             {govStructures.map((s) => (
-                              <SelectItem key={s.government_structure_id} value={s.government_structure_id!}>
+                              <SelectItem key={s.structure_id} value={s.structure_id!}>
                                 {s.name}
                               </SelectItem>
                             ))}
@@ -329,56 +320,15 @@ const UserViewPage = () => {
                         </Select>
                       )}
                     />
-                    {form.formState.errors.government_structure_id && (
-                      <p className="text-xs text-red-500">{form.formState.errors.government_structure_id.message}</p>
+                    {form.formState.errors.structure_id && (
+                      <p className="text-xs text-red-500">{form.formState.errors.structure_id.message}</p>
                     )}
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
                     <Building2 className="h-4 w-4 text-[#094C81]" />
                     <span className="text-sm font-medium text-gray-700">
-                      {user.governmentStructure?.name || "No government structure assigned"}
-                    </span>
-                  </div>
-                )}
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
-                  Internal Structure (Team/Dept)
-                </p>
-                {isEditing ? (
-                  <div className="space-y-2">
-                    <Controller
-                      control={form.control}
-                      name="internal_structure_id"
-                      render={({ field }) => (
-                        <Select 
-                          onValueChange={field.onChange} 
-                          value={field.value || ""} 
-                          disabled={!selectedGovId}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder={selectedGovId ? "Select internal structure" : "Select gov structure first"} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {internalStructures.map((s) => (
-                              <SelectItem key={s.internal_structure_id} value={s.internal_structure_id!}>
-                                {s.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                    {form.formState.errors.internal_structure_id && (
-                      <p className="text-xs text-red-500">{form.formState.errors.internal_structure_id.message}</p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
-                    <GitBranch className="h-4 w-4 text-[#094C81]" />
-                    <span className="text-sm font-medium text-gray-700">
-                      {user.internalStructure?.name || "No internal structure assigned"}
+                      {user.structure?.name || "No structure assigned"}
                     </span>
                   </div>
                 )}

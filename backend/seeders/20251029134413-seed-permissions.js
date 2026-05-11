@@ -39,42 +39,20 @@ module.exports = {
       { resource: "roles", action: "delete" },
       { resource: "roles", action: "assign_permission" },
 
-      // Government Structure Management
-      { resource: "government_structures", action: "create" },
-      { resource: "government_structures", action: "read" },
-      { resource: "government_structures", action: "update" },
-      { resource: "government_structures", action: "delete" },
+      // Structure Management
+      { resource: "structures", action: "create" },
+      { resource: "structures", action: "read" },
+      { resource: "structures", action: "update" },
+      { resource: "structures", action: "delete" },
 
-      // Internal Structure Management
-      { resource: "internal_structures", action: "create" },
-      { resource: "internal_structures", action: "read" },
-      { resource: "internal_structures", action: "update" },
-      { resource: "internal_structures", action: "delete" },
 
-      // Plan Management
-      { resource: "plans", action: "create" },
-      { resource: "plans", action: "read" },
-      { resource: "plans", action: "update" },
-      { resource: "plans", action: "delete" },
-      { resource: "plans", action: "approve" },
-      { resource: "plans", action: "submit" },
 
-      // Plan Assignments
-      { resource: "plan_assignments", action: "create" },
-      { resource: "plan_assignments", action: "read" },
-      { resource: "plan_assignments", action: "update" },
-      { resource: "plan_assignments", action: "delete" },
 
-      // Assignment Actions
-      { resource: "plan_assignment_actions", action: "create" },
-      { resource: "plan_assignment_actions", action: "read" },
-      { resource: "plan_assignment_actions", action: "update" },
-      { resource: "plan_assignment_actions", action: "delete" },
 
-      // Action Logs
-      { resource: "action_logs", action: "create" },
-      { resource: "action_logs", action: "read" },
-      { resource: "action_logs", action: "update" },
+
+
+
+
     ];
 
     for (const perm of permissions) {

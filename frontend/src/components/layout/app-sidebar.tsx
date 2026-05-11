@@ -9,8 +9,8 @@ import { NAVIGATION } from "@/navigation.config";
 import { canAccessItem } from "@/lib/can-access";
 import { PermissionKey } from "@/lib/permissions";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
-import { buildSectorTree } from "@/utils/buildSectorTree";
+import { useGetStructuresQuery } from "@/redux/api/structureApi";
+import { buildStructureTree } from "@/utils/buildStructureTree";
 import { NavStructures } from "./nav-structures";
 
 import {
@@ -54,8 +54,8 @@ export function AppSidebar() {
     ),
   }));
 
-  const { data: structuresData } = useGetGovernmentStructuresQuery();
-  const structureTree = buildSectorTree(structuresData || []);
+  const { data: structuresData } = useGetStructuresQuery();
+  const structureTree = buildStructureTree(structuresData || []);
 
   return (
     <Sidebar collapsible="icon" variant="floating">
@@ -66,17 +66,17 @@ export function AppSidebar() {
             <Link href="/dashboard" className="flex flex-col items-center">
               <Image
                 src="/logo-only.png"
-                alt="Minister of Mining Logo"
+                alt="Land Authority Logo"
                 width={100}
                 height={100}
                 className="mx-auto mb-1 rounded-xl p-2"
               />
               <div className="grid flex-1 text-center gap-1 text-sm leading-tight group-data-[collapsible=icon]:opacity-0">
                 <span className="truncate font-semibold text-golden-dark">
-                  Minister of Mining
+                  Land Authority
                 </span>
                 <span className="truncate text-golden-dark">
-                  Plan Management System
+                  Event Management System
                 </span>
               </div>
             </Link>
@@ -92,7 +92,7 @@ export function AppSidebar() {
 
               {visibleNav.map((item) => {
                 const hasConfigChildren = item.children && item.children.length > 0;
-                const isGovStructures = item.url === "/government-structures";
+                const isGovStructures = item.url === "/structures";
                 const hasDynamicChildren = isGovStructures && structureTree.length > 0;
 
                 if (hasConfigChildren || hasDynamicChildren) {

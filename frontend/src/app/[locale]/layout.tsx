@@ -29,8 +29,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MoM Plan Management System",
-  description: "Ministry of Mining Plan Management System",
+  title: "Land Authority Event Management System",
+  description: "Land Authority Event Management System",
   icons: {
     icon: [
       { url: "/favicon_io/favicon.ico" },

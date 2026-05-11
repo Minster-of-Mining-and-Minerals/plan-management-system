@@ -84,7 +84,7 @@ export default function ExternalLogin() {
         <div className="w-full px-16 py-8 flex items-center justify-center">
           <div className="w-full max-w-md">
             <h1 className="text-3xl font-semibold text-center text-[#0C4A6E] mb-6">
-              Login
+              Land Authority Event Management System
             </h1>
 
             {authError && (

@@ -35,7 +35,7 @@ const requestOTP = async (req, res) => {
     });
 
     // Send email
-    const subject = "Password Reset OTP - Plan Management System";
+    const subject = "Password Reset OTP - Land Authority Event Management System";
     const text = `Your OTP for password reset is: ${otp}. It will expire in 10 minutes.`;
 
     await sendEmail(email, subject, text);

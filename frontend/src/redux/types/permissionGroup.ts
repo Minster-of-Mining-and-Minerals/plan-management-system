@@ -1,7 +1,7 @@
 // types/permissionGroup.ts
 
 import { User } from "./user";
-import { GovernmentStructure } from "./governmentStructure";
+import { Structure } from "./structure";
 
 export interface Permission {
     permission_id: string;
@@ -22,7 +22,7 @@ export interface PermissionGroup {
 
     permissions?: Permission[];
     users?: User[];
-    structures?: GovernmentStructure[];
+    structures?: Structure[];
 }
 
 /** ---------------------------
@@ -34,7 +34,7 @@ export interface CreatePermissionGroupPayload {
 
     permission_ids?: string[];
     user_ids?: string[];
-    government_structure_ids?: string[];
+    structure_ids?: string[];
 }
 
 /** ---------------------------
@@ -72,10 +72,10 @@ export interface RemoveUserPayload {
 
 export interface AddStructuresPayload {
     permission_group_id: string;
-    government_structure_ids: string[];
+    structure_ids: string[];
 }
 
 export interface RemoveStructurePayload {
     permission_group_id: string;
-    government_structure_id: string;
+    structure_id: string;
 }

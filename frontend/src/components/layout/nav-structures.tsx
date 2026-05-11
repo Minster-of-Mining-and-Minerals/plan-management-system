@@ -13,10 +13,10 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { GovernmentStructure } from "@/redux/types/governmentStructure";
+import { Structure } from "@/redux/types/structure";
 
 interface NavStructuresProps {
-  structures: GovernmentStructure[];
+  structures: Structure[];
   basePath: string;
 }
 
@@ -33,15 +33,15 @@ export function NavStructures({ structures, basePath }: NavStructuresProps) {
 
   const currentPath = stripLocale(pathname);
 
-  const renderStructure = (structure: GovernmentStructure) => {
-    const url = `${basePath}/${structure.government_structure_id}`;
+  const renderStructure = (structure: Structure) => {
+    const url = `${basePath}/${structure.structure_id}`;
     const hasChildren = structure.children && structure.children.length > 0;
     const isActive = currentPath === url;
     const isChildActive = currentPath.startsWith(url) && !isActive;
 
     if (hasChildren) {
       return (
-        <SidebarMenuSubItem key={structure.government_structure_id}>
+        <SidebarMenuSubItem key={structure.structure_id}>
           <Collapsible
             defaultOpen={currentPath.startsWith(url)}
             className="group/collapsible"
@@ -69,7 +69,7 @@ export function NavStructures({ structures, basePath }: NavStructuresProps) {
     }
 
     return (
-      <SidebarMenuSubItem key={structure.government_structure_id}>
+      <SidebarMenuSubItem key={structure.structure_id}>
         <SidebarMenuSubButton asChild isActive={isActive}>
           <Link href={url} className="flex items-center gap-4">
             <Building className="h-4 w-4 shrink-0" />

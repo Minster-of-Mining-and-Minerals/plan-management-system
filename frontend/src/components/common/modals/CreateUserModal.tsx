@@ -8,8 +8,7 @@ import {
   useCreateUserMutation,
 } from "@/redux/api/userApi";
 import {
-  useGetGovernmentStructuresQuery,
-  useGetInternalStructuresQuery,
+  useGetStructuresQuery,
 } from "@/redux/api/structureApi";
 import { CreateUserPayload } from "@/redux/types/user";
 import { Check, ChevronDown, XIcon } from "lucide-react";
@@ -30,29 +29,22 @@ import {
 interface CreateUserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  government_structure_id?: string;
-  internal_structure_id?: string;
+  structure_id?: string;
 }
 
 export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   isOpen,
   onClose,
-  government_structure_id: initialGovId,
-  internal_structure_id: initialInternalId,
+  structure_id: initialGovId,
 }) => {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [govId, setGovId] = useState(initialGovId || "");
-  const [internalId, setInternalId] = useState(initialInternalId || "");
 
   const { data: rolesResponse } = useGetRolesQuery();
-  const { data: govStructures = [] } = useGetGovernmentStructuresQuery();
-  const { data: internalStructures = [] } = useGetInternalStructuresQuery(
-    { government_structure_id: govId },
-    { skip: !govId }
-  );
+  const { data: govStructures = [] } = useGetStructuresQuery();
 
   const roles = rolesResponse || [];
 
@@ -69,8 +61,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
       email,
       role_ids: selectedRoles,
       phone_number: phoneNumber || undefined,
-      government_structure_id: govId || undefined,
-      internal_structure_id: internalId || undefined,
+      structure_id: govId || undefined,
     };
 
     try {
@@ -88,7 +79,6 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
     setPhoneNumber("");
     setSelectedRoles([]);
     setGovId(initialGovId || "");
-    setInternalId(initialInternalId || "");
     onClose();
   };
 
@@ -121,22 +111,21 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="block text-sm text-golden-dark font-medium mb-1">
-                Government Structure
+                Structure
               </Label>
               <Select
                 value={govId}
                 onValueChange={(val) => {
                   setGovId(val);
-                  setInternalId("");
                 }}
                 disabled={!!initialGovId}
               >
                 <SelectTrigger className="w-full h-12 border border-golden-dark">
-                  <SelectValue placeholder="Select Government Structure" />
+                  <SelectValue placeholder="Select Structure" />
                 </SelectTrigger>
                 <SelectContent className="bg-white">
                   {govStructures.map((s) => (
-                    <SelectItem key={s.government_structure_id} value={s.government_structure_id!}>
+                    <SelectItem key={s.structure_id} value={s.structure_id!}>
                       {s.name}
                     </SelectItem>
                   ))}
@@ -144,27 +133,6 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label className="block text-sm text-golden-dark font-medium mb-1">
-                Internal Structure (Team/Dept)
-              </Label>
-              <Select
-                value={internalId}
-                onValueChange={setInternalId}
-                disabled={!govId || !!initialInternalId}
-              >
-                <SelectTrigger className="w-full h-12 border border-golden-dark">
-                  <SelectValue placeholder={govId ? "Select Internal Structure" : "Select Gov structure first"} />
-                </SelectTrigger>
-                <SelectContent className="bg-white">
-                  {internalStructures.map((s) => (
-                    <SelectItem key={s.internal_structure_id} value={s.internal_structure_id!}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
           {/* User Detail */}

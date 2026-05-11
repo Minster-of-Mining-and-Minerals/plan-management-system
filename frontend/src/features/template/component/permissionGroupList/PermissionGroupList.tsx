@@ -15,12 +15,12 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 export interface PermissionGroupListProps {
-  government_structure_id?: string;
+  structure_id?: string;
   hideLayout?: boolean;
   sideActions?: ActionButton[];
 }
-export default function PermissionGroupList({ government_structure_id, hideLayout = false, sideActions }: PermissionGroupListProps) {
-  const { data = [], isLoading, isError, refetch } = useGetPermissionGroupsQuery({ government_structure_id });
+export default function PermissionGroupList({ structure_id, hideLayout = false, sideActions }: PermissionGroupListProps) {
+  const { data = [], isLoading, isError, refetch } = useGetPermissionGroupsQuery({ structure_id });
   const [deleteGroup] = useDeletePermissionGroupMutation();
   const router = useRouter();
 

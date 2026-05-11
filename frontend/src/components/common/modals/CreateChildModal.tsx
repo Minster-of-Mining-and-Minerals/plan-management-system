@@ -22,9 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { useCreateGovernmentStructureMutation } from "@/redux/api/governmentStructureApi";
-import { useCreateInternalStructureMutation } from "@/redux/api/internalStructureApi";
-import { useSession } from "next-auth/react";
+import { useCreateStructureMutation } from "@/redux/api/structureApi";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -37,18 +35,14 @@ interface CreateChildModalProps {
   isOpen: boolean;
   onClose: () => void;
   parent_id: string;
-  type: 'government' | 'internal';
 }
 
 export function CreateChildModal({
   isOpen,
   onClose,
   parent_id,
-  type,
 }: CreateChildModalProps) {
-  const { data: session } = useSession();
-  const [createGovStructure, { isLoading: isCreatingGov }] = useCreateGovernmentStructureMutation();
-  const [createIntStructure, { isLoading: isCreatingInt }] = useCreateInternalStructureMutation();
+  const [createStructure, { isLoading: isCreatingGov }] = useCreateStructureMutation();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -59,30 +53,11 @@ export function CreateChildModal({
 
   const onSubmit = async (values: FormValues) => {
     try {
-      if (type === 'government') {
-        await createGovStructure({
-          ...values,
-          parent_id,
-        }).unwrap();
-      } else {
-        // For internal structure, we need government_structure_id
-        // We get it from the session for now, assuming the user is adding within their own structure
-        const userGovStructure = session?.user?.government_structure;
-        const government_structure_id = (userGovStructure && !Array.isArray(userGovStructure)) 
-          ? userGovStructure.government_structure_id 
-          : null;
-
-        if (!government_structure_id) {
-          toast.error("Government structure context missing. Please add via the main table.");
-          return;
-        }
-
-        await createIntStructure({
-          ...values,
-          parent_id,
-          government_structure_id,
-        } as any).unwrap();
-      }
+      await createStructure({
+        name: values.name,
+        parent_id,
+      }).unwrap();
+      
       toast.success("Child node created successfully");
       form.reset();
       onClose();
@@ -118,8 +93,8 @@ export function CreateChildModal({
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isCreatingGov || isCreatingInt}>
-                {(isCreatingGov || isCreatingInt) && (
+              <Button type="submit" disabled={isCreatingGov}>
+                {isCreatingGov && (
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2" />
                 )}
                 Create Node

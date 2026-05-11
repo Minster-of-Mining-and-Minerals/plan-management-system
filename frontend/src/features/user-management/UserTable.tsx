@@ -19,11 +19,10 @@ import { useRouter } from "next/navigation";
 
 export interface UserTableProps {
     sideActions?: ActionButton[];
-    government_structure_node_id?: string;
-    internal_structure_node_id?: string;
+    structure_id?: string;
 }
 // structure_node_id
-export default function UserTable({ sideActions, government_structure_node_id, internal_structure_node_id }: UserTableProps) {
+export default function UserTable({ sideActions, structure_id }: UserTableProps) {
     const searchParams = useSearchParams();
     const searchQuery = searchParams.get("search") || "";
     const router = useRouter();
@@ -90,8 +89,7 @@ export default function UserTable({ sideActions, government_structure_node_id, i
         isError,
         refetch,
     } = useGetUsersQuery({
-        government_structure_id: government_structure_node_id,
-        internal_structure_id: internal_structure_node_id,
+        structure_id: structure_id,
         page: pageIndex + 1,
         limit: pageSize,
         search: searchQuery,
@@ -190,8 +188,7 @@ export default function UserTable({ sideActions, government_structure_node_id, i
                 />
             </TableLayout>
             <CreateUserModal
-                government_structure_id={government_structure_node_id}
-                internal_structure_id={internal_structure_node_id}
+                structure_id={structure_id}
                 isOpen={isModalOpen}
                 onClose={() => setModalOpen(false)}
             />

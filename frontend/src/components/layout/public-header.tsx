@@ -30,11 +30,7 @@ const PublicHeader = () => {
       href: "/",
       icon: Home,
     },
-    {
-      label: t("tabs.plans"),
-      href: "/plans",
-      icon: FileText,
-    },
+
     {
       label: t("tabs.evaluations"),
       href: "/evaluations",
@@ -61,10 +57,10 @@ const PublicHeader = () => {
           />
           <div>
             <h1 className="text-base font-semibold text-golden-dark tracking-wide hidden sm:block">
-              የማዕድን ሚኒስቴር
+              የመሬት ባለስልጣን
             </h1>
             <h1 className="text-base font-semibold text-golden-dark tracking-wide -mt-[5px] hidden sm:block">
-              Minister of Mining
+              Land Authority
             </h1>
           </div>
         </div>

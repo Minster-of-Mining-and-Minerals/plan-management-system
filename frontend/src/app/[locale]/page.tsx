@@ -55,14 +55,7 @@ export default function Home() {
 
           {/* CTA Buttons */}
           <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/plans"
-              className="px-8 py-4 bg-golden-dark text-white font-semibold rounded-xl 
-                shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 
-                hover:bg-golden-darkHover transition-all duration-200 text-lg"
-            >
-              {t('actions.plans')}
-            </Link>
+
             <Link
               href="/evaluations"
               className="px-8 py-4 bg-white text-primary font-semibold rounded-xl 

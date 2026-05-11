@@ -10,48 +10,16 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem[]> = {
     "/dashboard": [{ title: "Dashboard", path: "/dashboard" }],
 
     // ================================================
-    // Base Data Routes
+    // Structures Routes
     // ================================================
-    "/basedata": [
-        { title: "Base Data", path: "/basedata" },
+    "/structures": [
+        { title: "Bodies", path: "/structures" },
     ],
-    "/basedata/sectors": [
-        { title: "Base Data", path: "/basedata" },
-        { title: "Sectors", path: "/basedata/sectors" },
-    ],
-    "/basedata/complaint-categories": [
-        { title: "Base Data", path: "/basedata" },
-        { title: "Complaint Categories", path: "/basedata/complaint-categories" },
+    "/structures/[id]": [
+        { title: "Bodies", path: "/structures" },
+        { title: "Details", path: "/structures/[id]" },
     ],
 
-    // ================================================
-    // Complaints Routes
-    // ================================================
-    "/compliants": [
-        { title: "Complaints", path: "/compliants" },
-    ],
-    "/compliants/[complaintId]": [
-        { title: "Complaints", path: "/compliants" },
-        { title: "Complaint Details", path: "/compliants/[complaintId]" },
-    ],
-
-    // ================================================
-    // Feedbacks Routes
-    // ================================================
-    "/feedbacks": [
-        { title: "Feedbacks", path: "/feedbacks" },
-    ],
-    "/feedbacks/[feedbackId]": [
-        { title: "Feedbacks", path: "/feedbacks" },
-        { title: "Feedback Details", path: "/feedbacks/[feedbackId]" },
-    ],
-
-    // ================================================
-    // Notifications Routes
-    // ================================================
-    "/notifications": [
-        { title: "Notifications", path: "/notifications" },
-    ],
 
     // ================================================
     // Users Routes
@@ -76,13 +44,6 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem[]> = {
         { title: "Roles", path: "/users/roles" },
         { title: "New Role", path: "/users/roles/new" },
     ],
-
-    // ================================================
-    // Public Routes
-    // ================================================
-    "/complaint": [{ title: "Submit Complaint", path: "/complaint" }],
-    "/feedback": [{ title: "Submit Feedback", path: "/feedback" }],
-    "/track-complaint": [{ title: "Track Complaint", path: "/track-complaint" }],
 
     // ================================================
     // Auth Routes

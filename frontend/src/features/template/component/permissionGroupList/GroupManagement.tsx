@@ -3,7 +3,7 @@ import { ActionButton } from "@/types/tableLayout";
 import { Building, Users, UserPlus } from "lucide-react";
 import { useState } from "react";
 import UsersGroupList from "./UsersGroupList";
-import GovernmentStructuresGroupList from "./GovernmentStructuresGroupList";
+import StructuresGroupList from "./StructuresGroupList";
 import { useGetPermissionGroupByIdQuery } from "@/redux/api/permissionGroupApi";
 import { AddGroupMembersModal } from "./AddGroupMembersModal";
 
@@ -12,7 +12,7 @@ interface GroupManagementProps {
 }
 
 function GroupManagement({ groupId }: GroupManagementProps) {
-    const [activeTab, setActiveTab] = useState<"users" | "government_structures">(
+    const [activeTab, setActiveTab] = useState<"users" | "structures">(
         "users"
     );
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -30,11 +30,11 @@ function GroupManagement({ groupId }: GroupManagementProps) {
             onClick: () => setActiveTab("users"),
         },
         {
-            label: "Government Structures",
+            label: "Structures",
             icon: <Building className="h-4 w-4" />,
-            variant: activeTab === "government_structures" ? "default" : "outline",
+            variant: activeTab === "structures" ? "default" : "outline",
             size: "default",
-            onClick: () => setActiveTab("government_structures"),
+            onClick: () => setActiveTab("structures"),
         },
     ];
 
@@ -64,8 +64,8 @@ function GroupManagement({ groupId }: GroupManagementProps) {
                     isLoading={isLoading}
                 />
             )}
-            {activeTab === "government_structures" && (
-                <GovernmentStructuresGroupList
+            {activeTab === "structures" && (
+                <StructuresGroupList
                     sideActions={sideActions}
                     actions={actions}
                     structures={group?.structures || []}
@@ -79,7 +79,7 @@ function GroupManagement({ groupId }: GroupManagementProps) {
                 onClose={() => setIsAddModalOpen(false)}
                 groupId={groupId}
                 existingUserIds={group?.users?.map(u => u.user_id) || []}
-                existingStructureIds={group?.structures?.map(s => s.government_structure_id) || []}
+                existingStructureIds={group?.structures?.map(s => s.structure_id) || []}
             />
         </div>
     );

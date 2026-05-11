@@ -4,10 +4,10 @@ const {
     PermissionGroup,
     Permission,
     User,
-    GovernmentStructure,
+    Structure,
     PermissionGroupPermission,
     UserPermissionGroup,
-    GovernmentStructurePermissionGroup,
+    StructurePermissionGroup,
 } = require("../../models");
 
 const { v4: uuidv4 } = require("uuid");
@@ -57,7 +57,7 @@ const getPermissionGroups = async (req, res) => {
             include: [
                 { model: Permission, as: "permissions" },
                 { model: User, as: "users" },
-                { model: GovernmentStructure, as: "structures" },
+                { model: Structure, as: "structures" },
             ],
         });
 
@@ -77,7 +77,7 @@ const getPermissionGroupById = async (req, res) => {
             include: [
                 { model: Permission, as: "permissions" },
                 { model: User, as: "users" },
-                { model: GovernmentStructure, as: "structures" },
+                { model: Structure, as: "structures" },
             ],
         });
 
@@ -230,18 +230,18 @@ const removeUserFromGroup = async (req, res) => {
         return res.status(500).json({ error: error.message });
     }
 };
-// Attach / Detach Government Structures
+// Attach / Detach Structures
 const addStructuresToGroup = async (req, res) => {
     try {
-        const { permission_group_id, government_structure_ids } = req.body;
+        const { permission_group_id, structure_ids } = req.body;
 
-        const records = government_structure_ids.map((gid) => ({
+        const records = structure_ids.map((sid) => ({
             id: uuidv4(),
-            government_structure_id: gid,
+            structure_id: sid,
             permission_group_id,
         }));
 
-        await GovernmentStructurePermissionGroup.bulkCreate(records);
+        await StructurePermissionGroup.bulkCreate(records);
 
         return res.json({ message: "Structures added" });
     } catch (error) {
@@ -251,10 +251,10 @@ const addStructuresToGroup = async (req, res) => {
 
 const removeStructureFromGroup = async (req, res) => {
     try {
-        const { permission_group_id, government_structure_id } = req.body;
+        const { permission_group_id, structure_id } = req.body;
 
-        await GovernmentStructurePermissionGroup.destroy({
-            where: { permission_group_id, government_structure_id },
+        await StructurePermissionGroup.destroy({
+            where: { permission_group_id, structure_id },
         });
 
         return res.json({ message: "Structure removed" });

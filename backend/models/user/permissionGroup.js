@@ -21,11 +21,11 @@ module.exports = (sequelize, DataTypes) => {
                 as: "users",
             });
 
-            // Many-to-many with GovernmentStructure
-            PermissionGroup.belongsToMany(models.GovernmentStructure, {
-                through: models.GovernmentStructurePermissionGroup,
+            // Many-to-many with Structure
+            PermissionGroup.belongsToMany(models.Structure, {
+                through: models.StructurePermissionGroup,
                 foreignKey: "permission_group_id",
-                otherKey: "government_structure_id",
+                otherKey: "structure_id",
                 as: "structures",
             });
         }

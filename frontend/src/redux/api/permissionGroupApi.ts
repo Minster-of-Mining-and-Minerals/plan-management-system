@@ -16,7 +16,7 @@ export const permissionGroupApi = baseApi.injectEndpoints({
         /** ---------------------------
          * GET ALL GROUPS
          * --------------------------- */
-        getPermissionGroups: builder.query<PermissionGroup[], { government_structure_id?: string; search?: string } | void>({
+        getPermissionGroups: builder.query<PermissionGroup[], { structure_id?: string; search?: string } | void>({
             query: (params) => ({
                 url: "/permission-groups",
                 params: params || {},

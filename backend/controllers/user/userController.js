@@ -3,8 +3,7 @@ const {
   Role,
   UserRoles,
   sequelize,
-  GovernmentStructure,
-  InternalStructure,
+  Structure,
   PermissionGroup,
 } = require("../../models");
 const { v4: uuidv4, validate: isUuid } = require("uuid");
@@ -17,7 +16,7 @@ const { sendEmail } = require("../../utils/sendEmail");
 const createUser = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    const { full_name, email, role_ids, phone_number, government_structure_id, internal_structure_id } = req.body;
+    const { full_name, email, role_ids, phone_number, structure_id } = req.body;
 
     // ====== Check existing email ======
     const existingUser = await User.findOne({
@@ -63,8 +62,7 @@ const createUser = async (req, res) => {
         phone_number,
         is_first_logged_in: true,
         is_active: true,
-        government_structure_id,
-        internal_structure_id,
+        structure_id,
         created_at: new Date(),
         updated_at: new Date(),
       },
@@ -127,8 +125,7 @@ const updateUser = async (req, res) => {
       phone_number,
       is_active,
       role_ids,
-      government_structure_id,
-      internal_structure_id,
+      structure_id,
     } = req.body;
 
     // ====== Find user ======
@@ -165,8 +162,7 @@ const updateUser = async (req, res) => {
         email: email ?? user.email,
         phone_number: phone_number ?? user.phone_number,
         is_active: is_active ?? user.is_active,
-        government_structure_id: government_structure_id ?? user.government_structure_id,
-        internal_structure_id: internal_structure_id ?? user.internal_structure_id,
+        structure_id: structure_id ?? user.structure_id,
         updated_at: new Date(),
       },
       { transaction: t }
@@ -226,8 +222,7 @@ const getUsers = async (req, res) => {
       // institute_id,
       is_active,
       search, // optional: for name/email search
-      government_structure_id,
-      internal_structure_id,
+      structure_id,
     } = req.query;
 
     // ====== Build filters dynamically ======
@@ -235,8 +230,7 @@ const getUsers = async (req, res) => {
 
     // if (institute_id) whereClause.institute_id = institute_id;
     if (is_active !== undefined) whereClause.is_active = is_active === "true";
-    if (government_structure_id) whereClause.government_structure_id = government_structure_id;
-    if (internal_structure_id) whereClause.internal_structure_id = internal_structure_id;
+    if (structure_id) whereClause.structure_id = structure_id;
 
     if (search) {
       whereClause[Op.or] = [
@@ -249,6 +243,12 @@ const getUsers = async (req, res) => {
     // ====== Fetch users with associations ======
     const users = await User.findAll({
       where: whereClause,
+      include: [
+        {
+          model: Structure,
+          as: "structure",
+        },
+      ],
       order: [["created_at", "DESC"]],
     });
 
@@ -282,12 +282,8 @@ const getUserById = async (req, res) => {
           through: { attributes: [] },
         },
         {
-          model: GovernmentStructure,
-          as: "governmentStructure",
-        },
-        {
-          model: InternalStructure,
-          as: "internalStructure",
+          model: Structure,
+          as: "structure",
         },
         {
           model: PermissionGroup,

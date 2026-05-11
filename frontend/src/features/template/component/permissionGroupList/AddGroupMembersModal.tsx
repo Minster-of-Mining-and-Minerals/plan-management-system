@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGetUsersQuery } from "@/redux/api/userApi";
-import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
+import { useGetStructuresQuery } from "@/redux/api/structureApi";
 import {
   useAddUsersToGroupMutation,
   useAddStructuresToGroupMutation,
@@ -45,7 +45,7 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
   const { data: allUsers = [], isLoading: loadingUsers } = useGetUsersQuery({
     search: userSearch,
   });
-  const { data: allStructures = [], isLoading: loadingStructures } = useGetGovernmentStructuresQuery({
+  const { data: allStructures = [], isLoading: loadingStructures } = useGetStructuresQuery({
     search: structureSearch,
   });
 
@@ -54,7 +54,7 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
 
   const filteredUsers = allUsers.filter((u) => !existingUserIds.includes(u.user_id));
   const filteredStructures = allStructures.filter(
-    (s) => !existingStructureIds.includes(s.government_structure_id)
+    (s) => !existingStructureIds.includes(s.structure_id)
   );
 
   const handleToggleUser = (userId: string) => {
@@ -82,7 +82,7 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
       if (selectedStructureIds.length > 0) {
         await addStructures({
           permission_group_id: groupId,
-          government_structure_ids: selectedStructureIds,
+          structure_ids: selectedStructureIds,
         }).unwrap();
       }
       toast.success("Members added successfully");
@@ -110,7 +110,7 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col min-h-0">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="structures">Government Structures</TabsTrigger>
+            <TabsTrigger value="structures">Structures</TabsTrigger>
           </TabsList>
 
           <TabsContent value="users" className="flex-1 flex flex-col min-h-0 py-4">
@@ -171,14 +171,14 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
               ) : filteredStructures.length > 0 ? (
                 filteredStructures.map((structure) => (
                   <div
-                    key={structure.government_structure_id}
+                    key={structure.structure_id}
                     className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-gray-50 cursor-pointer"
-                    onClick={() => handleToggleStructure(structure.government_structure_id)}
+                    onClick={() => handleToggleStructure(structure.structure_id)}
                   >
                     <input
                       type="checkbox"
                       className="h-4 w-4 rounded border-gray-300 text-golden-dark focus:ring-golden-dark"
-                      checked={selectedStructureIds.includes(structure.government_structure_id)}
+                      checked={selectedStructureIds.includes(structure.structure_id)}
                       readOnly
                     />
                     <div className="flex flex-col">
