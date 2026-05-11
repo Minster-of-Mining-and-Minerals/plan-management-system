@@ -29,8 +29,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Land Authority Event Management System",
-  description: "Land Authority Event Management System",
+  title: "Postgress Express Node Next full stack template",
+  description: "Postgress Express Node Next full stack template",
   icons: {
     icon: [
       { url: "/favicon_io/favicon.ico" },

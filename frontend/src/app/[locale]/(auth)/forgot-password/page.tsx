@@ -136,7 +136,7 @@ export default function ForgotPasswordPage() {
                   <div className="bg-golden-light/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Mail className="h-8 w-8 text-golden-dark" />
                   </div>
-                  <h1 className="text-3xl font-bold text-golden-dark mb-2">Land Authority Event Management System</h1>
+                  <h1 className="text-3xl font-bold text-golden-dark mb-2">Postgress Express Node Next full stack template</h1>
                   <h2 className="text-xl font-semibold text-golden-dark mb-2">Forgot Password?</h2>
                   <p className="text-sm text-golden-dark/70">Enter your email and we'll send you an OTP to reset your password.</p>
                 </div>

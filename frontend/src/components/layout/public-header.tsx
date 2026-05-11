@@ -57,10 +57,10 @@ const PublicHeader = () => {
           />
           <div>
             <h1 className="text-base font-semibold text-golden-dark tracking-wide hidden sm:block">
-              የመሬት ባለስልጣን
+              ፖስትግሬስ፣ ኤክስፕሬስ፣ ኖድ እና ኔክስት የተጠቀመ ሙሉ የዌብ ልማት መነሻ አብነት።
             </h1>
             <h1 className="text-base font-semibold text-golden-dark tracking-wide -mt-[5px] hidden sm:block">
-              Land Authority
+              Postgress Express Node Next full stack template
             </h1>
           </div>
         </div>

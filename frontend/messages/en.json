@@ -1,17 +1,17 @@
 {
   "HomePage": {
-    "badge": "Official Event Management & Performance Evaluation Platform",
+    "badge": "Official Full Stack Template Platform",
     "heading": {
-      "line1": "Land Authority",
-      "line2": "Event Management System"
+      "line1": "Postgress Express Node Next",
+      "line2": "full stack template"
     },
-    "description": "A comprehensive digital platform designed for the Land Authority to manage events, monitor implementation progress, and evaluate performance outcomes. Enhancing efficiency, ensuring alignment with organizational goals, and fostering data-driven decision making.",
+    "description": "A comprehensive digital platform built as a Postgress Express Node Next full stack template. Enhancing efficiency, ensuring alignment with organizational goals, and fostering data-driven decision making.",
     "actions": {
       "evaluations": "Check Evaluations"
     }
   },
   "PublicHeader": {
-    "logoLine1": "Land Authority",
+    "logoLine1": "Postgress Express Node Next full stack template",
     "tabs": {
       "home": "Home",
       "evaluations": "Evaluations",
@@ -19,11 +19,6 @@
     },
     "login": "Login"
   },
-  "LocaleSwitcher": {
-    "label": "Language",
-    "locale": "{locale, select, en {English} am {Amharic} other {Unknown}}"
-  }
-}
   "LocaleSwitcher": {
     "label": "Language",
     "locale": "{locale, select, en {English} am {Amharic} other {Unknown}}"

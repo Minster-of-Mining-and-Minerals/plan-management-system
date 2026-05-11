@@ -128,7 +128,7 @@ app.use("/api/attachments", attachmentRoute);
 
 // ================== Root Endpoint ==================
 app.get("/", (req, res) => {
-  res.json({ message: "Welcome to Land Authority Event Management System API 🚀" });
+  res.json({ message: "Welcome to Postgress Express Node Next full stack template API 🚀" });
 });
 
 // ================== Error Handler ==================

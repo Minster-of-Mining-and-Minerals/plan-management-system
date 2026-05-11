@@ -104,7 +104,7 @@ export default function ChangePasswordPage() {
           <div className="w-full max-w-md">
             <div className="text-center mb-8">
               <h1 className="text-2xl font-bold text-golden-dark mb-4">
-                Land Authority Event Management System
+                Postgress Express Node Next full stack template
               </h1>
               <h2 className="text-xl font-bold text-golden-dark mb-2">
                 {isFirstLogin ? "Security Update" : "Change Password"}

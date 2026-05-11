@@ -66,17 +66,14 @@ export function AppSidebar() {
             <Link href="/dashboard" className="flex flex-col items-center">
               <Image
                 src="/logo-only.png"
-                alt="Land Authority Logo"
+                alt="Postgress Express Node Next full stack template Logo"
                 width={100}
                 height={100}
                 className="mx-auto mb-1 rounded-xl p-2"
               />
-              <div className="grid flex-1 text-center gap-1 text-sm leading-tight group-data-[collapsible=icon]:opacity-0">
-                <span className="truncate font-semibold text-golden-dark">
-                  Land Authority
-                </span>
-                <span className="truncate text-golden-dark">
-                  Event Management System
+              <div className="grid flex-1 text-center gap-1 text-sm leading-tight group-data-[collapsible=icon]:opacity-0 px-2">
+                <span className="font-semibold text-golden-dark text-xs whitespace-normal">
+                  Postgress Express Node Next full stack template
                 </span>
               </div>
             </Link>
