@@ -19,7 +19,6 @@ import {
     ChevronLeft,
     Users,
     Building2,
-    Plus,
     Trash2,
     Flag,
     Target,
