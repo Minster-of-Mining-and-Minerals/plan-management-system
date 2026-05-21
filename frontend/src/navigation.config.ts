@@ -5,7 +5,8 @@ import {
   Shield,
   Key,
   Building2,
-  ListTree
+  ListTree,
+  Palette,
 } from "lucide-react";
 
 export type NavItem = {
@@ -62,6 +63,12 @@ export const NAVIGATION: NavItem[] = [
         allPermissions: ["PERMISSIONS:READ"],
       },
     ],
+  },
+  {
+    title: "Branding",
+    url: "/branding",
+    icon: Palette,
+    allPermissions: ["BRANDING:READ"],
   },
 
 ];

@@ -64,7 +64,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
           <foreignObject x={-10} y={-10} width={20} height={20}>
             <button
               onClick={toggleNode}
-              className="w-5 h-5 rounded-full bg-[#073954] hover:bg-[#0a4d70] text-white font-semibold flex items-center justify-center transition-colors duration-200 cursor-pointer text-sm"
+              className="w-5 h-5 rounded-full bg-primary hover:bg-primary/90 text-white font-semibold flex items-center justify-center transition-colors duration-200 cursor-pointer text-sm"
             >
               {isCollapsed ? "+" : "−"}
             </button>
@@ -73,9 +73,9 @@ const CustomNode: React.FC<CustomNodeProps> = ({
       )}
 
       <foreignObject x={-150} y={-90} width={300} height={150}>
-        <div className="w-full h-full bg-white rounded-2xl border border-gray-200 shadow-lg hover:border-[#073954] hover:shadow-xl transition-all duration-200 cursor-pointer p-5 flex flex-col justify-between">
+        <div className="w-full h-full bg-white rounded-2xl border border-gray-200 shadow-lg hover:border-primary hover:shadow-xl transition-all duration-200 cursor-pointer p-5 flex flex-col justify-between">
           <div className="flex items-start justify-between mb-3">
-            <h3 className="text-[#073954] text-base font-semibold flex-1 pr-2 line-clamp-2">
+            <h3 className="text-primary text-base font-semibold flex-1 pr-2 line-clamp-2">
               {nodeDatum.name}
             </h3>
             <span
@@ -87,7 +87,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
           </div>
 
           {nodeDatum.attributes.parent_name && (
-            <div className="flex items-center gap-1.5 text-[11px] text-[#073954]/70 bg-blue-50 px-2 py-0.5 rounded-md w-fit mb-2">
+            <div className="flex items-center gap-1.5 text-[11px] text-primary/70 bg-blue-50 px-2 py-0.5 rounded-md w-fit mb-2">
               <GitForkIcon className="w-3 h-3 rotate-180" />
               <span>Parent: {nodeDatum.attributes.parent_name}</span>
             </div>
@@ -100,13 +100,13 @@ const CustomNode: React.FC<CustomNodeProps> = ({
           )}
 
           <div className="flex flex-row justify-center gap-3">
-            <button className="flex-1 bg-gray-100 hover:bg-gray-200 text-[#073954] font-semibold py-2 rounded-lg transition-colors duration-200 text-xs">
+            <button className="flex-1 bg-gray-100 hover:bg-gray-200 text-primary font-semibold py-2 rounded-lg transition-colors duration-200 text-xs">
               Details
             </button>
             <PermissionGuard requireAll={permissions}>
               <button
                 onClick={handleAddChild}
-                className="flex-1 bg-[#073954] hover:bg-[#0a4d70] text-white font-semibold py-2 rounded-lg transition-colors duration-200 text-xs"
+                className="flex-1 bg-primary hover:bg-primary/90 text-white font-semibold py-2 rounded-lg transition-colors duration-200 text-xs"
               >
                 Add Child
               </button>
@@ -192,8 +192,8 @@ const StructureHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
     return (
       <div className="flex items-center justify-center py-12 min-h-[400px]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#073954] mx-auto mb-4"></div>
-          <p className="text-[#073954] text-lg">Loading hierarchy tree...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-primary text-lg">Loading hierarchy tree...</p>
         </div>
       </div>
     );
@@ -204,7 +204,7 @@ const StructureHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
       <div className="w-full space-y-4">
         <div
           ref={containerRef}
-          className="w-full h-full min-h-[600px] bg-[#F9FBFC] rounded-lg border border-gray-200 overflow-hidden"
+          className="w-full h-full min-h-[600px] bg-auth-background rounded-lg border border-gray-200 overflow-hidden"
           style={{ position: "relative" }}
         >
           {/* Only show root selector if user is admin (no assigned gov body) and there are multiple roots */}
@@ -215,7 +215,7 @@ const StructureHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
                     Select Root Node
                 </Label>
                 <Select value={selectedRootId} onValueChange={setSelectedRootId}>
-                    <SelectTrigger className="w-full h-10 border border-gray-200 px-4 py-3 rounded-md focus:ring-2 focus:ring-[#073954]/20 transition-all duration-200 outline-none bg-white">
+                    <SelectTrigger className="w-full h-10 border border-gray-200 px-4 py-3 rounded-md focus:ring-2 focus:ring-primary/20 transition-all duration-200 outline-none bg-white">
                     <SelectValue placeholder="Select Root" />
                     </SelectTrigger>
                     <SelectContent>
@@ -230,7 +230,7 @@ const StructureHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
 
           <div className="absolute top-4 right-0 w-full p-4 z-10 flex items-center justify-end pointer-events-none">
             <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-sm p-3 border border-gray-100 pointer-events-auto text-[11px] text-gray-500 space-y-1">
-              <p className="font-bold text-[#073954] mb-1">Navigation:</p>
+              <p className="font-bold text-primary mb-1">Navigation:</p>
               <p>• Scroll to zoom</p>
               <p>• Drag to pan</p>
               <p>• Click nodes to toggle</p>

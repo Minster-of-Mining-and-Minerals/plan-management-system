@@ -20,6 +20,7 @@ import { useRouter } from "@/i18n/navigation";
 import { useSession } from "next-auth/react";
 import { Lock, ArrowLeftIcon, EyeIcon, EyeOffIcon, AlertCircle } from "lucide-react";
 import { performLogout } from "@/utils/logout";
+import { BrandingLogo, BrandingName } from "@/components/common/BrandingLogo";
 
 const passwordSchema = z.object({
   current_password: z.string().min(1, "Current password is required"),
@@ -66,8 +67,8 @@ export default function ChangePasswordPage() {
   const isFirstLogin = session?.user?.is_first_logged_in;
 
   return (
-    <div className="min-h-screen bg-[#F9FBFC] flex items-center justify-center px-4 py-12">
-      <div className="w-full relative max-w-6xl min-h-[80vh] shadow-2xl rounded-2xl border border-[#DCE7F1] overflow-hidden flex flex-col lg:flex-row bg-white">
+    <div className="min-h-screen bg-auth-background flex items-center justify-center px-4 py-12">
+      <div className="w-full relative max-w-6xl min-h-[80vh] shadow-2xl rounded-2xl border border-auth-panel overflow-hidden flex flex-col lg:flex-row bg-white">
 
         {/* Back/Logout Button */}
         {isFirstLogin ? (
@@ -80,21 +81,22 @@ export default function ChangePasswordPage() {
           </Button>
         ) : (
           <Button
-            onClick={() => router.push("/dashboard")}
+            onClick={() => router.push("/profile")}
             className="cursor-pointer shadow-none z-50 bg-transparent hover:bg-slate-100 p-2 top-4 left-4 absolute flex items-center gap-1"
           >
-            <ArrowLeftIcon className="w-5 h-5 text-golden-dark" />
-            <span className="text-sm text-golden-dark font-medium">Back</span>
+            <ArrowLeftIcon className="w-5 h-5 text-section-accent" />
+            <span className="text-sm text-section-accent font-medium">Back</span>
           </Button>
         )}
 
         {/* Left Section - Logo */}
-        <div className="w-full bg-[#F9FBFC] p-8 flex items-center justify-center border-b lg:border-b-0 lg:border-r border-[#DCE7F1]">
+        <div className="w-full bg-auth-background p-8 flex items-center justify-center border-b lg:border-b-0 lg:border-r border-auth-panel">
           <div className="text-center">
-            <img
-              src="/logo-mom.png"
-              alt="Organization Logo"
-              className="h-64 lg:h-96 mx-auto mb-6 p-2"
+            <BrandingLogo
+              variant="login"
+              width={384}
+              height={384}
+              className="h-64 lg:h-96 w-auto mx-auto mb-6 p-2 object-contain"
             />
           </div>
         </div>
@@ -103,13 +105,11 @@ export default function ChangePasswordPage() {
         <div className="w-full px-8 lg:px-16 py-12 flex items-center justify-center">
           <div className="w-full max-w-md">
             <div className="text-center mb-8">
-              <h1 className="text-2xl font-bold text-golden-dark mb-4">
-                Postgress Express Node Next full stack template
-              </h1>
-              <h2 className="text-xl font-bold text-golden-dark mb-2">
+              <BrandingName className="text-2xl font-bold text-section-accent mb-4 block" />
+              <h2 className="text-xl font-bold text-section-accent mb-2">
                 {isFirstLogin ? "Security Update" : "Change Password"}
               </h2>
-              <p className="text-sm text-golden-dark/70">
+              <p className="text-sm text-section-accent/70">
                 {isFirstLogin
                   ? "For security reasons, you must change your temporary password before proceeding."
                   : "Update your password to keep your account secure."}
@@ -132,14 +132,14 @@ export default function ChangePasswordPage() {
                   name="current_password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-golden-dark">Current Password</FormLabel>
+                      <FormLabel className="text-section-accent">Current Password</FormLabel>
                       <div className="relative">
                         <FormControl>
                           <Input
                             type={showPasswords ? "text" : "password"}
                             placeholder="••••••••"
                             {...field}
-                            className="w-full h-14 mt-1 px-3 py-2 border-golden-dark focus:ring-0 focus:outline-none focus:border-none pr-10"
+                            className="w-full h-14 mt-1 px-3 py-2 border-section-accent focus:ring-0 focus:outline-none focus:border-none pr-10"
                           />
                         </FormControl>
                         <button
@@ -147,7 +147,7 @@ export default function ChangePasswordPage() {
                           onClick={() => setShowPasswords(!showPasswords)}
                           className="absolute top-1/2 right-3 -translate-y-1/2"
                         >
-                          {showPasswords ? <EyeIcon className="h-5 w-5 text-golden-dark" /> : <EyeOffIcon className="h-5 w-5 text-golden-dark" />}
+                          {showPasswords ? <EyeIcon className="h-5 w-5 text-section-accent" /> : <EyeOffIcon className="h-5 w-5 text-section-accent" />}
                         </button>
                       </div>
                       <FormMessage />
@@ -160,14 +160,14 @@ export default function ChangePasswordPage() {
                   name="new_password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-golden-dark">New Password</FormLabel>
+                      <FormLabel className="text-section-accent">New Password</FormLabel>
                       <div className="relative">
                         <FormControl>
                           <Input
                             type={showPasswords ? "text" : "password"}
                             placeholder="••••••••"
                             {...field}
-                            className="w-full h-14 mt-1 px-3 py-2 border-golden-dark focus:ring-0 focus:outline-none focus:border-none pr-10"
+                            className="w-full h-14 mt-1 px-3 py-2 border-section-accent focus:ring-0 focus:outline-none focus:border-none pr-10"
                           />
                         </FormControl>
                       </div>
@@ -181,14 +181,14 @@ export default function ChangePasswordPage() {
                   name="confirm_password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-golden-dark">Confirm New Password</FormLabel>
+                      <FormLabel className="text-section-accent">Confirm New Password</FormLabel>
                       <div className="relative">
                         <FormControl>
                           <Input
                             type={showPasswords ? "text" : "password"}
                             placeholder="••••••••"
                             {...field}
-                            className="w-full h-14 mt-1 px-3 py-2 border-golden-dark focus:ring-0 focus:outline-none focus:border-none pr-10"
+                            className="w-full h-14 mt-1 px-3 py-2 border-section-accent focus:ring-0 focus:outline-none focus:border-none pr-10"
                           />
                         </FormControl>
                       </div>
@@ -199,7 +199,7 @@ export default function ChangePasswordPage() {
 
                 <Button
                   type="submit"
-                  className="w-full bg-golden-dark hover:bg-golden-dark/90 h-14 text-xl text-white font-semibold rounded-md shadow-md transition-all duration-200 mt-6"
+                  className="w-full bg-section-accent hover:bg-section-accent/90 h-14 text-xl text-white font-semibold rounded-md shadow-md transition-all duration-200 mt-6"
                   disabled={isLoading}
                 >
                   {isLoading ? "Processing..." : "Update & Log Out"}

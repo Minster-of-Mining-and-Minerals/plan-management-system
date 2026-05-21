@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import Image from "next/image";
+import { BrandingLogo, BrandingName } from "@/components/common/BrandingLogo";
 import { ChevronRight } from "lucide-react";
 
 import { NAVIGATION } from "@/navigation.config";
@@ -63,18 +63,15 @@ export function AppSidebar() {
       <SidebarHeader className="py-10">
         <SidebarMenu>
           <SidebarMenuItem>
-            <Link href="/dashboard" className="flex flex-col items-center">
-              <Image
-                src="/logo-only.png"
-                alt="Postgress Express Node Next full stack template Logo"
+            <Link href="/profile" className="flex flex-col items-center">
+              <BrandingLogo
+                variant="compact"
                 width={100}
                 height={100}
                 className="mx-auto mb-1 rounded-xl p-2"
               />
               <div className="grid flex-1 text-center gap-1 text-sm leading-tight group-data-[collapsible=icon]:opacity-0 px-2">
-                <span className="font-semibold text-golden-dark text-xs whitespace-normal">
-                  Postgress Express Node Next full stack template
-                </span>
+                <BrandingName className="font-semibold text-section-accent text-xs whitespace-normal" />
               </div>
             </Link>
           </SidebarMenuItem>
@@ -105,11 +102,11 @@ export function AppSidebar() {
                           <SidebarMenuButton
                             tooltip={item.title}
                             isActive={pathname.startsWith(item.url)}
-                            className="text-primary hover:bg-golden-metallic hover:data-[active=false]:bg-golden-metallic
-                              hover:data-[active=true]:bg-golden-dark hover:data-[active=true]:text-primary-foreground
+                            className="text-primary hover:bg-sidebar-hover hover:data-[active=false]:bg-sidebar-hover
+                              hover:data-[active=true]:bg-section-accent hover:data-[active=true]:text-primary-foreground
                               px-5 py-5 group-data-[collapsible=icon]:px-2
                               group-data-[collapsible=icon]:justify-center
-                              data-[active=true]:bg-golden-dark data-[active=true]:text-primary-foreground"
+                              data-[active=true]:bg-section-accent data-[active=true]:text-primary-foreground"
                           >
                             <Link
                               href={item.url}
@@ -136,12 +133,12 @@ export function AppSidebar() {
                                   <SidebarMenuSubButton
                                     asChild
                                     isActive={pathname === child.url}
-                                    className="text-primary hover:bg-golden-metallic
-                                      hover:data-[active=false]:bg-golden-metallic
-                                      hover:data-[active=true]:bg-golden-metallic
+                                    className="text-primary hover:bg-sidebar-hover
+                                      hover:data-[active=false]:bg-sidebar-hover
+                                      hover:data-[active=true]:bg-sidebar-hover
                                       hover:data-[active=true]:text-primary-foreground
                                       group-data-[collapsible=icon]:justify-center
-                                      data-[active=true]:bg-golden-metallic
+                                      data-[active=true]:bg-sidebar-hover
                                       data-[active=true]:text-primary"
                                   >
                                     <Link href={child.url} className="flex items-center gap-4">
@@ -170,10 +167,10 @@ export function AppSidebar() {
                       asChild
                       isActive={pathname === item.url}
                       tooltip={item.title}
-                      className="text-primary hover:bg-golden-metallic px-5 py-5
+                      className="text-primary hover:bg-sidebar-hover px-5 py-5
                         group-data-[collapsible=icon]:px-2
                         group-data-[collapsible=icon]:justify-center
-                        data-[active=true]:bg-golden-dark
+                        data-[active=true]:bg-section-accent
                         data-[active=true]:text-primary-foreground"
                     >
                       <Link

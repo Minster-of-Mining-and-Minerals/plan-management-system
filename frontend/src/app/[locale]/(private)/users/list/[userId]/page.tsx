@@ -117,17 +117,17 @@ const UserViewPage = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F9FBFC]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#094C81]"></div>
+      <div className="min-h-screen flex items-center justify-center bg-auth-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   if (isError || !user) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#F9FBFC] gap-4">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-auth-background gap-4">
         <XCircle className="h-16 w-16 text-red-500" />
-        <h2 className="text-xl font-semibold text-[#094C81]">User Not Found</h2>
+        <h2 className="text-xl font-semibold text-primary">User Not Found</h2>
         <Button variant="outline" onClick={() => router.push("/users/list")}>
           Back to Users List
         </Button>
@@ -148,7 +148,7 @@ const UserViewPage = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#F9FBFC] p-6 space-y-6">
+    <div className="min-h-screen w-full bg-auth-background p-6 space-y-6">
       {/* Header with Breadcrumbs and Actions */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <DetailHeader
@@ -184,7 +184,7 @@ const UserViewPage = () => {
         {/* Left Column: Profile Card */}
         <div className="lg:col-span-1 space-y-6">
           <Card className="overflow-hidden">
-            <CardHeader className="bg-[#094C81] text-white text-center pb-8 pt-8">
+            <CardHeader className="bg-primary text-white text-center pb-8 pt-8">
               <div className="flex justify-center mb-4">
                 <div className="relative w-24 h-24 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border-2 border-white/50">
                   <User2Icon className="h-12 w-12 text-white" />
@@ -291,7 +291,7 @@ const UserViewPage = () => {
           {/* Structure Details */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2 text-[#094C81]">
+              <CardTitle className="text-lg flex items-center gap-2 text-primary">
                 <Building2 className="h-5 w-5" /> Structure
               </CardTitle>
             </CardHeader>
@@ -326,7 +326,7 @@ const UserViewPage = () => {
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
-                    <Building2 className="h-4 w-4 text-[#094C81]" />
+                    <Building2 className="h-4 w-4 text-primary" />
                     <span className="text-sm font-medium text-gray-700">
                       {user.structure?.name || "No structure assigned"}
                     </span>
@@ -342,7 +342,7 @@ const UserViewPage = () => {
           {/* Roles */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2 text-[#094C81]">
+              <CardTitle className="text-lg flex items-center gap-2 text-primary">
                 <Shield className="h-5 w-5" /> Assigned Roles
               </CardTitle>
             </CardHeader>
@@ -355,7 +355,7 @@ const UserViewPage = () => {
                         <input
                           type="checkbox"
                           id={`role-${role.role_id}`}
-                          className="h-4 w-4 rounded border-gray-300 text-[#094C81] focus:ring-[#094C81]"
+                          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                           checked={form.watch("role_ids").includes(role.role_id)}
                           onChange={(e) => {
                             const currentRoles = form.getValues("role_ids");
@@ -395,7 +395,7 @@ const UserViewPage = () => {
           {/* Permission Groups */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2 text-[#094C81]">
+              <CardTitle className="text-lg flex items-center gap-2 text-primary">
                 <Users className="h-5 w-5" /> Permission Groups
               </CardTitle>
             </CardHeader>
@@ -404,7 +404,7 @@ const UserViewPage = () => {
                 {user.permissionGroups && user.permissionGroups.length > 0 ? (
                   user.permissionGroups.map((group) => (
                     <div key={group.permission_group_id} className="p-4 bg-gray-50 rounded-xl border flex flex-col gap-1">
-                      <span className="font-bold text-[#094C81]">{group.name}</span>
+                      <span className="font-bold text-primary">{group.name}</span>
                       <span className="text-xs text-gray-500">{group.description || "No description provided"}</span>
                     </div>
                   ))
@@ -418,7 +418,7 @@ const UserViewPage = () => {
           {/* Activity Info */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2 text-[#094C81]">
+              <CardTitle className="text-lg flex items-center gap-2 text-primary">
                 <Calendar className="h-5 w-5" /> System Activity
               </CardTitle>
             </CardHeader>

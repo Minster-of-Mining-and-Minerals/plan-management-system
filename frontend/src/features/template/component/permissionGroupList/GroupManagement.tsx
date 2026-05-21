@@ -52,7 +52,7 @@ function GroupManagement({ groupId }: GroupManagementProps) {
     return (
         <div className="space-y-4 mt-8 pt-8 border-t w-full">
             <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-golden-dark">Group Members</h3>
+                <h3 className="text-xl font-bold text-section-accent">Group Members</h3>
             </div>
 
             {activeTab === "users" && (

@@ -85,7 +85,7 @@ export function DataTable<TData, TValue>({
 					{table.getHeaderGroups().map((headerGroup) => (
 						<TableRow
 							key={headerGroup.id}
-							className="bg-golden-dark hover:bg-golden-darkHover rounded-md overflow-clip"
+							className="bg-section-accent hover:bg-section-accent-hover rounded-md overflow-clip"
 						>
 							{headerGroup.headers.map((header) => (
 								<TableHead
@@ -112,7 +112,7 @@ export function DataTable<TData, TValue>({
 								data-state={row.getIsSelected() ? "selected" : undefined}
 								className={`
                                     bg-white shadow-sm transition-shadow duration-200
-                                    even:bg-[#F7F9FF]
+                                    even:bg-table-stripe
                                     ${i === 0
 										? "first:rounded-t-lg"
 										: "rounded-lg"

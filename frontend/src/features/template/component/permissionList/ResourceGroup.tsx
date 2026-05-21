@@ -38,7 +38,7 @@ export const ResourceGroup: React.FC<ResourceGroupProps> = ({
       {/* Resource Header */}
       <div
         onClick={() => onToggleExpand(group.resource)}
-        className="flex transition-all hover:bg-[#094C81]/10 duration-200 cursor-pointer items-center justify-between p-4 bg-gray-50 rounded-t-lg"
+        className="flex transition-all hover:bg-primary/10 duration-200 cursor-pointer items-center justify-between p-4 bg-gray-50 rounded-t-lg"
       >
         <div className="flex items-center space-x-3 flex-1">
           <button
@@ -47,26 +47,26 @@ export const ResourceGroup: React.FC<ResourceGroupProps> = ({
             className="p-1 hover:bg-gray-200 rounded"
           >
             {group.isExpanded ? (
-              <ChevronDown className="h-5 w-5 text-[#094C81] hover:text-[#073954] cursor-pointer" />
+              <ChevronDown className="h-5 w-5 text-primary hover:text-primary cursor-pointer" />
             ) : (
-              <ChevronRight className="h-5 w-5 text-[#094C81] hover:text-[#073954] cursor-pointer" />
+              <ChevronRight className="h-5 w-5 text-primary hover:text-primary cursor-pointer" />
             )}
           </button>
-          <div className="p-2 text-[#094C81] bg-white rounded-lg shadow-sm">
+          <div className="p-2 text-primary bg-white rounded-lg shadow-sm">
             {group.icon}
           </div>
           <div>
-            <h3 className="font-semibold text-[#094C81] capitalize">
+            <h3 className="font-semibold text-primary capitalize">
               {group.resource.replace(/_/g, " ")}
             </h3>
-            <p className="text-sm text-[#094C81]">
+            <p className="text-sm text-primary">
               {group.totalCount} permissions • {group.activeCount} active
             </p>
           </div>
         </div>
         <div className="flex items-center space-x-3">
           <span
-            className={`px-2 py-1 text-xs font-medium border rounded-full text-[#094C81] ${getSelectionStatusClass()}`}
+            className={`px-2 py-1 text-xs font-medium border rounded-full text-primary ${getSelectionStatusClass()}`}
           >
             {getSelectionStatusText()}
           </span>

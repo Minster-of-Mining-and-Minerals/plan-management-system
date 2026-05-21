@@ -30,14 +30,14 @@ export const BasicInfo: React.FC<BasicInfoProps> = ({
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
       <div className="p-6 border-b">
-        <h3 className="text-xl font-bold text-[#094C81]">Basic Information</h3>
+        <h3 className="text-xl font-bold text-primary">Basic Information</h3>
       </div>
       <div className="p-6 space-y-4">
         <div className="grid grid-cols-3 gap-4">
           <div className="space-y-2 flex col-span-1 flex-col gap-2">
             <Label
               htmlFor="name"
-              className="text-sm font-medium text-[#094C81]"
+              className="text-sm font-medium text-primary"
             >
               Role Name <span className="text-red-500">*</span>
             </Label>
@@ -47,7 +47,7 @@ export const BasicInfo: React.FC<BasicInfoProps> = ({
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="w-full h-11 border border-gray-300 px-4 py-3 rounded-md focus:ring-2 focus:ring-[#094C81] focus:border-transparent transition-all duration-200 outline-none"
+              className="w-full h-11 border border-gray-300 px-4 py-3 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 outline-none"
             />
           </div>
 
@@ -55,7 +55,7 @@ export const BasicInfo: React.FC<BasicInfoProps> = ({
           {/* <div className="space-y-2 flex col-span-1 flex-col gap-2">
             <Label
               htmlFor="role_type"
-              className="text-sm font-medium text-[#094C81]"
+              className="text-sm font-medium text-primary"
             >
               Role Type <span className="text-red-500">*</span>
             </Label>
@@ -63,7 +63,7 @@ export const BasicInfo: React.FC<BasicInfoProps> = ({
               value={roleType}
               onValueChange={(value) => setRoleType(value)}
             >
-              <SelectTrigger className="h-11 border border-gray-300 px-4 py-3 rounded-md focus:ring-2 focus:ring-[#094C81] focus:border-transparent transition-all duration-200 outline-none">
+              <SelectTrigger className="h-11 border border-gray-300 px-4 py-3 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 outline-none">
                 <SelectValue placeholder="Select role type" />
               </SelectTrigger>
               <SelectContent>
@@ -76,7 +76,7 @@ export const BasicInfo: React.FC<BasicInfoProps> = ({
           <div className="space-y-2 flex col-span-1 flex-col gap-2">
             <Label
               htmlFor="description"
-              className="text-sm font-medium text-[#094C81]"
+              className="text-sm font-medium text-primary"
             >
               Description <span className="text-red-500">*</span>
             </Label>
@@ -86,7 +86,7 @@ export const BasicInfo: React.FC<BasicInfoProps> = ({
               rows={4}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full min-h-[44px] border border-gray-300 px-4 py-3 rounded-md focus:ring-2 focus:ring-[#094C81] focus:border-transparent transition-all duration-200 outline-none resize-none"
+              className="w-full min-h-[44px] border border-gray-300 px-4 py-3 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 outline-none resize-none"
             />
           </div>
         </div>

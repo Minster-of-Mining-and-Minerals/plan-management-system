@@ -5,16 +5,17 @@ import {
   hasPermission,
   normalizePermissions,
 } from "@/lib/permissions";
-import { useGetPermissionsQuery } from "@/redux/api/permissionApi";
+import { useGetMyPermissionsQuery } from "@/redux/api/authApi";
 
 export function usePermissions() {
   const { status } = useSession();
-  const { data: generatedPermissions = [], isLoading: isPermissionsLoading } =
-    useGetPermissionsQuery(undefined, {
-      skip: status !== "authenticated",
-    });
+  const { data: generatedPermissions, isLoading: isPermissionsLoading } =
+  useGetMyPermissionsQuery(undefined, {
+    skip: status !== "authenticated",
+  });
 
-  const userPermissions = normalizePermissions(generatedPermissions);
+  // const userPermissions = normalizePermissions(generatedPermissions);
+  const userPermissions = generatedPermissions?.data?.permissions || [];
 
   const checkPermission = (required: {
     anyPermissions?: PermissionKey[];

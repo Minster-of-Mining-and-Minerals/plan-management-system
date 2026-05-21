@@ -2,7 +2,8 @@
 
 import React from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { BrandingLogo, BrandingName } from "@/components/common/BrandingLogo";
+import { useLocale } from "next-intl";
 import { usePathname } from "next/navigation";
 import { FileText, ClipboardCheck, BarChart3, Home } from "lucide-react";
 // import LocaleSwitcher from "@/components/common/LanguageSwitcher/LocaleSwitcher";
@@ -12,6 +13,7 @@ import LocaleSwitcher from "../LanguageSwitcher/LocaleSwitcher";
 const PublicHeader = () => {
   const pathname = usePathname(); // e.g., "/en/complaint"
   const t = useTranslations("PublicHeader");
+  const locale = useLocale() as "en" | "am";
 
   // Helper to remove locale prefix from pathname
   const normalizePathname = (path: string) => {
@@ -48,20 +50,12 @@ const PublicHeader = () => {
       <div className="mx-auto px-6 lg:px-8 py-4 flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center gap-3">
-          <Image
-            src="/logo-only.png"
-            alt="Logo"
-            width={40}
-            height={40}
-            className="object-contain"
-          />
-          <div>
-            <h1 className="text-base font-semibold text-golden-dark tracking-wide hidden sm:block">
-              ፖስትግሬስ፣ ኤክስፕሬስ፣ ኖድ እና ኔክስት የተጠቀመ ሙሉ የዌብ ልማት መነሻ አብነት።
-            </h1>
-            <h1 className="text-base font-semibold text-golden-dark tracking-wide -mt-[5px] hidden sm:block">
-              Postgress Express Node Next full stack template
-            </h1>
+          <BrandingLogo variant="compact" width={40} height={40} className="object-contain" />
+          <div className="hidden sm:block">
+            <BrandingName
+              locale={locale}
+              className="text-base font-semibold text-section-accent tracking-wide block"
+            />
           </div>
         </div>
 
@@ -82,8 +76,8 @@ const PublicHeader = () => {
                   href={tab.href}
                   className={`relative flex items-center gap-2 px-3 py-1 rounded-md text-sm font-semibold transition-all duration-200
                     ${isActive
-                      ? "text-golden-dark rounded-b-none border-b-0"
-                      : "text-gray-500 hover:text-golden-dark"
+                      ? "text-section-accent rounded-b-none border-b-0"
+                      : "text-gray-500 hover:text-section-accent"
                     }
                   `}
                 >
@@ -92,7 +86,7 @@ const PublicHeader = () => {
 
                   {/* Active underline */}
                   <span
-                    className={`absolute -bottom-[1px] left-0 h-[2px] w-full bg-golden-dark transition-transform duration-300
+                    className={`absolute -bottom-[1px] left-0 h-[2px] w-full bg-section-accent transition-transform duration-300
                       ${isActive ? "scale-x-100" : "scale-x-0"}
                     `}
                   />
@@ -105,7 +99,7 @@ const PublicHeader = () => {
           <Link
             href="/login"
             className="px-6 py-2.5 rounded-lg text-sm font-semibold text-white 
-              bg-golden-dark hover:bg-golden-darkHover 
+              bg-section-accent hover:bg-section-accent-hover 
               focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary 
               transition-all duration-200 shadow-sm"
           >

@@ -11,6 +11,7 @@ import { ArrowLeftIcon, EyeIcon, EyeOffIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { signIn } from "@/auth";
 import { login } from "@/actions/user";
+import { BrandingLogo, BrandingName } from "@/components/common/BrandingLogo";
 
 export default function ExternalLogin() {
   const [showPassword, setShowPassword] = useState(false);
@@ -19,12 +20,12 @@ export default function ExternalLogin() {
 
   const { data: session, status, update } = useSession();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  const callbackUrl = searchParams.get("callbackUrl") || "/profile";
 
   useEffect(() => {
     if (status === "authenticated") {
       // Avoid redirecting to login or empty path
-      const target = (callbackUrl === "/login" || !callbackUrl) ? "/dashboard" : callbackUrl;
+      const target = (callbackUrl === "/login" || !callbackUrl) ? "/profile" : callbackUrl;
       router.replace(target as any);
     }
   }, [status, callbackUrl, router]);
@@ -50,32 +51,33 @@ export default function ExternalLogin() {
       if (isFirstLogin) {
         router.replace("/change-password");
       } else {
-        const target = (callbackUrl === "/login" || !callbackUrl) ? "/dashboard" : callbackUrl;
+        const target = (callbackUrl === "/login" || !callbackUrl) ? "/profile" : callbackUrl;
         router.replace(target as any);
       }
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#F9FBFC]  flex items-center justify-center px-4">
-      <div className="w-full relative max-w-6xl min-h-[80vh] shadow-2xl rounded-2xl border border-[#DCE7F1] overflow-hidden flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-auth-background  flex items-center justify-center px-4">
+      <div className="w-full relative max-w-6xl min-h-[80vh] shadow-2xl rounded-2xl border border-auth-panel overflow-hidden flex flex-col lg:flex-row">
 
         {/* Back Button */}
         <Button
           onClick={() => router.push("/")}
           className="cursor-pointer shadow-none z-50 bg-transparent hover:bg-slate-100 p-2 top-4 left-4 absolute flex items-center gap-1"
         >
-          <ArrowLeftIcon className="w-5 h-5 text-[#0C4A6E]" />
-          <span className="text-sm text-[#0C4A6E] font-medium">Back</span>
+          <ArrowLeftIcon className="w-5 h-5 text-primary" />
+          <span className="text-sm text-primary font-medium">Back</span>
         </Button>
 
         {/* Left Section */}
         <div className="w-full bg-cover bg-center p-8 flex items-center justify-center">
           <div className="backdrop-blur-md p-6 rounded-xl text-center">
-            <img
-              src="/logo-mom.png"
-              alt="Organization Logo"
-              className="h-72 mx-auto mb-3 rounded-xl p-2"
+            <BrandingLogo
+              variant="login"
+              width={288}
+              height={288}
+              className="h-72 w-auto mx-auto mb-3 rounded-xl p-2 object-contain"
             />
           </div>
         </div>
@@ -83,9 +85,7 @@ export default function ExternalLogin() {
         {/* Right Section */}
         <div className="w-full px-16 py-8 flex items-center justify-center">
           <div className="w-full max-w-md">
-            <h1 className="text-3xl font-semibold text-center text-[#0C4A6E] mb-6">
-              Postgress Express Node Next full stack template
-            </h1>
+            <BrandingName className="text-3xl font-semibold text-center text-primary mb-6 block" />
 
             {authError && (
               <div className="rounded-md w-full text-center bg-red-50 border border-red-200 px-3 py-2 mb-4">
@@ -97,7 +97,7 @@ export default function ExternalLogin() {
 
               {/* Email */}
               <div>
-                <Label className="text-[#0C4A6E]">Email</Label>
+                <Label className="text-primary">Email</Label>
                 <Input
                   placeholder="example.xx@gov.et"
                   value={formData.email}
@@ -110,7 +110,7 @@ export default function ExternalLogin() {
 
               {/* Password */}
               <div>
-                <Label className="text-[#0C4A6E]">Password</Label>
+                <Label className="text-primary">Password</Label>
                 <div className="relative mt-1">
                   <Input
                     type={showPassword ? "text" : "password"}
@@ -138,7 +138,7 @@ export default function ExternalLogin() {
 
               {/* Forgot Password */}
               <div className="w-full text-right">
-                <Link href="/forgot-password" className="text-sm text-[#0C4A6E] hover:underline">
+                <Link href="/forgot-password" className="text-sm text-primary hover:underline">
                   Forgot Password?
                 </Link>
               </div>
@@ -146,7 +146,7 @@ export default function ExternalLogin() {
               {/* Submit */}
               <button
                 type="submit"
-                className="w-full bg-[#073954] h-14 hover:bg-[#073954]/90 text-xl text-white py-2 rounded-md shadow-md"
+                className="w-full bg-primary h-14 hover:bg-primary/90 text-xl text-white py-2 rounded-md shadow-md"
               >
                 Log In
               </button>

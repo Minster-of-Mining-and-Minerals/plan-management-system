@@ -23,6 +23,11 @@ export interface PermissionGroup {
     permissions?: Permission[];
     users?: User[];
     structures?: Structure[];
+
+    /** Percentage of all system permissions assigned to this group (0–100). */
+    strength?: number;
+    permission_count?: number;
+    total_permissions?: number;
 }
 
 /** ---------------------------

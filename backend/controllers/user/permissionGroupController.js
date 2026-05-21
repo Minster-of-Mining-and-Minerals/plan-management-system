@@ -11,6 +11,29 @@ const {
 } = require("../../models");
 
 const { v4: uuidv4 } = require("uuid");
+const { enrichPermissionGroupWithStrength } = require("../../utils/roleStrength");
+
+const permissionInclude = {
+    model: Permission,
+    as: "permissions",
+    where: { is_active: true },
+    required: false,
+    attributes: ["permission_id", "resource", "action"],
+};
+
+async function getTotalActivePermissions() {
+    return Permission.count({ where: { is_active: true } });
+}
+
+async function fetchGroupWithRelations(id) {
+    return PermissionGroup.findByPk(id, {
+        include: [
+            permissionInclude,
+            { model: User, as: "users" },
+            { model: Structure, as: "structures" },
+        ],
+    });
+}
 
 /**
  * =================== CREATE ===================
@@ -38,9 +61,12 @@ const createPermissionGroup = async (req, res) => {
 
         await t.commit();
 
+        const totalPermissions = await getTotalActivePermissions();
+        const createdGroup = await fetchGroupWithRelations(group.permission_group_id);
+
         return res.status(201).json({
             message: "Permission group created",
-            data: group,
+            data: enrichPermissionGroupWithStrength(createdGroup, totalPermissions),
         });
     } catch (error) {
         if (!t.finished) await t.rollback();
@@ -53,15 +79,22 @@ const createPermissionGroup = async (req, res) => {
  */
 const getPermissionGroups = async (req, res) => {
     try {
+        const totalPermissions = await getTotalActivePermissions();
+
         const groups = await PermissionGroup.findAll({
             include: [
-                { model: Permission, as: "permissions" },
+                permissionInclude,
                 { model: User, as: "users" },
                 { model: Structure, as: "structures" },
             ],
+            order: [["created_at", "DESC"]],
         });
 
-        return res.json({ data: groups });
+        const data = groups.map((group) =>
+            enrichPermissionGroupWithStrength(group, totalPermissions)
+        );
+
+        return res.json({ data });
     } catch (error) {
         return res.status(500).json({ error: error.message });
     }
@@ -73,19 +106,17 @@ const getPermissionGroups = async (req, res) => {
 const getPermissionGroupById = async (req, res) => {
     try {
         const { id } = req.params;
-        const group = await PermissionGroup.findByPk(id, {
-            include: [
-                { model: Permission, as: "permissions" },
-                { model: User, as: "users" },
-                { model: Structure, as: "structures" },
-            ],
-        });
+        const group = await fetchGroupWithRelations(id);
 
         if (!group) {
             return res.status(404).json({ message: "Not found" });
         }
 
-        return res.json({ data: group });
+        const totalPermissions = await getTotalActivePermissions();
+
+        return res.json({
+            data: enrichPermissionGroupWithStrength(group, totalPermissions),
+        });
     } catch (error) {
         return res.status(500).json({ error: error.message });
     }
@@ -133,7 +164,13 @@ const updatePermissionGroup = async (req, res) => {
 
         await t.commit();
 
-        return res.json({ message: "Updated", data: group });
+        const totalPermissions = await getTotalActivePermissions();
+        const updatedGroup = await fetchGroupWithRelations(id);
+
+        return res.json({
+            message: "Updated",
+            data: enrichPermissionGroupWithStrength(updatedGroup, totalPermissions),
+        });
     } catch (error) {
         if (!t.finished) await t.rollback();
         return res.status(500).json({ error: error.message });

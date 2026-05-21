@@ -8,10 +8,10 @@ import { useAuth } from "@/hooks/use-auth";
 
 interface HeaderProps {
   title?: string;
+  showSidebar?: boolean;
 }
 
-
-export function Header({ title }: HeaderProps) {
+export function Header({ title, showSidebar = true }: HeaderProps) {
   const { user } = useAuth();
   const notificationCount = 3; // Replace with actual notification count
 
@@ -23,7 +23,7 @@ export function Header({ title }: HeaderProps) {
 
   return (
     <header className="flex z-30 sticky shadow-md top-2 border h-16 shrink-0 items-center gap-2 px-4 rounded-xl bg-sidebar text-sidebar-foreground m-2 mb-0">
-      <SidebarTrigger className="-ml-1" />
+      {showSidebar && <SidebarTrigger className="-ml-1" />}
       {title && <h1 className="text-lg font-semibold">{title}</h1>}
       <div className="ml-auto flex items-center gap-2">
         {/* Notification Button */}

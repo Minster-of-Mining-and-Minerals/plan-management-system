@@ -72,7 +72,7 @@ export const TableLayout: React.FC<PageLayoutProps> = ({
           {title && description && (
             <div>
               {title && (
-                <h1 className="text-xl font-semibold text-[#073954]">
+                <h1 className="text-xl font-semibold text-primary">
                   {title}
                 </h1>
               )}

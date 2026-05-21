@@ -13,6 +13,7 @@ import NextTopLoader from "nextjs-toploader";
 import { BreadcrumbProvider } from "@/providers/BreadcrumbProvider";
 import { SessionProvider } from "next-auth/react";
 import AuthInitializer from "@/providers/AuthInitializer";
+import { BrandingProvider } from "@/providers/BrandingProvider";
 
 type Props = {
   children: React.ReactNode;
@@ -62,7 +63,9 @@ export default async function LocaleLayout({ children, params }: Props) {
           <ReduxProvider>
             <NextIntlClientProvider>
               <BreadcrumbProvider>
-                <AuthInitializer>{children}</AuthInitializer>
+                <AuthInitializer>
+                  <BrandingProvider>{children}</BrandingProvider>
+                </AuthInitializer>
               </BreadcrumbProvider>
             </NextIntlClientProvider>
           </ReduxProvider>

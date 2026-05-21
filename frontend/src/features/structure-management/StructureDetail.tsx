@@ -72,15 +72,15 @@ export default function StructureDetail({ id }: StructureDetailProps) {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-lg border shadow-sm">
                 <div className="flex items-center space-x-4">
-                    <div className="p-3 bg-golden-soft/20 rounded-xl">
-                        <Building className="h-8 w-8 text-golden-dark" />
+                    <div className="p-3 bg-header-surface/20 rounded-xl">
+                        <Building className="h-8 w-8 text-section-accent" />
                     </div>
                     <div className="space-y-1">
                         {/* Breadcrumb */}
                         <nav className="flex items-center space-x-1 text-sm text-gray-400">
                             <Link 
                                 href="/structures" 
-                                className="hover:text-golden-dark transition-colors"
+                                className="hover:text-section-accent transition-colors"
                             >
                                 Structure Hierarchy
                             </Link>
@@ -89,7 +89,7 @@ export default function StructureDetail({ id }: StructureDetailProps) {
                                     <span className="text-gray-300">/</span>
                                     <Link 
                                         href={`/structures/${structure.parent_id}`}
-                                        className="hover:text-golden-dark transition-colors"
+                                        className="hover:text-section-accent transition-colors"
                                     >
                                         {structure.parent.name}
                                     </Link>

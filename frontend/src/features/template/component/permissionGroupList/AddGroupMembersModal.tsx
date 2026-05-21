@@ -104,7 +104,7 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl bg-white max-h-[80vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="text-golden-dark text-xl font-bold">Add Members to Group</DialogTitle>
+          <DialogTitle className="text-section-accent text-xl font-bold">Add Members to Group</DialogTitle>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col min-h-0">
@@ -137,7 +137,7 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
                   >
                     <input
                       type="checkbox"
-                      className="h-4 w-4 rounded border-gray-300 text-golden-dark focus:ring-golden-dark"
+                      className="h-4 w-4 rounded border-gray-300 text-section-accent focus:ring-section-accent"
                       checked={selectedUserIds.includes(user.user_id)}
                       readOnly
                     />
@@ -177,7 +177,7 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
                   >
                     <input
                       type="checkbox"
-                      className="h-4 w-4 rounded border-gray-300 text-golden-dark focus:ring-golden-dark"
+                      className="h-4 w-4 rounded border-gray-300 text-section-accent focus:ring-section-accent"
                       checked={selectedStructureIds.includes(structure.structure_id)}
                       readOnly
                     />

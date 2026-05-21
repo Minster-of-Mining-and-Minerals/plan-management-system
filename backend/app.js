@@ -14,7 +14,7 @@ const { swaggerUi, swaggerSpec } = require("./swagger");
 
 // User Management Routes
 const userRoute = require("./routers/user/userRoutes");
-const roleRoute = require("./routers/user/roleRoutes");
+const roleRoute = require("./routers/user/roleRoutes"); 
 const userRoleRoute = require("./routers/user/userRoleRoutes");
 const authRoute = require("./routers/user/authRoutes");
 const permissionRoute = require("./routers/user/permissionRoutes");
@@ -24,6 +24,9 @@ const forgotPasswordRoutes = require("./routers/user/forgotPasswordRoutes");
 
 // Structure Routes
 const structureRoutes = require("./routers/structure/structureRoutes");
+
+// System Branding Routes
+const brandingRoutes = require("./routers/system/brandingRoutes");
 
 
 
@@ -120,6 +123,9 @@ app.use("/api/permission-groups", permissionGroupRoute);
 
 // Structure Routes
 app.use("/api/structures", structureRoutes);
+
+// Branding Routes
+app.use("/api/branding", brandingRoutes);
 
 
 

@@ -40,22 +40,26 @@
     --sidebar-background: 0 0% 100%;
     /* White */
     --sidebar-foreground: 201 85% 18%;
-    /* golden colors */
-    --golden-dark: 45, 80%, 40%;
-    --golden-metallic: 43, 85%, 55%, 10%;
-    --golden-soft: 42, 90%, 60%;
-    --golden-classic: 45, 100%, 50%;
-    --golden-dark-hover: 45, 80%, 40%, 90%;
-    --golden-dark-light: 45, 80%, 40%, 50%;
-    --golden-dark-10: 45, 80%, 40%, 5%;
-    --golden-dark-20: 45, 80%, 40%, 20%;
-    --golden-dark-30: 45, 80%, 40%, 30%;
-    --golden-dark-40: 45, 80%, 40%, 40%;
-    --golden-dark-50: 45, 80%, 40%, 50%;
-    --golden-dark-60: 45, 80%, 40%, 60%;
-    --golden-dark-70: 45, 80%, 40%, 70%;
-    --golden-dark-80: 45, 80%, 40%, 80%;
-    --golden-dark-90: 45, 80%, 40%, 90%;
+    /* section / layout accent tokens */
+    --section-accent: 45, 80%, 40%;
+    --sidebar-hover: 43, 85%, 55%, 10%;
+    --header-surface: 42, 90%, 60%;
+    --section-emphasis: 45, 100%, 50%;
+    --section-accent-hover: 45, 80%, 40%, 90%;
+    --section-accent-muted: 45, 80%, 40%, 50%;
+    --section-accent-subtle-10: 45, 80%, 40%, 5%;
+    --section-accent-subtle-20: 45, 80%, 40%, 20%;
+    --section-accent-subtle-30: 45, 80%, 40%, 30%;
+    --section-accent-subtle-40: 45, 80%, 40%, 40%;
+    --section-accent-subtle-50: 45, 80%, 40%, 50%;
+    --section-accent-subtle-60: 45, 80%, 40%, 60%;
+    --section-accent-subtle-70: 45, 80%, 40%, 70%;
+    --section-accent-subtle-80: 45, 80%, 40%, 80%;
+    --section-accent-subtle-90: 45, 80%, 40%, 90%;
+
+    --auth-background: 210 40% 98%;
+    --auth-panel-border: 210 30% 88%;
+    --table-stripe: 220 60% 98%;
   }
 
   /* previous bg */

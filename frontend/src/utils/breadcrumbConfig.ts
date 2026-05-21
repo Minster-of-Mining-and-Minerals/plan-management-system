@@ -8,6 +8,7 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem[]> = {
     // Dashboard Routes
     // ================================================
     "/dashboard": [{ title: "Dashboard", path: "/dashboard" }],
+    "/profile": [{ title: "Profile", path: "/profile" }],
 
     // ================================================
     // Structures Routes
@@ -43,6 +44,15 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem[]> = {
         { title: "Users", path: "/users/list" },
         { title: "Roles", path: "/users/roles" },
         { title: "New Role", path: "/users/roles/new" },
+    ],
+    "/branding": [{ title: "Branding", path: "/branding" }],
+    "/branding/new": [
+        { title: "Branding", path: "/branding" },
+        { title: "New Branding", path: "/branding/new" },
+    ],
+    "/branding/[id]": [
+        { title: "Branding", path: "/branding" },
+        { title: "Edit Branding", path: "/branding/[id]" },
     ],
 
     // ================================================

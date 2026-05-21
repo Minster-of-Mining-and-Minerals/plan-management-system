@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Download, Plus, MoreHorizontal } from "lucide-react";
 
 import { useGetRolesQuery } from "@/redux/api/roleApi";
-import type { Role } from "@/redux/types/auth";
+import type { Role } from "@/redux/types/roles";
 import type { FilterField, ActionButton } from "@/types/tableLayout";
 import { useRouter } from "next/navigation";
 import { Edit, Trash2 } from "lucide-react";
@@ -32,6 +32,40 @@ export default function RoleList() {
     {
       accessorKey: "description",
       header: "Description",
+    },
+    {
+      accessorKey: "strength",
+      header: "Strength",
+      cell: ({ row }) => {
+        const role = row.original;
+        const strength = role.strength ?? 0;
+        const permissionCount = role.permission_count ?? 0;
+        const totalPermissions = role.total_permissions ?? 0;
+
+        const barColor =
+          strength >= 75
+            ? "bg-emerald-500"
+            : strength >= 50
+              ? "bg-blue-500"
+              : strength >= 25
+                ? "bg-amber-500"
+                : "bg-slate-400";
+
+        return (
+          <div className="min-w-[140px] space-y-1">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{permissionCount}/{totalPermissions} permissions</span>
+              <span className="font-semibold text-foreground">{strength}%</span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className={`h-full rounded-full transition-all ${barColor}`}
+                style={{ width: `${strength}%` }}
+              />
+            </div>
+          </div>
+        );
+      },
     },
     {
       accessorKey: "is_active",

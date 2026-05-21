@@ -13,6 +13,10 @@ export interface Role {
   description?: string;
   is_active: boolean;
   rolePermissions: RolePermission[];
+  /** Percentage of all system permissions assigned to this role (0–100). */
+  strength?: number;
+  permission_count?: number;
+  total_permissions?: number;
 }
 
 export interface CreateRolePayload {

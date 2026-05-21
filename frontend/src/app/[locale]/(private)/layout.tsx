@@ -7,6 +7,7 @@ import { Header } from "@/components/layout/header";
 import { useSession } from "next-auth/react";
 import { performLogout } from "@/utils/logout";
 import Loading01 from "@/features/template/component/Loading/Loading01";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function PrivateLayout({
   children,
@@ -16,8 +17,10 @@ export default function PrivateLayout({
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, status } = useSession();
+  const { permissions, isLoaded } = useAuth();
 
   const isFirstLogin = session?.user?.is_first_logged_in;
+  const showSidebar = isLoaded && permissions.length > 0;
   const isChangePasswordPage = pathname.includes("/change-password");
 
   useEffect(() => {
@@ -52,9 +55,9 @@ export default function PrivateLayout({
 
   return (
     <SidebarProvider>
-      {!isFirstLogin && <AppSidebar />}
+      {!isFirstLogin && showSidebar && <AppSidebar />}
       <SidebarInset>
-        <Header title={title || "Dashboard"} />
+        <Header title={title || "Profile"} showSidebar={showSidebar} />
         <div className="p-6">{children}</div>
       </SidebarInset>
     </SidebarProvider>

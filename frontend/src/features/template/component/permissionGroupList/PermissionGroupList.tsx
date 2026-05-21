@@ -37,6 +37,40 @@ export default function PermissionGroupList({ structure_id, hideLayout = false, 
       header: "Description",
     },
     {
+      accessorKey: "strength",
+      header: "Strength",
+      cell: ({ row }) => {
+        const group = row.original;
+        const strength = group.strength ?? 0;
+        const permissionCount = group.permission_count ?? 0;
+        const totalPermissions = group.total_permissions ?? 0;
+
+        const barColor =
+          strength >= 75
+            ? "bg-emerald-500"
+            : strength >= 50
+              ? "bg-blue-500"
+              : strength >= 25
+                ? "bg-amber-500"
+                : "bg-slate-400";
+
+        return (
+          <div className="min-w-[140px] space-y-1">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{permissionCount}/{totalPermissions} permissions</span>
+              <span className="font-semibold text-foreground">{strength}%</span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className={`h-full rounded-full transition-all ${barColor}`}
+                style={{ width: `${strength}%` }}
+              />
+            </div>
+          </div>
+        );
+      },
+    },
+    {
       accessorKey: "is_active",
       header: "Status",
       cell: ({ row }) => {

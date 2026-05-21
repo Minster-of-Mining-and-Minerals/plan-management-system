@@ -192,7 +192,7 @@ export const FileUploadField: React.FC<FileUploadFieldProps> = ({
                   variant="ghost"
                   size="icon"
                   onClick={() => setPreviewFile(file)}
-                  className="w-8 h-8 text-[#094C81] hover:bg-gray-100"
+                  className="w-8 h-8 text-primary hover:bg-gray-100"
                 >
                   <Eye className="w-5 h-5" />
                 </Button>

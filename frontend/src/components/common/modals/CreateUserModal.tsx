@@ -96,10 +96,10 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
       <div className="bg-white p-6 rounded-2xl w-full max-w-[750px] shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-[#094C81]">Create User</h2>
+          <h2 className="text-xl font-semibold text-primary">Create User</h2>
           <button
             onClick={handleClose}
-            className="text-[#094C81] hover:text-gray-600 transition"
+            className="text-primary hover:text-gray-600 transition"
           >
             <XIcon className="w-6 h-6 cursor-pointer" />
           </button>
@@ -110,7 +110,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           {/* Structure Selection */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label className="block text-sm text-golden-dark font-medium mb-1">
+              <Label className="block text-sm text-section-accent font-medium mb-1">
                 Structure
               </Label>
               <Select
@@ -120,7 +120,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 }}
                 disabled={!!initialGovId}
               >
-                <SelectTrigger className="w-full h-12 border border-golden-dark">
+                <SelectTrigger className="w-full h-12 border border-section-accent">
                   <SelectValue placeholder="Select Structure" />
                 </SelectTrigger>
                 <SelectContent className="bg-white">
@@ -138,29 +138,29 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           {/* User Detail */}
           <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 pr-2">
             <div className="space-y-2">
-              <Label className="block text-sm text-golden-dark font-medium mb-1">
+              <Label className="block text-sm text-section-accent font-medium mb-1">
                 Full Name <span className="text-red-500">*</span>
               </Label>
               <Input
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="John Doe"
-                className="w-full h-12 border border-golden-dark "
+                className="w-full h-12 border border-section-accent "
               />
             </div>
             <div className="space-y-2">
-              <Label className="block text-sm text-golden-dark font-medium mb-1">
+              <Label className="block text-sm text-section-accent font-medium mb-1">
                 Phone Number
               </Label>
               <Input
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 placeholder="+251 9xxxxxxx"
-                className="w-full h-12 border border-golden-dark "
+                className="w-full h-12 border border-section-accent "
               />
             </div>
             <div className="space-y-2">
-              <Label className="block text-sm text-golden-dark font-medium mb-1">
+              <Label className="block text-sm text-section-accent font-medium mb-1">
                 Email <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -168,19 +168,19 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="john@example.com"
-                className="w-full h-12 border border-golden-dark"
+                className="w-full h-12 border border-section-accent"
               />
             </div>
 
             <div className="w-full space-y-2">
-              <Label className="text-sm font-medium text-golden-dark mb-1">
+              <Label className="text-sm font-medium text-section-accent mb-1">
                 Role <span className="text-red-500">*</span>
               </Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    className="w-full max-h-28 min-h-12 h-fit border border-golden-dark p-2 rounded-md text-[#094C81] bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-golden-dark transition-all duration-200"
+                    className="w-full max-h-28 min-h-12 h-fit border border-section-accent p-2 rounded-md text-primary bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-section-accent transition-all duration-200"
                   >
                     <div className="flex flex-wrap items-center gap-2 w-full">
                       {selectedRoles.length === 0 && (
@@ -199,7 +199,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
                         return (
                           <span
                             key={roleId}
-                            className="inline-flex items-center gap-1 rounded-sm justify-center bg-[#094C81]/10 text-[#094C81] pl-2 text-xs"
+                            className="inline-flex items-center gap-1 rounded-sm justify-center bg-primary/10 text-primary pl-2 text-xs"
                           >
                             <span className="truncate max-w-[120px] py-1">
                               {r.name}
@@ -240,7 +240,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
                           onClick={() => {
                             setSelectedRoles((prev) => [...prev, r.role_id]);
                           }}
-                          className="w-full text-left px-3 py-2 text-sm text-[#094C81] hover:bg-[#094C81]/10 rounded-md cursor-pointer transition-colors"
+                          className="w-full text-left px-3 py-2 text-sm text-primary hover:bg-primary/10 rounded-md cursor-pointer transition-colors"
                         >
                           <span className="block truncate">{r.name}</span>
                         </button>

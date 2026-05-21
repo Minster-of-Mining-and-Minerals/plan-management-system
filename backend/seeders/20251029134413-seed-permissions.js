@@ -45,6 +45,12 @@ module.exports = {
       { resource: "structures", action: "update" },
       { resource: "structures", action: "delete" },
 
+      // Branding / System appearance
+      { resource: "branding", action: "create" },
+      { resource: "branding", action: "read" },
+      { resource: "branding", action: "update" },
+      { resource: "branding", action: "delete" },
+
 
 
 

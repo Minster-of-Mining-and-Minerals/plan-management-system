@@ -1,5 +1,5 @@
 import { baseApi } from "../baseApi";
-import { Role } from "../types/auth";
+import { Role } from "../types/roles";
 import { CreateRolePayload, UpdateRolePayload } from "../types/roles";
 
 export const roleApi = baseApi.injectEndpoints({

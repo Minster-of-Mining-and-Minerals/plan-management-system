@@ -35,10 +35,10 @@ export default function Home() {
       <main className="flex justify-center items-center min-h-screen z-10 relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-16">
         <div className="text-center">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-golden-dark text-sm font-medium mb-8">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-section-accent text-sm font-medium mb-8">
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-golden-dark opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-golden-dark"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-section-accent opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-section-accent"></span>
             </span>
             {t('badge')}
           </div>
@@ -59,7 +59,7 @@ export default function Home() {
             <Link
               href="/evaluations"
               className="px-8 py-4 bg-white text-primary font-semibold rounded-xl 
-                border border-primary/20 hover:border-primary/40 hover:bg-golden-metallic
+                border border-primary/20 hover:border-primary/40 hover:bg-sidebar-hover
                 transition-all duration-200 text-lg"
             >
               {t('actions.evaluations')}

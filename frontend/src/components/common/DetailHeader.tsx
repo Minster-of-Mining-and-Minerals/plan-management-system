@@ -28,7 +28,7 @@ const DetailHeader = ({
               {crumb.link ? (
                 <Link
                   href={crumb.link}
-                  className="hover:text-golden-dark transition-colors"
+                  className="hover:text-section-accent transition-colors"
                 >
                   {crumb.title}
                 </Link>

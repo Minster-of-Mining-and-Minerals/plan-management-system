@@ -56,10 +56,10 @@ export default function middleware(req: NextRequest) {
   console.log("  Has session token:", hasSessionToken);
   console.log("  Is public route:", isPublicRoute);
 
-  // 🔐 Rule 1: If logged in and trying to access login page, redirect to dashboard
+  // 🔐 Rule 1: If logged in and trying to access login page, redirect to profile
   if (isAuthRoute && hasSessionToken) {
-    console.log("  Redirecting authenticated user to dashboard");
-    return NextResponse.redirect(new URL(`/${locale}/dashboard`, req.url));
+    console.log("  Redirecting authenticated user to profile");
+    return NextResponse.redirect(new URL(`/${locale}/profile`, req.url));
   }
 
   // 🔒 Rule 2: If NOT logged in and trying to access protected route, redirect to login

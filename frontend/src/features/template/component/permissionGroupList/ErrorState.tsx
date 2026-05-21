@@ -17,7 +17,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({ message, onRetry }) => {
         <div className="flex gap-3 justify-center">
           <Button
             onClick={() => router.push("/users/permission-groups")}
-            className="bg-[#094C81] hover:bg-[#073954]"
+            className="bg-primary hover:bg-primary"
           >
             Back to Permission Groups
           </Button>

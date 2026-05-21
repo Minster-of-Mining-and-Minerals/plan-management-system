@@ -3,6 +3,29 @@ const { Role, Permission, RolePermission } = require("../../models");
 const { v4: uuidv4 } = require("uuid");
 const { Op } = require("sequelize");
 const { Sequelize } = require("sequelize");
+const { enrichRoleWithStrength } = require("../../utils/roleStrength");
+
+const roleInclude = [
+  {
+    model: RolePermission,
+    as: "rolePermissions",
+    where: { is_active: true },
+    required: false,
+    include: [
+      {
+        model: Permission,
+        as: "permission",
+        attributes: ["permission_id", "resource", "action"],
+        where: { is_active: true },
+        required: false,
+      },
+    ],
+  },
+];
+
+async function getTotalActivePermissions() {
+  return Permission.count({ where: { is_active: true } });
+}
 
 const createRole = async (req, res) => {
   const t = await Role.sequelize.transaction();
@@ -71,30 +94,17 @@ const createRole = async (req, res) => {
 
     await t.commit();
 
-    // ====== Fetch role with sub-roles and permissions ======
+    const totalPermissions = await getTotalActivePermissions();
     const createdRole = await Role.findOne({
       where: { role_id: role.role_id },
-      include: [
-        {
-          model: RolePermission,
-          as: "rolePermissions",
-          required: false,
-          include: [
-            {
-              model: Permission,
-              as: "permission",
-              attributes: ["permission_id", "resource", "action"],
-            },
-          ],
-        },
-      ],
+      include: roleInclude,
     });
 
     return res.status(201).json({
       success: true,
       message:
         "Role created successfully (with sub-roles or direct permissions)",
-      data: createdRole,
+      data: enrichRoleWithStrength(createdRole, totalPermissions),
     });
   } catch (error) {
     if (!t.finished) await t.rollback();
@@ -117,29 +127,22 @@ const getRoles = async (req, res) => {
 
     if (is_active !== undefined) whereClause.is_active = is_active === "true";
 
+    const totalPermissions = await getTotalActivePermissions();
+
     const roles = await Role.findAll({
       where: whereClause,
-      include: [
-        {
-          model: RolePermission,
-          as: "rolePermissions",
-          required: false,
-          include: [
-            {
-              model: Permission,
-              as: "permission",
-              attributes: ["permission_id", "resource", "action"],
-            },
-          ],
-        },
-      ],
+      include: roleInclude,
       order: [["created_at", "DESC"]],
     });
 
+    const data = roles.map((role) =>
+      enrichRoleWithStrength(role, totalPermissions)
+    );
+
     return res.status(200).json({
       success: true,
-      count: roles.length,
-      data: roles,
+      count: data.length,
+      data,
     });
   } catch (error) {
     console.error("Error fetching roles:", error);
@@ -161,20 +164,7 @@ const getRoleById = async (req, res) => {
         role_id: id,
         is_active: true,
       },
-      include: [
-        {
-          model: RolePermission,
-          as: "rolePermissions",
-          required: false,
-          include: [
-            {
-              model: Permission,
-              as: "permission",
-              attributes: ["permission_id", "resource", "action"],
-            },
-          ],
-        },
-      ],
+      include: roleInclude,
     });
 
     if (!role) {
@@ -184,9 +174,11 @@ const getRoleById = async (req, res) => {
       });
     }
 
+    const totalPermissions = await getTotalActivePermissions();
+
     return res.status(200).json({
       success: true,
-      data: role,
+      data: enrichRoleWithStrength(role, totalPermissions),
     });
   } catch (error) {
     console.error("Error fetching role:", error);
@@ -281,24 +273,16 @@ const updateRole = async (req, res) => {
 
     await t.commit();
 
-    //  Fetch updated role details
+    const totalPermissions = await getTotalActivePermissions();
     const updatedRole = await Role.findOne({
       where: { role_id: id },
-      include: [
-        {
-          model: RolePermission,
-          as: "rolePermissions",
-          where: { is_active: true },
-          required: false,
-          include: [{ model: Permission, as: "permission" }],
-        },
-      ],
+      include: roleInclude,
     });
 
     return res.status(200).json({
       success: true,
       message: "Role updated successfully",
-      data: updatedRole,
+      data: enrichRoleWithStrength(updatedRole, totalPermissions),
     });
   } catch (error) {
     if (!t.finished) await t.rollback();
