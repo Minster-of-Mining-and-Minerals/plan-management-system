@@ -37,7 +37,9 @@ export interface PageLayoutProps {
   filterColumnsPerRow?: number
   showToggleHierarchyNode?: boolean;
   toggleHierarchyNode?: boolean;
-  setToggleHierarchyNode?;
+  setToggleHierarchyNode?: (value: boolean) => void;
+  /** Show search input in toolbar (default true) */
+  showSearch?: boolean;
 }
 
 export interface DetailPageLayoutProps {

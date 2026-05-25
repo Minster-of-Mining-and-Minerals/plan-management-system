@@ -2,18 +2,18 @@
 const { Model } = require("sequelize");
 
 module.exports = (sequelize, DataTypes) => {
-  class UserFieldValue extends Model {
+  class InternalUserProfile extends Model {
     static associate(models) {
-      UserFieldValue.belongsTo(models.User, {
+      InternalUserProfile.belongsTo(models.User, {
         foreignKey: "user_id",
         as: "user",
       });
     }
   }
 
-  UserFieldValue.init(
+  InternalUserProfile.init(
     {
-      id: {
+      profile_id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
@@ -21,30 +21,27 @@ module.exports = (sequelize, DataTypes) => {
       user_id: {
         type: DataTypes.UUID,
         allowNull: false,
+        unique: true,
       },
-      field_key: {
-        type: DataTypes.STRING(64),
-        allowNull: false,
-      },
-      value: {
-        type: DataTypes.TEXT,
+      department: { type: DataTypes.STRING(128), allowNull: true },
+      job_title: { type: DataTypes.STRING(128), allowNull: true },
+      employee_id: { type: DataTypes.STRING(64), allowNull: true },
+      metadata: {
+        type: DataTypes.JSONB,
         allowNull: true,
+        defaultValue: {},
       },
     },
     {
       sequelize,
-      modelName: "UserFieldValue",
-      tableName: "user_field_values",
+      modelName: "InternalUserProfile",
+      tableName: "internal_user_profiles",
       timestamps: true,
       createdAt: "created_at",
       updatedAt: "updated_at",
       underscored: true,
-      indexes: [
-        { fields: ["user_id"] },
-        { unique: true, fields: ["user_id", "field_key"] },
-      ],
     }
   );
 
-  return UserFieldValue;
+  return InternalUserProfile;
 };

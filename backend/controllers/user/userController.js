@@ -11,19 +11,14 @@ const bcrypt = require("bcrypt");
 const { generateRandomPassword } = require("../../utils/password");
 const { sendEmail } = require("../../utils/sendEmail");
 const { PLATFORM_NAME } = require("../../config/platformBranding");
-const {
-  saveUserFieldValues,
-  getCustomValuesMap,
-  enrichUserResponse,
-} = require("../../services/userFieldValueService");
+const { ACCOUNT_TYPES } = require("../../config/accountTypes");
+const { InternalUserProfile } = require("../../models");
 
 
 const createUser = async (req, res) => {
   const t = await sequelize.transaction();
   try {
     const userData = req.validatedUserData || {};
-    const customValues = req.validatedCustomValues || {};
-    const formFields = req.validatedFormFields || [];
     const role_ids = req.validatedRoleIds ?? req.body.role_ids;
     const { email, full_name, phone_number } = userData;
 
@@ -72,8 +67,19 @@ const createUser = async (req, res) => {
         phone_number: phone_number ?? null,
         is_active: true,
         is_first_logged_in: true,
+        account_type: ACCOUNT_TYPES.INTERNAL,
         created_at: new Date(),
         updated_at: new Date(),
+      },
+      { transaction: t }
+    );
+
+    await InternalUserProfile.create(
+      {
+        user_id: user.user_id,
+        department: req.body.department || null,
+        job_title: req.body.job_title || null,
+        employee_id: req.body.employee_id || null,
       },
       { transaction: t }
     );
@@ -94,13 +100,6 @@ const createUser = async (req, res) => {
       await UserRoles.bulkCreate(roleAssignments, { transaction: t });
     }
 
-    await saveUserFieldValues(
-      user.user_id,
-      customValues,
-      formFields,
-      t
-    );
-
     await t.commit();
 
     // ====== Send welcome email ======
@@ -116,12 +115,10 @@ const createUser = async (req, res) => {
     `
     );
 
-    const custom_fields = await getCustomValuesMap(user.user_id, formFields);
-
     return res.status(201).json({
       success: true,
       message: "User created successfully",
-      data: enrichUserResponse(user, custom_fields),
+      data: user,
     });
   } catch (error) {
     if (!t.finished) await t.rollback();
@@ -138,8 +135,6 @@ const updateUser = async (req, res) => {
   try {
     const { id: user_id } = req.params;
     const userData = req.validatedUserData || {};
-    const customValues = req.validatedCustomValues || {};
-    const formFields = req.validatedFormFields || [];
     const role_ids = req.validatedRoleIds ?? req.body.role_ids;
     const { full_name, email, phone_number } = userData;
 
@@ -178,15 +173,6 @@ const updateUser = async (req, res) => {
 
     await user.update(updates, { transaction: t });
 
-    if (Object.keys(customValues).length > 0) {
-      await saveUserFieldValues(
-        user_id,
-        customValues,
-        formFields,
-        t
-      );
-    }
-
     // ====== Update roles if provided ======
     if (role_ids && Array.isArray(role_ids)) {
       // Validate roles exist
@@ -222,12 +208,10 @@ const updateUser = async (req, res) => {
 
     await t.commit();
 
-    const custom_fields = await getCustomValuesMap(user_id, formFields);
-
     return res.status(200).json({
       success: true,
       message: "User updated successfully.",
-      data: enrichUserResponse(user, custom_fields),
+      data: user,
     });
   } catch (error) {
     if (!t.finished) await t.rollback();
@@ -246,9 +230,8 @@ const getUsers = async (req, res) => {
     } = req.query;
 
     // ====== Build filters dynamically ======
-    const whereClause = {};
+    const whereClause = { account_type: ACCOUNT_TYPES.INTERNAL };
 
-    // if (institute_id) whereClause.institute_id = institute_id;
     if (is_active !== undefined) whereClause.is_active = is_active === "true";
     if (search) {
       whereClause[Op.or] = [
@@ -308,14 +291,17 @@ const getUserById = async (req, res) => {
       });
     }
 
-    const { getFormFieldsByModel } = require("../../services/formFieldService");
-    const formFields = await getFormFieldsByModel("User");
-    const custom_fields = await getCustomValuesMap(user_id, formFields);
+    if (user.account_type === ACCOUNT_TYPES.PATIENT) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
 
     return res.status(200).json({
       success: true,
       message: "User fetched successfully.",
-      data: enrichUserResponse(user, custom_fields),
+      data: user,
     });
   } catch (error) {
     console.error("Error fetching user:", error);

@@ -24,12 +24,13 @@ import type {
   FormFieldType,
   FormFieldConfig,
   CreateFormFieldPayload,
+  UpdateFormFieldPayload,
 } from "@/redux/types/formField";
-import { DEFAULT_FIELD_CATEGORIES } from "@/redux/types/formField";
 import {
   useCreateFormFieldMutation,
   useUpdateFormFieldMutation,
 } from "@/redux/api/formFieldApi";
+import { useGetFormFieldGroupsQuery } from "@/redux/api/formFieldGroupApi";
 import { toast } from "sonner";
 
 const FIELD_TYPES: FormFieldType[] = [
@@ -59,7 +60,9 @@ export function FormFieldFormModal({
   const [updateField, { isLoading: updating }] = useUpdateFormFieldMutation();
 
   const [fieldKey, setFieldKey] = useState("");
-  const [category, setCategory] = useState("General");
+  const [groupId, setGroupId] = useState("");
+  const { data: groups = [] } = useGetFormFieldGroupsQuery({ model: "Patient" });
+  const customGroups = groups.filter((g) => g.title !== "Account");
   const [label, setLabel] = useState("");
   const [fieldType, setFieldType] = useState<FormFieldType>("input");
   const [isRequired, setIsRequired] = useState(false);
@@ -70,7 +73,7 @@ export function FormFieldFormModal({
   useEffect(() => {
     if (field) {
       setFieldKey(field.field_key);
-      setCategory(field.category || "General");
+      setGroupId(field.group_id || "");
       setLabel(field.label);
       setFieldType(field.field_type);
       setIsRequired(field.is_required);
@@ -80,7 +83,7 @@ export function FormFieldFormModal({
       setConfigJson(JSON.stringify(cfg, null, 2));
     } else {
       setFieldKey("");
-      setCategory("General");
+      setGroupId(customGroups[0]?.group_id || "");
       setLabel("");
       setFieldType("input");
       setIsRequired(false);
@@ -110,21 +113,28 @@ export function FormFieldFormModal({
     try {
       const config = buildConfig();
       const payload: CreateFormFieldPayload = {
-        model_name: "User",
+        model_name: "Patient",
         field_key: fieldKey,
         label,
         field_type: fieldType,
         storage_type: "custom",
-        category,
+        group_id: groupId,
         is_required: isRequired,
         is_visible: isVisible,
         config,
       };
 
       if (isEdit && field) {
-        const updatePayload = isCore
+        const updatePayload: UpdateFormFieldPayload = isCore
           ? { label, field_type: fieldType, config }
-          : payload;
+          : {
+              group_id: groupId,
+              label,
+              field_type: fieldType,
+              is_required: isRequired,
+              is_visible: isVisible,
+              config,
+            };
         await updateField({ id: field.field_id, data: updatePayload }).unwrap();
         toast.success("Field updated");
       } else {
@@ -181,19 +191,24 @@ export function FormFieldFormModal({
 
           {!isCore && (
             <div className="space-y-2">
-              <Label>Category / group</Label>
-              <Select value={category} onValueChange={setCategory}>
+              <Label>Assign to form step</Label>
+              <Select value={groupId} onValueChange={setGroupId}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select group" />
                 </SelectTrigger>
                 <SelectContent>
-                  {DEFAULT_FIELD_CATEGORIES.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
+                  {customGroups.map((g) => (
+                    <SelectItem key={g.group_id} value={g.group_id}>
+                      {g.title}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {!customGroups.length && (
+                <p className="text-xs text-amber-600">
+                  Create a form step (group) before adding custom fields.
+                </p>
+              )}
             </div>
           )}
 
@@ -235,6 +250,10 @@ export function FormFieldFormModal({
 
           <div className="space-y-2">
             <Label>Validation config (JSON)</Label>
+            <p className="text-xs text-muted-foreground">
+              See Guidelines tab for all options: pattern, min_length, options,
+              multiple, allowed_types, etc.
+            </p>
             <textarea
               className="w-full min-h-[120px] border rounded-md p-2 font-mono text-xs"
               value={configJson}
@@ -266,7 +285,13 @@ export function FormFieldFormModal({
           </Button>
           <Button
             onClick={handleSave}
-            disabled={creating || updating || !fieldKey || !label}
+            disabled={
+              creating ||
+              updating ||
+              !fieldKey ||
+              !label ||
+              (!isCore && !groupId)
+            }
           >
             {creating || updating ? "Saving…" : "Save"}
           </Button>

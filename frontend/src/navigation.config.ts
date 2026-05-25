@@ -6,6 +6,8 @@ import {
   Key,
   Palette,
   Settings2,
+  HeartPulse,
+  ClipboardList,
 } from "lucide-react";
 
 export type NavItem = {
@@ -33,7 +35,7 @@ export const NAVIGATION: NavItem[] = [
       "USERS:READ",
       "ROLES:READ",
       "PERMISSIONS:READ",
-      "FORM_FIELDS:READ",
+      "PERMISSION_GROUPS:READ",
     ],
     children: [
       {
@@ -60,11 +62,41 @@ export const NAVIGATION: NavItem[] = [
         icon: Key,
         allPermissions: ["PERMISSIONS:READ"],
       },
+    ],
+  },
+  {
+    title: "Patients",
+    url: "/patients/list",
+    icon: HeartPulse,
+    anyPermissions: [
+      "PATIENTS:READ",
+      "PATIENTS:CREATE",
+      "PATIENTS:UPDATE",
+      "FORM_FIELDS:READ",
+      "FORM_FIELDS:CREATE",
+      "FORM_FIELDS:UPDATE",
+      "FORM_FIELD_GROUPS:READ",
+      "FORM_FIELD_GROUPS:CREATE",
+    ],
+    children: [
       {
-        title: "Configure User Forms",
-        url: "/users/form-fields",
+        title: "Patient Registry",
+        url: "/patients/list",
+        icon: ClipboardList,
+        anyPermissions: ["PATIENTS:READ", "PATIENTS:CREATE"],
+      },
+      {
+        title: "Configure Patient Forms",
+        url: "/patients/form-fields",
         icon: Settings2,
-        anyPermissions: ["FORM_FIELDS:READ", "FORM_FIELDS:CREATE", "USERS:UPDATE"],
+        anyPermissions: [
+          "FORM_FIELDS:READ",
+          "FORM_FIELDS:CREATE",
+          "FORM_FIELDS:UPDATE",
+          "FORM_FIELD_GROUPS:READ",
+          "FORM_FIELD_GROUPS:CREATE",
+          "FORM_FIELD_GROUPS:UPDATE",
+        ],
       },
     ],
   },

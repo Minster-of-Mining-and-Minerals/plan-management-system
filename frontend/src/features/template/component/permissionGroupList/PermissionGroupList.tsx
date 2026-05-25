@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
 import { ColumnDef } from "@tanstack/react-table";
@@ -13,6 +13,7 @@ import type { PermissionGroup } from "@/redux/types/permissionGroup";
 import type { FilterField, ActionButton } from "@/types/tableLayout";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useClientDataTable } from "@/hooks/useClientDataTable";
 
 export interface PermissionGroupListProps {
   hideLayout?: boolean;
@@ -120,17 +121,28 @@ export default function PermissionGroupList({ hideLayout = false, sideActions }:
     },
   ];
 
-  // Pagination states
-  const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
-
-  const handlePagination = (index: number, size: number) => {
-    setPageIndex(index);
-    setPageSize(size);
-  };
-
-  // Filters
   const [statusFilter, setStatusFilter] = useState("");
+
+  const statusFilterFn = useMemo(
+    () => (group: PermissionGroup) => {
+      if (statusFilter === "active") return group.is_active === true;
+      if (statusFilter === "inactive") return group.is_active === false;
+      return true;
+    },
+    [statusFilter]
+  );
+
+  const {
+    paginated: paginatedData,
+    totalPageCount,
+    pageIndex,
+    pageSize,
+    handlePagination,
+  } = useClientDataTable(data, {
+    searchKeys: ["name", "description", (g) => (g.is_active ? "active" : "inactive")],
+    filterFn: statusFilterFn,
+    resetDeps: [statusFilter],
+  });
 
   const filters: FilterField[] = [
     {
@@ -163,19 +175,6 @@ export default function PermissionGroupList({ hideLayout = false, sideActions }:
     },
   ];
 
-  // Apply filters locally (client-side)
-  const filteredData = data.filter((group) => {
-    if (statusFilter === "active") return group.is_active === true;
-    if (statusFilter === "inactive") return group.is_active === false;
-    return true;
-  });
-
-  // Pagination slice
-  const paginatedData = filteredData.slice(
-    pageIndex * pageSize,
-    pageIndex * pageSize + pageSize
-  );
-
   return (
     <TableLayout
       title={hideLayout ? undefined : "Permission Group Management"}
@@ -188,7 +187,7 @@ export default function PermissionGroupList({ hideLayout = false, sideActions }:
       <DataTable
         columns={columns}
         data={paginatedData}
-        totalPageCount={Math.ceil(filteredData.length / pageSize)}
+        totalPageCount={totalPageCount}
         handlePagination={handlePagination}
         tablePageSize={pageSize}
         currentIndex={pageIndex}

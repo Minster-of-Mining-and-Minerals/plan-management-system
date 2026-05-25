@@ -1,9 +1,13 @@
 "use strict";
 
-const USER_MODEL_NAME = "User";
+const { PATIENT_MODEL_NAME } = require("./accountTypes");
 
-/** Fixed columns on `users` — never stored in user_field_values. */
-const CORE_USER_COLUMNS = ["full_name", "email", "phone_number"];
+/** @deprecated Use PATIENT_MODEL_NAME */
+const USER_MODEL_NAME = PATIENT_MODEL_NAME;
+
+/** Fixed columns on `users` for patient accounts — never stored in patient_field_values. */
+const CORE_PATIENT_COLUMNS = ["full_name", "email", "phone_number"];
+const CORE_USER_COLUMNS = CORE_PATIENT_COLUMNS;
 
 const CORE_USER_COLUMN_SET = new Set(CORE_USER_COLUMNS);
 
@@ -63,7 +67,9 @@ function isValidCustomFieldKey(fieldKey) {
 }
 
 module.exports = {
+  PATIENT_MODEL_NAME,
   USER_MODEL_NAME,
+  CORE_PATIENT_COLUMNS,
   CORE_USER_COLUMNS,
   CORE_USER_COLUMN_SET,
   SYSTEM_USER_PAYLOAD_KEYS,

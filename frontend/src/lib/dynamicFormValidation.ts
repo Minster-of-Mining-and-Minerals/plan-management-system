@@ -1,4 +1,16 @@
-import type { FormField, DynamicFormValues } from "@/redux/types/formField";
+import type {
+  FormField,
+  FormFieldStepGroup,
+  DynamicFormValues,
+  UserFormConfigGrouped,
+} from "@/redux/types/formField";
+import { getVisibleSteps, flattenFormFields } from "@/redux/types/formField";
+import {
+  isFieldEffectivelyVisible,
+  isGroupStepRequired,
+  groupHasAnyInput,
+  getVisibleFieldsInGroup,
+} from "@/lib/formFieldRules";
 
 const ETHIOPIAN_PHONE_REGEX = /^(\+251|0)(9|7)\d{8}$/;
 
@@ -70,7 +82,11 @@ function validateCheckbox(value: unknown, field: FormField): string[] {
   return errors;
 }
 
-function validateFile(value: unknown, field: FormField, fileMeta?: File): string[] {
+function validateFile(
+  value: unknown,
+  field: FormField,
+  fileMeta?: File
+): string[] {
   const config = field.config || {};
   const errors: string[] = [];
 
@@ -94,6 +110,76 @@ function validateFile(value: unknown, field: FormField, fileMeta?: File): string
   return errors;
 }
 
+function validateSingleField(
+  field: FormField,
+  value: unknown,
+  fileMeta?: File
+): string | null {
+  const mustHaveValue =
+    field.storage_type === "core" ? true : field.is_required;
+
+  if (mustHaveValue && isEmpty(value)) {
+    return `${field.label} is required`;
+  }
+
+  if (isEmpty(value)) return null;
+
+  let fieldErrors: string[] = [];
+
+  switch (field.field_type) {
+    case "input":
+    case "textarea":
+      fieldErrors = validateInput(value, field);
+      break;
+    case "select":
+      fieldErrors = validateSelect(value, field);
+      break;
+    case "checkbox":
+      fieldErrors = validateCheckbox(value, field);
+      break;
+    case "file":
+      fieldErrors = validateFile(value, field, fileMeta);
+      break;
+    case "number":
+      if (Number.isNaN(Number(value))) fieldErrors = ["Must be a number"];
+      break;
+    case "date":
+      if (Number.isNaN(Date.parse(String(value)))) {
+        fieldErrors = ["Invalid date"];
+      }
+      break;
+  }
+
+  return fieldErrors.length ? fieldErrors[0] : null;
+}
+
+/** Validate one wizard step (group). */
+export function validateFormStep(
+  group: FormFieldStepGroup,
+  values: DynamicFormValues,
+  fileMetaByKey?: Record<string, File>
+): Record<string, string> {
+  const errors: Record<string, string> = {};
+  const visibleFields = getVisibleFieldsInGroup(group);
+  const stepRequired = isGroupStepRequired(group);
+  const hasInput = groupHasAnyInput(group, values);
+
+  if (!stepRequired && !hasInput) {
+    return errors;
+  }
+
+  for (const field of visibleFields) {
+    const err = validateSingleField(
+      field,
+      values[field.field_key],
+      fileMetaByKey?.[field.field_key]
+    );
+    if (err) errors[field.field_key] = err;
+  }
+
+  return errors;
+}
+
 export function validateDynamicForm(
   fields: FormField[],
   values: DynamicFormValues,
@@ -101,52 +187,29 @@ export function validateDynamicForm(
 ): Record<string, string> {
   const errors: Record<string, string> = {};
 
-  const visible = fields
-    .filter((f) => f.is_visible)
-    .sort((a, b) => a.sort_order - b.sort_order);
+  for (const field of fields.filter((f) => f.is_visible)) {
+    const err = validateSingleField(
+      field,
+      values[field.field_key],
+      fileMetaByKey?.[field.field_key]
+    );
+    if (err) errors[field.field_key] = err;
+  }
 
-  for (const field of visible) {
-    const value = values[field.field_key];
-    const key = field.field_key;
-    const mustHaveValue =
-      field.storage_type === "core" ? true : field.is_required;
+  return errors;
+}
 
-    if (mustHaveValue && isEmpty(value)) {
-      errors[key] = `${field.label} is required`;
-      continue;
-    }
+export function validateAllFormSteps(
+  config: UserFormConfigGrouped | undefined,
+  values: DynamicFormValues,
+  fileMetaByKey?: Record<string, File>
+): Record<string, string> {
+  const errors: Record<string, string> = {};
+  const steps = getVisibleSteps(config);
 
-    if (isEmpty(value)) continue;
-
-    let fieldErrors: string[] = [];
-
-    switch (field.field_type) {
-      case "input":
-      case "textarea":
-        fieldErrors = validateInput(value, field);
-        break;
-      case "select":
-        fieldErrors = validateSelect(value, field);
-        break;
-      case "checkbox":
-        fieldErrors = validateCheckbox(value, field);
-        break;
-      case "file":
-        fieldErrors = validateFile(value, field, fileMetaByKey?.[key]);
-        break;
-      case "number":
-        if (Number.isNaN(Number(value))) fieldErrors = ["Must be a number"];
-        break;
-      case "date":
-        if (Number.isNaN(Date.parse(String(value)))) {
-          fieldErrors = ["Invalid date"];
-        }
-        break;
-    }
-
-    if (fieldErrors.length) {
-      errors[key] = fieldErrors[0];
-    }
+  for (const step of steps) {
+    const stepErrors = validateFormStep(step, values, fileMetaByKey);
+    Object.assign(errors, stepErrors);
   }
 
   return errors;
@@ -159,7 +222,7 @@ export function buildUserPayloadFromDynamicValues(
   const payload: Record<string, unknown> = {};
   const custom_fields: Record<string, unknown> = {};
 
-  for (const field of fields.filter((f) => f.is_visible)) {
+  for (const field of fields) {
     const value = values[field.field_key];
     if (isEmpty(value)) continue;
 
@@ -168,8 +231,7 @@ export function buildUserPayloadFromDynamicValues(
       (field.field_type === "select" && config.multiple) ||
       field.field_type === "checkbox";
 
-    const normalized =
-      isMulti && Array.isArray(value) ? value : value;
+    const normalized = isMulti && Array.isArray(value) ? value : value;
 
     if (field.storage_type === "core") {
       payload[field.field_key] = normalized;
@@ -189,7 +251,6 @@ export function buildUserPayloadFromDynamicValues(
   return payload;
 }
 
-/** Merge core user columns with hybrid custom_fields from API. */
 export function initialValuesFromUser(
   fields: FormField[],
   user: Record<string, unknown>
@@ -231,3 +292,5 @@ export function parseDynamicValueFromUser(
 
   return raw;
 }
+
+export { flattenFormFields };

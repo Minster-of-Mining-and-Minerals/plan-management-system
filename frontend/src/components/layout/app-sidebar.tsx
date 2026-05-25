@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { BrandingLogo, BrandingName } from "@/components/common/BrandingLogo";
 import { ChevronRight } from "lucide-react";
 
-import { NAVIGATION } from "@/navigation.config";
+import { NAVIGATION, type NavItem } from "@/navigation.config";
 import { canAccessItem } from "@/lib/can-access";
 import { usePermissions } from "@/hooks/usePermissions";
 
@@ -37,25 +37,40 @@ const stripLocale = (pathname: string) => {
   return pathname;
 };
 
-export function AppSidebar() {
+type AppSidebarProps = {
+  navigation?: NavItem[];
+  showPermissionFilter?: boolean;
+  profileHref?: string;
+};
+
+export function AppSidebar({
+  navigation = NAVIGATION,
+  showPermissionFilter = true,
+  profileHref = "/profile",
+}: AppSidebarProps) {
   const { permissions: userPermissions } = usePermissions();
   const pathname = stripLocale(usePathname());
 
-  const visibleNav = NAVIGATION.filter((item) =>
-    canAccessItem(item, userPermissions)
-  ).map((item) => ({
-    ...item,
-    children: item.children?.filter((c) =>
-      canAccessItem(c, userPermissions)
-    ),
-  }));
+  const visibleNav = navigation
+    .map((item) => ({
+      ...item,
+      children: showPermissionFilter
+        ? item.children?.filter((c) => canAccessItem(c, userPermissions))
+        : item.children,
+    }))
+    .filter((item) => {
+      if (item.children?.length) return true;
+      return showPermissionFilter
+        ? canAccessItem(item, userPermissions)
+        : true;
+    });
 
   return (
     <Sidebar collapsible="icon" variant="floating">
       <SidebarHeader className="py-10">
         <SidebarMenu>
           <SidebarMenuItem>
-            <Link href="/profile" className="flex flex-col items-center">
+            <Link href={profileHref} className="flex flex-col items-center">
               <BrandingLogo
                 variant="compact"
                 width={100}

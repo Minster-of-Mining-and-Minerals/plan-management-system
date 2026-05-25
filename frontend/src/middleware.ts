@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import createMiddleware from "next-intl/middleware";
+import { getToken } from "next-auth/jwt";
 import { routing } from "./i18n/routing";
 
 const intlMiddleware = createMiddleware(routing);
@@ -12,6 +13,15 @@ const publicRoutes = [
 ];
 const authRoutes = ["/login"];
 
+const patientPortalPrefixes = ["/patient"];
+const internalPortalPrefixes = [
+  "/dashboard",
+  "/users",
+  "/patients",
+  "/branding",
+  "/profile",
+];
+
 function hasSessionToken(req: NextRequest): boolean {
   return req.cookies.getAll().some(
     (cookie) =>
@@ -22,7 +32,13 @@ function hasSessionToken(req: NextRequest): boolean {
   );
 }
 
-export default function middleware(req: NextRequest) {
+function matchesPrefix(path: string, prefixes: string[]) {
+  return prefixes.some(
+    (p) => path === p || path.startsWith(`${p}/`)
+  );
+}
+
+export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const intlResponse = intlMiddleware(req);
 
@@ -38,13 +54,43 @@ export default function middleware(req: NextRequest) {
   const isAuthRoute = authRoutes.includes(pathnameWithoutLocale);
 
   if (isAuthRoute && sessionToken) {
-    return NextResponse.redirect(new URL(`/${locale}/profile`, req.url));
+    const token = await getToken({
+      req,
+      secret: process.env.NEXTAUTH_SECRET,
+    });
+    const home =
+      token?.home_route ||
+      (token?.account_type === "PATIENT" ? "/patient/profile" : "/profile");
+    return NextResponse.redirect(new URL(`/${locale}${home}`, req.url));
   }
 
   if (!isPublicRoute && !sessionToken) {
     const loginUrl = new URL(`/${locale}/login`, req.url);
     loginUrl.searchParams.set("callbackUrl", pathnameWithoutLocale);
     return NextResponse.redirect(loginUrl);
+  }
+
+  if (sessionToken && !isPublicRoute && !isAuthRoute) {
+    const token = await getToken({
+      req,
+      secret: process.env.NEXTAUTH_SECRET,
+    });
+    const accountType = token?.account_type ?? "INTERNAL";
+    const isPatientRoute = matchesPrefix(pathnameWithoutLocale, patientPortalPrefixes);
+    const isInternalRoute = matchesPrefix(
+      pathnameWithoutLocale,
+      internalPortalPrefixes
+    );
+
+    if (accountType === "PATIENT" && isInternalRoute) {
+      return NextResponse.redirect(
+        new URL(`/${locale}/patient/profile`, req.url)
+      );
+    }
+
+    if (accountType === "INTERNAL" && isPatientRoute) {
+      return NextResponse.redirect(new URL(`/${locale}/profile`, req.url));
+    }
   }
 
   return intlResponse;

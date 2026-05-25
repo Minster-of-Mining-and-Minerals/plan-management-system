@@ -12,12 +12,16 @@ const {
 } = require("../../controllers/user/userController");
 
 const {
-  dynamicValidateCreateUser,
-  dynamicValidateUpdateUser,
-} = require("../../middlewares/dynamicUserValidationMiddleware");
+  validateCreateInternalUser,
+  validateUpdateInternalUser,
+} = require("../../middlewares/internalUserValidationMiddleware");
+const {
+  authenticateToken,
+  checkPermission,
+} = require("../../middlewares/authMiddleware");
+const { requireInternalAccount } = require("../../middlewares/accountTypeMiddleware");
 
-// Middleware for authentication if needed (example)
-// const { authenticate } = require("../middlewares/authMiddleware");
+router.use(authenticateToken, requireInternalAccount);
 
 /**
  * @swagger
@@ -111,7 +115,7 @@ router.get("/profile/me", getProfile);
  *       201:
  *         description: User created
  */
-router.post("/", dynamicValidateCreateUser, createUser);
+router.post("/", checkPermission("users", "create"), validateCreateInternalUser, createUser);
 
 /**
  * @swagger
@@ -148,7 +152,7 @@ router.post("/", dynamicValidateCreateUser, createUser);
  *       200:
  *         description: User updated
  */
-router.put("/:id", dynamicValidateUpdateUser, updateUser);
+router.put("/:id", checkPermission("users", "update"), validateUpdateInternalUser, updateUser);
 
 /**
  * @swagger

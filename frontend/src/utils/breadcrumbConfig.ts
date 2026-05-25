@@ -34,9 +34,18 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem[]> = {
         { title: "New Role", path: "/users/roles/new" },
     ],
     "/users/form-fields": [
-        { title: "Users", path: "/users/list" },
-        { title: "Configure User Forms", path: "/users/form-fields" },
+        { title: "Patients", path: "/patients/list" },
+        { title: "Configure Patient Forms", path: "/patients/form-fields" },
     ],
+    "/patients/list": [
+        { title: "Patients", path: "/patients/list" },
+    ],
+    "/patients/form-fields": [
+        { title: "Patients", path: "/patients/list" },
+        { title: "Configure Patient Forms", path: "/patients/form-fields" },
+    ],
+    "/patient/profile": [{ title: "My Profile", path: "/patient/profile" }],
+    "/patient/dashboard": [{ title: "My Health", path: "/patient/dashboard" }],
     "/branding": [{ title: "Branding", path: "/branding" }],
     "/branding/new": [
         { title: "Branding", path: "/branding" },

@@ -30,6 +30,12 @@ export default function PrivateLayout({
   }, [status]);
 
   useEffect(() => {
+    if (session?.user?.account_type === "PATIENT") {
+      router.replace("/patient/profile");
+    }
+  }, [session, router]);
+
+  useEffect(() => {
     if (status === "authenticated" && isFirstLogin && !isChangePasswordPage) {
       router.push("/change-password");
     }

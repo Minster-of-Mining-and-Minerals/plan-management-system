@@ -17,6 +17,12 @@ const {
   deleteFormField,
   reorderFormFields,
 } = require("../../controllers/formField/formFieldController");
+const {
+  authenticateToken,
+} = require("../../middlewares/authMiddleware");
+const { requireInternalAccount } = require("../../middlewares/accountTypeMiddleware");
+
+router.use(authenticateToken, requireInternalAccount);
 
 router.get("/", getFormFields);
 router.get("/config", getUserFormConfig);

@@ -20,15 +20,23 @@ export default function ExternalLogin() {
 
   const { data: session, status, update } = useSession();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/profile";
+  const callbackUrl = searchParams.get("callbackUrl");
+
+  const defaultHome =
+    session?.user?.home_route ||
+    (session?.user?.account_type === "PATIENT"
+      ? "/patient/profile"
+      : "/profile");
 
   useEffect(() => {
     if (status === "authenticated") {
-      // Avoid redirecting to login or empty path
-      const target = (callbackUrl === "/login" || !callbackUrl) ? "/profile" : callbackUrl;
+      const target =
+        callbackUrl && callbackUrl !== "/login"
+          ? callbackUrl
+          : defaultHome;
       router.replace(target as any);
     }
-  }, [status, callbackUrl, router]);
+  }, [status, callbackUrl, defaultHome, router]);
 
   const [formData, setFormData] = useState({
     email: "",
@@ -49,7 +57,13 @@ export default function ExternalLogin() {
       if (isFirstLogin) {
         router.replace("/change-password");
       } else {
-        const target = (callbackUrl === "/login" || !callbackUrl) ? "/profile" : callbackUrl;
+        const target =
+          callbackUrl && callbackUrl !== "/login"
+            ? callbackUrl
+            : newSession?.user?.home_route ||
+              (newSession?.user?.account_type === "PATIENT"
+                ? "/patient/profile"
+                : "/profile");
         router.replace(target as any);
       }
     }

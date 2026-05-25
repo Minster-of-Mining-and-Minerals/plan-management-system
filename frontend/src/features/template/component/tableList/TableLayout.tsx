@@ -25,6 +25,7 @@ export const TableLayout: React.FC<PageLayoutProps> = ({
   showToggleHierarchyNode,
   toggleHierarchyNode,
   setToggleHierarchyNode,
+  showSearch = true,
 }) => {
   const { canAny } = usePermissions();
   // Get URL state for search
@@ -105,16 +106,17 @@ export const TableLayout: React.FC<PageLayoutProps> = ({
           </div>
           {/* Right side - Search, Filters, and Actions in one line */}
           <div className="flex flex-wrap items-center gap-3">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search..."
-                value={localSearch}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                className="pl-10 w-64"
-              />
-            </div>
+            {showSearch && (
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search..."
+                  value={localSearch}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  className="pl-10 w-64"
+                />
+              </div>
+            )}
             {showToggleHierarchyNode && (
               <Select
                 value={toggleHierarchyNode ? "hierarchy" : "list"}

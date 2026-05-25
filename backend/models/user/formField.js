@@ -3,8 +3,11 @@ const { Model } = require("sequelize");
 
 module.exports = (sequelize, DataTypes) => {
   class FormField extends Model {
-    static associate() {
-      // Logical definition only; values live in users (core) or user_field_values (custom).
+    static associate(models) {
+      FormField.belongsTo(models.FormFieldGroup, {
+        foreignKey: "group_id",
+        as: "group",
+      });
     }
   }
 
@@ -17,6 +20,10 @@ module.exports = (sequelize, DataTypes) => {
       },
       model_name: {
         type: DataTypes.STRING(64),
+        allowNull: false,
+      },
+      group_id: {
+        type: DataTypes.UUID,
         allowNull: false,
       },
       field_key: {
@@ -77,6 +84,7 @@ module.exports = (sequelize, DataTypes) => {
       underscored: true,
       indexes: [
         { fields: ["model_name"] },
+        { fields: ["group_id"] },
         { fields: ["model_name", "category"] },
         { unique: true, fields: ["model_name", "field_key"] },
       ],

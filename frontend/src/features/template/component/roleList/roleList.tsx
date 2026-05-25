@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { DataTable } from "@/features/template/component/DataTable";
 import { TableLayout } from "@/features/template/component/TableLayout";
 import { ColumnDef } from "@tanstack/react-table";
@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { Edit, Trash2 } from "lucide-react";
 import { useDeleteRoleMutation } from "@/redux/api/roleApi";
 import { toast } from "sonner";
+import { useClientDataTable } from "@/hooks/useClientDataTable";
 
 export default function RoleList() {
   const { data = [], isLoading, isError, refetch } = useGetRolesQuery();
@@ -118,17 +119,28 @@ export default function RoleList() {
     },
   ];
 
-  // Pagination states
-  const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
-
-  const handlePagination = (index: number, size: number) => {
-    setPageIndex(index);
-    setPageSize(size);
-  };
-
-  // Filters
   const [statusFilter, setStatusFilter] = useState("");
+
+  const statusFilterFn = useMemo(
+    () => (role: Role) => {
+      if (statusFilter === "active") return role.is_active === true;
+      if (statusFilter === "inactive") return role.is_active === false;
+      return true;
+    },
+    [statusFilter]
+  );
+
+  const {
+    paginated: paginatedData,
+    totalPageCount,
+    pageIndex,
+    pageSize,
+    handlePagination,
+  } = useClientDataTable(data, {
+    searchKeys: ["name", "description", (r) => (r.is_active ? "active" : "inactive")],
+    filterFn: statusFilterFn,
+    resetDeps: [statusFilter],
+  });
 
   const filters: FilterField[] = [
     {
@@ -161,19 +173,6 @@ export default function RoleList() {
     },
   ];
 
-  // Apply filters locally (client-side)
-  const filteredData = data.filter((role) => {
-    if (statusFilter === "active") return role.is_active === true;
-    if (statusFilter === "inactive") return role.is_active === false;
-    return true;
-  });
-
-  // Pagination slice
-  const paginatedData = filteredData.slice(
-    pageIndex * pageSize,
-    pageIndex * pageSize + pageSize
-  );
-
   return (
     <TableLayout
       title="Role Management"
@@ -185,7 +184,7 @@ export default function RoleList() {
       <DataTable
         columns={columns}
         data={paginatedData}
-        totalPageCount={Math.ceil(filteredData.length / pageSize)}
+        totalPageCount={totalPageCount}
         handlePagination={handlePagination}
         tablePageSize={pageSize}
         currentIndex={pageIndex}

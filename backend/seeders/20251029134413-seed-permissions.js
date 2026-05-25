@@ -37,7 +37,14 @@ module.exports = {
       { resource: "roles", action: "delete" },
       { resource: "roles", action: "assign_permission" },
 
-      // Form field configuration
+      // Patient management
+      { resource: "patients", action: "create" },
+      { resource: "patients", action: "read" },
+      { resource: "patients", action: "update" },
+      { resource: "patients", action: "delete" },
+      { resource: "patients", action: "export" },
+
+      // Form field configuration (patient intake forms)
       { resource: "form_fields", action: "create" },
       { resource: "form_fields", action: "read" },
       { resource: "form_fields", action: "update" },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import {
   useDeleteBrandingMutation,
   useActivateBrandingMutation,
 } from "@/redux/api/brandingApi";
+import { useClientDataTable } from "@/hooks/useClientDataTable";
 
 export default function BrandingList() {
   const { data = [], isLoading, refetch } = useGetBrandingListQuery();
@@ -120,9 +121,32 @@ export default function BrandingList() {
     },
   ];
 
-  const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
   const [statusFilter, setStatusFilter] = useState("");
+
+  const statusFilterFn = useMemo(
+    () => (item: SystemBranding) => {
+      if (statusFilter === "active") return item.is_active;
+      if (statusFilter === "inactive") return !item.is_active;
+      return true;
+    },
+    [statusFilter]
+  );
+
+  const {
+    paginated: paginatedData,
+    totalPageCount,
+    pageIndex,
+    pageSize,
+    handlePagination,
+  } = useClientDataTable(data, {
+    searchKeys: [
+      "system_name",
+      "tagline",
+      (b) => (b.is_active ? "active" : "inactive"),
+    ],
+    filterFn: statusFilterFn,
+    resetDeps: [statusFilter],
+  });
 
   const filters: FilterField[] = [
     {
@@ -154,17 +178,6 @@ export default function BrandingList() {
     },
   ];
 
-  const filteredData = data.filter((item) => {
-    if (statusFilter === "active") return item.is_active;
-    if (statusFilter === "inactive") return !item.is_active;
-    return true;
-  });
-
-  const paginatedData = filteredData.slice(
-    pageIndex * pageSize,
-    pageIndex * pageSize + pageSize
-  );
-
   return (
     <TableLayout
       title="Branding Management"
@@ -176,11 +189,8 @@ export default function BrandingList() {
       <DataTable
         columns={columns}
         data={paginatedData}
-        totalPageCount={Math.ceil(filteredData.length / pageSize)}
-        handlePagination={(index, size) => {
-          setPageIndex(index);
-          setPageSize(size);
-        }}
+        totalPageCount={totalPageCount}
+        handlePagination={handlePagination}
         tablePageSize={pageSize}
         currentIndex={pageIndex}
         isLoading={isLoading}

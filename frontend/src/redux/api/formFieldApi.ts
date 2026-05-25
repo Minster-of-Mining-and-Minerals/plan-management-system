@@ -10,8 +10,7 @@ import { flattenFormFields } from "../types/formField";
 
 function parseGroupedResponse(data: unknown): FormField[] {
   if (!data || typeof data !== "object") return [];
-  const grouped = data as UserFormConfigGrouped;
-  return flattenFormFields(grouped);
+  return flattenFormFields(data as UserFormConfigGrouped);
 }
 
 export const formFieldApi = baseApi.injectEndpoints({
@@ -22,7 +21,7 @@ export const formFieldApi = baseApi.injectEndpoints({
     >({
       query: (params) => ({
         url: "/form-fields",
-        params: { model: "User", grouped: true, ...params },
+        params: { model: "Patient", grouped: true, ...params },
       }),
       transformResponse: (response: { data: unknown }) =>
         parseGroupedResponse(response.data),
@@ -33,11 +32,12 @@ export const formFieldApi = baseApi.injectEndpoints({
       query: () => "/form-fields/config",
       transformResponse: (response: { data: UserFormConfigGrouped }) =>
         response.data ?? {
+          groups: [],
+          steps: [],
           core_fields: [],
-          categories: [],
           fields: [],
         },
-      providesTags: ["FormFields"],
+      providesTags: ["FormFields", "FormFieldGroups"],
     }),
 
     createFormField: builder.mutation<FormField, CreateFormFieldPayload>({
@@ -47,7 +47,7 @@ export const formFieldApi = baseApi.injectEndpoints({
         body,
       }),
       transformResponse: (response: { data: FormField }) => response.data,
-      invalidatesTags: ["FormFields"],
+      invalidatesTags: ["FormFields", "FormFieldGroups"],
     }),
 
     updateFormField: builder.mutation<
@@ -60,7 +60,7 @@ export const formFieldApi = baseApi.injectEndpoints({
         body: data,
       }),
       transformResponse: (response: { data: FormField }) => response.data,
-      invalidatesTags: ["FormFields"],
+      invalidatesTags: ["FormFields", "FormFieldGroups"],
     }),
 
     deleteFormField: builder.mutation<{ message: string }, string>({
@@ -68,18 +68,21 @@ export const formFieldApi = baseApi.injectEndpoints({
         url: `/form-fields/${id}`,
         method: "DELETE",
       }),
-      invalidatesTags: ["FormFields"],
+      invalidatesTags: ["FormFields", "FormFieldGroups"],
     }),
 
-    reorderFormFields: builder.mutation<FormField[], ReorderFormFieldsPayload>({
+    reorderFormFields: builder.mutation<
+      UserFormConfigGrouped,
+      ReorderFormFieldsPayload
+    >({
       query: (body) => ({
         url: "/form-fields/reorder",
         method: "PUT",
         body,
       }),
-      transformResponse: (response: { data: unknown }) =>
-        parseGroupedResponse(response.data),
-      invalidatesTags: ["FormFields"],
+      transformResponse: (response: { data: UserFormConfigGrouped }) =>
+        response.data,
+      invalidatesTags: ["FormFields", "FormFieldGroups"],
     }),
   }),
 });

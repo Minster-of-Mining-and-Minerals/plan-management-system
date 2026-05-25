@@ -1,5 +1,10 @@
-import FormFieldList from "@/features/form-field-management/FormFieldList";
+import { redirect } from "next/navigation";
 
-export default function UserFormFieldsPage() {
-  return <FormFieldList />;
+export default async function LegacyUserFormFieldsPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  redirect(`/${locale}/patients/form-fields`);
 }

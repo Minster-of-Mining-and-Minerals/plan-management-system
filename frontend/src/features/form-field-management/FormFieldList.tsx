@@ -16,40 +16,74 @@ import type { FormField } from "@/redux/types/formField";
 import { CORE_USER_FIELD_KEYS } from "@/redux/types/formField";
 import { FormFieldFormModal } from "./FormFieldFormModal";
 import { toast } from "sonner";
+import { useClientDataTable } from "@/hooks/useClientDataTable";
 
-export default function FormFieldList() {
+interface FormFieldListProps {
+  embedded?: boolean;
+  modalOpen?: boolean;
+  onModalOpenChange?: (open: boolean) => void;
+}
+
+export default function FormFieldList({
+  embedded = false,
+  modalOpen: controlledModalOpen,
+  onModalOpenChange,
+}: FormFieldListProps) {
   const { data: fields = [], isLoading, refetch } = useGetFormFieldsQuery({
-    model: "User",
+    model: "Patient",
   });
   const [deleteField] = useDeleteFormFieldMutation();
   const [reorderFields] = useReorderFormFieldsMutation();
 
-  const [modalOpen, setModalOpen] = useState(false);
+  const [internalModalOpen, setInternalModalOpen] = useState(false);
+  const modalOpen = controlledModalOpen ?? internalModalOpen;
+  const setModalOpen = onModalOpenChange ?? setInternalModalOpen;
+
   const [editingField, setEditingField] = useState<FormField | null>(null);
 
-  const sorted = useMemo(
+  const sortedAll = useMemo(
     () => [...fields].sort((a, b) => a.sort_order - b.sort_order),
     [fields]
   );
+
+  const {
+    paginated,
+    totalPageCount,
+    pageIndex,
+    pageSize,
+    handlePagination,
+    totalCount,
+  } = useClientDataTable(sortedAll, {
+    searchKeys: [
+      "label",
+      "field_key",
+      "field_type",
+      "category",
+      "storage_type",
+      (f) => (f.is_required ? "required" : "optional"),
+      (f) => (f.is_visible ? "visible" : "hidden"),
+    ],
+    sortFn: (a, b) => a.sort_order - b.sort_order,
+  });
 
   const isCoreField = (f: FormField) =>
     f.storage_type === "core" ||
     (CORE_USER_FIELD_KEYS as readonly string[]).includes(f.field_key);
 
   const moveField = async (fieldId: string, direction: -1 | 1) => {
-    const field = sorted.find((f) => f.field_id === fieldId);
+    const field = sortedAll.find((f) => f.field_id === fieldId);
     if (field && isCoreField(field)) return;
 
-    const index = sorted.findIndex((f) => f.field_id === fieldId);
+    const index = sortedAll.findIndex((f) => f.field_id === fieldId);
     if (index < 0) return;
     const target = index + direction;
-    if (target < 0 || target >= sorted.length) return;
-    const next = [...sorted];
+    if (target < 0 || target >= sortedAll.length) return;
+    const next = [...sortedAll];
     const [item] = next.splice(index, 1);
     next.splice(target, 0, item);
     try {
       await reorderFields({
-        model_name: "User",
+        model_name: "Patient",
         field_ids: next.map((f) => f.field_id),
       }).unwrap();
       refetch();
@@ -62,31 +96,38 @@ export default function FormFieldList() {
     {
       accessorKey: "sort_order",
       header: "Order",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-1">
-          <span className="w-6 text-center">{row.original.sort_order}</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => moveField(row.original.field_id, -1)}
-            disabled={row.index === 0 || isCoreField(row.original)}
-          >
-            <ArrowUp className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => moveField(row.original.field_id, 1)}
-            disabled={
-              row.index === sorted.length - 1 || isCoreField(row.original)
-            }
-          >
-            <ArrowDown className="h-4 w-4" />
-          </Button>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const globalIndex = sortedAll.findIndex(
+          (f) => f.field_id === row.original.field_id
+        );
+        return (
+          <div className="flex items-center gap-1">
+            <span className="w-6 text-center">{row.original.sort_order}</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => moveField(row.original.field_id, -1)}
+              disabled={globalIndex <= 0 || isCoreField(row.original)}
+            >
+              <ArrowUp className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => moveField(row.original.field_id, 1)}
+              disabled={
+                globalIndex < 0 ||
+                globalIndex >= sortedAll.length - 1 ||
+                isCoreField(row.original)
+              }
+            >
+              <ArrowDown className="h-4 w-4" />
+            </Button>
+          </div>
+        );
+      },
     },
     { accessorKey: "label", header: "Label" },
     { accessorKey: "field_key", header: "Key" },
@@ -99,7 +140,7 @@ export default function FormFieldList() {
         </Badge>
       ),
     },
-    { accessorKey: "category", header: "Category" },
+    { accessorKey: "category", header: "Step" },
     { accessorKey: "field_type", header: "Type" },
     {
       accessorKey: "is_required",
@@ -156,33 +197,53 @@ export default function FormFieldList() {
     },
   ];
 
-  return (
+  const table = (
     <>
-      <TableLayout
-        title="Configure User Forms"
-        description="Full name, email, and phone are required core fields (seeded automatically). Add custom fields below for demographics, medical info, etc."
-        actions={[
-          {
-            label: "Add custom field",
-            icon: <Plus className="h-4 w-4" />,
-            variant: "default",
-            onClick: () => {
-              setEditingField(null);
-              setModalOpen(true);
-            },
-          },
-        ]}
-      >
+      {embedded && (
+        <p className="text-xs text-muted-foreground mb-3">
+          {totalCount} field{totalCount === 1 ? "" : "s"}
+          {totalCount !== sortedAll.length
+            ? ` (filtered from ${sortedAll.length})`
+            : ""}
+        </p>
+      )}
+      <div className="rounded-lg border border-section-accent/15 overflow-hidden">
         <DataTable
           columns={columns}
-          data={sorted}
+          data={paginated}
           isLoading={isLoading}
-          totalPageCount={1}
-          handlePagination={() => {}}
-          tablePageSize={sorted.length || 10}
-          currentIndex={0}
+          totalPageCount={totalPageCount}
+          handlePagination={handlePagination}
+          tablePageSize={pageSize}
+          currentIndex={pageIndex}
         />
-      </TableLayout>
+      </div>
+    </>
+  );
+
+  return (
+    <>
+      {embedded ? (
+        table
+      ) : (
+        <TableLayout
+          title="Configure Patient Forms"
+          description="Full name, email, and phone are required core fields (seeded automatically)."
+          actions={[
+            {
+              label: "Add custom field",
+              icon: <Plus className="h-4 w-4" />,
+              variant: "default",
+              onClick: () => {
+                setEditingField(null);
+                setModalOpen(true);
+              },
+            },
+          ]}
+        >
+          {table}
+        </TableLayout>
+      )}
 
       <FormFieldFormModal
         isOpen={modalOpen}

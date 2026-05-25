@@ -23,6 +23,7 @@ export interface FormFieldConfig {
 export interface FormField {
   field_id: string;
   model_name: string;
+  group_id?: string;
   field_key: string;
   label: string;
   field_type: FormFieldType;
@@ -32,8 +33,23 @@ export interface FormField {
   is_visible: boolean;
   sort_order: number;
   config: FormFieldConfig;
+  effective_visible?: boolean;
+  effective_required?: boolean;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface FormFieldStepGroup {
+  group_id: string;
+  group: string;
+  title: string;
+  description?: string | null;
+  sort_order: number;
+  is_visible: boolean;
+  is_required: boolean;
+  is_required_step: boolean;
+  is_optional_step: boolean;
+  fields: FormField[];
 }
 
 export interface FormFieldCategoryGroup {
@@ -42,8 +58,10 @@ export interface FormFieldCategoryGroup {
 }
 
 export interface UserFormConfigGrouped {
+  groups: FormFieldStepGroup[];
+  steps: FormFieldStepGroup[];
   core_fields: FormField[];
-  categories: FormFieldCategoryGroup[];
+  categories?: FormFieldCategoryGroup[];
   fields: FormField[];
 }
 
@@ -58,12 +76,21 @@ export const DEFAULT_FIELD_CATEGORIES = [
   "General",
 ] as const;
 
+export function getVisibleSteps(
+  config: UserFormConfigGrouped | undefined
+): FormFieldStepGroup[] {
+  if (!config) return [];
+  return (config.steps || config.groups || []).filter((g) => g.is_visible);
+}
+
 export function flattenFormFields(
   config: UserFormConfigGrouped | FormField[] | undefined
 ): FormField[] {
   if (!config) return [];
   if (Array.isArray(config)) return config;
   if (config.fields?.length) return config.fields;
+  const groups = config.groups || config.steps || [];
+  if (groups.length) return groups.flatMap((g) => g.fields);
   return [
     ...(config.core_fields || []),
     ...(config.categories || []).flatMap((c) => c.fields),
@@ -74,18 +101,22 @@ export function hasCoreFormFields(
   config: UserFormConfigGrouped | FormField[] | undefined
 ): boolean {
   const fields = flattenFormFields(config);
-  return CORE_USER_FIELD_KEYS.every((key) =>
+  const hasField = (key: string, requireRequired: boolean) =>
     fields.some(
       (f) =>
         f.field_key === key &&
         f.storage_type === "core" &&
         f.is_visible &&
-        f.is_required
-    )
+        (!requireRequired || f.is_required)
+    );
+
+  return (
+    hasField("full_name", true) &&
+    hasField("phone_number", true) &&
+    hasField("email", false)
   );
 }
 
-/** True when required core fields exist (custom fields are optional). */
 export function hasConfiguredFormFields(
   config: UserFormConfigGrouped | FormField[] | undefined
 ): boolean {
@@ -94,6 +125,7 @@ export function hasConfiguredFormFields(
 
 export interface CreateFormFieldPayload {
   model_name?: string;
+  group_id: string;
   field_key: string;
   label: string;
   field_type: FormFieldType;
@@ -107,6 +139,7 @@ export interface CreateFormFieldPayload {
 
 export interface UpdateFormFieldPayload {
   field_key?: string;
+  group_id?: string;
   label?: string;
   field_type?: FormFieldType;
   storage_type?: FormFieldStorageType;

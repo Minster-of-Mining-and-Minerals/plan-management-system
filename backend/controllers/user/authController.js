@@ -20,11 +20,16 @@ const login = async (req, res) => {
     if (!isMatch)
       return res.status(401).json({ message: "Invalid email or password" });
 
+    const account_type = user.account_type || "INTERNAL";
+    const home_route =
+      account_type === "PATIENT" ? "/patient/profile" : "/profile";
+
     const token = jwt.sign(
       {
         user_id: user.user_id,
         email: user.email,
         is_first_logged_in: user.is_first_logged_in,
+        account_type,
       },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
@@ -47,6 +52,8 @@ const login = async (req, res) => {
           phone_number: user.phone_number,
           profile_image: user.profile_image,
           is_first_logged_in: user.is_first_logged_in,
+          account_type,
+          home_route,
         },
       },
     });
@@ -79,6 +86,7 @@ const getMe = async (req, res) => {
         "phone_number",
         "profile_image",
         "is_first_logged_in",
+        "account_type",
       ],
     });
 
@@ -87,6 +95,10 @@ const getMe = async (req, res) => {
         .status(404)
         .json({ success: false, message: "User not found" });
     }
+
+    const account_type = user.account_type || "INTERNAL";
+    const home_route =
+      account_type === "PATIENT" ? "/patient/profile" : "/profile";
 
     return res.status(200).json({
       success: true,
@@ -98,6 +110,8 @@ const getMe = async (req, res) => {
           phone_number: user.phone_number,
           profile_image: user.profile_image,
           is_first_logged_in: user.is_first_logged_in,
+          account_type,
+          home_route,
         },
       },
     });
@@ -111,6 +125,13 @@ const getMe = async (req, res) => {
 
 const getMyPermissions = async (req, res) => {
   try {
+    if (req.user?.account_type === "PATIENT") {
+      return res.status(200).json({
+        success: true,
+        data: { permissions: [], roles: [] },
+      });
+    }
+
     const user = await User.findOne({
       where: { user_id: req.user.user_id },
       include: [

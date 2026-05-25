@@ -1,13 +1,20 @@
 "use strict";
 
 const {
-  USER_MODEL_NAME,
-  CORE_USER_COLUMNS,
+  PATIENT_MODEL_NAME,
+  CORE_PATIENT_COLUMNS,
   CORE_USER_COLUMN_SET,
   SYSTEM_USER_PAYLOAD_KEYS,
   ETHIOPIAN_PHONE_REGEX,
 } = require("../config/userFormConstants");
+
+const CORE_USER_COLUMNS = CORE_PATIENT_COLUMNS;
 const { getFormFieldsByModel } = require("./formFieldService");
+const { getGroupsByModel } = require("./formFieldGroupService");
+const {
+  isFieldEffectivelyVisible,
+  validateGroupFields,
+} = require("./formFieldRuleService");
 
 function isEmpty(value) {
   if (value === undefined || value === null) return true;
@@ -201,19 +208,13 @@ function isFieldInPayload(field, flat, isUpdate) {
  * Hybrid validation: core columns → userData, custom keys → customValues.
  */
 async function validateAndPickUserFields(body, { isUpdate = false } = {}) {
-  const fields = await getFormFieldsByModel(USER_MODEL_NAME, {
-    visibleOnly: false,
-  });
-
+  const groups = await getGroupsByModel(PATIENT_MODEL_NAME, { visibleOnly: false });
+  const fields = groups.flatMap((g) => g.fields || []);
   const fieldByKey = new Map(fields.map((f) => [f.field_key, f]));
   const flat = flattenBody(body);
   const errors = [];
   const userData = {};
   const customValues = {};
-
-  const allowedKeys = new Set(
-    fields.map((f) => f.field_key).concat(SYSTEM_USER_PAYLOAD_KEYS)
-  );
 
   for (const key of Object.keys(flat)) {
     if (SYSTEM_USER_PAYLOAD_KEYS.includes(key)) continue;
@@ -222,36 +223,43 @@ async function validateAndPickUserFields(body, { isUpdate = false } = {}) {
     }
   }
 
-  const fieldsToProcess = isUpdate
-    ? fields.filter((f) => isFieldInPayload(f, flat, true) && f.is_visible)
-    : fields.filter((f) => f.is_visible);
+  for (const group of groups) {
+    const groupFields = (group.fields || []).filter((f) =>
+      isUpdate
+        ? isFieldInPayload(f, flat, true) && isFieldEffectivelyVisible(group, f)
+        : isFieldEffectivelyVisible(group, f)
+    );
 
-  for (const field of fieldsToProcess) {
-    const raw = flat[field.field_key];
-    const fieldErrors = validateFieldValue(field, raw);
+    const groupErrors = validateGroupFields(group, group.fields || [], flat, {
+      isUpdate,
+    });
+    errors.push(...groupErrors);
 
-    if (fieldErrors.length) {
-      errors.push(...fieldErrors);
-      continue;
-    }
+    for (const field of groupFields) {
+      const raw = flat[field.field_key];
+      const fieldErrors = validateFieldValue(field, raw);
 
-    if (isEmpty(raw)) {
-      if (field.is_required && !isUpdate) {
-        errors.push(`${field.label} is required`);
+      if (fieldErrors.length) {
+        errors.push(...fieldErrors);
+        continue;
       }
-      continue;
-    }
 
-    const serialized = serializeValueForStorage(raw, field);
+      if (isEmpty(raw)) continue;
 
-    if (field.storage_type === "core" || CORE_USER_COLUMN_SET.has(field.field_key)) {
-      userData[field.field_key] =
-        field.field_key === "phone_number" ? serialized : raw;
-      if (field.field_key === "email") {
-        userData.email = String(raw).trim().toLowerCase();
+      if (
+        field.storage_type === "core" ||
+        CORE_USER_COLUMN_SET.has(field.field_key)
+      ) {
+        userData[field.field_key] =
+          field.field_key === "phone_number"
+            ? serializeValueForStorage(raw, field)
+            : raw;
+        if (field.field_key === "email") {
+          userData.email = String(raw).trim().toLowerCase();
+        }
+      } else {
+        customValues[field.field_key] = raw;
       }
-    } else {
-      customValues[field.field_key] = raw;
     }
   }
 
@@ -285,5 +293,6 @@ module.exports = {
   parseStoredValue,
   serializeValueForStorage,
   getFormFieldsByModel,
-  USER_MODEL_NAME,
+  PATIENT_MODEL_NAME,
+  validateAndPickPatientFields: validateAndPickUserFields,
 };

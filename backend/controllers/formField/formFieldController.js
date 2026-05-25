@@ -1,40 +1,39 @@
 "use strict";
 
-const { FormField } = require("../../models");
+const { FormField, FormFieldGroup } = require("../../models");
 const { v4: uuidv4 } = require("uuid");
 const {
-  getFormFieldsByModel,
-  getUserFormConfig,
+  getGroupedFormConfig,
   normalizeFieldRecord,
-  groupFormFields,
   assertFieldKeyForStorage,
   ensureUniqueFieldKey,
+  getGroupForField,
   reorderFormFields,
+  syncGroupRequiredFromFields,
 } = require("../../services/formFieldService");
 const { ensureCoreFormFields } = require("../../services/coreFormFieldService");
-const { isCoreFormField } = require("../../config/coreUserFormFields");
-const { USER_MODEL_NAME } = require("../../config/userFormConstants");
+const { isCoreFormField } = require("../../config/corePatientFormFields");
+const { PATIENT_MODEL_NAME } = require("../../config/userFormConstants");
 
 const getFormFields = async (req, res) => {
   try {
-    const model = req.query.model || USER_MODEL_NAME;
+    const model = req.query.model || PATIENT_MODEL_NAME;
     const visibleOnly = req.query.visible_only === "true";
     const grouped = req.query.grouped !== "false";
 
-    if (model === USER_MODEL_NAME) {
+    if (model === PATIENT_MODEL_NAME) {
       await ensureCoreFormFields();
     }
 
-    const fields = await getFormFieldsByModel(model, { visibleOnly });
+    const data = await getGroupedFormConfig(model, { visibleOnly });
 
     if (grouped) {
-      const groupedData = groupFormFields(fields);
-      return res.json({ success: true, data: groupedData });
+      return res.json({ success: true, data });
     }
 
     return res.json({
       success: true,
-      data: fields.map(normalizeFieldRecord),
+      data: data.fields.map(normalizeFieldRecord),
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
@@ -43,8 +42,8 @@ const getFormFields = async (req, res) => {
 
 const getUserFormConfigHandler = async (req, res) => {
   try {
-    const model = req.query.model || USER_MODEL_NAME;
-    if (model !== USER_MODEL_NAME) {
+    const model = req.query.model || PATIENT_MODEL_NAME;
+    if (model !== PATIENT_MODEL_NAME) {
       return res.status(400).json({
         success: false,
         message: `Form config not supported for model: ${model}`,
@@ -52,12 +51,11 @@ const getUserFormConfigHandler = async (req, res) => {
     }
 
     await ensureCoreFormFields();
-    const fields = await getUserFormConfig();
-    const grouped = groupFormFields(fields);
+    const data = await getGroupedFormConfig(model, { visibleOnly: true });
 
     return res.json({
       success: true,
-      data: grouped,
+      data,
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
@@ -67,11 +65,11 @@ const getUserFormConfigHandler = async (req, res) => {
 const createFormField = async (req, res) => {
   try {
     const {
-      model_name = USER_MODEL_NAME,
+      model_name = PATIENT_MODEL_NAME,
+      group_id,
       field_key,
       label,
       field_type,
-      category = "General",
       is_required = false,
       is_visible = true,
       sort_order,
@@ -79,6 +77,7 @@ const createFormField = async (req, res) => {
     } = req.body;
 
     const storage_type = "custom";
+    const group = await getGroupForField(model_name, group_id);
 
     assertFieldKeyForStorage(field_key, storage_type);
     await ensureUniqueFieldKey(model_name, field_key);
@@ -86,7 +85,7 @@ const createFormField = async (req, res) => {
     let order = sort_order;
     if (order === undefined) {
       const max = await FormField.max("sort_order", {
-        where: { model_name, category },
+        where: { group_id },
       });
       order = (max ?? -1) + 1;
     }
@@ -94,16 +93,19 @@ const createFormField = async (req, res) => {
     const field = await FormField.create({
       field_id: uuidv4(),
       model_name,
+      group_id,
       field_key,
       label,
       field_type,
       storage_type,
-      category,
+      category: group.title,
       is_required,
       is_visible,
       sort_order: order,
       config,
     });
+
+    await syncGroupRequiredFromFields(group_id);
 
     return res.status(201).json({
       success: true,
@@ -129,8 +131,14 @@ const updateFormField = async (req, res) => {
     const updates = { ...req.body, updated_at: new Date() };
     delete updates.storage_type;
 
+    if (updates.group_id) {
+      const group = await getGroupForField(field.model_name, updates.group_id);
+      updates.category = group.title;
+    }
+
     if (isCoreFormField(field)) {
       delete updates.field_key;
+      delete updates.group_id;
       delete updates.category;
       updates.is_required = true;
       updates.is_visible = true;
@@ -143,6 +151,10 @@ const updateFormField = async (req, res) => {
     }
 
     await field.update(updates);
+    await syncGroupRequiredFromFields(field.group_id);
+    if (updates.group_id && updates.group_id !== field.group_id) {
+      await syncGroupRequiredFromFields(updates.group_id);
+    }
 
     return res.json({
       success: true,
@@ -172,7 +184,9 @@ const deleteFormField = async (req, res) => {
       });
     }
 
+    const groupId = field.group_id;
     await field.destroy();
+    await syncGroupRequiredFromFields(groupId);
 
     return res.json({ success: true, message: "Form field deleted" });
   } catch (error) {
@@ -182,14 +196,13 @@ const deleteFormField = async (req, res) => {
 
 const reorderFormFieldsHandler = async (req, res) => {
   try {
-    const { model_name = USER_MODEL_NAME, field_ids } = req.body;
-    const fields = await reorderFormFields(model_name, field_ids);
-    const grouped = groupFormFields(fields);
+    const { model_name = PATIENT_MODEL_NAME, field_ids } = req.body;
+    const data = await reorderFormFields(model_name, field_ids);
 
     return res.json({
       success: true,
       message: "Fields reordered",
-      data: grouped,
+      data,
     });
   } catch (error) {
     return res

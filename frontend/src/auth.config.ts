@@ -41,6 +41,8 @@ export default {
             email: user.email,
             name: user.full_name,
             is_first_logged_in: user.is_first_logged_in,
+            account_type: user.account_type ?? "INTERNAL",
+            home_route: user.home_route ?? "/profile",
           };
         } catch (err) {
           console.error("Authorize error:", err);

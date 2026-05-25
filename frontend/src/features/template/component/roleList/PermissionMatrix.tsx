@@ -57,6 +57,11 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
     human_resources: <Users className="h-4 w-4" />,
     organizations: <Building className="h-4 w-4" />,
     permissions: <Shield className="h-4 w-4" />,
+    patients: <Users className="h-4 w-4" />,
+    form_fields: <Settings className="h-4 w-4" />,
+    form_field_groups: <Settings className="h-4 w-4" />,
+    permission_groups: <Shield className="h-4 w-4" />,
+    branding: <Settings className="h-4 w-4" />,
     system: <Settings className="h-4 w-4" />,
   };
 

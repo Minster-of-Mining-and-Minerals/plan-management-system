@@ -22,6 +22,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           id: user.id,
           accessToken: user.accessToken,
           is_first_logged_in: user.is_first_logged_in,
+          account_type: user.account_type ?? "INTERNAL",
+          home_route: user.home_route ?? "/profile",
         };
       }
       if (token.exp && token.exp < Date.now() / 1000) {
@@ -38,6 +40,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           ...session.user,
           id: token.id as string,
           is_first_logged_in: token.is_first_logged_in,
+          account_type: token.account_type as string | undefined,
+          home_route: token.home_route as string | undefined,
         },
       };
     },
@@ -49,6 +53,8 @@ declare module "next-auth" {
     accessToken?: string;
     id: string;
     is_first_logged_in?: boolean;
+    account_type?: string;
+    home_route?: string;
   }
 
   interface Session {
@@ -59,6 +65,8 @@ declare module "next-auth" {
       email?: string | null;
       image?: string | null;
       is_first_logged_in?: boolean;
+      account_type?: string;
+      home_route?: string;
     };
   }
 }
@@ -68,5 +76,7 @@ declare module "next-auth/jwt" {
     id?: string;
     accessToken?: string;
     is_first_logged_in?: boolean;
+    account_type?: string;
+    home_route?: string;
   }
 }

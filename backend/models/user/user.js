@@ -20,9 +20,19 @@ module.exports = (sequelize, DataTypes) => {
         as: "permissionGroups",
       });
 
-      User.hasMany(models.UserFieldValue, {
+      User.hasOne(models.InternalUserProfile, {
         foreignKey: "user_id",
-        as: "fieldValues",
+        as: "internalProfile",
+      });
+
+      User.hasOne(models.PatientProfile, {
+        foreignKey: "user_id",
+        as: "patientProfile",
+      });
+
+      User.hasMany(models.PatientFieldValue, {
+        foreignKey: "user_id",
+        as: "patientFieldValues",
       });
     }
   }
@@ -72,6 +82,11 @@ module.exports = (sequelize, DataTypes) => {
       is_active: {
         type: DataTypes.BOOLEAN,
         defaultValue: true,
+      },
+      account_type: {
+        type: DataTypes.ENUM("INTERNAL", "PATIENT"),
+        allowNull: false,
+        defaultValue: "INTERNAL",
       },
       otp: {
         type: DataTypes.STRING,

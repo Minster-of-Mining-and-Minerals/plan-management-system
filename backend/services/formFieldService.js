@@ -1,72 +1,81 @@
 "use strict";
 
-const { FormField } = require("../models");
+const { FormField, FormFieldGroup } = require("../models");
 const { Op } = require("sequelize");
 const {
-  USER_MODEL_NAME,
+  PATIENT_MODEL_NAME,
   CORE_USER_COLUMNS,
   isCoreFieldKey,
   isValidCustomFieldKey,
 } = require("../config/userFormConstants");
+const { normalizeFieldRecord } = require("./formFieldNormalize");
+const {
+  buildGroupedFormResponse,
+  getGroupedFormConfig,
+  syncGroupRequiredFromFields,
+  ensureAccountGroup,
+} = require("./formFieldGroupService");
 
 async function getFormFieldsByModel(modelName, { visibleOnly = false } = {}) {
-  const where = { model_name: modelName };
+  const groupWhere = { model_name: modelName };
   if (visibleOnly) {
-    where.is_visible = true;
+    groupWhere.is_visible = true;
   }
 
-  return FormField.findAll({
-    where,
+  const groups = await FormFieldGroup.findAll({
+    where: groupWhere,
+    include: [
+      {
+        model: FormField,
+        as: "fields",
+        required: false,
+        where: visibleOnly ? { is_visible: true } : undefined,
+      },
+    ],
     order: [
-      ["category", "ASC"],
       ["sort_order", "ASC"],
-      ["created_at", "ASC"],
+      [{ model: FormField, as: "fields" }, "sort_order", "ASC"],
     ],
   });
+
+  return groups.flatMap((g) => g.fields || []);
 }
 
 async function getUserFormConfig() {
-  return getFormFieldsByModel(USER_MODEL_NAME, { visibleOnly: true });
+  return getGroupedFormConfig(PATIENT_MODEL_NAME, { visibleOnly: true });
 }
 
-function normalizeFieldRecord(field) {
-  const plain = field?.toJSON ? field.toJSON() : field;
-  if (!plain) return null;
-
-  const config = plain.config || {};
-  if (!config.options && Array.isArray(plain.options)) {
-    config.options = plain.options;
+/** @deprecated Use getGroupedFormConfig — kept for compatibility */
+function groupFormFields(fields) {
+  const byGroup = new Map();
+  for (const field of fields.map(normalizeFieldRecord).filter(Boolean)) {
+    const key = field.category || "General";
+    if (!byGroup.has(key)) byGroup.set(key, []);
+    byGroup.get(key).push(field);
   }
 
-  return { ...plain, config };
-}
+  const groups = Array.from(byGroup.entries()).map(([title, groupFields], i) => ({
+    group_id: null,
+    group: title,
+    title,
+    sort_order: i,
+    is_visible: true,
+    is_required: groupFields.some((f) => f.is_required),
+    is_required_step: groupFields.some((f) => f.is_required),
+    fields: groupFields.sort((a, b) => a.sort_order - b.sort_order),
+  }));
 
-function groupFormFields(fields) {
-  const normalized = fields.map(normalizeFieldRecord).filter(Boolean);
-  const core_fields = normalized
-    .filter((f) => f.storage_type === "core")
-    .sort((a, b) => a.sort_order - b.sort_order);
-
-  const customByCategory = new Map();
-
-  normalized
-    .filter((f) => f.storage_type === "custom")
-    .forEach((field) => {
-      const cat = field.category || "General";
-      if (!customByCategory.has(cat)) {
-        customByCategory.set(cat, []);
-      }
-      customByCategory.get(cat).push(field);
-    });
-
-  const categories = Array.from(customByCategory.entries())
-    .map(([category, categoryFields]) => ({
-      category,
-      fields: categoryFields.sort((a, b) => a.sort_order - b.sort_order),
-    }))
-    .sort((a, b) => a.category.localeCompare(b.category));
-
-  return { core_fields, categories, fields: normalized };
+  const allFields = groups.flatMap((g) => g.fields);
+  return {
+    groups,
+    steps: groups,
+    core_fields: allFields.filter((f) => f.storage_type === "core"),
+    categories: groups.map((g) => ({
+      category: g.title,
+      fields: g.fields,
+    })),
+    fields: allFields,
+  };
 }
 
 function assertFieldKeyForStorage(fieldKey, storageType) {
@@ -103,6 +112,18 @@ async function ensureUniqueFieldKey(modelName, fieldKey, excludeId = null) {
   }
 }
 
+async function getGroupForField(modelName, groupId) {
+  const group = await FormFieldGroup.findOne({
+    where: { group_id: groupId, model_name: modelName },
+  });
+  if (!group) {
+    const err = new Error("Invalid group_id for this model");
+    err.status = 400;
+    throw err;
+  }
+  return group;
+}
+
 async function reorderFormFields(modelName, orderedFieldIds) {
   const fields = await FormField.findAll({
     where: { model_name: modelName },
@@ -132,7 +153,7 @@ async function reorderFormFields(modelName, orderedFieldIds) {
     )
   );
 
-  return getFormFieldsByModel(modelName);
+  return getGroupedFormConfig(modelName);
 }
 
 module.exports = {
@@ -140,7 +161,12 @@ module.exports = {
   getUserFormConfig,
   normalizeFieldRecord,
   groupFormFields,
+  getGroupedFormConfig,
+  buildGroupedFormResponse,
   assertFieldKeyForStorage,
   ensureUniqueFieldKey,
+  getGroupForField,
   reorderFormFields,
+  syncGroupRequiredFromFields,
+  ensureAccountGroup,
 };

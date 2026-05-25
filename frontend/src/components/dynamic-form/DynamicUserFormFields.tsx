@@ -265,9 +265,12 @@ export function DynamicUserFormFields({
     [grouped, fields]
   );
 
+  const stepGroups = grouped?.groups || grouped?.steps || [];
   const useGroupedLayout = Boolean(
     grouped &&
-      (grouped.core_fields?.length || grouped.categories?.length)
+      (grouped.core_fields?.length ||
+        stepGroups.length ||
+        (grouped.categories?.length ?? 0) > 0)
   );
 
   if (!flatFields.some((f) => f.is_visible)) {
@@ -310,7 +313,23 @@ export function DynamicUserFormFields({
         </section>
       )}
 
-      {grouped!.categories.map((cat) => (
+      {stepGroups.map((step) => (
+        <section key={step.group_id} className="space-y-3">
+          <h3 className="text-sm font-semibold text-primary border-b pb-2">
+            {step.title}
+          </h3>
+          <FieldGrid
+            fields={step.fields}
+            values={values}
+            errors={errors}
+            onChange={onChange}
+            onFileSelect={onFileSelect}
+            disabled={disabled}
+          />
+        </section>
+      ))}
+
+      {(grouped?.categories ?? []).map((cat) => (
         <section key={cat.category} className="space-y-3">
           <h3 className="text-sm font-semibold text-primary border-b pb-2">
             {cat.category}

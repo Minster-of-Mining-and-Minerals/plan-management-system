@@ -30,7 +30,8 @@ const createFormFieldSchema = Joi.object({
   label: Joi.string().min(1).max(255).required(),
   field_type: Joi.string().valid(...FIELD_TYPES).required(),
   storage_type: Joi.string().valid("custom").default("custom"),
-  category: Joi.string().min(1).max(64).default("General"),
+  group_id: Joi.string().guid({ version: "uuidv4" }).required(),
+  category: Joi.string().min(1).max(64).optional(),
   is_required: Joi.boolean().optional(),
   is_visible: Joi.boolean().optional(),
   sort_order: Joi.number().integer().min(0).optional(),
@@ -42,6 +43,7 @@ const updateFormFieldSchema = Joi.object({
   label: Joi.string().min(1).max(255).optional(),
   field_type: Joi.string().valid(...FIELD_TYPES).optional(),
   storage_type: Joi.forbidden(),
+  group_id: Joi.string().guid({ version: "uuidv4" }).optional(),
   category: Joi.string().min(1).max(64).optional(),
   is_required: Joi.boolean().optional(),
   is_visible: Joi.boolean().optional(),
@@ -58,13 +60,19 @@ const reorderSchema = Joi.object({
 });
 
 const validate = (schema) => (req, res, next) => {
-  const { error } = schema.validate(req.body, { abortEarly: false });
+  const { error, value } = schema.validate(req.body, {
+    abortEarly: false,
+    stripUnknown: true,
+  });
   if (error) {
     return res.status(400).json({
       success: false,
       message: "Validation error",
       errors: error.details.map((e) => e.message),
     });
+  }
+  if (value) {
+    req.body = value;
   }
   next();
 };

@@ -2,7 +2,7 @@
 
 const { ensureCoreFormFields } = require("../services/coreFormFieldService");
 
-/** Seeds required core User form fields (full_name, email, phone_number). */
+/** Seeds required core Patient form fields (full_name, email, phone_number). */
 module.exports = {
   async up() {
     await ensureCoreFormFields();
@@ -10,12 +10,14 @@ module.exports = {
 
   async down() {
     const { FormField } = require("../models");
-    const { CORE_FIELD_KEY_SET } = require("../config/coreUserFormFields");
+    const { CORE_FIELD_KEY_SET } = require("../config/corePatientFormFields");
+    const { PATIENT_MODEL_NAME } = require("../config/accountTypes");
 
     await FormField.destroy({
       where: {
-        model_name: "User",
+        model_name: PATIENT_MODEL_NAME,
         field_key: [...CORE_FIELD_KEY_SET],
+        storage_type: "core",
       },
     });
   },
