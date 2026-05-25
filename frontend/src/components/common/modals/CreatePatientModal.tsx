@@ -7,6 +7,7 @@ import { XIcon } from "lucide-react";
 import { useGetUserFormConfigQuery } from "@/redux/api/formFieldApi";
 import { useCreatePatientMutation } from "@/redux/api/patientApi";
 import { useUploadAttachmentsMutation } from "@/redux/api/attachementApi";
+import { getFileUrl } from "@/utils/fileUrl";
 import { MultiStepUserForm } from "@/components/dynamic-form/MultiStepUserForm";
 import {
   validateAllFormSteps,
@@ -89,10 +90,9 @@ export const CreatePatientModal: React.FC<CreatePatientModalProps> = ({
         if (field.field_type !== "file") continue;
         const file = filesByKey[field.field_key];
         if (!file) continue;
-        const fd = new FormData();
-        fd.append("files", file);
-        const uploaded = await uploadFiles(fd).unwrap();
-        const url = uploaded?.[0]?.file_url;
+        const uploaded = await uploadFiles({ files: [file] }).unwrap();
+        const attachment = uploaded.attachments?.[0];
+        const url = attachment ? getFileUrl(attachment.file_path) : undefined;
         if (url) {
           if (!payload.custom_fields) payload.custom_fields = {};
           (payload.custom_fields as Record<string, unknown>)[field.field_key] =
@@ -129,7 +129,7 @@ export const CreatePatientModal: React.FC<CreatePatientModalProps> = ({
         ) : (
           <MultiStepUserForm
             key={isOpen ? "open" : "closed"}
-            resetKey={isOpen}
+            resetKey={isOpen ? "open" : "closed"}
             config={formConfig}
             values={values}
             errors={errors}

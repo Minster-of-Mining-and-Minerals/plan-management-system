@@ -12,9 +12,7 @@ export default function PatientProfilePage() {
 
   if (isLoading) return <Loading01 />;
 
-  const profile =
-    data?.profile ??
-    (data as { patientProfile?: typeof data.profile })?.patientProfile;
+  const profile = data?.profile;
 
   return (
     <div className="space-y-6 max-w-3xl">

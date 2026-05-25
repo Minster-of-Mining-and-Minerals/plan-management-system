@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import createMiddleware from "next-intl/middleware";
 import { getToken } from "next-auth/jwt";
 import { routing } from "./i18n/routing";
+import { isPublicMarketingPath } from "@/features/public/config/routes";
 
 const intlMiddleware = createMiddleware(routing);
 
-const publicRoutes = [
-  "/",
+const authPublicRoutes = [
   "/login",
   "/forgot-password",
   "/change-password",
@@ -50,7 +50,9 @@ export default async function middleware(req: NextRequest) {
     pathname.replace(new RegExp(`^/${locale}`), "") || "/";
 
   const sessionToken = hasSessionToken(req);
-  const isPublicRoute = publicRoutes.includes(pathnameWithoutLocale);
+  const isPublicRoute =
+    isPublicMarketingPath(pathnameWithoutLocale) ||
+    authPublicRoutes.includes(pathnameWithoutLocale);
   const isAuthRoute = authRoutes.includes(pathnameWithoutLocale);
 
   if (isAuthRoute && sessionToken) {
