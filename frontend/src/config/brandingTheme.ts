@@ -38,9 +38,8 @@ export const LEGACY_THEME_KEY_MAP: Record<string, string> = {
 };
 
 /**
- * NovaCure default palette (HSL):
- * Primary #0F6FFF | Secondary #00C2A8 | Accent #7B61FF
- * Background #F7FAFC | Dark #0B1220
+ * Logo-driven palette (nova-cure-logo.png):
+ * Blue left N / network | Teal right N / tagline | Dark navy field | White pulse & wordmark
  */
 export const DEFAULT_BRANDING_THEME: BrandingThemeTokens = {
   background: "204 45% 98%",
@@ -53,14 +52,14 @@ export const DEFAULT_BRANDING_THEME: BrandingThemeTokens = {
   "primary-foreground": "0 0% 100%",
   secondary: "172 55% 92%",
   "secondary-foreground": "172 100% 28%",
-  muted: "204 35% 94%",
-  "muted-foreground": "220 25% 40%",
-  accent: "250 100% 96%",
-  "accent-foreground": "250 55% 45%",
+  muted: "216 40% 94%",
+  "muted-foreground": "220 30% 38%",
+  accent: "216 80% 96%",
+  "accent-foreground": "216 100% 42%",
   destructive: "0 84.2% 60.2%",
   "destructive-foreground": "0 0% 98%",
-  border: "204 28% 88%",
-  input: "204 28% 88%",
+  border: "216 28% 88%",
+  input: "216 28% 88%",
   ring: "216 100% 53%",
   "sidebar-background": "0 0% 100%",
   "sidebar-foreground": "220 49% 8%",
@@ -68,26 +67,26 @@ export const DEFAULT_BRANDING_THEME: BrandingThemeTokens = {
   "sidebar-primary-foreground": "0 0% 100%",
   "sidebar-accent": "216 100% 96%",
   "sidebar-accent-foreground": "216 100% 40%",
-  "sidebar-border": "204 28% 88%",
+  "sidebar-border": "216 25% 88%",
   "sidebar-ring": "216 100% 53%",
-  "section-accent": "250, 100%, 69%",
-  "sidebar-hover": "172, 100%, 38%, 12%",
+  "section-accent": "216, 100%, 53%",
+  "sidebar-hover": "172, 100%, 38%, 14%",
   "header-surface": "172, 100%, 38%",
   "section-emphasis": "172, 100%, 38%",
-  "section-accent-hover": "250, 100%, 69%, 90%",
-  "section-accent-muted": "250, 100%, 69%, 50%",
-  "section-accent-subtle-10": "250, 100%, 69%, 5%",
-  "section-accent-subtle-20": "250, 100%, 69%, 20%",
-  "section-accent-subtle-30": "250, 100%, 69%, 30%",
-  "section-accent-subtle-40": "250, 100%, 69%, 40%",
-  "section-accent-subtle-50": "250, 100%, 69%, 50%",
-  "section-accent-subtle-60": "250, 100%, 69%, 60%",
-  "section-accent-subtle-70": "250, 100%, 69%, 70%",
-  "section-accent-subtle-80": "250, 100%, 69%, 80%",
-  "section-accent-subtle-90": "250, 100%, 69%, 90%",
-  "auth-background": "204 45% 98%",
-  "auth-panel-border": "204 30% 88%",
-  "table-stripe": "204 40% 96%",
+  "section-accent-hover": "216, 100%, 53%, 88%",
+  "section-accent-muted": "172, 100%, 38%, 45%",
+  "section-accent-subtle-10": "216, 100%, 53%, 6%",
+  "section-accent-subtle-20": "216, 100%, 53%, 18%",
+  "section-accent-subtle-30": "172, 100%, 38%, 22%",
+  "section-accent-subtle-40": "216, 100%, 53%, 32%",
+  "section-accent-subtle-50": "172, 100%, 38%, 38%",
+  "section-accent-subtle-60": "216, 100%, 53%, 48%",
+  "section-accent-subtle-70": "172, 100%, 38%, 55%",
+  "section-accent-subtle-80": "216, 100%, 53%, 65%",
+  "section-accent-subtle-90": "172, 100%, 38%, 72%",
+  "auth-background": "220 49% 8%",
+  "auth-panel-border": "220 38% 20%",
+  "table-stripe": "216 45% 96%",
 };
 
 export const BRANDING_COLOR_CATEGORIES: BrandingColorCategory[] = [
@@ -121,10 +120,10 @@ export const BRANDING_COLOR_CATEGORIES: BrandingColorCategory[] = [
     title: "Section Accents",
     description: "Shared accent used on auth screens, headers, and action areas.",
     fields: [
-      { key: "section-accent", label: "Accent (#7B61FF)", format: "comma", placeholder: "250, 100%, 69%" },
-      { key: "section-accent-hover", label: "Section Accent Hover", format: "comma", preserveAlpha: true, placeholder: "250, 100%, 69%, 90%" },
-      { key: "section-emphasis", label: "Secondary (#00C2A8)", format: "comma", placeholder: "172, 100%, 38%" },
-      { key: "section-accent-muted", label: "Section Accent Muted", format: "comma", preserveAlpha: true, placeholder: "250, 100%, 69%, 50%" },
+      { key: "section-accent", label: "Primary blue (logo N left)", format: "comma", placeholder: "216, 100%, 53%" },
+      { key: "section-accent-hover", label: "Primary hover glow", format: "comma", preserveAlpha: true, placeholder: "216, 100%, 53%, 88%" },
+      { key: "section-emphasis", label: "Teal (logo N right)", format: "comma", placeholder: "172, 100%, 38%" },
+      { key: "section-accent-muted", label: "Teal muted overlay", format: "comma", preserveAlpha: true, placeholder: "172, 100%, 38%, 45%" },
     ],
   },
   {

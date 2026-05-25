@@ -103,8 +103,8 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-auth-background flex items-center justify-center px-4 py-12">
-      <div className="w-full relative max-w-6xl min-h-[80vh] shadow-2xl rounded-2xl border border-auth-panel overflow-hidden flex flex-col lg:flex-row bg-white">
+    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-12">
+      <div className="w-full relative max-w-6xl min-h-[80vh] shadow-2xl rounded-2xl border border-auth-panel overflow-hidden flex flex-col lg:flex-row bg-card">
 
         {/* Back Button */}
         <Button
@@ -128,7 +128,7 @@ export default function ForgotPasswordPage() {
         </div>
 
         {/* Right Section */}
-        <div className="w-full px-8 lg:px-16 py-12 flex items-center justify-center">
+        <div className="w-full bg-card px-8 lg:px-16 py-12 flex items-center justify-center">
           <div className="w-full max-w-md">
 
             {/* Step 1: Request OTP */}

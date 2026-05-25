@@ -21,7 +21,7 @@ export const DEFAULT_BRANDING: SystemBranding = {
   accent_hsl: DEFAULT_BRANDING_THEME["section-accent"],
   sidebar_hover_hsl: DEFAULT_BRANDING_THEME["sidebar-hover"],
   accent_hover_hsl: DEFAULT_BRANDING_THEME["section-accent-hover"],
-  theme_json: DEFAULT_BRANDING_THEME,
+  theme_json: { ...DEFAULT_BRANDING_THEME },
   is_active: true,
 };
 

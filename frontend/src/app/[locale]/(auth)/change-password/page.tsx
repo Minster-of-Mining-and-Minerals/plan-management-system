@@ -67,8 +67,8 @@ export default function ChangePasswordPage() {
   const isFirstLogin = session?.user?.is_first_logged_in;
 
   return (
-    <div className="min-h-screen bg-auth-background flex items-center justify-center px-4 py-12">
-      <div className="w-full relative max-w-6xl min-h-[80vh] shadow-2xl rounded-2xl border border-auth-panel overflow-hidden flex flex-col lg:flex-row bg-white">
+    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-12">
+      <div className="w-full relative max-w-6xl min-h-[80vh] shadow-2xl rounded-2xl border border-auth-panel overflow-hidden flex flex-col lg:flex-row bg-card">
 
         {/* Back/Logout Button */}
         {isFirstLogin ? (
@@ -102,7 +102,7 @@ export default function ChangePasswordPage() {
         </div>
 
         {/* Right Section - Form */}
-        <div className="w-full px-8 lg:px-16 py-12 flex items-center justify-center">
+        <div className="w-full bg-card px-8 lg:px-16 py-12 flex items-center justify-center">
           <div className="w-full max-w-md">
             <div className="text-center mb-8">
               <BrandingName className="text-2xl font-bold text-section-accent mb-4 block" />

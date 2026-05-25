@@ -56,8 +56,8 @@ export default function ExternalLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-auth-background  flex items-center justify-center px-4">
-      <div className="w-full relative max-w-6xl min-h-[80vh] shadow-2xl rounded-2xl border border-auth-panel overflow-hidden flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+      <div className="w-full relative max-w-6xl min-h-[80vh] shadow-2xl rounded-2xl border border-auth-panel overflow-hidden flex flex-col lg:flex-row bg-card">
 
         {/* Back Button */}
         <Button
@@ -69,19 +69,17 @@ export default function ExternalLogin() {
         </Button>
 
         {/* Left Section */}
-        <div className="w-full bg-cover bg-center p-8 flex items-center justify-center">
-          <div className="backdrop-blur-md p-6 rounded-xl text-center">
-            <BrandingLogo
-              variant="login"
-              width={288}
-              height={288}
-              className="h-72 w-auto mx-auto mb-3 rounded-xl p-2 object-contain"
-            />
-          </div>
+        <div className="w-full bg-auth-background p-8 flex items-center justify-center border-b lg:border-b-0 lg:border-r border-auth-panel">
+          <BrandingLogo
+            variant="login"
+            width={288}
+            height={288}
+            className="h-72 w-auto mx-auto object-contain"
+          />
         </div>
 
         {/* Right Section */}
-        <div className="w-full px-16 py-8 flex items-center justify-center">
+        <div className="w-full bg-card px-16 py-8 flex items-center justify-center">
           <div className="w-full max-w-md">
             <BrandingName className="text-3xl font-semibold text-center text-primary mb-6 block" />
 
