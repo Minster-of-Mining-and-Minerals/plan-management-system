@@ -4,9 +4,9 @@ const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
-const bodyParser = require("body-parser");
+dotenv.config({ path: path.join(__dirname, ".env") });
 
-dotenv.config();
+const { PLATFORM_NAME } = require("./config/platformBranding");
 
 const { swaggerUi, swaggerSpec } = require("./swagger");
 
@@ -24,6 +24,7 @@ const forgotPasswordRoutes = require("./routers/user/forgotPasswordRoutes");
 
 // Structure Routes
 const structureRoutes = require("./routers/structure/structureRoutes");
+const dashboardRoutes = require("./routers/dashboardRoutes");
 
 // System Branding Routes
 const brandingRoutes = require("./routers/system/brandingRoutes");
@@ -53,8 +54,7 @@ app.use(
   })
 );
 
-app.use(bodyParser.json({ limit: "10mb" }));
-app.use(bodyParser.urlencoded({ extended: true, limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // ===========Serve static files (PDFs, uploads)=====================
 app.use(
@@ -88,8 +88,17 @@ const allowedOrigins = [
   "http://localhost:4000",
   process.env.FRONTEND_URL,
 ];
+const isProduction = process.env.NODE_ENV === "production";
 const corsOptions = {
-  origin: true, // Allow all origins for development
+  origin: isProduction
+    ? (origin, callback) => {
+        if (!origin || allowedOrigins.filter(Boolean).includes(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(new Error(`CORS blocked for origin: ${origin}`));
+      }
+    : true,
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: true,
   optionsSuccessStatus: 204,
@@ -123,6 +132,7 @@ app.use("/api/permission-groups", permissionGroupRoute);
 
 // Structure Routes
 app.use("/api/structures", structureRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 // Branding Routes
 app.use("/api/branding", brandingRoutes);
@@ -134,7 +144,7 @@ app.use("/api/attachments", attachmentRoute);
 
 // ================== Root Endpoint ==================
 app.get("/", (req, res) => {
-  res.json({ message: "Welcome to Postgress Express Node Next full stack template API 🚀" });
+  res.json({ message: `Welcome to ${PLATFORM_NAME} API` });
 });
 
 // ================== Error Handler ==================

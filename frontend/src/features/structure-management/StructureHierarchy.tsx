@@ -14,6 +14,7 @@ import { shortenText } from "@/utils/shortenText";
 import { CustomNodeProps, D3TreeNode, HierarchyD3TreeProps } from "@/types/d3treeNode";
 import { buildStructureTree } from "@/utils/buildStructureTree";
 import { PermissionGuard } from "@/utils/PermissionGuard";
+import type { PermissionKey } from "@/lib/permissions";
 import { CreateStructureModal } from "./modals/CreateStructureModal";
 import { useSession } from "next-auth/react";
 import { GitForkIcon } from "lucide-react";
@@ -186,7 +187,7 @@ const StructureHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
     return () => window.removeEventListener("resize", updateDimensions);
   }, [selectedTree]);
 
-  const createPermission = ["STRUCTURES:CREATE"];
+  const createPermission = ["STRUCTURES:CREATE"] as PermissionKey[];
 
   if (isLoading) {
     return (

@@ -39,6 +39,7 @@ interface DataTableProps<TData, TValue> {
 	handlePagination: (index: number, pageSize: number) => void;
 	tablePageSize: number;
 	currentIndex: number;
+	isLoading?: boolean;
 }
 
 export function DataTable<TData, TValue>({
@@ -48,6 +49,7 @@ export function DataTable<TData, TValue>({
 	handlePagination,
 	tablePageSize,
 	currentIndex,
+	isLoading = false,
 }: DataTableProps<TData, TValue>) {
 	const table = useReactTable({
 		data,
@@ -103,7 +105,13 @@ export function DataTable<TData, TValue>({
 					))}
 				</TableHeader>
 				<TableBody className="divide-none max-h-[500px] overflow-y-scroll">
-					{table.getRowModel().rows?.length ? (
+					{isLoading ? (
+						<TableRow>
+							<TableCell colSpan={columns.length} className="h-24 text-center">
+								Loading...
+							</TableCell>
+						</TableRow>
+					) : table.getRowModel().rows?.length ? (
 						table.getRowModel().rows.map((row, i) => (
 							<TableRow
 								key={row.id}

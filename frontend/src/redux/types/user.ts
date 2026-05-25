@@ -1,3 +1,10 @@
+export interface UserType {
+  user_type_id: string;
+  name: string;
+  description?: string;
+  created_at?: string;
+  updated_at?: string;
+}
 
 export interface UserPosition {
   user_position_id: string;

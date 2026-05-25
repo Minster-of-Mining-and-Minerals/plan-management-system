@@ -37,9 +37,7 @@ export default function ExternalLogin() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log(formData.email, formData.password, "formData");
     const result = await login(formData.email as string, formData.password as string);
-    console.log(result, "result");
     if (result?.error) {
       setAuthError(result.error);
     }

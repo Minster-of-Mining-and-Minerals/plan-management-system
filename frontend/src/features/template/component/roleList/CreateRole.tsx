@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
-import { Permission, ResourceGroup, PermissionMatrix } from "../../types/role";
+import { Permission, PermissionMatrixMap, ResourceGroup } from "../../types/role";
 import { useGetPermissionsQuery } from "@/redux/api/permissionApi";
 import {
   useCreateRoleMutation,
@@ -27,7 +27,7 @@ export default function CreateRole({ roleId }: { roleId?: string }) {
   const [description, setDescription] = useState("");
   const [roleType, setRoleType] = useState("");
   const [expandedResource, setExpandedResource] = useState<string | null>(null);
-  const [permissionMatrix, setPermissionMatrix] = useState<PermissionMatrix>(
+  const [permissionMatrix, setPermissionMatrix] = useState<PermissionMatrixMap>(
     {}
   );
 
@@ -68,7 +68,7 @@ export default function CreateRole({ roleId }: { roleId?: string }) {
 
     return Object.entries(grouped).map(([resource, permissions]) => ({
       resource,
-      icon: <div />, // Will be handled in PermissionMatrix component
+      icon: <div />, // Will be handled in PermissionMatrixMap component
       permissions: permissions as Permission[],
       selected: false,
     }));
@@ -76,7 +76,7 @@ export default function CreateRole({ roleId }: { roleId?: string }) {
 
   // Initialize permission matrix
   useEffect(() => {
-    const matrix: PermissionMatrix = {};
+    const matrix: PermissionMatrixMap = {};
     resourceGroups.forEach((group) => {
       matrix[group.resource] = {};
       group.permissions.forEach((permission) => {
@@ -97,7 +97,7 @@ export default function CreateRole({ roleId }: { roleId?: string }) {
 
       // Populate permission matrix with existing permissions
       if (role.rolePermissions && role.rolePermissions.length > 0) {
-        const matrix: PermissionMatrix = {};
+        const matrix: PermissionMatrixMap = {};
 
         // Initialize all to false first
         resourceGroups.forEach((group) => {

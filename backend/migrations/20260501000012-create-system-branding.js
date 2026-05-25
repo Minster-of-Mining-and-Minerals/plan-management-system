@@ -24,12 +24,12 @@ module.exports = {
       logo_url: {
         type: Sequelize.STRING(500),
         allowNull: false,
-        defaultValue: "/logo-only.png",
+        defaultValue: "/nova-cure-logo.png",
       },
       logo_login_url: {
         type: Sequelize.STRING(500),
         allowNull: false,
-        defaultValue: "/logo-mom.png",
+        defaultValue: "/nova-cure-logo.png",
       },
       primary_hsl: {
         type: Sequelize.STRING(100),

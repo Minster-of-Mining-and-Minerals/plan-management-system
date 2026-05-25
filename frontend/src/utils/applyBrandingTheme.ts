@@ -3,15 +3,20 @@ import {
   DEFAULT_BRANDING_THEME,
   themeFromBrandingRecord,
 } from "@/config/brandingTheme";
+import {
+  PLATFORM_LOGO_URL,
+  PLATFORM_NAME,
+  PLATFORM_NAME_AM,
+  PLATFORM_TAGLINE,
+} from "@/config/platformBranding";
 
 export const DEFAULT_BRANDING: SystemBranding = {
   branding_id: "default",
-  system_name: "Postgress Express Node Next full stack template",
-  system_name_am:
-    "ፖስትግሬስ፣ ኤክስፕሬስ፣ ኖድ እና ኔክስት የተጠቀመ ሙሉ የዌብ ልማት መነሻ አብነት።",
-  tagline: "Land Authority Management System",
-  logo_url: "/logo-only.png",
-  logo_login_url: "/logo-mom.png",
+  system_name: PLATFORM_NAME,
+  system_name_am: PLATFORM_NAME_AM,
+  tagline: PLATFORM_TAGLINE,
+  logo_url: PLATFORM_LOGO_URL,
+  logo_login_url: PLATFORM_LOGO_URL,
   primary_hsl: DEFAULT_BRANDING_THEME.primary,
   accent_hsl: DEFAULT_BRANDING_THEME["section-accent"],
   sidebar_hover_hsl: DEFAULT_BRANDING_THEME["sidebar-hover"],

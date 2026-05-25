@@ -1,4 +1,4 @@
-import { JSX } from "react";
+import type { ReactNode } from "react";
 
 export interface Permission {
   permission_id: string;
@@ -26,16 +26,12 @@ export interface Role {
 
 export interface ResourceGroup {
   resource: string;
-  icon: JSX.Element;
+  icon: ReactNode;
   permissions: Permission[];
   selected: boolean;
 }
 
-export interface PermissionMatrix {
-  [resource: string]: {
-    [action: string]: boolean;
-  };
-}
+export type PermissionMatrixMap = Record<string, Record<string, boolean>>;
 
 export interface CreateRolePayload {
   name: string;

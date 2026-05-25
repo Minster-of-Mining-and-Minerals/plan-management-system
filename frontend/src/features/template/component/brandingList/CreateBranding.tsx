@@ -22,6 +22,7 @@ import {
   themeFromBrandingRecord,
   type BrandingThemeTokens,
 } from "@/config/brandingTheme";
+import { PLATFORM_LOGO_URL } from "@/config/platformBranding";
 import { BrandingThemeSection } from "./BrandingThemeSection";
 
 interface BrandingFormState {
@@ -38,8 +39,8 @@ const defaultForm: BrandingFormState = {
   system_name: "",
   system_name_am: "",
   tagline: "",
-  logo_url: "/logo-only.png",
-  logo_login_url: "/logo-mom.png",
+  logo_url: PLATFORM_LOGO_URL,
+  logo_login_url: PLATFORM_LOGO_URL,
   theme: { ...DEFAULT_BRANDING_THEME },
   is_active: false,
 };
@@ -203,7 +204,7 @@ export default function CreateBranding({ brandingId }: { brandingId?: string }) 
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Logo URL (sidebar / header)</Label>
+                    <Label>Logo URL (sidebar / header / compact)</Label>
                     <Input
                       value={form.logo_url}
                       onChange={(e) =>
@@ -212,7 +213,7 @@ export default function CreateBranding({ brandingId }: { brandingId?: string }) 
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Login Logo URL</Label>
+                    <Label>Login / hero logo URL</Label>
                     <Input
                       value={form.logo_login_url}
                       onChange={(e) =>

@@ -12,13 +12,20 @@ const publicRoutes = [
 ];
 const authRoutes = ["/login"];
 
+function hasSessionToken(req: NextRequest): boolean {
+  return req.cookies.getAll().some(
+    (cookie) =>
+      cookie.name.startsWith("next-auth.session-token") ||
+      cookie.name.startsWith("__Secure-next-auth.session-token") ||
+      cookie.name.startsWith("authjs.session-token") ||
+      cookie.name.startsWith("__Secure-authjs.session-token")
+  );
+}
+
 export default function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  // Apply intl middleware first
-
   const intlResponse = intlMiddleware(req);
 
-  // Get locale
   const locale =
     routing.locales.find((l) => pathname.startsWith(`/${l}`)) ??
     routing.defaultLocale;
@@ -26,58 +33,25 @@ export default function middleware(req: NextRequest) {
   const pathnameWithoutLocale =
     pathname.replace(new RegExp(`^/${locale}`), "") || "/";
 
-  // 🔥 FIXED: Check for ANY cookie that starts with session token patterns
-  const allCookies = req.cookies.getAll();
-
-  // Look for any cookie that starts with these prefixes (handles chunked cookies)
-  let hasSessionToken = false;
-
-  for (const cookie of allCookies) {
-    if (
-      cookie.name.startsWith("next-auth.session-token") ||
-      cookie.name.startsWith("__Secure-next-auth.session-token") ||
-      cookie.name.startsWith("authjs.session-token") ||
-      cookie.name.startsWith("__Secure-authjs.session-token")
-    ) {
-      hasSessionToken = true;
-      break;
-    }
-  }
-
+  const sessionToken = hasSessionToken(req);
   const isPublicRoute = publicRoutes.includes(pathnameWithoutLocale);
   const isAuthRoute = authRoutes.includes(pathnameWithoutLocale);
 
-  console.log("🔐 MIDDLEWARE DEBUG:");
-  console.log("  Path:", pathnameWithoutLocale);
-  console.log(
-    "  Found cookies:",
-    allCookies.map((c) => c.name),
-  );
-  console.log("  Has session token:", hasSessionToken);
-  console.log("  Is public route:", isPublicRoute);
-
-  // 🔐 Rule 1: If logged in and trying to access login page, redirect to profile
-  if (isAuthRoute && hasSessionToken) {
-    console.log("  Redirecting authenticated user to profile");
+  if (isAuthRoute && sessionToken) {
     return NextResponse.redirect(new URL(`/${locale}/profile`, req.url));
   }
 
-  // 🔒 Rule 2: If NOT logged in and trying to access protected route, redirect to login
-  if (!isPublicRoute && !hasSessionToken) {
-    console.log("  Redirecting unauthenticated user to login");
+  if (!isPublicRoute && !sessionToken) {
     const loginUrl = new URL(`/${locale}/login`, req.url);
-    // Use the full pathname, not pathnameWithoutLocale
     loginUrl.searchParams.set("callbackUrl", pathnameWithoutLocale);
     return NextResponse.redirect(loginUrl);
   }
 
-  // ✅ Allow access
   return intlResponse;
 }
 
 export const config = {
   matcher: [
-    // Match all routes except static files, API routes, etc.
     "/((?!_next/static|_next/image|favicon.ico|api/auth|.*\\..*).*)",
   ],
 };

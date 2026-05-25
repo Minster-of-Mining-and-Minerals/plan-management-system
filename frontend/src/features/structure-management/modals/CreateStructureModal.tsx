@@ -39,8 +39,8 @@ import {
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   parent_id: z.string().optional().nullable(),
-  level: z.coerce.number().min(1).default(1),
-  is_active: z.boolean().default(true),
+  level: z.number().min(1),
+  is_active: z.boolean(),
 });
 
 type FormValues = z.infer<typeof formSchema>;

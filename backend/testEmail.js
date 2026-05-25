@@ -8,7 +8,7 @@ const { sendEmail } = require("./utils/sendEmail");
     await sendEmail(
       process.env.EMAIL_USER, 
       "✅ Email Configuration Test",
-      "This is a test email from your Issue Tracking System."
+      "This is a test email from NovaCure Platform."
     );
 
     console.log("✅ Email sent successfully!");

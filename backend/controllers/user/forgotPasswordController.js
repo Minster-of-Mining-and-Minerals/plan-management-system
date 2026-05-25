@@ -3,6 +3,7 @@ const bcrypt = require("bcrypt");
 const { User } = require("../../models");
 const { sendEmail } = require("../../utils/sendEmail");
 const { Op } = require("sequelize");
+const { PLATFORM_NAME } = require("../../config/platformBranding");
 
 /**
  * Request OTP for password reset
@@ -35,7 +36,7 @@ const requestOTP = async (req, res) => {
     });
 
     // Send email
-    const subject = "Password Reset OTP - Postgress Express Node Next full stack template";
+    const subject = `Password Reset OTP - ${process.env.APP_NAME || PLATFORM_NAME}`;
     const text = `Your OTP for password reset is: ${otp}. It will expire in 10 minutes.`;
 
     await sendEmail(email, subject, text);

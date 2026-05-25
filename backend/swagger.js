@@ -1,13 +1,17 @@
 const swaggerJSDoc = require("swagger-jsdoc");
 const swaggerUi = require("swagger-ui-express");
+const {
+  PLATFORM_DESCRIPTION,
+  PLATFORM_NAME,
+} = require("./config/platformBranding");
 
 const options = {
   swaggerDefinition: {
     openapi: "3.0.0",
     info: {
-      title: "AII ITS API",
+      title: `${PLATFORM_NAME} API`,
       version: "1.0.0",
-      description: "API Documentation for ITS App",
+      description: PLATFORM_DESCRIPTION,
     },
     servers: [
       {

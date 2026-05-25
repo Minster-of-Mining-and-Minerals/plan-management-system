@@ -1,0 +1,71 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: novacure-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: novadb
+    ports:
+      - "5432:5432"
+    volumes:
+      - novacure_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d novadb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: novacure-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      SOCKET_PORT: 5000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: root
+      DB_NAME: novadb
+      DB_DIALECT: postgres
+      FRONTEND_URL: http://localhost:3000
+      APP_NAME: NovaCure Platform
+    ports:
+      - "4000:4000"
+      - "5000:5000"
+    volumes:
+      - ./backend/uploads:/app/uploads
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_BASE_URL: http://localhost:4000/api
+        NEXT_PUBLIC_FILE_URL: http://localhost:4000
+        NEXT_PUBLIC_FRONTEND_URL: http://localhost:3000
+        NEXT_PUBLIC_APP_NAME: NovaCure Platform
+    container_name: novacure-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NEXT_PUBLIC_BASE_URL: http://localhost:4000/api
+      NEXT_PUBLIC_FILE_URL: http://localhost:4000
+      NEXT_PUBLIC_FRONTEND_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_NAME: NovaCure Platform
+      AUTH_SECRET: change-me-in-production
+      NEXTAUTH_SECRET: change-me-in-production
+    ports:
+      - "3000:3000"
+
+volumes:
+  novacure_pg_data:

@@ -13,6 +13,10 @@ import { routing } from '@/i18n/routing';
 /* ===== LOCAL STORAGE KEY ===== */
 const LOCALE_KEY = 'NEXT_LOCALE';
 
+function isAppLocale(value: string | null): value is Locale {
+  return value === 'en' || value === 'am';
+}
+
 export default function LocaleSwitcher() {
   const t = useTranslations('LocaleSwitcher');
   const locale = useLocale();
@@ -33,12 +37,11 @@ export default function LocaleSwitcher() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const storedLocale = localStorage.getItem(LOCALE_KEY) as Locale | null;
+    const storedLocale = localStorage.getItem(LOCALE_KEY);
 
     if (
-      storedLocale &&
-      storedLocale !== locale &&
-      routing.locales.includes(storedLocale)
+      isAppLocale(storedLocale) &&
+      storedLocale !== locale
     ) {
       startTransition(() => {
         router.replace(

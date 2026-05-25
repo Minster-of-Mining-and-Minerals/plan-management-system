@@ -168,7 +168,7 @@ export default function BrandingList() {
   return (
     <TableLayout
       title="Branding Management"
-      description="Manage system name, logos, and theme colors for public and admin pages"
+      description="Manage NovaCure Platform name, logos, and theme colors for public and admin pages"
       actions={actions}
       filters={filters}
       filterColumnsPerRow={2}

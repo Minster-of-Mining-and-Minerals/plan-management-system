@@ -12,9 +12,8 @@ const db = {};
 let sequelize;
 
 const poolConfig = {
-  dialect: "postgres",
-  logging: false,
-  pool: {
+  logging: process.env.NODE_ENV === "development" ? console.log : false,
+  pool: config.pool ?? {
     max: 10,
     min: 0,
     acquire: 30000,
@@ -23,11 +22,21 @@ const poolConfig = {
 };
 
 if (process.env.DATABASE_URL) {
-  sequelize = new Sequelize(process.env.DATABASE_URL, poolConfig);
+  sequelize = new Sequelize(process.env.DATABASE_URL, {
+    ...poolConfig,
+    dialect: "postgres",
+    dialectOptions: {
+      ssl: process.env.DB_SSL === "true" ? { require: true, rejectUnauthorized: false } : undefined,
+    },
+  });
+} else if (!config?.database) {
+  throw new Error(
+    "Database configuration missing. Set DATABASE_URL or DB_NAME, DB_USERNAME, DB_PASSWORD, and DB_HOST in .env"
+  );
 } else {
   sequelize = new Sequelize(config.database, config.username, config.password, {
     ...config,
-    ...poolConfig, // merge
+    ...poolConfig,
   });
 }
 

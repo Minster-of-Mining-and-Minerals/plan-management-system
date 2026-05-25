@@ -1,21 +1,21 @@
 {
   "HomePage": {
-    "badge": "ይፋዊ የክስተት አስተዳደር እና አፈጻጸም ግምገማ መድረክ",
+    "badge": "የድርጅት የጤና አገልግሎት ስርዓተ-መረብ መድረክ",
     "heading": {
-      "line1": "Postgress Express Node Next",
-      "line2": "full stack template"
+      "line1": "NovaCure",
+      "line2": "መድረክ"
     },
-    "description": "በ Postgress Express Node Next full stack template የተቋቋመ ክስተቶችን ለማስተዳደር፣ የአፈጻጸም ሂደትን ለመከታተል እና የውጤት ግምገማዎችን ለማድረግ የሚያስችል ሁለንተናዊ የዲጂታል መድረክ። ቅልጥፍናን ማሻሻል፣ ከተቋማዊ ግቦች ጋር መጣጣምን ማረጋገጥ እና በመረጃ ላይ የተመሰረተ ውሳኔ ሰጪነትን ማጠናከር።",
+    "description": "ሆስፒታሎችን፣ ክሊኒኮችን፣ ላቦራቶሪዎችን፣ ፋርማሲዎችን እና ብልህ የታካሚ እንክብካቤ ስርዓቶችን የሚያበረታታ የድርጅት የጤና አገልግሎት ስርዓተ-መረብ መድረክ።",
     "actions": {
-      "evaluations": "ግምገማዎችን ይፈትሹ"
+      "evaluations": "መድረኩን ያስሱ"
     }
   },
   "PublicHeader": {
-    "logoLine1": "Postgress Express Node Next full stack template",
+    "logoLine1": "ኖቫኩር መድረክ",
     "tabs": {
       "home": "መነሻ",
-      "evaluations": "ግምገማዎች",
-      "reports": "ሪፖርቶች"
+      "evaluations": "አገልግሎቶች",
+      "reports": "ግንዛቤዎች"
     },
     "login": "ግባ"
   },

@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
-import { Permission, ResourceGroup, PermissionMatrix } from "../../types/role";
+import { Permission, PermissionMatrixMap, ResourceGroup } from "../../types/role";
 import { useGetPermissionsQuery } from "@/redux/api/permissionApi";
 import {
   useCreatePermissionGroupMutation,
@@ -28,7 +28,7 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [expandedResource, setExpandedResource] = useState<string | null>(null);
-  const [permissionMatrix, setPermissionMatrix] = useState<PermissionMatrix>(
+  const [permissionMatrix, setPermissionMatrix] = useState<PermissionMatrixMap>(
     {}
   );
 
@@ -69,7 +69,7 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
 
     return Object.entries(grouped).map(([resource, permissions]) => ({
       resource,
-      icon: <div />, // Will be handled in PermissionMatrix component
+      icon: <div />, // Will be handled in PermissionMatrixMap component
       permissions: permissions as Permission[],
       selected: false,
     }));
@@ -78,7 +78,7 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
   // Initialize permission matrix
   useEffect(() => {
     if (resourceGroups.length > 0) {
-      const matrix: PermissionMatrix = {};
+      const matrix: PermissionMatrixMap = {};
 
       // 1. Initialize all to false based on available permissions
       resourceGroups.forEach((group) => {

@@ -1,4 +1,5 @@
 const nodemailer = require("nodemailer");
+const { PLATFORM_NAME } = require("../config/platformBranding");
 const logger = require("./logger"); // your custom logger
 
 const sendEmail = async (to, subject, text) => {
@@ -17,7 +18,7 @@ const sendEmail = async (to, subject, text) => {
 
     // Define mail options
     const mailOptions = {
-      from: `"${process.env.APP_NAME || "Notification System"}" <${process.env.EMAIL_USER}>`,
+      from: `"${process.env.APP_NAME || PLATFORM_NAME}" <${process.env.EMAIL_USER}>`,
       to,
       subject,
       text,

@@ -11,6 +11,7 @@ const { Op } = require("sequelize");
 const bcrypt = require("bcrypt");
 const { generateRandomPassword } = require("../../utils/password");
 const { sendEmail } = require("../../utils/sendEmail");
+const { PLATFORM_NAME } = require("../../config/platformBranding");
 
 
 const createUser = async (req, res) => {
@@ -90,7 +91,7 @@ const createUser = async (req, res) => {
     // ====== Send welcome email ======
     await sendEmail(
       email,
-      `Welcome to ${process.env.APP_NAME}!`,
+      `Welcome to ${process.env.APP_NAME || PLATFORM_NAME}!`,
       `
       Dear ${full_name},
       Your account has been successfully created.
@@ -449,7 +450,7 @@ const resetUserPassword = async (req, res) => {
     // Send email notification
     await sendEmail(
       user.email,
-      `Password Reset - ${process.env.APP_NAME}`,
+      `Password Reset - ${process.env.APP_NAME || PLATFORM_NAME}`,
       `
       Dear ${user.full_name},
       Your password has been reset successfully.

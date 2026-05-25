@@ -1,4 +1,4 @@
-import { JSX } from "react";
+import type { ReactNode } from "react";
 
 export interface Permission {
   permission_id: string;
@@ -29,7 +29,7 @@ export interface PermissionStats {
 
 export interface ResourceGroup {
   resource: string;
-  icon: JSX.Element;
+  icon: ReactNode;
   permissions: Permission[];
   isExpanded: boolean;
   activeCount: number;
@@ -37,5 +37,5 @@ export interface ResourceGroup {
 }
 
 export interface ResourceIcons {
-  [key: string]: JSX.Element;
+  [key: string]: ReactNode;
 }

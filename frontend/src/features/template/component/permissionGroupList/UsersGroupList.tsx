@@ -71,7 +71,7 @@ export default function UsersGroupList({ sideActions, actions, users, groupId, i
             cell: ({ row }) => {
                 const isActive = row.getValue("is_active") as boolean;
                 return (
-                    <Badge className="text-white" status={isActive ? "active" : "inactive"}>
+                    <Badge variant={isActive ? "default" : "destructive"}>
                         {formatStatus(isActive ? "Active" : "Inactive")}
                     </Badge>
                 );
@@ -156,4 +156,4 @@ export default function UsersGroupList({ sideActions, actions, users, groupId, i
             </TableLayout>
         </div>
     );
-} 
+} 

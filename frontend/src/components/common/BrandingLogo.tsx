@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useBranding } from "@/providers/BrandingProvider";
+import { PLATFORM_LOGO_URL } from "@/config/platformBranding";
 
 interface BrandingLogoProps {
   variant?: "compact" | "login";
@@ -17,7 +18,9 @@ export function BrandingLogo({
   className = "",
 }: BrandingLogoProps) {
   const { branding } = useBranding();
-  const src = variant === "login" ? branding.logo_login_url : branding.logo_url;
+  const src =
+    (variant === "login" ? branding.logo_login_url : branding.logo_url) ||
+    PLATFORM_LOGO_URL;
   const alt = branding.system_name;
 
   const defaultSize =

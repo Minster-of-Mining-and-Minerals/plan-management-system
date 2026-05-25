@@ -1,6 +1,12 @@
 "use strict";
 
 const { DEFAULT_BRANDING_THEME } = require("../config/brandingThemeDefaults");
+const {
+  PLATFORM_LOGO_URL,
+  PLATFORM_NAME,
+  PLATFORM_NAME_AM,
+  PLATFORM_TAGLINE,
+} = require("../config/platformBranding");
 
 const DEFAULT_BRANDING_ID = "00000000-0000-4000-8000-000000000005";
 
@@ -12,12 +18,11 @@ module.exports = {
     await queryInterface.bulkInsert("system_branding", [
       {
         branding_id: DEFAULT_BRANDING_ID,
-        system_name: "Postgress Express Node Next full stack template",
-        system_name_am:
-          "ፖስትግሬስ፣ ኤክስፕሬስ፣ ኖድ እና ኔክስት የተጠቀመ ሙሉ የዌብ ልማት መነሻ አብነት።",
-        tagline: "Land Authority Management System",
-        logo_url: "/logo-only.png",
-        logo_login_url: "/logo-mom.png",
+        system_name: PLATFORM_NAME,
+        system_name_am: PLATFORM_NAME_AM,
+        tagline: PLATFORM_TAGLINE,
+        logo_url: PLATFORM_LOGO_URL,
+        logo_login_url: PLATFORM_LOGO_URL,
         primary_hsl: theme_json.primary,
         accent_hsl: theme_json["section-accent"],
         sidebar_hover_hsl: theme_json["sidebar-hover"],

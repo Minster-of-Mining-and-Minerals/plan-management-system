@@ -3,7 +3,8 @@ import { useSession } from "next-auth/react";
 import {
   PermissionKey,
   hasPermission,
-  normalizePermissions,
+  normalizeToPermissionKeys,
+  type RawPermission,
 } from "@/lib/permissions";
 import { useGetMyPermissionsQuery } from "@/redux/api/authApi";
 
@@ -14,8 +15,11 @@ export function usePermissions() {
     skip: status !== "authenticated",
   });
 
-  // const userPermissions = normalizePermissions(generatedPermissions);
-  const userPermissions = generatedPermissions?.data?.permissions || [];
+  const userPermissions = normalizeToPermissionKeys(
+    generatedPermissions?.data?.permissions as
+      | readonly (PermissionKey | RawPermission)[]
+      | undefined
+  );
 
   const checkPermission = (required: {
     anyPermissions?: PermissionKey[];

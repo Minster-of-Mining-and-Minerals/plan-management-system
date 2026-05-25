@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ReduxProvider from "@/providers/ReduxProvider";
-import "react-toastify/dist/ReactToastify.css";
 import { NextIntlClientProvider } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { hasLocale } from "next-intl";
@@ -14,6 +13,10 @@ import { BreadcrumbProvider } from "@/providers/BreadcrumbProvider";
 import { SessionProvider } from "next-auth/react";
 import AuthInitializer from "@/providers/AuthInitializer";
 import { BrandingProvider } from "@/providers/BrandingProvider";
+import {
+  PLATFORM_DESCRIPTION,
+  PLATFORM_NAME,
+} from "@/config/platformBranding";
 
 type Props = {
   children: React.ReactNode;
@@ -30,8 +33,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Postgress Express Node Next full stack template",
-  description: "Postgress Express Node Next full stack template",
+  title: PLATFORM_NAME,
+  description: PLATFORM_DESCRIPTION,
+  applicationName: PLATFORM_NAME,
   icons: {
     icon: [
       { url: "/favicon_io/favicon.ico" },

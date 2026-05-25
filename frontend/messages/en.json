@@ -1,21 +1,21 @@
 {
   "HomePage": {
-    "badge": "Official Full Stack Template Platform",
+    "badge": "Enterprise Healthcare Ecosystem Platform",
     "heading": {
-      "line1": "Postgress Express Node Next",
-      "line2": "full stack template"
+      "line1": "NovaCure",
+      "line2": "Platform"
     },
-    "description": "A comprehensive digital platform built as a Postgress Express Node Next full stack template. Enhancing efficiency, ensuring alignment with organizational goals, and fostering data-driven decision making.",
+    "description": "Enterprise healthcare ecosystem platform powering hospitals, clinics, laboratories, pharmacies, and intelligent patient care systems.",
     "actions": {
-      "evaluations": "Check Evaluations"
+      "evaluations": "Explore Platform"
     }
   },
   "PublicHeader": {
-    "logoLine1": "Postgress Express Node Next full stack template",
+    "logoLine1": "NovaCure Platform",
     "tabs": {
       "home": "Home",
-      "evaluations": "Evaluations",
-      "reports": "Reports"
+      "evaluations": "Services",
+      "reports": "Insights"
     },
     "login": "Login"
   },

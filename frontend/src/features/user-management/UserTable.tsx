@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Download, Plus, Eye, Edit, Trash, Users } from "lucide-react";
 
 import type { FilterField, ActionButton } from "@/types/tableLayout";
-import { useExportUsersMutation, useGetUsersQuery, useGetUserTypesQuery } from "@/redux/api/userApi";
+import { useExportUsersMutation, useGetUsersQuery } from "@/redux/api/userApi";
 import { User } from "@/redux/types/user";
 import { CreateUserModal } from "@/components/common/modals/CreateUserModal";
 import { formatStatus } from "@/utils/statusFormatter";
@@ -58,7 +58,7 @@ export default function UserTable({ sideActions, structure_id }: UserTableProps)
             cell: ({ row }) => {
                 const isActive = row.getValue("is_active") as boolean;
                 return (
-                    <Badge className="text-white" status={isActive ? "active" : "inactive"}>
+                    <Badge variant={isActive ? "default" : "destructive"}>
                         {formatStatus(isActive ? "Active" : "Inactive")}
                     </Badge>
                 );
@@ -95,8 +95,12 @@ export default function UserTable({ sideActions, structure_id }: UserTableProps)
         search: searchQuery,
     });
 
-    const users = response ?? [];
-    const totalPages = response?.meta?.totalPages ?? 0;
+    const allUsers = response ?? [];
+    const totalPages = Math.max(1, Math.ceil(allUsers.length / pageSize));
+    const users = allUsers.slice(
+        pageIndex * pageSize,
+        pageIndex * pageSize + pageSize
+    );
     const [exportUsers, { isLoading: exportLoading }] = useExportUsersMutation();
 
     // Reset page index when search changes

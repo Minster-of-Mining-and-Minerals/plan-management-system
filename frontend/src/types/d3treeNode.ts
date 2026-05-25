@@ -1,4 +1,5 @@
 import { RawNodeDatum } from "react-d3-tree";
+import type { PermissionKey } from "@/lib/permissions";
 
 export interface D3TreeNode extends RawNodeDatum {
   name: string;
@@ -17,7 +18,7 @@ export interface CustomNodeProps {
   nodeDatum: D3TreeNode & { __rd3t?: { collapsed?: boolean } };
   toggleNode: () => void;
   onAddChild?: (parentId: string) => void;
-  permissions?: string[];
+  permissions?: PermissionKey[];
 }
 
 export interface HierarchyD3TreeProps {
