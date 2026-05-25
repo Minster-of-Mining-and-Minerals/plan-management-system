@@ -1,72 +1,57 @@
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { useGetPatientByIdQuery } from "@/redux/api/patientApi";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { useGetUserFormConfigQuery } from "@/redux/api/formFieldApi";
+import { PatientDetailPanel } from "@/features/patient-management/PatientDetailPanel";
+import { PatientIdentificationSlip } from "@/features/patient-management/PatientIdentificationSlip";
 import Loading01 from "@/features/template/component/Loading/Loading01";
+import { Button } from "@/components/ui/button";
 
 export default function PatientDetailPage() {
   const params = useParams();
   const patientId = params.patientId as string;
-  const { data, isLoading } = useGetPatientByIdQuery(patientId);
+  const { data: patient, isLoading, isError } = useGetPatientByIdQuery(patientId);
+  const { data: formConfig } = useGetUserFormConfigQuery();
 
   if (isLoading) return <Loading01 />;
 
-  const profile = data?.profile;
+  if (isError || !patient) {
+    return (
+      <div className="space-y-4">
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/patients/list">
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back to patients
+          </Link>
+        </Button>
+        <p className="text-muted-foreground">Patient not found.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            {data?.full_name}
-            {profile?.patient_code && (
-              <Badge variant="secondary">{profile.patient_code}</Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-2 sm:grid-cols-2">
-          <p>
-            <span className="text-muted-foreground">Email: </span>
-            {data?.email}
-          </p>
-          <p>
-            <span className="text-muted-foreground">Phone: </span>
-            {data?.phone_number || "—"}
-          </p>
-          <p>
-            <span className="text-muted-foreground">Status: </span>
-            {profile?.patient_status || "active"}
-          </p>
-          {profile?.barcode && (
-            <p>
-              <span className="text-muted-foreground">Barcode: </span>
-              {profile.barcode}
-            </p>
-          )}
-        </CardContent>
-      </Card>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-4">
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/patients/list">
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back to patients
+          </Link>
+        </Button>
+        <h1 className="text-xl font-semibold text-primary truncate">
+          {patient.full_name}
+        </h1>
+      </div>
 
-      {data?.custom_fields && Object.keys(data.custom_fields).length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Additional Information</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-2 sm:grid-cols-2">
-            {Object.entries(data.custom_fields).map(([key, value]) => (
-              <p key={key}>
-                <span className="text-muted-foreground capitalize">
-                  {key.replace(/_/g, " ")}:{" "}
-                </span>
-                {Array.isArray(value)
-                  ? value.join(", ")
-                  : String(value ?? "—")}
-              </p>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_auto] gap-6 items-start">
+        <PatientDetailPanel patient={patient} formConfig={formConfig} />
+        <div className="xl:sticky xl:top-4 w-full xl:w-auto flex justify-center xl:justify-start">
+          <PatientIdentificationSlip patient={patient} />
+        </div>
+      </div>
     </div>
   );
 }

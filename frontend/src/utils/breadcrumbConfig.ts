@@ -40,6 +40,10 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem[]> = {
     "/patients/list": [
         { title: "Patients", path: "/patients/list" },
     ],
+    "/patients/list/[patientId]": [
+        { title: "Patients", path: "/patients/list" },
+        { title: "Patient Details", path: "/patients/list/[patientId]" },
+    ],
     "/patients/form-fields": [
         { title: "Patients", path: "/patients/list" },
         { title: "Configure Patient Forms", path: "/patients/form-fields" },

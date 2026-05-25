@@ -12,6 +12,13 @@ export type PatientRecord = {
     qr_code?: string;
     barcode?: string;
     patient_status?: string;
+    date_of_birth?: string | null;
+    gender?: string | null;
+    blood_group?: string | null;
+    marital_status?: string | null;
+    nationality?: string | null;
+    preferred_language?: string | null;
+    registered_at?: string;
     emergency_contacts?: unknown[];
     insurance_profile?: Record<string, unknown>;
     medical_history_summary?: string;
