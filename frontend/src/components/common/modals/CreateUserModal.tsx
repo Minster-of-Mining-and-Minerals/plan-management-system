@@ -4,22 +4,10 @@ import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useGetRolesQuery } from "@/redux/api/roleApi";
-import {
-  useCreateUserMutation,
-} from "@/redux/api/userApi";
-import {
-  useGetStructuresQuery,
-} from "@/redux/api/structureApi";
+import { useCreateUserMutation } from "@/redux/api/userApi";
 import { CreateUserPayload } from "@/redux/types/user";
-import { Check, ChevronDown, XIcon } from "lucide-react";
+import { ChevronDown, XIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Popover,
   PopoverContent,
@@ -29,25 +17,19 @@ import {
 interface CreateUserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  structure_id?: string;
 }
 
 export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   isOpen,
   onClose,
-  structure_id: initialGovId,
 }) => {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
-  const [govId, setGovId] = useState(initialGovId || "");
 
   const { data: rolesResponse } = useGetRolesQuery();
-  const { data: govStructures = [] } = useGetStructuresQuery();
-
   const roles = rolesResponse || [];
-
   const [createUser, { isLoading }] = useCreateUserMutation();
 
   const handleSubmit = async () => {
@@ -61,7 +43,6 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
       email,
       role_ids: selectedRoles,
       phone_number: phoneNumber || undefined,
-      structure_id: govId || undefined,
     };
 
     try {
@@ -78,7 +59,6 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
     setEmail("");
     setPhoneNumber("");
     setSelectedRoles([]);
-    setGovId(initialGovId || "");
     onClose();
   };
 
@@ -94,7 +74,6 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
       onClick={handleBackdropClick}
     >
       <div className="bg-white p-6 rounded-2xl w-full max-w-[750px] shadow-2xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-primary">Create User</h2>
           <button
@@ -105,37 +84,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           </button>
         </div>
 
-        {/* Content */}
         <div className="w-full flex flex-col space-y-4">
-          {/* Structure Selection */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="block text-sm text-section-accent font-medium mb-1">
-                Structure
-              </Label>
-              <Select
-                value={govId}
-                onValueChange={(val) => {
-                  setGovId(val);
-                }}
-                disabled={!!initialGovId}
-              >
-                <SelectTrigger className="w-full h-12 border border-section-accent">
-                  <SelectValue placeholder="Select Structure" />
-                </SelectTrigger>
-                <SelectContent className="bg-white">
-                  {govStructures.map((s) => (
-                    <SelectItem key={s.structure_id} value={s.structure_id!}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-          </div>
-
-          {/* User Detail */}
           <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 pr-2">
             <div className="space-y-2">
               <Label className="block text-sm text-section-accent font-medium mb-1">
@@ -259,7 +208,6 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           </div>
         </div>
 
-        {/* Footer */}
         <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
           <Button variant="outline" onClick={handleClose}>
             Cancel

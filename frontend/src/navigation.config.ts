@@ -4,8 +4,6 @@ import {
   User2,
   Shield,
   Key,
-  Building2,
-  ListTree,
   Palette,
 } from "lucide-react";
 
@@ -25,12 +23,6 @@ export const NAVIGATION: NavItem[] = [
     url: "/dashboard",
     icon: LayoutDashboard,
     anyPermissions: ["DASHBOARD:VIEW"],
-  },
-  {
-    title: "Structures",
-    url: "/structures",
-    icon: Building2,
-    anyPermissions: ["STRUCTURES:READ"],
   },
   {
     title: "Users",
@@ -70,5 +62,4 @@ export const NAVIGATION: NavItem[] = [
     icon: Palette,
     allPermissions: ["BRANDING:READ"],
   },
-
 ];

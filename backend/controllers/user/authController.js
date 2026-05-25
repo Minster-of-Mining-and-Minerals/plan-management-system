@@ -1,5 +1,5 @@
 const db = require("../../models");
-const { User, Role, RolePermission, Permission, PermissionGroup, Structure } = db;
+const { User, Role, RolePermission, Permission, PermissionGroup } = db;
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
@@ -9,9 +9,6 @@ const login = async (req, res) => {
 
     const user = await User.findOne({
       where: { email },
-      include: [
-        { model: Structure, as: "structure" },
-      ],
     });
 
     if (!user)
@@ -19,12 +16,10 @@ const login = async (req, res) => {
     if (!user.is_active)
       return res.status(403).json({ message: "User is inactive" });
 
-    // Compare password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch)
       return res.status(401).json({ message: "Invalid email or password" });
 
-    // ===== Generate JWT Token (lean - no roles/permissions to avoid cookie bloat) =====
     const token = jwt.sign(
       {
         user_id: user.user_id,
@@ -35,7 +30,6 @@ const login = async (req, res) => {
       { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
     );
 
-    // Update last login
     await User.update(
       { last_login_at: new Date() },
       { where: { user_id: user.user_id } }
@@ -53,7 +47,6 @@ const login = async (req, res) => {
           phone_number: user.phone_number,
           profile_image: user.profile_image,
           is_first_logged_in: user.is_first_logged_in,
-          structure: user.structure ? user.structure : [],
         },
       },
     });
@@ -65,7 +58,6 @@ const login = async (req, res) => {
   }
 };
 
-// Logout
 const logout = async (req, res) => {
   try {
     res.status(200).json({ message: "Logout successful" });
@@ -76,7 +68,6 @@ const logout = async (req, res) => {
   }
 };
 
-// Get current user profile (lean)
 const getMe = async (req, res) => {
   try {
     const user = await User.findOne({
@@ -88,10 +79,6 @@ const getMe = async (req, res) => {
         "phone_number",
         "profile_image",
         "is_first_logged_in",
-        "structure_id",
-      ],
-      include: [
-        { model: Structure, as: "structure" },
       ],
     });
 
@@ -111,7 +98,6 @@ const getMe = async (req, res) => {
           phone_number: user.phone_number,
           profile_image: user.profile_image,
           is_first_logged_in: user.is_first_logged_in,
-          structure: user.structure ? user.structure : [],
         },
       },
     });
@@ -123,7 +109,6 @@ const getMe = async (req, res) => {
   }
 };
 
-// Get current user's roles and aggregated permissions
 const getMyPermissions = async (req, res) => {
   try {
     const user = await User.findOne({
@@ -171,7 +156,6 @@ const getMyPermissions = async (req, res) => {
 
     const permissionsSet = new Set();
 
-    // 1. Collect permissions from Roles
     user.roles?.forEach((role) => {
       role.rolePermissions?.forEach((rp) => {
         if (rp.permission) {
@@ -182,7 +166,6 @@ const getMyPermissions = async (req, res) => {
       });
     });
 
-    // 2. Collect permissions from Permission Groups
     user.permissionGroups?.forEach((group) => {
       group.permissions?.forEach((perm) => {
         permissionsSet.add(`${perm.resource}:${perm.action}`.toUpperCase());

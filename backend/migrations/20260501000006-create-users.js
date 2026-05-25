@@ -49,16 +49,6 @@ module.exports = {
         defaultValue: true,
         allowNull: false,
       },
-      structure_id: {
-        type: Sequelize.UUID,
-        allowNull: true,
-        references: {
-          model: "structures",
-          key: "structure_id",
-        },
-        onUpdate: "CASCADE",
-        onDelete: "SET NULL",
-      },
       otp: {
         type: Sequelize.STRING,
         allowNull: true,

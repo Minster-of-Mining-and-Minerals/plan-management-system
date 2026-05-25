@@ -22,8 +22,6 @@ const permissionGroupRoute = require("./routers/user/permissionGroupRoutes");
 const changePasswordRoutes = require("./routers/user/passwordChangeRoutes");
 const forgotPasswordRoutes = require("./routers/user/forgotPasswordRoutes");
 
-// Structure Routes
-const structureRoutes = require("./routers/structure/structureRoutes");
 const dashboardRoutes = require("./routers/dashboardRoutes");
 
 // System Branding Routes
@@ -130,8 +128,6 @@ app.use("/api/permissions", permissionRoute);
 app.use("/api/permission-groups", permissionGroupRoute);
 
 
-// Structure Routes
-app.use("/api/structures", structureRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 
 // Branding Routes

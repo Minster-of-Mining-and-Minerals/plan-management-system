@@ -55,7 +55,6 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
     issue_flows: <BarChart3 className="h-4 w-4" />,
     issue_priorities: <AlertCircle className="h-4 w-4" />,
     human_resources: <Users className="h-4 w-4" />,
-    organization_structures: <Building className="h-4 w-4" />,
     organizations: <Building className="h-4 w-4" />,
     permissions: <Shield className="h-4 w-4" />,
     system: <Settings className="h-4 w-4" />,

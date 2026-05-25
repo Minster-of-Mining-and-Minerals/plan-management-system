@@ -10,7 +10,6 @@ import {
   useUpdateUserMutation 
 } from "@/redux/api/userApi";
 import { useGetRolesQuery } from "@/redux/api/roleApi";
-import { useGetStructuresQuery } from "@/redux/api/structureApi";
 import { 
   User2Icon, 
   Mail, 
@@ -18,8 +17,6 @@ import {
   Calendar, 
   Shield, 
   Users, 
-  Building2, 
-  GitBranch, 
   Trash2, 
   Edit, 
   ArrowLeft,
@@ -49,7 +46,6 @@ const userFormSchema = z.object({
   email: z.string().email("Invalid email address"),
   phone_number: z.string().optional().nullable(),
   is_active: z.boolean(),
-  structure_id: z.string().optional().nullable(),
   role_ids: z.array(z.string()).min(1, "At least one role must be assigned"),
 });
 
@@ -67,7 +63,6 @@ const UserViewPage = () => {
   const [isEditing, setIsEditing] = useState(false);
 
   const { data: allRoles = [] } = useGetRolesQuery({ is_active: true });
-  const { data: govStructures = [] } = useGetStructuresQuery({ is_active: true });
   
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),
@@ -76,7 +71,6 @@ const UserViewPage = () => {
       email: "",
       phone_number: "",
       is_active: true,
-      structure_id: "",
       role_ids: [],
     },
   });
@@ -89,7 +83,6 @@ const UserViewPage = () => {
         email: user.email,
         phone_number: user.phone_number || "",
         is_active: user.is_active,
-        structure_id: user.structure_id || "",
         role_ids: user.roles?.map((r) => r.role_id) || [],
       });
     }
@@ -104,7 +97,6 @@ const UserViewPage = () => {
           email: values.email,
           phone_number: values.phone_number || undefined,
           role_ids: values.role_ids,
-          structure_id: values.structure_id || undefined,
           is_active: values.is_active,
         },
       }).unwrap();
@@ -288,53 +280,6 @@ const UserViewPage = () => {
             </CardContent>
           </Card>
 
-          {/* Structure Details */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2 text-primary">
-                <Building2 className="h-5 w-5" /> Structure
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
-                  Structure
-                </p>
-                {isEditing ? (
-                  <div className="space-y-2">
-                    <Controller
-                      control={form.control}
-                      name="structure_id"
-                      render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value || ""}>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select structure" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {govStructures.map((s) => (
-                              <SelectItem key={s.structure_id} value={s.structure_id!}>
-                                {s.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                    {form.formState.errors.structure_id && (
-                      <p className="text-xs text-red-500">{form.formState.errors.structure_id.message}</p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
-                    <Building2 className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-medium text-gray-700">
-                      {user.structure?.name || "No structure assigned"}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Right Column: Roles and Permissions */}

@@ -7,16 +7,11 @@ import {
     RemovePermissionPayload,
     AddUsersPayload,
     RemoveUserPayload,
-    AddStructuresPayload,
-    RemoveStructurePayload,
 } from "../types/permissionGroup";
 
 export const permissionGroupApi = baseApi.injectEndpoints({
     endpoints: (builder) => ({
-        /** ---------------------------
-         * GET ALL GROUPS
-         * --------------------------- */
-        getPermissionGroups: builder.query<PermissionGroup[], { structure_id?: string; search?: string } | void>({
+        getPermissionGroups: builder.query<PermissionGroup[], { search?: string } | void>({
             query: (params) => ({
                 url: "/permission-groups",
                 params: params || {},
@@ -26,18 +21,12 @@ export const permissionGroupApi = baseApi.injectEndpoints({
             providesTags: ["PermissionGroups"],
         }),
 
-        /** ---------------------------
-         * GET GROUP BY ID
-         * --------------------------- */
         getPermissionGroupById: builder.query<PermissionGroup, string>({
             query: (id) => `/permission-groups/${id}`,
             transformResponse: (response: any): PermissionGroup => response.data,
             providesTags: (_r, _e, id) => [{ type: "PermissionGroups", id }],
         }),
 
-        /** ---------------------------
-         * CREATE GROUP
-         * --------------------------- */
         createPermissionGroup: builder.mutation<
             PermissionGroup,
             CreatePermissionGroupPayload
@@ -51,9 +40,6 @@ export const permissionGroupApi = baseApi.injectEndpoints({
             invalidatesTags: ["PermissionGroups"],
         }),
 
-        /** ---------------------------
-         * UPDATE GROUP
-         * --------------------------- */
         updatePermissionGroup: builder.mutation<
             PermissionGroup,
             { id: string; data: UpdatePermissionGroupPayload }
@@ -70,9 +56,6 @@ export const permissionGroupApi = baseApi.injectEndpoints({
             ],
         }),
 
-        /** ---------------------------
-         * DELETE GROUP
-         * --------------------------- */
         deletePermissionGroup: builder.mutation<{ message: string }, string>({
             query: (id) => ({
                 url: `/permission-groups/${id}`,
@@ -82,9 +65,6 @@ export const permissionGroupApi = baseApi.injectEndpoints({
             invalidatesTags: ["PermissionGroups"],
         }),
 
-        /** ---------------------------
-         * ADD PERMISSIONS
-         * --------------------------- */
         addPermissionsToGroup: builder.mutation<
             { message: string },
             AddPermissionsPayload
@@ -97,9 +77,6 @@ export const permissionGroupApi = baseApi.injectEndpoints({
             invalidatesTags: ["PermissionGroups"],
         }),
 
-        /** ---------------------------
-         * REMOVE PERMISSION
-         * --------------------------- */
         removePermissionFromGroup: builder.mutation<
             { message: string },
             RemovePermissionPayload
@@ -112,9 +89,6 @@ export const permissionGroupApi = baseApi.injectEndpoints({
             invalidatesTags: ["PermissionGroups"],
         }),
 
-        /** ---------------------------
-         * ADD USERS
-         * --------------------------- */
         addUsersToGroup: builder.mutation<
             { message: string },
             AddUsersPayload
@@ -127,45 +101,12 @@ export const permissionGroupApi = baseApi.injectEndpoints({
             invalidatesTags: ["PermissionGroups"],
         }),
 
-        /** ---------------------------
-         * REMOVE USER
-         * --------------------------- */
         removeUserFromGroup: builder.mutation<
             { message: string },
             RemoveUserPayload
         >({
             query: (body) => ({
                 url: "/permission-groups/remove-user",
-                method: "POST",
-                body,
-            }),
-            invalidatesTags: ["PermissionGroups"],
-        }),
-
-        /** ---------------------------
-         * ADD STRUCTURES
-         * --------------------------- */
-        addStructuresToGroup: builder.mutation<
-            { message: string },
-            AddStructuresPayload
-        >({
-            query: (body) => ({
-                url: "/permission-groups/add-structures",
-                method: "POST",
-                body,
-            }),
-            invalidatesTags: ["PermissionGroups"],
-        }),
-
-        /** ---------------------------
-         * REMOVE STRUCTURE
-         * --------------------------- */
-        removeStructureFromGroup: builder.mutation<
-            { message: string },
-            RemoveStructurePayload
-        >({
-            query: (body) => ({
-                url: "/permission-groups/remove-structure",
                 method: "POST",
                 body,
             }),
@@ -180,13 +121,8 @@ export const {
     useCreatePermissionGroupMutation,
     useUpdatePermissionGroupMutation,
     useDeletePermissionGroupMutation,
-
     useAddPermissionsToGroupMutation,
     useRemovePermissionFromGroupMutation,
-
     useAddUsersToGroupMutation,
     useRemoveUserFromGroupMutation,
-
-    useAddStructuresToGroupMutation,
-    useRemoveStructureFromGroupMutation,
 } = permissionGroupApi;

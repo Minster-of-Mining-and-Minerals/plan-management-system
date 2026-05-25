@@ -4,10 +4,8 @@ const {
     PermissionGroup,
     Permission,
     User,
-    Structure,
     PermissionGroupPermission,
     UserPermissionGroup,
-    StructurePermissionGroup,
 } = require("../../models");
 
 const { v4: uuidv4 } = require("uuid");
@@ -30,7 +28,6 @@ async function fetchGroupWithRelations(id) {
         include: [
             permissionInclude,
             { model: User, as: "users" },
-            { model: Structure, as: "structures" },
         ],
     });
 }
@@ -85,7 +82,6 @@ const getPermissionGroups = async (req, res) => {
             include: [
                 permissionInclude,
                 { model: User, as: "users" },
-                { model: Structure, as: "structures" },
             ],
             order: [["created_at", "DESC"]],
         });
@@ -267,38 +263,6 @@ const removeUserFromGroup = async (req, res) => {
         return res.status(500).json({ error: error.message });
     }
 };
-// Attach / Detach Structures
-const addStructuresToGroup = async (req, res) => {
-    try {
-        const { permission_group_id, structure_ids } = req.body;
-
-        const records = structure_ids.map((sid) => ({
-            id: uuidv4(),
-            structure_id: sid,
-            permission_group_id,
-        }));
-
-        await StructurePermissionGroup.bulkCreate(records);
-
-        return res.json({ message: "Structures added" });
-    } catch (error) {
-        return res.status(500).json({ error: error.message });
-    }
-};
-
-const removeStructureFromGroup = async (req, res) => {
-    try {
-        const { permission_group_id, structure_id } = req.body;
-
-        await StructurePermissionGroup.destroy({
-            where: { permission_group_id, structure_id },
-        });
-
-        return res.json({ message: "Structure removed" });
-    } catch (error) {
-        return res.status(500).json({ error: error.message });
-    }
-};
 module.exports = {
     createPermissionGroup,
     getPermissionGroups,
@@ -309,6 +273,4 @@ module.exports = {
     removePermissionFromGroup,
     addUsersToGroup,
     removeUserFromGroup,
-    addStructuresToGroup,
-    removeStructureFromGroup,
 };

@@ -29,8 +29,6 @@ module.exports = {
       { resource: "permission_groups", action: "remove_permission" },
       { resource: "permission_groups", action: "add_user" },
       { resource: "permission_groups", action: "remove_user" },
-      { resource: "permission_groups", action: "add_structure" },
-      { resource: "permission_groups", action: "remove_structure" },
 
       // Role Management
       { resource: "roles", action: "create" },
@@ -38,12 +36,6 @@ module.exports = {
       { resource: "roles", action: "update" },
       { resource: "roles", action: "delete" },
       { resource: "roles", action: "assign_permission" },
-
-      // Structure Management
-      { resource: "structures", action: "create" },
-      { resource: "structures", action: "read" },
-      { resource: "structures", action: "update" },
-      { resource: "structures", action: "delete" },
 
       // Branding / System appearance
       { resource: "branding", action: "create" },

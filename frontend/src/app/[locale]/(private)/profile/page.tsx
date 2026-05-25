@@ -8,7 +8,6 @@ import {
     useGetUserByIdQuery,
 } from "@/redux/api/userApi";
 import { useGetRolesQuery } from "@/redux/api/roleApi";
-import { useGetStructuresQuery } from "@/redux/api/structureApi";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
 import { ColumnDef } from "@tanstack/react-table";
@@ -19,7 +18,6 @@ import {
     Calendar,
     Shield,
     Users,
-    Building2,
     CheckCircle2,
     XCircle,
 } from "lucide-react";
@@ -53,7 +51,6 @@ const userFormSchema = z.object({
     email: z.string().email("Invalid email address"),
     phone_number: z.string().optional().nullable(),
     is_active: z.boolean(),
-    structure_id: z.string().optional().nullable(),
     role_ids: z.array(z.string()).min(1, "At least one role must be assigned"),
 });
 
@@ -69,8 +66,6 @@ const ProfilePage = () => {
     const { data: user, isLoading, isError } = useGetUserByIdQuery(userId);
 
     const { data: allRoles = [] } = useGetRolesQuery({ is_active: true });
-    const { data: govStructures = [] } = useGetStructuresQuery({ is_active: true });
-
 
     const form = useForm<UserFormValues>({
         resolver: zodResolver(userFormSchema),
@@ -79,7 +74,6 @@ const ProfilePage = () => {
             email: "",
             phone_number: "",
             is_active: true,
-            structure_id: "",
             role_ids: [],
         },
     });
@@ -92,7 +86,6 @@ const ProfilePage = () => {
                 email: user.email,
                 phone_number: user.phone_number || "",
                 is_active: user.is_active,
-                structure_id: user.structure_id || "",
                 role_ids: user.roles?.map((r) => r.role_id) || [],
             });
         }
@@ -121,7 +114,7 @@ const ProfilePage = () => {
 
 
     return (
-        <div className="min-h-screen w-full bg-auth-background p-6 space-y-6">
+        <div className="min-h-screen w-full bg-background p-6 space-y-6">
             {/* Header with Breadcrumbs and Actions */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <DetailHeader
@@ -135,7 +128,7 @@ const ProfilePage = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left Column: Profile Card */}
                 <div className="lg:col-span-1 space-y-6">
-                    <Card className="overflow-hidden">
+                    <Card className="overflow-hidden pt-0">
                         <CardHeader className="bg-primary text-white text-center pb-8 pt-8">
                             <div className="flex justify-center mb-4">
                                 <div className="relative w-24 h-24 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border-2 border-white/50">
@@ -183,27 +176,6 @@ const ProfilePage = () => {
                         </CardContent>
                     </Card>
 
-                    {/* Structure Details */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg flex items-center gap-2 text-primary">
-                                <Building2 className="h-5 w-5" /> Structure
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div>
-                                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
-                                    Structure
-                                </p>
-                                <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
-                                    <Building2 className="h-4 w-4 text-primary" />
-                                    <span className="text-sm font-medium text-gray-700">
-                                        {user.structure?.name || "No structure assigned"}
-                                    </span>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
                 </div>
 
                 {/* Right Column: Roles and Permissions */}

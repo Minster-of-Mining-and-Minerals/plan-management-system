@@ -1,9 +1,8 @@
 "use client";
 import { ActionButton } from "@/types/tableLayout";
-import { Building, Users, UserPlus } from "lucide-react";
+import { UserPlus } from "lucide-react";
 import { useState } from "react";
 import UsersGroupList from "./UsersGroupList";
-import StructuresGroupList from "./StructuresGroupList";
 import { useGetPermissionGroupByIdQuery } from "@/redux/api/permissionGroupApi";
 import { AddGroupMembersModal } from "./AddGroupMembersModal";
 
@@ -12,31 +11,11 @@ interface GroupManagementProps {
 }
 
 function GroupManagement({ groupId }: GroupManagementProps) {
-    const [activeTab, setActiveTab] = useState<"users" | "structures">(
-        "users"
-    );
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
     const { data: group, isLoading } = useGetPermissionGroupByIdQuery(groupId as string, {
         skip: !groupId,
     });
-
-    const sideActions: ActionButton[] = [
-        {
-            label: "Users",
-            icon: <Users className="h-4 w-4" />,
-            variant: activeTab === "users" ? "default" : "outline",
-            size: "default",
-            onClick: () => setActiveTab("users"),
-        },
-        {
-            label: "Structures",
-            icon: <Building className="h-4 w-4" />,
-            variant: activeTab === "structures" ? "default" : "outline",
-            size: "default",
-            onClick: () => setActiveTab("structures"),
-        },
-    ];
 
     const actions: ActionButton[] = groupId ? [
         {
@@ -55,31 +34,18 @@ function GroupManagement({ groupId }: GroupManagementProps) {
                 <h3 className="text-xl font-bold text-section-accent">Group Members</h3>
             </div>
 
-            {activeTab === "users" && (
-                <UsersGroupList
-                    sideActions={sideActions}
-                    actions={actions}
-                    users={group?.users || []}
-                    groupId={groupId}
-                    isLoading={isLoading}
-                />
-            )}
-            {activeTab === "structures" && (
-                <StructuresGroupList
-                    sideActions={sideActions}
-                    actions={actions}
-                    structures={group?.structures || []}
-                    groupId={groupId}
-                    isLoading={isLoading}
-                />
-            )}
+            <UsersGroupList
+                actions={actions}
+                users={group?.users || []}
+                groupId={groupId}
+                isLoading={isLoading}
+            />
 
             <AddGroupMembersModal
                 isOpen={isAddModalOpen}
                 onClose={() => setIsAddModalOpen(false)}
                 groupId={groupId}
                 existingUserIds={group?.users?.map(u => u.user_id) || []}
-                existingStructureIds={group?.structures?.map(s => s.structure_id) || []}
             />
         </div>
     );

@@ -46,20 +46,13 @@ export interface User {
   updated_at: string;
   roles?: Role[];
   permissionGroups?: PermissionGroup[];
-  structure_id?: string;
-  structure?: {
-    structure_id: string;
-    name: string;
-  };
 }
 
-// Payloads
 export interface CreateUserPayload {
   full_name: string;
   email: string;
   phone_number?: string;
   role_ids?: string[];
-  structure_id?: string;
 }
 
 export interface UpdateUserPayload {
@@ -67,7 +60,6 @@ export interface UpdateUserPayload {
   email?: string;
   phone_number?: string;
   role_ids?: string[];
-  structure_id?: string;
   is_active?: boolean;
 }
 

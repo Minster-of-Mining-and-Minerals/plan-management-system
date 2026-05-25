@@ -14,7 +14,7 @@ module.exports = {
     // 1. Common password hash
     const passwordHash = await bcrypt.hash("password", 10);
 
-    // 2. Insert seed users (no structure IDs)
+    // 2. Insert seed users
     await queryInterface.bulkInsert("users", [
       {
         user_id: ADMIN_USER_ID,
@@ -27,7 +27,6 @@ module.exports = {
         last_login_at: null,
         password_changed_at: null,
         is_active: true,
-        structure_id: null,
         created_at: now,
         updated_at: now,
       },
@@ -42,7 +41,6 @@ module.exports = {
         last_login_at: null,
         password_changed_at: null,
         is_active: true,
-        structure_id: null,
         created_at: now,
         updated_at: now,
       },

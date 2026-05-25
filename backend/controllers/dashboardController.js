@@ -5,8 +5,7 @@ const dashboardService = require("../services/dashboardService");
  * Get overall dashboard statistics
  */
 const getDashboardStats = async (req, res) => {
-  const { sectorNodeId } = req.query;
-  const result = await dashboardService.getDashboardStats(sectorNodeId);
+  const result = await dashboardService.getDashboardStats();
   
   if (result.success) {
     return res.status(200).json(result);

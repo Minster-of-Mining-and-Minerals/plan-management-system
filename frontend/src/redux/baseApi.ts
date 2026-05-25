@@ -25,7 +25,6 @@ export const baseApi = createApi({
     "Roles",
     "Permissions",
     "PermissionGroups",
-    "Structure",
     "Branding",
   ],
   endpoints: () => ({}),

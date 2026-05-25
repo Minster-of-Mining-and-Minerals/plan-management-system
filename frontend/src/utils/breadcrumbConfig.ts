@@ -11,18 +11,6 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem[]> = {
     "/profile": [{ title: "Profile", path: "/profile" }],
 
     // ================================================
-    // Structures Routes
-    // ================================================
-    "/structures": [
-        { title: "Bodies", path: "/structures" },
-    ],
-    "/structures/[id]": [
-        { title: "Bodies", path: "/structures" },
-        { title: "Details", path: "/structures/[id]" },
-    ],
-
-
-    // ================================================
     // Users Routes
     // ================================================
     "/users/list": [

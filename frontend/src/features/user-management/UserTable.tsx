@@ -19,10 +19,8 @@ import { useRouter } from "next/navigation";
 
 export interface UserTableProps {
     sideActions?: ActionButton[];
-    structure_id?: string;
 }
-// structure_node_id
-export default function UserTable({ sideActions, structure_id }: UserTableProps) {
+export default function UserTable({ sideActions }: UserTableProps) {
     const searchParams = useSearchParams();
     const searchQuery = searchParams.get("search") || "";
     const router = useRouter();
@@ -89,7 +87,6 @@ export default function UserTable({ sideActions, structure_id }: UserTableProps)
         isError,
         refetch,
     } = useGetUsersQuery({
-        structure_id: structure_id,
         page: pageIndex + 1,
         limit: pageSize,
         search: searchQuery,
@@ -192,7 +189,6 @@ export default function UserTable({ sideActions, structure_id }: UserTableProps)
                 />
             </TableLayout>
             <CreateUserModal
-                structure_id={structure_id}
                 isOpen={isModalOpen}
                 onClose={() => setModalOpen(false)}
             />

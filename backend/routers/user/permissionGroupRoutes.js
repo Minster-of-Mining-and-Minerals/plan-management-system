@@ -10,8 +10,6 @@ const {
     validateRemovePermission,
     validateAddUsers,
     validateRemoveUser,
-    validateAddStructures,
-    validateRemoveStructure,
 } = require("../../validators/user/permissionGroupValidator");
 
 const {
@@ -24,33 +22,14 @@ const {
     removePermissionFromGroup,
     addUsersToGroup,
     removeUserFromGroup,
-    addStructuresToGroup,
-    removeStructureFromGroup,
 } = require("../../controllers/user/permissionGroupController");
 
-/**
- * @swagger
- * tags:
- *   name: PermissionGroups
- *   description: Manage permission groups and assignments
- */
-
-/**
- * =================== CRUD ===================
- */
 router.post("/", validateCreatePermissionGroup, createPermissionGroup);
-
 router.get("/", getPermissionGroups);
-
 router.get("/:id", getPermissionGroupById);
-
 router.put("/:id", validateUpdatePermissionGroup, updatePermissionGroup);
-
 router.delete("/:id", deletePermissionGroup);
 
-/**
- * =================== PERMISSIONS ===================
- */
 router.post(
     "/add-permissions",
     validateAddPermissions,
@@ -63,26 +42,7 @@ router.post(
     removePermissionFromGroup
 );
 
-/**
- * =================== USERS ===================
- */
 router.post("/add-users", validateAddUsers, addUsersToGroup);
-
 router.post("/remove-user", validateRemoveUser, removeUserFromGroup);
-
-/**
- * =================== GOVERNMENT STRUCTURES ===================
- */
-router.post(
-    "/add-structures",
-    validateAddStructures,
-    addStructuresToGroup
-);
-
-router.post(
-    "/remove-structure",
-    validateRemoveStructure,
-    removeStructureFromGroup
-);
 
 module.exports = router;

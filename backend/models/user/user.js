@@ -19,11 +19,6 @@ module.exports = (sequelize, DataTypes) => {
         otherKey: "permission_group_id",
         as: "permissionGroups",
       });
-
-      User.belongsTo(models.Structure, {
-        foreignKey: "structure_id",
-        as: "structure",
-      });
     }
   }
 
@@ -72,10 +67,6 @@ module.exports = (sequelize, DataTypes) => {
       is_active: {
         type: DataTypes.BOOLEAN,
         defaultValue: true,
-      },
-      structure_id: {
-        type: DataTypes.UUID,
-        allowNull: true,
       },
       otp: {
         type: DataTypes.STRING,

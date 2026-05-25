@@ -7,11 +7,7 @@ import { ChevronRight } from "lucide-react";
 
 import { NAVIGATION } from "@/navigation.config";
 import { canAccessItem } from "@/lib/can-access";
-import { PermissionKey } from "@/lib/permissions";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useGetStructuresQuery } from "@/redux/api/structureApi";
-import { buildStructureTree } from "@/utils/buildStructureTree";
-import { NavStructures } from "./nav-structures";
 
 import {
   Sidebar,
@@ -54,12 +50,8 @@ export function AppSidebar() {
     ),
   }));
 
-  const { data: structuresData } = useGetStructuresQuery();
-  const structureTree = buildStructureTree(structuresData || []);
-
   return (
     <Sidebar collapsible="icon" variant="floating">
-      {/* ---------- HEADER ---------- */}
       <SidebarHeader className="py-10">
         <SidebarMenu>
           <SidebarMenuItem>
@@ -78,18 +70,14 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarHeader>
 
-      {/* ---------- CONTENT ---------- */}
       <SidebarContent>
         <SidebarGroup className="px-5 group-data-[collapsible=icon]:px-0">
           <SidebarGroupContent>
             <SidebarMenu className="gap-2 group-data-[collapsible=icon]:items-center">
-
               {visibleNav.map((item) => {
                 const hasConfigChildren = item.children && item.children.length > 0;
-                const isGovStructures = item.url === "/structures";
-                const hasDynamicChildren = isGovStructures && structureTree.length > 0;
 
-                if (hasConfigChildren || hasDynamicChildren) {
+                if (hasConfigChildren) {
                   return (
                     <Collapsible
                       key={item.title}
@@ -126,32 +114,28 @@ export function AppSidebar() {
                         </CollapsibleTrigger>
 
                         <CollapsibleContent>
-                          {hasConfigChildren ? (
-                            <SidebarMenuSub className="pt-1">
-                              {item.children?.map((child) => (
-                                <SidebarMenuSubItem key={child.url}>
-                                  <SidebarMenuSubButton
-                                    asChild
-                                    isActive={pathname === child.url}
-                                    className="text-primary hover:bg-sidebar-hover
-                                      hover:data-[active=false]:bg-sidebar-hover
-                                      hover:data-[active=true]:bg-sidebar-hover
-                                      hover:data-[active=true]:text-primary-foreground
-                                      group-data-[collapsible=icon]:justify-center
-                                      data-[active=true]:bg-sidebar-hover
-                                      data-[active=true]:text-primary"
-                                  >
-                                    <Link href={child.url} className="flex items-center gap-4">
-                                      <child.icon className="h-4 w-4 shrink-0" />
-                                      <span className="whitespace-nowrap truncate">{child.title}</span>
-                                    </Link>
-                                  </SidebarMenuSubButton>
-                                </SidebarMenuSubItem>
-                              ))}
-                            </SidebarMenuSub>
-                          ) : (
-                            <NavStructures structures={structureTree} basePath={item.url} />
-                          )}
+                          <SidebarMenuSub className="pt-1">
+                            {item.children?.map((child) => (
+                              <SidebarMenuSubItem key={child.url}>
+                                <SidebarMenuSubButton
+                                  asChild
+                                  isActive={pathname === child.url}
+                                  className="text-primary hover:bg-sidebar-hover
+                                    hover:data-[active=false]:bg-sidebar-hover
+                                    hover:data-[active=true]:bg-sidebar-hover
+                                    hover:data-[active=true]:text-primary-foreground
+                                    group-data-[collapsible=icon]:justify-center
+                                    data-[active=true]:bg-sidebar-hover
+                                    data-[active=true]:text-primary"
+                                >
+                                  <Link href={child.url} className="flex items-center gap-4">
+                                    <child.icon className="h-4 w-4 shrink-0" />
+                                    <span className="whitespace-nowrap truncate">{child.title}</span>
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            ))}
+                          </SidebarMenuSub>
                         </CollapsibleContent>
                       </SidebarMenuItem>
                     </Collapsible>

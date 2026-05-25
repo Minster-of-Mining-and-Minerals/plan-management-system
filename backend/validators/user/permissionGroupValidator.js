@@ -2,9 +2,6 @@
 
 const Joi = require("joi");
 
-/**
- * =================== CREATE ===================
- */
 const createPermissionGroupSchema = Joi.object({
     name: Joi.string().trim().min(2).max(150).required().messages({
         "string.empty": "Permission group name is required",
@@ -31,20 +28,8 @@ const createPermissionGroupSchema = Joi.object({
             })
         )
         .optional(),
-
-    structure_ids: Joi.array()
-        .items(
-            Joi.string().guid({ version: "uuidv4" }).messages({
-                "string.guid":
-                    "Each structure_id must be a valid UUID",
-            })
-        )
-        .optional(),
 });
 
-/**
- * =================== UPDATE ===================
- */
 const updatePermissionGroupSchema = Joi.object({
     name: Joi.string().trim().min(2).max(150).optional(),
     description: Joi.string().allow("", null).optional(),
@@ -58,9 +43,6 @@ const updatePermissionGroupSchema = Joi.object({
         .optional(),
 });
 
-/**
- * =================== ADD PERMISSIONS ===================
- */
 const addPermissionsSchema = Joi.object({
     permission_group_id: Joi.string()
         .guid({ version: "uuidv4" })
@@ -72,9 +54,6 @@ const addPermissionsSchema = Joi.object({
         .required(),
 });
 
-/**
- * =================== REMOVE PERMISSION ===================
- */
 const removePermissionSchema = Joi.object({
     permission_group_id: Joi.string()
         .guid({ version: "uuidv4" })
@@ -85,9 +64,6 @@ const removePermissionSchema = Joi.object({
         .required(),
 });
 
-/**
- * =================== USER ASSIGN ===================
- */
 const addUsersSchema = Joi.object({
     permission_group_id: Joi.string()
         .guid({ version: "uuidv4" })
@@ -107,33 +83,6 @@ const removeUserSchema = Joi.object({
     user_id: Joi.string().guid({ version: "uuidv4" }).required(),
 });
 
-/**
- * =================== STRUCTURE ASSIGN ===================
- */
-const addStructuresSchema = Joi.object({
-    permission_group_id: Joi.string()
-        .guid({ version: "uuidv4" })
-        .required(),
-
-    structure_ids: Joi.array()
-        .items(Joi.string().guid({ version: "uuidv4" }))
-        .min(1)
-        .required(),
-});
-
-const removeStructureSchema = Joi.object({
-    permission_group_id: Joi.string()
-        .guid({ version: "uuidv4" })
-        .required(),
-
-    structure_id: Joi.string()
-        .guid({ version: "uuidv4" })
-        .required(),
-});
-
-/**
- * =================== WRAPPERS ===================
- */
 const validate = (schema) => (req, res, next) => {
     const { error } = schema.validate(req.body, { abortEarly: false });
 
@@ -157,7 +106,4 @@ module.exports = {
 
     validateAddUsers: validate(addUsersSchema),
     validateRemoveUser: validate(removeUserSchema),
-
-    validateAddStructures: validate(addStructuresSchema),
-    validateRemoveStructure: validate(removeStructureSchema),
 };
