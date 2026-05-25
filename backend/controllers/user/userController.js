@@ -11,18 +11,28 @@ const bcrypt = require("bcrypt");
 const { generateRandomPassword } = require("../../utils/password");
 const { sendEmail } = require("../../utils/sendEmail");
 const { PLATFORM_NAME } = require("../../config/platformBranding");
+const {
+  saveUserFieldValues,
+  getCustomValuesMap,
+  enrichUserResponse,
+} = require("../../services/userFieldValueService");
 
 
 const createUser = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    const { full_name, email, role_ids, phone_number } = req.body;
+    const userData = req.validatedUserData || {};
+    const customValues = req.validatedCustomValues || {};
+    const formFields = req.validatedFormFields || [];
+    const role_ids = req.validatedRoleIds ?? req.body.role_ids;
+    const { email, full_name, phone_number } = userData;
 
-    // ====== Check existing email ======
-    const existingUser = await User.findOne({
-      where: { email },
-      transaction: t,
-    });
+    const existingUser = email
+      ? await User.findOne({
+          where: { email },
+          transaction: t,
+        })
+      : null;
     if (existingUser) {
       await t.rollback();
       return res
@@ -59,9 +69,9 @@ const createUser = async (req, res) => {
         full_name,
         email,
         password: hashedPassword,
-        phone_number,
-        is_first_logged_in: true,
+        phone_number: phone_number ?? null,
         is_active: true,
+        is_first_logged_in: true,
         created_at: new Date(),
         updated_at: new Date(),
       },
@@ -84,6 +94,13 @@ const createUser = async (req, res) => {
       await UserRoles.bulkCreate(roleAssignments, { transaction: t });
     }
 
+    await saveUserFieldValues(
+      user.user_id,
+      customValues,
+      formFields,
+      t
+    );
+
     await t.commit();
 
     // ====== Send welcome email ======
@@ -91,7 +108,7 @@ const createUser = async (req, res) => {
       email,
       `Welcome to ${process.env.APP_NAME || PLATFORM_NAME}!`,
       `
-      Dear ${full_name},
+      Dear ${full_name || email || "User"},
       Your account has been successfully created.
       Email: ${email}
       Temporary Password: ${password}
@@ -99,10 +116,12 @@ const createUser = async (req, res) => {
     `
     );
 
+    const custom_fields = await getCustomValuesMap(user.user_id, formFields);
+
     return res.status(201).json({
       success: true,
-      message: "User registered globally (no roles assigned yet)",
-      data: user,
+      message: "User created successfully",
+      data: enrichUserResponse(user, custom_fields),
     });
   } catch (error) {
     if (!t.finished) await t.rollback();
@@ -118,13 +137,11 @@ const updateUser = async (req, res) => {
   const t = await sequelize.transaction();
   try {
     const { id: user_id } = req.params;
-    const {
-      full_name,
-      email,
-      phone_number,
-      is_active,
-      role_ids,
-    } = req.body;
+    const userData = req.validatedUserData || {};
+    const customValues = req.validatedCustomValues || {};
+    const formFields = req.validatedFormFields || [];
+    const role_ids = req.validatedRoleIds ?? req.body.role_ids;
+    const { full_name, email, phone_number } = userData;
 
     // ====== Find user ======
     const user = await User.findByPk(user_id, { transaction: t });
@@ -154,16 +171,21 @@ const updateUser = async (req, res) => {
 
 
     // ====== Update user ======
-    await user.update(
-      {
-        full_name: full_name ?? user.full_name,
-        email: email ?? user.email,
-        phone_number: phone_number ?? user.phone_number,
-        is_active: is_active ?? user.is_active,
-        updated_at: new Date(),
-      },
-      { transaction: t }
-    );
+    const updates = { updated_at: new Date() };
+    if (full_name !== undefined) updates.full_name = full_name;
+    if (email !== undefined) updates.email = email;
+    if (phone_number !== undefined) updates.phone_number = phone_number;
+
+    await user.update(updates, { transaction: t });
+
+    if (Object.keys(customValues).length > 0) {
+      await saveUserFieldValues(
+        user_id,
+        customValues,
+        formFields,
+        t
+      );
+    }
 
     // ====== Update roles if provided ======
     if (role_ids && Array.isArray(role_ids)) {
@@ -200,10 +222,12 @@ const updateUser = async (req, res) => {
 
     await t.commit();
 
+    const custom_fields = await getCustomValuesMap(user_id, formFields);
+
     return res.status(200).json({
       success: true,
       message: "User updated successfully.",
-      data: user,
+      data: enrichUserResponse(user, custom_fields),
     });
   } catch (error) {
     if (!t.finished) await t.rollback();
@@ -284,10 +308,14 @@ const getUserById = async (req, res) => {
       });
     }
 
+    const { getFormFieldsByModel } = require("../../services/formFieldService");
+    const formFields = await getFormFieldsByModel("User");
+    const custom_fields = await getCustomValuesMap(user_id, formFields);
+
     return res.status(200).json({
       success: true,
       message: "User fetched successfully.",
-      data: user,
+      data: enrichUserResponse(user, custom_fields),
     });
   } catch (error) {
     console.error("Error fetching user:", error);

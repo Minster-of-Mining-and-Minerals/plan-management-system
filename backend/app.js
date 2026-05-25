@@ -23,6 +23,7 @@ const changePasswordRoutes = require("./routers/user/passwordChangeRoutes");
 const forgotPasswordRoutes = require("./routers/user/forgotPasswordRoutes");
 
 const dashboardRoutes = require("./routers/dashboardRoutes");
+const formFieldRoutes = require("./routers/formField/formFieldRoutes");
 
 // System Branding Routes
 const brandingRoutes = require("./routers/system/brandingRoutes");
@@ -119,6 +120,7 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // User Management Routes
 app.use("/api/users", userRoute);
+app.use("/api/form-fields", formFieldRoutes);
 app.use("/api/roles", roleRoute);
 app.use("/api/user-roles", userRoleRoute);
 app.use("/api/auth", authRoute);

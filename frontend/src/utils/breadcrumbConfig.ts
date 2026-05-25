@@ -33,6 +33,10 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem[]> = {
         { title: "Roles", path: "/users/roles" },
         { title: "New Role", path: "/users/roles/new" },
     ],
+    "/users/form-fields": [
+        { title: "Users", path: "/users/list" },
+        { title: "Configure User Forms", path: "/users/form-fields" },
+    ],
     "/branding": [{ title: "Branding", path: "/branding" }],
     "/branding/new": [
         { title: "Branding", path: "/branding" },

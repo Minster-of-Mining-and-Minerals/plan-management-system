@@ -5,6 +5,7 @@ import {
   Shield,
   Key,
   Palette,
+  Settings2,
 } from "lucide-react";
 
 export type NavItem = {
@@ -28,7 +29,12 @@ export const NAVIGATION: NavItem[] = [
     title: "Users",
     url: "/users/list",
     icon: User2,
-    anyPermissions: ["USERS:READ", "ROLES:READ", "PERMISSIONS:READ"],
+    anyPermissions: [
+      "USERS:READ",
+      "ROLES:READ",
+      "PERMISSIONS:READ",
+      "FORM_FIELDS:READ",
+    ],
     children: [
       {
         title: "Users List",
@@ -53,6 +59,12 @@ export const NAVIGATION: NavItem[] = [
         url: "/users/permissions",
         icon: Key,
         allPermissions: ["PERMISSIONS:READ"],
+      },
+      {
+        title: "Configure User Forms",
+        url: "/users/form-fields",
+        icon: Settings2,
+        anyPermissions: ["FORM_FIELDS:READ", "FORM_FIELDS:CREATE", "USERS:UPDATE"],
       },
     ],
   },

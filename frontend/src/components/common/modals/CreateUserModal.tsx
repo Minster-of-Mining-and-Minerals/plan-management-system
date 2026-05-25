@@ -1,13 +1,24 @@
 "use client";
-import React, { useState } from "react";
+
+import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useGetRolesQuery } from "@/redux/api/roleApi";
 import { useCreateUserMutation } from "@/redux/api/userApi";
-import { CreateUserPayload } from "@/redux/types/user";
+import { useGetUserFormConfigQuery } from "@/redux/api/formFieldApi";
+import { useUploadAttachmentsMutation } from "@/redux/api/attachementApi";
+import { DynamicUserFormFields } from "@/components/dynamic-form/DynamicUserFormFields";
+import {
+  validateDynamicForm,
+  buildUserPayloadFromDynamicValues,
+} from "@/lib/dynamicFormValidation";
+import {
+  flattenFormFields,
+  hasConfiguredFormFields,
+  type DynamicFormValues,
+} from "@/redux/types/formField";
 import { ChevronDown, XIcon } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
@@ -23,30 +34,74 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [values, setValues] = useState<DynamicFormValues>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [filesByKey, setFilesByKey] = useState<Record<string, File>>({});
 
+  const { data: formConfig, isLoading: loadingFields } =
+    useGetUserFormConfigQuery(undefined, { skip: !isOpen });
+  const formFields = flattenFormFields(formConfig);
   const { data: rolesResponse } = useGetRolesQuery();
   const roles = rolesResponse || [];
   const [createUser, { isLoading }] = useCreateUserMutation();
+  const [uploadFiles] = useUploadAttachmentsMutation();
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setValues({});
+    setErrors({});
+    setSelectedRoles([]);
+    setFilesByKey({});
+  }, [isOpen]);
+
+  const handleChange = (key: string, value: unknown) => {
+    setValues((prev) => ({ ...prev, [key]: value }));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
 
   const handleSubmit = async () => {
-    if (!fullName || !email || !selectedRoles.length) {
-      toast.error("Please fill all required fields");
+    const validationErrors = validateDynamicForm(
+      formFields,
+      values,
+      filesByKey
+    );
+    if (Object.keys(validationErrors).length) {
+      setErrors(validationErrors);
+      toast.error("Please fix form errors");
       return;
     }
 
-    const payload: CreateUserPayload = {
-      full_name: fullName,
-      email,
-      role_ids: selectedRoles,
-      phone_number: phoneNumber || undefined,
-    };
+    if (!hasConfiguredFormFields(formConfig)) {
+      toast.error(
+        "Required core fields (name, email, phone) are missing. Contact an administrator."
+      );
+      return;
+    }
+
+    if (!selectedRoles.length) {
+      toast.error("Please assign at least one role");
+      return;
+    }
 
     try {
-      await createUser(payload).unwrap();
+      const payload = buildUserPayloadFromDynamicValues(formFields, values);
+
+      for (const [key, file] of Object.entries(filesByKey)) {
+        const result = await uploadFiles({ files: [file] }).unwrap();
+        const path = result.attachments?.[0]?.file_path;
+        if (path) payload[key] = path;
+      }
+
+      await createUser({
+        ...payload,
+        role_ids: selectedRoles,
+      } as any).unwrap();
+
       toast.success("User created successfully!");
       handleClose();
     } catch (error: any) {
@@ -55,10 +110,10 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   };
 
   const handleClose = () => {
-    setFullName("");
-    setEmail("");
-    setPhoneNumber("");
+    setValues({});
+    setErrors({});
     setSelectedRoles([]);
+    setFilesByKey({});
     onClose();
   };
 
@@ -84,75 +139,54 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           </button>
         </div>
 
-        <div className="w-full flex flex-col space-y-4">
-          <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 pr-2">
-            <div className="space-y-2">
-              <Label className="block text-sm text-section-accent font-medium mb-1">
-                Full Name <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="John Doe"
-                className="w-full h-12 border border-section-accent "
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="block text-sm text-section-accent font-medium mb-1">
-                Phone Number
-              </Label>
-              <Input
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="+251 9xxxxxxx"
-                className="w-full h-12 border border-section-accent "
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="block text-sm text-section-accent font-medium mb-1">
-                Email <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="john@example.com"
-                className="w-full h-12 border border-section-accent"
-              />
-            </div>
+        <div className="w-full flex flex-col space-y-6">
+          {loadingFields ? (
+            <p className="text-sm text-muted-foreground">Loading form…</p>
+          ) : (
+            <DynamicUserFormFields
+              grouped={formConfig}
+              values={values}
+              errors={errors}
+              onChange={handleChange}
+              onFileSelect={(key, file) => {
+                if (file) {
+                  setFilesByKey((prev) => ({ ...prev, [key]: file }));
+                } else {
+                  setFilesByKey((prev) => {
+                    const next = { ...prev };
+                    delete next[key];
+                    return next;
+                  });
+                }
+              }}
+            />
+          )}
 
-            <div className="w-full space-y-2">
-              <Label className="text-sm font-medium text-section-accent mb-1">
-                Role <span className="text-red-500">*</span>
-              </Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    className="w-full max-h-28 min-h-12 h-fit border border-section-accent p-2 rounded-md text-primary bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-section-accent transition-all duration-200"
-                  >
-                    <div className="flex flex-wrap items-center gap-2 w-full">
-                      {selectedRoles.length === 0 && (
-                        <span className="text-sm w-full justify-between text-gray-400 flex items-center gap-2">
-                          Select Role
-                          <ChevronDown className="h-4 w-4 ml-auto" />
-                        </span>
-                      )}
-
-                      {selectedRoles.map((roleId) => {
-                        const r = roles.find(
-                          (rr: any) => rr.role_id === roleId
-                        );
-                        if (!r) return null;
-
+          <div className="w-full space-y-2 md:col-span-2">
+            <Label className="text-sm font-medium text-section-accent">
+              Roles <span className="text-red-500">*</span>
+            </Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="w-full min-h-12 border border-section-accent p-2 rounded-md text-primary bg-white hover:bg-gray-50"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    {selectedRoles.length === 0 ? (
+                      <span className="text-sm text-gray-400 flex items-center gap-2">
+                        Select roles
+                        <ChevronDown className="h-4 w-4 ml-auto" />
+                      </span>
+                    ) : (
+                      selectedRoles.map((roleId) => {
+                        const r = roles.find((rr: any) => rr.role_id === roleId);
                         return (
                           <span
                             key={roleId}
-                            className="inline-flex items-center gap-1 rounded-sm justify-center bg-primary/10 text-primary pl-2 text-xs"
+                            className="inline-flex items-center gap-1 bg-primary/10 text-primary pl-2 text-xs rounded-sm"
                           >
-                            <span className="truncate max-w-[120px] py-1">
-                              {r.name}
-                            </span>
+                            {r?.name}
                             <button
                               type="button"
                               onClick={(e) => {
@@ -161,50 +195,34 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
                                   prev.filter((id) => id !== roleId)
                                 );
                               }}
-                              className="flex px-1 rounded-r-sm items-center justify-center py-1 hover:text-white hover:bg-red-500 transition-colors"
+                              className="px-1 hover:bg-red-500 hover:text-white rounded-r-sm"
                             >
                               <XIcon className="h-3 w-3" />
                             </button>
                           </span>
                         );
-                      })}
-                      {selectedRoles.length > 0 && (
-                        <ChevronDown className="h-4 w-4 ml-auto text-gray-400" />
-                      )}
-                    </div>
-                  </button>
-                </PopoverTrigger>
-
-                <PopoverContent
-                  className="w-[300px] p-2 bg-white"
-                  align="start"
-                >
-                  <div className="max-h-64 overflow-y-auto">
-                    {roles
-                      .filter((r: any) => !selectedRoles.includes(r.role_id))
-                      .map((r: any) => (
-                        <button
-                          key={r.role_id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedRoles((prev) => [...prev, r.role_id]);
-                          }}
-                          className="w-full text-left px-3 py-2 text-sm text-primary hover:bg-primary/10 rounded-md cursor-pointer transition-colors"
-                        >
-                          <span className="block truncate">{r.name}</span>
-                        </button>
-                      ))}
-                    {roles.filter(
-                      (r: any) => !selectedRoles.includes(r.role_id)
-                    ).length === 0 && (
-                        <div className="px-3 py-2 text-sm text-gray-400 text-center">
-                          All roles selected
-                        </div>
-                      )}
+                      })
+                    )}
                   </div>
-                </PopoverContent>
-              </Popover>
-            </div>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[300px] p-2 bg-white" align="start">
+                {roles
+                  .filter((r: any) => !selectedRoles.includes(r.role_id))
+                  .map((r: any) => (
+                    <button
+                      key={r.role_id}
+                      type="button"
+                      onClick={() =>
+                        setSelectedRoles((prev) => [...prev, r.role_id])
+                      }
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-primary/10 rounded-md"
+                    >
+                      {r.name}
+                    </button>
+                  ))}
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
 
@@ -212,11 +230,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           <Button variant="outline" onClick={handleClose}>
             Cancel
           </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={isLoading}
-            className="min-w-24"
-          >
+          <Button onClick={handleSubmit} disabled={isLoading || loadingFields}>
             {isLoading ? "Creating..." : "Create"}
           </Button>
         </div>

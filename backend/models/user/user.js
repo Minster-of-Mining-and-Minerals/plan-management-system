@@ -19,6 +19,11 @@ module.exports = (sequelize, DataTypes) => {
         otherKey: "permission_group_id",
         as: "permissionGroups",
       });
+
+      User.hasMany(models.UserFieldValue, {
+        foreignKey: "user_id",
+        as: "fieldValues",
+      });
     }
   }
 

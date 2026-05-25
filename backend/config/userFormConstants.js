@@ -1,0 +1,78 @@
+"use strict";
+
+const USER_MODEL_NAME = "User";
+
+/** Fixed columns on `users` — never stored in user_field_values. */
+const CORE_USER_COLUMNS = ["full_name", "email", "phone_number"];
+
+const CORE_USER_COLUMN_SET = new Set(CORE_USER_COLUMNS);
+
+/** Request keys handled outside FormField (not validated as dynamic). */
+const SYSTEM_USER_PAYLOAD_KEYS = ["role_ids", "custom_fields", "password"];
+
+const PROTECTED_USER_COLUMNS = new Set([
+  "user_id",
+  "password",
+  "otp",
+  "otp_expiry",
+  "last_login_at",
+  "password_changed_at",
+  "is_first_logged_in",
+  "profile_image",
+  "is_active",
+  "created_at",
+  "updated_at",
+  "deleted_at",
+]);
+
+const STORAGE_TYPES = ["core", "custom"];
+
+const DEFAULT_FIELD_CATEGORIES = [
+  "Account",
+  "Demographics",
+  "Emergency Contact",
+  "Medical",
+  "Insurance",
+  "General",
+];
+
+const FIELD_TYPES = [
+  "input",
+  "textarea",
+  "select",
+  "file",
+  "checkbox",
+  "date",
+  "number",
+];
+
+const ETHIOPIAN_PHONE_REGEX = /^(\+251|0)(9|7)\d{8}$/;
+
+const CUSTOM_FIELD_KEY_REGEX = /^[a-z][a-z0-9_]{0,63}$/;
+
+function isCoreFieldKey(fieldKey) {
+  return CORE_USER_COLUMN_SET.has(fieldKey);
+}
+
+function isValidCustomFieldKey(fieldKey) {
+  if (!fieldKey || typeof fieldKey !== "string") return false;
+  if (PROTECTED_USER_COLUMNS.has(fieldKey)) return false;
+  if (CORE_USER_COLUMN_SET.has(fieldKey)) return false;
+  if (SYSTEM_USER_PAYLOAD_KEYS.includes(fieldKey)) return false;
+  return CUSTOM_FIELD_KEY_REGEX.test(fieldKey);
+}
+
+module.exports = {
+  USER_MODEL_NAME,
+  CORE_USER_COLUMNS,
+  CORE_USER_COLUMN_SET,
+  SYSTEM_USER_PAYLOAD_KEYS,
+  PROTECTED_USER_COLUMNS,
+  STORAGE_TYPES,
+  DEFAULT_FIELD_CATEGORIES,
+  FIELD_TYPES,
+  ETHIOPIAN_PHONE_REGEX,
+  CUSTOM_FIELD_KEY_REGEX,
+  isCoreFieldKey,
+  isValidCustomFieldKey,
+};

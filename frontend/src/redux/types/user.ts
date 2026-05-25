@@ -49,10 +49,13 @@ export interface User {
 }
 
 export interface CreateUserPayload {
-  full_name: string;
-  email: string;
+  full_name?: string;
+  email?: string;
   phone_number?: string;
+  profile_image?: string;
+  is_active?: boolean;
   role_ids?: string[];
+  [key: string]: unknown;
 }
 
 export interface UpdateUserPayload {

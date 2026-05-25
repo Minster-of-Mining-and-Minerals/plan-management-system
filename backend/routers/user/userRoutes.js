@@ -11,6 +11,11 @@ const {
   getProfile,
 } = require("../../controllers/user/userController");
 
+const {
+  dynamicValidateCreateUser,
+  dynamicValidateUpdateUser,
+} = require("../../middlewares/dynamicUserValidationMiddleware");
+
 // Middleware for authentication if needed (example)
 // const { authenticate } = require("../middlewares/authMiddleware");
 
@@ -106,7 +111,7 @@ router.get("/profile/me", getProfile);
  *       201:
  *         description: User created
  */
-router.post("/", createUser);
+router.post("/", dynamicValidateCreateUser, createUser);
 
 /**
  * @swagger
@@ -143,7 +148,7 @@ router.post("/", createUser);
  *       200:
  *         description: User updated
  */
-router.put("/:id", updateUser);
+router.put("/:id", dynamicValidateUpdateUser, updateUser);
 
 /**
  * @swagger

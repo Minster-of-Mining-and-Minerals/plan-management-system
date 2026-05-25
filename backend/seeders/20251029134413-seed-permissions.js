@@ -37,6 +37,12 @@ module.exports = {
       { resource: "roles", action: "delete" },
       { resource: "roles", action: "assign_permission" },
 
+      // Form field configuration
+      { resource: "form_fields", action: "create" },
+      { resource: "form_fields", action: "read" },
+      { resource: "form_fields", action: "update" },
+      { resource: "form_fields", action: "delete" },
+
       // Branding / System appearance
       { resource: "branding", action: "create" },
       { resource: "branding", action: "read" },

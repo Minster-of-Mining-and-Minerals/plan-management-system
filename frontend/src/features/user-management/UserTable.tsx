@@ -10,11 +10,13 @@ import { Download, Plus, Eye, Edit, Trash, Users } from "lucide-react";
 
 import type { FilterField, ActionButton } from "@/types/tableLayout";
 import { useExportUsersMutation, useGetUsersQuery } from "@/redux/api/userApi";
+import { useGetUserFormConfigQuery } from "@/redux/api/formFieldApi";
 import { User } from "@/redux/types/user";
 import { CreateUserModal } from "@/components/common/modals/CreateUserModal";
 import { formatStatus } from "@/utils/statusFormatter";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 
 export interface UserTableProps {
@@ -99,6 +101,7 @@ export default function UserTable({ sideActions }: UserTableProps) {
         pageIndex * pageSize + pageSize
     );
     const [exportUsers, { isLoading: exportLoading }] = useExportUsersMutation();
+    const { data: formConfig } = useGetUserFormConfigQuery();
 
     // Reset page index when search changes
     useEffect(() => {
@@ -159,8 +162,15 @@ export default function UserTable({ sideActions }: UserTableProps) {
             label: "New User",
             icon: <Plus className="h-4 w-4" />,
             variant: "default",
-            onClick: () => setModalOpen(true),
-            // permissions: ["USER:CREATE"],
+            onClick: () => {
+                if (!formConfig?.core_fields?.length) {
+                    toast.error(
+                        "Core user fields are missing. Run migrations or contact an administrator."
+                    );
+                    return;
+                }
+                setModalOpen(true);
+            },
         },
     ];
 
