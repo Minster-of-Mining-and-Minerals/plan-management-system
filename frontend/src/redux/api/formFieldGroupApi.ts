@@ -14,7 +14,7 @@ export const formFieldGroupApi = baseApi.injectEndpoints({
     >({
       query: (params) => ({
         url: "/form-field-groups",
-        params: params || { model: "User" },
+        params: params || { model: "Patient" },
       }),
       transformResponse: (response: { data: FormFieldGroup[] }) =>
         response.data ?? [],

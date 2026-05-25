@@ -1,11 +1,11 @@
 "use strict";
 
-const { ensureCoreFormFields } = require("../services/coreFormFieldService");
+const { ensurePatientFormCatalog } = require("../services/patientFormSeedService");
 
-/** Seeds required core Patient form fields (full_name, email, phone_number). */
+/** Seeds patient form catalog (core fields + default categories). */
 module.exports = {
   async up() {
-    await ensureCoreFormFields();
+    await ensurePatientFormCatalog();
   },
 
   async down() {

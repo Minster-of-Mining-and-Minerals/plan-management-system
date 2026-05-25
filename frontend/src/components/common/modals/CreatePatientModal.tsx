@@ -30,6 +30,10 @@ export const CreatePatientModal: React.FC<CreatePatientModalProps> = ({
   const [values, setValues] = useState<DynamicFormValues>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [filesByKey, setFilesByKey] = useState<Record<string, File>>({});
+  const [stepState, setStepState] = useState({
+    isLast: false,
+    isCurrentStepComplete: false,
+  });
 
   const { data: formConfig, isLoading: loadingFields } =
     useGetUserFormConfigQuery(undefined, { skip: !isOpen });
@@ -41,7 +45,13 @@ export const CreatePatientModal: React.FC<CreatePatientModalProps> = ({
     setValues({});
     setErrors({});
     setFilesByKey({});
+    setStepState({ isLast: false, isCurrentStepComplete: false });
   }, [isOpen]);
+
+  const canRegister =
+    stepState.isLast &&
+    stepState.isCurrentStepComplete &&
+    !loadingFields;
 
   const handleChange = (key: string, value: unknown) => {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -118,11 +128,15 @@ export const CreatePatientModal: React.FC<CreatePatientModalProps> = ({
           <p className="text-muted-foreground">Loading form…</p>
         ) : (
           <MultiStepUserForm
+            key={isOpen ? "open" : "closed"}
+            resetKey={isOpen}
             config={formConfig}
             values={values}
             errors={errors}
             onChange={handleChange}
             filesByKey={filesByKey}
+            onStepStateChange={setStepState}
+            onStepErrors={setErrors}
             onFileSelect={(key, file) => {
               setFilesByKey((prev) => {
                 const next = { ...prev };
@@ -138,7 +152,17 @@ export const CreatePatientModal: React.FC<CreatePatientModalProps> = ({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isLoading || loadingFields}>
+          <Button
+            onClick={handleSubmit}
+            disabled={isLoading || !canRegister}
+            title={
+              !stepState.isLast
+                ? "Complete all steps to register"
+                : !stepState.isCurrentStepComplete
+                  ? "Fill required fields on this step"
+                  : undefined
+            }
+          >
             {isLoading ? "Saving…" : "Register Patient"}
           </Button>
         </div>

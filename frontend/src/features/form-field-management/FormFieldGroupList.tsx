@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { Badge } from "@/components/ui/badge";
@@ -22,12 +22,17 @@ interface FormFieldGroupListProps {
   embedded?: boolean;
   modalOpen?: boolean;
   onModalOpenChange?: (open: boolean) => void;
+  /** When true, next modal open is create mode (clears edit target). */
+  createMode?: boolean;
+  onEditGroup?: () => void;
 }
 
 export default function FormFieldGroupList({
   embedded = false,
   modalOpen: controlledModalOpen,
   onModalOpenChange,
+  createMode = false,
+  onEditGroup,
 }: FormFieldGroupListProps) {
   const { data: groups = [], isLoading, refetch } = useGetFormFieldGroupsQuery({
     model: "Patient",
@@ -40,6 +45,12 @@ export default function FormFieldGroupList({
   const setModalOpen = onModalOpenChange ?? setInternalModalOpen;
 
   const [editing, setEditing] = useState<FormFieldGroup | null>(null);
+
+  useEffect(() => {
+    if (modalOpen && createMode) {
+      setEditing(null);
+    }
+  }, [modalOpen, createMode]);
 
   const sortedAll = useMemo(
     () => [...groups].sort((a, b) => a.sort_order - b.sort_order),
@@ -158,6 +169,7 @@ export default function FormFieldGroupList({
             variant="ghost"
             size="icon"
             onClick={() => {
+              onEditGroup?.();
               setEditing(row.original);
               setModalOpen(true);
             }}

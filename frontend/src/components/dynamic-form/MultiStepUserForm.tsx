@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DynamicUserFormFields } from "@/components/dynamic-form/DynamicUserFormFields";
 import type {
@@ -9,7 +9,10 @@ import type {
   FormFieldStepGroup,
 } from "@/redux/types/formField";
 import { getVisibleSteps } from "@/redux/types/formField";
-import { validateFormStep } from "@/lib/dynamicFormValidation";
+import {
+  isFormStepComplete,
+  validateFormStep,
+} from "@/lib/dynamicFormValidation";
 import { isGroupStepRequired } from "@/lib/formFieldRules";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -23,6 +26,14 @@ interface MultiStepUserFormProps {
   disabled?: boolean;
   onStepChange?: (index: number) => void;
   onStepErrors?: (errors: Record<string, string>) => void;
+  onStepStateChange?: (state: {
+    stepIndex: number;
+    totalSteps: number;
+    isLast: boolean;
+    isCurrentStepComplete: boolean;
+  }) => void;
+  /** Change to reset wizard to step 1 (e.g. when modal reopens). */
+  resetKey?: string | number;
 }
 
 export function MultiStepUserForm({
@@ -35,16 +46,48 @@ export function MultiStepUserForm({
   disabled = false,
   onStepChange,
   onStepErrors,
+  onStepStateChange,
+  resetKey,
 }: MultiStepUserFormProps) {
   const steps = useMemo(() => getVisibleSteps(config), [config]);
   const [stepIndex, setStepIndex] = useState(0);
 
   const currentStep = steps[stepIndex] as FormFieldStepGroup | undefined;
   const isFirst = stepIndex === 0;
-  const isLast = stepIndex >= steps.length - 1;
+  const isLast = steps.length > 0 && stepIndex >= steps.length - 1;
   const stepRequired = currentStep ? isGroupStepRequired(currentStep) : true;
 
+  const isCurrentStepComplete = currentStep
+    ? isFormStepComplete(currentStep, values, filesByKey)
+    : false;
+
+  useEffect(() => {
+    setStepIndex(0);
+  }, [resetKey]);
+
+  useEffect(() => {
+    onStepStateChange?.({
+      stepIndex,
+      totalSteps: steps.length,
+      isLast,
+      isCurrentStepComplete,
+    });
+  }, [
+    stepIndex,
+    steps.length,
+    isLast,
+    isCurrentStepComplete,
+    onStepStateChange,
+  ]);
+
   const goTo = (index: number) => {
+    if (
+      index > stepIndex &&
+      currentStep &&
+      !isFormStepComplete(currentStep, values, filesByKey)
+    ) {
+      return;
+    }
     setStepIndex(index);
     onStepChange?.(index);
   };
@@ -161,7 +204,12 @@ export function MultiStepUserForm({
             <Button
               type="button"
               onClick={() => handleNext()}
-              disabled={disabled}
+              disabled={disabled || !isCurrentStepComplete}
+              title={
+                !isCurrentStepComplete
+                  ? "Complete all required fields on this step to continue"
+                  : undefined
+              }
             >
               Next
               <ChevronRight className="h-4 w-4 ml-1" />

@@ -160,7 +160,18 @@ async function updateFormFieldGroup(groupId, updates) {
     );
   }
 
+  const previousTitle = group.title;
+
   await group.update(next);
+  await group.reload();
+
+  if (next.title && next.title !== previousTitle) {
+    await FormField.update(
+      { category: group.title, updated_at: new Date() },
+      { where: { group_id: groupId } }
+    );
+  }
+
   await syncGroupRequiredFromFields(groupId);
   return FormFieldGroup.findByPk(groupId, {
     include: [{ model: FormField, as: "fields" }],

@@ -118,6 +118,15 @@ function validateSingleField(
   const mustHaveValue =
     field.storage_type === "core" ? true : field.is_required;
 
+  if (field.field_type === "file") {
+    if (mustHaveValue && isEmpty(value) && !fileMeta) {
+      return `${field.label} is required`;
+    }
+    if (isEmpty(value) && !fileMeta) return null;
+    const fileErrors = validateFile(value, field, fileMeta);
+    return fileErrors.length ? fileErrors[0] : null;
+  }
+
   if (mustHaveValue && isEmpty(value)) {
     return `${field.label} is required`;
   }
@@ -137,9 +146,6 @@ function validateSingleField(
     case "checkbox":
       fieldErrors = validateCheckbox(value, field);
       break;
-    case "file":
-      fieldErrors = validateFile(value, field, fileMeta);
-      break;
     case "number":
       if (Number.isNaN(Number(value))) fieldErrors = ["Must be a number"];
       break;
@@ -151,6 +157,15 @@ function validateSingleField(
   }
 
   return fieldErrors.length ? fieldErrors[0] : null;
+}
+
+/** True when the step has no validation errors (required fields satisfied). */
+export function isFormStepComplete(
+  group: FormFieldStepGroup,
+  values: DynamicFormValues,
+  fileMetaByKey?: Record<string, File>
+): boolean {
+  return Object.keys(validateFormStep(group, values, fileMetaByKey)).length === 0;
 }
 
 /** Validate one wizard step (group). */

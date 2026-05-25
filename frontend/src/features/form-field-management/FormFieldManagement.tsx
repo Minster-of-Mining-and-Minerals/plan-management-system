@@ -15,7 +15,9 @@ type Tab = "guide" | "groups" | "fields";
 export default function FormFieldManagement() {
   const [tab, setTab] = useState<Tab>("groups");
   const [groupModalOpen, setGroupModalOpen] = useState(false);
+  const [groupModalCreateMode, setGroupModalCreateMode] = useState(false);
   const [fieldModalOpen, setFieldModalOpen] = useState(false);
+  const [fieldModalCreateMode, setFieldModalCreateMode] = useState(false);
 
   const actions: ActionButton[] = useMemo(() => {
     if (tab === "groups") {
@@ -24,7 +26,10 @@ export default function FormFieldManagement() {
           label: "Add form step",
           icon: <Plus className="h-4 w-4" />,
           variant: "default",
-          onClick: () => setGroupModalOpen(true),
+          onClick: () => {
+            setGroupModalCreateMode(true);
+            setGroupModalOpen(true);
+          },
         },
       ];
     }
@@ -34,7 +39,10 @@ export default function FormFieldManagement() {
           label: "Add custom field",
           icon: <Plus className="h-4 w-4" />,
           variant: "default",
-          onClick: () => setFieldModalOpen(true),
+          onClick: () => {
+            setFieldModalCreateMode(true);
+            setFieldModalOpen(true);
+          },
         },
       ];
     }
@@ -46,7 +54,7 @@ export default function FormFieldManagement() {
   return (
     <TableLayout
       title="Configure Patient Forms"
-      description="Define multi-step wizard groups and custom fields. Core account fields are seeded automatically."
+      description="Eight default categories (Account, Personal Information, Demographics, Emergency, Insurance, Medical, Address, Guardian) are seeded on install. Extend with custom fields anytime."
       actions={actions}
       showSearch={showSearch}
     >
@@ -99,7 +107,12 @@ export default function FormFieldManagement() {
             <FormFieldGroupList
               embedded
               modalOpen={groupModalOpen}
-              onModalOpenChange={setGroupModalOpen}
+              createMode={groupModalCreateMode}
+              onEditGroup={() => setGroupModalCreateMode(false)}
+              onModalOpenChange={(open) => {
+                setGroupModalOpen(open);
+                if (!open) setGroupModalCreateMode(false);
+              }}
             />
           </ConfigTabPanel>
         </TabsContent>
@@ -112,7 +125,12 @@ export default function FormFieldManagement() {
             <FormFieldList
               embedded
               modalOpen={fieldModalOpen}
-              onModalOpenChange={setFieldModalOpen}
+              createMode={fieldModalCreateMode}
+              onEditField={() => setFieldModalCreateMode(false)}
+              onModalOpenChange={(open) => {
+                setFieldModalOpen(open);
+                if (!open) setFieldModalCreateMode(false);
+              }}
             />
           </ConfigTabPanel>
         </TabsContent>

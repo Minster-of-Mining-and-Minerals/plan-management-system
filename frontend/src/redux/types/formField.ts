@@ -69,10 +69,13 @@ export const CORE_USER_FIELD_KEYS = ["full_name", "email", "phone_number"] as co
 
 export const DEFAULT_FIELD_CATEGORIES = [
   "Account",
+  "Personal Information",
   "Demographics",
-  "Emergency Contact",
-  "Medical",
-  "Insurance",
+  "Emergency Contacts",
+  "Insurance Information",
+  "Medical Information",
+  "Address Information",
+  "Guardian Information",
   "General",
 ] as const;
 

@@ -33,10 +33,13 @@ const STORAGE_TYPES = ["core", "custom"];
 
 const DEFAULT_FIELD_CATEGORIES = [
   "Account",
+  "Personal Information",
   "Demographics",
-  "Emergency Contact",
-  "Medical",
-  "Insurance",
+  "Emergency Contacts",
+  "Insurance Information",
+  "Medical Information",
+  "Address Information",
+  "Guardian Information",
   "General",
 ];
 

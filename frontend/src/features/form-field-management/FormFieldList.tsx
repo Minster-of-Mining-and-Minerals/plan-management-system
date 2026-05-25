@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
@@ -22,12 +22,16 @@ interface FormFieldListProps {
   embedded?: boolean;
   modalOpen?: boolean;
   onModalOpenChange?: (open: boolean) => void;
+  createMode?: boolean;
+  onEditField?: () => void;
 }
 
 export default function FormFieldList({
   embedded = false,
   modalOpen: controlledModalOpen,
   onModalOpenChange,
+  createMode = false,
+  onEditField,
 }: FormFieldListProps) {
   const { data: fields = [], isLoading, refetch } = useGetFormFieldsQuery({
     model: "Patient",
@@ -40,6 +44,12 @@ export default function FormFieldList({
   const setModalOpen = onModalOpenChange ?? setInternalModalOpen;
 
   const [editingField, setEditingField] = useState<FormField | null>(null);
+
+  useEffect(() => {
+    if (modalOpen && createMode) {
+      setEditingField(null);
+    }
+  }, [modalOpen, createMode]);
 
   const sortedAll = useMemo(
     () => [...fields].sort((a, b) => a.sort_order - b.sort_order),
@@ -169,6 +179,7 @@ export default function FormFieldList({
             variant="ghost"
             size="icon"
             onClick={() => {
+              onEditField?.();
               setEditingField(row.original);
               setModalOpen(true);
             }}
