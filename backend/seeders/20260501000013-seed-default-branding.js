@@ -1,6 +1,7 @@
 "use strict";
 
 const { DEFAULT_BRANDING_THEME } = require("../config/brandingThemeDefaults");
+const { DEFAULT_PATIENT_SLIP_CONFIG } = require("../config/defaultPatientSlipConfig");
 const {
   PLATFORM_LOGO_URL,
   PLATFORM_NAME,
@@ -28,6 +29,7 @@ module.exports = {
         sidebar_hover_hsl: theme_json["sidebar-hover"],
         accent_hover_hsl: theme_json["section-accent-hover"],
         theme_json: JSON.stringify(theme_json),
+        slip_config: JSON.stringify(DEFAULT_PATIENT_SLIP_CONFIG),
         is_active: true,
         created_at: now,
         updated_at: now,

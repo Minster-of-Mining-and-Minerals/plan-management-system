@@ -54,6 +54,10 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.JSONB,
         allowNull: true,
       },
+      slip_config: {
+        type: DataTypes.JSONB,
+        allowNull: true,
+      },
       is_active: {
         type: DataTypes.BOOLEAN,
         defaultValue: false,

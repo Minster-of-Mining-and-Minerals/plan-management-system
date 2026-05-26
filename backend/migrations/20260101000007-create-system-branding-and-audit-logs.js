@@ -55,6 +55,7 @@ module.exports = {
         defaultValue: "45, 80%, 40%, 90%",
       },
       theme_json: { type: Sequelize.JSONB, allowNull: true },
+      slip_config: { type: Sequelize.JSONB, allowNull: true },
       is_active: {
         type: Sequelize.BOOLEAN,
         allowNull: false,

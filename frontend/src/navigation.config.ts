@@ -112,6 +112,12 @@ export const NAVIGATION: NavItem[] = [
           "FORM_FIELD_GROUPS:UPDATE",
         ],
       },
+      {
+        title: "Identification Slip",
+        url: "/patients/slip-configuration",
+        icon: ClipboardList,
+        anyPermissions: ["PATIENTS:UPDATE", "PATIENTS:READ"],
+      },
     ],
   },
   {

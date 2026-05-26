@@ -22,10 +22,27 @@ const {
   dynamicValidateCreateUser: dynamicValidateCreatePatient,
   dynamicValidateUpdateUser: dynamicValidateUpdatePatient,
 } = require("../../middlewares/dynamicUserValidationMiddleware");
+const {
+  getSlipConfiguration,
+  updateSlipConfiguration,
+} = require("../../controllers/patient/patientSlipConfigController");
 
 router.use(authenticateToken);
 
 router.get("/me/profile", requirePatientAccount, getMyPatientProfile);
+
+router.get(
+  "/slip-configuration",
+  requireInternalAccount,
+  checkPermission("patients", "read"),
+  getSlipConfiguration
+);
+router.put(
+  "/slip-configuration",
+  requireInternalAccount,
+  checkPermission("patients", "update"),
+  updateSlipConfiguration
+);
 
 router.get(
   "/",
