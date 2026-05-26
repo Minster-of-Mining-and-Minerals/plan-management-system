@@ -3,9 +3,20 @@
 import Link from "next/link";
 import { FileText, ExternalLink } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { DynamicUserFormFields } from "@/components/dynamic-form/DynamicUserFormFields";
 import type { PatientRecord } from "@/redux/api/patientApi";
-import type { UserFormConfigGrouped } from "@/redux/types/formField";
+import type {
+  DynamicFormValues,
+  UserFormConfigGrouped,
+} from "@/redux/types/formField";
 import {
   buildPatientDisplaySections,
   collectPatientFileAttachments,
@@ -24,6 +35,13 @@ function getProfile(patient: PatientRecord) {
 interface PatientDetailPanelProps {
   patient: PatientRecord;
   formConfig?: UserFormConfigGrouped;
+  isEditing?: boolean;
+  values?: DynamicFormValues;
+  errors?: Record<string, string>;
+  onChange?: (key: string, value: unknown) => void;
+  onFileSelect?: (key: string, file: File | null) => void;
+  patientStatus?: string;
+  onPatientStatusChange?: (status: string) => void;
 }
 
 function StatusPill({
@@ -66,9 +84,23 @@ function fileNameFromUrl(url: string): string {
   }
 }
 
+const PATIENT_STATUS_OPTIONS = [
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+  { value: "deceased", label: "Deceased" },
+  { value: "archived", label: "Archived" },
+];
+
 export function PatientDetailPanel({
   patient,
   formConfig,
+  isEditing = false,
+  values = {},
+  errors = {},
+  onChange,
+  onFileSelect,
+  patientStatus = "active",
+  onPatientStatusChange,
 }: PatientDetailPanelProps) {
   const profile = getProfile(patient);
   const sections = buildPatientDisplaySections(formConfig, patient);
@@ -83,6 +115,60 @@ export function PatientDetailPanel({
       : profile?.patient_status === "inactive"
         ? "gray"
         : "yellow";
+
+  if (isEditing && formConfig && onChange) {
+    return (
+      <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+        <div className="border-b p-6">
+          <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
+            <Avatar className="h-20 w-20 shrink-0 rounded-xl border-2 border-primary/30">
+              <AvatarFallback className="rounded-xl bg-primary/10 text-primary text-xl font-bold">
+                {getPatientInitials(patient.full_name)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 space-y-3 text-center sm:text-left">
+              {profile?.patient_code && (
+                <p className="text-sm text-muted-foreground">
+                  Patient Code:{" "}
+                  <span className="font-mono font-semibold text-foreground">
+                    {profile.patient_code}
+                  </span>
+                </p>
+              )}
+              <div className="max-w-xs">
+                <Label className="text-muted-foreground">Clinical Status</Label>
+                <Select
+                  value={patientStatus}
+                  onValueChange={onPatientStatusChange}
+                >
+                  <SelectTrigger className="mt-1 h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PATIENT_STATUS_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6">
+          <DynamicUserFormFields
+            grouped={formConfig}
+            values={values}
+            errors={errors}
+            onChange={onChange}
+            onFileSelect={onFileSelect}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
@@ -165,9 +251,7 @@ export function PatientDetailPanel({
       {otherSections.length > 0 && (
         <div className="grid gap-6 p-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {otherSections.map((section) => (
-            <div
-              key={section.groupId}
-            >
+            <div key={section.groupId}>
               <h3 className="text-primary font-semibold text-base mb-3">
                 {section.title}
               </h3>
@@ -193,7 +277,7 @@ export function PatientDetailPanel({
       )}
 
       {attachments.length > 0 && (
-        <div className="p-6">
+        <div className="p-6 border-t">
           <h3 className="text-primary font-semibold text-base mb-3">
             Attachments
           </h3>

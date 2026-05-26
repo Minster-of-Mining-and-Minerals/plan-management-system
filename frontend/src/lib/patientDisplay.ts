@@ -1,10 +1,15 @@
 import type { PatientRecord } from "@/redux/api/patientApi";
-import type { FormField, UserFormConfigGrouped } from "@/redux/types/formField";
+import type {
+  DynamicFormValues,
+  FormField,
+  UserFormConfigGrouped,
+} from "@/redux/types/formField";
 import {
   getVisibleSteps,
   flattenFormFields,
 } from "@/redux/types/formField";
 import { isFieldEffectivelyVisible } from "@/lib/formFieldRules";
+import { parseDynamicValueFromUser } from "@/lib/dynamicFormValidation";
 
 const CORE_USER_KEYS = ["full_name", "email", "phone_number"] as const;
 
@@ -219,4 +224,17 @@ export function getPatientInitials(name?: string): string {
     .slice(0, 2)
     .map((p) => p[0]?.toUpperCase() ?? "")
     .join("");
+}
+
+/** Build dynamic form state from an existing patient record (for edit mode). */
+export function initialValuesFromPatient(
+  fields: FormField[],
+  patient: PatientRecord
+): DynamicFormValues {
+  const values: DynamicFormValues = {};
+  for (const field of fields) {
+    const raw = getPatientFieldValue(patient, field.field_key);
+    values[field.field_key] = parseDynamicValueFromUser(field, raw);
+  }
+  return values;
 }
