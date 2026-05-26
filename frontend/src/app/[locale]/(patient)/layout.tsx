@@ -9,6 +9,21 @@ import { useSession } from "next-auth/react";
 import { performLogout } from "@/utils/logout";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import { PATIENT_NAVIGATION } from "@/patient-navigation.config";
+import { MOCK_NOTIFICATIONS } from "@/features/patient-portal/data/mockPatientPortalData";
+
+const PATIENT_PAGE_TITLES: Record<string, string> = {
+  dashboard: "Dashboard",
+  appointments: "Appointments",
+  "lab-results": "Lab Results",
+  prescriptions: "Prescriptions",
+  "medical-history": "Medical History",
+  telemedicine: "Telemedicine",
+  notifications: "Notifications",
+  family: "Family Health",
+  billing: "Billing & Payments",
+  "ai-health": "AI Health Assistant",
+  profile: "Profile & Settings",
+};
 
 export default function PatientLayout({
   children,
@@ -48,11 +63,14 @@ export default function PatientLayout({
     return <Loading01 />;
   }
 
-  const breadcrumb = pathname
-    .split("/")
-    .filter(Boolean)
-    .map((item) => item.charAt(0).toUpperCase() + item.slice(1));
-  const title = breadcrumb.join(" / ");
+  const segments = pathname.split("/").filter(Boolean);
+  const patientSegment = segments.find((s) => s === "patient")
+    ? segments[segments.indexOf("patient") + 1]
+    : undefined;
+  const title = patientSegment
+    ? PATIENT_PAGE_TITLES[patientSegment] ?? patientSegment.replace(/-/g, " ")
+    : "Patient Portal";
+  const unreadNotifications = MOCK_NOTIFICATIONS.filter((n) => !n.read).length;
 
   return (
     <SidebarProvider>
@@ -64,8 +82,15 @@ export default function PatientLayout({
         />
       )}
       <SidebarInset>
-        <Header title={title || "My Profile"} showSidebar={!isFirstLogin} />
-        <div className="p-6">{children}</div>
+        <Header
+          title={title}
+          showSidebar={!isFirstLogin}
+          notificationsHref="/patient/notifications"
+          notificationCount={unreadNotifications}
+        />
+        <div className="min-h-[calc(100vh-5rem)] bg-gradient-to-b from-background via-background to-section-accent-subtle-10/30 p-4 sm:p-6">
+          {children}
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

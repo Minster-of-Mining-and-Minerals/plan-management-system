@@ -1,19 +1,5 @@
-"use client";
+import { DashboardPage } from "@/features/patient-portal/pages/DashboardPage";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-export default function PatientDashboardPage() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>My Health Dashboard</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-muted-foreground">
-          Welcome to your patient portal. Medical records and appointments will
-          appear here.
-        </p>
-      </CardContent>
-    </Card>
-  );
+export default function Page() {
+  return <DashboardPage />;
 }

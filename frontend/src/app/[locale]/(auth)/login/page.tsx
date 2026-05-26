@@ -25,7 +25,7 @@ export default function ExternalLogin() {
   const defaultHome =
     session?.user?.home_route ||
     (session?.user?.account_type === "PATIENT"
-      ? "/patient/profile"
+      ? "/patient/dashboard"
       : "/profile");
 
   useEffect(() => {
@@ -62,7 +62,7 @@ export default function ExternalLogin() {
             ? callbackUrl
             : newSession?.user?.home_route ||
               (newSession?.user?.account_type === "PATIENT"
-                ? "/patient/profile"
+                ? "/patient/dashboard"
                 : "/profile");
         router.replace(target as any);
       }
