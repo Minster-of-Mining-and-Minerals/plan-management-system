@@ -52,6 +52,17 @@ export default function UserTable({ sideActions }: UserTableProps) {
             cell: ({ row }: any) => <div>{row.getValue("phone_number")}</div>,
         },
         {
+            id: "department",
+            header: "Department",
+            cell: ({ row }) => (
+                <span>
+                    {row.original.internalProfile?.departmentRef?.name ||
+                        row.original.internalProfile?.department ||
+                        "—"}
+                </span>
+            ),
+        },
+        {
             accessorKey: "is_active",
             header: "Status",
             cell: ({ row }) => {

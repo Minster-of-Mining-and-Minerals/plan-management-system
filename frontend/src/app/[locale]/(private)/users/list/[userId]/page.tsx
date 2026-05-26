@@ -10,6 +10,7 @@ import {
   useUpdateUserMutation 
 } from "@/redux/api/userApi";
 import { useGetRolesQuery } from "@/redux/api/roleApi";
+import { useGetDepartmentsQuery } from "@/redux/api/departmentApi";
 import { 
   User2Icon, 
   Mail, 
@@ -23,7 +24,8 @@ import {
   CheckCircle2,
   XCircle,
   Save,
-  X
+  X,
+  Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -47,7 +49,10 @@ const userFormSchema = z.object({
   phone_number: z.string().optional().nullable(),
   is_active: z.boolean(),
   role_ids: z.array(z.string()).min(1, "At least one role must be assigned"),
+  department_id: z.string().optional().nullable(),
 });
+
+const PRIVILEGED_ROLE_NAMES = ["Super Admin", "Admin"];
 
 type UserFormValues = z.infer<typeof userFormSchema>;
 
@@ -63,6 +68,7 @@ const UserViewPage = () => {
   const [isEditing, setIsEditing] = useState(false);
 
   const { data: allRoles = [] } = useGetRolesQuery({ is_active: true });
+  const { data: departments = [] } = useGetDepartmentsQuery({ status: "active" });
   
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),
@@ -72,6 +78,7 @@ const UserViewPage = () => {
       phone_number: "",
       is_active: true,
       role_ids: [],
+      department_id: "",
     },
   });
 
@@ -84,11 +91,27 @@ const UserViewPage = () => {
         phone_number: user.phone_number || "",
         is_active: user.is_active,
         role_ids: user.roles?.map((r) => r.role_id) || [],
+        department_id:
+          user.internalProfile?.department_id ||
+          user.internalProfile?.departmentRef?.department_id ||
+          "",
       });
     }
   }, [user, form]);
 
   const handleSave = async (values: UserFormValues) => {
+    const roleNames = allRoles
+      .filter((r) => values.role_ids.includes(r.role_id))
+      .map((r) => r.name);
+    const isPrivileged = roleNames.some((name) =>
+      PRIVILEGED_ROLE_NAMES.includes(name)
+    );
+
+    if (!isPrivileged && !values.department_id) {
+      toast.error("Department is required for internal staff users");
+      return;
+    }
+
     try {
       await updateUser({
         id: userId,
@@ -98,6 +121,7 @@ const UserViewPage = () => {
           phone_number: values.phone_number || undefined,
           role_ids: values.role_ids,
           is_active: values.is_active,
+          department_id: values.department_id || null,
         },
       }).unwrap();
       toast.success("User updated successfully");
@@ -264,6 +288,44 @@ const UserViewPage = () => {
                   </div>
                 ) : (
                   <span className="text-gray-900">{user.phone_number || "Not provided"}</span>
+                )}
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <Building2 className="h-4 w-4 text-gray-400" />
+                <span className="text-gray-600 font-medium w-24">Department:</span>
+                {isEditing ? (
+                  <div className="flex-1">
+                    <Controller
+                      control={form.control}
+                      name="department_id"
+                      render={({ field }) => (
+                        <Select
+                          value={field.value || ""}
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Select department" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {departments.map((dept) => (
+                              <SelectItem
+                                key={dept.department_id}
+                                value={dept.department_id}
+                              >
+                                {dept.name} ({dept.code})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                  </div>
+                ) : (
+                  <span className="text-gray-900">
+                    {user.internalProfile?.departmentRef?.name ||
+                      user.internalProfile?.department ||
+                      "Not assigned"}
+                  </span>
                 )}
               </div>
               <div className="flex items-center gap-3 text-sm">

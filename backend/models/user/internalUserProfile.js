@@ -8,6 +8,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "user_id",
         as: "user",
       });
+      InternalUserProfile.belongsTo(models.Department, {
+        foreignKey: "department_id",
+        as: "departmentRef",
+      });
     }
   }
 
@@ -24,6 +28,10 @@ module.exports = (sequelize, DataTypes) => {
         unique: true,
       },
       department: { type: DataTypes.STRING(128), allowNull: true },
+      department_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
       job_title: { type: DataTypes.STRING(128), allowNull: true },
       employee_id: { type: DataTypes.STRING(64), allowNull: true },
       metadata: {

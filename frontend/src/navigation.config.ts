@@ -8,6 +8,7 @@ import {
   Settings2,
   HeartPulse,
   ClipboardList,
+  Building2,
 } from "lucide-react";
 
 export type NavItem = {
@@ -26,6 +27,12 @@ export const NAVIGATION: NavItem[] = [
     url: "/dashboard",
     icon: LayoutDashboard,
     anyPermissions: ["DASHBOARD:VIEW"],
+  },
+  {
+    title: "Departments",
+    url: "/departments",
+    icon: Building2,
+    anyPermissions: ["DEPARTMENTS:READ", "DEPARTMENTS:CREATE", "DEPARTMENTS:UPDATE"],
   },
   {
     title: "Users",
@@ -61,7 +68,7 @@ export const NAVIGATION: NavItem[] = [
         url: "/users/permissions",
         icon: Key,
         allPermissions: ["PERMISSIONS:READ"],
-      },
+      }
     ],
   },
   {

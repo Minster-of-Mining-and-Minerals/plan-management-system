@@ -1,34 +1,51 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useGetRolesQuery } from "@/redux/api/roleApi";
 import { useCreateUserMutation } from "@/redux/api/userApi";
+import { useGetDepartmentsQuery } from "@/redux/api/departmentApi";
 import { ChevronDown, XIcon } from "lucide-react";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface CreateUserModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Pre-select department (e.g. from department detail page). */
+  defaultDepartmentId?: string;
+  /** When true, department cannot be changed in the form. */
+  lockDepartment?: boolean;
 }
 
 export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   isOpen,
   onClose,
+  defaultDepartmentId,
+  lockDepartment = false,
 }) => {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [departmentId, setDepartmentId] = useState("");
+  const [departmentSearch, setDepartmentSearch] = useState("");
 
   const { data: rolesResponse } = useGetRolesQuery();
+  const { data: departments = [] } = useGetDepartmentsQuery({ status: "active" });
   const roles = rolesResponse || [];
   const [createUser, { isLoading }] = useCreateUserMutation();
 
@@ -38,11 +55,33 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
     setEmail("");
     setPhone("");
     setSelectedRoles([]);
-  }, [isOpen]);
+    setDepartmentId(defaultDepartmentId ?? "");
+    setDepartmentSearch("");
+  }, [isOpen, defaultDepartmentId]);
+
+  const lockedDepartment = useMemo(() => {
+    if (!lockDepartment || !defaultDepartmentId) return null;
+    return departments.find((d) => d.department_id === defaultDepartmentId);
+  }, [lockDepartment, defaultDepartmentId, departments]);
+
+  const filteredDepartments = useMemo(() => {
+    const term = departmentSearch.trim().toLowerCase();
+    if (!term) return departments;
+    return departments.filter(
+      (d) =>
+        d.name.toLowerCase().includes(term) ||
+        d.code.toLowerCase().includes(term)
+    );
+  }, [departments, departmentSearch]);
 
   const handleSubmit = async () => {
     if (!fullName.trim() || !email.trim()) {
       toast.error("Full name and email are required");
+      return;
+    }
+
+    if (!departmentId) {
+      toast.error("Department is required for internal staff users");
       return;
     }
 
@@ -52,6 +91,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
         email: email.trim(),
         phone_number: phone.trim() || undefined,
         role_ids: selectedRoles.length ? selectedRoles : undefined,
+        department_id: departmentId,
       }).unwrap();
       toast.success("Staff user created");
       onClose();
@@ -101,6 +141,44 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+2519..."
             />
+          </div>
+
+          <div>
+            <Label>
+              Department <span className="text-destructive">*</span>
+            </Label>
+            {lockDepartment && lockedDepartment ? (
+              <div className="mt-1 rounded-md border border-input bg-muted/40 px-3 py-2 text-sm">
+                {lockedDepartment.name} ({lockedDepartment.code})
+              </div>
+            ) : (
+              <>
+                <Input
+                  value={departmentSearch}
+                  onChange={(e) => setDepartmentSearch(e.target.value)}
+                  placeholder="Search departments"
+                  className="mb-2"
+                />
+                <Select value={departmentId} onValueChange={setDepartmentId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredDepartments.length === 0 ? (
+                      <SelectItem value="__none" disabled>
+                        No active departments found
+                      </SelectItem>
+                    ) : (
+                      filteredDepartments.map((dept) => (
+                        <SelectItem key={dept.department_id} value={dept.department_id}>
+                          {dept.name} ({dept.code})
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
           </div>
 
           <div>

@@ -12,8 +12,44 @@ const { generateRandomPassword } = require("../../utils/password");
 const { sendEmail } = require("../../utils/sendEmail");
 const { PLATFORM_NAME } = require("../../config/platformBranding");
 const { ACCOUNT_TYPES } = require("../../config/accountTypes");
-const { InternalUserProfile } = require("../../models");
+const { InternalUserProfile, Department } = require("../../models");
 
+async function resolveDepartmentFields(body, transaction) {
+  const department_id = body.department_id || null;
+  let departmentName = body.department?.trim() || null;
+
+  if (department_id) {
+    const dept = await Department.findByPk(department_id, { transaction });
+    if (!dept) {
+      const err = new Error("Department not found");
+      err.status = 400;
+      throw err;
+    }
+    departmentName = dept.name;
+  }
+
+  return { department_id, department: departmentName };
+}
+
+async function upsertInternalProfile(userId, fields, transaction) {
+  const existing = await InternalUserProfile.findOne({
+    where: { user_id: userId },
+    transaction,
+  });
+
+  if (existing) {
+    await existing.update(fields, { transaction });
+    return existing;
+  }
+
+  return InternalUserProfile.create(
+    {
+      user_id: userId,
+      ...fields,
+    },
+    { transaction }
+  );
+}
 
 const createUser = async (req, res) => {
   const t = await sequelize.transaction();
@@ -74,10 +110,13 @@ const createUser = async (req, res) => {
       { transaction: t }
     );
 
+    const deptFields = await resolveDepartmentFields(req.body, t);
+
     await InternalUserProfile.create(
       {
         user_id: user.user_id,
-        department: req.body.department || null,
+        department_id: deptFields.department_id,
+        department: deptFields.department,
         job_title: req.body.job_title || null,
         employee_id: req.body.employee_id || null,
       },
@@ -173,6 +212,30 @@ const updateUser = async (req, res) => {
 
     await user.update(updates, { transaction: t });
 
+    if (
+      req.body.department_id !== undefined ||
+      req.body.department !== undefined ||
+      req.body.job_title !== undefined ||
+      req.body.employee_id !== undefined
+    ) {
+      const profileUpdates = {};
+      if (req.body.job_title !== undefined) {
+        profileUpdates.job_title = req.body.job_title || null;
+      }
+      if (req.body.employee_id !== undefined) {
+        profileUpdates.employee_id = req.body.employee_id || null;
+      }
+      if (
+        req.body.department_id !== undefined ||
+        req.body.department !== undefined
+      ) {
+        const deptFields = await resolveDepartmentFields(req.body, t);
+        profileUpdates.department_id = deptFields.department_id;
+        profileUpdates.department = deptFields.department;
+      }
+      await upsertInternalProfile(user_id, profileUpdates, t);
+    }
+
     // ====== Update roles if provided ======
     if (role_ids && Array.isArray(role_ids)) {
       // Validate roles exist
@@ -227,6 +290,7 @@ const getUsers = async (req, res) => {
       // institute_id,
       is_active,
       search, // optional: for name/email search
+      department_id,
     } = req.query;
 
     // ====== Build filters dynamically ======
@@ -241,9 +305,28 @@ const getUsers = async (req, res) => {
       ];
     }
 
+    const profileInclude = {
+      model: InternalUserProfile,
+      as: "internalProfile",
+      required: Boolean(department_id),
+      include: [
+        {
+          model: Department,
+          as: "departmentRef",
+          attributes: ["department_id", "name", "code", "status"],
+          required: false,
+        },
+      ],
+    };
+
+    if (department_id) {
+      profileInclude.where = { department_id };
+    }
+
     // ====== Fetch users with associations ======
     const users = await User.findAll({
       where: whereClause,
+      include: [profileInclude],
       order: [["created_at", "DESC"]],
     });
 
@@ -280,6 +363,19 @@ const getUserById = async (req, res) => {
           model: PermissionGroup,
           as: "permissionGroups",
           through: { attributes: [] },
+        },
+        {
+          model: InternalUserProfile,
+          as: "internalProfile",
+          required: false,
+          include: [
+            {
+              model: Department,
+              as: "departmentRef",
+              attributes: ["department_id", "name", "code", "status"],
+              required: false,
+            },
+          ],
         },
       ],
     });

@@ -32,6 +32,21 @@ export interface PermissionGroup {
   updated_at: string;
 }
 
+export interface InternalUserProfile {
+  profile_id?: string;
+  user_id?: string;
+  department_id?: string | null;
+  department?: string | null;
+  job_title?: string | null;
+  employee_id?: string | null;
+  departmentRef?: {
+    department_id: string;
+    name: string;
+    code: string;
+    status?: string;
+  };
+}
+
 export interface User {
   user_id: string;
   full_name: string;
@@ -46,6 +61,7 @@ export interface User {
   updated_at: string;
   roles?: Role[];
   permissionGroups?: PermissionGroup[];
+  internalProfile?: InternalUserProfile;
 }
 
 export interface CreateUserPayload {
@@ -55,6 +71,10 @@ export interface CreateUserPayload {
   profile_image?: string;
   is_active?: boolean;
   role_ids?: string[];
+  department_id?: string | null;
+  department?: string | null;
+  job_title?: string | null;
+  employee_id?: string | null;
   [key: string]: unknown;
 }
 
@@ -64,6 +84,10 @@ export interface UpdateUserPayload {
   phone_number?: string;
   role_ids?: string[];
   is_active?: boolean;
+  department_id?: string | null;
+  department?: string | null;
+  job_title?: string | null;
+  employee_id?: string | null;
 }
 
 export interface ToggleUserStatusPayload {

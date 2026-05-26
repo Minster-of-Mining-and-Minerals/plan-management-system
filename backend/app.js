@@ -30,6 +30,9 @@ const patientRoutes = require("./routers/patient/patientRoutes");
 // System Branding Routes
 const brandingRoutes = require("./routers/system/brandingRoutes");
 
+// Organization Routes
+const departmentRoutes = require("./routers/organization/departmentRoutes");
+
 
 
 // ================== Attachment Routes ==========================
@@ -138,6 +141,9 @@ app.use("/api/dashboard", dashboardRoutes);
 
 // Branding Routes
 app.use("/api/branding", brandingRoutes);
+
+// Department Routes
+app.use("/api/departments", departmentRoutes);
 
 
 

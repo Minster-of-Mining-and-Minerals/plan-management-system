@@ -13,9 +13,10 @@ export const userApi = baseApi.injectEndpoints({
      * --------------------------- */
     getUsers: builder.query<
       User[],
-      { 
-        is_active?: boolean; 
+      {
+        is_active?: boolean;
         search?: string;
+        department_id?: string;
         page?: number;
         limit?: number;
       } | void
