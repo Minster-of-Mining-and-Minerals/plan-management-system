@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { useGetUsersQuery } from "@/redux/api/userApi";
 import { useAddUsersToGroupMutation } from "@/redux/api/permissionGroupApi";
 import { toast } from "sonner";
+import { formatInternalUserDisplayName } from "@/utils/formatUserDisplayName";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -103,7 +104,7 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
                     readOnly
                   />
                   <div className="flex flex-col">
-                    <span className="font-medium">{user.full_name}</span>
+                    <span className="font-medium">{formatInternalUserDisplayName(user)}</span>
                     <span className="text-xs text-gray-500">{user.email}</span>
                   </div>
                 </div>

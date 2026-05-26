@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Download, Plus, Eye, Edit, Trash, Users } from "lucide-react";
 
+import { formatInternalUserDisplayName } from "@/utils/formatUserDisplayName";
 import type { FilterField, ActionButton } from "@/types/tableLayout";
 import { useExportUsersMutation, useGetUsersQuery } from "@/redux/api/userApi";
 import { User } from "@/redux/types/user";
@@ -37,7 +38,7 @@ export default function UserTable({ sideActions }: UserTableProps) {
             header: "Full Name",
             cell: ({ row }) => (
                 <span className="font-medium text-primary">
-                    {row.getValue("full_name")}
+                    {formatInternalUserDisplayName(row.original)}
                 </span>
             ),
         },

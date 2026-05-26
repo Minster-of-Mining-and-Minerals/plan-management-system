@@ -32,6 +32,7 @@ const brandingRoutes = require("./routers/system/brandingRoutes");
 
 // Organization Routes
 const departmentRoutes = require("./routers/organization/departmentRoutes");
+const userTitleRoutes = require("./routers/organization/userTitleRoutes");
 
 
 
@@ -144,6 +145,9 @@ app.use("/api/branding", brandingRoutes);
 
 // Department Routes
 app.use("/api/departments", departmentRoutes);
+
+// User title Routes
+app.use("/api/user-titles", userTitleRoutes);
 
 
 

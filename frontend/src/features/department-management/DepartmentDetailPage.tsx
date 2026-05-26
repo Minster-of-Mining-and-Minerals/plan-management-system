@@ -25,6 +25,7 @@ import { useGetDepartmentByIdQuery } from "@/redux/api/departmentApi";
 import { useGetUsersQuery } from "@/redux/api/userApi";
 import type { User } from "@/redux/types/user";
 import { formatStatus } from "@/utils/statusFormatter";
+import { formatInternalUserDisplayName } from "@/utils/formatUserDisplayName";
 import { DepartmentFormModal } from "./DepartmentFormModal";
 
 export default function DepartmentDetailPage() {
@@ -53,9 +54,7 @@ export default function DepartmentDetailPage() {
       {
         accessorKey: "full_name",
         header: "Full Name",
-        cell: ({ row }) => (
-          <span className="font-medium text-primary">{row.getValue("full_name")}</span>
-        ),
+      cell: ({ row }) => formatInternalUserDisplayName(row.original),
       },
       {
         accessorKey: "email",

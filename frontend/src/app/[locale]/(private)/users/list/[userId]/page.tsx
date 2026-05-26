@@ -10,22 +10,25 @@ import {
   useUpdateUserMutation 
 } from "@/redux/api/userApi";
 import { useGetRolesQuery } from "@/redux/api/roleApi";
+import { useGetUserTitlesQuery } from "@/redux/api/userTitleApi";
 import { useGetDepartmentsQuery } from "@/redux/api/departmentApi";
+import { formatInternalUserDisplayName } from "@/utils/formatUserDisplayName";
 import { 
   User2Icon, 
   Mail, 
   Phone, 
   Calendar, 
   Shield, 
-  Users, 
-  Trash2, 
-  Edit, 
+  Users,
+  Trash2,
+  Edit,
   ArrowLeft,
   CheckCircle2,
   XCircle,
   Save,
   X,
   Building2,
+  User2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +53,7 @@ const userFormSchema = z.object({
   is_active: z.boolean(),
   role_ids: z.array(z.string()).min(1, "At least one role must be assigned"),
   department_id: z.string().optional().nullable(),
+  title_id: z.string().optional().nullable(),
 });
 
 const PRIVILEGED_ROLE_NAMES = ["Super Admin", "Admin"];
@@ -69,6 +73,7 @@ const UserViewPage = () => {
 
   const { data: allRoles = [] } = useGetRolesQuery({ is_active: true });
   const { data: departments = [] } = useGetDepartmentsQuery({ status: "active" });
+  const { data: userTitles = [] } = useGetUserTitlesQuery({ status: "active" });
   
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),
@@ -79,6 +84,7 @@ const UserViewPage = () => {
       is_active: true,
       role_ids: [],
       department_id: "",
+      title_id: "",
     },
   });
 
@@ -94,6 +100,10 @@ const UserViewPage = () => {
         department_id:
           user.internalProfile?.department_id ||
           user.internalProfile?.departmentRef?.department_id ||
+          "",
+        title_id:
+          user.internalProfile?.title_id ||
+          user.internalProfile?.titleRef?.title_id ||
           "",
       });
     }
@@ -122,6 +132,7 @@ const UserViewPage = () => {
           role_ids: values.role_ids,
           is_active: values.is_active,
           department_id: values.department_id || null,
+          title_id: values.title_id || null,
         },
       }).unwrap();
       toast.success("User updated successfully");
@@ -170,7 +181,7 @@ const UserViewPage = () => {
         <DetailHeader
           breadcrumbs={[
             { title: "Users", link: "/users/list" },
-            { title: user.full_name, link: "" },
+            { title: formatInternalUserDisplayName(user), link: "" },
           ]}
         />
         <div className="flex items-center gap-2">
@@ -218,7 +229,7 @@ const UserViewPage = () => {
                     )}
                   </div>
                 ) : (
-                  user.full_name
+                  formatInternalUserDisplayName(user)
                 )}
               </CardTitle>
               <div className="text-white/80 text-sm mt-1">
@@ -325,6 +336,45 @@ const UserViewPage = () => {
                     {user.internalProfile?.departmentRef?.name ||
                       user.internalProfile?.department ||
                       "Not assigned"}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <User2 className="h-4 w-4 text-gray-400" />
+                <span className="text-gray-600 font-medium w-24">Title:</span>
+                {isEditing ? (
+                  <div className="flex-1">
+                    <Controller
+                      control={form.control}
+                      name="title_id"
+                      render={({ field }) => (
+                        <Select
+                          value={field.value || "none"}
+                          onValueChange={(v) =>
+                            field.onChange(v === "none" ? "" : v)
+                          }
+                        >
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Select title" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No title</SelectItem>
+                            {userTitles.map((title) => (
+                              <SelectItem
+                                key={title.title_id}
+                                value={title.title_id}
+                              >
+                                {title.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                  </div>
+                ) : (
+                  <span className="text-gray-900">
+                    {user.internalProfile?.titleRef?.name || "Not assigned"}
                   </span>
                 )}
               </div>

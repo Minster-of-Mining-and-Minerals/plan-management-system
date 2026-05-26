@@ -37,10 +37,17 @@ export interface InternalUserProfile {
   user_id?: string;
   department_id?: string | null;
   department?: string | null;
+  title_id?: string | null;
   job_title?: string | null;
   employee_id?: string | null;
   departmentRef?: {
     department_id: string;
+    name: string;
+    code: string;
+    status?: string;
+  };
+  titleRef?: {
+    title_id: string;
     name: string;
     code: string;
     status?: string;
@@ -73,6 +80,7 @@ export interface CreateUserPayload {
   role_ids?: string[];
   department_id?: string | null;
   department?: string | null;
+  title_id?: string | null;
   job_title?: string | null;
   employee_id?: string | null;
   [key: string]: unknown;
@@ -86,6 +94,7 @@ export interface UpdateUserPayload {
   is_active?: boolean;
   department_id?: string | null;
   department?: string | null;
+  title_id?: string | null;
   job_title?: string | null;
   employee_id?: string | null;
 }

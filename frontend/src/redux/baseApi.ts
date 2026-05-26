@@ -35,6 +35,7 @@ export const baseApi = createApi({
     "FormFieldGroups",
     "Patient",
     "Department",
+    "UserTitle",
   ],
   endpoints: () => ({}),
 });

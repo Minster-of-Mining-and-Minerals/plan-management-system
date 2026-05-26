@@ -9,6 +9,7 @@ import {
   HeartPulse,
   ClipboardList,
   Building2,
+  BadgeCheck,
 } from "lucide-react";
 
 export type NavItem = {
@@ -68,7 +69,13 @@ export const NAVIGATION: NavItem[] = [
         url: "/users/permissions",
         icon: Key,
         allPermissions: ["PERMISSIONS:READ"],
-      }
+      },
+      {
+        title: "User Titles",
+        url: "/user-titles",
+        icon: BadgeCheck,
+        anyPermissions: ["USER_TITLES:READ", "USER_TITLES:CREATE", "USER_TITLES:UPDATE"],
+      },
     ],
   },
   {

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useGetRolesQuery } from "@/redux/api/roleApi";
 import { useCreateUserMutation } from "@/redux/api/userApi";
 import { useGetDepartmentsQuery } from "@/redux/api/departmentApi";
+import { useGetUserTitlesQuery } from "@/redux/api/userTitleApi";
 import { ChevronDown, XIcon } from "lucide-react";
 import {
   Popover,
@@ -43,9 +44,12 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [departmentId, setDepartmentId] = useState("");
   const [departmentSearch, setDepartmentSearch] = useState("");
+  const [titleId, setTitleId] = useState("");
+  const [titleSearch, setTitleSearch] = useState("");
 
   const { data: rolesResponse } = useGetRolesQuery();
   const { data: departments = [] } = useGetDepartmentsQuery({ status: "active" });
+  const { data: userTitles = [] } = useGetUserTitlesQuery({ status: "active" });
   const roles = rolesResponse || [];
   const [createUser, { isLoading }] = useCreateUserMutation();
 
@@ -57,7 +61,19 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
     setSelectedRoles([]);
     setDepartmentId(defaultDepartmentId ?? "");
     setDepartmentSearch("");
+    setTitleId("");
+    setTitleSearch("");
   }, [isOpen, defaultDepartmentId]);
+
+  const filteredTitles = useMemo(() => {
+    const term = titleSearch.trim().toLowerCase();
+    if (!term) return userTitles;
+    return userTitles.filter(
+      (t) =>
+        t.name.toLowerCase().includes(term) ||
+        t.code.toLowerCase().includes(term)
+    );
+  }, [userTitles, titleSearch]);
 
   const lockedDepartment = useMemo(() => {
     if (!lockDepartment || !defaultDepartmentId) return null;
@@ -92,6 +108,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
         phone_number: phone.trim() || undefined,
         role_ids: selectedRoles.length ? selectedRoles : undefined,
         department_id: departmentId,
+        title_id: titleId || undefined,
       }).unwrap();
       toast.success("Staff user created");
       onClose();
@@ -179,6 +196,32 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 </Select>
               </>
             )}
+          </div>
+
+          <div>
+            <Label>Professional Title</Label>
+            <Input
+              value={titleSearch}
+              onChange={(e) => setTitleSearch(e.target.value)}
+              placeholder="Search titles (Dr., Nurse, …)"
+              className="mb-2"
+            />
+            <Select
+              value={titleId || "none"}
+              onValueChange={(v) => setTitleId(v === "none" ? "" : v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select title (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No title</SelectItem>
+                {filteredTitles.map((title) => (
+                  <SelectItem key={title.title_id} value={title.title_id}>
+                    {title.name} ({title.code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div>

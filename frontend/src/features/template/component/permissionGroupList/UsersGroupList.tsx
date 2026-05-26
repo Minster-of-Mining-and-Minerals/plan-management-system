@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Eye, Trash2 } from "lucide-react";
 
+import { formatInternalUserDisplayName } from "@/utils/formatUserDisplayName";
 import type { FilterField, ActionButton } from "@/types/tableLayout";
 import { User } from "@/redux/types/user";
 import { formatStatus } from "@/utils/statusFormatter";
@@ -51,7 +52,7 @@ export default function UsersGroupList({ sideActions, actions, users, groupId, i
             header: "Full Name",
             cell: ({ row }) => (
                 <span className="font-medium text-primary">
-                    {row.getValue("full_name")}
+                    {formatInternalUserDisplayName(row.original)}
                 </span>
             ),
         },

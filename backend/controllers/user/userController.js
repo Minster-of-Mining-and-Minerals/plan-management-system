@@ -12,7 +12,20 @@ const { generateRandomPassword } = require("../../utils/password");
 const { sendEmail } = require("../../utils/sendEmail");
 const { PLATFORM_NAME } = require("../../config/platformBranding");
 const { ACCOUNT_TYPES } = require("../../config/accountTypes");
-const { InternalUserProfile, Department } = require("../../models");
+const { InternalUserProfile, Department, UserTitle } = require("../../models");
+
+async function resolveTitleId(body, transaction) {
+  const title_id = body.title_id || null;
+  if (!title_id) return null;
+
+  const title = await UserTitle.findByPk(title_id, { transaction });
+  if (!title) {
+    const err = new Error("User title not found");
+    err.status = 400;
+    throw err;
+  }
+  return title_id;
+}
 
 async function resolveDepartmentFields(body, transaction) {
   const department_id = body.department_id || null;
@@ -111,12 +124,14 @@ const createUser = async (req, res) => {
     );
 
     const deptFields = await resolveDepartmentFields(req.body, t);
+    const title_id = await resolveTitleId(req.body, t);
 
     await InternalUserProfile.create(
       {
         user_id: user.user_id,
         department_id: deptFields.department_id,
         department: deptFields.department,
+        title_id,
         job_title: req.body.job_title || null,
         employee_id: req.body.employee_id || null,
       },
@@ -215,6 +230,7 @@ const updateUser = async (req, res) => {
     if (
       req.body.department_id !== undefined ||
       req.body.department !== undefined ||
+      req.body.title_id !== undefined ||
       req.body.job_title !== undefined ||
       req.body.employee_id !== undefined
     ) {
@@ -224,6 +240,9 @@ const updateUser = async (req, res) => {
       }
       if (req.body.employee_id !== undefined) {
         profileUpdates.employee_id = req.body.employee_id || null;
+      }
+      if (req.body.title_id !== undefined) {
+        profileUpdates.title_id = await resolveTitleId(req.body, t);
       }
       if (
         req.body.department_id !== undefined ||
@@ -305,6 +324,13 @@ const getUsers = async (req, res) => {
       ];
     }
 
+    const titleInclude = {
+      model: UserTitle,
+      as: "titleRef",
+      attributes: ["title_id", "name", "code", "status"],
+      required: false,
+    };
+
     const profileInclude = {
       model: InternalUserProfile,
       as: "internalProfile",
@@ -316,6 +342,7 @@ const getUsers = async (req, res) => {
           attributes: ["department_id", "name", "code", "status"],
           required: false,
         },
+        titleInclude,
       ],
     };
 
@@ -373,6 +400,12 @@ const getUserById = async (req, res) => {
               model: Department,
               as: "departmentRef",
               attributes: ["department_id", "name", "code", "status"],
+              required: false,
+            },
+            {
+              model: UserTitle,
+              as: "titleRef",
+              attributes: ["title_id", "name", "code", "status"],
               required: false,
             },
           ],
