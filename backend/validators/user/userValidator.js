@@ -1,4 +1,5 @@
 const Joi = require("joi");
+const { joiEmail } = require("../common/joiEmail");
 const ETHIOPIAN_PHONE_REGEX = /^(\+251|0)(9|7)\d{8}$/;
 // =================== Create User Schema ===================
 const createUserSchema = Joi.object({
@@ -7,7 +8,7 @@ const createUserSchema = Joi.object({
     "string.min": "Full name must be at least 3 characters long.",
   }),
 
-  email: Joi.string().email().required().messages({
+  email: joiEmail.required().messages({
     "string.empty": "Email is required.",
     "string.email": "Please provide a valid email address.",
   }),
@@ -38,7 +39,7 @@ const createUserSchema = Joi.object({
 // =================== Update User Schema ===================
 const updateUserSchema = Joi.object({
   full_name: Joi.string().min(3).max(100).optional(),
-  email: Joi.string().email().optional(),
+  email: joiEmail.optional(),
   phone_number: Joi.string()
     .pattern(ETHIOPIAN_PHONE_REGEX)
     .optional()

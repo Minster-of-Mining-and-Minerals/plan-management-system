@@ -210,7 +210,7 @@ const UserViewPage = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Profile Card */}
         <div className="lg:col-span-1 space-y-6">
-          <Card className="overflow-hidden">
+          <Card className="overflow-hidden pt-0">
             <CardHeader className="bg-primary text-white text-center pb-8 pt-8">
               <div className="flex justify-center mb-4">
                 <div className="relative w-24 h-24 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border-2 border-white/50">

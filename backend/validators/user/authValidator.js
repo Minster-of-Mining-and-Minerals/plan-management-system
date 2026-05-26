@@ -1,8 +1,8 @@
 const Joi = require("joi");
-
+const { joiEmail } = require("../common/joiEmail");
 
 const loginSchema = Joi.object({
-  email: Joi.string().email().required().messages({
+  email: joiEmail.required().messages({
     "string.email": "Must be a valid email",
     "any.required": "Email is required",
   }),

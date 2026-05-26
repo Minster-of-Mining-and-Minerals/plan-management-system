@@ -1,6 +1,7 @@
 "use strict";
 
 const Joi = require("joi");
+const { joiEmail } = require("../validators/common/joiEmail");
 
 const profileFields = {
   department_id: Joi.string().uuid().allow(null, "").optional(),
@@ -12,7 +13,7 @@ const profileFields = {
 
 const createSchema = Joi.object({
   full_name: Joi.string().trim().min(2).max(100).required(),
-  email: Joi.string().email().required(),
+  email: joiEmail.required(),
   phone_number: Joi.string().trim().max(50).allow("", null).optional(),
   role_ids: Joi.array().items(Joi.string().uuid()).optional(),
   ...profileFields,
@@ -20,7 +21,7 @@ const createSchema = Joi.object({
 
 const updateSchema = Joi.object({
   full_name: Joi.string().trim().min(2).max(100).optional(),
-  email: Joi.string().email().optional(),
+  email: joiEmail.optional(),
   phone_number: Joi.string().trim().max(50).allow("", null).optional(),
   role_ids: Joi.array().items(Joi.string().uuid()).optional(),
   is_active: Joi.boolean().optional(),
