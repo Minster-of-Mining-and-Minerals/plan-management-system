@@ -2,11 +2,20 @@
 
 const Joi = require("joi");
 
+const profileFields = {
+  department_id: Joi.string().uuid().allow(null, "").optional(),
+  department: Joi.string().trim().max(128).allow(null, "").optional(),
+  title_id: Joi.string().uuid().allow(null, "").optional(),
+  job_title: Joi.string().trim().max(128).allow(null, "").optional(),
+  employee_id: Joi.string().trim().max(64).allow(null, "").optional(),
+};
+
 const createSchema = Joi.object({
   full_name: Joi.string().trim().min(2).max(100).required(),
   email: Joi.string().email().required(),
   phone_number: Joi.string().trim().max(50).allow("", null).optional(),
   role_ids: Joi.array().items(Joi.string().uuid()).optional(),
+  ...profileFields,
 }).unknown(false);
 
 const updateSchema = Joi.object({
@@ -15,6 +24,7 @@ const updateSchema = Joi.object({
   phone_number: Joi.string().trim().max(50).allow("", null).optional(),
   role_ids: Joi.array().items(Joi.string().uuid()).optional(),
   is_active: Joi.boolean().optional(),
+  ...profileFields,
 }).unknown(false);
 
 const validateCreateInternalUser = (req, res, next) => {

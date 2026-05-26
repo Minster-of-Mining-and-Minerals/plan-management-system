@@ -175,7 +175,7 @@ const UserViewPage = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-auth-background p-6 space-y-6">
+    <div className="min-h-screen w-full bg-background p-6 space-y-6">
       {/* Header with Breadcrumbs and Actions */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <DetailHeader

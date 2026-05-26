@@ -56,9 +56,25 @@ module.exports = {
       { resource: "branding", action: "update" },
       { resource: "branding", action: "delete" },
 
+      // Form field groups (patient intake layout)
+      { resource: "form_field_groups", action: "create" },
+      { resource: "form_field_groups", action: "read" },
+      { resource: "form_field_groups", action: "update" },
+      { resource: "form_field_groups", action: "delete" },
 
+      // Departments
+      { resource: "departments", action: "create" },
+      { resource: "departments", action: "read" },
+      { resource: "departments", action: "update" },
+      { resource: "departments", action: "delete" },
+      { resource: "departments", action: "manage" },
 
-
+      // User titles (internal staff)
+      { resource: "user_titles", action: "create" },
+      { resource: "user_titles", action: "read" },
+      { resource: "user_titles", action: "update" },
+      { resource: "user_titles", action: "delete" },
+      { resource: "user_titles", action: "manage" },
 
 
 

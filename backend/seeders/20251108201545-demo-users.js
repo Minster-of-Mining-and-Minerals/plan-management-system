@@ -27,6 +27,7 @@ module.exports = {
         last_login_at: null,
         password_changed_at: null,
         is_active: true,
+        account_type: "INTERNAL",
         created_at: now,
         updated_at: now,
       },
@@ -41,6 +42,25 @@ module.exports = {
         last_login_at: null,
         password_changed_at: null,
         is_active: true,
+        account_type: "INTERNAL",
+        created_at: now,
+        updated_at: now,
+      },
+    ]);
+
+    // 2b. Internal profiles for demo staff
+    await queryInterface.bulkInsert("internal_user_profiles", [
+      {
+        profile_id: uuidv4(),
+        user_id: ADMIN_USER_ID,
+        metadata: JSON.stringify({}),
+        created_at: now,
+        updated_at: now,
+      },
+      {
+        profile_id: uuidv4(),
+        user_id: REGULAR_USER_ID,
+        metadata: JSON.stringify({}),
         created_at: now,
         updated_at: now,
       },
@@ -110,13 +130,17 @@ module.exports = {
   },
 
   async down(queryInterface, Sequelize) {
-    // Delete in reverse order of dependencies
     await queryInterface.bulkDelete(
       "user_roles",
       { user_id: [ADMIN_USER_ID, REGULAR_USER_ID] },
       {}
     );
     await queryInterface.bulkDelete("role_permissions", { role_id: SUPER_ADMIN_ROLE_ID }, {});
+    await queryInterface.bulkDelete(
+      "internal_user_profiles",
+      { user_id: [ADMIN_USER_ID, REGULAR_USER_ID] },
+      {}
+    );
     await queryInterface.bulkDelete(
       "roles",
       { role_id: [SUPER_ADMIN_ROLE_ID, USER_ROLE_ID] },
