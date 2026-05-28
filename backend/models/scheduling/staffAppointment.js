@@ -21,6 +21,14 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "admitted_by",
         as: "admittedByUser",
       });
+      StaffAppointment.hasMany(models.MedicalHistoryLog, {
+        foreignKey: "appointment_id",
+        as: "medicalHistoryLogs",
+      });
+      StaffAppointment.hasMany(models.WorkflowTask, {
+        foreignKey: "appointment_id",
+        as: "workflowTasks",
+      });
     }
   }
 
@@ -42,6 +50,12 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: "admitted",
       },
       notes: { type: DataTypes.TEXT, allowNull: true },
+      workflow_status: {
+        type: DataTypes.STRING(32),
+        allowNull: false,
+        defaultValue: "active",
+      },
+      workflow_completed_at: { type: DataTypes.DATE, allowNull: true },
     },
     {
       sequelize,

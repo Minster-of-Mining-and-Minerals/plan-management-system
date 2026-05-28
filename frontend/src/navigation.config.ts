@@ -12,6 +12,7 @@ import {
   BadgeCheck,
   CalendarCheck,
   Stethoscope,
+  Inbox,
 } from "lucide-react";
 
 export type NavItem = {
@@ -126,6 +127,12 @@ export const NAVIGATION: NavItem[] = [
     title: "Appointments",
     url: "/appointments",
     icon: CalendarCheck,
+    anyPermissions: ["PATIENTS:RECEIVE_PATIENT"],
+  },
+  {
+    title: "Workflow Inbox",
+    url: "/workflow-inbox",
+    icon: Inbox,
     anyPermissions: ["PATIENTS:RECEIVE_PATIENT"],
   },
   {

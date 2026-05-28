@@ -19,7 +19,7 @@ import {
   APPOINTMENT_STATUS_LABELS,
   APPOINTMENT_STATUS_VARIANT,
 } from "./appointmentStatusStyles";
-import { AppointmentDiagnosisPanel } from "@/features/diagnosis-forms/AppointmentDiagnosisPanel";
+import { AppointmentWorkflowPanel } from "@/features/medical-workflow/AppointmentWorkflowPanel";
 
 function InfoField({
   label,
@@ -212,12 +212,7 @@ export default function AppointmentDetailPage() {
         )}
       </div>
 
-      <AppointmentDiagnosisPanel appointmentId={appointmentId} />
-
-      <Button variant="outline" onClick={() => router.push("/appointments")}>
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Back to appointments
-      </Button>
+      <AppointmentWorkflowPanel appointmentId={appointmentId} />
     </div>
   );
 }

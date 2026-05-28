@@ -12,6 +12,7 @@ import { useGetUserFormConfigQuery } from "@/redux/api/formFieldApi";
 import { useUploadAttachmentsMutation } from "@/redux/api/attachementApi";
 import { PatientDetailPanel } from "@/features/patient-management/PatientDetailPanel";
 import { PatientIdentificationSlip } from "@/features/patient-management/PatientIdentificationSlip";
+import { PatientMedicalTimeline } from "@/features/medical-workflow/PatientMedicalTimeline";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import DetailHeader from "@/components/common/DetailHeader";
 import { Button } from "@/components/ui/button";
@@ -179,6 +180,8 @@ export default function PatientDetailPage() {
           )}
         </div>
       </div>
+
+      <PatientMedicalTimeline patientId={patientId} />
 
       <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[1fr_auto]">
         <PatientDetailPanel

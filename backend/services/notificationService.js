@@ -7,6 +7,7 @@ const NOTIFICATION_CATEGORIES = {
   SYSTEM: "system",
   LOGS: "logs",
   APPOINTMENTS: "appointments",
+  WORKFLOW: "workflow",
 };
 
 function normalizeCategory(value) {
@@ -14,7 +15,8 @@ function normalizeCategory(value) {
   if (
     v === NOTIFICATION_CATEGORIES.SYSTEM ||
     v === NOTIFICATION_CATEGORIES.LOGS ||
-    v === NOTIFICATION_CATEGORIES.APPOINTMENTS
+    v === NOTIFICATION_CATEGORIES.APPOINTMENTS ||
+    v === NOTIFICATION_CATEGORIES.WORKFLOW
   ) {
     return v;
   }
@@ -24,6 +26,13 @@ function normalizeCategory(value) {
 function inferCategoryFromRelatedType(relatedType) {
   const rt = String(relatedType || "").toLowerCase();
   if (rt === "appointment") return NOTIFICATION_CATEGORIES.APPOINTMENTS;
+  if (
+    rt === "workflow" ||
+    rt === "medical_history" ||
+    rt === "workflow_task"
+  ) {
+    return NOTIFICATION_CATEGORIES.WORKFLOW;
+  }
   if (rt === "log" || rt === "logs" || rt === "audit" || rt === "audit_log") {
     return NOTIFICATION_CATEGORIES.LOGS;
   }

@@ -31,6 +31,7 @@ const appointmentRoutes = require("./routers/appointment/appointmentRoutes");
 const diagnosisFormConfigRoutes = require("./routers/diagnosis/diagnosisFormConfigRoutes");
 const diagnosisTemplateRoutes = require("./routers/diagnosis/diagnosisTemplateRoutes");
 const diagnosisRecordRoutes = require("./routers/diagnosis/diagnosisRecordRoutes");
+const medicalWorkflowRoutes = require("./routers/workflow/medicalWorkflowRoutes");
 const notificationRoutes = require("./routers/notification/notificationRoutes");
 
 // System Branding Routes
@@ -138,6 +139,7 @@ app.use("/api/appointments", appointmentRoutes);
 app.use("/api/diagnosis-form-configs", diagnosisFormConfigRoutes);
 app.use("/api/diagnosis-templates", diagnosisTemplateRoutes);
 app.use("/api/diagnosis-records", diagnosisRecordRoutes);
+app.use("/api/workflow", medicalWorkflowRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/form-fields", formFieldRoutes);
 app.use("/api/form-field-groups", formFieldGroupRoutes);

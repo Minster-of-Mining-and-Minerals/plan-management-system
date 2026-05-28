@@ -44,6 +44,7 @@ export const baseApi = createApi({
     "DiagnosisFormConfig",
     "DiagnosisTemplate",
     "DiagnosisRecord",
+    "MedicalWorkflow",
   ],
   endpoints: () => ({}),
 });
