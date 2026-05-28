@@ -62,6 +62,14 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.TEXT,
         allowNull: false,
       },
+      category: {
+        type: DataTypes.STRING(32),
+        allowNull: false,
+        defaultValue: "system",
+        validate: {
+          isIn: [["system", "logs", "appointments"]],
+        },
+      },
       related_entity_type: {
         type: DataTypes.STRING(50),
         allowNull: true,

@@ -3,11 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { ColumnDef } from "@tanstack/react-table";
-import { Eye } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Eye, Search } from "lucide-react";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
+import { FilterPopover } from "@/features/template/component/tableList/FilterDrawer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import type { FilterField } from "@/types/tableLayout";
 import {
   useGetMyAppointmentsQuery,
@@ -29,6 +33,16 @@ function formatDateTime(iso: string) {
   });
 }
 
+function formatToday() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function addDays(dateStr: string, days: number) {
+  const d = new Date(`${dateStr}T12:00:00`);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 export function StaffAppointmentsTable() {
   const router = useRouter();
   const [pageIndex, setPageIndex] = useState(0);
@@ -37,6 +51,8 @@ export function StaffAppointmentsTable() {
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState("admitted_at");
   const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
+  const [selectedDate, setSelectedDate] = useState(formatToday);
+  const [dateFilterEnabled, setDateFilterEnabled] = useState(true);
 
   const apiSortField =
     sortField === "patient_name" ? "admitted_at" : sortField;
@@ -46,11 +62,12 @@ export function StaffAppointmentsTable() {
     status: statusFilter || undefined,
     sort: apiSortField,
     order: sortOrder,
+    schedule_date: dateFilterEnabled ? selectedDate : undefined,
   });
 
   useEffect(() => {
     setPageIndex(0);
-  }, [search, statusFilter, sortField, sortOrder]);
+  }, [search, statusFilter, sortField, sortOrder, selectedDate, dateFilterEnabled]);
 
   const columns: ColumnDef<StaffAppointment>[] = useMemo(
     () => [
@@ -161,62 +178,82 @@ export function StaffAppointmentsTable() {
   const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const paginated = sorted.slice(pageIndex * pageSize, pageIndex * pageSize + pageSize);
 
-  const filters: FilterField[] = [
-    {
-      key: "search",
-      label: "Search",
-      type: "text",
-      placeholder: "Patient name or ID…",
-      value: search,
-      onChange: setSearch,
-    },
-    {
-      key: "status",
-      label: "Status",
-      type: "multiselect",
-      placeholder: "All statuses",
-      value: statusFilter,
-      onChange: setStatusFilter,
-      options: [
-        { label: formatStatus("admitted"), value: "admitted" },
-        { label: formatStatus("completed"), value: "completed" },
-      ],
-    },
-    {
-      key: "sort",
-      label: "Sort by",
-      type: "select",
-      placeholder: "Admitted (newest)",
-      value: `${sortField}:${sortOrder}`,
-      onChange: (value: string) => {
-        const [field, order] = value.split(":");
-        setSortField(field);
-        setSortOrder((order as "ASC" | "DESC") || "DESC");
-      },
-      options: [
-        { label: "Admitted — newest first", value: "admitted_at:DESC" },
-        { label: "Admitted — oldest first", value: "admitted_at:ASC" },
-        { label: "Created — newest first", value: "created_at:DESC" },
-        { label: "Created — oldest first", value: "created_at:ASC" },
-        { label: "Patient name — A to Z", value: "patient_name:ASC" },
-        { label: "Patient name — Z to A", value: "patient_name:DESC" },
-        { label: "Status — A to Z", value: "status:ASC" },
-        { label: "Status — Z to A", value: "status:DESC" },
-      ],
-    },
-  ];
 
   return (
     <TableLayout
       title="My Appointments"
-      filters={filters}
-      filterColumnsPerRow={3}
+      filters={[]}
+      filterColumnsPerRow={2}
+      showSearch={false}
     >
-      <p className="text-sm text-muted-foreground mb-4 px-1">
-        Patients appear here only after they are marked{" "}
-        <strong>Admitted</strong> on the scheduling board. Scheduled-only slots
-        remain visible to administrators only.
-      </p>
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Previous day"
+              onClick={() => setSelectedDate((d) => addDays(d, -1))}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+
+            <div className="relative">
+              <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-[11rem] pl-9"
+                aria-label="Pick appointment date"
+              />
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Next day"
+              onClick={() => setSelectedDate((d) => addDays(d, 1))}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="flex items-center gap-2 border-l pl-2 ml-1">
+            <Switch
+              id="appointment-date-filter"
+              checked={dateFilterEnabled}
+              onCheckedChange={setDateFilterEnabled}
+            />
+            <Label
+              htmlFor="appointment-date-filter"
+              className="text-sm font-normal cursor-pointer"
+            >
+              Filter by date
+            </Label>
+          </div>
+          {!dateFilterEnabled && (
+            <span className="text-xs text-muted-foreground">
+              Showing all dates
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder={
+                dateFilterEnabled
+                  ? "Search this day (name or ID)…"
+                  : "Search all appointments…"
+              }
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 w-64"
+            />
+          </div>
+        </div>
+      </div>
+
       <DataTable
         columns={columns}
         data={paginated}

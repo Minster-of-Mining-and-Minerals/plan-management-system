@@ -3,6 +3,33 @@
 const { v4: uuidv4 } = require("uuid");
 const db = require("../models");
 
+const NOTIFICATION_CATEGORIES = {
+  SYSTEM: "system",
+  LOGS: "logs",
+  APPOINTMENTS: "appointments",
+};
+
+function normalizeCategory(value) {
+  const v = String(value || "").toLowerCase();
+  if (
+    v === NOTIFICATION_CATEGORIES.SYSTEM ||
+    v === NOTIFICATION_CATEGORIES.LOGS ||
+    v === NOTIFICATION_CATEGORIES.APPOINTMENTS
+  ) {
+    return v;
+  }
+  return null;
+}
+
+function inferCategoryFromRelatedType(relatedType) {
+  const rt = String(relatedType || "").toLowerCase();
+  if (rt === "appointment") return NOTIFICATION_CATEGORIES.APPOINTMENTS;
+  if (rt === "log" || rt === "logs" || rt === "audit" || rt === "audit_log") {
+    return NOTIFICATION_CATEGORIES.LOGS;
+  }
+  return NOTIFICATION_CATEGORIES.SYSTEM;
+}
+
 function getSocketIo() {
   try {
     const { io, onlineUsers } = require("../app");
@@ -12,13 +39,20 @@ function getSocketIo() {
   }
 }
 
-async function notifyInternalUser(userId, { title, message, relatedType, relatedId }) {
+async function notifyInternalUser(
+  userId,
+  { title, message, category, relatedType, relatedId }
+) {
+  const resolvedCategory =
+    normalizeCategory(category) || inferCategoryFromRelatedType(relatedType);
+
   const notification = await db.Notification.create({
     notification_id: uuidv4(),
     recipient_id: userId,
     recipient_type: "internal",
     title,
     message,
+    category: resolvedCategory,
     related_entity_type: relatedType || null,
     related_entity_id: relatedId || null,
     is_read: false,
@@ -35,9 +69,11 @@ async function notifyInternalUser(userId, { title, message, relatedType, related
   return notification;
 }
 
-async function listForUser(userId, { unreadOnly = false } = {}) {
+async function listForUser(userId, { unreadOnly = false, category } = {}) {
   const where = { recipient_id: userId, recipient_type: "internal" };
   if (unreadOnly) where.is_read = false;
+  const resolvedCategory = normalizeCategory(category);
+  if (resolvedCategory) where.category = resolvedCategory;
 
   return db.Notification.findAll({
     where,
@@ -78,6 +114,7 @@ async function markAllRead(userId) {
 }
 
 module.exports = {
+  NOTIFICATION_CATEGORIES,
   notifyInternalUser,
   listForUser,
   unreadCount,

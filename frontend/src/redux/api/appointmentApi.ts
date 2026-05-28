@@ -37,7 +37,13 @@ export const appointmentApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getMyAppointments: builder.query<
       StaffAppointment[],
-      { search?: string; status?: string; sort?: string; order?: string } | void
+      {
+        search?: string;
+        status?: string;
+        sort?: string;
+        order?: string;
+        schedule_date?: string;
+      } | void
     >({
       query: (params) => ({
         url: "/appointments/me",

@@ -1,5 +1,5 @@
-import InternalNotificationsPage from "@/features/notifications/InternalNotificationsPage";
+import TemplateNotificationsPage from "@/features/notifications/TemplateNotificationsPage";
 
 export default function NotificationsRoutePage() {
-  return <InternalNotificationsPage />;
+  return <TemplateNotificationsPage />;
 }

@@ -111,141 +111,160 @@ export function DiagnosisFormStructureEditor({
           )}
 
           <ConfigTabPanel>
-            <div className="space-y-2">
-              {groups.map((g, idx) => (
-                <div
-                  key={g.group_id}
-                  className="flex items-center justify-between rounded-lg border px-4 py-3"
-                >
-                  <div>
-                    <p className="font-medium">{g.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {g.fields?.length ?? 0} fields · order {g.sort_order}
-                    </p>
-                  </div>
-                  {!readOnly && (
-                    <div className="flex gap-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingGroup(g);
-                          setGroupModalOpen(true);
-                        }}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={idx === 0}
-                        onClick={async () => {
-                          const ids = groups.map((x) => x.group_id);
-                          [ids[idx - 1], ids[idx]] = [ids[idx], ids[idx - 1]];
-                          await handlers.onReorderGroups(ids);
-                          handlers.refetch();
-                        }}
-                      >
-                        ↑
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={idx === groups.length - 1}
-                        onClick={async () => {
-                          const ids = groups.map((x) => x.group_id);
-                          [ids[idx], ids[idx + 1]] = [ids[idx + 1], ids[idx]];
-                          await handlers.onReorderGroups(ids);
-                          handlers.refetch();
-                        }}
-                      >
-                        ↓
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={async () => {
-                          await handlers.onDeleteGroup(g.group_id);
-                          handlers.refetch();
-                        }}
-                      >
-                        Del
-                      </Button>
+            <div className="space-y-4">
+              {groups.map((g, groupIdx) => {
+                const sectionFields = [...(g.fields || [])].sort(
+                  (a, b) => a.sort_order - b.sort_order
+                );
+                return (
+                  <div key={g.group_id} className="rounded-xl border bg-card p-4 space-y-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold">{g.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {sectionFields.length} fields · order {g.sort_order}
+                        </p>
+                      </div>
+                      {!readOnly && (
+                        <div className="flex flex-wrap gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditingGroup(g);
+                              setGroupModalOpen(true);
+                            }}
+                          >
+                            Edit section
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={groupIdx === 0}
+                            onClick={async () => {
+                              const ids = groups.map((x) => x.group_id);
+                              [ids[groupIdx - 1], ids[groupIdx]] = [ids[groupIdx], ids[groupIdx - 1]];
+                              await handlers.onReorderGroups(ids);
+                              handlers.refetch();
+                            }}
+                          >
+                            ↑
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={groupIdx === groups.length - 1}
+                            onClick={async () => {
+                              const ids = groups.map((x) => x.group_id);
+                              [ids[groupIdx], ids[groupIdx + 1]] = [ids[groupIdx + 1], ids[groupIdx]];
+                              await handlers.onReorderGroups(ids);
+                              handlers.refetch();
+                            }}
+                          >
+                            ↓
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={async () => {
+                              await handlers.onDeleteGroup(g.group_id);
+                              handlers.refetch();
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </ConfigTabPanel>
 
-          <ConfigTabPanel>
-            <div className="space-y-2">
-              {fields.map((f, idx) => (
-                <div
-                  key={f.field_id}
-                  className="flex items-center justify-between rounded-lg border px-4 py-3"
-                >
-                  <div>
-                    <p className="font-medium">{f.label}</p>
-                    <p className="text-xs text-muted-foreground font-mono">
-                      {f.field_key} · {f.field_type}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {f.is_required && <Badge>Required</Badge>}
-                    {!readOnly && (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditingField(f);
-                            setFieldModalOpen(true);
-                          }}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={idx === 0}
-                          onClick={async () => {
-                            const ids = fields.map((x) => x.field_id);
-                            [ids[idx - 1], ids[idx]] = [ids[idx], ids[idx - 1]];
-                            await handlers.onReorderFields(ids);
-                            handlers.refetch();
-                          }}
-                        >
-                          ↑
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={idx === fields.length - 1}
-                          onClick={async () => {
-                            const ids = fields.map((x) => x.field_id);
-                            [ids[idx], ids[idx + 1]] = [ids[idx + 1], ids[idx]];
-                            await handlers.onReorderFields(ids);
-                            handlers.refetch();
-                          }}
-                        >
-                          ↓
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={async () => {
-                            await handlers.onDeleteField(f.field_id);
-                            handlers.refetch();
-                          }}
-                        >
-                          Del
-                        </Button>
-                      </>
+                    {sectionFields.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        No fields in this section yet.
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        {sectionFields.map((f) => {
+                          const fieldIndex = fields.findIndex((x) => x.field_id === f.field_id);
+                          return (
+                            <div
+                              key={f.field_id}
+                              className="rounded-lg border bg-background px-3 py-3 space-y-2"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="font-medium truncate">{f.label}</p>
+                                  <p className="text-xs text-muted-foreground font-mono truncate">
+                                    {f.field_key} · {f.field_type}
+                                  </p>
+                                </div>
+                                {f.is_required && <Badge>Required</Badge>}
+                              </div>
+                              {!readOnly && (
+                                <div className="flex flex-wrap gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setEditingField(f);
+                                      setFieldModalOpen(true);
+                                    }}
+                                  >
+                                    Edit
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    disabled={fieldIndex <= 0}
+                                    onClick={async () => {
+                                      const ids = fields.map((x) => x.field_id);
+                                      [ids[fieldIndex - 1], ids[fieldIndex]] = [
+                                        ids[fieldIndex],
+                                        ids[fieldIndex - 1],
+                                      ];
+                                      await handlers.onReorderFields(ids);
+                                      handlers.refetch();
+                                    }}
+                                  >
+                                    ↑
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    disabled={
+                                      fieldIndex < 0 || fieldIndex === fields.length - 1
+                                    }
+                                    onClick={async () => {
+                                      const ids = fields.map((x) => x.field_id);
+                                      [ids[fieldIndex], ids[fieldIndex + 1]] = [
+                                        ids[fieldIndex + 1],
+                                        ids[fieldIndex],
+                                      ];
+                                      await handlers.onReorderFields(ids);
+                                      handlers.refetch();
+                                    }}
+                                  >
+                                    ↓
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={async () => {
+                                      await handlers.onDeleteField(f.field_id);
+                                      handlers.refetch();
+                                    }}
+                                  >
+                                    Delete
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </ConfigTabPanel>
         </>

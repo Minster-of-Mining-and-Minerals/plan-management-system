@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { FileUploadField } from "@/features/template/component/FileUploadField";
 import type {
   FormField,
   DynamicFormValues,
@@ -55,7 +56,7 @@ function FieldGrid({
   if (!visibleFields.length) return null;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {visibleFields.map((field) => {
         const error = errors[field.field_key];
         const config = field.config || {};
@@ -64,14 +65,7 @@ function FieldGrid({
         ) : null;
 
         return (
-          <div
-            key={field.field_id}
-            className={
-              field.field_type === "textarea"
-                ? "md:col-span-2 space-y-2"
-                : "space-y-2"
-            }
-          >
+          <div key={field.field_id} className="space-y-2">
             <Label className="text-sm text-section-accent font-medium">
               {field.label}
               {requiredMark}
@@ -167,7 +161,7 @@ function FieldGrid({
                 placeholder={config.placeholder}
                 onChange={(e) => onChange(field.field_key, e.target.value)}
                 disabled={disabled}
-                className="border-section-accent min-h-[140px]"
+                className="h-24 border-section-accent resize-none"
               />
             )}
 
@@ -176,7 +170,7 @@ function FieldGrid({
                 value={String(values[field.field_key] ?? "")}
                 onChange={(e) => onChange(field.field_key, e.target.value)}
                 disabled={disabled}
-                className="border-section-accent min-h-[100px]"
+                className="h-24 border-section-accent resize-none"
               />
             )}
 
@@ -264,38 +258,21 @@ function FieldGrid({
             )}
 
             {field.field_type === "file" && (
-              <div className="space-y-2">
-                <Input
-                  type="file"
-                  accept={(config.allowed_types || [])
-                    .map((t) => `.${t.replace(/^\./, "")}`)
-                    .join(",")}
-                  disabled={disabled}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] ?? null;
-                    onFileSelect?.(field.field_key, file);
-                    if (file) {
-                      onChange(field.field_key, URL.createObjectURL(file));
-                    }
-                  }}
-                  className="border-section-accent"
-                />
-                {values[field.field_key] != null &&
-                  String(values[field.field_key]) !== "" && (
-                    <div className="text-xs text-muted-foreground break-all">
-                      {String(values[field.field_key]).startsWith("blob:") ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={String(values[field.field_key])}
-                          alt="Preview"
-                          className="h-20 w-20 object-cover rounded border"
-                        />
-                      ) : (
-                        <span>{String(values[field.field_key])}</span>
-                      )}
-                    </div>
-                  )}
-              </div>
+              <FileUploadField
+                id={`file-${field.field_id}`}
+                label={field.label}
+                value={String(values[field.field_key] ?? "")}
+                onChange={(v) => onChange(field.field_key, String(v ?? ""))}
+                accept={(config.allowed_types || [])
+                  .map((t) => `.${String(t).replace(/^\./, "")}`)
+                  .join(",")}
+                required={field.is_required}
+                multiple={false}
+                showPreview={false}
+                hideLabel
+                compact
+                valueFormat="fileUrls"
+              />
             )}
 
             {error && <p className="text-xs text-red-500">{error}</p>}

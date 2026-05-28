@@ -1,12 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";
-import { ArrowLeft, Calendar, Clock, User2 } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, User2, ChevronDown, ChevronUp } from "lucide-react";
 import DetailHeader from "@/components/common/DetailHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import { useGetAppointmentByIdQuery } from "@/redux/api/appointmentApi";
 import {
@@ -47,6 +53,7 @@ export default function AppointmentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const appointmentId = params.id as string;
+  const [userInfoOpen, setUserInfoOpen] = useState(true);
 
   const { data: appointment, isLoading, isError } =
     useGetAppointmentByIdQuery(appointmentId);
@@ -93,73 +100,91 @@ export default function AppointmentDetailPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <User2 className="h-4 w-4" />
-              Patient information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
-            <InfoField label="Full name">{patient?.full_name || "—"}</InfoField>
-            <InfoField label="Email">{patient?.email || "—"}</InfoField>
-            <InfoField label="Phone">{patient?.phone_number || "—"}</InfoField>
-            <InfoField label="Patient status">
-              {patient?.patientProfile?.patient_status || "—"}
-            </InfoField>
-          </CardContent>
-        </Card>
+        <Card className="lg:col-span-2">
+          <Collapsible open={userInfoOpen} onOpenChange={setUserInfoOpen}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <User2 className="h-4 w-4" />
+                  User information
+                </CardTitle>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 px-2">
+                    {userInfoOpen ? (
+                      <>
+                        Hide details
+                        <ChevronUp className="ml-1 h-4 w-4" />
+                      </>
+                    ) : (
+                      <>
+                        Show details
+                        <ChevronDown className="ml-1 h-4 w-4" />
+                      </>
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
+            </CardHeader>
+            <CollapsibleContent>
+              <CardContent className="space-y-6">
+                <div>
+                  <p className="mb-3 text-sm font-semibold">Patient</p>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <InfoField label="Full name">{patient?.full_name || "—"}</InfoField>
+                    <InfoField label="Email">{patient?.email || "—"}</InfoField>
+                    <InfoField label="Phone">{patient?.phone_number || "—"}</InfoField>
+                    <InfoField label="Patient status">
+                      {patient?.patientProfile?.patient_status || "—"}
+                    </InfoField>
+                  </div>
+                </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Calendar className="h-4 w-4" />
-              Appointment information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
-            <InfoField label="Admitted at">
-              {formatDateTime(appointment.admitted_at)}
-            </InfoField>
-            <InfoField label="Admitted by">
-              {appointment.admittedByUser?.full_name || "—"}
-            </InfoField>
-            <InfoField label="Assigned staff">
-              {appointment.staff?.full_name || "—"}
-            </InfoField>
-            <InfoField label="Created">
-              {formatDateTime(appointment.created_at)}
-            </InfoField>
-          </CardContent>
-        </Card>
+                <div className="border-t pt-5">
+                  <p className="mb-3 text-sm font-semibold">Appointment</p>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <InfoField label="Admitted at">
+                      {formatDateTime(appointment.admitted_at)}
+                    </InfoField>
+                    <InfoField label="Admitted by">
+                      {appointment.admittedByUser?.full_name || "—"}
+                    </InfoField>
+                    <InfoField label="Assigned staff">
+                      {appointment.staff?.full_name || "—"}
+                    </InfoField>
+                    <InfoField label="Created">
+                      {formatDateTime(appointment.created_at)}
+                    </InfoField>
+                  </div>
+                </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Clock className="h-4 w-4" />
-              Scheduling
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
-            <InfoField label="Schedule date">
-              {schedule?.schedule_date || "—"}
-            </InfoField>
-            <InfoField label="Time slot">
-              {schedule
-                ? `${schedule.start_time} – ${schedule.end_time}`
-                : "—"}
-            </InfoField>
-            <InfoField label="Schedule status">
-              {schedule?.status ? (
-                <Badge variant="outline">{schedule.status}</Badge>
-              ) : (
-                "—"
-              )}
-            </InfoField>
-            <InfoField label="Appointment type">
-              {schedule?.appointment_type || "—"}
-            </InfoField>
-          </CardContent>
+                <div className="border-t pt-5">
+                  <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                    <Calendar className="h-4 w-4" />
+                    Schedule
+                  </p>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <InfoField label="Schedule date">
+                      {schedule?.schedule_date || "—"}
+                    </InfoField>
+                    <InfoField label="Time slot">
+                      {schedule
+                        ? `${schedule.start_time} – ${schedule.end_time}`
+                        : "—"}
+                    </InfoField>
+                    <InfoField label="Schedule status">
+                      {schedule?.status ? (
+                        <Badge variant="outline" className="capitalize">
+                          {schedule.status}
+                        </Badge>
+                      ) : (
+                        "—"
+                      )}
+                    </InfoField>
+                  </div>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
         </Card>
 
         {(appointment.notes || schedule?.notes) && (

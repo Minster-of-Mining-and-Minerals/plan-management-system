@@ -86,6 +86,7 @@ async function syncFromScheduleAdmission(scheduleRow, admittedByUserId) {
     await notificationService.notifyInternalUser(scheduleRow.assigned_staff_id, {
       title: "New patient appointment assigned",
       message: `${patientName}${code ? ` (${code})` : ""} has been admitted and is waiting for you.`,
+      category: "appointments",
       relatedType: "appointment",
       relatedId: appointment.appointment_id,
     });
@@ -116,7 +117,10 @@ async function syncFromScheduleStatusChange(previousStatus, scheduleRow, actorId
   return appointment;
 }
 
-async function listAppointmentsForStaff(staffId, { search, status, sort = "admitted_at", order = "DESC" } = {}) {
+async function listAppointmentsForStaff(
+  staffId,
+  { search, status, sort = "admitted_at", order = "DESC", schedule_date } = {}
+) {
   const where = { assigned_staff_id: staffId };
 
   if (status) {
@@ -125,9 +129,16 @@ async function listAppointmentsForStaff(staffId, { search, status, sort = "admit
     where.status = { [Op.ne]: "cancelled" };
   }
 
+  const includes = appointmentIncludes.map((inc) => {
+    if (inc.as === "schedule" && schedule_date) {
+      return { ...inc, where: { schedule_date }, required: true };
+    }
+    return inc;
+  });
+
   const rows = await db.StaffAppointment.findAll({
     where,
-    include: appointmentIncludes,
+    include: includes,
     order: [[sort, order]],
   });
 

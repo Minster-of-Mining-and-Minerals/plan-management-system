@@ -5,8 +5,10 @@ const notificationService = require("../../services/notificationService");
 const listMine = async (req, res) => {
   try {
     const unreadOnly = req.query.unread === "true";
+    const category = req.query.category;
     const rows = await notificationService.listForUser(req.user.user_id, {
       unreadOnly,
+      category,
     });
     return res.json({
       success: true,

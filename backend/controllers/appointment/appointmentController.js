@@ -14,10 +14,10 @@ const listMyAppointments = async (req, res) => {
       });
     }
 
-    const { search, status, sort, order } = req.query;
+    const { search, status, sort, order, schedule_date } = req.query;
     const rows = await appointmentService.listAppointmentsForStaff(
       req.user.user_id,
-      { search, status, sort, order }
+      { search, status, sort, order, schedule_date }
     );
 
     return res.json({

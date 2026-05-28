@@ -2,8 +2,25 @@ const { Notification } = require("../models");
 const { v4: uuidv4 } = require("uuid");
 const { onlineUsers } = require("../app"); 
 
+const resolveCategory = (category, related) => {
+  const direct = String(category || "").toLowerCase();
+  if (direct === "system" || direct === "logs" || direct === "appointments") {
+    return direct;
+  }
+  const rt = String(related?.type || "").toLowerCase();
+  if (rt === "appointment") return "appointments";
+  if (rt === "log" || rt === "logs" || rt === "audit" || rt === "audit_log") return "logs";
+  return "system";
+};
 
-const sendNotification = async (recipients, title, message, io, related = null) => {
+const sendNotification = async (
+  recipients,
+  title,
+  message,
+  io,
+  related = null,
+  category = null
+) => {
   try {
     const notifications = [];
 
@@ -14,6 +31,7 @@ const sendNotification = async (recipients, title, message, io, related = null) 
         recipient_type: recipient.type,
         title,
         message,
+        category: resolveCategory(category, related),
         related_entity_type: related?.type || null,
         related_entity_id: related?.id || null,
         is_read: false,

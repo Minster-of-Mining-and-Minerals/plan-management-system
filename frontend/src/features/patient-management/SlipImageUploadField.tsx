@@ -1,20 +1,17 @@
 "use client";
 
-import { useRef } from "react";
-import { Loader2, RotateCcw, Upload } from "lucide-react";
-import { toast } from "sonner";
+import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useUploadAttachmentsMutation } from "@/redux/api/attachementApi";
-import { getFileUrl } from "@/utils/fileUrl";
+import { FileUploadField } from "@/features/template/component/FileUploadField";
 
 function resolveImageSrc(url: string): string {
   if (!url) return "";
   if (url.startsWith("http") || url.startsWith("/") || url.startsWith("blob:")) {
     return url;
   }
-  return getFileUrl(url);
+  return url;
 }
 
 interface SlipImageUploadFieldProps {
@@ -34,27 +31,9 @@ export function SlipImageUploadField({
   accept = "image/*",
   previewHeight = 48,
 }: SlipImageUploadFieldProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [upload, { isLoading }] = useUploadAttachmentsMutation();
-
   const displayUrl = value || defaultUrl;
   const src = resolveImageSrc(displayUrl);
   const isDefault = !value || value === defaultUrl;
-
-  const handleUpload = async (file: File) => {
-    try {
-      const result = await upload({ files: [file] }).unwrap();
-      const path = result.attachments?.[0]?.file_path;
-      if (!path) {
-        toast.error("Upload failed");
-        return;
-      }
-      onChange(getFileUrl(path));
-      toast.success("Image uploaded");
-    } catch {
-      toast.error("Failed to upload image");
-    }
-  };
 
   return (
     <div className="space-y-2">
@@ -72,32 +51,20 @@ export function SlipImageUploadField({
           />
         </div>
       ) : null}
-      <div className="flex flex-wrap gap-2">
-        <input
-          ref={inputRef}
-          type="file"
-          accept={accept}
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) handleUpload(file);
-            e.target.value = "";
-          }}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={isLoading}
-          onClick={() => inputRef.current?.click()}
-        >
-          {isLoading ? (
-            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-          ) : (
-            <Upload className="h-4 w-4 mr-1" />
-          )}
-          Upload image
-        </Button>
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="flex-1 min-w-[220px]">
+          <FileUploadField
+            id={`slip-upload-${label.replace(/\s+/g, "-").toLowerCase()}`}
+            label="Upload image"
+            value={value || ""}
+            onChange={(next) => onChange(String(next || ""))}
+            accept={accept}
+            multiple={false}
+            showPreview={false}
+            valueFormat="fileUrls"
+            labelClass="text-xs text-muted-foreground"
+          />
+        </div>
         <Button
           type="button"
           variant="ghost"
