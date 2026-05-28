@@ -69,6 +69,8 @@ export interface User {
   roles?: Role[];
   permissionGroups?: PermissionGroup[];
   internalProfile?: InternalUserProfile;
+  /** True when user has PATIENTS:RECEIVE_PATIENT (eligible for diagnosis form assignment). */
+  can_receive_patient?: boolean;
 }
 
 export interface CreateUserPayload {

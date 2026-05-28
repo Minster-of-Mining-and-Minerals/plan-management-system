@@ -25,6 +25,11 @@ import {
   useCreateDiagnosisFieldMutation,
   useUpdateDiagnosisFieldMutation,
 } from "@/redux/api/diagnosisFormApi";
+import {
+  useCreateTemplateFieldMutation,
+  useUpdateTemplateFieldMutation,
+} from "@/redux/api/diagnosisTemplateApi";
+import type { DiagnosisStructureScope } from "./DiagnosisFormStructureEditor";
 import { toast } from "sonner";
 
 const FIELD_TYPES: FormFieldType[] = [
@@ -42,7 +47,7 @@ const FIELD_TYPES: FormFieldType[] = [
 ];
 
 type Props = {
-  configId: string;
+  scope: DiagnosisStructureScope;
   groups: FormFieldStepGroup[];
   open: boolean;
   field?: FormField | null;
@@ -51,7 +56,7 @@ type Props = {
 };
 
 export function DiagnosisFieldModal({
-  configId,
+  scope,
   groups,
   open,
   field,
@@ -59,8 +64,14 @@ export function DiagnosisFieldModal({
   onSaved,
 }: Props) {
   const isEdit = Boolean(field);
-  const [createField, { isLoading: creating }] = useCreateDiagnosisFieldMutation();
-  const [updateField, { isLoading: updating }] = useUpdateDiagnosisFieldMutation();
+  const [createConfigField, { isLoading: creatingConfig }] =
+    useCreateDiagnosisFieldMutation();
+  const [updateConfigField, { isLoading: updatingConfig }] =
+    useUpdateDiagnosisFieldMutation();
+  const [createTemplateField, { isLoading: creatingTemplate }] =
+    useCreateTemplateFieldMutation();
+  const [updateTemplateField, { isLoading: updatingTemplate }] =
+    useUpdateTemplateFieldMutation();
 
   const [groupId, setGroupId] = useState("");
   const [fieldKey, setFieldKey] = useState("");
@@ -119,17 +130,32 @@ export function DiagnosisFieldModal({
     };
 
     try {
-      if (isEdit && field) {
-        await updateField({
-          configId,
+      if (scope.type === "template") {
+        if (isEdit && field) {
+          await updateTemplateField({
+            templateId: scope.templateId,
+            fieldId: field.field_id,
+            body,
+          }).unwrap();
+        } else {
+          await createTemplateField({
+            templateId: scope.templateId,
+            body,
+          }).unwrap();
+        }
+      } else if (isEdit && field) {
+        await updateConfigField({
+          configId: scope.configId,
           fieldId: field.field_id,
           body,
         }).unwrap();
-        toast.success("Field updated");
       } else {
-        await createField({ configId, body }).unwrap();
-        toast.success("Field created");
+        await createConfigField({
+          configId: scope.configId,
+          body,
+        }).unwrap();
       }
+      toast.success(isEdit ? "Field updated" : "Field created");
       onSaved();
     } catch {
       toast.error("Failed to save field");
@@ -213,7 +239,15 @@ export function DiagnosisFieldModal({
             Cancel
           </Button>
           <Button
-            disabled={creating || updating || !groupId || !fieldKey || !label}
+            disabled={
+              creatingConfig ||
+              updatingConfig ||
+              creatingTemplate ||
+              updatingTemplate ||
+              !groupId ||
+              !fieldKey ||
+              !label
+            }
             onClick={handleSubmit}
           >
             Save

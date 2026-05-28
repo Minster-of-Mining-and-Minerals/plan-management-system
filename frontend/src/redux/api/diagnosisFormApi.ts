@@ -8,6 +8,8 @@ export type DiagnosisFormConfig = {
   assigned_staff_id: string;
   title: string;
   description?: string | null;
+  source_template_id?: string | null;
+  sourceTemplate?: { template_id: string; title: string; description?: string | null };
   is_active: boolean;
   staff?: { user_id: string; full_name: string; email?: string };
   created_at?: string;
@@ -35,13 +37,35 @@ export const diagnosisFormApi = baseApi.injectEndpoints({
     }),
 
     getDiagnosisFormConfigByStaff: builder.query<
-      { config: DiagnosisFormConfig; form: UserFormConfigGrouped },
+      { config: DiagnosisFormConfig | null; form: UserFormConfigGrouped | null },
       string
     >({
       query: (staffId) => `/diagnosis-form-configs/staff/${staffId}`,
-      transformResponse: (r: { data: { config: DiagnosisFormConfig; form: UserFormConfigGrouped } }) =>
-        r.data,
+      transformResponse: (r: {
+        data: { config: DiagnosisFormConfig | null; form: UserFormConfigGrouped | null };
+      }) => r.data,
       providesTags: ["DiagnosisFormConfig", "FormFields"],
+    }),
+
+    assignDiagnosisTemplateToStaff: builder.mutation<
+      { config: DiagnosisFormConfig; form: UserFormConfigGrouped },
+      {
+        staffId: string;
+        template_id: string;
+        replace_existing?: boolean;
+        title?: string;
+        description?: string;
+      }
+    >({
+      query: ({ staffId, ...body }) => ({
+        url: `/diagnosis-form-configs/staff/${staffId}/assign-template`,
+        method: "POST",
+        body,
+      }),
+      transformResponse: (r: {
+        data: { config: DiagnosisFormConfig; form: UserFormConfigGrouped };
+      }) => r.data,
+      invalidatesTags: ["DiagnosisFormConfig", "FormFields", "FormFieldGroups"],
     }),
 
     getDiagnosisGroupedForm: builder.query<UserFormConfigGrouped, string>({
@@ -184,6 +208,7 @@ export const {
   useListDiagnosisFormConfigsQuery,
   useGetDiagnosisFormConfigQuery,
   useGetDiagnosisFormConfigByStaffQuery,
+  useAssignDiagnosisTemplateToStaffMutation,
   useGetDiagnosisGroupedFormQuery,
   useCreateDiagnosisFormConfigMutation,
   useUpdateDiagnosisFormConfigMutation,

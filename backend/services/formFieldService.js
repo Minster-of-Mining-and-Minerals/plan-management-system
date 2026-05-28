@@ -138,12 +138,22 @@ async function ensureUniqueFieldKeyForConfig(
   }
 }
 
-async function getGroupForField(modelName, groupId, diagnosisConfigId = null) {
+async function getGroupForField(
+  modelName,
+  groupId,
+  diagnosisConfigId = null,
+  diagnosisTemplateId = null
+) {
   const where = { group_id: groupId, model_name: modelName };
-  if (diagnosisConfigId) {
+  if (diagnosisTemplateId) {
+    where.diagnosis_template_id = diagnosisTemplateId;
+    where.diagnosis_config_id = null;
+  } else if (diagnosisConfigId) {
     where.diagnosis_config_id = diagnosisConfigId;
+    where.diagnosis_template_id = null;
   } else {
     where.diagnosis_config_id = null;
+    where.diagnosis_template_id = null;
   }
   const group = await FormFieldGroup.findOne({ where });
   if (!group) {
@@ -152,6 +162,28 @@ async function getGroupForField(modelName, groupId, diagnosisConfigId = null) {
     throw err;
   }
   return group;
+}
+
+async function ensureUniqueFieldKeyForTemplate(
+  modelName,
+  fieldKey,
+  templateId,
+  excludeId = null
+) {
+  const where = {
+    model_name: modelName,
+    field_key: fieldKey,
+    diagnosis_template_id: templateId,
+  };
+  if (excludeId) {
+    where.field_id = { [Op.ne]: excludeId };
+  }
+  const existing = await FormField.findOne({ where });
+  if (existing) {
+    const err = new Error(`field_key "${fieldKey}" already exists in this template`);
+    err.status = 400;
+    throw err;
+  }
 }
 
 async function reorderFormFields(modelName, orderedFieldIds) {
@@ -196,6 +228,7 @@ module.exports = {
   assertFieldKeyForStorage,
   ensureUniqueFieldKey,
   ensureUniqueFieldKeyForConfig,
+  ensureUniqueFieldKeyForTemplate,
   getGroupForField,
   reorderFormFields,
   syncGroupRequiredFromFields,

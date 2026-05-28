@@ -102,7 +102,9 @@ export function AppointmentDiagnosisPanel({ appointmentId }: Props) {
     );
   }
 
-  const hasFields = (grouped?.fields || []).some((f) => f.is_visible);
+  const noStaffConfig = !data.formConfig;
+  const hasFields =
+    !noStaffConfig && (grouped?.fields || []).some((f) => f.is_visible);
 
   return (
     <Card>
@@ -116,33 +118,43 @@ export function AppointmentDiagnosisPanel({ appointmentId }: Props) {
         )}
       </CardHeader>
       <CardContent className="space-y-6">
-        <p className="text-sm text-muted-foreground">
-          Form configuration: <strong>{data.formConfig.title}</strong> (staff-specific)
-        </p>
-
-        {!hasFields ? (
+        {noStaffConfig ? (
           <p className="text-sm text-muted-foreground">
-            No diagnosis fields configured for your account yet. Ask an administrator
-            with diagnosis form permissions to configure your form.
+            No diagnosis form is assigned to your staff account yet. An administrator can
+            assign a template from Users → Configure Diagnosis Form.
           </p>
         ) : (
+          <p className="text-sm text-muted-foreground">
+            Form configuration: <strong>{data.formConfig!.title}</strong> (staff-specific)
+          </p>
+        )}
+
+        {!noStaffConfig && !hasFields ? (
+          <p className="text-sm text-muted-foreground">
+            Your diagnosis form has no visible fields yet. Ask an administrator to customize
+            your staff form.
+          </p>
+        ) : !noStaffConfig && grouped ? (
           <DynamicUserFormFields
             grouped={grouped}
             values={values}
             errors={errors}
             onChange={handleChange}
           />
-        )}
+        ) : null}
 
         <div className="flex flex-wrap gap-2 pt-2">
           <Button
             variant="outline"
-            disabled={saving || !hasFields}
+            disabled={saving || !hasFields || noStaffConfig}
             onClick={() => handleSave("draft")}
           >
             Save draft
           </Button>
-          <Button disabled={saving || !hasFields} onClick={() => handleSave("submitted")}>
+          <Button
+            disabled={saving || !hasFields || noStaffConfig}
+            onClick={() => handleSave("submitted")}
+          >
             <Save className="mr-2 h-4 w-4" />
             Submit diagnosis
           </Button>

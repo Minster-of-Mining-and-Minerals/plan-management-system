@@ -42,6 +42,10 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.UUID,
         allowNull: true,
       },
+      diagnosis_template_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
       storage_type: {
         type: DataTypes.ENUM("core", "custom"),
         allowNull: false,

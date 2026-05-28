@@ -1,9 +1,26 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Layers, ListTree } from "lucide-react";
+import {
+  Plus,
+  Copy,
+  Archive,
+  Trash2,
+  Eye,
+  FileText,
+} from "lucide-react";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -11,369 +28,377 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import type { ActionButton } from "@/types/tableLayout";
-import { useGetEligibleStaffQuery } from "@/redux/api/scheduleApi";
 import {
-  useGetDiagnosisFormConfigByStaffQuery,
-  useCreateDiagnosisFormConfigMutation,
-  useUpdateDiagnosisFormConfigMutation,
-  useGetDiagnosisGroupedFormQuery,
-  useDeleteDiagnosisGroupMutation,
-  useReorderDiagnosisGroupsMutation,
-  useDeleteDiagnosisFieldMutation,
-  useReorderDiagnosisFieldsMutation,
-} from "@/redux/api/diagnosisFormApi";
-import { ConfigTabPanel } from "@/features/form-field-management/ConfigTabPanel";
-import { Badge } from "@/components/ui/badge";
+  useListDiagnosisTemplatesQuery,
+  useGetDiagnosisTemplateFormQuery,
+  useCreateDiagnosisTemplateMutation,
+  useUpdateDiagnosisTemplateMutation,
+  useArchiveDiagnosisTemplateMutation,
+  useDeleteDiagnosisTemplateMutation,
+  useDuplicateDiagnosisTemplateMutation,
+  useDeleteTemplateGroupMutation,
+  useReorderTemplateGroupsMutation,
+  useDeleteTemplateFieldMutation,
+  useReorderTemplateFieldsMutation,
+} from "@/redux/api/diagnosisTemplateApi";
+import { DiagnosisFormStructureEditor } from "./DiagnosisFormStructureEditor";
 import { toast } from "sonner";
-import { DiagnosisFieldModal } from "./DiagnosisFieldModal";
-import type { FormFieldGroup } from "@/redux/types/formFieldGroup";
-import type { FormField } from "@/redux/types/formField";
-import { flattenFormFields } from "@/redux/types/formField";
-import { DiagnosisGroupModal } from "./DiagnosisGroupModal";
+import type { DiagnosisTemplate } from "@/redux/api/diagnosisTemplateApi";
 
 export default function DiagnosisFormManagement() {
-  const [staffId, setStaffId] = useState("");
-  const [tab, setTab] = useState<"groups" | "fields">("groups");
-  const [groupModalOpen, setGroupModalOpen] = useState(false);
-  const [fieldModalOpen, setFieldModalOpen] = useState(false);
-  const [editingGroup, setEditingGroup] = useState<FormFieldGroup | null>(null);
-  const [editingField, setEditingField] = useState<FormField | null>(null);
+  const [includeArchived, setIncludeArchived] = useState(false);
+  const [selectedId, setSelectedId] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
 
-  const { data: eligibleStaff = [] } = useGetEligibleStaffQuery();
-  const {
-    data: staffBundle,
-    isLoading: loadingConfig,
-    refetch: refetchStaffConfig,
-  } = useGetDiagnosisFormConfigByStaffQuery(staffId, { skip: !staffId });
-
-  const configId = staffBundle?.config?.config_id;
-  const { data: grouped, refetch: refetchForm } = useGetDiagnosisGroupedFormQuery(
-    configId!,
-    { skip: !configId }
+  const { data: templates = [], refetch: refetchList } = useListDiagnosisTemplatesQuery(
+    { include_archived: includeArchived }
   );
 
-  // Group/field create & update live in DiagnosisGroupModal / DiagnosisFieldModal
-  const [createConfig] = useCreateDiagnosisFormConfigMutation();
-  const [updateConfig] = useUpdateDiagnosisFormConfigMutation();
-  const [deleteGroup] = useDeleteDiagnosisGroupMutation();
-  const [reorderGroups] = useReorderDiagnosisGroupsMutation();
-  const [deleteField] = useDeleteDiagnosisFieldMutation();
-  const [reorderFields] = useReorderDiagnosisFieldsMutation();
+  const selected = templates.find((t) => t.template_id === selectedId);
 
-  const [configTitle, setConfigTitle] = useState("");
-  const [configDescription, setConfigDescription] = useState("");
+  const { data: grouped, refetch: refetchForm } = useGetDiagnosisTemplateFormQuery(
+    selectedId,
+    { skip: !selectedId }
+  );
 
-  const groups = grouped?.groups ?? [];
-  const fields = useMemo(() => flattenFormFields(grouped), [grouped]);
+  const [createTemplate, { isLoading: creating }] = useCreateDiagnosisTemplateMutation();
+  const [updateTemplate] = useUpdateDiagnosisTemplateMutation();
+  const [archiveTemplate] = useArchiveDiagnosisTemplateMutation();
+  const [deleteTemplate] = useDeleteDiagnosisTemplateMutation();
+  const [duplicateTemplate] = useDuplicateDiagnosisTemplateMutation();
+  const [deleteGroup] = useDeleteTemplateGroupMutation();
+  const [reorderGroups] = useReorderTemplateGroupsMutation();
+  const [deleteField] = useDeleteTemplateFieldMutation();
+  const [reorderFields] = useReorderTemplateFieldsMutation();
 
-  const actions: ActionButton[] = useMemo(() => {
-    if (!configId) return [];
-    if (tab === "groups") {
-      return [
-        {
-          label: "Add section",
-          icon: <Plus className="h-4 w-4" />,
-          onClick: () => {
-            setEditingGroup(null);
-            setGroupModalOpen(true);
-          },
-        },
-      ];
-    }
-    return [
+  const activeTemplates = useMemo(
+    () => templates.filter((t) => t.status === "active"),
+    [templates]
+  );
+
+  const actions: ActionButton[] = useMemo(
+    () => [
       {
-        label: "Add field",
+        label: "New template",
         icon: <Plus className="h-4 w-4" />,
+        permissions: ["DIAGNOSIS_FORMS:CREATE"],
         onClick: () => {
-          setEditingField(null);
-          setFieldModalOpen(true);
+          setNewTitle("");
+          setNewDescription("");
+          setCreateOpen(true);
         },
       },
-    ];
-  }, [tab, configId]);
+    ],
+    []
+  );
 
-  const handleProvisionConfig = async () => {
-    if (!staffId) return;
+  const handleCreate = async () => {
+    if (!newTitle.trim()) return;
     try {
-      await createConfig({
-        assigned_staff_id: staffId,
-        title: configTitle || "Diagnosis Form",
-        description: configDescription || undefined,
+      const created = await createTemplate({
+        title: newTitle.trim(),
+        description: newDescription.trim() || undefined,
         seed_defaults: true,
       }).unwrap();
-      toast.success("Diagnosis form created with default sections");
-      refetchStaffConfig();
-    } catch (e: unknown) {
-      toast.error("Failed to create configuration");
+      toast.success("Template created");
+      setCreateOpen(false);
+      setSelectedId(created.template_id);
+      refetchList();
+    } catch {
+      toast.error("Failed to create template");
     }
   };
 
   const handleSaveMeta = async () => {
-    if (!configId) return;
+    if (!selectedId) return;
     try {
-      await updateConfig({
-        configId,
-        body: { title: configTitle, description: configDescription },
+      await updateTemplate({
+        templateId: selectedId,
+        body: { title: editTitle, description: editDescription },
       }).unwrap();
-      toast.success("Configuration updated");
+      toast.success("Template updated");
+      refetchList();
     } catch {
-      toast.error("Failed to update configuration");
+      toast.error("Failed to update template");
+    }
+  };
+
+  const handleDuplicate = async (t: DiagnosisTemplate) => {
+    try {
+      const copy = await duplicateTemplate({
+        templateId: t.template_id,
+        title: `${t.title} (copy)`,
+      }).unwrap();
+      toast.success("Template duplicated");
+      setSelectedId(copy.template_id);
+      refetchList();
+    } catch {
+      toast.error("Failed to duplicate template");
+    }
+  };
+
+  const handleArchive = async (t: DiagnosisTemplate) => {
+    try {
+      await archiveTemplate(t.template_id).unwrap();
+      toast.success("Template archived");
+      if (selectedId === t.template_id) setSelectedId("");
+      refetchList();
+    } catch {
+      toast.error("Failed to archive template");
+    }
+  };
+
+  const handleDelete = async (t: DiagnosisTemplate) => {
+    if (!confirm(`Delete template "${t.title}"? This cannot be undone.`)) return;
+    try {
+      await deleteTemplate(t.template_id).unwrap();
+      toast.success("Template deleted");
+      if (selectedId === t.template_id) setSelectedId("");
+      refetchList();
+    } catch {
+      toast.error("Failed to delete template");
     }
   };
 
   return (
     <TableLayout
-      title="Configure Diagnosis Forms"
-      description="Each staff member with receive-patient permission can have a dedicated diagnosis form. Sections and fields are fully customizable per staff."
+      title="Diagnosis Templates"
+      description="Shared diagnosis form blueprints. Assign templates to staff from the Users list; staff copies can be customized without changing the template."
       actions={actions}
       showSearch={false}
     >
-      <div className="mb-6 grid gap-4 md:grid-cols-2 max-w-3xl">
-        <div className="space-y-2">
-          <Label>Staff member</Label>
-          <Select value={staffId} onValueChange={setStaffId}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select staff…" />
-            </SelectTrigger>
-            <SelectContent>
-              {eligibleStaff.map((s) => (
-                <SelectItem key={s.user_id} value={s.user_id}>
-                  {s.full_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="mb-6 flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2">
+          <Switch
+            id="archived"
+            checked={includeArchived}
+            onCheckedChange={setIncludeArchived}
+          />
+          <Label htmlFor="archived">Show archived</Label>
         </div>
       </div>
 
-      {!staffId && (
-        <p className="text-sm text-muted-foreground">
-          Select a staff member to configure their diagnosis form.
-        </p>
-      )}
-
-      {staffId && loadingConfig && (
-        <p className="text-sm text-muted-foreground">Loading…</p>
-      )}
-
-      {staffId && !loadingConfig && !configId && (
-        <div className="max-w-lg space-y-4 rounded-lg border p-4">
-          <p className="text-sm">No diagnosis form exists for this staff member yet.</p>
-          <Input
-            placeholder="Form title"
-            value={configTitle}
-            onChange={(e) => setConfigTitle(e.target.value)}
-          />
-          <Input
-            placeholder="Description (optional)"
-            value={configDescription}
-            onChange={(e) => setConfigDescription(e.target.value)}
-          />
-          <Button onClick={handleProvisionConfig}>Create with default sections</Button>
+      <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Templates</p>
+          {templates.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              No templates yet. Create one to get started.
+            </p>
+          )}
+          {templates.map((t) => (
+            <div
+              key={t.template_id}
+              role="button"
+              tabIndex={0}
+              onClick={() => {
+                setSelectedId(t.template_id);
+                setEditTitle(t.title);
+                setEditDescription(t.description || "");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setSelectedId(t.template_id);
+                  setEditTitle(t.title);
+                  setEditDescription(t.description || "");
+                }
+              }}
+              className={`w-full cursor-pointer rounded-lg border px-4 py-3 text-left transition-colors ${
+                selectedId === t.template_id
+                  ? "border-primary bg-primary/5"
+                  : "hover:bg-muted/50"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-medium">{t.title}</p>
+                  {t.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                      {t.description}
+                    </p>
+                  )}
+                </div>
+                <Badge variant={t.status === "active" ? "default" : "secondary"}>
+                  {t.status}
+                </Badge>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2"
+                  onClick={() => {
+                    setSelectedId(t.template_id);
+                    setPreviewOpen(true);
+                  }}
+                >
+                  <Eye className="h-3 w-3 mr-1" />
+                  Preview
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2"
+                  onClick={() => handleDuplicate(t)}
+                >
+                  <Copy className="h-3 w-3 mr-1" />
+                  Duplicate
+                </Button>
+                {t.status === "active" && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2"
+                    onClick={() => handleArchive(t)}
+                  >
+                    <Archive className="h-3 w-3 mr-1" />
+                    Archive
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-destructive"
+                  onClick={() => handleDelete(t)}
+                >
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  Delete
+                </Button>
+              </div>
+            </div>
+          ))}
         </div>
-      )}
 
-      {configId && staffBundle && (
-        <div className="space-y-6">
-          <div className="grid gap-3 md:grid-cols-2 max-w-2xl">
-            <Input
-              value={configTitle || staffBundle.config.title}
-              onChange={(e) => setConfigTitle(e.target.value)}
-              placeholder="Form title"
-            />
-            <Input
-              value={configDescription ?? staffBundle.config.description ?? ""}
-              onChange={(e) => setConfigDescription(e.target.value)}
-              placeholder="Description"
-            />
-            <Button variant="outline" onClick={handleSaveMeta}>
-              Save form details
-            </Button>
+        <div className="min-w-0">
+          {!selectedId && (
+            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16 text-center text-muted-foreground">
+              <FileText className="h-10 w-10 mb-3 opacity-50" />
+              <p className="text-sm">Select a template to edit sections and fields</p>
+              <p className="text-xs mt-1">
+                {activeTemplates.length} active template
+                {activeTemplates.length !== 1 ? "s" : ""} available for staff assignment
+              </p>
+            </div>
+          )}
+
+          {selectedId && selected && (
+            <div className="space-y-6">
+              <div className="grid gap-3 md:grid-cols-2 max-w-2xl">
+                <div className="space-y-2">
+                  <Label>Title</Label>
+                  <Input
+                    value={editTitle || selected.title}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Description</Label>
+                  <Input
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    placeholder="Optional"
+                  />
+                </div>
+                <Button variant="outline" onClick={handleSaveMeta}>
+                  Save details
+                </Button>
+              </div>
+
+              <DiagnosisFormStructureEditor
+                scope={{ type: "template", templateId: selectedId }}
+                showPreview
+                handlers={{
+                  grouped,
+                  refetch: refetchForm,
+                  onDeleteGroup: async (groupId) => {
+                    await deleteGroup({ templateId: selectedId, groupId }).unwrap();
+                    toast.success("Section removed");
+                  },
+                  onReorderGroups: async (ids) => {
+                    await reorderGroups({ templateId: selectedId, ids }).unwrap();
+                  },
+                  onDeleteField: async (fieldId) => {
+                    await deleteField({ templateId: selectedId, fieldId }).unwrap();
+                    toast.success("Field removed");
+                  },
+                  onReorderFields: async (ids) => {
+                    await reorderFields({ templateId: selectedId, ids }).unwrap();
+                  },
+                }}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New diagnosis template</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Title</Label>
+              <Input
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                placeholder="e.g. General Doctor Diagnosis"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Input
+                value={newDescription}
+                onChange={(e) => setNewDescription(e.target.value)}
+                placeholder="Optional"
+              />
+            </div>
           </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button disabled={creating || !newTitle.trim()} onClick={handleCreate}>
+              Create with default sections
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-          <Tabs value={tab} onValueChange={(v) => setTab(v as "groups" | "fields")}>
-            <TabsList className="grid w-full max-w-md grid-cols-2">
-              <TabsTrigger value="groups" className="gap-2">
-                <Layers className="h-4 w-4" />
-                Sections
-              </TabsTrigger>
-              <TabsTrigger value="fields" className="gap-2">
-                <ListTree className="h-4 w-4" />
-                Fields
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="groups">
-              <ConfigTabPanel>
-                <div className="space-y-2">
-                  {groups.map((g, idx) => (
-                    <div
-                      key={g.group_id}
-                      className="flex items-center justify-between rounded-lg border px-4 py-3"
-                    >
-                      <div>
-                        <p className="font-medium">{g.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Order {g.sort_order} · {g.fields?.length ?? 0} fields
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditingGroup(g);
-                            setGroupModalOpen(true);
-                          }}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={idx === 0}
-                          onClick={async () => {
-                            const ids = groups.map((x) => x.group_id);
-                            [ids[idx - 1], ids[idx]] = [ids[idx], ids[idx - 1]];
-                            await reorderGroups({ configId, ids });
-                            refetchForm();
-                          }}
-                        >
-                          ↑
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={idx === groups.length - 1}
-                          onClick={async () => {
-                            const ids = groups.map((x) => x.group_id);
-                            [ids[idx], ids[idx + 1]] = [ids[idx + 1], ids[idx]];
-                            await reorderGroups({ configId, ids });
-                            refetchForm();
-                          }}
-                        >
-                          ↓
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={async () => {
-                            await deleteGroup({ configId, groupId: g.group_id });
-                            toast.success("Section deleted");
-                            refetchForm();
-                          }}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </ConfigTabPanel>
-            </TabsContent>
-
-            <TabsContent value="fields">
-              <ConfigTabPanel>
-                <div className="space-y-2">
-                  {fields.map((f, idx) => (
-                    <div
-                      key={f.field_id}
-                      className="flex items-center justify-between rounded-lg border px-4 py-3"
-                    >
-                      <div>
-                        <p className="font-medium">{f.label}</p>
-                        <p className="text-xs text-muted-foreground font-mono">
-                          {f.field_key} · {f.field_type} · {f.category}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {f.is_required && <Badge>Required</Badge>}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditingField(f);
-                            setFieldModalOpen(true);
-                          }}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={idx === 0}
-                          onClick={async () => {
-                            const ids = fields.map((x) => x.field_id);
-                            [ids[idx - 1], ids[idx]] = [ids[idx], ids[idx - 1]];
-                            await reorderFields({ configId, ids });
-                            refetchForm();
-                          }}
-                        >
-                          ↑
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={idx === fields.length - 1}
-                          onClick={async () => {
-                            const ids = fields.map((x) => x.field_id);
-                            [ids[idx], ids[idx + 1]] = [ids[idx + 1], ids[idx]];
-                            await reorderFields({ configId, ids });
-                            refetchForm();
-                          }}
-                        >
-                          ↓
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={async () => {
-                            await deleteField({ configId, fieldId: f.field_id });
-                            toast.success("Field deleted");
-                            refetchForm();
-                          }}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </ConfigTabPanel>
-            </TabsContent>
-          </Tabs>
-        </div>
-      )}
-
-      {configId && (
-        <>
-          <DiagnosisGroupModal
-            configId={configId}
-            open={groupModalOpen}
-            group={editingGroup}
-            onClose={() => setGroupModalOpen(false)}
-            onSaved={() => {
-              refetchForm();
-              setGroupModalOpen(false);
-            }}
-          />
-          <DiagnosisFieldModal
-            configId={configId}
-            groups={groups}
-            open={fieldModalOpen}
-            field={editingField}
-            onClose={() => setFieldModalOpen(false)}
-            onSaved={() => {
-              refetchForm();
-              setFieldModalOpen(false);
-            }}
-          />
-        </>
-      )}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Template preview</DialogTitle>
+          </DialogHeader>
+          {selectedId && grouped && (
+            <DiagnosisFormStructureEditor
+              scope={{ type: "template", templateId: selectedId }}
+              readOnly
+              showPreview
+              handlers={{
+                grouped,
+                refetch: () => {},
+                onDeleteGroup: async () => {},
+                onReorderGroups: async () => {},
+                onDeleteField: async () => {},
+                onReorderFields: async () => {},
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </TableLayout>
   );
 }

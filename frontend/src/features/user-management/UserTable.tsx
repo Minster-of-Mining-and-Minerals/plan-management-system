@@ -6,7 +6,7 @@ import { TableLayout } from "@/features/template/component/tableList/TableLayout
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Download, Plus, Eye, Edit, Trash, Users } from "lucide-react";
+import { Download, Plus, Eye, Stethoscope } from "lucide-react";
 
 import { formatInternalUserDisplayName } from "@/utils/formatUserDisplayName";
 import type { FilterField, ActionButton } from "@/types/tableLayout";
@@ -17,6 +17,7 @@ import { formatStatus } from "@/utils/statusFormatter";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { StaffDiagnosisConfigSheet } from "@/features/diagnosis-forms/StaffDiagnosisConfigSheet";
 
 
 export interface UserTableProps {
@@ -80,15 +81,22 @@ export default function UserTable({ sideActions }: UserTableProps) {
             header: "Actions",
             cell: ({ row }) => (
                 <div className="flex items-center">
-                    <Button onClick={() => router.push(`/users/list/${row.original.user_id}`)} variant="ghost" size="icon" >
+                    <Button onClick={() => router.push(`/users/list/${row.original.user_id}`)} variant="ghost" size="icon" title="View user">
                         <Eye className="h-4 w-4" />
                     </Button>
-                    {/* <Button variant="ghost" size="icon">
-                    <Edit className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon">
-                    <Trash className="h-4 w-4" />
-                </Button> */}
+                    {row.original.can_receive_patient && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Configure Diagnosis Form"
+                            onClick={() => {
+                                setDiagnosisUser(row.original);
+                                setDiagnosisSheetOpen(true);
+                            }}
+                        >
+                            <Stethoscope className="h-4 w-4" />
+                        </Button>
+                    )}
                 </div>
             ),
         },
@@ -118,6 +126,8 @@ export default function UserTable({ sideActions }: UserTableProps) {
     }, [searchQuery]);
 
     const [isModalOpen, setModalOpen] = useState(false);
+    const [diagnosisUser, setDiagnosisUser] = useState<User | null>(null);
+    const [diagnosisSheetOpen, setDiagnosisSheetOpen] = useState(false);
     const handlePagination = (index: number, size: number) => {
         setPageIndex(index);
         setPageSize(size);
@@ -205,6 +215,14 @@ export default function UserTable({ sideActions }: UserTableProps) {
                 onClose={() => {
                     setModalOpen(false);
                     refetch();
+                }}
+            />
+            <StaffDiagnosisConfigSheet
+                user={diagnosisUser}
+                open={diagnosisSheetOpen}
+                onOpenChange={(open) => {
+                    setDiagnosisSheetOpen(open);
+                    if (!open) setDiagnosisUser(null);
                 }}
             />
         </>

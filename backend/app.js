@@ -29,6 +29,7 @@ const patientRoutes = require("./routers/patient/patientRoutes");
 const scheduleRoutes = require("./routers/schedule/scheduleRoutes");
 const appointmentRoutes = require("./routers/appointment/appointmentRoutes");
 const diagnosisFormConfigRoutes = require("./routers/diagnosis/diagnosisFormConfigRoutes");
+const diagnosisTemplateRoutes = require("./routers/diagnosis/diagnosisTemplateRoutes");
 const diagnosisRecordRoutes = require("./routers/diagnosis/diagnosisRecordRoutes");
 const notificationRoutes = require("./routers/notification/notificationRoutes");
 
@@ -135,6 +136,7 @@ app.use("/api/patients", patientRoutes);
 app.use("/api/schedules", scheduleRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/diagnosis-form-configs", diagnosisFormConfigRoutes);
+app.use("/api/diagnosis-templates", diagnosisTemplateRoutes);
 app.use("/api/diagnosis-records", diagnosisRecordRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/form-fields", formFieldRoutes);

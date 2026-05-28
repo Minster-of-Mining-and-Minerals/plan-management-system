@@ -40,9 +40,26 @@ const getFormConfig = async (req, res) => {
 
 const getByStaff = async (req, res) => {
   try {
-    const data = await diagnosisFormConfigService.getOrCreateConfigForStaff(
+    const data = await diagnosisFormConfigService.getConfigForStaff(
+      req.params.staffId
+    );
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(e.status || 500).json({ success: false, message: e.message });
+  }
+};
+
+const assignTemplate = async (req, res) => {
+  try {
+    const data = await diagnosisFormConfigService.assignTemplateToStaff(
       req.params.staffId,
-      req.user.user_id
+      req.body.template_id,
+      {
+        replaceExisting: req.body.replace_existing !== false,
+        title: req.body.title,
+        description: req.body.description,
+        actorId: req.user.user_id,
+      }
     );
     return res.json({ success: true, data });
   } catch (e) {
@@ -57,7 +74,7 @@ const create = async (req, res) => {
       {
         title: req.body.title,
         description: req.body.description,
-        seedDefaults: req.body.seed_defaults !== false,
+        sourceTemplateId: req.body.source_template_id,
         actorId: req.user.user_id,
       }
     );
@@ -195,6 +212,7 @@ module.exports = {
   getById,
   getFormConfig,
   getByStaff,
+  assignTemplate,
   create,
   update,
   remove,

@@ -17,8 +17,8 @@ export type DiagnosisRecord = {
 
 export type AppointmentDiagnosisBundle = {
   appointment: StaffAppointment;
-  formConfig: DiagnosisFormConfig;
-  form: UserFormConfigGrouped;
+  formConfig: DiagnosisFormConfig | null;
+  form: UserFormConfigGrouped | null;
   record: DiagnosisRecord | null;
 };
 

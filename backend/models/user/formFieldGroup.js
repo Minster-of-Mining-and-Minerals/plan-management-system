@@ -13,6 +13,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "diagnosis_config_id",
         as: "diagnosisConfig",
       });
+      FormFieldGroup.belongsTo(models.DiagnosisTemplate, {
+        foreignKey: "diagnosis_template_id",
+        as: "diagnosisTemplate",
+      });
     }
   }
 
@@ -28,6 +32,10 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       diagnosis_config_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      diagnosis_template_id: {
         type: DataTypes.UUID,
         allowNull: true,
       },

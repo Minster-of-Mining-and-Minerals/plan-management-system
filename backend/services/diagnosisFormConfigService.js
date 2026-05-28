@@ -4,10 +4,8 @@ const { Op } = require("sequelize");
 const { v4: uuidv4 } = require("uuid");
 const db = require("../models");
 const { DIAGNOSIS_MODEL_NAME } = require("../config/diagnosisFormConstants");
-const {
-  DEFAULT_DIAGNOSIS_GROUPS,
-  DEFAULT_DIAGNOSIS_FIELDS,
-} = require("../config/diagnosisFormCatalog");
+const { copyStructure, clearTargetStructure } = require("./diagnosisStructureCopy");
+const diagnosisTemplateService = require("./diagnosisTemplateService");
 const {
   buildGroupedFormResponse,
   syncGroupRequiredFromFields,
@@ -54,54 +52,9 @@ async function getConfigById(configId) {
   return row;
 }
 
-async function seedDefaultCatalog(configId, transaction) {
-  const groupByTitle = new Map();
-
-  for (const g of DEFAULT_DIAGNOSIS_GROUPS) {
-    const group = await db.FormFieldGroup.create(
-      {
-        group_id: uuidv4(),
-        model_name: DIAGNOSIS_MODEL_NAME,
-        diagnosis_config_id: configId,
-        title: g.title,
-        description: g.description,
-        sort_order: g.sort_order,
-        is_visible: g.is_visible,
-        is_required: g.is_required,
-      },
-      { transaction }
-    );
-    groupByTitle.set(g.title, group);
-  }
-
-  for (const def of DEFAULT_DIAGNOSIS_FIELDS) {
-    const group = groupByTitle.get(def.section);
-    if (!group) continue;
-
-    await db.FormField.create(
-      {
-        field_id: uuidv4(),
-        model_name: DIAGNOSIS_MODEL_NAME,
-        diagnosis_config_id: configId,
-        group_id: group.group_id,
-        field_key: def.field_key,
-        label: def.label,
-        field_type: def.field_type,
-        storage_type: "custom",
-        category: def.section,
-        is_required: Boolean(def.is_required),
-        is_visible: true,
-        sort_order: def.sort_order ?? 0,
-        config: def.config || {},
-      },
-      { transaction }
-    );
-  }
-}
-
 async function createConfigForStaff(
   assignedStaffId,
-  { title, description, seedDefaults = true, actorId } = {}
+  { title, description, sourceTemplateId = null, actorId } = {}
 ) {
   const existing = await db.DiagnosisFormConfig.findOne({
     where: { assigned_staff_id: assignedStaffId },
@@ -114,12 +67,17 @@ async function createConfigForStaff(
 
   const t = await db.sequelize.transaction();
   try {
+    const template = sourceTemplateId
+      ? await diagnosisTemplateService.getTemplateById(sourceTemplateId)
+      : null;
+
     const config = await db.DiagnosisFormConfig.create(
       {
         config_id: uuidv4(),
         assigned_staff_id: assignedStaffId,
-        title: title || "Diagnosis Form",
-        description: description || null,
+        title: title || template?.title || "Diagnosis Form",
+        description: description ?? template?.description ?? null,
+        source_template_id: sourceTemplateId || null,
         is_active: true,
         created_by: actorId,
         updated_by: actorId,
@@ -127,8 +85,12 @@ async function createConfigForStaff(
       { transaction: t }
     );
 
-    if (seedDefaults) {
-      await seedDefaultCatalog(config.config_id, t);
+    if (sourceTemplateId) {
+      await copyStructure({
+        sourceTemplateId,
+        targetConfigId: config.config_id,
+        transaction: t,
+      });
     }
 
     await t.commit();
@@ -186,16 +148,20 @@ async function getGroupedFormConfigForConfig(configId, { visibleOnly = false } =
   return buildGroupedFormResponse(groups);
 }
 
-async function getOrCreateConfigForStaff(staffId, actorId) {
-  let config = await db.DiagnosisFormConfig.findOne({
+async function getConfigForStaff(staffId) {
+  const config = await db.DiagnosisFormConfig.findOne({
     where: { assigned_staff_id: staffId, is_active: true },
+    include: [
+      {
+        model: db.DiagnosisTemplate,
+        as: "sourceTemplate",
+        attributes: ["template_id", "title", "description", "status"],
+      },
+    ],
   });
 
   if (!config) {
-    config = await createConfigForStaff(staffId, {
-      actorId,
-      seedDefaults: true,
-    });
+    return { config: null, form: null };
   }
 
   const grouped = await getGroupedFormConfigForConfig(config.config_id, {
@@ -206,6 +172,79 @@ async function getOrCreateConfigForStaff(staffId, actorId) {
     config: config.get({ plain: true }),
     form: grouped,
   };
+}
+
+async function assignTemplateToStaff(
+  staffId,
+  templateId,
+  { replaceExisting = true, title, description, actorId } = {}
+) {
+  await diagnosisTemplateService.getTemplateById(templateId);
+
+  const existing = await db.DiagnosisFormConfig.findOne({
+    where: { assigned_staff_id: staffId },
+  });
+
+  if (existing && !replaceExisting) {
+    const err = new Error(
+      "Staff already has a diagnosis form. Set replaceExisting to replace it from template."
+    );
+    err.status = 400;
+    throw err;
+  }
+
+  const t = await db.sequelize.transaction();
+  try {
+    let config = existing;
+
+    if (existing) {
+      await clearTargetStructure({ configId: existing.config_id, transaction: t });
+      await existing.update(
+        {
+          title: title || existing.title,
+          description:
+            description !== undefined ? description : existing.description,
+          source_template_id: templateId,
+          updated_by: actorId,
+        },
+        { transaction: t }
+      );
+    } else {
+      const template = await diagnosisTemplateService.getTemplateById(templateId);
+      config = await db.DiagnosisFormConfig.create(
+        {
+          config_id: uuidv4(),
+          assigned_staff_id: staffId,
+          title: title || template.title,
+          description: description ?? template.description,
+          source_template_id: templateId,
+          is_active: true,
+          created_by: actorId,
+          updated_by: actorId,
+        },
+        { transaction: t }
+      );
+    }
+
+    await copyStructure({
+      sourceTemplateId: templateId,
+      targetConfigId: config.config_id,
+      transaction: t,
+    });
+
+    await t.commit();
+    return getConfigForStaff(staffId);
+  } catch (e) {
+    if (!t.finished) await t.rollback();
+    throw e;
+  }
+}
+
+/** @deprecated Use getConfigForStaff — kept for backward compatibility */
+async function getOrCreateConfigForStaff(staffId, actorId) {
+  const result = await getConfigForStaff(staffId);
+  if (result.config) return result;
+  return { config: null, form: null };
 }
 
 async function createGroup(configId, payload) {
@@ -436,6 +475,8 @@ module.exports = {
   updateConfigMeta,
   deleteConfig,
   getGroupedFormConfigForConfig,
+  getConfigForStaff,
+  assignTemplateToStaff,
   getOrCreateConfigForStaff,
   createGroup,
   updateGroup,

@@ -1,0 +1,266 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Stethoscope } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  useGetDiagnosisFormConfigByStaffQuery,
+  useAssignDiagnosisTemplateToStaffMutation,
+  useUpdateDiagnosisFormConfigMutation,
+  useGetDiagnosisGroupedFormQuery,
+  useDeleteDiagnosisGroupMutation,
+  useReorderDiagnosisGroupsMutation,
+  useDeleteDiagnosisFieldMutation,
+  useReorderDiagnosisFieldsMutation,
+} from "@/redux/api/diagnosisFormApi";
+import { useListDiagnosisTemplatesQuery } from "@/redux/api/diagnosisTemplateApi";
+import { DiagnosisFormStructureEditor } from "./DiagnosisFormStructureEditor";
+import { toast } from "sonner";
+import type { User } from "@/redux/types/user";
+
+type Props = {
+  user: User | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+};
+
+export function StaffDiagnosisConfigSheet({ user, open, onOpenChange }: Props) {
+  const staffId = user?.user_id ?? "";
+  const [templateId, setTemplateId] = useState("");
+  const [formTitle, setFormTitle] = useState("");
+  const [formDescription, setFormDescription] = useState("");
+
+  const { data: templates = [] } = useListDiagnosisTemplatesQuery();
+  const activeTemplates = templates.filter((t) => t.status === "active");
+
+  const {
+    data: staffBundle,
+    isLoading,
+    refetch: refetchStaff,
+  } = useGetDiagnosisFormConfigByStaffQuery(staffId, { skip: !staffId || !open });
+
+  const configId = staffBundle?.config?.config_id;
+  const { data: grouped, refetch: refetchForm } = useGetDiagnosisGroupedFormQuery(
+    configId!,
+    { skip: !configId || !open }
+  );
+
+  const [assignTemplate, { isLoading: assigning }] =
+    useAssignDiagnosisTemplateToStaffMutation();
+  const [updateConfig] = useUpdateDiagnosisFormConfigMutation();
+  const [deleteGroup] = useDeleteDiagnosisGroupMutation();
+  const [reorderGroups] = useReorderDiagnosisGroupsMutation();
+  const [deleteField] = useDeleteDiagnosisFieldMutation();
+  const [reorderFields] = useReorderDiagnosisFieldsMutation();
+
+  useEffect(() => {
+    if (!open) return;
+    if (staffBundle?.config) {
+      setFormTitle(staffBundle.config.title);
+      setFormDescription(staffBundle.config.description || "");
+      if (staffBundle.config.source_template_id) {
+        setTemplateId(staffBundle.config.source_template_id);
+      }
+    } else {
+      setFormTitle("");
+      setFormDescription("");
+      setTemplateId("");
+    }
+  }, [open, staffBundle?.config]);
+
+  const handleAssign = async (replace = false) => {
+    if (!staffId || !templateId) {
+      toast.error("Select a template first");
+      return;
+    }
+    const tpl = activeTemplates.find((t) => t.template_id === templateId);
+    try {
+      await assignTemplate({
+        staffId,
+        template_id: templateId,
+        replace_existing: replace,
+        title: formTitle || tpl?.title,
+        description: formDescription || tpl?.description || undefined,
+      }).unwrap();
+      toast.success(
+        replace
+          ? "Staff form replaced from template"
+          : "Template assigned — staff copy created"
+      );
+      refetchStaff();
+      refetchForm();
+    } catch (e: unknown) {
+      const message =
+        e && typeof e === "object" && "data" in e
+          ? String((e as { data?: { message?: string } }).data?.message)
+          : "Failed to assign template";
+      toast.error(message);
+    }
+  };
+
+  const handleSaveMeta = async () => {
+    if (!configId) return;
+    try {
+      await updateConfig({
+        configId,
+        body: { title: formTitle, description: formDescription },
+      }).unwrap();
+      toast.success("Staff form details saved");
+      refetchStaff();
+    } catch {
+      toast.error("Failed to save details");
+    }
+  };
+
+  if (!user) return null;
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2">
+            <Stethoscope className="h-5 w-5" />
+            Configure Diagnosis Form
+          </SheetTitle>
+          <SheetDescription>
+            {user.full_name} — assign a shared template, then customize this staff member&apos;s
+            copy. Changes here do not affect the original template.
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="mt-6 space-y-6">
+          <div className="space-y-3 rounded-lg border p-4">
+            <Label>1. Select template</Label>
+            <Select value={templateId} onValueChange={setTemplateId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose a diagnosis template…" />
+              </SelectTrigger>
+              <SelectContent>
+                {activeTemplates.map((t) => (
+                  <SelectItem key={t.template_id} value={t.template_id}>
+                    {t.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                disabled={assigning || !templateId}
+                onClick={() => handleAssign(false)}
+              >
+                {configId ? "Assign template (new copy)" : "Assign template"}
+              </Button>
+              {configId && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={assigning || !templateId}
+                  onClick={() => {
+                    if (
+                      confirm(
+                        "Replace this staff member's form with a fresh copy from the selected template? Existing customizations will be lost."
+                      )
+                    ) {
+                      handleAssign(true);
+                    }
+                  }}
+                >
+                  Replace from template
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {isLoading && (
+            <p className="text-sm text-muted-foreground">Loading staff configuration…</p>
+          )}
+
+          {!isLoading && !configId && (
+            <p className="text-sm text-muted-foreground">
+              No staff-specific diagnosis form yet. Select a template and assign it to create a
+              customizable copy.
+            </p>
+          )}
+
+          {configId && staffBundle?.config && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline">Staff copy</Badge>
+                {staffBundle.config.sourceTemplate && (
+                  <span className="text-xs text-muted-foreground">
+                    From template: {staffBundle.config.sourceTemplate.title}
+                  </span>
+                )}
+              </div>
+
+              <div className="grid gap-3">
+                <div className="space-y-2">
+                  <Label>Form title</Label>
+                  <Input value={formTitle} onChange={(e) => setFormTitle(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Description</Label>
+                  <Input
+                    value={formDescription}
+                    onChange={(e) => setFormDescription(e.target.value)}
+                    placeholder="Optional"
+                  />
+                </div>
+                <Button variant="outline" size="sm" onClick={handleSaveMeta}>
+                  Save form details
+                </Button>
+              </div>
+
+              <div>
+                <Label className="mb-2 block">2. Customize staff copy (optional)</Label>
+                <DiagnosisFormStructureEditor
+                  scope={{ type: "config", configId }}
+                  showPreview
+                  handlers={{
+                    grouped: grouped ?? staffBundle.form ?? undefined,
+                    refetch: () => {
+                      refetchForm();
+                      refetchStaff();
+                    },
+                    onDeleteGroup: async (groupId) => {
+                      await deleteGroup({ configId, groupId }).unwrap();
+                      toast.success("Section removed");
+                    },
+                    onReorderGroups: async (ids) => {
+                      await reorderGroups({ configId, ids }).unwrap();
+                    },
+                    onDeleteField: async (fieldId) => {
+                      await deleteField({ configId, fieldId }).unwrap();
+                      toast.success("Field removed");
+                    },
+                    onReorderFields: async (ids) => {
+                      await reorderFields({ configId, ids }).unwrap();
+                    },
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}

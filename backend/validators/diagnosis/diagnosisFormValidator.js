@@ -16,11 +16,34 @@ const configSchema = Joi.object({
   max_size_mb: Joi.number().positive().optional(),
 }).default({});
 
+const createTemplateSchema = Joi.object({
+  title: Joi.string().min(1).max(255).required(),
+  description: Joi.string().allow("", null).optional(),
+  seed_defaults: Joi.boolean().optional(),
+});
+
+const updateTemplateSchema = Joi.object({
+  title: Joi.string().min(1).max(255).optional(),
+  description: Joi.string().allow("", null).optional(),
+  status: Joi.string().valid("active", "archived").optional(),
+}).min(1);
+
+const duplicateTemplateSchema = Joi.object({
+  title: Joi.string().min(1).max(255).optional(),
+});
+
 const createConfigSchema = Joi.object({
   assigned_staff_id: Joi.string().guid({ version: "uuidv4" }).required(),
   title: Joi.string().min(1).max(255).optional(),
   description: Joi.string().allow("", null).optional(),
-  seed_defaults: Joi.boolean().optional(),
+  source_template_id: Joi.string().guid({ version: "uuidv4" }).optional(),
+});
+
+const assignTemplateSchema = Joi.object({
+  template_id: Joi.string().guid({ version: "uuidv4" }).required(),
+  replace_existing: Joi.boolean().optional(),
+  title: Joi.string().min(1).max(255).optional(),
+  description: Joi.string().allow("", null).optional(),
 });
 
 const updateConfigSchema = Joi.object({
@@ -85,8 +108,12 @@ const validate = (schema) => (req, res, next) => {
 };
 
 module.exports = {
+  validateCreateTemplate: validate(createTemplateSchema),
+  validateUpdateTemplate: validate(updateTemplateSchema),
+  validateDuplicateTemplate: validate(duplicateTemplateSchema),
   validateCreateConfig: validate(createConfigSchema),
   validateUpdateConfig: validate(updateConfigSchema),
+  validateAssignTemplate: validate(assignTemplateSchema),
   validateCreateGroup: validate(createGroupSchema),
   validateUpdateGroup: validate(updateGroupSchema),
   validateCreateField: validate(createFieldSchema),

@@ -31,9 +31,7 @@ async function getAppointmentForStaff(appointmentId, staffId) {
 
 async function getRecordByAppointment(appointmentId, staffId) {
   const appointment = await getAppointmentForStaff(appointmentId, staffId);
-  const { config, form } = await diagnosisFormConfigService.getOrCreateConfigForStaff(
-    staffId
-  );
+  const { config, form } = await diagnosisFormConfigService.getConfigForStaff(staffId);
 
   let record = await db.DiagnosisRecord.findOne({
     where: { appointment_id: appointmentId },
@@ -49,7 +47,14 @@ async function getRecordByAppointment(appointmentId, staffId) {
 
 async function saveRecord(appointmentId, staffId, { form_data, status = "submitted" }) {
   const appointment = await getAppointmentForStaff(appointmentId, staffId);
-  const { config } = await diagnosisFormConfigService.getOrCreateConfigForStaff(staffId);
+  const { config } = await diagnosisFormConfigService.getConfigForStaff(staffId);
+  if (!config) {
+    const err = new Error(
+      "No diagnosis form assigned to this staff member. Configure a template first."
+    );
+    err.status = 400;
+    throw err;
+  }
 
   const normalized = await validateDiagnosisFormData(config.config_id, form_data, {
     partial: false,

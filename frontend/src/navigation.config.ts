@@ -129,7 +129,7 @@ export const NAVIGATION: NavItem[] = [
     anyPermissions: ["PATIENTS:RECEIVE_PATIENT"],
   },
   {
-    title: "Diagnosis Forms",
+    title: "Diagnosis",
     url: "/diagnosis-forms",
     icon: Stethoscope,
     anyPermissions: [

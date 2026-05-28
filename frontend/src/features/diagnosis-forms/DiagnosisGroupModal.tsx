@@ -17,10 +17,15 @@ import {
   useCreateDiagnosisGroupMutation,
   useUpdateDiagnosisGroupMutation,
 } from "@/redux/api/diagnosisFormApi";
+import {
+  useCreateTemplateGroupMutation,
+  useUpdateTemplateGroupMutation,
+} from "@/redux/api/diagnosisTemplateApi";
+import type { DiagnosisStructureScope } from "./DiagnosisFormStructureEditor";
 import { toast } from "sonner";
 
 type Props = {
-  configId: string;
+  scope: DiagnosisStructureScope;
   open: boolean;
   group?: FormFieldGroup | null;
   onClose: () => void;
@@ -28,15 +33,21 @@ type Props = {
 };
 
 export function DiagnosisGroupModal({
-  configId,
+  scope,
   open,
   group,
   onClose,
   onSaved,
 }: Props) {
   const isEdit = Boolean(group);
-  const [createGroup, { isLoading: creating }] = useCreateDiagnosisGroupMutation();
-  const [updateGroup, { isLoading: updating }] = useUpdateDiagnosisGroupMutation();
+  const [createConfigGroup, { isLoading: creatingConfig }] =
+    useCreateDiagnosisGroupMutation();
+  const [updateConfigGroup, { isLoading: updatingConfig }] =
+    useUpdateDiagnosisGroupMutation();
+  const [createTemplateGroup, { isLoading: creatingTemplate }] =
+    useCreateTemplateGroupMutation();
+  const [updateTemplateGroup, { isLoading: updatingTemplate }] =
+    useUpdateTemplateGroupMutation();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -57,22 +68,43 @@ export function DiagnosisGroupModal({
     }
   }, [group, open]);
 
+  const saving =
+    creatingConfig || updatingConfig || creatingTemplate || updatingTemplate;
+
   const handleSubmit = async () => {
+    const body = {
+      title,
+      description,
+      is_visible: isVisible,
+      is_required: isRequired,
+    };
     try {
-      if (isEdit && group) {
-        await updateGroup({
-          configId,
+      if (scope.type === "template") {
+        if (isEdit && group) {
+          await updateTemplateGroup({
+            templateId: scope.templateId,
+            groupId: group.group_id,
+            body,
+          }).unwrap();
+        } else {
+          await createTemplateGroup({
+            templateId: scope.templateId,
+            body,
+          }).unwrap();
+        }
+      } else if (isEdit && group) {
+        await updateConfigGroup({
+          configId: scope.configId,
           groupId: group.group_id,
-          body: { title, description, is_visible: isVisible, is_required: isRequired },
+          body,
         }).unwrap();
-        toast.success("Section updated");
       } else {
-        await createGroup({
-          configId,
-          body: { title, description, is_visible: isVisible, is_required: isRequired },
+        await createConfigGroup({
+          configId: scope.configId,
+          body,
         }).unwrap();
-        toast.success("Section created");
       }
+      toast.success(isEdit ? "Section updated" : "Section created");
       onSaved();
     } catch {
       toast.error("Failed to save section");
@@ -107,7 +139,7 @@ export function DiagnosisGroupModal({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={creating || updating || !title.trim()} onClick={handleSubmit}>
+          <Button disabled={saving || !title.trim()} onClick={handleSubmit}>
             Save
           </Button>
         </DialogFooter>

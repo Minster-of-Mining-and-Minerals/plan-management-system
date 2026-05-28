@@ -11,6 +11,7 @@ const { checkPermission } = require("../../middlewares/authMiddleware");
 const {
   validateCreateConfig,
   validateUpdateConfig,
+  validateAssignTemplate,
   validateCreateGroup,
   validateUpdateGroup,
   validateCreateField,
@@ -29,6 +30,12 @@ router.get(
   "/staff/:staffId",
   checkPermission("diagnosis_forms", "read"),
   controller.getByStaff
+);
+router.post(
+  "/staff/:staffId/assign-template",
+  checkPermission("diagnosis_forms", "update"),
+  validateAssignTemplate,
+  controller.assignTemplate
 );
 router.get(
   "/:configId",

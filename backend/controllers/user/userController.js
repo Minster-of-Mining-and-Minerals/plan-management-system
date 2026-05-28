@@ -13,6 +13,7 @@ const { sendEmail } = require("../../utils/sendEmail");
 const { PLATFORM_NAME } = require("../../config/platformBranding");
 const { ACCOUNT_TYPES } = require("../../config/accountTypes");
 const { InternalUserProfile, Department, UserTitle } = require("../../models");
+const { listUsersWithPermission } = require("../../services/userPermissionService");
 
 async function resolveTitleId(body, transaction) {
   const title_id = body.title_id || null;
@@ -357,10 +358,26 @@ const getUsers = async (req, res) => {
       order: [["created_at", "DESC"]],
     });
 
+    const receivePatientUsers = await listUsersWithPermission(
+      "patients",
+      "receive_patient"
+    );
+    const receivePatientIds = new Set(
+      receivePatientUsers.map((u) => u.user_id)
+    );
+
+    const data = users.map((u) => {
+      const plain = u.get({ plain: true });
+      return {
+        ...plain,
+        can_receive_patient: receivePatientIds.has(plain.user_id),
+      };
+    });
+
     return res.status(200).json({
       success: true,
       message: "Users fetched successfully.",
-      data: users,
+      data,
     });
   } catch (error) {
     console.error("Error fetching users:", error);

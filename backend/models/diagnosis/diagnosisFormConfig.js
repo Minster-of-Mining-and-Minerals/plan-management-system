@@ -13,6 +13,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "created_by",
         as: "creator",
       });
+      DiagnosisFormConfig.belongsTo(models.DiagnosisTemplate, {
+        foreignKey: "source_template_id",
+        as: "sourceTemplate",
+      });
       DiagnosisFormConfig.hasMany(models.FormFieldGroup, {
         foreignKey: "diagnosis_config_id",
         as: "groups",
@@ -43,6 +47,7 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: true,
       },
+      source_template_id: { type: DataTypes.UUID, allowNull: true },
       created_by: { type: DataTypes.UUID, allowNull: true },
       updated_by: { type: DataTypes.UUID, allowNull: true },
     },
