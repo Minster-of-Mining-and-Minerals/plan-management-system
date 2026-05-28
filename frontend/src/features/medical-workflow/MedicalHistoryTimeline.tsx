@@ -75,14 +75,14 @@ function MedicalHistoryEntry({ entry, defaultOpen = false, compact }: EntryProps
             <button
               type="button"
               className={cn(
-                "flex w-full items-start gap-2 p-3 text-left transition-colors",
+                "flex w-full items-start gap-2 p-3 text-left transition-colors duration-300 ease-in-out",
                 theme.trigger,
                 open && theme.triggerOpen
               )}
             >
               <ChevronDown
                 className={cn(
-                  "mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+                  "mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-300 ease-in-out",
                   open && "rotate-180"
                 )}
               />
@@ -158,12 +158,11 @@ export function MedicalHistoryTimeline({
         aria-hidden
       />
       <ul className="space-y-3">
-        {entries.map((entry, index) => (
+        {entries.map((entry) => (
           <MedicalHistoryEntry
             key={entry.log_id}
             entry={entry}
             compact={compact}
-            defaultOpen={index === entries.length - 1}
           />
         ))}
       </ul>
