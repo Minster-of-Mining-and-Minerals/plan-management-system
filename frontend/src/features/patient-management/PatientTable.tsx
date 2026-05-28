@@ -8,7 +8,9 @@ import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Eye } from "lucide-react";
+import { Plus, Eye, CalendarClock } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
+import { hasAnyPermission } from "@/lib/permissions";
 import type { FilterField, ActionButton } from "@/types/tableLayout";
 import {
   useGetPatientsQuery,
@@ -32,6 +34,8 @@ export default function PatientTable({ sideActions }: PatientTableProps) {
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get("search") || "";
   const router = useRouter();
+  const { permissions } = usePermissions();
+  const canSchedule = hasAnyPermission(permissions, ["PATIENTS:SCHEDULE"]);
 
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
@@ -108,7 +112,20 @@ export default function PatientTable({ sideActions }: PatientTableProps) {
       id: "actions",
       header: "Actions",
       cell: ({ row }) => (
-        <div className="flex items-center">
+        <div className="flex items-center gap-0.5">
+          {canSchedule ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() =>
+                router.push(`/patients/list/${row.original.user_id}/schedule`)
+              }
+              aria-label="Schedule patient"
+              title="Schedule"
+            >
+              <CalendarClock className="h-4 w-4 text-primary" />
+            </Button>
+          ) : null}
           <Button
             variant="ghost"
             size="icon"

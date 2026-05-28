@@ -26,6 +26,7 @@ const dashboardRoutes = require("./routers/dashboardRoutes");
 const formFieldRoutes = require("./routers/formField/formFieldRoutes");
 const formFieldGroupRoutes = require("./routers/formField/formFieldGroupRoutes");
 const patientRoutes = require("./routers/patient/patientRoutes");
+const scheduleRoutes = require("./routers/schedule/scheduleRoutes");
 
 // System Branding Routes
 const brandingRoutes = require("./routers/system/brandingRoutes");
@@ -127,6 +128,7 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // User Management Routes
 app.use("/api/users", userRoute);
 app.use("/api/patients", patientRoutes);
+app.use("/api/schedules", scheduleRoutes);
 app.use("/api/form-fields", formFieldRoutes);
 app.use("/api/form-field-groups", formFieldGroupRoutes);
 app.use("/api/roles", roleRoute);

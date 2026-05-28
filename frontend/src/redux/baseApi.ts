@@ -37,6 +37,8 @@ export const baseApi = createApi({
     "Department",
     "UserTitle",
     "PatientSlipConfig",
+    "PatientSchedule",
+    "ScheduleConfig",
   ],
   endpoints: () => ({}),
 });
