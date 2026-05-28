@@ -13,6 +13,10 @@ const {
   addDaysToDate,
   parseTimeToMinutes,
 } = require("../utils/scheduleSlots");
+const {
+  userHasPermission,
+  listUsersWithPermission,
+} = require("./userPermissionService");
 
 const ACTIVE_STATUSES = ["scheduled", "pending", "admitted", "updated", "rescheduled", "completed"];
 
@@ -71,59 +75,12 @@ function getSlotsForDate(dateStr, settings) {
 }
 
 async function staffHasReceivePermission(staffId) {
-  const user = await db.User.findOne({
-    where: { user_id: staffId, account_type: "INTERNAL", is_active: true },
-    include: [
-      {
-        model: db.Role,
-        as: "roles",
-        through: { attributes: [] },
-        include: [
-          {
-            model: db.RolePermission,
-            as: "rolePermissions",
-            include: [
-              {
-                model: db.Permission,
-                as: "permission",
-                where: {
-                  resource: "patients",
-                  action: "receive_patient",
-                  is_active: true,
-                },
-                required: true,
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  });
-
-  if (!user) return false;
-  const hasRolePerm = (user.roles || []).some((r) =>
-    (r.rolePermissions || []).some((rp) => rp.permission)
-  );
-  if (hasRolePerm) return true;
-
-  const superAdmin = await db.User.findByPk(staffId, {
-    include: [
-      {
-        model: db.Role,
-        as: "roles",
-        where: { name: "Super Admin" },
-        required: false,
-      },
-    ],
-  });
-  return (superAdmin?.roles || []).length > 0;
+  return userHasPermission(staffId, "patients", "receive_patient");
 }
 
 async function getEligibleStaff() {
-  const users = await db.User.findAll({
-    where: { account_type: "INTERNAL", is_active: true },
-    attributes: ["user_id", "full_name", "email", "phone_number", "profile_image"],
-    include: [
+  return listUsersWithPermission("patients", "receive_patient", {
+    extraIncludes: [
       {
         model: db.InternalUserProfile,
         as: "internalProfile",
@@ -133,32 +90,7 @@ async function getEligibleStaff() {
           { model: db.UserTitle, as: "titleRef", attributes: ["name", "code"] },
         ],
       },
-      {
-        model: db.Role,
-        as: "roles",
-        through: { attributes: [] },
-        include: [
-          {
-            model: db.RolePermission,
-            as: "rolePermissions",
-            include: [{ model: db.Permission, as: "permission" }],
-          },
-        ],
-      },
     ],
-    order: [["full_name", "ASC"]],
-  });
-
-  return users.filter((u) => {
-    const plain = u.get({ plain: true });
-    if ((plain.roles || []).some((r) => r.name === "Super Admin")) return true;
-    return (plain.roles || []).some((r) =>
-      (r.rolePermissions || []).some(
-        (rp) =>
-          rp.permission?.resource === "patients" &&
-          rp.permission?.action === "receive_patient"
-      )
-    );
   });
 }
 

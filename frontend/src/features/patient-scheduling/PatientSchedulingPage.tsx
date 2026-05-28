@@ -245,7 +245,8 @@ export function PatientSchedulingPage({ patientId }: { patientId: string }) {
               </SelectContent>
             </Select>
             <p className="text-[10px] text-muted-foreground mt-2">
-              Only staff with <code className="text-primary">receive_patient</code> permission
+              Staff with <code className="text-primary">receive_patient</code> via role or
+              permission group
             </p>
           </div>
 

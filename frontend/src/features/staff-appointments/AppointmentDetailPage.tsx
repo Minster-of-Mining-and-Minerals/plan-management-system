@@ -13,6 +13,7 @@ import {
   APPOINTMENT_STATUS_LABELS,
   APPOINTMENT_STATUS_VARIANT,
 } from "./appointmentStatusStyles";
+import { AppointmentDiagnosisPanel } from "@/features/diagnosis-forms/AppointmentDiagnosisPanel";
 
 function InfoField({
   label,
@@ -185,6 +186,8 @@ export default function AppointmentDetailPage() {
           </Card>
         )}
       </div>
+
+      <AppointmentDiagnosisPanel appointmentId={appointmentId} />
 
       <Button variant="outline" onClick={() => router.push("/appointments")}>
         <ArrowLeft className="mr-2 h-4 w-4" />

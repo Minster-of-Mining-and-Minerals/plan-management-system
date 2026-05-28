@@ -73,10 +73,17 @@ module.exports = {
     await assignForRoles("departments", ADMIN_MODULE_ROLE_NAMES);
     await assignForRoles("user_titles", ADMIN_MODULE_ROLE_NAMES);
     await assignForRoles("form_field_groups", ADMIN_MODULE_ROLE_NAMES);
+    await assignForRoles("diagnosis_forms", ADMIN_MODULE_ROLE_NAMES);
   },
 
   async down(queryInterface, Sequelize) {
-    const resources = ["patients", "departments", "user_titles", "form_field_groups"];
+    const resources = [
+      "patients",
+      "departments",
+      "user_titles",
+      "form_field_groups",
+      "diagnosis_forms",
+    ];
     const [perms] = await queryInterface.sequelize.query(
       `SELECT permission_id FROM permissions WHERE resource IN (:resources)`,
       { replacements: { resources } }

@@ -35,16 +35,12 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       field_type: {
-        type: DataTypes.ENUM(
-          "input",
-          "textarea",
-          "select",
-          "file",
-          "checkbox",
-          "date",
-          "number"
-        ),
+        type: DataTypes.STRING(32),
         allowNull: false,
+      },
+      diagnosis_config_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
       },
       storage_type: {
         type: DataTypes.ENUM("core", "custom"),
@@ -86,7 +82,6 @@ module.exports = (sequelize, DataTypes) => {
         { fields: ["model_name"] },
         { fields: ["group_id"] },
         { fields: ["model_name", "category"] },
-        { unique: true, fields: ["model_name", "field_key"] },
       ],
     }
   );

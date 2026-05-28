@@ -11,6 +11,7 @@ import {
   Building2,
   BadgeCheck,
   CalendarCheck,
+  Stethoscope,
 } from "lucide-react";
 
 export type NavItem = {
@@ -126,6 +127,16 @@ export const NAVIGATION: NavItem[] = [
     url: "/appointments",
     icon: CalendarCheck,
     anyPermissions: ["PATIENTS:RECEIVE_PATIENT"],
+  },
+  {
+    title: "Diagnosis Forms",
+    url: "/diagnosis-forms",
+    icon: Stethoscope,
+    anyPermissions: [
+      "DIAGNOSIS_FORMS:READ",
+      "DIAGNOSIS_FORMS:CREATE",
+      "DIAGNOSIS_FORMS:UPDATE",
+    ],
   },
   {
     title: "Branding",

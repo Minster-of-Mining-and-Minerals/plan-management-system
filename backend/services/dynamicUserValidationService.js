@@ -185,6 +185,23 @@ function validateFieldValue(field, value) {
       return validateCheckboxField(value, config, label, required);
     case "file":
       return validateFileField(value, config, label, required);
+    case "radio":
+      return validateSelectField(value, config, label, required);
+    case "time":
+      if (String(value) && !/^\d{2}:\d{2}(:\d{2})?$/.test(String(value))) {
+        return [`${label} must be a valid time`];
+      }
+      return [];
+    case "switch":
+      if (
+        typeof value !== "boolean" &&
+        !["true", "false", "1", "0", "on", "off"].includes(String(value).toLowerCase())
+      ) {
+        return [`${label} must be true or false`];
+      }
+      return [];
+    case "richtext":
+      return validateInputField(value, config, label);
     default:
       return [];
   }
@@ -290,6 +307,7 @@ async function validateAndPickUserFields(body, { isUpdate = false } = {}) {
 
 module.exports = {
   validateAndPickUserFields,
+  validateFieldValue,
   parseStoredValue,
   serializeValueForStorage,
   getFormFieldsByModel,

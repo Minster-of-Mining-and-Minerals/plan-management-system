@@ -100,7 +100,11 @@ function assertFieldKeyForStorage(fieldKey, storageType) {
 }
 
 async function ensureUniqueFieldKey(modelName, fieldKey, excludeId = null) {
-  const where = { model_name: modelName, field_key: fieldKey };
+  const where = {
+    model_name: modelName,
+    field_key: fieldKey,
+    diagnosis_config_id: null,
+  };
   if (excludeId) {
     where.field_id = { [Op.ne]: excludeId };
   }
@@ -112,10 +116,36 @@ async function ensureUniqueFieldKey(modelName, fieldKey, excludeId = null) {
   }
 }
 
-async function getGroupForField(modelName, groupId) {
-  const group = await FormFieldGroup.findOne({
-    where: { group_id: groupId, model_name: modelName },
-  });
+async function ensureUniqueFieldKeyForConfig(
+  modelName,
+  fieldKey,
+  configId,
+  excludeId = null
+) {
+  const where = {
+    model_name: modelName,
+    field_key: fieldKey,
+    diagnosis_config_id: configId,
+  };
+  if (excludeId) {
+    where.field_id = { [Op.ne]: excludeId };
+  }
+  const existing = await FormField.findOne({ where });
+  if (existing) {
+    const err = new Error(`field_key "${fieldKey}" already exists in this diagnosis form`);
+    err.status = 400;
+    throw err;
+  }
+}
+
+async function getGroupForField(modelName, groupId, diagnosisConfigId = null) {
+  const where = { group_id: groupId, model_name: modelName };
+  if (diagnosisConfigId) {
+    where.diagnosis_config_id = diagnosisConfigId;
+  } else {
+    where.diagnosis_config_id = null;
+  }
+  const group = await FormFieldGroup.findOne({ where });
   if (!group) {
     const err = new Error("Invalid group_id for this model");
     err.status = 400;
@@ -165,6 +195,7 @@ module.exports = {
   buildGroupedFormResponse,
   assertFieldKeyForStorage,
   ensureUniqueFieldKey,
+  ensureUniqueFieldKeyForConfig,
   getGroupForField,
   reorderFormFields,
   syncGroupRequiredFromFields,

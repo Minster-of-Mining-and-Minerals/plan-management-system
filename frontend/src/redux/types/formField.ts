@@ -4,8 +4,12 @@ export type FormFieldType =
   | "select"
   | "file"
   | "checkbox"
+  | "radio"
   | "date"
-  | "number";
+  | "time"
+  | "number"
+  | "richtext"
+  | "switch";
 
 export type FormFieldStorageType = "core" | "custom";
 
@@ -16,6 +20,8 @@ export interface FormFieldConfig {
   min_length?: number;
   max_length?: number;
   pattern?: "email" | "text" | "phone";
+  placeholder?: string;
+  default_value?: string | number | boolean;
   allowed_types?: string[];
   max_size_mb?: number;
 }

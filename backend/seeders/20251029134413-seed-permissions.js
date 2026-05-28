@@ -64,6 +64,12 @@ module.exports = {
       { resource: "form_field_groups", action: "update" },
       { resource: "form_field_groups", action: "delete" },
 
+      // Diagnosis form configuration
+      { resource: "diagnosis_forms", action: "create" },
+      { resource: "diagnosis_forms", action: "read" },
+      { resource: "diagnosis_forms", action: "update" },
+      { resource: "diagnosis_forms", action: "delete" },
+
       // Departments
       { resource: "departments", action: "create" },
       { resource: "departments", action: "read" },

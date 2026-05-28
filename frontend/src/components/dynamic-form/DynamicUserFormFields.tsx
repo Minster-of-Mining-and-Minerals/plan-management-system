@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import type {
   FormField,
   DynamicFormValues,
@@ -85,6 +86,7 @@ function FieldGrid({
                       ? "tel"
                       : "text"
                 }
+                placeholder={config.placeholder}
                 value={String(values[field.field_key] ?? "")}
                 onChange={(e) => onChange(field.field_key, e.target.value)}
                 disabled={disabled}
@@ -113,6 +115,59 @@ function FieldGrid({
                 onChange={(e) => onChange(field.field_key, e.target.value)}
                 disabled={disabled}
                 className="h-12 border-section-accent"
+              />
+            )}
+
+            {field.field_type === "time" && (
+              <Input
+                type="time"
+                value={String(values[field.field_key] ?? "")}
+                onChange={(e) => onChange(field.field_key, e.target.value)}
+                disabled={disabled}
+                className="h-12 border-section-accent"
+              />
+            )}
+
+            {field.field_type === "switch" && (
+              <div className="flex items-center gap-3 pt-2">
+                <Switch
+                  checked={Boolean(values[field.field_key])}
+                  onCheckedChange={(v) => onChange(field.field_key, v)}
+                  disabled={disabled}
+                />
+                <span className="text-sm text-muted-foreground">
+                  {values[field.field_key] ? "Yes" : "No"}
+                </span>
+              </div>
+            )}
+
+            {field.field_type === "radio" && (
+              <div className="flex flex-col gap-2 border rounded-md p-3">
+                {(config.options || []).map((opt) => (
+                  <label
+                    key={opt}
+                    className="flex items-center gap-2 text-sm cursor-pointer"
+                  >
+                    <input
+                      type="radio"
+                      name={field.field_key}
+                      checked={String(values[field.field_key]) === opt}
+                      disabled={disabled}
+                      onChange={() => onChange(field.field_key, opt)}
+                    />
+                    {opt}
+                  </label>
+                ))}
+              </div>
+            )}
+
+            {field.field_type === "richtext" && (
+              <Textarea
+                value={String(values[field.field_key] ?? "")}
+                placeholder={config.placeholder}
+                onChange={(e) => onChange(field.field_key, e.target.value)}
+                disabled={disabled}
+                className="border-section-accent min-h-[140px]"
               />
             )}
 

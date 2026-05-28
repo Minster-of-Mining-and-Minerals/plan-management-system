@@ -154,6 +154,19 @@ function validateSingleField(
         fieldErrors = ["Invalid date"];
       }
       break;
+    case "time":
+      if (!/^\d{2}:\d{2}(:\d{2})?$/.test(String(value))) {
+        fieldErrors = ["Invalid time"];
+      }
+      break;
+    case "radio":
+      fieldErrors = validateSelect(value, field);
+      break;
+    case "switch":
+      break;
+    case "richtext":
+      fieldErrors = validateInput(value, field);
+      break;
   }
 
   return fieldErrors.length ? fieldErrors[0] : null;
