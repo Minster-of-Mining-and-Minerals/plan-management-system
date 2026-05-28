@@ -8,6 +8,9 @@ import { useSession } from "next-auth/react";
 import { performLogout } from "@/utils/logout";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import { useAuth } from "@/hooks/use-auth";
+import { hasAnyPermission } from "@/lib/permissions";
+import { useGetUnreadNotificationCountQuery } from "@/redux/api/notificationApi";
+import { useInternalNotificationAlerts } from "@/hooks/useInternalNotificationAlerts";
 
 export default function PrivateLayout({
   children,
@@ -18,8 +21,20 @@ export default function PrivateLayout({
   const router = useRouter();
   const { data: session, status } = useSession();
   const { permissions, isLoaded } = useAuth();
-
   const isFirstLogin = session?.user?.is_first_logged_in;
+  const canReceivePatients = hasAnyPermission(permissions, [
+    "PATIENTS:RECEIVE_PATIENT",
+  ]);
+
+  const { data: unreadCount = 0 } = useGetUnreadNotificationCountQuery(
+    undefined,
+    {
+      skip: !isLoaded || !canReceivePatients,
+      pollingInterval: canReceivePatients ? 30_000 : 0,
+    }
+  );
+
+  useInternalNotificationAlerts(isLoaded && !isFirstLogin);
   const showSidebar = isLoaded && permissions.length > 0;
   const isChangePasswordPage = pathname.includes("/change-password");
 
@@ -63,7 +78,14 @@ export default function PrivateLayout({
     <SidebarProvider>
       {!isFirstLogin && showSidebar && <AppSidebar />}
       <SidebarInset>
-        <Header title={title || "Profile"} showSidebar={showSidebar} />
+        <Header
+          title={title || "Profile"}
+          showSidebar={showSidebar}
+          notificationsHref={
+            canReceivePatients ? "/notifications" : undefined
+          }
+          notificationCount={canReceivePatients ? unreadCount : 0}
+        />
         <div className="p-6">{children}</div>
       </SidebarInset>
     </SidebarProvider>

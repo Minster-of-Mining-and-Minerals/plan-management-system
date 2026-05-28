@@ -17,6 +17,11 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "created_by",
         as: "creator",
       });
+
+      PatientSchedule.hasOne(models.StaffAppointment, {
+        foreignKey: "schedule_id",
+        as: "staffAppointment",
+      });
     }
   }
 

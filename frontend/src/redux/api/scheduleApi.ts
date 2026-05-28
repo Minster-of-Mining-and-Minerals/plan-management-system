@@ -122,7 +122,7 @@ export const scheduleApi = baseApi.injectEndpoints({
         body,
       }),
       transformResponse: (r: { data: PatientSchedule }) => r.data,
-      invalidatesTags: ["PatientSchedule"],
+      invalidatesTags: ["PatientSchedule", "StaffAppointment", "Notification"],
     }),
 
     shiftSchedules: builder.mutation<

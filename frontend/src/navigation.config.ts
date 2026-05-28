@@ -10,6 +10,7 @@ import {
   ClipboardList,
   Building2,
   BadgeCheck,
+  CalendarCheck,
 } from "lucide-react";
 
 export type NavItem = {
@@ -119,6 +120,12 @@ export const NAVIGATION: NavItem[] = [
         anyPermissions: ["PATIENTS:UPDATE", "PATIENTS:READ"],
       },
     ],
+  },
+  {
+    title: "Appointments",
+    url: "/appointments",
+    icon: CalendarCheck,
+    anyPermissions: ["PATIENTS:RECEIVE_PATIENT"],
   },
   {
     title: "Branding",

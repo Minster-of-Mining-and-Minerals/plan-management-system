@@ -27,6 +27,8 @@ const formFieldRoutes = require("./routers/formField/formFieldRoutes");
 const formFieldGroupRoutes = require("./routers/formField/formFieldGroupRoutes");
 const patientRoutes = require("./routers/patient/patientRoutes");
 const scheduleRoutes = require("./routers/schedule/scheduleRoutes");
+const appointmentRoutes = require("./routers/appointment/appointmentRoutes");
+const notificationRoutes = require("./routers/notification/notificationRoutes");
 
 // System Branding Routes
 const brandingRoutes = require("./routers/system/brandingRoutes");
@@ -129,6 +131,8 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use("/api/users", userRoute);
 app.use("/api/patients", patientRoutes);
 app.use("/api/schedules", scheduleRoutes);
+app.use("/api/appointments", appointmentRoutes);
+app.use("/api/notifications", notificationRoutes);
 app.use("/api/form-fields", formFieldRoutes);
 app.use("/api/form-field-groups", formFieldGroupRoutes);
 app.use("/api/roles", roleRoute);

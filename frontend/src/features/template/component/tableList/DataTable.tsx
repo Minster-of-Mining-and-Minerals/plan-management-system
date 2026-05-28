@@ -40,6 +40,7 @@ interface DataTableProps<TData, TValue> {
 	tablePageSize: number;
 	currentIndex: number;
 	isLoading?: boolean;
+	onRowClick?: (row: TData) => void;
 }
 
 export function DataTable<TData, TValue>({
@@ -50,6 +51,7 @@ export function DataTable<TData, TValue>({
 	tablePageSize,
 	currentIndex,
 	isLoading = false,
+	onRowClick,
 }: DataTableProps<TData, TValue>) {
 	const table = useReactTable({
 		data,
@@ -116,7 +118,13 @@ export function DataTable<TData, TValue>({
 							<TableRow
 								key={row.id}
 								data-state={row.getIsSelected() ? "selected" : undefined}
+								onClick={
+									onRowClick
+										? () => onRowClick(row.original)
+										: undefined
+								}
 								className={`
+                                           ${onRowClick ? "cursor-pointer hover:bg-muted/40" : ""}
                                            bg-white shadow-sm transition-shadow duration-200
                                             even:bg-table-stripe
                                             ${i === 0

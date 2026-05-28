@@ -318,6 +318,8 @@ async function updateSchedule(scheduleId, payload, actorId) {
     throw err;
   }
 
+  const previousStatus = row.status;
+
   const schedule_date = payload.schedule_date ?? row.schedule_date;
   const start_time = payload.start_time ?? row.start_time;
   const assigned_staff_id = payload.assigned_staff_id ?? row.assigned_staff_id;
@@ -387,7 +389,8 @@ async function updateSchedule(scheduleId, payload, actorId) {
     );
 
     await t.commit();
-    return db.PatientSchedule.findByPk(scheduleId, {
+
+    const updated = await db.PatientSchedule.findByPk(scheduleId, {
       include: [
         {
           model: db.User,
@@ -404,6 +407,20 @@ async function updateSchedule(scheduleId, payload, actorId) {
         { model: db.User, as: "staff", attributes: ["user_id", "full_name"] },
       ],
     });
+
+    if (status === "admitted" && previousStatus !== "admitted") {
+      const appointmentService = require("./appointmentService");
+      await appointmentService.syncFromScheduleAdmission(updated, actorId);
+    } else if (previousStatus === "admitted" || status !== previousStatus) {
+      const appointmentService = require("./appointmentService");
+      await appointmentService.syncFromScheduleStatusChange(
+        previousStatus,
+        updated,
+        actorId
+      );
+    }
+
+    return updated;
   } catch (e) {
     if (!t.finished) await t.rollback();
     throw e;
