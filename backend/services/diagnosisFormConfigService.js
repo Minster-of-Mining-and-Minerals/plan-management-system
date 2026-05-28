@@ -483,6 +483,7 @@ module.exports = {
   createConfigForStaff,
   updateConfigMeta,
   deleteConfig,
+  getGroupsByConfig,
   getGroupedFormConfigForConfig,
   getConfigForStaff,
   assignTemplateToStaff,

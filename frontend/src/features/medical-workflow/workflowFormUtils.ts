@@ -1,6 +1,7 @@
 import type { DiagnosisFormConfig } from "@/redux/api/diagnosisFormApi";
 import type { DynamicFormValues, UserFormConfigGrouped } from "@/redux/types/formField";
 import { flattenFormFields } from "@/redux/types/formField";
+import { isAttachmentUuid } from "./workflowAttachmentUtils";
 
 const TITLE_KEYS = [
   "header_title",
@@ -20,8 +21,7 @@ export function deriveHeaderTitle(
     const v = values[key];
     if (typeof v === "string" && v.trim()) return v.trim();
   }
-  if (formConfig?.title?.trim()) return formConfig.title.trim();
-  return "Diagnosis report";
+  return "Workflow entry";
 }
 
 export function deriveNotes(values: DynamicFormValues): string | undefined {
@@ -50,5 +50,5 @@ export function extractAttachmentIds(
     }
   }
 
-  return [...new Set(ids)];
+  return [...new Set(ids)].filter(isAttachmentUuid);
 }

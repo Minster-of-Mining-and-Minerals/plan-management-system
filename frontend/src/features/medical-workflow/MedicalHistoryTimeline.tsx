@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Paperclip, ArrowRight, ChevronDown } from "lucide-react";
+import { ArrowRight, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Collapsible,
@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import type { MedicalHistoryLog } from "@/redux/api/medicalWorkflowApi";
+import { MedicalHistoryEntryContent } from "./MedicalHistoryEntryContent";
+import { getReportTheme } from "./reportTheme";
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleString("en-US", {
@@ -20,21 +22,6 @@ function formatTime(iso: string) {
   });
 }
 
-function statusVariant(status: string) {
-  switch (status) {
-    case "forwarded":
-      return "default" as const;
-    case "returned":
-      return "secondary" as const;
-    case "prescribed":
-      return "outline" as const;
-    case "completed":
-      return "destructive" as const;
-    default:
-      return "secondary" as const;
-  }
-}
-
 function RoutePill({ entry }: { entry: MedicalHistoryLog }) {
   const from = entry.sender?.full_name || "Staff";
   const to = entry.receiver?.full_name;
@@ -43,7 +30,7 @@ function RoutePill({ entry }: { entry: MedicalHistoryLog }) {
 
   if (isRoute) {
     return (
-      <div className="mt-2 flex flex-wrap items-center gap-1 rounded border border-purple-100 bg-purple-50 px-2 py-1 text-[11px] text-purple-800 dark:border-purple-900 dark:bg-purple-950/40 dark:text-purple-200">
+      <div className="mt-2 flex flex-wrap items-center gap-1 rounded-md border border-purple-100 bg-purple-50 px-2 py-1 text-[11px] text-purple-800 dark:border-purple-900 dark:bg-purple-950/40 dark:text-purple-200">
         <span className="font-medium">{from}</span>
         <ArrowRight className="h-3 w-3 shrink-0" />
         <span className="font-medium">{to}</span>
@@ -69,20 +56,29 @@ type EntryProps = {
 
 function MedicalHistoryEntry({ entry, defaultOpen = false, compact }: EntryProps) {
   const [open, setOpen] = useState(defaultOpen);
-  const hasAttachments = (entry.attachment_ids?.length ?? 0) > 0;
+  const theme = getReportTheme(entry);
 
   return (
     <li className="relative pl-8">
-      <span className="absolute left-0 top-3 flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-primary bg-background">
-        <span className="h-2 w-2 rounded-full bg-primary" />
+      <span
+        className={cn(
+          "absolute left-0 top-3 flex h-[22px] w-[22px] items-center justify-center rounded-full border-2",
+          theme.timelineDot
+        )}
+      >
+        <span className={cn("h-2 w-2 rounded-full", theme.innerDot)} />
       </span>
 
       <Collapsible open={open} onOpenChange={setOpen}>
-        <div className="rounded-lg border bg-card shadow-sm">
+        <div className={cn("overflow-hidden rounded-xl border", theme.card)}>
           <CollapsibleTrigger asChild>
             <button
               type="button"
-              className="flex w-full items-start gap-2 rounded-lg p-3 text-left transition-colors hover:bg-muted/40"
+              className={cn(
+                "flex w-full items-start gap-2 p-3 text-left transition-colors",
+                theme.trigger,
+                open && theme.triggerOpen
+              )}
             >
               <ChevronDown
                 className={cn(
@@ -101,8 +97,8 @@ function MedicalHistoryEntry({ entry, defaultOpen = false, compact }: EntryProps
                     </p>
                   </div>
                   <Badge
-                    variant={statusVariant(entry.status)}
-                    className="shrink-0 capitalize"
+                    variant="outline"
+                    className={cn("shrink-0 border capitalize", theme.statusBadge)}
                   >
                     {entry.status}
                   </Badge>
@@ -113,32 +109,7 @@ function MedicalHistoryEntry({ entry, defaultOpen = false, compact }: EntryProps
           </CollapsibleTrigger>
 
           <CollapsibleContent>
-            <div className="space-y-2 border-t px-3 pb-3 pt-2 text-sm">
-              {!compact && entry.notes && (
-                <p className="text-muted-foreground">{entry.notes}</p>
-              )}
-              {!compact && hasAttachments && (
-                <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Paperclip className="h-3.5 w-3.5" />
-                  {entry.attachment_ids.length} attachment
-                  {entry.attachment_ids.length !== 1 ? "s" : ""}
-                </p>
-              )}
-              {!compact &&
-                entry.form_data &&
-                Object.keys(entry.form_data).length > 0 && (
-                  <div className="rounded-md bg-muted/50 p-2 text-xs">
-                    <p className="mb-1 font-medium text-foreground">
-                      Diagnosis / form data
-                    </p>
-                    <p className="text-muted-foreground">
-                      {Object.keys(entry.form_data).length} field
-                      {Object.keys(entry.form_data).length !== 1 ? "s" : ""}{" "}
-                      recorded
-                    </p>
-                  </div>
-                )}
-            </div>
+            <MedicalHistoryEntryContent entry={entry} compact={compact} />
           </CollapsibleContent>
         </div>
       </Collapsible>

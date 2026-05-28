@@ -60,6 +60,8 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
   const [submitEntry, { isLoading: submitting }] =
     useSubmitWorkflowEntryMutation();
 
+  const [entryTitle, setEntryTitle] = useState("");
+  const [entryTitleError, setEntryTitleError] = useState("");
   const [values, setValues] = useState<DynamicFormValues>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showWorkflowForm, setShowWorkflowForm] = useState(false);
@@ -71,8 +73,22 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
   const patientName = data?.appointment?.patient?.full_name;
 
   const resetForm = () => {
+    setEntryTitle("");
+    setEntryTitleError("");
     setValues(buildDefaultValues(grouped));
     setErrors({});
+  };
+
+  const validateEntryTitle = () => {
+    if (!entryTitle.trim()) {
+      setEntryTitleError("Report title is required");
+      toast.error(
+        "Enter a title for this report (e.g. Lab Report, Dr. Sadin Diagnosis)"
+      );
+      return false;
+    }
+    setEntryTitleError("");
+    return true;
   };
 
   const closePanels = () => setGlobalPanel(null);
@@ -137,6 +153,7 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
     const formValues = useForm ? values : {};
     const header_title =
       options?.headerTitle ??
+      (useForm && entryTitle.trim() ? entryTitle.trim() : null) ??
       deriveHeaderTitle(formValues, data?.formConfig ?? null);
     const attachment_ids = extractAttachmentIds(formValues, grouped);
     const baseNotes = deriveNotes(formValues);
@@ -177,8 +194,13 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
   };
 
   const handleSaveWorkflow = () => {
+    if (!validateEntryTitle()) return;
     if (!validateDynamic(false)) return;
-    runAction("submit", { partial: true, useFormValues: true });
+    runAction("submit", {
+      partial: true,
+      useFormValues: true,
+      headerTitle: entryTitle.trim(),
+    });
   };
 
   const handleGlobalComplete = () => {
@@ -247,10 +269,16 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
             <WorkflowFormCard
               formConfig={data.formConfig}
               grouped={grouped}
+              entryTitle={entryTitle}
+              entryTitleError={entryTitleError}
               values={values}
               errors={errors}
               disabled={submitting}
               saving={submitting}
+              onEntryTitleChange={(v) => {
+                setEntryTitle(v);
+                if (entryTitleError) setEntryTitleError("");
+              }}
               onChange={handleChange}
               onSave={handleSaveWorkflow}
               onCancel={() => {

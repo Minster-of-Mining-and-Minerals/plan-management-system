@@ -383,7 +383,26 @@ async function listTimeline({ appointmentId, patientId, staffId }) {
     order: [["created_at", "ASC"]],
   });
 
-  return rows.map((r) => r.get({ plain: true }));
+  const plain = rows.map((r) => r.get({ plain: true }));
+  const configIds = [
+    ...new Set(plain.map((log) => log.form_config_id).filter(Boolean)),
+  ];
+  const schemaByConfigId = {};
+  await Promise.all(
+    configIds.map(async (configId) => {
+      schemaByConfigId[configId] =
+        await diagnosisFormConfigService.getGroupedFormConfigForConfig(configId, {
+          visibleOnly: false,
+        });
+    })
+  );
+
+  return plain.map((log) => ({
+    ...log,
+    formSchema: log.form_config_id
+      ? schemaByConfigId[log.form_config_id] ?? null
+      : null,
+  }));
 }
 
 async function getWorkflowContext(appointmentId, staffId) {

@@ -41,6 +41,7 @@ export type MedicalHistoryLog = {
     };
   };
   formConfig?: { config_id: string; title: string };
+  formSchema?: UserFormConfigGrouped | null;
   appointment?: { appointment_id: string; workflow_status: string };
 };
 
