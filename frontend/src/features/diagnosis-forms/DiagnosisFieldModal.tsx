@@ -81,6 +81,8 @@ export function DiagnosisFieldModal({
   const [isVisible, setIsVisible] = useState(true);
   const [optionsText, setOptionsText] = useState("");
   const [placeholder, setPlaceholder] = useState("");
+  const [fileMultiple, setFileMultiple] = useState(false);
+  const [allowedTypesText, setAllowedTypesText] = useState("");
 
   useEffect(() => {
     if (field) {
@@ -92,6 +94,8 @@ export function DiagnosisFieldModal({
       setIsVisible(field.is_visible);
       setOptionsText((field.config?.options || []).join("\n"));
       setPlaceholder(field.config?.placeholder || "");
+      setFileMultiple(Boolean(field.config?.multiple));
+      setAllowedTypesText((field.config?.allowed_types || []).join(", "));
     } else {
       setGroupId(groups[0]?.group_id || "");
       setFieldKey("");
@@ -101,6 +105,8 @@ export function DiagnosisFieldModal({
       setIsVisible(true);
       setOptionsText("");
       setPlaceholder("");
+      setFileMultiple(false);
+      setAllowedTypesText("");
     }
   }, [field, open, groups]);
 
@@ -117,6 +123,14 @@ export function DiagnosisFieldModal({
     }
     if (fieldType === "select") {
       config.multiple = false;
+    }
+    if (fieldType === "file") {
+      config.multiple = fileMultiple;
+      const types = allowedTypesText
+        .split(",")
+        .map((s) => s.trim().replace(/^\./, ""))
+        .filter(Boolean);
+      if (types.length) config.allowed_types = types;
     }
 
     const body = {
@@ -224,6 +238,30 @@ export function DiagnosisFieldModal({
               <Label>Options (one per line)</Label>
               <Textarea value={optionsText} onChange={(e) => setOptionsText(e.target.value)} />
             </div>
+          )}
+          {fieldType === "file" && (
+            <>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Allow multiple files</Label>
+                  <p className="text-xs text-muted-foreground">
+                    When enabled, users can upload more than one file in this field.
+                  </p>
+                </div>
+                <Switch checked={fileMultiple} onCheckedChange={setFileMultiple} />
+              </div>
+              <div className="space-y-2">
+                <Label>Allowed file types</Label>
+                <Input
+                  value={allowedTypesText}
+                  onChange={(e) => setAllowedTypesText(e.target.value)}
+                  placeholder="jpg, png, pdf"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Comma-separated extensions (without dots).
+                </p>
+              </div>
+            </>
           )}
           <div className="flex items-center justify-between">
             <Label>Required</Label>

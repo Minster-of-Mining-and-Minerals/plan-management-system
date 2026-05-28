@@ -68,6 +68,8 @@ export function FormFieldFormModal({
   const [isRequired, setIsRequired] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   const [optionsText, setOptionsText] = useState("");
+  const [fileMultiple, setFileMultiple] = useState(false);
+  const [allowedTypesText, setAllowedTypesText] = useState("");
   const [configJson, setConfigJson] = useState("{}");
 
   useEffect(() => {
@@ -80,7 +82,10 @@ export function FormFieldFormModal({
       setIsVisible(field.is_visible);
       const cfg = field.config || {};
       setOptionsText((cfg.options || []).join("\n"));
-      setConfigJson(JSON.stringify(cfg, null, 2));
+      setFileMultiple(Boolean(cfg.multiple));
+      setAllowedTypesText((cfg.allowed_types || []).join(", "));
+      const { multiple: _m, allowed_types: _a, ...restCfg } = cfg;
+      setConfigJson(JSON.stringify(restCfg, null, 2));
     } else {
       setFieldKey("");
       setGroupId(customGroups[0]?.group_id || "");
@@ -89,6 +94,8 @@ export function FormFieldFormModal({
       setIsRequired(false);
       setIsVisible(true);
       setOptionsText("");
+      setFileMultiple(false);
+      setAllowedTypesText("");
       setConfigJson("{}");
     }
   }, [field, isOpen]);
@@ -105,6 +112,15 @@ export function FormFieldFormModal({
         .split("\n")
         .map((s) => s.trim())
         .filter(Boolean);
+    }
+    if (fieldType === "file") {
+      config.multiple = fileMultiple;
+      const types = allowedTypesText
+        .split(",")
+        .map((s) => s.trim().replace(/^\./, ""))
+        .filter(Boolean);
+      if (types.length) config.allowed_types = types;
+      else delete config.allowed_types;
     }
     return config;
   };
@@ -251,6 +267,31 @@ export function FormFieldFormModal({
                 onChange={(e) => setOptionsText(e.target.value)}
               />
             </div>
+          )}
+
+          {fieldType === "file" && (
+            <>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Allow multiple files</Label>
+                  <p className="text-xs text-muted-foreground">
+                    When enabled, users can upload more than one file in this field.
+                  </p>
+                </div>
+                <Switch checked={fileMultiple} onCheckedChange={setFileMultiple} />
+              </div>
+              <div className="space-y-2">
+                <Label>Allowed file types</Label>
+                <Input
+                  value={allowedTypesText}
+                  onChange={(e) => setAllowedTypesText(e.target.value)}
+                  placeholder="jpg, png, pdf"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Comma-separated extensions (without dots).
+                </p>
+              </div>
+            </>
           )}
 
           <div className="space-y-2">

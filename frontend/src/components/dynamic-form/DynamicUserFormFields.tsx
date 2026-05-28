@@ -257,23 +257,49 @@ function FieldGrid({
               </div>
             )}
 
-            {field.field_type === "file" && (
-              <FileUploadField
-                id={`file-${field.field_id}`}
-                label={field.label}
-                value={String(values[field.field_key] ?? "")}
-                onChange={(v) => onChange(field.field_key, String(v ?? ""))}
-                accept={(config.allowed_types || [])
-                  .map((t) => `.${String(t).replace(/^\./, "")}`)
-                  .join(",")}
-                required={field.is_required}
-                multiple={false}
-                showPreview={false}
-                hideLabel
-                compact
-                valueFormat="fileUrls"
-              />
-            )}
+            {field.field_type === "file" && (() => {
+              const allowMultiple = Boolean(config.multiple);
+              const raw = values[field.field_key];
+              const fileValue = Array.isArray(raw)
+                ? raw.map(String)
+                : raw
+                  ? allowMultiple
+                    ? [String(raw)]
+                    : String(raw)
+                  : allowMultiple
+                    ? []
+                    : "";
+
+              return (
+                <FileUploadField
+                  id={`file-${field.field_id}`}
+                  label={field.label}
+                  value={fileValue}
+                  onChange={(v) => {
+                    if (allowMultiple) {
+                      onChange(
+                        field.field_key,
+                        Array.isArray(v) ? v : v ? [String(v)] : []
+                      );
+                      return;
+                    }
+                    onChange(
+                      field.field_key,
+                      Array.isArray(v) ? v[0] || "" : String(v ?? "")
+                    );
+                  }}
+                  accept={(config.allowed_types || [])
+                    .map((t) => `.${String(t).replace(/^\./, "")}`)
+                    .join(",") || "image/*,.pdf"}
+                  required={field.is_required}
+                  multiple={allowMultiple}
+                  showPreview
+                  hideLabel
+                  compact
+                  valueFormat="fileUrls"
+                />
+              );
+            })()}
 
             {error && <p className="text-xs text-red-500">{error}</p>}
           </div>

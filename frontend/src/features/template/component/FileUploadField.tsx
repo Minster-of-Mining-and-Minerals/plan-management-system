@@ -224,12 +224,14 @@ export const FileUploadField: React.FC<FileUploadFieldProps> = ({
         )}
       </div>
 
-      {files.length > 0 && showPreview && !compact && (
-        <div className="grid grid-cols-1 gap-2 mt-2">
+      {files.length > 0 && showPreview && (
+        <div className={`grid grid-cols-1 gap-2 mt-2 ${compact ? "max-h-40 overflow-y-auto" : ""}`}>
           {files.map((file) => (
             <div
               key={file.attachment_id}
-              className="flex items-center justify-between border border-gray-200 rounded-md p-2 bg-gray-50"
+              className={`flex items-center justify-between border border-gray-200 rounded-md bg-gray-50 ${
+                compact ? "p-1.5" : "p-2"
+              }`}
             >
               <div className="flex items-center gap-2">
                 {file.previewUrl && getFileType(file.file_name) === "image" && (
