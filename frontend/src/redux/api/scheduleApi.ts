@@ -133,6 +133,14 @@ export const scheduleApi = baseApi.injectEndpoints({
         to_date?: string;
         shift_minutes?: number;
         shift_days?: number;
+        anchor_date?: string;
+        anchor_time?: string;
+        end_date?: string;
+        end_time?: string;
+        range_mode?:
+          | "from_start_to_end"
+          | "from_start_to_column"
+          | "column_to_column";
       }
     >({
       query: (body) => ({

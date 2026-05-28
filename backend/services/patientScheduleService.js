@@ -8,17 +8,30 @@ const {
   generateSlotsForDay,
   getEndTimeFromStart,
   timesOverlap,
-  addMinutesToTime,
   formatDateOnly,
   addDaysToDate,
-  parseTimeToMinutes,
 } = require("../utils/scheduleSlots");
+const {
+  computeShiftedDateTime,
+  rowMatchesShiftRange,
+} = require("../utils/scheduleShift");
 const {
   userHasPermission,
   listUsersWithPermission,
 } = require("./userPermissionService");
 
 const ACTIVE_STATUSES = ["scheduled", "pending", "admitted", "updated", "rescheduled", "completed"];
+
+function assertAdmissionDateIsToday(scheduleDate) {
+  const today = formatDateOnly(new Date());
+  if (scheduleDate !== today) {
+    const err = new Error(
+      "Patients can only be admitted on the day of their appointment (today)"
+    );
+    err.status = 400;
+    throw err;
+  }
+}
 
 async function getSettings() {
   let row = await db.ScheduleSetting.findOne({ order: [["created_at", "ASC"]] });
@@ -168,6 +181,10 @@ async function createSchedule(payload, actorId) {
     throw err;
   }
 
+  if (status === "admitted") {
+    assertAdmissionDateIsToday(schedule_date);
+  }
+
   if (!isDateInHorizon(schedule_date, settings)) {
     const err = new Error("Schedule date is outside allowed range");
     err.status = 400;
@@ -263,9 +280,56 @@ async function updateSchedule(scheduleId, payload, actorId) {
     throw err;
   }
 
+  if (status === "admitted" && previousStatus !== "admitted") {
+    assertAdmissionDateIsToday(schedule_date);
+  }
+
+  if (status === "cancelled") {
+    if (row.status !== "scheduled") {
+      const err = new Error(
+        "Only scheduled appointments can be cancelled"
+      );
+      err.status = 400;
+      throw err;
+    }
+    const today = formatDateOnly(new Date());
+    if (schedule_date < today) {
+      const err = new Error("Cannot cancel appointments in the past");
+      err.status = 400;
+      throw err;
+    }
+  }
+
+  const dateTimeChanged =
+    schedule_date !== row.schedule_date || start_time !== row.start_time;
+
+  if (dateTimeChanged) {
+    if (["admitted", "cancelled"].includes(row.status)) {
+      const err = new Error(
+        "Admitted or cancelled appointments cannot be rescheduled"
+      );
+      err.status = 400;
+      throw err;
+    }
+    const today = formatDateOnly(new Date());
+    if (schedule_date < today) {
+      const err = new Error("Cannot reschedule to a past date");
+      err.status = 400;
+      throw err;
+    }
+  }
+
+  let resolvedStatus = status;
+  if (
+    dateTimeChanged &&
+    ["scheduled", "pending", "updated", "rescheduled"].includes(row.status)
+  ) {
+    resolvedStatus = "rescheduled";
+  }
+
   const end_time = getEndTimeFromStart(start_time, settings.slot_interval_minutes);
 
-  if (status !== "cancelled") {
+  if (resolvedStatus !== "cancelled") {
     if (!isDateInHorizon(schedule_date, settings)) {
       const err = new Error("Schedule date is outside allowed range");
       err.status = 400;
@@ -286,7 +350,7 @@ async function updateSchedule(scheduleId, payload, actorId) {
 
   const t = await db.sequelize.transaction();
   try {
-    if (status !== "cancelled") {
+    if (resolvedStatus !== "cancelled") {
       const overlaps = await findOverlapping(
         assigned_staff_id,
         schedule_date,
@@ -309,7 +373,7 @@ async function updateSchedule(scheduleId, payload, actorId) {
         schedule_date,
         start_time,
         end_time,
-        status,
+        status: resolvedStatus,
         appointment_type:
           payload.appointment_type !== undefined
             ? payload.appointment_type
@@ -340,10 +404,10 @@ async function updateSchedule(scheduleId, payload, actorId) {
       ],
     });
 
-    if (status === "admitted" && previousStatus !== "admitted") {
+    if (resolvedStatus === "admitted" && previousStatus !== "admitted") {
       const appointmentService = require("./appointmentService");
       await appointmentService.syncFromScheduleAdmission(updated, actorId);
-    } else if (previousStatus === "admitted" || status !== previousStatus) {
+    } else if (previousStatus === "admitted" || resolvedStatus !== previousStatus) {
       const appointmentService = require("./appointmentService");
       await appointmentService.syncFromScheduleStatusChange(
         previousStatus,
@@ -365,8 +429,44 @@ async function shiftSchedules({
   to_date,
   shift_minutes = 0,
   shift_days = 0,
+  anchor_date,
+  anchor_time,
+  end_date,
+  end_time,
+  range_mode = "from_start_to_end",
 }) {
+  if (!shift_minutes && !shift_days) {
+    const err = new Error("Specify shift_minutes and/or shift_days");
+    err.status = 400;
+    throw err;
+  }
+
   const settings = await getSettings();
+  if (!settings) {
+    const err = new Error("Schedule settings are not configured");
+    err.status = 500;
+    throw err;
+  }
+
+  const normalizedMinutes =
+    shift_minutes != null && shift_minutes !== 0
+      ? Math.round(Number(shift_minutes) / 5) * 5
+      : 0;
+
+  if (shift_minutes && normalizedMinutes === 0) {
+    const err = new Error(
+      "Time shift must be a non-zero multiple of 5 minutes (e.g. 5, 10, -15)"
+    );
+    err.status = 400;
+    throw err;
+  }
+
+  const shiftHelpers = {
+    getSlotsForDate: (dateStr) => getSlotsForDate(dateStr, settings),
+    isDateInHorizon: (dateStr) => isDateInHorizon(dateStr, settings),
+    isDayActive: (dateStr) => isDayActive(dateStr, settings),
+  };
+
   const where = {
     assigned_staff_id,
     status: { [Op.in]: ACTIVE_STATUSES.filter((s) => s !== "cancelled") },
@@ -390,34 +490,28 @@ async function shiftSchedules({
 
   try {
     for (const row of rows) {
-      let newDate = row.schedule_date;
-      let newStart = row.start_time;
+      if (
+        !rowMatchesShiftRange(row, {
+          anchor_date,
+          anchor_time,
+          end_date,
+          end_time,
+          range_mode,
+        })
+      ) {
+        continue;
+      }
 
-      if (shift_days) {
-        newDate = addDaysToDate(row.schedule_date, shift_days);
-      }
-      if (shift_minutes) {
-        newStart = addMinutesToTime(row.start_time, shift_minutes);
-      }
+      const { date: newDate, time: newStart } = computeShiftedDateTime(
+        row.schedule_date,
+        row.start_time,
+        normalizedMinutes,
+        shift_days,
+        settings,
+        shiftHelpers
+      );
 
       const newEnd = getEndTimeFromStart(newStart, settings.slot_interval_minutes);
-
-      if (!isDateInHorizon(newDate, settings) || !isDayActive(newDate, settings)) {
-        const err = new Error(
-          `Shift would place appointment on invalid date: ${newDate}`
-        );
-        err.status = 400;
-        throw err;
-      }
-
-      const slots = getSlotsForDate(newDate, settings);
-      if (!slots.includes(newStart)) {
-        const err = new Error(
-          `No valid slot at ${newDate} ${newStart} after shift`
-        );
-        err.status = 409;
-        throw err;
-      }
 
       const overlaps = await findOverlapping(
         assigned_staff_id,

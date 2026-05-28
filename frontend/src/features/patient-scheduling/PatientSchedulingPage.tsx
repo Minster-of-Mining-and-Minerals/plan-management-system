@@ -48,6 +48,11 @@ import {
   SCHEDULE_STATUS_LABELS,
   SCHEDULE_STATUS_STYLES,
 } from "./scheduleStatus";
+import {
+  canCancelSchedule,
+  type ShiftAnchor,
+  type ShiftRangeMode,
+} from "./scheduleDragUtils";
 
 function formatToday() {
   return new Date().toISOString().slice(0, 10);
@@ -68,6 +73,11 @@ export function PatientSchedulingPage({ patientId }: { patientId: string }) {
   const [configOpen, setConfigOpen] = useState(false);
   const [shiftMinutes, setShiftMinutes] = useState(5);
   const [shiftDays, setShiftDays] = useState(0);
+  const [shiftRangeMode, setShiftRangeMode] =
+    useState<ShiftRangeMode>("from_start_to_end");
+  const [shiftStart, setShiftStart] = useState<ShiftAnchor | null>(null);
+  const [shiftEnd, setShiftEnd] = useState<ShiftAnchor | null>(null);
+  const [shiftPickStep, setShiftPickStep] = useState<"start" | "end">("start");
 
   const weekEnd = addDays(weekStart, 6);
 
@@ -94,6 +104,65 @@ export function PatientSchedulingPage({ patientId }: { patientId: string }) {
     if (config) setConfigDraft(config);
   }, [config]);
 
+  useEffect(() => {
+    if (!shiftOpen || !matrix) return;
+    const today = formatToday();
+    const todayCol = matrix.dates.find((d) => d.date === today && d.active);
+    const firstActive = matrix.dates.find((d) => d.active);
+    setShiftStart(
+      todayCol
+        ? { date: today }
+        : firstActive
+          ? { date: firstActive.date }
+          : { date: weekStart }
+    );
+    setShiftEnd(null);
+    setShiftPickStep("start");
+  }, [shiftOpen, matrix, weekStart]);
+
+  const handleShiftMatrixPick = (anchor: ShiftAnchor, fromHeader: boolean) => {
+    if (shiftRangeMode === "column_to_column") {
+      if (!fromHeader) return;
+      const col = { date: anchor.date };
+      if (shiftPickStep === "start" || !shiftStart) {
+        setShiftStart(col);
+        setShiftEnd(null);
+        setShiftPickStep("end");
+        return;
+      }
+      if (anchor.date < shiftStart.date) {
+        setShiftEnd(shiftStart);
+        setShiftStart(col);
+      } else {
+        setShiftEnd(col);
+      }
+      return;
+    }
+
+    if (shiftRangeMode === "from_start_to_column") {
+      if (shiftPickStep === "start") {
+        setShiftStart(fromHeader ? { date: anchor.date } : anchor);
+        setShiftEnd(null);
+        setShiftPickStep("end");
+        return;
+      }
+      if (!fromHeader) {
+        toast.error("Click a column header to set the end of the range");
+        return;
+      }
+      if (!shiftStart) return;
+      if (anchor.date < shiftStart.date) {
+        toast.error("End column must be on or after the start");
+        return;
+      }
+      setShiftEnd({ date: anchor.date });
+      return;
+    }
+
+    setShiftStart(fromHeader ? { date: anchor.date } : anchor);
+    setShiftEnd(null);
+  };
+
   const handleBook = async (date: string, time: string) => {
     if (!staffId) return;
     try {
@@ -115,8 +184,56 @@ export function PatientSchedulingPage({ patientId }: { patientId: string }) {
     }
   };
 
+  const handleReschedule = async (
+    schedule: PatientSchedule,
+    date: string,
+    time: string
+  ) => {
+    if (date < formatToday()) {
+      toast.error("Cannot reschedule to a past date");
+      return;
+    }
+    if (schedule.schedule_date === date && schedule.start_time === time) {
+      return;
+    }
+    try {
+      await updateSchedule({
+        id: schedule.schedule_id,
+        body: {
+          schedule_date: date,
+          start_time: time,
+          status: "rescheduled",
+        },
+      }).unwrap();
+      toast.success("Appointment rescheduled");
+      refetchMatrix();
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === "object" && "data" in err
+          ? String((err as { data?: { message?: string } }).data?.message)
+          : "Reschedule failed";
+      toast.error(message);
+      throw err;
+    }
+  };
+
   const handleStatusChange = async (status: PatientScheduleStatus) => {
     if (!detailSchedule) return;
+    if (
+      status === "admitted" &&
+      detailSchedule.schedule_date !== formatToday()
+    ) {
+      toast.error(
+        "Patients can only be admitted on the day of their appointment (today)."
+      );
+      return;
+    }
+    if (status === "cancelled" && !canCancelSchedule(detailSchedule)) {
+      toast.error(
+        "Only scheduled appointments on today or a future date can be cancelled."
+      );
+      return;
+    }
     try {
       await updateSchedule({
         id: detailSchedule.schedule_id,
@@ -134,15 +251,46 @@ export function PatientSchedulingPage({ patientId }: { patientId: string }) {
     }
   };
 
+  const normalizeShiftMinutes = (value: number) => Math.round(value / 5) * 5;
+
   const handleShift = async () => {
     if (!staffId) return;
+    if (!shiftStart?.date) {
+      toast.error("Select a shift start column or cell on the matrix first");
+      return;
+    }
+    if (shiftRangeMode !== "from_start_to_end" && !shiftEnd?.date) {
+      toast.error("Select an end column on the matrix");
+      return;
+    }
+    if (
+      shiftEnd?.date &&
+      shiftEnd.date < shiftStart.date
+    ) {
+      toast.error("End must be on or after the start");
+      return;
+    }
+    const minutes = normalizeShiftMinutes(shiftMinutes);
+    if (!minutes && !shiftDays) {
+      toast.error("Enter shift minutes (multiples of 5) and/or days");
+      return;
+    }
+    if (shiftMinutes && minutes === 0) {
+      toast.error("Time shift must be a non-zero multiple of 5 minutes (e.g. 5, 10, -15)");
+      return;
+    }
     try {
       const result = await shiftSchedules({
         assigned_staff_id: staffId,
         from_date: weekStart,
         to_date: weekEnd,
-        shift_minutes: shiftMinutes,
+        shift_minutes: minutes,
         shift_days: shiftDays,
+        range_mode: shiftRangeMode,
+        anchor_date: shiftStart.date,
+        anchor_time: shiftStart.time,
+        end_date: shiftEnd?.date,
+        end_time: shiftEnd?.time,
       }).unwrap();
       toast.success(`Shifted ${result.shifted} appointment(s)`);
       setShiftOpen(false);
@@ -201,14 +349,14 @@ export function PatientSchedulingPage({ patientId }: { patientId: string }) {
             Today
           </Button>
           <Button
-            variant="outline"
+            variant={shiftOpen ? "default" : "outline"}
             size="sm"
             className="gap-1"
             disabled={!staffId}
-            onClick={() => setShiftOpen(true)}
+            onClick={() => setShiftOpen((open) => !open)}
           >
             <Shuffle className="h-4 w-4" />
-            Global shift
+            {shiftOpen ? "Shift mode on" : "Global shift"}
           </Button>
           <Button
             variant="outline"
@@ -271,6 +419,11 @@ export function PatientSchedulingPage({ patientId }: { patientId: string }) {
 
           <div className="flex flex-wrap gap-2">{legend}</div>
 
+          <p className="text-[10px] text-muted-foreground">
+            Drag scheduled appointments to another open slot (today or future).
+            Admitted and cancelled slots cannot be moved.
+          </p>
+
           {config ? (
             <p className="text-[10px] text-muted-foreground border-t pt-3">
               Slot interval: {config.slot_interval_minutes} min · Horizon:{" "}
@@ -302,6 +455,118 @@ export function PatientSchedulingPage({ patientId }: { patientId: string }) {
             </div>
           </div>
 
+          {shiftOpen && staffId ? (
+            <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-4 space-y-4 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h3 className="font-semibold text-amber-950">Global shift</h3>
+                  <p className="text-sm text-amber-900/80 mt-1">
+                    Choose a range, then mark <strong>start</strong> (and{" "}
+                    <strong>end</strong> if needed) on the matrix. Time-only shifts
+                    spill into the next active day&apos;s column when slots run out.
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-amber-900"
+                  onClick={() => setShiftOpen(false)}
+                >
+                  Exit shift mode
+                </Button>
+              </div>
+              <div className="space-y-2">
+                <Label>Shift range</Label>
+                <Select
+                  value={shiftRangeMode}
+                  onValueChange={(v) => {
+                    setShiftRangeMode(v as ShiftRangeMode);
+                    setShiftEnd(null);
+                    setShiftPickStep("start");
+                  }}
+                >
+                  <SelectTrigger className="bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="from_start_to_end">
+                      From start → end of week
+                    </SelectItem>
+                    <SelectItem value="from_start_to_column">
+                      From start (cell/day) → end column
+                    </SelectItem>
+                    <SelectItem value="column_to_column">
+                      Column to column (whole days)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <p className="rounded-md border border-amber-200 bg-white px-3 py-2 text-sm text-amber-900">
+                  <span className="font-medium">Start: </span>
+                  {shiftStart
+                    ? `${shiftStart.date}${shiftStart.time ? ` ${shiftStart.time}` : " (whole day)"}`
+                    : "—"}
+                </p>
+                <p className="rounded-md border border-violet-200 bg-white px-3 py-2 text-sm text-violet-900">
+                  <span className="font-medium">End: </span>
+                  {shiftRangeMode === "from_start_to_end"
+                    ? `${weekEnd} (week end)`
+                    : shiftEnd
+                      ? `${shiftEnd.date} (whole day)`
+                      : shiftPickStep === "end"
+                        ? "Click end column header…"
+                        : "—"}
+                </p>
+              </div>
+              <p className="text-xs text-amber-800">
+                {shiftRangeMode === "column_to_column"
+                  ? "Click two column headers (start, then end)."
+                  : shiftRangeMode === "from_start_to_column"
+                    ? "Click start (cell or header), then end column header."
+                    : "Click start cell or column header; shifts through week end."}
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label>Shift time (minutes, step of 5)</Label>
+                  <Input
+                    type="number"
+                    step={5}
+                    className="mt-1 bg-white"
+                    value={shiftMinutes}
+                    onChange={(e) => setShiftMinutes(Number(e.target.value))}
+                    onBlur={() =>
+                      setShiftMinutes((m) => normalizeShiftMinutes(m))
+                    }
+                  />
+                  <p className="text-[10px] text-amber-900/70 mt-1">
+                    Uses slot steps (5, 10, 15…). Values like 6 are rounded to 5.
+                  </p>
+                </div>
+                <div>
+                  <Label>Shift days (active days only)</Label>
+                  <Input
+                    type="number"
+                    className="mt-1 bg-white"
+                    value={shiftDays}
+                    onChange={(e) => setShiftDays(Number(e.target.value))}
+                  />
+                  <p className="text-[10px] text-amber-900/70 mt-1">
+                    Each step skips inactive weekdays.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={() => setShiftOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleShift} disabled={shifting}>
+                  {shifting ? "Applying…" : "Apply shift"}
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
           {!staffId ? (
             <div className="rounded-xl border border-dashed p-12 text-center text-muted-foreground">
               Select a staff member to view the schedule matrix
@@ -315,6 +580,12 @@ export function PatientSchedulingPage({ patientId }: { patientId: string }) {
               statusFilter={statusFilter}
               onEmptyClick={handleBook}
               onOccupiedClick={setDetailSchedule}
+              onReschedule={handleReschedule}
+              shiftSelectMode={shiftOpen}
+              shiftRangeMode={shiftRangeMode}
+              shiftStart={shiftStart}
+              shiftEnd={shiftEnd}
+              onShiftMatrixPick={handleShiftMatrixPick}
             />
           ) : null}
         </div>
@@ -340,6 +611,13 @@ export function PatientSchedulingPage({ patientId }: { patientId: string }) {
                 <span className="text-muted-foreground">Status: </span>
                 {SCHEDULE_STATUS_LABELS[detailSchedule.status]}
               </p>
+              {detailSchedule.schedule_date !== formatToday() && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
+                  Admission is only available on the appointment date. This slot
+                  is scheduled for {detailSchedule.schedule_date}; today is{" "}
+                  {formatToday()}.
+                </p>
+              )}
             </div>
           ) : null}
           <DialogFooter className="flex-wrap gap-2">
@@ -353,56 +631,27 @@ export function PatientSchedulingPage({ patientId }: { patientId: string }) {
             <Button
               variant="outline"
               onClick={() => handleStatusChange("admitted")}
-              disabled={updating}
+              disabled={
+                updating ||
+                detailSchedule?.schedule_date !== formatToday()
+              }
+              title={
+                detailSchedule?.schedule_date !== formatToday()
+                  ? "Admission is only allowed on the appointment date (today)"
+                  : undefined
+              }
             >
               Admitted
             </Button>
-            <Button
-              variant="destructive"
-              onClick={() => handleStatusChange("cancelled")}
-              disabled={updating}
-            >
-              Cancel
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={shiftOpen} onOpenChange={setShiftOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Global shift schedules</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Shift all appointments for selected staff between {weekStart} and {weekEnd}.
-          </p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <Label>Shift time (minutes)</Label>
-              <Input
-                type="number"
-                className="mt-1"
-                value={shiftMinutes}
-                onChange={(e) => setShiftMinutes(Number(e.target.value))}
-              />
-            </div>
-            <div>
-              <Label>Shift days</Label>
-              <Input
-                type="number"
-                className="mt-1"
-                value={shiftDays}
-                onChange={(e) => setShiftDays(Number(e.target.value))}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShiftOpen(false)}>
-              Close
-            </Button>
-            <Button onClick={handleShift} disabled={shifting}>
-              Apply shift
-            </Button>
+            {detailSchedule && canCancelSchedule(detailSchedule) ? (
+              <Button
+                variant="destructive"
+                onClick={() => handleStatusChange("cancelled")}
+                disabled={updating}
+              >
+                Cancel schedule
+              </Button>
+            ) : null}
           </DialogFooter>
         </DialogContent>
       </Dialog>
