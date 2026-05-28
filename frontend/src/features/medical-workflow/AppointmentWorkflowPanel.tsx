@@ -30,6 +30,7 @@ import {
   extractAttachmentIds,
 } from "./workflowFormUtils";
 import { useGetProfileQuery } from "@/redux/api/userApi";
+import type { PrescriptionRecord } from "@/redux/types/prescription";
 import { toast } from "sonner";
 
 type GlobalPanel = "forward" | "prescribe" | "history" | null;
@@ -126,6 +127,7 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
       extraNotes?: string;
       headerTitle?: string;
       useFormValues?: boolean;
+      formData?: Record<string, unknown>;
     }
   ) => {
     const partial = options?.partial ?? actionType === "complete";
@@ -150,7 +152,7 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
       return;
     }
 
-    const formValues = useForm ? values : {};
+    const formValues = options?.formData ?? (useForm ? values : {});
     const header_title =
       options?.headerTitle ??
       (useForm && entryTitle.trim() ? entryTitle.trim() : null) ??
@@ -244,14 +246,14 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
 
       <div
         className={cn(
-          "relative",
-          panelOpen && "min-h-[50dvh]"
+          "relative flex flex-col gap-4 lg:block",
+          panelOpen && "lg:min-h-[50dvh]"
         )}
       >
         <div
           className={cn(
             "space-y-6 transition-all duration-500 ease-in-out",
-            panelOpen && "lg:pr-[360px]"
+            panelOpen && "lg:pr-[376px]"
           )}
         >
           <DiagnosisReportsCard
@@ -307,16 +309,28 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
               }
             />
           )}
-          {globalPanel === "prescribe" && (
+          {globalPanel === "prescribe" && data.appointment?.patient_id && (
             <PrescriptionPreview
+              appointmentId={appointmentId}
+              patientId={data.appointment.patient_id}
               patientName={patientName}
               onClose={closePanels}
               isSubmitting={submitting}
-              onConfirm={() =>
+              onConfirm={(prescription: PrescriptionRecord) =>
                 runAction("prescribe", {
                   partial: true,
-                  headerTitle: "Prescription",
-                  useFormValues: showWorkflowForm,
+                  headerTitle: prescription.header_title || "Prescription",
+                  useFormValues: false,
+                  extraNotes: prescription.notes || undefined,
+                  formData: {
+                    prescription_id: prescription.prescription_id,
+                    template_name: prescription.template?.name,
+                    category_name: prescription.category?.name,
+                    items_summary: prescription.items
+                      ?.map((i) => i.item_name)
+                      .filter(Boolean)
+                      .join(", "),
+                  },
                 })
               }
             />

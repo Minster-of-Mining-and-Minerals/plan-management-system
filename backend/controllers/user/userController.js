@@ -233,7 +233,9 @@ const updateUser = async (req, res) => {
       req.body.department !== undefined ||
       req.body.title_id !== undefined ||
       req.body.job_title !== undefined ||
-      req.body.employee_id !== undefined
+      req.body.employee_id !== undefined ||
+      req.body.signature_file !== undefined ||
+      req.body.signature_enabled !== undefined
     ) {
       const profileUpdates = {};
       if (req.body.job_title !== undefined) {
@@ -252,6 +254,15 @@ const updateUser = async (req, res) => {
         const deptFields = await resolveDepartmentFields(req.body, t);
         profileUpdates.department_id = deptFields.department_id;
         profileUpdates.department = deptFields.department;
+      }
+      if (req.body.signature_file !== undefined) {
+        profileUpdates.signature_file = req.body.signature_file || null;
+        if (!req.body.signature_file) {
+          profileUpdates.signature_enabled = false;
+        }
+      }
+      if (req.body.signature_enabled !== undefined) {
+        profileUpdates.signature_enabled = Boolean(req.body.signature_enabled);
       }
       await upsertInternalProfile(user_id, profileUpdates, t);
     }
@@ -636,6 +647,19 @@ const getProfile = async (req, res) => {
         "is_active",
         "created_at",
         "updated_at",
+      ],
+      include: [
+        {
+          model: InternalUserProfile,
+          as: "internalProfile",
+          attributes: [
+            "profile_id",
+            "signature_file",
+            "signature_enabled",
+            "job_title",
+            "department",
+          ],
+        },
       ],
     });
 

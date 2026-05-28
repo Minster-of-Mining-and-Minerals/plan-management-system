@@ -47,6 +47,12 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         defaultValue: {},
       },
+      signature_file: { type: DataTypes.STRING(500), allowNull: true },
+      signature_enabled: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
     },
     {
       sequelize,

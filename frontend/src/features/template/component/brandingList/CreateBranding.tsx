@@ -24,6 +24,8 @@ import {
 } from "@/config/brandingTheme";
 import { PLATFORM_LOGO_URL } from "@/config/platformBranding";
 import { BrandingThemeSection } from "./BrandingThemeSection";
+import { FileUploadField } from "@/components/common/FileUploadField";
+import { getFileUrl, toStoredFilePath } from "@/utils/fileUrl";
 
 interface BrandingFormState {
   system_name: string;
@@ -33,6 +35,15 @@ interface BrandingFormState {
   logo_login_url: string;
   theme: BrandingThemeTokens;
   is_active: boolean;
+  organization_address: string;
+  organization_city: string;
+  organization_region: string;
+  organization_country: string;
+  organization_branch: string;
+  contact_phone: string;
+  contact_email: string;
+  license_info: string;
+  prescription_signature_file: string;
 }
 
 const defaultForm: BrandingFormState = {
@@ -43,6 +54,15 @@ const defaultForm: BrandingFormState = {
   logo_login_url: PLATFORM_LOGO_URL,
   theme: { ...DEFAULT_BRANDING_THEME },
   is_active: false,
+  organization_address: "",
+  organization_city: "",
+  organization_region: "",
+  organization_country: "",
+  organization_branch: "",
+  contact_phone: "",
+  contact_email: "",
+  license_info: "",
+  prescription_signature_file: "",
 };
 
 export default function CreateBranding({ brandingId }: { brandingId?: string }) {
@@ -70,6 +90,15 @@ export default function CreateBranding({ brandingId }: { brandingId?: string }) 
         logo_login_url: brandingData.logo_login_url,
         theme: themeFromBrandingRecord(brandingData),
         is_active: brandingData.is_active,
+        organization_address: brandingData.organization_address || "",
+        organization_city: brandingData.organization_city || "",
+        organization_region: brandingData.organization_region || "",
+        organization_country: brandingData.organization_country || "",
+        organization_branch: brandingData.organization_branch || "",
+        contact_phone: brandingData.contact_phone || "",
+        contact_email: brandingData.contact_email || "",
+        license_info: brandingData.license_info || "",
+        prescription_signature_file: brandingData.prescription_signature_file || "",
       });
     }
   }, [isEditMode, brandingData]);
@@ -114,6 +143,15 @@ export default function CreateBranding({ brandingId }: { brandingId?: string }) 
       logo_login_url: form.logo_login_url,
       theme_json: form.theme,
       is_active: form.is_active,
+      organization_address: form.organization_address || undefined,
+      organization_city: form.organization_city || undefined,
+      organization_region: form.organization_region || undefined,
+      organization_country: form.organization_country || undefined,
+      organization_branch: form.organization_branch || undefined,
+      contact_phone: form.contact_phone || undefined,
+      contact_email: form.contact_email || undefined,
+      license_info: form.license_info || undefined,
+      prescription_signature_file: toStoredFilePath(form.prescription_signature_file) || null,
     };
 
     try {
@@ -137,6 +175,10 @@ export default function CreateBranding({ brandingId }: { brandingId?: string }) 
   if (isEditMode && loadingBranding) {
     return <div className="p-6 text-muted-foreground">Loading branding...</div>;
   }
+
+  const signaturePreviewUrl = form.prescription_signature_file
+    ? getFileUrl(form.prescription_signature_file)
+    : null;
 
   return (
     <div className="space-y-6">
@@ -202,6 +244,143 @@ export default function CreateBranding({ brandingId }: { brandingId?: string }) 
                         setForm((prev) => ({ ...prev, tagline: e.target.value }))
                       }
                     />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label className="text-primary font-semibold">
+                      Organization / hospital location
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Used on printed prescriptions and official documents.
+                    </p>
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Address</Label>
+                    <Input
+                      value={form.organization_address}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          organization_address: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>City</Label>
+                    <Input
+                      value={form.organization_city}
+                      onChange={(e) =>
+                        setForm((prev) => ({ ...prev, organization_city: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Region</Label>
+                    <Input
+                      value={form.organization_region}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          organization_region: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Country</Label>
+                    <Input
+                      value={form.organization_country}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          organization_country: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Branch</Label>
+                    <Input
+                      value={form.organization_branch}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          organization_branch: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Contact phone</Label>
+                    <Input
+                      value={form.contact_phone}
+                      onChange={(e) =>
+                        setForm((prev) => ({ ...prev, contact_phone: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Contact email</Label>
+                    <Input
+                      value={form.contact_email}
+                      onChange={(e) =>
+                        setForm((prev) => ({ ...prev, contact_email: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>License / registration info</Label>
+                    <Input
+                      value={form.license_info}
+                      onChange={(e) =>
+                        setForm((prev) => ({ ...prev, license_info: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label className="text-primary font-semibold">
+                      Prescription signature
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Organization signature used when a prescription template has
+                      &quot;Template signature&quot; enabled. Upload a PNG or JPG of the
+                      authorized signatory or hospital stamp.
+                    </p>
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <FileUploadField
+                      id="branding_prescription_signature"
+                      label="Signature image"
+                      value={form.prescription_signature_file}
+                      multiple={false}
+                      valueFormat="fileUrls"
+                      accept="image/*"
+                      onChange={(v) => {
+                        const next =
+                          typeof v === "string"
+                            ? v
+                            : Array.isArray(v)
+                              ? v[0] || ""
+                              : "";
+                        setForm((prev) => ({
+                          ...prev,
+                          prescription_signature_file: toStoredFilePath(next),
+                        }));
+                      }}
+                    />
+                    {signaturePreviewUrl && (
+                      <div className="rounded-md border bg-muted/30 p-3">
+                        <p className="mb-2 text-xs font-medium text-muted-foreground">
+                          Signature preview
+                        </p>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={signaturePreviewUrl}
+                          alt="Prescription signature preview"
+                          className="max-h-24 object-contain"
+                        />
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>Logo URL (sidebar / header / compact)</Label>

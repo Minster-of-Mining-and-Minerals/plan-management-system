@@ -13,6 +13,7 @@ import {
   CalendarCheck,
   Stethoscope,
   Inbox,
+  Pill,
 } from "lucide-react";
 
 export type NavItem = {
@@ -143,6 +144,16 @@ export const NAVIGATION: NavItem[] = [
       "DIAGNOSIS_FORMS:READ",
       "DIAGNOSIS_FORMS:CREATE",
       "DIAGNOSIS_FORMS:UPDATE",
+    ],
+  },
+  {
+    title: "Prescriptions",
+    url: "/prescriptions",
+    icon: Pill,
+    anyPermissions: [
+      "PRESCRIPTION_TEMPLATE:VIEW",
+      "PRESCRIPTION_CATEGORY:VIEW",
+      "PRESCRIPTION_TEMPLATE:MANAGE",
     ],
   },
   {

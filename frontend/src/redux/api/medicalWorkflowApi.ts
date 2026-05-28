@@ -2,6 +2,7 @@ import { baseApi } from "../baseApi";
 import type { UserFormConfigGrouped } from "../types/formField";
 import type { DiagnosisFormConfig } from "./diagnosisFormApi";
 import type { StaffAppointment } from "./appointmentApi";
+import type { PrescriptionRecord } from "../types/prescription";
 
 export type WorkflowActionType =
   | "submit"
@@ -43,6 +44,8 @@ export type MedicalHistoryLog = {
   formConfig?: { config_id: string; title: string };
   formSchema?: UserFormConfigGrouped | null;
   appointment?: { appointment_id: string; workflow_status: string };
+  /** Attached for prescribe logs when loading appointment timeline */
+  prescription?: PrescriptionRecord | null;
 };
 
 export type WorkflowTask = {

@@ -9,6 +9,16 @@ const systemInfoFields = {
   logo_url: Joi.string().trim().max(500).required(),
   logo_login_url: Joi.string().trim().max(500).required(),
   is_active: Joi.boolean().optional(),
+  organization_address: Joi.string().trim().max(500).allow("", null).optional(),
+  organization_city: Joi.string().trim().max(120).allow("", null).optional(),
+  organization_region: Joi.string().trim().max(120).allow("", null).optional(),
+  organization_country: Joi.string().trim().max(120).allow("", null).optional(),
+  organization_branch: Joi.string().trim().max(255).allow("", null).optional(),
+  contact_phone: Joi.string().trim().max(64).allow("", null).optional(),
+  contact_email: Joi.string().trim().email().max(255).allow("", null).optional(),
+  license_info: Joi.string().trim().max(500).allow("", null).optional(),
+  prescription_signature_file: Joi.string().trim().max(500).allow("", null).optional(),
+  prescription_config: Joi.object().unknown(true).optional(),
 };
 
 const legacyColorFields = {
@@ -46,6 +56,16 @@ const updateBrandingSchema = Joi.object({
     Object.entries(legacyColorFields).map(([key, schema]) => [key, schema.optional()])
   ),
   is_active: Joi.boolean().optional(),
+  organization_address: Joi.string().trim().max(500).allow("", null).optional(),
+  organization_city: Joi.string().trim().max(120).allow("", null).optional(),
+  organization_region: Joi.string().trim().max(120).allow("", null).optional(),
+  organization_country: Joi.string().trim().max(120).allow("", null).optional(),
+  organization_branch: Joi.string().trim().max(255).allow("", null).optional(),
+  contact_phone: Joi.string().trim().max(64).allow("", null).optional(),
+  contact_email: Joi.string().trim().email().max(255).allow("", null).optional(),
+  license_info: Joi.string().trim().max(500).allow("", null).optional(),
+  prescription_signature_file: Joi.string().trim().max(500).allow("", null).optional(),
+  prescription_config: Joi.object().unknown(true).optional(),
 });
 
 const validate = (schema) => (req, res, next) => {

@@ -52,6 +52,8 @@ export interface InternalUserProfile {
     code: string;
     status?: string;
   };
+  signature_file?: string | null;
+  signature_enabled?: boolean;
 }
 
 export interface User {
@@ -99,6 +101,8 @@ export interface UpdateUserPayload {
   title_id?: string | null;
   job_title?: string | null;
   employee_id?: string | null;
+  signature_file?: string | null;
+  signature_enabled?: boolean;
 }
 
 export interface ToggleUserStatusPayload {

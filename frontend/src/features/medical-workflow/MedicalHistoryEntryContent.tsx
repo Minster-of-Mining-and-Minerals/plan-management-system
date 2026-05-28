@@ -3,6 +3,7 @@
 import { FileText, Stethoscope } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { MedicalHistoryAttachmentList } from "./components/MedicalHistoryAttachmentList";
+import { MedicalHistoryPrescriptionBlock } from "./components/MedicalHistoryPrescriptionBlock";
 import { buildLogDisplaySections } from "./medicalHistoryDisplay";
 import { collectWorkflowFileRefs } from "./workflowAttachmentUtils";
 import type { MedicalHistoryLog } from "@/redux/api/medicalWorkflowApi";
@@ -28,8 +29,23 @@ export function MedicalHistoryEntryContent({ entry, compact }: Props) {
   const hasFileAttachments =
     collectWorkflowFileRefs(entry.attachment_ids || [], formSchema, entry.form_data)
       .length > 0;
+  const prescriptionId = (() => {
+    const raw = entry.form_data?.prescription_id;
+    return typeof raw === "string" && raw.length > 0 ? raw : undefined;
+  })();
+  const templateName =
+    typeof entry.form_data?.template_name === "string"
+      ? entry.form_data.template_name
+      : entry.prescription?.template?.name;
+  const isPrescribeAction = entry.action_type === "prescribe";
 
-  if (compact && !hasNotes && !hasFileAttachments && !hasFormData) {
+  if (
+    compact &&
+    !hasNotes &&
+    !hasFileAttachments &&
+    !hasFormData &&
+    !isPrescribeAction
+  ) {
     return null;
   }
 
@@ -39,10 +55,16 @@ export function MedicalHistoryEntryContent({ entry, compact }: Props) {
         <Badge variant="outline" className="font-normal">
           {ACTION_LABELS[entry.action_type] || entry.action_type}
         </Badge>
-        {entry.formConfig?.title && (
+        {entry.formConfig?.title && !isPrescribeAction && (
           <span className="inline-flex items-center gap-1">
             <Stethoscope className="h-3.5 w-3.5" />
             Template: {entry.formConfig.title}
+          </span>
+        )}
+        {isPrescribeAction && templateName && (
+          <span className="inline-flex items-center gap-1">
+            <Stethoscope className="h-3.5 w-3.5" />
+            {templateName}
           </span>
         )}
       </div>
@@ -59,7 +81,23 @@ export function MedicalHistoryEntryContent({ entry, compact }: Props) {
         </div>
       )}
 
-      {hasFileAttachments && (
+      {isPrescribeAction && (
+        <MedicalHistoryPrescriptionBlock
+          prescription={entry.prescription}
+          prescriptionId={prescriptionId}
+          appointmentId={entry.appointment_id}
+          workflowLogId={entry.log_id}
+          logCreatedAt={entry.created_at}
+          headerTitle={entry.header_title}
+          itemsSummary={
+            typeof entry.form_data?.items_summary === "string"
+              ? entry.form_data.items_summary
+              : undefined
+          }
+        />
+      )}
+
+      {!isPrescribeAction && hasFileAttachments && (
         <MedicalHistoryAttachmentList
           attachmentIds={entry.attachment_ids || []}
           formSchema={formSchema}
@@ -67,7 +105,7 @@ export function MedicalHistoryEntryContent({ entry, compact }: Props) {
         />
       )}
 
-      {hasFormData ? (
+      {hasFormData && !isPrescribeAction ? (
         <div className="space-y-4">
           {sections.map((section) => (
             <div
@@ -110,7 +148,8 @@ export function MedicalHistoryEntryContent({ entry, compact }: Props) {
         </div>
       ) : (
         !hasNotes &&
-        !hasFileAttachments && (
+        !hasFileAttachments &&
+        !isPrescribeAction && (
           <p className="text-sm text-muted-foreground">No form data recorded.</p>
         )
       )}

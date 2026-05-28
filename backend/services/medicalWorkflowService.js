@@ -273,6 +273,17 @@ async function submitWorkflowEntry(staffId, payload) {
     partial,
   });
 
+  const prescribeMeta =
+    action_type === "prescribe" && form_data?.prescription_id
+      ? {
+          prescription_id: form_data.prescription_id,
+          template_name: form_data.template_name || null,
+          category_name: form_data.category_name || null,
+          items_summary: form_data.items_summary || null,
+        }
+      : null;
+  const logFormData = prescribeMeta ? { ...normalized, ...prescribeMeta } : normalized;
+
   const t = await db.sequelize.transaction();
 
   try {
@@ -286,7 +297,7 @@ async function submitWorkflowEntry(staffId, payload) {
         action_type,
         header_title: header_title.trim(),
         form_config_id: configId,
-        form_data: normalized,
+        form_data: logFormData,
         attachment_ids: Array.isArray(attachment_ids) ? attachment_ids : [],
         notes: notes || null,
         status: mapLogStatus(action_type),
@@ -316,6 +327,16 @@ async function submitWorkflowEntry(staffId, payload) {
         headerTitle: header_title.trim(),
         patientName,
       });
+    }
+
+    if (prescribeMeta?.prescription_id && db.Prescription) {
+      await db.Prescription.update(
+        { workflow_log_id: log.log_id, updated_at: new Date() },
+        {
+          where: { prescription_id: prescribeMeta.prescription_id },
+          transaction: t,
+        }
+      );
     }
 
     if (action_type === "complete") {
@@ -397,12 +418,127 @@ async function listTimeline({ appointmentId, patientId, staffId }) {
     })
   );
 
-  return plain.map((log) => ({
+  const withSchema = plain.map((log) => ({
     ...log,
     formSchema: log.form_config_id
       ? schemaByConfigId[log.form_config_id] ?? null
       : null,
   }));
+
+  return attachPrescriptionsToTimeline(withSchema, appointmentId);
+}
+
+const timelinePrescriptionInclude = [
+  {
+    model: db.PrescriptionCategory,
+    as: "category",
+    attributes: ["category_id", "name", "code"],
+    required: false,
+  },
+  {
+    model: db.PrescriptionTemplate,
+    as: "template",
+    attributes: ["template_id", "name", "code"],
+    required: false,
+  },
+  {
+    model: db.PrescriptionItem,
+    as: "items",
+    separate: true,
+    order: [["sort_order", "ASC"]],
+  },
+  {
+    model: db.User,
+    as: "prescriber",
+    attributes: ["user_id", "full_name"],
+    required: false,
+  },
+];
+
+function matchPrescriptionToLog(log, prescriptions, usedIds) {
+  const available = prescriptions.filter((p) => !usedIds.has(p.prescription_id));
+  const formData = log.form_data || {};
+
+  if (formData.prescription_id) {
+    const byId = prescriptions.find(
+      (p) => p.prescription_id === formData.prescription_id
+    );
+    if (byId) return byId;
+  }
+
+  const byWorkflowLog = prescriptions.find(
+    (p) => p.workflow_log_id && p.workflow_log_id === log.log_id
+  );
+  if (byWorkflowLog) return byWorkflowLog;
+
+  const logTitle = String(log.header_title || "")
+    .trim()
+    .toLowerCase();
+  if (logTitle) {
+    const byTitle = available.find(
+      (p) =>
+        String(p.header_title || "")
+          .trim()
+          .toLowerCase() === logTitle
+    );
+    if (byTitle) return byTitle;
+  }
+
+  const logTime = new Date(log.created_at).getTime();
+  let best = null;
+  let bestDelta = Infinity;
+  for (const p of available) {
+    const rxTime = new Date(p.issued_at || p.created_at).getTime();
+    const delta = Math.abs(rxTime - logTime);
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      best = p;
+    }
+  }
+  if (best && bestDelta <= 15 * 60 * 1000) return best;
+
+  if (available.length === 1) return available[0];
+
+  return null;
+}
+
+async function attachPrescriptionsToTimeline(logs, appointmentId) {
+  if (!appointmentId || !db.Prescription) return logs;
+
+  const rows = await db.Prescription.findAll({
+    where: { appointment_id: appointmentId },
+    include: timelinePrescriptionInclude,
+    order: [["created_at", "ASC"]],
+  });
+  const prescriptions = rows.map((r) => r.get({ plain: true }));
+  if (!prescriptions.length) return logs;
+
+  const usedIds = new Set();
+
+  return logs.map((log) => {
+    if (log.action_type !== "prescribe") return log;
+
+    const rx = matchPrescriptionToLog(log, prescriptions, usedIds);
+    if (!rx) return log;
+
+    usedIds.add(rx.prescription_id);
+    const formData = log.form_data || {};
+
+    return {
+      ...log,
+      prescription: rx,
+      form_data: {
+        ...formData,
+        prescription_id: rx.prescription_id,
+        template_name: formData.template_name || rx.template?.name || null,
+        category_name: formData.category_name || rx.category?.name || null,
+        items_summary:
+          formData.items_summary ||
+          (rx.items || []).map((i) => i.item_name).filter(Boolean).join(", ") ||
+          null,
+      },
+    };
+  });
 }
 
 async function getWorkflowContext(appointmentId, staffId) {

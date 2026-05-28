@@ -14,6 +14,16 @@ export interface SystemBranding {
   sidebar_hover_hsl: string;
   accent_hover_hsl: string;
   theme_json?: BrandingThemeTokens | null;
+  organization_address?: string | null;
+  organization_city?: string | null;
+  organization_region?: string | null;
+  organization_country?: string | null;
+  organization_branch?: string | null;
+  contact_phone?: string | null;
+  contact_email?: string | null;
+  license_info?: string | null;
+  prescription_signature_file?: string | null;
+  prescription_config?: Record<string, unknown> | null;
   is_active: boolean;
   created_at?: string;
   updated_at?: string;

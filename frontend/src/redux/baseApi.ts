@@ -45,6 +45,10 @@ export const baseApi = createApi({
     "DiagnosisTemplate",
     "DiagnosisRecord",
     "MedicalWorkflow",
+    "PrescriptionCategory",
+    "PrescriptionTemplate",
+    "PrescriptionDocumentTemplate",
+    "Prescription",
   ],
   endpoints: () => ({}),
 });

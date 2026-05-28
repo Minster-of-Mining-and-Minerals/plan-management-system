@@ -38,6 +38,16 @@ const normalizePayload = (body) => {
     golden_metallic_hsl,
     golden_dark_hover_hsl,
     is_active,
+    organization_address,
+    organization_city,
+    organization_region,
+    organization_country,
+    organization_branch,
+    contact_phone,
+    contact_email,
+    license_info,
+    prescription_config,
+    prescription_signature_file,
   } = body;
 
   const resolvedAccent = accent_hsl ?? golden_dark_hsl;
@@ -67,6 +77,16 @@ const normalizePayload = (body) => {
     theme_json: theme,
     ...legacy,
     is_active,
+    organization_address: organization_address || null,
+    organization_city: organization_city || null,
+    organization_region: organization_region || null,
+    organization_country: organization_country || null,
+    organization_branch: organization_branch || null,
+    contact_phone: contact_phone || null,
+    contact_email: contact_email || null,
+    license_info: license_info || null,
+    prescription_config: prescription_config || null,
+    prescription_signature_file: prescription_signature_file || null,
   };
 };
 

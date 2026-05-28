@@ -27,8 +27,9 @@ export function AppointmentSidePanelShell({
       exit={{ x: "100%", opacity: 0 }}
       transition={{ duration: 0.28, ease: "easeInOut" }}
       className={cn(
-        "absolute right-0 top-0 z-10 flex h-full min-h-[50dvh] w-full max-w-[360px] flex-col overflow-hidden",
-        "rounded-xl border border-border bg-card text-card-foreground shadow-sm"
+        "z-10 flex w-full flex-col overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-sm",
+        "max-lg:relative max-lg:mt-4",
+        "lg:absolute lg:right-0 lg:top-0 lg:h-full lg:max-w-[360px]"
       )}
     >
       <div className="flex shrink-0 items-start justify-between gap-2 border-b border-primary/20 bg-primary px-4 py-3 text-primary-foreground">
@@ -52,7 +53,7 @@ export function AppointmentSidePanelShell({
         )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 lg:max-h-[calc(100dvh-12rem)]">
         <div className="space-y-4">{children}</div>
       </div>
 

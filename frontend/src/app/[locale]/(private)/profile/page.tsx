@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import DetailHeader from "@/components/common/DetailHeader";
+import { UserSignatureSettings } from "@/features/profile/UserSignatureSettings";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
@@ -180,6 +181,7 @@ const ProfilePage = () => {
 
                 {/* Right Column: Roles and Permissions */}
                 <div className="lg:col-span-2 space-y-6">
+                    <UserSignatureSettings userId={userId} />
                     {/* Roles */}
                     <Card>
                         <CardHeader>
