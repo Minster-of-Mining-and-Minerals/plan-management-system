@@ -76,7 +76,12 @@ export const diagnosisFormApi = baseApi.injectEndpoints({
 
     createDiagnosisFormConfig: builder.mutation<
       DiagnosisFormConfig,
-      { assigned_staff_id: string; title?: string; description?: string; seed_defaults?: boolean }
+      {
+        assigned_staff_id: string;
+        title?: string;
+        description?: string;
+        source_template_id: string;
+      }
     >({
       query: (body) => ({
         url: "/diagnosis-form-configs",

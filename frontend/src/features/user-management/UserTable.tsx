@@ -17,7 +17,6 @@ import { formatStatus } from "@/utils/statusFormatter";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { StaffDiagnosisConfigSheet } from "@/features/diagnosis-forms/StaffDiagnosisConfigSheet";
 
 
 export interface UserTableProps {
@@ -89,10 +88,9 @@ export default function UserTable({ sideActions }: UserTableProps) {
                             variant="ghost"
                             size="icon"
                             title="Configure Diagnosis Form"
-                            onClick={() => {
-                                setDiagnosisUser(row.original);
-                                setDiagnosisSheetOpen(true);
-                            }}
+                            onClick={() =>
+                                router.push(`/users/list/${row.original.user_id}/diagnosis-form`)
+                            }
                         >
                             <Stethoscope className="h-4 w-4" />
                         </Button>
@@ -126,8 +124,6 @@ export default function UserTable({ sideActions }: UserTableProps) {
     }, [searchQuery]);
 
     const [isModalOpen, setModalOpen] = useState(false);
-    const [diagnosisUser, setDiagnosisUser] = useState<User | null>(null);
-    const [diagnosisSheetOpen, setDiagnosisSheetOpen] = useState(false);
     const handlePagination = (index: number, size: number) => {
         setPageIndex(index);
         setPageSize(size);
@@ -215,14 +211,6 @@ export default function UserTable({ sideActions }: UserTableProps) {
                 onClose={() => {
                     setModalOpen(false);
                     refetch();
-                }}
-            />
-            <StaffDiagnosisConfigSheet
-                user={diagnosisUser}
-                open={diagnosisSheetOpen}
-                onOpenChange={(open) => {
-                    setDiagnosisSheetOpen(open);
-                    if (!open) setDiagnosisUser(null);
                 }}
             />
         </>

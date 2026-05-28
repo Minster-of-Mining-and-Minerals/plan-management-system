@@ -1,14 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import { Stethoscope } from "lucide-react";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -20,6 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import DetailHeader from "@/components/common/DetailHeader";
+import { formatInternalUserDisplayName } from "@/utils/formatUserDisplayName";
+import { useGetUserByIdQuery } from "@/redux/api/userApi";
 import {
   useGetDiagnosisFormConfigByStaffQuery,
   useAssignDiagnosisTemplateToStaffMutation,
@@ -33,20 +31,14 @@ import {
 import { useListDiagnosisTemplatesQuery } from "@/redux/api/diagnosisTemplateApi";
 import { DiagnosisFormStructureEditor } from "./DiagnosisFormStructureEditor";
 import { toast } from "sonner";
-import type { User } from "@/redux/types/user";
 
-type Props = {
-  user: User | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-};
+export default function StaffDiagnosisConfigPage() {
+  const params = useParams();
+  const staffId = params.userId as string;
 
-export function StaffDiagnosisConfigSheet({ user, open, onOpenChange }: Props) {
-  const staffId = user?.user_id ?? "";
-  const [templateId, setTemplateId] = useState("");
-  const [formTitle, setFormTitle] = useState("");
-  const [formDescription, setFormDescription] = useState("");
-
+  const { data: user, isLoading: loadingUser } = useGetUserByIdQuery(staffId, {
+    skip: !staffId,
+  });
   const { data: templates = [] } = useListDiagnosisTemplatesQuery();
   const activeTemplates = templates.filter((t) => t.status === "active");
 
@@ -54,12 +46,12 @@ export function StaffDiagnosisConfigSheet({ user, open, onOpenChange }: Props) {
     data: staffBundle,
     isLoading,
     refetch: refetchStaff,
-  } = useGetDiagnosisFormConfigByStaffQuery(staffId, { skip: !staffId || !open });
+  } = useGetDiagnosisFormConfigByStaffQuery(staffId, { skip: !staffId });
 
   const configId = staffBundle?.config?.config_id;
   const { data: grouped, refetch: refetchForm } = useGetDiagnosisGroupedFormQuery(
     configId!,
-    { skip: !configId || !open }
+    { skip: !configId }
   );
 
   const [assignTemplate, { isLoading: assigning }] =
@@ -70,8 +62,11 @@ export function StaffDiagnosisConfigSheet({ user, open, onOpenChange }: Props) {
   const [deleteField] = useDeleteDiagnosisFieldMutation();
   const [reorderFields] = useReorderDiagnosisFieldsMutation();
 
+  const [templateId, setTemplateId] = useState("");
+  const [formTitle, setFormTitle] = useState("");
+  const [formDescription, setFormDescription] = useState("");
+
   useEffect(() => {
-    if (!open) return;
     if (staffBundle?.config) {
       setFormTitle(staffBundle.config.title);
       setFormDescription(staffBundle.config.description || "");
@@ -83,7 +78,7 @@ export function StaffDiagnosisConfigSheet({ user, open, onOpenChange }: Props) {
       setFormDescription("");
       setTemplateId("");
     }
-  }, [open, staffBundle?.config]);
+  }, [staffBundle?.config]);
 
   const handleAssign = async (replace = false) => {
     if (!staffId || !templateId) {
@@ -129,23 +124,33 @@ export function StaffDiagnosisConfigSheet({ user, open, onOpenChange }: Props) {
     }
   };
 
-  if (!user) return null;
-
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
+    <div className="min-h-screen w-full bg-background p-6 space-y-6">
+      <DetailHeader
+        breadcrumbs={[
+          { title: "Users", link: "/users/list" },
+          {
+            title:
+              loadingUser || !user ? "Diagnosis Form Configuration" : formatInternalUserDisplayName(user),
+            link: user ? `/users/list/${user.user_id}` : "",
+          },
+          { title: "Configure Diagnosis Form", link: "" },
+        ]}
+      />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
             <Stethoscope className="h-5 w-5" />
             Configure Diagnosis Form
-          </SheetTitle>
-          <SheetDescription>
-            {user.full_name} — assign a shared template, then customize this staff member&apos;s
-            copy. Changes here do not affect the original template.
-          </SheetDescription>
-        </SheetHeader>
-
-        <div className="mt-6 space-y-6">
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            {user ? `${formatInternalUserDisplayName(user)} — ` : ""}
+            assign a shared template, then customize this staff member&apos;s copy.
+            Customizations are isolated per user and do not affect other users.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-6">
           <div className="space-y-3 rounded-lg border p-4">
             <Label>1. Select template</Label>
             <Select value={templateId} onValueChange={setTemplateId}>
@@ -160,6 +165,12 @@ export function StaffDiagnosisConfigSheet({ user, open, onOpenChange }: Props) {
                 ))}
               </SelectContent>
             </Select>
+            {activeTemplates.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                No active templates available yet. Create diagnosis templates first from the
+                Diagnosis page.
+              </p>
+            )}
             <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
@@ -195,8 +206,9 @@ export function StaffDiagnosisConfigSheet({ user, open, onOpenChange }: Props) {
 
           {!isLoading && !configId && (
             <p className="text-sm text-muted-foreground">
-              No staff-specific diagnosis form yet. Select a template and assign it to create a
-              customizable copy.
+              {activeTemplates.length > 0
+                ? "No staff-specific diagnosis form yet. Select a template and assign it to create a customizable copy."
+                : "No staff-specific diagnosis form yet. Create templates first, then assign one to this staff member."}
             </p>
           )}
 
@@ -259,8 +271,8 @@ export function StaffDiagnosisConfigSheet({ user, open, onOpenChange }: Props) {
               </div>
             </div>
           )}
-        </div>
-      </SheetContent>
-    </Sheet>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

@@ -6,6 +6,7 @@ const { DIAGNOSIS_MODEL_NAME } = require("../config/diagnosisFormConstants");
 const {
   DEFAULT_DIAGNOSIS_GROUPS,
   DEFAULT_DIAGNOSIS_FIELDS,
+  getTemplatePresetByTitle,
 } = require("../config/diagnosisFormCatalog");
 
 async function loadSourceGroups({ templateId, configId, visibleOnly = false, transaction }) {
@@ -36,9 +37,17 @@ async function loadSourceGroups({ templateId, configId, visibleOnly = false, tra
   });
 }
 
-async function seedDefaultStructureToTarget({ templateId, configId, transaction }) {
+async function seedDefaultStructureToTarget({
+  templateId,
+  configId,
+  templateTitle,
+  transaction,
+}) {
+  const preset = getTemplatePresetByTitle(templateTitle);
+  const groupsToSeed = preset?.groups || DEFAULT_DIAGNOSIS_GROUPS;
+  const fieldsToSeed = preset?.fields || DEFAULT_DIAGNOSIS_FIELDS;
   const groupByTitle = new Map();
-  for (const g of DEFAULT_DIAGNOSIS_GROUPS) {
+  for (const g of groupsToSeed) {
     const group = await db.FormFieldGroup.create(
       {
         group_id: uuidv4(),
@@ -56,7 +65,7 @@ async function seedDefaultStructureToTarget({ templateId, configId, transaction 
     groupByTitle.set(g.title, group);
   }
 
-  for (const def of DEFAULT_DIAGNOSIS_FIELDS) {
+  for (const def of fieldsToSeed) {
     const group = groupByTitle.get(def.section);
     if (!group) continue;
     await db.FormField.create(

@@ -1,5 +1,9 @@
 const jwt = require("jsonwebtoken");
 const db = require("../models");
+const {
+  permissionResolutionIncludes,
+  SUPER_ADMIN_ROLE,
+} = require("../services/userPermissionService");
 
 const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers["authorization"];
@@ -15,29 +19,10 @@ const authenticateToken = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Fetch user with roles and permissions
+    // Fetch user with roles + permission groups + effective permissions
     const user = await db.User.findByPk(decoded.user_id, {
       attributes: { exclude: ["password", "otp", "otp_expiry"] },
-      include: [
-        {
-          model: db.Role,
-          as: "roles",
-          through: { attributes: [] },
-          include: [
-            {
-              model: db.RolePermission,
-              as: "rolePermissions",
-              include: [
-                {
-                  model: db.Permission,
-                  as: "permission",
-                  attributes: ["resource", "action"],
-                },
-              ],
-            },
-          ],
-        },
-      ],
+      include: permissionResolutionIncludes(),
     });
 
     if (!user || !user.is_active) {
@@ -54,11 +39,35 @@ const authenticateToken = async (req, res, next) => {
 
     if (account_type === "INTERNAL") {
       roles = (user.roles || []).map((r) => r.name);
-      permissions = (user.roles || []).flatMap((r) =>
-        (r.rolePermissions || []).map(
-          (rp) => `${rp.permission?.resource}:${rp.permission?.action}`
-        )
-      );
+      const hasSuperAdminRole = roles.includes(SUPER_ADMIN_ROLE);
+
+      if (hasSuperAdminRole) {
+        permissions = ["*:*"];
+      } else {
+        const rolePermissions = (user.roles || []).flatMap((r) =>
+          (r.rolePermissions || []).map(
+            (rp) =>
+              `${String(rp.permission?.resource || "").toLowerCase()}:${String(
+                rp.permission?.action || ""
+              ).toLowerCase()}`
+          )
+        );
+
+        const groupPermissions = (user.permissionGroups || [])
+          .filter((g) => g.is_active !== false)
+          .flatMap((g) =>
+            (g.permissions || []).map(
+              (p) =>
+                `${String(p.resource || "").toLowerCase()}:${String(
+                  p.action || ""
+                ).toLowerCase()}`
+            )
+          );
+
+        permissions = Array.from(
+          new Set([...rolePermissions, ...groupPermissions].filter((p) => p !== ":"))
+        );
+      }
     }
 
     req.user = {
@@ -92,7 +101,10 @@ const checkPermission = (resource, action) => {
       });
     }
 
-    if (!req.user.permissions.includes(requiredPermission)) {
+    if (
+      !req.user.permissions.includes(requiredPermission) &&
+      !req.user.permissions.includes("*:*")
+    ) {
       return res.status(403).json({
         success: false,
         message: `Access denied: Required permission ${requiredPermission}`,

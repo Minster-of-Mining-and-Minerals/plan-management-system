@@ -36,7 +36,7 @@ const createConfigSchema = Joi.object({
   assigned_staff_id: Joi.string().guid({ version: "uuidv4" }).required(),
   title: Joi.string().min(1).max(255).optional(),
   description: Joi.string().allow("", null).optional(),
-  source_template_id: Joi.string().guid({ version: "uuidv4" }).optional(),
+  source_template_id: Joi.string().guid({ version: "uuidv4" }).required(),
 });
 
 const assignTemplateSchema = Joi.object({

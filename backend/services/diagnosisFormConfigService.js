@@ -4,7 +4,10 @@ const { Op } = require("sequelize");
 const { v4: uuidv4 } = require("uuid");
 const db = require("../models");
 const { DIAGNOSIS_MODEL_NAME } = require("../config/diagnosisFormConstants");
-const { copyStructure, clearTargetStructure } = require("./diagnosisStructureCopy");
+const {
+  copyStructure,
+  clearTargetStructure,
+} = require("./diagnosisStructureCopy");
 const diagnosisTemplateService = require("./diagnosisTemplateService");
 const {
   buildGroupedFormResponse,
@@ -54,8 +57,14 @@ async function getConfigById(configId) {
 
 async function createConfigForStaff(
   assignedStaffId,
-  { title, description, sourceTemplateId = null, actorId } = {}
+  { title, description, sourceTemplateId, actorId } = {}
 ) {
+  if (!sourceTemplateId) {
+    const err = new Error("Diagnosis form must be created from a template");
+    err.status = 400;
+    throw err;
+  }
+
   const existing = await db.DiagnosisFormConfig.findOne({
     where: { assigned_staff_id: assignedStaffId },
   });

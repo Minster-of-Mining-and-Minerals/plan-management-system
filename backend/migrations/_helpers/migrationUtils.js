@@ -40,6 +40,11 @@ async function tableExists(queryInterface, tableName) {
   );
 }
 
+async function columnExists(queryInterface, tableName, columnName) {
+  const description = await queryInterface.describeTable(tableName);
+  return Object.prototype.hasOwnProperty.call(description, columnName);
+}
+
 async function safeAddIndex(queryInterface, table, fields, options = {}) {
   try {
     await queryInterface.addIndex(table, fields, options);
@@ -63,6 +68,7 @@ module.exports = {
   timestampColumns,
   softDeleteColumn,
   tableExists,
+  columnExists,
   safeAddIndex,
   dropTableIfExists,
   dropEnumIfExists,

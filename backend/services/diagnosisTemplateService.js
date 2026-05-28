@@ -15,12 +15,18 @@ const {
   copyStructure,
 } = require("./diagnosisStructureCopy");
 
-async function ensureTemplateHasStructure(templateId) {
+async function ensureTemplateHasStructure(template) {
   const count = await db.FormFieldGroup.count({
-    where: { diagnosis_template_id: templateId, model_name: DIAGNOSIS_MODEL_NAME },
+    where: {
+      diagnosis_template_id: template.template_id,
+      model_name: DIAGNOSIS_MODEL_NAME,
+    },
   });
   if (count === 0) {
-    await seedDefaultStructureToTarget({ templateId });
+    await seedDefaultStructureToTarget({
+      templateId: template.template_id,
+      templateTitle: template.title,
+    });
   }
 }
 
@@ -35,7 +41,7 @@ async function listTemplates({ status, includeArchived = false } = {}) {
   });
 
   for (const row of rows) {
-    await ensureTemplateHasStructure(row.template_id);
+    await ensureTemplateHasStructure(row);
   }
 
   return rows;
@@ -91,7 +97,10 @@ async function createTemplate({ title, description, seedDefaults = true, actorId
   });
 
   if (seedDefaults) {
-    await seedDefaultStructureToTarget({ templateId: row.template_id });
+    await seedDefaultStructureToTarget({
+      templateId: row.template_id,
+      templateTitle: row.title,
+    });
   }
 
   return getTemplateById(row.template_id);
