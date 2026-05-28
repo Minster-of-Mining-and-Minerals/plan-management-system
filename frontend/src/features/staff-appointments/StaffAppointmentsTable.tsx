@@ -243,8 +243,8 @@ export function StaffAppointmentsTable() {
             <Input
               placeholder={
                 dateFilterEnabled
-                  ? "Search this day (name or ID)…"
-                  : "Search all appointments…"
+                  ? "Search this day (name, patient ID, phone)…"
+                  : "Search all (name, patient ID, phone)…"
               }
               value={search}
               onChange={(e) => setSearch(e.target.value)}

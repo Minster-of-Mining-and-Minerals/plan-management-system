@@ -191,10 +191,12 @@ const getPatients = async (req, res) => {
     if (patient_status) profileWhere.patient_status = patient_status;
 
     if (search) {
+      const term = `%${search}%`;
       userWhere[Op.or] = [
-        { full_name: { [Op.iLike]: `%${search}%` } },
-        { email: { [Op.iLike]: `%${search}%` } },
-        { phone_number: { [Op.iLike]: `%${search}%` } },
+        { full_name: { [Op.iLike]: term } },
+        { email: { [Op.iLike]: term } },
+        { phone_number: { [Op.iLike]: term } },
+        { "$patientProfile.patient_code$": { [Op.iLike]: term } },
       ];
     }
 
@@ -208,6 +210,7 @@ const getPatients = async (req, res) => {
           required: Object.keys(profileWhere).length > 0,
         },
       ],
+      subQuery: false,
       order: [["created_at", "DESC"]],
       attributes: { exclude: ["password", "otp", "otp_expiry"] },
     });

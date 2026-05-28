@@ -150,8 +150,16 @@ async function listAppointmentsForStaff(
   return rows.filter((row) => {
     const plain = row.get({ plain: true });
     const name = plain.patient?.full_name?.toLowerCase() || "";
-    const code = plain.patient?.patientProfile?.patient_code?.toLowerCase() || "";
-    return name.includes(q) || code.includes(q);
+    const code =
+      plain.patient?.patientProfile?.patient_code?.toLowerCase() || "";
+    const email = plain.patient?.email?.toLowerCase() || "";
+    const phone = plain.patient?.phone_number?.toLowerCase() || "";
+    return (
+      name.includes(q) ||
+      code.includes(q) ||
+      email.includes(q) ||
+      phone.includes(q)
+    );
   });
 }
 
