@@ -190,9 +190,22 @@ function getPlaceholderCatalog() {
     { key: "doctor_specialization", description: "Job title / specialization" },
     { key: "doctor_department", description: "Department name" },
     { key: "prescriptions", description: "Rendered prescription items table" },
+    {
+      key: "glasses_rx_table",
+      description: "Glasses refraction grid (Sphere, Cylinder, Axis, Addition, Prism)",
+    },
+    { key: "diagnosis", description: "Diagnosis (from notes: Diagnosis: …)" },
+    { key: "visual_acuity", description: "Visual acuity OD/OS (from notes)" },
+    { key: "refraction_date", description: "Date of refraction" },
+    { key: "prescription_date", description: "Date of prescription" },
+    { key: "refraction_type", description: "Refraction type (from notes)" },
+    { key: "clinical_notes", description: "Clinical notes (footer, above signature)" },
+    { key: "additional_info", description: "Dispensing additional information" },
+    { key: "lens_frame_options", description: "Lens / frame options" },
+    { key: "near_addition_instructions", description: "Near addition instructions" },
     { key: "signature", description: "Signature image or placeholder" },
     { key: "signature_date", description: "Issue date" },
-    { key: "notes", description: "Clinical notes" },
+    { key: "notes", description: "Raw clinical notes field" },
   ];
 }
 

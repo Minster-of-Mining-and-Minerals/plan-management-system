@@ -33,6 +33,8 @@ import { filterDiagnosisReportEntries } from "./workflowTimelineUtils";
 import { useGetProfileQuery } from "@/redux/api/userApi";
 import type { PrescriptionRecord } from "@/redux/types/prescription";
 import { toast } from "sonner";
+import { usePermissions } from "@/hooks/usePermissions";
+import { WORKFLOW_PERMISSIONS } from "./workflowPermissions";
 
 type GlobalPanel = "forward" | "prescribe" | "history" | null;
 
@@ -61,6 +63,7 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
   const { data: receivers = [] } = useGetWorkflowReceiversQuery();
   const [submitEntry, { isLoading: submitting }] =
     useSubmitWorkflowEntryMutation();
+  const { can } = usePermissions();
 
   const [entryTitle, setEntryTitle] = useState("");
   const [entryTitleError, setEntryTitleError] = useState("");
@@ -120,6 +123,22 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
     return true;
   };
 
+  const canRunAction = (actionType: WorkflowActionType) => {
+    switch (actionType) {
+      case "forward":
+        return can(WORKFLOW_PERMISSIONS.FORWARD);
+      case "return":
+        return can(WORKFLOW_PERMISSIONS.RETURN);
+      case "prescribe":
+        return can(WORKFLOW_PERMISSIONS.PRESCRIBE);
+      case "complete":
+        return can(WORKFLOW_PERMISSIONS.COMPLETE);
+      case "submit":
+      default:
+        return can(WORKFLOW_PERMISSIONS.SUBMIT);
+    }
+  };
+
   const runAction = async (
     actionType: WorkflowActionType,
     options?: {
@@ -131,6 +150,11 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
       formData?: Record<string, unknown>;
     }
   ) => {
+    if (!canRunAction(actionType)) {
+      toast.error("You do not have permission for this workflow action");
+      return;
+    }
+
     const partial = options?.partial ?? actionType === "complete";
     const useForm = options?.useFormValues ?? showWorkflowForm;
 
@@ -263,14 +287,18 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
             entries={diagnosisEntries}
             pendingTask={Boolean(data.pendingTask)}
             workflowDone={workflowDone}
-            canAddWorkflow={!workflowDone && !showWorkflowForm}
+            canAddWorkflow={
+              !workflowDone &&
+              !showWorkflowForm &&
+              can(WORKFLOW_PERMISSIONS.SUBMIT)
+            }
             onAddWorkflow={() => {
               resetForm();
               setShowWorkflowForm(true);
             }}
           />
 
-          {showWorkflowForm && !workflowDone && (
+          {showWorkflowForm && !workflowDone && can(WORKFLOW_PERMISSIONS.SUBMIT) && (
             <WorkflowFormCard
               formConfig={data.formConfig}
               grouped={grouped}

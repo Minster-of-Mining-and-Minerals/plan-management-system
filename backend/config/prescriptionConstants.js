@@ -6,6 +6,7 @@ const PRESCRIPTION_STATUSES = ["draft", "issued", "cancelled"];
 const SIGNATURE_TYPES = ["template", "user", "none"];
 
 const DEFAULT_DOCUMENT_TEMPLATE_CODE = "standard_rx";
+const GLASSES_DOCUMENT_TEMPLATE_CODE = "glasses_rx";
 
 module.exports = {
   PRESCRIPTION_CATEGORY_STATUSES,
@@ -13,4 +14,5 @@ module.exports = {
   PRESCRIPTION_STATUSES,
   SIGNATURE_TYPES,
   DEFAULT_DOCUMENT_TEMPLATE_CODE,
+  GLASSES_DOCUMENT_TEMPLATE_CODE,
 };

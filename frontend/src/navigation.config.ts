@@ -134,7 +134,7 @@ export const NAVIGATION: NavItem[] = [
     title: "Workflow Inbox",
     url: "/workflow-inbox",
     icon: Inbox,
-    anyPermissions: ["PATIENTS:RECEIVE_PATIENT"],
+    anyPermissions: ["WORKFLOW:READ", "PATIENTS:RECEIVE_PATIENT"],
   },
   {
     title: "Diagnosis",

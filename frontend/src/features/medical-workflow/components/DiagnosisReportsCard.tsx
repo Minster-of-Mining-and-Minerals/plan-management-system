@@ -5,8 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Inbox } from "lucide-react";
+import { PermissionGuard } from "@/components/common/PermissionGuard";
 import { MedicalHistoryTimeline } from "../MedicalHistoryTimeline";
 import type { MedicalHistoryLog } from "@/redux/api/medicalWorkflowApi";
+import { WORKFLOW_PERMISSIONS } from "../workflowPermissions";
 
 type Props = {
   entries: MedicalHistoryLog[];
@@ -44,10 +46,12 @@ export function DiagnosisReportsCard({
             <Badge variant="secondary">Workflow completed</Badge>
           )}
           {canAddWorkflow && onAddWorkflow && (
-            <Button type="button" size="sm" onClick={onAddWorkflow}>
-              <Plus className="mr-1.5 h-4 w-4" />
-              Add new workflow
-            </Button>
+            <PermissionGuard requireAll={[WORKFLOW_PERMISSIONS.SUBMIT]} fallback={null}>
+              <Button type="button" size="sm" onClick={onAddWorkflow}>
+                <Plus className="mr-1.5 h-4 w-4" />
+                Add new workflow
+              </Button>
+            </PermissionGuard>
           )}
         </div>
       </CardHeader>

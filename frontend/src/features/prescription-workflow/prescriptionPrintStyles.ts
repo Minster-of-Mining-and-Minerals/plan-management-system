@@ -122,6 +122,127 @@ export const PRESCRIPTION_PRINT_CSS = `
   font-style: italic;
 }
 
+/* Glasses / ophthalmic prescription layout */
+.rx-document-glasses .rx-glasses-title {
+  font-size: 1rem;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 10px;
+  color: #094c81;
+}
+
+.rx-glasses-patient-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 16px;
+  font-size: 0.8rem;
+}
+
+.rx-glasses-meta {
+  margin: 12px 0;
+  padding: 8px 0;
+  border-top: 1px solid #000000;
+  border-bottom: 1px solid #000000;
+  font-size: 0.78rem;
+}
+
+.rx-glasses-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+}
+
+.rx-glasses-prescriber-line {
+  margin: 6px 0 0;
+  font-size: 0.75rem;
+  color: #444444;
+}
+
+.rx-glasses-table .rx-glasses-eye-label {
+  font-weight: 700;
+  text-align: left;
+  background: #f5f5f5;
+  width: 22%;
+}
+
+.rx-glasses-table th.rx-glasses-eye-col {
+  width: 22%;
+}
+
+.rx-glasses-dispensing {
+  margin-top: 12px;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.rx-glasses-section-label {
+  font-weight: 700;
+  font-size: 0.78rem;
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.rx-glasses-dispensing-list {
+  margin: 0 0 8px;
+  padding-left: 1.1rem;
+}
+
+.rx-glasses-dispensing-list li {
+  margin-bottom: 3px;
+}
+
+.rx-glasses-clinical-notes {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid #000000;
+}
+
+.rx-glasses-notes-body {
+  font-size: 0.78rem;
+  line-height: 1.5;
+  min-height: 2.5rem;
+  white-space: pre-wrap;
+}
+
+.rx-glasses-footer {
+  margin-top: 16px;
+}
+
+.rx-glasses-signature-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  align-items: end;
+}
+
+.rx-signature-block {
+  text-align: center;
+}
+
+.rx-signature-label {
+  font-size: 0.7rem;
+  color: #444444;
+  margin: 4px 0 0;
+  border-top: 1px solid #000000;
+  padding-top: 4px;
+}
+
+.rx-print-name,
+.rx-print-date {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0;
+  min-height: 2rem;
+}
+
+.rx-glasses-extra-row td {
+  font-size: 0.72rem;
+  background: #fafafa;
+}
+
 @media print {
   @page {
     size: A5 portrait;

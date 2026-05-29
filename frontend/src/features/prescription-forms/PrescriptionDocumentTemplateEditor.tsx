@@ -26,6 +26,7 @@ import {
 } from "@/redux/api/prescriptionDocumentTemplateApi";
 import {
   DEFAULT_DOCUMENT_TEMPLATE_HTML,
+  GLASSES_PRESCRIPTION_DOCUMENT_HTML,
   buildDocumentPreviewMarkup,
 } from "./prescriptionDocumentUtils";
 
@@ -251,6 +252,38 @@ export function PrescriptionDocumentTemplateEditor({ documentTemplateId }: Props
               <code className="text-xs">rx-header</code>,{" "}
               <code className="text-xs">rx-body</code>.
             </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setForm((f) => ({
+                  ...f,
+                  html_content: DEFAULT_DOCUMENT_TEMPLATE_HTML,
+                  code: f.code || "standard_rx",
+                }))
+              }
+            >
+              Load standard template
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setForm((f) => ({
+                  ...f,
+                  html_content: GLASSES_PRESCRIPTION_DOCUMENT_HTML,
+                  code: f.code || "glasses_rx",
+                  name: f.name || "Glasses / Ophthalmic Prescription",
+                }))
+              }
+            >
+              Load glasses template
+            </Button>
           </div>
 
           <div className="space-y-1">
