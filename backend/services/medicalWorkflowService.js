@@ -373,16 +373,40 @@ async function submitWorkflowEntry(staffId, payload) {
   }
 }
 
-async function listTimeline({ appointmentId, patientId, staffId }) {
-  if (appointmentId) {
-    await canAccessAppointment(appointmentId, staffId);
+async function listTimeline({ appointmentId, patientId, scheduleId, staffId }) {
+  let resolvedAppointmentId = appointmentId || null;
+
+  if (scheduleId && !resolvedAppointmentId) {
+    const schedule = await db.PatientSchedule.findByPk(scheduleId, {
+      attributes: ["schedule_id", "patient_id"],
+    });
+    if (!schedule) {
+      const err = new Error("Schedule not found");
+      err.status = 404;
+      throw err;
+    }
+
+    const appointment = await db.StaffAppointment.findOne({
+      where: { schedule_id: scheduleId },
+      attributes: ["appointment_id"],
+    });
+
+    if (appointment) {
+      resolvedAppointmentId = appointment.appointment_id;
+    } else {
+      return [];
+    }
+  }
+
+  if (resolvedAppointmentId) {
+    await canAccessAppointment(resolvedAppointmentId, staffId);
   }
 
   const where = {};
-  if (appointmentId) where.appointment_id = appointmentId;
+  if (resolvedAppointmentId) where.appointment_id = resolvedAppointmentId;
   if (patientId) where.patient_id = patientId;
 
-  if (!appointmentId && patientId) {
+  if (!resolvedAppointmentId && patientId) {
     const canReceive = await userCanReceivePatients(staffId);
     if (!canReceive) {
       const err = new Error("Access denied");
@@ -426,7 +450,7 @@ async function listTimeline({ appointmentId, patientId, staffId }) {
       : null,
   }));
 
-  return attachPrescriptionsToTimeline(withSchema, appointmentId);
+  return attachPrescriptionsToTimeline(withSchema, resolvedAppointmentId);
 }
 
 const timelinePrescriptionInclude = [

@@ -155,6 +155,12 @@ async function listSchedules({ staff_id, from, to, patient_id, status }) {
         as: "staff",
         attributes: ["user_id", "full_name", "email"],
       },
+      {
+        model: db.StaffAppointment,
+        as: "staffAppointment",
+        attributes: ["appointment_id", "status", "workflow_status"],
+        required: false,
+      },
     ],
     order: [
       ["schedule_date", "ASC"],

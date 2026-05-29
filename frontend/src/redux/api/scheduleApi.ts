@@ -41,6 +41,11 @@ export type PatientSchedule = {
     patientProfile?: { patient_code?: string };
   };
   staff?: { user_id: string; full_name: string };
+  staffAppointment?: {
+    appointment_id: string;
+    status?: string;
+    workflow_status?: string;
+  } | null;
 };
 
 export type EligibleStaff = {
@@ -93,6 +98,17 @@ export const scheduleApi = baseApi.injectEndpoints({
       }),
       transformResponse: (r: { data: ScheduleMatrixResponse }) => r.data,
       providesTags: ["PatientSchedule"],
+    }),
+
+    getPatientSchedules: builder.query<PatientSchedule[], string>({
+      query: (patientId) => ({
+        url: "/schedules",
+        params: { patient_id: patientId },
+      }),
+      transformResponse: (r: { data: PatientSchedule[] }) => r.data ?? [],
+      providesTags: (_r, _e, patientId) => [
+        { type: "PatientSchedule", id: `patient-${patientId}` },
+      ],
     }),
 
     createSchedule: builder.mutation<
@@ -159,6 +175,7 @@ export const {
   useUpdateScheduleConfigMutation,
   useGetEligibleStaffQuery,
   useGetScheduleMatrixQuery,
+  useGetPatientSchedulesQuery,
   useCreateScheduleMutation,
   useUpdateScheduleMutation,
   useShiftSchedulesMutation,

@@ -48,10 +48,11 @@ const submitEntry = async (req, res) => {
 
 const listTimeline = async (req, res) => {
   try {
-    const { appointment_id, patient_id } = req.query;
+    const { appointment_id, patient_id, schedule_id } = req.query;
     const rows = await medicalWorkflowService.listTimeline({
       appointmentId: appointment_id,
       patientId: patient_id,
+      scheduleId: schedule_id,
       staffId: req.user.user_id,
     });
     return res.json({ success: true, data: rows });

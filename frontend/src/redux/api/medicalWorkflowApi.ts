@@ -135,6 +135,15 @@ export const medicalWorkflowApi = baseApi.injectEndpoints({
       ],
     }),
 
+    getScheduleMedicalTimeline: builder.query<MedicalHistoryLog[], string>({
+      query: (scheduleId) =>
+        `/workflow/timeline?schedule_id=${encodeURIComponent(scheduleId)}`,
+      transformResponse: (r: { data: MedicalHistoryLog[] }) => r.data,
+      providesTags: (_r, _e, scheduleId) => [
+        { type: "MedicalWorkflow", id: `schedule-${scheduleId}` },
+      ],
+    }),
+
     getWorkflowInbox: builder.query<WorkflowTask[], { status?: string } | void>({
       query: (params) => {
         const status = params?.status ?? "pending";
@@ -155,6 +164,7 @@ export const {
   useGetWorkflowContextQuery,
   useSubmitWorkflowEntryMutation,
   useGetPatientMedicalTimelineQuery,
+  useGetScheduleMedicalTimelineQuery,
   useGetWorkflowInboxQuery,
   useGetWorkflowReceiversQuery,
 } = medicalWorkflowApi;
