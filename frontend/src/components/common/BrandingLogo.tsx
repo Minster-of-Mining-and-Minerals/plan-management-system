@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useBranding } from "@/providers/BrandingProvider";
 import { PLATFORM_LOGO_URL } from "@/config/platformBranding";
+import { getBrandingAssetUrl } from "@/utils/fileUrl";
 
 interface BrandingLogoProps {
   variant?: "compact" | "login";
@@ -18,9 +19,10 @@ export function BrandingLogo({
   className = "",
 }: BrandingLogoProps) {
   const { branding } = useBranding();
-  const src =
+  const raw =
     (variant === "login" ? branding.logo_login_url : branding.logo_url) ||
     PLATFORM_LOGO_URL;
+  const src = getBrandingAssetUrl(raw);
   const alt = branding.system_name;
 
   const defaultSize =
@@ -35,7 +37,7 @@ export function BrandingLogo({
       width={defaultSize.width}
       height={defaultSize.height}
       className={className}
-      unoptimized={src.startsWith("http")}
+      unoptimized={src.startsWith("http") || src.startsWith("/")}
     />
   );
 }

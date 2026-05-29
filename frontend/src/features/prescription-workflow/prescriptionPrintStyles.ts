@@ -1,20 +1,139 @@
+/** Screen preview + print/export styles for prescription documents. */
 export const PRESCRIPTION_PRINT_CSS = `
-.rx-document { font-family: Georgia, "Times New Roman", serif; color: #111; max-width: 800px; margin: 0 auto; padding: 24px; }
-.rx-header { text-align: center; border-bottom: 2px solid hsl(var(--primary)); padding-bottom: 12px; margin-bottom: 16px; }
-.rx-logo { max-height: 56px; margin: 0 auto 8px; display: block; }
-.rx-header h1 { font-size: 1.35rem; font-weight: 700; margin: 0; color: hsl(var(--primary)); }
-.rx-patient, .rx-prescriber { font-size: 0.85rem; margin-bottom: 12px; line-height: 1.5; }
-.rx-body { margin: 16px 0; }
-.rx-items-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-.rx-items-table th, .rx-items-table td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
-.rx-items-table th { background: #f5f5f5; font-weight: 600; }
-.rx-item-notes td { font-size: 0.75rem; color: #444; }
-.rx-footer { margin-top: 24px; border-top: 1px solid #ddd; padding-top: 16px; }
-.rx-signature-image { max-height: 64px; max-width: 200px; }
-.rx-signature-placeholder { color: #888; font-style: italic; }
-.rx-license { font-size: 0.75rem; color: #666; margin-top: 4px; }
-.rx-empty { color: #888; font-style: italic; }
-@media print {
-  .rx-document { padding: 12mm; box-shadow: none; }
+[data-prescription-export] {
+  box-sizing: border-box;
+  background: #ffffff;
+  color: #111111;
 }
+
+.rx-document {
+  box-sizing: border-box;
+  font-family: Georgia, "Times New Roman", serif;
+  color: #111111;
+  width: 100%;
+  max-width: 148mm;
+  margin: 0 auto;
+  padding: 8mm 10mm;
+  font-size: 10pt;
+  line-height: 1.45;
+}
+
+.rx-header {
+  text-align: center;
+  border-bottom: 2px solid #094c81;
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+}
+
+.rx-logo {
+  display: block;
+  max-height: 48px;
+  max-width: 120px;
+  width: auto;
+  height: auto;
+  margin: 0 auto 6px;
+  object-fit: contain;
+}
+
+.rx-header h1 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0;
+  color: #094c81;
+}
+
+.rx-header p {
+  margin: 2px 0;
+  font-size: 0.8rem;
+}
+
+.rx-patient,
+.rx-prescriber {
+  font-size: 0.8rem;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.rx-patient p,
+.rx-prescriber p {
+  margin: 2px 0;
+}
+
+.rx-body {
+  margin: 12px 0;
+}
+
+.rx-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+  table-layout: fixed;
+}
+
+.rx-items-table th,
+.rx-items-table td {
+  border: 1px solid #000000;
+  padding: 4px 6px;
+  text-align: left;
+  vertical-align: top;
+  word-wrap: break-word;
+}
+
+.rx-items-table th {
+  background: #f5f5f5;
+  font-weight: 600;
+  border-color: #000000;
+}
+
+.rx-item-notes td {
+  font-size: 0.68rem;
+  color: #444444;
+}
+
+.rx-footer {
+  margin-top: 16px;
+  border-top: 1px solid #000000;
+  padding-top: 12px;
+}
+
+.rx-signature-image {
+  display: block;
+  max-height: 48px;
+  max-width: 160px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+.rx-signature-placeholder {
+  color: #888888;
+  font-style: italic;
+  margin: 0;
+}
+
+.rx-license {
+  font-size: 0.7rem;
+  color: #666666;
+  margin-top: 4px;
+}
+
+.rx-empty {
+  color: #888888;
+  font-style: italic;
+}
+
+@media print {
+  @page {
+    size: A5 portrait;
+    margin: 8mm 10mm;
+  }
+
+  [data-prescription-export],
+  .rx-document {
+    box-shadow: none !important;
+    max-width: 148mm;
+    width: 100%;
+  }
+}
+
 `;

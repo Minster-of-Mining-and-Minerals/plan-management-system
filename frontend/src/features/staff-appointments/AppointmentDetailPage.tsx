@@ -3,7 +3,14 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";
-import { ArrowLeft, Calendar, Clock, User2, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  ArrowLeft,
+  Calendar,
+  ChevronDown,
+  ChevronUp,
+  Inbox,
+  User2,
+} from "lucide-react";
 import DetailHeader from "@/components/common/DetailHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -74,6 +81,7 @@ export default function AppointmentDetailPage() {
 
   const patient = appointment.patient;
   const schedule = appointment.schedule;
+  const isForwarded = appointment.workflow_access?.is_forwarded_to_me;
 
   return (
     <div className="space-y-6">
@@ -83,6 +91,23 @@ export default function AppointmentDetailPage() {
           { title: patient?.full_name || "Appointment" },
         ]}
       />
+
+      {isForwarded && (
+        <div className="flex flex-wrap items-start gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
+          <Inbox className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+          <div>
+            <p className="font-medium text-foreground">Forwarded to you</p>
+            <p className="mt-0.5 text-muted-foreground">
+              This visit is assigned to{" "}
+              <span className="font-medium text-foreground">
+                {appointment.staff?.full_name || "another clinician"}
+              </span>
+              . You have full access to the patient workflow, history, and
+              reports for this appointment.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -94,9 +119,16 @@ export default function AppointmentDetailPage() {
             </span>
           </p>
         </div>
-        <Badge variant={APPOINTMENT_STATUS_VARIANT[appointment.status]}>
-          {APPOINTMENT_STATUS_LABELS[appointment.status]}
-        </Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          {isForwarded && (
+            <Badge variant="outline" className="border-primary/40 text-primary">
+              Forwarded
+            </Badge>
+          )}
+          <Badge variant={APPOINTMENT_STATUS_VARIANT[appointment.status]}>
+            {APPOINTMENT_STATUS_LABELS[appointment.status]}
+          </Badge>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

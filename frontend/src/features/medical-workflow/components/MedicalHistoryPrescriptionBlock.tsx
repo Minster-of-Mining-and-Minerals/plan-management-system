@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,7 +9,11 @@ import {
 } from "@/redux/api/prescriptionApi";
 import type { PrescriptionRecord } from "@/redux/types/prescription";
 import { PrescriptionPrintDocument } from "@/features/prescription-workflow/PrescriptionPrintDocument";
-import { downloadPrescriptionPdf } from "@/lib/downloadPrescriptionPdf";
+import {
+  buildPrescriptionPdfFilename,
+  exportPrescriptionHtml,
+} from "@/lib/downloadPrescriptionPdf";
+import { toast } from "sonner";
 
 type Props = {
   prescription?: PrescriptionRecord | null;
@@ -64,7 +68,6 @@ function resolveFromList(
 }
 
 function PrescriptionDetail({ rx }: { rx: PrescriptionRecord }) {
-  const printRef = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);
   const title = rx.header_title || rx.template?.name || "Prescription";
   const items = rx.items || [];
@@ -73,11 +76,14 @@ function PrescriptionDetail({ rx }: { rx: PrescriptionRecord }) {
     if (!rx.rendered_html) return;
     setDownloading(true);
     try {
-      await new Promise((r) => requestAnimationFrame(r));
-      const root = printRef.current?.querySelector("[data-prescription-root]");
-      if (root instanceof HTMLElement) {
-        await downloadPrescriptionPdf(root, `${title.replace(/\s+/g, "-")}.pdf`);
-      }
+      await exportPrescriptionHtml(
+        rx.rendered_html,
+        buildPrescriptionPdfFilename(title)
+      );
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : "Failed to download prescription PDF";
+      toast.error(message);
     } finally {
       setDownloading(false);
     }
@@ -145,7 +151,7 @@ function PrescriptionDetail({ rx }: { rx: PrescriptionRecord }) {
 
       {rx.rendered_html ? (
         <>
-          <div className="overflow-x-auto rounded-lg border bg-white">
+          <div className="overflow-x-auto rounded-lg border bg-white py-2">
             <PrescriptionPrintDocument html={rx.rendered_html} />
           </div>
           <div className="flex justify-end">
@@ -163,9 +169,6 @@ function PrescriptionDetail({ rx }: { rx: PrescriptionRecord }) {
               )}
               Download PDF
             </Button>
-          </div>
-          <div className="sr-only" aria-hidden ref={printRef}>
-            <PrescriptionPrintDocument html={rx.rendered_html} />
           </div>
         </>
       ) : (

@@ -117,35 +117,30 @@ async function syncFromScheduleStatusChange(previousStatus, scheduleRow, actorId
   return appointment;
 }
 
-async function listAppointmentsForStaff(
-  staffId,
-  { search, status, sort = "admitted_at", order = "DESC", schedule_date } = {}
-) {
-  const where = { assigned_staff_id: staffId };
-
-  if (status) {
-    where.status = status;
-  } else {
-    where.status = { [Op.ne]: "cancelled" };
-  }
-
-  const includes = appointmentIncludes.map((inc) => {
-    if (inc.as === "schedule" && schedule_date) {
-      return { ...inc, where: { schedule_date }, required: true };
-    }
-    return inc;
+async function getPendingForwardAppointmentIds(staffId) {
+  const tasks = await db.WorkflowTask.findAll({
+    where: { assignee_staff_id: staffId, status: "pending" },
+    attributes: ["appointment_id"],
+    raw: true,
   });
+  return new Set(tasks.map((t) => t.appointment_id).filter(Boolean));
+}
 
-  const rows = await db.StaffAppointment.findAll({
-    where,
-    include: includes,
-    order: [[sort, order]],
-  });
+function attachWorkflowAccess(plain, staffId, pendingForwardIds) {
+  const isAssigned = plain.assigned_staff_id === staffId;
+  const isForwarded =
+    !isAssigned && pendingForwardIds.has(plain.appointment_id);
+  return {
+    ...plain,
+    workflow_access: {
+      is_assigned_to_me: isAssigned,
+      is_forwarded_to_me: isForwarded,
+    },
+  };
+}
 
-  if (!search?.trim()) {
-    return rows;
-  }
-
+function filterAppointmentsBySearch(rows, search) {
+  if (!search?.trim()) return rows;
   const q = search.trim().toLowerCase();
   return rows.filter((row) => {
     const plain = row.get({ plain: true });
@@ -163,12 +158,59 @@ async function listAppointmentsForStaff(
   });
 }
 
+async function listAppointmentsForStaff(
+  staffId,
+  { search, status, sort = "admitted_at", order = "DESC", schedule_date } = {}
+) {
+  const statusWhere = status
+    ? { status }
+    : { status: { [Op.ne]: "cancelled" } };
+
+  const includes = appointmentIncludes.map((inc) => {
+    if (inc.as === "schedule" && schedule_date) {
+      return { ...inc, where: { schedule_date }, required: true };
+    }
+    return inc;
+  });
+
+  const assignedRows = await db.StaffAppointment.findAll({
+    where: { assigned_staff_id: staffId, ...statusWhere },
+    include: includes,
+    order: [[sort, order]],
+  });
+
+  const assignedIds = new Set(assignedRows.map((r) => r.appointment_id));
+  const pendingForwardIds = await getPendingForwardAppointmentIds(staffId);
+  const extraForwardIds = [...pendingForwardIds].filter((id) => !assignedIds.has(id));
+
+  let rows = assignedRows;
+  if (extraForwardIds.length) {
+    const forwardedRows = await db.StaffAppointment.findAll({
+      where: {
+        appointment_id: { [Op.in]: extraForwardIds },
+        ...statusWhere,
+      },
+      include: includes,
+      order: [[sort, order]],
+    });
+    rows = [...assignedRows, ...forwardedRows].sort((a, b) => {
+      const aVal = a[sort] ? new Date(a[sort]).getTime() : 0;
+      const bVal = b[sort] ? new Date(b[sort]).getTime() : 0;
+      return order === "ASC" ? aVal - bVal : bVal - aVal;
+    });
+  }
+
+  return filterAppointmentsBySearch(rows, search);
+}
+
 async function getAppointmentById(appointmentId, { staffId } = {}) {
-  const where = { appointment_id: appointmentId };
-  if (staffId) where.assigned_staff_id = staffId;
+  if (staffId) {
+    const { canAccessAppointment } = require("./medicalWorkflowService");
+    return canAccessAppointment(appointmentId, staffId);
+  }
 
   const row = await db.StaffAppointment.findOne({
-    where,
+    where: { appointment_id: appointmentId },
     include: appointmentIncludes,
   });
 
@@ -181,6 +223,20 @@ async function getAppointmentById(appointmentId, { staffId } = {}) {
   return row;
 }
 
+async function getAppointmentForStaff(appointmentId, staffId) {
+  const row = await getAppointmentById(appointmentId, { staffId });
+  const pendingForwardIds = await getPendingForwardAppointmentIds(staffId);
+  return attachWorkflowAccess(row.get({ plain: true }), staffId, pendingForwardIds);
+}
+
+async function listAppointmentsForStaffWithAccess(staffId, options = {}) {
+  const rows = await listAppointmentsForStaff(staffId, options);
+  const pendingForwardIds = await getPendingForwardAppointmentIds(staffId);
+  return rows.map((row) =>
+    attachWorkflowAccess(row.get({ plain: true }), staffId, pendingForwardIds)
+  );
+}
+
 async function userCanReceivePatients(userId) {
   const scheduleService = require("./patientScheduleService");
   return scheduleService.staffHasReceivePermission(userId);
@@ -191,6 +247,8 @@ module.exports = {
   syncFromScheduleAdmission,
   syncFromScheduleStatusChange,
   listAppointmentsForStaff,
+  listAppointmentsForStaffWithAccess,
   getAppointmentById,
+  getAppointmentForStaff,
   userCanReceivePatients,
 };

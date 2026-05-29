@@ -8,6 +8,19 @@ const FILE_BASE =
   process.env.API_BASE_URL?.replace(/\/api\/?$/, "") ||
   "http://localhost:4000";
 
+const FRONTEND_BASE =
+  process.env.FRONTEND_URL ||
+  process.env.NEXT_PUBLIC_FRONTEND_URL ||
+  "http://localhost:3000";
+
+function isUploadPath(normalized) {
+  return (
+    normalized.startsWith("uploads/") ||
+    normalized.includes("/uploads/") ||
+    normalized.startsWith("public/uploads/")
+  );
+}
+
 function normalizePath(filePath) {
   return String(filePath || "").replace(/\\/g, "/").trim();
 }
@@ -36,9 +49,25 @@ function resolvePublicFileUrl(filePath) {
   return `${base}${path}`;
 }
 
+/** Logos & static branding assets live on the web app; uploads live on the API host. */
+function resolveBrandingAssetUrl(filePath) {
+  const normalized = normalizePath(filePath);
+  if (!normalized) return "";
+  if (/^https?:\/\//i.test(normalized)) return normalized;
+  if (isUploadPath(normalized)) {
+    return resolvePublicFileUrl(normalized);
+  }
+  const base = FRONTEND_BASE.replace(/\/$/, "");
+  const path = normalized.startsWith("/") ? normalized : `/${normalized}`;
+  return `${base}${path}`;
+}
+
 module.exports = {
   FILE_BASE,
+  FRONTEND_BASE,
   isLogoPath,
   isValidSignaturePath,
+  isUploadPath,
   resolvePublicFileUrl,
+  resolveBrandingAssetUrl,
 };

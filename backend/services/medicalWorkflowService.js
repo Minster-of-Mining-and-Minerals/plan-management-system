@@ -267,10 +267,11 @@ async function submitWorkflowEntry(staffId, payload) {
     throw err;
   }
 
+  const isRoutingAction = action_type === "forward" || action_type === "return";
   const { configId, normalized } = await resolveFormPayload(staffId, {
     form_config_id,
     form_data,
-    partial,
+    partial: partial || isRoutingAction || action_type === "prescribe",
   });
 
   const prescribeMeta =

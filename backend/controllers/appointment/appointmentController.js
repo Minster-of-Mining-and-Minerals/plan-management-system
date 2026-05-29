@@ -15,14 +15,14 @@ const listMyAppointments = async (req, res) => {
     }
 
     const { search, status, sort, order, schedule_date } = req.query;
-    const rows = await appointmentService.listAppointmentsForStaff(
+    const rows = await appointmentService.listAppointmentsForStaffWithAccess(
       req.user.user_id,
       { search, status, sort, order, schedule_date }
     );
 
     return res.json({
       success: true,
-      data: rows.map((r) => r.get({ plain: true })),
+      data: rows,
     });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
@@ -41,11 +41,12 @@ const getAppointment = async (req, res) => {
       });
     }
 
-    const row = await appointmentService.getAppointmentById(req.params.id, {
-      staffId: req.user.user_id,
-    });
+    const data = await appointmentService.getAppointmentForStaff(
+      req.params.id,
+      req.user.user_id
+    );
 
-    return res.json({ success: true, data: row.get({ plain: true }) });
+    return res.json({ success: true, data });
   } catch (e) {
     return res.status(e.status || 500).json({ success: false, message: e.message });
   }

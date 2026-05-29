@@ -26,7 +26,10 @@ import {
 } from "@/redux/api/prescriptionApi";
 import type { PrescriptionItem, PrescriptionRecord } from "@/redux/types/prescription";
 import { PrescriptionPrintDocument } from "./PrescriptionPrintDocument";
-import { downloadPrescriptionPdf } from "@/lib/downloadPrescriptionPdf";
+import {
+  buildPrescriptionPdfFilename,
+  exportPrescriptionHtml,
+} from "@/lib/downloadPrescriptionPdf";
 
 type Props = {
   appointmentId: string;
@@ -66,6 +69,7 @@ export function PrescriptionCreationPanel({
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<PrescriptionItem[]>([emptyItem()]);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const { data: categories = [] } = useListPrescriptionCategoriesQuery({
     status: "active",
@@ -115,7 +119,7 @@ export function PrescriptionCreationPanel({
     );
   };
 
-  const runPreview = async () => {
+  const runPreview = async (): Promise<string | null> => {
     try {
       const result = await previewPrescription({
         patient_id: patientId,
@@ -128,12 +132,14 @@ export function PrescriptionCreationPanel({
         items: items.filter((i) => i.item_name.trim()),
       }).unwrap();
       setPreviewHtml(result.html);
+      return result.html;
     } catch (e: unknown) {
       const message =
         e && typeof e === "object" && "data" in e
           ? String((e as { data?: { message?: string } }).data?.message)
           : "Preview failed";
       toast.error(message);
+      return null;
     }
   };
 
@@ -168,13 +174,21 @@ export function PrescriptionCreationPanel({
   };
 
   const handlePrint = async () => {
-    if (!previewHtml) await runPreview();
-    requestAnimationFrame(() => {
-      const root = printRef.current?.querySelector("[data-prescription-root]");
-      if (root instanceof HTMLElement) {
-        downloadPrescriptionPdf(root, `${headerTitle || "prescription"}.pdf`);
-      }
-    });
+    setExportingPdf(true);
+    try {
+      const html = previewHtml ?? (await runPreview());
+      if (!html) return;
+      await exportPrescriptionHtml(
+        html,
+        buildPrescriptionPdfFilename(headerTitle || "prescription")
+      );
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : "Failed to export prescription PDF";
+      toast.error(message);
+    } finally {
+      setExportingPdf(false);
+    }
   };
 
   return (
@@ -202,8 +216,17 @@ export function PrescriptionCreationPanel({
             ) : null}
             Preview
           </Button>
-          <Button type="button" variant="outline" onClick={handlePrint} disabled={saving}>
-            <Printer className="mr-1.5 h-4 w-4" />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handlePrint}
+            disabled={saving || exportingPdf || previewing}
+          >
+            {exportingPdf ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <Printer className="mr-1.5 h-4 w-4" />
+            )}
             Export PDF
           </Button>
           <Button type="button" onClick={handleSave} disabled={saving}>
@@ -374,7 +397,10 @@ export function PrescriptionCreationPanel({
         </div>
 
         {previewHtml && (
-          <div ref={printRef} className="overflow-x-auto rounded-lg border">
+          <div
+            ref={printRef}
+            className="overflow-x-auto rounded-lg border bg-white py-2"
+          >
             <PrescriptionPrintDocument html={previewHtml} />
           </div>
         )}

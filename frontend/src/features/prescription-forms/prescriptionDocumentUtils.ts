@@ -1,4 +1,5 @@
 import { PRESCRIPTION_PRINT_CSS } from "@/features/prescription-workflow/prescriptionPrintStyles";
+import { PLATFORM_LOGO_URL } from "@/config/platformBranding";
 
 export const DEFAULT_DOCUMENT_TEMPLATE_HTML = `<div class="rx-document">
   <header class="rx-header">
@@ -26,8 +27,7 @@ export const DEFAULT_DOCUMENT_TEMPLATE_HTML = `<div class="rx-document">
 
 const SAMPLE_VALUES: Record<string, string> = {
   hospital_name: "LaVista General Hospital",
-  hospital_logo_block:
-    '<div class="rx-logo-placeholder">[LaVista Hospital Logo]</div>',
+  hospital_logo_block: `<img src="${PLATFORM_LOGO_URL}" alt="Hospital logo" class="rx-logo" />`,
   hospital_location:
     "LaVista Tower, Bole Road, 3rd Floor, Addis Ababa, Ethiopia — LaVista Medical Center",
   contact_phone: "+251 11 123 4567",

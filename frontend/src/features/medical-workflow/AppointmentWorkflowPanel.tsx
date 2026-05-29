@@ -29,6 +29,7 @@ import {
   deriveNotes,
   extractAttachmentIds,
 } from "./workflowFormUtils";
+import { filterDiagnosisReportEntries } from "./workflowTimelineUtils";
 import { useGetProfileQuery } from "@/redux/api/userApi";
 import type { PrescriptionRecord } from "@/redux/types/prescription";
 import { toast } from "sonner";
@@ -232,6 +233,8 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
     );
   }
 
+  const diagnosisEntries = filterDiagnosisReportEntries(data.timeline);
+
   return (
     <div className="space-y-6">
       <GlobalWorkflowActions
@@ -257,7 +260,7 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
           )}
         >
           <DiagnosisReportsCard
-            entries={data.timeline}
+            entries={diagnosisEntries}
             pendingTask={Boolean(data.pendingTask)}
             workflowDone={workflowDone}
             canAddWorkflow={!workflowDone && !showWorkflowForm}
@@ -304,7 +307,8 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
                   receiver_staff_id: receiverId,
                   extraNotes: forwardNote,
                   headerTitle: "Forwarded",
-                  useFormValues: showWorkflowForm,
+                  partial: true,
+                  useFormValues: false,
                 })
               }
             />

@@ -40,6 +40,9 @@ async function validateDiagnosisFormData(configId, formData, { partial = false }
       if (partial && !(field.field_key in flat)) continue;
 
       const raw = flat[field.field_key];
+      // Required empties are reported by validateGroupFields — avoid duplicate messages.
+      if (isEmpty(raw) && field.is_required) continue;
+
       const fieldErrors = validateFieldValue(field, raw);
       if (fieldErrors.length) {
         errors.push(...fieldErrors);

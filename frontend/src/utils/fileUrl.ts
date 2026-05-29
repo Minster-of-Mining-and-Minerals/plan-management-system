@@ -1,3 +1,5 @@
+import { PLATFORM_LOGO_URL } from "@/config/platformBranding";
+
 export const getFileUrl = (filePath: string) => {
   const normalized = filePath.replace(/\\/g, "/");
   if (/^https?:\/\//i.test(normalized)) return normalized;
@@ -5,6 +7,16 @@ export const getFileUrl = (filePath: string) => {
   const apiBase = process.env.NEXT_PUBLIC_FILE_URL || "http://localhost:4000";
 
   return `${apiBase}/${normalized.replace(/^\//, "")}`;
+};
+
+/** URL for branding logos (default public path vs uploaded attachment). */
+export const getBrandingAssetUrl = (filePath: string) => {
+  const trimmed = filePath?.trim() || PLATFORM_LOGO_URL;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith("uploads/") || trimmed.includes("/uploads/")) {
+    return getFileUrl(trimmed);
+  }
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 };
 
 /** Store attachment paths relative to the API host (not full URLs). */

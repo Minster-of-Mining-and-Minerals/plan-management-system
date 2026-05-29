@@ -7,6 +7,7 @@ const {
   themeFromRecord,
   legacyFieldsFromTheme,
 } = require("../../config/brandingThemeDefaults");
+const { PLATFORM_LOGO_URL } = require("../../config/platformBranding");
 
 const formatBranding = (record) => {
   const plain = record?.toJSON ? record.toJSON() : record;
@@ -67,13 +68,16 @@ const normalizePayload = (body) => {
   }
 
   const legacy = legacyFieldsFromTheme(theme);
+  const resolvedLogo = logo_url?.trim() || PLATFORM_LOGO_URL;
+  const resolvedLoginLogo =
+    logo_login_url?.trim() || resolvedLogo || PLATFORM_LOGO_URL;
 
   return {
     system_name,
     system_name_am: system_name_am || null,
     tagline: tagline || null,
-    logo_url,
-    logo_login_url,
+    logo_url: resolvedLogo,
+    logo_login_url: resolvedLoginLogo,
     theme_json: theme,
     ...legacy,
     is_active,

@@ -7,7 +7,11 @@ const {
 } = require("../models");
 const { DEFAULT_PRESCRIPTION_DOCUMENT_HTML } = require("../config/defaultPrescriptionDocumentTemplate");
 const { DEFAULT_DOCUMENT_TEMPLATE_CODE } = require("../config/prescriptionConstants");
-const { resolvePublicFileUrl } = require("../utils/resolvePublicFileUrl");
+const { PLATFORM_LOGO_URL } = require("../config/platformBranding");
+const {
+  resolvePublicFileUrl,
+  resolveBrandingAssetUrl,
+} = require("../utils/resolvePublicFileUrl");
 
 function escapeHtml(value) {
   if (value == null) return "";
@@ -144,9 +148,8 @@ async function renderPrescriptionDocument({
   const activeBranding = branding || (await getActiveBranding());
   const docTemplate = await resolveDocumentTemplate(documentTemplateId, categoryId);
   const hospitalLocation = formatLocation(activeBranding);
-  const logoUrl = activeBranding?.logo_url
-    ? resolvePublicFileUrl(activeBranding.logo_url)
-    : "";
+  const logoPath = activeBranding?.logo_url || PLATFORM_LOGO_URL;
+  const logoUrl = resolveBrandingAssetUrl(logoPath);
 
   const signatureHtml = buildSignatureHtml({
     signatureType,

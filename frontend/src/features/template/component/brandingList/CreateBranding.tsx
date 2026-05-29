@@ -25,7 +25,7 @@ import {
 import { PLATFORM_LOGO_URL } from "@/config/platformBranding";
 import { BrandingThemeSection } from "./BrandingThemeSection";
 import { FileUploadField } from "@/components/common/FileUploadField";
-import { getFileUrl, toStoredFilePath } from "@/utils/fileUrl";
+import { getBrandingAssetUrl, toStoredFilePath } from "@/utils/fileUrl";
 
 interface BrandingFormState {
   system_name: string;
@@ -139,8 +139,8 @@ export default function CreateBranding({ brandingId }: { brandingId?: string }) 
       system_name: form.system_name,
       system_name_am: form.system_name_am || undefined,
       tagline: form.tagline || undefined,
-      logo_url: form.logo_url,
-      logo_login_url: form.logo_login_url,
+      logo_url: form.logo_url || PLATFORM_LOGO_URL,
+      logo_login_url: form.logo_login_url || PLATFORM_LOGO_URL,
       theme_json: form.theme,
       is_active: form.is_active,
       organization_address: form.organization_address || undefined,
@@ -177,8 +177,18 @@ export default function CreateBranding({ brandingId }: { brandingId?: string }) 
   }
 
   const signaturePreviewUrl = form.prescription_signature_file
-    ? getFileUrl(form.prescription_signature_file)
+    ? getBrandingAssetUrl(form.prescription_signature_file)
     : null;
+  const sidebarLogoPreview = getBrandingAssetUrl(form.logo_url);
+  const loginLogoPreview = getBrandingAssetUrl(form.logo_login_url);
+
+  const resetToDefaultLogos = () => {
+    setForm((prev) => ({
+      ...prev,
+      logo_url: PLATFORM_LOGO_URL,
+      logo_login_url: PLATFORM_LOGO_URL,
+    }));
+  };
 
   return (
     <div className="space-y-6">
@@ -382,23 +392,89 @@ export default function CreateBranding({ brandingId }: { brandingId?: string }) 
                       </div>
                     )}
                   </div>
-                  <div className="space-y-2">
-                    <Label>Logo URL (sidebar / header / compact)</Label>
-                    <Input
-                      value={form.logo_url}
-                      onChange={(e) =>
-                        setForm((prev) => ({ ...prev, logo_url: e.target.value }))
-                      }
-                    />
+                  <div className="space-y-2 md:col-span-2">
+                    <Label className="text-primary font-semibold">Logos</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Defaults to the platform logo. Upload custom images for the
+                      sidebar, login page, and printed prescriptions (uses the
+                      sidebar logo).
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={resetToDefaultLogos}
+                    >
+                      Reset to default platform logo
+                    </Button>
                   </div>
                   <div className="space-y-2">
-                    <Label>Login / hero logo URL</Label>
-                    <Input
-                      value={form.logo_login_url}
-                      onChange={(e) =>
-                        setForm((prev) => ({ ...prev, logo_login_url: e.target.value }))
-                      }
+                    <FileUploadField
+                      id="branding_logo_sidebar"
+                      label="Sidebar / header / prescription logo"
+                      value={form.logo_url}
+                      multiple={false}
+                      valueFormat="fileUrls"
+                      accept="image/*"
+                      onChange={(v) => {
+                        const next =
+                          typeof v === "string"
+                            ? v
+                            : Array.isArray(v)
+                              ? v[0] || ""
+                              : "";
+                        setForm((prev) => ({
+                          ...prev,
+                          logo_url: next
+                            ? toStoredFilePath(next)
+                            : PLATFORM_LOGO_URL,
+                        }));
+                      }}
                     />
+                    {sidebarLogoPreview && (
+                      <div className="rounded-md border bg-muted/30 p-2">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={sidebarLogoPreview}
+                          alt="Sidebar logo preview"
+                          className="mx-auto max-h-16 object-contain"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <FileUploadField
+                      id="branding_logo_login"
+                      label="Login / hero logo"
+                      value={form.logo_login_url}
+                      multiple={false}
+                      valueFormat="fileUrls"
+                      accept="image/*"
+                      onChange={(v) => {
+                        const next =
+                          typeof v === "string"
+                            ? v
+                            : Array.isArray(v)
+                              ? v[0] || ""
+                              : "";
+                        setForm((prev) => ({
+                          ...prev,
+                          logo_login_url: next
+                            ? toStoredFilePath(next)
+                            : PLATFORM_LOGO_URL,
+                        }));
+                      }}
+                    />
+                    {loginLogoPreview && (
+                      <div className="rounded-md border bg-muted/30 p-2">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={loginLogoPreview}
+                          alt="Login logo preview"
+                          className="mx-auto max-h-20 object-contain"
+                        />
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-3 md:col-span-2">
                     <Switch
@@ -426,12 +502,12 @@ export default function CreateBranding({ brandingId }: { brandingId?: string }) 
           <CardContent className="space-y-4">
             <div className="flex flex-col items-center gap-3 rounded-lg border bg-muted/30 p-4">
               <Image
-                src={form.logo_url}
+                src={sidebarLogoPreview}
                 alt="Logo preview"
                 width={80}
                 height={80}
                 className="object-contain"
-                unoptimized={form.logo_url.startsWith("http")}
+                unoptimized={sidebarLogoPreview.startsWith("http")}
               />
               <p className="text-center text-sm font-semibold text-section-accent">
                 {form.system_name || "System Name"}

@@ -2,11 +2,17 @@ import { baseApi } from "../baseApi";
 
 export type StaffAppointmentStatus = "admitted" | "completed" | "cancelled";
 
+export type AppointmentWorkflowAccess = {
+  is_assigned_to_me: boolean;
+  is_forwarded_to_me: boolean;
+};
+
 export type StaffAppointment = {
   appointment_id: string;
   schedule_id: string;
   patient_id: string;
   assigned_staff_id: string;
+  workflow_access?: AppointmentWorkflowAccess;
   admitted_by?: string | null;
   admitted_at: string;
   status: StaffAppointmentStatus;
