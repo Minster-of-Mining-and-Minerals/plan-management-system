@@ -10,7 +10,6 @@ import Loading01 from "@/features/template/component/Loading/Loading01";
 import { useAuth } from "@/hooks/use-auth";
 import { hasAnyPermission } from "@/lib/permissions";
 import { useGetUnreadNotificationCountQuery } from "@/redux/api/notificationApi";
-import { useInternalNotificationAlerts } from "@/hooks/useInternalNotificationAlerts";
 
 export default function PrivateLayout({
   children,
@@ -34,7 +33,6 @@ export default function PrivateLayout({
     }
   );
 
-  useInternalNotificationAlerts(isLoaded && !isFirstLogin);
   const showSidebar = isLoaded && permissions.length > 0;
   const isChangePasswordPage = pathname.includes("/change-password");
 

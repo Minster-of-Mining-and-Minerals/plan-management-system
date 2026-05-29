@@ -4,8 +4,8 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { NavUser } from "./nav-user";
 import { Button } from "@/components/ui/button";
 import { Bell } from "lucide-react";
+import { Link } from "@/i18n/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import NotificationDropdown from "@/features/notifications/TemplateNotificationDropdown";
 
 interface HeaderProps {
   title?: string;
@@ -34,15 +34,20 @@ export function Header({
       {title && <h1 className="text-lg font-semibold">{title}</h1>}
       <div className="ml-auto flex items-center gap-2">
         {notificationsHref ? (
-          <NotificationDropdown notificationCount={notificationCount} />
+          <Button variant="ghost" size="icon" className="relative" asChild>
+            <Link href={notificationsHref}>
+              <Bell className="size-5" />
+              {notificationCount > 0 && (
+                <span className="absolute text-white font-bold -top-1 -right-1 flex size-5 items-center justify-center rounded-full bg-destructive text-[10px] text-destructive-foreground">
+                  {notificationCount > 9 ? "9+" : notificationCount}
+                </span>
+              )}
+              <span className="sr-only">Notifications</span>
+            </Link>
+          </Button>
         ) : (
-          <Button variant="ghost" size="icon" className="relative">
+          <Button variant="ghost" size="icon" className="relative" disabled>
             <Bell className="size-5" />
-            {notificationCount > 0 && (
-              <span className="absolute text-white font-bold -top-1 -right-1 flex size-5 items-center justify-center rounded-full bg-destructive text-[10px] text-destructive-foreground">
-                {notificationCount > 9 ? "9+" : notificationCount}
-              </span>
-            )}
             <span className="sr-only">Notifications</span>
           </Button>
         )}
