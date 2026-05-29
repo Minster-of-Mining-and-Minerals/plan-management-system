@@ -33,11 +33,19 @@ export default function WorkflowInboxPage() {
 
   return (
     <div className="space-y-6">
-      <DetailHeader
-        title="Workflow inbox"
-        description="Incoming forwarded patients and pending workflow tasks"
-        icon={Inbox}
-      />
+      <DetailHeader breadcrumbs={[{ title: "Workflow inbox" }]} />
+
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-2 text-2xl font-semibold">
+            <Inbox className="h-6 w-6 text-primary" />
+            Workflow inbox
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Incoming forwarded patients and pending workflow tasks
+          </p>
+        </div>
+      </div>
 
       <div className="flex items-center gap-3">
         <span className="text-sm text-muted-foreground">Filter</span>

@@ -60,6 +60,8 @@ export type PrescriptionRecord = {
   status: string;
   issued_at?: string | null;
   workflow_log_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
   items?: PrescriptionItem[];
   category?: PrescriptionCategory;
   template?: PrescriptionTemplate;
