@@ -17,23 +17,23 @@ import {
   PHARMACY_RX_STATUS_STYLES,
 } from "./pharmacyStatus";
 import { useClientDataTable } from "@/hooks/useClientDataTable";
+import type { FilterField } from "@/types/tableLayout";
 
 type Props = {
   title: string;
   description: string;
-  queue?: boolean;
   pharmacy_status?: string;
+  filters?: FilterField[];
 };
 
 export function PharmacyPrescriptionList({
   title,
   description,
-  queue,
   pharmacy_status,
+  filters = [],
 }: Props) {
   const router = useRouter();
   const { data = [], isLoading } = useGetPharmacyPortalPrescriptionsQuery({
-    queue,
     pharmacy_status,
   });
 
@@ -44,8 +44,16 @@ export function PharmacyPrescriptionList({
         header: "Prescription",
         cell: ({ row }) => row.original.source_header_title || "Prescription",
       },
-      { id: "patient", header: "Patient", cell: ({ row }) => row.original.patient_name || "—" },
-      { id: "doctor", header: "Doctor", cell: ({ row }) => row.original.prescriber_name || "—" },
+      {
+        id: "patient",
+        header: "Patient",
+        cell: ({ row }) => row.original.patient_name || "—",
+      },
+      {
+        id: "doctor",
+        header: "Doctor",
+        cell: ({ row }) => row.original.prescriber_name || "—",
+      },
       {
         id: "status",
         header: "Status",
@@ -104,7 +112,12 @@ export function PharmacyPrescriptionList({
   if (isLoading) return <Loading01 />;
 
   return (
-    <TableLayout title={title} description={description}>
+    <TableLayout
+      title={title}
+      description={description}
+      filters={filters}
+      filterColumnsPerRow={1}
+    >
       <DataTable
         columns={columns}
         data={paginatedData}

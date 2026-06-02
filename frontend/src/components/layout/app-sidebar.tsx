@@ -37,6 +37,14 @@ const stripLocale = (pathname: string) => {
   return pathname;
 };
 
+/** List route must not match detail routes (/pharmacies vs /pharmacies/:id). */
+function isNavChildActive(pathname: string, childUrl: string) {
+  if (childUrl === "/pharmacies") {
+    return pathname === "/pharmacies";
+  }
+  return pathname === childUrl || pathname.startsWith(`${childUrl}/`);
+}
+
 type AppSidebarProps = {
   navigation?: NavItem[];
   showPermissionFilter?: boolean;
@@ -131,10 +139,10 @@ export function AppSidebar({
                         <CollapsibleContent>
                           <SidebarMenuSub className="pt-1">
                             {item.children?.map((child) => (
-                              <SidebarMenuSubItem key={child.url}>
+                              <SidebarMenuSubItem key={`${child.url}-${child.title}`}>
                                 <SidebarMenuSubButton
                                   asChild
-                                  isActive={pathname === child.url}
+                                  isActive={isNavChildActive(pathname, child.url)}
                                   className="text-primary hover:bg-sidebar-hover
                                     hover:data-[active=false]:bg-sidebar-hover
                                     hover:data-[active=true]:bg-sidebar-hover

@@ -8,6 +8,7 @@ const {
   PharmacyPrescriptionItem,
   PharmacyPrescriptionVersion,
   PrescriptionFulfillment,
+  PharmacyUserProfile,
   User,
   PatientProfile,
   InternalUserProfile,
@@ -448,46 +449,132 @@ async function getPharmacyDashboardStats(pharmacyId) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const [pending, queue, completedToday, unavailable] = await Promise.all([
-    PharmacyPrescription.count({
-      where: {
-        pharmacy_id: pharmacyId,
-        pharmacy_status: PHARMACY_PRESCRIPTION_STATUS.RECEIVED,
-      },
-    }),
-    PharmacyPrescription.count({
-      where: {
-        pharmacy_id: pharmacyId,
-        pharmacy_status: {
-          [Op.in]: [
-            PHARMACY_PRESCRIPTION_STATUS.REVIEWING,
-            PHARMACY_PRESCRIPTION_STATUS.PREPARING,
-            PHARMACY_PRESCRIPTION_STATUS.PARTIALLY_DISPENSED,
-          ],
-        },
-      },
-    }),
-    PharmacyPrescription.count({
-      where: {
-        pharmacy_id: pharmacyId,
-        pharmacy_status: PHARMACY_PRESCRIPTION_STATUS.COMPLETED,
-        completed_at: { [Op.gte]: today },
-      },
-    }),
-    PharmacyPrescriptionItem.count({
-      include: [
-        {
-          model: PharmacyPrescription,
-          as: "pharmacyPrescription",
-          where: { pharmacy_id: pharmacyId },
-          required: true,
-        },
-      ],
-      where: { pharmacy_item_status: PHARMACY_ITEM_STATUS.UNAVAILABLE },
-    }),
-  ]);
+  const statusKeys = Object.values(PHARMACY_PRESCRIPTION_STATUS);
+  const statusCounts = await Promise.all(
+    statusKeys.map((status) =>
+      PharmacyPrescription.count({
+        where: { pharmacy_id: pharmacyId, pharmacy_status: status },
+      })
+    )
+  );
+  const byStatus = statusKeys.reduce((acc, status, i) => {
+    acc[status] = statusCounts[i];
+    return acc;
+  }, {});
 
-  return { pending, queue, completedToday, unavailable };
+  const [total, receivedToday, completedToday, unavailableItems] =
+    await Promise.all([
+      PharmacyPrescription.count({ where: { pharmacy_id: pharmacyId } }),
+      PharmacyPrescription.count({
+        where: {
+          pharmacy_id: pharmacyId,
+          received_at: { [Op.gte]: today },
+        },
+      }),
+      PharmacyPrescription.count({
+        where: {
+          pharmacy_id: pharmacyId,
+          pharmacy_status: PHARMACY_PRESCRIPTION_STATUS.COMPLETED,
+          completed_at: { [Op.gte]: today },
+        },
+      }),
+      PharmacyPrescriptionItem.count({
+        include: [
+          {
+            model: PharmacyPrescription,
+            as: "pharmacyPrescription",
+            where: { pharmacy_id: pharmacyId },
+            required: true,
+          },
+        ],
+        where: { pharmacy_item_status: PHARMACY_ITEM_STATUS.UNAVAILABLE },
+      }),
+    ]);
+
+  const teamProfiles = await PharmacyUserProfile.findAll({
+    where: { pharmacy_id: pharmacyId },
+    include: [
+      {
+        model: User,
+        as: "user",
+        attributes: ["user_id", "full_name", "email", "is_active"],
+      },
+    ],
+    order: [[{ model: User, as: "user" }, "full_name", "ASC"]],
+  });
+
+  const byUser = await Promise.all(
+    teamProfiles.map(async (profile) => {
+      const userId = profile.user_id;
+      const [workflowUpdates, fulfillmentsCompleted, prescriptionsCompleted] =
+        await Promise.all([
+          PharmacyPrescriptionVersion.count({
+            where: { created_by: userId },
+            include: [
+              {
+                model: PharmacyPrescription,
+                as: "pharmacyPrescription",
+                where: { pharmacy_id: pharmacyId },
+                required: true,
+                attributes: [],
+              },
+            ],
+          }),
+          PrescriptionFulfillment.count({
+            where: { fulfilled_by: userId },
+            include: [
+              {
+                model: PharmacyPrescription,
+                as: "pharmacyPrescription",
+                where: { pharmacy_id: pharmacyId },
+                required: true,
+                attributes: [],
+              },
+            ],
+          }),
+          PharmacyPrescription.count({
+            where: {
+              pharmacy_id: pharmacyId,
+              pharmacy_status: PHARMACY_PRESCRIPTION_STATUS.COMPLETED,
+              updated_by: userId,
+            },
+          }),
+        ]);
+
+      return {
+        user_id: userId,
+        full_name: profile.user?.full_name || "",
+        email: profile.user?.email || "",
+        portal_role: profile.portal_role,
+        is_active: profile.user?.is_active ?? profile.is_active,
+        workflow_updates: workflowUpdates,
+        fulfillments: fulfillmentsCompleted,
+        prescriptions_completed: prescriptionsCompleted,
+      };
+    })
+  );
+
+  const activeTeam = byUser.filter((u) => u.is_active).length;
+
+  return {
+    summary: {
+      total,
+      receivedToday,
+      completedToday,
+      unavailableItems,
+      teamTotal: byUser.length,
+      teamActive: activeTeam,
+    },
+    byStatus,
+    byUser,
+    pending: byStatus.received ?? 0,
+    queue:
+      (byStatus.reviewing ?? 0) +
+      (byStatus.preparing ?? 0) +
+      (byStatus.partially_dispensed ?? 0),
+    completedToday,
+    unavailable: unavailableItems,
+  };
 }
 
 async function listPatientPrescriptionsForSend(patientId) {

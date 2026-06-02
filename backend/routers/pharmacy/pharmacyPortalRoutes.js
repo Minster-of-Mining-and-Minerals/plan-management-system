@@ -17,6 +17,8 @@ const {
   getMyPharmacyProfile,
   listNotifications,
   getUnreadCount,
+  markNotificationRead,
+  markAllNotificationsRead,
 } = require("../../controllers/pharmacy/pharmacyPortalController");
 
 router.use(authenticateToken, requirePharmacyAccount, attachPharmacyContext);
@@ -25,6 +27,8 @@ router.get("/me", getMyPharmacyProfile);
 router.get("/dashboard", getDashboard);
 router.get("/notifications/unread-count", getUnreadCount);
 router.get("/notifications", listNotifications);
+router.patch("/notifications/read-all", markAllNotificationsRead);
+router.patch("/notifications/:id/read", markNotificationRead);
 router.get("/prescriptions", validatePortalList, listPrescriptions);
 router.get("/prescriptions/:id", getPrescription);
 router.patch(

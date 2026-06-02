@@ -15,20 +15,41 @@ export type Pharmacy = {
   logo?: string | null;
   status: PharmacyStatus;
   user_count?: number;
-  users?: PharmacyUser[];
+  users?: PharmacyUserProfileApi[];
   created_at?: string;
   updated_at?: string;
 };
 
-export type PharmacyUser = {
+/** Normalized row for pharmacy user tables (from API profile + nested user). */
+export type PharmacyUserRow = {
+  pharmacy_user_profile_id: string;
   user_id: string;
+  pharmacy_id: string;
   full_name: string;
   email: string;
   phone_number?: string | null;
   is_active: boolean;
+  portal_role: "admin" | "staff";
+};
+
+export type PharmacyUser = PharmacyUserRow & {
+  pharmacy?: Pharmacy;
+};
+
+/** Nested shape returned on pharmacy detail `users` include. */
+export type PharmacyUserProfileApi = {
+  pharmacy_user_profile_id: string;
+  user_id: string;
   pharmacy_id: string;
   portal_role: "admin" | "staff";
-  pharmacy?: Pharmacy;
+  is_active?: boolean;
+  user?: {
+    user_id: string;
+    full_name: string;
+    email: string;
+    phone_number?: string | null;
+    is_active: boolean;
+  };
 };
 
 export type PharmacyPrescriptionStatus =
@@ -97,9 +118,31 @@ export type PatientPrescriptionForSend = {
   }[];
 };
 
+export type PharmacyDashboardUserStat = {
+  user_id: string;
+  full_name: string;
+  email: string;
+  portal_role: "admin" | "staff";
+  is_active: boolean;
+  workflow_updates: number;
+  fulfillments: number;
+  prescriptions_completed: number;
+};
+
 export type PharmacyDashboardStats = {
-  pending: number;
-  queue: number;
-  completedToday: number;
-  unavailable: number;
+  summary: {
+    total: number;
+    receivedToday: number;
+    completedToday: number;
+    unavailableItems: number;
+    teamTotal: number;
+    teamActive: number;
+  };
+  byStatus: Record<PharmacyPrescriptionStatus, number>;
+  byUser: PharmacyDashboardUserStat[];
+  /** @deprecated use byStatus */
+  pending?: number;
+  queue?: number;
+  completedToday?: number;
+  unavailable?: number;
 };

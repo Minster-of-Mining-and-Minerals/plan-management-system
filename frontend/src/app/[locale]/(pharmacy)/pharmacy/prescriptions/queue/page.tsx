@@ -1,11 +1,6 @@
-import { PharmacyPrescriptionList } from "@/features/pharmacy-portal/PharmacyPrescriptionList";
+import { redirect } from "next/navigation";
 
-export default function PharmacyQueuePage() {
-  return (
-    <PharmacyPrescriptionList
-      title="Dispensing queue"
-      description="Prescriptions being reviewed or prepared"
-      queue
-    />
-  );
+/** Legacy route — dispensing queue is a status filter on Prescriptions */
+export default function PharmacyQueueRedirect() {
+  redirect("/pharmacy/prescriptions?status=reviewing");
 }

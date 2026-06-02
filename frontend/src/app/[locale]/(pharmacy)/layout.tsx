@@ -9,20 +9,23 @@ import { useSession } from "next-auth/react";
 import { performLogout } from "@/utils/logout";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import { PHARMACY_NAVIGATION } from "@/pharmacy-navigation.config";
+import { useGetPharmacyPortalUnreadCountQuery } from "@/redux/api/pharmacyPortalApi";
 
 const PAGE_TITLES: Record<string, string> = {
-  dashboard: "Pharmacy Dashboard",
-  received: "Received Prescriptions",
-  queue: "Dispensing Queue",
-  completed: "Completed Prescriptions",
+  dashboard: "Dashboard",
+  prescriptions: "Prescriptions",
   notifications: "Notifications",
-  profile: "Pharmacy Profile",
+  profile: "Profile",
 };
 
 export default function PharmacyLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, status } = useSession();
+  const { data: unreadCount = 0 } = useGetPharmacyPortalUnreadCountQuery(undefined, {
+    skip: status !== "authenticated",
+    pollingInterval: 60_000,
+  });
 
   const isFirstLogin = session?.user?.is_first_logged_in;
   const isChangePasswordPage = pathname.includes("/change-password");
@@ -47,8 +50,10 @@ export default function PharmacyLayout({ children }: { children: React.ReactNode
   if (isFirstLogin && !isChangePasswordPage) return <Loading01 />;
 
   const segments = pathname.split("/").filter(Boolean);
-  const key = segments[segments.length - 1] || "dashboard";
-  const title = PAGE_TITLES[key] ?? "Pharmacy Portal";
+  const pharmacyIdx = segments.indexOf("pharmacy");
+  const section =
+    pharmacyIdx >= 0 ? segments[pharmacyIdx + 1] || "dashboard" : "dashboard";
+  const title = PAGE_TITLES[section] ?? "Pharmacy Portal";
 
   return (
     <SidebarProvider>
@@ -64,6 +69,7 @@ export default function PharmacyLayout({ children }: { children: React.ReactNode
           title={title}
           showSidebar={!isFirstLogin}
           notificationsHref="/pharmacy/notifications"
+          notificationCount={unreadCount}
         />
         <div className="min-h-[calc(100vh-5rem)] bg-gradient-to-b from-background via-background to-section-accent-subtle-10/30 p-4 sm:p-6">
           {children}

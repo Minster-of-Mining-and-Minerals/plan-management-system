@@ -70,6 +70,28 @@ export const pharmacyApi = baseApi.injectEndpoints({
       ],
     }),
 
+    updatePharmacyUser: builder.mutation<
+      PharmacyUser,
+      { userId: string; body: Record<string, unknown> }
+    >({
+      query: ({ userId, body }) => ({
+        url: `/pharmacies/users/${userId}`,
+        method: "PUT",
+        body,
+      }),
+      transformResponse: (r: { data: PharmacyUser }) => r.data,
+      invalidatesTags: ["Pharmacy"],
+    }),
+
+    togglePharmacyUserStatus: builder.mutation<PharmacyUser, string>({
+      query: (userId) => ({
+        url: `/pharmacies/users/${userId}/status`,
+        method: "PATCH",
+      }),
+      transformResponse: (r: { data: PharmacyUser }) => r.data,
+      invalidatesTags: ["Pharmacy"],
+    }),
+
     sendPrescriptionToPharmacy: builder.mutation<
       PharmacyPrescription,
       { prescription_id: string; pharmacy_id: string }
@@ -106,6 +128,8 @@ export const {
   useTogglePharmacyStatusMutation,
   useDeletePharmacyMutation,
   useCreatePharmacyUserMutation,
+  useUpdatePharmacyUserMutation,
+  useTogglePharmacyUserStatusMutation,
   useSendPrescriptionToPharmacyMutation,
   useGetPatientPrescriptionsForSendQuery,
 } = pharmacyApi;

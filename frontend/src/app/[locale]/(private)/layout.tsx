@@ -10,6 +10,7 @@ import Loading01 from "@/features/template/component/Loading/Loading01";
 import { useAuth } from "@/hooks/use-auth";
 import { hasAnyPermission } from "@/lib/permissions";
 import { useGetUnreadNotificationCountQuery } from "@/redux/api/notificationApi";
+import { useInternalNavigation } from "@/hooks/useInternalNavigation";
 
 export default function PrivateLayout({
   children,
@@ -33,6 +34,7 @@ export default function PrivateLayout({
     }
   );
 
+  const navigation = useInternalNavigation();
   const showSidebar = isLoaded && permissions.length > 0;
   const isChangePasswordPage = pathname.includes("/change-password");
 
@@ -76,7 +78,7 @@ export default function PrivateLayout({
 
   return (
     <SidebarProvider>
-      {!isFirstLogin && showSidebar && <AppSidebar />}
+      {!isFirstLogin && showSidebar && <AppSidebar navigation={navigation} />}
       <SidebarInset>
         <Header
           title={title || "Profile"}

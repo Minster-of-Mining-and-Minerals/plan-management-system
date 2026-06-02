@@ -30,7 +30,10 @@ const createPharmacyUserSchema = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().min(6).optional(),
   phone_number: Joi.string().allow(null, "").optional(),
-  portal_role: Joi.string().valid("admin", "staff").optional(),
+  portal_role: Joi.string().valid("admin", "staff").required().messages({
+    "any.required": "Pharmacy role is required",
+    "any.only": "Role must be admin or staff",
+  }),
   is_active: Joi.boolean().optional(),
 });
 

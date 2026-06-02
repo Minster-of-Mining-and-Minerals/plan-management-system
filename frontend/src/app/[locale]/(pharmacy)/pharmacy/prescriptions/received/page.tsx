@@ -1,11 +1,5 @@
-import { PharmacyPrescriptionList } from "@/features/pharmacy-portal/PharmacyPrescriptionList";
+import { redirect } from "next/navigation";
 
-export default function PharmacyReceivedPage() {
-  return (
-    <PharmacyPrescriptionList
-      title="Received prescriptions"
-      description="New prescriptions sent from the hospital"
-      pharmacy_status="received"
-    />
-  );
+export default function PharmacyReceivedRedirect() {
+  redirect("/pharmacy/prescriptions?status=received");
 }

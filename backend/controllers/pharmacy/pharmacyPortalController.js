@@ -102,6 +102,27 @@ const getUnreadCount = async (req, res) => {
   }
 };
 
+const markNotificationRead = async (req, res) => {
+  try {
+    const data = await notificationService.markRead(
+      req.params.id,
+      req.user.user_id
+    );
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+const markAllNotificationsRead = async (req, res) => {
+  try {
+    await notificationService.markAllRead(req.user.user_id);
+    return res.status(200).json({ success: true, message: "All marked as read" });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
 module.exports = {
   getDashboard,
   listPrescriptions,
@@ -110,4 +131,6 @@ module.exports = {
   getMyPharmacyProfile,
   listNotifications,
   getUnreadCount,
+  markNotificationRead,
+  markAllNotificationsRead,
 };

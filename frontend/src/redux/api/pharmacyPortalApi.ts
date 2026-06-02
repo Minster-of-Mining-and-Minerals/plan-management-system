@@ -61,6 +61,53 @@ export const pharmacyPortalApi = baseApi.injectEndpoints({
       transformResponse: (r: { data: PharmacyPrescription }) => r.data,
       invalidatesTags: ["PharmacyPortal"],
     }),
+
+    getPharmacyPortalNotifications: builder.query<
+      {
+        notification_id: string;
+        title: string;
+        message: string;
+        is_read: boolean;
+        created_at: string;
+        related_entity_type?: string | null;
+        related_entity_id?: string | null;
+      }[],
+      void
+    >({
+      query: () => "/pharmacy-portal/notifications",
+      transformResponse: (r: { data: unknown[] }) => (r.data ?? []) as {
+        notification_id: string;
+        title: string;
+        message: string;
+        is_read: boolean;
+        created_at: string;
+        related_entity_type?: string | null;
+        related_entity_id?: string | null;
+      }[],
+      providesTags: ["PharmacyPortal"],
+    }),
+
+    getPharmacyPortalUnreadCount: builder.query<number, void>({
+      query: () => "/pharmacy-portal/notifications/unread-count",
+      transformResponse: (r: { data: { count: number } }) => r.data?.count ?? 0,
+      providesTags: ["PharmacyPortal"],
+    }),
+
+    markPharmacyNotificationRead: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/pharmacy-portal/notifications/${id}/read`,
+        method: "PATCH",
+      }),
+      invalidatesTags: ["PharmacyPortal"],
+    }),
+
+    markAllPharmacyNotificationsRead: builder.mutation<void, void>({
+      query: () => ({
+        url: "/pharmacy-portal/notifications/read-all",
+        method: "PATCH",
+      }),
+      invalidatesTags: ["PharmacyPortal"],
+    }),
   }),
 });
 
@@ -70,4 +117,8 @@ export const {
   useGetPharmacyPortalPrescriptionsQuery,
   useGetPharmacyPortalPrescriptionQuery,
   useUpdatePharmacyPrescriptionWorkflowMutation,
+  useGetPharmacyPortalNotificationsQuery,
+  useGetPharmacyPortalUnreadCountQuery,
+  useMarkPharmacyNotificationReadMutation,
+  useMarkAllPharmacyNotificationsReadMutation,
 } = pharmacyPortalApi;
