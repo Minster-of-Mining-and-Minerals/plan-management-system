@@ -14,12 +14,19 @@ const authPublicRoutes = [
 const authRoutes = ["/login"];
 
 const patientPortalPrefixes = ["/patient"];
+const pharmacyPortalPrefixes = ["/pharmacy"];
 const internalPortalPrefixes = [
   "/dashboard",
   "/users",
   "/patients",
   "/branding",
   "/profile",
+  "/pharmacies",
+  "/prescriptions",
+  "/appointments",
+  "/departments",
+  "/workflow-inbox",
+  "/diagnosis-forms",
 ];
 
 function hasSessionToken(req: NextRequest): boolean {
@@ -62,7 +69,11 @@ export default async function middleware(req: NextRequest) {
     });
     const home =
       token?.home_route ||
-      (token?.account_type === "PATIENT" ? "/patient/profile" : "/profile");
+      (token?.account_type === "PATIENT"
+        ? "/patient/profile"
+        : token?.account_type === "PHARMACY"
+          ? "/pharmacy/dashboard"
+          : "/profile");
     return NextResponse.redirect(new URL(`/${locale}${home}`, req.url));
   }
 
@@ -79,18 +90,28 @@ export default async function middleware(req: NextRequest) {
     });
     const accountType = token?.account_type ?? "INTERNAL";
     const isPatientRoute = matchesPrefix(pathnameWithoutLocale, patientPortalPrefixes);
+    const isPharmacyRoute = matchesPrefix(
+      pathnameWithoutLocale,
+      pharmacyPortalPrefixes
+    );
     const isInternalRoute = matchesPrefix(
       pathnameWithoutLocale,
       internalPortalPrefixes
     );
 
-    if (accountType === "PATIENT" && isInternalRoute) {
+    if (accountType === "PATIENT" && (isInternalRoute || isPharmacyRoute)) {
       return NextResponse.redirect(
         new URL(`/${locale}/patient/profile`, req.url)
       );
     }
 
-    if (accountType === "INTERNAL" && isPatientRoute) {
+    if (accountType === "PHARMACY" && (isInternalRoute || isPatientRoute)) {
+      return NextResponse.redirect(
+        new URL(`/${locale}/pharmacy/dashboard`, req.url)
+      );
+    }
+
+    if (accountType === "INTERNAL" && (isPatientRoute || isPharmacyRoute)) {
       return NextResponse.redirect(new URL(`/${locale}/profile`, req.url));
     }
   }

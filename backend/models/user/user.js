@@ -54,6 +54,11 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "recipient_id",
         as: "notifications",
       });
+
+      User.hasOne(models.PharmacyUserProfile, {
+        foreignKey: "user_id",
+        as: "pharmacyProfile",
+      });
     }
   }
 
@@ -104,7 +109,7 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: true,
       },
       account_type: {
-        type: DataTypes.ENUM("INTERNAL", "PATIENT"),
+        type: DataTypes.ENUM("INTERNAL", "PATIENT", "PHARMACY"),
         allowNull: false,
         defaultValue: "INTERNAL",
       },

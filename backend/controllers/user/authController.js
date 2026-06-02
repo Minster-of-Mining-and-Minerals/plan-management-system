@@ -22,7 +22,11 @@ const login = async (req, res) => {
 
     const account_type = user.account_type || "INTERNAL";
     const home_route =
-      account_type === "PATIENT" ? "/patient/profile" : "/profile";
+      account_type === "PATIENT"
+        ? "/patient/profile"
+        : account_type === "PHARMACY"
+          ? "/pharmacy/dashboard"
+          : "/profile";
 
     const token = jwt.sign(
       {
@@ -98,7 +102,11 @@ const getMe = async (req, res) => {
 
     const account_type = user.account_type || "INTERNAL";
     const home_route =
-      account_type === "PATIENT" ? "/patient/profile" : "/profile";
+      account_type === "PATIENT"
+        ? "/patient/profile"
+        : account_type === "PHARMACY"
+          ? "/pharmacy/dashboard"
+          : "/profile";
 
     return res.status(200).json({
       success: true,
@@ -125,7 +133,7 @@ const getMe = async (req, res) => {
 
 const getMyPermissions = async (req, res) => {
   try {
-    if (req.user?.account_type === "PATIENT") {
+    if (req.user?.account_type === "PATIENT" || req.user?.account_type === "PHARMACY") {
       return res.status(200).json({
         success: true,
         data: { permissions: [], roles: [] },

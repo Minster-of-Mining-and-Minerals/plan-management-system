@@ -14,6 +14,7 @@ import {
   Stethoscope,
   Inbox,
   Pill,
+  Store,
 } from "lucide-react";
 
 export type NavItem = {
@@ -154,6 +155,17 @@ export const NAVIGATION: NavItem[] = [
       "PRESCRIPTION_TEMPLATE:VIEW",
       "PRESCRIPTION_CATEGORY:VIEW",
       "PRESCRIPTION_TEMPLATE:MANAGE",
+    ],
+  },
+  {
+    title: "Pharmacies",
+    url: "/pharmacies",
+    icon: Store,
+    anyPermissions: [
+      "PHARMACY:VIEW",
+      "PHARMACY:MANAGE",
+      "PHARMACY:CREATE",
+      "PHARMACY:USER_MANAGE",
     ],
   },
   {

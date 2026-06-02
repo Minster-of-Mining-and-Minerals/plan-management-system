@@ -45,6 +45,8 @@ export default function PrivateLayout({
   useEffect(() => {
     if (session?.user?.account_type === "PATIENT") {
       router.replace("/patient/profile");
+    } else if (session?.user?.account_type === "PHARMACY") {
+      router.replace("/pharmacy/dashboard");
     }
   }, [session, router]);
 

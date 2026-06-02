@@ -13,6 +13,7 @@ import { useUploadAttachmentsMutation } from "@/redux/api/attachementApi";
 import { PatientDetailPanel } from "@/features/patient-management/PatientDetailPanel";
 import { PatientIdentificationSlip } from "@/features/patient-management/PatientIdentificationSlip";
 import { PatientScheduleListCards } from "@/features/patient-management/PatientScheduleListCards";
+import { PatientPrescriptionPharmacyPanel } from "@/features/patient-management/PatientPrescriptionPharmacyPanel";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import DetailHeader from "@/components/common/DetailHeader";
 import { Button } from "@/components/ui/button";
@@ -204,6 +205,8 @@ export default function PatientDetailPage() {
           <PatientIdentificationSlip patient={patient} />
         </div>
       </div>
+
+      <PatientPrescriptionPharmacyPanel patientId={patientId} />
 
       <PatientScheduleListCards patientId={patientId} />
     </div>
