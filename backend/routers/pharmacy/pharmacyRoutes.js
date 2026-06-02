@@ -13,6 +13,7 @@ const {
   validatePharmacyId,
   validateCreatePharmacyUser,
   validateSendPrescription,
+  validateForwardFromSchedule,
 } = require("../../validators/pharmacy/pharmacyValidator");
 const {
   listPharmacies,
@@ -26,6 +27,8 @@ const {
   updatePharmacyUser,
   togglePharmacyUserStatus,
   sendPrescription,
+  forwardPrescriptionsFromSchedule,
+  listSchedulePrescriptions,
   listPatientPrescriptionsForSend,
   listHospitalPharmacyPrescriptions,
 } = require("../../controllers/pharmacy/pharmacyController");
@@ -48,6 +51,17 @@ router.get(
   "/patients/:patientId/prescriptions",
   checkPermission("pharmacy_prescription", "view"),
   listPatientPrescriptionsForSend
+);
+router.get(
+  "/schedules/:scheduleId/prescriptions",
+  checkPermission("pharmacy_prescription", "send"),
+  listSchedulePrescriptions
+);
+router.post(
+  "/schedules/forward",
+  checkPermission("pharmacy_prescription", "send"),
+  validateForwardFromSchedule,
+  forwardPrescriptionsFromSchedule
 );
 
 router.get("/", checkPermission("pharmacy", "view"), listPharmacies);

@@ -8,7 +8,13 @@ const {
   PharmacyPrescriptionItem,
   PharmacyPrescriptionVersion,
   PrescriptionFulfillment,
+  PrescriptionPharmacyForward,
+  PrescriptionPharmacyForwardAudit,
+  PrescriptionPharmacyForwardFile,
+  Attachment,
   PharmacyUserProfile,
+  PatientSchedule,
+  StaffAppointment,
   User,
   PatientProfile,
   InternalUserProfile,
@@ -18,6 +24,8 @@ const {
   PHARMACY_PRESCRIPTION_STATUS,
   PHARMACY_ITEM_STATUS,
   PHARMACY_STATUS,
+  PHARMACY_FORWARD_STATUS,
+  PHARMACY_FORWARD_ACTION,
 } = require("../config/pharmacyConstants");
 const notificationService = require("./notificationService");
 const { getPagination, getPagingData } = require("../utils/pagination");
@@ -115,8 +123,487 @@ async function getOriginalPrescription(prescriptionId) {
   return rx;
 }
 
+async function resolveScheduleAppointment(scheduleId) {
+  const schedule = await PatientSchedule.findByPk(scheduleId, {
+    attributes: ["schedule_id", "patient_id"],
+  });
+  if (!schedule) {
+    const err = new Error("Schedule not found");
+    err.status = 404;
+    throw err;
+  }
+  const appointment = await StaffAppointment.findOne({
+    where: { schedule_id: scheduleId },
+    attributes: ["appointment_id"],
+  });
+  if (!appointment) {
+    const err = new Error("No visit appointment for this schedule");
+    err.status = 400;
+    throw err;
+  }
+  return { schedule, appointmentId: appointment.appointment_id };
+}
+
+async function assertPrescriptionOnSchedule(prescription, scheduleId, appointmentId) {
+  if (prescription.appointment_id !== appointmentId) {
+    const err = new Error("Prescription does not belong to this schedule visit");
+    err.status = 400;
+    throw err;
+  }
+  if (prescription.status !== "issued") {
+    const err = new Error("Only issued prescriptions can be forwarded");
+    err.status = 400;
+    throw err;
+  }
+}
+
+const forwardDetailInclude = [
+  { model: Pharmacy, as: "pharmacy", attributes: ["pharmacy_id", "pharmacy_name", "pharmacy_code"] },
+  { model: User, as: "sender", attributes: ["user_id", "full_name"] },
+  {
+    model: PharmacyPrescription,
+    as: "pharmacyPrescription",
+    attributes: [
+      "pharmacy_prescription_id",
+      "pharmacy_id",
+      "pharmacy_status",
+      "sent_at",
+      "received_at",
+    ],
+  },
+  {
+    model: PrescriptionPharmacyForwardFile,
+    as: "files",
+    include: [
+      {
+        model: Attachment,
+        as: "attachment",
+        attributes: ["attachment_id", "file_name", "file_path"],
+      },
+    ],
+  },
+];
+
+function formatForwardSummary(forward) {
+  if (!forward) return null;
+  const plain = forward.get ? forward.get({ plain: true }) : forward;
+  return {
+    forward_id: plain.forward_id,
+    prescription_id: plain.prescription_id,
+    pharmacy_id: plain.pharmacy_id,
+    pharmacy_name: plain.pharmacy?.pharmacy_name ?? null,
+    pharmacy_code: plain.pharmacy?.pharmacy_code ?? null,
+    forward_status: plain.forward_status,
+    sent_at: plain.sent_at,
+    sent_by_name: plain.sender?.full_name ?? null,
+    pharmacy_status: plain.pharmacyPrescription?.pharmacy_status ?? null,
+    pharmacy_prescription_id: plain.pharmacy_prescription_id,
+    is_forwarded: true,
+    files: (plain.files || []).map((f) => ({
+      forward_file_id: f.forward_file_id,
+      attachment_id: f.attachment_id,
+      file_name: f.attachment?.file_name,
+      file_path: f.attachment?.file_path,
+      added_at: f.added_at,
+    })),
+  };
+}
+
+async function recordForwardAudit(
+  t,
+  { forward_id, action, changed_by, previous_values, new_values }
+) {
+  await PrescriptionPharmacyForwardAudit.create(
+    {
+      forward_id,
+      action,
+      changed_by,
+      changed_at: new Date(),
+      previous_values: previous_values ?? null,
+      new_values: new_values ?? null,
+    },
+    { transaction: t }
+  );
+}
+
+function buildItemRowsFromOriginal(pharmacyRxId, original) {
+  return (original.items || []).map((item, index) => ({
+    pharmacy_prescription_id: pharmacyRxId,
+    source_prescription_item_id: item.prescription_item_id,
+    item_name: item.item_name,
+    strength: item.strength,
+    route: item.route,
+    dosage: item.dosage,
+    frequency: item.frequency,
+    duration: item.duration,
+    instructions: item.instructions,
+    quantity: item.quantity,
+    notes: item.notes,
+    sort_order: item.sort_order ?? index,
+    pharmacy_item_status: PHARMACY_ITEM_STATUS.PENDING,
+  }));
+}
+
+async function notifyPharmacyUsers(pharmacyId, { title, message, relatedId }) {
+  const profiles = await PharmacyUserProfile.findAll({
+    where: { pharmacy_id: pharmacyId, is_active: true },
+    attributes: ["user_id"],
+  });
+  for (const p of profiles) {
+    await notificationService.notifyInternalUser(p.user_id, {
+      title,
+      message,
+      category: "pharmacy",
+      relatedType: "pharmacy_prescription",
+      relatedId,
+    });
+  }
+}
+
+async function appendForwardFiles(t, forwardId, attachmentIds, userId) {
+  if (!attachmentIds?.length) return [];
+  const uniqueIds = [...new Set(attachmentIds)];
+  const existing = await PrescriptionPharmacyForwardFile.findAll({
+    where: {
+      forward_id: forwardId,
+      attachment_id: { [Op.in]: uniqueIds },
+    },
+    transaction: t,
+  });
+  const existingSet = new Set(existing.map((e) => e.attachment_id));
+  const now = new Date();
+  const added = [];
+  for (const attachment_id of uniqueIds) {
+    if (existingSet.has(attachment_id)) continue;
+    const row = await PrescriptionPharmacyForwardFile.create(
+      {
+        forward_id: forwardId,
+        attachment_id,
+        added_by: userId,
+        added_at: now,
+      },
+      { transaction: t }
+    );
+    added.push(row);
+  }
+  return added;
+}
+
+async function syncPharmacyPrescriptionFromOriginal(
+  pharmacyRx,
+  original,
+  senderUserId,
+  t,
+  changeSummary
+) {
+  const statusBefore = pharmacyRx.pharmacy_status;
+  const itemRows = buildItemRowsFromOriginal(
+    pharmacyRx.pharmacy_prescription_id,
+    original
+  );
+
+  const earlyWorkflow = [
+    PHARMACY_PRESCRIPTION_STATUS.RECEIVED,
+    PHARMACY_PRESCRIPTION_STATUS.REVIEWING,
+    PHARMACY_PRESCRIPTION_STATUS.PREPARING,
+  ].includes(statusBefore);
+
+  if (earlyWorkflow) {
+    await PharmacyPrescriptionItem.destroy({
+      where: { pharmacy_prescription_id: pharmacyRx.pharmacy_prescription_id },
+      transaction: t,
+    });
+    if (itemRows.length) {
+      await PharmacyPrescriptionItem.bulkCreate(itemRows, { transaction: t });
+    }
+  }
+
+  const nextVersion = (pharmacyRx.current_version || 1) + 1;
+  await pharmacyRx.update(
+    {
+      source_rendered_html: original.rendered_html,
+      source_notes: original.notes,
+      source_header_title: original.header_title,
+      patient_snapshot: buildPatientSnapshot(original.patient),
+      prescriber_snapshot: buildPrescriberSnapshot(original.prescriber),
+      current_version: nextVersion,
+      updated_by: senderUserId,
+    },
+    { transaction: t }
+  );
+
+  await PharmacyPrescriptionVersion.create(
+    {
+      pharmacy_prescription_id: pharmacyRx.pharmacy_prescription_id,
+      version_number: nextVersion,
+      status_before: statusBefore,
+      status_after: statusBefore,
+      change_summary: changeSummary,
+      items_snapshot: itemRows,
+      created_by: senderUserId,
+      created_at: new Date(),
+    },
+    { transaction: t }
+  );
+
+  return itemRows;
+}
+
+async function getActiveForwardForPrescription(prescriptionId, transaction) {
+  return PrescriptionPharmacyForward.findOne({
+    where: { prescription_id: prescriptionId },
+    include: forwardDetailInclude,
+    transaction,
+  });
+}
+
+async function listPrescriptionsForSchedule(scheduleId) {
+  const { schedule, appointmentId } = await resolveScheduleAppointment(scheduleId);
+
+  const prescriptions = await Prescription.findAll({
+    where: { appointment_id: appointmentId, status: "issued" },
+    attributes: [
+      "prescription_id",
+      "header_title",
+      "issued_at",
+      "created_at",
+      "notes",
+      "status",
+    ],
+    include: [
+      {
+        model: PrescriptionItem,
+        as: "items",
+        separate: true,
+        order: [["sort_order", "ASC"]],
+      },
+      {
+        model: User,
+        as: "prescriber",
+        attributes: ["user_id", "full_name"],
+      },
+    ],
+    order: [["issued_at", "ASC"]],
+  });
+
+  const rxIds = prescriptions.map((rx) => rx.prescription_id);
+  const forwards =
+    rxIds.length > 0
+      ? await PrescriptionPharmacyForward.findAll({
+          where: { prescription_id: { [Op.in]: rxIds } },
+          include: forwardDetailInclude,
+        })
+      : [];
+
+  const forwardByRx = new Map(
+    forwards.map((f) => [f.prescription_id, f])
+  );
+
+  const forwardedCount = forwards.length;
+
+  return {
+    schedule_id: scheduleId,
+    patient_id: schedule.patient_id,
+    appointment_id: appointmentId,
+    has_any_forwarded: forwardedCount > 0,
+    prescriptions: prescriptions.map((rx) => {
+      const plain = rx.toJSON();
+      const forward = forwardByRx.get(plain.prescription_id);
+      return {
+        ...plain,
+        item_count: plain.items?.length ?? 0,
+        prescriber_name: plain.prescriber?.full_name ?? null,
+        pharmacy_forward: formatForwardSummary(forward),
+      };
+    }),
+  };
+}
+
+async function forwardPrescriptionsFromSchedule(
+  { prescription_ids, pharmacy_id, schedule_id, attachment_ids },
+  senderUserId
+) {
+  const uniqueIds = [...new Set(prescription_ids)];
+  const forwarded = [];
+  const failed = [];
+
+  for (const prescription_id of uniqueIds) {
+    try {
+      const data = await sendPrescriptionToPharmacy(
+        {
+          prescription_id,
+          pharmacy_id,
+          schedule_id,
+          attachment_ids,
+        },
+        senderUserId
+      );
+      forwarded.push({
+        prescription_id,
+        data,
+        updated: Boolean(data?.forward?.updated),
+      });
+    } catch (error) {
+      failed.push({
+        prescription_id,
+        message: error.message || "Forward failed",
+      });
+    }
+  }
+
+  if (forwarded.length === 0) {
+    const err = new Error(
+      failed[0]?.message || "Failed to forward prescriptions"
+    );
+    err.status = 400;
+    err.details = failed;
+    throw err;
+  }
+
+  return { forwarded, failed };
+}
+
+async function updateExistingPharmacyForward(
+  existingForward,
+  { pharmacy_id, schedule_id, attachment_ids, original, senderUserId }
+) {
+  const pharmacy = await Pharmacy.findByPk(pharmacy_id);
+  if (!pharmacy || pharmacy.status !== PHARMACY_STATUS.ACTIVE) {
+    const err = new Error("Pharmacy not found or inactive");
+    err.status = 400;
+    throw err;
+  }
+
+  const t = await PharmacyPrescription.sequelize.transaction();
+  const previousPharmacyId = existingForward.pharmacy_id;
+  const pharmacyChanged = previousPharmacyId !== pharmacy_id;
+
+  try {
+    const pharmacyRx = await PharmacyPrescription.findByPk(
+      existingForward.pharmacy_prescription_id,
+      { transaction: t, lock: t.LOCK.UPDATE }
+    );
+    if (!pharmacyRx) {
+      const err = new Error("Linked pharmacy prescription not found");
+      err.status = 404;
+      throw err;
+    }
+
+    if (pharmacyChanged) {
+      const prevPharmacy = await Pharmacy.findByPk(previousPharmacyId, {
+        attributes: ["pharmacy_id", "pharmacy_name"],
+        transaction: t,
+      });
+      await pharmacyRx.update(
+        { pharmacy_id, updated_by: senderUserId },
+        { transaction: t }
+      );
+      await existingForward.update(
+        {
+          pharmacy_id,
+          schedule_id: schedule_id ?? existingForward.schedule_id,
+          forward_status: PHARMACY_FORWARD_STATUS.FORWARDED,
+        },
+        { transaction: t }
+      );
+      await recordForwardAudit(t, {
+        forward_id: existingForward.forward_id,
+        action: PHARMACY_FORWARD_ACTION.PHARMACY_CHANGED,
+        changed_by: senderUserId,
+        previous_values: {
+          pharmacy_id: previousPharmacyId,
+          pharmacy_name: prevPharmacy?.pharmacy_name,
+        },
+        new_values: {
+          pharmacy_id,
+          pharmacy_name: pharmacy.pharmacy_name,
+        },
+      });
+    } else if (schedule_id && existingForward.schedule_id !== schedule_id) {
+      await existingForward.update({ schedule_id }, { transaction: t });
+    }
+
+    await syncPharmacyPrescriptionFromOriginal(
+      pharmacyRx,
+      original,
+      senderUserId,
+      t,
+      pharmacyChanged
+        ? "Prescription reassigned to another pharmacy with updated content"
+        : "Prescription content synchronized from hospital"
+    );
+
+    await recordForwardAudit(t, {
+      forward_id: existingForward.forward_id,
+      action: PHARMACY_FORWARD_ACTION.CONTENT_SYNCED,
+      changed_by: senderUserId,
+      previous_values: null,
+      new_values: {
+        header_title: original.header_title,
+        item_count: original.items?.length ?? 0,
+      },
+    });
+
+    const addedFiles = await appendForwardFiles(
+      t,
+      existingForward.forward_id,
+      attachment_ids,
+      senderUserId
+    );
+    if (addedFiles.length) {
+      await recordForwardAudit(t, {
+        forward_id: existingForward.forward_id,
+        action: PHARMACY_FORWARD_ACTION.FILES_ADDED,
+        changed_by: senderUserId,
+        previous_values: null,
+        new_values: {
+          attachment_ids: addedFiles.map((f) => f.attachment_id),
+        },
+      });
+    }
+
+    await t.commit();
+
+    if (pharmacyChanged) {
+      await notifyPharmacyUsers(pharmacy_id, {
+        title: "Prescription assigned to your pharmacy",
+        message: `Prescription for ${original.patient?.full_name || "patient"} has been forwarded to your pharmacy.`,
+        relatedId: pharmacyRx.pharmacy_prescription_id,
+      });
+    } else {
+      await notifyPharmacyUsers(pharmacy_id, {
+        title: "Prescription updated",
+        message: `Forwarded prescription for ${original.patient?.full_name || "patient"} has been updated.`,
+        relatedId: pharmacyRx.pharmacy_prescription_id,
+      });
+    }
+
+    const refreshed = await getActiveForwardForPrescription(
+      existingForward.prescription_id
+    );
+    const result = await getPharmacyPrescriptionById(
+      pharmacyRx.pharmacy_prescription_id
+    );
+    result.forward = {
+      ...formatForwardSummary(refreshed),
+      updated: true,
+    };
+    return result;
+  } catch (error) {
+    if (!t.finished) await t.rollback();
+    if (error.name === "SequelizeUniqueConstraintError") {
+      const err = new Error(
+        "Duplicate pharmacy forwarding is not allowed for this prescription"
+      );
+      err.status = 409;
+      throw err;
+    }
+    throw error;
+  }
+}
+
 async function sendPrescriptionToPharmacy(
-  { prescription_id, pharmacy_id },
+  { prescription_id, pharmacy_id, schedule_id, attachment_ids },
   senderUserId
 ) {
   const pharmacy = await Pharmacy.findByPk(pharmacy_id);
@@ -128,12 +615,39 @@ async function sendPrescriptionToPharmacy(
 
   const original = await getOriginalPrescription(prescription_id);
 
-  const existing = await PharmacyPrescription.findOne({
-    where: { original_prescription_id: prescription_id, pharmacy_id },
+  if (schedule_id) {
+    const scheduleContext = await resolveScheduleAppointment(schedule_id);
+    assertPrescriptionOnSchedule(
+      original,
+      schedule_id,
+      scheduleContext.appointmentId
+    );
+    if (original.patient_id !== scheduleContext.schedule.patient_id) {
+      const err = new Error("Prescription patient does not match schedule");
+      err.status = 400;
+      throw err;
+    }
+  }
+
+  const existingForward = await getActiveForwardForPrescription(prescription_id);
+  if (existingForward) {
+    return updateExistingPharmacyForward(existingForward, {
+      pharmacy_id,
+      schedule_id,
+      attachment_ids,
+      original,
+      senderUserId,
+    });
+  }
+
+  const orphanRx = await PharmacyPrescription.findOne({
+    where: { original_prescription_id: prescription_id },
   });
-  if (existing) {
-    const err = new Error("Prescription already sent to this pharmacy");
-    err.status = 400;
+  if (orphanRx) {
+    const err = new Error(
+      "Prescription already has a pharmacy copy; use update forwarding instead"
+    );
+    err.status = 409;
     throw err;
   }
 
@@ -163,21 +677,10 @@ async function sendPrescriptionToPharmacy(
       { transaction: t }
     );
 
-    const itemRows = (original.items || []).map((item, index) => ({
-      pharmacy_prescription_id: pharmacyRx.pharmacy_prescription_id,
-      source_prescription_item_id: item.prescription_item_id,
-      item_name: item.item_name,
-      strength: item.strength,
-      route: item.route,
-      dosage: item.dosage,
-      frequency: item.frequency,
-      duration: item.duration,
-      instructions: item.instructions,
-      quantity: item.quantity,
-      notes: item.notes,
-      sort_order: item.sort_order ?? index,
-      pharmacy_item_status: PHARMACY_ITEM_STATUS.PENDING,
-    }));
+    const itemRows = buildItemRowsFromOriginal(
+      pharmacyRx.pharmacy_prescription_id,
+      original
+    );
 
     if (itemRows.length) {
       await PharmacyPrescriptionItem.bulkCreate(itemRows, { transaction: t });
@@ -189,7 +692,9 @@ async function sendPrescriptionToPharmacy(
         version_number: 1,
         status_before: null,
         status_after: PHARMACY_PRESCRIPTION_STATUS.RECEIVED,
-        change_summary: "Prescription received from hospital",
+        change_summary: schedule_id
+          ? "Prescription forwarded from hospital schedule"
+          : "Prescription received from hospital",
         items_snapshot: itemRows,
         created_by: senderUserId,
         created_at: now,
@@ -197,26 +702,76 @@ async function sendPrescriptionToPharmacy(
       { transaction: t }
     );
 
-    await t.commit();
+    const forwardRecord = await PrescriptionPharmacyForward.create(
+      {
+        prescription_id,
+        patient_id: original.patient_id,
+        schedule_id: schedule_id ?? null,
+        pharmacy_id,
+        pharmacy_prescription_id: pharmacyRx.pharmacy_prescription_id,
+        sent_by: senderUserId,
+        sent_at: now,
+        forward_status: PHARMACY_FORWARD_STATUS.FORWARDED,
+      },
+      { transaction: t }
+    );
 
-    const profiles = await require("../models").PharmacyUserProfile.findAll({
-      where: { pharmacy_id, is_active: true },
-      attributes: ["user_id"],
+    await recordForwardAudit(t, {
+      forward_id: forwardRecord.forward_id,
+      action: PHARMACY_FORWARD_ACTION.CREATED,
+      changed_by: senderUserId,
+      previous_values: null,
+      new_values: {
+        pharmacy_id,
+        pharmacy_name: pharmacy.pharmacy_name,
+        schedule_id: schedule_id ?? null,
+      },
     });
 
-    for (const p of profiles) {
-      await notificationService.notifyInternalUser(p.user_id, {
-        title: "New prescription received",
-        message: `Prescription for ${original.patient?.full_name || "patient"} has been sent to your pharmacy.`,
-        category: "pharmacy",
-        relatedType: "pharmacy_prescription",
-        relatedId: pharmacyRx.pharmacy_prescription_id,
+    const addedFiles = await appendForwardFiles(
+      t,
+      forwardRecord.forward_id,
+      attachment_ids,
+      senderUserId
+    );
+    if (addedFiles.length) {
+      await recordForwardAudit(t, {
+        forward_id: forwardRecord.forward_id,
+        action: PHARMACY_FORWARD_ACTION.FILES_ADDED,
+        changed_by: senderUserId,
+        previous_values: null,
+        new_values: {
+          attachment_ids: addedFiles.map((f) => f.attachment_id),
+        },
       });
     }
 
-    return getPharmacyPrescriptionById(pharmacyRx.pharmacy_prescription_id);
+    await t.commit();
+
+    await notifyPharmacyUsers(pharmacy_id, {
+      title: "New prescription received",
+      message: `Prescription for ${original.patient?.full_name || "patient"} has been sent to your pharmacy.`,
+      relatedId: pharmacyRx.pharmacy_prescription_id,
+    });
+
+    const result = await getPharmacyPrescriptionById(
+      pharmacyRx.pharmacy_prescription_id
+    );
+    const refreshed = await getActiveForwardForPrescription(prescription_id);
+    result.forward = {
+      ...formatForwardSummary(refreshed),
+      updated: false,
+    };
+    return result;
   } catch (error) {
     if (!t.finished) await t.rollback();
+    if (error.name === "SequelizeUniqueConstraintError") {
+      const err = new Error(
+        "This prescription already has an active pharmacy forwarding record"
+      );
+      err.status = 409;
+      throw err;
+    }
     throw error;
   }
 }
@@ -590,19 +1145,40 @@ async function listPatientPrescriptionsForSend(patientId) {
     order: [["issued_at", "DESC"]],
   });
 
-  const sent = await PharmacyPrescription.findAll({
-    where: { patient_id: patientId },
-    attributes: ["original_prescription_id", "pharmacy_id", "pharmacy_status"],
-  });
+  const rxIds = prescriptions.map((r) => r.prescription_id);
+  const forwards =
+    rxIds.length > 0
+      ? await PrescriptionPharmacyForward.findAll({
+          where: { prescription_id: { [Op.in]: rxIds } },
+          include: forwardDetailInclude,
+        })
+      : [];
+  const forwardByRx = new Map(forwards.map((f) => [f.prescription_id, f]));
 
-  return prescriptions.map((rx) => ({
-    ...rx.toJSON(),
-    pharmacy_sends: sent.filter((s) => s.original_prescription_id === rx.prescription_id),
-  }));
+  return prescriptions.map((rx) => {
+    const plain = rx.toJSON();
+    const forward = forwardByRx.get(plain.prescription_id);
+    return {
+      ...plain,
+      pharmacy_forward: formatForwardSummary(forward),
+      pharmacy_sends: forward
+        ? [
+            {
+              pharmacy_id: forward.pharmacy_id,
+              pharmacy_status:
+                forward.pharmacyPrescription?.pharmacy_status ?? "received",
+              original_prescription_id: plain.prescription_id,
+            },
+          ]
+        : [],
+    };
+  });
 }
 
 module.exports = {
   sendPrescriptionToPharmacy,
+  forwardPrescriptionsFromSchedule,
+  listPrescriptionsForSchedule,
   getPharmacyPrescriptionById,
   listPharmacyPrescriptionsForHospital,
   listForPharmacyPortal,

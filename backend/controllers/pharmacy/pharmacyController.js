@@ -138,11 +138,58 @@ const sendPrescription = async (req, res) => {
       req.body,
       req.user.user_id
     );
-    return res.status(201).json({
+    const wasUpdate = Boolean(data?.forward?.updated);
+    return res.status(wasUpdate ? 200 : 201).json({
       success: true,
-      message: "Prescription sent to pharmacy",
+      message: wasUpdate
+        ? "Pharmacy forwarding updated"
+        : req.body.schedule_id
+          ? "Prescription forwarded to pharmacy"
+          : "Prescription sent to pharmacy",
       data,
     });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+const listSchedulePrescriptions = async (req, res) => {
+  try {
+    const data = await pharmacyPrescriptionService.listPrescriptionsForSchedule(
+      req.params.scheduleId
+    );
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+const forwardPrescriptionsFromSchedule = async (req, res) => {
+  try {
+    const data = await pharmacyPrescriptionService.forwardPrescriptionsFromSchedule(
+      req.body,
+      req.user.user_id
+    );
+    const created = data.forwarded.filter((f) => !f.updated).length;
+    const updated = data.forwarded.filter((f) => f.updated).length;
+    let message;
+    if (updated > 0 && created === 0) {
+      message =
+        updated === 1
+          ? "Pharmacy forwarding updated"
+          : `${updated} pharmacy forwardings updated`;
+    } else if (created > 0 && updated > 0) {
+      message = `${created} forwarded, ${updated} updated`;
+    } else {
+      message =
+        created === 1
+          ? "Prescription forwarded to pharmacy"
+          : `${created} prescriptions forwarded to pharmacy`;
+    }
+    if (data.failed.length > 0) {
+      message += ` (${data.failed.length} could not be processed)`;
+    }
+    return res.status(201).json({ success: true, message, data });
   } catch (error) {
     return handleError(res, error);
   }
@@ -182,6 +229,8 @@ module.exports = {
   updatePharmacyUser,
   togglePharmacyUserStatus,
   sendPrescription,
+  forwardPrescriptionsFromSchedule,
+  listSchedulePrescriptions,
   listPatientPrescriptionsForSend,
   listHospitalPharmacyPrescriptions,
 };

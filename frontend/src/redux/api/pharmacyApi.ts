@@ -4,6 +4,8 @@ import type {
   PharmacyUser,
   PharmacyPrescription,
   PatientPrescriptionForSend,
+  SchedulePrescriptionsForPharmacyResponse,
+  ForwardPrescriptionsFromScheduleResult,
 } from "../types/pharmacy";
 
 export const pharmacyApi = baseApi.injectEndpoints({
@@ -94,7 +96,7 @@ export const pharmacyApi = baseApi.injectEndpoints({
 
     sendPrescriptionToPharmacy: builder.mutation<
       PharmacyPrescription,
-      { prescription_id: string; pharmacy_id: string }
+      { prescription_id: string; pharmacy_id: string; schedule_id?: string }
     >({
       query: (body) => ({
         url: "/pharmacies/prescriptions/send",
@@ -103,6 +105,40 @@ export const pharmacyApi = baseApi.injectEndpoints({
       }),
       transformResponse: (r: { data: PharmacyPrescription }) => r.data,
       invalidatesTags: ["PharmacyPrescription"],
+    }),
+
+    forwardPrescriptionsFromSchedule: builder.mutation<
+      ForwardPrescriptionsFromScheduleResult,
+      {
+        prescription_ids: string[];
+        pharmacy_id: string;
+        schedule_id: string;
+        attachment_ids?: string[];
+      }
+    >({
+      query: (body) => ({
+        url: "/pharmacies/schedules/forward",
+        method: "POST",
+        body,
+      }),
+      transformResponse: (r: { data: ForwardPrescriptionsFromScheduleResult }) =>
+        r.data,
+      invalidatesTags: (_r, _e, { schedule_id }) => [
+        "PharmacyPrescription",
+        { type: "PharmacyPrescription", id: `schedule-${schedule_id}` },
+      ],
+    }),
+
+    getSchedulePrescriptionsForPharmacy: builder.query<
+      SchedulePrescriptionsForPharmacyResponse,
+      string
+    >({
+      query: (scheduleId) => `/pharmacies/schedules/${scheduleId}/prescriptions`,
+      transformResponse: (r: { data: SchedulePrescriptionsForPharmacyResponse }) =>
+        r.data,
+      providesTags: (_r, _e, scheduleId) => [
+        { type: "PharmacyPrescription", id: `schedule-${scheduleId}` },
+      ],
     }),
 
     getPatientPrescriptionsForSend: builder.query<
@@ -131,5 +167,7 @@ export const {
   useUpdatePharmacyUserMutation,
   useTogglePharmacyUserStatusMutation,
   useSendPrescriptionToPharmacyMutation,
+  useForwardPrescriptionsFromScheduleMutation,
+  useGetSchedulePrescriptionsForPharmacyQuery,
   useGetPatientPrescriptionsForSendQuery,
 } = pharmacyApi;

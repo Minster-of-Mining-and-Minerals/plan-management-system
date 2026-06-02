@@ -40,6 +40,15 @@ const createPharmacyUserSchema = Joi.object({
 const sendPrescriptionSchema = Joi.object({
   prescription_id: uuid.required(),
   pharmacy_id: uuid.required(),
+  schedule_id: uuid.optional(),
+  attachment_ids: Joi.array().items(uuid).optional(),
+});
+
+const forwardFromScheduleSchema = Joi.object({
+  prescription_ids: Joi.array().items(uuid).min(1).required(),
+  pharmacy_id: uuid.required(),
+  schedule_id: uuid.required(),
+  attachment_ids: Joi.array().items(uuid).optional(),
 });
 
 const updateWorkflowSchema = Joi.object({
@@ -88,6 +97,7 @@ module.exports = {
   validateUpdatePharmacy: validate(updatePharmacySchema),
   validateCreatePharmacyUser: validate(createPharmacyUserSchema),
   validateSendPrescription: validate(sendPrescriptionSchema),
+  validateForwardFromSchedule: validate(forwardFromScheduleSchema),
   validateUpdatePharmacyWorkflow: validate(updateWorkflowSchema),
   validatePortalList: (req, res, next) => next(),
   validatePharmacyId: (req, res, next) => next(),

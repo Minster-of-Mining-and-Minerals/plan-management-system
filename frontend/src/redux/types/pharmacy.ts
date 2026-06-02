@@ -111,11 +111,67 @@ export type PatientPrescriptionForSend = {
   header_title?: string | null;
   issued_at?: string | null;
   notes?: string | null;
+  pharmacy_forward?: SchedulePrescriptionForward | null;
   pharmacy_sends: {
     pharmacy_id: string;
     pharmacy_status: string;
     original_prescription_id: string;
   }[];
+};
+
+export type SchedulePrescriptionForward = {
+  forward_id: string;
+  prescription_id?: string;
+  pharmacy_id: string;
+  pharmacy_name?: string | null;
+  pharmacy_code?: string | null;
+  forward_status: string;
+  sent_at: string;
+  sent_by_name?: string | null;
+  pharmacy_status?: string | null;
+  pharmacy_prescription_id?: string;
+  is_forwarded?: boolean;
+  files?: {
+    forward_file_id: string;
+    attachment_id: string;
+    file_name?: string;
+    file_path?: string;
+    added_at?: string;
+  }[];
+};
+
+export type SchedulePrescriptionPharmacySend = {
+  pharmacy_id: string;
+  pharmacy_status: string;
+};
+
+export type SchedulePrescriptionForPharmacy = {
+  prescription_id: string;
+  header_title?: string | null;
+  issued_at?: string | null;
+  notes?: string | null;
+  status: string;
+  item_count: number;
+  prescriber_name?: string | null;
+  pharmacy_sends?: SchedulePrescriptionPharmacySend[];
+  pharmacy_forward: SchedulePrescriptionForward | null;
+};
+
+export type ForwardPrescriptionsFromScheduleResult = {
+  forwarded: {
+    prescription_id: string;
+    data: PharmacyPrescription;
+    updated?: boolean;
+  }[];
+  failed: { prescription_id: string; message: string }[];
+};
+
+export type SchedulePrescriptionsForPharmacyResponse = {
+  schedule_id: string;
+  patient_id: string;
+  appointment_id: string;
+  has_any_forwarded?: boolean;
+  prescriptions: SchedulePrescriptionForPharmacy[];
 };
 
 export type PharmacyDashboardUserStat = {
