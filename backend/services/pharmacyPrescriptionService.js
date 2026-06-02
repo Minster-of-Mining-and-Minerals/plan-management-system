@@ -776,6 +776,58 @@ async function sendPrescriptionToPharmacy(
   }
 }
 
+async function findBatchPharmacyPrescriptionIds(pharmacyRxId, pharmacyId) {
+  const primary = await PharmacyPrescription.findOne({
+    where: { pharmacy_prescription_id: pharmacyRxId, pharmacy_id: pharmacyId },
+    attributes: ["pharmacy_prescription_id", "patient_id", "sent_at"],
+  });
+  if (!primary) return [pharmacyRxId];
+
+  const forward = await PrescriptionPharmacyForward.findOne({
+    where: { pharmacy_prescription_id: pharmacyRxId },
+    attributes: ["schedule_id", "pharmacy_id"],
+  });
+
+  if (forward?.schedule_id) {
+    const siblings = await PrescriptionPharmacyForward.findAll({
+      where: {
+        schedule_id: forward.schedule_id,
+        pharmacy_id: pharmacyId,
+      },
+      attributes: ["pharmacy_prescription_id"],
+    });
+    return [...new Set(siblings.map((s) => s.pharmacy_prescription_id))];
+  }
+
+  if (!primary.sent_at) return [pharmacyRxId];
+
+  const sentMs = new Date(primary.sent_at).getTime();
+  const from = new Date(sentMs - 2 * 60 * 1000);
+  const to = new Date(sentMs + 2 * 60 * 1000);
+  const siblings = await PharmacyPrescription.findAll({
+    where: {
+      pharmacy_id: pharmacyId,
+      patient_id: primary.patient_id,
+      sent_at: { [Op.between]: [from, to] },
+    },
+    attributes: ["pharmacy_prescription_id"],
+  });
+  return [...new Set(siblings.map((s) => s.pharmacy_prescription_id))];
+}
+
+async function loadBatchPharmacyPrescriptions(pharmacyRxId, pharmacyId) {
+  const ids = await findBatchPharmacyPrescriptionIds(pharmacyRxId, pharmacyId);
+  const rows = await PharmacyPrescription.findAll({
+    where: { pharmacy_prescription_id: { [Op.in]: ids } },
+    include: pharmacyRxInclude,
+    order: [
+      ["sent_at", "ASC"],
+      ["source_header_title", "ASC"],
+    ],
+  });
+  return rows.map(formatPharmacyPrescription);
+}
+
 async function getPharmacyPrescriptionById(id, pharmacyIdFilter) {
   const where = { pharmacy_prescription_id: id };
   if (pharmacyIdFilter) where.pharmacy_id = pharmacyIdFilter;
@@ -789,7 +841,17 @@ async function getPharmacyPrescriptionById(id, pharmacyIdFilter) {
     err.status = 404;
     throw err;
   }
-  return formatPharmacyPrescription(record);
+  const formatted = formatPharmacyPrescription(record);
+  if (pharmacyIdFilter) {
+    formatted.batch_prescriptions = await loadBatchPharmacyPrescriptions(
+      id,
+      pharmacyIdFilter
+    );
+    formatted.batch_prescription_count = formatted.batch_prescriptions.length;
+    formatted.batch_global_status = formatted.pharmacy_status;
+    formatted.batch_global_notes = formatted.pharmacy_notes ?? null;
+  }
+  return formatted;
 }
 
 async function listPharmacyPrescriptionsForHospital(query = {}) {
@@ -841,7 +903,7 @@ async function listForPharmacyPortal(pharmacyId, query = {}) {
     where,
     include: pharmacyRxInclude,
     order: [["received_at", "DESC"]],
-    distinct: true,
+    subQuery: false,
   };
 
   if (paginate === "true" || paginate === true) {
@@ -902,94 +964,122 @@ async function updatePharmacyPrescriptionWorkflow(
   payload,
   actorUserId
 ) {
-  const pharmacyRx = await PharmacyPrescription.findOne({
-    where: { pharmacy_prescription_id: pharmacyPrescriptionId, pharmacy_id: pharmacyId },
+  const batchIds = await findBatchPharmacyPrescriptionIds(
+    pharmacyPrescriptionId,
+    pharmacyId
+  );
+
+  const pharmacyRows = await PharmacyPrescription.findAll({
+    where: {
+      pharmacy_prescription_id: { [Op.in]: batchIds },
+      pharmacy_id: pharmacyId,
+    },
     include: [{ model: PharmacyPrescriptionItem, as: "items" }],
   });
 
-  if (!pharmacyRx) {
+  if (!pharmacyRows.length) {
     const err = new Error("Pharmacy prescription not found");
     err.status = 404;
     throw err;
   }
 
-  const statusBefore = pharmacyRx.pharmacy_status;
   const t = await PharmacyPrescription.sequelize.transaction();
+  const now = new Date();
+  const changeSummary =
+    payload.change_summary ||
+    (batchIds.length > 1
+      ? `Batch workflow updated (${batchIds.length} prescriptions)`
+      : "Workflow updated");
 
   try {
-    if (payload.pharmacy_status) {
-      pharmacyRx.pharmacy_status = payload.pharmacy_status;
-      if (payload.pharmacy_status === PHARMACY_PRESCRIPTION_STATUS.COMPLETED) {
-        pharmacyRx.completed_at = new Date();
-      }
-    }
-    if (payload.pharmacy_notes !== undefined) {
-      pharmacyRx.pharmacy_notes = payload.pharmacy_notes;
-    }
+    for (const pharmacyRx of pharmacyRows) {
+      const statusBefore = pharmacyRx.pharmacy_status;
 
-    if (Array.isArray(payload.items)) {
-      for (const itemUpdate of payload.items) {
-        const item = pharmacyRx.items.find(
-          (i) => i.pharmacy_prescription_item_id === itemUpdate.pharmacy_prescription_item_id
-        );
-        if (!item) continue;
-        await item.update(
+      if (payload.pharmacy_status) {
+        pharmacyRx.pharmacy_status = payload.pharmacy_status;
+        if (payload.pharmacy_status === PHARMACY_PRESCRIPTION_STATUS.COMPLETED) {
+          pharmacyRx.completed_at = now;
+        }
+      }
+      if (payload.pharmacy_notes !== undefined) {
+        pharmacyRx.pharmacy_notes = payload.pharmacy_notes;
+      }
+
+      if (Array.isArray(payload.items)) {
+        for (const itemUpdate of payload.items) {
+          const item = pharmacyRx.items.find(
+            (i) =>
+              i.pharmacy_prescription_item_id ===
+              itemUpdate.pharmacy_prescription_item_id
+          );
+          if (!item) continue;
+          await item.update(
+            {
+              dispensed_quantity:
+                itemUpdate.dispensed_quantity ?? item.dispensed_quantity,
+              pharmacy_item_status:
+                itemUpdate.pharmacy_item_status ?? item.pharmacy_item_status,
+              substitution_notes:
+                itemUpdate.substitution_notes ?? item.substitution_notes,
+              pharmacy_notes: itemUpdate.pharmacy_notes ?? item.pharmacy_notes,
+            },
+            { transaction: t }
+          );
+        }
+      }
+
+      await pharmacyRx.save({ transaction: t });
+
+      const itemsSnapshot = (
+        await PharmacyPrescriptionItem.findAll({
+          where: { pharmacy_prescription_id: pharmacyRx.pharmacy_prescription_id },
+          transaction: t,
+        })
+      ).map((i) => i.toJSON());
+
+      await recordVersion(
+        pharmacyRx,
+        {
+          status_before: statusBefore,
+          status_after: pharmacyRx.pharmacy_status,
+          change_summary: changeSummary,
+          items_snapshot: itemsSnapshot,
+        },
+        actorUserId,
+        t
+      );
+
+      if (payload.create_fulfillment) {
+        await PrescriptionFulfillment.create(
           {
-            dispensed_quantity: itemUpdate.dispensed_quantity ?? item.dispensed_quantity,
-            pharmacy_item_status:
-              itemUpdate.pharmacy_item_status ?? item.pharmacy_item_status,
-            substitution_notes:
-              itemUpdate.substitution_notes ?? item.substitution_notes,
-            pharmacy_notes: itemUpdate.pharmacy_notes ?? item.pharmacy_notes,
+            pharmacy_prescription_id: pharmacyRx.pharmacy_prescription_id,
+            fulfilled_by: actorUserId,
+            fulfillment_status: payload.fulfillment_status || "completed",
+            notes: payload.fulfillment_notes || null,
+            items_detail: itemsSnapshot,
+            dispensed_at: now,
+            created_by: actorUserId,
           },
           { transaction: t }
         );
       }
     }
 
-    await pharmacyRx.save({ transaction: t });
-
-    const itemsSnapshot = (await PharmacyPrescriptionItem.findAll({
-      where: { pharmacy_prescription_id: pharmacyRx.pharmacy_prescription_id },
-      transaction: t,
-    })).map((i) => i.toJSON());
-
-    await recordVersion(
-      pharmacyRx,
-      {
-        status_before: statusBefore,
-        status_after: pharmacyRx.pharmacy_status,
-        change_summary: payload.change_summary || "Workflow updated",
-        items_snapshot: itemsSnapshot,
-      },
-      actorUserId,
-      t
-    );
-
-    if (payload.create_fulfillment) {
-      await PrescriptionFulfillment.create(
-        {
-          pharmacy_prescription_id: pharmacyRx.pharmacy_prescription_id,
-          fulfilled_by: actorUserId,
-          fulfillment_status: payload.fulfillment_status || "completed",
-          notes: payload.fulfillment_notes || null,
-          items_detail: itemsSnapshot,
-          dispensed_at: new Date(),
-          created_by: actorUserId,
-        },
-        { transaction: t }
-      );
-    }
-
     await t.commit();
 
-    if (pharmacyRx.sent_by && payload.pharmacy_status === PHARMACY_PRESCRIPTION_STATUS.COMPLETED) {
-      await notificationService.notifyInternalUser(pharmacyRx.sent_by, {
+    const primary = pharmacyRows.find(
+      (r) => r.pharmacy_prescription_id === pharmacyPrescriptionId
+    );
+    if (
+      primary?.sent_by &&
+      payload.pharmacy_status === PHARMACY_PRESCRIPTION_STATUS.COMPLETED
+    ) {
+      await notificationService.notifyInternalUser(primary.sent_by, {
         title: "Prescription fulfilled",
-        message: `Pharmacy fulfillment completed for ${pharmacyRx.patient_snapshot?.full_name || "patient"}.`,
+        message: `Pharmacy fulfillment completed for ${primary.patient_snapshot?.full_name || "patient"}.`,
         category: "pharmacy",
         relatedType: "pharmacy_prescription",
-        relatedId: pharmacyRx.pharmacy_prescription_id,
+        relatedId: primary.pharmacy_prescription_id,
       });
     }
 

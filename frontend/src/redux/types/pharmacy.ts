@@ -104,6 +104,11 @@ export type PharmacyPrescription = {
   items?: PharmacyPrescriptionItem[];
   patient?: { user_id: string; full_name: string };
   prescriber?: { user_id: string; full_name: string };
+  /** Prescriptions forwarded together (same schedule or send batch). */
+  batch_prescriptions?: PharmacyPrescription[];
+  batch_prescription_count?: number;
+  batch_global_status?: PharmacyPrescriptionStatus;
+  batch_global_notes?: string | null;
 };
 
 export type PatientPrescriptionForSend = {

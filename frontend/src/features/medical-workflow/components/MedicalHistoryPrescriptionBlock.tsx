@@ -8,7 +8,7 @@ import {
   useListPrescriptionsQuery,
 } from "@/redux/api/prescriptionApi";
 import type { PrescriptionRecord } from "@/redux/types/prescription";
-import { PrescriptionPrintDocument } from "@/features/prescription-workflow/PrescriptionPrintDocument";
+import { PrescriptionDocumentViewer } from "@/features/prescription-workflow/PrescriptionDocumentViewer";
 import {
   buildPrescriptionPdfFilename,
   exportPrescriptionHtml,
@@ -151,9 +151,7 @@ function PrescriptionDetail({ rx }: { rx: PrescriptionRecord }) {
 
       {rx.rendered_html ? (
         <>
-          <div className="overflow-x-auto rounded-lg border bg-white py-2">
-            <PrescriptionPrintDocument html={rx.rendered_html} />
-          </div>
+          <PrescriptionDocumentViewer html={rx.rendered_html} />
           <div className="flex justify-end">
             <Button
               type="button"

@@ -1,16 +1,21 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { useRouter } from "@/i18n/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Eye } from "lucide-react";
+import { Eye, Loader2, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
 import Loading01 from "@/features/template/component/Loading/Loading01";
-import { useGetPharmacyPortalPrescriptionsQuery } from "@/redux/api/pharmacyPortalApi";
+import {
+  useGetPharmacyPortalPrescriptionsQuery,
+  useLazyGetPharmacyPortalPrescriptionQuery,
+} from "@/redux/api/pharmacyPortalApi";
+import { printPharmacyPrescriptionDocument } from "./pharmacyPrescriptionPrint";
 import type { PharmacyPrescription } from "@/redux/types/pharmacy";
 import {
   PHARMACY_RX_STATUS_LABELS,
@@ -36,6 +41,23 @@ export function PharmacyPrescriptionList({
   const { data = [], isLoading } = useGetPharmacyPortalPrescriptionsQuery({
     pharmacy_status,
   });
+  const [fetchPrescription] = useLazyGetPharmacyPortalPrescriptionQuery();
+  const [printingId, setPrintingId] = useState<string | null>(null);
+
+  const handlePrint = useCallback(
+    async (pharmacyPrescriptionId: string) => {
+      setPrintingId(pharmacyPrescriptionId);
+      try {
+        const rx = await fetchPrescription(pharmacyPrescriptionId).unwrap();
+        printPharmacyPrescriptionDocument(rx);
+      } catch {
+        toast.error("Could not load prescription for printing");
+      } finally {
+        setPrintingId(null);
+      }
+    },
+    [fetchPrescription]
+  );
 
   const columns: ColumnDef<PharmacyPrescription>[] = useMemo(
     () => [
@@ -81,22 +103,38 @@ export function PharmacyPrescriptionList({
       {
         id: "actions",
         header: "Actions",
-        cell: ({ row }) => (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() =>
-              router.push(
-                `/pharmacy/prescriptions/${row.original.pharmacy_prescription_id}`
-              )
-            }
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-        ),
+        cell: ({ row }) => {
+          const id = row.original.pharmacy_prescription_id;
+          const isPrinting = printingId === id;
+          return (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                title="Print prescription"
+                disabled={isPrinting}
+                onClick={() => handlePrint(id)}
+              >
+                {isPrinting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Printer className="h-4 w-4" />
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                title="View details"
+                onClick={() => router.push(`/pharmacy/prescriptions/${id}`)}
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            </div>
+          );
+        },
       },
     ],
-    [router]
+    [router, printingId, handlePrint]
   );
 
   const {

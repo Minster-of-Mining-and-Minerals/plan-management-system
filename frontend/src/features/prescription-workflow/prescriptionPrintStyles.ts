@@ -258,3 +258,36 @@ export const PRESCRIPTION_PRINT_CSS = `
 }
 
 `;
+
+/** Constrains on-screen preview inside app panels (admin, pharmacy, history). */
+export const PRESCRIPTION_VIEWPORT_CSS = `
+[data-prescription-viewport] {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+}
+
+[data-prescription-viewport] [data-prescription-export] {
+  width: min(560px, 100%);
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+[data-prescription-viewport] .rx-document {
+  width: 100%;
+  max-width: 148mm;
+  box-sizing: border-box;
+}
+
+[data-prescription-viewport] .rx-document img,
+[data-prescription-viewport] .rx-logo {
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+[data-prescription-viewport] table {
+  max-width: 100%;
+}
+`;

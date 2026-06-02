@@ -25,7 +25,7 @@ import {
   usePreviewPrescriptionMutation,
 } from "@/redux/api/prescriptionApi";
 import type { PrescriptionItem, PrescriptionRecord } from "@/redux/types/prescription";
-import { PrescriptionPrintDocument } from "./PrescriptionPrintDocument";
+import { PrescriptionDocumentViewer } from "./PrescriptionDocumentViewer";
 import {
   buildPrescriptionPdfFilename,
   exportPrescriptionHtml,
@@ -397,11 +397,8 @@ export function PrescriptionCreationPanel({
         </div>
 
         {previewHtml && (
-          <div
-            ref={printRef}
-            className="overflow-x-auto rounded-lg border bg-white py-2"
-          >
-            <PrescriptionPrintDocument html={previewHtml} />
+          <div ref={printRef}>
+            <PrescriptionDocumentViewer html={previewHtml} constrainHeight={false} />
           </div>
         )}
       </div>

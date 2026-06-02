@@ -116,6 +116,7 @@ export const {
   useGetPharmacyDashboardQuery,
   useGetPharmacyPortalPrescriptionsQuery,
   useGetPharmacyPortalPrescriptionQuery,
+  useLazyGetPharmacyPortalPrescriptionQuery,
   useUpdatePharmacyPrescriptionWorkflowMutation,
   useGetPharmacyPortalNotificationsQuery,
   useGetPharmacyPortalUnreadCountQuery,
