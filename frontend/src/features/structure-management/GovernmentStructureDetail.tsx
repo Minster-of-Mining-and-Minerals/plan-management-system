@@ -34,7 +34,7 @@ export default function GovernmentStructureDetail({ id }: GovernmentStructureDet
             onClick: () => setActiveTab("users"),
         },
         {
-            label: "Internal Structures",
+            label: "Departments",
             icon: <Layers className="h-4 w-4" />,
             variant: activeTab === "internal_structures" ? "default" : "outline",
             onClick: () => setActiveTab("internal_structures"),

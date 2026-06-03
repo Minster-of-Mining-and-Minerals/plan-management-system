@@ -22,6 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import {
   useCreateGovernmentStructureMutation,
   useUpdateGovernmentStructureMutation,
@@ -33,7 +34,6 @@ import {
   ArrowRightIcon,
   CheckCircleIcon,
   GitForkIcon,
-  XIcon,
 } from "lucide-react";
 
 const formSchema = z.object({
@@ -59,6 +59,7 @@ export function CreateGovernmentStructureModal({
   initialParentId,
 }: CreateGovernmentStructureModalProps) {
   const isEditMode = Boolean(structure);
+  const showParentPicker = !isEditMode && !initialParentId;
   const { data: structures = [] } = useGetGovernmentStructuresQuery({ is_active: true });
 
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
@@ -80,7 +81,26 @@ export function CreateGovernmentStructureModal({
     },
   });
 
+  const handleNodeSelect = (nodeId: string | null) => {
+    setSelectedParentId(nodeId);
+    setHasSelectedParent(true);
+    form.setValue("parent_id", nodeId);
+
+    if (nodeId) {
+      const selectedNode = structures.find(
+        (s) => s.government_structure_id === nodeId
+      );
+      if (selectedNode) {
+        form.setValue("level", selectedNode.level + 1);
+      }
+    } else {
+      form.setValue("level", 1);
+    }
+  };
+
   useEffect(() => {
+    if (!isOpen) return;
+
     if (structure) {
       form.reset({
         name: structure.name,
@@ -89,7 +109,10 @@ export function CreateGovernmentStructureModal({
         is_active: structure.is_active,
       });
       setSelectedParentId(structure.parent_id || null);
-      setHasSelectedParent(!!structure.parent_id);
+      setHasSelectedParent(true);
+      setNavigationStack([]);
+    } else if (initialParentId) {
+      handleNodeSelect(initialParentId);
     } else {
       form.reset({
         name: "",
@@ -97,29 +120,26 @@ export function CreateGovernmentStructureModal({
         level: 1,
         is_active: true,
       });
-      setSelectedParentId(null);
-      setHasSelectedParent(false);
       setNavigationStack([]);
+      handleNodeSelect(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [structure, isOpen, initialParentId]);
 
-    // Handle initial parent ID from tree view
-    if (!structure && initialParentId) {
-      handleNodeSelect(initialParentId);
-    }
-  }, [structure, form, isOpen, initialParentId]);
-
-  // Build tree structure from flat data
-  const buildStructureTree = (structuresList: GovernmentStructure[]): GovernmentStructure[] => {
+  const buildStructureTree = (
+    structuresList: GovernmentStructure[]
+  ): GovernmentStructure[] => {
     const structureMap = new Map();
     const roots: GovernmentStructure[] = [];
 
-    // First, create a map of all structures
-    structuresList.forEach(struct => {
-      structureMap.set(struct.government_structure_id, { ...struct, children: [] });
+    structuresList.forEach((struct) => {
+      structureMap.set(struct.government_structure_id, {
+        ...struct,
+        children: [],
+      });
     });
 
-    // Build the tree
-    structuresList.forEach(struct => {
+    structuresList.forEach((struct) => {
       const node = structureMap.get(struct.government_structure_id);
       if (struct.parent_id && structureMap.has(struct.parent_id)) {
         const parent = structureMap.get(struct.parent_id);
@@ -132,7 +152,6 @@ export function CreateGovernmentStructureModal({
     return roots;
   };
 
-  // Get current level nodes based on navigation stack
   const getCurrentLevelNodes = (): GovernmentStructure[] => {
     if (navigationStack.length === 0) {
       return buildStructureTree(structures);
@@ -141,7 +160,8 @@ export function CreateGovernmentStructureModal({
     let currentNode = buildStructureTree(structures);
     for (const stackItem of navigationStack) {
       const foundNode = currentNode.find(
-        (node) => node.government_structure_id === stackItem.government_structure_id
+        (node) =>
+          node.government_structure_id === stackItem.government_structure_id
       );
       if (foundNode && foundNode.children) {
         currentNode = foundNode.children;
@@ -154,25 +174,18 @@ export function CreateGovernmentStructureModal({
 
   const currentLevelNodes = getCurrentLevelNodes();
 
-  // Move deeper into a structure
   const enterStructure = (node: GovernmentStructure) => {
     if (node.children && node.children.length > 0) {
       setNavigationStack((prev) => [...prev, node]);
-      // Clear selection when navigating deeper
       setSelectedParentId(null);
       setHasSelectedParent(false);
     }
   };
 
-  // Move back
   const goBack = () => {
-    setNavigationStack((prev) => {
-      const newStack = prev.slice(0, -1);
-      // Clear selection when going back
-      setSelectedParentId(null);
-      setHasSelectedParent(false);
-      return newStack;
-    });
+    setNavigationStack((prev) => prev.slice(0, -1));
+    setSelectedParentId(null);
+    setHasSelectedParent(false);
   };
 
   const resetNavigation = () => {
@@ -181,24 +194,6 @@ export function CreateGovernmentStructureModal({
     setHasSelectedParent(false);
   };
 
-  // Handle node selection
-  const handleNodeSelect = (nodeId: string | null) => {
-    setSelectedParentId(nodeId);
-    setHasSelectedParent(true);
-    form.setValue("parent_id", nodeId);
-
-    // Auto-calculate level based on selected parent
-    if (nodeId) {
-      const selectedNode = structures.find(s => s.government_structure_id === nodeId);
-      if (selectedNode) {
-        form.setValue("level", selectedNode.level + 1);
-      }
-    } else {
-      form.setValue("level", 1);
-    }
-  };
-
-  // Get current path display
   const getCurrentPath = () => {
     if (navigationStack.length === 0) return "Root";
     return navigationStack.map((node) => node.name).join(" → ");
@@ -206,8 +201,8 @@ export function CreateGovernmentStructureModal({
 
   const onSubmit = async (values: FormValues) => {
     try {
-      // Use selected parent ID if available, otherwise use form value
-      const finalParentId = selectedParentId !== null ? selectedParentId : values.parent_id;
+      const finalParentId =
+        selectedParentId !== null ? selectedParentId : values.parent_id;
 
       const submitData = {
         ...values,
@@ -231,11 +226,22 @@ export function CreateGovernmentStructureModal({
     }
   };
 
-  const currentParentId = isEditMode && structure?.parent_id ? structure.parent_id : null;
+  const showNameField =
+    isEditMode || initialParentId || hasSelectedParent;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose} >
-      <DialogContent className={`sm:max-w-[${!isEditMode && hasSelectedParent ? '650px' : '500px'}] max-h-[85vh] overflow-y-auto transition-all duration-500`}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent
+        className={cn(
+          "max-h-[85vh] overflow-y-auto transition-all duration-500 sm:max-w-[500px]",
+          showParentPicker && hasSelectedParent && "sm:max-w-[650px]"
+        )}
+      >
         <DialogHeader>
           <DialogTitle>
             {isEditMode ? "Edit Structure" : "Create New Structure"}
@@ -244,15 +250,20 @@ export function CreateGovernmentStructureModal({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className={`flex gap-6 ${isEditMode ? '' : ''}`}>
-              {!isEditMode && !initialParentId && (
-                <div className={`flex flex-col transition-all duration-500 ${hasSelectedParent ? 'w-1/2' : 'w-full'}`}>
+            <div className="flex gap-6">
+              {showParentPicker && (
+                <div
+                  className={cn(
+                    "flex flex-col transition-all duration-500",
+                    hasSelectedParent ? "w-1/2" : "w-full"
+                  )}
+                >
                   <FormLabel className="block text-sm font-medium mb-2">
-                    Select Parent Structure <span className="text-muted-foreground">(Optional)</span>
+                    Select Parent Structure{" "}
+                    <span className="text-muted-foreground">(Optional)</span>
                   </FormLabel>
 
                   <div className="px-3 rounded-lg">
-                    {/* Back Button */}
                     {navigationStack.length > 0 && (
                       <button
                         type="button"
@@ -260,27 +271,25 @@ export function CreateGovernmentStructureModal({
                         className="mb-2 flex items-center hover:bg-gray-100 rounded-md p-2 border-none outline-none shadow-none text-sm"
                       >
                         <ArrowLeftIcon className="w-4 h-4 mr-2" />
-                        <span className="text-sm font-medium">
-                          Back
-                        </span>
+                        <span className="text-sm font-medium">Back</span>
                       </button>
                     )}
 
-                    {/* Current Path Display */}
                     {navigationStack.length > 0 && (
                       <div className="text-sm font-medium mb-2 text-muted-foreground">
                         Current: {getCurrentPath()}
                       </div>
                     )}
 
-                    {/* Root Option - Only show at root level */}
-                    {currentLevelNodes.length === 0 && (
+                    {navigationStack.length === 0 && (
                       <button
                         type="button"
-                        className={`block border text-left w-full py-2 px-3 rounded-md mb-2 transition-colors ${selectedParentId === null
-                          ? "bg-primary/10 border-primary text-primary"
-                          : "hover:bg-gray-100 border"
-                          }`}
+                        className={cn(
+                          "block border text-left w-full py-2 px-3 rounded-md mb-2 transition-colors",
+                          selectedParentId === null
+                            ? "bg-primary/10 border-primary text-primary"
+                            : "hover:bg-gray-100 border"
+                        )}
                         onClick={() => handleNodeSelect(null)}
                       >
                         <div className="flex items-center text-sm">
@@ -297,42 +306,50 @@ export function CreateGovernmentStructureModal({
                       </button>
                     )}
 
-                    {/* Structure Tree */}
                     <div className="flex flex-col gap-2 space-y-1 max-h-60 overflow-y-auto">
-                      {currentLevelNodes?.length === 0 ? (
+                      {currentLevelNodes.length === 0 &&
+                      navigationStack.length > 0 ? (
                         <p className="text-sm text-center py-4 text-muted-foreground">
                           No structures found at this level
                         </p>
                       ) : (
-                        currentLevelNodes?.map((node) => (
+                        currentLevelNodes.map((node) => (
                           <div
                             key={node.government_structure_id}
-                            className={`flex border rounded-md items-center hover:bg-green-50 pr-3 ${selectedParentId === node.government_structure_id
-                              ? "bg-green-100 border-primary"
-                              : "border-gray-300"
-                              }`}
+                            className={cn(
+                              "flex border rounded-md items-center hover:bg-green-50 pr-3",
+                              selectedParentId === node.government_structure_id
+                                ? "bg-green-100 border-primary"
+                                : "border-gray-300"
+                            )}
                           >
                             <button
                               type="button"
-                              onClick={() => handleNodeSelect(node.government_structure_id)}
-                              className={`block text-left w-full py-2 px-3 rounded-md transition-colors ${selectedParentId === node.government_structure_id ? "text-primary" : ""
-                                }`}
+                              onClick={() =>
+                                handleNodeSelect(node.government_structure_id)
+                              }
+                              className={cn(
+                                "block text-left w-full py-2 px-3 rounded-md transition-colors",
+                                selectedParentId ===
+                                  node.government_structure_id && "text-primary"
+                              )}
                             >
                               <div className="flex w-full items-center text-sm">
                                 <span className="mr-2 mt-0.5">
                                   <GitForkIcon className="w-4 h-4" />
                                 </span>
-
                                 <div className="flex-1">
                                   <div className="font-medium">{node.name}</div>
                                   <div className="text-xs text-muted-foreground mt-1">
-                                    Level {node.level} • {node.children?.length || 0} children
+                                    Level {node.level} •{" "}
+                                    {node.children?.length || 0} children
                                   </div>
                                 </div>
                               </div>
                             </button>
                             <div className="flex justify-center items-center">
-                              {selectedParentId === node.government_structure_id && (
+                              {selectedParentId ===
+                                node.government_structure_id && (
                                 <CheckCircleIcon className="w-5 h-5 text-green-800 mr-2" />
                               )}
                               {node.children && node.children.length > 0 && (
@@ -354,22 +371,27 @@ export function CreateGovernmentStructureModal({
                 </div>
               )}
 
-              {/* Name and Level Fields - Show with animation when parent is selected */}
-              {!isEditMode && (
+              {!isEditMode && showNameField && (
                 <div
-                  className={`flex flex-col gap-4 px-3 transition-all duration-500 ease-in-out overflow-hidden ${hasSelectedParent
-                    ? "w-1/2 opacity-100 max-h-[500px] translate-x-0"
-                    : isEditMode || initialParentId ? "w-full opacity-100 max-h-[500px] translate-x-0" : "w-0 opacity-0 max-h-0 translate-x-[-20px] pointer-events-none"
-                    }`}
+                  className={cn(
+                    "flex flex-col gap-4 px-3 transition-all duration-500 ease-in-out",
+                    showParentPicker && hasSelectedParent ? "w-1/2" : "w-full"
+                  )}
                 >
                   <FormField
                     control={form.control}
                     name="name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Structure Name <span className="text-red-500">*</span></FormLabel>
+                        <FormLabel>
+                          Structure Name{" "}
+                          <span className="text-red-500">*</span>
+                        </FormLabel>
                         <FormControl>
-                          <Input placeholder="Enter structure name" {...field} />
+                          <Input
+                            placeholder="Enter structure name"
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -378,7 +400,6 @@ export function CreateGovernmentStructureModal({
                 </div>
               )}
 
-              {/* Show fields immediately in edit mode */}
               {isEditMode && (
                 <div className="flex flex-col gap-4 w-full">
                   <FormField
@@ -388,7 +409,10 @@ export function CreateGovernmentStructureModal({
                       <FormItem>
                         <FormLabel>Structure Name</FormLabel>
                         <FormControl>
-                          <Input placeholder="Enter structure name" {...field} />
+                          <Input
+                            placeholder="Enter structure name"
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -398,7 +422,6 @@ export function CreateGovernmentStructureModal({
               )}
             </div>
 
-            {/* Buttons */}
             <DialogFooter className="pt-4">
               <Button
                 type="button"
@@ -410,7 +433,11 @@ export function CreateGovernmentStructureModal({
               </Button>
               <Button
                 type="submit"
-                disabled={isCreating || isUpdating || (!isEditMode && !hasSelectedParent)}
+                disabled={
+                  isCreating ||
+                  isUpdating ||
+                  (!isEditMode && !hasSelectedParent)
+                }
               >
                 {isCreating || isUpdating ? (
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2" />

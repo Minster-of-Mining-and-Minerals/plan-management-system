@@ -1,4 +1,7 @@
-import { baseApi } from "../baseApi";
+/**
+ * Legacy re-exports — endpoints live in governmentStructureApi / internalStructureApi.
+ * Do not inject endpoints here (causes RTK Query duplicate endpoint warnings).
+ */
 
 export interface StructureNode {
   government_structure_id?: string;
@@ -10,29 +13,5 @@ export interface StructureNode {
   children?: StructureNode[];
 }
 
-export const structureApi = baseApi.injectEndpoints({
-  endpoints: (builder) => ({
-    getGovernmentStructures: builder.query<StructureNode[], { search?: string; is_active?: boolean } | void>({
-      query: (params) => ({
-        url: "/government-structures",
-        params: params || {},
-      }),
-      transformResponse: (response: any): StructureNode[] => response.data ?? [],
-      providesTags: ["User"],
-    }),
-
-    getInternalStructures: builder.query<StructureNode[], { government_structure_id?: string; search?: string; is_active?: boolean } | void>({
-      query: (params) => ({
-        url: "/internal-structures",
-        params: params || {},
-      }),
-      transformResponse: (response: any): StructureNode[] => response.data ?? [],
-      providesTags: ["User"],
-    }),
-  }),
-});
-
-export const {
-  useGetGovernmentStructuresQuery,
-  useGetInternalStructuresQuery,
-} = structureApi;
+export { useGetGovernmentStructuresQuery } from "./governmentStructureApi";
+export { useGetInternalStructuresQuery } from "./internalStructureApi";

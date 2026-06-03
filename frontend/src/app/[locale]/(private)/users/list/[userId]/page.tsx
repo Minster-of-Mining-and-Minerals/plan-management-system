@@ -10,7 +10,8 @@ import {
   useUpdateUserMutation 
 } from "@/redux/api/userApi";
 import { useGetRolesQuery } from "@/redux/api/roleApi";
-import { useGetGovernmentStructuresQuery, useGetInternalStructuresQuery } from "@/redux/api/structureApi";
+import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
+import { useGetInternalStructuresQuery } from "@/redux/api/internalStructureApi";
 import { 
   User2Icon, 
   Mail, 

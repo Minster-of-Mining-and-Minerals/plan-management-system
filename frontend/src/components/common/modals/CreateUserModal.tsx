@@ -7,10 +7,8 @@ import { useGetRolesQuery } from "@/redux/api/roleApi";
 import {
   useCreateUserMutation,
 } from "@/redux/api/userApi";
-import {
-  useGetGovernmentStructuresQuery,
-  useGetInternalStructuresQuery,
-} from "@/redux/api/structureApi";
+import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
+import { useGetInternalStructuresQuery } from "@/redux/api/internalStructureApi";
 import { CreateUserPayload } from "@/redux/types/user";
 import { Check, ChevronDown, XIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";

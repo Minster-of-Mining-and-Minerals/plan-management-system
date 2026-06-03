@@ -122,6 +122,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
 const InternalHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
   data,
   isLoading = false,
+  governmentStructureId,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const { data: session } = useSession();
@@ -137,9 +138,23 @@ const InternalHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
     return (userGov && !Array.isArray(userGov)) ? userGov.government_structure_id : null;
   }, [session]);
 
-  const { data: govStructures = [] } = useGetGovernmentStructuresQuery({ is_active: true }, {
-    skip: !!userGovId // No need to fetch all if user is already restricted
-  });
+  const lockedGovId = governmentStructureId || userGovId;
+
+  const showGovFilter = !governmentStructureId && !lockedGovId;
+
+  const { data: govStructures = [] } = useGetGovernmentStructuresQuery(
+    { is_active: true },
+    { skip: !showGovFilter }
+  );
+
+  const govOptions = useMemo(
+    () =>
+      govStructures.map((gov) => ({
+        value: gov.government_structure_id,
+        label: gov.name,
+      })),
+    [govStructures]
+  );
 
   const handleAddChild = (parentId: string) => {
     setSelectedParentId(parentId);
@@ -152,30 +167,23 @@ const InternalHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
   };
 
   const rootNodes = useMemo(() => {
-    // If user is restricted, data is already filtered by API, so buildSectorTree(data) is enough
-    if (userGovId) return buildSectorTree(data);
-    
-    // For admin, data contains all structures, so filter by selected dropdown value
-    const filteredData = data.filter(s => s.government_structure_id === selectedGovId);
+    if (lockedGovId) return buildSectorTree(data);
+
+    const filteredData = data.filter(
+      (s) => s.government_structure_id === selectedGovId
+    );
     return buildSectorTree(filteredData);
-  }, [data, selectedGovId, userGovId]);
+  }, [data, selectedGovId, lockedGovId]);
 
   const d3TreeData = useMemo(() => rootNodes.map(convertToD3Tree), [rootNodes]);
 
-  const govOptions = useMemo(() => {
-    return govStructures.map(gov => ({
-      value: gov.government_structure_id,
-      label: gov.name
-    }));
-  }, [govStructures]);
-
   useEffect(() => {
-    if (userGovId) {
-        setSelectedGovId(userGovId);
+    if (lockedGovId) {
+      setSelectedGovId(lockedGovId);
     } else if (govOptions.length > 0 && !selectedGovId) {
-        setSelectedGovId(govOptions[0].value);
+      setSelectedGovId(govOptions[0].value);
     }
-  }, [govOptions, selectedGovId, userGovId]);
+  }, [govOptions, selectedGovId, lockedGovId]);
 
   const selectedTree = useMemo(() => {
     if (!d3TreeData || !Array.isArray(d3TreeData) || d3TreeData.length === 0) return null;
@@ -216,23 +224,26 @@ const InternalHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
           className="w-full h-full min-h-[600px] bg-[#F9FBFC] rounded-lg border border-gray-200 overflow-hidden"
           style={{ position: "relative" }}
         >
-          {!userGovId && govOptions.length > 0 && (
+
+          {showGovFilter && govOptions.length > 0 && (
             <div className="absolute top-0 left-0 w-full p-4 z-10 flex items-center justify-between pointer-events-none">
-                <div className="w-[350px] rounded-lg p-4 bg-white/80 backdrop-blur-sm border border-gray-100 shadow-sm pointer-events-auto">
+              <div className="w-[350px] rounded-lg p-4 bg-white/80 backdrop-blur-sm border border-gray-100 shadow-sm pointer-events-auto">
                 <Label className="text-secondary text-xs font-semibold mb-1.5 block uppercase tracking-wider">
-                    Filter by Government Body
+                  Filter by Government Body
                 </Label>
                 <Select value={selectedGovId} onValueChange={setSelectedGovId}>
-                    <SelectTrigger className="w-full h-10 border border-gray-200 px-4 py-3 rounded-md focus:ring-2 focus:ring-[#073954]/20 transition-all duration-200 outline-none bg-white">
+                  <SelectTrigger className="w-full h-10 border border-gray-200 px-4 py-3 rounded-md focus:ring-2 focus:ring-[#073954]/20 transition-all duration-200 outline-none bg-white">
                     <SelectValue placeholder="Select Government Body" />
-                    </SelectTrigger>
-                    <SelectContent>
+                  </SelectTrigger>
+                  <SelectContent>
                     {govOptions.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
                     ))}
-                    </SelectContent>
+                  </SelectContent>
                 </Select>
-                </div>
+              </div>
             </div>
           )}
 
@@ -273,19 +284,22 @@ const InternalHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
           ) : (
             <div className="flex items-center justify-center py-12 h-full min-h-[600px]">
               <div className="text-center">
-                <p className="text-gray-400 text-lg font-medium">No internal structures found</p>
-                <p className="text-gray-300 text-sm mt-2">Try selecting another government body or create a new root.</p>
+                <p className="text-gray-400 text-lg font-medium">No departments found</p>
+                <p className="text-gray-300 text-sm mt-2">Create a new department to get started.</p>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      <CreateInternalStructureModal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        initialParentId={selectedParentId}
-      />
+      {isModalOpen && (
+        <CreateInternalStructureModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          initialParentId={selectedParentId}
+          forcedGovernmentStructureId={governmentStructureId}
+        />
+      )}
     </>
   );
 };

@@ -24,4 +24,5 @@ export interface HierarchyD3TreeProps {
   data: any[];
   isLoading?: boolean;
   type: 'government' | 'internal';
+  governmentStructureId?: string;
 }

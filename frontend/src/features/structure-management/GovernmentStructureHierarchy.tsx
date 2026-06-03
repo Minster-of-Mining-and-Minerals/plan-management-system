@@ -2,14 +2,6 @@
 
 import React, { useRef, useEffect, useState, useMemo } from "react";
 import Tree, { RawNodeDatum } from "react-d3-tree";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectTrigger,
-  SelectItem,
-  SelectContent,
-  SelectValue,
-} from "@/components/ui/select";
 import { shortenText } from "@/utils/shortenText";
 import { CustomNodeProps, D3TreeNode, HierarchyD3TreeProps } from "@/types/d3treeNode";
 import { buildSectorTree } from "@/utils/buildSectorTree";
@@ -207,27 +199,6 @@ const GovernmentHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
           className="w-full h-full min-h-[600px] bg-[#F9FBFC] rounded-lg border border-gray-200 overflow-hidden"
           style={{ position: "relative" }}
         >
-          {/* Only show root selector if user is admin (no assigned gov body) and there are multiple roots */}
-          {!userGovId && rootOptions.length > 1 && (
-            <div className="absolute top-0 left-0 w-full p-4 z-10 flex items-center justify-between pointer-events-none">
-                <div className="w-[350px] rounded-lg p-4 bg-white/80 backdrop-blur-sm border border-gray-100 shadow-sm pointer-events-auto">
-                <Label className="text-secondary text-xs font-semibold mb-1.5 block uppercase tracking-wider">
-                    Select Root Node
-                </Label>
-                <Select value={selectedRootId} onValueChange={setSelectedRootId}>
-                    <SelectTrigger className="w-full h-10 border border-gray-200 px-4 py-3 rounded-md focus:ring-2 focus:ring-[#073954]/20 transition-all duration-200 outline-none bg-white">
-                    <SelectValue placeholder="Select Root" />
-                    </SelectTrigger>
-                    <SelectContent>
-                    {rootOptions.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                    ))}
-                    </SelectContent>
-                </Select>
-                </div>
-            </div>
-          )}
-
           <div className="absolute top-4 right-0 w-full p-4 z-10 flex items-center justify-end pointer-events-none">
             <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-sm p-3 border border-gray-100 pointer-events-auto text-[11px] text-gray-500 space-y-1">
               <p className="font-bold text-[#073954] mb-1">Navigation:</p>

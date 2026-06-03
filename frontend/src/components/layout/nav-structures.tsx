@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronRight, Building } from "lucide-react";
@@ -22,6 +23,11 @@ interface NavStructuresProps {
 
 export function NavStructures({ structures, basePath }: NavStructuresProps) {
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const stripLocale = (path: string) => {
     const segments = path.split("/");
@@ -40,6 +46,19 @@ export function NavStructures({ structures, basePath }: NavStructuresProps) {
     const isChildActive = currentPath.startsWith(url) && !isActive;
 
     if (hasChildren) {
+      if (!mounted) {
+        return (
+          <SidebarMenuSubItem key={structure.government_structure_id}>
+            <SidebarMenuSubButton asChild isActive={isActive || isChildActive}>
+              <Link href={url} className="flex items-center gap-4 w-full min-w-0">
+                <Building className="h-4 w-4 shrink-0" />
+                <span className="truncate flex-1 whitespace-nowrap">{structure.name}</span>
+              </Link>
+            </SidebarMenuSubButton>
+          </SidebarMenuSubItem>
+        );
+      }
+
       return (
         <SidebarMenuSubItem key={structure.government_structure_id}>
           <Collapsible
@@ -79,6 +98,18 @@ export function NavStructures({ structures, basePath }: NavStructuresProps) {
       </SidebarMenuSubItem>
     );
   };
+
+  if (structures.length === 0) {
+    return (
+      <SidebarMenuSub>
+        <SidebarMenuSubItem>
+          <span className="px-3 py-2 text-xs text-muted-foreground">
+            No structures yet
+          </span>
+        </SidebarMenuSubItem>
+      </SidebarMenuSub>
+    );
+  }
 
   return (
     <SidebarMenuSub>

@@ -182,7 +182,7 @@ export default function InternalStructureTable({ forced_government_structure_id,
     // Actions
     const actions: ActionButton[] = [
         {
-            label: forced_parent_id ? "Add Child" : "Add Internal Structure",
+            label: forced_parent_id ? "Add Child" : "Add Department",
             icon: <Plus className="h-4 w-4" />,
             variant: "default",
             onClick: () => {
@@ -202,8 +202,8 @@ export default function InternalStructureTable({ forced_government_structure_id,
     return (
         <>
             <TableLayout
-                title={hideLayout ? undefined : "Internal Structure"}
-                description={hideLayout ? undefined : "Manage internal organizational hierarchy and structures"}
+                title={hideLayout ? undefined : "Departments"}
+                description={hideLayout ? undefined : "Manage departmental hierarchy and organization"}
                 actions={actions}
                 sideActions={sideActions}
                 filters={filters}
@@ -221,19 +221,26 @@ export default function InternalStructureTable({ forced_government_structure_id,
                     currentIndex={pageIndex}
                 // isLoading={isLoading}
                 />) : (
-                    <InternalHierarchyD3Tree data={filteredData} type="internal" />
+                    <InternalHierarchyD3Tree
+                        data={filteredData}
+                        type="internal"
+                        governmentStructureId={forced_government_structure_id}
+                    />
                 )}
             </TableLayout>
-            <CreateInternalStructureModal
-                isOpen={isModalOpen}
-                onClose={() => {
-                    setModalOpen(false);
-                    setSelectedStructure(null);
-                    setInitialParentId(null);
-                }}
-                structure={selectedStructure}
-                initialParentId={initialParentId}
-            />
+            {isModalOpen && (
+                <CreateInternalStructureModal
+                    isOpen={isModalOpen}
+                    onClose={() => {
+                        setModalOpen(false);
+                        setSelectedStructure(null);
+                        setInitialParentId(null);
+                    }}
+                    structure={selectedStructure}
+                    initialParentId={initialParentId}
+                    forcedGovernmentStructureId={forced_government_structure_id}
+                />
+            )}
         </>
     );
 }

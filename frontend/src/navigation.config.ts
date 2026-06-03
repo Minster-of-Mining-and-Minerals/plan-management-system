@@ -32,12 +32,6 @@ export const NAVIGATION: NavItem[] = [
     anyPermissions: ["GOVERNMENT_STRUCTURES:READ"],
   },
   {
-    title: "Internal Structures",
-    url: "/internal-structures",
-    icon: ListTree,
-    anyPermissions: ["INTERNAL_STRUCTURES:READ"],
-  },
-  {
     title: "Users",
     url: "/users/list",
     icon: User2,

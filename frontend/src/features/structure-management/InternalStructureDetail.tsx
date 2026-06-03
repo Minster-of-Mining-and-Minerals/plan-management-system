@@ -33,7 +33,7 @@ export default function InternalStructureDetail({ id }: InternalStructureDetailP
             onClick: () => setActiveTab("users"),
         },
         {
-            label: "Child Structures",
+            label: "Child Departments",
             icon: <Layers className="h-4 w-4" />,
             variant: activeTab === "child_structures" ? "default" : "outline",
             onClick: () => setActiveTab("child_structures"),
@@ -59,9 +59,9 @@ export default function InternalStructureDetail({ id }: InternalStructureDetailP
         return (
             <div className="text-center py-12">
                 <h2 className="text-2xl font-bold text-red-600">Error</h2>
-                <p className="text-gray-500">Failed to load internal structure details.</p>
-                <Button variant="link" onClick={() => router.push("/internal-structures")}>
-                    Back to List
+                <p className="text-gray-500">Failed to load department details.</p>
+                <Button variant="link" onClick={() => router.back()}>
+                    Go Back
                 </Button>
             </div>
         );
@@ -80,10 +80,10 @@ export default function InternalStructureDetail({ id }: InternalStructureDetailP
                             {/* Breadcrumb */}
                             <nav className="flex items-center space-x-1 text-sm text-gray-400">
                                 <Link 
-                                    href="/internal-structures" 
+                                    href={`/government-structures/${structure.government_structure_id}`}
                                     className="hover:text-golden-dark transition-colors"
                                 >
-                                    Internal Structures
+                                    Departments
                                 </Link>
                                 {structure.governmentStructure && (
                                     <>
@@ -115,7 +115,7 @@ export default function InternalStructureDetail({ id }: InternalStructureDetailP
                                 </Badge>
                             </div>
                             <p className="text-xs text-gray-500 font-medium">
-                                LEVEL {structure.level} • INTERNAL STRUCTURE
+                                LEVEL {structure.level} • DEPARTMENT
                             </p>
                         </div>
                     </div>
@@ -132,6 +132,7 @@ export default function InternalStructureDetail({ id }: InternalStructureDetailP
 
             {activeTab === "child_structures" && (
                 <InternalStructureTable 
+                    forced_government_structure_id={structure.government_structure_id}
                     forced_parent_id={id} 
                     hideLayout={true} 
                     sideActions={sideActions}

@@ -8,6 +8,7 @@ import {
 } from "../types/internalStructure";
 
 export const internalStructureApi = baseApi.injectEndpoints({
+    overrideExisting: true,
     endpoints: (builder) => ({
         /** ---------------------------
          * GET ALL

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
@@ -42,8 +43,13 @@ const stripLocale = (pathname: string) => {
 };
 
 export function AppSidebar() {
+  const [mounted, setMounted] = useState(false);
   const { permissions: userPermissions } = usePermissions();
   const pathname = stripLocale(usePathname());
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const visibleNav = NAVIGATION.filter((item) =>
     canAccessItem(item, userPermissions)
@@ -93,9 +99,39 @@ export function AppSidebar() {
               {visibleNav.map((item) => {
                 const hasConfigChildren = item.children && item.children.length > 0;
                 const isGovStructures = item.url === "/government-structures";
-                const hasDynamicChildren = isGovStructures && structureTree.length > 0;
+                const hasDynamicChildren = isGovStructures;
 
                 if (hasConfigChildren || hasDynamicChildren) {
+                  if (!mounted) {
+                    return (
+                      <SidebarMenuItem
+                        key={item.title}
+                        className="group-data-[collapsible=icon]:w-fit"
+                      >
+                        <SidebarMenuButton
+                          asChild
+                          isActive={pathname.startsWith(item.url)}
+                          tooltip={item.title}
+                          className="text-primary hover:bg-golden-metallic px-5 py-5
+                            group-data-[collapsible=icon]:px-2
+                            group-data-[collapsible=icon]:justify-center
+                            data-[active=true]:bg-golden-dark
+                            data-[active=true]:text-primary-foreground"
+                        >
+                          <Link
+                            href={item.url}
+                            className="flex items-center gap-4 group-data-[collapsible=icon]:justify-center"
+                          >
+                            <item.icon className="group-data-[collapsible=icon]:size-5 shrink-0" />
+                            <span className="text-base whitespace-nowrap truncate group-data-[collapsible=icon]:hidden">
+                              {item.title}
+                            </span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  }
+
                   return (
                     <Collapsible
                       key={item.title}
