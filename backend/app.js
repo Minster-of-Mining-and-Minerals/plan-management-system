@@ -58,6 +58,7 @@ const appServer = http.createServer(app);
 
 app.use(
   express.json({
+    limit: "15mb",
     verify: (req, res, buf) => {
       if (!buf.length) return; // allow empty body
       try {

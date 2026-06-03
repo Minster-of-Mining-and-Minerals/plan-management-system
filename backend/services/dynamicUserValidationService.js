@@ -135,6 +135,27 @@ function validateCheckboxField(value, config, label, required) {
   return errors;
 }
 
+function normalizeCanvasFieldValue(raw) {
+  let parsed = raw;
+  if (typeof raw === "string") {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return raw;
+    }
+  }
+  if (!parsed || typeof parsed !== "object" || !parsed.canvas_data) {
+    return raw;
+  }
+  if (
+    typeof parsed.preview_image === "string" &&
+    parsed.preview_image.startsWith("data:")
+  ) {
+    return { ...parsed, preview_image: null };
+  }
+  return parsed;
+}
+
 function validateCanvasAnnotationField(value, config, label, required) {
   const errors = [];
   if (value === undefined || value === null) {
@@ -369,6 +390,7 @@ async function validateAndPickUserFields(body, { isUpdate = false } = {}) {
 module.exports = {
   validateAndPickUserFields,
   validateFieldValue,
+  normalizeCanvasFieldValue,
   parseStoredValue,
   serializeValueForStorage,
   getFormFieldsByModel,

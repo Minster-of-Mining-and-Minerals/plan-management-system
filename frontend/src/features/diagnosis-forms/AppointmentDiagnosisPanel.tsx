@@ -15,6 +15,10 @@ import type { DynamicFormValues } from "@/redux/types/formField";
 import { validateDynamicForm } from "@/lib/dynamicFormValidation";
 import { flattenFormFields } from "@/redux/types/formField";
 import { toast } from "sonner";
+import {
+  formDataHasPendingCanvasPreviews,
+  sanitizeFormDataCanvasFields,
+} from "@/components/canvas-annotation/canvasAnnotationUtils";
 
 type Props = {
   appointmentId: string;
@@ -70,10 +74,21 @@ export function AppointmentDiagnosisPanel({ appointmentId }: Props) {
       return;
     }
 
+    if (grouped && formDataHasPendingCanvasPreviews(values, grouped)) {
+      toast.error(
+        "Canvas preview is still uploading. Wait a moment, then save again."
+      );
+      return;
+    }
+
+    const form_data = grouped
+      ? sanitizeFormDataCanvasFields(values, grouped)
+      : values;
+
     try {
       await saveDiagnosis({
         appointmentId,
-        form_data: values,
+        form_data,
         status,
       }).unwrap();
       toast.success(

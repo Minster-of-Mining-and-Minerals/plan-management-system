@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useMemo } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,18 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { FileUploadField } from "@/features/template/component/FileUploadField";
-import { CanvasAnnotationField } from "@/components/canvas-annotation/CanvasAnnotationField";
+const CanvasAnnotationField = dynamic(
+  () =>
+    import("@/components/canvas-annotation/CanvasAnnotationField").then(
+      (m) => m.CanvasAnnotationField
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <p className="text-sm text-muted-foreground">Loading canvas editor…</p>
+    ),
+  }
+);
 import type {
   FormField,
   DynamicFormValues,

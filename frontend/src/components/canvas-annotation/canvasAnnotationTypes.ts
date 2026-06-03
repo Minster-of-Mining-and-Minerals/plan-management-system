@@ -77,7 +77,7 @@ export function emptyCanvasValue(
       diagram_code: opts.diagram_code ?? null,
       custom_image_url: opts.custom_image_url ?? null,
       annotations: { version: CANVAS_ANNOTATION_VERSION, objects: [] },
-      metadata: { updated_at: new Date().toISOString() },
+      metadata: {},
     },
     preview_image: null,
   };

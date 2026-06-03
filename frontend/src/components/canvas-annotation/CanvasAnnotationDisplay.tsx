@@ -1,13 +1,24 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useClientMounted } from "@/hooks/useClientMounted";
 import { parseCanvasFieldValue } from "./canvasAnnotationTypes";
-import { getFileUrl } from "@/utils/fileUrl";
+import { resolveCanvasPreviewSrc } from "./canvasAnnotationUtils";
 
 const CanvasAnnotationEditor = dynamic(
   () =>
     import("./CanvasAnnotationEditor").then((m) => m.CanvasAnnotationEditor),
-  { ssr: false, loading: () => <p className="text-sm text-muted-foreground">Loading…</p> }
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="flex h-[320px] items-center justify-center rounded-md border bg-muted/20"
+        aria-hidden
+      >
+        <p className="text-sm text-muted-foreground">Loading diagram…</p>
+      </div>
+    ),
+  }
 );
 
 type Props = {
@@ -17,34 +28,35 @@ type Props = {
 };
 
 export function CanvasAnnotationDisplay({ value, backgroundUrl, label }: Props) {
+  const mounted = useClientMounted();
   const parsed = parseCanvasFieldValue(value);
   if (!parsed) return null;
 
-  const preview = parsed.preview_image;
-  const previewSrc =
-    preview && (preview.startsWith("data:") || preview.startsWith("http"))
-      ? preview
-      : preview
-        ? getFileUrl(preview.replace(/^\/+/, ""))
-        : null;
+  const hasAnnotations = parsed.canvas_data.annotations.objects.length > 0;
+  const previewSrc = mounted ? resolveCanvasPreviewSrc(parsed.preview_image) || null : null;
 
   return (
     <div className="space-y-2">
       {label && <p className="text-sm font-medium">{label}</p>}
-      {previewSrc ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={previewSrc}
-          alt={label ? `${label} annotated diagram` : "Annotated diagram"}
-          className="max-w-full rounded-md border object-contain"
-        />
-      ) : (
+      {mounted ? (
         <CanvasAnnotationEditor
           backgroundUrl={backgroundUrl}
           value={parsed}
           readOnly
           onChange={() => {}}
         />
+      ) : (
+        <div
+          className="flex h-[320px] items-center justify-center rounded-md border bg-muted/20"
+          aria-hidden
+        >
+          <p className="text-sm text-muted-foreground">Loading diagram…</p>
+        </div>
+      )}
+      {previewSrc && hasAnnotations && (
+        <p className="text-xs text-muted-foreground">
+          Snapshot preview (live view above includes all labels and marks).
+        </p>
       )}
     </div>
   );

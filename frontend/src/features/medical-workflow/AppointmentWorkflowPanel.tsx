@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { useRouter } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
@@ -35,6 +35,10 @@ import type { PrescriptionRecord } from "@/redux/types/prescription";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermissions";
 import { WORKFLOW_PERMISSIONS } from "./workflowPermissions";
+import {
+  formDataHasPendingCanvasPreviews,
+  sanitizeFormDataCanvasFields,
+} from "@/components/canvas-annotation/canvasAnnotationUtils";
 
 type GlobalPanel = "forward" | "prescribe" | "history" | null;
 
@@ -132,14 +136,14 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
 
   const closePanels = () => setGlobalPanel(null);
 
-  const handleChange = (key: string, value: unknown) => {
+  const handleChange = useCallback((key: string, value: unknown) => {
     setValues((prev) => ({ ...prev, [key]: value }));
     setErrors((prev) => {
       const next = { ...prev };
       delete next[key];
       return next;
     });
-  };
+  }, []);
 
   const validateDynamic = (partial: boolean, formGrouped = grouped) => {
     const fields = formGrouped
@@ -218,7 +222,17 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
       ? selectedOption?.config ?? data?.formConfig ?? null
       : data?.formConfig ?? null;
 
-    const formValues = options?.formData ?? (useForm ? values : {});
+    let formValues = options?.formData ?? (useForm ? values : {});
+
+    if (useForm && activeGrouped) {
+      if (formDataHasPendingCanvasPreviews(formValues, activeGrouped)) {
+        toast.error(
+          "Canvas preview is still uploading. Wait a moment, then save again."
+        );
+        return;
+      }
+      formValues = sanitizeFormDataCanvasFields(formValues, activeGrouped);
+    }
     const header_title =
       options?.headerTitle ??
       (useForm && entryTitle.trim() ? entryTitle.trim() : null) ??

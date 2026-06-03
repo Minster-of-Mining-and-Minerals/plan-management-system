@@ -1,6 +1,9 @@
 "use strict";
 
-const { validateFieldValue } = require("./dynamicUserValidationService");
+const {
+  validateFieldValue,
+  normalizeCanvasFieldValue,
+} = require("./dynamicUserValidationService");
 const diagnosisFormConfigService = require("./diagnosisFormConfigService");
 const { isFieldEffectivelyVisible, validateGroupFields } = require("./formFieldRuleService");
 
@@ -50,7 +53,10 @@ async function validateDiagnosisFormData(configId, formData, { partial = false }
       }
 
       if (!isEmpty(raw)) {
-        normalized[field.field_key] = raw;
+        normalized[field.field_key] =
+          field.field_type === "canvas_annotation"
+            ? normalizeCanvasFieldValue(raw)
+            : raw;
       }
     }
   }

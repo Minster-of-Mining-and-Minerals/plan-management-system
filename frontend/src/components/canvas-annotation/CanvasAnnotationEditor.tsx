@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Stage, Layer, Image as KonvaImage, Line, Rect, Circle, Text, Group } from "react-konva";
 import type Konva from "konva";
 import useImage from "use-image";
@@ -28,6 +28,7 @@ import {
   DEFAULT_CANVAS_COLORS,
   CANVAS_ANNOTATION_VERSION,
 } from "./canvasAnnotationTypes";
+import { CanvasTextInsertDialog } from "./CanvasTextInsertDialog";
 
 const STAGE_WIDTH = 720;
 const STAGE_HEIGHT = 480;
@@ -57,11 +58,13 @@ function ShapeNode({
   readOnly,
   onSelect,
   selected,
+  onUpdatePosition,
 }: {
   shape: CanvasAnnotationShape;
   readOnly?: boolean;
   onSelect?: (id: string) => void;
   selected?: boolean;
+  onUpdatePosition?: (id: string, x: number, y: number) => void;
 }) {
   const common = {
     stroke: shape.stroke || "#ef4444",
@@ -132,20 +135,22 @@ function ShapeNode({
   }
 
   if (shape.type === "text") {
+    const textColor = shape.stroke || "#000000";
     return (
       <Text
-        {...common}
         x={shape.x ?? 0}
         y={shape.y ?? 0}
         text={shape.text || ""}
         fontSize={shape.fontSize ?? 16}
-        fill={shape.stroke || "#000000"}
-        draggable={!readOnly}
+        fill={textColor}
+        fontStyle="bold"
+        listening={!readOnly}
+        draggable={!readOnly && selected}
+        onClick={() => onSelect?.(shape.id)}
+        onTap={() => onSelect?.(shape.id)}
         onDragEnd={(e) => {
-          onSelect?.(shape.id);
           const node = e.target;
-          shape.x = node.x();
-          shape.y = node.y();
+          onUpdatePosition?.(shape.id, node.x(), node.y());
         }}
       />
     );
@@ -175,6 +180,12 @@ function cloneObjects(objects: CanvasAnnotationShape[]) {
   return JSON.parse(JSON.stringify(objects)) as CanvasAnnotationShape[];
 }
 
+let shapeIdCounter = 0;
+function nextShapeId() {
+  shapeIdCounter += 1;
+  return `shape-${shapeIdCounter}`;
+}
+
 export function CanvasAnnotationEditor({
   backgroundUrl,
   value,
@@ -183,6 +194,7 @@ export function CanvasAnnotationEditor({
   onChange,
   onPreviewReady,
 }: Props) {
+  const stageContainerId = useId().replace(/:/g, "");
   const stageRef = useRef<Konva.Stage>(null);
   const [tool, setTool] = useState<CanvasTool>("draw");
   const [color, setColor] = useState<string>(DEFAULT_CANVAS_COLORS[0]);
@@ -193,8 +205,33 @@ export function CanvasAnnotationEditor({
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [history, setHistory] = useState<CanvasAnnotationShape[][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [textDialogOpen, setTextDialogOpen] = useState(false);
+  const pendingTextPoint = useRef<{ x: number; y: number } | null>(null);
+  const drawingRef = useRef<{
+    id: string;
+    type: CanvasAnnotationShape["type"];
+    points: number[];
+    startX: number;
+    startY: number;
+  } | null>(null);
+  const scheduleExportPreviewRef = useRef<(() => void) | null>(null);
 
-  const objects = value.canvas_data.annotations.objects;
+  const committedObjects = value.canvas_data.annotations.objects;
+  const [localObjects, setLocalObjects] = useState(committedObjects);
+  const localObjectsRef = useRef(committedObjects);
+
+  const syncLocalObjects = useCallback((next: CanvasAnnotationShape[]) => {
+    localObjectsRef.current = next;
+    setLocalObjects(next);
+  }, []);
+
+  useEffect(() => {
+    if (!drawingRef.current) {
+      syncLocalObjects(committedObjects);
+    }
+  }, [committedObjects, syncLocalObjects]);
+
+  const objects = localObjects;
 
   const pushHistory = useCallback(
     (next: CanvasAnnotationShape[]) => {
@@ -208,7 +245,8 @@ export function CanvasAnnotationEditor({
 
   const commitObjects = useCallback(
     (next: CanvasAnnotationShape[], recordHistory = true) => {
-      if (recordHistory) pushHistory(objects);
+      if (recordHistory) pushHistory(committedObjects);
+      syncLocalObjects(next);
       onChange({
         ...value,
         canvas_data: {
@@ -223,16 +261,19 @@ export function CanvasAnnotationEditor({
         },
       });
     },
-    [objects, onChange, pushHistory, value]
+    [committedObjects, onChange, pushHistory, syncLocalObjects, value]
   );
 
-  const drawingRef = useRef<{
-    id: string;
-    type: CanvasAnnotationShape["type"];
-    points: number[];
-    startX: number;
-    startY: number;
-  } | null>(null);
+  const updateShapePosition = useCallback(
+    (id: string, x: number, y: number) => {
+      const next = objects.map((s) =>
+        s.id === id ? { ...s, x, y } : s
+      );
+      commitObjects(next);
+      scheduleExportPreviewRef.current?.();
+    },
+    [commitObjects, objects]
+  );
 
   const activeColor = useMemo(() => {
     if (tool === "marker") return color;
@@ -260,23 +301,8 @@ export function CanvasAnnotationEditor({
     }
 
     if (tool === "text") {
-      const text = window.prompt("Annotation text", "Finding");
-      if (!text?.trim()) return;
-      const id = crypto.randomUUID();
-      const next = [
-        ...objects,
-        {
-          id,
-          type: "text" as const,
-          x: pt.x,
-          y: pt.y,
-          text: text.trim(),
-          fontSize: 16,
-          stroke: activeColor === "eraser" ? "#000000" : activeColor,
-        },
-      ];
-      commitObjects(next);
-      setSelectedId(id);
+      pendingTextPoint.current = { x: pt.x, y: pt.y };
+      setTextDialogOpen(true);
       return;
     }
 
@@ -284,11 +310,12 @@ export function CanvasAnnotationEditor({
       const hit = stage.getIntersection(pt);
       if (hit?.id()) {
         commitObjects(objects.filter((o) => o.id !== hit.id()));
+        scheduleExportPreviewRef.current?.();
       }
       return;
     }
 
-    const id = crypto.randomUUID();
+    const id = nextShapeId();
     const type: CanvasAnnotationShape["type"] =
       tool === "draw" || tool === "marker"
         ? "path"
@@ -326,7 +353,29 @@ export function CanvasAnnotationEditor({
       radius: type === "circle" ? 0 : undefined,
     };
 
-    commitObjects([...objects, base], false);
+    syncLocalObjects([...objects, base]);
+  };
+
+  const handleTextConfirm = (text: string) => {
+    const pt = pendingTextPoint.current;
+    pendingTextPoint.current = null;
+    if (!pt) return;
+    const id = nextShapeId();
+    const next = [
+      ...objects,
+      {
+        id,
+        type: "text" as const,
+        x: pt.x,
+        y: pt.y,
+        text,
+        fontSize: 16,
+        stroke: activeColor === "eraser" ? "#000000" : activeColor,
+      },
+    ];
+    commitObjects(next);
+    setSelectedId(id);
+    scheduleExportPreviewRef.current?.();
   };
 
   const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
@@ -366,44 +415,51 @@ export function CanvasAnnotationEditor({
       return shape;
     });
 
-    onChange({
-      ...value,
-      canvas_data: {
-        ...value.canvas_data,
-        annotations: { version: CANVAS_ANNOTATION_VERSION, objects: next },
-      },
-    });
+    syncLocalObjects(next);
   };
 
   const handleMouseUp = () => {
-    if (drawingRef.current) {
-      pushHistory(objects);
-      drawingRef.current = null;
-      exportPreview();
-    }
+    if (!drawingRef.current) return;
+    drawingRef.current = null;
+    commitObjects(localObjectsRef.current, true);
+    scheduleExportPreviewRef.current?.();
   };
 
   const exportPreview = useCallback(() => {
     const stage = stageRef.current;
-    if (!stage) return;
+    if (!stage || readOnly) return;
+    const currentObjects = cloneObjects(localObjectsRef.current);
     try {
-      const dataUrl = stage.toDataURL({ pixelRatio: 2 });
+      const dataUrl = stage.toDataURL({ pixelRatio: 1.25 });
       onPreviewReady?.(dataUrl);
       onChange({
-        ...value,
-        preview_image: dataUrl,
         canvas_data: {
           ...value.canvas_data,
+          annotations: {
+            version: CANVAS_ANNOTATION_VERSION,
+            objects: currentObjects,
+          },
           metadata: {
             ...value.canvas_data.metadata,
+            background_width: STAGE_WIDTH,
+            background_height: STAGE_HEIGHT,
             updated_at: new Date().toISOString(),
           },
         },
+        preview_image: dataUrl,
       });
     } catch {
       /* ignore export errors */
     }
-  }, [onChange, onPreviewReady, value]);
+  }, [onChange, onPreviewReady, readOnly, value.canvas_data]);
+
+  const scheduleExportPreview = useCallback(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => exportPreview());
+    });
+  }, [exportPreview]);
+
+  scheduleExportPreviewRef.current = readOnly ? null : scheduleExportPreview;
 
   const undo = () => {
     if (historyIndex < 0) return;
@@ -434,14 +490,8 @@ export function CanvasAnnotationEditor({
   const clearCanvas = () => {
     if (!confirm("Clear all annotations on this diagram?")) return;
     commitObjects([]);
-    exportPreview();
+    scheduleExportPreview();
   };
-
-  useEffect(() => {
-    if (!readOnly && objects.length && !value.preview_image) {
-      exportPreview();
-    }
-  }, [exportPreview, objects.length, readOnly, value.preview_image]);
 
   const tools: { id: CanvasTool; label: string; icon: React.ReactNode }[] = [
     { id: "select", label: "Select", icon: <MousePointer2 className="h-4 w-4" /> },
@@ -456,6 +506,12 @@ export function CanvasAnnotationEditor({
   ];
 
   return (
+    <>
+    <CanvasTextInsertDialog
+      open={textDialogOpen}
+      onOpenChange={setTextDialogOpen}
+      onConfirm={handleTextConfirm}
+    />
     <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
       {!readOnly && (
         <div className="flex flex-wrap items-center gap-2">
@@ -542,7 +598,11 @@ export function CanvasAnnotationEditor({
         </div>
       )}
 
-      <div className="overflow-auto rounded-md border bg-white">
+      <div
+        id={stageContainerId}
+        className="overflow-auto rounded-md border bg-white"
+        suppressHydrationWarning
+      >
         <Stage
           ref={stageRef}
           width={STAGE_WIDTH}
@@ -574,6 +634,7 @@ export function CanvasAnnotationEditor({
                   readOnly={readOnly}
                   selected={selectedId === shape.id}
                   onSelect={setSelectedId}
+                  onUpdatePosition={readOnly ? undefined : updateShapePosition}
                 />
               </Group>
             ))}
@@ -581,5 +642,6 @@ export function CanvasAnnotationEditor({
         </Stage>
       </div>
     </div>
+    </>
   );
 }

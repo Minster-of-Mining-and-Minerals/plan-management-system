@@ -1,23 +1,42 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Label } from "@/components/ui/label";
 import { getFileUrl } from "@/utils/fileUrl";
+import { useClientMounted } from "@/hooks/useClientMounted";
 import {
   emptyCanvasValue,
   parseCanvasFieldValue,
   type CanvasAnnotationFieldValue,
   type CanvasSourceType,
 } from "./canvasAnnotationTypes";
+import {
+  isDataUrl,
+  resolveCanvasPreviewSrc,
+  uploadCanvasPreviewDataUrl,
+} from "./canvasAnnotationUtils";
 import type { FormFieldConfig } from "@/redux/types/formField";
 import { useGetMedicalDiagramQuery } from "@/redux/api/medicalDiagramApi";
+import { useUploadAttachmentsMutation } from "@/redux/api/attachementApi";
 
 const CanvasAnnotationEditor = dynamic(
   () =>
     import("./CanvasAnnotationEditor").then((m) => m.CanvasAnnotationEditor),
-  { ssr: false, loading: () => <p className="text-sm text-muted-foreground">Loading canvas…</p> }
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="flex h-[480px] items-center justify-center rounded-md border bg-muted/20"
+        aria-hidden
+      >
+        <p className="text-sm text-muted-foreground">Preparing canvas…</p>
+      </div>
+    ),
+  }
 );
+
+const STAGE_HEIGHT = 480;
 
 type Props = {
   fieldKey: string;
@@ -55,10 +74,14 @@ export function CanvasAnnotationField({
   readOnly,
   onChange,
 }: Props) {
+  const mounted = useClientMounted();
   const diagramId = config.diagram_id;
   const { data: diagram } = useGetMedicalDiagramQuery(diagramId!, {
     skip: !diagramId || config.canvas_source_type !== "library",
   });
+  const [uploadAttachments] = useUploadAttachmentsMutation();
+  const uploadInFlight = useRef(false);
+  const didInitialize = useRef(false);
 
   const backgroundUrl = useMemo(
     () => resolveBackgroundUrl(config, diagram?.image_file),
@@ -73,21 +96,64 @@ export function CanvasAnnotationField({
       diagram_id: config.diagram_id ?? null,
       diagram_code: diagram?.code ?? null,
       custom_image_url:
-        source === "custom"
-          ? config.custom_image_url ?? null
-          : null,
+        source === "custom" ? config.custom_image_url ?? null : null,
     });
   }, [parsed, config, diagram?.code]);
 
   useEffect(() => {
-    if (!parsed && backgroundUrl) {
-      onChange(fieldKey, canvasValue);
-    }
-  }, [backgroundUrl, canvasValue, fieldKey, onChange, parsed]);
+    if (!mounted || parsed || !backgroundUrl || didInitialize.current) return;
+    didInitialize.current = true;
+    onChange(fieldKey, canvasValue);
+  }, [mounted, backgroundUrl, canvasValue, fieldKey, onChange, parsed]);
 
-  const handleChange = (next: CanvasAnnotationFieldValue) => {
-    onChange(fieldKey, next);
-  };
+  const persistPreviewUpload = useCallback(
+    async (next: CanvasAnnotationFieldValue) => {
+      const preview = next.preview_image;
+      if (!preview || !isDataUrl(preview) || readOnly || disabled) {
+        onChange(fieldKey, next);
+        return;
+      }
+      if (uploadInFlight.current) return;
+      uploadInFlight.current = true;
+      try {
+        const storedPath = await uploadCanvasPreviewDataUrl(
+          preview,
+          fieldKey,
+          async (arg) => uploadAttachments(arg).unwrap()
+        );
+        onChange(fieldKey, {
+          ...next,
+          preview_image: storedPath,
+        });
+      } catch {
+        onChange(fieldKey, { ...next, preview_image: null });
+      } finally {
+        uploadInFlight.current = false;
+      }
+    },
+    [disabled, fieldKey, onChange, readOnly, uploadAttachments]
+  );
+
+  const handleChange = useCallback(
+    (next: CanvasAnnotationFieldValue) => {
+      if (next.preview_image && isDataUrl(next.preview_image) && !readOnly && !disabled) {
+        const storedPreview =
+          parsed?.preview_image && !isDataUrl(parsed.preview_image)
+            ? parsed.preview_image
+            : null;
+        onChange(fieldKey, {
+          canvas_data: next.canvas_data,
+          preview_image: storedPreview,
+        });
+        void persistPreviewUpload(next);
+        return;
+      }
+      onChange(fieldKey, next);
+    },
+    [disabled, fieldKey, onChange, parsed?.preview_image, persistPreviewUpload, readOnly]
+  );
+
+  const previewSrc = mounted ? resolveCanvasPreviewSrc(canvasValue.preview_image) : "";
 
   if (!backgroundUrl) {
     return (
@@ -105,24 +171,34 @@ export function CanvasAnnotationField({
         <p className="text-xs text-muted-foreground">{config.description}</p>
       ) : null}
       <Label className="text-sm font-medium">{label}</Label>
-      <CanvasAnnotationEditor
-        backgroundUrl={backgroundUrl}
-        value={canvasValue}
-        disabled={disabled}
-        readOnly={readOnly}
-        onChange={handleChange}
-      />
-      {canvasValue.preview_image && (
+      {!mounted ? (
+        <div
+          className="flex items-center justify-center rounded-lg border bg-muted/20"
+          style={{ minHeight: STAGE_HEIGHT }}
+          aria-hidden
+        >
+          <p className="text-sm text-muted-foreground">Loading canvas editor…</p>
+        </div>
+      ) : (
+        <CanvasAnnotationEditor
+          backgroundUrl={backgroundUrl}
+          value={canvasValue}
+          disabled={disabled}
+          readOnly={readOnly}
+          onChange={handleChange}
+        />
+      )}
+      {mounted && previewSrc ? (
         <div className="rounded border p-2">
           <p className="mb-1 text-xs text-muted-foreground">Preview snapshot</p>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={canvasValue.preview_image}
+            src={previewSrc}
             alt={`${label} annotation preview`}
             className="max-h-48 w-full object-contain"
           />
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
