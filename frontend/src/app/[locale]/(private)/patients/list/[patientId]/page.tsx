@@ -206,7 +206,7 @@ export default function PatientDetailPage() {
         </div>
       </div>
 
-      <PatientPrescriptionPharmacyPanel patientId={patientId} />
+      {/* <PatientPrescriptionPharmacyPanel patientId={patientId} /> */}
 
       <PatientScheduleListCards patientId={patientId} />
     </div>

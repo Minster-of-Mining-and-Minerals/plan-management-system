@@ -36,6 +36,8 @@ const medicalWorkflowRoutes = require("./routers/workflow/medicalWorkflowRoutes"
 const prescriptionCategoryRoutes = require("./routers/prescription/prescriptionCategoryRoutes");
 const prescriptionTemplateRoutes = require("./routers/prescription/prescriptionTemplateRoutes");
 const prescriptionDocumentTemplateRoutes = require("./routers/prescription/prescriptionDocumentTemplateRoutes");
+const medicalCertificateRoutes = require("./routers/medicalCertificate/medicalCertificateRoutes");
+const medicalCertificateTemplateRoutes = require("./routers/medicalCertificate/medicalCertificateTemplateRoutes");
 const prescriptionRoutes = require("./routers/prescription/prescriptionRoutes");
 const notificationRoutes = require("./routers/notification/notificationRoutes");
 const pharmacyRoutes = require("./routers/pharmacy/pharmacyRoutes");
@@ -153,6 +155,8 @@ app.use("/api/prescription-categories", prescriptionCategoryRoutes);
 app.use("/api/prescription-templates", prescriptionTemplateRoutes);
 app.use("/api/prescription-document-templates", prescriptionDocumentTemplateRoutes);
 app.use("/api/prescriptions", prescriptionRoutes);
+app.use("/api/medical-certificate-templates", medicalCertificateTemplateRoutes);
+app.use("/api/medical-certificates", medicalCertificateRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/pharmacies", pharmacyRoutes);
 app.use("/api/pharmacy-portal", pharmacyPortalRoutes);

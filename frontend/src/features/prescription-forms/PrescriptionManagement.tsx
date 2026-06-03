@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PrescriptionCategoryList } from "./PrescriptionCategoryList";
 import { PrescriptionTemplateList } from "./PrescriptionTemplateList";
 import { PrescriptionDocumentTemplateList } from "./PrescriptionDocumentTemplateList";
+import { MedicalCertificateTemplateList } from "@/features/medical-certificate/MedicalCertificateTemplateList";
 
 export function PrescriptionManagement() {
   const searchParams = useSearchParams();
@@ -22,6 +23,7 @@ export function PrescriptionManagement() {
           <TabsTrigger value="templates">Templates</TabsTrigger>
           <TabsTrigger value="documents">Document layouts</TabsTrigger>
           <TabsTrigger value="categories">Categories</TabsTrigger>
+          <TabsTrigger value="certificates">Medical certificates</TabsTrigger>
         </TabsList>
         <TabsContent value="templates" className="mt-4">
           <PrescriptionTemplateList />
@@ -31,6 +33,9 @@ export function PrescriptionManagement() {
         </TabsContent>
         <TabsContent value="categories" className="mt-4">
           <PrescriptionCategoryList />
+        </TabsContent>
+        <TabsContent value="certificates" className="mt-4">
+          <MedicalCertificateTemplateList />
         </TabsContent>
       </Tabs>
     </TableLayout>

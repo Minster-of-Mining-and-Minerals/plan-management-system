@@ -8,9 +8,11 @@ import {
   Calendar,
   ChevronDown,
   ChevronUp,
+  FileBadge,
   Inbox,
   User2,
 } from "lucide-react";
+import { PermissionGuard } from "@/components/common/PermissionGuard";
 import DetailHeader from "@/components/common/DetailHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +29,7 @@ import {
   APPOINTMENT_STATUS_VARIANT,
 } from "./appointmentStatusStyles";
 import { AppointmentWorkflowPanel } from "@/features/medical-workflow/AppointmentWorkflowPanel";
+import { MedicalCertificateGenerationDrawer } from "@/features/medical-certificate/MedicalCertificateGenerationDrawer";
 
 function InfoField({
   label,
@@ -61,6 +64,7 @@ export default function AppointmentDetailPage() {
   const router = useRouter();
   const appointmentId = params.id as string;
   const [userInfoOpen, setUserInfoOpen] = useState(true);
+  const [certificateOpen, setCertificateOpen] = useState(false);
 
   const { data: appointment, isLoading, isError } =
     useGetAppointmentByIdQuery(appointmentId);
@@ -125,6 +129,21 @@ export default function AppointmentDetailPage() {
               Forwarded
             </Badge>
           )}
+          <PermissionGuard
+            requireAny={["MEDICAL_CERTIFICATE:CREATE"]}
+            fallback={null}
+          >
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={!schedule?.schedule_id || !patient?.user_id}
+              onClick={() => setCertificateOpen(true)}
+            >
+              <FileBadge className="mr-1.5 h-4 w-4" />
+              Certificate
+            </Button>
+          </PermissionGuard>
           <Badge variant={APPOINTMENT_STATUS_VARIANT[appointment.status]}>
             {APPOINTMENT_STATUS_LABELS[appointment.status]}
           </Badge>
@@ -245,6 +264,16 @@ export default function AppointmentDetailPage() {
       </div>
 
       <AppointmentWorkflowPanel appointmentId={appointmentId} />
+
+      {schedule?.schedule_id && patient?.user_id && (
+        <MedicalCertificateGenerationDrawer
+          open={certificateOpen}
+          onOpenChange={setCertificateOpen}
+          patientId={patient.user_id}
+          scheduleId={schedule.schedule_id}
+          appointmentId={appointmentId}
+        />
+      )}
     </div>
   );
 }

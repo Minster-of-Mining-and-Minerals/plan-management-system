@@ -1,7 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { FileBadge } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
+import { Button } from "@/components/ui/button";
+import { PermissionGuard } from "@/components/common/PermissionGuard";
 import DetailHeader from "@/components/common/DetailHeader";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +20,7 @@ import {
   SCHEDULE_STATUS_STYLES,
 } from "@/features/patient-scheduling/scheduleStatus";
 import { ScheduleWorkflowActions } from "./ScheduleWorkflowActions";
+import { MedicalCertificateGenerationDrawer } from "@/features/medical-certificate/MedicalCertificateGenerationDrawer";
 import { SendToPharmacyDrawerHost } from "./SendToPharmacyDrawer";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +32,7 @@ type Props = {
 export function PatientScheduleHistoryPage({ patientId, scheduleId }: Props) {
   const router = useRouter();
   const [pharmacyPanelOpen, setPharmacyPanelOpen] = useState(false);
+  const [certificateOpen, setCertificateOpen] = useState(false);
 
   const { data: patient, isLoading: loadingPatient } =
     useGetPatientByIdQuery(patientId);
@@ -81,13 +86,30 @@ export function PatientScheduleHistoryPage({ patientId, scheduleId }: Props) {
             { title: "Schedule history" },
           ]}
         />
-        <ScheduleWorkflowActions
-          disabled={!hasAdmittedVisit}
-          showSendToPharmacy={showSendToPharmacy}
-          hasForwardedPrescriptions={hasForwardedPrescriptions}
-          onBack={() => router.push(`/patients/list/${patientId}`)}
-          onSendToPharmacy={() => setPharmacyPanelOpen(true)}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <ScheduleWorkflowActions
+            disabled={!hasAdmittedVisit}
+            showSendToPharmacy={showSendToPharmacy}
+            hasForwardedPrescriptions={hasForwardedPrescriptions}
+            onBack={() => router.push(`/patients/list/${patientId}`)}
+            onSendToPharmacy={() => setPharmacyPanelOpen(true)}
+          />
+          <PermissionGuard
+            requireAny={["MEDICAL_CERTIFICATE:CREATE"]}
+            fallback={null}
+          >
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={!hasAdmittedVisit}
+              onClick={() => setCertificateOpen(true)}
+            >
+              <FileBadge className="mr-1.5 h-4 w-4" />
+              Medical certificate
+            </Button>
+          </PermissionGuard>
+        </div>
       </div>
 
       <div
@@ -177,6 +199,15 @@ export function PatientScheduleHistoryPage({ patientId, scheduleId }: Props) {
           scheduleId={scheduleId}
           patientName={patient?.full_name}
           onClose={() => setPharmacyPanelOpen(false)}
+        />
+
+        <MedicalCertificateGenerationDrawer
+          open={certificateOpen}
+          onOpenChange={setCertificateOpen}
+          patientId={patientId}
+          scheduleId={scheduleId}
+          appointmentId={schedule?.staffAppointment?.appointment_id}
+          disabled={!hasAdmittedVisit}
         />
       </div>
     </div>
