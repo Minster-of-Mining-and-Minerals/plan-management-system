@@ -3,6 +3,11 @@ import type { UserFormConfigGrouped } from "../types/formField";
 import type { FormField, CreateFormFieldPayload, UpdateFormFieldPayload } from "../types/formField";
 import type { FormFieldGroup } from "../types/formFieldGroup";
 
+export type StaffDiagnosisFormBundle = {
+  config: DiagnosisFormConfig;
+  form: UserFormConfigGrouped | null;
+};
+
 export type DiagnosisFormConfig = {
   config_id: string;
   assigned_staff_id: string;
@@ -11,6 +16,7 @@ export type DiagnosisFormConfig = {
   source_template_id?: string | null;
   sourceTemplate?: { template_id: string; title: string; description?: string | null };
   is_active: boolean;
+  sort_order?: number;
   staff?: { user_id: string; full_name: string; email?: string };
   created_at?: string;
   updated_at?: string;
@@ -47,12 +53,19 @@ export const diagnosisFormApi = baseApi.injectEndpoints({
       providesTags: ["DiagnosisFormConfig", "FormFields"],
     }),
 
+    getDiagnosisFormConfigsByStaff: builder.query<StaffDiagnosisFormBundle[], string>({
+      query: (staffId) => `/diagnosis-form-configs/staff/${staffId}/all`,
+      transformResponse: (r: { data: StaffDiagnosisFormBundle[] }) => r.data ?? [],
+      providesTags: ["DiagnosisFormConfig", "FormFields"],
+    }),
+
     assignDiagnosisTemplateToStaff: builder.mutation<
       { config: DiagnosisFormConfig; form: UserFormConfigGrouped },
       {
         staffId: string;
         template_id: string;
         replace_existing?: boolean;
+        config_id?: string;
         title?: string;
         description?: string;
       }
@@ -213,6 +226,7 @@ export const {
   useListDiagnosisFormConfigsQuery,
   useGetDiagnosisFormConfigQuery,
   useGetDiagnosisFormConfigByStaffQuery,
+  useGetDiagnosisFormConfigsByStaffQuery,
   useAssignDiagnosisTemplateToStaffMutation,
   useGetDiagnosisGroupedFormQuery,
   useCreateDiagnosisFormConfigMutation,

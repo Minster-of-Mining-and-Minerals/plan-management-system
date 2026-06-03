@@ -129,17 +129,27 @@ async function canAccessAppointment(appointmentId, userId) {
 }
 
 async function resolveFormPayload(staffId, { form_config_id, form_data, partial }) {
+  const staffForms = await diagnosisFormConfigService.getConfigsForStaff(staffId);
+  if (!staffForms.length) {
+    const err = new Error(
+      "No diagnosis form assigned to your staff account. Configure a template first."
+    );
+    err.status = 400;
+    throw err;
+  }
+
   let configId = form_config_id;
   if (!configId) {
-    const { config } = await diagnosisFormConfigService.getConfigForStaff(staffId);
-    if (!config) {
+    if (staffForms.length > 1) {
       const err = new Error(
-        "No diagnosis form assigned to your staff account. Configure a template first."
+        "Select which diagnosis form to use for this report (form_config_id is required)"
       );
       err.status = 400;
       throw err;
     }
-    configId = config.config_id;
+    configId = staffForms[0].config.config_id;
+  } else {
+    await diagnosisFormConfigService.assertConfigBelongsToStaff(configId, staffId);
   }
 
   const normalized = await validateDiagnosisFormData(configId, form_data || {}, {
@@ -569,7 +579,8 @@ async function attachPrescriptionsToTimeline(logs, appointmentId) {
 async function getWorkflowContext(appointmentId, staffId) {
   const appointment = await canAccessAppointment(appointmentId, staffId);
   const timeline = await listTimeline({ appointmentId, staffId });
-  const { config, form } = await diagnosisFormConfigService.getConfigForStaff(staffId);
+  const formOptions = await diagnosisFormConfigService.getConfigsForStaff(staffId);
+  const primary = formOptions[0] ?? null;
 
   const pendingTask = await db.WorkflowTask.findOne({
     where: {
@@ -607,8 +618,9 @@ async function getWorkflowContext(appointmentId, staffId) {
   return {
     appointment: appointment.get({ plain: true }),
     timeline,
-    formConfig: config,
-    form,
+    formConfig: primary?.config ?? null,
+    form: primary?.form ?? null,
+    formOptions,
     pendingTask: pendingTask ? pendingTask.get({ plain: true }) : null,
     workflowActive: appointment.workflow_status === "active",
     returnCandidates: returnCandidates.map((u) => u.get({ plain: true })),

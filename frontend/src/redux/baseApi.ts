@@ -43,6 +43,7 @@ export const baseApi = createApi({
     "Notification",
     "DiagnosisFormConfig",
     "DiagnosisTemplate",
+    "MedicalDiagram",
     "DiagnosisRecord",
     "MedicalWorkflow",
     "PrescriptionCategory",

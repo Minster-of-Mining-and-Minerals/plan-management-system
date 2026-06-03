@@ -5,13 +5,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { DynamicUserFormFields } from "@/components/dynamic-form/DynamicUserFormFields";
 import type { DynamicFormValues, UserFormConfigGrouped } from "@/redux/types/formField";
 import type { DiagnosisFormConfig } from "@/redux/api/diagnosisFormApi";
 
+type FormOption = {
+  config: DiagnosisFormConfig;
+  form: UserFormConfigGrouped | null;
+};
+
 type Props = {
-  formConfig?: DiagnosisFormConfig | null;
-  grouped?: UserFormConfigGrouped | null;
+  formOptions: FormOption[];
+  selectedFormConfigId: string;
+  onFormConfigChange: (configId: string) => void;
   entryTitle: string;
   entryTitleError?: string;
   values: DynamicFormValues;
@@ -25,8 +38,9 @@ type Props = {
 };
 
 export function WorkflowFormCard({
-  formConfig,
-  grouped,
+  formOptions,
+  selectedFormConfigId,
+  onFormConfigChange,
   entryTitle,
   entryTitleError,
   values,
@@ -38,15 +52,46 @@ export function WorkflowFormCard({
   onSave,
   onCancel,
 }: Props) {
+  const selected =
+    formOptions.find((o) => o.config.config_id === selectedFormConfigId) ??
+    formOptions[0];
+  const grouped = selected?.form ?? null;
+  const hasMultiple = formOptions.length > 1;
+
   return (
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
-        <div>
-          <CardTitle className="text-base">New workflow</CardTitle>
-          {formConfig?.title && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              {formConfig.title}
-            </p>
+        <div className="min-w-0 flex-1 space-y-2">
+          <CardTitle className="text-base">New workflow report</CardTitle>
+          {hasMultiple ? (
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">
+                Diagnosis form template
+              </Label>
+              <Select
+                value={selectedFormConfigId}
+                onValueChange={onFormConfigChange}
+                disabled={disabled}
+              >
+                <SelectTrigger className="w-full max-w-md">
+                  <SelectValue placeholder="Select form…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {formOptions.map((opt) => (
+                    <SelectItem
+                      key={opt.config.config_id}
+                      value={opt.config.config_id}
+                    >
+                      {opt.config.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            selected?.config?.title && (
+              <p className="text-xs text-muted-foreground">{selected.config.title}</p>
+            )
           )}
         </div>
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
@@ -71,8 +116,7 @@ export function WorkflowFormCard({
             <p className="text-xs text-destructive">{entryTitleError}</p>
           ) : (
             <p className="text-xs text-muted-foreground">
-              This title appears on the timeline for this entry (not the form
-              template name).
+              This title appears on the timeline for this entry.
             </p>
           )}
         </div>
@@ -95,7 +139,9 @@ export function WorkflowFormCard({
         <div className="flex justify-end border-t pt-4">
           <Button
             type="button"
-            disabled={disabled || saving || !grouped || !entryTitle.trim()}
+            disabled={
+              disabled || saving || !grouped || !entryTitle.trim() || !selectedFormConfigId
+            }
             onClick={onSave}
           >
             <Save className="mr-1.5 h-4 w-4" />

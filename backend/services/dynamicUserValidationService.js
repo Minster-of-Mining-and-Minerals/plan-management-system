@@ -135,6 +135,65 @@ function validateCheckboxField(value, config, label, required) {
   return errors;
 }
 
+function validateCanvasAnnotationField(value, config, label, required) {
+  const errors = [];
+  if (value === undefined || value === null) {
+    return required ? [`${label} is required`] : [];
+  }
+
+  let parsed = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return [`${label} must be valid canvas annotation data`];
+    }
+  }
+
+  if (!parsed || typeof parsed !== "object") {
+    return [`${label} must be valid canvas annotation data`];
+  }
+
+  const canvasData = parsed.canvas_data;
+  if (!canvasData || typeof canvasData !== "object") {
+    errors.push(`${label}: canvas_data is required`);
+    return errors;
+  }
+
+  const sourceType = canvasData.source_type;
+  if (!["library", "custom"].includes(sourceType)) {
+    errors.push(`${label}: invalid canvas source type`);
+  }
+
+  if (sourceType === "library" && !canvasData.diagram_id && !canvasData.diagram_code) {
+    errors.push(`${label}: diagram reference is required for library source`);
+  }
+
+  if (sourceType === "custom" && !canvasData.custom_image_url) {
+    errors.push(`${label}: custom diagram image is required`);
+  }
+
+  const annotations = canvasData.annotations;
+  if (annotations !== undefined && annotations !== null) {
+    if (typeof annotations !== "object") {
+      errors.push(`${label}: annotations must be an object`);
+    } else if (!Array.isArray(annotations.objects)) {
+      errors.push(`${label}: annotations.objects must be an array`);
+    }
+  }
+
+  if (config.canvas_source_type === "library" && config.diagram_id) {
+    if (
+      canvasData.diagram_id &&
+      String(canvasData.diagram_id) !== String(config.diagram_id)
+    ) {
+      errors.push(`${label}: diagram does not match configured library diagram`);
+    }
+  }
+
+  return errors;
+}
+
 function validateFileField(value, config, label, required) {
   const errors = [];
   if (isEmpty(value)) {
@@ -185,6 +244,8 @@ function validateFieldValue(field, value) {
       return validateCheckboxField(value, config, label, required);
     case "file":
       return validateFileField(value, config, label, required);
+    case "canvas_annotation":
+      return validateCanvasAnnotationField(value, config, label, required);
     case "radio":
       return validateSelectField(value, config, label, required);
     case "time":

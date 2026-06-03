@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { FileUploadField } from "@/features/template/component/FileUploadField";
+import { CanvasAnnotationField } from "@/components/canvas-annotation/CanvasAnnotationField";
 import type {
   FormField,
   DynamicFormValues,
@@ -255,6 +256,18 @@ function FieldGrid({
                   );
                 })}
               </div>
+            )}
+
+            {field.field_type === "canvas_annotation" && (
+              <CanvasAnnotationField
+                fieldKey={field.field_key}
+                label={field.label}
+                config={config}
+                value={values[field.field_key]}
+                disabled={disabled}
+                readOnly={disabled}
+                onChange={onChange}
+              />
             )}
 
             {field.field_type === "file" && (() => {

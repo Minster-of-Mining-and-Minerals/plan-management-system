@@ -9,7 +9,8 @@ export type FormFieldType =
   | "time"
   | "number"
   | "richtext"
-  | "switch";
+  | "switch"
+  | "canvas_annotation";
 
 export type FormFieldStorageType = "core" | "custom";
 
@@ -24,6 +25,10 @@ export interface FormFieldConfig {
   default_value?: string | number | boolean;
   allowed_types?: string[];
   max_size_mb?: number;
+  description?: string;
+  canvas_source_type?: "library" | "custom";
+  diagram_id?: string;
+  custom_image_url?: string;
 }
 
 export interface FormField {

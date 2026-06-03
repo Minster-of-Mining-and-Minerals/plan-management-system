@@ -30,6 +30,8 @@ import {
   useUpdateTemplateFieldMutation,
 } from "@/redux/api/diagnosisTemplateApi";
 import type { DiagnosisStructureScope } from "./DiagnosisFormStructureEditor";
+import { FileUploadField } from "@/features/template/component/FileUploadField";
+import { useListMedicalDiagramsQuery } from "@/redux/api/medicalDiagramApi";
 import { toast } from "sonner";
 
 const FIELD_TYPES: FormFieldType[] = [
@@ -44,6 +46,7 @@ const FIELD_TYPES: FormFieldType[] = [
   "file",
   "richtext",
   "switch",
+  "canvas_annotation",
 ];
 
 type Props = {
@@ -83,6 +86,15 @@ export function DiagnosisFieldModal({
   const [placeholder, setPlaceholder] = useState("");
   const [fileMultiple, setFileMultiple] = useState(false);
   const [allowedTypesText, setAllowedTypesText] = useState("");
+  const [fieldDescription, setFieldDescription] = useState("");
+  const [canvasSourceType, setCanvasSourceType] = useState<"library" | "custom">("library");
+  const [diagramId, setDiagramId] = useState("");
+  const [customImageUrl, setCustomImageUrl] = useState("");
+
+  const { data: libraryDiagrams = [] } = useListMedicalDiagramsQuery(undefined, {
+    skip: fieldType !== "canvas_annotation",
+  });
+  const activeDiagrams = libraryDiagrams.filter((d) => d.status === "active");
 
   useEffect(() => {
     if (field) {
@@ -96,6 +108,10 @@ export function DiagnosisFieldModal({
       setPlaceholder(field.config?.placeholder || "");
       setFileMultiple(Boolean(field.config?.multiple));
       setAllowedTypesText((field.config?.allowed_types || []).join(", "));
+      setFieldDescription(field.config?.description || "");
+      setCanvasSourceType(field.config?.canvas_source_type || "library");
+      setDiagramId(field.config?.diagram_id || "");
+      setCustomImageUrl(field.config?.custom_image_url || "");
     } else {
       setGroupId(groups[0]?.group_id || "");
       setFieldKey("");
@@ -107,6 +123,10 @@ export function DiagnosisFieldModal({
       setPlaceholder("");
       setFileMultiple(false);
       setAllowedTypesText("");
+      setFieldDescription("");
+      setCanvasSourceType("library");
+      setDiagramId("");
+      setCustomImageUrl("");
     }
   }, [field, open, groups]);
 
@@ -131,6 +151,25 @@ export function DiagnosisFieldModal({
         .map((s) => s.trim().replace(/^\./, ""))
         .filter(Boolean);
       if (types.length) config.allowed_types = types;
+    }
+    if (fieldType === "canvas_annotation") {
+      if (fieldDescription) config.description = fieldDescription;
+      config.canvas_source_type = canvasSourceType;
+      if (canvasSourceType === "library") {
+        if (!diagramId) {
+          toast.error("Select a diagram from the medical library");
+          return;
+        }
+        config.diagram_id = diagramId;
+        config.custom_image_url = undefined;
+      } else {
+        if (!customImageUrl) {
+          toast.error("Upload a custom diagram image");
+          return;
+        }
+        config.custom_image_url = customImageUrl;
+        config.diagram_id = undefined;
+      }
     }
 
     const body = {
@@ -229,10 +268,73 @@ export function DiagnosisFieldModal({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label>Placeholder</Label>
-            <Input value={placeholder} onChange={(e) => setPlaceholder(e.target.value)} />
-          </div>
+          {fieldType !== "canvas_annotation" && (
+            <div className="space-y-2">
+              <Label>Placeholder</Label>
+              <Input value={placeholder} onChange={(e) => setPlaceholder(e.target.value)} />
+            </div>
+          )}
+          {fieldType === "canvas_annotation" && (
+            <>
+              <div className="space-y-2">
+                <Label>Field description</Label>
+                <Textarea
+                  value={fieldDescription}
+                  onChange={(e) => setFieldDescription(e.target.value)}
+                  placeholder="Instructions shown to practitioners above the canvas"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Canvas source type</Label>
+                <Select
+                  value={canvasSourceType}
+                  onValueChange={(v) => setCanvasSourceType(v as "library" | "custom")}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="library">Medical library</SelectItem>
+                    <SelectItem value="custom">Custom upload</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {canvasSourceType === "library" ? (
+                <div className="space-y-2">
+                  <Label>Library diagram</Label>
+                  <Select value={diagramId} onValueChange={setDiagramId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select diagram…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activeDiagrams.map((d) => (
+                        <SelectItem key={d.diagram_id} value={d.diagram_id}>
+                          {d.name}
+                          {d.category ? ` (${d.category})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {activeDiagrams.length === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      No active diagrams. Add templates under Medical Diagrams in the menu.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <FileUploadField
+                  label="Custom diagram image"
+                  value={customImageUrl}
+                  onChange={(v) =>
+                    setCustomImageUrl(Array.isArray(v) ? v[0] || "" : String(v ?? ""))
+                  }
+                  accept="image/*"
+                  showPreview
+                  valueFormat="fileUrls"
+                />
+              )}
+            </>
+          )}
           {needsOptions && (
             <div className="space-y-2">
               <Label>Options (one per line)</Label>

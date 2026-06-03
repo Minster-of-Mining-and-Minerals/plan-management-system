@@ -31,6 +31,11 @@ router.get(
   checkPermission("diagnosis_forms", "read"),
   controller.getByStaff
 );
+router.get(
+  "/staff/:staffId/all",
+  checkPermission("diagnosis_forms", "read"),
+  controller.listByStaff
+);
 router.post(
   "/staff/:staffId/assign-template",
   checkPermission("diagnosis_forms", "update"),

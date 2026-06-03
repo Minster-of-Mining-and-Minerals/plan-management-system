@@ -49,13 +49,25 @@ const getByStaff = async (req, res) => {
   }
 };
 
+const listByStaff = async (req, res) => {
+  try {
+    const data = await diagnosisFormConfigService.getConfigsForStaff(
+      req.params.staffId
+    );
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(e.status || 500).json({ success: false, message: e.message });
+  }
+};
+
 const assignTemplate = async (req, res) => {
   try {
     const data = await diagnosisFormConfigService.assignTemplateToStaff(
       req.params.staffId,
       req.body.template_id,
       {
-        replaceExisting: req.body.replace_existing !== false,
+        replaceExisting: req.body.replace_existing === true,
+        configId: req.body.config_id,
         title: req.body.title,
         description: req.body.description,
         actorId: req.user.user_id,
@@ -212,6 +224,7 @@ module.exports = {
   getById,
   getFormConfig,
   getByStaff,
+  listByStaff,
   assignTemplate,
   create,
   update,

@@ -82,6 +82,21 @@ function validateCheckbox(value: unknown, field: FormField): string[] {
   return errors;
 }
 
+function validateCanvasAnnotation(value: unknown): string[] {
+  const errors: string[] = [];
+  if (!value || typeof value !== "object") {
+    errors.push("Canvas annotation data is required");
+    return errors;
+  }
+  const v = value as { canvas_data?: { annotations?: { objects?: unknown[] } } };
+  if (!v.canvas_data) {
+    errors.push("Canvas data is missing");
+  } else if (!Array.isArray(v.canvas_data.annotations?.objects)) {
+    errors.push("Invalid annotation structure");
+  }
+  return errors;
+}
+
 function validateFile(
   value: unknown,
   field: FormField,
@@ -117,6 +132,15 @@ function validateSingleField(
 ): string | null {
   const mustHaveValue =
     field.storage_type === "core" ? true : field.is_required;
+
+  if (field.field_type === "canvas_annotation") {
+    if (mustHaveValue && isEmpty(value)) {
+      return `${field.label} is required`;
+    }
+    if (isEmpty(value)) return null;
+    const canvasErrors = validateCanvasAnnotation(value);
+    return canvasErrors.length ? canvasErrors[0] : null;
+  }
 
   if (field.field_type === "file") {
     if (mustHaveValue && isEmpty(value) && !fileMeta) {
@@ -166,6 +190,9 @@ function validateSingleField(
       break;
     case "richtext":
       fieldErrors = validateInput(value, field);
+      break;
+    case "canvas_annotation":
+      fieldErrors = validateCanvasAnnotation(value);
       break;
   }
 

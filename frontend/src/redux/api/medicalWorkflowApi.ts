@@ -67,6 +67,11 @@ export type WorkflowTask = {
   };
 };
 
+export type StaffDiagnosisFormOption = {
+  config: DiagnosisFormConfig;
+  form: UserFormConfigGrouped | null;
+};
+
 export type WorkflowContext = {
   appointment: StaffAppointment & {
     workflow_status?: string;
@@ -75,6 +80,7 @@ export type WorkflowContext = {
   timeline: MedicalHistoryLog[];
   formConfig: DiagnosisFormConfig | null;
   form: UserFormConfigGrouped | null;
+  formOptions?: StaffDiagnosisFormOption[];
   pendingTask: WorkflowTask | null;
   workflowActive: boolean;
   returnCandidates: { user_id: string; full_name: string }[];

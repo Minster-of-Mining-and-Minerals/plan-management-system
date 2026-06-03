@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { MedicalHistoryAttachmentList } from "./components/MedicalHistoryAttachmentList";
 import { MedicalHistoryPrescriptionBlock } from "./components/MedicalHistoryPrescriptionBlock";
 import { buildLogDisplaySections } from "./medicalHistoryDisplay";
+import { MedicalHistoryCanvasBlocks } from "./medicalHistoryCanvasDisplay";
 import { collectWorkflowFileRefs } from "./workflowAttachmentUtils";
 import type { MedicalHistoryLog } from "@/redux/api/medicalWorkflowApi";
 import type { UserFormConfigGrouped } from "@/redux/types/formField";
@@ -103,6 +104,10 @@ export function MedicalHistoryEntryContent({ entry, compact }: Props) {
           formSchema={formSchema}
           formData={entry.form_data}
         />
+      )}
+
+      {!isPrescribeAction && (
+        <MedicalHistoryCanvasBlocks formSchema={formSchema} formData={entry.form_data} />
       )}
 
       {hasFormData && !isPrescribeAction ? (

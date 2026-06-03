@@ -39,6 +39,7 @@ function fieldFromSchema(
   formData: Record<string, unknown>
 ): LogDisplayField | null {
   if (field.field_type === "file") return null;
+  if (field.field_type === "canvas_annotation") return null;
   if (!(field.field_key in formData)) return null;
   const value = formData[field.field_key];
   if (isEmpty(value)) return null;

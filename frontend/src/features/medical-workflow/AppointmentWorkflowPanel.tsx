@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { useRouter } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
@@ -72,15 +72,49 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
   const [showWorkflowForm, setShowWorkflowForm] = useState(false);
   const [globalPanel, setGlobalPanel] = useState<GlobalPanel>(null);
 
-  const grouped = data?.form;
+  const formOptions = useMemo(
+    () => data?.formOptions ?? (data?.formConfig && data?.form ? [{ config: data.formConfig, form: data.form }] : []),
+    [data]
+  );
+
+  const [selectedFormConfigId, setSelectedFormConfigId] = useState("");
+
+  useEffect(() => {
+    if (!formOptions.length) {
+      setSelectedFormConfigId("");
+      return;
+    }
+    const stillValid = formOptions.some(
+      (o) => o.config.config_id === selectedFormConfigId
+    );
+    if (!stillValid) {
+      setSelectedFormConfigId(formOptions[0].config.config_id);
+    }
+  }, [formOptions, selectedFormConfigId]);
+
+  const selectedOption = useMemo(
+    () =>
+      formOptions.find((o) => o.config.config_id === selectedFormConfigId) ??
+      formOptions[0],
+    [formOptions, selectedFormConfigId]
+  );
+
+  const grouped = selectedOption?.form ?? null;
   const workflowDone = data?.appointment?.workflow_status === "completed";
   const panelOpen = Boolean(globalPanel);
   const patientName = data?.appointment?.patient?.full_name;
 
-  const resetForm = () => {
+  const resetForm = (option = selectedOption) => {
     setEntryTitle("");
     setEntryTitleError("");
-    setValues(buildDefaultValues(grouped));
+    setValues(buildDefaultValues(option?.form ?? null));
+    setErrors({});
+  };
+
+  const handleFormConfigChange = (configId: string) => {
+    setSelectedFormConfigId(configId);
+    const opt = formOptions.find((o) => o.config.config_id === configId);
+    setValues(buildDefaultValues(opt?.form ?? null));
     setErrors({});
   };
 
@@ -107,8 +141,10 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
     });
   };
 
-  const validateDynamic = (partial: boolean) => {
-    const fields = grouped ? flattenFormFields(grouped).filter((f) => f.is_visible) : [];
+  const validateDynamic = (partial: boolean, formGrouped = grouped) => {
+    const fields = formGrouped
+      ? flattenFormFields(formGrouped).filter((f) => f.is_visible)
+      : [];
     if (!partial && fields.length) {
       const fieldErrors = validateDynamicForm(
         fields.filter((f) => f.is_required),
@@ -177,12 +213,17 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
       return;
     }
 
+    const activeGrouped = useForm ? grouped : null;
+    const activeConfig = useForm
+      ? selectedOption?.config ?? data?.formConfig ?? null
+      : data?.formConfig ?? null;
+
     const formValues = options?.formData ?? (useForm ? values : {});
     const header_title =
       options?.headerTitle ??
       (useForm && entryTitle.trim() ? entryTitle.trim() : null) ??
-      deriveHeaderTitle(formValues, data?.formConfig ?? null);
-    const attachment_ids = extractAttachmentIds(formValues, grouped);
+      deriveHeaderTitle(formValues, activeConfig);
+    const attachment_ids = extractAttachmentIds(formValues, activeGrouped);
     const baseNotes = deriveNotes(formValues);
     const notes = [baseNotes, options?.extraNotes?.trim()].filter(Boolean).join("\n\n");
 
@@ -193,7 +234,9 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
         action_type: actionType,
         receiver_staff_id: options?.receiver_staff_id,
         form_data: formValues,
-        form_config_id: data?.formConfig?.config_id,
+        form_config_id: useForm
+          ? selectedFormConfigId || activeConfig?.config_id
+          : activeConfig?.config_id,
         attachment_ids,
         notes: notes || undefined,
         partial,
@@ -290,7 +333,8 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
             canAddWorkflow={
               !workflowDone &&
               !showWorkflowForm &&
-              can(WORKFLOW_PERMISSIONS.SUBMIT)
+              can(WORKFLOW_PERMISSIONS.SUBMIT) &&
+              formOptions.length > 0
             }
             onAddWorkflow={() => {
               resetForm();
@@ -300,8 +344,9 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
 
           {showWorkflowForm && !workflowDone && can(WORKFLOW_PERMISSIONS.SUBMIT) && (
             <WorkflowFormCard
-              formConfig={data.formConfig}
-              grouped={grouped}
+              formOptions={formOptions}
+              selectedFormConfigId={selectedFormConfigId}
+              onFormConfigChange={handleFormConfigChange}
               entryTitle={entryTitle}
               entryTitleError={entryTitleError}
               values={values}

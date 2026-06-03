@@ -12,6 +12,7 @@ import {
   BadgeCheck,
   CalendarCheck,
   Stethoscope,
+  ImageIcon,
   Inbox,
   Pill,
   Store,
@@ -141,6 +142,16 @@ export const NAVIGATION: NavItem[] = [
     title: "Diagnosis",
     url: "/diagnosis-forms",
     icon: Stethoscope,
+    anyPermissions: [
+      "DIAGNOSIS_FORMS:READ",
+      "DIAGNOSIS_FORMS:CREATE",
+      "DIAGNOSIS_FORMS:UPDATE",
+    ],
+  },
+  {
+    title: "Medical Diagrams",
+    url: "/medical-diagrams",
+    icon: ImageIcon,
     anyPermissions: [
       "DIAGNOSIS_FORMS:READ",
       "DIAGNOSIS_FORMS:CREATE",

@@ -33,8 +33,30 @@ async function listConfigs({ staffId } = {}) {
         attributes: ["user_id", "full_name", "email"],
       },
     ],
-    order: [["created_at", "DESC"]],
+    order: [
+      ["sort_order", "ASC"],
+      ["created_at", "ASC"],
+    ],
   });
+}
+
+async function getNextSortOrderForStaff(staffId) {
+  const max = await db.DiagnosisFormConfig.max("sort_order", {
+    where: { assigned_staff_id: staffId },
+  });
+  return (Number(max) || 0) + 1;
+}
+
+async function assertConfigBelongsToStaff(configId, staffId) {
+  const config = await db.DiagnosisFormConfig.findOne({
+    where: { config_id: configId, assigned_staff_id: staffId, is_active: true },
+  });
+  if (!config) {
+    const err = new Error("Diagnosis form not found or not assigned to this staff member");
+    err.status = 400;
+    throw err;
+  }
+  return config;
 }
 
 async function getConfigById(configId) {
@@ -65,15 +87,7 @@ async function createConfigForStaff(
     throw err;
   }
 
-  const existing = await db.DiagnosisFormConfig.findOne({
-    where: { assigned_staff_id: assignedStaffId },
-  });
-  if (existing) {
-    const err = new Error("This staff member already has a diagnosis form configuration");
-    err.status = 400;
-    throw err;
-  }
-
+  const sortOrder = await getNextSortOrderForStaff(assignedStaffId);
   const t = await db.sequelize.transaction();
   try {
     const template = sourceTemplateId
@@ -88,6 +102,7 @@ async function createConfigForStaff(
         description: description ?? template?.description ?? null,
         source_template_id: sourceTemplateId || null,
         is_active: true,
+        sort_order: sortOrder,
         created_by: actorId,
         updated_by: actorId,
       },
@@ -157,8 +172,8 @@ async function getGroupedFormConfigForConfig(configId, { visibleOnly = false } =
   return buildGroupedFormResponse(groups);
 }
 
-async function getConfigForStaff(staffId) {
-  const config = await db.DiagnosisFormConfig.findOne({
+async function getConfigsForStaff(staffId, { visibleOnly = true } = {}) {
+  const configs = await db.DiagnosisFormConfig.findAll({
     where: { assigned_staff_id: staffId, is_active: true },
     include: [
       {
@@ -167,59 +182,87 @@ async function getConfigForStaff(staffId) {
         attributes: ["template_id", "title", "description", "status"],
       },
     ],
+    order: [
+      ["sort_order", "ASC"],
+      ["created_at", "ASC"],
+    ],
   });
 
-  if (!config) {
+  const forms = await Promise.all(
+    configs.map(async (config) => {
+      const grouped = await getGroupedFormConfigForConfig(config.config_id, {
+        visibleOnly,
+      });
+      return {
+        config: config.get({ plain: true }),
+        form: grouped,
+      };
+    })
+  );
+
+  return forms;
+}
+
+/** First active form (backward compatible default). */
+async function getConfigForStaff(staffId) {
+  const forms = await getConfigsForStaff(staffId);
+  if (!forms.length) {
     return { config: null, form: null };
   }
-
-  const grouped = await getGroupedFormConfigForConfig(config.config_id, {
-    visibleOnly: true,
-  });
-
-  return {
-    config: config.get({ plain: true }),
-    form: grouped,
-  };
+  return forms[0];
 }
 
 async function assignTemplateToStaff(
   staffId,
   templateId,
-  { replaceExisting = true, title, description, actorId } = {}
+  { replaceExisting = false, configId, title, description, actorId } = {}
 ) {
-  await diagnosisTemplateService.getTemplateById(templateId);
-
-  const existing = await db.DiagnosisFormConfig.findOne({
-    where: { assigned_staff_id: staffId },
-  });
-
-  if (existing && !replaceExisting) {
-    const err = new Error(
-      "Staff already has a diagnosis form. Set replaceExisting to replace it from template."
-    );
-    err.status = 400;
-    throw err;
-  }
+  const template = await diagnosisTemplateService.getTemplateById(templateId);
 
   const t = await db.sequelize.transaction();
   try {
-    let config = existing;
+    let config;
 
-    if (existing) {
-      await clearTargetStructure({ configId: existing.config_id, transaction: t });
-      await existing.update(
+    if (replaceExisting) {
+      if (configId) {
+        config = await db.DiagnosisFormConfig.findOne({
+          where: { config_id: configId, assigned_staff_id: staffId },
+          transaction: t,
+        });
+      } else {
+        const active = await db.DiagnosisFormConfig.findAll({
+          where: { assigned_staff_id: staffId, is_active: true },
+          transaction: t,
+        });
+        if (active.length !== 1) {
+          const err = new Error(
+            "Specify which form to replace (config_id) when staff has multiple diagnosis forms"
+          );
+          err.status = 400;
+          throw err;
+        }
+        config = active[0];
+      }
+
+      if (!config) {
+        const err = new Error("Diagnosis form configuration not found");
+        err.status = 404;
+        throw err;
+      }
+
+      await clearTargetStructure({ configId: config.config_id, transaction: t });
+      await config.update(
         {
-          title: title || existing.title,
+          title: title || config.title,
           description:
-            description !== undefined ? description : existing.description,
+            description !== undefined ? description : config.description,
           source_template_id: templateId,
           updated_by: actorId,
         },
         { transaction: t }
       );
     } else {
-      const template = await diagnosisTemplateService.getTemplateById(templateId);
+      const sortOrder = await getNextSortOrderForStaff(staffId);
       config = await db.DiagnosisFormConfig.create(
         {
           config_id: uuidv4(),
@@ -228,6 +271,7 @@ async function assignTemplateToStaff(
           description: description ?? template.description,
           source_template_id: templateId,
           is_active: true,
+          sort_order: sortOrder,
           created_by: actorId,
           updated_by: actorId,
         },
@@ -242,7 +286,13 @@ async function assignTemplateToStaff(
     });
 
     await t.commit();
-    return getConfigForStaff(staffId);
+    const grouped = await getGroupedFormConfigForConfig(config.config_id, {
+      visibleOnly: true,
+    });
+    return {
+      config: (await getConfigById(config.config_id)).get({ plain: true }),
+      form: grouped,
+    };
   } catch (e) {
     if (!t.finished) await t.rollback();
     throw e;
@@ -486,6 +536,8 @@ module.exports = {
   getGroupsByConfig,
   getGroupedFormConfigForConfig,
   getConfigForStaff,
+  getConfigsForStaff,
+  assertConfigBelongsToStaff,
   assignTemplateToStaff,
   getOrCreateConfigForStaff,
   createGroup,

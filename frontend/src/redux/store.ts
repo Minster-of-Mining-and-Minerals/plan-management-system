@@ -3,6 +3,7 @@ import { setupListeners } from "@reduxjs/toolkit/query";
 import { baseApi } from "./baseApi";
 import authReducer from "./slices/authSlice";
 import "./api/patientApi";
+import "./api/medicalDiagramApi";
 
 export const store = configureStore({
   reducer: {

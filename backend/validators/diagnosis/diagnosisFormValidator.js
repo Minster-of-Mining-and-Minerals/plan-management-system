@@ -14,6 +14,10 @@ const configSchema = Joi.object({
   default_value: Joi.alternatives().try(Joi.string(), Joi.number(), Joi.boolean()).optional(),
   allowed_types: Joi.array().items(Joi.string()).optional(),
   max_size_mb: Joi.number().positive().optional(),
+  description: Joi.string().max(2000).allow("", null).optional(),
+  canvas_source_type: Joi.string().valid("library", "custom").optional(),
+  diagram_id: Joi.string().guid({ version: "uuidv4" }).optional(),
+  custom_image_url: Joi.string().max(2048).allow("", null).optional(),
 }).default({});
 
 const createTemplateSchema = Joi.object({
@@ -42,6 +46,7 @@ const createConfigSchema = Joi.object({
 const assignTemplateSchema = Joi.object({
   template_id: Joi.string().guid({ version: "uuidv4" }).required(),
   replace_existing: Joi.boolean().optional(),
+  config_id: Joi.string().guid({ version: "uuidv4" }).optional(),
   title: Joi.string().min(1).max(255).optional(),
   description: Joi.string().allow("", null).optional(),
 });

@@ -38,6 +38,7 @@
     "html2canvas": "^1.4.1",
     "jsbarcode": "^3.12.3",
     "jspdf": "^4.2.1",
+    "konva": "^10.3.0",
     "lucide-react": "^0.556.0",
     "next": "16.0.8",
     "next-auth": "^5.0.0-beta.30",
@@ -48,12 +49,14 @@
     "react-d3-tree": "^3.6.6",
     "react-dom": "19.2.1",
     "react-hook-form": "^7.68.0",
+    "react-konva": "^19.2.4",
     "react-qr-code": "^2.0.21",
     "react-redux": "^9.2.0",
     "react-select": "^5.10.2",
     "recharts": "^2.15.4",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
+    "use-image": "^1.1.4",
     "zod": "^4.1.13"
   },
   "devDependencies": {
