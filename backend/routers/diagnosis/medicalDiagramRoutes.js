@@ -16,6 +16,7 @@ const {
 router.use(authenticateToken, requireInternalAccount);
 
 router.get("/meta", checkPermission("diagnosis_forms", "read"), controller.getMeta);
+// Category routes are mounted at /api/medical-diagram-categories
 router.post(
   "/seed-defaults",
   checkPermission("diagnosis_forms", "create"),

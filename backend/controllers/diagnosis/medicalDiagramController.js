@@ -1,7 +1,7 @@
 "use strict";
 
 const medicalDiagramService = require("../../services/medicalDiagramService");
-const { MEDICAL_DIAGRAM_CATEGORIES } = require("../../config/medicalDiagramConstants");
+const medicalDiagramCategoryService = require("../../services/medicalDiagramCategoryService");
 
 const list = async (req, res) => {
   try {
@@ -10,26 +10,25 @@ const list = async (req, res) => {
       status: req.query.status,
       includeInactive,
     });
-    return res.json({
-      success: true,
-      data: rows.map((r) => r.get({ plain: true })),
-    });
+    return res.json({ success: true, data: rows });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
   }
 };
 
 const getMeta = async (_req, res) => {
-  return res.json({
-    success: true,
-    data: { categories: MEDICAL_DIAGRAM_CATEGORIES },
-  });
+  try {
+    const categories = await medicalDiagramCategoryService.list();
+    return res.json({ success: true, data: { categories } });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
 };
 
 const getById = async (req, res) => {
   try {
     const row = await medicalDiagramService.getDiagramById(req.params.diagramId);
-    return res.json({ success: true, data: row.get({ plain: true }) });
+    return res.json({ success: true, data: row });
   } catch (e) {
     return res.status(e.status || 500).json({ success: false, message: e.message });
   }
@@ -41,7 +40,7 @@ const create = async (req, res) => {
       req.body,
       req.user.user_id
     );
-    return res.status(201).json({ success: true, data: row.get({ plain: true }) });
+    return res.status(201).json({ success: true, data: row });
   } catch (e) {
     return res.status(e.status || 500).json({ success: false, message: e.message });
   }
@@ -54,7 +53,7 @@ const update = async (req, res) => {
       req.body,
       req.user.user_id
     );
-    return res.json({ success: true, data: row.get({ plain: true }) });
+    return res.json({ success: true, data: row });
   } catch (e) {
     return res.status(e.status || 500).json({ success: false, message: e.message });
   }

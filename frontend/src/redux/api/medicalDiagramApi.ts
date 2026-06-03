@@ -5,6 +5,7 @@ export type MedicalDiagram = {
   name: string;
   code: string;
   image_file?: string | null;
+  category_id?: string | null;
   category?: string | null;
   status: "active" | "inactive";
   created_at?: string;
@@ -29,9 +30,17 @@ export const medicalDiagramApi = baseApi.injectEndpoints({
       providesTags: ["MedicalDiagram"],
     }),
 
-    getMedicalDiagramMeta: builder.query<{ categories: string[] }, void>({
+    getMedicalDiagramMeta: builder.query<
+      { categories: import("./medicalDiagramCategoryApi").MedicalDiagramCategory[] },
+      void
+    >({
       query: () => "/medical-diagrams/meta",
-      transformResponse: (r: { data: { categories: string[] } }) => r.data,
+      transformResponse: (r: {
+        data: {
+          categories: import("./medicalDiagramCategoryApi").MedicalDiagramCategory[];
+        };
+      }) => r.data,
+      providesTags: ["MedicalDiagramCategory"],
     }),
 
     getMedicalDiagram: builder.query<MedicalDiagram, string>({
@@ -46,7 +55,7 @@ export const medicalDiagramApi = baseApi.injectEndpoints({
         name: string;
         code: string;
         image_file?: string;
-        category?: string;
+        category_id?: string | null;
         status?: "active" | "inactive";
       }
     >({

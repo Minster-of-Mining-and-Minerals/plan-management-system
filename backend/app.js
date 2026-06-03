@@ -32,6 +32,7 @@ const diagnosisFormConfigRoutes = require("./routers/diagnosis/diagnosisFormConf
 const diagnosisTemplateRoutes = require("./routers/diagnosis/diagnosisTemplateRoutes");
 const diagnosisRecordRoutes = require("./routers/diagnosis/diagnosisRecordRoutes");
 const medicalDiagramRoutes = require("./routers/diagnosis/medicalDiagramRoutes");
+const medicalDiagramCategoryRoutes = require("./routers/diagnosis/medicalDiagramCategoryRoutes");
 const medicalWorkflowRoutes = require("./routers/workflow/medicalWorkflowRoutes");
 const prescriptionCategoryRoutes = require("./routers/prescription/prescriptionCategoryRoutes");
 const prescriptionTemplateRoutes = require("./routers/prescription/prescriptionTemplateRoutes");
@@ -150,6 +151,7 @@ app.use("/api/diagnosis-form-configs", diagnosisFormConfigRoutes);
 app.use("/api/diagnosis-templates", diagnosisTemplateRoutes);
 app.use("/api/diagnosis-records", diagnosisRecordRoutes);
 app.use("/api/medical-diagrams", medicalDiagramRoutes);
+app.use("/api/medical-diagram-categories", medicalDiagramCategoryRoutes);
 app.use("/api/workflow", medicalWorkflowRoutes);
 app.use("/api/prescription-categories", prescriptionCategoryRoutes);
 app.use("/api/prescription-templates", prescriptionTemplateRoutes);

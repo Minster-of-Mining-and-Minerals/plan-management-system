@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -28,15 +29,18 @@ import { FileUploadField } from "@/features/template/component/FileUploadField";
 import { getFileUrl } from "@/utils/fileUrl";
 import {
   useListMedicalDiagramsQuery,
-  useGetMedicalDiagramMetaQuery,
   useCreateMedicalDiagramMutation,
   useUpdateMedicalDiagramMutation,
   useDeleteMedicalDiagramMutation,
   useSeedMedicalDiagramDefaultsMutation,
   type MedicalDiagram,
 } from "@/redux/api/medicalDiagramApi";
+import { useListMedicalDiagramCategoriesQuery } from "@/redux/api/medicalDiagramCategoryApi";
+import { MedicalDiagramCategoryPanel } from "./MedicalDiagramCategoryPanel";
 import { toast } from "sonner";
 import type { ActionButton } from "@/types/tableLayout";
+
+const UNCATEGORIZED = "__none__";
 
 export default function MedicalDiagramManagement() {
   const [includeInactive, setIncludeInactive] = useState(false);
@@ -44,11 +48,13 @@ export default function MedicalDiagramManagement() {
   const [editing, setEditing] = useState<MedicalDiagram | null>(null);
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
-  const [category, setCategory] = useState("");
+  const [categoryId, setCategoryId] = useState("");
   const [status, setStatus] = useState<"active" | "inactive">("active");
   const [imageFile, setImageFile] = useState("");
 
-  const { data: meta } = useGetMedicalDiagramMetaQuery();
+  const { data: categories = [] } = useListMedicalDiagramCategoriesQuery();
+  const activeCategories = categories.filter((c) => c.status === "active");
+
   const { data: diagrams = [], isLoading, refetch } = useListMedicalDiagramsQuery({
     include_inactive: includeInactive,
   });
@@ -61,7 +67,7 @@ export default function MedicalDiagramManagement() {
     setEditing(null);
     setName("");
     setCode("");
-    setCategory(meta?.categories?.[0] || "");
+    setCategoryId(activeCategories[0]?.category_id || UNCATEGORIZED);
     setStatus("active");
     setImageFile("");
     setEditorOpen(true);
@@ -71,7 +77,7 @@ export default function MedicalDiagramManagement() {
     setEditing(row);
     setName(row.name);
     setCode(row.code);
-    setCategory(row.category || "");
+    setCategoryId(row.category_id || UNCATEGORIZED);
     setStatus(row.status);
     setImageFile(row.image_file || "");
     setEditorOpen(true);
@@ -82,6 +88,9 @@ export default function MedicalDiagramManagement() {
       toast.error("Name and code are required");
       return;
     }
+    const resolvedCategoryId =
+      categoryId && categoryId !== UNCATEGORIZED ? categoryId : null;
+
     try {
       if (editing) {
         await updateDiagram({
@@ -89,7 +98,7 @@ export default function MedicalDiagramManagement() {
           body: {
             name: name.trim(),
             code: code.trim(),
-            category: category || null,
+            category_id: resolvedCategoryId,
             status,
             image_file: imageFile || null,
           },
@@ -99,7 +108,7 @@ export default function MedicalDiagramManagement() {
         await createDiagram({
           name: name.trim(),
           code: code.trim(),
-          category: category || undefined,
+          category_id: resolvedCategoryId,
           status,
           image_file: imageFile || undefined,
         }).unwrap();
@@ -132,7 +141,7 @@ export default function MedicalDiagramManagement() {
       const result = await seedDefaults().unwrap();
       toast.success(
         result.seeded > 0
-          ? `Seeded ${result.seeded} default diagrams`
+          ? `Seeded ${result.seeded} default diagrams (no categories)`
           : "Library already has diagrams"
       );
       refetch();
@@ -156,7 +165,7 @@ export default function MedicalDiagramManagement() {
         onClick: handleSeed,
       },
     ],
-    []
+    [activeCategories.length]
   );
 
   const columns: ColumnDef<MedicalDiagram>[] = useMemo(
@@ -223,19 +232,44 @@ export default function MedicalDiagramManagement() {
     <div className="min-h-screen bg-background p-6 space-y-6">
       <TableLayout
         title="Medical Diagram Library"
-        description="Manage diagram templates for canvas annotation fields in diagnosis forms."
+        description="Configure categories and diagram templates for canvas annotation fields."
         actions={actions}
         showSearch={false}
       >
-        <div className="mb-4 flex items-center gap-2 px-1">
-          <Switch
-            checked={includeInactive}
-            onCheckedChange={setIncludeInactive}
-            id="inactive"
-          />
-          <Label htmlFor="inactive">Show inactive diagrams</Label>
-        </div>
-        <DataTable columns={columns} data={diagrams} isLoading={isLoading || seeding} />
+        <Tabs defaultValue="diagrams" className="w-full">
+          <TabsList>
+            <TabsTrigger value="diagrams">Diagrams</TabsTrigger>
+            <TabsTrigger value="categories">Categories</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="categories" className="mt-4">
+            <MedicalDiagramCategoryPanel />
+          </TabsContent>
+
+          <TabsContent value="diagrams" className="mt-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={includeInactive}
+                onCheckedChange={setIncludeInactive}
+                id="inactive"
+              />
+              <Label htmlFor="inactive">Show inactive diagrams</Label>
+            </div>
+            {activeCategories.length === 0 && (
+              <p className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
+                Add at least one category under the Categories tab before assigning
+                diagrams.
+              </p>
+            )}
+            <div className="overflow-hidden rounded-lg border">
+              <DataTable
+                columns={columns}
+                data={diagrams}
+                isLoading={isLoading || seeding}
+              />
+            </div>
+          </TabsContent>
+        </Tabs>
       </TableLayout>
 
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
@@ -259,14 +293,15 @@ export default function MedicalDiagramManagement() {
             </div>
             <div className="space-y-2">
               <Label>Category</Label>
-              <Select value={category} onValueChange={setCategory}>
+              <Select value={categoryId} onValueChange={setCategoryId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Category" />
+                  <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(meta?.categories || []).map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
+                  <SelectItem value={UNCATEGORIZED}>Uncategorized</SelectItem>
+                  {activeCategories.map((c) => (
+                    <SelectItem key={c.category_id} value={c.category_id}>
+                      {c.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

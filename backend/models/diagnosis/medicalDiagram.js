@@ -5,6 +5,10 @@ const { Model } = require("sequelize");
 module.exports = (sequelize, DataTypes) => {
   class MedicalDiagram extends Model {
     static associate(models) {
+      MedicalDiagram.belongsTo(models.MedicalDiagramCategory, {
+        foreignKey: "category_id",
+        as: "categoryRef",
+      });
       MedicalDiagram.belongsTo(models.User, {
         foreignKey: "created_by",
         as: "creator",
@@ -26,7 +30,7 @@ module.exports = (sequelize, DataTypes) => {
       name: { type: DataTypes.STRING(255), allowNull: false },
       code: { type: DataTypes.STRING(64), allowNull: false, unique: true },
       image_file: { type: DataTypes.STRING(512), allowNull: true },
-      category: { type: DataTypes.STRING(64), allowNull: true },
+      category_id: { type: DataTypes.UUID, allowNull: true },
       status: {
         type: DataTypes.STRING(32),
         allowNull: false,

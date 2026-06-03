@@ -5,35 +5,59 @@ const db = require("../models");
 const {
   DEFAULT_MEDICAL_DIAGRAM_SEEDS,
 } = require("../config/medicalDiagramConstants");
+const medicalDiagramCategoryService = require("./medicalDiagramCategoryService");
+
+const categoryInclude = {
+  model: db.MedicalDiagramCategory,
+  as: "categoryRef",
+  attributes: ["category_id", "name", "code"],
+  required: false,
+};
+
+function formatDiagram(row) {
+  const plain = row.get({ plain: true });
+  return {
+    ...plain,
+    category: plain.categoryRef?.name ?? null,
+    category_id: plain.category_id ?? plain.categoryRef?.category_id ?? null,
+  };
+}
 
 async function listDiagrams({ status, includeInactive = false } = {}) {
   const where = {};
   if (status) where.status = status;
   else if (!includeInactive) where.status = "active";
 
-  return db.MedicalDiagram.findAll({
+  const rows = await db.MedicalDiagram.findAll({
     where,
+    include: [categoryInclude],
     order: [
-      ["category", "ASC"],
+      [{ model: db.MedicalDiagramCategory, as: "categoryRef" }, "name", "ASC"],
       ["name", "ASC"],
     ],
   });
+
+  return rows.map(formatDiagram);
 }
 
 async function getDiagramById(diagramId) {
-  const row = await db.MedicalDiagram.findByPk(diagramId);
+  const row = await db.MedicalDiagram.findByPk(diagramId, {
+    include: [categoryInclude],
+  });
   if (!row) {
     const err = new Error("Medical diagram not found");
     err.status = 404;
     throw err;
   }
-  return row;
+  return formatDiagram(row);
 }
 
 async function getDiagramByCode(code) {
-  return db.MedicalDiagram.findOne({
+  const row = await db.MedicalDiagram.findOne({
     where: { code, status: "active" },
+    include: [categoryInclude],
   });
+  return row ? formatDiagram(row) : null;
 }
 
 async function createDiagram(payload, actorId) {
@@ -46,20 +70,31 @@ async function createDiagram(payload, actorId) {
     throw err;
   }
 
-  return db.MedicalDiagram.create({
+  const categoryId = await medicalDiagramCategoryService.resolveCategoryId(
+    payload.category_id || null
+  );
+
+  const row = await db.MedicalDiagram.create({
     diagram_id: uuidv4(),
     name: payload.name,
     code: payload.code,
     image_file: payload.image_file || null,
-    category: payload.category || null,
+    category_id: categoryId,
     status: payload.status || "active",
     created_by: actorId,
     updated_by: actorId,
   });
+
+  return getDiagramById(row.diagram_id);
 }
 
 async function updateDiagram(diagramId, payload, actorId) {
-  const row = await getDiagramById(diagramId);
+  const row = await db.MedicalDiagram.findByPk(diagramId);
+  if (!row) {
+    const err = new Error("Medical diagram not found");
+    err.status = 404;
+    throw err;
+  }
 
   if (payload.code && payload.code !== row.code) {
     const dup = await db.MedicalDiagram.findOne({
@@ -72,21 +107,33 @@ async function updateDiagram(diagramId, payload, actorId) {
     }
   }
 
+  let categoryId = row.category_id;
+  if (payload.category_id !== undefined) {
+    categoryId = await medicalDiagramCategoryService.resolveCategoryId(
+      payload.category_id || null
+    );
+  }
+
   await row.update({
     name: payload.name ?? row.name,
     code: payload.code ?? row.code,
     image_file:
       payload.image_file !== undefined ? payload.image_file : row.image_file,
-    category: payload.category !== undefined ? payload.category : row.category,
+    category_id: categoryId,
     status: payload.status ?? row.status,
     updated_by: actorId,
   });
 
-  return row.reload();
+  return getDiagramById(diagramId);
 }
 
 async function deleteDiagram(diagramId) {
-  const row = await getDiagramById(diagramId);
+  const row = await db.MedicalDiagram.findByPk(diagramId);
+  if (!row) {
+    const err = new Error("Medical diagram not found");
+    err.status = 404;
+    throw err;
+  }
   await row.destroy();
 }
 
@@ -98,7 +145,7 @@ async function seedDefaultDiagramsIfEmpty(actorId) {
     diagram_id: uuidv4(),
     name: seed.name,
     code: seed.code,
-    category: seed.category,
+    category_id: null,
     status: "active",
     image_file: null,
     created_by: actorId || null,

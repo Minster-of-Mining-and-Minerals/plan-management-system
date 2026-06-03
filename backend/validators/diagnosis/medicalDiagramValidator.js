@@ -1,10 +1,7 @@
 "use strict";
 
 const Joi = require("joi");
-const {
-  MEDICAL_DIAGRAM_STATUSES,
-  MEDICAL_DIAGRAM_CATEGORIES,
-} = require("../../config/medicalDiagramConstants");
+const { MEDICAL_DIAGRAM_STATUSES } = require("../../config/medicalDiagramConstants");
 
 const codeSchema = Joi.string()
   .pattern(/^[a-z][a-z0-9_]{0,63}$/)
@@ -14,10 +11,7 @@ const createSchema = Joi.object({
   name: Joi.string().min(1).max(255).required(),
   code: codeSchema,
   image_file: Joi.string().max(512).allow("", null).optional(),
-  category: Joi.string()
-    .valid(...MEDICAL_DIAGRAM_CATEGORIES)
-    .allow(null)
-    .optional(),
+  category_id: Joi.string().uuid().allow(null).optional(),
   status: Joi.string().valid(...MEDICAL_DIAGRAM_STATUSES).optional(),
 });
 
@@ -25,10 +19,7 @@ const updateSchema = Joi.object({
   name: Joi.string().min(1).max(255).optional(),
   code: codeSchema.optional(),
   image_file: Joi.string().max(512).allow("", null).optional(),
-  category: Joi.string()
-    .valid(...MEDICAL_DIAGRAM_CATEGORIES)
-    .allow(null)
-    .optional(),
+  category_id: Joi.string().uuid().allow(null).optional(),
   status: Joi.string().valid(...MEDICAL_DIAGRAM_STATUSES).optional(),
 }).min(1);
 

@@ -44,6 +44,7 @@ export const baseApi = createApi({
     "DiagnosisFormConfig",
     "DiagnosisTemplate",
     "MedicalDiagram",
+    "MedicalDiagramCategory",
     "DiagnosisRecord",
     "MedicalWorkflow",
     "PrescriptionCategory",
