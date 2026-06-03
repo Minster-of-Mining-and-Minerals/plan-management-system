@@ -49,7 +49,7 @@ export function DiagnosisReportsCard({
             <PermissionGuard requireAll={[WORKFLOW_PERMISSIONS.SUBMIT]} fallback={null}>
               <Button type="button" size="sm" onClick={onAddWorkflow}>
                 <Plus className="mr-1.5 h-4 w-4" />
-                Add new workflow
+                Add new Diagnosis Report
               </Button>
             </PermissionGuard>
           )}
