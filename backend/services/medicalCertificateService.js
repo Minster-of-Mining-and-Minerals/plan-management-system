@@ -29,12 +29,7 @@ const patientInclude = [
   {
     model: PatientProfile,
     as: "patientProfile",
-    attributes: [
-      "patient_code",
-      "date_of_birth",
-      "gender",
-      "sex",
-    ],
+    attributes: ["patient_code", "date_of_birth", "gender"],
   },
 ];
 

@@ -123,18 +123,10 @@ async function renderMedicalCertificateDocument({
       : issueDate;
 
   const age = computePatientAge(patient);
-  const gender =
-    patient?.patientProfile?.gender ||
-    patient?.patientProfile?.sex ||
-    patient?.sex ||
-    patient?.gender ||
-    "—";
+  const gender = patient?.patientProfile?.gender || "—";
 
   const doctorTitle = doctor?.internalProfile?.titleRef?.name || "";
-  const licenseNumber =
-    doctor?.internalProfile?.license_number ||
-    doctor?.internalProfile?.medical_license ||
-    "";
+  const licenseNumber = doctor?.internalProfile?.license_number || "";
 
   const brandingVars = {
     hospital_name: escapeHtml(activeBranding?.system_name || "Hospital"),
