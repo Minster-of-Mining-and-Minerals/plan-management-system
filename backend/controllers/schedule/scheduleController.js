@@ -33,6 +33,16 @@ const getEligibleStaff = async (req, res) => {
   }
 };
 
+const getStaffScheduleCounts = async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    const data = await scheduleService.getStaffScheduleCounts({ from, to });
+    return res.json({ success: true, data });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
 const listSchedules = async (req, res) => {
   try {
     const { staff_id, from, to, patient_id, status } = req.query;
@@ -118,6 +128,7 @@ module.exports = {
   getConfig,
   updateConfig,
   getEligibleStaff,
+  getStaffScheduleCounts,
   listSchedules,
   getMatrix,
   createSchedule,

@@ -124,6 +124,33 @@ async function findOverlapping(staffId, date, startTime, endTime, excludeId, tra
   });
 }
 
+async function getStaffScheduleCounts({ from, to }) {
+  const today = formatDateOnly(new Date());
+  const fromDate = from || today;
+  const toDate = to || addDaysToDate(fromDate, 6);
+
+  const blockingStatuses = ACTIVE_STATUSES.filter((s) => s !== "cancelled");
+
+  const rows = await db.PatientSchedule.findAll({
+    attributes: [
+      "assigned_staff_id",
+      [db.sequelize.fn("COUNT", db.sequelize.col("schedule_id")), "count"],
+    ],
+    where: {
+      schedule_date: { [Op.between]: [fromDate, toDate] },
+      status: { [Op.in]: blockingStatuses },
+    },
+    group: ["assigned_staff_id"],
+    raw: true,
+  });
+
+  const counts = {};
+  for (const row of rows) {
+    counts[row.assigned_staff_id] = Number(row.count) || 0;
+  }
+  return { from: fromDate, to: toDate, counts };
+}
+
 async function listSchedules({ staff_id, from, to, patient_id, status }) {
   const where = {};
   if (staff_id) where.assigned_staff_id = staff_id;
@@ -577,6 +604,7 @@ module.exports = {
   updateSettings,
   getEligibleStaff,
   listSchedules,
+  getStaffScheduleCounts,
   createSchedule,
   updateSchedule,
   getSlotsForDate,

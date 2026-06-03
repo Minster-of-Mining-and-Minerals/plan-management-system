@@ -88,6 +88,19 @@ export const scheduleApi = baseApi.injectEndpoints({
       transformResponse: (r: { data: EligibleStaff[] }) => r.data ?? [],
     }),
 
+    getStaffBookingCounts: builder.query<
+      { from: string; to: string; counts: Record<string, number> },
+      { from: string; to: string }
+    >({
+      query: ({ from, to }) => ({
+        url: "/schedules/staff-booking-counts",
+        params: { from, to },
+      }),
+      transformResponse: (r: {
+        data: { from: string; to: string; counts: Record<string, number> };
+      }) => r.data,
+    }),
+
     getScheduleMatrix: builder.query<
       ScheduleMatrixResponse,
       { staff_id: string; from?: string; to?: string }
@@ -174,6 +187,7 @@ export const {
   useGetScheduleConfigQuery,
   useUpdateScheduleConfigMutation,
   useGetEligibleStaffQuery,
+  useGetStaffBookingCountsQuery,
   useGetScheduleMatrixQuery,
   useGetPatientSchedulesQuery,
   useCreateScheduleMutation,

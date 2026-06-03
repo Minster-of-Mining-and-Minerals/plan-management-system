@@ -18,6 +18,10 @@ import {
   type ShiftAnchor,
   type ShiftRangeMode,
 } from "./scheduleDragUtils";
+import {
+  getScheduleStartingAt,
+  isSlotOccupied,
+} from "./scheduleSlotUtils";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DRAG_MIME = "application/x-novacure-schedule-id";
@@ -58,6 +62,8 @@ export function ScheduleMatrix({
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const [isDropping, setIsDropping] = useState(false);
+
+  const slotInterval = matrix.settings?.slot_interval_minutes ?? 5;
 
   const scheduleMap = useMemo(() => {
     const map = new Map<string, PatientSchedule>();
@@ -107,7 +113,13 @@ export function ScheduleMatrix({
       return;
     }
 
-    if (!canDropScheduleOnCell(date, slotAvailable, false)) return;
+    const occupied = isSlotOccupied(
+      matrix.schedules,
+      date,
+      time,
+      slotInterval
+    );
+    if (!canDropScheduleOnCell(date, slotAvailable, occupied)) return;
 
     setIsDropping(true);
     try {
@@ -129,8 +141,10 @@ export function ScheduleMatrix({
       return;
     }
     if (draggingId || isDropping) return;
-    if (schedule) onOccupiedClick(schedule);
-    else if (slotAvailable) onEmptyClick(date, time);
+    const occupied = isSlotOccupied(matrix.schedules, date, time, slotInterval);
+    const startSchedule = getScheduleStartingAt(matrix.schedules, date, time);
+    if (startSchedule || schedule) onOccupiedClick(startSchedule || schedule!);
+    else if (slotAvailable && !occupied) onEmptyClick(date, time);
   };
 
   return (
@@ -151,6 +165,13 @@ export function ScheduleMatrix({
         <p className="border-b border-border/60 bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
           Drag to an open slot on today or a future date. Admitted and cancelled
           appointments cannot be moved.
+        </p>
+      )}
+      {!shiftSelectMode && (
+        <p className="border-b border-border/60 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+          <span className="inline-block w-3 h-3 rounded border border-dashed border-border align-middle mr-1" />
+          Free slot (click + to book) · shaded cells are already booked for this
+          staff
         </p>
       )}
       <div className="overflow-auto max-h-[min(70vh,720px)]">
@@ -226,10 +247,22 @@ export function ScheduleMatrix({
                 {matrix.dates.map((col) => {
                   const key = cellKey(col.date, time);
                   const slotAvailable = col.active && col.slots.includes(time);
-                  const schedule = scheduleMap.get(key);
+                  const occupied = isSlotOccupied(
+                    matrix.schedules,
+                    col.date,
+                    time,
+                    slotInterval
+                  );
+                  const startSchedule = getScheduleStartingAt(
+                    matrix.schedules,
+                    col.date,
+                    time
+                  );
+                  const schedule = scheduleMap.get(key) || startSchedule;
                   const styles = schedule
                     ? SCHEDULE_STATUS_STYLES[schedule.status]
                     : null;
+                  const busyWithoutCard = occupied && !schedule;
                   const isHighlight =
                     schedule && highlightPatientId === schedule.patient_id;
                   const draggable =
@@ -242,8 +275,8 @@ export function ScheduleMatrix({
                   const isDropTarget =
                     Boolean(
                       draggingId &&
-                        !schedule &&
-                        canDropScheduleOnCell(col.date, slotAvailable, Boolean(schedule))
+                        !occupied &&
+                        canDropScheduleOnCell(col.date, slotAvailable, occupied)
                     );
                   const isDragOver = dragOverKey === key;
                   const beforeStart = isBeforeShiftStart(col.date, time, shiftStart);
@@ -283,7 +316,10 @@ export function ScheduleMatrix({
                       <button
                         type="button"
                         draggable={draggable}
-                        disabled={!slotAvailable && !schedule && !shiftSelectMode}
+                        disabled={
+                          (!slotAvailable && !schedule && !occupied && !shiftSelectMode) ||
+                          (busyWithoutCard && !shiftSelectMode)
+                        }
                         onClick={() =>
                           handleCellClick(col.date, time, slotAvailable, schedule)
                         }
@@ -306,8 +342,12 @@ export function ScheduleMatrix({
                           outOfRange && "opacity-30",
                           !slotAvailable &&
                             !schedule &&
+                            !occupied &&
                             "bg-muted/30 cursor-not-allowed opacity-50",
+                          busyWithoutCard &&
+                            "bg-muted/60 border-muted-foreground/20 cursor-not-allowed",
                           slotAvailable &&
+                            !occupied &&
                             !schedule &&
                             !draggingId &&
                             !shiftSelectMode &&
@@ -353,7 +393,11 @@ export function ScheduleMatrix({
                               {SCHEDULE_STATUS_LABELS[schedule.status]}
                             </p>
                           </div>
-                        ) : slotAvailable ? (
+                        ) : busyWithoutCard ? (
+                          <span className="text-[10px] text-muted-foreground pointer-events-none">
+                            Busy
+                          </span>
+                        ) : slotAvailable && !occupied ? (
                           <span className="text-[10px] text-muted-foreground pointer-events-none">
                             {draggingId ? "Drop" : shiftSelectMode ? "Anchor" : "+"}
                           </span>

@@ -34,6 +34,7 @@ import Loading01 from "@/features/template/component/Loading/Loading01";
 import { useGetPatientByIdQuery } from "@/redux/api/patientApi";
 import {
   useGetEligibleStaffQuery,
+  useGetStaffBookingCountsQuery,
   useGetScheduleMatrixQuery,
   useGetScheduleConfigQuery,
   useCreateScheduleMutation,
@@ -44,6 +45,8 @@ import {
   type PatientScheduleStatus,
 } from "@/redux/api/scheduleApi";
 import { ScheduleMatrix } from "./ScheduleMatrix";
+import { StaffScheduleOverview } from "./StaffScheduleOverview";
+import { isSlotOccupied } from "./scheduleSlotUtils";
 import {
   SCHEDULE_STATUS_LABELS,
   SCHEDULE_STATUS_STYLES,
@@ -83,6 +86,10 @@ export function PatientSchedulingPage({ patientId }: { patientId: string }) {
 
   const { data: patient, isLoading: patientLoading } = useGetPatientByIdQuery(patientId);
   const { data: staff = [], isLoading: staffLoading } = useGetEligibleStaffQuery();
+  const { data: bookingCounts } = useGetStaffBookingCountsQuery({
+    from: weekStart,
+    to: weekEnd,
+  });
   const { data: config } = useGetScheduleConfigQuery();
   const {
     data: matrix,
@@ -163,8 +170,18 @@ export function PatientSchedulingPage({ patientId }: { patientId: string }) {
     setShiftEnd(null);
   };
 
+  const selectedStaff = staff.find((s) => s.user_id === staffId);
+  const slotInterval = matrix?.settings?.slot_interval_minutes ?? config?.slot_interval_minutes ?? 5;
+
   const handleBook = async (date: string, time: string) => {
     if (!staffId) return;
+    if (
+      matrix &&
+      isSlotOccupied(matrix.schedules, date, time, slotInterval)
+    ) {
+      toast.error("This time slot is already booked for the selected staff");
+      return;
+    }
     try {
       await createSchedule({
         patient_id: patientId,
@@ -382,19 +399,22 @@ export function PatientSchedulingPage({ patientId }: { patientId: string }) {
                 <SelectValue placeholder={staffLoading ? "Loading…" : "Select staff"} />
               </SelectTrigger>
               <SelectContent>
-                {staff.map((s) => (
-                  <SelectItem key={s.user_id} value={s.user_id}>
-                    {s.full_name}
-                    {s.internalProfile?.titleRef?.name
-                      ? ` · ${s.internalProfile.titleRef.name}`
-                      : ""}
-                  </SelectItem>
-                ))}
+                {staff.map((s) => {
+                  const count = bookingCounts?.counts?.[s.user_id] ?? 0;
+                  return (
+                    <SelectItem key={s.user_id} value={s.user_id}>
+                      {s.full_name}
+                      {s.internalProfile?.titleRef?.name
+                        ? ` · ${s.internalProfile.titleRef.name}`
+                        : ""}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
             <p className="text-[10px] text-muted-foreground mt-2">
-              Staff with <code className="text-primary">receive_patient</code> via role or
-              permission group
+              Choose staff to see their full week calendar. Only empty (+) slots can
+              be booked — overlaps are blocked on the server too.
             </p>
           </div>
 
@@ -569,7 +589,8 @@ export function PatientSchedulingPage({ patientId }: { patientId: string }) {
 
           {!staffId ? (
             <div className="rounded-xl border border-dashed p-12 text-center text-muted-foreground">
-              Select a staff member to view the schedule matrix
+              Select a staff member to view their appointments and free slots for{" "}
+              {weekStart} → {weekEnd}
             </div>
           ) : matrixLoading ? (
             <Loading01 />

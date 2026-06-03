@@ -29,6 +29,12 @@ router.get(
 );
 
 router.get(
+  "/staff-booking-counts",
+  checkPermission("patients", "read"),
+  controller.getStaffScheduleCounts
+);
+
+router.get(
   "/matrix",
   checkPermission("patients", "read"),
   controller.getMatrix
