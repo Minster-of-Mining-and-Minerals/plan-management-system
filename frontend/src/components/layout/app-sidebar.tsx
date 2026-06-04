@@ -13,6 +13,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
 import { buildSectorTree } from "@/utils/buildSectorTree";
 import { NavStructures } from "./nav-structures";
+import { useSession } from "next-auth/react";
 
 import {
   Sidebar,
@@ -44,8 +45,12 @@ const stripLocale = (pathname: string) => {
 
 export function AppSidebar() {
   const [mounted, setMounted] = useState(false);
+  const { data: session, status } = useSession();
   const { permissions: userPermissions } = usePermissions();
   const pathname = stripLocale(usePathname());
+
+  const isAuthReady =
+    status === "authenticated" && Boolean(session?.accessToken);
 
   useEffect(() => {
     setMounted(true);
@@ -60,7 +65,10 @@ export function AppSidebar() {
     ),
   }));
 
-  const { data: structuresData } = useGetGovernmentStructuresQuery();
+  const { data: structuresData } = useGetGovernmentStructuresQuery(undefined, {
+    skip: !isAuthReady,
+    refetchOnMountOrArgChange: true,
+  });
   const structureTree = buildSectorTree(structuresData || []);
 
   return (

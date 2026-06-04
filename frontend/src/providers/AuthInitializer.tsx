@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useDispatch, useSelector } from "react-redux";
 import { setUser, setPermissions, clearUserProfile } from "@/redux/slices/authSlice";
 import { useGetMeQuery, useGetMyPermissionsQuery } from "@/redux/api/authApi";
+import { baseApi } from "@/redux/baseApi";
 import { RootState } from "@/redux/store";
 
 /**
@@ -27,12 +28,31 @@ export default function AuthInitializer({
   const dispatch = useDispatch();
   const isLoaded = useSelector((state: RootState) => state.auth.isLoaded);
 
-  // Step 1: When session is ready, persist the accessToken to localStorage
+  // Sync token during render so RTK Query requests in child components
+  // have the Bearer token on the same tick (useEffect would be too late).
+  if (
+    typeof window !== "undefined" &&
+    status === "authenticated" &&
+    session?.accessToken
+  ) {
+    localStorage.setItem("authToken", session.accessToken);
+  }
+
+  // Step 1: Keep useEffect as backup when accessToken updates after refresh
   useEffect(() => {
     if (session?.accessToken) {
       localStorage.setItem("authToken", session.accessToken);
     }
   }, [session?.accessToken]);
+
+  // Refetch structure lists that may have been requested before auth was ready
+  useEffect(() => {
+    if (status === "authenticated" && session?.accessToken) {
+      dispatch(
+        baseApi.util.invalidateTags(["GovernmentStructures", "InternalStructures"])
+      );
+    }
+  }, [status, session?.accessToken, dispatch]);
 
   // Step 2: Fetch user profile from /me
   const { data: meData } = useGetMeQuery(undefined, {
