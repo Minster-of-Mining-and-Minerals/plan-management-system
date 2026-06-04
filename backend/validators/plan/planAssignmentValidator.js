@@ -82,20 +82,19 @@ const createInternalAssignmentSchema = Joi.object({
 
     branch_external_assignment_id: Joi.string().guid({ version: "uuidv4" }).allow(null).optional(),
     branch_internal_assignment_id: Joi.string().guid({ version: "uuidv4" }).allow(null).optional(),
+    propagate_all_branches: Joi.boolean().default(true),
 }).custom((value, helpers) => {
-    // Custom validation: either internal_structure_id OR user_id must be provided (not both)
     if (!value.internal_structure_id && !value.user_id) {
         return helpers.error("any.custom", {
             message: "Must assign to either internal_structure_id or user_id",
         });
     }
 
-    // Optionally: prevent both if business rule requires exclusive assignment
-    // if (value.internal_structure_id && value.user_id) {
-    //   return helpers.error("any.custom", {
-    //     message: "Cannot assign to both internal_structure_id and user_id simultaneously",
-    //   });
-    // }
+    if (value.internal_structure_id && value.user_id) {
+        return helpers.error("any.custom", {
+            message: "Cannot assign to both internal_structure_id and user_id simultaneously",
+        });
+    }
 
     return value;
 });

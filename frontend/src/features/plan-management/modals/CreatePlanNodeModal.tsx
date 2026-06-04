@@ -319,8 +319,12 @@ export function CreatePlanNodeModal({
                                     <div>
                                         <FormLabel>Assignment Mode</FormLabel>
                                         <FormDescription>
-                                            Exclusive allows one active assignment at a time. Shared
-                                            allows multiple departments or users simultaneously.
+                                            Each node defines its own mode independently (not inherited
+                                            from parent). Exclusive allows one active assignment.
+                                            Shared allows multiple assignments and branch propagation.
+                                            {nodeLevel === 1
+                                                ? " At level 1, shared mode allows multiple sector assignments."
+                                                : " Below level 1, assignments follow structure → department → user."}
                                         </FormDescription>
                                     </div>
                                     <div className="flex items-center justify-center gap-3">

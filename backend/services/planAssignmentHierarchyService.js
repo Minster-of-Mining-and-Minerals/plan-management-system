@@ -191,11 +191,45 @@ async function isInUserBranch(ancestorChain, transaction, branchContext = {}) {
     return false;
   }
 
+  if (branchContext.branchExternalAssignmentId) {
+    for (const ancestor of ancestorChain) {
+      const internal = await InternalAssignment.findOne({
+        where: {
+          plan_node_id: ancestor.plan_node_id,
+          branch_external_assignment_id: branchContext.branchExternalAssignmentId,
+          ...ACTIVE_WHERE,
+        },
+        order: [["created_at", "DESC"]],
+        include: [{ model: User, as: "user", attributes: { exclude: ["password"] } }],
+        transaction,
+      });
+      if (internal?.user_id) return true;
+    }
+    return false;
+  }
+
   for (const ancestor of ancestorChain) {
-    const internal = await getPrimaryInternalAssignment(ancestor.plan_node_id, transaction);
-    if (internal?.user_id) return true;
+    const assignments = await getActiveInternalAssignments(ancestor.plan_node_id, transaction);
+    if (assignments.some((a) => a.user_id)) return true;
   }
   return false;
+}
+
+async function resolveUserBranchDepartmentId(branchContext, transaction) {
+  if (!branchContext.branchInternalAssignmentId) return null;
+
+  let currentId = branchContext.branchInternalAssignmentId;
+  while (currentId) {
+    const assignment = await InternalAssignment.findOne({
+      where: { internal_assignment_id: currentId, ...ACTIVE_WHERE },
+      include: [{ model: InternalStructure, as: "internalStructure" }],
+      transaction,
+    });
+    if (!assignment) break;
+    if (assignment.internal_structure_id) return assignment.internal_structure_id;
+    currentId = assignment.branch_internal_assignment_id;
+  }
+  return null;
 }
 
 async function resolveParentAssignmentContext(parentNode, transaction, branchContext = {}) {
@@ -273,9 +307,53 @@ function mapUserOptions(users) {
   }));
 }
 
-async function resolveBranchFieldsForCreate(planNode, parentNode, branchInput, transaction) {
-  if (!parentNode) {
+async function resolveBranchFieldsForCreate(
+  planNode,
+  parentNode,
+  branchInput,
+  transaction
+) {
+  const propagateAll = branchInput.propagate_all_branches === true;
+  const allBranches = await resolveAllParentBranchContexts(parentNode, transaction);
+
+  if (allBranches.error) {
+    return { error: allBranches.error };
+  }
+
+  if (allBranches.length === 0) {
     return { branch_external_assignment_id: null, branch_internal_assignment_id: null };
+  }
+
+  if (allBranches.length === 1) {
+    return allBranches[0];
+  }
+
+  // Parent is shared with multiple active branches
+  if (branchInput.branch_external_assignment_id || branchInput.branch_internal_assignment_id) {
+    const selected = allBranches.find(
+      (branch) =>
+        (branchInput.branch_external_assignment_id &&
+          branch.branch_external_assignment_id === branchInput.branch_external_assignment_id) ||
+        (branchInput.branch_internal_assignment_id &&
+          branch.branch_internal_assignment_id === branchInput.branch_internal_assignment_id)
+    );
+    if (!selected) {
+      return { error: "Selected parent assignment branch is not valid." };
+    }
+    return selected;
+  }
+
+  if (propagateAll && planNode.assignment_sharing_mode === "shared") {
+    return { branches: allBranches };
+  }
+
+  // Exclusive child under shared parent: single branch (first active branch)
+  return allBranches[0];
+}
+
+async function resolveAllParentBranchContexts(parentNode, transaction) {
+  if (!parentNode) {
+    return [];
   }
 
   const parentIsRoot = parentNode.level === 1 || !parentNode.parent_id;
@@ -286,26 +364,11 @@ async function resolveBranchFieldsForCreate(planNode, parentNode, branchInput, t
       return { error: "Assign the parent plan level before assigning this level." };
     }
 
-    if (parentNode.assignment_sharing_mode === "shared" && activeExternal.length > 1) {
-      if (!branchInput.branch_external_assignment_id) {
-        return { error: "Select a parent sector branch for this assignment." };
-      }
-      const valid = activeExternal.some(
-        (a) => a.external_assignment_id === branchInput.branch_external_assignment_id
-      );
-      if (!valid) {
-        return { error: "Selected parent sector branch is not valid." };
-      }
-      return {
-        branch_external_assignment_id: branchInput.branch_external_assignment_id,
-        branch_internal_assignment_id: null,
-      };
-    }
-
-    return {
-      branch_external_assignment_id: activeExternal[0].external_assignment_id,
+    return activeExternal.map((assignment) => ({
+      branch_external_assignment_id: assignment.external_assignment_id,
       branch_internal_assignment_id: null,
-    };
+      label: assignment.governmentStructure?.name,
+    }));
   }
 
   const activeInternal = await getActiveInternalAssignments(parentNode.plan_node_id, transaction);
@@ -313,29 +376,20 @@ async function resolveBranchFieldsForCreate(planNode, parentNode, branchInput, t
     return { error: "Assign the parent plan level before assigning this level." };
   }
 
-  if (parentNode.assignment_sharing_mode === "shared" && activeInternal.length > 1) {
-    if (!branchInput.branch_internal_assignment_id) {
-      return { error: "Select a parent assignment branch for this assignment." };
-    }
-    const valid = activeInternal.some(
-      (a) => a.internal_assignment_id === branchInput.branch_internal_assignment_id
-    );
-    if (!valid) {
-      return { error: "Selected parent assignment branch is not valid." };
-    }
-    const branchAssignment = activeInternal.find(
-      (a) => a.internal_assignment_id === branchInput.branch_internal_assignment_id
-    );
-    return {
-      branch_external_assignment_id: branchAssignment.branch_external_assignment_id,
-      branch_internal_assignment_id: branchInput.branch_internal_assignment_id,
-    };
-  }
+  return activeInternal.map((assignment) => ({
+    branch_external_assignment_id: assignment.branch_external_assignment_id,
+    branch_internal_assignment_id: assignment.internal_assignment_id,
+    label: assignment.user?.full_name || assignment.internalStructure?.name,
+  }));
+}
 
-  const sole = activeInternal[0];
+async function getDefaultBranchContext(parentNode, transaction) {
+  const branches = await resolveAllParentBranchContexts(parentNode, transaction);
+  if (branches.error) return null;
+  if (branches.length === 0) return null;
   return {
-    branch_external_assignment_id: sole.branch_external_assignment_id,
-    branch_internal_assignment_id: sole.internal_assignment_id,
+    branchExternalAssignmentId: branches[0].branch_external_assignment_id,
+    branchInternalAssignmentId: branches[0].branch_internal_assignment_id,
   };
 }
 
@@ -372,35 +426,37 @@ async function getAssignmentOptionsForNode(planNodeId, transaction = null, branc
   const isRootLevel = planNode.level === 1 || !planNode.parent_id;
 
   const parentBranchOptions = await getParentBranchOptions(parent, transaction);
-  const requiresBranchSelection =
-    parentBranchOptions.length > 1 &&
+  const parentIsShared = parent?.assignment_sharing_mode === "shared";
+  const hasMultipleBranches = parentBranchOptions.length > 1;
+  const supportsBranchSelection = hasMultipleBranches;
+  const allowPropagateAllBranches =
+    hasMultipleBranches && planNode.assignment_sharing_mode === "shared";
+
+  let effectiveBranchContext = { ...branchContext };
+  if (
+    hasMultipleBranches &&
     !branchContext.branchExternalAssignmentId &&
-    !branchContext.branchInternalAssignmentId;
+    !branchContext.branchInternalAssignmentId &&
+    parent
+  ) {
+    const defaultBranch = await getDefaultBranchContext(parent, transaction);
+    if (defaultBranch) {
+      effectiveBranchContext = defaultBranch;
+    }
+  }
 
   const baseResponse = {
     plan_node_id: planNodeId,
     level: planNode.level,
     assignment_sharing_mode: planNode.assignment_sharing_mode,
-    requires_branch_selection: requiresBranchSelection,
+    parent_is_shared: parentIsShared,
+    requires_branch_selection: false,
+    supports_branch_selection: supportsBranchSelection,
+    allow_propagate_all_branches: allowPropagateAllBranches,
+    branch_assignment_mode: allowPropagateAllBranches ? "auto" : "controlled",
     parent_branch_options: parentBranchOptions,
+    active_parent_branch_count: parentBranchOptions.length,
   };
-
-  if (requiresBranchSelection) {
-    return {
-      ...baseResponse,
-      assignment_mode: isRootLevel ? "external" : "internal",
-      can_assign: false,
-      in_user_branch: false,
-      allow_sector: false,
-      allow_department: false,
-      allow_user: false,
-      parent_context: null,
-      sectors: [],
-      departments: [],
-      users: [],
-      message: "Select a parent assignment branch to continue.",
-    };
-  }
 
   if (isRootLevel) {
     const allowedIds = await collectDescendantSectorIds(
@@ -438,20 +494,28 @@ async function getAssignmentOptionsForNode(planNodeId, transaction = null, branc
     };
   }
 
-  const userBranch = await isInUserBranch(ancestorChain, transaction, branchContext);
+  const userBranch = await isInUserBranch(ancestorChain, transaction, effectiveBranchContext);
   const sectorContextId = await resolveRootSectorId(
     ancestorChain,
     planVersion,
     transaction,
-    branchContext.branchExternalAssignmentId
+    effectiveBranchContext.branchExternalAssignmentId
   );
 
   if (userBranch) {
+    const userWhere = {
+      is_active: true,
+    };
+
+    const branchDepartmentId = await resolveUserBranchDepartmentId(effectiveBranchContext, transaction);
+    if (branchDepartmentId) {
+      userWhere.internal_structure_id = branchDepartmentId;
+    } else if (sectorContextId) {
+      userWhere.government_structure_id = sectorContextId;
+    }
+
     const users = await User.findAll({
-      where: {
-        government_structure_id: sectorContextId,
-        is_active: true,
-      },
+      where: userWhere,
       attributes: ["user_id", "full_name", "email", "government_structure_id", "internal_structure_id"],
       order: [["full_name", "ASC"]],
       transaction,
@@ -467,7 +531,7 @@ async function getAssignmentOptionsForNode(planNodeId, transaction = null, branc
       allow_sector: false,
       allow_department: false,
       allow_user: true,
-      parent_context: await resolveParentAssignmentContext(parent, transaction, branchContext),
+      parent_context: await resolveParentAssignmentContext(parent, transaction, effectiveBranchContext),
       sectors: [],
       departments: [],
       users: mapUserOptions(users),
@@ -477,7 +541,7 @@ async function getAssignmentOptionsForNode(planNodeId, transaction = null, branc
     };
   }
 
-  const parentContext = await resolveParentAssignmentContext(parent, transaction, branchContext);
+  const parentContext = await resolveParentAssignmentContext(parent, transaction, effectiveBranchContext);
   if (!parentContext) {
     return {
       ...baseResponse,
@@ -521,6 +585,7 @@ async function getAssignmentOptionsForNode(planNodeId, transaction = null, branc
     });
 
     const activeInternal = await getActiveInternalAssignments(planNodeId, transaction);
+    const propagationMessage = buildPropagationMessage(baseResponse);
 
     return {
       ...baseResponse,
@@ -535,7 +600,7 @@ async function getAssignmentOptionsForNode(planNodeId, transaction = null, branc
       departments: mapDepartmentOptions(departments),
       users: mapUserOptions(directUsers),
       active_assignment_count: activeInternal.length,
-      message: null,
+      message: propagationMessage,
     };
   }
 
@@ -561,6 +626,7 @@ async function getAssignmentOptionsForNode(planNodeId, transaction = null, branc
 
     const isLeafDepartment = childDepartments.length === 0;
     const activeInternal = await getActiveInternalAssignments(planNodeId, transaction);
+    const propagationMessage = buildPropagationMessage(baseResponse);
 
     return {
       ...baseResponse,
@@ -576,8 +642,10 @@ async function getAssignmentOptionsForNode(planNodeId, transaction = null, branc
       users: mapUserOptions(departmentUsers),
       active_assignment_count: activeInternal.length,
       message: isLeafDepartment
-        ? "This department has no sub-departments. Assign a user to continue."
-        : null,
+        ? propagationMessage
+          ? `This department has no sub-departments. Assign a user to continue. ${propagationMessage}`
+          : "This department has no sub-departments. Assign a user to continue."
+        : propagationMessage,
     };
   }
 
@@ -596,6 +664,68 @@ async function getAssignmentOptionsForNode(planNodeId, transaction = null, branc
     active_assignment_count: 0,
     message: "Invalid parent assignment context.",
   };
+}
+
+function buildPropagationMessage(baseResponse) {
+  if (!baseResponse.allow_propagate_all_branches) return null;
+  const count = baseResponse.active_parent_branch_count ?? baseResponse.parent_branch_options.length;
+  if (count <= 1) return null;
+  return `Default: assignment will propagate to all ${count} active parent branches. Switch to a specific branch to assign to one branch only.`;
+}
+
+async function resolveInternalTargetForBranch(
+  planNode,
+  parentNode,
+  { internal_structure_id, user_id },
+  branchFields,
+  transaction
+) {
+  const branchContext = {
+    branchExternalAssignmentId: branchFields.branch_external_assignment_id,
+    branchInternalAssignmentId: branchFields.branch_internal_assignment_id,
+  };
+
+  if (user_id) {
+    return { user_id, internal_structure_id: null };
+  }
+
+  if (!internal_structure_id) {
+    return null;
+  }
+
+  const options = await getAssignmentOptionsForNode(planNode.plan_node_id, transaction, branchContext);
+  if (options.departments.some((d) => d.internal_structure_id === internal_structure_id)) {
+    return { internal_structure_id, user_id: null };
+  }
+
+  const source = await InternalStructure.findByPk(internal_structure_id, { transaction });
+  if (!source) return null;
+
+  const match = options.departments.find(
+    (d) => d.name.trim().toLowerCase() === source.name.trim().toLowerCase()
+  );
+  if (match) {
+    return { internal_structure_id: match.internal_structure_id, user_id: null };
+  }
+
+  return null;
+}
+
+function buildBranchDuplicateWhere(planNodeId, branchFields, target) {
+  const where = {
+    plan_node_id: planNodeId,
+    is_active: true,
+    ...target,
+  };
+
+  if (branchFields.branch_external_assignment_id) {
+    where.branch_external_assignment_id = branchFields.branch_external_assignment_id;
+  }
+  if (branchFields.branch_internal_assignment_id) {
+    where.branch_internal_assignment_id = branchFields.branch_internal_assignment_id;
+  }
+
+  return where;
 }
 
 async function validateExternalAssignmentTarget(planNode, governmentStructureId, transaction) {
@@ -633,7 +763,8 @@ async function validateInternalAssignmentTarget(
   planNode,
   { internal_structure_id, user_id },
   transaction,
-  branchContext = {}
+  branchContext = {},
+  branchFields = null
 ) {
   const options = await getAssignmentOptionsForNode(planNode.plan_node_id, transaction, branchContext);
 
@@ -649,6 +780,11 @@ async function validateInternalAssignmentTarget(
     return "Cannot assign to both department and user.";
   }
 
+  const duplicateBranchFields = branchFields || {
+    branch_external_assignment_id: branchContext.branchExternalAssignmentId || null,
+    branch_internal_assignment_id: branchContext.branchInternalAssignmentId || null,
+  };
+
   if (internal_structure_id) {
     if (!options.allow_department) {
       if (options.in_user_branch) {
@@ -663,18 +799,14 @@ async function validateInternalAssignmentTarget(
       return "Selected department is not a valid child of the parent assignment.";
     }
 
-    if (planNode.assignment_sharing_mode === "shared") {
-      const duplicate = await InternalAssignment.findOne({
-        where: {
-          plan_node_id: planNode.plan_node_id,
-          internal_structure_id,
-          is_active: true,
-        },
-        transaction,
-      });
-      if (duplicate) {
-        return "This department is already actively assigned to this node.";
-      }
+    const duplicate = await InternalAssignment.findOne({
+      where: buildBranchDuplicateWhere(planNode.plan_node_id, duplicateBranchFields, {
+        internal_structure_id,
+      }),
+      transaction,
+    });
+    if (duplicate) {
+      return "This department is already actively assigned on this branch.";
     }
 
     return null;
@@ -689,18 +821,14 @@ async function validateInternalAssignmentTarget(
       return "Selected user is not valid for the current assignment hierarchy.";
     }
 
-    if (planNode.assignment_sharing_mode === "shared") {
-      const duplicate = await InternalAssignment.findOne({
-        where: {
-          plan_node_id: planNode.plan_node_id,
-          user_id,
-          is_active: true,
-        },
-        transaction,
-      });
-      if (duplicate) {
-        return "This user is already actively assigned to this node.";
-      }
+    const duplicate = await InternalAssignment.findOne({
+      where: buildBranchDuplicateWhere(planNode.plan_node_id, duplicateBranchFields, {
+        user_id,
+      }),
+      transaction,
+    });
+    if (duplicate) {
+      return "This user is already actively assigned on this branch.";
     }
 
     return null;
@@ -714,6 +842,8 @@ module.exports = {
   validateExternalAssignmentTarget,
   validateInternalAssignmentTarget,
   resolveBranchFieldsForCreate,
+  resolveInternalTargetForBranch,
+  resolveAllParentBranchContexts,
   deactivateActiveAssignmentsForNode,
   collectDescendantSectorIds,
 };

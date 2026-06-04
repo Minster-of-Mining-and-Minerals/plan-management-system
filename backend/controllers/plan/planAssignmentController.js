@@ -20,6 +20,7 @@ const {
     validateExternalAssignmentTarget,
     validateInternalAssignmentTarget,
     resolveBranchFieldsForCreate,
+    resolveInternalTargetForBranch,
     deactivateActiveAssignmentsForNode,
 } = require("../../services/planAssignmentHierarchyService");
 
@@ -284,11 +285,11 @@ const deleteExternalAssignment = async (req, res) => {
             });
         }
 
-        await assignment.destroy({ transaction: t });
+        await assignment.update({ is_active: false }, { transaction: t });
 
         await t.commit();
 
-        return res.json({ message: "External assignment deleted successfully" });
+        return res.json({ message: "External assignment deactivated successfully" });
     } catch (error) {
         await t.rollback();
         return res.status(500).json({ error: error.message });
@@ -303,7 +304,15 @@ const deleteExternalAssignment = async (req, res) => {
 const createInternalAssignment = async (req, res) => {
     const t = await sequelize.transaction();
     try {
-        const { plan_node_id, internal_structure_id, user_id, action_id, branch_external_assignment_id, branch_internal_assignment_id } = req.body;
+        const {
+            plan_node_id,
+            internal_structure_id,
+            user_id,
+            action_id,
+            branch_external_assignment_id,
+            branch_internal_assignment_id,
+            propagate_all_branches,
+        } = req.body;
 
         // Verify plan node exists and its version is draft
         const planNode = await PlanNode.findByPk(plan_node_id, {
@@ -329,6 +338,14 @@ const createInternalAssignment = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: "Must assign to either internal structure or user",
+            });
+        }
+
+        if (internal_structure_id && user_id) {
+            await t.rollback();
+            return res.status(400).json({
+                success: false,
+                message: "Cannot assign to both internal structure and user",
             });
         }
 
@@ -362,7 +379,11 @@ const createInternalAssignment = async (req, res) => {
         const branchResult = await resolveBranchFieldsForCreate(
             planNode,
             parentNode,
-            { branch_external_assignment_id, branch_internal_assignment_id },
+            {
+                branch_external_assignment_id,
+                branch_internal_assignment_id,
+                propagate_all_branches: propagate_all_branches !== false,
+            },
             t
         );
         if (branchResult.error) {
@@ -370,47 +391,94 @@ const createInternalAssignment = async (req, res) => {
             return res.status(400).json({ success: false, message: branchResult.error });
         }
 
-        const hierarchyError = await validateInternalAssignmentTarget(
-            planNode,
-            { internal_structure_id, user_id },
-            t,
-            {
-                branchExternalAssignmentId: branchResult.branch_external_assignment_id,
-                branchInternalAssignmentId: branchResult.branch_internal_assignment_id,
-            }
-        );
-        if (hierarchyError) {
-            await t.rollback();
-            return res.status(400).json({
-                success: false,
-                message: hierarchyError,
-            });
-        }
+        const branchTargets = branchResult.branches ? branchResult.branches : [branchResult];
 
         if (planNode.assignment_sharing_mode === "exclusive") {
             await deactivateActiveAssignmentsForNode(planNode.plan_node_id, "internal", t);
         }
 
-        const assignment = await InternalAssignment.create(
-            {
-                internal_assignment_id: uuidv4(),
-                plan_node_id,
+        const created = [];
+        const skipped = [];
+
+        for (const branchFields of branchTargets) {
+            let target = {
                 internal_structure_id: internal_structure_id || null,
                 user_id: user_id || null,
-                action_id,
-                is_active: true,
-                branch_external_assignment_id: branchResult.branch_external_assignment_id,
-                branch_internal_assignment_id: branchResult.branch_internal_assignment_id,
-            },
-            { transaction: t }
-        );
+            };
+
+            if (branchTargets.length > 1) {
+                const resolved = await resolveInternalTargetForBranch(
+                    planNode,
+                    parentNode,
+                    target,
+                    branchFields,
+                    t
+                );
+                if (!resolved) {
+                    skipped.push(branchFields.label || "branch");
+                    continue;
+                }
+                target = resolved;
+            }
+
+            const branchContext = {
+                branchExternalAssignmentId: branchFields.branch_external_assignment_id,
+                branchInternalAssignmentId: branchFields.branch_internal_assignment_id,
+            };
+
+            const hierarchyError = await validateInternalAssignmentTarget(
+                planNode,
+                target,
+                t,
+                branchContext,
+                branchFields
+            );
+            if (hierarchyError) {
+                skipped.push(branchFields.label || hierarchyError);
+                continue;
+            }
+
+            const assignment = await InternalAssignment.create(
+                {
+                    internal_assignment_id: uuidv4(),
+                    plan_node_id,
+                    internal_structure_id: target.internal_structure_id,
+                    user_id: target.user_id,
+                    action_id,
+                    is_active: true,
+                    branch_external_assignment_id: branchFields.branch_external_assignment_id,
+                    branch_internal_assignment_id: branchFields.branch_internal_assignment_id,
+                },
+                { transaction: t }
+            );
+
+            created.push(assignment);
+        }
+
+        if (created.length === 0) {
+            await t.rollback();
+            return res.status(400).json({
+                success: false,
+                message:
+                    skipped.length > 0
+                        ? `No assignments created. Skipped branches: ${skipped.join(", ")}`
+                        : "No valid branch assignments could be created.",
+            });
+        }
 
         await t.commit();
 
+        const message =
+            created.length > 1
+                ? `Internal assignments created across ${created.length} branches`
+                : "Internal assignment created";
+
         return res.status(201).json({
             success: true,
-            message: "Internal assignment created",
-            data: assignment,
+            message,
+            data: created.length === 1 ? created[0] : created,
+            branches_created: created.length,
+            branches_skipped: skipped.length,
         });
     } catch (error) {
         await t.rollback();
@@ -453,12 +521,35 @@ const getInternalAssignmentsByNode = async (req, res) => {
                     as: "user",
                     attributes: { exclude: ["password"] },
                 },
+                {
+                    model: ExternalAssignment,
+                    as: "branchExternalAssignment",
+                    include: [{ model: GovernmentStructure, as: "governmentStructure" }],
+                },
+                {
+                    model: InternalAssignment,
+                    as: "branchInternalAssignment",
+                    include: [
+                        { model: InternalStructure, as: "internalStructure" },
+                        { model: User, as: "user", attributes: { exclude: ["password"] } },
+                    ],
+                },
             ],
+        });
+
+        const data = assignments.map((assignment) => {
+            const plain = assignment.toJSON();
+            plain.branch_label =
+                plain.branchExternalAssignment?.governmentStructure?.name ||
+                plain.branchInternalAssignment?.user?.full_name ||
+                plain.branchInternalAssignment?.internalStructure?.name ||
+                null;
+            return plain;
         });
 
         return res.json({
             success: true,
-            data: assignments,
+            data,
         });
     } catch (error) {
         return res.status(500).json({ error: error.message });
@@ -589,11 +680,11 @@ const deleteInternalAssignment = async (req, res) => {
             });
         }
 
-        await assignment.destroy({ transaction: t });
+        await assignment.update({ is_active: false }, { transaction: t });
 
         await t.commit();
 
-        return res.json({ message: "Internal assignment deleted successfully" });
+        return res.json({ message: "Internal assignment deactivated successfully" });
     } catch (error) {
         await t.rollback();
         return res.status(500).json({ error: error.message });

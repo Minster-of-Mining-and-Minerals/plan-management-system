@@ -6,6 +6,8 @@ const {
     PlanRule,
     PlanRuleStep,
     GovernmentStructure,
+    ExternalAssignment,
+    InternalAssignment,
     sequelize,
 } = require("../../models");
 
@@ -640,6 +642,29 @@ const updatePlanNode = async (req, res) => {
                 success: false,
                 message: ruleCheck.message,
             });
+        }
+
+        if (
+            req.body.assignment_sharing_mode !== undefined &&
+            req.body.assignment_sharing_mode !== planNode.assignment_sharing_mode
+        ) {
+            const activeExternal = await ExternalAssignment.count({
+                where: { plan_node_id: id, is_active: true },
+                transaction: t,
+            });
+            const activeInternal = await InternalAssignment.count({
+                where: { plan_node_id: id, is_active: true },
+                transaction: t,
+            });
+
+            if (activeExternal + activeInternal > 1) {
+                await t.rollback();
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "Cannot change assignment mode while multiple active assignments exist. Remove or deactivate assignments first.",
+                });
+            }
         }
 
         await planNode.update(

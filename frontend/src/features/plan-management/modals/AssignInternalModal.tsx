@@ -64,6 +64,7 @@ export function AssignInternalModal({
 }: AssignInternalModalProps) {
     const [branchExternalId, setBranchExternalId] = useState<string | undefined>();
     const [branchInternalId, setBranchInternalId] = useState<string | undefined>();
+    const [branchMode, setBranchMode] = useState<"auto" | "controlled">("auto");
 
     const [createAssignment, { isLoading: isSubmitting }] = useCreateInternalAssignmentMutation();
     const { data: actions = [] } = useGetAssignmentActionsQuery(undefined, { skip: !isOpen });
@@ -73,22 +74,23 @@ export function AssignInternalModal({
         { skip: !isOpen }
     );
 
-    const { data: options, isLoading: isLoadingOptions } = useGetPlanNodeAssignmentOptionsQuery(
+    const useControlledBranch = branchMode === "controlled";
+
+    const { data: branchOptionsData, isLoading: isLoadingOptions } = useGetPlanNodeAssignmentOptionsQuery(
         {
             nodeId: planNodeId,
-            branchExternalAssignmentId: branchExternalId,
-            branchInternalAssignmentId: branchInternalId,
+            branchExternalAssignmentId: useControlledBranch ? branchExternalId : undefined,
+            branchInternalAssignmentId: useControlledBranch ? branchInternalId : undefined,
         },
-        {
-            skip: !isOpen || (initialOptions?.requires_branch_selection && !branchExternalId && !branchInternalId),
-        }
+        { skip: !isOpen }
     );
 
-    const effectiveOptions = options ?? initialOptions;
+    const effectiveOptions = branchOptionsData ?? initialOptions;
     const allowDepartment = effectiveOptions?.allow_department ?? false;
     const allowUser = effectiveOptions?.allow_user ?? false;
     const branchOptions = initialOptions?.parent_branch_options ?? [];
-    const needsBranchSelection = initialOptions?.requires_branch_selection ?? false;
+    const supportsBranchSelection = initialOptions?.supports_branch_selection ?? false;
+    const allowPropagateAll = initialOptions?.allow_propagate_all_branches ?? false;
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -105,24 +107,31 @@ export function AssignInternalModal({
         if (!isOpen) {
             setBranchExternalId(undefined);
             setBranchInternalId(undefined);
+            setBranchMode("auto");
             return;
         }
 
-        if (effectiveOptions) {
-            const initialType = effectiveOptions.allow_department
-                ? "structure"
-                : effectiveOptions.allow_user
-                    ? "user"
-                    : "user";
-            form.reset({
-                plan_node_id: planNodeId,
-                assignment_type: initialType,
-                internal_structure_id: null,
-                user_id: null,
-                action_id: "",
-            });
+        if (initialOptions) {
+            setBranchMode(initialOptions.allow_propagate_all_branches ? "auto" : "controlled");
         }
-    }, [isOpen, planNodeId, effectiveOptions?.allow_department, effectiveOptions?.allow_user, form]);
+    }, [isOpen, planNodeId, initialOptions?.allow_propagate_all_branches]);
+
+    useEffect(() => {
+        if (!isOpen || !effectiveOptions) return;
+
+        const initialType = effectiveOptions.allow_department
+            ? "structure"
+            : effectiveOptions.allow_user
+                ? "user"
+                : "user";
+        form.reset({
+            plan_node_id: planNodeId,
+            assignment_type: initialType,
+            internal_structure_id: null,
+            user_id: null,
+            action_id: "",
+        });
+    }, [isOpen, planNodeId, effectiveOptions?.allow_department, effectiveOptions?.allow_user, branchMode, branchExternalId, branchInternalId, form]);
 
     function handleBranchSelect(value: string) {
         const branch = branchOptions.find(
@@ -139,17 +148,24 @@ export function AssignInternalModal({
 
     async function onSubmit(values: z.infer<typeof formSchema>) {
         try {
+            const propagateAll = allowPropagateAll && branchMode === "auto";
             const payload = {
                 plan_node_id: values.plan_node_id,
                 action_id: values.action_id,
                 user_id: values.assignment_type === "user" ? values.user_id : null,
                 internal_structure_id: values.assignment_type === "structure" ? values.internal_structure_id : null,
-                branch_external_assignment_id: branchExternalId ?? null,
-                branch_internal_assignment_id: branchInternalId ?? null,
+                branch_external_assignment_id: useControlledBranch ? (branchExternalId ?? null) : null,
+                branch_internal_assignment_id: useControlledBranch ? (branchInternalId ?? null) : null,
+                propagate_all_branches: propagateAll,
             };
 
-            await createAssignment(payload).unwrap();
-            toast.success("Assignment created successfully");
+            const result = await createAssignment(payload).unwrap();
+            const branchCount = (result as { branches_created?: number }).branches_created;
+            toast.success(
+                branchCount && branchCount > 1
+                    ? `Assignment created across ${branchCount} branches`
+                    : "Assignment created successfully"
+            );
             onClose();
         } catch (error: unknown) {
             const err = error as { data?: { message?: string } };
@@ -163,7 +179,11 @@ export function AssignInternalModal({
     const showTypeToggle = allowDepartment && allowUser;
     const isExclusive = effectiveOptions?.assignment_sharing_mode === "exclusive";
     const hasActiveAssignment = (effectiveOptions?.active_assignment_count ?? 0) > 0;
-    const branchSelected = !needsBranchSelection || !!branchExternalId || !!branchInternalId;
+    const branchReady =
+        !useControlledBranch ||
+        !supportsBranchSelection ||
+        !!branchExternalId ||
+        !!branchInternalId;
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -178,7 +198,7 @@ export function AssignInternalModal({
                     </DialogTitle>
                 </DialogHeader>
 
-                {isExclusive && hasActiveAssignment && branchSelected && (
+                {isExclusive && hasActiveAssignment && (
                     <p className="text-sm text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
                         Exclusive mode: assigning a new target will replace the current active assignment.
                         Previous assignments are kept in history.
@@ -187,11 +207,12 @@ export function AssignInternalModal({
 
                 {effectiveOptions?.assignment_sharing_mode === "shared" && (
                     <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
-                        Shared mode: multiple departments or users can be assigned simultaneously.
+                        Shared mode: this node can hold multiple active assignments. Sharing mode is
+                        independent of the parent node.
                     </p>
                 )}
 
-                {effectiveOptions?.parent_context && branchSelected && (
+                {effectiveOptions?.parent_context && (
                     <p className="text-sm text-gray-600 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
                         Parent assigned to:{" "}
                         <span className="font-semibold text-gray-900">
@@ -209,12 +230,37 @@ export function AssignInternalModal({
 
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        {needsBranchSelection && (
+                        {supportsBranchSelection && (
+                            <FormItem>
+                                <FormLabel>Branch Assignment Mode</FormLabel>
+                                <FormDescription>
+                                    Auto mode propagates to all active parent branches. Controlled mode
+                                    assigns to one branch only.
+                                </FormDescription>
+                                <Tabs
+                                    value={branchMode}
+                                    onValueChange={(value) => {
+                                        setBranchMode(value as "auto" | "controlled");
+                                        setBranchExternalId(undefined);
+                                        setBranchInternalId(undefined);
+                                    }}
+                                    className="w-full"
+                                >
+                                    <TabsList className="grid w-full grid-cols-2">
+                                        <TabsTrigger value="auto" disabled={!allowPropagateAll}>
+                                            All Branches
+                                        </TabsTrigger>
+                                        <TabsTrigger value="controlled">
+                                            Single Branch
+                                        </TabsTrigger>
+                                    </TabsList>
+                                </Tabs>
+                            </FormItem>
+                        )}
+
+                        {supportsBranchSelection && useControlledBranch && (
                             <FormItem>
                                 <FormLabel>Parent Assignment Branch</FormLabel>
-                                <FormDescription>
-                                    The parent node is shared. Select which branch this assignment belongs to.
-                                </FormDescription>
                                 <Select
                                     onValueChange={handleBranchSelect}
                                     value={branchExternalId ?? branchInternalId ?? ""}
@@ -242,7 +288,7 @@ export function AssignInternalModal({
                             </FormItem>
                         )}
 
-                        {branchSelected && showTypeToggle && (
+                        {branchReady && showTypeToggle && (
                             <FormField
                                 control={form.control}
                                 name="assignment_type"
@@ -272,13 +318,14 @@ export function AssignInternalModal({
                             />
                         )}
 
-                        {branchSelected && !showTypeToggle && allowDepartment && (
+                        {branchReady && !showTypeToggle && allowDepartment && (
                             <FormDescription>
-                                This department has no sub-departments. Assign a user to continue the hierarchy.
+                                Assign a department within the selected structure branch. Sector-level
+                                assignment is not allowed below level 1.
                             </FormDescription>
                         )}
 
-                        {branchSelected && (assignmentType === "user" || (!allowDepartment && allowUser)) ? (
+                        {branchReady && (assignmentType === "user" || (!allowDepartment && allowUser)) ? (
                             <FormField
                                 control={form.control}
                                 name="user_id"
@@ -313,7 +360,7 @@ export function AssignInternalModal({
                                     </FormItem>
                                 )}
                             />
-                        ) : branchSelected ? (
+                        ) : branchReady ? (
                             <FormField
                                 control={form.control}
                                 name="internal_structure_id"
@@ -353,7 +400,7 @@ export function AssignInternalModal({
                             />
                         ) : null}
 
-                        {branchSelected && (
+                        {branchReady && (
                             <FormField
                                 control={form.control}
                                 name="action_id"
@@ -399,7 +446,7 @@ export function AssignInternalModal({
                                 type="submit"
                                 disabled={
                                     isSubmitting ||
-                                    !branchSelected ||
+                                    !branchReady ||
                                     !effectiveOptions?.can_assign ||
                                     (assignmentType === "user" && users.length === 0) ||
                                     (assignmentType === "structure" && departments.length === 0)
@@ -409,7 +456,9 @@ export function AssignInternalModal({
                                     ? "Assigning..."
                                     : isExclusive && hasActiveAssignment
                                       ? "Reassign"
-                                      : "Assign"}
+                                      : branchMode === "auto" && allowPropagateAll
+                                        ? "Assign All Branches"
+                                        : "Assign"}
                             </Button>
                         </DialogFooter>
                     </form>

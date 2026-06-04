@@ -170,6 +170,16 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
             )
         },
         {
+            id: "branch",
+            header: "Branch",
+            cell: ({ row }) => (
+                <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                    <GitBranch className="h-3.5 w-3.5" />
+                    {row.original.branch_label ?? "—"}
+                </div>
+            ),
+        },
+        {
             id: "status",
             header: "Status",
             cell: ({ row }) => statusBadge(row.original.is_active),

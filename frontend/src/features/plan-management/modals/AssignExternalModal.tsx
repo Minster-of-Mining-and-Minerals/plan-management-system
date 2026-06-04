@@ -110,7 +110,8 @@ export function AssignExternalModal({
 
                 {options?.assignment_sharing_mode === "shared" && (
                     <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
-                        Shared mode: multiple sectors can be assigned to this node simultaneously.
+                        Shared mode: multiple sectors can be assigned to this node. Each child node
+                        defines its own sharing mode independently.
                     </p>
                 )}
 

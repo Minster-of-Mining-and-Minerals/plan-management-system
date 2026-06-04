@@ -264,6 +264,11 @@ export interface PlanNodeAssignmentOptions {
     allow_department: boolean;
     allow_user: boolean;
     requires_branch_selection: boolean;
+    supports_branch_selection: boolean;
+    allow_propagate_all_branches: boolean;
+    branch_assignment_mode: "auto" | "controlled";
+    parent_is_shared: boolean;
+    active_parent_branch_count?: number;
     parent_branch_options: PlanNodeAssignmentBranchOption[];
     active_assignment_count?: number;
     parent_context: PlanNodeAssignmentParentContext | null;
@@ -315,6 +320,7 @@ export interface InternalAssignment {
     is_active: boolean;
     branch_external_assignment_id?: string | null;
     branch_internal_assignment_id?: string | null;
+    branch_label?: string | null;
     created_at: string;
     updated_at: string;
     planNode?: PlanNode;
@@ -330,6 +336,7 @@ export interface CreateInternalAssignmentPayload {
     action_id: string;
     branch_external_assignment_id?: string | null;
     branch_internal_assignment_id?: string | null;
+    propagate_all_branches?: boolean;
 }
 
 export interface UpdateInternalAssignmentPayload {
