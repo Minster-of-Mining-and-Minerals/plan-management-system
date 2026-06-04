@@ -13,6 +13,7 @@ import NextTopLoader from "nextjs-toploader";
 import { BreadcrumbProvider } from "@/providers/BreadcrumbProvider";
 import { SessionProvider } from "next-auth/react";
 import AuthInitializer from "@/providers/AuthInitializer";
+import { BrandingProvider } from "@/providers/BrandingProvider";
 
 type Props = {
   children: React.ReactNode;
@@ -60,11 +61,13 @@ export default async function LocaleLayout({ children, params }: Props) {
 
         <SessionProvider>
           <ReduxProvider>
-            <NextIntlClientProvider>
-              <BreadcrumbProvider>
-                <AuthInitializer>{children}</AuthInitializer>
-              </BreadcrumbProvider>
-            </NextIntlClientProvider>
+            <BrandingProvider>
+              <NextIntlClientProvider>
+                <BreadcrumbProvider>
+                  <AuthInitializer>{children}</AuthInitializer>
+                </BreadcrumbProvider>
+              </NextIntlClientProvider>
+            </BrandingProvider>
           </ReduxProvider>
         </SessionProvider>
         <Toaster richColors position="top-right" />

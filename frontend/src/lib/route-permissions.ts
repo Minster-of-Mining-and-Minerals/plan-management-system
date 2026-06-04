@@ -37,6 +37,9 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/internal-structures/[id]", anyPermissions: ["INTERNAL_STRUCTURES:READ"] },
   { pattern: "/internal-structures", anyPermissions: ["INTERNAL_STRUCTURES:READ"] },
 
+  // Settings
+  { pattern: "/settings/branding", allPermissions: ["BRANDING_SETTINGS:READ"] },
+
   // Dashboard
   { pattern: "/dashboard", anyPermissions: ["DASHBOARD:VIEW"] },
 

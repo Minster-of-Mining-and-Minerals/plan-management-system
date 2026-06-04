@@ -14,6 +14,7 @@ import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructure
 import { buildSectorTree } from "@/utils/buildSectorTree";
 import { NavStructures } from "./nav-structures";
 import { useSession } from "next-auth/react";
+import { useBranding } from "@/providers/BrandingProvider";
 
 import {
   Sidebar,
@@ -46,6 +47,7 @@ const stripLocale = (pathname: string) => {
 export function AppSidebar() {
   const [mounted, setMounted] = useState(false);
   const { data: session, status } = useSession();
+  const { branding, logoPrimaryUrl } = useBranding();
   const { permissions: userPermissions } = usePermissions();
   const pathname = stripLocale(usePathname());
 
@@ -78,19 +80,22 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <Link href="/dashboard" className="flex flex-col items-center">
-              <Image
-                src="/logo-only.png"
-                alt="Minister of Mining Logo"
-                width={100}
-                height={100}
-                className="mx-auto mb-1 rounded-xl p-2"
-              />
+              {logoPrimaryUrl ? (
+                <Image
+                  src={logoPrimaryUrl}
+                  alt={`${branding.system_name_short} logo`}
+                  width={100}
+                  height={100}
+                  className="mx-auto mb-1 rounded-xl p-2"
+                  unoptimized
+                />
+              ) : null}
               <div className="grid flex-1 text-center gap-1 text-sm leading-tight group-data-[collapsible=icon]:opacity-0">
                 <span className="truncate font-semibold text-golden-dark">
-                  Minister of Mining
+                  {branding.system_name_short}
                 </span>
                 <span className="truncate text-golden-dark">
-                  Plan Management System
+                  {branding.system_tagline || branding.system_name_full}
                 </span>
               </div>
             </Link>

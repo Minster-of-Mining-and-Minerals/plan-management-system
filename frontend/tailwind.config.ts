@@ -62,6 +62,18 @@ const config = {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        header: {
+          DEFAULT: "hsl(var(--header-background))",
+        },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+        },
+        info: {
+          DEFAULT: "hsl(var(--info))",
+        },
         golden: {
           dark: "hsl(var(--golden-dark))",
           metallic: "hsl(var(--golden-metallic))",

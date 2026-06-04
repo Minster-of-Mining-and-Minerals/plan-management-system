@@ -8,6 +8,8 @@ import {
   ListTree,
   Scale,
   Palette,
+  Settings,
+  Paintbrush,
 } from "lucide-react";
 
 export type NavItem = {
@@ -89,6 +91,20 @@ export const NAVIGATION: NavItem[] = [
         icon: Palette,
         allPermissions: ["PERFORMANCE_COLOR_THRESHOLDS:READ"],
       }
+    ],
+  },
+  {
+    title: "Settings",
+    url: "/settings/branding",
+    icon: Settings,
+    anyPermissions: ["BRANDING_SETTINGS:READ"],
+    children: [
+      {
+        title: "Branding",
+        url: "/settings/branding",
+        icon: Paintbrush,
+        allPermissions: ["BRANDING_SETTINGS:READ"],
+      },
     ],
   },
 ];

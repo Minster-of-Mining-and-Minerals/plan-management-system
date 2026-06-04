@@ -30,6 +30,7 @@ const internalStructureRoutes = require("./routers/structure/internalStructureRo
 const planRoutes = require("./routers/plan/planRoutes");
 const planAssignmentRoutes = require("./routers/plan/planAssignmentRoutes");
 const performanceColorThresholdRoutes = require("./routers/config/performanceColorThresholdRoutes");
+const brandingRoutes = require("./routers/config/brandingRoutes");
 const notificationRoutes = require("./routers/notification/notificationRoutes");
 
 // ================== Attachment Routes ==========================
@@ -131,6 +132,7 @@ app.use("/api/internal-structures", internalStructureRoutes);
 app.use("/api/plan", planRoutes);
 app.use("/api/plan-assignments", planAssignmentRoutes);
 app.use("/api/performance-color-thresholds", performanceColorThresholdRoutes);
+app.use("/api/branding", brandingRoutes);
 app.use("/api/notifications", notificationRoutes);
 
 // ================== Api Attachment Routes =====================

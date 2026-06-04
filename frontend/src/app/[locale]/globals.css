@@ -56,6 +56,11 @@
     --golden-dark-70: 45, 80%, 40%, 70%;
     --golden-dark-80: 45, 80%, 40%, 80%;
     --golden-dark-90: 45, 80%, 40%, 90%;
+
+    --header-background: 0 0% 100%;
+    --success: 142 76% 36%;
+    --warning: 32 95% 44%;
+    --info: 199 89% 48%;
   }
 
   /* previous bg */
@@ -104,17 +109,17 @@
 
 /* Success Toast */
 .sonner-toast[data-type="success"] {
-  background: #e6f7ee;
-  color: #0c6b3e;
-  border: 1px solid #a9e5c1;
+  background: hsl(var(--success) / 0.12);
+  color: hsl(var(--success));
+  border: 1px solid hsl(var(--success) / 0.35);
   font-weight: 500;
 }
 
 /* Error Toast */
 .sonner-toast[data-type="error"] {
-  background: #fde8e8;
-  color: #b91c1c;
-  border: 1px solid #f5b5b5;
+  background: hsl(var(--destructive) / 0.12);
+  color: hsl(var(--destructive));
+  border: 1px solid hsl(var(--destructive) / 0.35);
   font-weight: 500;
 }
 

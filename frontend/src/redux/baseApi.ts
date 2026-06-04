@@ -38,6 +38,8 @@ export const baseApi = createApi({
     "PlanAssignmentOptions",
     "Notification",
     "NotificationTemplate",
+    "Branding",
+    "BrandingAudit",
   ],
   endpoints: () => ({}),
 });
