@@ -94,6 +94,12 @@ module.exports = (sequelize, DataTypes) => {
                 type: DataTypes.BOOLEAN,
                 defaultValue: true,
             },
+
+            assignment_sharing_mode: {
+                type: DataTypes.ENUM("exclusive", "shared"),
+                defaultValue: "exclusive",
+                allowNull: false,
+            },
         },
         {
             sequelize,

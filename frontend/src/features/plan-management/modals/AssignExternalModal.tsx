@@ -55,7 +55,7 @@ export function AssignExternalModal({
 }: AssignExternalModalProps) {
     const [createAssignment, { isLoading: isSubmitting }] = useCreateExternalAssignmentMutation();
     const { data: options, isLoading: isLoadingOptions } = useGetPlanNodeAssignmentOptionsQuery(
-        planNodeId,
+        { nodeId: planNodeId },
         { skip: !isOpen }
     );
 
@@ -91,6 +91,8 @@ export function AssignExternalModal({
     }
 
     const sectors = options?.sectors ?? [];
+    const isExclusive = options?.assignment_sharing_mode === "exclusive";
+    const hasActiveAssignment = (options?.active_assignment_count ?? 0) > 0;
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -98,6 +100,19 @@ export function AssignExternalModal({
                 <DialogHeader>
                     <DialogTitle>Assign Sector (Level {options?.level ?? "—"})</DialogTitle>
                 </DialogHeader>
+
+                {isExclusive && hasActiveAssignment && (
+                    <p className="text-sm text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                        Exclusive mode: assigning a new sector will replace the current active assignment.
+                        Previous assignments are kept in history.
+                    </p>
+                )}
+
+                {options?.assignment_sharing_mode === "shared" && (
+                    <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+                        Shared mode: multiple sectors can be assigned to this node simultaneously.
+                    </p>
+                )}
 
                 {options?.message && (
                     <p className="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
@@ -206,7 +221,11 @@ export function AssignExternalModal({
                                 type="submit"
                                 disabled={isSubmitting || !options?.can_assign || sectors.length === 0}
                             >
-                                {isSubmitting ? "Assigning..." : "Assign"}
+                                {isSubmitting
+                                    ? "Assigning..."
+                                    : isExclusive && hasActiveAssignment
+                                      ? "Reassign Sector"
+                                      : "Assign Sector"}
                             </Button>
                         </DialogFooter>
                     </form>

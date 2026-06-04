@@ -389,6 +389,7 @@ const createPlanNode = async (req, res) => {
             weight_mode,
             level,
             order,
+            assignment_sharing_mode,
         } = req.body;
 
         // Verify plan version exists and is draft
@@ -462,6 +463,7 @@ const createPlanNode = async (req, res) => {
                 level: nodeLevel,
                 order: order || 0,
                 is_active: true,
+                assignment_sharing_mode: assignment_sharing_mode || "exclusive",
             },
             { transaction: t }
         );

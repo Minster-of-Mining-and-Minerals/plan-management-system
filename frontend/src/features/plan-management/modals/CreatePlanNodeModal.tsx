@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
     Select,
     SelectContent,
@@ -38,7 +39,7 @@ import {
     useGetPlanNodesQuery,
 } from "@/redux/api/planApi";
 import { useGetPlanRuleForVersionQuery } from "@/redux/api/planRuleApi";
-import { PlanNode, PlanRuleWeightMode } from "@/redux/types/plan";
+import { PlanNode, PlanRuleWeightMode, AssignmentSharingMode } from "@/redux/types/plan";
 import {
     getStepLabel,
     getWeightTarget,
@@ -89,6 +90,7 @@ export function CreatePlanNodeModal({
                     .nullable(),
                 level: z.coerce.number().optional(),
                 order: z.coerce.number().optional(),
+                assignment_sharing_mode: z.enum(["exclusive", "shared"]).default("exclusive"),
             }),
         []
     );
@@ -104,6 +106,7 @@ export function CreatePlanNodeModal({
             description: "",
             weight: 0,
             weight_mode: null,
+            assignment_sharing_mode: "exclusive" as AssignmentSharingMode,
         },
     });
 
@@ -148,6 +151,7 @@ export function CreatePlanNodeModal({
                 weight_mode: node.weight_mode,
                 level: node.level,
                 order: node.order,
+                assignment_sharing_mode: node.assignment_sharing_mode ?? "exclusive",
             });
         } else {
             form.reset({
@@ -158,6 +162,7 @@ export function CreatePlanNodeModal({
                 weight: 0,
                 weight_mode: null,
                 level: nodeLevel,
+                assignment_sharing_mode: "exclusive",
             });
         }
     }, [node, parentNode, planVersionId, form, isOpen, nodeLevel]);
@@ -201,6 +206,7 @@ export function CreatePlanNodeModal({
                 weight_mode: requiresWeight ? modeToSave : null,
                 level: nodeLevel,
                 order: values.order,
+                assignment_sharing_mode: values.assignment_sharing_mode,
             };
 
             if (node) {
@@ -304,6 +310,51 @@ export function CreatePlanNodeModal({
                                 )}
                             />
                         )}
+
+                        <FormField
+                            control={form.control}
+                            name="assignment_sharing_mode"
+                            render={({ field }) => (
+                                <FormItem className="rounded-lg border p-4 space-y-3">
+                                    <div>
+                                        <FormLabel>Assignment Mode</FormLabel>
+                                        <FormDescription>
+                                            Exclusive allows one active assignment at a time. Shared
+                                            allows multiple departments or users simultaneously.
+                                        </FormDescription>
+                                    </div>
+                                    <div className="flex items-center justify-center gap-3">
+                                        <span
+                                            className={
+                                                field.value === "exclusive"
+                                                    ? "text-sm font-semibold text-foreground"
+                                                    : "text-sm text-muted-foreground"
+                                            }
+                                        >
+                                            Exclusive
+                                        </span>
+                                        <FormControl>
+                                            <Switch
+                                                checked={field.value === "shared"}
+                                                onCheckedChange={(checked) =>
+                                                    field.onChange(checked ? "shared" : "exclusive")
+                                                }
+                                            />
+                                        </FormControl>
+                                        <span
+                                            className={
+                                                field.value === "shared"
+                                                    ? "text-sm font-semibold text-foreground"
+                                                    : "text-sm text-muted-foreground"
+                                            }
+                                        >
+                                            Shared
+                                        </span>
+                                    </div>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
                         <FormField
                             control={form.control}

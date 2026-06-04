@@ -15,6 +15,8 @@ const {
     validateIdParam,
     validateNodeIdParam,
     validateUserIdParam,
+    validateGetAssignmentOptionsQuery,
+    validateGetAssignmentsByNodeQuery,
 } = require("../../validators/plan/planAssignmentValidator");
 
 const {
@@ -57,15 +59,15 @@ router.get("/actions", checkPermission("PLAN_ASSIGNMENT_ACTIONS", "READ"), valid
 // ================= EXTERNAL ASSIGNMENTS =================
 
 router.post("/external", checkPermission("PLAN_ASSIGNMENTS", "CREATE"), validateCreateExternalAssignment, createExternalAssignment);
-router.get("/external/node/:plan_node_id", checkPermission("PLAN_ASSIGNMENTS", "READ"), validateNodeIdParam, getExternalAssignmentsByNode);
+router.get("/external/node/:plan_node_id", checkPermission("PLAN_ASSIGNMENTS", "READ"), validateNodeIdParam, validateGetAssignmentsByNodeQuery, getExternalAssignmentsByNode);
 router.put("/external/:id", checkPermission("PLAN_ASSIGNMENTS", "UPDATE"), validateIdParam, validateUpdateExternalAssignment, updateExternalAssignment);
 router.delete("/external/:id", checkPermission("PLAN_ASSIGNMENTS", "DELETE"), validateIdParam, deleteExternalAssignment);
 
 // ================= INTERNAL ASSIGNMENTS =================
 
 router.post("/internal", checkPermission("PLAN_ASSIGNMENTS", "CREATE"), validateCreateInternalAssignment, createInternalAssignment);
-router.get("/options/node/:plan_node_id", checkPermission("PLAN_ASSIGNMENTS", "READ"), validateNodeIdParam, getPlanNodeAssignmentOptions);
-router.get("/internal/node/:plan_node_id", checkPermission("PLAN_ASSIGNMENTS", "READ"), validateNodeIdParam, getInternalAssignmentsByNode);
+router.get("/options/node/:plan_node_id", checkPermission("PLAN_ASSIGNMENTS", "READ"), validateNodeIdParam, validateGetAssignmentOptionsQuery, getPlanNodeAssignmentOptions);
+router.get("/internal/node/:plan_node_id", checkPermission("PLAN_ASSIGNMENTS", "READ"), validateNodeIdParam, validateGetAssignmentsByNodeQuery, getInternalAssignmentsByNode);
 router.get("/internal/user/:user_id", checkPermission("PLAN_ASSIGNMENTS", "READ"), validateUserIdParam, getAssignmentsByUser);
 router.put("/internal/:id", checkPermission("PLAN_ASSIGNMENTS", "UPDATE"), validateIdParam, validateUpdateInternalAssignment, updateInternalAssignment);
 router.delete("/internal/:id", checkPermission("PLAN_ASSIGNMENTS", "DELETE"), validateIdParam, deleteInternalAssignment);

@@ -49,6 +49,8 @@ export interface GetPlanVersionsQueryParams {
  * ================= PLAN NODE TYPES =================
  */
 
+export type AssignmentSharingMode = "exclusive" | "shared";
+
 export interface PlanNode {
     plan_node_id: string;
     plan_version_id: string;
@@ -61,6 +63,7 @@ export interface PlanNode {
     level: number;
     order: number;
     is_active: boolean;
+    assignment_sharing_mode: AssignmentSharingMode;
     created_at: string;
     updated_at: string;
     deleted_at: string | null;
@@ -81,6 +84,7 @@ export interface CreatePlanNodePayload {
     weight_mode?: PlanRuleWeightMode | null;
     level?: number;
     order?: number;
+    assignment_sharing_mode?: AssignmentSharingMode;
 }
 
 export interface UpdatePlanNodePayload {
@@ -93,6 +97,7 @@ export interface UpdatePlanNodePayload {
     level?: number;
     order?: number;
     is_active?: boolean;
+    assignment_sharing_mode?: AssignmentSharingMode;
 }
 
 export interface GetPlanNodesQueryParams {
@@ -238,15 +243,29 @@ export interface PlanNodeAssignmentParentContext {
     user_id?: string;
 }
 
+export interface PlanNodeAssignmentBranchOption {
+    external_assignment_id?: string;
+    internal_assignment_id?: string;
+    label?: string;
+    type?: "user" | "department" | "sector";
+    government_structure_id?: string;
+    user_id?: string | null;
+    internal_structure_id?: string | null;
+}
+
 export interface PlanNodeAssignmentOptions {
     plan_node_id: string;
     level: number;
+    assignment_sharing_mode: AssignmentSharingMode;
     assignment_mode: "external" | "internal";
     can_assign: boolean;
     in_user_branch: boolean;
     allow_sector: boolean;
     allow_department: boolean;
     allow_user: boolean;
+    requires_branch_selection: boolean;
+    parent_branch_options: PlanNodeAssignmentBranchOption[];
+    active_assignment_count?: number;
     parent_context: PlanNodeAssignmentParentContext | null;
     sectors: PlanNodeAssignmentOptionSector[];
     departments: PlanNodeAssignmentOptionDepartment[];
@@ -264,6 +283,7 @@ export interface ExternalAssignment {
     government_structure_id: string;
     is_visible: boolean;
     requires_report: boolean;
+    is_active: boolean;
     created_at: string;
     updated_at: string;
     planNode?: PlanNode;
@@ -292,6 +312,9 @@ export interface InternalAssignment {
     internal_structure_id: string | null;
     user_id: string | null;
     action_id: string;
+    is_active: boolean;
+    branch_external_assignment_id?: string | null;
+    branch_internal_assignment_id?: string | null;
     created_at: string;
     updated_at: string;
     planNode?: PlanNode;
@@ -305,6 +328,8 @@ export interface CreateInternalAssignmentPayload {
     internal_structure_id?: string | null;
     user_id?: string | null;
     action_id: string;
+    branch_external_assignment_id?: string | null;
+    branch_internal_assignment_id?: string | null;
 }
 
 export interface UpdateInternalAssignmentPayload {

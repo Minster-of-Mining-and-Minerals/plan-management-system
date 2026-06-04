@@ -31,19 +31,38 @@ export const planAssignmentApi = baseApi.injectEndpoints({
             providesTags: ["AssignmentActions"],
         }),
 
-        getPlanNodeAssignmentOptions: builder.query<PlanNodeAssignmentOptions, string>({
-            query: (nodeId) => `/plan-assignments/options/node/${nodeId}`,
+        getPlanNodeAssignmentOptions: builder.query<
+            PlanNodeAssignmentOptions,
+            { nodeId: string; branchExternalAssignmentId?: string; branchInternalAssignmentId?: string }
+        >({
+            query: ({ nodeId, branchExternalAssignmentId, branchInternalAssignmentId }) => ({
+                url: `/plan-assignments/options/node/${nodeId}`,
+                params: {
+                    ...(branchExternalAssignmentId
+                        ? { branch_external_assignment_id: branchExternalAssignmentId }
+                        : {}),
+                    ...(branchInternalAssignmentId
+                        ? { branch_internal_assignment_id: branchInternalAssignmentId }
+                        : {}),
+                },
+            }),
             transformResponse: (response: any): PlanNodeAssignmentOptions => response.data,
-            providesTags: (_r, _e, nodeId) => [{ type: "PlanAssignmentOptions", id: nodeId }],
+            providesTags: (_r, _e, { nodeId }) => [{ type: "PlanAssignmentOptions", id: nodeId }],
         }),
 
         /**
          * ================= EXTERNAL ASSIGNMENTS =================
          */
-        getExternalAssignmentsByNode: builder.query<ExternalAssignment[], string>({
-            query: (nodeId) => `/plan-assignments/external/node/${nodeId}`,
+        getExternalAssignmentsByNode: builder.query<
+            ExternalAssignment[],
+            { nodeId: string; includeInactive?: boolean }
+        >({
+            query: ({ nodeId, includeInactive }) => ({
+                url: `/plan-assignments/external/node/${nodeId}`,
+                params: includeInactive ? { include_inactive: true } : {},
+            }),
             transformResponse: (response: any): ExternalAssignment[] => response.data ?? [],
-            providesTags: (result, _error, nodeId) => [
+            providesTags: (result, _error, { nodeId }) => [
                 { type: "ExternalAssignments", id: nodeId },
                 ...(result?.map(({ external_assignment_id }) => ({ type: "ExternalAssignments" as const, id: external_assignment_id })) ?? []),
             ],
@@ -76,10 +95,16 @@ export const planAssignmentApi = baseApi.injectEndpoints({
         /**
          * ================= INTERNAL ASSIGNMENTS =================
          */
-        getInternalAssignmentsByNode: builder.query<InternalAssignment[], string>({
-            query: (nodeId) => `/plan-assignments/internal/node/${nodeId}`,
+        getInternalAssignmentsByNode: builder.query<
+            InternalAssignment[],
+            { nodeId: string; includeInactive?: boolean }
+        >({
+            query: ({ nodeId, includeInactive }) => ({
+                url: `/plan-assignments/internal/node/${nodeId}`,
+                params: includeInactive ? { include_inactive: true } : {},
+            }),
             transformResponse: (response: any): InternalAssignment[] => response.data ?? [],
-            providesTags: (result, _error, nodeId) => [
+            providesTags: (result, _error, { nodeId }) => [
                 { type: "InternalAssignments", id: nodeId },
                 ...(result?.map(({ internal_assignment_id }) => ({ type: "InternalAssignments" as const, id: internal_assignment_id })) ?? []),
             ],

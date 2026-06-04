@@ -24,6 +24,16 @@ module.exports = (sequelize, DataTypes) => {
                 foreignKey: "user_id",
                 as: "user",
             });
+
+            InternalAssignment.belongsTo(models.ExternalAssignment, {
+                foreignKey: "branch_external_assignment_id",
+                as: "branchExternalAssignment",
+            });
+
+            InternalAssignment.belongsTo(models.InternalAssignment, {
+                foreignKey: "branch_internal_assignment_id",
+                as: "branchInternalAssignment",
+            });
         }
     }
 
@@ -52,6 +62,21 @@ module.exports = (sequelize, DataTypes) => {
             action_id: {
                 type: DataTypes.UUID,
                 allowNull: false,
+            },
+
+            is_active: {
+                type: DataTypes.BOOLEAN,
+                defaultValue: true,
+            },
+
+            branch_external_assignment_id: {
+                type: DataTypes.UUID,
+                allowNull: true,
+            },
+
+            branch_internal_assignment_id: {
+                type: DataTypes.UUID,
+                allowNull: true,
             },
         },
         {

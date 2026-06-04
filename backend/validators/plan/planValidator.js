@@ -79,6 +79,8 @@ const createPlanNodeSchema = Joi.object({
     level: Joi.number().integer().min(1).optional(),
 
     order: Joi.number().integer().min(0).default(0).optional(),
+
+    assignment_sharing_mode: Joi.string().valid("exclusive", "shared").default("exclusive").optional(),
 });
 
 const updatePlanNodeSchema = Joi.object({
@@ -91,6 +93,7 @@ const updatePlanNodeSchema = Joi.object({
     level: Joi.number().integer().min(1).optional(),
     order: Joi.number().integer().min(0).optional(),
     is_active: Joi.boolean().optional(),
+    assignment_sharing_mode: Joi.string().valid("exclusive", "shared").optional(),
 });
 
 const getPlanNodesQuerySchema = Joi.object({

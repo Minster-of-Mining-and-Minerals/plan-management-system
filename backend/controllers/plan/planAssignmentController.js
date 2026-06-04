@@ -19,6 +19,8 @@ const {
     getAssignmentOptionsForNode,
     validateExternalAssignmentTarget,
     validateInternalAssignmentTarget,
+    resolveBranchFieldsForCreate,
+    deactivateActiveAssignmentsForNode,
 } = require("../../services/planAssignmentHierarchyService");
 
 /**
@@ -130,6 +132,10 @@ const createExternalAssignment = async (req, res) => {
             });
         }
 
+        if (planNode.assignment_sharing_mode === "exclusive") {
+            await deactivateActiveAssignmentsForNode(planNode.plan_node_id, "external", t);
+        }
+
         const assignment = await ExternalAssignment.create(
             {
                 external_assignment_id: uuidv4(),
@@ -137,6 +143,7 @@ const createExternalAssignment = async (req, res) => {
                 government_structure_id,
                 is_visible: is_visible !== undefined ? is_visible : true,
                 requires_report: requires_report !== undefined ? requires_report : true,
+                is_active: true,
             },
             { transaction: t }
         );
@@ -158,13 +165,19 @@ const createExternalAssignment = async (req, res) => {
 const getExternalAssignmentsByNode = async (req, res) => {
     try {
         const { plan_node_id } = req.params;
+        const includeInactive = req.query.include_inactive === "true";
 
         if (!isUuid(plan_node_id)) {
             return res.status(400).json({ message: "Invalid node ID format" });
         }
 
+        const where = { plan_node_id };
+        if (!includeInactive) {
+            where.is_active = true;
+        }
+
         const assignments = await ExternalAssignment.findAll({
-            where: { plan_node_id },
+            where,
             include: [
                 {
                     model: PlanNode,
@@ -290,7 +303,7 @@ const deleteExternalAssignment = async (req, res) => {
 const createInternalAssignment = async (req, res) => {
     const t = await sequelize.transaction();
     try {
-        const { plan_node_id, internal_structure_id, user_id, action_id } = req.body;
+        const { plan_node_id, internal_structure_id, user_id, action_id, branch_external_assignment_id, branch_internal_assignment_id } = req.body;
 
         // Verify plan node exists and its version is draft
         const planNode = await PlanNode.findByPk(plan_node_id, {
@@ -311,7 +324,6 @@ const createInternalAssignment = async (req, res) => {
             });
         }
 
-        // Validate either user or structure provided
         if (!internal_structure_id && !user_id) {
             await t.rollback();
             return res.status(400).json({
@@ -320,14 +332,12 @@ const createInternalAssignment = async (req, res) => {
             });
         }
 
-        // Verify action exists
         const action = await PlanAssignmentAction.findByPk(action_id, { transaction: t });
         if (!action) {
             await t.rollback();
             return res.status(404).json({ message: "Assignment action not found" });
         }
 
-        // If internal_structure_id provided, verify it exists
         if (internal_structure_id) {
             const internalStructure = await InternalStructure.findByPk(internal_structure_id, { transaction: t });
             if (!internalStructure) {
@@ -336,7 +346,6 @@ const createInternalAssignment = async (req, res) => {
             }
         }
 
-        // If user_id provided, verify it exists
         if (user_id) {
             const user = await User.findByPk(user_id, { transaction: t });
             if (!user) {
@@ -345,10 +354,30 @@ const createInternalAssignment = async (req, res) => {
             }
         }
 
+        let parentNode = null;
+        if (planNode.parent_id) {
+            parentNode = await PlanNode.findByPk(planNode.parent_id, { transaction: t });
+        }
+
+        const branchResult = await resolveBranchFieldsForCreate(
+            planNode,
+            parentNode,
+            { branch_external_assignment_id, branch_internal_assignment_id },
+            t
+        );
+        if (branchResult.error) {
+            await t.rollback();
+            return res.status(400).json({ success: false, message: branchResult.error });
+        }
+
         const hierarchyError = await validateInternalAssignmentTarget(
             planNode,
             { internal_structure_id, user_id },
-            t
+            t,
+            {
+                branchExternalAssignmentId: branchResult.branch_external_assignment_id,
+                branchInternalAssignmentId: branchResult.branch_internal_assignment_id,
+            }
         );
         if (hierarchyError) {
             await t.rollback();
@@ -358,6 +387,10 @@ const createInternalAssignment = async (req, res) => {
             });
         }
 
+        if (planNode.assignment_sharing_mode === "exclusive") {
+            await deactivateActiveAssignmentsForNode(planNode.plan_node_id, "internal", t);
+        }
+
         const assignment = await InternalAssignment.create(
             {
                 internal_assignment_id: uuidv4(),
@@ -365,6 +398,9 @@ const createInternalAssignment = async (req, res) => {
                 internal_structure_id: internal_structure_id || null,
                 user_id: user_id || null,
                 action_id,
+                is_active: true,
+                branch_external_assignment_id: branchResult.branch_external_assignment_id,
+                branch_internal_assignment_id: branchResult.branch_internal_assignment_id,
             },
             { transaction: t }
         );
@@ -386,13 +422,19 @@ const createInternalAssignment = async (req, res) => {
 const getInternalAssignmentsByNode = async (req, res) => {
     try {
         const { plan_node_id } = req.params;
+        const includeInactive = req.query.include_inactive === "true";
 
         if (!isUuid(plan_node_id)) {
             return res.status(400).json({ message: "Invalid node ID format" });
         }
 
+        const where = { plan_node_id };
+        if (!includeInactive) {
+            where.is_active = true;
+        }
+
         const assignments = await InternalAssignment.findAll({
-            where: { plan_node_id },
+            where,
             include: [
                 {
                     model: PlanNode,
@@ -433,7 +475,7 @@ const getAssignmentsByUser = async (req, res) => {
         }
 
         const assignments = await InternalAssignment.findAll({
-            where: { user_id },
+            where: { user_id, is_active: true },
             include: [
                 {
                     model: PlanNode,
@@ -599,6 +641,7 @@ const createActionLog = async (req, res) => {
                 plan_node_id,
                 user_id,
                 action_id,
+                is_active: true,
             },
             transaction: t,
         });
@@ -821,12 +864,16 @@ const getNodeActionSummary = async (req, res) => {
 const getPlanNodeAssignmentOptions = async (req, res) => {
     try {
         const { plan_node_id } = req.params;
+        const { branch_external_assignment_id, branch_internal_assignment_id } = req.query;
 
         if (!isUuid(plan_node_id)) {
             return res.status(400).json({ message: "Invalid node ID format" });
         }
 
-        const options = await getAssignmentOptionsForNode(plan_node_id);
+        const options = await getAssignmentOptionsForNode(plan_node_id, null, {
+            branchExternalAssignmentId: branch_external_assignment_id || null,
+            branchInternalAssignmentId: branch_internal_assignment_id || null,
+        });
 
         return res.json({
             success: true,

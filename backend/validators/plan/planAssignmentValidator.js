@@ -53,6 +53,7 @@ const createExternalAssignmentSchema = Joi.object({
 
     is_visible: Joi.boolean().default(true),
     requires_report: Joi.boolean().default(true),
+    branch_external_assignment_id: Joi.string().guid({ version: "uuidv4" }).allow(null).optional(),
 });
 
 const updateExternalAssignmentSchema = Joi.object({
@@ -78,6 +79,9 @@ const createInternalAssignmentSchema = Joi.object({
         "string.guid": "action_id must be a valid UUID",
         "any.required": "action_id is required",
     }),
+
+    branch_external_assignment_id: Joi.string().guid({ version: "uuidv4" }).allow(null).optional(),
+    branch_internal_assignment_id: Joi.string().guid({ version: "uuidv4" }).allow(null).optional(),
 }).custom((value, helpers) => {
     // Custom validation: either internal_structure_id OR user_id must be provided (not both)
     if (!value.internal_structure_id && !value.user_id) {
@@ -178,6 +182,15 @@ const nodeIdParamSchema = Joi.object({
     }),
 });
 
+const getAssignmentOptionsQuerySchema = Joi.object({
+    branch_external_assignment_id: Joi.string().guid({ version: "uuidv4" }).optional(),
+    branch_internal_assignment_id: Joi.string().guid({ version: "uuidv4" }).optional(),
+});
+
+const getAssignmentsByNodeQuerySchema = Joi.object({
+    include_inactive: Joi.boolean().optional(),
+});
+
 const userIdParamSchema = Joi.object({
     user_id: Joi.string().guid({ version: "uuidv4" }).required().messages({
         "string.guid": "user_id must be a valid UUID",
@@ -236,4 +249,6 @@ module.exports = {
     validateIdParam: validate(idParamSchema, "params"),
     validateNodeIdParam: validate(nodeIdParamSchema, "params"),
     validateUserIdParam: validate(userIdParamSchema, "params"),
+    validateGetAssignmentOptionsQuery: validate(getAssignmentOptionsQuerySchema, "query"),
+    validateGetAssignmentsByNodeQuery: validate(getAssignmentsByNodeQuerySchema, "query"),
 };

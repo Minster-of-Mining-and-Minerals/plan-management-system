@@ -43,6 +43,11 @@ module.exports = (sequelize, DataTypes) => {
                 type: DataTypes.BOOLEAN,
                 defaultValue: true,
             },
+
+            is_active: {
+                type: DataTypes.BOOLEAN,
+                defaultValue: true,
+            },
         },
         {
             sequelize,
@@ -62,6 +67,8 @@ module.exports = (sequelize, DataTypes) => {
                 {
                     unique: true,
                     fields: ["plan_node_id", "government_structure_id"],
+                    name: "external_assignments_node_govt_unique",
+                    where: { is_active: true },
                 },
             ],
         }

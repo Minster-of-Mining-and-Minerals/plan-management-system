@@ -16,6 +16,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
     ChevronLeft,
     Users,
@@ -27,7 +29,8 @@ import {
     CheckSquare,
     User as UserIcon,
     Building,
-    UserPlus
+    UserPlus,
+    GitBranch,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AssignInternalModal } from "./modals/AssignInternalModal";
@@ -45,20 +48,25 @@ interface PlanNodeDetailViewProps {
 
 export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetailViewProps) {
     const router = useRouter();
-    
-    // Toggling state
-    const [activeTab, setActiveTab] = useState<"internal" | "external">("internal");
 
-    // Queries
+    const [activeTab, setActiveTab] = useState<"internal" | "external">("internal");
+    const [showHistory, setShowHistory] = useState(false);
+
     const { data: version } = useGetPlanVersionByIdQuery(versionId);
     const { data: node, isLoading: isNodeLoading } = useGetPlanNodeByIdQuery(nodeId);
-    const { data: internalAssignments = [], isLoading: isInternalLoading } = useGetInternalAssignmentsByNodeQuery(nodeId);
-    const { data: externalAssignments = [], isLoading: isExternalLoading } = useGetExternalAssignmentsByNodeQuery(nodeId);
-    const { data: assignmentOptions, isLoading: isOptionsLoading } = useGetPlanNodeAssignmentOptionsQuery(nodeId);
+    const { data: internalAssignments = [], isLoading: isInternalLoading } =
+        useGetInternalAssignmentsByNodeQuery({ nodeId, includeInactive: showHistory });
+    const { data: externalAssignments = [], isLoading: isExternalLoading } =
+        useGetExternalAssignmentsByNodeQuery({ nodeId, includeInactive: showHistory });
+    const { data: assignmentOptions, isLoading: isOptionsLoading } =
+        useGetPlanNodeAssignmentOptionsQuery({ nodeId });
 
     const isExternalMode = assignmentOptions?.assignment_mode === "external";
     const showInternalTab = !isExternalMode;
     const showExternalTab = isExternalMode;
+    const sharingMode = node?.assignment_sharing_mode ?? assignmentOptions?.assignment_sharing_mode ?? "exclusive";
+    const activeCount = assignmentOptions?.active_assignment_count ?? 0;
+    const isExclusive = sharingMode === "exclusive";
 
     useEffect(() => {
         if (assignmentOptions) {
@@ -66,11 +74,9 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
         }
     }, [assignmentOptions?.assignment_mode, nodeId]);
 
-    // Mutations
     const [deleteInternal, { isLoading: isDeletingInternal }] = useDeleteInternalAssignmentMutation();
     const [deleteExternal, { isLoading: isDeletingExternal }] = useDeleteExternalAssignmentMutation();
 
-    // Modal States
     const [isInternalModalOpen, setInternalModalOpen] = useState(false);
     const [isExternalModalOpen, setExternalModalOpen] = useState(false);
 
@@ -99,8 +105,9 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
             try {
                 await deleteInternal({ id, nodeId }).unwrap();
                 toast.success("Assignment removed");
-            } catch (error: any) {
-                toast.error(error.data?.message || "Failed to remove assignment");
+            } catch (error: unknown) {
+                const err = error as { data?: { message?: string } };
+                toast.error(err.data?.message || "Failed to remove assignment");
             }
         }
     };
@@ -110,11 +117,25 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
             try {
                 await deleteExternal({ id, nodeId }).unwrap();
                 toast.success("Assignment removed");
-            } catch (error: any) {
-                toast.error(error.data?.message || "Failed to remove assignment");
+            } catch (error: unknown) {
+                const err = error as { data?: { message?: string } };
+                toast.error(err.data?.message || "Failed to remove assignment");
             }
         }
     };
+
+    const statusBadge = (isActive: boolean) => (
+        <Badge
+            variant={isActive ? "default" : "outline"}
+            className={
+                isActive
+                    ? "bg-green-50 text-green-700 border-green-100"
+                    : "bg-gray-50 text-gray-500 border-gray-200"
+            }
+        >
+            {isActive ? "Active" : "Replaced"}
+        </Badge>
+    );
 
     const internalColumns: ColumnDef<InternalAssignment>[] = [
         {
@@ -146,6 +167,11 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
             )
         },
         {
+            id: "status",
+            header: "Status",
+            cell: ({ row }) => statusBadge(row.original.is_active),
+        },
+        {
             accessorKey: "created_at",
             header: "Assigned Date",
             cell: ({ row }) => (
@@ -158,14 +184,16 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
             id: "actions",
             header: "Actions",
             cell: ({ row }) => (
-                <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="text-gray-400 hover:text-red-500"
-                    onClick={() => handleDeleteInternal(row.original.internal_assignment_id)}
-                >
-                    <Trash2 className="h-4 w-4" />
-                </Button>
+                row.original.is_active ? (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-gray-400 hover:text-red-500"
+                        onClick={() => handleDeleteInternal(row.original.internal_assignment_id)}
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
+                ) : null
             )
         }
     ];
@@ -204,6 +232,11 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
             )
         },
         {
+            id: "status",
+            header: "Status",
+            cell: ({ row }) => statusBadge(row.original.is_active),
+        },
+        {
             accessorKey: "created_at",
             header: "Assigned Date",
             cell: ({ row }) => (
@@ -216,22 +249,31 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
             id: "actions",
             header: "Actions",
             cell: ({ row }) => (
-                <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="text-gray-400 hover:text-red-500"
-                    onClick={() => handleDeleteExternal(row.original.external_assignment_id)}
-                >
-                    <Trash2 className="h-4 w-4" />
-                </Button>
+                row.original.is_active ? (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-gray-400 hover:text-red-500"
+                        onClick={() => handleDeleteExternal(row.original.external_assignment_id)}
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
+                ) : null
             )
         }
     ];
 
+    const assignLabel = (() => {
+        if (activeTab === "external") {
+            return isExclusive && activeCount > 0 ? "Reassign Sector" : "Assign Sector";
+        }
+        return isExclusive && activeCount > 0 ? "Reassign User/Department" : "Assign User/Department";
+    })();
+
     const sideActions: ActionButton[] = [
         ...(showInternalTab
             ? [{
-                label: `Users & Departments (${internalAssignments.length})`,
+                label: `Users & Departments (${internalAssignments.filter((a) => a.is_active).length})`,
                 icon: <Users className="h-4 w-4" />,
                 variant: activeTab === "internal" ? "default" as const : "outline" as const,
                 onClick: () => setActiveTab("internal"),
@@ -239,7 +281,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
             : []),
         ...(showExternalTab
             ? [{
-                label: `Sector (${externalAssignments.length})`,
+                label: `Sector (${externalAssignments.filter((a) => a.is_active).length})`,
                 icon: <Building2 className="h-4 w-4" />,
                 variant: activeTab === "external" ? "default" as const : "outline" as const,
                 onClick: () => setActiveTab("external"),
@@ -249,7 +291,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
 
     const actions: ActionButton[] = assignmentOptions?.can_assign
         ? [{
-            label: activeTab === "internal" ? "Assign User/Department" : "Assign Sector",
+            label: assignLabel,
             icon: <UserPlus className="h-4 w-4" />,
             variant: "default" as const,
             onClick: () => activeTab === "internal" ? setInternalModalOpen(true) : setExternalModalOpen(true),
@@ -266,12 +308,11 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
 
     return (
         <div className="space-y-6 px-6 ">
-            {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <Button 
-                        variant="outline" 
-                        size="icon" 
+                    <Button
+                        variant="outline"
+                        size="icon"
                         onClick={() => router.push(`/plans/${versionId}`)}
                         className="rounded-full"
                     >
@@ -286,7 +327,6 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                 </div>
             </div>
 
-            {/* Node Info Card */}
             <Card className="border-none shadow-sm bg-white overflow-hidden">
                 <div className="h-2 bg-primary" />
                 <CardContent className="p-6">
@@ -295,7 +335,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                             {getTypeIcon(node.type)}
                         </div>
                         <div className="flex-1 space-y-1">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                                 <h2 className="text-xl font-bold text-gray-900">{node.title}</h2>
                                 <Badge variant="outline" className="uppercase font-bold text-[10px]">
                                     {getTypeLabel(node.type)}
@@ -305,6 +345,17 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                                         Weight: {node.weight}%
                                     </Badge>
                                 )}
+                                <Badge
+                                    variant="outline"
+                                    className={
+                                        sharingMode === "shared"
+                                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                            : "bg-slate-50 text-slate-700 border-slate-200"
+                                    }
+                                >
+                                    <GitBranch className="h-3 w-3 mr-1" />
+                                    {sharingMode === "shared" ? "Shared" : "Exclusive"}
+                                </Badge>
                             </div>
                             <p className="text-gray-600 leading-relaxed">
                                 {node.description || "No description provided."}
@@ -314,9 +365,20 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                 </CardContent>
             </Card>
 
-            {/* Togglable Table Section */}
             <div className="w-full bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-                <h3 className="text-xl font-bold text-golden-dark mb-4 px-2">Assignments</h3>
+                <div className="flex items-center justify-between mb-4 px-2">
+                    <h3 className="text-xl font-bold text-golden-dark">Assignments</h3>
+                    <div className="flex items-center gap-2">
+                        <Switch
+                            id="show-history"
+                            checked={showHistory}
+                            onCheckedChange={setShowHistory}
+                        />
+                        <Label htmlFor="show-history" className="text-sm text-muted-foreground cursor-pointer">
+                            Show assignment history
+                        </Label>
+                    </div>
+                </div>
 
                 {assignmentOptions?.message && !assignmentOptions.can_assign && (
                     <div className="mb-4 mx-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -327,6 +389,12 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                 {assignmentOptions?.in_user_branch && assignmentOptions.can_assign && (
                     <div className="mb-4 mx-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
                         User branch active: deeper levels can only be assigned to users within this sector.
+                    </div>
+                )}
+
+                {sharingMode === "shared" && (
+                    <div className="mb-4 mx-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                        Shared mode: multiple active assignments are allowed. Each branch can expand independently.
                     </div>
                 )}
 
@@ -347,15 +415,14 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                 </TableLayout>
             </div>
 
-            {/* Modals */}
-            <AssignInternalModal 
-                isOpen={isInternalModalOpen} 
-                onClose={() => setInternalModalOpen(false)} 
+            <AssignInternalModal
+                isOpen={isInternalModalOpen}
+                onClose={() => setInternalModalOpen(false)}
                 planNodeId={nodeId}
             />
-            <AssignExternalModal 
-                isOpen={isExternalModalOpen} 
-                onClose={() => setExternalModalOpen(false)} 
+            <AssignExternalModal
+                isOpen={isExternalModalOpen}
+                onClose={() => setExternalModalOpen(false)}
                 planNodeId={nodeId}
             />
         </div>
