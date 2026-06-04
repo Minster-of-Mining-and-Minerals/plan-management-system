@@ -25,7 +25,10 @@ import {
   useUpdateBrandingSettingsMutation,
 } from "@/redux/api/brandingApi";
 import { useUploadAttachmentsMutation } from "@/redux/api/attachementApi";
-import type { BrandingSettings } from "@/redux/types/branding";
+import {
+  type BrandingSettings,
+  toUpdateBrandingPayload,
+} from "@/redux/types/branding";
 import { BrandingPreview } from "./BrandingPreview";
 
 type BrandingTab = "identity" | "logos" | "theme";
@@ -165,7 +168,7 @@ export default function BrandingSettingsPage() {
 
   const handleSave = async () => {
     try {
-      const result = await updateBranding(form).unwrap();
+      const result = await updateBranding(toUpdateBrandingPayload(form)).unwrap();
       applyBrandingTheme(result, result.css_variables);
       setDraft(null);
       toast.success("Branding settings saved");

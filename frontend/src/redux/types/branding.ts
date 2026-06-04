@@ -25,8 +25,41 @@ export interface BrandingSettings {
 }
 
 export type UpdateBrandingSettingsPayload = Partial<
-  Omit<BrandingSettings, "branding_setting_id" | "updated_at">
+  Omit<BrandingSettings, "branding_setting_id" | "updated_at" | "government_structure_id">
 >;
+
+const UPDATABLE_BRANDING_KEYS = [
+  "system_name_full",
+  "system_name_short",
+  "system_tagline",
+  "logo_primary_path",
+  "logo_secondary_path",
+  "favicon_path",
+  "primary_color",
+  "secondary_color",
+  "accent_color",
+  "success_color",
+  "warning_color",
+  "error_color",
+  "info_color",
+  "background_color",
+  "surface_color",
+  "sidebar_color",
+  "header_color",
+  "text_primary_color",
+  "text_secondary_color",
+  "border_color",
+] as const satisfies ReadonlyArray<keyof UpdateBrandingSettingsPayload>;
+
+export function toUpdateBrandingPayload(
+  settings: BrandingSettings
+): UpdateBrandingSettingsPayload {
+  const payload: UpdateBrandingSettingsPayload = {};
+  for (const key of UPDATABLE_BRANDING_KEYS) {
+    payload[key] = settings[key];
+  }
+  return payload;
+}
 
 export interface BrandingPublicResponse extends BrandingSettings {
   css_variables: Record<string, string>;

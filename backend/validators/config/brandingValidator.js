@@ -35,7 +35,10 @@ const updateSchema = Joi.object({
 const validate = (schema, source = "body") => (req, res, next) => {
   const dataToValidate =
     source === "query" ? req.query : source === "params" ? req.params : req.body;
-  const { error, value } = schema.validate(dataToValidate, { abortEarly: false });
+  const { error, value } = schema.validate(dataToValidate, {
+    abortEarly: false,
+    stripUnknown: true,
+  });
   if (error) {
     return res.status(400).json({
       success: false,
