@@ -39,7 +39,7 @@ export const baseApi = createApi({
     "Notification",
     "NotificationTemplate",
     "Branding",
-    "BrandingAudit",
+    "SystemAuditLog",
   ],
   endpoints: () => ({}),
 });

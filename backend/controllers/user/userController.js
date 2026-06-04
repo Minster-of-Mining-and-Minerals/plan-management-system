@@ -12,6 +12,11 @@ const { Op } = require("sequelize");
 const bcrypt = require("bcrypt");
 const { generateRandomPassword } = require("../../utils/password");
 const { sendEmail } = require("../../utils/sendEmail");
+const {
+  AUDIT_MODULES,
+  getClientIp,
+  recordSystemAuditLog,
+} = require("../../services/auditLogService");
 
 
 const createUser = async (req, res) => {
@@ -87,6 +92,25 @@ const createUser = async (req, res) => {
       await UserRoles.bulkCreate(roleAssignments, { transaction: t });
     }
 
+    await recordSystemAuditLog(
+      {
+        module: AUDIT_MODULES.USERS,
+        action: "create",
+        entityId: user.user_id,
+        entityLabel: user.full_name,
+        newValues: {
+          user_id: user.user_id,
+          full_name: user.full_name,
+          email: user.email,
+          phone_number: user.phone_number,
+          is_active: user.is_active,
+        },
+        changedBy: req.user.user_id,
+        ipAddress: getClientIp(req),
+      },
+      t
+    );
+
     await t.commit();
 
     // ====== Send welcome email ======
@@ -141,6 +165,16 @@ const updateUser = async (req, res) => {
         message: "User not found.",
       });
     }
+
+    const previousValues = {
+      user_id: user.user_id,
+      full_name: user.full_name,
+      email: user.email,
+      phone_number: user.phone_number,
+      is_active: user.is_active,
+      government_structure_id: user.government_structure_id,
+      internal_structure_id: user.internal_structure_id,
+    };
 
     // ====== Check for email duplication ======
     if (email && email !== user.email) {
@@ -204,6 +238,29 @@ const updateUser = async (req, res) => {
       }));
       await UserRoles.bulkCreate(roleAssignments, { transaction: t });
     }
+
+    await recordSystemAuditLog(
+      {
+        module: AUDIT_MODULES.USERS,
+        action: "update",
+        entityId: user.user_id,
+        entityLabel: user.full_name,
+        previousValues,
+        newValues: {
+          user_id: user.user_id,
+          full_name: user.full_name,
+          email: user.email,
+          phone_number: user.phone_number,
+          is_active: user.is_active,
+          government_structure_id: user.government_structure_id,
+          internal_structure_id: user.internal_structure_id,
+          role_ids: role_ids ?? undefined,
+        },
+        changedBy: req.user.user_id,
+        ipAddress: getClientIp(req),
+      },
+      t
+    );
 
     await t.commit();
 

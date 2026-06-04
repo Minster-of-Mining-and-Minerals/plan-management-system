@@ -10,6 +10,7 @@ import {
   Palette,
   Settings,
   Paintbrush,
+  History,
 } from "lucide-react";
 
 export type NavItem = {
@@ -97,13 +98,19 @@ export const NAVIGATION: NavItem[] = [
     title: "Settings",
     url: "/settings/branding",
     icon: Settings,
-    anyPermissions: ["BRANDING_SETTINGS:READ"],
+    anyPermissions: ["BRANDING_SETTINGS:READ", "SYSTEM_AUDIT_LOGS:READ"],
     children: [
       {
         title: "Branding",
         url: "/settings/branding",
         icon: Paintbrush,
         allPermissions: ["BRANDING_SETTINGS:READ"],
+      },
+      {
+        title: "Audit Logs",
+        url: "/settings/audit-logs",
+        icon: History,
+        allPermissions: ["SYSTEM_AUDIT_LOGS:READ"],
       },
     ],
   },

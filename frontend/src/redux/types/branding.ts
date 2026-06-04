@@ -31,17 +31,3 @@ export type UpdateBrandingSettingsPayload = Partial<
 export interface BrandingPublicResponse extends BrandingSettings {
   css_variables: Record<string, string>;
 }
-
-export interface BrandingAuditLog {
-  branding_audit_log_id: string;
-  branding_setting_id: string;
-  changed_by: string;
-  previous_values: BrandingSettings;
-  new_values: BrandingSettings;
-  created_at: string;
-  changedByUser?: {
-    user_id: string;
-    full_name: string;
-    email: string;
-  };
-}

@@ -6,7 +6,6 @@ const {
   getBrandingSettings,
   updateBrandingSettings,
   restoreDefaultBranding,
-  getBrandingAuditLogs,
 } = require("../../controllers/config/brandingController");
 
 const { validateUpdateBranding } = require("../../validators/config/brandingValidator");
@@ -27,11 +26,6 @@ router.post(
   "/restore-defaults",
   checkPermission("BRANDING_SETTINGS", "UPDATE"),
   restoreDefaultBranding
-);
-router.get(
-  "/audit-logs",
-  checkPermission("BRANDING_SETTINGS", "READ"),
-  getBrandingAuditLogs
 );
 
 module.exports = router;

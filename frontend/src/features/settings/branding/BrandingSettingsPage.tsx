@@ -3,7 +3,6 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import {
-  History,
   ImageIcon,
   Loader2,
   Palette,
@@ -21,7 +20,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { DEFAULT_BRANDING, BRANDING_COLOR_FIELDS } from "@/lib/branding/defaults";
 import { applyBrandingTheme, resolveBrandingAssetUrl } from "@/lib/branding/applyBrandingTheme";
 import {
-  useGetBrandingAuditLogsQuery,
   useGetBrandingSettingsQuery,
   useRestoreDefaultBrandingMutation,
   useUpdateBrandingSettingsMutation,
@@ -30,7 +28,7 @@ import { useUploadAttachmentsMutation } from "@/redux/api/attachementApi";
 import type { BrandingSettings } from "@/redux/types/branding";
 import { BrandingPreview } from "./BrandingPreview";
 
-type BrandingTab = "identity" | "logos" | "theme" | "audit";
+type BrandingTab = "identity" | "logos" | "theme";
 
 const TAB_OPTIONS: {
   key: BrandingTab;
@@ -40,7 +38,6 @@ const TAB_OPTIONS: {
   { key: "identity", label: "System Identity", icon: Type },
   { key: "logos", label: "Logos", icon: ImageIcon },
   { key: "theme", label: "Theme Colors", icon: Palette },
-  { key: "audit", label: "Audit Log", icon: History },
 ];
 
 type LogoFieldProps = {
@@ -154,7 +151,6 @@ function BrandingSectionTabs({
 
 export default function BrandingSettingsPage() {
   const { data: saved, isLoading } = useGetBrandingSettingsQuery();
-  const { data: auditLogs = [] } = useGetBrandingAuditLogsQuery();
   const [updateBranding, { isLoading: isSaving }] = useUpdateBrandingSettingsMutation();
   const [restoreDefaults, { isLoading: isRestoring }] = useRestoreDefaultBrandingMutation();
 
@@ -331,45 +327,6 @@ export default function BrandingSettingsPage() {
             </Card>
           )}
 
-          {activeTab === "audit" && (
-            <Card className="border-0 shadow-none">
-              <CardHeader className="px-0 pt-4">
-                <CardTitle>Branding Change History</CardTitle>
-                <CardDescription>
-                  Recent branding updates with previous and new values.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 px-0 max-h-[60vh] overflow-y-auto">
-                {auditLogs.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No branding changes recorded yet.</p>
-                ) : (
-                  auditLogs.map((log) => (
-                    <div
-                      key={log.branding_audit_log_id}
-                      className="rounded-lg border p-4 space-y-2"
-                    >
-                      <div className="flex flex-wrap justify-between gap-2 text-sm">
-                        <span className="font-medium">
-                          {log.changedByUser?.full_name ?? "Unknown user"}
-                        </span>
-                        <span className="text-muted-foreground">
-                          {new Date(log.created_at).toLocaleString()}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        System name: {log.previous_values.system_name_full} →{" "}
-                        {log.new_values.system_name_full}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Primary color: {log.previous_values.primary_color} →{" "}
-                        {log.new_values.primary_color}
-                      </p>
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-          )}
         </div>
 
         {/* Right: always-visible live preview */}

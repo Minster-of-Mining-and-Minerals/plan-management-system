@@ -1,6 +1,6 @@
 "use strict";
 
-const { BrandingSetting, BrandingAuditLog, User, sequelize } = require("../../models");
+const { BrandingSetting, sequelize } = require("../../models");
 const {
   DEFAULT_BRANDING_ID,
   DEFAULT_BRANDING,
@@ -8,6 +8,11 @@ const {
   brandingToCssVariables,
   validateReadableTheme,
 } = require("../../services/brandingService");
+const {
+  AUDIT_MODULES,
+  getClientIp,
+  recordSystemAuditLog,
+} = require("../../services/auditLogService");
 
 async function getOrCreateGlobalBranding(transaction) {
   let record = await BrandingSetting.findByPk(DEFAULT_BRANDING_ID, { transaction });
@@ -91,14 +96,18 @@ const updateBrandingSettings = async (req, res) => {
 
     const updated = pickBrandingPayload(record);
 
-    await BrandingAuditLog.create(
+    await recordSystemAuditLog(
       {
-        branding_setting_id: DEFAULT_BRANDING_ID,
-        changed_by: req.user.user_id,
-        previous_values: previous,
-        new_values: updated,
+        module: AUDIT_MODULES.BRANDING_SETTINGS,
+        action: "update",
+        entityId: DEFAULT_BRANDING_ID,
+        entityLabel: updated.system_name_full,
+        previousValues: previous,
+        newValues: updated,
+        changedBy: req.user.user_id,
+        ipAddress: getClientIp(req),
       },
-      { transaction: t }
+      t
     );
 
     await t.commit();
@@ -151,14 +160,18 @@ const restoreDefaultBranding = async (req, res) => {
 
     const updated = pickBrandingPayload(record);
 
-    await BrandingAuditLog.create(
+    await recordSystemAuditLog(
       {
-        branding_setting_id: DEFAULT_BRANDING_ID,
-        changed_by: req.user.user_id,
-        previous_values: previous,
-        new_values: updated,
+        module: AUDIT_MODULES.BRANDING_SETTINGS,
+        action: "restore",
+        entityId: DEFAULT_BRANDING_ID,
+        entityLabel: updated.system_name_full,
+        previousValues: previous,
+        newValues: updated,
+        changedBy: req.user.user_id,
+        ipAddress: getClientIp(req),
       },
-      { transaction: t }
+      t
     );
 
     await t.commit();
@@ -177,31 +190,9 @@ const restoreDefaultBranding = async (req, res) => {
   }
 };
 
-const getBrandingAuditLogs = async (req, res) => {
-  try {
-    const logs = await BrandingAuditLog.findAll({
-      where: { branding_setting_id: DEFAULT_BRANDING_ID },
-      include: [
-        {
-          model: User,
-          as: "changedByUser",
-          attributes: ["user_id", "full_name", "email"],
-        },
-      ],
-      order: [["created_at", "DESC"]],
-      limit: 50,
-    });
-
-    return res.json({ success: true, data: logs });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
-  }
-};
-
 module.exports = {
   getPublicBranding,
   getBrandingSettings,
   updateBrandingSettings,
   restoreDefaultBranding,
-  getBrandingAuditLogs,
 };

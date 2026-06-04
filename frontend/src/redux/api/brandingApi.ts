@@ -1,6 +1,5 @@
 import { baseApi } from "../baseApi";
 import type {
-  BrandingAuditLog,
   BrandingPublicResponse,
   BrandingSettings,
   UpdateBrandingSettingsPayload,
@@ -30,7 +29,7 @@ export const brandingApi = baseApi.injectEndpoints({
         body,
       }),
       transformResponse: (response: { data: BrandingPublicResponse }) => response.data,
-      invalidatesTags: ["Branding"],
+      invalidatesTags: ["Branding", "SystemAuditLog"],
     }),
 
     restoreDefaultBranding: builder.mutation<BrandingPublicResponse, void>({
@@ -39,14 +38,9 @@ export const brandingApi = baseApi.injectEndpoints({
         method: "POST",
       }),
       transformResponse: (response: { data: BrandingPublicResponse }) => response.data,
-      invalidatesTags: ["Branding"],
+      invalidatesTags: ["Branding", "SystemAuditLog"],
     }),
 
-    getBrandingAuditLogs: builder.query<BrandingAuditLog[], void>({
-      query: () => "/branding/audit-logs",
-      transformResponse: (response: { data: BrandingAuditLog[] }) => response.data ?? [],
-      providesTags: ["BrandingAudit"],
-    }),
   }),
 });
 
@@ -55,5 +49,4 @@ export const {
   useGetBrandingSettingsQuery,
   useUpdateBrandingSettingsMutation,
   useRestoreDefaultBrandingMutation,
-  useGetBrandingAuditLogsQuery,
 } = brandingApi;

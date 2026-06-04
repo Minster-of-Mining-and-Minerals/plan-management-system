@@ -39,6 +39,7 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
 
   // Settings
   { pattern: "/settings/branding", allPermissions: ["BRANDING_SETTINGS:READ"] },
+  { pattern: "/settings/audit-logs", allPermissions: ["SYSTEM_AUDIT_LOGS:READ"] },
 
   // Dashboard
   { pattern: "/dashboard", anyPermissions: ["DASHBOARD:VIEW"] },
