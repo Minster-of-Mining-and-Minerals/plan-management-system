@@ -30,7 +30,7 @@ function GroupManagement({ groupId }: GroupManagementProps) {
             onClick: () => setActiveTab("users"),
         },
         {
-            label: "Government Structures",
+            label: "Sector Structures",
             icon: <Building className="h-4 w-4" />,
             variant: activeTab === "government_structures" ? "default" : "outline",
             size: "default",

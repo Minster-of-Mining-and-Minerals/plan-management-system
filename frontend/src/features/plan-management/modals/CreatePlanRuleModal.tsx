@@ -192,11 +192,11 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
                                     >
                                         <FormControl>
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Global (all structures)" />
+                                                <SelectValue placeholder="Global (all sectors)" />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            <SelectItem value="global">Global (all structures)</SelectItem>
+                                            <SelectItem value="global">Global (all sectors)</SelectItem>
                                             {structures.map((s) => (
                                                 <SelectItem
                                                     key={s.government_structure_id}

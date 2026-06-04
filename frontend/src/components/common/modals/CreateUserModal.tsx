@@ -119,7 +119,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="block text-sm text-golden-dark font-medium mb-1">
-                Government Structure
+                Sector Structure
               </Label>
               <Select
                 value={govId}
@@ -130,7 +130,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 disabled={!!initialGovId}
               >
                 <SelectTrigger className="w-full h-12 border border-golden-dark">
-                  <SelectValue placeholder="Select Government Structure" />
+                  <SelectValue placeholder="Select sector structure" />
                 </SelectTrigger>
                 <SelectContent className="bg-white">
                   {govStructures.map((s) => (
@@ -144,7 +144,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
 
             <div className="space-y-2">
               <Label className="block text-sm text-golden-dark font-medium mb-1">
-                Internal Structure (Team/Dept)
+                Department
               </Label>
               <Select
                 value={internalId}
@@ -152,7 +152,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 disabled={!govId || !!initialInternalId}
               >
                 <SelectTrigger className="w-full h-12 border border-golden-dark">
-                  <SelectValue placeholder={govId ? "Select Internal Structure" : "Select Gov structure first"} />
+                  <SelectValue placeholder={govId ? "Select department" : "Select sector structure first"} />
                 </SelectTrigger>
                 <SelectContent className="bg-white">
                   {internalStructures.map((s) => (

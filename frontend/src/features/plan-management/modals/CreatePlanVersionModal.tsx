@@ -138,7 +138,7 @@ export function CreatePlanVersionModal({
                             name="government_structure_id"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Government Structure</FormLabel>
+                                    <FormLabel>Sector Structure</FormLabel>
                                     <Select
                                         onValueChange={field.onChange}
                                         defaultValue={field.value}
@@ -146,7 +146,7 @@ export function CreatePlanVersionModal({
                                     >
                                         <FormControl>
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Select structure" />
+                                                <SelectValue placeholder="Select sector structure" />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
@@ -207,12 +207,12 @@ export function CreatePlanVersionModal({
                                     >
                                         <FormControl>
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Use default rule for structure" />
+                                                <SelectValue placeholder="Use default rule for sector" />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
                                             <SelectItem value="default">
-                                                Auto (structure or global default)
+                                                Auto (sector or global default)
                                             </SelectItem>
                                             {planRules.map((r) => (
                                                 <SelectItem key={r.plan_rule_id} value={r.plan_rule_id}>

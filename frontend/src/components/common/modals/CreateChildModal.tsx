@@ -73,7 +73,7 @@ export function CreateChildModal({
           : null;
 
         if (!government_structure_id) {
-          toast.error("Government structure context missing. Please add via the main table.");
+          toast.error("Sector structure context missing. Please add via the main table.");
           return;
         }
 

@@ -47,7 +47,7 @@ export default function PlanVersionTable() {
         },
         {
             accessorKey: "governmentStructure",
-            header: "Government Structure",
+            header: "Sector Structure",
             cell: ({ row }) => (
                 <div className="text-primary font-medium">
                     {row.original.governmentStructure?.name || "Global"}

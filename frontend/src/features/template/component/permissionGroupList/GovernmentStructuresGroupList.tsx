@@ -34,12 +34,12 @@ export default function GovernmentStructuresGroupList({ sideActions, actions, st
 
     const handleRemove = async (structureId: string) => {
         if (!groupId) return;
-        if (confirm("Are you sure you want to remove this structure from the group?")) {
+        if (confirm("Are you sure you want to remove this sector from the group?")) {
             try {
                 await removeStructure({ permission_group_id: groupId, government_structure_id: structureId }).unwrap();
-                toast.success("Structure removed from group");
+                toast.success("Sector removed from group");
             } catch (err: any) {
-                toast.error(err?.data?.message || "Failed to remove structure");
+                toast.error(err?.data?.message || "Failed to remove sector");
             }
         }
     };
@@ -47,7 +47,7 @@ export default function GovernmentStructuresGroupList({ sideActions, actions, st
     const columns: ColumnDef<GovernmentStructure>[] = [
         {
             accessorKey: "name",
-            header: "Structure Name",
+            header: "Sector Name",
             cell: ({ row }) => (
                 <span className="font-medium text-primary">
                     {row.getValue("name")}
@@ -61,7 +61,7 @@ export default function GovernmentStructuresGroupList({ sideActions, actions, st
         },
         {
             accessorKey: "parent",
-            header: "Parent Structure",
+            header: "Parent Sector",
             cell: ({ row }) => (
                 <div className="text-gray-500 italic">
                     {row.original.parent?.name || "N/A"}

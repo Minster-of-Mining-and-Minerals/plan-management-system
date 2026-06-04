@@ -110,7 +110,7 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col min-h-0">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="structures">Government Structures</TabsTrigger>
+            <TabsTrigger value="structures">Sector Structures</TabsTrigger>
           </TabsList>
 
           <TabsContent value="users" className="flex-1 flex flex-col min-h-0 py-4">
@@ -157,7 +157,7 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Search structures..."
+                placeholder="Search sectors..."
                 className="pl-10"
                 value={structureSearch}
                 onChange={(e) => setStructureSearch(e.target.value)}
@@ -188,7 +188,7 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
                   </div>
                 ))
               ) : (
-                <div className="text-center py-8 text-gray-500">No structures found</div>
+                <div className="text-center py-8 text-gray-500">No sectors found</div>
               )}
             </div>
           </TabsContent>

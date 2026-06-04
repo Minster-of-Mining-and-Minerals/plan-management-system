@@ -37,7 +37,7 @@ import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructure
 
 const formSchema = z.object({
     plan_node_id: z.string().uuid(),
-    government_structure_id: z.string().uuid({ message: "Government structure is required" }),
+    government_structure_id: z.string().uuid({ message: "Sector structure is required" }),
     is_visible: z.boolean().default(true),
     requires_report: z.boolean().default(true),
 });
@@ -91,7 +91,7 @@ export function AssignExternalModal({
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                    <DialogTitle>Assign External Government Structure</DialogTitle>
+                    <DialogTitle>Assign External Sector</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -100,14 +100,14 @@ export function AssignExternalModal({
                             name="government_structure_id"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Select Government Structure</FormLabel>
+                                    <FormLabel>Select Sector Structure</FormLabel>
                                     <Select
                                         onValueChange={field.onChange}
                                         value={field.value}
                                     >
                                         <FormControl>
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Select a structure" />
+                                                <SelectValue placeholder="Select sector structure" />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
@@ -132,7 +132,7 @@ export function AssignExternalModal({
                                         <div className="space-y-0.5">
                                             <FormLabel>Open for Visibility</FormLabel>
                                             <FormDescription>
-                                                Allow this structure to view the node's progress and details.
+                                                Allow this sector to view the node's progress and details.
                                             </FormDescription>
                                         </div>
                                         <FormControl>

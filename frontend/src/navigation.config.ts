@@ -27,7 +27,7 @@ export const NAVIGATION: NavItem[] = [
     anyPermissions: ["DASHBOARD:VIEW"],
   },
   {
-    title: "Government Structures",
+    title: "Sector Structures",
     url: "/government-structures",
     icon: Building2,
     anyPermissions: ["GOVERNMENT_STRUCTURES:READ"],

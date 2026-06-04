@@ -302,13 +302,13 @@ const UserViewPage = () => {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2 text-[#094C81]">
-                <Building2 className="h-5 w-5" /> Structure
+                <Building2 className="h-5 w-5" /> Sector & Department
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
-                  Government Structure
+                  Sector Structure
                 </p>
                 {isEditing ? (
                   <div className="space-y-2">
@@ -318,7 +318,7 @@ const UserViewPage = () => {
                       render={({ field }) => (
                         <Select onValueChange={field.onChange} value={field.value || ""}>
                           <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select structure" />
+                            <SelectValue placeholder="Select sector structure" />
                           </SelectTrigger>
                           <SelectContent>
                             {govStructures.map((s) => (
@@ -338,14 +338,14 @@ const UserViewPage = () => {
                   <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
                     <Building2 className="h-4 w-4 text-[#094C81]" />
                     <span className="text-sm font-medium text-gray-700">
-                      {user.governmentStructure?.name || "No government structure assigned"}
+                      {user.governmentStructure?.name || "No sector structure assigned"}
                     </span>
                   </div>
                 )}
               </div>
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
-                  Internal Structure (Team/Dept)
+                  Department
                 </p>
                 {isEditing ? (
                   <div className="space-y-2">
@@ -359,7 +359,7 @@ const UserViewPage = () => {
                           disabled={!selectedGovId}
                         >
                           <SelectTrigger className="w-full">
-                            <SelectValue placeholder={selectedGovId ? "Select internal structure" : "Select gov structure first"} />
+                            <SelectValue placeholder={selectedGovId ? "Select department" : "Select sector structure first"} />
                           </SelectTrigger>
                           <SelectContent>
                             {internalStructures.map((s) => (
@@ -379,7 +379,7 @@ const UserViewPage = () => {
                   <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
                     <GitBranch className="h-4 w-4 text-[#094C81]" />
                     <span className="text-sm font-medium text-gray-700">
-                      {user.internalStructure?.name || "No internal structure assigned"}
+                      {user.internalStructure?.name || "No department assigned"}
                     </span>
                   </div>
                 )}

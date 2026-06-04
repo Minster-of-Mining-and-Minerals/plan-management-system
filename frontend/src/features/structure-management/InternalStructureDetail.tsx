@@ -83,7 +83,7 @@ export default function InternalStructureDetail({ id }: InternalStructureDetailP
                                     href={`/government-structures/${structure.government_structure_id}`}
                                     className="hover:text-golden-dark transition-colors"
                                 >
-                                    Departments
+                                    Sector Structures
                                 </Link>
                                 {structure.governmentStructure && (
                                     <>

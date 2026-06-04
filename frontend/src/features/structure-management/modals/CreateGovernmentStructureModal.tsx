@@ -214,10 +214,10 @@ export function CreateGovernmentStructureModal({
           id: structure.government_structure_id,
           data: submitData,
         }).unwrap();
-        toast.success("Structure updated successfully");
+        toast.success("Sector updated successfully");
       } else {
         await createStructure(submitData).unwrap();
-        toast.success("Structure created successfully");
+        toast.success("Sector created successfully");
       }
       resetNavigation();
       onClose();
@@ -244,7 +244,7 @@ export function CreateGovernmentStructureModal({
       >
         <DialogHeader>
           <DialogTitle>
-            {isEditMode ? "Edit Structure" : "Create New Structure"}
+            {isEditMode ? "Edit Sector" : "Create New Sector"}
           </DialogTitle>
         </DialogHeader>
 
@@ -259,7 +259,7 @@ export function CreateGovernmentStructureModal({
                   )}
                 >
                   <FormLabel className="block text-sm font-medium mb-2">
-                    Select Parent Structure{" "}
+                    Select Parent Sector{" "}
                     <span className="text-muted-foreground">(Optional)</span>
                   </FormLabel>
 
@@ -310,7 +310,7 @@ export function CreateGovernmentStructureModal({
                       {currentLevelNodes.length === 0 &&
                       navigationStack.length > 0 ? (
                         <p className="text-sm text-center py-4 text-muted-foreground">
-                          No structures found at this level
+                          No sectors found at this level
                         </p>
                       ) : (
                         currentLevelNodes.map((node) => (
@@ -357,7 +357,7 @@ export function CreateGovernmentStructureModal({
                                   type="button"
                                   onClick={() => enterStructure(node)}
                                   className="bg-transparent border-none w-fit opacity-70 hover:opacity-100 transition-opacity"
-                                  title={`Explore ${node.name} structure`}
+                                  title={`Explore ${node.name} sector`}
                                 >
                                   <ArrowRightIcon className="w-6 h-6 hover:text-primary" />
                                 </button>
@@ -384,12 +384,12 @@ export function CreateGovernmentStructureModal({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>
-                          Structure Name{" "}
+                          Sector Name{" "}
                           <span className="text-red-500">*</span>
                         </FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="Enter structure name"
+                            placeholder="Enter sector name"
                             {...field}
                           />
                         </FormControl>
@@ -407,10 +407,10 @@ export function CreateGovernmentStructureModal({
                     name="name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Structure Name</FormLabel>
+                        <FormLabel>Sector Name</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="Enter structure name"
+                            placeholder="Enter sector name"
                             {...field}
                           />
                         </FormControl>
@@ -442,7 +442,7 @@ export function CreateGovernmentStructureModal({
                 {isCreating || isUpdating ? (
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2" />
                 ) : null}
-                {isEditMode ? "Save Changes" : "Create Structure"}
+                {isEditMode ? "Save Changes" : "Create Sector"}
               </Button>
             </DialogFooter>
           </form>

@@ -49,7 +49,7 @@ import {
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   parent_id: z.string().optional().nullable(),
-  government_structure_id: z.string().min(1, "Government structure is required"),
+  government_structure_id: z.string().min(1, "Sector structure is required"),
   level: z.coerce.number().min(1).default(1),
   is_active: z.boolean().default(true),
 });
@@ -399,13 +399,13 @@ export function CreateInternalStructureModal({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Government Structure{" "}
+                      Sector Structure{" "}
                       <span className="text-red-500">*</span>
                     </FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select government structure" />
+                          <SelectValue placeholder="Select sector structure" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>

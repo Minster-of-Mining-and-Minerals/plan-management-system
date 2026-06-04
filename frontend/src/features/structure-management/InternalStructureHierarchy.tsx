@@ -229,11 +229,11 @@ const InternalHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
             <div className="absolute top-0 left-0 w-full p-4 z-10 flex items-center justify-between pointer-events-none">
               <div className="w-[350px] rounded-lg p-4 bg-white/80 backdrop-blur-sm border border-gray-100 shadow-sm pointer-events-auto">
                 <Label className="text-secondary text-xs font-semibold mb-1.5 block uppercase tracking-wider">
-                  Filter by Government Body
+                  Filter by Sector
                 </Label>
                 <Select value={selectedGovId} onValueChange={setSelectedGovId}>
                   <SelectTrigger className="w-full h-10 border border-gray-200 px-4 py-3 rounded-md focus:ring-2 focus:ring-[#073954]/20 transition-all duration-200 outline-none bg-white">
-                    <SelectValue placeholder="Select Government Body" />
+                    <SelectValue placeholder="Select sector" />
                   </SelectTrigger>
                   <SelectContent>
                     {govOptions.map((opt) => (

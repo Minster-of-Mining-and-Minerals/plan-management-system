@@ -104,7 +104,7 @@ export function NavStructures({ structures, basePath }: NavStructuresProps) {
       <SidebarMenuSub>
         <SidebarMenuSubItem>
           <span className="px-3 py-2 text-xs text-muted-foreground">
-            No structures yet
+            No sectors yet
           </span>
         </SidebarMenuSubItem>
       </SidebarMenuSub>

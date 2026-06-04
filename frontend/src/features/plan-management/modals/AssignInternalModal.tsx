@@ -115,7 +115,7 @@ export function AssignInternalModal({
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                    <DialogTitle>Assign Internal Entity</DialogTitle>
+                    <DialogTitle>Assign User or Department</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -136,7 +136,7 @@ export function AssignInternalModal({
                                     >
                                         <TabsList className="grid w-full grid-cols-2">
                                             <TabsTrigger value="user">User</TabsTrigger>
-                                            <TabsTrigger value="structure">Internal Structure</TabsTrigger>
+                                            <TabsTrigger value="structure">Department</TabsTrigger>
                                         </TabsList>
                                     </Tabs>
                                 </FormItem>
@@ -177,14 +177,14 @@ export function AssignInternalModal({
                                 name="internal_structure_id"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Select Internal Structure</FormLabel>
+                                        <FormLabel>Select Department</FormLabel>
                                         <Select
                                             onValueChange={field.onChange}
                                             value={field.value || ""}
                                         >
                                             <FormControl>
                                                 <SelectTrigger>
-                                                    <SelectValue placeholder="Select a structure" />
+                                                    <SelectValue placeholder="Select department" />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>

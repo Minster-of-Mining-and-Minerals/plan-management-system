@@ -118,7 +118,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                             {row.original.user?.name || row.original.internalStructure?.name}
                         </p>
                         <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">
-                            {row.original.user_id ? "User" : "Internal Structure"}
+                            {row.original.user_id ? "User" : "Department"}
                         </span>
                     </div>
                 </div>
@@ -161,7 +161,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
     const externalColumns: ColumnDef<ExternalAssignment>[] = [
         {
             accessorKey: "governmentStructure.name",
-            header: "Government Structure",
+            header: "Sector Structure",
             cell: ({ row }) => (
                 <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-full bg-orange-50 flex items-center justify-center text-orange-600 border border-orange-100">
@@ -218,13 +218,13 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
 
     const sideActions: ActionButton[] = [
         {
-            label: `Internal (${internalAssignments.length})`,
+            label: `Users & Departments (${internalAssignments.length})`,
             icon: <Users className="h-4 w-4" />,
             variant: activeTab === "internal" ? "default" : "outline",
             onClick: () => setActiveTab("internal"),
         },
         {
-            label: `External (${externalAssignments.length})`,
+            label: `External Sectors (${externalAssignments.length})`,
             icon: <Building2 className="h-4 w-4" />,
             variant: activeTab === "external" ? "default" : "outline",
             onClick: () => setActiveTab("external"),
@@ -233,7 +233,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
 
     const actions: ActionButton[] = [
         {
-            label: activeTab === "internal" ? "Assign Internal" : "Assign External",
+            label: activeTab === "internal" ? "Assign User/Department" : "Assign External Sector",
             icon: <UserPlus className="h-4 w-4" />,
             variant: "default",
             onClick: () => activeTab === "internal" ? setInternalModalOpen(true) : setExternalModalOpen(true),

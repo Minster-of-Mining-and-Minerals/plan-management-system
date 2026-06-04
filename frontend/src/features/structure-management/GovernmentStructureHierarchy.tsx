@@ -236,7 +236,7 @@ const GovernmentHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
           ) : (
             <div className="flex items-center justify-center py-12 h-full min-h-[600px]">
               <div className="text-center">
-                <p className="text-gray-400 text-lg font-medium">No structures found</p>
+                <p className="text-gray-400 text-lg font-medium">No sectors found</p>
               </div>
             </div>
           )}

@@ -39,7 +39,7 @@ export default function GovernmentStructureTable() {
     const columns: ColumnDef<GovernmentStructure>[] = [
         {
             accessorKey: "name",
-            header: "Structure Name",
+            header: "Sector Name",
             cell: ({ row }) => (
                 <span className="font-medium text-primary">
                     {row.getValue("name")}
@@ -53,7 +53,7 @@ export default function GovernmentStructureTable() {
         },
         {
             accessorKey: "parent",
-            header: "Parent Structure",
+            header: "Parent Sector",
             cell: ({ row }) => (
                 <div className="text-gray-500 italic">
                     {row.original.parent?.name || "N/A"}
@@ -138,12 +138,12 @@ export default function GovernmentStructureTable() {
     });
 
     const handleDelete = async (id: string) => {
-        if (confirm("Are you sure you want to deactivate this structure?")) {
+        if (confirm("Are you sure you want to deactivate this sector?")) {
             try {
                 await deleteStructure(id).unwrap();
-                toast.success("Structure deactivated successfully");
+                toast.success("Sector deactivated successfully");
             } catch (err) {
-                toast.error("Failed to deactivate structure");
+                toast.error("Failed to deactivate sector");
             }
         }
     };
@@ -174,7 +174,7 @@ export default function GovernmentStructureTable() {
     // Actions
     const actions: ActionButton[] = [
         {
-            label: "Add Structure",
+            label: "Add Sector",
             icon: <Plus className="h-4 w-4" />,
             variant: "default",
             onClick: () => {
@@ -194,8 +194,8 @@ export default function GovernmentStructureTable() {
     return (
         <>
             <TableLayout
-                title="Government Structure"
-                description="Manage government organizational hierarchy and structures"
+                title="Sector Structures"
+                description="Manage sector organizational hierarchy"
                 actions={actions}
                 filters={filters}
                 filterColumnsPerRow={1}

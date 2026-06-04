@@ -66,7 +66,7 @@ export default function GovernmentStructureDetail({ id }: GovernmentStructureDet
         return (
             <div className="text-center py-12">
                 <h2 className="text-2xl font-bold text-red-600">Error</h2>
-                <p className="text-gray-500">Failed to load government structure details.</p>
+                <p className="text-gray-500">Failed to load sector structure details.</p>
                 <Button variant="link" onClick={() => router.push("/government-structures")}>
                     Back to List
                 </Button>
@@ -89,7 +89,7 @@ export default function GovernmentStructureDetail({ id }: GovernmentStructureDet
                                 href="/government-structures" 
                                 className="hover:text-golden-dark transition-colors"
                             >
-                                Government Bodies
+                                Sector Structures
                             </Link>
                             {structure.parent && (
                                 <>
@@ -110,7 +110,7 @@ export default function GovernmentStructureDetail({ id }: GovernmentStructureDet
                             </Badge>
                         </div>
                         <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">
-                            Level {structure.level} • Government Body
+                            Level {structure.level} • Sector
                         </p>
                     </div>
                 </div>

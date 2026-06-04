@@ -247,7 +247,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                             Plan Hierarchy: {version?.year} (v{version?.version_number})
                         </h1>
                         <div className="flex items-center gap-2 text-gray-500">
-                            <span>{version?.governmentStructure?.name || "Global Structure"}</span>
+                            <span>{version?.governmentStructure?.name || "Global Sector"}</span>
                             {rule && (
                                 <>
                                     <span>·</span>

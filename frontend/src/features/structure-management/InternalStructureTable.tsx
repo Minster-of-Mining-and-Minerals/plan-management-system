@@ -46,7 +46,7 @@ export default function InternalStructureTable({ forced_government_structure_id,
     const columns: ColumnDef<InternalStructure>[] = [
         {
             accessorKey: "name",
-            header: "Structure Name",
+            header: "Department Name",
             cell: ({ row }) => (
                 <span className="font-medium text-primary">
                     {row.getValue("name")}
@@ -60,7 +60,7 @@ export default function InternalStructureTable({ forced_government_structure_id,
         },
         {
             accessorKey: "parent",
-            header: "Parent Structure",
+            header: "Parent Department",
             cell: ({ row }) => (
                 <div className="text-gray-500 italic">
                     {row.original.parent?.name || "N/A"}
@@ -146,12 +146,12 @@ export default function InternalStructureTable({ forced_government_structure_id,
     });
 
     const handleDelete = async (id: string) => {
-        if (confirm("Are you sure you want to delete this structure?")) {
+        if (confirm("Are you sure you want to delete this department?")) {
             try {
                 await deleteStructure(id).unwrap();
-                toast.success("Structure deleted successfully");
+                toast.success("Department deleted successfully");
             } catch (err) {
-                toast.error("Failed to delete structure");
+                toast.error("Failed to delete department");
             }
         }
     };
