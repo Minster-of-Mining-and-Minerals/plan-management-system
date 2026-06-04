@@ -37,7 +37,7 @@ export const NAVIGATION: NavItem[] = [
     title: "Users",
     url: "/users/list",
     icon: User2,
-    anyPermissions: ["USERS:READ", "ROLES:READ", "PERMISSIONS:READ"],
+    anyPermissions: ["USERS:READ", "ROLES:READ", "PERMISSIONS:READ", "PERMISSION_GROUPS:READ"],
     children: [
       {
         title: "Users List",
@@ -69,7 +69,7 @@ export const NAVIGATION: NavItem[] = [
     title: "Plan Management",
     url: "/plans",
     icon: ListTree,
-    anyPermissions: ["PLANS:READ"],
+    anyPermissions: ["PLANS:READ", "PERFORMANCE_COLOR_THRESHOLDS:READ"],
     children: [
       {
         title: "Plan Versions",

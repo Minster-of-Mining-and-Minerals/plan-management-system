@@ -1,0 +1,51 @@
+"use client";
+
+import { ShieldX, ArrowLeft, Home } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { useRouter } from "@/i18n/navigation";
+
+interface AccessDeniedProps {
+  /** Path the user attempted to access */
+  attemptedPath?: string;
+  /** Where "Go back" / home actions should navigate */
+  fallbackPath?: string;
+}
+
+export function AccessDenied({ attemptedPath, fallbackPath = "/dashboard" }: AccessDeniedProps) {
+  const router = useRouter();
+
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center p-4">
+      <Card className="w-full max-w-lg border-destructive/20 shadow-sm">
+        <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
+            <ShieldX className="h-8 w-8 text-destructive" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold">Access denied</h2>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              You don&apos;t have permission to view this page. Contact your administrator if
+              you believe this is an error.
+            </p>
+            {attemptedPath && (
+              <p className="text-xs text-muted-foreground font-mono bg-muted px-2 py-1 rounded inline-block">
+                {attemptedPath}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2 pt-2">
+            <Button variant="outline" onClick={() => router.back()}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Go back
+            </Button>
+            <Button onClick={() => router.push(fallbackPath)}>
+              <Home className="mr-2 h-4 w-4" />
+              Go to home
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

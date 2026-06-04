@@ -1,10 +1,13 @@
 "use client";
+
 import { useEffect } from "react";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Header } from "@/components/layout/header";
+import { RoutePermissionGuard } from "@/components/guards/RoutePermissionGuard";
 import { useSession } from "next-auth/react";
+import { useAuth } from "@/hooks/use-auth";
 import { performLogout } from "@/utils/logout";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 
@@ -16,6 +19,7 @@ export default function PrivateLayout({
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, status } = useSession();
+  const { isLoading: isAuthLoading } = useAuth();
 
   const isFirstLogin = session?.user?.is_first_logged_in;
   const isChangePasswordPage = pathname.includes("/change-password");
@@ -32,22 +36,23 @@ export default function PrivateLayout({
     }
   }, [status, isFirstLogin, isChangePasswordPage, router]);
 
-  if (status === "loading" || status === "unauthenticated") {
+  if (
+    status === "loading" ||
+    status === "unauthenticated" ||
+    isAuthLoading
+  ) {
     return <Loading01 />;
   }
 
-  // If first login and not on change password page, show loading while redirecting
   if (isFirstLogin && !isChangePasswordPage) {
     return <Loading01 />;
   }
 
-  // Convert "/user/new" → ["User", "New"]
   const breadcrumb = pathname
     .split("/")
     .filter(Boolean)
     .map((item) => item.charAt(0).toUpperCase() + item.slice(1));
 
-  // If only "/dashboard" → show just "Dashboard"
   const title = breadcrumb.join(" / ");
 
   return (
@@ -55,7 +60,9 @@ export default function PrivateLayout({
       {!isFirstLogin && <AppSidebar />}
       <SidebarInset>
         <Header title={title || "Dashboard"} />
-        <div className="p-6">{children}</div>
+        <div className="p-6">
+          <RoutePermissionGuard>{children}</RoutePermissionGuard>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

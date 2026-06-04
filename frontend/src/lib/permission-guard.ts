@@ -5,13 +5,15 @@ import {
   type PermissionKey,
 } from "./permissions";
 
+export type PermissionRule = {
+  anyPermissions?: PermissionKey[];
+  allPermissions?: PermissionKey[];
+  onlyPermissions?: PermissionKey[];
+};
+
 export function canAccessRoute(
   userPermissions: PermissionKey[],
-  rule: {
-    anyPermissions?: PermissionKey[];
-    allPermissions?: PermissionKey[];
-    onlyPermissions?: PermissionKey[];
-  },
+  rule: PermissionRule,
 ): boolean {
   if (rule.onlyPermissions) {
     return hasOnlyPermissions(userPermissions, rule.onlyPermissions);

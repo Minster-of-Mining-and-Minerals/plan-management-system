@@ -47,26 +47,12 @@ export default function middleware(req: NextRequest) {
   const isPublicRoute = publicRoutes.includes(pathnameWithoutLocale);
   const isAuthRoute = authRoutes.includes(pathnameWithoutLocale);
 
-  console.log("🔐 MIDDLEWARE DEBUG:");
-  console.log("  Path:", pathnameWithoutLocale);
-  console.log(
-    "  Found cookies:",
-    allCookies.map((c) => c.name),
-  );
-  console.log("  Has session token:", hasSessionToken);
-  console.log("  Is public route:", isPublicRoute);
-
-  // 🔐 Rule 1: If logged in and trying to access login page, redirect to dashboard
   if (isAuthRoute && hasSessionToken) {
-    console.log("  Redirecting authenticated user to dashboard");
     return NextResponse.redirect(new URL(`/${locale}/dashboard`, req.url));
   }
 
-  // 🔒 Rule 2: If NOT logged in and trying to access protected route, redirect to login
   if (!isPublicRoute && !hasSessionToken) {
-    console.log("  Redirecting unauthenticated user to login");
     const loginUrl = new URL(`/${locale}/login`, req.url);
-    // Use the full pathname, not pathnameWithoutLocale
     loginUrl.searchParams.set("callbackUrl", pathnameWithoutLocale);
     return NextResponse.redirect(loginUrl);
   }
