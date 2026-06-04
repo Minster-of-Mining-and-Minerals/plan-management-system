@@ -7,6 +7,7 @@ import {
   Building2,
   ListTree,
   Scale,
+  Palette,
 } from "lucide-react";
 
 export type NavItem = {
@@ -81,6 +82,12 @@ export const NAVIGATION: NavItem[] = [
         url: "/plans/rules",
         icon: Scale,
         allPermissions: ["PLANS:READ"],
+      },
+      {
+        title: "Performance Colors",
+        url: "/plans/performance-colors",
+        icon: Palette,
+        allPermissions: ["PERFORMANCE_COLOR_THRESHOLDS:READ"],
       }
     ],
   },

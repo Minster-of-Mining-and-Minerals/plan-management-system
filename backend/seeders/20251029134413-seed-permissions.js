@@ -75,6 +75,12 @@ module.exports = {
       { resource: "action_logs", action: "create" },
       { resource: "action_logs", action: "read" },
       { resource: "action_logs", action: "update" },
+
+      // Performance Color Thresholds
+      { resource: "performance_color_thresholds", action: "create" },
+      { resource: "performance_color_thresholds", action: "read" },
+      { resource: "performance_color_thresholds", action: "update" },
+      { resource: "performance_color_thresholds", action: "delete" },
     ];
 
     for (const perm of permissions) {
