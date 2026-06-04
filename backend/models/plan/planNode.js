@@ -70,12 +70,17 @@ module.exports = (sequelize, DataTypes) => {
                 allowNull: true,
             },
 
-            weight: {
-                type: DataTypes.FLOAT,
-                defaultValue: 0,
-            },
+      weight: {
+        type: DataTypes.FLOAT,
+        defaultValue: 0,
+      },
 
-            level: {
+      weight_mode: {
+        type: DataTypes.ENUM("number", "percentage", "frequency"),
+        allowNull: true,
+      },
+
+      level: {
                 type: DataTypes.INTEGER,
                 defaultValue: 1,
             },

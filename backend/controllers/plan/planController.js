@@ -3,12 +3,15 @@
 const {
     PlanVersion,
     PlanNode,
+    PlanRule,
+    PlanRuleStep,
     GovernmentStructure,
     sequelize,
 } = require("../../models");
 
 const { v4: uuidv4, validate: isUuid } = require("uuid");
 const { Op } = require("sequelize");
+const { validatePlanNodeAgainstRule } = require("../../services/planRuleService");
 
 /**
  * =================== PLAN VERSION CRUD ===================
@@ -18,7 +21,7 @@ const { Op } = require("sequelize");
 const createPlanVersion = async (req, res) => {
     const t = await sequelize.transaction();
     try {
-        const { year, government_structure_id, based_on_version_id } = req.body;
+        const { year, government_structure_id, based_on_version_id, plan_rule_id } = req.body;
 
         // Check if government structure exists
         const govStructure = await GovernmentStructure.findByPk(government_structure_id, { transaction: t });
@@ -59,6 +62,7 @@ const createPlanVersion = async (req, res) => {
                 status: "draft",
                 government_structure_id,
                 based_on_version_id: based_on_version_id || null,
+                plan_rule_id: plan_rule_id || null,
             },
             { transaction: t }
         );
@@ -190,6 +194,18 @@ const getPlanVersionById = async (req, res) => {
                 {
                     model: PlanVersion,
                     as: "baseVersion",
+                },
+                {
+                    model: PlanRule,
+                    as: "planRule",
+                    include: [
+                        {
+                            model: PlanRuleStep,
+                            as: "steps",
+                            separate: true,
+                            order: [["step_order", "ASC"]],
+                        },
+                    ],
                 },
                 {
                     model: PlanNode,
@@ -370,6 +386,7 @@ const createPlanNode = async (req, res) => {
             title,
             description,
             weight,
+            weight_mode,
             level,
             order,
         } = req.body;
@@ -414,15 +431,34 @@ const createPlanNode = async (req, res) => {
             nodeLevel = 1;
         }
 
+        const ruleCheck = await validatePlanNodeAgainstRule({
+            planVersionId: plan_version_id,
+            parentId: parent_id || null,
+            type,
+            weight: weight || 0,
+            weightMode: weight_mode || null,
+            level: nodeLevel,
+            transaction: t,
+        });
+
+        if (!ruleCheck.valid) {
+            await t.rollback();
+            return res.status(400).json({
+                success: false,
+                message: ruleCheck.message,
+            });
+        }
+
         const planNode = await PlanNode.create(
             {
                 plan_node_id: uuidv4(),
                 plan_version_id,
                 parent_id: parent_id || null,
-                type,
+                type: ruleCheck.nodeType || type,
                 title,
                 description,
                 weight: weight || 0,
+                weight_mode: ruleCheck.weightMode || null,
                 level: nodeLevel,
                 order: order || 0,
                 is_active: true,
@@ -552,7 +588,66 @@ const updatePlanNode = async (req, res) => {
             });
         }
 
-        await planNode.update(req.body, { transaction: t });
+        const nextType = req.body.type !== undefined ? req.body.type : planNode.type;
+        const nextWeight = req.body.weight !== undefined ? req.body.weight : planNode.weight;
+        const nextParentId =
+            req.body.parent_id !== undefined ? req.body.parent_id : planNode.parent_id;
+
+        let nextLevel = planNode.level;
+        if (req.body.level !== undefined) {
+            nextLevel = req.body.level;
+        } else if (req.body.parent_id !== undefined && nextParentId) {
+            const parentNode = await PlanNode.findByPk(nextParentId, { transaction: t });
+            if (!parentNode) {
+                await t.rollback();
+                return res.status(404).json({ message: "Parent node not found in this version" });
+            }
+            nextLevel = parentNode.level + 1;
+        } else if (req.body.parent_id !== undefined && !nextParentId) {
+            nextLevel = 1;
+        }
+
+        const nextWeightMode =
+            req.body.weight_mode !== undefined ? req.body.weight_mode : planNode.weight_mode;
+
+        let parentForRule = null;
+        if (nextParentId) {
+            parentForRule = await PlanNode.findOne({
+                where: {
+                    plan_node_id: nextParentId,
+                    plan_version_id: planNode.plan_version_id,
+                },
+                transaction: t,
+            });
+        }
+
+        const ruleCheck = await validatePlanNodeAgainstRule({
+            planVersionId: planNode.plan_version_id,
+            parentId: nextParentId,
+            type: nextType,
+            weight: nextWeight || 0,
+            weightMode: nextWeightMode,
+            level: nextLevel,
+            excludeNodeId: planNode.plan_node_id,
+            transaction: t,
+        });
+
+        if (!ruleCheck.valid) {
+            await t.rollback();
+            return res.status(400).json({
+                success: false,
+                message: ruleCheck.message,
+            });
+        }
+
+        await planNode.update(
+            {
+                ...req.body,
+                level: nextLevel,
+                weight_mode: ruleCheck.weightMode || null,
+            },
+            { transaction: t }
+        );
 
         await t.commit();
 

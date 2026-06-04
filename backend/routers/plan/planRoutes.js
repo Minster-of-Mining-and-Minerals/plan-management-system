@@ -30,6 +30,21 @@ const {
     reorderPlanNodes,
 } = require("../../controllers/plan/planController");
 
+const {
+    getPlanRules,
+    getPlanRuleById,
+    getPlanRuleForVersion,
+    createPlanRule,
+    updatePlanRule,
+    deletePlanRule,
+} = require("../../controllers/plan/planRuleController");
+
+const {
+    validateCreatePlanRule,
+    validateUpdatePlanRule,
+    validateIdParam: validateRuleIdParam,
+} = require("../../validators/plan/planRuleValidator");
+
 const { authenticateToken, checkPermission } = require("../../middlewares/authMiddleware");
 
 // Apply authentication to all routes
@@ -43,6 +58,15 @@ router.get("/versions/:id", checkPermission("PLANS", "READ"), validateIdParam, g
 router.put("/versions/:id", checkPermission("PLANS", "UPDATE"), validateIdParam, validateUpdatePlanVersion, updatePlanVersion);
 router.delete("/versions/:id", checkPermission("PLANS", "DELETE"), validateIdParam, deletePlanVersion);
 router.patch("/versions/:id/status", checkPermission("PLANS", "APPROVE"), validateIdParam, validateUpdatePlanVersionStatus, updatePlanVersionStatus);
+
+// ================= PLAN RULES =================
+
+router.get("/rules", checkPermission("PLANS", "READ"), getPlanRules);
+router.get("/rules/:id", checkPermission("PLANS", "READ"), validateRuleIdParam, getPlanRuleById);
+router.get("/versions/:versionId/rule", checkPermission("PLANS", "READ"), getPlanRuleForVersion);
+router.post("/rules", checkPermission("PLANS", "UPDATE"), validateCreatePlanRule, createPlanRule);
+router.put("/rules/:id", checkPermission("PLANS", "UPDATE"), validateRuleIdParam, validateUpdatePlanRule, updatePlanRule);
+router.delete("/rules/:id", checkPermission("PLANS", "DELETE"), validateRuleIdParam, deletePlanRule);
 
 // ================= PLAN NODES =================
 

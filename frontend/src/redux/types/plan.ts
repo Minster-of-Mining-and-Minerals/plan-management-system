@@ -9,10 +9,12 @@ export interface PlanVersion {
     status: "draft" | "active" | "completed";
     government_structure_id: string;
     based_on_version_id: string | null;
+    plan_rule_id?: string | null;
     created_at: string;
     updated_at: string;
     governmentStructure?: GovernmentStructure;
     baseVersion?: PlanVersion;
+    planRule?: PlanRule;
     planNodes?: PlanNode[];
 }
 
@@ -20,6 +22,7 @@ export interface CreatePlanVersionPayload {
     year: number;
     government_structure_id: string;
     based_on_version_id?: string | null;
+    plan_rule_id?: string | null;
 }
 
 export interface UpdatePlanVersionPayload {
@@ -28,6 +31,7 @@ export interface UpdatePlanVersionPayload {
     status?: "draft" | "active" | "completed";
     government_structure_id?: string;
     based_on_version_id?: string | null;
+    plan_rule_id?: string | null;
 }
 
 export interface UpdatePlanVersionStatusPayload {
@@ -53,6 +57,7 @@ export interface PlanNode {
     title: string;
     description: string | null;
     weight: number;
+    weight_mode: PlanRuleWeightMode | null;
     level: number;
     order: number;
     is_active: boolean;
@@ -73,6 +78,7 @@ export interface CreatePlanNodePayload {
     title: string;
     description?: string | null;
     weight?: number;
+    weight_mode?: PlanRuleWeightMode | null;
     level?: number;
     order?: number;
 }
@@ -83,6 +89,7 @@ export interface UpdatePlanNodePayload {
     title?: string;
     description?: string | null;
     weight?: number;
+    weight_mode?: PlanRuleWeightMode | null;
     level?: number;
     order?: number;
     is_active?: boolean;
@@ -106,6 +113,61 @@ export interface ReorderPlanNodesPayload {
 
 export interface PlanNodeHierarchy extends PlanNode {
     children: PlanNodeHierarchy[];
+}
+
+/**
+ * ================= PLAN RULE TYPES =================
+ */
+
+export type PlanNodeType = "strategic" | "goal" | "kpi" | "task";
+export type PlanRuleWeightMode = "number" | "percentage" | "frequency";
+
+export interface PlanRuleStep {
+    plan_rule_step_id: string;
+    plan_rule_id: string;
+    step_order: number;
+    node_type: PlanNodeType;
+    label: string;
+    requires_weight: boolean;
+    inherits_weight_from_level?: number | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface PlanRule {
+    plan_rule_id: string;
+    name: string;
+    government_structure_id: string | null;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+    steps?: PlanRuleStep[];
+    governmentStructure?: GovernmentStructure;
+}
+
+export interface PlanRuleStepInput {
+    step_order: number;
+    label: string;
+    requires_weight?: boolean;
+}
+
+export interface CreatePlanRulePayload {
+    name: string;
+    government_structure_id?: string | null;
+    is_active?: boolean;
+    steps: PlanRuleStepInput[];
+}
+
+export interface UpdatePlanRulePayload {
+    name?: string;
+    government_structure_id?: string | null;
+    is_active?: boolean;
+    steps?: PlanRuleStepInput[];
+}
+
+export interface GetPlanRulesQueryParams {
+    government_structure_id?: string;
+    is_active?: boolean;
 }
 
 /**

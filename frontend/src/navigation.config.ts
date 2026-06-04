@@ -5,7 +5,8 @@ import {
   Shield,
   Key,
   Building2,
-  ListTree
+  ListTree,
+  Scale,
 } from "lucide-react";
 
 export type NavItem = {
@@ -73,6 +74,12 @@ export const NAVIGATION: NavItem[] = [
         title: "Plan Versions",
         url: "/plans",
         icon: ListTree,
+        allPermissions: ["PLANS:READ"],
+      },
+      {
+        title: "Plan Rules",
+        url: "/plans/rules",
+        icon: Scale,
         allPermissions: ["PLANS:READ"],
       }
     ],

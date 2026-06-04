@@ -6,77 +6,95 @@ import {
     useDeletePlanNodeMutation,
     useGetPlanVersionByIdQuery,
 } from "@/redux/api/planApi";
-import { PlanNodeHierarchy, PlanNode } from "@/redux/types/plan";
+import { useGetPlanRuleForVersionQuery } from "@/redux/api/planRuleApi";
+import { PlanNodeHierarchy, PlanNode, PlanRule } from "@/redux/types/plan";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-    Plus, 
-    Edit, 
-    Trash, 
-    ChevronRight, 
-    ChevronDown, 
-    Target, 
-    Flag, 
-    BarChart3, 
+import {
+    Plus,
+    Edit,
+    Trash,
+    ChevronRight,
+    ChevronDown,
+    Target,
+    Flag,
+    BarChart3,
     CheckSquare,
     ChevronLeft,
-    Eye
+    Eye,
 } from "lucide-react";
 import { CreatePlanNodeModal } from "./modals/CreatePlanNodeModal";
 import { toast } from "sonner";
 import { useRouter, useParams } from "next/navigation";
+import {
+    canAddChild,
+    formatNodeWeight,
+    getMaxRuleDepth,
+    getStepLabel,
+    stepRequiresWeight,
+} from "@/utils/planRuleUtils";
 
 interface NodeItemProps {
     node: PlanNodeHierarchy;
     level: number;
+    rule?: PlanRule | null;
     onAddChild: (parent: PlanNode) => void;
     onEdit: (node: PlanNode) => void;
     onDelete: (id: string) => void;
 }
 
-const NodeItem = ({ node, level, onAddChild, onEdit, onDelete }: NodeItemProps) => {
+const NodeItem = ({
+    node,
+    level,
+    rule,
+    onAddChild,
+    onEdit,
+    onDelete,
+}: NodeItemProps) => {
     const [isExpanded, setIsExpanded] = useState(true);
     const hasChildren = node.children && node.children.length > 0;
     const router = useRouter();
     const params = useParams();
     const versionId = params.id as string;
+    const showAddChild = canAddChild(rule, node);
+    const levelLabel = getStepLabel(rule, node.level);
+    const nodeWeightMode = node.weight_mode;
 
     const getTypeIcon = (type: string) => {
         switch (type) {
-            case "strategic": return <Flag className="h-4 w-4 text-purple-500" />;
-            case "goal": return <Target className="h-4 w-4 text-blue-500" />;
-            case "kpi": return <BarChart3 className="h-4 w-4 text-green-500" />;
-            case "task": return <CheckSquare className="h-4 w-4 text-orange-500" />;
-            default: return null;
-        }
-    };
-
-    const getTypeLabel = (type: string) => {
-        switch (type) {
-            case "strategic": return "Strategic Focus";
-            case "goal": return "Goal";
-            case "kpi": return "KPI";
-            case "task": return "Activity";
-            default: return type;
+            case "strategic":
+                return <Flag className="h-4 w-4 text-purple-500" />;
+            case "goal":
+                return <Target className="h-4 w-4 text-blue-500" />;
+            case "kpi":
+                return <BarChart3 className="h-4 w-4 text-green-500" />;
+            case "task":
+                return <CheckSquare className="h-4 w-4 text-orange-500" />;
+            default:
+                return null;
         }
     };
 
     return (
         <div className="space-y-2">
-            <div 
-                className={`flex items-center group p-3 rounded-xl border border-gray-100 bg-white hover:border-primary/30 hover:shadow-sm transition-all duration-200 ml-${level * 4}`}
+            <div
+                className="flex items-center group p-3 rounded-xl border border-gray-100 bg-white hover:border-primary/30 hover:shadow-sm transition-all duration-200"
                 style={{ marginLeft: `${level * 24}px` }}
             >
                 <div className="flex items-center gap-3 flex-1">
-                    <button 
+                    <button
                         onClick={() => setIsExpanded(!isExpanded)}
                         className={`p-1 rounded-md hover:bg-gray-100 transition-colors ${!hasChildren && "invisible"}`}
                     >
-                        {isExpanded ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
+                        {isExpanded ? (
+                            <ChevronDown className="h-4 w-4 text-gray-400" />
+                        ) : (
+                            <ChevronRight className="h-4 w-4 text-gray-400" />
+                        )}
                     </button>
-                    
-                    <div className={`p-2 rounded-lg bg-gray-50 group-hover:bg-primary/10 transition-colors`}>
+
+                    <div className="p-2 rounded-lg bg-gray-50 group-hover:bg-primary/10 transition-colors">
                         {getTypeIcon(node.type)}
                     </div>
 
@@ -84,11 +102,14 @@ const NodeItem = ({ node, level, onAddChild, onEdit, onDelete }: NodeItemProps) 
                         <div className="flex items-center gap-2">
                             <span className="font-semibold text-gray-900">{node.title}</span>
                             <Badge variant="outline" className="text-[10px] uppercase font-bold py-0 h-4">
-                                {getTypeLabel(node.type)}
+                                {levelLabel}
                             </Badge>
-                            {node.weight > 0 && node.type !== "strategic" && (
-                                <Badge variant="secondary" className="text-[10px] py-0 h-4 bg-blue-50 text-blue-700 border-blue-100">
-                                    Weight: {node.weight}%
+                            {stepRequiresWeight(rule, node.level) && node.weight > 0 && (
+                                <Badge
+                                    variant="secondary"
+                                    className="text-[10px] py-0 h-4 bg-blue-50 text-blue-700 border-blue-100"
+                                >
+                                    Weight: {formatNodeWeight(node.weight, nodeWeightMode)}
                                 </Badge>
                             )}
                         </div>
@@ -108,15 +129,17 @@ const NodeItem = ({ node, level, onAddChild, onEdit, onDelete }: NodeItemProps) 
                     >
                         <Eye className="h-4 w-4" />
                     </Button>
-                    <Button
-                        onClick={() => onAddChild(node)}
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-primary"
-                        title="Add Child"
-                    >
-                        <Plus className="h-4 w-4" />
-                    </Button>
+                    {showAddChild && (
+                        <Button
+                            onClick={() => onAddChild(node)}
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-primary"
+                            title="Add Child"
+                        >
+                            <Plus className="h-4 w-4" />
+                        </Button>
+                    )}
                     <Button
                         onClick={() => onEdit(node)}
                         variant="ghost"
@@ -141,10 +164,11 @@ const NodeItem = ({ node, level, onAddChild, onEdit, onDelete }: NodeItemProps) 
             {isExpanded && hasChildren && (
                 <div className="space-y-2">
                     {node.children.map((child) => (
-                        <NodeItem 
-                            key={child.plan_node_id} 
-                            node={child} 
-                            level={level + 1} 
+                        <NodeItem
+                            key={child.plan_node_id}
+                            node={child}
+                            level={level + 1}
+                            rule={rule}
                             onAddChild={onAddChild}
                             onEdit={onEdit}
                             onDelete={onDelete}
@@ -159,12 +183,17 @@ const NodeItem = ({ node, level, onAddChild, onEdit, onDelete }: NodeItemProps) 
 export default function PlanHierarchyView({ versionId }: { versionId: string }) {
     const router = useRouter();
     const { data: version } = useGetPlanVersionByIdQuery(versionId);
+    const { data: rule } = useGetPlanRuleForVersionQuery(versionId);
     const { data: hierarchy = [], isLoading, refetch } = useGetPlanHierarchyQuery(versionId);
     const [deleteNode] = useDeletePlanNodeMutation();
 
     const [isModalOpen, setModalOpen] = useState(false);
     const [selectedParent, setSelectedParent] = useState<PlanNode | null>(null);
     const [selectedNode, setSelectedNode] = useState<PlanNode | null>(null);
+
+    const maxDepth = getMaxRuleDepth(rule);
+    const canAddRoot = canAddChild(rule, null);
+    const rootLabel = getStepLabel(rule, 1);
 
     const handleAddRoot = () => {
         setSelectedParent(null);
@@ -190,8 +219,9 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                 await deleteNode(id).unwrap();
                 toast.success("Node deleted successfully");
                 refetch();
-            } catch (err: any) {
-                toast.error(err.data?.message || "Failed to delete node");
+            } catch (err: unknown) {
+                const error = err as { data?: { message?: string } };
+                toast.error(error.data?.message || "Failed to delete node");
             }
         }
     };
@@ -204,9 +234,9 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <Button 
-                        variant="outline" 
-                        size="icon" 
+                    <Button
+                        variant="outline"
+                        size="icon"
                         onClick={() => router.push("/plans")}
                         className="rounded-full"
                     >
@@ -216,24 +246,34 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                         <h1 className="text-2xl font-bold text-gray-900">
                             Plan Hierarchy: {version?.year} (v{version?.version_number})
                         </h1>
-                        <p className="text-gray-500">
-                            {version?.governmentStructure?.name || "Global Structure"}
-                        </p>
+                        <div className="flex items-center gap-2 text-gray-500">
+                            <span>{version?.governmentStructure?.name || "Global Structure"}</span>
+                            {rule && (
+                                <>
+                                    <span>·</span>
+                                    <Badge variant="outline">{rule.name}</Badge>
+                                    <span className="text-xs">({maxDepth} levels)</span>
+                                </>
+                            )}
+                        </div>
                     </div>
                 </div>
-                <Button onClick={handleAddRoot} className="gap-2">
-                    <Plus className="h-4 w-4" /> Add Root Area
-                </Button>
+                {canAddRoot && (
+                    <Button onClick={handleAddRoot} className="gap-2">
+                        <Plus className="h-4 w-4" /> Add {rootLabel}
+                    </Button>
+                )}
             </div>
 
             <Card className="border-none shadow-none bg-transparent">
                 <CardContent className="p-0 space-y-4">
                     {hierarchy.length > 0 ? (
                         hierarchy.map((node) => (
-                            <NodeItem 
-                                key={node.plan_node_id} 
-                                node={node} 
-                                level={0} 
+                            <NodeItem
+                                key={node.plan_node_id}
+                                node={node}
+                                level={0}
+                                rule={rule}
                                 onAddChild={handleAddChild}
                                 onEdit={handleEdit}
                                 onDelete={handleDelete}
@@ -245,8 +285,14 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                                 <Plus className="h-6 w-6 text-gray-400" />
                             </div>
                             <h3 className="text-lg font-semibold text-gray-900">No nodes yet</h3>
-                            <p className="text-gray-500 mb-6">Start by adding a root strategic focus area to this plan version.</p>
-                            <Button onClick={handleAddRoot} variant="outline">Add First Node</Button>
+                            <p className="text-gray-500 mb-6">
+                                Start by adding the first {rootLabel.toLowerCase()} to this plan version.
+                            </p>
+                            {canAddRoot && (
+                                <Button onClick={handleAddRoot} variant="outline">
+                                    Add {rootLabel}
+                                </Button>
+                            )}
                         </div>
                     )}
                 </CardContent>

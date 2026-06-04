@@ -35,12 +35,14 @@ import {
     useGetPlanVersionsQuery,
 } from "@/redux/api/planApi";
 import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
+import { useGetPlanRulesQuery } from "@/redux/api/planRuleApi";
 import { PlanVersion } from "@/redux/types/plan";
 
-const formSchema = z.z.object({
+const formSchema = z.object({
     year: z.coerce.number().min(2020).max(2100),
     government_structure_id: z.string().uuid(),
     based_on_version_id: z.string().uuid().optional().nullable(),
+    plan_rule_id: z.string().uuid().optional().nullable(),
 });
 
 interface CreatePlanVersionModalProps {
@@ -58,6 +60,7 @@ export function CreatePlanVersionModal({
     const [updateVersion, { isLoading: isUpdating }] = useUpdatePlanVersionMutation();
     
     const { data: structures = [] } = useGetGovernmentStructuresQuery({});
+    const { data: planRules = [] } = useGetPlanRulesQuery({ is_active: true });
     const { data: existingVersions = [] } = useGetPlanVersionsQuery({});
 
     const form = useForm<z.infer<typeof formSchema>>({
@@ -66,6 +69,7 @@ export function CreatePlanVersionModal({
             year: new Date().getFullYear(),
             government_structure_id: "",
             based_on_version_id: null,
+            plan_rule_id: null,
         },
     });
 
@@ -75,12 +79,14 @@ export function CreatePlanVersionModal({
                 year: version.year,
                 government_structure_id: version.government_structure_id,
                 based_on_version_id: version.based_on_version_id,
+                plan_rule_id: version.plan_rule_id ?? null,
             });
         } else {
             form.reset({
                 year: new Date().getFullYear(),
                 government_structure_id: "",
                 based_on_version_id: null,
+                plan_rule_id: null,
             });
         }
     }, [version, form, isOpen]);
@@ -186,6 +192,39 @@ export function CreatePlanVersionModal({
                                 )}
                             />
                         )}
+
+                        <FormField
+                            control={form.control}
+                            name="plan_rule_id"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Plan Rule (Optional)</FormLabel>
+                                    <Select
+                                        onValueChange={(val) =>
+                                            field.onChange(val === "default" ? null : val)
+                                        }
+                                        value={field.value || "default"}
+                                    >
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Use default rule for structure" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="default">
+                                                Auto (structure or global default)
+                                            </SelectItem>
+                                            {planRules.map((r) => (
+                                                <SelectItem key={r.plan_rule_id} value={r.plan_rule_id}>
+                                                    {r.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
                         <DialogFooter className="mt-6">
                             <Button

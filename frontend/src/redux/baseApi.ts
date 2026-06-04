@@ -29,6 +29,7 @@ export const baseApi = createApi({
     "InternalStructures",
     "PlanVersions",
     "PlanNodes",
+    "PlanRules",
     "AssignmentActions",
     "ExternalAssignments",
     "InternalAssignments",

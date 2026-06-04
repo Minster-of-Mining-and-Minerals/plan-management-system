@@ -20,6 +20,8 @@ const createPlanVersionSchema = Joi.object({
     based_on_version_id: Joi.string().guid({ version: "uuidv4" }).allow(null, "").optional().messages({
         "string.guid": "based_on_version_id must be a valid UUID",
     }),
+
+    plan_rule_id: Joi.string().guid({ version: "uuidv4" }).allow(null, "").optional(),
 });
 
 const updatePlanVersionSchema = Joi.object({
@@ -28,6 +30,7 @@ const updatePlanVersionSchema = Joi.object({
     status: Joi.string().valid("draft", "active", "completed").optional(),
     government_structure_id: Joi.string().guid({ version: "uuidv4" }).optional(),
     based_on_version_id: Joi.string().guid({ version: "uuidv4" }).allow(null).optional(),
+    plan_rule_id: Joi.string().guid({ version: "uuidv4" }).allow(null).optional(),
 });
 
 const updatePlanVersionStatusSchema = Joi.object({
@@ -69,7 +72,9 @@ const createPlanNodeSchema = Joi.object({
 
     description: Joi.string().trim().optional().allow(null, ""),
 
-    weight: Joi.number().min(0).max(100).default(0).optional(),
+    weight: Joi.number().min(0).default(0).optional(),
+
+    weight_mode: Joi.string().valid("number", "percentage", "frequency").allow(null).optional(),
 
     level: Joi.number().integer().min(1).optional(),
 
@@ -81,7 +86,8 @@ const updatePlanNodeSchema = Joi.object({
     type: Joi.string().valid("strategic", "goal", "kpi", "task").optional(),
     title: Joi.string().trim().max(255).optional(),
     description: Joi.string().trim().optional().allow(null, ""),
-    weight: Joi.number().min(0).max(100).optional(),
+    weight: Joi.number().min(0).optional(),
+    weight_mode: Joi.string().valid("number", "percentage", "frequency").allow(null).optional(),
     level: Joi.number().integer().min(1).optional(),
     order: Joi.number().integer().min(0).optional(),
     is_active: Joi.boolean().optional(),
