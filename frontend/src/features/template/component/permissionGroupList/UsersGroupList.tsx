@@ -14,6 +14,8 @@ import { formatStatus } from "@/utils/statusFormatter";
 import { useRouter } from "next/navigation";
 import { useRemoveUserFromGroupMutation } from "@/redux/api/permissionGroupApi";
 import { toast } from "sonner";
+import { useSearchParams } from "next/navigation";
+import { matchesActiveInactiveFilter, matchesSearchQuery } from "@/utils/tableUtils";
 
 
 export interface UserTableProps {
@@ -26,10 +28,9 @@ export interface UserTableProps {
 
 export default function UsersGroupList({ sideActions, actions, users, groupId, isLoading }: UserTableProps) {
     const router = useRouter();
-
-    // Pagination states
-    const [pageIndex, setPageIndex] = useState(0);
-    const [pageSize, setPageSize] = useState(10);
+    const searchParams = useSearchParams();
+    const searchQuery = searchParams.get("search") || "";
+    const [statusFilter, setStatusFilter] = useState("");
 
     const [removeUser, { isLoading: isRemoving }] = useRemoveUserFromGroupMutation();
 
@@ -106,14 +107,6 @@ export default function UsersGroupList({ sideActions, actions, users, groupId, i
         },
     ];
 
-    const handlePagination = (index: number, size: number) => {
-        setPageIndex(index);
-        setPageSize(size);
-    };
-
-    // Filters
-    const [statusFilter, setStatusFilter] = useState("");
-
     const filters: FilterField[] = [
         {
             key: "status",
@@ -130,10 +123,9 @@ export default function UsersGroupList({ sideActions, actions, users, groupId, i
     ];
 
     // Apply filters locally
-    const filteredData = users.filter((u) => {
-        if (statusFilter === "active") return u.is_active === true;
-        if (statusFilter === "inactive") return u.is_active === false;
-        return true;
+    const filteredData = users.filter((user) => {
+        if (!matchesActiveInactiveFilter(statusFilter, user.is_active)) return false;
+        return matchesSearchQuery(searchQuery, [user.full_name, user.email, user.phone_number]);
     });
 
     return (
@@ -147,13 +139,10 @@ export default function UsersGroupList({ sideActions, actions, users, groupId, i
                 <DataTable
                     columns={columns}
                     data={filteredData}
-                    totalPageCount={Math.ceil(filteredData.length / pageSize)}
-                    handlePagination={handlePagination}
-                    tablePageSize={pageSize}
-                    currentIndex={pageIndex}
                     isLoading={isLoading || isRemoving}
+                    resetKey={`${searchQuery}-${statusFilter}-${groupId}-${users.length}`}
                 />
             </TableLayout>
         </div>
     );
-} 
+} 

@@ -16,10 +16,12 @@ import { PlanRule } from "@/redux/types/plan";
 import { toast } from "sonner";
 import { CreatePlanRuleModal } from "./modals/CreatePlanRuleModal";
 import { getWeightStartLevel, sortSteps } from "@/utils/planRuleUtils";
+import { useSearchParams } from "next/navigation";
+import { matchesSearchQuery } from "@/utils/tableUtils";
 
 export default function PlanRulesTable() {
-    const [pageIndex, setPageIndex] = useState(0);
-    const [pageSize, setPageSize] = useState(10);
+    const searchParams = useSearchParams();
+    const searchQuery = searchParams.get("search") || "";
     const [selectedRule, setSelectedRule] = useState<PlanRule | null>(null);
     const [isModalOpen, setModalOpen] = useState(false);
 
@@ -125,10 +127,12 @@ export default function PlanRulesTable() {
         },
     ];
 
-    const handlePagination = (index: number, size: number) => {
-        setPageIndex(index);
-        setPageSize(size);
-    };
+    const filteredRules = rules.filter((rule) =>
+        matchesSearchQuery(searchQuery, [
+            rule.name,
+            rule.governmentStructure?.name,
+        ])
+    );
 
     return (
         <>
@@ -140,12 +144,9 @@ export default function PlanRulesTable() {
             >
                 <DataTable
                     columns={columns}
-                    data={rules}
-                    totalPageCount={Math.ceil(rules.length / pageSize)}
-                    handlePagination={handlePagination}
-                    tablePageSize={pageSize}
-                    currentIndex={pageIndex}
+                    data={filteredRules}
                     isLoading={isLoading}
+                    resetKey={searchQuery}
                 />
             </TableLayout>
 

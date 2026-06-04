@@ -14,6 +14,8 @@ import { formatStatus } from "@/utils/statusFormatter";
 import { useRouter } from "next/navigation";
 import { useRemoveStructureFromGroupMutation } from "@/redux/api/permissionGroupApi";
 import { toast } from "sonner";
+import { useSearchParams } from "next/navigation";
+import { matchesActiveInactiveFilter, matchesSearchQuery } from "@/utils/tableUtils";
 
 export interface GovernmentStructuresGroupListProps {
     sideActions?: ActionButton[];
@@ -25,10 +27,9 @@ export interface GovernmentStructuresGroupListProps {
 
 export default function GovernmentStructuresGroupList({ sideActions, actions, structures, groupId, isLoading }: GovernmentStructuresGroupListProps) {
     const router = useRouter();
-
-    // Pagination states
-    const [pageIndex, setPageIndex] = useState(0);
-    const [pageSize, setPageSize] = useState(10);
+    const searchParams = useSearchParams();
+    const searchQuery = searchParams.get("search") || "";
+    const [statusFilter, setStatusFilter] = useState("");
 
     const [removeStructure, { isLoading: isRemoving }] = useRemoveStructureFromGroupMutation();
 
@@ -109,14 +110,6 @@ export default function GovernmentStructuresGroupList({ sideActions, actions, st
         },
     ];
 
-    const handlePagination = (index: number, size: number) => {
-        setPageIndex(index);
-        setPageSize(size);
-    };
-
-    // Filters
-    const [statusFilter, setStatusFilter] = useState("");
-
     const filters: FilterField[] = [
         {
             key: "status",
@@ -133,9 +126,8 @@ export default function GovernmentStructuresGroupList({ sideActions, actions, st
     ];
 
     const filteredData = structures.filter((item) => {
-        if (statusFilter === "active") return item.is_active === true;
-        if (statusFilter === "inactive") return item.is_active === false;
-        return true;
+        if (!matchesActiveInactiveFilter(statusFilter, item.is_active)) return false;
+        return matchesSearchQuery(searchQuery, [item.name, item.code]);
     });
 
     return (
@@ -149,11 +141,8 @@ export default function GovernmentStructuresGroupList({ sideActions, actions, st
                 <DataTable
                     columns={columns}
                     data={filteredData}
-                    totalPageCount={Math.ceil(filteredData.length / pageSize)}
-                    handlePagination={handlePagination}
-                    tablePageSize={pageSize}
-                    currentIndex={pageIndex}
                     isLoading={isLoading || isRemoving}
+                    resetKey={`${searchQuery}-${statusFilter}-${groupId}-${structures.length}`}
                 />
             </TableLayout>
         </div>

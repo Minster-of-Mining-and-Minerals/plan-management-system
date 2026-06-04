@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { DataTable } from "@/features/template/component/DataTable";
-import { TableLayout } from "@/features/template/component/TableLayout";
+import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { TableLayout } from "@/features/template/component/tableList/TableLayout";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,11 +15,16 @@ import { useRouter } from "next/navigation";
 import { Edit, Trash2 } from "lucide-react";
 import { useDeleteRoleMutation } from "@/redux/api/roleApi";
 import { toast } from "sonner";
+import { useSearchParams } from "next/navigation";
+import { matchesActiveInactiveFilter, matchesSearchQuery } from "@/utils/tableUtils";
 
 export default function RoleList() {
   const { data = [], isLoading, isError, refetch } = useGetRolesQuery();
   const [deleteRole] = useDeleteRoleMutation();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const searchQuery = searchParams.get("search") || "";
+  const [statusFilter, setStatusFilter] = useState("");
 
   const columns: ColumnDef<Role>[] = [
     {
@@ -84,17 +89,7 @@ export default function RoleList() {
     },
   ];
 
-  // Pagination states
-  const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
-
-  const handlePagination = (index: number, size: number) => {
-    setPageIndex(index);
-    setPageSize(size);
-  };
-
   // Filters
-  const [statusFilter, setStatusFilter] = useState("");
 
   const filters: FilterField[] = [
     {
@@ -127,18 +122,10 @@ export default function RoleList() {
     },
   ];
 
-  // Apply filters locally (client-side)
   const filteredData = data.filter((role) => {
-    if (statusFilter === "active") return role.is_active === true;
-    if (statusFilter === "inactive") return role.is_active === false;
-    return true;
+    if (!matchesActiveInactiveFilter(statusFilter, role.is_active)) return false;
+    return matchesSearchQuery(searchQuery, [role.name, role.description]);
   });
-
-  // Pagination slice
-  const paginatedData = filteredData.slice(
-    pageIndex * pageSize,
-    pageIndex * pageSize + pageSize
-  );
 
   return (
     <TableLayout
@@ -150,11 +137,9 @@ export default function RoleList() {
     >
       <DataTable
         columns={columns}
-        data={paginatedData}
-        totalPageCount={Math.ceil(filteredData.length / pageSize)}
-        handlePagination={handlePagination}
-        tablePageSize={pageSize}
-        currentIndex={pageIndex}
+        data={filteredData}
+        isLoading={isLoading}
+        resetKey={`${searchQuery}-${statusFilter}`}
       />
     </TableLayout>
   );

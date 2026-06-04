@@ -20,6 +20,7 @@ import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { CreateGovernmentStructureModal } from "./modals/CreateGovernmentStructureModal";
 import GovernmentHierarchyD3Tree from "./GovernmentStructureHierarchy";
+import { matchesActiveInactiveFilter } from "@/utils/tableUtils";
 
 export default function GovernmentStructureTable() {
     const [toggleHierarchyView, setToggleHierarchyView] = useState(false);
@@ -27,9 +28,7 @@ export default function GovernmentStructureTable() {
     const searchQuery = searchParams.get("search") || "";
     const router = useRouter();
 
-    // Pagination states
-    const [pageIndex, setPageIndex] = useState(0);
-    const [pageSize, setPageSize] = useState(10);
+    const [statusFilter, setStatusFilter] = useState("");
 
     const [deleteStructure] = useDeleteGovernmentStructureMutation();
     const [selectedStructure, setSelectedStructure] = useState<GovernmentStructure | null>(null);
@@ -148,14 +147,6 @@ export default function GovernmentStructureTable() {
         }
     };
 
-    const handlePagination = (index: number, size: number) => {
-        setPageIndex(index);
-        setPageSize(size);
-    };
-
-    // Filters
-    const [statusFilter, setStatusFilter] = useState("");
-
     const filters: FilterField[] = [
         {
             key: "status",
@@ -185,11 +176,9 @@ export default function GovernmentStructureTable() {
         },
     ];
 
-    const filteredData = structures.filter((item) => {
-        if (statusFilter === "active") return item.is_active === true;
-        if (statusFilter === "inactive") return item.is_active === false;
-        return true;
-    });
+    const filteredData = structures.filter((item) =>
+        matchesActiveInactiveFilter(statusFilter, item.is_active)
+    );
 
     return (
         <>
@@ -207,10 +196,8 @@ export default function GovernmentStructureTable() {
                     <DataTable
                         columns={columns}
                         data={filteredData}
-                        totalPageCount={Math.ceil(filteredData.length / pageSize)}
-                        handlePagination={handlePagination}
-                        tablePageSize={pageSize}
-                        currentIndex={pageIndex}
+                        isLoading={isLoading}
+                        resetKey={`${searchQuery}-${statusFilter}-${toggleHierarchyView}`}
                     />
                 ) : (
                     <GovernmentHierarchyD3Tree data={filteredData} type="government" />

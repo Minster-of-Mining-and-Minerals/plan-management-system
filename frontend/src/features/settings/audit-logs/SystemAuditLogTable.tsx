@@ -8,13 +8,6 @@ import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import type { FilterField } from "@/types/tableLayout";
 import { useGetSystemAuditLogsQuery } from "@/redux/api/systemAuditLogApi";
 import type { SystemAuditLog } from "@/redux/types/systemAuditLog";
@@ -27,16 +20,17 @@ import { SystemAuditLogDetailModal } from "./SystemAuditLogDetailModal";
 export default function SystemAuditLogTable() {
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get("search") || "";
-
-  const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
   const [moduleFilter, setModuleFilter] = useState("");
   const [actionFilter, setActionFilter] = useState("");
   const [selectedLog, setSelectedLog] = useState<SystemAuditLog | null>(null);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+
+  const resetKey = `${searchQuery}-${moduleFilter}-${actionFilter}`;
 
   useEffect(() => {
     setPageIndex(0);
-  }, [searchQuery, moduleFilter, actionFilter]);
+  }, [resetKey]);
 
   const { data: response, isLoading } = useGetSystemAuditLogsQuery({
     page: pageIndex + 1,
@@ -47,7 +41,7 @@ export default function SystemAuditLogTable() {
   });
 
   const logs = response?.data ?? [];
-  const totalPages = response?.meta?.totalPages ?? 1;
+  const totalRows = response?.meta?.total ?? 0;
 
   const columns: ColumnDef<SystemAuditLog>[] = [
     {
@@ -69,17 +63,13 @@ export default function SystemAuditLogTable() {
     {
       accessorKey: "action",
       header: "Action",
-      cell: ({ row }) => (
-        <Badge className="capitalize">{row.original.action}</Badge>
-      ),
+      cell: ({ row }) => <Badge className="capitalize">{row.original.action}</Badge>,
     },
     {
       accessorKey: "entity_label",
       header: "Entity",
       cell: ({ row }) => (
-        <span className="font-medium text-primary">
-          {row.original.entity_label ?? "—"}
-        </span>
+        <span className="font-medium text-primary">{row.original.entity_label ?? "—"}</span>
       ),
     },
     {
@@ -105,18 +95,45 @@ export default function SystemAuditLogTable() {
       id: "actions",
       header: "Actions",
       cell: ({ row }) => (
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setSelectedLog(row.original)}
-        >
+        <Button variant="ghost" size="icon" onClick={() => setSelectedLog(row.original)}>
           <Eye className="h-4 w-4" />
         </Button>
       ),
     },
   ];
 
-  const filters: FilterField[] = [];
+  const filters: FilterField[] = [
+    {
+      key: "module",
+      label: "Module",
+      type: "select",
+      placeholder: "All modules",
+      value: moduleFilter || "all",
+      onChange: (value: string) => setModuleFilter(value === "all" ? "" : value),
+      options: [
+        { label: "All modules", value: "all" },
+        ...SYSTEM_AUDIT_MODULE_OPTIONS.map((o) => ({
+          label: o.label,
+          value: o.value,
+        })),
+      ],
+    },
+    {
+      key: "action",
+      label: "Action",
+      type: "select",
+      placeholder: "All actions",
+      value: actionFilter || "all",
+      onChange: (value: string) => setActionFilter(value === "all" ? "" : value),
+      options: [
+        { label: "All actions", value: "all" },
+        ...SYSTEM_AUDIT_ACTION_OPTIONS.map((o) => ({
+          label: o.label,
+          value: o.value,
+        })),
+      ],
+    },
+  ];
 
   return (
     <>
@@ -126,52 +143,19 @@ export default function SystemAuditLogTable() {
         filters={filters}
         filterColumnsPerRow={2}
       >
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <Select
-            value={moduleFilter || "all"}
-            onValueChange={(value) => setModuleFilter(value === "all" ? "" : value)}
-          >
-            <SelectTrigger className="w-52">
-              <SelectValue placeholder="All modules" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All modules</SelectItem>
-              {SYSTEM_AUDIT_MODULE_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={actionFilter || "all"}
-            onValueChange={(value) => setActionFilter(value === "all" ? "" : value)}
-          >
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="All actions" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All actions</SelectItem>
-              {SYSTEM_AUDIT_ACTION_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
         <DataTable
           columns={columns}
-          data={isLoading ? [] : logs}
-          totalPageCount={totalPages}
-          handlePagination={(index, size) => {
+          data={logs}
+          isLoading={isLoading}
+          paginationMode="server"
+          totalRowCount={totalRows}
+          pageIndex={pageIndex}
+          pageSize={pageSize}
+          onPaginationChange={(index, size) => {
             setPageIndex(index);
             setPageSize(size);
           }}
-          tablePageSize={pageSize}
-          currentIndex={pageIndex}
+          resetKey={resetKey}
         />
       </TableLayout>
 

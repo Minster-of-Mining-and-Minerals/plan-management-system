@@ -80,6 +80,9 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
     const [isInternalModalOpen, setInternalModalOpen] = useState(false);
     const [isExternalModalOpen, setExternalModalOpen] = useState(false);
 
+    const assignmentRows =
+        activeTab === "internal" ? internalAssignments : externalAssignments;
+
     const getTypeIcon = (type: string) => {
         switch (type) {
             case "strategic": return <Flag className="h-5 w-5 text-purple-500" />;
@@ -405,12 +408,9 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                 >
                     <DataTable
                         columns={activeTab === "internal" ? internalColumns : externalColumns}
-                        data={activeTab === "internal" ? internalAssignments : externalAssignments}
-                        totalPageCount={1}
-                        handlePagination={() => {}}
-                        tablePageSize={100}
-                        currentIndex={0}
+                        data={assignmentRows}
                         isLoading={isInternalLoading || isExternalLoading || isDeletingInternal || isDeletingExternal || isOptionsLoading}
+                        resetKey={`${activeTab}-${showHistory}-${assignmentRows.length}`}
                     />
                 </TableLayout>
             </div>

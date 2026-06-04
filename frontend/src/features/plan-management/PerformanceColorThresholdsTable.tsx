@@ -140,7 +140,6 @@ export default function PerformanceColorThresholdsTable() {
           columns={columns}
           data={thresholds}
           isLoading={isLoading}
-          pageSize={10}
         />
       </TableLayout>
 

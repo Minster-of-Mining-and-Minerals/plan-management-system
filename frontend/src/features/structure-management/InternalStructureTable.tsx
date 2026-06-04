@@ -20,6 +20,7 @@ import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { CreateInternalStructureModal } from "./modals/CreateInternalStructureModal";
 import InternalHierarchyD3Tree from "./InternalStructureHierarchy";
+import { matchesActiveInactiveFilter } from "@/utils/tableUtils";
 
 export interface InternalStructureTableProps {
     sideActions?: ActionButton[];
@@ -34,9 +35,7 @@ export default function InternalStructureTable({ forced_government_structure_id,
     const searchQuery = searchParams.get("search") || "";
     const router = useRouter();
 
-    // Pagination states
-    const [pageIndex, setPageIndex] = useState(0);
-    const [pageSize, setPageSize] = useState(10);
+    const [statusFilter, setStatusFilter] = useState("");
 
     const [deleteStructure] = useDeleteInternalStructureMutation();
     const [selectedStructure, setSelectedStructure] = useState<InternalStructure | null>(null);
@@ -156,14 +155,6 @@ export default function InternalStructureTable({ forced_government_structure_id,
         }
     };
 
-    const handlePagination = (index: number, size: number) => {
-        setPageIndex(index);
-        setPageSize(size);
-    };
-
-    // Filters
-    const [statusFilter, setStatusFilter] = useState("");
-
     const filters: FilterField[] = [
         {
             key: "status",
@@ -193,11 +184,9 @@ export default function InternalStructureTable({ forced_government_structure_id,
         },
     ];
 
-    const filteredData = structures.filter((item) => {
-        if (statusFilter === "active") return item.is_active === true;
-        if (statusFilter === "inactive") return item.is_active === false;
-        return true;
-    });
+    const filteredData = structures.filter((item) =>
+        matchesActiveInactiveFilter(statusFilter, item.is_active)
+    );
 
     return (
         <>
@@ -215,11 +204,8 @@ export default function InternalStructureTable({ forced_government_structure_id,
                 {!toggleHierarchyView ? (<DataTable
                     columns={columns}
                     data={filteredData}
-                    totalPageCount={Math.ceil(filteredData.length / pageSize)}
-                    handlePagination={handlePagination}
-                    tablePageSize={pageSize}
-                    currentIndex={pageIndex}
-                // isLoading={isLoading}
+                    isLoading={isLoading}
+                    resetKey={`${searchQuery}-${statusFilter}-${toggleHierarchyView}-${forced_government_structure_id}-${forced_parent_id}`}
                 />) : (
                     <InternalHierarchyD3Tree
                         data={filteredData}

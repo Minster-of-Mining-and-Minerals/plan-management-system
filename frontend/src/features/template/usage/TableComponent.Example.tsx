@@ -126,16 +126,7 @@ const columns: ColumnDef<Evaluation>[] = [
 ];
 
 const TableComponentExample = () => {
-  const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
   const [vehicleFilter, setVehicleFilter] = useState("");
-
-  const handlePagination = (index: number, size: number) => {
-    setPageIndex(index);
-    setPageSize(size);
-  };
-
-  // Filters
   const filters: FilterField[] = [
     {
       key: "vehicle",
@@ -180,10 +171,7 @@ const TableComponentExample = () => {
       <DataTable
         columns={columns}
         data={mockEvaluations}
-        totalPageCount={Math.ceil(mockEvaluations.length / pageSize)}
-        handlePagination={handlePagination}
-        tablePageSize={pageSize}
-        currentIndex={pageIndex}
+        resetKey={vehicleFilter}
       />
     </TableLayout>
   );

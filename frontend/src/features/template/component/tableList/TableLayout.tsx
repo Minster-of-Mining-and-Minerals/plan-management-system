@@ -141,13 +141,12 @@ export const TableLayout: React.FC<PageLayoutProps> = ({
                 </SelectContent>
               </Select>
             )}
-            {/* Filters */}
-            {/* {filters.length > 0 && (
+            {filters.length > 0 && (
               <FilterPopover
                 filters={filters}
                 columnsPerRow={filterColumnsPerRow}
               />
-            )} */}
+            )}
 
             {filteredActions.length > 0 && (
               <div className="flex items-center space-x-2">

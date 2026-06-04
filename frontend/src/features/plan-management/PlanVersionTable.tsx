@@ -19,15 +19,16 @@ import { formatStatus } from "@/utils/statusFormatter";
 import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CreatePlanVersionModal } from "./modals/CreatePlanVersionModal";
+import {
+  matchesMultiValueFilter,
+  matchesSearchQuery,
+} from "@/utils/tableUtils";
 
 export default function PlanVersionTable() {
     const searchParams = useSearchParams();
     const searchQuery = searchParams.get("search") || "";
     const router = useRouter();
-
-    // Pagination states
-    const [pageIndex, setPageIndex] = useState(0);
-    const [pageSize, setPageSize] = useState(10);
+    const [statusFilter, setStatusFilter] = useState("");
 
     const [deleteVersion] = useDeletePlanVersionMutation();
     const [updateStatus] = useUpdatePlanVersionStatusMutation();
@@ -176,13 +177,6 @@ export default function PlanVersionTable() {
         }
     };
 
-    const handlePagination = (index: number, size: number) => {
-        setPageIndex(index);
-        setPageSize(size);
-    };
-
-    const [statusFilter, setStatusFilter] = useState("");
-
     const filters: FilterField[] = [
         {
             key: "status",
@@ -212,10 +206,13 @@ export default function PlanVersionTable() {
     ];
 
     const filteredData = versions.filter((item) => {
-        if (statusFilter && statusFilter !== "") {
-            return item.status === statusFilter;
-        }
-        return true;
+        if (!matchesMultiValueFilter(statusFilter, item.status)) return false;
+        return matchesSearchQuery(searchQuery, [
+            String(item.year),
+            String(item.version_number),
+            item.governmentStructure?.name,
+            item.status,
+        ]);
     });
 
     return (
@@ -230,11 +227,8 @@ export default function PlanVersionTable() {
                 <DataTable
                     columns={columns}
                     data={filteredData}
-                    totalPageCount={Math.ceil(filteredData.length / pageSize)}
-                    handlePagination={handlePagination}
-                    tablePageSize={pageSize}
-                    currentIndex={pageIndex}
-                    // isLoading={isLoading}
+                    isLoading={isLoading}
+                    resetKey={`${searchQuery}-${statusFilter}`}
                 />
             </TableLayout>
             <CreatePlanVersionModal
