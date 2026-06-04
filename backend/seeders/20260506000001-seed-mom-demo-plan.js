@@ -5,14 +5,9 @@ const { v4: uuidv4 } = require("uuid");
 /** Fixed IDs for idempotent re-runs */
 const IDS = {
   MOM_GOV: "10000000-0000-4000-8000-000000000001",
-  EGS_GOV: "10000000-0000-4000-8000-000000000002",
+  GIE_GOV: "10000000-0000-4000-8000-000000000003",
   PLAN_VERSION: "20000000-0000-4000-8000-000000000001",
   DEFAULT_PLAN_RULE: "60000000-0000-4000-8000-000000000001",
-  DEPT_POLICY: "30000000-0000-4000-8000-000000000001",
-  DEPT_LICENSING: "30000000-0000-4000-8000-000000000002",
-  DEPT_GEOLOGY: "30000000-0000-4000-8000-000000000003",
-  DEPT_SAFETY: "30000000-0000-4000-8000-000000000004",
-  DEPT_HR: "30000000-0000-4000-8000-000000000005",
   STRATEGIC: "40000000-0000-4000-8000-000000000001",
   GOAL_1: "40000000-0000-4000-8000-000000000011",
   GOAL_2: "40000000-0000-4000-8000-000000000012",
@@ -65,6 +60,18 @@ function node(id, planVersionId, parentId, type, title, description, weight, lev
   };
 }
 
+async function findDepartmentId(queryInterface, governmentStructureId, name) {
+  const rows = await queryInterface.sequelize.query(
+    `SELECT internal_structure_id FROM internal_structures
+     WHERE government_structure_id = :govId AND name = :name LIMIT 1`,
+    {
+      replacements: { govId: governmentStructureId, name },
+      type: queryInterface.sequelize.QueryTypes.SELECT,
+    }
+  );
+  return rows[0]?.internal_structure_id ?? null;
+}
+
 module.exports = {
   async up(queryInterface) {
     const now = new Date();
@@ -82,81 +89,51 @@ module.exports = {
       return;
     }
 
-    // ── Government structures ──────────────────────────────────────────
-    await queryInterface.bulkInsert("government_structures", [
+    const momExists = await queryInterface.sequelize.query(
+      `SELECT government_structure_id FROM government_structures WHERE government_structure_id = :id LIMIT 1`,
       {
-        government_structure_id: IDS.MOM_GOV,
-        parent_id: null,
-        name: "Ministry of Mines",
-        level: 1,
-        is_active: true,
-        created_at: now,
-        updated_at: now,
-      },
-      {
-        government_structure_id: IDS.EGS_GOV,
-        parent_id: IDS.MOM_GOV,
-        name: "Ethiopian Geological Survey",
-        level: 2,
-        is_active: true,
-        created_at: now,
-        updated_at: now,
-      },
-    ]);
+        replacements: { id: IDS.MOM_GOV },
+        type: queryInterface.sequelize.QueryTypes.SELECT,
+      }
+    );
 
-    // ── Departments (internal structures) ──────────────────────────────
-    await queryInterface.bulkInsert("internal_structures", [
-      {
-        internal_structure_id: IDS.DEPT_POLICY,
-        government_structure_id: IDS.MOM_GOV,
-        parent_id: null,
-        name: "Policy & Strategic Planning Directorate",
-        level: 1,
-        is_active: true,
-        created_at: now,
-        updated_at: now,
-      },
-      {
-        internal_structure_id: IDS.DEPT_LICENSING,
-        government_structure_id: IDS.MOM_GOV,
-        parent_id: null,
-        name: "Mineral Licensing & Administration Directorate",
-        level: 1,
-        is_active: true,
-        created_at: now,
-        updated_at: now,
-      },
-      {
-        internal_structure_id: IDS.DEPT_GEOLOGY,
-        government_structure_id: IDS.MOM_GOV,
-        parent_id: null,
-        name: "Geological Survey & Data Management Division",
-        level: 1,
-        is_active: true,
-        created_at: now,
-        updated_at: now,
-      },
-      {
-        internal_structure_id: IDS.DEPT_SAFETY,
-        government_structure_id: IDS.MOM_GOV,
-        parent_id: null,
-        name: "Mine Safety & Environmental Compliance Directorate",
-        level: 1,
-        is_active: true,
-        created_at: now,
-        updated_at: now,
-      },
-      {
-        internal_structure_id: IDS.DEPT_HR,
-        government_structure_id: IDS.MOM_GOV,
-        parent_id: null,
-        name: "Human Resource & Capacity Building Directorate",
-        level: 1,
-        is_active: true,
-        created_at: now,
-        updated_at: now,
-      },
-    ]);
+    if (momExists.length === 0) {
+      console.log(
+        "Ministry of Mines structure not found. Run organizational hierarchy seeder first (20260505500001)."
+      );
+      return;
+    }
+
+    const deptLicensing = await findDepartmentId(
+      queryInterface,
+      IDS.MOM_GOV,
+      "Mining Licensing Directorate"
+    );
+    const deptPolicy = await findDepartmentId(
+      queryInterface,
+      IDS.MOM_GOV,
+      "Strategic Planning Directorate"
+    );
+    const deptSafety = await findDepartmentId(
+      queryInterface,
+      IDS.MOM_GOV,
+      "Environmental Compliance Directorate"
+    );
+    const deptHr = await findDepartmentId(
+      queryInterface,
+      IDS.MOM_GOV,
+      "Human Resources Directorate"
+    );
+    const deptGeology = await findDepartmentId(
+      queryInterface,
+      IDS.GIE_GOV,
+      "Field Survey Department"
+    );
+
+    if (!deptLicensing || !deptPolicy || !deptSafety || !deptHr || !deptGeology) {
+      console.warn("Required departments missing — skipping demo plan assignments.");
+      return;
+    }
 
     // ── Plan version ───────────────────────────────────────────────────
     await queryInterface.bulkInsert("plan_versions", [
@@ -521,19 +498,19 @@ module.exports = {
     }
 
     const taskAssignments = [
-      { taskId: TASK_IDS[0], deptId: IDS.DEPT_LICENSING, action: "EXECUTION" },
-      { taskId: TASK_IDS[1], deptId: IDS.DEPT_LICENSING, action: "EXECUTION" },
-      { taskId: TASK_IDS[2], deptId: IDS.DEPT_POLICY, action: "MONITORING_REPORTING" },
-      { taskId: TASK_IDS[3], deptId: IDS.DEPT_LICENSING, action: "EXECUTION" },
-      { taskId: TASK_IDS[5], deptId: IDS.DEPT_GEOLOGY, action: "EXECUTION" },
-      { taskId: TASK_IDS[6], deptId: IDS.DEPT_GEOLOGY, action: "EXECUTION" },
-      { taskId: TASK_IDS[7], deptId: IDS.DEPT_GEOLOGY, action: "EXECUTION" },
-      { taskId: TASK_IDS[9], deptId: IDS.DEPT_SAFETY, action: "EXECUTION" },
-      { taskId: TASK_IDS[10], deptId: IDS.DEPT_SAFETY, action: "APPROVAL" },
-      { taskId: TASK_IDS[11], deptId: IDS.DEPT_SAFETY, action: "EXECUTION" },
-      { taskId: TASK_IDS[13], deptId: IDS.DEPT_HR, action: "EXECUTION" },
-      { taskId: TASK_IDS[14], deptId: IDS.DEPT_HR, action: "EXECUTION" },
-      { taskId: TASK_IDS[15], deptId: IDS.DEPT_POLICY, action: "EXECUTION" },
+      { taskId: TASK_IDS[0], deptId: deptLicensing, action: "EXECUTION" },
+      { taskId: TASK_IDS[1], deptId: deptLicensing, action: "EXECUTION" },
+      { taskId: TASK_IDS[2], deptId: deptPolicy, action: "MONITORING_REPORTING" },
+      { taskId: TASK_IDS[3], deptId: deptLicensing, action: "EXECUTION" },
+      { taskId: TASK_IDS[5], deptId: deptGeology, action: "EXECUTION" },
+      { taskId: TASK_IDS[6], deptId: deptGeology, action: "EXECUTION" },
+      { taskId: TASK_IDS[7], deptId: deptGeology, action: "EXECUTION" },
+      { taskId: TASK_IDS[9], deptId: deptSafety, action: "EXECUTION" },
+      { taskId: TASK_IDS[10], deptId: deptSafety, action: "APPROVAL" },
+      { taskId: TASK_IDS[11], deptId: deptSafety, action: "EXECUTION" },
+      { taskId: TASK_IDS[13], deptId: deptHr, action: "EXECUTION" },
+      { taskId: TASK_IDS[14], deptId: deptHr, action: "EXECUTION" },
+      { taskId: TASK_IDS[15], deptId: deptPolicy, action: "EXECUTION" },
     ];
 
     const internalAssignments = taskAssignments.map(({ taskId, deptId, action }) => ({
@@ -548,12 +525,12 @@ module.exports = {
 
     await queryInterface.bulkInsert("internal_assignments", internalAssignments);
 
-    // ── External assignment: EGS supports geological KPI ───────────────
+    // ── External assignment: GIE supports geological KPI ───────────────
     await queryInterface.bulkInsert("external_assignments", [
       {
         external_assignment_id: uuidv4(),
         plan_node_id: KPI_IDS.G2_K1,
-        government_structure_id: IDS.EGS_GOV,
+        government_structure_id: IDS.GIE_GOV,
         is_visible: true,
         requires_report: true,
         created_at: now,
@@ -591,20 +568,6 @@ module.exports = {
 
     await queryInterface.bulkDelete("plan_versions", {
       plan_version_id: pv,
-    });
-
-    await queryInterface.bulkDelete("internal_structures", {
-      internal_structure_id: [
-        IDS.DEPT_POLICY,
-        IDS.DEPT_LICENSING,
-        IDS.DEPT_GEOLOGY,
-        IDS.DEPT_SAFETY,
-        IDS.DEPT_HR,
-      ],
-    });
-
-    await queryInterface.bulkDelete("government_structures", {
-      government_structure_id: [IDS.MOM_GOV, IDS.EGS_GOV],
     });
   },
 };
