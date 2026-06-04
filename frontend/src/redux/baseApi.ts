@@ -35,6 +35,7 @@ export const baseApi = createApi({
     "InternalAssignments",
     "ActionLogs",
     "PerformanceColorThresholds",
+    "PlanAssignmentOptions",
   ],
   endpoints: () => ({}),
 });

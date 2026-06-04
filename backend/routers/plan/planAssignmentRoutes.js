@@ -31,6 +31,7 @@ const {
     // Internal Assignments
     createInternalAssignment,
     getInternalAssignmentsByNode,
+    getPlanNodeAssignmentOptions,
     getAssignmentsByUser,
     updateInternalAssignment,
     deleteInternalAssignment,
@@ -63,6 +64,7 @@ router.delete("/external/:id", checkPermission("PLAN_ASSIGNMENTS", "DELETE"), va
 // ================= INTERNAL ASSIGNMENTS =================
 
 router.post("/internal", checkPermission("PLAN_ASSIGNMENTS", "CREATE"), validateCreateInternalAssignment, createInternalAssignment);
+router.get("/options/node/:plan_node_id", checkPermission("PLAN_ASSIGNMENTS", "READ"), validateNodeIdParam, getPlanNodeAssignmentOptions);
 router.get("/internal/node/:plan_node_id", checkPermission("PLAN_ASSIGNMENTS", "READ"), validateNodeIdParam, getInternalAssignmentsByNode);
 router.get("/internal/user/:user_id", checkPermission("PLAN_ASSIGNMENTS", "READ"), validateUserIdParam, getAssignmentsByUser);
 router.put("/internal/:id", checkPermission("PLAN_ASSIGNMENTS", "UPDATE"), validateIdParam, validateUpdateInternalAssignment, updateInternalAssignment);
@@ -76,4 +78,4 @@ router.get("/logs/:id", checkPermission("ACTION_LOGS", "READ"), validateIdParam,
 router.patch("/logs/:id/status", checkPermission("ACTION_LOGS", "UPDATE"), validateIdParam, validateUpdateActionLogStatus, updateActionLogStatus);
 router.get("/logs/node/:plan_node_id/summary", checkPermission("ACTION_LOGS", "READ"), validateNodeIdParam, getNodeActionSummary);
 
-module.exports = router;
+module.exports = router;

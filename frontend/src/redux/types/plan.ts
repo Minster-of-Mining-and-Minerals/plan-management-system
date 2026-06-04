@@ -207,6 +207,53 @@ export interface GetAssignmentActionsQueryParams {
     type?: "approval" | "execution" | "reporting";
 }
 
+export interface PlanNodeAssignmentOptionSector {
+    government_structure_id: string;
+    name: string;
+    level: number;
+    parent_id: string | null;
+}
+
+export interface PlanNodeAssignmentOptionDepartment {
+    internal_structure_id: string;
+    name: string;
+    level: number;
+    parent_id: string | null;
+    government_structure_id: string;
+}
+
+export interface PlanNodeAssignmentOptionUser {
+    user_id: string;
+    full_name: string;
+    email: string;
+    government_structure_id: string | null;
+    internal_structure_id: string | null;
+}
+
+export interface PlanNodeAssignmentParentContext {
+    type: "sector" | "department" | "user";
+    label?: string;
+    government_structure_id?: string | null;
+    internal_structure_id?: string;
+    user_id?: string;
+}
+
+export interface PlanNodeAssignmentOptions {
+    plan_node_id: string;
+    level: number;
+    assignment_mode: "external" | "internal";
+    can_assign: boolean;
+    in_user_branch: boolean;
+    allow_sector: boolean;
+    allow_department: boolean;
+    allow_user: boolean;
+    parent_context: PlanNodeAssignmentParentContext | null;
+    sectors: PlanNodeAssignmentOptionSector[];
+    departments: PlanNodeAssignmentOptionDepartment[];
+    users: PlanNodeAssignmentOptionUser[];
+    message: string | null;
+}
+
 /**
  * ================= EXTERNAL ASSIGNMENT TYPES =================
  */

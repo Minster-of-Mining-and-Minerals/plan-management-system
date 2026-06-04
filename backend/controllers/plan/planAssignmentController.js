@@ -15,6 +15,11 @@ const {
 
 const { v4: uuidv4, validate: isUuid } = require("uuid");
 const { Op } = require("sequelize");
+const {
+    getAssignmentOptionsForNode,
+    validateExternalAssignmentTarget,
+    validateInternalAssignmentTarget,
+} = require("../../services/planAssignmentHierarchyService");
 
 /**
  * =================== PLAN ASSIGNMENT ACTIONS (Master Data) ===================
@@ -110,6 +115,19 @@ const createExternalAssignment = async (req, res) => {
         if (!govStructure) {
             await t.rollback();
             return res.status(404).json({ message: "Government structure not found" });
+        }
+
+        const hierarchyError = await validateExternalAssignmentTarget(
+            planNode,
+            government_structure_id,
+            t
+        );
+        if (hierarchyError) {
+            await t.rollback();
+            return res.status(400).json({
+                success: false,
+                message: hierarchyError,
+            });
         }
 
         const assignment = await ExternalAssignment.create(
@@ -325,6 +343,19 @@ const createInternalAssignment = async (req, res) => {
                 await t.rollback();
                 return res.status(404).json({ message: "User not found" });
             }
+        }
+
+        const hierarchyError = await validateInternalAssignmentTarget(
+            planNode,
+            { internal_structure_id, user_id },
+            t
+        );
+        if (hierarchyError) {
+            await t.rollback();
+            return res.status(400).json({
+                success: false,
+                message: hierarchyError,
+            });
         }
 
         const assignment = await InternalAssignment.create(
@@ -786,6 +817,30 @@ const getNodeActionSummary = async (req, res) => {
     }
 };
 
+// Get hierarchical assignment options for a plan node
+const getPlanNodeAssignmentOptions = async (req, res) => {
+    try {
+        const { plan_node_id } = req.params;
+
+        if (!isUuid(plan_node_id)) {
+            return res.status(400).json({ message: "Invalid node ID format" });
+        }
+
+        const options = await getAssignmentOptionsForNode(plan_node_id);
+
+        return res.json({
+            success: true,
+            data: options,
+        });
+    } catch (error) {
+        const status = error.status || 500;
+        return res.status(status).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
 module.exports = {
     // Assignment Actions
     createAssignmentAction,
@@ -801,6 +856,7 @@ module.exports = {
     createInternalAssignment,
     getInternalAssignmentsByNode,
     getAssignmentsByUser,
+    getPlanNodeAssignmentOptions,
     updateInternalAssignment,
     deleteInternalAssignment,
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
     useGetPlanNodeByIdQuery,
@@ -11,6 +11,7 @@ import {
     useGetExternalAssignmentsByNodeQuery,
     useDeleteInternalAssignmentMutation,
     useDeleteExternalAssignmentMutation,
+    useGetPlanNodeAssignmentOptionsQuery,
 } from "@/redux/api/planAssignmentApi";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -53,6 +54,17 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
     const { data: node, isLoading: isNodeLoading } = useGetPlanNodeByIdQuery(nodeId);
     const { data: internalAssignments = [], isLoading: isInternalLoading } = useGetInternalAssignmentsByNodeQuery(nodeId);
     const { data: externalAssignments = [], isLoading: isExternalLoading } = useGetExternalAssignmentsByNodeQuery(nodeId);
+    const { data: assignmentOptions, isLoading: isOptionsLoading } = useGetPlanNodeAssignmentOptionsQuery(nodeId);
+
+    const isExternalMode = assignmentOptions?.assignment_mode === "external";
+    const showInternalTab = !isExternalMode;
+    const showExternalTab = isExternalMode;
+
+    useEffect(() => {
+        if (assignmentOptions) {
+            setActiveTab(assignmentOptions.assignment_mode === "external" ? "external" : "internal");
+        }
+    }, [assignmentOptions?.assignment_mode, nodeId]);
 
     // Mutations
     const [deleteInternal, { isLoading: isDeletingInternal }] = useDeleteInternalAssignmentMutation();
@@ -115,7 +127,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                     </div>
                     <div>
                         <p className="font-semibold text-gray-900">
-                            {row.original.user?.name || row.original.internalStructure?.name}
+                            {row.original.user?.full_name || row.original.internalStructure?.name}
                         </p>
                         <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">
                             {row.original.user_id ? "User" : "Department"}
@@ -217,28 +229,32 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
     ];
 
     const sideActions: ActionButton[] = [
-        {
-            label: `Users & Departments (${internalAssignments.length})`,
-            icon: <Users className="h-4 w-4" />,
-            variant: activeTab === "internal" ? "default" : "outline",
-            onClick: () => setActiveTab("internal"),
-        },
-        {
-            label: `External Sectors (${externalAssignments.length})`,
-            icon: <Building2 className="h-4 w-4" />,
-            variant: activeTab === "external" ? "default" : "outline",
-            onClick: () => setActiveTab("external"),
-        },
+        ...(showInternalTab
+            ? [{
+                label: `Users & Departments (${internalAssignments.length})`,
+                icon: <Users className="h-4 w-4" />,
+                variant: activeTab === "internal" ? "default" as const : "outline" as const,
+                onClick: () => setActiveTab("internal"),
+            }]
+            : []),
+        ...(showExternalTab
+            ? [{
+                label: `Sector (${externalAssignments.length})`,
+                icon: <Building2 className="h-4 w-4" />,
+                variant: activeTab === "external" ? "default" as const : "outline" as const,
+                onClick: () => setActiveTab("external"),
+            }]
+            : []),
     ];
 
-    const actions: ActionButton[] = [
-        {
-            label: activeTab === "internal" ? "Assign User/Department" : "Assign External Sector",
+    const actions: ActionButton[] = assignmentOptions?.can_assign
+        ? [{
+            label: activeTab === "internal" ? "Assign User/Department" : "Assign Sector",
             icon: <UserPlus className="h-4 w-4" />,
-            variant: "default",
+            variant: "default" as const,
             onClick: () => activeTab === "internal" ? setInternalModalOpen(true) : setExternalModalOpen(true),
-        },
-    ];
+        }]
+        : [];
 
     if (isNodeLoading) {
         return <div className="p-8 text-center">Loading node details...</div>;
@@ -301,6 +317,19 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
             {/* Togglable Table Section */}
             <div className="w-full bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
                 <h3 className="text-xl font-bold text-golden-dark mb-4 px-2">Assignments</h3>
+
+                {assignmentOptions?.message && !assignmentOptions.can_assign && (
+                    <div className="mb-4 mx-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                        {assignmentOptions.message}
+                    </div>
+                )}
+
+                {assignmentOptions?.in_user_branch && assignmentOptions.can_assign && (
+                    <div className="mb-4 mx-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                        User branch active: deeper levels can only be assigned to users within this sector.
+                    </div>
+                )}
+
                 <TableLayout
                     actions={actions}
                     sideActions={sideActions}
@@ -313,7 +342,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                         handlePagination={() => {}}
                         tablePageSize={100}
                         currentIndex={0}
-                        isLoading={isInternalLoading || isExternalLoading || isDeletingInternal || isDeletingExternal}
+                        isLoading={isInternalLoading || isExternalLoading || isDeletingInternal || isDeletingExternal || isOptionsLoading}
                     />
                 </TableLayout>
             </div>

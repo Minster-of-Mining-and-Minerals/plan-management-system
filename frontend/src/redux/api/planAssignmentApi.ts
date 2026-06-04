@@ -14,6 +14,7 @@ import {
     UpdateActionLogStatusPayload,
     GetActionLogsQueryParams,
     NodeActionSummary,
+    PlanNodeAssignmentOptions,
 } from "../types/plan";
 
 export const planAssignmentApi = baseApi.injectEndpoints({
@@ -28,6 +29,12 @@ export const planAssignmentApi = baseApi.injectEndpoints({
             }),
             transformResponse: (response: any): PlanAssignmentAction[] => response.data ?? [],
             providesTags: ["AssignmentActions"],
+        }),
+
+        getPlanNodeAssignmentOptions: builder.query<PlanNodeAssignmentOptions, string>({
+            query: (nodeId) => `/plan-assignments/options/node/${nodeId}`,
+            transformResponse: (response: any): PlanNodeAssignmentOptions => response.data,
+            providesTags: (_r, _e, nodeId) => [{ type: "PlanAssignmentOptions", id: nodeId }],
         }),
 
         /**
@@ -51,6 +58,7 @@ export const planAssignmentApi = baseApi.injectEndpoints({
             transformResponse: (response: any): ExternalAssignment => response.data,
             invalidatesTags: (_result, _error, { plan_node_id }) => [
                 { type: "ExternalAssignments", id: plan_node_id },
+                { type: "PlanAssignmentOptions", id: plan_node_id },
             ],
         }),
 
@@ -61,6 +69,7 @@ export const planAssignmentApi = baseApi.injectEndpoints({
             }),
             invalidatesTags: (_result, _error, { nodeId }) => [
                 { type: "ExternalAssignments", id: nodeId },
+                { type: "PlanAssignmentOptions", id: nodeId },
             ],
         }),
 
@@ -85,6 +94,7 @@ export const planAssignmentApi = baseApi.injectEndpoints({
             transformResponse: (response: any): InternalAssignment => response.data,
             invalidatesTags: (_result, _error, { plan_node_id }) => [
                 { type: "InternalAssignments", id: plan_node_id },
+                { type: "PlanAssignmentOptions", id: plan_node_id },
             ],
         }),
 
@@ -95,6 +105,7 @@ export const planAssignmentApi = baseApi.injectEndpoints({
             }),
             invalidatesTags: (_result, _error, { nodeId }) => [
                 { type: "InternalAssignments", id: nodeId },
+                { type: "PlanAssignmentOptions", id: nodeId },
             ],
         }),
 
@@ -140,6 +151,7 @@ export const planAssignmentApi = baseApi.injectEndpoints({
 
 export const {
     useGetAssignmentActionsQuery,
+    useGetPlanNodeAssignmentOptionsQuery,
     useGetExternalAssignmentsByNodeQuery,
     useCreateExternalAssignmentMutation,
     useDeleteExternalAssignmentMutation,
