@@ -3,6 +3,7 @@ import { setupListeners } from "@reduxjs/toolkit/query";
 import { baseApi } from "./baseApi";
 import authReducer from "./slices/authSlice";
 import "@/redux/api/planRuleApi";
+import "@/redux/api/notificationApi";
 export const store = configureStore({
   reducer: {
     [baseApi.reducerPath]: baseApi.reducer,

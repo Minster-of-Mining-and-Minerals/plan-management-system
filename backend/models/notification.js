@@ -1,37 +1,20 @@
 "use strict";
+
 const { Model } = require("sequelize");
 
 module.exports = (sequelize, DataTypes) => {
   class Notification extends Model {
     static associate(models) {
- // here these are realtionships so when you create these models uncomment the below
+      Notification.belongsTo(models.User, {
+        foreignKey: "recipient_id",
+        as: "recipient",
+      });
 
- 
-    //   this.belongsTo(models.InternalUser, {
-    //     foreignKey: "recipient_id",
-    //     constraints: false,
-    //     as: "internalRecipient",
-    //   });
-
-    //   this.belongsTo(models.ExternalUser, {
-    //     foreignKey: "recipient_id",
-    //     constraints: false,
-    //     as: "externalRecipient",
-    //   });
-
-    
-      
-    //   this.belongsTo(models.Issue, {
-    //     foreignKey: "related_entity_id",
-    //     constraints: false,
-    //     as: "issue",
-    //   });
-
-    //   this.belongsTo(models.Project, {
-    //     foreignKey: "related_entity_id",
-    //     constraints: false,
-    //     as: "project",
-    //   });
+      Notification.belongsTo(models.NotificationTemplate, {
+        foreignKey: "template_code",
+        targetKey: "template_code",
+        as: "template",
+      });
     }
   }
 
@@ -39,20 +22,27 @@ module.exports = (sequelize, DataTypes) => {
     {
       notification_id: {
         type: DataTypes.UUID,
-        primaryKey: true,
         defaultValue: DataTypes.UUIDV4,
+        primaryKey: true,
         allowNull: false,
       },
       recipient_id: {
         type: DataTypes.UUID,
         allowNull: false,
       },
-      recipient_type: {
-        type: DataTypes.STRING(50),
+      template_code: {
+        type: DataTypes.STRING(80),
+        allowNull: true,
+      },
+      category: {
+        type: DataTypes.ENUM("plans", "assignments", "system", "logs"),
         allowNull: false,
-        validate: {
-          isIn: [["internal", "external"]],
-        },
+        defaultValue: "system",
+      },
+      notification_type: {
+        type: DataTypes.STRING(80),
+        allowNull: false,
+        defaultValue: "general",
       },
       title: {
         type: DataTypes.STRING(255),
@@ -68,6 +58,23 @@ module.exports = (sequelize, DataTypes) => {
       },
       related_entity_id: {
         type: DataTypes.UUID,
+        allowNull: true,
+      },
+      link_path: {
+        type: DataTypes.STRING(500),
+        allowNull: true,
+      },
+      icon_variant: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+      },
+      priority: {
+        type: DataTypes.ENUM("low", "normal", "high"),
+        allowNull: false,
+        defaultValue: "normal",
+      },
+      metadata: {
+        type: DataTypes.JSONB,
         allowNull: true,
       },
       is_read: {

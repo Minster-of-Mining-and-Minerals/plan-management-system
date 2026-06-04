@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
-import { Bell, CalendarClock, ClipboardList, ShieldAlert, CheckCheck } from "lucide-react";
+import { CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,42 +11,26 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   useGetNotificationsQuery,
+  useGetUnreadNotificationCountQuery,
   useMarkAllNotificationsReadMutation,
   useMarkNotificationReadMutation,
   type AppNotification,
 } from "@/redux/api/notificationApi";
+import {
+  NotificationCategoryTabs,
+  NotificationEmptyState,
+  NotificationListItem,
+  NotificationCategory,
+  NOTIFICATION_CATEGORY_OPTIONS,
+  resolveNotificationLink,
+} from "@/features/notifications";
+import { Bell } from "lucide-react";
 
-const CATEGORY_OPTIONS = [
-  { key: "appointments" as const, label: "Appointments", icon: CalendarClock },
-  { key: "system" as const, label: "System", icon: ShieldAlert },
-  { key: "logs" as const, label: "Logs", icon: ClipboardList },
-];
-
-function iconForCategory(category?: AppNotification["category"]) {
-  const option = CATEGORY_OPTIONS.find((x) => x.key === category);
-  const Icon = option?.icon || Bell;
-  return <Icon className="h-4 w-4" />;
-}
-
-function formatWhen(iso: string) {
-  return new Date(iso).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-export default function TemplateNotificationDropdown({
-  notificationCount = 0,
-}: {
-  notificationCount?: number;
-}) {
+export default function TemplateNotificationDropdown() {
   const router = useRouter();
-  const [activeCategory, setActiveCategory] = useState<
-    "appointments" | "system" | "logs"
-  >("appointments");
+  const [activeCategory, setActiveCategory] = useState<NotificationCategory>("plans");
 
+  const { data: unreadData } = useGetUnreadNotificationCountQuery();
   const { data: notifications = [], isLoading } = useGetNotificationsQuery({
     category: activeCategory,
   });
@@ -54,7 +38,8 @@ export default function TemplateNotificationDropdown({
   const [markAllRead, { isLoading: markingAll }] =
     useMarkAllNotificationsReadMutation();
 
-  const unread = useMemo(
+  const unreadTotal = unreadData?.count ?? 0;
+  const unreadInCategory = useMemo(
     () => notifications.filter((n) => !n.is_read).length,
     [notifications]
   );
@@ -63,11 +48,9 @@ export default function TemplateNotificationDropdown({
     if (!notification.is_read) {
       await markRead(notification.notification_id);
     }
-    if (
-      notification.related_entity_type === "appointment" &&
-      notification.related_entity_id
-    ) {
-      router.push(`/appointments/${notification.related_entity_id}`);
+    const link = resolveNotificationLink(notification);
+    if (link) {
+      router.push(link);
       return;
     }
     router.push("/notifications");
@@ -78,9 +61,9 @@ export default function TemplateNotificationDropdown({
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="size-5" />
-          {notificationCount > 0 && (
+          {unreadTotal > 0 && (
             <span className="absolute text-white font-bold -top-1 -right-1 flex size-5 items-center justify-center rounded-full bg-destructive text-[10px] text-destructive-foreground">
-              {notificationCount > 9 ? "9+" : notificationCount}
+              {unreadTotal > 9 ? "9+" : unreadTotal}
             </span>
           )}
           <span className="sr-only">Notifications</span>
@@ -89,12 +72,12 @@ export default function TemplateNotificationDropdown({
       <DropdownMenuContent align="end" className="w-[360px] p-0">
         <div className="flex items-center justify-between border-b px-3 py-2">
           <p className="text-sm font-semibold">Notifications</p>
-          {unread > 0 && (
+          {unreadInCategory > 0 && (
             <Button
               variant="ghost"
               size="sm"
               disabled={markingAll}
-              onClick={() => markAllRead()}
+              onClick={() => markAllRead({ category: activeCategory })}
               className="h-7 px-2 text-xs"
             >
               <CheckCheck className="mr-1 h-3 w-3" />
@@ -103,8 +86,8 @@ export default function TemplateNotificationDropdown({
           )}
         </div>
 
-        <div className="flex gap-1 border-b px-2 py-2">
-          {CATEGORY_OPTIONS.map((option) => {
+        <div className="flex gap-1 border-b px-2 py-2 overflow-x-auto">
+          {NOTIFICATION_CATEGORY_OPTIONS.map((option) => {
             const Icon = option.icon;
             const active = option.key === activeCategory;
             return (
@@ -112,7 +95,7 @@ export default function TemplateNotificationDropdown({
                 key={option.key}
                 size="sm"
                 variant={active ? "default" : "ghost"}
-                className="h-7 text-xs"
+                className="h-7 text-xs shrink-0"
                 onClick={() => setActiveCategory(option.key)}
               >
                 <Icon className="mr-1 h-3 w-3" />
@@ -128,35 +111,15 @@ export default function TemplateNotificationDropdown({
               Loading notifications...
             </div>
           ) : notifications.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-              No notifications in this category.
-            </div>
+            <NotificationEmptyState message="No notifications in this category." />
           ) : (
             notifications.slice(0, 10).map((n) => (
-              <button
+              <NotificationListItem
                 key={n.notification_id}
-                type="button"
-                onClick={() => handleOpen(n)}
-                className={`w-full border-b px-3 py-3 text-left transition hover:bg-muted/40 ${
-                  !n.is_read ? "bg-primary/5" : ""
-                }`}
-              >
-                <div className="flex items-start gap-2">
-                  <div className="mt-0.5 text-muted-foreground">
-                    {iconForCategory(n.category)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{n.title}</p>
-                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                      {n.message}
-                    </p>
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      {formatWhen(n.created_at)}
-                    </p>
-                  </div>
-                  {!n.is_read && <span className="mt-1 size-2 rounded-full bg-primary" />}
-                </div>
-              </button>
+                notification={n}
+                onOpen={handleOpen}
+                compact
+              />
             ))
           )}
         </div>
@@ -174,4 +137,3 @@ export default function TemplateNotificationDropdown({
     </DropdownMenu>
   );
 }
-

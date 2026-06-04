@@ -2,18 +2,15 @@
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { NavUser } from "./nav-user";
-import { Button } from "@/components/ui/button";
-import { Bell } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import TemplateNotificationDropdown from "@/features/notifications/TemplateNotificationDropdown";
 
 interface HeaderProps {
   title?: string;
 }
 
-
 export function Header({ title }: HeaderProps) {
   const { user } = useAuth();
-  const notificationCount = 3; // Replace with actual notification count
 
   const userData = {
     name: user?.full_name || "Guest",
@@ -26,16 +23,7 @@ export function Header({ title }: HeaderProps) {
       <SidebarTrigger className="-ml-1" />
       {title && <h1 className="text-lg font-semibold">{title}</h1>}
       <div className="ml-auto flex items-center gap-2">
-        {/* Notification Button */}
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="size-5" />
-          {notificationCount > 0 && (
-            <span className="absolute text-white font-bold -top-1 -right-1 flex size-5 items-center justify-center rounded-full bg-destructive text-[10px]  text-destructive-foreground">
-              {notificationCount > 9 ? "9+" : notificationCount}
-            </span>
-          )}
-          <span className="sr-only">Notifications</span>
-        </Button>
+        <TemplateNotificationDropdown />
         <NavUser user={userData} />
       </div>
     </header>
