@@ -4,6 +4,7 @@ import { baseApi } from "./baseApi";
 import authReducer from "./slices/authSlice";
 import "./api/patientApi";
 import "./api/medicalDiagramApi";
+import "./api/clinicalSuggestionApi";
 
 export const store = configureStore({
   reducer: {

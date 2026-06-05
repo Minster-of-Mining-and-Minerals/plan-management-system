@@ -29,6 +29,17 @@ export interface FormFieldConfig {
   canvas_source_type?: "library" | "custom";
   diagram_id?: string;
   custom_image_url?: string;
+  /** Enable smart clinical text suggestions (default: on for text fields). */
+  clinical_suggestions?: boolean;
+  suggestion_category?:
+    | "diagnosis"
+    | "assessment"
+    | "plan"
+    | "prescription"
+    | "referral"
+    | "procedure"
+    | "certificate"
+    | "general";
 }
 
 export interface FormField {

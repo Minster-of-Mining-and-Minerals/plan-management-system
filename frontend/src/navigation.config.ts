@@ -13,6 +13,7 @@ import {
   CalendarCheck,
   Stethoscope,
   ImageIcon,
+  Sparkles,
   Inbox,
   Pill,
   Store,
@@ -156,6 +157,16 @@ export const NAVIGATION: NavItem[] = [
       "DIAGNOSIS_FORMS:READ",
       "DIAGNOSIS_FORMS:CREATE",
       "DIAGNOSIS_FORMS:UPDATE",
+    ],
+  },
+  {
+    title: "Clinical Suggestions",
+    url: "/clinical-suggestions",
+    icon: Sparkles,
+    anyPermissions: [
+      "CLINICAL_SUGGESTION:MANAGE",
+      "CLINICAL_SUGGESTION:CREATE",
+      "CLINICAL_SUGGESTION:UPDATE",
     ],
   },
   {

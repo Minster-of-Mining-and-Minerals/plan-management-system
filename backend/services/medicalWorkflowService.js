@@ -9,6 +9,7 @@ const diagnosisFormConfigService = require("./diagnosisFormConfigService");
 const appointmentService = require("./appointmentService");
 const notificationService = require("./notificationService");
 const { listUsersWithPermission } = require("./userPermissionService");
+const clinicalSuggestionService = require("./clinicalSuggestionService");
 
 const logIncludes = [
   {
@@ -371,6 +372,16 @@ async function submitWorkflowEntry(staffId, payload) {
     }
 
     await t.commit();
+
+    if (logFormData && typeof logFormData === "object") {
+      clinicalSuggestionService
+        .learnFromFormData({
+          formData: logFormData,
+          userId: staffId,
+          defaultCategory: "general",
+        })
+        .catch(() => {});
+    }
 
     const full = await db.MedicalHistoryLog.findByPk(log.log_id, {
       include: logIncludes,

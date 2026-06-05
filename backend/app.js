@@ -39,6 +39,7 @@ const prescriptionTemplateRoutes = require("./routers/prescription/prescriptionT
 const prescriptionDocumentTemplateRoutes = require("./routers/prescription/prescriptionDocumentTemplateRoutes");
 const medicalCertificateRoutes = require("./routers/medicalCertificate/medicalCertificateRoutes");
 const medicalCertificateTemplateRoutes = require("./routers/medicalCertificate/medicalCertificateTemplateRoutes");
+const clinicalSuggestionRoutes = require("./routers/clinical/clinicalSuggestionRoutes");
 const prescriptionRoutes = require("./routers/prescription/prescriptionRoutes");
 const notificationRoutes = require("./routers/notification/notificationRoutes");
 const pharmacyRoutes = require("./routers/pharmacy/pharmacyRoutes");
@@ -159,6 +160,7 @@ app.use("/api/prescription-document-templates", prescriptionDocumentTemplateRout
 app.use("/api/prescriptions", prescriptionRoutes);
 app.use("/api/medical-certificate-templates", medicalCertificateTemplateRoutes);
 app.use("/api/medical-certificates", medicalCertificateRoutes);
+app.use("/api/clinical-suggestions", clinicalSuggestionRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/pharmacies", pharmacyRoutes);
 app.use("/api/pharmacy-portal", pharmacyPortalRoutes);

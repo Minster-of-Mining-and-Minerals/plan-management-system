@@ -5,6 +5,12 @@ import { useMemo } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { SuggestionTextarea } from "@/components/clinical-suggestions/SuggestionTextarea";
+import { SuggestionInput } from "@/components/clinical-suggestions/SuggestionInput";
+import {
+  inferSuggestionCategory,
+  shouldEnableClinicalSuggestions,
+} from "@/lib/clinicalSuggestionField";
 import {
   Select,
   SelectContent,
@@ -41,6 +47,8 @@ interface DynamicUserFormFieldsProps {
   onChange: (key: string, value: unknown) => void;
   onFileSelect?: (key: string, file: File | null) => void;
   disabled?: boolean;
+  /** Master switch for clinical suggestions on text fields (default true). */
+  enableClinicalSuggestions?: boolean;
 }
 
 function FieldGrid({
@@ -50,6 +58,7 @@ function FieldGrid({
   onChange,
   onFileSelect,
   disabled,
+  enableClinicalSuggestions = true,
 }: {
   fields: FormField[];
   values: DynamicFormValues;
@@ -57,6 +66,7 @@ function FieldGrid({
   onChange: (key: string, value: unknown) => void;
   onFileSelect?: (key: string, file: File | null) => void;
   disabled: boolean;
+  enableClinicalSuggestions?: boolean;
 }) {
   const visibleFields = useMemo(
     () =>
@@ -85,20 +95,39 @@ function FieldGrid({
             </Label>
 
             {field.field_type === "input" && (
-              <Input
-                type={
-                  config.pattern === "email"
-                    ? "email"
-                    : config.pattern === "phone"
-                      ? "tel"
-                      : "text"
-                }
-                placeholder={config.placeholder}
-                value={String(values[field.field_key] ?? "")}
-                onChange={(e) => onChange(field.field_key, e.target.value)}
-                disabled={disabled}
-                className="h-12 border-section-accent"
-              />
+              (() => {
+                const useSuggestions =
+                  enableClinicalSuggestions &&
+                  shouldEnableClinicalSuggestions(field) &&
+                  config.pattern !== "email" &&
+                  config.pattern !== "phone";
+                const common = {
+                  placeholder: config.placeholder,
+                  value: String(values[field.field_key] ?? ""),
+                  onChange: (v: string) => onChange(field.field_key, v),
+                  disabled,
+                  category: inferSuggestionCategory(field),
+                  className: "h-12 border-section-accent",
+                };
+                return useSuggestions ? (
+                  <SuggestionInput {...common} />
+                ) : (
+                  <Input
+                    type={
+                      config.pattern === "email"
+                        ? "email"
+                        : config.pattern === "phone"
+                          ? "tel"
+                          : "text"
+                    }
+                    placeholder={config.placeholder}
+                    value={String(values[field.field_key] ?? "")}
+                    onChange={(e) => onChange(field.field_key, e.target.value)}
+                    disabled={disabled}
+                    className="h-12 border-section-accent"
+                  />
+                );
+              })()
             )}
 
             {field.field_type === "number" && (
@@ -169,22 +198,43 @@ function FieldGrid({
             )}
 
             {field.field_type === "richtext" && (
-              <Textarea
-                value={String(values[field.field_key] ?? "")}
-                placeholder={config.placeholder}
-                onChange={(e) => onChange(field.field_key, e.target.value)}
-                disabled={disabled}
-                className="h-24 border-section-accent resize-none"
-              />
+              enableClinicalSuggestions && shouldEnableClinicalSuggestions(field) ? (
+                <SuggestionTextarea
+                  value={String(values[field.field_key] ?? "")}
+                  placeholder={config.placeholder}
+                  onChange={(v) => onChange(field.field_key, v)}
+                  disabled={disabled}
+                  category={inferSuggestionCategory(field)}
+                  className="h-24 border-section-accent resize-none"
+                />
+              ) : (
+                <Textarea
+                  value={String(values[field.field_key] ?? "")}
+                  placeholder={config.placeholder}
+                  onChange={(e) => onChange(field.field_key, e.target.value)}
+                  disabled={disabled}
+                  className="h-24 border-section-accent resize-none"
+                />
+              )
             )}
 
             {field.field_type === "textarea" && (
-              <Textarea
-                value={String(values[field.field_key] ?? "")}
-                onChange={(e) => onChange(field.field_key, e.target.value)}
-                disabled={disabled}
-                className="h-24 border-section-accent resize-none"
-              />
+              enableClinicalSuggestions && shouldEnableClinicalSuggestions(field) ? (
+                <SuggestionTextarea
+                  value={String(values[field.field_key] ?? "")}
+                  onChange={(v) => onChange(field.field_key, v)}
+                  disabled={disabled}
+                  category={inferSuggestionCategory(field)}
+                  className="h-24 border-section-accent resize-none"
+                />
+              ) : (
+                <Textarea
+                  value={String(values[field.field_key] ?? "")}
+                  onChange={(e) => onChange(field.field_key, e.target.value)}
+                  disabled={disabled}
+                  className="h-24 border-section-accent resize-none"
+                />
+              )
             )}
 
             {field.field_type === "select" && !config.multiple && (
@@ -342,6 +392,7 @@ export function DynamicUserFormFields({
   onChange,
   onFileSelect,
   disabled = false,
+  enableClinicalSuggestions = true,
 }: DynamicUserFormFieldsProps) {
   const flatFields = useMemo(
     () => (grouped ? flattenFormFields(grouped) : fields || []),
@@ -374,6 +425,7 @@ export function DynamicUserFormFields({
         onChange={onChange}
         onFileSelect={onFileSelect}
         disabled={disabled}
+        enableClinicalSuggestions={enableClinicalSuggestions}
       />
     );
   }
@@ -392,6 +444,7 @@ export function DynamicUserFormFields({
             onChange={onChange}
             onFileSelect={onFileSelect}
             disabled={disabled}
+            enableClinicalSuggestions={enableClinicalSuggestions}
           />
         </section>
       )}
@@ -408,6 +461,7 @@ export function DynamicUserFormFields({
             onChange={onChange}
             onFileSelect={onFileSelect}
             disabled={disabled}
+            enableClinicalSuggestions={enableClinicalSuggestions}
           />
         </section>
       ))}
@@ -424,6 +478,7 @@ export function DynamicUserFormFields({
             onChange={onChange}
             onFileSelect={onFileSelect}
             disabled={disabled}
+            enableClinicalSuggestions={enableClinicalSuggestions}
           />
         </section>
       ))}

@@ -7,6 +7,8 @@ import { AppointmentSidePanelShell } from "@/features/medical-workflow/component
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SuggestionTextarea } from "@/components/clinical-suggestions/SuggestionTextarea";
+import { SuggestionInput } from "@/components/clinical-suggestions/SuggestionInput";
 import {
   Select,
   SelectContent,
@@ -376,11 +378,12 @@ export function PrescriptionCreationPanel({
                   value={item.duration || ""}
                   onChange={(e) => updateItem(index, "duration", e.target.value)}
                 />
-                <Input
-                  className="sm:col-span-2"
+                <SuggestionInput
+                  className="sm:col-span-2 h-10"
                   placeholder="Instructions"
                   value={item.instructions || ""}
-                  onChange={(e) => updateItem(index, "instructions", e.target.value)}
+                  onChange={(v) => updateItem(index, "instructions", v)}
+                  category="prescription"
                 />
               </div>
             ))}
@@ -389,10 +392,11 @@ export function PrescriptionCreationPanel({
 
         <div className="space-y-2">
           <Label>Clinical notes</Label>
-          <textarea
-            className="min-h-[4rem] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+          <SuggestionTextarea
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            onChange={setNotes}
+            category="prescription"
+            className="min-h-[4rem] resize-none"
           />
         </div>
 

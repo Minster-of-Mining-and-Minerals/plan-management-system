@@ -56,6 +56,7 @@ export const baseApi = createApi({
     "PharmacyPortal",
     "MedicalCertificateTemplate",
     "MedicalCertificate",
+    "ClinicalSuggestion",
   ],
   endpoints: () => ({}),
 });

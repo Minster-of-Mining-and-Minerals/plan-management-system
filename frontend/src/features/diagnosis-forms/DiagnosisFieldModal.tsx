@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { FormField, FormFieldType, FormFieldStepGroup } from "@/redux/types/formField";
+import type { ClinicalSuggestionCategory } from "@/redux/api/clinicalSuggestionApi";
 import {
   useCreateDiagnosisFieldMutation,
   useUpdateDiagnosisFieldMutation,
@@ -90,6 +91,9 @@ export function DiagnosisFieldModal({
   const [canvasSourceType, setCanvasSourceType] = useState<"library" | "custom">("library");
   const [diagramId, setDiagramId] = useState("");
   const [customImageUrl, setCustomImageUrl] = useState("");
+  const [clinicalSuggestions, setClinicalSuggestions] = useState(true);
+  const [suggestionCategory, setSuggestionCategory] =
+    useState<ClinicalSuggestionCategory>("general");
 
   const { data: libraryDiagrams = [] } = useListMedicalDiagramsQuery(undefined, {
     skip: fieldType !== "canvas_annotation",
@@ -112,6 +116,11 @@ export function DiagnosisFieldModal({
       setCanvasSourceType(field.config?.canvas_source_type || "library");
       setDiagramId(field.config?.diagram_id || "");
       setCustomImageUrl(field.config?.custom_image_url || "");
+      setClinicalSuggestions(field.config?.clinical_suggestions !== false);
+      setSuggestionCategory(
+        (field.config?.suggestion_category as ClinicalSuggestionCategory) ||
+          "general"
+      );
     } else {
       setGroupId(groups[0]?.group_id || "");
       setFieldKey("");
@@ -127,10 +136,13 @@ export function DiagnosisFieldModal({
       setCanvasSourceType("library");
       setDiagramId("");
       setCustomImageUrl("");
+      setClinicalSuggestions(true);
+      setSuggestionCategory("general");
     }
   }, [field, open, groups]);
 
   const needsOptions = ["select", "checkbox", "radio"].includes(fieldType);
+  const supportsSuggestions = ["input", "textarea", "richtext"].includes(fieldType);
 
   const handleSubmit = async () => {
     const config: Record<string, unknown> = {};
@@ -151,6 +163,12 @@ export function DiagnosisFieldModal({
         .map((s) => s.trim().replace(/^\./, ""))
         .filter(Boolean);
       if (types.length) config.allowed_types = types;
+    }
+    if (supportsSuggestions) {
+      config.clinical_suggestions = clinicalSuggestions;
+      if (clinicalSuggestions) {
+        config.suggestion_category = suggestionCategory;
+      }
     }
     if (fieldType === "canvas_annotation") {
       if (fieldDescription) config.description = fieldDescription;
@@ -363,6 +381,55 @@ export function DiagnosisFieldModal({
                   Comma-separated extensions (without dots).
                 </p>
               </div>
+            </>
+          )}
+          {supportsSuggestions && (
+            <>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Clinical suggestions</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Enable smart autocomplete while staff type in this field.
+                  </p>
+                </div>
+                <Switch
+                  checked={clinicalSuggestions}
+                  onCheckedChange={setClinicalSuggestions}
+                />
+              </div>
+              {clinicalSuggestions && (
+                <div className="space-y-2">
+                  <Label>Suggestion category</Label>
+                  <Select
+                    value={suggestionCategory}
+                    onValueChange={(v) =>
+                      setSuggestionCategory(v as ClinicalSuggestionCategory)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(
+                        [
+                          "diagnosis",
+                          "assessment",
+                          "plan",
+                          "prescription",
+                          "referral",
+                          "procedure",
+                          "certificate",
+                          "general",
+                        ] as ClinicalSuggestionCategory[]
+                      ).map((c) => (
+                        <SelectItem key={c} value={c} className="capitalize">
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </>
           )}
           <div className="flex items-center justify-between">

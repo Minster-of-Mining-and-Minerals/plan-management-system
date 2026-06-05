@@ -7,12 +7,10 @@ import { AppointmentSidePanelShell } from "../components/AppointmentSidePanelShe
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SuggestionTextarea } from "@/components/clinical-suggestions/SuggestionTextarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import type { WorkflowReceiver } from "@/redux/api/medicalWorkflowApi";
-
-const panelTextareaClass =
-  "w-full min-h-[4.5rem] rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]";
 
 function userInitials(name: string) {
   return (name || "?")
@@ -152,11 +150,12 @@ export function ForwardPreview({
 
       <div className="space-y-2">
         <Label>Forward note (optional)</Label>
-        <textarea
-          className={panelTextareaClass}
-          placeholder="Message for the receiving staff"
+        <SuggestionTextarea
           value={forwardNote}
-          onChange={(e) => setForwardNote(e.target.value)}
+          onChange={setForwardNote}
+          category="referral"
+          placeholder="Message for the receiving staff"
+          className="min-h-[4.5rem] resize-none"
         />
       </div>
 

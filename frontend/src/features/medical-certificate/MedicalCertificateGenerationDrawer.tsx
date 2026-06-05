@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { SuggestionTextarea } from "@/components/clinical-suggestions/SuggestionTextarea";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -220,9 +220,10 @@ export function MedicalCertificateGenerationDrawer({
 
               <div className="space-y-2">
                 <Label>Doctor remarks (optional)</Label>
-                <Textarea
+                <SuggestionTextarea
                   value={doctorNotes}
-                  onChange={(e) => setDoctorNotes(e.target.value)}
+                  onChange={setDoctorNotes}
+                  category="certificate"
                   rows={3}
                   placeholder="Additional notes for the certificate…"
                 />
