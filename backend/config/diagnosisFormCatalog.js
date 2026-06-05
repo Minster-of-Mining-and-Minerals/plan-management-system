@@ -1,6 +1,12 @@
 "use strict";
 
 const { DEFAULT_DIAGNOSIS_SECTIONS } = require("./diagnosisFormConstants");
+const {
+  OPHTHALMOLOGY_TEMPLATE_TITLE,
+  OPHTHALMOLOGY_TEMPLATE_DESCRIPTION,
+  buildOphthalmologyGroups,
+  buildOphthalmologyFields,
+} = require("./ophthalmologyDiagnosisPreset");
 
 const buildGroups = (sections) =>
   sections.map((title, index) => ({
@@ -381,6 +387,10 @@ const TEMPLATE_PRESETS = {
       },
     ],
   },
+  [OPHTHALMOLOGY_TEMPLATE_TITLE]: {
+    groups: buildOphthalmologyGroups(),
+    fields: buildOphthalmologyFields(),
+  },
   "Nurse Assessment Form": {
     groups: buildGroups([
       "Nursing Intake",
@@ -473,6 +483,10 @@ const STARTER_DIAGNOSIS_TEMPLATES = [
   {
     title: "Nurse Assessment Form",
     description: "Nursing intake and observation template.",
+  },
+  {
+    title: OPHTHALMOLOGY_TEMPLATE_TITLE,
+    description: OPHTHALMOLOGY_TEMPLATE_DESCRIPTION,
   },
 ];
 

@@ -37,6 +37,22 @@ async function loadSourceGroups({ templateId, configId, visibleOnly = false, tra
   });
 }
 
+async function resolveFieldConfig(config = {}, transaction) {
+  const resolved = { ...config };
+  if (resolved.diagram_code && !resolved.diagram_id) {
+    const diagram = await db.MedicalDiagram.findOne({
+      where: { code: resolved.diagram_code },
+      transaction,
+    });
+    if (diagram) {
+      resolved.diagram_id = diagram.diagram_id;
+      resolved.canvas_source_type = resolved.canvas_source_type || "library";
+    }
+    delete resolved.diagram_code;
+  }
+  return resolved;
+}
+
 async function seedDefaultStructureToTarget({
   templateId,
   configId,
@@ -83,7 +99,7 @@ async function seedDefaultStructureToTarget({
         is_required: Boolean(def.is_required),
         is_visible: true,
         sort_order: def.sort_order ?? 0,
-        config: def.config || {},
+        config: await resolveFieldConfig(def.config || {}, transaction),
       },
       { transaction }
     );
