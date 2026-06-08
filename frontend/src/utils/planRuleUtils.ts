@@ -5,6 +5,9 @@ import {
     PlanRuleWeightMode,
 } from "@/redux/types/plan";
 
+/** User-facing label for the plan node weight field */
+export const TARGET_FIELD_LABEL = "Target";
+
 export const WEIGHT_MODE_LABELS: Record<PlanRuleWeightMode, string> = {
     number: "Number (points)",
     percentage: "Percentage (%)",
@@ -98,6 +101,12 @@ export function formatNodeWeight(weight: number, weightMode?: PlanRuleWeightMode
     if (weight <= 0) return "";
     const unit = getWeightUnitLabel(weightMode);
     return `${weight}${unit}`;
+}
+
+export function formatNodeTarget(weight: number, weightMode?: PlanRuleWeightMode | null): string {
+    const value = formatNodeWeight(weight, weightMode);
+    if (!value) return "";
+    return `${TARGET_FIELD_LABEL}: ${value}`;
 }
 
 export function levelToNodeType(level: number): PlanNode["type"] {

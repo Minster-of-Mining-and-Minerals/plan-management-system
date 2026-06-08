@@ -14,19 +14,72 @@ const {
 const { v4: uuidv4, validate: isUuid } = require("uuid");
 const { Op } = require("sequelize");
 const { validatePlanNodeAgainstRule } = require("../../services/planRuleService");
+const {
+    getOrCreateGlobalPlanningConfig,
+    pickPlanningConfigPayload,
+    computePlanningPeriodEnd,
+    validatePlanningStartDate,
+    validatePlanningDuration,
+    validateYearRange,
+} = require("../../services/planningConfigurationService");
+
+function resolvePlanningStartDate(body) {
+    if (body.planning_start_date) {
+        return body.planning_start_date;
+    }
+    if (body.start_year) {
+        return `${body.start_year}-01-01`;
+    }
+    if (body.year) {
+        return `${body.year}-01-01`;
+    }
+    return null;
+}
 
 /**
  * =================== PLAN VERSION CRUD ===================
  */
 
-// Create new plan version
+// Create new plan version (plan draft)
 const createPlanVersion = async (req, res) => {
     const t = await sequelize.transaction();
     try {
-        const { year, government_structure_id, based_on_version_id, plan_rule_id } = req.body;
+        const {
+            draft_name,
+            planning_duration_years,
+            government_structure_id,
+            based_on_version_id,
+            plan_rule_id,
+        } = req.body;
 
-        // Check if government structure exists
-        const govStructure = await GovernmentStructure.findByPk(government_structure_id, { transaction: t });
+        const configRecord = await getOrCreateGlobalPlanningConfig(t);
+        const config = pickPlanningConfigPayload(configRecord);
+
+        const planningStartDate = resolvePlanningStartDate(req.body);
+        const startDateError = validatePlanningStartDate(planningStartDate);
+        if (startDateError) {
+            await t.rollback();
+            return res.status(400).json({ success: false, message: startDateError });
+        }
+
+        const durationYears = planning_duration_years;
+
+        const durationError = validatePlanningDuration(durationYears, config);
+        if (durationError) {
+            await t.rollback();
+            return res.status(400).json({ success: false, message: durationError });
+        }
+
+        const period = computePlanningPeriodEnd(planningStartDate, durationYears);
+        const rangeError = validateYearRange(period.start_year, period.end_year, period.end_month);
+        if (rangeError) {
+            await t.rollback();
+            return res.status(400).json({ success: false, message: rangeError });
+        }
+
+        const govStructure = await GovernmentStructure.findByPk(government_structure_id, {
+            transaction: t,
+        });
         if (!govStructure) {
             await t.rollback();
             return res.status(404).json({
@@ -35,23 +88,21 @@ const createPlanVersion = async (req, res) => {
             });
         }
 
-        // Get latest version number for this year and government structure
         const latestVersion = await PlanVersion.findOne({
-            where: { year, government_structure_id },
+            where: { start_year: period.start_year, government_structure_id },
             order: [["version_number", "DESC"]],
             transaction: t,
         });
 
         const version_number = latestVersion ? latestVersion.version_number + 1 : 1;
 
-        // If based_on_version_id provided, verify it exists
         if (based_on_version_id) {
             const baseVersion = await PlanVersion.findByPk(based_on_version_id, { transaction: t });
             if (!baseVersion) {
                 await t.rollback();
                 return res.status(404).json({
                     success: false,
-                    message: "Base plan version not found",
+                    message: "Base plan draft not found",
                 });
             }
         }
@@ -59,7 +110,15 @@ const createPlanVersion = async (req, res) => {
         const planVersion = await PlanVersion.create(
             {
                 plan_version_id: uuidv4(),
-                year,
+                draft_name,
+                planning_start_date: planningStartDate,
+                planning_end_date: period.planning_end_date,
+                start_year: period.start_year,
+                start_month: period.start_month,
+                end_year: period.end_year,
+                end_month: period.end_month,
+                planning_duration_years: durationYears,
+                year: period.start_year,
                 version_number,
                 status: "draft",
                 government_structure_id,
@@ -69,7 +128,6 @@ const createPlanVersion = async (req, res) => {
             { transaction: t }
         );
 
-        // If based on existing version, copy its nodes
         if (based_on_version_id) {
             await copyNodesFromVersion(based_on_version_id, planVersion.plan_version_id, t);
         }
@@ -78,7 +136,7 @@ const createPlanVersion = async (req, res) => {
 
         return res.status(201).json({
             success: true,
-            message: "Plan version created successfully",
+            message: "Plan draft created successfully",
             data: planVersion,
         });
     } catch (error) {
@@ -143,8 +201,17 @@ const getPlanVersions = async (req, res) => {
         if (government_structure_id) where.government_structure_id = government_structure_id;
         if (status) where.status = status;
         if (search && search.trim()) {
+            const term = `%${search.trim()}%`;
             where[Op.or] = [
-                { year: { [Op.eq]: parseInt(search) || null } },
+                { draft_name: { [Op.iLike]: term } },
+                sequelize.where(
+                    sequelize.cast(sequelize.col("start_year"), "varchar"),
+                    { [Op.iLike]: term }
+                ),
+                sequelize.where(
+                    sequelize.cast(sequelize.col("end_year"), "varchar"),
+                    { [Op.iLike]: term }
+                ),
             ];
         }
 
@@ -166,7 +233,7 @@ const getPlanVersions = async (req, res) => {
                     attributes: ["plan_node_id", "title", "type", "level"],
                 },
             ],
-            order: [["year", "DESC"], ["version_number", "DESC"]],
+            order: [["start_year", "DESC"], ["version_number", "DESC"]],
         });
 
         return res.json({
@@ -262,11 +329,63 @@ const updatePlanVersion = async (req, res) => {
             await t.rollback();
             return res.status(400).json({
                 success: false,
-                message: "Cannot update non-draft plan version",
+                message: "Cannot update non-draft plan draft",
             });
         }
 
-        await planVersion.update(req.body, { transaction: t });
+        const configRecord = await getOrCreateGlobalPlanningConfig(t);
+        const config = pickPlanningConfigPayload(configRecord);
+
+        const updates = { ...req.body };
+        delete updates.end_year;
+
+        const planningStartDate =
+            updates.planning_start_date ??
+            (updates.start_year !== undefined
+                ? `${updates.start_year}-01-01`
+                : planVersion.planning_start_date);
+        const durationYears =
+            updates.planning_duration_years ?? planVersion.planning_duration_years;
+
+        if (
+            updates.planning_start_date !== undefined ||
+            updates.start_year !== undefined ||
+            updates.planning_duration_years !== undefined
+        ) {
+            const startDateError = validatePlanningStartDate(planningStartDate);
+            if (startDateError) {
+                await t.rollback();
+                return res.status(400).json({ success: false, message: startDateError });
+            }
+
+            const durationError = validatePlanningDuration(durationYears, config);
+            if (durationError) {
+                await t.rollback();
+                return res.status(400).json({ success: false, message: durationError });
+            }
+
+            const period = computePlanningPeriodEnd(planningStartDate, durationYears);
+            const rangeError = validateYearRange(
+                period.start_year,
+                period.end_year,
+                period.end_month
+            );
+            if (rangeError) {
+                await t.rollback();
+                return res.status(400).json({ success: false, message: rangeError });
+            }
+
+            updates.planning_start_date = planningStartDate;
+            updates.planning_end_date = period.planning_end_date;
+            updates.start_year = period.start_year;
+            updates.start_month = period.start_month;
+            updates.end_year = period.end_year;
+            updates.end_month = period.end_month;
+            updates.planning_duration_years = durationYears;
+            updates.year = period.start_year;
+        }
+
+        await planVersion.update(updates, { transaction: t });
 
         await t.commit();
 

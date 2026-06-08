@@ -26,6 +26,7 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
 
   // Plans — nested before parent
   { pattern: "/plans/[id]/nodes/[nodeId]", allPermissions: ["PLANS:READ"] },
+  { pattern: "/plans/configuration", allPermissions: ["PLANS:UPDATE"] },
   { pattern: "/plans/performance-colors", allPermissions: ["PERFORMANCE_COLOR_THRESHOLDS:READ"] },
   { pattern: "/plans/rules", allPermissions: ["PLANS:READ"] },
   { pattern: "/plans/[id]", allPermissions: ["PLANS:READ"] },

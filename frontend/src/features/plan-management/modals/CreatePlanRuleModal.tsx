@@ -233,8 +233,8 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
                                 <div>
                                     <FormLabel>Hierarchy Levels</FormLabel>
                                     <FormDescription>
-                                        Set a label per level. Enable weight on one level — deeper
-                                        levels inherit the weight requirement. Evaluation mode is
+                                        Set a label per level. Enable target on one level — deeper
+                                        levels inherit the target requirement. Evaluation mode is
                                         chosen when building the plan hierarchy.
                                     </FormDescription>
                                 </div>
@@ -279,7 +279,7 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
 
                                             <FormItem>
                                                 {index === 0 && (
-                                                    <FormLabel className="text-xs">Weight required</FormLabel>
+                                                    <FormLabel className="text-xs">Target required</FormLabel>
                                                 )}
                                                 {inheritsWeight ? (
                                                     <div className="flex h-10 items-center">
@@ -321,7 +321,7 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
 
                             {weightStartLevel && (
                                 <p className="text-xs text-muted-foreground">
-                                    Levels {weightStartLevel}–{fields.length} require weight. Choose
+                                    Levels {weightStartLevel}–{fields.length} require target. Choose
                                     the evaluation mode when adding nodes at level {weightStartLevel}.
                                 </p>
                             )}

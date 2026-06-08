@@ -5,26 +5,47 @@ const Joi = require("joi");
  */
 
 const createPlanVersionSchema = Joi.object({
-    year: Joi.number().integer().min(2000).max(2100).required().messages({
-        "number.base": "Year must be a number",
-        "number.min": "Year must be at least 2000",
-        "number.max": "Year must be at most 2100",
-        "any.required": "Year is required",
+    draft_name: Joi.string().trim().max(255).required().messages({
+        "string.empty": "Draft name is required",
+        "any.required": "Draft name is required",
     }),
+
+    planning_start_date: Joi.string()
+        .pattern(/^\d{4}-\d{2}-\d{2}$/)
+        .required()
+        .messages({
+            "string.pattern.base": "Planning start date must be YYYY-MM-DD",
+            "any.required": "Planning start date is required",
+        }),
+
+    start_year: Joi.number().integer().min(2000).max(2100).optional(),
+
+    planning_duration_years: Joi.number().integer().min(1).max(50).required().messages({
+        "number.base": "Planning duration must be a number",
+        "any.required": "Planning duration is required",
+    }),
+
+    year: Joi.number().integer().min(2000).max(2100).optional(),
 
     government_structure_id: Joi.string().guid({ version: "uuidv4" }).required().messages({
         "string.guid": "government_structure_id must be a valid UUID",
         "any.required": "government_structure_id is required",
     }),
 
-    based_on_version_id: Joi.string().guid({ version: "uuidv4" }).allow(null, "").optional().messages({
-        "string.guid": "based_on_version_id must be a valid UUID",
-    }),
+    based_on_version_id: Joi.string().guid({ version: "uuidv4" }).allow(null, "").optional(),
 
     plan_rule_id: Joi.string().guid({ version: "uuidv4" }).allow(null, "").optional(),
 });
 
 const updatePlanVersionSchema = Joi.object({
+    draft_name: Joi.string().trim().max(255).optional(),
+    planning_start_date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    start_year: Joi.number().integer().min(2000).max(2100).optional(),
+    planning_duration_years: Joi.number().integer().min(1).max(50).optional(),
+    end_year: Joi.forbidden(),
+    planning_end_date: Joi.forbidden(),
+    start_month: Joi.forbidden(),
+    end_month: Joi.forbidden(),
     year: Joi.number().integer().min(2000).max(2100).optional(),
     version_number: Joi.number().integer().min(1).optional(),
     status: Joi.string().valid("draft", "active", "completed").optional(),

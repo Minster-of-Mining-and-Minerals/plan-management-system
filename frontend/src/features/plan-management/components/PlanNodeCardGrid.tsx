@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { PlanNodeHierarchy, PlanNode, PlanRule } from "@/redux/types/plan";
 import {
-    formatNodeWeight,
+    formatNodeTarget,
     getStepLabel,
     stepRequiresWeight,
 } from "@/utils/planRuleUtils";
@@ -123,7 +123,7 @@ export function PlanNodeCardGrid({
                                                     variant="secondary"
                                                     className="text-[10px] py-0 h-4 bg-blue-50 text-blue-700 border-blue-100"
                                                 >
-                                                    {formatNodeWeight(node.weight, nodeWeightMode)}
+                                                    {formatNodeTarget(node.weight, nodeWeightMode)}
                                                 </Badge>
                                             )}
                                             <Badge

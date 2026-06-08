@@ -47,6 +47,7 @@ import {
     resolveNodeWeightMode,
     stepRequiresWeight,
     isWeightModeSelectionLevel,
+    TARGET_FIELD_LABEL,
     levelToNodeType,
     WEIGHT_MODE_LABELS,
 } from "@/utils/planRuleUtils";
@@ -170,13 +171,13 @@ export function CreatePlanNodeModal({
     async function onSubmit(values: FormValues) {
         if (showWeightModeSelect && !values.weight_mode) {
             form.setError("weight_mode", {
-                message: "Select a weight evaluation mode",
+                message: `Select a ${TARGET_FIELD_LABEL.toLowerCase()} evaluation mode`,
             });
             return;
         }
 
         if (requiresWeight && values.weight <= 0) {
-            form.setError("weight", { message: "Weight is required at this level" });
+            form.setError("weight", { message: `${TARGET_FIELD_LABEL} is required at this level` });
             return;
         }
 
@@ -186,7 +187,7 @@ export function CreatePlanNodeModal({
             siblingUsed + values.weight > weightTarget + 0.001
         ) {
             form.setError("weight", {
-                message: `Combined sibling weight cannot exceed ${weightTarget}${weightUnit}`,
+                message: `Combined sibling ${TARGET_FIELD_LABEL.toLowerCase()} cannot exceed ${weightTarget}${weightUnit}`,
             });
             return;
         }
@@ -255,7 +256,7 @@ export function CreatePlanNodeModal({
                                 name="weight_mode"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Weight evaluation mode</FormLabel>
+                                        <FormLabel>{TARGET_FIELD_LABEL} evaluation mode</FormLabel>
                                         <Select
                                             onValueChange={field.onChange}
                                             value={field.value ?? ""}
@@ -290,7 +291,7 @@ export function CreatePlanNodeModal({
                                 name="weight"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Weight ({weightUnit})</FormLabel>
+                                        <FormLabel>{TARGET_FIELD_LABEL} ({weightUnit})</FormLabel>
                                         <FormControl>
                                             <Input type="number" min={0} step="any" {...field} />
                                         </FormControl>
@@ -302,7 +303,7 @@ export function CreatePlanNodeModal({
                                                 Up to {remainingWeight}
                                                 {weightUnit} remaining of {weightTarget}
                                                 {weightUnit}
-                                                {parentNode ? " (parent weight)" : ""}.
+                                                {parentNode ? ` (parent ${TARGET_FIELD_LABEL.toLowerCase()})` : ""}.
                                             </FormDescription>
                                         )}
                                         <FormMessage />

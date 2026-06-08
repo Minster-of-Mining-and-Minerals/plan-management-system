@@ -28,6 +28,7 @@ export const baseApi = createApi({
     "GovernmentStructures",
     "InternalStructures",
     "PlanVersions",
+    "PlanningConfiguration",
     "PlanNodes",
     "PlanRules",
     "AssignmentActions",

@@ -139,6 +139,14 @@ module.exports = {
     await queryInterface.bulkInsert("plan_versions", [
       {
         plan_version_id: IDS.PLAN_VERSION,
+        draft_name: "Ministry of Mines Strategic Plan",
+        planning_start_date: "2026-01-01",
+        planning_end_date: "2026-12-31",
+        start_month: 1,
+        end_month: 12,
+        start_year: 2026,
+        end_year: 2026,
+        planning_duration_years: 1,
         year: 2026,
         version_number: 1,
         status: "active",

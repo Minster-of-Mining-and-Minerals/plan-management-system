@@ -6,7 +6,7 @@ import { TableLayout } from "@/features/template/component/tableList/TableLayout
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Eye, Edit, Trash, CheckCircle, PlayCircle, History } from "lucide-react";
+import { Plus, Eye, Edit, Trash, CheckCircle, PlayCircle } from "lucide-react";
 
 import type { FilterField, ActionButton } from "@/types/tableLayout";
 import {
@@ -14,8 +14,15 @@ import {
     useDeletePlanVersionMutation,
     useUpdatePlanVersionStatusMutation
 } from "@/redux/api/planApi";
+import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
 import { PlanVersion } from "@/redux/types/plan";
+import { DEFAULT_PLANNING_CONFIGURATION } from "@/redux/types/planningConfig";
 import { formatStatus } from "@/utils/statusFormatter";
+import {
+    formatDurationYears,
+    formatPlanningPeriod,
+    getPlanDraftDisplayName,
+} from "@/utils/planDraftUtils";
 import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CreatePlanVersionModal } from "./modals/CreatePlanVersionModal";
@@ -30,29 +37,41 @@ export default function PlanVersionTable() {
     const router = useRouter();
     const [statusFilter, setStatusFilter] = useState("");
 
+    const { data: config = DEFAULT_PLANNING_CONFIGURATION } = useGetPlanningConfigurationQuery();
     const [deleteVersion] = useDeletePlanVersionMutation();
     const [updateStatus] = useUpdatePlanVersionStatusMutation();
     const [selectedVersion, setSelectedVersion] = useState<PlanVersion | null>(null);
     const [isModalOpen, setModalOpen] = useState(false);
 
+    const draftLabel = config.draft_entity_label_singular;
+    const draftsLabel = config.draft_entity_label_plural;
+
     const columns: ColumnDef<PlanVersion>[] = [
         {
-            accessorKey: "year",
-            header: "Year",
-            cell: ({ row }) => <span className="font-medium">{row.getValue("year")}</span>,
-        },
-        {
-            accessorKey: "version_number",
-            header: "Version",
-            cell: ({ row }) => <div>v{row.getValue("version_number")}</div>,
-        },
-        {
-            accessorKey: "governmentStructure",
-            header: "Sector Structure",
+            accessorKey: "draft_name",
+            header: "Draft Name",
             cell: ({ row }) => (
-                <div className="text-primary font-medium">
-                    {row.original.governmentStructure?.name || "Global"}
-                </div>
+                <span className="font-medium text-primary">
+                    {getPlanDraftDisplayName(row.original)}
+                </span>
+            ),
+        },
+        {
+            id: "planning_period",
+            header: config.planning_period_label,
+            cell: ({ row }) => (
+                <span className="text-gray-700">
+                    {formatPlanningPeriod(row.original)}
+                </span>
+            ),
+        },
+        {
+            id: "duration",
+            header: config.duration_label,
+            cell: ({ row }) => (
+                <span className="text-gray-600">
+                    {formatDurationYears(row.original.planning_duration_years)}
+                </span>
             ),
         },
         {
@@ -69,7 +88,7 @@ export default function PlanVersionTable() {
         },
         {
             accessorKey: "created_at",
-            header: "Created At",
+            header: "Created Date",
             cell: ({ row }) => (
                 <div className="text-gray-500 text-sm">
                     {new Date(row.original.created_at).toLocaleDateString()}
@@ -141,38 +160,36 @@ export default function PlanVersionTable() {
     const {
         data: response,
         isLoading,
-        refetch,
     } = useGetPlanVersionsQuery({
         search: searchQuery,
     });
 
-
     const versions = response || [];
 
-    console.log("versions", versions);
-
     const handleDelete = async (id: string) => {
-        if (confirm("Are you sure you want to delete this plan version?")) {
+        if (confirm(`Are you sure you want to delete this ${draftLabel.toLowerCase()}?`)) {
             try {
                 await deleteVersion(id).unwrap();
-                toast.success("Plan version deleted successfully");
-            } catch (err: any) {
-                toast.error(err.data?.message || "Failed to delete plan version");
+                toast.success(`${draftLabel} deleted successfully`);
+            } catch (err: unknown) {
+                const error = err as { data?: { message?: string } };
+                toast.error(error.data?.message || `Failed to delete ${draftLabel.toLowerCase()}`);
             }
         }
     };
 
     const handleStatusChange = async (id: string, status: "active" | "completed") => {
         const message = status === "active"
-            ? "Are you sure you want to activate this plan version? This will make it the current operational plan."
+            ? `Are you sure you want to activate this ${draftLabel.toLowerCase()}? This will make it the current operational plan.`
             : "Are you sure you want to mark this plan as completed?";
 
         if (confirm(message)) {
             try {
                 await updateStatus({ id, data: { status } }).unwrap();
-                toast.success(`Plan version marked as ${status}`);
-            } catch (err: any) {
-                toast.error(err.data?.message || `Failed to update status to ${status}`);
+                toast.success(`${draftLabel} marked as ${status}`);
+            } catch (err: unknown) {
+                const error = err as { data?: { message?: string } };
+                toast.error(error.data?.message || `Failed to update status to ${status}`);
             }
         }
     };
@@ -195,7 +212,7 @@ export default function PlanVersionTable() {
 
     const actions: ActionButton[] = [
         {
-            label: "New Plan Version",
+            label: config.create_action_label,
             icon: <Plus className="h-4 w-4" />,
             variant: "default",
             onClick: () => {
@@ -208,9 +225,9 @@ export default function PlanVersionTable() {
     const filteredData = versions.filter((item) => {
         if (!matchesMultiValueFilter(statusFilter, item.status)) return false;
         return matchesSearchQuery(searchQuery, [
-            String(item.year),
-            String(item.version_number),
-            item.governmentStructure?.name,
+            item.draft_name,
+            formatPlanningPeriod(item),
+            formatDurationYears(item.planning_duration_years),
             item.status,
         ]);
     });
@@ -218,8 +235,8 @@ export default function PlanVersionTable() {
     return (
         <>
             <TableLayout
-                title="Plan Versions"
-                description="Manage organizational plan versions and cycles"
+                title={draftsLabel}
+                description={`Manage organizational ${draftsLabel.toLowerCase()} and planning periods`}
                 actions={actions}
                 filters={filters}
                 filterColumnsPerRow={1}

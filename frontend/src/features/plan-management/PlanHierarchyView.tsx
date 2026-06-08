@@ -28,6 +28,8 @@ import {
 } from "@/utils/planRuleUtils";
 import { PlanNodeCardGrid } from "./components/PlanNodeCardGrid";
 import { PlanHierarchyTree } from "./components/PlanHierarchyTree";
+import { PlanDraftHeaderMeta } from "./components/PlanDraftHeaderMeta";
+import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
 
 type ViewMode = "card" | "hierarchy";
 
@@ -62,6 +64,7 @@ function resolveBreadcrumbPath(
 export default function PlanHierarchyView({ versionId }: { versionId: string }) {
     const router = useRouter();
     const { data: version } = useGetPlanVersionByIdQuery(versionId);
+    const { data: planningConfig } = useGetPlanningConfigurationQuery();
     const { data: rule } = useGetPlanRuleForVersionQuery(versionId);
     const { data: hierarchy = [], isLoading, refetch } = useGetPlanHierarchyQuery(versionId);
     const [deleteNode] = useDeletePlanNodeMutation();
@@ -159,7 +162,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
             <h3 className="text-lg font-semibold text-gray-900">No {childLabel.toLowerCase()} yet</h3>
             <p className="text-gray-500 mb-6">
                 {isAtRoot
-                    ? `Start by adding the first ${rootLabel.toLowerCase()} to this plan version.`
+                    ? `Start by adding the first ${rootLabel.toLowerCase()} to this plan draft.`
                     : `Add a ${childLabel.toLowerCase()} under "${currentParent?.title}".`}
             </p>
             {canAddAtCurrentLevel && (
@@ -183,20 +186,14 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     >
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">
-                            Plan Hierarchy: {version?.year} (v{version?.version_number})
-                        </h1>
-                        <div className="flex items-center gap-2 text-gray-500 flex-wrap">
-                            <span>{version?.governmentStructure?.name || "Global Sector"}</span>
-                            {rule && (
-                                <>
-                                    <span>·</span>
-                                    <Badge variant="outline">{rule.name}</Badge>
-                                    <span className="text-xs">({maxDepth} levels)</span>
-                                </>
-                            )}
-                        </div>
+                    <div className="flex-1">
+                        <PlanDraftHeaderMeta version={version} config={planningConfig} />
+                        {rule && (
+                            <div className="flex items-center gap-2 text-gray-500 flex-wrap mt-1">
+                                <Badge variant="outline">{rule.name}</Badge>
+                                <span className="text-xs">({maxDepth} levels)</span>
+                            </div>
+                        )}
                     </div>
                 </div>
 

@@ -5,7 +5,7 @@ import { ChevronRight, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PlanNodeHierarchy, PlanNode, PlanRule } from "@/redux/types/plan";
 import {
-    formatNodeWeight,
+    formatNodeTarget,
     getStepLabel,
     stepRequiresWeight,
 } from "@/utils/planRuleUtils";
@@ -78,7 +78,7 @@ const NodeItem = ({
                                     variant="secondary"
                                     className="text-[10px] py-0 h-4 bg-blue-50 text-blue-700 border-blue-100 shrink-0"
                                 >
-                                    Weight: {formatNodeWeight(node.weight, nodeWeightMode)}
+                                    {formatNodeTarget(node.weight, nodeWeightMode)}
                                 </Badge>
                             )}
                             {hasChildren && onDrillDown && (

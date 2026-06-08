@@ -4,6 +4,15 @@
 
 export interface PlanVersion {
     plan_version_id: string;
+    draft_name: string;
+    planning_start_date: string;
+    planning_end_date: string;
+    start_year: number;
+    start_month: number;
+    end_year: number;
+    end_month: number;
+    planning_duration_years: number;
+    /** @deprecated Use start_year — kept for backward compatibility */
     year: number;
     version_number: number;
     status: "draft" | "active" | "completed";
@@ -19,13 +28,18 @@ export interface PlanVersion {
 }
 
 export interface CreatePlanVersionPayload {
-    year: number;
+    draft_name: string;
+    planning_start_date: string;
+    planning_duration_years: number;
     government_structure_id: string;
     based_on_version_id?: string | null;
     plan_rule_id?: string | null;
 }
 
 export interface UpdatePlanVersionPayload {
+    draft_name?: string;
+    planning_start_date?: string;
+    planning_duration_years?: number;
     year?: number;
     version_number?: number;
     status?: "draft" | "active" | "completed";

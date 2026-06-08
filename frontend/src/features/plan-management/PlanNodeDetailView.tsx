@@ -40,6 +40,9 @@ import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
 import { InternalAssignment, ExternalAssignment } from "@/redux/types/plan";
 import { ActionButton } from "@/types/tableLayout";
+import { PlanDraftHeaderMeta } from "./components/PlanDraftHeaderMeta";
+import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
+import { formatNodeTarget } from "@/utils/planRuleUtils";
 
 interface PlanNodeDetailViewProps {
     versionId: string;
@@ -53,6 +56,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
     const [showHistory, setShowHistory] = useState(false);
 
     const { data: version } = useGetPlanVersionByIdQuery(versionId);
+    const { data: planningConfig } = useGetPlanningConfigurationQuery();
     const { data: node, isLoading: isNodeLoading } = useGetPlanNodeByIdQuery(nodeId);
     const { data: internalAssignments = [], isLoading: isInternalLoading } =
         useGetInternalAssignmentsByNodeQuery({ nodeId, includeInactive: showHistory });
@@ -333,9 +337,12 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                     </Button>
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900">Node Details</h1>
-                        <p className="text-gray-500">
-                            {version?.year} (v{version?.version_number}) &bull; {version?.governmentStructure?.name || "Global"}
-                        </p>
+                        <PlanDraftHeaderMeta
+                            version={version}
+                            config={planningConfig}
+                            showSector
+                            compact
+                        />
                     </div>
                 </div>
             </div>
@@ -355,7 +362,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                                 </Badge>
                                 {node.weight > 0 && (
                                     <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100 font-bold">
-                                        Weight: {node.weight}%
+                                        {formatNodeTarget(node.weight, node.weight_mode)}
                                     </Badge>
                                 )}
                                 <Badge

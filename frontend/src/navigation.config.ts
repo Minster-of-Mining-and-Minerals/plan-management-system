@@ -75,10 +75,16 @@ export const NAVIGATION: NavItem[] = [
     anyPermissions: ["PLANS:READ", "PERFORMANCE_COLOR_THRESHOLDS:READ"],
     children: [
       {
-        title: "Plan Versions",
+        title: "Plan Drafts",
         url: "/plans",
         icon: ListTree,
         allPermissions: ["PLANS:READ"],
+      },
+      {
+        title: "Planning Configuration",
+        url: "/plans/configuration",
+        icon: Settings,
+        allPermissions: ["PLANS:UPDATE"],
       },
       {
         title: "Plan Rules",

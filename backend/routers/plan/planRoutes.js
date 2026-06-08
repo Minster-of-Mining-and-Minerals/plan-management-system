@@ -45,6 +45,16 @@ const {
     validateIdParam: validateRuleIdParam,
 } = require("../../validators/plan/planRuleValidator");
 
+const {
+    validateUpdatePlanningConfiguration,
+} = require("../../validators/plan/planningConfigurationValidator");
+
+const {
+    getPlanningConfiguration,
+    updatePlanningConfiguration,
+    restoreDefaultPlanningConfiguration,
+} = require("../../controllers/plan/planningConfigurationController");
+
 const { authenticateToken, checkPermission } = require("../../middlewares/authMiddleware");
 
 // Apply authentication to all routes
@@ -58,6 +68,21 @@ router.get("/versions/:id", checkPermission("PLANS", "READ"), validateIdParam, g
 router.put("/versions/:id", checkPermission("PLANS", "UPDATE"), validateIdParam, validateUpdatePlanVersion, updatePlanVersion);
 router.delete("/versions/:id", checkPermission("PLANS", "DELETE"), validateIdParam, deletePlanVersion);
 router.patch("/versions/:id/status", checkPermission("PLANS", "APPROVE"), validateIdParam, validateUpdatePlanVersionStatus, updatePlanVersionStatus);
+
+// ================= PLANNING CONFIGURATION =================
+
+router.get("/planning-config", checkPermission("PLANS", "READ"), getPlanningConfiguration);
+router.put(
+    "/planning-config",
+    checkPermission("PLANS", "UPDATE"),
+    validateUpdatePlanningConfiguration,
+    updatePlanningConfiguration
+);
+router.post(
+    "/planning-config/restore-defaults",
+    checkPermission("PLANS", "UPDATE"),
+    restoreDefaultPlanningConfiguration
+);
 
 // ================= PLAN RULES =================
 

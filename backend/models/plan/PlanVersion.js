@@ -68,6 +68,46 @@ module.exports = (sequelize, DataTypes) => {
                 type: DataTypes.UUID,
                 allowNull: true,
             },
+
+            draft_name: {
+                type: DataTypes.STRING(255),
+                allowNull: false,
+            },
+
+            start_year: {
+                type: DataTypes.INTEGER,
+                allowNull: false,
+            },
+
+            end_year: {
+                type: DataTypes.INTEGER,
+                allowNull: false,
+            },
+
+            planning_duration_years: {
+                type: DataTypes.INTEGER,
+                allowNull: false,
+            },
+
+            planning_start_date: {
+                type: DataTypes.DATEONLY,
+                allowNull: false,
+            },
+
+            planning_end_date: {
+                type: DataTypes.DATEONLY,
+                allowNull: false,
+            },
+
+            start_month: {
+                type: DataTypes.INTEGER,
+                allowNull: false,
+            },
+
+            end_month: {
+                type: DataTypes.INTEGER,
+                allowNull: false,
+            },
         },
         {
             sequelize,

@@ -38,7 +38,7 @@ export default function PlanRulesTable() {
         },
         {
             id: "weight",
-            header: "Weight required from",
+            header: "Target required from",
             cell: ({ row }) => {
                 const start = getWeightStartLevel(row.original);
                 if (!start) return <span className="text-muted-foreground">None</span>;
@@ -138,7 +138,7 @@ export default function PlanRulesTable() {
         <>
             <TableLayout
                 title="Plan Rules"
-                description="Configure hierarchy levels, labels, and where weight evaluation begins."
+                description="Configure hierarchy levels, labels, and where target evaluation begins."
                 actions={actions}
                 filters={[]}
             >
