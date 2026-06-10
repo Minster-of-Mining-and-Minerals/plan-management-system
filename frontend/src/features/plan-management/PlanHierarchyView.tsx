@@ -16,6 +16,7 @@ import {
     ChevronLeft,
     LayoutGrid,
     ListTree,
+    Table2,
     ChevronRight,
     Home,
     CalendarDays,
@@ -31,6 +32,7 @@ import {
 } from "@/utils/planRuleUtils";
 import { PlanNodeCardGrid } from "./components/PlanNodeCardGrid";
 import { PlanHierarchyTree } from "./components/PlanHierarchyTree";
+import { PlanHierarchyTableView } from "./components/PlanHierarchyTableView";
 import { PlanDraftHeaderMeta } from "./components/PlanDraftHeaderMeta";
 import { AnnualVersionsDashboard } from "./components/AnnualVersionsDashboard";
 import { ExecutionPeriodsDashboard } from "./components/ExecutionPeriodsDashboard";
@@ -42,9 +44,15 @@ import {
     resolveWorkflowStatusAppearance,
 } from "@/utils/performanceColorUtils";
 import { PerformanceColorBadge } from "./components/PerformanceColorBadge";
-import { buildSiblingReorderPayload, sortPlanNodes } from "@/utils/planNodeOrderUtils";
+import {
+    buildHierarchyNumberMap,
+    buildSiblingReorderPayload,
+    getHierarchyNumber,
+    sortPlanNodes,
+} from "@/utils/planNodeOrderUtils";
+import { PlanNodeHierarchyNumber } from "./components/PlanNodeHierarchyNumber";
 
-type ViewMode = "card" | "hierarchy";
+type ViewMode = "card" | "hierarchy" | "table";
 type PlanDetailTab = "hierarchy" | "annual" | "periods";
 
 function getCurrentNodes(
@@ -108,6 +116,10 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
     const currentNodes = useMemo(
         () => sortPlanNodes(getCurrentNodes(hierarchy, pathIds)),
         [hierarchy, pathIds]
+    );
+    const hierarchyNumberMap = useMemo(
+        () => buildHierarchyNumberMap(hierarchy),
+        [hierarchy]
     );
     const currentLevel = currentParent ? currentParent.level + 1 : 1;
     const currentLevelLabel = getStepLabel(rule, currentLevel);
@@ -258,6 +270,18 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     <ListTree className="h-4 w-4" />
                     Hierarchy
                 </Button>
+                <Button
+                    variant={viewMode === "table" ? "default" : "ghost"}
+                    size="sm"
+                    className="gap-2 h-8"
+                    onClick={() => {
+                        setPathIds([]);
+                        setViewMode("table");
+                    }}
+                >
+                    <Table2 className="h-4 w-4" />
+                    Table
+                </Button>
             </div>
             {canAddAtCurrentLevel && (
                 <Button onClick={handleAddAtLevel} className="gap-2">
@@ -338,7 +362,8 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                 </div>
             )}
 
-            {/* Breadcrumb navigation */}
+            {/* Breadcrumb navigation (card & tree drill-down; table shows all strategic sections) */}
+            {viewMode !== "table" && (
             <nav className="flex items-center gap-1 flex-wrap text-sm bg-white rounded-xl border border-gray-100 px-4 py-3">
                 <button
                     type="button"
@@ -358,13 +383,24 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                         <button
                             type="button"
                             onClick={() => handleBreadcrumbClick(index)}
-                            className={`rounded-md px-2 py-1 transition-colors truncate max-w-[200px] ${
+                            className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors max-w-[240px] ${
                                 index === breadcrumbPath.length - 1
                                     ? "text-primary font-semibold bg-primary/5"
                                     : "text-gray-500 hover:text-primary hover:bg-gray-50"
                             }`}
                         >
-                            {node.title}
+                            {getHierarchyNumber(hierarchyNumberMap, node.plan_node_id) && (
+                                <PlanNodeHierarchyNumber
+                                    value={
+                                        getHierarchyNumber(
+                                            hierarchyNumberMap,
+                                            node.plan_node_id
+                                        )!
+                                    }
+                                    size="sm"
+                                />
+                            )}
+                            <span className="truncate">{node.title}</span>
                         </button>
                     </span>
                 ))}
@@ -375,12 +411,32 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     </>
                 )}
             </nav>
+            )}
 
             {/* Content */}
-            {viewMode === "card" ? (
+            {viewMode === "table" ? (
+                sortPlanNodes(hierarchy).length > 0 ? (
+                    <PlanHierarchyTableView
+                        roots={hierarchy}
+                        hierarchyNumberMap={hierarchyNumberMap}
+                        rule={rule}
+                        rootLabel={rootLabel}
+                        onAddChild={handleAddChild}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                        onViewDetails={handleViewDetails}
+                        onMoveNode={handleMoveNode}
+                        isReordering={isReordering}
+                        readOnly={isReadOnlyHierarchy}
+                    />
+                ) : (
+                    emptyState
+                )
+            ) : viewMode === "card" ? (
                 currentNodes.length > 0 ? (
                     <PlanNodeCardGrid
                         nodes={currentNodes}
+                        hierarchyNumberMap={hierarchyNumberMap}
                         rule={rule}
                         onAddChild={handleAddChild}
                         onEdit={handleEdit}
@@ -399,6 +455,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
             ) : isAtRoot && hierarchy.length > 0 ? (
                 <PlanHierarchyTree
                     nodes={hierarchy}
+                    hierarchyNumberMap={hierarchyNumberMap}
                     rule={rule}
                     onAddChild={handleAddChild}
                     onEdit={handleEdit}
@@ -413,6 +470,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
             ) : currentNodes.length > 0 ? (
                 <PlanHierarchyTree
                     nodes={currentNodes}
+                    hierarchyNumberMap={hierarchyNumberMap}
                     rule={rule}
                     onAddChild={handleAddChild}
                     onEdit={handleEdit}

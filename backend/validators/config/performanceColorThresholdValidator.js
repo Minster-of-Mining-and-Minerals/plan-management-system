@@ -53,7 +53,7 @@ module.exports = {
   validateCreateThreshold: validate(createSchema),
   validateUpdateThreshold: validate(updateSchema),
   validateIdParam: validate(
-    Joi.object({ id: Joi.string().guid({ version: "uuidv4" }).required() }),
+    Joi.object({ id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).required() }),
     "params"
   ),
 };

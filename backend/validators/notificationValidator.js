@@ -10,7 +10,7 @@ const markAllReadSchema = Joi.object({
 });
 
 const idParamSchema = Joi.object({
-  id: Joi.string().guid({ version: "uuidv4" }).required(),
+  id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).required(),
 });
 
 const validate = (schema, source = "body") => (req, res, next) => {

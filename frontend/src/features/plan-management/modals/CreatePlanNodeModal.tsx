@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/utils/apiErrorUtils";
+import { normalizeOptionalId } from "@/utils/apiPayloadUtils";
 import {
     useCreatePlanNodeMutation,
     useUpdatePlanNodeMutation,
@@ -225,7 +226,7 @@ export function CreatePlanNodeModal({
 
             const submitData = {
                 plan_version_id: values.plan_version_id,
-                parent_id: values.parent_id,
+                parent_id: normalizeOptionalId(values.parent_id),
                 type: levelToNodeType(nodeLevel),
                 title: values.title,
                 description: values.description,

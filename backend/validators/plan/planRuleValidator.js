@@ -10,14 +10,14 @@ const stepSchema = Joi.object({
 
 const createPlanRuleSchema = Joi.object({
   name: Joi.string().trim().max(255).required(),
-  government_structure_id: Joi.string().guid({ version: "uuidv4" }).allow(null).optional(),
+  government_structure_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
   is_active: Joi.boolean().default(true),
   steps: Joi.array().items(stepSchema).min(1).required(),
 });
 
 const updatePlanRuleSchema = Joi.object({
   name: Joi.string().trim().max(255).optional(),
-  government_structure_id: Joi.string().guid({ version: "uuidv4" }).allow(null).optional(),
+  government_structure_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
   is_active: Joi.boolean().optional(),
   steps: Joi.array().items(stepSchema).min(1).optional(),
 });
@@ -39,7 +39,7 @@ module.exports = {
   validateCreatePlanRule: validate(createPlanRuleSchema),
   validateUpdatePlanRule: validate(updatePlanRuleSchema),
   validateIdParam: validate(
-    Joi.object({ id: Joi.string().guid({ version: "uuidv4" }).required() }),
+    Joi.object({ id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).required() }),
     "params"
   ),
 };

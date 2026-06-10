@@ -25,7 +25,7 @@ const createUserSchema = Joi.object({
   role_ids: Joi.array()
     .items(
       Joi.string()
-        .guid({ version: "uuidv4" })
+        .guid({ version: ["uuidv4", "uuidv5"] })
         .messages({ "string.guid": "Each role ID must be a valid UUID." })
     )
     .optional()
@@ -48,7 +48,7 @@ const updateUserSchema = Joi.object({
     }),
   // Allow updating assigned roles
   role_ids: Joi.array()
-    .items(Joi.string().guid({ version: "uuidv4" }))
+    .items(Joi.string().guid({ version: ["uuidv4", "uuidv5"] }))
     .optional()
     .messages({
       "string.guid": "Each role ID must be a valid UUID.",

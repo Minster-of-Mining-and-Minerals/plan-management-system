@@ -1,4 +1,4 @@
-import { PlanNode, ReorderPlanNodesPayload } from "@/redux/types/plan";
+import { PlanNode, PlanNodeHierarchy, ReorderPlanNodesPayload } from "@/redux/types/plan";
 
 export function sortPlanNodes<T extends Pick<PlanNode, "order" | "created_at">>(nodes: T[]): T[] {
     return [...nodes].sort((a, b) => {
@@ -8,6 +8,34 @@ export function sortPlanNodes<T extends Pick<PlanNode, "order" | "created_at">>(
         const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
         return aTime - bTime;
     });
+}
+
+/** Cascaded outline numbers from sibling order, e.g. 1 → 1.1 → 1.1.1 */
+export function buildHierarchyNumberMap(
+    roots: PlanNodeHierarchy[]
+): Map<string, string> {
+    const map = new Map<string, string>();
+
+    function walk(nodes: PlanNodeHierarchy[], parentNumber: string | null) {
+        const sorted = sortPlanNodes(nodes);
+        sorted.forEach((node, index) => {
+            const number = parentNumber ? `${parentNumber}.${index + 1}` : `${index + 1}`;
+            map.set(node.plan_node_id, number);
+            if (node.children?.length) {
+                walk(node.children, number);
+            }
+        });
+    }
+
+    walk(roots, null);
+    return map;
+}
+
+export function getHierarchyNumber(
+    map: Map<string, string>,
+    nodeId: string
+): string | undefined {
+    return map.get(nodeId);
 }
 
 export function buildSiblingReorderPayload(

@@ -19,10 +19,12 @@ import { PlanNodeIcon } from "./PlanNodeIcon";
 import { PlanNodeActions } from "./PlanNodeActions";
 import { CircularProgress } from "./CircularProgress";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
-import { sortPlanNodes } from "@/utils/planNodeOrderUtils";
+import { getHierarchyNumber, sortPlanNodes } from "@/utils/planNodeOrderUtils";
+import { PlanNodeHierarchyNumber } from "./PlanNodeHierarchyNumber";
 
 interface PlanNodeCardGridProps {
     nodes: PlanNodeHierarchy[];
+    hierarchyNumberMap: Map<string, string>;
     rule?: PlanRule | null;
     onAddChild: (parent: PlanNode) => void;
     onEdit: (node: PlanNode) => void;
@@ -36,6 +38,7 @@ interface PlanNodeCardGridProps {
 
 export function PlanNodeCardGrid({
     nodes,
+    hierarchyNumberMap,
     rule,
     onAddChild,
     onEdit,
@@ -156,8 +159,20 @@ export function PlanNodeCardGrid({
                                                 className="text-[10px] py-0 h-4"
                                             />
                                         </div>
-                                        <h3 className="text-lg font-bold text-gray-900 leading-snug line-clamp-2">
-                                            {node.title}
+                                        <h3 className="flex items-start gap-2 text-lg font-bold text-gray-900 leading-snug">
+                                            {getHierarchyNumber(hierarchyNumberMap, node.plan_node_id) && (
+                                                <PlanNodeHierarchyNumber
+                                                    value={
+                                                        getHierarchyNumber(
+                                                            hierarchyNumberMap,
+                                                            node.plan_node_id
+                                                        )!
+                                                    }
+                                                    size="lg"
+                                                    className="mt-0.5"
+                                                />
+                                            )}
+                                            <span className="line-clamp-2 min-w-0">{node.title}</span>
                                         </h3>
                                         {node.description ? (
                                             <p className="text-sm text-gray-500 line-clamp-2">

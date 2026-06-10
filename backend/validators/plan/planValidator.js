@@ -1,4 +1,5 @@
 const Joi = require("joi");
+const { optionalUuid, sanitizeOptionalIds } = require("../helpers/joiFieldHelpers");
 
 /**
  * ================= PLAN VERSION VALIDATORS =================
@@ -27,14 +28,14 @@ const createPlanVersionSchema = Joi.object({
 
     year: Joi.number().integer().min(2000).max(2100).optional(),
 
-    government_structure_id: Joi.string().guid({ version: "uuidv4" }).required().messages({
+    government_structure_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).required().messages({
         "string.guid": "government_structure_id must be a valid UUID",
         "any.required": "government_structure_id is required",
     }),
 
-    based_on_version_id: Joi.string().guid({ version: "uuidv4" }).allow(null, "").optional(),
+    based_on_version_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null, "").optional(),
 
-    plan_rule_id: Joi.string().guid({ version: "uuidv4" }).allow(null, "").optional(),
+    plan_rule_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null, "").optional(),
 });
 
 const updatePlanVersionSchema = Joi.object({
@@ -49,9 +50,9 @@ const updatePlanVersionSchema = Joi.object({
     year: Joi.number().integer().min(2000).max(2100).optional(),
     version_number: Joi.number().integer().min(1).optional(),
     status: Joi.string().valid("draft", "active", "completed").optional(),
-    government_structure_id: Joi.string().guid({ version: "uuidv4" }).optional(),
-    based_on_version_id: Joi.string().guid({ version: "uuidv4" }).allow(null).optional(),
-    plan_rule_id: Joi.string().guid({ version: "uuidv4" }).allow(null).optional(),
+    government_structure_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).optional(),
+    based_on_version_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
+    plan_rule_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
 });
 
 const updatePlanVersionStatusSchema = Joi.object({
@@ -73,10 +74,10 @@ const updatePeriodTargetSchema = Joi.object({
 
 const getPlanVersionsQuerySchema = Joi.object({
     year: Joi.number().integer().min(2000).max(2100).optional(),
-    government_structure_id: Joi.string().guid({ version: "uuidv4" }).optional(),
+    government_structure_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).optional(),
     status: Joi.string().valid("draft", "active", "completed", "finalized", "locked").optional(),
     version_kind: Joi.string().valid("master", "annual", "execution_period").optional(),
-    parent_plan_version_id: Joi.string().guid({ version: "uuidv4" }).optional(),
+    parent_plan_version_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).optional(),
     search: Joi.string().trim().allow("").optional(),
 });
 
@@ -85,12 +86,12 @@ const getPlanVersionsQuerySchema = Joi.object({
  */
 
 const createPlanNodeSchema = Joi.object({
-    plan_version_id: Joi.string().guid({ version: "uuidv4" }).required().messages({
+    plan_version_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).required().messages({
         "string.guid": "plan_version_id must be a valid UUID",
         "any.required": "plan_version_id is required",
     }),
 
-    parent_id: Joi.string().guid({ version: "uuidv4" }).allow(null).optional(),
+    parent_id: optionalUuid("parent_id"),
 
     type: Joi.string().valid("strategic", "goal", "kpi", "task").required().messages({
         "any.required": "Type is required",
@@ -119,7 +120,7 @@ const createPlanNodeSchema = Joi.object({
 });
 
 const updatePlanNodeSchema = Joi.object({
-    parent_id: Joi.string().guid({ version: "uuidv4" }).allow(null).optional(),
+    parent_id: optionalUuid("parent_id"),
     type: Joi.string().valid("strategic", "goal", "kpi", "task").optional(),
     title: Joi.string().trim().max(255).optional(),
     description: Joi.string().trim().optional().allow(null, ""),
@@ -133,21 +134,21 @@ const updatePlanNodeSchema = Joi.object({
 });
 
 const getPlanNodesQuerySchema = Joi.object({
-    plan_version_id: Joi.string().guid({ version: "uuidv4" }).required().messages({
+    plan_version_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).required().messages({
         "any.required": "plan_version_id is required",
     }),
     type: Joi.string().valid("strategic", "goal", "kpi", "task").optional(),
-    parent_id: Joi.string().guid({ version: "uuidv4" }).allow(null).optional(),
+    parent_id: optionalUuid("parent_id"),
     level: Joi.number().integer().min(1).optional(),
     is_active: Joi.boolean().optional(),
 });
 
 const reorderPlanNodesSchema = Joi.object({
-    parent_id: Joi.string().guid({ version: "uuidv4" }).allow(null).optional(),
+    parent_id: optionalUuid("parent_id"),
     nodeOrders: Joi.array()
         .items(
             Joi.object({
-                plan_node_id: Joi.string().guid({ version: "uuidv4" }).required(),
+                plan_node_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).required(),
                 order: Joi.number().integer().min(0).required(),
             })
         )
@@ -164,14 +165,14 @@ const reorderPlanNodesSchema = Joi.object({
  */
 
 const idParamSchema = Joi.object({
-    id: Joi.string().guid({ version: "uuidv4" }).required().messages({
+    id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).required().messages({
         "string.guid": "ID must be a valid UUID",
         "any.required": "ID is required",
     }),
 });
 
 const versionIdParamSchema = Joi.object({
-    plan_version_id: Joi.string().guid({ version: "uuidv4" }).required().messages({
+    plan_version_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).required().messages({
         "string.guid": "plan_version_id must be a valid UUID",
         "any.required": "plan_version_id is required",
     }),
@@ -185,14 +186,16 @@ const validate = (schema, source = "body") => (req, res, next) => {
     let dataToValidate;
 
     if (source === "body") {
+        req.body = sanitizeOptionalIds(req.body);
         dataToValidate = req.body;
     } else if (source === "query") {
+        req.query = sanitizeOptionalIds(req.query);
         dataToValidate = req.query;
     } else if (source === "params") {
         dataToValidate = req.params;
     }
 
-    const { error } = schema.validate(dataToValidate, { abortEarly: false });
+    const { error, value } = schema.validate(dataToValidate, { abortEarly: false });
 
     if (error) {
         return res.status(400).json({
@@ -200,6 +203,12 @@ const validate = (schema, source = "body") => (req, res, next) => {
             message: "Validation error",
             errors: error.details.map((e) => e.message),
         });
+    }
+
+    if (source === "body") {
+        req.body = value;
+    } else if (source === "query") {
+        req.query = value;
     }
 
     next();

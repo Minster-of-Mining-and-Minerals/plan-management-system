@@ -1,6 +1,13 @@
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import {
+  createApi,
+  fetchBaseQuery,
+  type BaseQueryFn,
+  type FetchArgs,
+  type FetchBaseQueryError,
+} from "@reduxjs/toolkit/query/react";
+import { sanitizeApiPayload } from "@/utils/apiPayloadUtils";
 
-const baseQuery = fetchBaseQuery({
+const rawBaseQuery = fetchBaseQuery({
   baseUrl: `${process.env.NEXT_PUBLIC_BASE_URL}`,
   prepareHeaders: (headers) => {
     // Read token from localStorage (set during login via authApi or NextAuth flow)
@@ -16,9 +23,24 @@ const baseQuery = fetchBaseQuery({
   },
 });
 
+const baseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> = async (
+  args,
+  api,
+  extraOptions
+) => {
+  if (args && typeof args === "object" && "body" in args && args.body) {
+    return rawBaseQuery(
+      { ...args, body: sanitizeApiPayload(args.body) },
+      api,
+      extraOptions
+    );
+  }
+  return rawBaseQuery(args, api, extraOptions);
+};
+
 export const baseApi = createApi({
   reducerPath: "api",
-  baseQuery: baseQuery,
+  baseQuery,
   tagTypes: [
     "Attachment",
     "User",

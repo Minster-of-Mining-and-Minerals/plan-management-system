@@ -22,6 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { normalizeOptionalId } from "@/utils/apiPayloadUtils";
 import { useCreateGovernmentStructureMutation } from "@/redux/api/governmentStructureApi";
 import { useCreateInternalStructureMutation } from "@/redux/api/internalStructureApi";
 import { useSession } from "next-auth/react";
@@ -62,7 +63,7 @@ export function CreateChildModal({
       if (type === 'government') {
         await createGovStructure({
           ...values,
-          parent_id,
+          parent_id: normalizeOptionalId(parent_id),
         }).unwrap();
       } else {
         // For internal structure, we need government_structure_id
@@ -79,9 +80,9 @@ export function CreateChildModal({
 
         await createIntStructure({
           ...values,
-          parent_id,
+          parent_id: normalizeOptionalId(parent_id),
           government_structure_id,
-        } as any).unwrap();
+        }).unwrap();
       }
       toast.success("Child node created successfully");
       form.reset();

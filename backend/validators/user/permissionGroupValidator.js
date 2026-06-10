@@ -18,7 +18,7 @@ const createPermissionGroupSchema = Joi.object({
 
     permission_ids: Joi.array()
         .items(
-            Joi.string().guid({ version: "uuidv4" }).messages({
+            Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).messages({
                 "string.guid": "Each permission_id must be a valid UUID",
             })
         )
@@ -26,7 +26,7 @@ const createPermissionGroupSchema = Joi.object({
 
     user_ids: Joi.array()
         .items(
-            Joi.string().guid({ version: "uuidv4" }).messages({
+            Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).messages({
                 "string.guid": "Each user_id must be a valid UUID",
             })
         )
@@ -34,7 +34,7 @@ const createPermissionGroupSchema = Joi.object({
 
     government_structure_ids: Joi.array()
         .items(
-            Joi.string().guid({ version: "uuidv4" }).messages({
+            Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).messages({
                 "string.guid":
                     "Each government_structure_id must be a valid UUID",
             })
@@ -51,7 +51,7 @@ const updatePermissionGroupSchema = Joi.object({
     is_active: Joi.boolean().optional(),
     permission_ids: Joi.array()
         .items(
-            Joi.string().guid({ version: "uuidv4" }).messages({
+            Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).messages({
                 "string.guid": "Each permission_id must be a valid UUID",
             })
         )
@@ -63,11 +63,11 @@ const updatePermissionGroupSchema = Joi.object({
  */
 const addPermissionsSchema = Joi.object({
     permission_group_id: Joi.string()
-        .guid({ version: "uuidv4" })
+        .guid({ version: ["uuidv4", "uuidv5"] })
         .required(),
 
     permission_ids: Joi.array()
-        .items(Joi.string().guid({ version: "uuidv4" }))
+        .items(Joi.string().guid({ version: ["uuidv4", "uuidv5"] }))
         .min(1)
         .required(),
 });
@@ -77,11 +77,11 @@ const addPermissionsSchema = Joi.object({
  */
 const removePermissionSchema = Joi.object({
     permission_group_id: Joi.string()
-        .guid({ version: "uuidv4" })
+        .guid({ version: ["uuidv4", "uuidv5"] })
         .required(),
 
     permission_id: Joi.string()
-        .guid({ version: "uuidv4" })
+        .guid({ version: ["uuidv4", "uuidv5"] })
         .required(),
 });
 
@@ -90,21 +90,21 @@ const removePermissionSchema = Joi.object({
  */
 const addUsersSchema = Joi.object({
     permission_group_id: Joi.string()
-        .guid({ version: "uuidv4" })
+        .guid({ version: ["uuidv4", "uuidv5"] })
         .required(),
 
     user_ids: Joi.array()
-        .items(Joi.string().guid({ version: "uuidv4" }))
+        .items(Joi.string().guid({ version: ["uuidv4", "uuidv5"] }))
         .min(1)
         .required(),
 });
 
 const removeUserSchema = Joi.object({
     permission_group_id: Joi.string()
-        .guid({ version: "uuidv4" })
+        .guid({ version: ["uuidv4", "uuidv5"] })
         .required(),
 
-    user_id: Joi.string().guid({ version: "uuidv4" }).required(),
+    user_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).required(),
 });
 
 /**
@@ -112,22 +112,22 @@ const removeUserSchema = Joi.object({
  */
 const addStructuresSchema = Joi.object({
     permission_group_id: Joi.string()
-        .guid({ version: "uuidv4" })
+        .guid({ version: ["uuidv4", "uuidv5"] })
         .required(),
 
     government_structure_ids: Joi.array()
-        .items(Joi.string().guid({ version: "uuidv4" }))
+        .items(Joi.string().guid({ version: ["uuidv4", "uuidv5"] }))
         .min(1)
         .required(),
 });
 
 const removeStructureSchema = Joi.object({
     permission_group_id: Joi.string()
-        .guid({ version: "uuidv4" })
+        .guid({ version: ["uuidv4", "uuidv5"] })
         .required(),
 
     government_structure_id: Joi.string()
-        .guid({ version: "uuidv4" })
+        .guid({ version: ["uuidv4", "uuidv5"] })
         .required(),
 });
 

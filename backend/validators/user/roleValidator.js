@@ -19,7 +19,7 @@ const createRoleSchema = Joi.object({
   permission_ids: Joi.alternatives()
     .try(
       Joi.array().items(
-        Joi.string().guid({ version: "uuidv4" }).messages({
+        Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).messages({
           "string.guid": "Each permission_id must be a valid UUID",
         })
       ),
@@ -34,7 +34,7 @@ const createRoleSchema = Joi.object({
     .items(
       Joi.object({
         sub_role_id: Joi.string()
-          .guid({ version: "uuidv4" })
+          .guid({ version: ["uuidv4", "uuidv5"] })
           .optional()
           .allow("")
           .messages({
@@ -50,7 +50,7 @@ const createRoleSchema = Joi.object({
         permission_ids: Joi.alternatives()
           .try(
             Joi.array().items(
-              Joi.string().guid({ version: "uuidv4" }).messages({
+              Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).messages({
                 "string.guid": "Each permission_id must be a valid UUID",
               })
             ),
@@ -105,7 +105,7 @@ const updateRoleSchema = Joi.object({
   permission_ids: Joi.array()
     .items(
       Joi.string()
-        .guid({ version: "uuidv4" })
+        .guid({ version: ["uuidv4", "uuidv5"] })
         .messages({ "string.guid": "Each permission_id must be a valid UUID" })
     )
     .optional(),
@@ -114,13 +114,13 @@ const updateRoleSchema = Joi.object({
     .items(
       Joi.object({
         sub_role_id: Joi.string()
-          .guid({ version: "uuidv4" })
+          .guid({ version: ["uuidv4", "uuidv5"] })
           .required()
           .messages({ "string.guid": "Each sub_role_id must be a valid UUID" }),
 
         permission_ids: Joi.array()
           .items(
-            Joi.string().guid({ version: "uuidv4" }).messages({
+            Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).messages({
               "string.guid": "Each permission_id must be a valid UUID",
             })
           )

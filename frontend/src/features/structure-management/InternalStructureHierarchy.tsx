@@ -131,7 +131,7 @@ const InternalHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
   const [selectedGovId, setSelectedGovId] = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedParentId, setSelectedParentId] = useState<string>("");
+  const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
 
   const userGovId = useMemo(() => {
     const userGov = session?.user?.government_structure;
@@ -163,7 +163,7 @@ const InternalHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
-    setSelectedParentId("");
+    setSelectedParentId(null);
   };
 
   const rootNodes = useMemo(() => {
@@ -296,7 +296,7 @@ const InternalHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
         <CreateInternalStructureModal
           isOpen={isModalOpen}
           onClose={handleCloseModal}
-          initialParentId={selectedParentId}
+          initialParentId={selectedParentId ?? undefined}
           forcedGovernmentStructureId={governmentStructureId}
         />
       )}

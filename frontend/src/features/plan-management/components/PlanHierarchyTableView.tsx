@@ -1,0 +1,389 @@
+"use client";
+
+import { useMemo } from "react";
+import { ChevronRight } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import { PlanNode, PlanNodeHierarchy, PlanRule } from "@/redux/types/plan";
+import {
+    formatNodeTarget,
+    getStepLabel,
+    stepRequiresWeight,
+} from "@/utils/planRuleUtils";
+import { resolveCompletionForEntity } from "@/utils/performanceColorUtils";
+import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
+import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
+import { getHierarchyNumber, sortPlanNodes } from "@/utils/planNodeOrderUtils";
+import { flattenPlanSubtree } from "@/utils/planHierarchyTableUtils";
+import { PlanNodeActions } from "./PlanNodeActions";
+import { PerformanceColorBadge } from "./PerformanceColorBadge";
+import { PlanNodeIcon } from "./PlanNodeIcon";
+import { PlanNodeHierarchyNumber } from "./PlanNodeHierarchyNumber";
+import { cn } from "@/lib/utils";
+
+interface PlanHierarchyTableViewProps {
+    roots: PlanNodeHierarchy[];
+    hierarchyNumberMap: Map<string, string>;
+    rule?: PlanRule | null;
+    rootLabel: string;
+    onAddChild: (parent: PlanNode) => void;
+    onEdit: (node: PlanNode) => void;
+    onDelete: (id: string) => void;
+    onViewDetails: (nodeId: string) => void;
+    onMoveNode?: (nodeId: string, direction: "up" | "down", siblings: PlanNode[]) => void;
+    isReordering?: boolean;
+    readOnly?: boolean;
+}
+
+interface StrategicFocusTableProps {
+    root: PlanNodeHierarchy;
+    rootSiblings: PlanNodeHierarchy[];
+    rootSiblingIndex: number;
+    hierarchyNumberMap: Map<string, string>;
+    rule?: PlanRule | null;
+    rootLabel: string;
+    onAddChild: (parent: PlanNode) => void;
+    onEdit: (node: PlanNode) => void;
+    onDelete: (id: string) => void;
+    onViewDetails: (nodeId: string) => void;
+    onMoveNode?: (nodeId: string, direction: "up" | "down", siblings: PlanNode[]) => void;
+    isReordering?: boolean;
+    readOnly?: boolean;
+    defaultOpen?: boolean;
+}
+
+function StrategicFocusTable({
+    root,
+    rootSiblings,
+    rootSiblingIndex,
+    hierarchyNumberMap,
+    rule,
+    rootLabel,
+    onAddChild,
+    onEdit,
+    onDelete,
+    onViewDetails,
+    onMoveNode,
+    isReordering = false,
+    readOnly = false,
+    defaultOpen = false,
+}: StrategicFocusTableProps) {
+    const { data: planningConfig } = useGetPlanningConfigurationQuery();
+    const configuredUnits = planningConfig?.target_units;
+    const thresholds = usePerformanceColorThresholds();
+
+    const rows = useMemo(() => flattenPlanSubtree(root), [root]);
+    const nodeCount = rows.length;
+    const rootCompletion = resolveCompletionForEntity(thresholds, root.plan_node_id);
+    const levelLabel = getStepLabel(rule, root.level);
+    const rootNumber = getHierarchyNumber(hierarchyNumberMap, root.plan_node_id);
+
+    return (
+        <Collapsible
+            defaultOpen={defaultOpen}
+            className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden"
+        >
+            <CollapsibleTrigger className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50/80 transition-colors [&[data-state=open]>svg.chevron]:rotate-90">
+                <ChevronRight className="chevron h-4 w-4 shrink-0 text-gray-400 transition-transform" />
+                <div
+                    className="h-8 w-1 rounded-full shrink-0"
+                    style={{ backgroundColor: rootCompletion.color }}
+                />
+                <div className="p-1.5 rounded-lg bg-gray-50 shrink-0">
+                    <PlanNodeIcon type={root.type} className="h-4 w-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {rootNumber && (
+                            <PlanNodeHierarchyNumber value={rootNumber} size="md" />
+                        )}
+                        <span className="font-semibold text-gray-900 truncate">{root.title}</span>
+                        <Badge variant="outline" className="text-[10px] uppercase font-bold py-0 h-4">
+                            {levelLabel || rootLabel}
+                        </Badge>
+                        <Badge variant="secondary" className="text-[10px] py-0 h-4">
+                            {nodeCount} item{nodeCount !== 1 ? "s" : ""}
+                        </Badge>
+                        {root.weight > 0 && (
+                            <Badge
+                                variant="secondary"
+                                className="text-[10px] py-0 h-4 bg-blue-50 text-blue-700 border-blue-100"
+                            >
+                                {formatNodeTarget(
+                                    root.weight,
+                                    root.weight_mode,
+                                    root.target_unit,
+                                    configuredUnits
+                                )}
+                            </Badge>
+                        )}
+                        <PerformanceColorBadge
+                            color={rootCompletion.color}
+                            label={rootCompletion.label}
+                            className="text-[10px] py-0 h-4"
+                        />
+                    </div>
+                    {root.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                            {root.description}
+                        </p>
+                    )}
+                </div>
+                <div onClick={(e) => e.stopPropagation()}>
+                    <PlanNodeActions
+                        node={root}
+                        rule={rule}
+                        onAddChild={onAddChild}
+                        onEdit={onEdit}
+                        onDelete={onDelete}
+                        onViewDetails={onViewDetails}
+                        canMoveUp={!readOnly && !!onMoveNode && rootSiblingIndex > 0}
+                        canMoveDown={
+                            !readOnly &&
+                            !!onMoveNode &&
+                            rootSiblingIndex < rootSiblings.length - 1
+                        }
+                        onMoveUp={
+                            onMoveNode
+                                ? () => onMoveNode(root.plan_node_id, "up", rootSiblings)
+                                : undefined
+                        }
+                        onMoveDown={
+                            onMoveNode
+                                ? () => onMoveNode(root.plan_node_id, "down", rootSiblings)
+                                : undefined
+                        }
+                        isReordering={isReordering}
+                        readOnly={readOnly}
+                        size="sm"
+                    />
+                </div>
+            </CollapsibleTrigger>
+
+            <CollapsibleContent>
+                <div className="border-t border-gray-100">
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="bg-gray-50/60 hover:bg-gray-50/60">
+                                <TableHead className="w-[72px]">No.</TableHead>
+                                <TableHead className="w-[100px]">Level</TableHead>
+                                <TableHead className="min-w-[220px]">Title</TableHead>
+                                <TableHead className="min-w-[140px]">Target</TableHead>
+                                <TableHead className="min-w-[120px]">Performance</TableHead>
+                                <TableHead className="w-[100px]">Mode</TableHead>
+                                <TableHead className="w-[180px] text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {rows.map(({ node, depth, siblings, siblingIndex }) => {
+                                const rowLevelLabel = getStepLabel(rule, node.level);
+                                const completion = resolveCompletionForEntity(
+                                    thresholds,
+                                    node.plan_node_id
+                                );
+                                const showTarget =
+                                    stepRequiresWeight(rule, node.level) && node.weight > 0;
+                                const rowNumber = getHierarchyNumber(
+                                    hierarchyNumberMap,
+                                    node.plan_node_id
+                                );
+
+                                return (
+                                    <TableRow key={node.plan_node_id}>
+                                        <TableCell>
+                                            {rowNumber ? (
+                                                <PlanNodeHierarchyNumber
+                                                    value={rowNumber}
+                                                    size="sm"
+                                                />
+                                            ) : (
+                                                <span className="text-muted-foreground">—</span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge
+                                                variant="outline"
+                                                className="text-[10px] uppercase font-bold py-0 h-5"
+                                            >
+                                                {rowLevelLabel}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="whitespace-normal">
+                                            <div
+                                                className="flex items-start gap-2 min-w-0"
+                                                style={{ paddingLeft: `${depth * 16}px` }}
+                                            >
+                                                <PlanNodeIcon
+                                                    type={node.type}
+                                                    className="h-4 w-4 shrink-0 mt-0.5 text-gray-500"
+                                                />
+                                                <div className="min-w-0">
+                                                    <p
+                                                        className={cn(
+                                                            "font-medium text-gray-900",
+                                                            depth === 0 && "text-primary font-semibold"
+                                                        )}
+                                                    >
+                                                        {node.title}
+                                                    </p>
+                                                    {node.description && (
+                                                        <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+                                                            {node.description}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="whitespace-normal">
+                                            {showTarget ? (
+                                                <span className="text-sm text-gray-700">
+                                                    {formatNodeTarget(
+                                                        node.weight,
+                                                        node.weight_mode,
+                                                        node.target_unit,
+                                                        configuredUnits
+                                                    )}
+                                                </span>
+                                            ) : (
+                                                <span className="text-muted-foreground">—</span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                <span
+                                                    className="text-sm font-semibold tabular-nums"
+                                                    style={{ color: completion.color }}
+                                                >
+                                                    {completion.percent}%
+                                                </span>
+                                                <PerformanceColorBadge
+                                                    color={completion.color}
+                                                    label={completion.label}
+                                                    className="text-[10px] py-0 h-5"
+                                                />
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge
+                                                variant="outline"
+                                                className={cn(
+                                                    "text-[10px] capitalize",
+                                                    node.assignment_sharing_mode === "shared"
+                                                        ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                                                        : "bg-slate-50 text-slate-700 border-slate-200"
+                                                )}
+                                            >
+                                                {node.assignment_sharing_mode}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <div className="flex justify-end">
+                                                <PlanNodeActions
+                                                    node={node}
+                                                    rule={rule}
+                                                    onAddChild={onAddChild}
+                                                    onEdit={onEdit}
+                                                    onDelete={onDelete}
+                                                    onViewDetails={onViewDetails}
+                                                    canMoveUp={
+                                                        !readOnly &&
+                                                        !!onMoveNode &&
+                                                        siblingIndex > 0
+                                                    }
+                                                    canMoveDown={
+                                                        !readOnly &&
+                                                        !!onMoveNode &&
+                                                        siblingIndex < siblings.length - 1
+                                                    }
+                                                    onMoveUp={
+                                                        onMoveNode
+                                                            ? () =>
+                                                                  onMoveNode(
+                                                                      node.plan_node_id,
+                                                                      "up",
+                                                                      siblings
+                                                                  )
+                                                            : undefined
+                                                    }
+                                                    onMoveDown={
+                                                        onMoveNode
+                                                            ? () =>
+                                                                  onMoveNode(
+                                                                      node.plan_node_id,
+                                                                      "down",
+                                                                      siblings
+                                                                  )
+                                                            : undefined
+                                                    }
+                                                    isReordering={isReordering}
+                                                    readOnly={readOnly}
+                                                    size="sm"
+                                                />
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                </div>
+            </CollapsibleContent>
+        </Collapsible>
+    );
+}
+
+export function PlanHierarchyTableView({
+    roots,
+    hierarchyNumberMap,
+    rule,
+    rootLabel,
+    onAddChild,
+    onEdit,
+    onDelete,
+    onViewDetails,
+    onMoveNode,
+    isReordering = false,
+    readOnly = false,
+}: PlanHierarchyTableViewProps) {
+    const sortedRoots = useMemo(() => sortPlanNodes(roots), [roots]);
+
+    return (
+        <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+                One collapsible table per {rootLabel.toLowerCase()}. Expand a section to browse
+                its full subtree.
+            </p>
+            {sortedRoots.map((root, index) => (
+                <StrategicFocusTable
+                    key={root.plan_node_id}
+                    root={root}
+                    rootSiblings={sortedRoots}
+                    rootSiblingIndex={index}
+                    hierarchyNumberMap={hierarchyNumberMap}
+                    rule={rule}
+                    rootLabel={rootLabel}
+                    onAddChild={onAddChild}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                    onViewDetails={onViewDetails}
+                    onMoveNode={onMoveNode}
+                    isReordering={isReordering}
+                    readOnly={readOnly}
+                    defaultOpen={index === 0}
+                />
+            ))}
+        </div>
+    );
+}

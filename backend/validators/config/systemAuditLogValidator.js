@@ -31,7 +31,7 @@ const validate = (schema, source = "query") => (req, res, next) => {
 module.exports = {
   validateListSystemAuditLogs: validate(listQuerySchema, "query"),
   validateIdParam: validate(
-    Joi.object({ id: Joi.string().guid({ version: "uuidv4" }).required() }),
+    Joi.object({ id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).required() }),
     "params"
   ),
 };

@@ -22,6 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { normalizeOptionalId } from "@/utils/apiPayloadUtils";
 import { cn } from "@/lib/utils";
 import {
   useCreateGovernmentStructureMutation,
@@ -201,12 +202,13 @@ export function CreateGovernmentStructureModal({
 
   const onSubmit = async (values: FormValues) => {
     try {
-      const finalParentId =
-        selectedParentId !== null ? selectedParentId : values.parent_id;
+      const finalParentId = normalizeOptionalId(
+        selectedParentId !== null ? selectedParentId : values.parent_id
+      );
 
       const submitData = {
         ...values,
-        parent_id: finalParentId || null,
+        parent_id: finalParentId,
       };
 
       if (isEditMode && structure) {

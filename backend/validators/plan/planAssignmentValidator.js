@@ -1,4 +1,5 @@
 const Joi = require("joi");
+const { sanitizeOptionalIds } = require("../helpers/joiFieldHelpers");
 
 /**
  * ================= ASSIGNMENT ACTION VALIDATORS =================
@@ -41,19 +42,19 @@ const getAssignmentActionsQuerySchema = Joi.object({
  */
 
 const createExternalAssignmentSchema = Joi.object({
-    plan_node_id: Joi.string().guid({ version: "uuidv4" }).required().messages({
+    plan_node_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).required().messages({
         "string.guid": "plan_node_id must be a valid UUID",
         "any.required": "plan_node_id is required",
     }),
 
-    government_structure_id: Joi.string().guid({ version: "uuidv4" }).required().messages({
+    government_structure_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).required().messages({
         "string.guid": "government_structure_id must be a valid UUID",
         "any.required": "government_structure_id is required",
     }),
 
     is_visible: Joi.boolean().default(true),
     requires_report: Joi.boolean().default(true),
-    branch_external_assignment_id: Joi.string().guid({ version: "uuidv4" }).allow(null).optional(),
+    branch_external_assignment_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
 });
 
 const updateExternalAssignmentSchema = Joi.object({
@@ -66,22 +67,22 @@ const updateExternalAssignmentSchema = Joi.object({
  */
 
 const createInternalAssignmentSchema = Joi.object({
-    plan_node_id: Joi.string().guid({ version: "uuidv4" }).required().messages({
+    plan_node_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).required().messages({
         "string.guid": "plan_node_id must be a valid UUID",
         "any.required": "plan_node_id is required",
     }),
 
-    internal_structure_id: Joi.string().guid({ version: "uuidv4" }).allow(null).optional(),
+    internal_structure_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
 
-    user_id: Joi.string().guid({ version: "uuidv4" }).allow(null).optional(),
+    user_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
 
-    action_id: Joi.string().guid({ version: "uuidv4" }).required().messages({
+    action_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).required().messages({
         "string.guid": "action_id must be a valid UUID",
         "any.required": "action_id is required",
     }),
 
-    branch_external_assignment_id: Joi.string().guid({ version: "uuidv4" }).allow(null).optional(),
-    branch_internal_assignment_id: Joi.string().guid({ version: "uuidv4" }).allow(null).optional(),
+    branch_external_assignment_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
+    branch_internal_assignment_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
     propagate_all_branches: Joi.boolean().default(true),
 }).custom((value, helpers) => {
     if (!value.internal_structure_id && !value.user_id) {
@@ -100,9 +101,9 @@ const createInternalAssignmentSchema = Joi.object({
 });
 
 const updateInternalAssignmentSchema = Joi.object({
-    internal_structure_id: Joi.string().guid({ version: "uuidv4" }).allow(null).optional(),
-    user_id: Joi.string().guid({ version: "uuidv4" }).allow(null).optional(),
-    action_id: Joi.string().guid({ version: "uuidv4" }).optional(),
+    internal_structure_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
+    user_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
+    action_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).optional(),
 }).custom((value, helpers) => {
     // Only validate if both are being set to null
     if (value.internal_structure_id === null && value.user_id === null) {
@@ -126,17 +127,17 @@ const updateInternalAssignmentSchema = Joi.object({
  */
 
 const createActionLogSchema = Joi.object({
-    plan_node_id: Joi.string().guid({ version: "uuidv4" }).required().messages({
+    plan_node_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).required().messages({
         "string.guid": "plan_node_id must be a valid UUID",
         "any.required": "plan_node_id is required",
     }),
 
-    action_id: Joi.string().guid({ version: "uuidv4" }).required().messages({
+    action_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).required().messages({
         "string.guid": "action_id must be a valid UUID",
         "any.required": "action_id is required",
     }),
 
-    user_id: Joi.string().guid({ version: "uuidv4" }).required().messages({
+    user_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).required().messages({
         "string.guid": "user_id must be a valid UUID",
         "any.required": "user_id is required",
     }),
@@ -160,7 +161,7 @@ const updateActionLogStatusSchema = Joi.object({
 
 const getActionLogsQuerySchema = Joi.object({
     status: Joi.string().valid("pending", "submitted", "approved", "rejected", "forwarded").optional(),
-    action_id: Joi.string().guid({ version: "uuidv4" }).optional(),
+    action_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).optional(),
 });
 
 /**
@@ -168,22 +169,22 @@ const getActionLogsQuerySchema = Joi.object({
  */
 
 const idParamSchema = Joi.object({
-    id: Joi.string().guid({ version: "uuidv4" }).required().messages({
+    id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).required().messages({
         "string.guid": "ID must be a valid UUID",
         "any.required": "ID is required",
     }),
 });
 
 const nodeIdParamSchema = Joi.object({
-    plan_node_id: Joi.string().guid({ version: "uuidv4" }).required().messages({
+    plan_node_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).required().messages({
         "string.guid": "plan_node_id must be a valid UUID",
         "any.required": "plan_node_id is required",
     }),
 });
 
 const getAssignmentOptionsQuerySchema = Joi.object({
-    branch_external_assignment_id: Joi.string().guid({ version: "uuidv4" }).optional(),
-    branch_internal_assignment_id: Joi.string().guid({ version: "uuidv4" }).optional(),
+    branch_external_assignment_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).optional(),
+    branch_internal_assignment_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).optional(),
 });
 
 const getAssignmentsByNodeQuerySchema = Joi.object({
@@ -191,7 +192,7 @@ const getAssignmentsByNodeQuerySchema = Joi.object({
 });
 
 const userIdParamSchema = Joi.object({
-    user_id: Joi.string().guid({ version: "uuidv4" }).required().messages({
+    user_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).required().messages({
         "string.guid": "user_id must be a valid UUID",
         "any.required": "user_id is required",
     }),
@@ -205,14 +206,16 @@ const validate = (schema, source = "body") => (req, res, next) => {
     let dataToValidate;
 
     if (source === "body") {
+        req.body = sanitizeOptionalIds(req.body);
         dataToValidate = req.body;
     } else if (source === "query") {
+        req.query = sanitizeOptionalIds(req.query);
         dataToValidate = req.query;
     } else if (source === "params") {
         dataToValidate = req.params;
     }
 
-    const { error } = schema.validate(dataToValidate, { abortEarly: false });
+    const { error, value } = schema.validate(dataToValidate, { abortEarly: false });
 
     if (error) {
         return res.status(400).json({
@@ -220,6 +223,12 @@ const validate = (schema, source = "body") => (req, res, next) => {
             message: "Validation error",
             errors: error.details.map((e) => e.message),
         });
+    }
+
+    if (source === "body") {
+        req.body = value;
+    } else if (source === "query") {
+        req.query = value;
     }
 
     next();

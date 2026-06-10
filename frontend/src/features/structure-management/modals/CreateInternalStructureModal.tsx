@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { normalizeOptionalId } from "@/utils/apiPayloadUtils";
 import {
   useCreateInternalStructureMutation,
   useUpdateInternalStructureMutation,
@@ -314,8 +315,10 @@ export function CreateInternalStructureModal({
 
   const onSubmit = async (values: FormValues) => {
     try {
-      const finalParentId = selectedParentId ?? values.parent_id ?? null;
-      let finalGovId = values.government_structure_id;
+      const finalParentId = normalizeOptionalId(
+        selectedParentId ?? values.parent_id
+      );
+      let finalGovId = normalizeOptionalId(values.government_structure_id);
       let finalLevel = values.level;
 
       if (finalParentId) {
@@ -328,11 +331,18 @@ export function CreateInternalStructureModal({
         }
       }
 
+      const governmentStructureId = finalGovId || resolvedGovId;
+      if (!governmentStructureId) {
+        toast.error("Sector structure is required");
+        return;
+      }
+
       const submitData = {
-        ...values,
+        name: values.name,
         parent_id: finalParentId,
-        government_structure_id: finalGovId || resolvedGovId || "",
+        government_structure_id: governmentStructureId,
         level: finalLevel,
+        is_active: values.is_active,
       };
 
       if (isEditMode && structure) {

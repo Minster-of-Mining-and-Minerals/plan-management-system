@@ -1,4 +1,9 @@
 const Joi = require("joi");
+const {
+  optionalUuid,
+  requiredUuid,
+  validateMiddleware,
+} = require("../helpers/joiFieldHelpers");
 
 /**
  * CREATE
@@ -6,14 +11,9 @@ const Joi = require("joi");
 const createInternalStructureSchema = Joi.object({
   name: Joi.string().trim().required(),
 
-  government_structure_id: Joi.string()
-    .guid({ version: "uuidv4" })
-    .required(),
+  government_structure_id: requiredUuid("government_structure_id"),
 
-  parent_id: Joi.string()
-    .guid({ version: "uuidv4" })
-    .optional()
-    .allow(null),
+  parent_id: optionalUuid("parent_id"),
 
   level: Joi.number().integer().optional(),
 
@@ -26,14 +26,9 @@ const createInternalStructureSchema = Joi.object({
 const updateInternalStructureSchema = Joi.object({
   name: Joi.string().trim().optional(),
 
-  government_structure_id: Joi.string()
-    .guid({ version: "uuidv4" })
-    .optional(),
+  government_structure_id: optionalUuid("government_structure_id"),
 
-  parent_id: Joi.string()
-    .guid({ version: "uuidv4" })
-    .optional()
-    .allow(null),
+  parent_id: optionalUuid("parent_id"),
 
   level: Joi.number().integer().optional(),
 
@@ -44,12 +39,10 @@ const updateInternalStructureSchema = Joi.object({
  * ASSIGN USERS
  */
 const assignUsersSchema = Joi.object({
-  internal_structure_id: Joi.string()
-    .guid({ version: "uuidv4" })
-    .required(),
+  internal_structure_id: requiredUuid("internal_structure_id"),
 
   user_ids: Joi.array()
-    .items(Joi.string().guid({ version: "uuidv4" }))
+    .items(Joi.string().guid({ version: ["uuidv4", "uuidv5"] }))
     .min(1)
     .required(),
 });
@@ -58,54 +51,12 @@ const assignUsersSchema = Joi.object({
  * REMOVE USER
  */
 const removeUserSchema = Joi.object({
-  user_id: Joi.string()
-    .guid({ version: "uuidv4" })
-    .required(),
+  user_id: requiredUuid("user_id"),
 });
 
-/**
- * MIDDLEWARES
- */
-exports.validateCreateInternalStructure = (req, res, next) => {
-  const { error } = createInternalStructureSchema.validate(req.body, {
-    abortEarly: false,
-  });
-
-  if (error)
-    return res.status(400).json({
-      message: "Validation error",
-      errors: error.details.map((e) => e.message),
-    });
-
-  next();
-};
-
-exports.validateUpdateInternalStructure = (req, res, next) => {
-  const { error } = updateInternalStructureSchema.validate(req.body, {
-    abortEarly: false,
-  });
-
-  if (error)
-    return res.status(400).json({
-      message: "Validation error",
-      errors: error.details.map((e) => e.message),
-    });
-
-  next();
-};
-
-exports.validateAssignUsers = (req, res, next) => {
-  const { error } = assignUsersSchema.validate(req.body);
-
-  if (error) return res.status(400).json({ message: error.message });
-
-  next();
-};
-
-exports.validateRemoveUser = (req, res, next) => {
-  const { error } = removeUserSchema.validate(req.body);
-
-  if (error) return res.status(400).json({ message: error.message });
-
-  next();
+module.exports = {
+  validateCreateInternalStructure: validateMiddleware(createInternalStructureSchema),
+  validateUpdateInternalStructure: validateMiddleware(updateInternalStructureSchema),
+  validateAssignUsers: validateMiddleware(assignUsersSchema),
+  validateRemoveUser: validateMiddleware(removeUserSchema),
 };

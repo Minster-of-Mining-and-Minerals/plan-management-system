@@ -10,8 +10,9 @@ import {
     getStepLabel,
     stepRequiresWeight,
 } from "@/utils/planRuleUtils";
-import { sortPlanNodes } from "@/utils/planNodeOrderUtils";
+import { getHierarchyNumber, sortPlanNodes } from "@/utils/planNodeOrderUtils";
 import { PlanNodeIcon } from "./PlanNodeIcon";
+import { PlanNodeHierarchyNumber } from "./PlanNodeHierarchyNumber";
 import { PlanNodeActions } from "./PlanNodeActions";
 import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
 
@@ -20,6 +21,7 @@ interface NodeItemProps {
     level: number;
     siblings: PlanNodeHierarchy[];
     siblingIndex: number;
+    hierarchyNumberMap: Map<string, string>;
     rule?: PlanRule | null;
     onAddChild: (parent: PlanNode) => void;
     onEdit: (node: PlanNode) => void;
@@ -37,6 +39,7 @@ const NodeItem = ({
     level,
     siblings,
     siblingIndex,
+    hierarchyNumberMap,
     rule,
     onAddChild,
     onEdit,
@@ -48,6 +51,7 @@ const NodeItem = ({
     readOnly = false,
     configuredUnits,
 }: NodeItemProps) => {
+    const hierarchyNumber = getHierarchyNumber(hierarchyNumberMap, node.plan_node_id);
     const [isExpanded, setIsExpanded] = useState(true);
     const hasChildren = node.children && node.children.length > 0;
     const levelLabel = getStepLabel(rule, node.level);
@@ -80,6 +84,9 @@ const NodeItem = ({
 
                     <div className="flex flex-col min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
+                            {hierarchyNumber && (
+                                <PlanNodeHierarchyNumber value={hierarchyNumber} size="sm" />
+                            )}
                             <button
                                 type="button"
                                 onClick={() => onDrillDown?.(node)}
@@ -155,6 +162,7 @@ const NodeItem = ({
                             level={level + 1}
                             siblings={sortedChildren}
                             siblingIndex={childIndex}
+                            hierarchyNumberMap={hierarchyNumberMap}
                             rule={rule}
                             onAddChild={onAddChild}
                             onEdit={onEdit}
@@ -175,6 +183,7 @@ const NodeItem = ({
 
 interface PlanHierarchyTreeProps {
     nodes: PlanNodeHierarchy[];
+    hierarchyNumberMap: Map<string, string>;
     rule?: PlanRule | null;
     onAddChild: (parent: PlanNode) => void;
     onEdit: (node: PlanNode) => void;
@@ -190,6 +199,7 @@ interface PlanHierarchyTreeProps {
 
 export function PlanHierarchyTree({
     nodes,
+    hierarchyNumberMap,
     rule,
     onAddChild,
     onEdit,
@@ -215,6 +225,7 @@ export function PlanHierarchyTree({
                         level={0}
                         siblings={sortedNodes}
                         siblingIndex={index}
+                        hierarchyNumberMap={hierarchyNumberMap}
                         rule={rule}
                         onAddChild={onAddChild}
                         onEdit={onEdit}
@@ -240,6 +251,7 @@ export function PlanHierarchyTree({
                     level={0}
                     siblings={sortedNodes}
                     siblingIndex={index}
+                    hierarchyNumberMap={hierarchyNumberMap}
                     rule={rule}
                     onAddChild={onAddChild}
                     onEdit={onEdit}
