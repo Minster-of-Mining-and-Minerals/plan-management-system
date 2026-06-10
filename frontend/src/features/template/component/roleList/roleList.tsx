@@ -14,7 +14,7 @@ import type { FilterField, ActionButton } from "@/types/tableLayout";
 import { useRouter } from "next/navigation";
 import { Edit, Trash2 } from "lucide-react";
 import { useDeleteRoleMutation } from "@/redux/api/roleApi";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import { useSearchParams } from "next/navigation";
 import { matchesActiveInactiveFilter, matchesSearchQuery } from "@/utils/tableUtils";
 
@@ -69,13 +69,13 @@ export default function RoleList() {
               variant="ghost"
               size="icon"
               onClick={async () => {
-                if (window.confirm("Are you sure you want to delete this role?")) {
+                if (await actionFeedback.confirm("Are you sure you want to delete this role?", { destructive: true })) {
                   try {
                     await deleteRole(role.role_id).unwrap();
-                    toast.success("Role deleted successfully");
+                    actionFeedback.success("Role deleted successfully");
                     refetch();
                   } catch (err: any) {
-                    toast.error(err?.data?.message || "Failed to delete role");
+                    actionFeedback.error(err?.data?.message || "Failed to delete role");
                   }
                 }
               }}

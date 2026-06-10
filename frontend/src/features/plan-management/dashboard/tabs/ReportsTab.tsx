@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Download, FileSpreadsheet, FileText, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import type { PlanDashboardFiltersState } from "../hooks/usePlanDashboardFilters";
 import { FilterDropdown } from "../components/FilterDropdown";
 
@@ -37,7 +37,7 @@ export function ReportsTab({ state }: ReportsTabProps) {
   ];
 
   const handleMockAction = (action: string) => {
-    toast.info(`${action} — UI template only. Connect report API to enable.`);
+    actionFeedback.info(`${action} — UI template only. Connect report API to enable.`);
   };
 
   return (

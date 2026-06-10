@@ -14,7 +14,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { toast } from "react-toastify";
+import { actionFeedback } from "@/components/action-feedback";
 import { useRouter } from "@/i18n/navigation";
 import { ArrowLeftIcon, Mail, ShieldCheck, Lock, EyeIcon, EyeOffIcon } from "lucide-react";
 import { useRequestOTPMutation, useVerifyOTPMutation, useResetPasswordMutation } from "@/redux/api/authApi";
@@ -70,9 +70,9 @@ export default function ForgotPasswordPage() {
       await requestOTPMutation({ email: values.email }).unwrap();
       setEmail(values.email);
       setStep(2);
-      toast.success("OTP sent to your email");
+      actionFeedback.success("OTP sent to your email");
     } catch (error: any) {
-      toast.error(error?.data?.message || "Failed to send OTP");
+      actionFeedback.error(error?.data?.message || "Failed to send OTP");
     }
   };
 
@@ -81,9 +81,9 @@ export default function ForgotPasswordPage() {
       await verifyOTPMutation({ email, otp: values.otp }).unwrap();
       setOtp(values.otp);
       setStep(3);
-      toast.success("OTP verified");
+      actionFeedback.success("OTP verified");
     } catch (error: any) {
-      toast.error(error?.data?.message || "Invalid or expired OTP");
+      actionFeedback.error(error?.data?.message || "Invalid or expired OTP");
     }
   };
 
@@ -94,10 +94,10 @@ export default function ForgotPasswordPage() {
         otp,
         newPassword: values.newPassword
       }).unwrap();
-      toast.success("Password reset successfully! Please login.");
+      actionFeedback.success("Password reset successfully! Please login.");
       router.push("/login");
     } catch (error: any) {
-      toast.error(error?.data?.message || "Failed to reset password");
+      actionFeedback.error(error?.data?.message || "Failed to reset password");
     }
   };
 

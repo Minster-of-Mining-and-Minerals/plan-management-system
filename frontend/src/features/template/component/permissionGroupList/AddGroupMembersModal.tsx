@@ -16,7 +16,7 @@ import {
   useAddUsersToGroupMutation,
   useAddStructuresToGroupMutation,
 } from "@/redux/api/permissionGroupApi";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -85,10 +85,10 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
           government_structure_ids: selectedStructureIds,
         }).unwrap();
       }
-      toast.success("Members added successfully");
+      actionFeedback.success("Members added successfully");
       handleClose();
     } catch (error: any) {
-      toast.error(error?.data?.message || "Failed to add members");
+      actionFeedback.error(error?.data?.message || "Failed to add members");
     }
   };
 

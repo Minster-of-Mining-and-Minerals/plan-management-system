@@ -12,7 +12,7 @@ import {
   Type,
   Upload,
 } from "lucide-react";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -60,9 +60,9 @@ function LogoUploadField({ label, value, onChange }: LogoFieldProps) {
       const path = result.attachments?.[0]?.file_path;
       if (!path) throw new Error("Upload failed");
       onChange(path);
-      toast.success(`${label} uploaded`);
+      actionFeedback.success(`${label} uploaded`);
     } catch {
-      toast.error(`Failed to upload ${label.toLowerCase()}`);
+      actionFeedback.error(`Failed to upload ${label.toLowerCase()}`);
     }
   };
 
@@ -171,22 +171,22 @@ export default function BrandingSettingsPage() {
       const result = await updateBranding(toUpdateBrandingPayload(form)).unwrap();
       applyBrandingTheme(result, result.css_variables);
       setDraft(null);
-      toast.success("Branding settings saved");
+      actionFeedback.success("Branding settings saved");
     } catch (err: unknown) {
       const error = err as { data?: { message?: string } };
-      toast.error(error.data?.message || "Failed to save branding settings");
+      actionFeedback.error(error.data?.message || "Failed to save branding settings");
     }
   };
 
   const handleRestore = async () => {
-    if (!confirm("Restore all branding settings to system defaults?")) return;
+    if (!(await actionFeedback.confirm("Restore all branding settings to system defaults?", { destructive: true }))) return;
     try {
       const result = await restoreDefaults().unwrap();
       applyBrandingTheme(result, result.css_variables);
       setDraft(null);
-      toast.success("Default branding restored");
+      actionFeedback.success("Default branding restored");
     } catch {
-      toast.error("Failed to restore defaults");
+      actionFeedback.error("Failed to restore defaults");
     }
   };
 

@@ -23,7 +23,7 @@ import {
     Clock,
 } from "lucide-react";
 import { CreatePlanNodeModal } from "./modals/CreatePlanNodeModal";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import { useRouter } from "next/navigation";
 import {
     canAddChild,
@@ -176,15 +176,15 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
     };
 
     const handleDelete = async (nodeId: string) => {
-        if (confirm("Are you sure you want to delete this node and all its children?")) {
+        if (await actionFeedback.confirm("Are you sure you want to delete this node and all its children?", { destructive: true })) {
             try {
                 await deleteNode(nodeId).unwrap();
-                toast.success("Node deleted successfully");
+                actionFeedback.success("Node deleted successfully");
                 setPathIds((prev) => prev.filter((id) => id !== nodeId));
                 refetch();
             } catch (err: unknown) {
                 const error = err as { data?: { message?: string } };
-                toast.error(error.data?.message || "Failed to delete node");
+                actionFeedback.error(error.data?.message || "Failed to delete node");
             }
         }
     };
@@ -222,7 +222,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
             refetch();
         } catch (err: unknown) {
             const error = err as { data?: { message?: string } };
-            toast.error(error.data?.message || "Failed to reorder nodes");
+            actionFeedback.error(error.data?.message || "Failed to reorder nodes");
         }
     };
 

@@ -17,7 +17,7 @@ import { InternalStructure } from "@/redux/types/internalStructure";
 import { formatStatus } from "@/utils/statusFormatter";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import { CreateInternalStructureModal } from "./modals/CreateInternalStructureModal";
 import InternalHierarchyD3Tree from "./InternalStructureHierarchy";
 import { matchesActiveInactiveFilter } from "@/utils/tableUtils";
@@ -145,12 +145,12 @@ export default function InternalStructureTable({ forced_government_structure_id,
     });
 
     const handleDelete = async (id: string) => {
-        if (confirm("Are you sure you want to delete this department?")) {
+        if (await actionFeedback.confirm("Are you sure you want to delete this department?", { destructive: true })) {
             try {
                 await deleteStructure(id).unwrap();
-                toast.success("Department deleted successfully");
+                actionFeedback.success("Department deleted successfully");
             } catch (err) {
-                toast.error("Failed to delete department");
+                actionFeedback.error("Failed to delete department");
             }
         }
     };

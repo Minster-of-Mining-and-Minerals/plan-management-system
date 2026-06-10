@@ -2,14 +2,13 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ReduxProvider from "@/providers/ReduxProvider";
-import "react-toastify/dist/ReactToastify.css";
 import { NextIntlClientProvider } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { hasLocale } from "next-intl";
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
-import { Toaster } from "@/components/ui/sonner";
 import NextTopLoader from "nextjs-toploader";
+import { ActionFeedbackProvider } from "@/components/action-feedback";
 import { BreadcrumbProvider } from "@/providers/BreadcrumbProvider";
 import { SessionProvider } from "next-auth/react";
 import AuthInitializer from "@/providers/AuthInitializer";
@@ -63,14 +62,15 @@ export default async function LocaleLayout({ children, params }: Props) {
           <ReduxProvider>
             <BrandingProvider>
               <NextIntlClientProvider>
-                <BreadcrumbProvider>
-                  <AuthInitializer>{children}</AuthInitializer>
-                </BreadcrumbProvider>
+                <ActionFeedbackProvider>
+                  <BreadcrumbProvider>
+                    <AuthInitializer>{children}</AuthInitializer>
+                  </BreadcrumbProvider>
+                </ActionFeedbackProvider>
               </NextIntlClientProvider>
             </BrandingProvider>
           </ReduxProvider>
         </SessionProvider>
-        <Toaster richColors position="top-right" />
       </body>
     </html>
   );

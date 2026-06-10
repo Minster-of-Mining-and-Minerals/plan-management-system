@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useGetRolesQuery } from "@/redux/api/roleApi";
@@ -58,7 +58,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
 
   const handleSubmit = async () => {
     if (!fullName || !email || !selectedRoles.length) {
-      toast.error("Please fill all required fields");
+      actionFeedback.error("Please fill all required fields");
       return;
     }
 
@@ -73,10 +73,10 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
 
     try {
       await createUser(payload).unwrap();
-      toast.success("User created successfully!");
+      actionFeedback.success("User created successfully!");
       handleClose();
     } catch (error: any) {
-      toast.error(error?.data?.message || "Failed to create user");
+      actionFeedback.error(error?.data?.message || "Failed to create user");
     }
   };
 

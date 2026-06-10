@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2, RotateCcw, Save, Settings2, Plus, Trash2, CalendarRange } from "lucide-react";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -108,7 +108,7 @@ export default function PlanningConfigurationPage() {
 
   const handleSave = async () => {
     if (form.min_duration_years > form.max_duration_years) {
-      toast.error("Minimum duration cannot exceed maximum duration.");
+      actionFeedback.error("Minimum duration cannot exceed maximum duration.");
       return;
     }
 
@@ -121,7 +121,7 @@ export default function PlanningConfigurationPage() {
       .filter((unit) => unit.label);
 
     if (normalizedUnits.length === 0) {
-      toast.error("Add at least one target unit.");
+      actionFeedback.error("Add at least one target unit.");
       return;
     }
 
@@ -130,12 +130,12 @@ export default function PlanningConfigurationPage() {
         .map((p) => p.label.trim())
         .filter(Boolean);
       if (customLabels.length === 0) {
-        toast.error("Add at least one custom execution period.");
+        actionFeedback.error("Add at least one custom execution period.");
         return;
       }
       const unique = new Set(customLabels.map((l) => l.toLowerCase()));
       if (unique.size !== customLabels.length) {
-        toast.error("Custom period labels must be unique.");
+        actionFeedback.error("Custom period labels must be unique.");
         return;
       }
     }
@@ -143,7 +143,7 @@ export default function PlanningConfigurationPage() {
     const ids = new Set<string>();
     for (const unit of normalizedUnits) {
       if (ids.has(unit.id)) {
-        toast.error(`Duplicate target unit: ${unit.label}`);
+        actionFeedback.error(`Duplicate target unit: ${unit.label}`);
         return;
       }
       ids.add(unit.id);
@@ -169,22 +169,22 @@ export default function PlanningConfigurationPage() {
                 .filter((p) => p.label)
             : [],
       }).unwrap();
-      toast.success("Planning configuration saved");
+      actionFeedback.success("Planning configuration saved");
     } catch (error: unknown) {
       const err = error as { data?: { message?: string } };
-      toast.error(err.data?.message || "Failed to save configuration");
+      actionFeedback.error(err.data?.message || "Failed to save configuration");
     }
   };
 
   const handleRestore = async () => {
-    if (!confirm("Restore default planning configuration?")) return;
+    if (!(await actionFeedback.confirm("Restore default planning configuration?", { destructive: true }))) return;
     try {
       const restored = await restoreDefaults().unwrap();
       setForm(restored);
-      toast.success("Defaults restored");
+      actionFeedback.success("Defaults restored");
     } catch (error: unknown) {
       const err = error as { data?: { message?: string } };
-      toast.error(err.data?.message || "Failed to restore defaults");
+      actionFeedback.error(err.data?.message || "Failed to restore defaults");
     }
   };
 

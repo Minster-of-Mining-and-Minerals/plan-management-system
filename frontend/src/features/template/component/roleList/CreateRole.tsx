@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import { Permission, ResourceGroup, PermissionMatrix } from "../../types/role";
 import { useGetPermissionsQuery } from "@/redux/api/permissionApi";
 import {
@@ -225,14 +225,14 @@ export default function CreateRole({ roleId }: { roleId?: string }) {
     e.preventDefault();
 
     if (!name.trim()) {
-      toast.error("Role name is required");
+      actionFeedback.error("Role name is required");
       return;
     }
 
     const selectedPermissionIds = getSelectedPermissions();
 
     if (selectedPermissionIds.length === 0) {
-      toast.error("Please select at least one permission");
+      actionFeedback.error("Please select at least one permission");
       return;
     }
 
@@ -247,7 +247,7 @@ export default function CreateRole({ roleId }: { roleId?: string }) {
           },
         }).unwrap();
 
-        toast.success("Role updated successfully!");
+        actionFeedback.success("Role updated successfully!");
         router.push("/users/roles");
       } else {
         await createRole({
@@ -256,12 +256,12 @@ export default function CreateRole({ roleId }: { roleId?: string }) {
           permission_ids: selectedPermissionIds,
         }).unwrap();
 
-        toast.success("Role created successfully!");
+        actionFeedback.success("Role created successfully!");
         resetForm();
         router.push("/users/roles");
       }
     } catch (error: any) {
-      toast.error(
+      actionFeedback.error(
         error?.data?.message ||
           `Failed to ${isEditMode ? "update" : "create"} role`
       );

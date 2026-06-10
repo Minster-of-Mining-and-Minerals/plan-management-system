@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import { normalizeOptionalId } from "@/utils/apiPayloadUtils";
 import { useCreateGovernmentStructureMutation } from "@/redux/api/governmentStructureApi";
 import { useCreateInternalStructureMutation } from "@/redux/api/internalStructureApi";
@@ -74,7 +74,7 @@ export function CreateChildModal({
           : null;
 
         if (!government_structure_id) {
-          toast.error("Sector structure context missing. Please add via the main table.");
+          actionFeedback.error("Sector structure context missing. Please add via the main table.");
           return;
         }
 
@@ -84,11 +84,11 @@ export function CreateChildModal({
           government_structure_id,
         }).unwrap();
       }
-      toast.success("Child node created successfully");
+      actionFeedback.success("Child node created successfully");
       form.reset();
       onClose();
     } catch (error: any) {
-      toast.error(error?.data?.message || "Failed to create child node");
+      actionFeedback.error(error?.data?.message || "Failed to create child node");
     }
   };
 

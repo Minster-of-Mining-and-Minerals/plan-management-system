@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { Trash2, Upload, Loader2, Eye, X } from "lucide-react";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import {
   useUploadAttachmentsMutation,
   useDeleteAttachmentMutation,
@@ -94,7 +94,7 @@ export const FileUploadField: React.FC<FileUploadFieldProps> = ({
           return { ...uploaded, previewUrl };
         }
       } catch {
-        toast.error(`Failed to upload ${file.name}`);
+        actionFeedback.error(`Failed to upload ${file.name}`);
         return null;
       }
     });
@@ -107,7 +107,7 @@ export const FileUploadField: React.FC<FileUploadFieldProps> = ({
       const updatedFiles = [...files, ...uploadedFiles];
       setFiles(updatedFiles);
       onChange(updatedFiles.map((f) => f.attachment_id));
-      uploadedFiles.forEach((f) => toast.success(`${f.file_name} uploaded`));
+      uploadedFiles.forEach((f) => actionFeedback.success(`${f.file_name} uploaded`));
     }
   };
 
@@ -119,9 +119,9 @@ export const FileUploadField: React.FC<FileUploadFieldProps> = ({
       );
       setFiles(updatedFiles);
       onChange(updatedFiles.map((f) => f.attachment_id));
-      toast.success("File removed successfully");
+      actionFeedback.success("File removed successfully");
     } catch {
-      toast.error("Failed to delete file");
+      actionFeedback.error("Failed to delete file");
     }
   };
 

@@ -28,7 +28,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import {
     useCreateInternalAssignmentMutation,
     useGetAssignmentActionsQuery,
@@ -161,7 +161,7 @@ export function AssignInternalModal({
 
             const result = await createAssignment(payload).unwrap();
             const branchCount = (result as { branches_created?: number }).branches_created;
-            toast.success(
+            actionFeedback.success(
                 branchCount && branchCount > 1
                     ? `Assignment created across ${branchCount} branches`
                     : "Assignment created successfully"
@@ -169,7 +169,7 @@ export function AssignInternalModal({
             onClose();
         } catch (error: unknown) {
             const err = error as { data?: { message?: string } };
-            toast.error(err.data?.message || "Something went wrong");
+            actionFeedback.error(err.data?.message || "Something went wrong");
         }
     }
 

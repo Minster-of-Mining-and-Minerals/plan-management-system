@@ -29,7 +29,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import {
     useCreateExternalAssignmentMutation,
     useGetPlanNodeAssignmentOptionsQuery,
@@ -83,10 +83,10 @@ export function AssignExternalModal({
     async function onSubmit(values: z.infer<typeof formSchema>) {
         try {
             await createAssignment(values).unwrap();
-            toast.success("Sector assignment created successfully");
+            actionFeedback.success("Sector assignment created successfully");
             onClose();
         } catch (error: any) {
-            toast.error(error.data?.message || "Something went wrong");
+            actionFeedback.error(error.data?.message || "Something went wrong");
         }
     }
 

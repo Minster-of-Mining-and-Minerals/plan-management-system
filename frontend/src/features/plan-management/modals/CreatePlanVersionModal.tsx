@@ -30,7 +30,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import {
     useCreatePlanVersionMutation,
     useUpdatePlanVersionMutation,
@@ -155,7 +155,7 @@ export function CreatePlanVersionModal({
                         plan_rule_id: values.plan_rule_id,
                     },
                 }).unwrap();
-                toast.success(`${config.draft_entity_label_singular} updated successfully`);
+                actionFeedback.success(`${config.draft_entity_label_singular} updated successfully`);
             } else {
                 await createVersion({
                     draft_name: values.draft_name,
@@ -165,11 +165,11 @@ export function CreatePlanVersionModal({
                     based_on_version_id: values.based_on_version_id,
                     plan_rule_id: values.plan_rule_id,
                 }).unwrap();
-                toast.success(`${config.draft_entity_label_singular} created successfully`);
+                actionFeedback.success(`${config.draft_entity_label_singular} created successfully`);
             }
             onClose();
         } catch (error: unknown) {
-            toast.error(getApiErrorMessage(error));
+            actionFeedback.error(getApiErrorMessage(error));
         }
     }
 

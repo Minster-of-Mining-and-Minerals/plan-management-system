@@ -8,7 +8,7 @@ import { TableLayout } from "@/features/template/component/tableList/TableLayout
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { ActionButton } from "@/types/tableLayout";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import {
   useGetPerformanceColorThresholdsQuery,
   useDeletePerformanceColorThresholdMutation,
@@ -27,14 +27,14 @@ export default function PerformanceColorThresholdsTable() {
   const [deleteThreshold] = useDeletePerformanceColorThresholdMutation();
 
   const handleDelete = async (id: string) => {
-    if (confirm("Are you sure you want to delete this performance threshold?")) {
+    if (await actionFeedback.confirm("Are you sure you want to delete this performance threshold?", { destructive: true })) {
       try {
         await deleteThreshold(id).unwrap();
-        toast.success("Threshold deleted");
+        actionFeedback.success("Threshold deleted");
         refetch();
       } catch (err: unknown) {
         const error = err as { data?: { message?: string } };
-        toast.error(error.data?.message || "Failed to delete threshold");
+        actionFeedback.error(error.data?.message || "Failed to delete threshold");
       }
     }
   };

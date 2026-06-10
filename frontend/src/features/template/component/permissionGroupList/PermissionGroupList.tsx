@@ -12,7 +12,7 @@ import { useGetPermissionGroupsQuery, useDeletePermissionGroupMutation } from "@
 import type { PermissionGroup } from "@/redux/types/permissionGroup";
 import type { FilterField, ActionButton } from "@/types/tableLayout";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import { useSearchParams } from "next/navigation";
 import { matchesActiveInactiveFilter, matchesSearchQuery } from "@/utils/tableUtils";
 
@@ -72,13 +72,13 @@ export default function PermissionGroupList({ government_structure_id, hideLayou
               variant="ghost"
               size="icon"
               onClick={async () => {
-                if (window.confirm("Are you sure you want to delete this permission group?")) {
+                if (await actionFeedback.confirm("Are you sure you want to delete this permission group?", { destructive: true })) {
                   try {
                     await deleteGroup(group.permission_group_id).unwrap();
-                    toast.success("Permission group deleted successfully");
+                    actionFeedback.success("Permission group deleted successfully");
                     refetch();
                   } catch (err: any) {
-                    toast.error(err?.data?.message || "Failed to delete group");
+                    actionFeedback.error(err?.data?.message || "Failed to delete group");
                   }
                 }
               }}

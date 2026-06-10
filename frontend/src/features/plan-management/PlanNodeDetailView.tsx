@@ -35,7 +35,7 @@ import {
     UserPlus,
     GitBranch,
 } from "lucide-react";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import { AssignInternalModal } from "./modals/AssignInternalModal";
 import { AssignExternalModal } from "./modals/AssignExternalModal";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
@@ -145,25 +145,25 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
     };
 
     const handleDeleteInternal = async (id: string) => {
-        if (confirm("Are you sure you want to remove this internal assignment?")) {
+        if (await actionFeedback.confirm("Are you sure you want to remove this internal assignment?", { destructive: true })) {
             try {
                 await deleteInternal({ id, nodeId }).unwrap();
-                toast.success("Assignment removed");
+                actionFeedback.success("Assignment removed");
             } catch (error: unknown) {
                 const err = error as { data?: { message?: string } };
-                toast.error(err.data?.message || "Failed to remove assignment");
+                actionFeedback.error(err.data?.message || "Failed to remove assignment");
             }
         }
     };
 
     const handleDeleteExternal = async (id: string) => {
-        if (confirm("Are you sure you want to remove this external assignment?")) {
+        if (await actionFeedback.confirm("Are you sure you want to remove this external assignment?", { destructive: true })) {
             try {
                 await deleteExternal({ id, nodeId }).unwrap();
-                toast.success("Assignment removed");
+                actionFeedback.success("Assignment removed");
             } catch (error: unknown) {
                 const err = error as { data?: { message?: string } };
-                toast.error(err.data?.message || "Failed to remove assignment");
+                actionFeedback.error(err.data?.message || "Failed to remove assignment");
             }
         }
     };
@@ -476,10 +476,10 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                                                             id: node.plan_node_id,
                                                             annual_target: val,
                                                         }).unwrap();
-                                                        toast.success("Annual target saved");
+                                                        actionFeedback.success("Annual target saved");
                                                     } catch (error: unknown) {
                                                         const err = error as { data?: { message?: string } };
-                                                        toast.error(err.data?.message || "Failed to save");
+                                                        actionFeedback.error(err.data?.message || "Failed to save");
                                                     }
                                                 }}
                                             >
@@ -547,10 +547,10 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                                                             id: node.plan_node_id,
                                                             period_target: val,
                                                         }).unwrap();
-                                                        toast.success("Period target saved");
+                                                        actionFeedback.success("Period target saved");
                                                     } catch (error: unknown) {
                                                         const err = error as { data?: { message?: string } };
-                                                        toast.error(err.data?.message || "Failed to save");
+                                                        actionFeedback.error(err.data?.message || "Failed to save");
                                                     }
                                                 }}
                                             >

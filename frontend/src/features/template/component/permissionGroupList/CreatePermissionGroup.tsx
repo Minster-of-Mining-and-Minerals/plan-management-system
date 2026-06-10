@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import { Permission, ResourceGroup, PermissionMatrix } from "../../types/role";
 import { useGetPermissionsQuery } from "@/redux/api/permissionApi";
 import {
@@ -202,14 +202,14 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
     if (e) e.preventDefault();
 
     if (!name.trim()) {
-      toast.error("Permission group name is required");
+      actionFeedback.error("Permission group name is required");
       return;
     }
 
     const selectedPermissionIds = getSelectedPermissions();
 
     if (selectedPermissionIds.length === 0) {
-      toast.error("Please select at least one permission");
+      actionFeedback.error("Please select at least one permission");
       return;
     }
 
@@ -234,7 +234,7 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
         // For now, let's assume the user just wants to update basic info or the backend handles permissions in update.
         // If not, we'd need more complex logic to diff permissions.
 
-        toast.success("Permission group updated successfully!");
+        actionFeedback.success("Permission group updated successfully!");
         router.push("/users/permission-groups");
       } else {
         await createGroup({
@@ -243,12 +243,12 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
           permission_ids: selectedPermissionIds,
         }).unwrap();
 
-        toast.success("Permission group created successfully!");
+        actionFeedback.success("Permission group created successfully!");
         resetForm();
         router.push("/users/permission-groups");
       }
     } catch (error: any) {
-      toast.error(
+      actionFeedback.error(
         error?.data?.message ||
         `Failed to ${isEditMode ? "update" : "create"} permission group`
       );

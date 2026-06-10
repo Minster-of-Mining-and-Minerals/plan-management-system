@@ -24,7 +24,7 @@ import {
     getPlanDraftDisplayName,
 } from "@/utils/planDraftUtils";
 import { useSearchParams, useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import { CreatePlanVersionModal } from "./modals/CreatePlanVersionModal";
 import { FinalizePlanDraftModal } from "./modals/FinalizePlanDraftModal";
 import {
@@ -170,13 +170,13 @@ export default function PlanVersionTable() {
     const versions = response || [];
 
     const handleDelete = async (id: string) => {
-        if (confirm(`Are you sure you want to delete this ${draftLabel.toLowerCase()}?`)) {
+        if (await actionFeedback.confirm(`Are you sure you want to delete this ${draftLabel.toLowerCase()}?`, { destructive: true })) {
             try {
                 await deleteVersion(id).unwrap();
-                toast.success(`${draftLabel} deleted successfully`);
+                actionFeedback.success(`${draftLabel} deleted successfully`);
             } catch (err: unknown) {
                 const error = err as { data?: { message?: string } };
-                toast.error(error.data?.message || `Failed to delete ${draftLabel.toLowerCase()}`);
+                actionFeedback.error(error.data?.message || `Failed to delete ${draftLabel.toLowerCase()}`);
             }
         }
     };
@@ -186,13 +186,13 @@ export default function PlanVersionTable() {
             ? `Are you sure you want to activate this ${draftLabel.toLowerCase()}? This will make it the current operational plan.`
             : "Are you sure you want to mark this plan as completed?";
 
-        if (confirm(message)) {
+        if (await actionFeedback.confirm(message)) {
             try {
                 await updateStatus({ id, data: { status } }).unwrap();
-                toast.success(`${draftLabel} marked as ${status}`);
+                actionFeedback.success(`${draftLabel} marked as ${status}`);
             } catch (err: unknown) {
                 const error = err as { data?: { message?: string } };
-                toast.error(error.data?.message || `Failed to update status to ${status}`);
+                actionFeedback.error(error.data?.message || `Failed to update status to ${status}`);
             }
         }
     };

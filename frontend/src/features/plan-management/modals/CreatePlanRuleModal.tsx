@@ -31,7 +31,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import { Plus, Trash2 } from "lucide-react";
 import {
     useCreatePlanRuleMutation,
@@ -144,15 +144,15 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
 
             if (rule) {
                 await updateRule({ id: rule.plan_rule_id, data: payload }).unwrap();
-                toast.success("Plan rule updated");
+                actionFeedback.success("Plan rule updated");
             } else {
                 await createRule(payload).unwrap();
-                toast.success("Plan rule created");
+                actionFeedback.success("Plan rule created");
             }
             onClose();
         } catch (error: unknown) {
             const err = error as { data?: { message?: string } };
-            toast.error(err.data?.message || "Something went wrong");
+            actionFeedback.error(err.data?.message || "Something went wrong");
         }
     }
 

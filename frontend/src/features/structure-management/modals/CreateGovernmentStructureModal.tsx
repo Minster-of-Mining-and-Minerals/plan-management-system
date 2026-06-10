@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import { normalizeOptionalId } from "@/utils/apiPayloadUtils";
 import { cn } from "@/lib/utils";
 import {
@@ -216,15 +216,15 @@ export function CreateGovernmentStructureModal({
           id: structure.government_structure_id,
           data: submitData,
         }).unwrap();
-        toast.success("Sector updated successfully");
+        actionFeedback.success("Sector updated successfully");
       } else {
         await createStructure(submitData).unwrap();
-        toast.success("Sector created successfully");
+        actionFeedback.success("Sector created successfully");
       }
       resetNavigation();
       onClose();
     } catch (error: any) {
-      toast.error(error?.data?.message || "Something went wrong");
+      actionFeedback.error(error?.data?.message || "Something went wrong");
     }
   };
 

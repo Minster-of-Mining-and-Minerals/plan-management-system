@@ -10,7 +10,7 @@ import {
 } from "@/redux/api/planApi";
 import { PlanVersion } from "@/redux/types/plan";
 import { formatStatus } from "@/utils/statusFormatter";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import {
     resolveCompletionForEntity,
     resolveWorkflowStatusAppearance,
@@ -38,16 +38,16 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
     const annualVersions = data?.annualVersions ?? masterVersion.annualVersions ?? [];
 
     const handleComplete = async (versionId: string, year: number) => {
-        if (!confirm(`Mark the ${year} annual version as completed? This will unlock the next year.`)) {
+        if (!(await actionFeedback.confirm(`Mark the ${year} annual version as completed? This will unlock the next year.`))) {
             return;
         }
         try {
             await completeAnnual(versionId).unwrap();
-            toast.success(`${year} version completed`);
+            actionFeedback.success(`${year} version completed`);
             refetch();
         } catch (error: unknown) {
             const err = error as { data?: { message?: string } };
-            toast.error(err.data?.message || "Failed to complete annual version");
+            actionFeedback.error(err.data?.message || "Failed to complete annual version");
         }
     };
 

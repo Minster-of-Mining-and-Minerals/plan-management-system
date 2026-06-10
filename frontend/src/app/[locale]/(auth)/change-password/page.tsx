@@ -14,7 +14,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { toast } from "react-toastify";
+import { actionFeedback } from "@/components/action-feedback";
 import { useChangePasswordMutation } from "@/redux/api/userApi";
 import { useRouter } from "@/i18n/navigation";
 import { useSession } from "next-auth/react";
@@ -56,10 +56,10 @@ export default function ChangePasswordPage() {
         confirm_change: true,
       }).unwrap();
 
-      toast.success("Password changed successfully! Please log in with your new password.");
+      actionFeedback.success("Password changed successfully! Please log in with your new password.");
       await performLogout();
     } catch (error: any) {
-      toast.error(error?.data?.message || "Failed to change password");
+      actionFeedback.error(error?.data?.message || "Failed to change password");
     }
   };
 

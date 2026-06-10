@@ -32,7 +32,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import { getApiErrorMessage } from "@/utils/apiErrorUtils";
 import { normalizeOptionalId } from "@/utils/apiPayloadUtils";
 import {
@@ -248,14 +248,14 @@ export function CreatePlanNodeModal({
                     id: node.plan_node_id,
                     data: submitData,
                 }).unwrap();
-                toast.success("Plan node updated successfully");
+                actionFeedback.success("Plan node updated successfully");
             } else {
                 await createNode(submitData).unwrap();
-                toast.success("Plan node created successfully");
+                actionFeedback.success("Plan node created successfully");
             }
             onClose();
         } catch (error: unknown) {
-            toast.error(getApiErrorMessage(error));
+            actionFeedback.error(getApiErrorMessage(error));
         }
     }
 

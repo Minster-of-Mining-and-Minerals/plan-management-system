@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import {
     useFinalizePlanDraftMutation,
     useGetFinalizationReadinessQuery,
@@ -41,13 +41,13 @@ export function FinalizePlanDraftModal({
     const handleFinalize = async () => {
         try {
             const result = await finalize(version.plan_version_id).unwrap();
-            toast.success(
+            actionFeedback.success(
                 `Draft finalized. ${result.annualVersions?.length ?? 0} annual version(s) generated.`
             );
             onSuccess?.();
             onClose();
         } catch (error: unknown) {
-            toast.error(getApiErrorMessage(error, "Failed to finalize draft"));
+            actionFeedback.error(getApiErrorMessage(error, "Failed to finalize draft"));
             refetch();
         }
     };

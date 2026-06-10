@@ -13,7 +13,7 @@ import { GovernmentStructure } from "@/redux/types/governmentStructure";
 import { formatStatus } from "@/utils/statusFormatter";
 import { useRouter } from "next/navigation";
 import { useRemoveStructureFromGroupMutation } from "@/redux/api/permissionGroupApi";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import { useSearchParams } from "next/navigation";
 import { matchesActiveInactiveFilter, matchesSearchQuery } from "@/utils/tableUtils";
 
@@ -35,12 +35,12 @@ export default function GovernmentStructuresGroupList({ sideActions, actions, st
 
     const handleRemove = async (structureId: string) => {
         if (!groupId) return;
-        if (confirm("Are you sure you want to remove this sector from the group?")) {
+        if (await actionFeedback.confirm("Are you sure you want to remove this sector from the group?", { destructive: true })) {
             try {
                 await removeStructure({ permission_group_id: groupId, government_structure_id: structureId }).unwrap();
-                toast.success("Sector removed from group");
+                actionFeedback.success("Sector removed from group");
             } catch (err: any) {
-                toast.error(err?.data?.message || "Failed to remove sector");
+                actionFeedback.error(err?.data?.message || "Failed to remove sector");
             }
         }
     };

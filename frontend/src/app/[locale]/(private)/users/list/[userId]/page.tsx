@@ -41,7 +41,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import DetailHeader from "@/components/common/DetailHeader";
 import { useParams, useRouter } from "next/navigation";
 
@@ -118,10 +118,10 @@ const UserViewPage = () => {
           is_active: values.is_active,
         },
       }).unwrap();
-      toast.success("User updated successfully");
+      actionFeedback.success("User updated successfully");
       setIsEditing(false);
     } catch (error: any) {
-      toast.error(error?.data?.message || "Failed to update user");
+      actionFeedback.error(error?.data?.message || "Failed to update user");
     }
   };
 
@@ -146,13 +146,13 @@ const UserViewPage = () => {
   }
 
   const handleDelete = async () => {
-    if (window.confirm("Are you sure you want to delete this user?")) {
+    if (await actionFeedback.confirm("Are you sure you want to delete this user?", { destructive: true })) {
       try {
         await deleteUser(userId).unwrap();
-        toast.success("User deleted successfully");
+        actionFeedback.success("User deleted successfully");
         router.push("/users/list");
       } catch (error: any) {
-        toast.error(error?.data?.message || "Failed to delete user");
+        actionFeedback.error(error?.data?.message || "Failed to delete user");
       }
     }
   };

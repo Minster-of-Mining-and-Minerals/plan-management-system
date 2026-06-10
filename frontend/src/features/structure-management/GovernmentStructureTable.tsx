@@ -17,7 +17,7 @@ import { GovernmentStructure } from "@/redux/types/governmentStructure";
 import { formatStatus } from "@/utils/statusFormatter";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import { CreateGovernmentStructureModal } from "./modals/CreateGovernmentStructureModal";
 import GovernmentHierarchyD3Tree from "./GovernmentStructureHierarchy";
 import { matchesActiveInactiveFilter } from "@/utils/tableUtils";
@@ -137,12 +137,12 @@ export default function GovernmentStructureTable() {
     });
 
     const handleDelete = async (id: string) => {
-        if (confirm("Are you sure you want to deactivate this sector?")) {
+        if (await actionFeedback.confirm("Are you sure you want to deactivate this sector?", { destructive: true })) {
             try {
                 await deleteStructure(id).unwrap();
-                toast.success("Sector deactivated successfully");
+                actionFeedback.success("Sector deactivated successfully");
             } catch (err) {
-                toast.error("Failed to deactivate sector");
+                actionFeedback.error("Failed to deactivate sector");
             }
         }
     };

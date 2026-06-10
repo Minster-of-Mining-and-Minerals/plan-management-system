@@ -109,22 +109,6 @@
   }
 }
 
-/* Success Toast */
-.sonner-toast[data-type="success"] {
-  background: hsl(var(--success) / 0.12);
-  color: hsl(var(--success));
-  border: 1px solid hsl(var(--success) / 0.35);
-  font-weight: 500;
-}
-
-/* Error Toast */
-.sonner-toast[data-type="error"] {
-  background: hsl(var(--destructive) / 0.12);
-  color: hsl(var(--destructive));
-  border: 1px solid hsl(var(--destructive) / 0.35);
-  font-weight: 500;
-}
-
 /* Hide scrollbar for all browsers */
 .hide-scrollbar {
   -ms-overflow-style: none;

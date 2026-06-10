@@ -22,7 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import { ColorPickerField } from "@/components/ui/color-picker-field";
 import {
   useCreatePerformanceColorThresholdMutation,
@@ -107,19 +107,19 @@ export function CreatePerformanceColorThresholdModal({
             color_hex: values.color_hex.toUpperCase(),
           },
         }).unwrap();
-        toast.success("Performance threshold updated");
+        actionFeedback.success("Performance threshold updated");
       } else {
         await createThreshold({
           ...values,
           color_hex: values.color_hex.toUpperCase(),
           sort_order: values.sort_order ?? values.min_percentage,
         }).unwrap();
-        toast.success("Performance threshold created");
+        actionFeedback.success("Performance threshold created");
       }
       onClose();
     } catch (err: unknown) {
       const error = err as { data?: { message?: string; error?: string } };
-      toast.error(error.data?.message || error.data?.error || "Failed to save threshold");
+      actionFeedback.error(error.data?.message || error.data?.error || "Failed to save threshold");
     }
   };
 

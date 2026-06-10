@@ -10,7 +10,7 @@ import {
 } from "@/redux/api/planApi";
 import { PlanVersion } from "@/redux/types/plan";
 import { formatStatus } from "@/utils/statusFormatter";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import {
     resolveCompletionForEntity,
     resolveWorkflowStatusAppearance,
@@ -40,19 +40,19 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
 
     const handleComplete = async (versionId: string, periodLabel: string) => {
         if (
-            !confirm(
+            !(await actionFeedback.confirm(
                 `Mark ${periodLabel} as completed? This will unlock the next execution period.`
-            )
+            ))
         ) {
             return;
         }
         try {
             await completePeriod(versionId).unwrap();
-            toast.success(`${periodLabel} completed`);
+            actionFeedback.success(`${periodLabel} completed`);
             refetch();
         } catch (error: unknown) {
             const err = error as { data?: { message?: string } };
-            toast.error(err.data?.message || "Failed to complete execution period");
+            actionFeedback.error(err.data?.message || "Failed to complete execution period");
         }
     };
 

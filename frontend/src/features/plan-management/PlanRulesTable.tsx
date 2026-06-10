@@ -13,7 +13,7 @@ import {
     useDeletePlanRuleMutation,
 } from "@/redux/api/planRuleApi";
 import { PlanRule } from "@/redux/types/plan";
-import { toast } from "sonner";
+import { actionFeedback } from "@/components/action-feedback";
 import { CreatePlanRuleModal } from "./modals/CreatePlanRuleModal";
 import { getWeightStartLevel, sortSteps } from "@/utils/planRuleUtils";
 import { useSearchParams } from "next/navigation";
@@ -104,14 +104,14 @@ export default function PlanRulesTable() {
     ];
 
     const handleDelete = async (id: string) => {
-        if (!confirm("Delete this plan rule? Plans using it must be reassigned first.")) return;
+        if (!(await actionFeedback.confirm("Delete this plan rule? Plans using it must be reassigned first.", { destructive: true }))) return;
         try {
             await deleteRule(id).unwrap();
-            toast.success("Plan rule deleted");
+            actionFeedback.success("Plan rule deleted");
             refetch();
         } catch (err: unknown) {
             const error = err as { data?: { message?: string } };
-            toast.error(error.data?.message || "Failed to delete plan rule");
+            actionFeedback.error(error.data?.message || "Failed to delete plan rule");
         }
     };
 
