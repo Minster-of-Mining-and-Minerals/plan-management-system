@@ -21,6 +21,8 @@ import {
     formatNodeTarget,
     getStepLabel,
     stepRequiresWeight,
+    getStepColorHex,
+    getPlanStepSurfaceStyles,
 } from "@/utils/planRuleUtils";
 import { resolveCompletionForEntity } from "@/utils/performanceColorUtils";
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
@@ -90,13 +92,17 @@ function StrategicFocusTable({
     const rootCompletion = resolveCompletionForEntity(thresholds, root.plan_node_id);
     const levelLabel = getStepLabel(rule, root.level);
     const rootNumber = getHierarchyNumber(hierarchyNumberMap, root.plan_node_id);
+    const rootSurface = getPlanStepSurfaceStyles(getStepColorHex(rule, root.level));
 
     return (
         <Collapsible
             defaultOpen={defaultOpen}
             className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden"
         >
-            <CollapsibleTrigger className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50/80 transition-colors [&[data-state=open]>svg.chevron]:rotate-90">
+            <CollapsibleTrigger
+                className="flex w-full items-center gap-3 px-4 py-3 text-left hover:brightness-[0.99] transition-colors [&[data-state=open]>svg.chevron]:rotate-90"
+                style={rootSurface}
+            >
                 <ChevronRight className="chevron h-4 w-4 shrink-0 text-gray-400 transition-transform" />
                 <div
                     className="h-8 w-1 rounded-full shrink-0"
@@ -202,9 +208,16 @@ function StrategicFocusTable({
                                     hierarchyNumberMap,
                                     node.plan_node_id
                                 );
+                                const rowSurface = getPlanStepSurfaceStyles(
+                                    getStepColorHex(rule, node.level)
+                                );
 
                                 return (
-                                    <TableRow key={node.plan_node_id}>
+                                    <TableRow
+                                        key={node.plan_node_id}
+                                        style={rowSurface}
+                                        className="border-b border-gray-100/80 hover:brightness-[0.99]"
+                                    >
                                         <TableCell>
                                             {rowNumber ? (
                                                 <PlanNodeHierarchyNumber

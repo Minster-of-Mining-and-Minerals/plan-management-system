@@ -51,6 +51,7 @@ module.exports = {
       },
       label: { type: Sequelize.STRING(255), allowNull: true },
       requires_weight: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
+      color_hex: { type: Sequelize.STRING(7), allowNull: true },
       created_at: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn("NOW") },
       updated_at: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn("NOW") },
     });

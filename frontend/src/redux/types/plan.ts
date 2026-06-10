@@ -185,6 +185,7 @@ export interface PlanRuleStep {
     node_type: PlanNodeType;
     label: string;
     requires_weight: boolean;
+    color_hex?: string | null;
     inherits_weight_from_level?: number | null;
     created_at: string;
     updated_at: string;
@@ -205,6 +206,7 @@ export interface PlanRuleStepInput {
     step_order: number;
     label: string;
     requires_weight?: boolean;
+    color_hex?: string;
 }
 
 export interface CreatePlanRulePayload {

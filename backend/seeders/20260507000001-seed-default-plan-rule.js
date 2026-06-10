@@ -11,6 +11,7 @@ const STEPS = [
     node_type: "strategic",
     label: "Strategic Focus Area",
     requires_weight: false,
+    color_hex: "#7C3AED",
   },
   {
     plan_rule_step_id: "60000000-0000-4000-8000-000000000012",
@@ -18,6 +19,7 @@ const STEPS = [
     node_type: "goal",
     label: "Goal",
     requires_weight: true,
+    color_hex: "#2563EB",
   },
   {
     plan_rule_step_id: "60000000-0000-4000-8000-000000000013",
@@ -25,6 +27,7 @@ const STEPS = [
     node_type: "kpi",
     label: "KPI / Indicator",
     requires_weight: true,
+    color_hex: "#059669",
   },
   {
     plan_rule_step_id: "60000000-0000-4000-8000-000000000014",
@@ -32,6 +35,7 @@ const STEPS = [
     node_type: "task",
     label: "Task / Activity",
     requires_weight: true,
+    color_hex: "#D97706",
   },
 ];
 

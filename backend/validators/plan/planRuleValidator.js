@@ -6,6 +6,7 @@ const stepSchema = Joi.object({
   step_order: Joi.number().integer().min(1).required(),
   label: Joi.string().trim().max(255).required(),
   requires_weight: Joi.boolean().default(false),
+  color_hex: Joi.string().pattern(/^#[0-9A-Fa-f]{6}$/).optional(),
 });
 
 const createPlanRuleSchema = Joi.object({

@@ -39,11 +39,13 @@ import {
 } from "@/redux/api/planRuleApi";
 import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
 import { PlanRule } from "@/redux/types/plan";
+import { getDefaultStepColorHex, getPlanStepSurfaceStyles } from "@/utils/planRuleUtils";
 
 const stepSchema = z.object({
     step_order: z.coerce.number().min(1),
     label: z.string().min(1).max(255),
     requires_weight: z.boolean(),
+    color_hex: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Use a valid hex color"),
 });
 
 const formSchema = z.object({
@@ -70,7 +72,7 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
             name: "",
             government_structure_id: null,
             is_active: true,
-            steps: [{ step_order: 1, label: "Level 1", requires_weight: false }],
+            steps: [{ step_order: 1, label: "Level 1", requires_weight: false, color_hex: getDefaultStepColorHex(1) }],
         },
     });
 
@@ -97,6 +99,7 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
                     step_order: s.step_order,
                     label: s.label,
                     requires_weight: start !== null && s.step_order === start,
+                    color_hex: s.color_hex || getDefaultStepColorHex(s.step_order),
                 })),
             });
         } else {
@@ -104,7 +107,7 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
                 name: "",
                 government_structure_id: null,
                 is_active: true,
-                steps: [{ step_order: 1, label: "Level 1", requires_weight: false }],
+                steps: [{ step_order: 1, label: "Level 1", requires_weight: false, color_hex: getDefaultStepColorHex(1) }],
             });
         }
     }, [rule, form, isOpen]);
@@ -114,6 +117,7 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
             step_order: fields.length + 1,
             label: `Level ${fields.length + 1}`,
             requires_weight: false,
+            color_hex: getDefaultStepColorHex(fields.length + 1),
         });
     };
 
@@ -139,6 +143,7 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
                     step_order: index + 1,
                     label: step.label.trim(),
                     requires_weight: step.requires_weight,
+                    color_hex: step.color_hex,
                 })),
             };
 
@@ -233,9 +238,8 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
                                 <div>
                                     <FormLabel>Hierarchy Levels</FormLabel>
                                     <FormDescription>
-                                        Set a label per level. Enable target on one level — deeper
-                                        levels inherit the target requirement. Evaluation mode is
-                                        chosen when building the plan hierarchy.
+                                        Set a label and soft background color per level. Enable target on one level — deeper
+                                        levels inherit the target requirement. Colors appear subtly in plan hierarchy and table views.
                                     </FormDescription>
                                 </div>
                                 <Button type="button" variant="outline" size="sm" onClick={addStep}>
@@ -252,7 +256,7 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
                                     return (
                                         <div
                                             key={field.id}
-                                            className="grid grid-cols-[56px_1fr_1fr_auto] gap-2 items-end"
+                                            className="grid grid-cols-[56px_1fr_88px_1fr_auto] gap-2 items-end"
                                         >
                                             <div className="text-sm font-medium text-muted-foreground pb-2">
                                                 L{level}
@@ -271,6 +275,40 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
                                                                 placeholder={`Level ${level} label`}
                                                                 {...labelField}
                                                             />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+
+                                            <FormField
+                                                control={form.control}
+                                                name={`steps.${index}.color_hex`}
+                                                render={({ field: colorField }) => (
+                                                    <FormItem>
+                                                        {index === 0 && (
+                                                            <FormLabel className="text-xs">Color</FormLabel>
+                                                        )}
+                                                        <FormControl>
+                                                            <div
+                                                                className="flex h-10 items-center gap-2 rounded-md border px-2"
+                                                                style={getPlanStepSurfaceStyles(
+                                                                    colorField.value || getDefaultStepColorHex(level)
+                                                                )}
+                                                            >
+                                                                <input
+                                                                    type="color"
+                                                                    value={colorField.value || getDefaultStepColorHex(level)}
+                                                                    onChange={(event) =>
+                                                                        colorField.onChange(event.target.value.toUpperCase())
+                                                                    }
+                                                                    className="h-7 w-7 cursor-pointer rounded border-0 bg-transparent p-0"
+                                                                    aria-label={`Level ${level} color`}
+                                                                />
+                                                                <span className="text-[10px] font-mono text-muted-foreground">
+                                                                    {colorField.value || getDefaultStepColorHex(level)}
+                                                                </span>
+                                                            </div>
                                                         </FormControl>
                                                         <FormMessage />
                                                     </FormItem>

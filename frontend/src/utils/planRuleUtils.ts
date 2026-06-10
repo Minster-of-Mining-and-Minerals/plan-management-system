@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import {
     PlanRule,
     PlanRuleStep,
@@ -161,4 +162,52 @@ export function levelToNodeType(level: number): PlanNode["type"] {
         4: "task",
     };
     return map[level] ?? "task";
+}
+
+export const DEFAULT_PLAN_STEP_COLORS = [
+    "#7C3AED",
+    "#2563EB",
+    "#059669",
+    "#D97706",
+    "#DB2777",
+    "#0891B2",
+] as const;
+
+export function hexToRgba(hex: string, alpha: number): string {
+    const normalized = hex.replace("#", "").trim();
+    if (normalized.length !== 6) {
+        return `rgba(107, 114, 128, ${alpha})`;
+    }
+
+    const r = parseInt(normalized.slice(0, 2), 16);
+    const g = parseInt(normalized.slice(2, 4), 16);
+    const b = parseInt(normalized.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+export function getStepColorHex(
+    rule: PlanRule | null | undefined,
+    level: number
+): string {
+    const step = getStepForLevel(rule, level);
+    if (step?.color_hex) {
+        return step.color_hex;
+    }
+
+    return DEFAULT_PLAN_STEP_COLORS[
+        (Math.max(level, 1) - 1) % DEFAULT_PLAN_STEP_COLORS.length
+    ];
+}
+
+export function getDefaultStepColorHex(level: number): string {
+    return DEFAULT_PLAN_STEP_COLORS[
+        (Math.max(level, 1) - 1) % DEFAULT_PLAN_STEP_COLORS.length
+    ];
+}
+
+export function getPlanStepSurfaceStyles(colorHex: string): CSSProperties {
+    return {
+        backgroundColor: hexToRgba(colorHex, 0.055),
+        borderLeft: `3px solid ${hexToRgba(colorHex, 0.32)}`,
+    };
 }

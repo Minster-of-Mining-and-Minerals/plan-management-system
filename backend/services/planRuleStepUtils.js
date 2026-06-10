@@ -6,6 +6,16 @@ function levelToNodeType(level) {
   return map[level] || "task";
 }
 
+const DEFAULT_STEP_COLORS = ["#7C3AED", "#2563EB", "#059669", "#D97706", "#DB2777", "#0891B2"];
+const HEX_COLOR = /^#[0-9A-Fa-f]{6}$/;
+
+function normalizeStepColorHex(value, stepOrder) {
+  if (typeof value === "string" && HEX_COLOR.test(value.trim())) {
+    return value.trim().toUpperCase();
+  }
+  return DEFAULT_STEP_COLORS[(stepOrder - 1) % DEFAULT_STEP_COLORS.length];
+}
+
 function sortSteps(steps) {
   return [...steps].sort((a, b) => {
     const orderA = typeof a.step_order === "number" ? a.step_order : a.get?.("step_order");
@@ -96,6 +106,7 @@ function normalizeRuleSteps(steps) {
       label: step.label?.trim() || `Level ${stepOrder}`,
       requires_weight: weightStart !== null && stepOrder >= weightStart,
       node_type: levelToNodeType(stepOrder),
+      color_hex: normalizeStepColorHex(step.color_hex, stepOrder),
     };
   });
 }
@@ -138,6 +149,7 @@ async function resolveNodeWeightMode({ rule, level, parent, weightMode, transact
 }
 
 module.exports = {
+  DEFAULT_STEP_COLORS,
   levelToNodeType,
   getWeightStartLevel,
   stepRequiresWeight,

@@ -9,6 +9,8 @@ import {
     formatNodeTarget,
     getStepLabel,
     stepRequiresWeight,
+    getStepColorHex,
+    getPlanStepSurfaceStyles,
 } from "@/utils/planRuleUtils";
 import { getHierarchyNumber, sortPlanNodes } from "@/utils/planNodeOrderUtils";
 import { PlanNodeIcon } from "./PlanNodeIcon";
@@ -61,11 +63,13 @@ const NodeItem = ({
         () => sortPlanNodes(node.children ?? []),
         [node.children]
     );
+    const stepSurface = getPlanStepSurfaceStyles(getStepColorHex(rule, node.level));
+
     return (
         <div className="space-y-2">
             <div
-                className="flex items-center group p-3 rounded-xl border border-gray-100 bg-white hover:border-primary/30 hover:shadow-sm transition-all duration-200"
-                style={{ marginLeft: `${level * 24}px` }}
+                className="flex items-center group p-3 rounded-xl border border-gray-100/90 hover:brightness-[0.99] transition-all duration-200"
+                style={{ marginLeft: `${level * 24}px`, ...stepSurface }}
             >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                     <button
