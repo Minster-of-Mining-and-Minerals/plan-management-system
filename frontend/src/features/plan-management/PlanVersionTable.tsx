@@ -52,17 +52,31 @@ export default function PlanVersionTable() {
         {
             accessorKey: "draft_name",
             header: "Draft Name",
-            cell: ({ row }) => (
-                <span className="font-medium text-primary">
-                    {getPlanDraftDisplayName(row.original)}
-                </span>
-            ),
+            meta: {
+                headerClassName: "w-[28%] max-w-[280px]",
+                cellClassName: "max-w-0 overflow-hidden !whitespace-normal",
+            },
+            cell: ({ row }) => {
+                const name = getPlanDraftDisplayName(row.original);
+                return (
+                    <span
+                        className="font-medium text-primary block truncate"
+                        title={name}
+                    >
+                        {name}
+                    </span>
+                );
+            },
         },
         {
             id: "planning_period",
             header: config.planning_period_label,
+            meta: {
+                headerClassName: "w-[18%]",
+                cellClassName: "max-w-0 overflow-hidden !whitespace-normal",
+            },
             cell: ({ row }) => (
-                <span className="text-gray-700">
+                <span className="text-gray-700 block truncate" title={formatPlanningPeriod(row.original)}>
                     {formatPlanningPeriod(row.original)}
                 </span>
             ),
@@ -70,6 +84,10 @@ export default function PlanVersionTable() {
         {
             id: "duration",
             header: config.duration_label,
+            meta: {
+                headerClassName: "w-[12%] whitespace-nowrap",
+                cellClassName: "whitespace-nowrap",
+            },
             cell: ({ row }) => (
                 <span className="text-gray-600">
                     {formatDurationYears(row.original.planning_duration_years)}
@@ -79,6 +97,10 @@ export default function PlanVersionTable() {
         {
             accessorKey: "status",
             header: "Status",
+            meta: {
+                headerClassName: "w-[12%] whitespace-nowrap",
+                cellClassName: "whitespace-nowrap",
+            },
             cell: ({ row }) => {
                 const status = row.getValue("status") as string;
                 return (
@@ -91,6 +113,10 @@ export default function PlanVersionTable() {
         {
             accessorKey: "created_at",
             header: "Created Date",
+            meta: {
+                headerClassName: "w-[14%] whitespace-nowrap",
+                cellClassName: "whitespace-nowrap",
+            },
             cell: ({ row }) => (
                 <div className="text-gray-500 text-sm">
                     {new Date(row.original.created_at).toLocaleDateString()}
@@ -100,6 +126,10 @@ export default function PlanVersionTable() {
         {
             id: "actions",
             header: "Actions",
+            meta: {
+                headerClassName: "w-[16%] whitespace-nowrap",
+                cellClassName: "whitespace-nowrap",
+            },
             cell: ({ row }) => (
                 <div className="flex items-center gap-1">
                     <Button
@@ -250,6 +280,7 @@ export default function PlanVersionTable() {
                     data={filteredData}
                     isLoading={isLoading}
                     resetKey={`${searchQuery}-${statusFilter}`}
+                    tableClassName="table-fixed w-full"
                 />
             </TableLayout>
             <CreatePlanVersionModal

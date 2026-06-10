@@ -30,6 +30,7 @@ import {
   DoubleArrowRightIcon,
 } from "@radix-ui/react-icons";
 import { getPageCount, getPaginationRange } from "@/utils/tableUtils";
+import { cn } from "@/lib/utils";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 30, 40, 50, 100] as const;
 
@@ -40,6 +41,7 @@ interface DataTableBaseProps<TData, TValue> {
   /** Change when filters/search change to reset to page 1 */
   resetKey?: string | number;
   defaultPageSize?: number;
+  tableClassName?: string;
 }
 
 interface ClientDataTableProps<TData, TValue> extends DataTableBaseProps<TData, TValue> {
@@ -65,6 +67,7 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
     isLoading = false,
     resetKey,
     defaultPageSize = 10,
+    tableClassName,
   } = props;
 
   const isServerMode = props.paginationMode === "server";
@@ -130,7 +133,7 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
 
   return (
     <div className="overflow-auto w-full">
-      <Table className="border-separate border-spacing-y-2.5 min-w-full">
+      <Table className={cn("border-separate border-spacing-y-2.5 min-w-full", tableClassName)}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow
@@ -140,7 +143,10 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
               {headerGroup.headers.map((header) => (
                 <TableHead
                   key={header.id}
-                  className="text-primary-foreground font-bold first:rounded-l-md last:rounded-r-md py-5"
+                  className={cn(
+                    "text-primary-foreground font-bold first:rounded-l-md last:rounded-r-md py-5",
+                    header.column.columnDef.meta?.headerClassName
+                  )}
                 >
                   {header.isPlaceholder
                     ? null
@@ -175,7 +181,13 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
                 }`}
               >
                 {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id} className="px-4 py-3.5">
+                  <TableCell
+                    key={cell.id}
+                    className={cn(
+                      "px-4 py-3.5",
+                      cell.column.columnDef.meta?.cellClassName
+                    )}
+                  >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
