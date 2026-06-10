@@ -132,6 +132,7 @@ const InternalHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [selectedGovId, setSelectedGovId] = useState("");
+  const [selectedRootId, setSelectedRootId] = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
@@ -180,6 +181,15 @@ const InternalHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
 
   const d3TreeData = useMemo(() => rootNodes.map(convertToD3Tree), [rootNodes]);
 
+  const rootOptions = useMemo(
+    () =>
+      rootNodes.map((n) => ({
+        value: n.internal_structure_id || n.id,
+        label: n.name,
+      })),
+    [rootNodes]
+  );
+
   useEffect(() => {
     if (lockedGovId) {
       setSelectedGovId(lockedGovId);
@@ -188,10 +198,18 @@ const InternalHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
     }
   }, [govOptions, selectedGovId, lockedGovId]);
 
+  useEffect(() => {
+    if (rootOptions.length > 0 && (!selectedRootId || !rootOptions.find((opt) => opt.value === selectedRootId))) {
+      setSelectedRootId(rootOptions[0].value);
+    }
+  }, [rootOptions, selectedRootId]);
+
   const selectedTree = useMemo(() => {
     if (!d3TreeData || !Array.isArray(d3TreeData) || d3TreeData.length === 0) return null;
-    return [d3TreeData[0]]; 
-  }, [d3TreeData]);
+    if (!selectedRootId) return [d3TreeData[0]];
+    const node = d3TreeData.find((n) => n.attributes.node_id === selectedRootId);
+    return node ? [node] : [d3TreeData[0]];
+  }, [d3TreeData, selectedRootId]);
 
   useEffect(() => {
     const updateDimensions = () => {
@@ -228,27 +246,50 @@ const InternalHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
           style={{ position: "relative" }}
         >
 
-          {showGovFilter && govOptions.length > 0 && (
+          {(showGovFilter && govOptions.length > 0) || rootOptions.length > 1 ? (
             <div className="absolute top-0 left-0 w-full p-4 z-10 flex items-center justify-between pointer-events-none">
-              <div className="w-[350px] rounded-lg p-4 bg-white/80 backdrop-blur-sm border border-gray-100 shadow-sm pointer-events-auto">
-                <Label className="text-secondary text-xs font-semibold mb-1.5 block uppercase tracking-wider">
-                  Filter by Sector
-                </Label>
-                <Select value={selectedGovId} onValueChange={setSelectedGovId}>
-                  <SelectTrigger className="w-full h-10 border border-gray-200 px-4 py-3 rounded-md focus:ring-2 focus:ring-[#073954]/20 transition-all duration-200 outline-none bg-white">
-                    <SelectValue placeholder="Select sector" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {govOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="w-[350px] rounded-lg p-4 bg-white/80 backdrop-blur-sm border border-gray-100 shadow-sm pointer-events-auto space-y-4">
+                {showGovFilter && govOptions.length > 0 && (
+                  <div>
+                    <Label className="text-secondary text-xs font-semibold mb-1.5 block uppercase tracking-wider">
+                      Filter by Sector
+                    </Label>
+                    <Select value={selectedGovId} onValueChange={setSelectedGovId}>
+                      <SelectTrigger className="w-full h-10 border border-gray-200 px-4 py-3 rounded-md focus:ring-2 focus:ring-[#073954]/20 transition-all duration-200 outline-none bg-white">
+                        <SelectValue placeholder="Select sector" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {govOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {rootOptions.length > 1 && (
+                  <div>
+                    <Label className="text-secondary text-xs font-semibold mb-1.5 block uppercase tracking-wider">
+                      Select Root Department
+                    </Label>
+                    <Select value={selectedRootId} onValueChange={setSelectedRootId}>
+                      <SelectTrigger className="w-full h-10 border border-gray-200 px-4 py-3 rounded-md focus:ring-2 focus:ring-[#073954]/20 transition-all duration-200 outline-none bg-white">
+                        <SelectValue placeholder="Select root department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {rootOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             </div>
-          )}
+          ) : null}
 
           <div className="absolute top-4 right-0 w-full p-4 z-10 flex items-center justify-end pointer-events-none">
             <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-sm p-3 border border-gray-100 pointer-events-auto text-[11px] text-gray-500 space-y-1">

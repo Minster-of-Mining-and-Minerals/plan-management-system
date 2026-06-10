@@ -10,6 +10,14 @@ import { CreateGovernmentStructureModal } from "./modals/CreateGovernmentStructu
 import { useSession } from "next-auth/react";
 import { GitForkIcon } from "lucide-react";
 import { isStructureActive } from "@/utils/structureUtils";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectTrigger,
+  SelectItem,
+  SelectContent,
+  SelectValue,
+} from "@/components/ui/select";
  
 /**
  * Converts a StructureNode to D3Tree format
@@ -153,9 +161,7 @@ const GovernmentHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
 
   useEffect(() => {
     if (rootOptions.length > 0 && (!selectedRootId || !rootOptions.find((opt) => opt.value === selectedRootId))) {
-      setTimeout(() => {
-        setSelectedRootId(rootOptions[0].value);
-      }, 0);
+      setSelectedRootId(rootOptions[0].value);
     }
   }, [rootOptions, selectedRootId]);
 
@@ -202,6 +208,28 @@ const GovernmentHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
           className="w-full h-full min-h-[600px] bg-[#F9FBFC] rounded-lg border border-gray-200 overflow-hidden"
           style={{ position: "relative" }}
         >
+          <div className="absolute top-0 left-0 w-full p-4 z-10 flex items-center justify-between pointer-events-none">
+            {rootOptions.length > 1 && (
+              <div className="w-[350px] rounded-lg p-4 bg-white/80 backdrop-blur-sm border border-gray-100 shadow-sm pointer-events-auto">
+                <Label className="text-secondary text-xs font-semibold mb-1.5 block uppercase tracking-wider">
+                  Select Root Sector
+                </Label>
+                <Select value={selectedRootId} onValueChange={setSelectedRootId}>
+                  <SelectTrigger className="w-full h-10 border border-gray-200 px-4 py-3 rounded-md focus:ring-2 focus:ring-[#073954]/20 transition-all duration-200 outline-none bg-white">
+                    <SelectValue placeholder="Select root sector" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {rootOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
           <div className="absolute top-4 right-0 w-full p-4 z-10 flex items-center justify-end pointer-events-none">
             <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-sm p-3 border border-gray-100 pointer-events-auto text-[11px] text-gray-500 space-y-1">
               <p className="font-bold text-[#073954] mb-1">Navigation:</p>
