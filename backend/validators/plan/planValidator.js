@@ -189,13 +189,15 @@ const validate = (schema, source = "body") => (req, res, next) => {
         req.body = sanitizeOptionalIds(req.body);
         dataToValidate = req.body;
     } else if (source === "query") {
-        req.query = sanitizeOptionalIds(req.query);
-        dataToValidate = req.query;
+        dataToValidate = sanitizeOptionalIds({ ...req.query });
     } else if (source === "params") {
         dataToValidate = req.params;
     }
 
-    const { error, value } = schema.validate(dataToValidate, { abortEarly: false });
+    const { error, value } = schema.validate(dataToValidate, {
+        abortEarly: false,
+        convert: true,
+    });
 
     if (error) {
         return res.status(400).json({
@@ -208,7 +210,7 @@ const validate = (schema, source = "body") => (req, res, next) => {
     if (source === "body") {
         req.body = value;
     } else if (source === "query") {
-        req.query = value;
+        req.validatedQuery = value;
     }
 
     next();

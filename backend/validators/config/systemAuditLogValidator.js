@@ -15,8 +15,15 @@ const listQuerySchema = Joi.object({
 
 const validate = (schema, source = "query") => (req, res, next) => {
   const dataToValidate =
-    source === "body" ? req.body : source === "params" ? req.params : req.query;
-  const { error, value } = schema.validate(dataToValidate, { abortEarly: false });
+    source === "body"
+      ? req.body
+      : source === "params"
+        ? req.params
+        : { ...req.query };
+  const { error, value } = schema.validate(dataToValidate, {
+    abortEarly: false,
+    convert: true,
+  });
   if (error) {
     return res.status(400).json({
       success: false,
@@ -24,7 +31,9 @@ const validate = (schema, source = "query") => (req, res, next) => {
       errors: error.details.map((e) => e.message),
     });
   }
-  if (source === "query") req.query = value;
+  if (source === "query") {
+    req.validatedQuery = value;
+  }
   next();
 };
 

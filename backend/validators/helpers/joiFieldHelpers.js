@@ -50,13 +50,15 @@ function validateMiddleware(schema, source = "body") {
       req.body = sanitizeOptionalIds(req.body);
       dataToValidate = req.body;
     } else if (source === "query") {
-      req.query = sanitizeOptionalIds(req.query);
-      dataToValidate = req.query;
+      dataToValidate = sanitizeOptionalIds({ ...req.query });
     } else {
       dataToValidate = req.params;
     }
 
-    const { error, value } = schema.validate(dataToValidate, { abortEarly: false });
+    const { error, value } = schema.validate(dataToValidate, {
+      abortEarly: false,
+      convert: true,
+    });
 
     if (error) {
       return res.status(400).json({
@@ -69,7 +71,7 @@ function validateMiddleware(schema, source = "body") {
     if (source === "body") {
       req.body = value;
     } else if (source === "query") {
-      req.query = value;
+      req.validatedQuery = value;
     }
 
     next();

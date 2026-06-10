@@ -6,10 +6,11 @@ const { MODULE_LABELS } = require("../../services/auditLogService");
 
 const getSystemAuditLogs = async (req, res) => {
   try {
-    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
+    const query = req.validatedQuery ?? req.query;
+    const page = Math.max(parseInt(query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(query.limit, 10) || 10, 1), 100);
     const offset = (page - 1) * limit;
-    const { module, action, search } = req.query;
+    const { module, action, search } = query;
 
     const where = {};
 
