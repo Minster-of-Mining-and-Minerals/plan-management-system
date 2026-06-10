@@ -35,6 +35,12 @@ import { AnnualVersionsDashboard } from "./components/AnnualVersionsDashboard";
 import { ExecutionPeriodsDashboard } from "./components/ExecutionPeriodsDashboard";
 import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
 import { formatStatus } from "@/utils/statusFormatter";
+import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
+import {
+    resolveCompletionForEntity,
+    resolveWorkflowStatusAppearance,
+} from "@/utils/performanceColorUtils";
+import { PerformanceColorBadge } from "./components/PerformanceColorBadge";
 
 type ViewMode = "card" | "hierarchy";
 type PlanDetailTab = "hierarchy" | "annual" | "periods";
@@ -74,6 +80,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
     const { data: rule } = useGetPlanRuleForVersionQuery(versionId);
     const { data: hierarchy = [], isLoading, refetch } = useGetPlanHierarchyQuery(versionId);
     const [deleteNode] = useDeletePlanNodeMutation();
+    const thresholds = usePerformanceColorThresholds();
 
     const [viewMode, setViewMode] = useState<ViewMode>("card");
     const [activeTab, setActiveTab] = useState<PlanDetailTab>("hierarchy");
@@ -117,6 +124,18 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
         (version.status === "active" ||
             version.status === "completed" ||
             (version.executionPeriodVersions && version.executionPeriodVersions.length > 0));
+
+    const versionStatusAppearance = version
+        ? resolveWorkflowStatusAppearance(thresholds, {
+              status: version.status ?? "draft",
+              isLocked: version.is_locked,
+              progressPercent: resolveCompletionForEntity(
+                  thresholds,
+                  version.plan_version_id
+              ).percent,
+              statusLabel: formatStatus(version.status),
+          })
+        : null;
 
     const canAddAtCurrentLevel =
         isMasterDraft &&
@@ -396,19 +415,15 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     </Button>
                     <div className="flex-1">
                         <PlanDraftHeaderMeta version={version} config={planningConfig} />
-                        {version && (
+                        {version && versionStatusAppearance && (
                             <div className="flex items-center gap-2 flex-wrap mt-1">
-                                <Badge className="text-white" status={version.status}>
-                                    {formatStatus(version.status)}
-                                </Badge>
-                                {version.version_kind === "annual" && version.is_locked && (
-                                    <Badge variant="outline">Locked</Badge>
-                                )}
+                                <PerformanceColorBadge
+                                    color={versionStatusAppearance.color}
+                                    label={versionStatusAppearance.label}
+                                    variant="solid"
+                                />
                                 {version.version_kind === "execution_period" && version.period_label && (
                                     <Badge variant="outline">{version.period_label}</Badge>
-                                )}
-                                {version.version_kind === "execution_period" && version.is_locked && (
-                                    <Badge variant="outline">Locked</Badge>
                                 )}
                             </div>
                         )}

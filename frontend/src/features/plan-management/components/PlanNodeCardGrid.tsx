@@ -11,16 +11,14 @@ import {
     stepRequiresWeight,
 } from "@/utils/planRuleUtils";
 import {
-    getDemoCompletionPercent,
-    resolveColorForPercentage,
-    resolveThresholdForPercentage,
-    DEFAULT_PERFORMANCE_THRESHOLDS,
+    resolveCompletionForEntity,
 } from "@/utils/performanceColorUtils";
-import { useGetPerformanceColorThresholdsQuery } from "@/redux/api/performanceColorThresholdApi";
+import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
 import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
 import { PlanNodeIcon } from "./PlanNodeIcon";
 import { PlanNodeActions } from "./PlanNodeActions";
 import { CircularProgress } from "./CircularProgress";
+import { PerformanceColorBadge } from "./PerformanceColorBadge";
 
 interface PlanNodeCardGridProps {
     nodes: PlanNodeHierarchy[];
@@ -45,11 +43,7 @@ export function PlanNodeCardGrid({
 }: PlanNodeCardGridProps) {
     const { data: planningConfig } = useGetPlanningConfigurationQuery();
     const configuredUnits = planningConfig?.target_units;
-    const { data: thresholdsRaw = [] } = useGetPerformanceColorThresholdsQuery({
-        is_active: true,
-    });
-    const thresholds =
-        thresholdsRaw.length > 0 ? thresholdsRaw : DEFAULT_PERFORMANCE_THRESHOLDS;
+    const thresholds = usePerformanceColorThresholds();
 
     const completionMap = useMemo(() => {
         const map = new Map<
@@ -57,13 +51,8 @@ export function PlanNodeCardGrid({
             { percent: number; color: string; label: string }
         >();
         for (const node of nodes) {
-            const percent = getDemoCompletionPercent(node.plan_node_id);
-            const match = resolveThresholdForPercentage(thresholds, percent);
-            map.set(node.plan_node_id, {
-                percent,
-                color: match?.color_hex ?? resolveColorForPercentage(thresholds, percent),
-                label: match?.label ?? "",
-            });
+            const completion = resolveCompletionForEntity(thresholds, node.plan_node_id);
+            map.set(node.plan_node_id, completion);
         }
         return map;
     }, [nodes, thresholds]);
@@ -137,16 +126,11 @@ export function PlanNodeCardGrid({
                                                     )}
                                                 </Badge>
                                             )}
-                                            <Badge
-                                                variant="secondary"
-                                                className="text-[10px] py-0 h-4 border-0"
-                                                style={{
-                                                    backgroundColor: `${completion.color}18`,
-                                                    color: completion.color,
-                                                }}
-                                            >
-                                                {completion.label}
-                                            </Badge>
+                                            <PerformanceColorBadge
+                                                color={completion.color}
+                                                label={completion.label}
+                                                className="text-[10px] py-0 h-4"
+                                            />
                                         </div>
                                         <h3 className="text-lg font-bold text-gray-900 leading-snug line-clamp-2">
                                             {node.title}

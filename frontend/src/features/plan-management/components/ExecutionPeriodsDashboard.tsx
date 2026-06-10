@@ -1,9 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Eye, Lock, PlayCircle, CheckCircle, Clock } from "lucide-react";
+import { Eye, Lock, CheckCircle, Clock } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
     useGetExecutionPeriodsQuery,
@@ -12,7 +11,13 @@ import {
 import { PlanVersion } from "@/redux/types/plan";
 import { formatStatus } from "@/utils/statusFormatter";
 import { toast } from "sonner";
-import { getDemoCompletionPercent } from "@/utils/performanceColorUtils";
+import {
+    resolveCompletionForEntity,
+    resolveWorkflowStatusAppearance,
+} from "@/utils/performanceColorUtils";
+import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
+import { PerformanceProgressBar } from "./PerformanceProgressBar";
+import { PerformanceColorBadge } from "./PerformanceColorBadge";
 import { cn } from "@/lib/utils";
 
 interface ExecutionPeriodsDashboardProps {
@@ -26,6 +31,7 @@ function getPeriodStatusLabel(version: PlanVersion): string {
 
 export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDashboardProps) {
     const router = useRouter();
+    const thresholds = usePerformanceColorThresholds();
     const { data, isLoading, refetch } = useGetExecutionPeriodsQuery(annualVersion.plan_version_id);
     const [completePeriod, { isLoading: isCompleting }] = useCompleteExecutionPeriodMutation();
 
@@ -81,7 +87,10 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
         );
     }
 
-    const annualProgress = getDemoCompletionPercent(annualVersion.plan_version_id);
+    const annualCompletion = resolveCompletionForEntity(
+        thresholds,
+        annualVersion.plan_version_id
+    );
 
     return (
         <div className="space-y-4">
@@ -94,28 +103,66 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
                 </p>
             </div>
 
-            <Card className="border-primary/20 bg-primary/5">
+            <Card
+                className="border"
+                style={{
+                    borderColor: `${annualCompletion.color}44`,
+                    backgroundColor: `${annualCompletion.color}0A`,
+                }}
+            >
                 <CardContent className="py-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
                             <p className="text-sm text-muted-foreground">Annual Achievement</p>
-                            <p className="text-2xl font-bold text-gray-900">{annualProgress}%</p>
+                            <p
+                                className="text-2xl font-bold"
+                                style={{ color: annualCompletion.color }}
+                            >
+                                {annualCompletion.percent}%
+                            </p>
+                            <PerformanceColorBadge
+                                color={annualCompletion.color}
+                                label={annualCompletion.label}
+                                className="mt-1 text-[10px] py-0 h-5"
+                            />
                         </div>
                         <div className="flex flex-wrap gap-2">
                             {executionPeriods.map((period) => {
-                                const periodProgress = getDemoCompletionPercent(period.plan_version_id);
+                                const periodCompletion = resolveCompletionForEntity(
+                                    thresholds,
+                                    period.plan_version_id
+                                );
                                 const isLocked = period.is_locked || period.status === "locked";
+                                const miniColor = isLocked
+                                    ? resolveWorkflowStatusAppearance(thresholds, {
+                                          status: "locked",
+                                          isLocked: true,
+                                      }).color
+                                    : periodCompletion.color;
+
                                 return (
                                     <div
                                         key={period.plan_version_id}
                                         className="rounded-lg border bg-white px-3 py-2 text-center min-w-[72px]"
+                                        style={{ borderColor: `${miniColor}55` }}
                                     >
                                         <p className="text-xs font-semibold text-gray-700">
                                             {period.period_label}
                                         </p>
-                                        <p className="text-sm font-bold">
-                                            {isLocked ? "Locked" : `${periodProgress}%`}
+                                        <p
+                                            className="text-sm font-bold"
+                                            style={{ color: miniColor }}
+                                        >
+                                            {isLocked ? "Locked" : `${periodCompletion.percent}%`}
                                         </p>
+                                        {!isLocked && (
+                                            <p
+                                                className="text-[10px] font-medium truncate"
+                                                style={{ color: miniColor }}
+                                            >
+                                                {periodCompletion.label}
+                                            </p>
+                                        )}
                                     </div>
                                 );
                             })}
@@ -126,38 +173,65 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
 
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {executionPeriods.map((period) => {
-                    const progress = getDemoCompletionPercent(period.plan_version_id);
+                    const completion = resolveCompletionForEntity(
+                        thresholds,
+                        period.plan_version_id
+                    );
                     const isActive = period.status === "active" && !period.is_locked;
                     const isLocked = period.is_locked || period.status === "locked";
                     const isCompleted = period.status === "completed";
                     const periodLabel = period.period_label ?? `Period ${period.sequence_index}`;
+                    const statusAppearance = resolveWorkflowStatusAppearance(thresholds, {
+                        status: period.status ?? "draft",
+                        isLocked,
+                        progressPercent: completion.percent,
+                        statusLabel: getPeriodStatusLabel(period),
+                    });
+                    const progressColor = isLocked ? statusAppearance.color : completion.color;
+                    const progressValue = isLocked ? 0 : completion.percent;
 
                     return (
                         <Card
                             key={period.plan_version_id}
                             className={cn(
-                                "flex flex-col transition-shadow hover:shadow-md",
-                                isActive && "border-primary/40 ring-1 ring-primary/20",
+                                "relative flex flex-col overflow-hidden transition-shadow hover:shadow-md",
+                                isActive && "ring-1",
                                 isLocked && "opacity-90 bg-muted/20"
                             )}
+                            style={
+                                isActive
+                                    ? {
+                                          borderColor: `${completion.color}66`,
+                                          boxShadow: `0 0 0 1px ${completion.color}33`,
+                                      }
+                                    : undefined
+                            }
                         >
+                            <div
+                                className="absolute top-0 left-0 right-0 h-1"
+                                style={{
+                                    background: `linear-gradient(90deg, ${progressColor}, ${progressColor}55)`,
+                                }}
+                            />
                             <CardHeader className="pb-3">
                                 <div className="flex items-start justify-between gap-2">
                                     <div className="space-y-1 min-w-0">
                                         <CardTitle className="text-base flex items-center gap-2">
-                                            <Clock className="h-4 w-4 text-primary shrink-0" />
+                                            <Clock
+                                                className="h-4 w-4 shrink-0"
+                                                style={{ color: progressColor }}
+                                            />
                                             {periodLabel}
                                         </CardTitle>
                                         <CardDescription className="line-clamp-2">
                                             {period.draft_name}
                                         </CardDescription>
                                     </div>
-                                    <Badge
-                                        className="text-white shrink-0"
-                                        status={isLocked ? "locked" : period.status}
-                                    >
-                                        {getPeriodStatusLabel(period)}
-                                    </Badge>
+                                    <PerformanceColorBadge
+                                        color={statusAppearance.color}
+                                        label={statusAppearance.label}
+                                        variant="solid"
+                                    />
                                 </div>
                                 <p className="text-xs text-muted-foreground pt-1">
                                     Period {period.sequence_index} of {executionPeriods.length}
@@ -168,32 +242,42 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
                                 <div className="space-y-1.5">
                                     <div className="flex justify-between text-xs text-muted-foreground">
                                         <span>Period Progress</span>
-                                        <span className="font-medium text-foreground">
-                                            {isLocked ? "—" : `${progress}%`}
+                                        <span
+                                            className="font-medium"
+                                            style={{ color: progressColor }}
+                                        >
+                                            {isLocked ? "—" : `${completion.percent}%`}
                                         </span>
                                     </div>
-                                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                                        <div
-                                            className={cn(
-                                                "h-full rounded-full transition-all",
-                                                isCompleted ? "bg-green-600" : "bg-primary"
-                                            )}
-                                            style={{ width: isLocked ? "0%" : `${progress}%` }}
-                                        />
-                                    </div>
+                                    <PerformanceProgressBar
+                                        value={progressValue}
+                                        color={progressColor}
+                                    />
                                 </div>
 
+                                {!isLocked && (
+                                    <PerformanceColorBadge
+                                        color={completion.color}
+                                        label={completion.label}
+                                        className="text-[10px] py-0 h-5"
+                                    />
+                                )}
+
                                 {isActive && (
-                                    <Badge variant="outline" className="gap-1 text-primary border-primary/30 w-fit">
-                                        <PlayCircle className="h-3 w-3" />
-                                        Active execution period
-                                    </Badge>
+                                    <PerformanceColorBadge
+                                        color={completion.color}
+                                        label="Active execution period"
+                                        variant="outline"
+                                        className="gap-1 w-fit text-xs"
+                                    />
                                 )}
                                 {isCompleted && (
-                                    <Badge variant="secondary" className="gap-1 w-fit">
-                                        <CheckCircle className="h-3 w-3" />
-                                        Completed
-                                    </Badge>
+                                    <PerformanceColorBadge
+                                        color={completion.color}
+                                        label="Completed"
+                                        variant="outline"
+                                        className="gap-1 w-fit text-xs"
+                                    />
                                 )}
                             </CardContent>
 

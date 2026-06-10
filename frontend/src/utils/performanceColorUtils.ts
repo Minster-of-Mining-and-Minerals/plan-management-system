@@ -64,3 +64,60 @@ export function formatPercentageRange(threshold: PerformanceColorThreshold): str
   }
   return `${threshold.min_percentage}–${threshold.max_percentage}%`;
 }
+
+export const LOCKED_STATUS_COLOR = "#9CA3AF";
+
+export interface CompletionAppearance {
+  percent: number;
+  color: string;
+  label: string;
+}
+
+export function resolveCompletionAppearance(
+  thresholds: PerformanceColorThreshold[],
+  percentage: number
+): CompletionAppearance {
+  const percent = Math.max(0, Math.min(100, Math.round(percentage)));
+  const match = resolveThresholdForPercentage(thresholds, percent);
+  return {
+    percent,
+    color: match?.color_hex ?? resolveColorForPercentage(thresholds, percent),
+    label: match?.label ?? "",
+  };
+}
+
+export function resolveCompletionForEntity(
+  thresholds: PerformanceColorThreshold[],
+  entityId: string
+): CompletionAppearance {
+  return resolveCompletionAppearance(thresholds, getDemoCompletionPercent(entityId));
+}
+
+/** Maps workflow status (locked / completed / active) to configured performance colors. */
+export function resolveWorkflowStatusAppearance(
+  thresholds: PerformanceColorThreshold[],
+  options: {
+    status: string;
+    isLocked?: boolean;
+    progressPercent?: number;
+    statusLabel?: string;
+  }
+): CompletionAppearance {
+  const { status, isLocked, progressPercent = 0, statusLabel } = options;
+
+  if (isLocked || status === "locked") {
+    return {
+      percent: 0,
+      color: LOCKED_STATUS_COLOR,
+      label: statusLabel ?? "Locked",
+    };
+  }
+
+  if (status === "completed") {
+    const completed = resolveCompletionAppearance(thresholds, 100);
+    return { ...completed, label: statusLabel ?? completed.label };
+  }
+
+  const active = resolveCompletionAppearance(thresholds, progressPercent);
+  return { ...active, label: statusLabel ?? active.label };
+}

@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { Eye, Lock, PlayCircle, CheckCircle, CalendarDays } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
     useGetAnnualVersionsQuery,
@@ -12,7 +11,13 @@ import {
 import { PlanVersion } from "@/redux/types/plan";
 import { formatStatus } from "@/utils/statusFormatter";
 import { toast } from "sonner";
-import { getDemoCompletionPercent } from "@/utils/performanceColorUtils";
+import {
+    resolveCompletionForEntity,
+    resolveWorkflowStatusAppearance,
+} from "@/utils/performanceColorUtils";
+import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
+import { PerformanceProgressBar } from "./PerformanceProgressBar";
+import { PerformanceColorBadge } from "./PerformanceColorBadge";
 import { cn } from "@/lib/utils";
 
 interface AnnualVersionsDashboardProps {
@@ -26,6 +31,7 @@ function getAnnualStatusLabel(version: PlanVersion): string {
 
 export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboardProps) {
     const router = useRouter();
+    const thresholds = usePerformanceColorThresholds();
     const { data, isLoading, refetch } = useGetAnnualVersionsQuery(masterVersion.plan_version_id);
     const [completeAnnual, { isLoading: isCompleting }] = useCompleteAnnualVersionMutation();
 
@@ -87,37 +93,64 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
 
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {annualVersions.map((annual) => {
-                    const progress = getDemoCompletionPercent(annual.plan_version_id);
+                    const completion = resolveCompletionForEntity(
+                        thresholds,
+                        annual.plan_version_id
+                    );
                     const isActive = annual.status === "active" && !annual.is_locked;
                     const isLocked = annual.is_locked || annual.status === "locked";
                     const isCompleted = annual.status === "completed";
+                    const statusAppearance = resolveWorkflowStatusAppearance(thresholds, {
+                        status: annual.status ?? "draft",
+                        isLocked,
+                        progressPercent: completion.percent,
+                        statusLabel: getAnnualStatusLabel(annual),
+                    });
+                    const progressColor = isLocked ? statusAppearance.color : completion.color;
+                    const progressValue = isLocked ? 0 : completion.percent;
 
                     return (
                         <Card
                             key={annual.plan_version_id}
                             className={cn(
-                                "flex flex-col transition-shadow hover:shadow-md",
-                                isActive && "border-primary/40 ring-1 ring-primary/20",
+                                "relative flex flex-col overflow-hidden transition-shadow hover:shadow-md",
+                                isActive && "ring-1",
                                 isLocked && "opacity-90 bg-muted/20"
                             )}
+                            style={
+                                isActive
+                                    ? {
+                                          borderColor: `${completion.color}66`,
+                                          boxShadow: `0 0 0 1px ${completion.color}33`,
+                                      }
+                                    : undefined
+                            }
                         >
+                            <div
+                                className="absolute top-0 left-0 right-0 h-1"
+                                style={{
+                                    background: `linear-gradient(90deg, ${progressColor}, ${progressColor}55)`,
+                                }}
+                            />
                             <CardHeader className="pb-3">
                                 <div className="flex items-start justify-between gap-2">
                                     <div className="space-y-1 min-w-0">
                                         <CardTitle className="text-base flex items-center gap-2">
-                                            <CalendarDays className="h-4 w-4 text-primary shrink-0" />
+                                            <CalendarDays
+                                                className="h-4 w-4 shrink-0"
+                                                style={{ color: progressColor }}
+                                            />
                                             {annual.planning_year}
                                         </CardTitle>
                                         <CardDescription className="line-clamp-2">
                                             {annual.draft_name}
                                         </CardDescription>
                                     </div>
-                                    <Badge
-                                        className="text-white shrink-0"
-                                        status={isLocked ? "locked" : annual.status}
-                                    >
-                                        {getAnnualStatusLabel(annual)}
-                                    </Badge>
+                                    <PerformanceColorBadge
+                                        color={statusAppearance.color}
+                                        label={statusAppearance.label}
+                                        variant="solid"
+                                    />
                                 </div>
                                 <p className="text-xs text-muted-foreground pt-1">
                                     Year {annual.sequence_index} of {annualVersions.length}
@@ -128,30 +161,42 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                                 <div className="space-y-1.5">
                                     <div className="flex justify-between text-xs text-muted-foreground">
                                         <span>Progress</span>
-                                        <span className="font-medium text-foreground">{progress}%</span>
+                                        <span
+                                            className="font-medium"
+                                            style={{ color: progressColor }}
+                                        >
+                                            {isLocked ? "—" : `${completion.percent}%`}
+                                        </span>
                                     </div>
-                                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                                        <div
-                                            className={cn(
-                                                "h-full rounded-full transition-all",
-                                                isCompleted ? "bg-green-600" : "bg-primary"
-                                            )}
-                                            style={{ width: `${progress}%` }}
-                                        />
-                                    </div>
+                                    <PerformanceProgressBar
+                                        value={progressValue}
+                                        color={progressColor}
+                                    />
                                 </div>
 
+                                {!isLocked && (
+                                    <PerformanceColorBadge
+                                        color={completion.color}
+                                        label={completion.label}
+                                        className="text-[10px] py-0 h-5"
+                                    />
+                                )}
+
                                 {isActive && (
-                                    <Badge variant="outline" className="gap-1 text-primary border-primary/30 w-fit">
-                                        <PlayCircle className="h-3 w-3" />
-                                        Active execution year
-                                    </Badge>
+                                    <PerformanceColorBadge
+                                        color={completion.color}
+                                        label="Active execution year"
+                                        variant="outline"
+                                        className="gap-1 w-fit text-xs"
+                                    />
                                 )}
                                 {isCompleted && (
-                                    <Badge variant="secondary" className="gap-1 w-fit">
-                                        <CheckCircle className="h-3 w-3" />
-                                        Completed
-                                    </Badge>
+                                    <PerformanceColorBadge
+                                        color={completion.color}
+                                        label="Completed"
+                                        variant="outline"
+                                        className="gap-1 w-fit text-xs"
+                                    />
                                 )}
                             </CardContent>
 
