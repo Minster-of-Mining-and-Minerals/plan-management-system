@@ -169,12 +169,7 @@ module.exports = (sequelize, DataTypes) => {
             createdAt: "created_at",
             updatedAt: "updated_at",
 
-            indexes: [
-                {
-                    unique: true,
-                    fields: ["year", "version_number", "government_structure_id"],
-                },
-            ],
+            indexes: [],
         }
     );
 

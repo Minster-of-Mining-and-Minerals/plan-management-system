@@ -46,6 +46,13 @@ async function finalizePlanDraft(req, res) {
             annualVersions: result.annualVersions,
         });
     } catch (error) {
+        if (error.name === "SequelizeUniqueConstraintError" || error.name === "SequelizeValidationError") {
+            return res.status(400).json({
+                success: false,
+                message: error.errors?.[0]?.message || error.message,
+                errors: error.errors?.map((e) => e.message) ?? [error.message],
+            });
+        }
         return res.status(500).json({ success: false, message: error.message });
     }
 }

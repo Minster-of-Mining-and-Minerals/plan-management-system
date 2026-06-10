@@ -139,7 +139,11 @@ const createPlanVersion = async (req, res) => {
         }
 
         const latestVersion = await PlanVersion.findOne({
-            where: { start_year: period.start_year, government_structure_id },
+            where: {
+                start_year: period.start_year,
+                government_structure_id,
+                version_kind: "master",
+            },
             order: [["version_number", "DESC"]],
             transaction: t,
         });

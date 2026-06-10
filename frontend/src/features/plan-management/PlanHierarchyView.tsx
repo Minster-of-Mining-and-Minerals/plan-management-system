@@ -438,6 +438,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                         nodes={currentNodes}
                         hierarchyNumberMap={hierarchyNumberMap}
                         rule={rule}
+                        showDualTargets={isAnnualVersion || isExecutionPeriod}
                         onAddChild={handleAddChild}
                         onEdit={handleEdit}
                         onDelete={handleDelete}
