@@ -18,6 +18,7 @@ import { CreateInternalStructureModal } from "./modals/CreateInternalStructureMo
 import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
 import { useSession } from "next-auth/react";
 import { GitForkIcon } from "lucide-react";
+import { isStructureActive } from "@/utils/structureUtils";
  
 /**
  * Converts a StructureNode to D3Tree format
@@ -48,7 +49,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
   permissions = [],
 }) => {
   const hasChildren = !!nodeDatum.children?.length;
-  const isActive = nodeDatum.attributes.is_active;
+  const isActive = isStructureActive(nodeDatum.attributes.is_active);
   const isCollapsed = nodeDatum.__rd3t?.collapsed ?? false;
 
   const handleAddChild = (e: React.MouseEvent) => {
@@ -104,14 +105,16 @@ const CustomNode: React.FC<CustomNodeProps> = ({
             <button className="flex-1 bg-gray-100 hover:bg-gray-200 text-[#073954] font-semibold py-2 rounded-lg transition-colors duration-200 text-xs">
               Details
             </button>
-            <PermissionGuard requireAll={permissions}>
-              <button
-                onClick={handleAddChild}
-                className="flex-1 bg-[#073954] hover:bg-[#0a4d70] text-white font-semibold py-2 rounded-lg transition-colors duration-200 text-xs"
-              >
-                Add Child
-              </button>
-            </PermissionGuard>
+            {isActive && (
+              <PermissionGuard requireAll={permissions}>
+                <button
+                  onClick={handleAddChild}
+                  className="flex-1 bg-[#073954] hover:bg-[#0a4d70] text-white font-semibold py-2 rounded-lg transition-colors duration-200 text-xs"
+                >
+                  Add Child
+                </button>
+              </PermissionGuard>
+            )}
           </div>
         </div>
       </foreignObject>

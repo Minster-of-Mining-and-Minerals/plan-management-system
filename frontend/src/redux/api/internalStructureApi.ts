@@ -77,21 +77,28 @@ export const internalStructureApi = baseApi.injectEndpoints({
                 url: `/internal-structures/${id}`,
                 method: "DELETE",
             }),
-            invalidatesTags: ["InternalStructures"],
+            invalidatesTags: (_result, _error, id) => [
+                { type: "InternalStructures", id },
+                "InternalStructures",
+            ],
         }),
 
         /** ---------------------------
-         * TOGGLE STATUS
+         * REACTIVATE
          * --------------------------- */
-        toggleInternalStructureStatus: builder.mutation<
-            { message: string },
+        reactivateInternalStructure: builder.mutation<
+            { message: string; data: { internal_structure_id: string; is_active: boolean } },
             string
         >({
             query: (id) => ({
-                url: `/internal-structures/${id}/toggle-status`,
+                url: `/internal-structures/${id}/reactivate`,
                 method: "PATCH",
             }),
-            invalidatesTags: ["InternalStructures"],
+            transformResponse: (res: any) => res,
+            invalidatesTags: (_result, _error, id) => [
+                { type: "InternalStructures", id },
+                "InternalStructures",
+            ],
         }),
 
         /** ---------------------------
@@ -126,7 +133,7 @@ export const {
     useCreateInternalStructureMutation,
     useUpdateInternalStructureMutation,
     useDeleteInternalStructureMutation,
-    useToggleInternalStructureStatusMutation,
+    useReactivateInternalStructureMutation,
     useAssignUsersMutation,
     useRemoveUserMutation,
 } = internalStructureApi;

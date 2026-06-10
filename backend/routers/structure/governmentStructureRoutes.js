@@ -15,6 +15,7 @@ const {
     getGovernmentStructures,
     getGovernmentStructureById,
     updateGovernmentStructure,
+    reactivateGovernmentStructure,
     deleteGovernmentStructure,
     addUsersToStructure,
     removeUserFromStructure,
@@ -22,13 +23,16 @@ const {
     removePermissionGroupFromStructure,
 } = require("../../controllers/structure/governmentStructureController");
 
+const { authenticateToken, checkPermission } = require("../../middlewares/authMiddleware");
+
 // ================= CRUD =================
 
-router.post("/", validateCreateGovernmentStructure, createGovernmentStructure);
-router.get("/", getGovernmentStructures);
-router.get("/:id", getGovernmentStructureById);
-router.put("/:id", validateUpdateGovernmentStructure, updateGovernmentStructure);
-router.delete("/:id", deleteGovernmentStructure);
+router.post("/", authenticateToken, checkPermission("GOVERNMENT_STRUCTURES", "CREATE"), validateCreateGovernmentStructure, createGovernmentStructure);
+router.get("/", authenticateToken, getGovernmentStructures);
+router.get("/:id", authenticateToken, getGovernmentStructureById);
+router.put("/:id", authenticateToken, checkPermission("GOVERNMENT_STRUCTURES", "UPDATE"), validateUpdateGovernmentStructure, updateGovernmentStructure);
+router.patch("/:id/reactivate", authenticateToken, checkPermission("GOVERNMENT_STRUCTURES", "UPDATE"), reactivateGovernmentStructure);
+router.delete("/:id", authenticateToken, checkPermission("GOVERNMENT_STRUCTURES", "DELETE"), deleteGovernmentStructure);
 
 // ================= USERS =================
 

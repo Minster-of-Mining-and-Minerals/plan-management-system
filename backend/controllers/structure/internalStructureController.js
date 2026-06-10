@@ -7,8 +7,15 @@ const {
     sequelize,
 } = require("../../models");
 
-const { v4: uuidv4, validate: isUuid } = require("uuid");
+const { v4: uuidv4 } = require("uuid");
 const { Op } = require("sequelize");
+const {
+    isValidUuid,
+    collectDescendantIds,
+    inactiveStructureResponse,
+    alreadyActiveResponse,
+    inactiveParentBlocksReactivationResponse,
+} = require("../../utils/structureLifecycleUtils");
 
 /**
  * =================== CREATE ===================
@@ -21,16 +28,19 @@ const createInternalStructure = async (req, res) => {
         // If parent is provided, inherit its government_structure_id and calculate level
         if (parent_id) {
             const parent = await InternalStructure.findByPk(parent_id, { transaction: t });
-            if (parent) {
-                government_structure_id = parent.government_structure_id;
-                level = parent.level + 1;
-            } else {
+            if (!parent) {
                 await t.rollback();
                 return res.status(400).json({
                     success: false,
                     message: "Parent structure not found",
                 });
             }
+            if (!parent.is_active) {
+                await t.rollback();
+                return inactiveStructureResponse(res, "Parent department");
+            }
+            government_structure_id = parent.government_structure_id;
+            level = parent.level + 1;
         }
 
         // Validate government structure
@@ -44,6 +54,11 @@ const createInternalStructure = async (req, res) => {
                 success: false,
                 message: "Invalid government structure ID",
             });
+        }
+
+        if (!gov.is_active) {
+            await t.rollback();
+            return inactiveStructureResponse(res, "Sector");
         }
 
         // If creating a root node (parent_id is null), check if one already exists for this gov structure
@@ -155,7 +170,7 @@ const getInternalStructureById = async (req, res) => {
     try {
         const { id } = req.params;
 
-        if (!isUuid(id)) {
+        if (!isValidUuid(id)) {
             return res.status(400).json({ message: "Invalid ID format" });
         }
 
@@ -199,6 +214,29 @@ const updateInternalStructure = async (req, res) => {
             return res.status(404).json({ message: "Not found" });
         }
 
+        if (!structure.is_active) {
+            await t.rollback();
+            return inactiveStructureResponse(res, "Department");
+        }
+
+        const gov = await GovernmentStructure.findByPk(structure.government_structure_id, {
+            transaction: t,
+        });
+        if (gov && !gov.is_active) {
+            await t.rollback();
+            return inactiveStructureResponse(res, "Sector");
+        }
+
+        if (req.body.parent_id) {
+            const parent = await InternalStructure.findByPk(req.body.parent_id, {
+                transaction: t,
+            });
+            if (parent && !parent.is_active) {
+                await t.rollback();
+                return inactiveStructureResponse(res, "Parent department");
+            }
+        }
+
         await structure.update(req.body, { transaction: t });
 
         await t.commit();
@@ -215,12 +253,17 @@ const updateInternalStructure = async (req, res) => {
 };
 
 /**
- * =================== DELETE (SOFT) ===================
+ * =================== REACTIVATE ===================
  */
-const deleteInternalStructure = async (req, res) => {
+const reactivateInternalStructure = async (req, res) => {
     const t = await sequelize.transaction();
     try {
         const { id } = req.params;
+
+        if (!isValidUuid(id)) {
+            await t.rollback();
+            return res.status(400).json({ message: "Invalid ID format" });
+        }
 
         const structure = await InternalStructure.findByPk(id, {
             transaction: t,
@@ -231,11 +274,38 @@ const deleteInternalStructure = async (req, res) => {
             return res.status(404).json({ message: "Not found" });
         }
 
-        await structure.update({ is_active: false }, { transaction: t });
+        if (structure.is_active) {
+            await t.rollback();
+            return alreadyActiveResponse(res, "Department");
+        }
+
+        const gov = await GovernmentStructure.findByPk(structure.government_structure_id, {
+            transaction: t,
+        });
+        if (gov && !gov.is_active) {
+            await t.rollback();
+            return inactiveParentBlocksReactivationResponse(res, "Sector");
+        }
+
+        if (structure.parent_id) {
+            const parent = await InternalStructure.findByPk(structure.parent_id, {
+                transaction: t,
+            });
+            if (parent && !parent.is_active) {
+                await t.rollback();
+                return inactiveParentBlocksReactivationResponse(res, "Parent department");
+            }
+        }
+
+        await structure.update({ is_active: true }, { transaction: t });
 
         await t.commit();
 
-        return res.json({ message: "Structure deactivated" });
+        return res.json({
+            success: true,
+            message: "Department reactivated successfully",
+            data: { internal_structure_id: id, is_active: true },
+        });
     } catch (error) {
         await t.rollback();
         return res.status(500).json({ error: error.message });
@@ -243,26 +313,66 @@ const deleteInternalStructure = async (req, res) => {
 };
 
 /**
- * =================== TOGGLE ACTIVE ===================
+ * =================== DELETE (SOFT) ===================
  */
-const toggleInternalStructureStatus = async (req, res) => {
+const deleteInternalStructure = async (req, res) => {
+    const t = await sequelize.transaction();
     try {
         const { id } = req.params;
 
-        const structure = await InternalStructure.findByPk(id);
+        if (!isValidUuid(id)) {
+            await t.rollback();
+            return res.status(400).json({ message: "Invalid ID format" });
+        }
+
+        const structure = await InternalStructure.findByPk(id, {
+            transaction: t,
+        });
 
         if (!structure) {
+            await t.rollback();
             return res.status(404).json({ message: "Not found" });
         }
 
-        structure.is_active = !structure.is_active;
-        await structure.save();
+        if (!structure.is_active) {
+            await t.rollback();
+            return res.status(409).json({
+                success: false,
+                message: "Department is already deactivated.",
+            });
+        }
+
+        const allStructures = await InternalStructure.findAll({
+            where: { government_structure_id: structure.government_structure_id },
+            transaction: t,
+        });
+        const descendantIds = collectDescendantIds(
+            id,
+            allStructures,
+            "internal_structure_id"
+        );
+
+        await InternalStructure.update(
+            { is_active: false },
+            {
+                where: {
+                    internal_structure_id: {
+                        [Op.in]: [id, ...descendantIds],
+                    },
+                },
+                transaction: t,
+            }
+        );
+
+        await t.commit();
 
         return res.json({
-            message: `Structure ${structure.is_active ? "activated" : "deactivated"
-                }`,
+            success: true,
+            message: "Department deactivated successfully",
+            data: { internal_structure_id: id, is_active: false },
         });
     } catch (error) {
+        await t.rollback();
         return res.status(500).json({ error: error.message });
     }
 };
@@ -280,6 +390,10 @@ const assignUsersToInternalStructure = async (req, res) => {
 
         if (!structure) {
             return res.status(404).json({ message: "Structure not found" });
+        }
+
+        if (!structure.is_active) {
+            return inactiveStructureResponse(res, "Department");
         }
 
         const users = await User.findAll({
@@ -319,6 +433,13 @@ const removeUserFromInternalStructure = async (req, res) => {
             return res.status(404).json({ message: "User not found" });
         }
 
+        if (user.internal_structure_id) {
+            const structure = await InternalStructure.findByPk(user.internal_structure_id);
+            if (structure && !structure.is_active) {
+                return inactiveStructureResponse(res, "Department");
+            }
+        }
+
         user.internal_structure_id = null;
         await user.save();
 
@@ -333,8 +454,8 @@ module.exports = {
     getInternalStructures,
     getInternalStructureById,
     updateInternalStructure,
+    reactivateInternalStructure,
     deleteInternalStructure,
-    toggleInternalStructureStatus,
 
     assignUsersToInternalStructure,
     removeUserFromInternalStructure,

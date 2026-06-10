@@ -82,6 +82,24 @@ export const governmentStructureApi = baseApi.injectEndpoints({
         }),
 
         /** ---------------------------
+         * REACTIVATE
+         * --------------------------- */
+        reactivateGovernmentStructure: builder.mutation<
+            { message: string; data: { government_structure_id: string; is_active: boolean } },
+            string
+        >({
+            query: (id) => ({
+                url: `/government-structures/${id}/reactivate`,
+                method: "PATCH",
+            }),
+            transformResponse: (response: any) => response,
+            invalidatesTags: (_result, _error, id) => [
+                { type: "GovernmentStructures", id },
+                "GovernmentStructures",
+            ],
+        }),
+
+        /** ---------------------------
          * DELETE (SOFT)
          * --------------------------- */
         deleteGovernmentStructure: builder.mutation<
@@ -93,7 +111,10 @@ export const governmentStructureApi = baseApi.injectEndpoints({
                 method: "DELETE",
             }),
             transformResponse: (response: any) => response,
-            invalidatesTags: ["GovernmentStructures"],
+            invalidatesTags: (_result, _error, id) => [
+                { type: "GovernmentStructures", id },
+                "GovernmentStructures",
+            ],
         }),
 
         /** ---------------------------
@@ -163,6 +184,7 @@ export const {
     useGetGovernmentStructureByIdQuery,
     useCreateGovernmentStructureMutation,
     useUpdateGovernmentStructureMutation,
+    useReactivateGovernmentStructureMutation,
     useDeleteGovernmentStructureMutation,
 
     useAddUsersToStructureMutation,

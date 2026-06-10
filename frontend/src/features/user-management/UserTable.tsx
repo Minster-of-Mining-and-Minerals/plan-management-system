@@ -26,12 +26,14 @@ export interface UserTableProps {
   sideActions?: ActionButton[];
   government_structure_node_id?: string;
   internal_structure_node_id?: string;
+  readOnly?: boolean;
 }
 
 export default function UserTable({
   sideActions,
   government_structure_node_id,
   internal_structure_node_id,
+  readOnly = false,
 }: UserTableProps) {
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get("search") || "";
@@ -120,35 +122,37 @@ export default function UserTable({
     },
   ];
 
-  const actions: ActionButton[] = [
-    {
-      label: "Export",
-      icon: <Download className="h-4 w-4" />,
-      variant: "outline",
-      loading: exportLoading,
-      onClick: async () => {
-        try {
-          const blob = await exportUsers().unwrap();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = "users.csv";
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          window.URL.revokeObjectURL(url);
-        } catch (err) {
-          console.error("Export failed", err);
-        }
+  const actions: ActionButton[] = readOnly
+    ? []
+    : [
+      {
+        label: "Export",
+        icon: <Download className="h-4 w-4" />,
+        variant: "outline",
+        loading: exportLoading,
+        onClick: async () => {
+          try {
+            const blob = await exportUsers().unwrap();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "users.csv";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+          } catch (err) {
+            console.error("Export failed", err);
+          }
+        },
       },
-    },
-    {
-      label: "New User",
-      icon: <Plus className="h-4 w-4" />,
-      variant: "default",
-      onClick: () => setModalOpen(true),
-    },
-  ];
+      {
+        label: "New User",
+        icon: <Plus className="h-4 w-4" />,
+        variant: "default",
+        onClick: () => setModalOpen(true),
+      },
+    ];
 
   return (
     <>
@@ -165,12 +169,14 @@ export default function UserTable({
           resetKey={`${searchQuery}-${statusFilter}-${government_structure_node_id}-${internal_structure_node_id}`}
         />
       </TableLayout>
-      <CreateUserModal
-        government_structure_id={government_structure_node_id}
-        internal_structure_id={internal_structure_node_id}
-        isOpen={isModalOpen}
-        onClose={() => setModalOpen(false)}
-      />
+      {!readOnly && (
+        <CreateUserModal
+          government_structure_id={government_structure_node_id}
+          internal_structure_id={internal_structure_node_id}
+          isOpen={isModalOpen}
+          onClose={() => setModalOpen(false)}
+        />
+      )}
     </>
   );
 }

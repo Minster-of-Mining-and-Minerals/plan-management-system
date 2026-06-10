@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { useGetInternalStructureByIdQuery } from "@/redux/api/internalStructureApi";
-import { Building, Users, Layers } from "lucide-react";
+import { useGetInternalStructureByIdQuery, useReactivateInternalStructureMutation } from "@/redux/api/internalStructureApi";
+import { Building, Users, Layers, RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import UserTable from "@/features/user-management/UserTable";
@@ -12,6 +12,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import InternalStructureTable from "./InternalStructureTable";
 import { ActionButton } from "@/types/tableLayout";
+import { isStructureActive } from "@/utils/structureUtils";
+import { usePermissions } from "@/hooks/usePermissions";
+import { actionFeedback } from "@/components/action-feedback";
 
 interface InternalStructureDetailProps {
     id: string;
@@ -21,7 +24,10 @@ type TabType = "users" | "child_structures";
 
 export default function InternalStructureDetail({ id }: InternalStructureDetailProps) {
     const router = useRouter();
-    const { data: structure, isLoading, isError } = useGetInternalStructureByIdQuery(id);
+    const { data: structure, isLoading, isError, refetch } = useGetInternalStructureByIdQuery(id);
+    const [reactivateStructure, { isLoading: isReactivating }] = useReactivateInternalStructureMutation();
+    const { can } = usePermissions();
+    const canReactivate = can("INTERNAL_STRUCTURES:UPDATE");
     const [activeTab, setActiveTab] = useState<TabType>("users");
 
     // 🔹 Side Actions (replaces Tabs)
@@ -67,6 +73,28 @@ export default function InternalStructureDetail({ id }: InternalStructureDetailP
         );
     }
 
+    const isReadOnly =
+        !isStructureActive(structure.is_active) ||
+        !isStructureActive(structure.governmentStructure?.is_active);
+    const isDepartmentInactive = !isStructureActive(structure.is_active);
+    const canReactivateDepartment =
+        canReactivate &&
+        isDepartmentInactive &&
+        isStructureActive(structure.governmentStructure?.is_active);
+
+    const handleReactivate = async () => {
+        if (await actionFeedback.confirm("Reactivate this department? Child departments stay inactive until reactivated individually.")) {
+            try {
+                await reactivateStructure(id).unwrap();
+                await refetch();
+                actionFeedback.success("Department reactivated successfully");
+            } catch (err: unknown) {
+                const error = err as { data?: { message?: string } };
+                actionFeedback.error(error.data?.message || "Failed to reactivate department");
+            }
+        }
+    };
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -110,15 +138,33 @@ export default function InternalStructureDetail({ id }: InternalStructureDetailP
                             </nav>
                             <div className="flex items-center gap-3">
                                 <h1 className="text-2xl font-bold text-gray-900">{structure.name}</h1>
-                                <Badge variant={structure.is_active ? "default" : "secondary"}>
-                                    {formatStatus(structure.is_active ? "Active" : "Inactive")}
+                                <Badge variant={isReadOnly ? "secondary" : "default"}>
+                                    {formatStatus(isReadOnly ? "Inactive" : "Active")}
                                 </Badge>
                             </div>
                             <p className="text-xs text-gray-500 font-medium">
                                 LEVEL {structure.level} • DEPARTMENT
                             </p>
+                            {isReadOnly && (
+                                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mt-2">
+                                    {isDepartmentInactive
+                                        ? "This department is deactivated. You can view data only — changes are not allowed."
+                                        : "This department belongs to a deactivated sector. You can view data only — changes are not allowed."}
+                                    {canReactivateDepartment && " Use Reactivate to restore it."}
+                                </p>
+                            )}
                         </div>
                     </div>
+                    {canReactivateDepartment && (
+                        <Button
+                            onClick={handleReactivate}
+                            disabled={isReactivating}
+                            className="shrink-0"
+                        >
+                            <RotateCcw className="h-4 w-4 mr-2" />
+                            Reactivate Department
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -127,6 +173,7 @@ export default function InternalStructureDetail({ id }: InternalStructureDetailP
                 <UserTable 
                     internal_structure_node_id={id} 
                     sideActions={sideActions}
+                    readOnly={isReadOnly}
                 />
             )}
 
@@ -136,6 +183,7 @@ export default function InternalStructureDetail({ id }: InternalStructureDetailP
                     forced_parent_id={id} 
                     hideLayout={true} 
                     sideActions={sideActions}
+                    readOnly={isReadOnly}
                 />
             )}
         </div>

@@ -8,8 +8,15 @@ const {
     sequelize,
 } = require("../../models");
 
-const { v4: uuidv4, validate: isUuid } = require("uuid");
+const { v4: uuidv4 } = require("uuid");
 const { Op } = require("sequelize");
+const {
+    isValidUuid,
+    collectDescendantIds,
+    inactiveStructureResponse,
+    alreadyActiveResponse,
+    inactiveParentBlocksReactivationResponse,
+} = require("../../utils/structureLifecycleUtils");
 
 /**
  * =================== CREATE ===================
@@ -18,6 +25,21 @@ const createGovernmentStructure = async (req, res) => {
     const t = await sequelize.transaction();
     try {
         const { name, parent_id, level } = req.body;
+
+        if (parent_id) {
+            const parent = await GovernmentStructure.findByPk(parent_id, { transaction: t });
+            if (!parent) {
+                await t.rollback();
+                return res.status(400).json({
+                    success: false,
+                    message: "Parent sector not found.",
+                });
+            }
+            if (!parent.is_active) {
+                await t.rollback();
+                return inactiveStructureResponse(res, "Parent sector");
+            }
+        }
 
         // Prevent duplicate under same parent
         const existing = await GovernmentStructure.findOne({
@@ -132,7 +154,7 @@ const getGovernmentStructureById = async (req, res) => {
     try {
         const { id } = req.params;
 
-        if (!isUuid(id)) {
+        if (!isValidUuid(id)) {
             return res.status(400).json({ message: "Invalid ID format" });
         }
 
@@ -173,7 +195,7 @@ const updateGovernmentStructure = async (req, res) => {
     try {
         const { id } = req.params;
 
-        if (!isUuid(id)) {
+        if (!isValidUuid(id)) {
             await t.rollback();
             return res.status(400).json({ message: "Invalid ID" });
         }
@@ -185,6 +207,21 @@ const updateGovernmentStructure = async (req, res) => {
         if (!structure) {
             await t.rollback();
             return res.status(404).json({ message: "Not found" });
+        }
+
+        if (!structure.is_active) {
+            await t.rollback();
+            return inactiveStructureResponse(res, "Sector");
+        }
+
+        if (req.body.parent_id) {
+            const parent = await GovernmentStructure.findByPk(req.body.parent_id, {
+                transaction: t,
+            });
+            if (parent && !parent.is_active) {
+                await t.rollback();
+                return inactiveStructureResponse(res, "Parent sector");
+            }
         }
 
         await structure.update(req.body, { transaction: t });
@@ -203,14 +240,14 @@ const updateGovernmentStructure = async (req, res) => {
 };
 
 /**
- * =================== DELETE (SOFT) ===================
+ * =================== REACTIVATE ===================
  */
-const deleteGovernmentStructure = async (req, res) => {
+const reactivateGovernmentStructure = async (req, res) => {
     const t = await sequelize.transaction();
     try {
         const { id } = req.params;
 
-        if (!isUuid(id)) {
+        if (!isValidUuid(id)) {
             await t.rollback();
             return res.status(400).json({ message: "Invalid ID" });
         }
@@ -224,14 +261,92 @@ const deleteGovernmentStructure = async (req, res) => {
             return res.status(404).json({ message: "Not found" });
         }
 
-        await structure.update(
+        if (structure.is_active) {
+            await t.rollback();
+            return alreadyActiveResponse(res, "Sector");
+        }
+
+        if (structure.parent_id) {
+            const parent = await GovernmentStructure.findByPk(structure.parent_id, {
+                transaction: t,
+            });
+            if (parent && !parent.is_active) {
+                await t.rollback();
+                return inactiveParentBlocksReactivationResponse(res, "Parent sector");
+            }
+        }
+
+        await structure.update({ is_active: true }, { transaction: t });
+
+        await t.commit();
+
+        return res.json({
+            success: true,
+            message: "Sector reactivated successfully",
+            data: { government_structure_id: id, is_active: true },
+        });
+    } catch (error) {
+        await t.rollback();
+        return res.status(500).json({ error: error.message });
+    }
+};
+
+/**
+ * =================== DELETE (SOFT) ===================
+ */
+const deleteGovernmentStructure = async (req, res) => {
+    const t = await sequelize.transaction();
+    try {
+        const { id } = req.params;
+
+        if (!isValidUuid(id)) {
+            await t.rollback();
+            return res.status(400).json({ message: "Invalid ID" });
+        }
+
+        const structure = await GovernmentStructure.findByPk(id, {
+            transaction: t,
+        });
+
+        if (!structure) {
+            await t.rollback();
+            return res.status(404).json({ message: "Not found" });
+        }
+
+        if (!structure.is_active) {
+            await t.rollback();
+            return res.status(409).json({
+                success: false,
+                message: "Sector is already deactivated.",
+            });
+        }
+
+        const allStructures = await GovernmentStructure.findAll({ transaction: t });
+        const descendantIds = collectDescendantIds(
+            id,
+            allStructures,
+            "government_structure_id"
+        );
+
+        await GovernmentStructure.update(
             { is_active: false },
-            { transaction: t }
+            {
+                where: {
+                    government_structure_id: {
+                        [Op.in]: [id, ...descendantIds],
+                    },
+                },
+                transaction: t,
+            }
         );
 
         await t.commit();
 
-        return res.json({ message: "Deactivated successfully" });
+        return res.json({
+            success: true,
+            message: "Sector deactivated successfully",
+            data: { government_structure_id: id, is_active: false },
+        });
     } catch (error) {
         await t.rollback();
         return res.status(500).json({ error: error.message });
@@ -245,6 +360,14 @@ const deleteGovernmentStructure = async (req, res) => {
 const addUsersToStructure = async (req, res) => {
     try {
         const { government_structure_id, user_ids } = req.body;
+
+        const structure = await GovernmentStructure.findByPk(government_structure_id);
+        if (!structure) {
+            return res.status(404).json({ message: "Sector not found" });
+        }
+        if (!structure.is_active) {
+            return inactiveStructureResponse(res, "Sector");
+        }
 
         await User.update(
             { government_structure_id },
@@ -262,6 +385,14 @@ const addUsersToStructure = async (req, res) => {
 const removeUserFromStructure = async (req, res) => {
     try {
         const { user_id } = req.body;
+
+        const user = await User.findByPk(user_id);
+        if (user?.government_structure_id) {
+            const structure = await GovernmentStructure.findByPk(user.government_structure_id);
+            if (structure && !structure.is_active) {
+                return inactiveStructureResponse(res, "Sector");
+            }
+        }
 
         await User.update(
             { government_structure_id: null },
@@ -284,6 +415,14 @@ const addPermissionGroupsToStructure = async (req, res) => {
     try {
         const { government_structure_id, permission_group_ids } = req.body;
 
+        const structure = await GovernmentStructure.findByPk(government_structure_id);
+        if (!structure) {
+            return res.status(404).json({ message: "Sector not found" });
+        }
+        if (!structure.is_active) {
+            return inactiveStructureResponse(res, "Sector");
+        }
+
         const records = permission_group_ids.map((pid) => ({
             id: uuidv4(),
             government_structure_id,
@@ -302,6 +441,14 @@ const removePermissionGroupFromStructure = async (req, res) => {
     try {
         const { government_structure_id, permission_group_id } = req.body;
 
+        const structure = await GovernmentStructure.findByPk(government_structure_id);
+        if (!structure) {
+            return res.status(404).json({ message: "Sector not found" });
+        }
+        if (!structure.is_active) {
+            return inactiveStructureResponse(res, "Sector");
+        }
+
         await GovernmentStructurePermissionGroup.destroy({
             where: { government_structure_id, permission_group_id },
         });
@@ -317,6 +464,7 @@ module.exports = {
     getGovernmentStructures,
     getGovernmentStructureById,
     updateGovernmentStructure,
+    reactivateGovernmentStructure,
     deleteGovernmentStructure,
     addUsersToStructure,
     removeUserFromStructure,

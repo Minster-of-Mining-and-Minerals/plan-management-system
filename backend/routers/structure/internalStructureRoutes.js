@@ -6,8 +6,8 @@ const {
     getInternalStructures,
     getInternalStructureById,
     updateInternalStructure,
+    reactivateInternalStructure,
     deleteInternalStructure,
-    toggleInternalStructureStatus,
     assignUsersToInternalStructure,
     removeUserFromInternalStructure,
 } = require("../../controllers/structure/internalStructureController");
@@ -19,24 +19,22 @@ const {
     validateRemoveUser,
 } = require("../../validators/structure/internalStructureValidator");
 
+const { authenticateToken, checkPermission } = require("../../middlewares/authMiddleware");
+
 /**
  * CRUD
  */
-router.post("/", validateCreateInternalStructure, createInternalStructure);
-router.get("/", getInternalStructures);
-router.get("/:id", getInternalStructureById);
-router.put("/:id", validateUpdateInternalStructure, updateInternalStructure);
-router.delete("/:id", deleteInternalStructure);
-
-/**
- * TOGGLE STATUS
- */
-router.patch("/:id/toggle-status", toggleInternalStructureStatus);
+router.post("/", authenticateToken, checkPermission("INTERNAL_STRUCTURES", "CREATE"), validateCreateInternalStructure, createInternalStructure);
+router.get("/", authenticateToken, getInternalStructures);
+router.get("/:id", authenticateToken, getInternalStructureById);
+router.put("/:id", authenticateToken, checkPermission("INTERNAL_STRUCTURES", "UPDATE"), validateUpdateInternalStructure, updateInternalStructure);
+router.patch("/:id/reactivate", authenticateToken, checkPermission("INTERNAL_STRUCTURES", "UPDATE"), reactivateInternalStructure);
+router.delete("/:id", authenticateToken, checkPermission("INTERNAL_STRUCTURES", "DELETE"), deleteInternalStructure);
 
 /**
  * USER MANAGEMENT
  */
-router.post("/assign-users", validateAssignUsers, assignUsersToInternalStructure);
-router.post("/remove-user", validateRemoveUser, removeUserFromInternalStructure);
+router.post("/assign-users", authenticateToken, validateAssignUsers, assignUsersToInternalStructure);
+router.post("/remove-user", authenticateToken, validateRemoveUser, removeUserFromInternalStructure);
 
 module.exports = router;

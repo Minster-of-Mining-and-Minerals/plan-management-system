@@ -20,8 +20,14 @@ export interface PermissionGroupListProps {
   government_structure_id?: string;
   hideLayout?: boolean;
   sideActions?: ActionButton[];
+  readOnly?: boolean;
 }
-export default function PermissionGroupList({ government_structure_id, hideLayout = false, sideActions }: PermissionGroupListProps) {
+export default function PermissionGroupList({
+  government_structure_id,
+  hideLayout = false,
+  sideActions,
+  readOnly = false,
+}: PermissionGroupListProps) {
   const { data = [], isLoading, isError, refetch } = useGetPermissionGroupsQuery({ government_structure_id });
   const [deleteGroup] = useDeletePermissionGroupMutation();
   const router = useRouter();
@@ -58,6 +64,18 @@ export default function PermissionGroupList({ government_structure_id, hideLayou
       header: "Actions",
       cell: ({ row }) => {
         const group = row.original;
+        if (readOnly) {
+          return (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push(`/users/permission-groups/${group.permission_group_id}`)}
+              title="View Group"
+            >
+              <Edit className="h-4 w-4 text-blue-600" />
+            </Button>
+          );
+        }
         return (
           <div className="flex items-center gap-2">
             <Button
@@ -108,20 +126,22 @@ export default function PermissionGroupList({ government_structure_id, hideLayou
   ];
 
   // Actions
-  const actions: ActionButton[] = [
-    {
-      label: "Export",
-      icon: <Download className="h-4 w-4" />,
-      variant: "outline",
-      onClick: () => console.log("Export clicked"),
-    },
-    {
-      label: "New Group",
-      icon: <Plus className="h-4 w-4" />,
-      variant: "default",
-      onClick: () => router.push("/users/permission-groups/new"),
-    },
-  ];
+  const actions: ActionButton[] = readOnly
+    ? []
+    : [
+      {
+        label: "Export",
+        icon: <Download className="h-4 w-4" />,
+        variant: "outline",
+        onClick: () => console.log("Export clicked"),
+      },
+      {
+        label: "New Group",
+        icon: <Plus className="h-4 w-4" />,
+        variant: "default",
+        onClick: () => router.push("/users/permission-groups/new"),
+      },
+    ];
 
   const filteredData = data.filter((group) => {
     if (!matchesActiveInactiveFilter(statusFilter, group.is_active)) return false;

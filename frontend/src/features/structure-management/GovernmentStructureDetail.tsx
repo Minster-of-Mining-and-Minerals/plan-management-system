@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { useGetGovernmentStructureByIdQuery } from "@/redux/api/governmentStructureApi";
-import { Building, Users, Shield, Layers } from "lucide-react";
+import { useGetGovernmentStructureByIdQuery, useReactivateGovernmentStructureMutation } from "@/redux/api/governmentStructureApi";
+import { Building, Users, Shield, Layers, RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import UserTable from "@/features/user-management/UserTable";
@@ -13,6 +13,9 @@ import { formatStatus } from "@/utils/statusFormatter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ActionButton } from "@/types/tableLayout";
 import Link from "next/link";
+import { isStructureActive } from "@/utils/structureUtils";
+import { usePermissions } from "@/hooks/usePermissions";
+import { actionFeedback } from "@/components/action-feedback";
 
 interface GovernmentStructureDetailProps {
     id: string;
@@ -22,7 +25,10 @@ type TabType = "users" | "internal_structures" | "permission_groups";
 
 export default function GovernmentStructureDetail({ id }: GovernmentStructureDetailProps) {
     const router = useRouter();
-    const { data: structure, isLoading, isError } = useGetGovernmentStructureByIdQuery(id);
+    const { data: structure, isLoading, isError, refetch } = useGetGovernmentStructureByIdQuery(id);
+    const [reactivateStructure, { isLoading: isReactivating }] = useReactivateGovernmentStructureMutation();
+    const { can } = usePermissions();
+    const canReactivate = can("GOVERNMENT_STRUCTURES:UPDATE");
     const [activeTab, setActiveTab] = useState<TabType>("users");
 
     // 🔹 Side Actions (replaces Tabs)
@@ -74,6 +80,21 @@ export default function GovernmentStructureDetail({ id }: GovernmentStructureDet
         );
     }
 
+    const isReadOnly = !isStructureActive(structure.is_active);
+
+    const handleReactivate = async () => {
+        if (await actionFeedback.confirm("Reactivate this sector? Child sectors stay inactive until reactivated individually.")) {
+            try {
+                await reactivateStructure(id).unwrap();
+                await refetch();
+                actionFeedback.success("Sector reactivated successfully");
+            } catch (err: unknown) {
+                const error = err as { data?: { message?: string } };
+                actionFeedback.error(error.data?.message || "Failed to reactivate sector");
+            }
+        }
+    };
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -105,15 +126,31 @@ export default function GovernmentStructureDetail({ id }: GovernmentStructureDet
                         </nav>
                         <div className="flex items-center gap-3">
                             <h1 className="text-2xl font-bold text-gray-900">{structure.name}</h1>
-                            <Badge variant={structure.is_active ? "default" : "secondary"}>
-                                {formatStatus(structure.is_active ? "Active" : "Inactive")}
+                            <Badge variant={isReadOnly ? "secondary" : "default"}>
+                                {formatStatus(isReadOnly ? "Inactive" : "Active")}
                             </Badge>
                         </div>
                         <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">
                             Level {structure.level} • Sector
                         </p>
+                        {isReadOnly && (
+                            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mt-2">
+                                This sector is deactivated. You can view data only — changes are not allowed.
+                                {canReactivate && " Use Reactivate to restore it."}
+                            </p>
+                        )}
                     </div>
                 </div>
+                {isReadOnly && canReactivate && (
+                    <Button
+                        onClick={handleReactivate}
+                        disabled={isReactivating}
+                        className="shrink-0"
+                    >
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        Reactivate Sector
+                    </Button>
+                )}
             </div>
 
             {/* Content */}
@@ -121,6 +158,7 @@ export default function GovernmentStructureDetail({ id }: GovernmentStructureDet
                 <UserTable
                     government_structure_node_id={id}
                     sideActions={sideActions}
+                    readOnly={isReadOnly}
                 />
             )}
 
@@ -129,6 +167,7 @@ export default function GovernmentStructureDetail({ id }: GovernmentStructureDet
                     forced_government_structure_id={id}
                     hideLayout={true}
                     sideActions={sideActions}
+                    readOnly={isReadOnly}
                 />
             )}
 
@@ -137,6 +176,7 @@ export default function GovernmentStructureDetail({ id }: GovernmentStructureDet
                     government_structure_id={id}
                     hideLayout={true}
                     sideActions={sideActions}
+                    readOnly={isReadOnly}
                 />
             )}
         </div>
