@@ -321,7 +321,14 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
         if (activeTab === "external") {
             return isExclusive && activeCount > 0 ? "Reassign Sector" : "Assign Sector";
         }
-        return isExclusive && activeCount > 0 ? "Reassign User/Department" : "Assign User/Department";
+        const allowDept = assignmentOptions?.allow_department ?? false;
+        const allowUser = assignmentOptions?.allow_user ?? false;
+        const inUserBranch = assignmentOptions?.in_user_branch ?? false;
+        const prefix = isExclusive && activeCount > 0 ? "Reassign" : "Assign";
+
+        if (inUserBranch || (allowUser && !allowDept)) return `${prefix} User`;
+        if (allowDept && !allowUser) return `${prefix} Department`;
+        return `${prefix} Department / User`;
     })();
 
     const sideActions: ActionButton[] = [
