@@ -6,7 +6,7 @@ import { TableLayout } from "@/features/template/component/tableList/TableLayout
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Eye, Edit, Trash, CheckCircle, PlayCircle } from "lucide-react";
+import { Plus, Eye, Edit, Trash, CheckCircle, Rocket } from "lucide-react";
 
 import type { FilterField, ActionButton } from "@/types/tableLayout";
 import {
@@ -26,6 +26,7 @@ import {
 import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CreatePlanVersionModal } from "./modals/CreatePlanVersionModal";
+import { FinalizePlanDraftModal } from "./modals/FinalizePlanDraftModal";
 import {
   matchesMultiValueFilter,
   matchesSearchQuery,
@@ -42,6 +43,7 @@ export default function PlanVersionTable() {
     const [updateStatus] = useUpdatePlanVersionStatusMutation();
     const [selectedVersion, setSelectedVersion] = useState<PlanVersion | null>(null);
     const [isModalOpen, setModalOpen] = useState(false);
+    const [finalizeVersion, setFinalizeVersion] = useState<PlanVersion | null>(null);
 
     const draftLabel = config.draft_entity_label_singular;
     const draftsLabel = config.draft_entity_label_plural;
@@ -122,17 +124,17 @@ export default function PlanVersionTable() {
                                 <Edit className="h-4 w-4" />
                             </Button>
                             <Button
-                                onClick={() => handleStatusChange(row.original.plan_version_id, "active")}
+                                onClick={() => setFinalizeVersion(row.original)}
                                 variant="ghost"
                                 size="icon"
-                                className="text-green-500 hover:text-green-700"
-                                title="Activate Plan"
+                                className="text-green-600 hover:text-green-800"
+                                title="Finalize Draft"
                             >
-                                <PlayCircle className="h-4 w-4" />
+                                <Rocket className="h-4 w-4" />
                             </Button>
                         </>
                     )}
-                    {row.original.status === "active" && (
+                    {row.original.status === "active" && row.original.version_kind === "annual" && (
                         <Button
                             onClick={() => handleStatusChange(row.original.plan_version_id, "completed")}
                             variant="ghost"
@@ -162,6 +164,7 @@ export default function PlanVersionTable() {
         isLoading,
     } = useGetPlanVersionsQuery({
         search: searchQuery,
+        version_kind: "master",
     });
 
     const versions = response || [];
@@ -204,6 +207,7 @@ export default function PlanVersionTable() {
             onChange: setStatusFilter,
             options: [
                 { label: "Draft", value: "draft" },
+                { label: "Finalized", value: "finalized" },
                 { label: "Active", value: "active" },
                 { label: "Completed", value: "completed" },
             ],
@@ -256,6 +260,13 @@ export default function PlanVersionTable() {
                 }}
                 version={selectedVersion}
             />
+            {finalizeVersion && (
+                <FinalizePlanDraftModal
+                    isOpen={!!finalizeVersion}
+                    onClose={() => setFinalizeVersion(null)}
+                    version={finalizeVersion}
+                />
+            )}
         </>
     );
 }

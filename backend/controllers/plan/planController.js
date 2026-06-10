@@ -14,6 +14,7 @@ const {
 const { v4: uuidv4, validate: isUuid } = require("uuid");
 const { Op } = require("sequelize");
 const { validatePlanNodeAgainstRule } = require("../../services/planRuleService");
+const { isWeightModeSelectionLevel } = require("../../services/planRuleStepUtils");
 const {
     getOrCreateGlobalPlanningConfig,
     pickPlanningConfigPayload,
@@ -21,7 +22,53 @@ const {
     validatePlanningStartDate,
     validatePlanningDuration,
     validateYearRange,
+    validateNodeTargetUnit,
 } = require("../../services/planningConfigurationService");
+const {
+    completeAnnualVersion,
+    copyNodesAndAssignments,
+} = require("../../services/planVersionLifecycleService");
+
+async function validateTargetUnitForNode({
+    planVersionId,
+    nodeLevel,
+    weight,
+    weightMode,
+    targetUnit,
+    parentNode,
+    transaction,
+}) {
+    const [planVersion, planningConfig] = await Promise.all([
+        PlanVersion.findByPk(planVersionId, {
+            include: [
+                {
+                    model: PlanRule,
+                    as: "planRule",
+                    include: [{ model: PlanRuleStep, as: "steps" }],
+                },
+            ],
+            transaction,
+        }),
+        getOrCreateGlobalPlanningConfig(transaction),
+    ]);
+
+    const isSelectionLevel = isWeightModeSelectionLevel(planVersion?.planRule, nodeLevel);
+    const requiresWeight = weight > 0 && weightMode;
+
+    return validateNodeTargetUnit({
+        weightMode,
+        targetUnit,
+        weight,
+        requiresWeight,
+        parent: parentNode,
+        isSelectionLevel,
+        configUnits: planningConfig.target_units,
+    });
+}
+
+function isMasterDraft(planVersion) {
+    return planVersion.version_kind === "master" && planVersion.status === "draft";
+}
 
 function resolvePlanningStartDate(body) {
     if (body.planning_start_date) {
@@ -120,6 +167,7 @@ const createPlanVersion = async (req, res) => {
                 planning_duration_years: durationYears,
                 year: period.start_year,
                 version_number,
+                version_kind: "master",
                 status: "draft",
                 government_structure_id,
                 based_on_version_id: based_on_version_id || null,
@@ -141,65 +189,27 @@ const createPlanVersion = async (req, res) => {
         });
     } catch (error) {
         await t.rollback();
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
 
-// Helper function to copy nodes from another version
+// Helper function to copy nodes from another version (carry-forward drafts)
 async function copyNodesFromVersion(sourceVersionId, targetVersionId, transaction) {
-    const sourceNodes = await PlanNode.findAll({
-        where: { plan_version_id: sourceVersionId },
-        transaction,
-    });
-
-    const nodeIdMap = new Map();
-
-    // First pass: create all nodes without parent relationships
-    for (const sourceNode of sourceNodes) {
-        const newNodeId = uuidv4();
-        nodeIdMap.set(sourceNode.plan_node_id, newNodeId);
-
-        await PlanNode.create(
-            {
-                plan_node_id: newNodeId,
-                plan_version_id: targetVersionId,
-                parent_id: null, // Will update in second pass
-                type: sourceNode.type,
-                title: sourceNode.title,
-                description: sourceNode.description,
-                weight: sourceNode.weight,
-                level: sourceNode.level,
-                order: sourceNode.order,
-                is_active: sourceNode.is_active,
-            },
-            { transaction }
-        );
-    }
-
-    // Second pass: update parent relationships
-    for (const sourceNode of sourceNodes) {
-        if (sourceNode.parent_id) {
-            const newParentId = nodeIdMap.get(sourceNode.parent_id);
-            const newNodeId = nodeIdMap.get(sourceNode.plan_node_id);
-
-            await PlanNode.update(
-                { parent_id: newParentId },
-                { where: { plan_node_id: newNodeId }, transaction }
-            );
-        }
-    }
+    await copyNodesAndAssignments(sourceVersionId, targetVersionId, transaction);
 }
 
 // Get all plan versions with filters
 const getPlanVersions = async (req, res) => {
     try {
-        const { year, government_structure_id, status, search } = req.query;
+        const { year, government_structure_id, status, search, version_kind, parent_plan_version_id } = req.query;
 
         const where = {};
 
         if (year) where.year = parseInt(year);
         if (government_structure_id) where.government_structure_id = government_structure_id;
         if (status) where.status = status;
+        if (version_kind) where.version_kind = version_kind;
+        if (parent_plan_version_id) where.parent_plan_version_id = parent_plan_version_id;
         if (search && search.trim()) {
             const term = `%${search.trim()}%`;
             where[Op.or] = [
@@ -265,6 +275,12 @@ const getPlanVersionById = async (req, res) => {
                     as: "baseVersion",
                 },
                 {
+                    model: PlanVersion,
+                    as: "annualVersions",
+                    separate: true,
+                    order: [["sequence_index", "ASC"]],
+                },
+                {
                     model: PlanRule,
                     as: "planRule",
                     include: [
@@ -324,12 +340,11 @@ const updatePlanVersion = async (req, res) => {
             return res.status(404).json({ message: "Plan version not found" });
         }
 
-        // Prevent updating active/completed versions
-        if (planVersion.status !== "draft") {
+        if (!isMasterDraft(planVersion)) {
             await t.rollback();
             return res.status(400).json({
                 success: false,
-                message: "Cannot update non-draft plan draft",
+                message: "Cannot update a finalized or annual plan version",
             });
         }
 
@@ -396,7 +411,7 @@ const updatePlanVersion = async (req, res) => {
         });
     } catch (error) {
         await t.rollback();
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
 
@@ -462,11 +477,28 @@ const updatePlanVersionStatus = async (req, res) => {
             return res.status(404).json({ message: "Plan version not found" });
         }
 
-        // Validate status transition
+        if (planVersion.version_kind === "annual" && status === "completed") {
+            await t.rollback();
+            const result = await completeAnnualVersion(id);
+            if (!result.success) {
+                return res.status(400).json({ success: false, message: result.message });
+            }
+            return res.json({
+                success: true,
+                message: result.unlockedVersion
+                    ? `Annual version completed. Year ${result.unlockedVersion.sequence_index} is now available.`
+                    : "Annual version completed",
+                data: result.data,
+                unlockedVersion: result.unlockedVersion,
+            });
+        }
+
         const validTransitions = {
             draft: ["active"],
             active: ["completed"],
             completed: [],
+            finalized: [],
+            locked: [],
         };
 
         if (!validTransitions[planVersion.status].includes(status)) {
@@ -508,6 +540,7 @@ const createPlanNode = async (req, res) => {
             description,
             weight,
             weight_mode,
+            target_unit,
             level,
             order,
             assignment_sharing_mode,
@@ -520,17 +553,17 @@ const createPlanNode = async (req, res) => {
             return res.status(404).json({ message: "Plan version not found" });
         }
 
-        if (planVersion.status !== "draft") {
+        if (!isMasterDraft(planVersion)) {
             await t.rollback();
             return res.status(400).json({
                 success: false,
-                message: "Can only add nodes to draft plan versions",
+                message: "Can only add nodes to draft master plan versions",
             });
         }
 
-        // If parent_id provided, verify it exists and belongs to same version
+        let parentNode = null;
         if (parent_id) {
-            const parentNode = await PlanNode.findOne({
+            parentNode = await PlanNode.findOne({
                 where: {
                     plan_node_id: parent_id,
                     plan_version_id,
@@ -546,8 +579,7 @@ const createPlanNode = async (req, res) => {
 
         // Calculate level if not provided
         let nodeLevel = level;
-        if (!nodeLevel && parent_id) {
-            const parentNode = await PlanNode.findByPk(parent_id, { transaction: t });
+        if (!nodeLevel && parentNode) {
             nodeLevel = parentNode.level + 1;
         } else if (!nodeLevel) {
             nodeLevel = 1;
@@ -571,6 +603,24 @@ const createPlanNode = async (req, res) => {
             });
         }
 
+        const unitCheck = await validateTargetUnitForNode({
+            planVersionId: plan_version_id,
+            nodeLevel,
+            weight: weight || 0,
+            weightMode: ruleCheck.weightMode,
+            targetUnit: target_unit,
+            parentNode,
+            transaction: t,
+        });
+
+        if (!unitCheck.valid) {
+            await t.rollback();
+            return res.status(400).json({
+                success: false,
+                message: unitCheck.message,
+            });
+        }
+
         const planNode = await PlanNode.create(
             {
                 plan_node_id: uuidv4(),
@@ -581,6 +631,7 @@ const createPlanNode = async (req, res) => {
                 description,
                 weight: weight || 0,
                 weight_mode: ruleCheck.weightMode || null,
+                target_unit: unitCheck.targetUnit,
                 level: nodeLevel,
                 order: order || 0,
                 is_active: true,
@@ -703,11 +754,11 @@ const updatePlanNode = async (req, res) => {
         }
 
         // Check if plan version is draft
-        if (planNode.planVersion.status !== "draft") {
+        if (!isMasterDraft(planNode.planVersion)) {
             await t.rollback();
             return res.status(400).json({
                 success: false,
-                message: "Can only update nodes in draft plan versions",
+                message: "Can only update nodes in draft master plan versions",
             });
         }
 
@@ -732,6 +783,8 @@ const updatePlanNode = async (req, res) => {
 
         const nextWeightMode =
             req.body.weight_mode !== undefined ? req.body.weight_mode : planNode.weight_mode;
+        const nextTargetUnit =
+            req.body.target_unit !== undefined ? req.body.target_unit : planNode.target_unit;
 
         let parentForRule = null;
         if (nextParentId) {
@@ -763,6 +816,24 @@ const updatePlanNode = async (req, res) => {
             });
         }
 
+        const unitCheck = await validateTargetUnitForNode({
+            planVersionId: planNode.plan_version_id,
+            nodeLevel: nextLevel,
+            weight: nextWeight || 0,
+            weightMode: ruleCheck.weightMode,
+            targetUnit: nextTargetUnit,
+            parentNode: parentForRule,
+            transaction: t,
+        });
+
+        if (!unitCheck.valid) {
+            await t.rollback();
+            return res.status(400).json({
+                success: false,
+                message: unitCheck.message,
+            });
+        }
+
         if (
             req.body.assignment_sharing_mode !== undefined &&
             req.body.assignment_sharing_mode !== planNode.assignment_sharing_mode
@@ -791,6 +862,7 @@ const updatePlanNode = async (req, res) => {
                 ...req.body,
                 level: nextLevel,
                 weight_mode: ruleCheck.weightMode || null,
+                target_unit: unitCheck.targetUnit,
             },
             { transaction: t }
         );
@@ -829,11 +901,11 @@ const deletePlanNode = async (req, res) => {
             return res.status(404).json({ message: "Plan node not found" });
         }
 
-        if (planNode.planVersion.status !== "draft") {
+        if (!isMasterDraft(planNode.planVersion)) {
             await t.rollback();
             return res.status(400).json({
                 success: false,
-                message: "Can only delete nodes from draft plan versions",
+                message: "Can only delete nodes from draft master plan versions",
             });
         }
 

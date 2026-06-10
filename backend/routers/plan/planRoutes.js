@@ -12,6 +12,7 @@ const {
     validateReorderPlanNodes,
     validateIdParam,
     validateVersionIdParam,
+    validateUpdateAnnualTarget,
 } = require("../../validators/plan/planValidator");
 
 const {
@@ -29,6 +30,14 @@ const {
     getPlanHierarchy,
     reorderPlanNodes,
 } = require("../../controllers/plan/planController");
+
+const {
+    getDraftFinalizationReadiness,
+    finalizePlanDraft,
+    listAnnualVersions,
+    updateAnnualTarget,
+    completeAnnualPlanVersion,
+} = require("../../controllers/plan/planVersionLifecycleController");
 
 const {
     getPlanRules,
@@ -68,6 +77,12 @@ router.get("/versions/:id", checkPermission("PLANS", "READ"), validateIdParam, g
 router.put("/versions/:id", checkPermission("PLANS", "UPDATE"), validateIdParam, validateUpdatePlanVersion, updatePlanVersion);
 router.delete("/versions/:id", checkPermission("PLANS", "DELETE"), validateIdParam, deletePlanVersion);
 router.patch("/versions/:id/status", checkPermission("PLANS", "APPROVE"), validateIdParam, validateUpdatePlanVersionStatus, updatePlanVersionStatus);
+
+router.get("/versions/:id/finalization-readiness", checkPermission("PLANS", "READ"), validateIdParam, getDraftFinalizationReadiness);
+router.post("/versions/:id/finalize", checkPermission("PLANS", "APPROVE"), validateIdParam, finalizePlanDraft);
+router.get("/versions/:id/annual-versions", checkPermission("PLANS", "READ"), validateIdParam, listAnnualVersions);
+router.post("/versions/:id/complete-annual", checkPermission("PLANS", "APPROVE"), validateIdParam, completeAnnualPlanVersion);
+router.patch("/nodes/:id/annual-target", checkPermission("PLANS", "UPDATE"), validateIdParam, validateUpdateAnnualTarget, updateAnnualTarget);
 
 // ================= PLANNING CONFIGURATION =================
 

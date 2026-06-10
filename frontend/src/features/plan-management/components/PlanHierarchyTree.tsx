@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PlanNodeHierarchy, PlanNode, PlanRule } from "@/redux/types/plan";
+import type { TargetUnit } from "@/redux/types/planningConfig";
 import {
     formatNodeTarget,
     getStepLabel,
@@ -11,6 +12,7 @@ import {
 } from "@/utils/planRuleUtils";
 import { PlanNodeIcon } from "./PlanNodeIcon";
 import { PlanNodeActions } from "./PlanNodeActions";
+import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
 
 interface NodeItemProps {
     node: PlanNodeHierarchy;
@@ -21,6 +23,8 @@ interface NodeItemProps {
     onDelete: (id: string) => void;
     onViewDetails: (nodeId: string) => void;
     onDrillDown?: (node: PlanNodeHierarchy) => void;
+    readOnly?: boolean;
+    configuredUnits?: TargetUnit[];
 }
 
 const NodeItem = ({
@@ -32,6 +36,8 @@ const NodeItem = ({
     onDelete,
     onViewDetails,
     onDrillDown,
+    readOnly = false,
+    configuredUnits,
 }: NodeItemProps) => {
     const [isExpanded, setIsExpanded] = useState(true);
     const hasChildren = node.children && node.children.length > 0;
@@ -78,7 +84,12 @@ const NodeItem = ({
                                     variant="secondary"
                                     className="text-[10px] py-0 h-4 bg-blue-50 text-blue-700 border-blue-100 shrink-0"
                                 >
-                                    {formatNodeTarget(node.weight, nodeWeightMode)}
+                                    {formatNodeTarget(
+                                        node.weight,
+                                        nodeWeightMode,
+                                        node.target_unit,
+                                        configuredUnits
+                                    )}
                                 </Badge>
                             )}
                             {hasChildren && onDrillDown && (
@@ -100,6 +111,7 @@ const NodeItem = ({
                     onEdit={onEdit}
                     onDelete={onDelete}
                     onViewDetails={onViewDetails}
+                    readOnly={readOnly}
                     className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                 />
             </div>
@@ -117,6 +129,8 @@ const NodeItem = ({
                             onDelete={onDelete}
                             onViewDetails={onViewDetails}
                             onDrillDown={onDrillDown}
+                            readOnly={readOnly}
+                            configuredUnits={configuredUnits}
                         />
                     ))}
                 </div>
@@ -135,6 +149,7 @@ interface PlanHierarchyTreeProps {
     onDrillDown?: (node: PlanNodeHierarchy) => void;
     /** When true, only render direct nodes without expanding nested children inline */
     scoped?: boolean;
+    readOnly?: boolean;
 }
 
 export function PlanHierarchyTree({
@@ -146,7 +161,11 @@ export function PlanHierarchyTree({
     onViewDetails,
     onDrillDown,
     scoped = false,
+    readOnly = false,
 }: PlanHierarchyTreeProps) {
+    const { data: planningConfig } = useGetPlanningConfigurationQuery();
+    const configuredUnits = planningConfig?.target_units;
+
     if (scoped) {
         return (
             <div className="space-y-2">
@@ -161,6 +180,8 @@ export function PlanHierarchyTree({
                         onDelete={onDelete}
                         onViewDetails={onViewDetails}
                         onDrillDown={onDrillDown}
+                        readOnly={readOnly}
+                        configuredUnits={configuredUnits}
                     />
                 ))}
             </div>
@@ -180,6 +201,8 @@ export function PlanHierarchyTree({
                     onDelete={onDelete}
                     onViewDetails={onViewDetails}
                     onDrillDown={onDrillDown}
+                    readOnly={readOnly}
+                    configuredUnits={configuredUnits}
                 />
             ))}
         </div>

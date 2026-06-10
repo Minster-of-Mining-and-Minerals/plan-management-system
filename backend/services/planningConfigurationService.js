@@ -16,7 +16,108 @@ const DEFAULT_PLANNING_CONFIG = {
   duration_label: "Duration",
   start_year_label: "Start Date",
   end_year_label: "End Date",
+  target_units: [
+    { id: "person", label: "Person", symbol: "persons" },
+    { id: "km", label: "Kilometer", symbol: "km" },
+    { id: "birr", label: "Birr", symbol: "ETB" },
+    { id: "ton", label: "Ton", symbol: "t" },
+    { id: "unit", label: "Unit", symbol: "units" },
+  ],
 };
+
+function slugifyUnitId(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function normalizeTargetUnits(units) {
+  if (!Array.isArray(units)) {
+    return { valid: false, message: "Target units must be an array." };
+  }
+
+  if (units.length === 0) {
+    return { valid: false, message: "At least one target unit is required." };
+  }
+
+  const normalized = [];
+  const seen = new Set();
+
+  for (const entry of units) {
+    const label = String(entry?.label || "").trim();
+    const id = slugifyUnitId(entry?.id || label);
+    const symbol = String(entry?.symbol || label).trim();
+
+    if (!label || !id) {
+      return { valid: false, message: "Each target unit must have a label." };
+    }
+
+    if (seen.has(id)) {
+      return { valid: false, message: `Duplicate target unit id: ${id}` };
+    }
+
+    seen.add(id);
+    normalized.push({ id, label, symbol: symbol || label });
+  }
+
+  return { valid: true, units: normalized };
+}
+
+function resolveTargetUnitLabel(units, unitId) {
+  if (!unitId) return "";
+  const list = Array.isArray(units) ? units : DEFAULT_PLANNING_CONFIG.target_units;
+  const match = list.find((u) => u.id === unitId);
+  return match?.symbol || match?.label || unitId;
+}
+
+function isKnownTargetUnit(units, unitId) {
+  if (!unitId) return false;
+  const list = Array.isArray(units) ? units : DEFAULT_PLANNING_CONFIG.target_units;
+  return list.some((u) => u.id === unitId);
+}
+
+function resolveNodeTargetUnit({ weightMode, targetUnit, parent, isSelectionLevel }) {
+  if (weightMode !== "number") {
+    return { valid: true, targetUnit: null };
+  }
+
+  const effectiveUnit = isSelectionLevel ? targetUnit : parent?.target_unit ?? targetUnit ?? null;
+
+  if (!effectiveUnit) {
+    return { valid: false, message: "Target unit is required for number targets." };
+  }
+
+  return { valid: true, targetUnit: effectiveUnit };
+}
+
+function validateNodeTargetUnit({ weightMode, targetUnit, weight, requiresWeight, parent, isSelectionLevel, configUnits }) {
+  if (!requiresWeight || !weight || weight <= 0) {
+    return { valid: true, targetUnit: weightMode === "number" ? null : null };
+  }
+
+  if (weightMode !== "number") {
+    return { valid: true, targetUnit: null };
+  }
+
+  const resolved = resolveNodeTargetUnit({
+    weightMode,
+    targetUnit,
+    parent,
+    isSelectionLevel,
+  });
+
+  if (!resolved.valid) {
+    return resolved;
+  }
+
+  if (!isKnownTargetUnit(configUnits, resolved.targetUnit)) {
+    return { valid: false, message: "Selected target unit is not configured." };
+  }
+
+  return resolved;
+}
 
 function pickPlanningConfigPayload(record) {
   const plain = record.get ? record.get({ plain: true }) : record;
@@ -32,6 +133,7 @@ function pickPlanningConfigPayload(record) {
     duration_label: plain.duration_label,
     start_year_label: plain.start_year_label,
     end_year_label: plain.end_year_label,
+    target_units: plain.target_units ?? DEFAULT_PLANNING_CONFIG.target_units,
     updated_at: plain.updated_at,
   };
 }
@@ -142,4 +244,9 @@ module.exports = {
   validatePlanningStartDate,
   validatePlanningDuration,
   validateYearRange,
+  normalizeTargetUnits,
+  resolveTargetUnitLabel,
+  isKnownTargetUnit,
+  resolveNodeTargetUnit,
+  validateNodeTargetUnit,
 };

@@ -4,25 +4,50 @@ import {
     PlanNode,
     PlanRuleWeightMode,
 } from "@/redux/types/plan";
+import type { TargetUnit } from "@/redux/types/planningConfig";
+import { resolveTargetUnitSymbol } from "@/redux/types/planningConfig";
 
 /** User-facing label for the plan node weight field */
 export const TARGET_FIELD_LABEL = "Target";
 
 export const WEIGHT_MODE_LABELS: Record<PlanRuleWeightMode, string> = {
-    number: "Number (points)",
+    number: "Number (with unit)",
     percentage: "Percentage (%)",
     frequency: "Frequency (times)",
 };
 
-export function getWeightUnitLabel(weightMode?: PlanRuleWeightMode | null): string {
+export function getWeightUnitLabel(
+    weightMode?: PlanRuleWeightMode | null,
+    targetUnit?: string | null,
+    configuredUnits?: TargetUnit[]
+): string {
     switch (weightMode) {
         case "percentage":
             return "%";
         case "frequency":
-            return "times";
+            return " times";
+        case "number":
+            if (targetUnit) {
+                const symbol = resolveTargetUnitSymbol(configuredUnits, targetUnit);
+                return symbol ? ` ${symbol}` : "";
+            }
+            return "";
         default:
-            return "pts";
+            return "";
     }
+}
+
+export function resolveNodeTargetUnit(
+    rule: PlanRule | null | undefined,
+    level: number,
+    parent?: PlanNode | null,
+    node?: PlanNode | null
+): string | null {
+    if (!stepRequiresWeight(rule, level)) return null;
+    if (isWeightModeSelectionLevel(rule, level)) {
+        return node?.target_unit ?? null;
+    }
+    return parent?.target_unit ?? node?.target_unit ?? null;
 }
 
 export function sortSteps(steps: PlanRuleStep[]): PlanRuleStep[] {
@@ -97,14 +122,33 @@ export function canAddChild(
     return childLevel <= getMaxRuleDepth(rule);
 }
 
-export function formatNodeWeight(weight: number, weightMode?: PlanRuleWeightMode | null): string {
+export function formatNodeWeight(
+    weight: number,
+    weightMode?: PlanRuleWeightMode | null,
+    targetUnit?: string | null,
+    configuredUnits?: TargetUnit[]
+): string {
     if (weight <= 0) return "";
-    const unit = getWeightUnitLabel(weightMode);
+    const unit = getWeightUnitLabel(weightMode, targetUnit, configuredUnits);
+    if (weightMode === "number" && unit) {
+        return `${weight}${unit}`;
+    }
+    if (weightMode === "percentage") {
+        return `${weight}%`;
+    }
+    if (weightMode === "frequency") {
+        return `${weight} times`;
+    }
     return `${weight}${unit}`;
 }
 
-export function formatNodeTarget(weight: number, weightMode?: PlanRuleWeightMode | null): string {
-    const value = formatNodeWeight(weight, weightMode);
+export function formatNodeTarget(
+    weight: number,
+    weightMode?: PlanRuleWeightMode | null,
+    targetUnit?: string | null,
+    configuredUnits?: TargetUnit[]
+): string {
+    const value = formatNodeWeight(weight, weightMode, targetUnit, configuredUnits);
     if (!value) return "";
     return `${TARGET_FIELD_LABEL}: ${value}`;
 }

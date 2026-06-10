@@ -24,6 +24,10 @@ const {
     deactivateActiveAssignmentsForNode,
 } = require("../../services/planAssignmentHierarchyService");
 
+function isMasterDraft(planVersion) {
+    return planVersion?.version_kind === "master" && planVersion?.status === "draft";
+}
+
 /**
  * =================== PLAN ASSIGNMENT ACTIONS (Master Data) ===================
  */
@@ -105,11 +109,11 @@ const createExternalAssignment = async (req, res) => {
             return res.status(404).json({ message: "Plan node not found" });
         }
 
-        if (planNode.planVersion.status !== "draft") {
+        if (!isMasterDraft(planNode.planVersion)) {
             await t.rollback();
             return res.status(400).json({
                 success: false,
-                message: "Can only assign to nodes in draft plan versions",
+                message: "Can only assign to nodes in draft master plan versions",
             });
         }
 
@@ -227,11 +231,11 @@ const updateExternalAssignment = async (req, res) => {
             return res.status(404).json({ message: "Assignment not found" });
         }
 
-        if (assignment.planNode.planVersion.status !== "draft") {
+        if (!isMasterDraft(assignment.planNode.planVersion)) {
             await t.rollback();
             return res.status(400).json({
                 success: false,
-                message: "Can only update assignments in draft plan versions",
+                message: "Can only update assignments in draft master plan versions",
             });
         }
 
@@ -277,11 +281,11 @@ const deleteExternalAssignment = async (req, res) => {
             return res.status(404).json({ message: "Assignment not found" });
         }
 
-        if (assignment.planNode.planVersion.status !== "draft") {
+        if (!isMasterDraft(assignment.planNode.planVersion)) {
             await t.rollback();
             return res.status(400).json({
                 success: false,
-                message: "Can only delete assignments from draft plan versions",
+                message: "Can only delete assignments from draft master plan versions",
             });
         }
 
@@ -325,11 +329,11 @@ const createInternalAssignment = async (req, res) => {
             return res.status(404).json({ message: "Plan node not found" });
         }
 
-        if (planNode.planVersion.status !== "draft") {
+        if (!isMasterDraft(planNode.planVersion)) {
             await t.rollback();
             return res.status(400).json({
                 success: false,
-                message: "Can only assign to nodes in draft plan versions",
+                message: "Can only assign to nodes in draft master plan versions",
             });
         }
 
@@ -622,11 +626,11 @@ const updateInternalAssignment = async (req, res) => {
             return res.status(404).json({ message: "Assignment not found" });
         }
 
-        if (assignment.planNode.planVersion.status !== "draft") {
+        if (!isMasterDraft(assignment.planNode.planVersion)) {
             await t.rollback();
             return res.status(400).json({
                 success: false,
-                message: "Can only update assignments in draft plan versions",
+                message: "Can only update assignments in draft master plan versions",
             });
         }
 
@@ -672,11 +676,11 @@ const deleteInternalAssignment = async (req, res) => {
             return res.status(404).json({ message: "Assignment not found" });
         }
 
-        if (assignment.planNode.planVersion.status !== "draft") {
+        if (!isMasterDraft(assignment.planNode.planVersion)) {
             await t.rollback();
             return res.status(400).json({
                 success: false,
-                message: "Can only delete assignments from draft plan versions",
+                message: "Can only delete assignments from draft master plan versions",
             });
         }
 

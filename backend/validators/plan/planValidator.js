@@ -55,16 +55,24 @@ const updatePlanVersionSchema = Joi.object({
 });
 
 const updatePlanVersionStatusSchema = Joi.object({
-    status: Joi.string().valid("draft", "active", "completed").required().messages({
-        "any.required": "Status is required",
-        "any.only": "Status must be one of: draft, active, completed",
-    }),
+    status: Joi.string()
+        .valid("draft", "active", "completed", "finalized", "locked")
+        .required()
+        .messages({
+            "any.required": "Status is required",
+        }),
+});
+
+const updateAnnualTargetSchema = Joi.object({
+    annual_target: Joi.number().min(0).allow(null).required(),
 });
 
 const getPlanVersionsQuerySchema = Joi.object({
     year: Joi.number().integer().min(2000).max(2100).optional(),
     government_structure_id: Joi.string().guid({ version: "uuidv4" }).optional(),
-    status: Joi.string().valid("draft", "active", "completed").optional(),
+    status: Joi.string().valid("draft", "active", "completed", "finalized", "locked").optional(),
+    version_kind: Joi.string().valid("master", "annual").optional(),
+    parent_plan_version_id: Joi.string().guid({ version: "uuidv4" }).optional(),
     search: Joi.string().trim().allow("").optional(),
 });
 
@@ -97,6 +105,8 @@ const createPlanNodeSchema = Joi.object({
 
     weight_mode: Joi.string().valid("number", "percentage", "frequency").allow(null).optional(),
 
+    target_unit: Joi.string().trim().max(50).allow(null).optional(),
+
     level: Joi.number().integer().min(1).optional(),
 
     order: Joi.number().integer().min(0).default(0).optional(),
@@ -111,6 +121,7 @@ const updatePlanNodeSchema = Joi.object({
     description: Joi.string().trim().optional().allow(null, ""),
     weight: Joi.number().min(0).optional(),
     weight_mode: Joi.string().valid("number", "percentage", "frequency").allow(null).optional(),
+    target_unit: Joi.string().trim().max(50).allow(null).optional(),
     level: Joi.number().integer().min(1).optional(),
     order: Joi.number().integer().min(0).optional(),
     is_active: Joi.boolean().optional(),
@@ -195,6 +206,7 @@ module.exports = {
     validateCreatePlanVersion: validate(createPlanVersionSchema),
     validateUpdatePlanVersion: validate(updatePlanVersionSchema),
     validateUpdatePlanVersionStatus: validate(updatePlanVersionStatusSchema),
+    validateUpdateAnnualTarget: validate(updateAnnualTargetSchema),
     validateGetPlanVersionsQuery: validate(getPlanVersionsQuerySchema, "query"),
 
     // Plan Node Validators

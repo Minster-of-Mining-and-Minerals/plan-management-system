@@ -16,6 +16,16 @@ module.exports = (sequelize, DataTypes) => {
                 as: "baseVersion",
             });
 
+            PlanVersion.belongsTo(models.PlanVersion, {
+                foreignKey: "parent_plan_version_id",
+                as: "parentPlanVersion",
+            });
+
+            PlanVersion.hasMany(models.PlanVersion, {
+                foreignKey: "parent_plan_version_id",
+                as: "annualVersions",
+            });
+
             PlanVersion.belongsTo(models.PlanRule, {
                 foreignKey: "plan_rule_id",
                 as: "planRule",
@@ -50,7 +60,7 @@ module.exports = (sequelize, DataTypes) => {
             },
 
             status: {
-                type: DataTypes.ENUM("draft", "active", "completed"),
+                type: DataTypes.ENUM("draft", "active", "completed", "finalized", "locked"),
                 defaultValue: "draft",
             },
 
@@ -66,6 +76,38 @@ module.exports = (sequelize, DataTypes) => {
 
             plan_rule_id: {
                 type: DataTypes.UUID,
+                allowNull: true,
+            },
+
+            version_kind: {
+                type: DataTypes.ENUM("master", "annual"),
+                allowNull: false,
+                defaultValue: "master",
+            },
+
+            parent_plan_version_id: {
+                type: DataTypes.UUID,
+                allowNull: true,
+            },
+
+            planning_year: {
+                type: DataTypes.INTEGER,
+                allowNull: true,
+            },
+
+            sequence_index: {
+                type: DataTypes.INTEGER,
+                allowNull: true,
+            },
+
+            is_locked: {
+                type: DataTypes.BOOLEAN,
+                allowNull: false,
+                defaultValue: false,
+            },
+
+            finalized_at: {
+                type: DataTypes.DATE,
                 allowNull: true,
             },
 

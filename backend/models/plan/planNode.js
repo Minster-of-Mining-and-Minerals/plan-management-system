@@ -17,6 +17,11 @@ module.exports = (sequelize, DataTypes) => {
                 onDelete: "CASCADE",
             });
 
+            PlanNode.belongsTo(models.PlanNode, {
+                foreignKey: "source_plan_node_id",
+                as: "sourcePlanNode",
+            });
+
             PlanNode.hasMany(models.PlanNode, {
                 foreignKey: "parent_id",
                 as: "children",
@@ -80,6 +85,11 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
       },
 
+      target_unit: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+      },
+
       level: {
                 type: DataTypes.INTEGER,
                 defaultValue: 1,
@@ -99,6 +109,16 @@ module.exports = (sequelize, DataTypes) => {
                 type: DataTypes.ENUM("exclusive", "shared"),
                 defaultValue: "exclusive",
                 allowNull: false,
+            },
+
+            source_plan_node_id: {
+                type: DataTypes.UUID,
+                allowNull: true,
+            },
+
+            annual_target: {
+                type: DataTypes.FLOAT,
+                allowNull: true,
             },
         },
         {

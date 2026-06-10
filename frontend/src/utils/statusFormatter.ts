@@ -8,6 +8,8 @@ export const formatStatus = (status: string = ""): string => {
     if (normalized.includes("closed")) return "Closed";
     if (normalized.includes("escalated")) return "Escalated";
     if (normalized.includes("completed")) return "Completed";
+    if (normalized.includes("finalized")) return "Finalized";
+    if (normalized.includes("locked")) return "Locked";
     if (normalized.includes("active")) return "Active";
     if (normalized.includes("accepted")) return "Accepted";
   

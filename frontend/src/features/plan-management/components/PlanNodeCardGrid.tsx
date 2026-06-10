@@ -17,6 +17,7 @@ import {
     DEFAULT_PERFORMANCE_THRESHOLDS,
 } from "@/utils/performanceColorUtils";
 import { useGetPerformanceColorThresholdsQuery } from "@/redux/api/performanceColorThresholdApi";
+import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
 import { PlanNodeIcon } from "./PlanNodeIcon";
 import { PlanNodeActions } from "./PlanNodeActions";
 import { CircularProgress } from "./CircularProgress";
@@ -29,6 +30,7 @@ interface PlanNodeCardGridProps {
     onDelete: (id: string) => void;
     onViewDetails: (nodeId: string) => void;
     onDrillDown: (node: PlanNodeHierarchy) => void;
+    readOnly?: boolean;
 }
 
 export function PlanNodeCardGrid({
@@ -39,7 +41,10 @@ export function PlanNodeCardGrid({
     onDelete,
     onViewDetails,
     onDrillDown,
+    readOnly = false,
 }: PlanNodeCardGridProps) {
+    const { data: planningConfig } = useGetPlanningConfigurationQuery();
+    const configuredUnits = planningConfig?.target_units;
     const { data: thresholdsRaw = [] } = useGetPerformanceColorThresholdsQuery({
         is_active: true,
     });
@@ -104,6 +109,7 @@ export function PlanNodeCardGrid({
                                                 onEdit={onEdit}
                                                 onDelete={onDelete}
                                                 onViewDetails={onViewDetails}
+                                                readOnly={readOnly}
                                                 size="sm"
                                                 className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                                             />
@@ -123,7 +129,12 @@ export function PlanNodeCardGrid({
                                                     variant="secondary"
                                                     className="text-[10px] py-0 h-4 bg-blue-50 text-blue-700 border-blue-100"
                                                 >
-                                                    {formatNodeTarget(node.weight, nodeWeightMode)}
+                                                    {formatNodeTarget(
+                                                        node.weight,
+                                                        nodeWeightMode,
+                                                        node.target_unit,
+                                                        configuredUnits
+                                                    )}
                                                 </Badge>
                                             )}
                                             <Badge

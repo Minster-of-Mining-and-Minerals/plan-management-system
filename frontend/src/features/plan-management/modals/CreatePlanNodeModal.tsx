@@ -33,18 +33,21 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/utils/apiErrorUtils";
 import {
     useCreatePlanNodeMutation,
     useUpdatePlanNodeMutation,
     useGetPlanNodesQuery,
 } from "@/redux/api/planApi";
 import { useGetPlanRuleForVersionQuery } from "@/redux/api/planRuleApi";
+import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
 import { PlanNode, PlanRuleWeightMode, AssignmentSharingMode } from "@/redux/types/plan";
 import {
     getStepLabel,
     getWeightTarget,
     getWeightUnitLabel,
     resolveNodeWeightMode,
+    resolveNodeTargetUnit,
     stepRequiresWeight,
     isWeightModeSelectionLevel,
     TARGET_FIELD_LABEL,
@@ -70,6 +73,8 @@ export function CreatePlanNodeModal({
     const [createNode, { isLoading: isCreating }] = useCreatePlanNodeMutation();
     const [updateNode, { isLoading: isUpdating }] = useUpdatePlanNodeMutation();
     const { data: rule } = useGetPlanRuleForVersionQuery(planVersionId, { skip: !isOpen });
+    const { data: planningConfig } = useGetPlanningConfigurationQuery(undefined, { skip: !isOpen });
+    const configuredUnits = planningConfig?.target_units ?? [];
 
     const nodeLevel = node?.level ?? (parentNode ? parentNode.level + 1 : 1);
     const levelLabel = getStepLabel(rule, nodeLevel);
@@ -89,6 +94,7 @@ export function CreatePlanNodeModal({
                     .enum(["number", "percentage", "frequency"])
                     .optional()
                     .nullable(),
+                target_unit: z.string().optional().nullable(),
                 level: z.coerce.number().optional(),
                 order: z.coerce.number().optional(),
                 assignment_sharing_mode: z.enum(["exclusive", "shared"]).default("exclusive"),
@@ -107,14 +113,27 @@ export function CreatePlanNodeModal({
             description: "",
             weight: 0,
             weight_mode: null,
+            target_unit: null,
             assignment_sharing_mode: "exclusive" as AssignmentSharingMode,
         },
     });
 
     const selectedWeightMode = form.watch("weight_mode");
+    const selectedTargetUnit = form.watch("target_unit");
     const effectiveWeightMode: PlanRuleWeightMode | null = showWeightModeSelect
         ? (selectedWeightMode as PlanRuleWeightMode | null) ?? node?.weight_mode ?? null
         : inheritedMode;
+
+    const inheritedTargetUnit = resolveNodeTargetUnit(rule, nodeLevel, parentNode, node);
+    const effectiveTargetUnit =
+        effectiveWeightMode === "number"
+            ? showWeightModeSelect
+                ? selectedTargetUnit ?? node?.target_unit ?? null
+                : inheritedTargetUnit
+            : null;
+
+    const showTargetUnitSelect =
+        requiresWeight && effectiveWeightMode === "number" && showWeightModeSelect;
 
     const canEnterWeight =
         requiresWeight && (!showWeightModeSelect || !!effectiveWeightMode);
@@ -137,7 +156,11 @@ export function CreatePlanNodeModal({
         .reduce((sum, s) => sum + (Number(s.weight) || 0), 0);
     const remainingWeight =
         weightTarget !== null ? Math.max(0, weightTarget - siblingUsed) : null;
-    const weightUnit = getWeightUnitLabel(effectiveWeightMode);
+    const weightUnit = getWeightUnitLabel(
+        effectiveWeightMode,
+        effectiveTargetUnit,
+        configuredUnits
+    );
 
     useEffect(() => {
         if (!isOpen) return;
@@ -150,6 +173,7 @@ export function CreatePlanNodeModal({
                 description: node.description,
                 weight: node.weight,
                 weight_mode: node.weight_mode,
+                target_unit: node.target_unit,
                 level: node.level,
                 order: node.order,
                 assignment_sharing_mode: node.assignment_sharing_mode ?? "exclusive",
@@ -162,6 +186,7 @@ export function CreatePlanNodeModal({
                 description: "",
                 weight: 0,
                 weight_mode: null,
+                target_unit: null,
                 level: nodeLevel,
                 assignment_sharing_mode: "exclusive",
             });
@@ -178,6 +203,11 @@ export function CreatePlanNodeModal({
 
         if (requiresWeight && values.weight <= 0) {
             form.setError("weight", { message: `${TARGET_FIELD_LABEL} is required at this level` });
+            return;
+        }
+
+        if (showTargetUnitSelect && !values.target_unit) {
+            form.setError("target_unit", { message: "Select a target unit" });
             return;
         }
 
@@ -205,6 +235,12 @@ export function CreatePlanNodeModal({
                 description: values.description,
                 weight: requiresWeight ? values.weight : 0,
                 weight_mode: requiresWeight ? modeToSave : null,
+                target_unit:
+                    requiresWeight && modeToSave === "number"
+                        ? showWeightModeSelect
+                            ? values.target_unit
+                            : inheritedTargetUnit
+                        : null,
                 level: nodeLevel,
                 order: values.order,
                 assignment_sharing_mode: values.assignment_sharing_mode,
@@ -222,8 +258,7 @@ export function CreatePlanNodeModal({
             }
             onClose();
         } catch (error: unknown) {
-            const err = error as { data?: { message?: string } };
-            toast.error(err.data?.message || "Something went wrong");
+            toast.error(getApiErrorMessage(error));
         }
     }
 
@@ -285,13 +320,52 @@ export function CreatePlanNodeModal({
                             />
                         )}
 
+                        {showTargetUnitSelect && (
+                            <FormField
+                                control={form.control}
+                                name="target_unit"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Target Unit</FormLabel>
+                                        <Select
+                                            onValueChange={field.onChange}
+                                            value={field.value ?? ""}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select unit" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {configuredUnits.map((unit) => (
+                                                    <SelectItem key={unit.id} value={unit.id}>
+                                                        {unit.label}
+                                                        {unit.symbol && unit.symbol !== unit.label
+                                                            ? ` (${unit.symbol})`
+                                                            : ""}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormDescription>
+                                            Units are configured under Planning Configuration.
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+
                         {canEnterWeight && (
                             <FormField
                                 control={form.control}
                                 name="weight"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>{TARGET_FIELD_LABEL} ({weightUnit})</FormLabel>
+                                        <FormLabel>
+                                            {TARGET_FIELD_LABEL}
+                                            {weightUnit ? ` (${weightUnit.trim()})` : ""}
+                                        </FormLabel>
                                         <FormControl>
                                             <Input type="number" min={0} step="any" {...field} />
                                         </FormControl>

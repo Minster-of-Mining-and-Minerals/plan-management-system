@@ -12,6 +12,16 @@ const updatePlanningConfigurationSchema = Joi.object({
   duration_label: Joi.string().trim().max(100).optional(),
   start_year_label: Joi.string().trim().max(100).optional(),
   end_year_label: Joi.string().trim().max(100).optional(),
+  target_units: Joi.array()
+    .items(
+      Joi.object({
+        id: Joi.string().trim().max(50).optional(),
+        label: Joi.string().trim().max(100).required(),
+        symbol: Joi.string().trim().max(30).optional(),
+      })
+    )
+    .min(1)
+    .optional(),
 })
   .min(1)
   .custom((value, helpers) => {

@@ -12,6 +12,7 @@ interface PlanNodeActionsProps {
     onEdit: (node: PlanNode) => void;
     onDelete: (id: string) => void;
     onViewDetails?: (nodeId: string) => void;
+    readOnly?: boolean;
     size?: "sm" | "md";
     className?: string;
 }
@@ -23,10 +24,11 @@ export function PlanNodeActions({
     onEdit,
     onDelete,
     onViewDetails,
+    readOnly = false,
     size = "md",
     className = "",
 }: PlanNodeActionsProps) {
-    const showAddChild = canAddChild(rule, node);
+    const showAddChild = !readOnly && canAddChild(rule, node);
     const iconClass = size === "sm" ? "h-7 w-7" : "h-8 w-8";
     const iconSize = size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4";
 
@@ -58,24 +60,28 @@ export function PlanNodeActions({
                     <Plus className={iconSize} />
                 </Button>
             )}
-            <Button
-                onClick={() => onEdit(node)}
-                variant="ghost"
-                size="icon"
-                className={`${iconClass} text-gray-600`}
-                title="Edit"
-            >
-                <Edit className={iconSize} />
-            </Button>
-            <Button
-                onClick={() => onDelete(node.plan_node_id)}
-                variant="ghost"
-                size="icon"
-                className={`${iconClass} text-red-500 hover:text-red-700 hover:bg-red-50`}
-                title="Delete"
-            >
-                <Trash className={iconSize} />
-            </Button>
+            {!readOnly && (
+                <>
+                    <Button
+                        onClick={() => onEdit(node)}
+                        variant="ghost"
+                        size="icon"
+                        className={`${iconClass} text-gray-600`}
+                        title="Edit"
+                    >
+                        <Edit className={iconSize} />
+                    </Button>
+                    <Button
+                        onClick={() => onDelete(node.plan_node_id)}
+                        variant="ghost"
+                        size="icon"
+                        className={`${iconClass} text-red-500 hover:text-red-700 hover:bg-red-50`}
+                        title="Delete"
+                    >
+                        <Trash className={iconSize} />
+                    </Button>
+                </>
+            )}
         </div>
     );
 }

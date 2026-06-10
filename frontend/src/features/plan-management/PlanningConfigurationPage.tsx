@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, RotateCcw, Save, Settings2 } from "lucide-react";
+import { Loader2, RotateCcw, Save, Settings2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,10 @@ import {
 } from "@/redux/api/planningConfigApi";
 import {
   DEFAULT_PLANNING_CONFIGURATION,
+  DEFAULT_TARGET_UNITS,
+  slugifyTargetUnitId,
   type PlanningConfiguration,
+  type TargetUnit,
 } from "@/redux/types/planningConfig";
 import { formatDurationYears } from "@/utils/planDraftUtils";
 
@@ -36,10 +39,61 @@ export default function PlanningConfigurationPage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  const updateTargetUnit = (index: number, patch: Partial<TargetUnit>) => {
+    setForm((prev) => {
+      const units = [...(prev.target_units ?? DEFAULT_TARGET_UNITS)];
+      const current = { ...units[index], ...patch };
+      if (patch.label !== undefined) {
+        current.id = slugifyTargetUnitId(current.id || current.label);
+      }
+      units[index] = current;
+      return { ...prev, target_units: units };
+    });
+  };
+
+  const addTargetUnit = () => {
+    setForm((prev) => ({
+      ...prev,
+      target_units: [
+        ...(prev.target_units ?? DEFAULT_TARGET_UNITS),
+        { id: `unit-${Date.now()}`, label: "", symbol: "" },
+      ],
+    }));
+  };
+
+  const removeTargetUnit = (index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      target_units: (prev.target_units ?? DEFAULT_TARGET_UNITS).filter((_, i) => i !== index),
+    }));
+  };
+
   const handleSave = async () => {
     if (form.min_duration_years > form.max_duration_years) {
       toast.error("Minimum duration cannot exceed maximum duration.");
       return;
+    }
+
+    const normalizedUnits = (form.target_units ?? [])
+      .map((unit) => ({
+        id: slugifyTargetUnitId(unit.id || unit.label),
+        label: unit.label.trim(),
+        symbol: (unit.symbol || unit.label).trim(),
+      }))
+      .filter((unit) => unit.label);
+
+    if (normalizedUnits.length === 0) {
+      toast.error("Add at least one target unit.");
+      return;
+    }
+
+    const ids = new Set<string>();
+    for (const unit of normalizedUnits) {
+      if (ids.has(unit.id)) {
+        toast.error(`Duplicate target unit: ${unit.label}`);
+        return;
+      }
+      ids.add(unit.id);
     }
 
     try {
@@ -53,6 +107,7 @@ export default function PlanningConfigurationPage() {
         duration_label: form.duration_label.trim(),
         start_year_label: form.start_year_label.trim(),
         end_year_label: form.end_year_label.trim(),
+        target_units: normalizedUnits,
       }).unwrap();
       toast.success("Planning configuration saved");
     } catch (error: unknown) {
@@ -193,6 +248,58 @@ export default function PlanningConfigurationPage() {
                 Preview: {form.create_action_label || "Create Plan Draft"}
               </p>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Target Units</CardTitle>
+            <CardDescription>
+              Units available when setting numeric strategic targets on plan nodes (e.g. person,
+              km, birr). Users pick from this list when the target evaluation mode is Number.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {(form.target_units ?? DEFAULT_TARGET_UNITS).map((unit, index) => (
+              <div
+                key={`${unit.id}-${index}`}
+                className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] items-end"
+              >
+                <div className="space-y-2">
+                  <Label htmlFor={`unit-label-${index}`}>Unit Label</Label>
+                  <Input
+                    id={`unit-label-${index}`}
+                    value={unit.label}
+                    onChange={(e) => updateTargetUnit(index, { label: e.target.value })}
+                    placeholder="Kilometer"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`unit-symbol-${index}`}>Display Symbol</Label>
+                  <Input
+                    id={`unit-symbol-${index}`}
+                    value={unit.symbol}
+                    onChange={(e) => updateTargetUnit(index, { symbol: e.target.value })}
+                    placeholder="km"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="text-red-500 hover:text-red-700"
+                  onClick={() => removeTargetUnit(index)}
+                  disabled={(form.target_units ?? []).length <= 1}
+                  title="Remove unit"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+            <Button type="button" variant="outline" onClick={addTargetUnit} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add Unit
+            </Button>
           </CardContent>
         </Card>
 

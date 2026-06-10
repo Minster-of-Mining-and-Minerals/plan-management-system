@@ -17,6 +17,7 @@ import {
     ListTree,
     ChevronRight,
     Home,
+    CalendarDays,
 } from "lucide-react";
 import { CreatePlanNodeModal } from "./modals/CreatePlanNodeModal";
 import { toast } from "sonner";
@@ -29,9 +30,12 @@ import {
 import { PlanNodeCardGrid } from "./components/PlanNodeCardGrid";
 import { PlanHierarchyTree } from "./components/PlanHierarchyTree";
 import { PlanDraftHeaderMeta } from "./components/PlanDraftHeaderMeta";
+import { AnnualVersionsDashboard } from "./components/AnnualVersionsDashboard";
 import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
+import { formatStatus } from "@/utils/statusFormatter";
 
 type ViewMode = "card" | "hierarchy";
+type PlanDetailTab = "hierarchy" | "annual";
 
 function getCurrentNodes(
     hierarchy: PlanNodeHierarchy[],
@@ -70,6 +74,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
     const [deleteNode] = useDeletePlanNodeMutation();
 
     const [viewMode, setViewMode] = useState<ViewMode>("card");
+    const [activeTab, setActiveTab] = useState<PlanDetailTab>("hierarchy");
     const [pathIds, setPathIds] = useState<string[]>([]);
     const [isModalOpen, setModalOpen] = useState(false);
     const [selectedParent, setSelectedParent] = useState<PlanNode | null>(null);
@@ -95,9 +100,18 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
     const currentLevel = currentParent ? currentParent.level + 1 : 1;
     const currentLevelLabel = getStepLabel(rule, currentLevel);
     const childLabel = currentLevelLabel;
-    const canAddAtCurrentLevel = currentParent
-        ? canAddChild(rule, currentParent)
-        : canAddChild(rule, null);
+
+    const isMasterDraft =
+        version?.version_kind !== "annual" && version?.status === "draft";
+    const isReadOnlyHierarchy = !isMasterDraft;
+    const showAnnualDashboard =
+        version?.version_kind !== "annual" &&
+        (version?.status === "finalized" ||
+            (version?.annualVersions && version.annualVersions.length > 0));
+
+    const canAddAtCurrentLevel =
+        isMasterDraft &&
+        (currentParent ? canAddChild(rule, currentParent) : canAddChild(rule, null));
     const isAtRoot = breadcrumbPath.length === 0;
 
     const handleAddAtLevel = () => {
@@ -173,58 +187,72 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
         </div>
     );
 
-    return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex items-center gap-4">
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => router.push("/plans")}
-                        className="rounded-full shrink-0"
-                    >
-                        <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <div className="flex-1">
-                        <PlanDraftHeaderMeta version={version} config={planningConfig} />
-                        {rule && (
-                            <div className="flex items-center gap-2 text-gray-500 flex-wrap mt-1">
-                                <Badge variant="outline">{rule.name}</Badge>
-                                <span className="text-xs">({maxDepth} levels)</span>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-3 flex-wrap">
-                    <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1">
-                        <Button
-                            variant={viewMode === "card" ? "default" : "ghost"}
-                            size="sm"
-                            className="gap-2 h-8"
-                            onClick={() => setViewMode("card")}
-                        >
-                            <LayoutGrid className="h-4 w-4" />
-                            Cards
-                        </Button>
-                        <Button
-                            variant={viewMode === "hierarchy" ? "default" : "ghost"}
-                            size="sm"
-                            className="gap-2 h-8"
-                            onClick={() => setViewMode("hierarchy")}
-                        >
-                            <ListTree className="h-4 w-4" />
-                            Hierarchy
-                        </Button>
-                    </div>
-                    {canAddAtCurrentLevel && (
-                        <Button onClick={handleAddAtLevel} className="gap-2">
-                            <Plus className="h-4 w-4" /> Add {childLabel}
-                        </Button>
-                    )}
-                </div>
+    const hierarchyToolbar = (
+        <div className="flex items-center gap-3 flex-wrap">
+            <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1">
+                <Button
+                    variant={viewMode === "card" ? "default" : "ghost"}
+                    size="sm"
+                    className="gap-2 h-8"
+                    onClick={() => setViewMode("card")}
+                >
+                    <LayoutGrid className="h-4 w-4" />
+                    Cards
+                </Button>
+                <Button
+                    variant={viewMode === "hierarchy" ? "default" : "ghost"}
+                    size="sm"
+                    className="gap-2 h-8"
+                    onClick={() => setViewMode("hierarchy")}
+                >
+                    <ListTree className="h-4 w-4" />
+                    Hierarchy
+                </Button>
             </div>
+            {canAddAtCurrentLevel && (
+                <Button onClick={handleAddAtLevel} className="gap-2">
+                    <Plus className="h-4 w-4" /> Add {childLabel}
+                </Button>
+            )}
+        </div>
+    );
+
+    const detailTabToggle = (
+        <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1">
+            <Button
+                variant={activeTab === "hierarchy" ? "default" : "ghost"}
+                size="sm"
+                className="gap-2 h-8"
+                onClick={() => setActiveTab("hierarchy")}
+            >
+                <ListTree className="h-4 w-4" />
+                Plan Hierarchy
+            </Button>
+            <Button
+                variant={activeTab === "annual" ? "default" : "ghost"}
+                size="sm"
+                className="gap-2 h-8"
+                onClick={() => setActiveTab("annual")}
+            >
+                <CalendarDays className="h-4 w-4" />
+                Annual Execution
+            </Button>
+        </div>
+    );
+
+    const hierarchyBody = (
+        <>
+            {isReadOnlyHierarchy && version?.version_kind === "annual" && version.is_locked && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    This annual version is locked. Complete the previous year to unlock it.
+                </div>
+            )}
+
+            {isReadOnlyHierarchy && version?.status === "finalized" && showAnnualDashboard && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                    Strategic draft is finalized. Switch to the Annual Execution tab to manage yearly plans.
+                </div>
+            )}
 
             {/* Breadcrumb navigation */}
             <nav className="flex items-center gap-1 flex-wrap text-sm bg-white rounded-xl border border-gray-100 px-4 py-3">
@@ -275,6 +303,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                         onDelete={handleDelete}
                         onViewDetails={handleViewDetails}
                         onDrillDown={handleDrillDown}
+                        readOnly={isReadOnlyHierarchy}
                     />
                 ) : (
                     emptyState
@@ -289,6 +318,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     onViewDetails={handleViewDetails}
                     onDrillDown={handleDrillDown}
                     scoped={false}
+                    readOnly={isReadOnlyHierarchy}
                 />
             ) : currentNodes.length > 0 ? (
                 <PlanHierarchyTree
@@ -300,9 +330,66 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     onViewDetails={handleViewDetails}
                     onDrillDown={handleDrillDown}
                     scoped
+                    readOnly={isReadOnlyHierarchy}
                 />
             ) : (
                 emptyState
+            )}
+        </>
+    );
+
+    return (
+        <div className="space-y-6">
+            {/* Header */}
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-center gap-4">
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => router.push("/plans")}
+                        className="rounded-full shrink-0"
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="flex-1">
+                        <PlanDraftHeaderMeta version={version} config={planningConfig} />
+                        {version && (
+                            <div className="flex items-center gap-2 flex-wrap mt-1">
+                                <Badge className="text-white" status={version.status}>
+                                    {formatStatus(version.status)}
+                                </Badge>
+                                {version.version_kind === "annual" && version.is_locked && (
+                                    <Badge variant="outline">Locked</Badge>
+                                )}
+                            </div>
+                        )}
+                        {rule && (
+                            <div className="flex items-center gap-2 text-gray-500 flex-wrap mt-1">
+                                <Badge variant="outline">{rule.name}</Badge>
+                                <span className="text-xs">({maxDepth} levels)</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {(!showAnnualDashboard || activeTab === "hierarchy") && hierarchyToolbar}
+            </div>
+
+            {showAnnualDashboard ? (
+                <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+                    <div className="flex items-center justify-end px-4 py-3 border-b border-gray-100">
+                        {detailTabToggle}
+                    </div>
+                    <div className="p-4 sm:p-6 space-y-6">
+                        {activeTab === "annual" ? (
+                            version && <AnnualVersionsDashboard masterVersion={version} />
+                        ) : (
+                            hierarchyBody
+                        )}
+                    </div>
+                </div>
+            ) : (
+                <div className="space-y-6">{hierarchyBody}</div>
             )}
 
             <CreatePlanNodeModal

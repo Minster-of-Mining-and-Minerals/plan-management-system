@@ -5,6 +5,8 @@ import {
     UpdatePlanVersionPayload,
     UpdatePlanVersionStatusPayload,
     GetPlanVersionsQueryParams,
+    FinalizationReadiness,
+    AnnualVersionsResponse,
     PlanNode,
     CreatePlanNodePayload,
     UpdatePlanNodePayload,
@@ -125,6 +127,63 @@ export const planApi = baseApi.injectEndpoints({
             invalidatesTags: (_r, _e, { id }) => [
                 { type: "PlanVersions", id },
                 "PlanVersions",
+            ],
+        }),
+
+        getFinalizationReadiness: builder.query<FinalizationReadiness, string>({
+            query: (id) => `/plan/versions/${id}/finalization-readiness`,
+            transformResponse: (response: { data: FinalizationReadiness }) => response.data,
+        }),
+
+        finalizePlanDraft: builder.mutation<
+            { data: PlanVersion; annualVersions: PlanVersion[] },
+            string
+        >({
+            query: (id) => ({
+                url: `/plan/versions/${id}/finalize`,
+                method: "POST",
+            }),
+            transformResponse: (response: {
+                data: PlanVersion;
+                annualVersions: PlanVersion[];
+            }) => response,
+            invalidatesTags: (_r, _e, id) => [
+                { type: "PlanVersions", id },
+                "PlanVersions",
+            ],
+        }),
+
+        getAnnualVersions: builder.query<AnnualVersionsResponse, string>({
+            query: (id) => `/plan/versions/${id}/annual-versions`,
+            transformResponse: (response: { data: AnnualVersionsResponse }) => response.data,
+            providesTags: (_r, _e, id) => [{ type: "PlanVersions", id }],
+        }),
+
+        completeAnnualVersion: builder.mutation<
+            PlanVersion,
+            string
+        >({
+            query: (id) => ({
+                url: `/plan/versions/${id}/complete-annual`,
+                method: "POST",
+            }),
+            transformResponse: (response: { data: PlanVersion }) => response.data,
+            invalidatesTags: ["PlanVersions"],
+        }),
+
+        updateAnnualTarget: builder.mutation<
+            PlanNode,
+            { id: string; annual_target: number | null }
+        >({
+            query: ({ id, annual_target }) => ({
+                url: `/plan/nodes/${id}/annual-target`,
+                method: "PATCH",
+                body: { annual_target },
+            }),
+            transformResponse: (response: { data: PlanNode }) => response.data,
+            invalidatesTags: (_r, _e, { id }) => [
+                { type: "PlanNodes", id },
+                "PlanNodes",
             ],
         }),
 
@@ -257,6 +316,11 @@ export const {
     useUpdatePlanVersionMutation,
     useDeletePlanVersionMutation,
     useUpdatePlanVersionStatusMutation,
+    useGetFinalizationReadinessQuery,
+    useFinalizePlanDraftMutation,
+    useGetAnnualVersionsQuery,
+    useCompleteAnnualVersionMutation,
+    useUpdateAnnualTargetMutation,
 
     // Plan Nodes
     useGetPlanNodesQuery,

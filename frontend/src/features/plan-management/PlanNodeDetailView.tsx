@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
     useGetPlanNodeByIdQuery,
     useGetPlanVersionByIdQuery,
+    useUpdateAnnualTargetMutation,
 } from "@/redux/api/planApi";
 import {
     useGetInternalAssignmentsByNodeQuery,
@@ -17,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
     ChevronLeft,
@@ -57,6 +59,8 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
 
     const { data: version } = useGetPlanVersionByIdQuery(versionId);
     const { data: planningConfig } = useGetPlanningConfigurationQuery();
+    const [updateAnnualTarget, { isLoading: isSavingTarget }] = useUpdateAnnualTargetMutation();
+    const [annualTargetInput, setAnnualTargetInput] = useState("");
     const { data: node, isLoading: isNodeLoading } = useGetPlanNodeByIdQuery(nodeId);
     const { data: internalAssignments = [], isLoading: isInternalLoading } =
         useGetInternalAssignmentsByNodeQuery({ nodeId, includeInactive: showHistory });
@@ -77,6 +81,21 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
             setActiveTab(assignmentOptions.assignment_mode === "external" ? "external" : "internal");
         }
     }, [assignmentOptions?.assignment_mode, nodeId]);
+
+    useEffect(() => {
+        if (node?.annual_target != null) {
+            setAnnualTargetInput(String(node.annual_target));
+        } else {
+            setAnnualTargetInput("");
+        }
+    }, [node?.annual_target, nodeId]);
+
+    const canAllocateAnnualTarget =
+        version?.version_kind === "annual" &&
+        version.status === "active" &&
+        !version.is_locked &&
+        node &&
+        node.weight > 0;
 
     const [deleteInternal, { isLoading: isDeletingInternal }] = useDeleteInternalAssignmentMutation();
     const [deleteExternal, { isLoading: isDeletingExternal }] = useDeleteExternalAssignmentMutation();
@@ -362,7 +381,12 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                                 </Badge>
                                 {node.weight > 0 && (
                                     <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100 font-bold">
-                                        {formatNodeTarget(node.weight, node.weight_mode)}
+                                        {formatNodeTarget(
+                                            node.weight,
+                                            node.weight_mode,
+                                            node.target_unit,
+                                            planningConfig?.target_units
+                                        )}
                                     </Badge>
                                 )}
                                 <Badge
@@ -380,6 +404,73 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                             <p className="text-gray-600 leading-relaxed">
                                 {node.description || "No description provided."}
                             </p>
+                            {version?.version_kind === "annual" && node.weight > 0 && (
+                                <div className="mt-4 rounded-lg border bg-muted/20 p-4 space-y-3">
+                                    <div className="flex flex-wrap gap-4 text-sm">
+                                        <div>
+                                            <span className="text-muted-foreground">Draft Target: </span>
+                                            <span className="font-semibold">
+                                                {formatNodeTarget(
+                                            node.weight,
+                                            node.weight_mode,
+                                            node.target_unit,
+                                            planningConfig?.target_units
+                                        )}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <span className="text-muted-foreground">Annual Target: </span>
+                                            <span className="font-semibold">
+                                                {node.annual_target != null && node.annual_target > 0
+                                                    ? formatNodeTarget(
+                                                          node.annual_target,
+                                                          node.weight_mode,
+                                                          node.target_unit,
+                                                          planningConfig?.target_units
+                                                      )
+                                                    : "Not yet defined"}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {canAllocateAnnualTarget && (
+                                        <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+                                            <div className="flex-1 space-y-1">
+                                                <Label htmlFor="annual_target">Set Annual Target</Label>
+                                                <Input
+                                                    id="annual_target"
+                                                    type="number"
+                                                    min={0}
+                                                    step="any"
+                                                    value={annualTargetInput}
+                                                    onChange={(e) => setAnnualTargetInput(e.target.value)}
+                                                    placeholder="Enter annual allocation"
+                                                />
+                                            </div>
+                                            <Button
+                                                disabled={isSavingTarget}
+                                                onClick={async () => {
+                                                    try {
+                                                        const val =
+                                                            annualTargetInput === ""
+                                                                ? null
+                                                                : Number(annualTargetInput);
+                                                        await updateAnnualTarget({
+                                                            id: node.plan_node_id,
+                                                            annual_target: val,
+                                                        }).unwrap();
+                                                        toast.success("Annual target saved");
+                                                    } catch (error: unknown) {
+                                                        const err = error as { data?: { message?: string } };
+                                                        toast.error(err.data?.message || "Failed to save");
+                                                    }
+                                                }}
+                                            >
+                                                Save Annual Target
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </CardContent>

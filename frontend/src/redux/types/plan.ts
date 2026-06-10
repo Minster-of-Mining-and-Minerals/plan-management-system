@@ -2,6 +2,9 @@
  * ================= PLAN VERSION TYPES =================
  */
 
+export type PlanVersionKind = "master" | "annual";
+export type PlanVersionStatus = "draft" | "active" | "completed" | "finalized" | "locked";
+
 export interface PlanVersion {
     plan_version_id: string;
     draft_name: string;
@@ -15,7 +18,13 @@ export interface PlanVersion {
     /** @deprecated Use start_year — kept for backward compatibility */
     year: number;
     version_number: number;
-    status: "draft" | "active" | "completed";
+    version_kind: PlanVersionKind;
+    parent_plan_version_id: string | null;
+    planning_year: number | null;
+    sequence_index: number | null;
+    is_locked: boolean;
+    finalized_at: string | null;
+    status: PlanVersionStatus;
     government_structure_id: string;
     based_on_version_id: string | null;
     plan_rule_id?: string | null;
@@ -23,6 +32,8 @@ export interface PlanVersion {
     updated_at: string;
     governmentStructure?: GovernmentStructure;
     baseVersion?: PlanVersion;
+    parentPlanVersion?: PlanVersion;
+    annualVersions?: PlanVersion[];
     planRule?: PlanRule;
     planNodes?: PlanNode[];
 }
@@ -49,13 +60,26 @@ export interface UpdatePlanVersionPayload {
 }
 
 export interface UpdatePlanVersionStatusPayload {
-    status: "draft" | "active" | "completed";
+    status: PlanVersionStatus;
+}
+
+export interface FinalizationReadiness {
+    ready: boolean;
+    errors: string[];
+    planning_years: number[];
+}
+
+export interface AnnualVersionsResponse {
+    master: PlanVersion;
+    annualVersions: PlanVersion[];
 }
 
 export interface GetPlanVersionsQueryParams {
     year?: number;
     government_structure_id?: string;
-    status?: "draft" | "active" | "completed";
+    status?: PlanVersionStatus;
+    version_kind?: PlanVersionKind;
+    parent_plan_version_id?: string;
     search?: string;
 }
 
@@ -74,10 +98,13 @@ export interface PlanNode {
     description: string | null;
     weight: number;
     weight_mode: PlanRuleWeightMode | null;
+    target_unit?: string | null;
     level: number;
     order: number;
     is_active: boolean;
     assignment_sharing_mode: AssignmentSharingMode;
+    source_plan_node_id?: string | null;
+    annual_target?: number | null;
     created_at: string;
     updated_at: string;
     deleted_at: string | null;
@@ -96,6 +123,7 @@ export interface CreatePlanNodePayload {
     description?: string | null;
     weight?: number;
     weight_mode?: PlanRuleWeightMode | null;
+    target_unit?: string | null;
     level?: number;
     order?: number;
     assignment_sharing_mode?: AssignmentSharingMode;
@@ -108,6 +136,7 @@ export interface UpdatePlanNodePayload {
     description?: string | null;
     weight?: number;
     weight_mode?: PlanRuleWeightMode | null;
+    target_unit?: string | null;
     level?: number;
     order?: number;
     is_active?: boolean;

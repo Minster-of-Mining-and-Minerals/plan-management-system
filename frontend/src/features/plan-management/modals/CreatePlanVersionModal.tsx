@@ -50,6 +50,7 @@ import {
     getDefaultPlanningStartDate,
     getPlanDraftDisplayName,
 } from "@/utils/planDraftUtils";
+import { getApiErrorMessage } from "@/utils/apiErrorUtils";
 
 function buildFormSchema(minDuration: number, maxDuration: number) {
     return z.object({
@@ -168,8 +169,7 @@ export function CreatePlanVersionModal({
             }
             onClose();
         } catch (error: unknown) {
-            const err = error as { data?: { message?: string } };
-            toast.error(err.data?.message || "Something went wrong");
+            toast.error(getApiErrorMessage(error));
         }
     }
 

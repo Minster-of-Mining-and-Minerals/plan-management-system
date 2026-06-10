@@ -5,6 +5,7 @@ const {
   getOrCreateGlobalPlanningConfig,
   pickPlanningConfigPayload,
   DEFAULT_PLANNING_CONFIG,
+  normalizeTargetUnits,
 } = require("../../services/planningConfigurationService");
 
 const getPlanningConfiguration = async (req, res) => {
@@ -31,6 +32,16 @@ const updatePlanningConfiguration = async (req, res) => {
       });
     }
 
+    let nextTargetUnits = record.target_units ?? DEFAULT_PLANNING_CONFIG.target_units;
+    if (req.body.target_units !== undefined) {
+      const normalized = normalizeTargetUnits(req.body.target_units);
+      if (!normalized.valid) {
+        await t.rollback();
+        return res.status(400).json({ success: false, message: normalized.message });
+      }
+      nextTargetUnits = normalized.units;
+    }
+
     await record.update(
       {
         min_duration_years: nextMin,
@@ -45,6 +56,7 @@ const updatePlanningConfiguration = async (req, res) => {
         duration_label: req.body.duration_label ?? record.duration_label,
         start_year_label: req.body.start_year_label ?? record.start_year_label,
         end_year_label: req.body.end_year_label ?? record.end_year_label,
+        target_units: nextTargetUnits,
       },
       { transaction: t }
     );
@@ -76,6 +88,7 @@ const restoreDefaultPlanningConfiguration = async (req, res) => {
         duration_label: DEFAULT_PLANNING_CONFIG.duration_label,
         start_year_label: DEFAULT_PLANNING_CONFIG.start_year_label,
         end_year_label: DEFAULT_PLANNING_CONFIG.end_year_label,
+        target_units: DEFAULT_PLANNING_CONFIG.target_units,
       },
       { transaction: t }
     );

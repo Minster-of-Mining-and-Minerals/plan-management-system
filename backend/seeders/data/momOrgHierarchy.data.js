@@ -21,120 +21,49 @@ const GIE_DESCRIPTION =
 
 const MOM_DEPARTMENTS = [
   { name: "Minister Office" },
-  {
-    name: "Strategic Planning Directorate",
-    children: [
-      { name: "Planning Department" },
-      { name: "Monitoring Department" },
-      { name: "Evaluation Department" },
-    ],
-  },
+  { name: "Planning Directorate" },
   { name: "Human Resources Directorate" },
-  {
-    name: "Finance Directorate",
-    children: [
-      { name: "Budget Department" },
-      { name: "Accounting Department" },
-      { name: "Treasury Department" },
-    ],
-  },
-  {
-    name: "ICT Directorate",
-    children: [
-      { name: "Infrastructure Department" },
-      { name: "Software Development Department" },
-      { name: "Database Administration Department" },
-      { name: "Cyber Security Department" },
-    ],
-  },
-  { name: "Legal Affairs Directorate" },
-  { name: "Procurement Directorate" },
-  { name: "Internal Audit Directorate" },
+  { name: "Finance Directorate" },
+  { name: "ICT Directorate" },
+  { name: "Monitoring & Evaluation Directorate" },
   { name: "Mining Licensing Directorate" },
   { name: "Environmental Compliance Directorate" },
-  { name: "Public Relations Directorate" },
 ];
 
 const MIDI_DEPARTMENTS = [
   { name: "Director General Office" },
-  {
-    name: "Investment Promotion Directorate",
-    children: [
-      { name: "Domestic Investment Department" },
-      { name: "Foreign Investment Department" },
-      { name: "Marketing and Outreach Department" },
-    ],
-  },
-  {
-    name: "Investor Support Directorate",
-    children: [
-      { name: "Project Facilitation Department" },
-      { name: "Investor Relations Department" },
-      { name: "Business Advisory Department" },
-    ],
-  },
-  { name: "Licensing Coordination Directorate" },
-  { name: "Strategic Planning Directorate" },
+  { name: "Investment Promotion Department" },
+  { name: "Licensing Department" },
+  { name: "Mineral Development Department" },
+  { name: "Investor Support Department" },
+  { name: "Project Management Department" },
   { name: "Human Resources Directorate" },
   { name: "Finance Directorate" },
-  {
-    name: "ICT Directorate",
-    children: [
-      { name: "Infrastructure Department" },
-      { name: "Application Development Department" },
-      { name: "Database Department" },
-    ],
-  },
-  { name: "Legal Affairs Directorate" },
-  { name: "Monitoring and Evaluation Directorate" },
 ];
 
 const GIE_DEPARTMENTS = [
   { name: "Chief Executive Office" },
-  {
-    name: "Geological Survey Directorate",
-    children: [
-      { name: "Field Survey Department" },
-      { name: "Mineral Exploration Department" },
-      { name: "Hydrogeology Department" },
-    ],
-  },
-  {
-    name: "Geological Mapping Directorate",
-    children: [
-      { name: "Mapping Department" },
-      { name: "GIS Department" },
-      { name: "Cartography Department" },
-    ],
-  },
-  { name: "Geospatial Information Directorate" },
-  {
-    name: "Laboratory Services Directorate",
-    children: [
-      { name: "Mineral Analysis Department" },
-      { name: "Sample Processing Department" },
-      { name: "Quality Assurance Department" },
-    ],
-  },
-  { name: "Research and Development Directorate" },
+  { name: "Geological Survey Department" },
+  { name: "Mapping Department" },
+  { name: "Data Management Department" },
+  { name: "Laboratory Department" },
+  { name: "Exploration Support Department" },
   { name: "Strategic Planning Directorate" },
-  { name: "Finance Directorate" },
   { name: "Human Resources Directorate" },
-  { name: "ICT Directorate" },
-  { name: "Procurement Directorate" },
 ];
 
 const DIRECTORATE_USER_TEMPLATES = [
   { roleKey: "director", title: "Director", namePattern: (short) => `Director ${short}` },
   { roleKey: "deputy-director", title: "Deputy Director", namePattern: (short) => `Deputy Director ${short}` },
-  { roleKey: "senior-expert", title: "Senior Expert", namePattern: (short) => `Senior ${short} Expert` },
-];
-
-const DEPARTMENT_USER_TEMPLATES = [
   { roleKey: "head", title: "Department Head", namePattern: (short) => `${short} Department Head` },
   { roleKey: "senior-officer", title: "Senior Officer", namePattern: (short) => `Senior ${short} Officer` },
   { roleKey: "officer", title: "Officer", namePattern: (short) => `${short} Officer` },
+  { roleKey: "analyst", title: "Analyst", namePattern: (short) => `${short} Analyst` },
+  { roleKey: "expert", title: "Expert", namePattern: (short) => `${short} Expert` },
+  { roleKey: "coordinator", title: "Coordinator", namePattern: (short) => `${short} Coordinator` },
 ];
+
+const DEPARTMENT_USER_TEMPLATES = DIRECTORATE_USER_TEMPLATES;
 
 module.exports = {
   SECTOR_IDS,
