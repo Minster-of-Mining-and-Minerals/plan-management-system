@@ -8,6 +8,8 @@ const {
     GovernmentStructure,
     ExternalAssignment,
     InternalAssignment,
+    InternalStructure,
+    User,
     sequelize,
 } = require("../../models");
 
@@ -984,12 +986,71 @@ const getPlanHierarchy = async (req, res) => {
             order: [["order", "ASC"], ["created_at", "ASC"]],
         });
 
+        const nodeIds = nodes.map((node) => node.plan_node_id);
+
+        const [externalAssignments, internalAssignments] = await Promise.all([
+            nodeIds.length
+                ? ExternalAssignment.findAll({
+                      where: {
+                          plan_node_id: { [Op.in]: nodeIds },
+                          is_active: true,
+                      },
+                      include: [
+                          {
+                              model: GovernmentStructure,
+                              as: "governmentStructure",
+                              attributes: ["government_structure_id", "name"],
+                          },
+                      ],
+                  })
+                : [],
+            nodeIds.length
+                ? InternalAssignment.findAll({
+                      where: {
+                          plan_node_id: { [Op.in]: nodeIds },
+                          is_active: true,
+                      },
+                      include: [
+                          {
+                              model: InternalStructure,
+                              as: "internalStructure",
+                              attributes: ["internal_structure_id", "name"],
+                          },
+                          {
+                              model: User,
+                              as: "user",
+                              attributes: ["user_id", "full_name"],
+                          },
+                      ],
+                  })
+                : [],
+        ]);
+
+        const externalByNode = new Map();
+        for (const assignment of externalAssignments) {
+            const list = externalByNode.get(assignment.plan_node_id) ?? [];
+            list.push(assignment.toJSON());
+            externalByNode.set(assignment.plan_node_id, list);
+        }
+
+        const internalByNode = new Map();
+        for (const assignment of internalAssignments) {
+            const list = internalByNode.get(assignment.plan_node_id) ?? [];
+            list.push(assignment.toJSON());
+            internalByNode.set(assignment.plan_node_id, list);
+        }
+
         // Build tree structure
         const nodeMap = new Map();
         const roots = [];
 
-        nodes.forEach(node => {
-            nodeMap.set(node.plan_node_id, { ...node.toJSON(), children: [] });
+        nodes.forEach((node) => {
+            nodeMap.set(node.plan_node_id, {
+                ...node.toJSON(),
+                children: [],
+                externalAssignments: externalByNode.get(node.plan_node_id) ?? [],
+                internalAssignments: internalByNode.get(node.plan_node_id) ?? [],
+            });
         });
 
         nodes.forEach(node => {

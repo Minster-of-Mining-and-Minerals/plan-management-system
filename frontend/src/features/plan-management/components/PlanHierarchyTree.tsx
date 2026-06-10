@@ -13,6 +13,7 @@ import {
 import { getHierarchyNumber, sortPlanNodes } from "@/utils/planNodeOrderUtils";
 import { PlanNodeIcon } from "./PlanNodeIcon";
 import { PlanNodeHierarchyNumber } from "./PlanNodeHierarchyNumber";
+import { PlanNodeAssignmentSummary } from "./PlanNodeAssignmentSummary";
 import { PlanNodeActions } from "./PlanNodeActions";
 import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
 
@@ -120,6 +121,7 @@ const NodeItem = ({
                         {node.description && (
                             <p className="text-xs text-gray-500 line-clamp-1">{node.description}</p>
                         )}
+                        <PlanNodeAssignmentSummary node={node} />
                     </div>
                 </div>
 

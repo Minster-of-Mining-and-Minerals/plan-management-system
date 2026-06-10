@@ -78,6 +78,7 @@ export const planAssignmentApi = baseApi.injectEndpoints({
             invalidatesTags: (_result, _error, { plan_node_id }) => [
                 { type: "ExternalAssignments", id: plan_node_id },
                 { type: "PlanAssignmentOptions", id: plan_node_id },
+                "PlanNodes",
             ],
         }),
 
@@ -89,6 +90,7 @@ export const planAssignmentApi = baseApi.injectEndpoints({
             invalidatesTags: (_result, _error, { nodeId }) => [
                 { type: "ExternalAssignments", id: nodeId },
                 { type: "PlanAssignmentOptions", id: nodeId },
+                "PlanNodes",
             ],
         }),
 
@@ -120,6 +122,7 @@ export const planAssignmentApi = baseApi.injectEndpoints({
             invalidatesTags: (_result, _error, { plan_node_id }) => [
                 { type: "InternalAssignments", id: plan_node_id },
                 { type: "PlanAssignmentOptions", id: plan_node_id },
+                "PlanNodes",
             ],
         }),
 
@@ -131,6 +134,7 @@ export const planAssignmentApi = baseApi.injectEndpoints({
             invalidatesTags: (_result, _error, { nodeId }) => [
                 { type: "InternalAssignments", id: nodeId },
                 { type: "PlanAssignmentOptions", id: nodeId },
+                "PlanNodes",
             ],
         }),
 

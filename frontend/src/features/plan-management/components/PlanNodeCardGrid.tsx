@@ -21,6 +21,7 @@ import { CircularProgress } from "./CircularProgress";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
 import { getHierarchyNumber, sortPlanNodes } from "@/utils/planNodeOrderUtils";
 import { PlanNodeHierarchyNumber } from "./PlanNodeHierarchyNumber";
+import { PlanNodeAssignmentSummary } from "./PlanNodeAssignmentSummary";
 
 interface PlanNodeCardGridProps {
     nodes: PlanNodeHierarchy[];
@@ -181,6 +182,7 @@ export function PlanNodeCardGrid({
                                         ) : (
                                             <p className="text-sm text-gray-400 italic">No description</p>
                                         )}
+                                        <PlanNodeAssignmentSummary node={node} />
                                     </div>
 
                                     <div className="flex items-center justify-between pt-2 border-t border-gray-100">

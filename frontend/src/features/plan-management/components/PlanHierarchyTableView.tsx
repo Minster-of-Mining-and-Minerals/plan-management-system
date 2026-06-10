@@ -31,6 +31,7 @@ import { PlanNodeActions } from "./PlanNodeActions";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
 import { PlanNodeIcon } from "./PlanNodeIcon";
 import { PlanNodeHierarchyNumber } from "./PlanNodeHierarchyNumber";
+import { PlanNodeAssignmentSummary } from "./PlanNodeAssignmentSummary";
 import { cn } from "@/lib/utils";
 
 interface PlanHierarchyTableViewProps {
@@ -140,6 +141,7 @@ function StrategicFocusTable({
                             {root.description}
                         </p>
                     )}
+                    <PlanNodeAssignmentSummary node={root} className="mt-1" />
                 </div>
                 <div onClick={(e) => e.stopPropagation()}>
                     <PlanNodeActions
@@ -182,6 +184,7 @@ function StrategicFocusTable({
                                 <TableHead className="min-w-[220px]">Title</TableHead>
                                 <TableHead className="min-w-[140px]">Target</TableHead>
                                 <TableHead className="min-w-[120px]">Performance</TableHead>
+                                <TableHead className="min-w-[160px]">Assigned to</TableHead>
                                 <TableHead className="w-[100px]">Mode</TableHead>
                                 <TableHead className="w-[180px] text-right">Actions</TableHead>
                             </TableRow>
@@ -274,6 +277,9 @@ function StrategicFocusTable({
                                                     className="text-[10px] py-0 h-5"
                                                 />
                                             </div>
+                                        </TableCell>
+                                        <TableCell className="whitespace-normal">
+                                            <PlanNodeAssignmentSummary node={node} />
                                         </TableCell>
                                         <TableCell>
                                             <Badge
