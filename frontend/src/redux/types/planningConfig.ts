@@ -32,6 +32,9 @@ export type UpdatePlanningConfigurationPayload = Partial<
   Omit<PlanningConfiguration, "planning_configuration_id" | "updated_at">
 >;
 
+/** Sentinel value for optional unit selection in forms (stored as null in the API). */
+export const TARGET_UNIT_NONE_VALUE = "__none__";
+
 export const DEFAULT_TARGET_UNITS: TargetUnit[] = [
   { id: "person", label: "Person", symbol: "persons" },
   { id: "km", label: "Kilometer", symbol: "km" },

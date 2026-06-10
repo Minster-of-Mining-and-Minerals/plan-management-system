@@ -11,7 +11,7 @@ import { resolveTargetUnitSymbol } from "@/redux/types/planningConfig";
 export const TARGET_FIELD_LABEL = "Target";
 
 export const WEIGHT_MODE_LABELS: Record<PlanRuleWeightMode, string> = {
-    number: "Number (with unit)",
+    number: "Number",
     percentage: "Percentage (%)",
     frequency: "Frequency (times)",
 };

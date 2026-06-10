@@ -144,11 +144,7 @@ function resolveNodeTargetUnit({ weightMode, targetUnit, parent, isSelectionLeve
 
   const effectiveUnit = isSelectionLevel ? targetUnit : parent?.target_unit ?? targetUnit ?? null;
 
-  if (!effectiveUnit) {
-    return { valid: false, message: "Target unit is required for number targets." };
-  }
-
-  return { valid: true, targetUnit: effectiveUnit };
+  return { valid: true, targetUnit: effectiveUnit ?? null };
 }
 
 function validateNodeTargetUnit({ weightMode, targetUnit, weight, requiresWeight, parent, isSelectionLevel, configUnits }) {
@@ -171,7 +167,7 @@ function validateNodeTargetUnit({ weightMode, targetUnit, weight, requiresWeight
     return resolved;
   }
 
-  if (!isKnownTargetUnit(configUnits, resolved.targetUnit)) {
+  if (resolved.targetUnit && !isKnownTargetUnit(configUnits, resolved.targetUnit)) {
     return { valid: false, message: "Selected target unit is not configured." };
   }
 

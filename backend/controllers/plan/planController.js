@@ -644,6 +644,19 @@ const createPlanNode = async (req, res) => {
             });
         }
 
+        let nodeOrder = order;
+        if (nodeOrder === undefined || nodeOrder === null) {
+            const maxOrder = await PlanNode.max("order", {
+                where: {
+                    plan_version_id,
+                    parent_id: parent_id || null,
+                    is_active: true,
+                },
+                transaction: t,
+            });
+            nodeOrder = Number.isFinite(maxOrder) ? maxOrder + 1 : 0;
+        }
+
         const planNode = await PlanNode.create(
             {
                 plan_node_id: uuidv4(),
@@ -656,7 +669,7 @@ const createPlanNode = async (req, res) => {
                 weight_mode: ruleCheck.weightMode || null,
                 target_unit: unitCheck.targetUnit,
                 level: nodeLevel,
-                order: order || 0,
+                order: nodeOrder,
                 is_active: true,
                 assignment_sharing_mode: assignment_sharing_mode || "exclusive",
             },
@@ -968,7 +981,7 @@ const getPlanHierarchy = async (req, res) => {
 
         const nodes = await PlanNode.findAll({
             where: { plan_version_id, is_active: true },
-            order: [["order", "ASC"]],
+            order: [["order", "ASC"], ["created_at", "ASC"]],
         });
 
         // Build tree structure

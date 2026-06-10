@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Edit, Trash, Eye } from "lucide-react";
 import { PlanNode, PlanRule } from "@/redux/types/plan";
 import { canAddChild } from "@/utils/planRuleUtils";
+import { PlanNodeOrderControls } from "./PlanNodeOrderControls";
 
 interface PlanNodeActionsProps {
     node: PlanNode;
@@ -12,6 +13,11 @@ interface PlanNodeActionsProps {
     onEdit: (node: PlanNode) => void;
     onDelete: (id: string) => void;
     onViewDetails?: (nodeId: string) => void;
+    canMoveUp?: boolean;
+    canMoveDown?: boolean;
+    onMoveUp?: () => void;
+    onMoveDown?: () => void;
+    isReordering?: boolean;
     readOnly?: boolean;
     size?: "sm" | "md";
     className?: string;
@@ -24,11 +30,18 @@ export function PlanNodeActions({
     onEdit,
     onDelete,
     onViewDetails,
+    canMoveUp = false,
+    canMoveDown = false,
+    onMoveUp,
+    onMoveDown,
+    isReordering = false,
     readOnly = false,
     size = "md",
     className = "",
 }: PlanNodeActionsProps) {
     const showAddChild = !readOnly && canAddChild(rule, node);
+    const showOrderControls =
+        !readOnly && !!onMoveUp && !!onMoveDown && (canMoveUp || canMoveDown);
     const iconClass = size === "sm" ? "h-7 w-7" : "h-8 w-8";
     const iconSize = size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4";
 
@@ -40,6 +53,16 @@ export function PlanNodeActions({
 
     return (
         <div className={`flex items-center gap-1 ${className}`}>
+            {showOrderControls && (
+                <PlanNodeOrderControls
+                    size={size}
+                    canMoveUp={canMoveUp}
+                    canMoveDown={canMoveDown}
+                    disabled={isReordering}
+                    onMoveUp={onMoveUp!}
+                    onMoveDown={onMoveDown!}
+                />
+            )}
             <Button
                 onClick={handleView}
                 variant="ghost"

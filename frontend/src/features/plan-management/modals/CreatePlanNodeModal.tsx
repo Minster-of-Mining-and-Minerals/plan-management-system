@@ -41,6 +41,7 @@ import {
 } from "@/redux/api/planApi";
 import { useGetPlanRuleForVersionQuery } from "@/redux/api/planRuleApi";
 import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
+import { TARGET_UNIT_NONE_VALUE } from "@/redux/types/planningConfig";
 import { PlanNode, PlanRuleWeightMode, AssignmentSharingMode } from "@/redux/types/plan";
 import {
     getStepLabel,
@@ -206,11 +207,6 @@ export function CreatePlanNodeModal({
             return;
         }
 
-        if (showTargetUnitSelect && !values.target_unit) {
-            form.setError("target_unit", { message: "Select a target unit" });
-            return;
-        }
-
         if (
             requiresWeight &&
             weightTarget !== null &&
@@ -238,7 +234,7 @@ export function CreatePlanNodeModal({
                 target_unit:
                     requiresWeight && modeToSave === "number"
                         ? showWeightModeSelect
-                            ? values.target_unit
+                            ? values.target_unit || null
                             : inheritedTargetUnit
                         : null,
                 level: nodeLevel,
@@ -326,10 +322,14 @@ export function CreatePlanNodeModal({
                                 name="target_unit"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Target Unit</FormLabel>
+                                        <FormLabel>Target Unit (optional)</FormLabel>
                                         <Select
-                                            onValueChange={field.onChange}
-                                            value={field.value ?? ""}
+                                            onValueChange={(value) =>
+                                                field.onChange(
+                                                    value === TARGET_UNIT_NONE_VALUE ? null : value
+                                                )
+                                            }
+                                            value={field.value ?? TARGET_UNIT_NONE_VALUE}
                                         >
                                             <FormControl>
                                                 <SelectTrigger>
@@ -337,6 +337,9 @@ export function CreatePlanNodeModal({
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
+                                                <SelectItem value={TARGET_UNIT_NONE_VALUE}>
+                                                    None
+                                                </SelectItem>
                                                 {configuredUnits.map((unit) => (
                                                     <SelectItem key={unit.id} value={unit.id}>
                                                         {unit.label}
@@ -348,7 +351,8 @@ export function CreatePlanNodeModal({
                                             </SelectContent>
                                         </Select>
                                         <FormDescription>
-                                            Units are configured under Planning Configuration.
+                                            Optional. Choose None to set a numeric target without a
+                                            unit, or pick a unit from Planning Configuration.
                                         </FormDescription>
                                         <FormMessage />
                                     </FormItem>

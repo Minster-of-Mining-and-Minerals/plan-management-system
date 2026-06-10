@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PlanNodeHierarchy, PlanNode, PlanRule } from "@/redux/types/plan";
@@ -10,6 +10,7 @@ import {
     getStepLabel,
     stepRequiresWeight,
 } from "@/utils/planRuleUtils";
+import { sortPlanNodes } from "@/utils/planNodeOrderUtils";
 import { PlanNodeIcon } from "./PlanNodeIcon";
 import { PlanNodeActions } from "./PlanNodeActions";
 import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
@@ -17,12 +18,16 @@ import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi"
 interface NodeItemProps {
     node: PlanNodeHierarchy;
     level: number;
+    siblings: PlanNodeHierarchy[];
+    siblingIndex: number;
     rule?: PlanRule | null;
     onAddChild: (parent: PlanNode) => void;
     onEdit: (node: PlanNode) => void;
     onDelete: (id: string) => void;
     onViewDetails: (nodeId: string) => void;
     onDrillDown?: (node: PlanNodeHierarchy) => void;
+    onMoveNode?: (nodeId: string, direction: "up" | "down", siblings: PlanNode[]) => void;
+    isReordering?: boolean;
     readOnly?: boolean;
     configuredUnits?: TargetUnit[];
 }
@@ -30,12 +35,16 @@ interface NodeItemProps {
 const NodeItem = ({
     node,
     level,
+    siblings,
+    siblingIndex,
     rule,
     onAddChild,
     onEdit,
     onDelete,
     onViewDetails,
     onDrillDown,
+    onMoveNode,
+    isReordering = false,
     readOnly = false,
     configuredUnits,
 }: NodeItemProps) => {
@@ -43,7 +52,10 @@ const NodeItem = ({
     const hasChildren = node.children && node.children.length > 0;
     const levelLabel = getStepLabel(rule, node.level);
     const nodeWeightMode = node.weight_mode;
-
+    const sortedChildren = useMemo(
+        () => sortPlanNodes(node.children ?? []),
+        [node.children]
+    );
     return (
         <div className="space-y-2">
             <div
@@ -111,24 +123,46 @@ const NodeItem = ({
                     onEdit={onEdit}
                     onDelete={onDelete}
                     onViewDetails={onViewDetails}
+                    canMoveUp={!readOnly && !!onMoveNode && siblingIndex > 0}
+                    canMoveDown={
+                        !readOnly &&
+                        !!onMoveNode &&
+                        siblingIndex < siblings.length - 1
+                    }
+                    onMoveUp={
+                        onMoveNode
+                            ? () => onMoveNode(node.plan_node_id, "up", siblings)
+                            : undefined
+                    }
+                    onMoveDown={
+                        onMoveNode
+                            ? () => onMoveNode(node.plan_node_id, "down", siblings)
+                            : undefined
+                    }
+                    isReordering={isReordering}
                     readOnly={readOnly}
+                    size="sm"
                     className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                 />
             </div>
 
             {isExpanded && hasChildren && (
                 <div className="space-y-2">
-                    {node.children.map((child) => (
+                    {sortedChildren.map((child, childIndex) => (
                         <NodeItem
                             key={child.plan_node_id}
                             node={child}
                             level={level + 1}
+                            siblings={sortedChildren}
+                            siblingIndex={childIndex}
                             rule={rule}
                             onAddChild={onAddChild}
                             onEdit={onEdit}
                             onDelete={onDelete}
                             onViewDetails={onViewDetails}
                             onDrillDown={onDrillDown}
+                            onMoveNode={onMoveNode}
+                            isReordering={isReordering}
                             readOnly={readOnly}
                             configuredUnits={configuredUnits}
                         />
@@ -147,6 +181,8 @@ interface PlanHierarchyTreeProps {
     onDelete: (id: string) => void;
     onViewDetails: (nodeId: string) => void;
     onDrillDown?: (node: PlanNodeHierarchy) => void;
+    onMoveNode?: (nodeId: string, direction: "up" | "down", siblings: PlanNode[]) => void;
+    isReordering?: boolean;
     /** When true, only render direct nodes without expanding nested children inline */
     scoped?: boolean;
     readOnly?: boolean;
@@ -160,26 +196,33 @@ export function PlanHierarchyTree({
     onDelete,
     onViewDetails,
     onDrillDown,
+    onMoveNode,
+    isReordering = false,
     scoped = false,
     readOnly = false,
 }: PlanHierarchyTreeProps) {
     const { data: planningConfig } = useGetPlanningConfigurationQuery();
     const configuredUnits = planningConfig?.target_units;
+    const sortedNodes = useMemo(() => sortPlanNodes(nodes), [nodes]);
 
     if (scoped) {
         return (
             <div className="space-y-2">
-                {nodes.map((node) => (
+                {sortedNodes.map((node, index) => (
                     <NodeItem
                         key={node.plan_node_id}
                         node={{ ...node, children: [] }}
                         level={0}
+                        siblings={sortedNodes}
+                        siblingIndex={index}
                         rule={rule}
                         onAddChild={onAddChild}
                         onEdit={onEdit}
                         onDelete={onDelete}
                         onViewDetails={onViewDetails}
                         onDrillDown={onDrillDown}
+                        onMoveNode={onMoveNode}
+                        isReordering={isReordering}
                         readOnly={readOnly}
                         configuredUnits={configuredUnits}
                     />
@@ -190,17 +233,21 @@ export function PlanHierarchyTree({
 
     return (
         <div className="space-y-2">
-            {nodes.map((node) => (
+            {sortedNodes.map((node, index) => (
                 <NodeItem
                     key={node.plan_node_id}
                     node={node}
                     level={0}
+                    siblings={sortedNodes}
+                    siblingIndex={index}
                     rule={rule}
                     onAddChild={onAddChild}
                     onEdit={onEdit}
                     onDelete={onDelete}
                     onViewDetails={onViewDetails}
                     onDrillDown={onDrillDown}
+                    onMoveNode={onMoveNode}
+                    isReordering={isReordering}
                     readOnly={readOnly}
                     configuredUnits={configuredUnits}
                 />

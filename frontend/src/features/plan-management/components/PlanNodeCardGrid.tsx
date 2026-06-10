@@ -19,6 +19,7 @@ import { PlanNodeIcon } from "./PlanNodeIcon";
 import { PlanNodeActions } from "./PlanNodeActions";
 import { CircularProgress } from "./CircularProgress";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
+import { sortPlanNodes } from "@/utils/planNodeOrderUtils";
 
 interface PlanNodeCardGridProps {
     nodes: PlanNodeHierarchy[];
@@ -28,6 +29,8 @@ interface PlanNodeCardGridProps {
     onDelete: (id: string) => void;
     onViewDetails: (nodeId: string) => void;
     onDrillDown: (node: PlanNodeHierarchy) => void;
+    onMoveNode?: (nodeId: string, direction: "up" | "down") => void;
+    isReordering?: boolean;
     readOnly?: boolean;
 }
 
@@ -39,27 +42,31 @@ export function PlanNodeCardGrid({
     onDelete,
     onViewDetails,
     onDrillDown,
+    onMoveNode,
+    isReordering = false,
     readOnly = false,
 }: PlanNodeCardGridProps) {
     const { data: planningConfig } = useGetPlanningConfigurationQuery();
     const configuredUnits = planningConfig?.target_units;
     const thresholds = usePerformanceColorThresholds();
 
+    const sortedNodes = useMemo(() => sortPlanNodes(nodes), [nodes]);
+
     const completionMap = useMemo(() => {
         const map = new Map<
             string,
             { percent: number; color: string; label: string }
         >();
-        for (const node of nodes) {
+        for (const node of sortedNodes) {
             const completion = resolveCompletionForEntity(thresholds, node.plan_node_id);
             map.set(node.plan_node_id, completion);
         }
         return map;
-    }, [nodes, thresholds]);
+    }, [sortedNodes, thresholds]);
 
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-            {nodes.map((node) => {
+            {sortedNodes.map((node, index) => {
                 const hasChildren = node.children && node.children.length > 0;
                 const levelLabel = getStepLabel(rule, node.level);
                 const nodeWeightMode = node.weight_mode;
@@ -98,6 +105,23 @@ export function PlanNodeCardGrid({
                                                 onEdit={onEdit}
                                                 onDelete={onDelete}
                                                 onViewDetails={onViewDetails}
+                                                canMoveUp={!readOnly && !!onMoveNode && index > 0}
+                                                canMoveDown={
+                                                    !readOnly &&
+                                                    !!onMoveNode &&
+                                                    index < sortedNodes.length - 1
+                                                }
+                                                onMoveUp={
+                                                    onMoveNode
+                                                        ? () => onMoveNode(node.plan_node_id, "up")
+                                                        : undefined
+                                                }
+                                                onMoveDown={
+                                                    onMoveNode
+                                                        ? () => onMoveNode(node.plan_node_id, "down")
+                                                        : undefined
+                                                }
+                                                isReordering={isReordering}
                                                 readOnly={readOnly}
                                                 size="sm"
                                                 className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"

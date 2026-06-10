@@ -5,6 +5,7 @@ import {
     useGetPlanHierarchyQuery,
     useDeletePlanNodeMutation,
     useGetPlanVersionByIdQuery,
+    useReorderPlanNodesMutation,
 } from "@/redux/api/planApi";
 import { useGetPlanRuleForVersionQuery } from "@/redux/api/planRuleApi";
 import { PlanNodeHierarchy, PlanNode } from "@/redux/types/plan";
@@ -41,6 +42,7 @@ import {
     resolveWorkflowStatusAppearance,
 } from "@/utils/performanceColorUtils";
 import { PerformanceColorBadge } from "./components/PerformanceColorBadge";
+import { buildSiblingReorderPayload, sortPlanNodes } from "@/utils/planNodeOrderUtils";
 
 type ViewMode = "card" | "hierarchy";
 type PlanDetailTab = "hierarchy" | "annual" | "periods";
@@ -80,6 +82,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
     const { data: rule } = useGetPlanRuleForVersionQuery(versionId);
     const { data: hierarchy = [], isLoading, refetch } = useGetPlanHierarchyQuery(versionId);
     const [deleteNode] = useDeletePlanNodeMutation();
+    const [reorderNodes, { isLoading: isReordering }] = useReorderPlanNodesMutation();
     const thresholds = usePerformanceColorThresholds();
 
     const [viewMode, setViewMode] = useState<ViewMode>("card");
@@ -103,7 +106,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
     }, [hierarchy]);
     const currentParent = breadcrumbPath.length > 0 ? breadcrumbPath[breadcrumbPath.length - 1] : null;
     const currentNodes = useMemo(
-        () => getCurrentNodes(hierarchy, pathIds),
+        () => sortPlanNodes(getCurrentNodes(hierarchy, pathIds)),
         [hierarchy, pathIds]
     );
     const currentLevel = currentParent ? currentParent.level + 1 : 1;
@@ -190,6 +193,25 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
 
     const handleViewDetails = (nodeId: string) => {
         router.push(`/plans/${versionId}/nodes/${nodeId}`);
+    };
+
+    const handleMoveNode = async (
+        nodeId: string,
+        direction: "up" | "down",
+        siblings: PlanNode[]
+    ) => {
+        if (isReadOnlyHierarchy) return;
+
+        const payload = buildSiblingReorderPayload(siblings, nodeId, direction);
+        if (!payload) return;
+
+        try {
+            await reorderNodes(payload).unwrap();
+            refetch();
+        } catch (err: unknown) {
+            const error = err as { data?: { message?: string } };
+            toast.error(error.data?.message || "Failed to reorder nodes");
+        }
     };
 
     if (isLoading) {
@@ -365,6 +387,10 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                         onDelete={handleDelete}
                         onViewDetails={handleViewDetails}
                         onDrillDown={handleDrillDown}
+                        onMoveNode={(nodeId, direction) =>
+                            handleMoveNode(nodeId, direction, currentNodes)
+                        }
+                        isReordering={isReordering}
                         readOnly={isReadOnlyHierarchy}
                     />
                 ) : (
@@ -379,6 +405,8 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     onDelete={handleDelete}
                     onViewDetails={handleViewDetails}
                     onDrillDown={handleDrillDown}
+                    onMoveNode={handleMoveNode}
+                    isReordering={isReordering}
                     scoped={false}
                     readOnly={isReadOnlyHierarchy}
                 />
@@ -391,6 +419,8 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     onDelete={handleDelete}
                     onViewDetails={handleViewDetails}
                     onDrillDown={handleDrillDown}
+                    onMoveNode={handleMoveNode}
+                    isReordering={isReordering}
                     scoped
                     readOnly={isReadOnlyHierarchy}
                 />
