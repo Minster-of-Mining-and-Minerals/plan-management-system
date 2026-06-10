@@ -26,6 +26,11 @@ module.exports = (sequelize, DataTypes) => {
                 as: "annualVersions",
             });
 
+            PlanVersion.hasMany(models.PlanVersion, {
+                foreignKey: "parent_plan_version_id",
+                as: "executionPeriodVersions",
+            });
+
             PlanVersion.belongsTo(models.PlanRule, {
                 foreignKey: "plan_rule_id",
                 as: "planRule",
@@ -80,9 +85,14 @@ module.exports = (sequelize, DataTypes) => {
             },
 
             version_kind: {
-                type: DataTypes.ENUM("master", "annual"),
+                type: DataTypes.ENUM("master", "annual", "execution_period"),
                 allowNull: false,
                 defaultValue: "master",
+            },
+
+            period_label: {
+                type: DataTypes.STRING(100),
+                allowNull: true,
             },
 
             parent_plan_version_id: {

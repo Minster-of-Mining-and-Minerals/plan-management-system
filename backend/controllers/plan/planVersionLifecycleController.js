@@ -7,6 +7,9 @@ const {
     getAnnualVersions,
     setAnnualTarget,
     completeAnnualVersion,
+    getExecutionPeriods,
+    setPeriodTarget,
+    completeExecutionPeriod,
 } = require("../../services/planVersionLifecycleService");
 const { PlanVersion } = require("../../models");
 
@@ -121,10 +124,87 @@ async function completeAnnualPlanVersion(req, res) {
     }
 }
 
+async function listExecutionPeriods(req, res) {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            return res.status(400).json({ success: false, message: "Invalid ID" });
+        }
+
+        const annual = await PlanVersion.findByPk(id);
+        if (!annual || annual.version_kind !== "annual") {
+            return res.status(404).json({ success: false, message: "Annual plan version not found" });
+        }
+
+        const executionPeriods = await getExecutionPeriods(id);
+        return res.json({
+            success: true,
+            data: {
+                annual,
+                executionPeriods,
+            },
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
+
+async function updatePeriodTarget(req, res) {
+    try {
+        const { id: nodeId } = req.params;
+        const { period_target } = req.body;
+
+        if (!isUuid(nodeId)) {
+            return res.status(400).json({ success: false, message: "Invalid node ID" });
+        }
+
+        const result = await setPeriodTarget(nodeId, period_target);
+        if (!result.success) {
+            return res.status(400).json({ success: false, message: result.message });
+        }
+
+        return res.json({
+            success: true,
+            message: "Period target updated",
+            data: result.data,
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
+
+async function completeExecutionPeriodVersion(req, res) {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            return res.status(400).json({ success: false, message: "Invalid ID" });
+        }
+
+        const result = await completeExecutionPeriod(id);
+        if (!result.success) {
+            return res.status(400).json({ success: false, message: result.message });
+        }
+
+        return res.json({
+            success: true,
+            message: result.unlockedVersion
+                ? `${result.unlockedVersion.period_label} is now available for execution.`
+                : "Execution period completed",
+            data: result.data,
+            unlockedVersion: result.unlockedVersion,
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
+
 module.exports = {
     getDraftFinalizationReadiness,
     finalizePlanDraft,
     listAnnualVersions,
     updateAnnualTarget,
     completeAnnualPlanVersion,
+    listExecutionPeriods,
+    updatePeriodTarget,
+    completeExecutionPeriodVersion,
 };

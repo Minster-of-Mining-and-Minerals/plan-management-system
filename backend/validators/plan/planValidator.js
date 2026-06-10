@@ -67,11 +67,15 @@ const updateAnnualTargetSchema = Joi.object({
     annual_target: Joi.number().min(0).allow(null).required(),
 });
 
+const updatePeriodTargetSchema = Joi.object({
+    period_target: Joi.number().min(0).allow(null).required(),
+});
+
 const getPlanVersionsQuerySchema = Joi.object({
     year: Joi.number().integer().min(2000).max(2100).optional(),
     government_structure_id: Joi.string().guid({ version: "uuidv4" }).optional(),
     status: Joi.string().valid("draft", "active", "completed", "finalized", "locked").optional(),
-    version_kind: Joi.string().valid("master", "annual").optional(),
+    version_kind: Joi.string().valid("master", "annual", "execution_period").optional(),
     parent_plan_version_id: Joi.string().guid({ version: "uuidv4" }).optional(),
     search: Joi.string().trim().allow("").optional(),
 });
@@ -207,6 +211,7 @@ module.exports = {
     validateUpdatePlanVersion: validate(updatePlanVersionSchema),
     validateUpdatePlanVersionStatus: validate(updatePlanVersionStatusSchema),
     validateUpdateAnnualTarget: validate(updateAnnualTargetSchema),
+    validateUpdatePeriodTarget: validate(updatePeriodTargetSchema),
     validateGetPlanVersionsQuery: validate(getPlanVersionsQuerySchema, "query"),
 
     // Plan Node Validators

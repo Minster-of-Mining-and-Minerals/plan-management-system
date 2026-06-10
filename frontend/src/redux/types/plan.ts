@@ -2,7 +2,7 @@
  * ================= PLAN VERSION TYPES =================
  */
 
-export type PlanVersionKind = "master" | "annual";
+export type PlanVersionKind = "master" | "annual" | "execution_period";
 export type PlanVersionStatus = "draft" | "active" | "completed" | "finalized" | "locked";
 
 export interface PlanVersion {
@@ -22,6 +22,7 @@ export interface PlanVersion {
     parent_plan_version_id: string | null;
     planning_year: number | null;
     sequence_index: number | null;
+    period_label: string | null;
     is_locked: boolean;
     finalized_at: string | null;
     status: PlanVersionStatus;
@@ -34,6 +35,7 @@ export interface PlanVersion {
     baseVersion?: PlanVersion;
     parentPlanVersion?: PlanVersion;
     annualVersions?: PlanVersion[];
+    executionPeriodVersions?: PlanVersion[];
     planRule?: PlanRule;
     planNodes?: PlanNode[];
 }
@@ -74,6 +76,11 @@ export interface AnnualVersionsResponse {
     annualVersions: PlanVersion[];
 }
 
+export interface ExecutionPeriodsResponse {
+    annual: PlanVersion;
+    executionPeriods: PlanVersion[];
+}
+
 export interface GetPlanVersionsQueryParams {
     year?: number;
     government_structure_id?: string;
@@ -105,6 +112,7 @@ export interface PlanNode {
     assignment_sharing_mode: AssignmentSharingMode;
     source_plan_node_id?: string | null;
     annual_target?: number | null;
+    period_target?: number | null;
     created_at: string;
     updated_at: string;
     deleted_at: string | null;

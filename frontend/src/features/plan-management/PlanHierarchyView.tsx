@@ -18,6 +18,7 @@ import {
     ChevronRight,
     Home,
     CalendarDays,
+    Clock,
 } from "lucide-react";
 import { CreatePlanNodeModal } from "./modals/CreatePlanNodeModal";
 import { toast } from "sonner";
@@ -31,11 +32,12 @@ import { PlanNodeCardGrid } from "./components/PlanNodeCardGrid";
 import { PlanHierarchyTree } from "./components/PlanHierarchyTree";
 import { PlanDraftHeaderMeta } from "./components/PlanDraftHeaderMeta";
 import { AnnualVersionsDashboard } from "./components/AnnualVersionsDashboard";
+import { ExecutionPeriodsDashboard } from "./components/ExecutionPeriodsDashboard";
 import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
 import { formatStatus } from "@/utils/statusFormatter";
 
 type ViewMode = "card" | "hierarchy";
-type PlanDetailTab = "hierarchy" | "annual";
+type PlanDetailTab = "hierarchy" | "annual" | "periods";
 
 function getCurrentNodes(
     hierarchy: PlanNodeHierarchy[],
@@ -102,12 +104,19 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
     const childLabel = currentLevelLabel;
 
     const isMasterDraft =
-        version?.version_kind !== "annual" && version?.status === "draft";
+        version?.version_kind === "master" && version?.status === "draft";
+    const isAnnualVersion = version?.version_kind === "annual";
+    const isExecutionPeriod = version?.version_kind === "execution_period";
     const isReadOnlyHierarchy = !isMasterDraft;
     const showAnnualDashboard =
-        version?.version_kind !== "annual" &&
+        version?.version_kind === "master" &&
         (version?.status === "finalized" ||
             (version?.annualVersions && version.annualVersions.length > 0));
+    const showPeriodDashboard =
+        isAnnualVersion &&
+        (version.status === "active" ||
+            version.status === "completed" ||
+            (version.executionPeriodVersions && version.executionPeriodVersions.length > 0));
 
     const canAddAtCurrentLevel =
         isMasterDraft &&
@@ -217,7 +226,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
         </div>
     );
 
-    const detailTabToggle = (
+    const detailTabToggle = showAnnualDashboard ? (
         <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1">
             <Button
                 variant={activeTab === "hierarchy" ? "default" : "ghost"}
@@ -238,19 +247,53 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                 Annual Execution
             </Button>
         </div>
-    );
+    ) : showPeriodDashboard ? (
+        <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1">
+            <Button
+                variant={activeTab === "hierarchy" ? "default" : "ghost"}
+                size="sm"
+                className="gap-2 h-8"
+                onClick={() => setActiveTab("hierarchy")}
+            >
+                <ListTree className="h-4 w-4" />
+                Plan Hierarchy
+            </Button>
+            <Button
+                variant={activeTab === "periods" ? "default" : "ghost"}
+                size="sm"
+                className="gap-2 h-8"
+                onClick={() => setActiveTab("periods")}
+            >
+                <Clock className="h-4 w-4" />
+                Execution Periods
+            </Button>
+        </div>
+    ) : null;
 
     const hierarchyBody = (
         <>
-            {isReadOnlyHierarchy && version?.version_kind === "annual" && version.is_locked && (
+            {isReadOnlyHierarchy && isAnnualVersion && version.is_locked && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                     This annual version is locked. Complete the previous year to unlock it.
+                </div>
+            )}
+
+            {isReadOnlyHierarchy && isExecutionPeriod && version.is_locked && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    This execution period is locked. Complete the previous period to unlock it.
                 </div>
             )}
 
             {isReadOnlyHierarchy && version?.status === "finalized" && showAnnualDashboard && (
                 <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                     Strategic draft is finalized. Switch to the Annual Execution tab to manage yearly plans.
+                </div>
+            )}
+
+            {isReadOnlyHierarchy && isAnnualVersion && showPeriodDashboard && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                    Switch to the Execution Periods tab to allocate period targets and manage
+                    sequential operational execution.
                 </div>
             )}
 
@@ -361,6 +404,12 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                                 {version.version_kind === "annual" && version.is_locked && (
                                     <Badge variant="outline">Locked</Badge>
                                 )}
+                                {version.version_kind === "execution_period" && version.period_label && (
+                                    <Badge variant="outline">{version.period_label}</Badge>
+                                )}
+                                {version.version_kind === "execution_period" && version.is_locked && (
+                                    <Badge variant="outline">Locked</Badge>
+                                )}
                             </div>
                         )}
                         {rule && (
@@ -372,7 +421,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     </div>
                 </div>
 
-                {(!showAnnualDashboard || activeTab === "hierarchy") && hierarchyToolbar}
+                {(!showAnnualDashboard && !showPeriodDashboard || activeTab === "hierarchy") && hierarchyToolbar}
             </div>
 
             {showAnnualDashboard ? (
@@ -383,6 +432,19 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     <div className="p-4 sm:p-6 space-y-6">
                         {activeTab === "annual" ? (
                             version && <AnnualVersionsDashboard masterVersion={version} />
+                        ) : (
+                            hierarchyBody
+                        )}
+                    </div>
+                </div>
+            ) : showPeriodDashboard ? (
+                <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+                    <div className="flex items-center justify-end px-4 py-3 border-b border-gray-100">
+                        {detailTabToggle}
+                    </div>
+                    <div className="p-4 sm:p-6 space-y-6">
+                        {activeTab === "periods" ? (
+                            version && <ExecutionPeriodsDashboard annualVersion={version} />
                         ) : (
                             hierarchyBody
                         )}

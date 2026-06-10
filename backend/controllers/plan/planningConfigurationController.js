@@ -6,6 +6,7 @@ const {
   pickPlanningConfigPayload,
   DEFAULT_PLANNING_CONFIG,
   normalizeTargetUnits,
+  validateBreakdownConfiguration,
 } = require("../../services/planningConfigurationService");
 
 const getPlanningConfiguration = async (req, res) => {
@@ -42,6 +43,22 @@ const updatePlanningConfiguration = async (req, res) => {
       nextTargetUnits = normalized.units;
     }
 
+    const nextBreakdownMode = req.body.breakdown_mode ?? record.breakdown_mode ?? DEFAULT_PLANNING_CONFIG.breakdown_mode;
+    let nextCustomPeriods = record.custom_periods ?? DEFAULT_PLANNING_CONFIG.custom_periods;
+    if (req.body.breakdown_mode !== undefined || req.body.custom_periods !== undefined) {
+      const breakdownValidation = validateBreakdownConfiguration(
+        nextBreakdownMode,
+        req.body.custom_periods ?? nextCustomPeriods
+      );
+      if (!breakdownValidation.valid) {
+        await t.rollback();
+        return res.status(400).json({ success: false, message: breakdownValidation.message });
+      }
+      if (nextBreakdownMode === "custom") {
+        nextCustomPeriods = breakdownValidation.periods;
+      }
+    }
+
     await record.update(
       {
         min_duration_years: nextMin,
@@ -57,6 +74,8 @@ const updatePlanningConfiguration = async (req, res) => {
         start_year_label: req.body.start_year_label ?? record.start_year_label,
         end_year_label: req.body.end_year_label ?? record.end_year_label,
         target_units: nextTargetUnits,
+        breakdown_mode: nextBreakdownMode,
+        custom_periods: nextCustomPeriods,
       },
       { transaction: t }
     );
@@ -89,6 +108,8 @@ const restoreDefaultPlanningConfiguration = async (req, res) => {
         start_year_label: DEFAULT_PLANNING_CONFIG.start_year_label,
         end_year_label: DEFAULT_PLANNING_CONFIG.end_year_label,
         target_units: DEFAULT_PLANNING_CONFIG.target_units,
+        breakdown_mode: DEFAULT_PLANNING_CONFIG.breakdown_mode,
+        custom_periods: DEFAULT_PLANNING_CONFIG.custom_periods,
       },
       { transaction: t }
     );

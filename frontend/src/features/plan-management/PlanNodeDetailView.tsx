@@ -6,6 +6,7 @@ import {
     useGetPlanNodeByIdQuery,
     useGetPlanVersionByIdQuery,
     useUpdateAnnualTargetMutation,
+    useUpdatePeriodTargetMutation,
 } from "@/redux/api/planApi";
 import {
     useGetInternalAssignmentsByNodeQuery,
@@ -60,7 +61,9 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
     const { data: version } = useGetPlanVersionByIdQuery(versionId);
     const { data: planningConfig } = useGetPlanningConfigurationQuery();
     const [updateAnnualTarget, { isLoading: isSavingTarget }] = useUpdateAnnualTargetMutation();
+    const [updatePeriodTarget, { isLoading: isSavingPeriodTarget }] = useUpdatePeriodTargetMutation();
     const [annualTargetInput, setAnnualTargetInput] = useState("");
+    const [periodTargetInput, setPeriodTargetInput] = useState("");
     const { data: node, isLoading: isNodeLoading } = useGetPlanNodeByIdQuery(nodeId);
     const { data: internalAssignments = [], isLoading: isInternalLoading } =
         useGetInternalAssignmentsByNodeQuery({ nodeId, includeInactive: showHistory });
@@ -90,12 +93,27 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
         }
     }, [node?.annual_target, nodeId]);
 
+    useEffect(() => {
+        if (node?.period_target != null) {
+            setPeriodTargetInput(String(node.period_target));
+        } else {
+            setPeriodTargetInput("");
+        }
+    }, [node?.period_target, nodeId]);
+
     const canAllocateAnnualTarget =
         version?.version_kind === "annual" &&
         version.status === "active" &&
         !version.is_locked &&
         node &&
         node.weight > 0;
+
+    const canAllocatePeriodTarget =
+        version?.version_kind === "execution_period" &&
+        version.status === "active" &&
+        !version.is_locked &&
+        node &&
+        (node.annual_target ?? 0) > 0;
 
     const [deleteInternal, { isLoading: isDeletingInternal }] = useDeleteInternalAssignmentMutation();
     const [deleteExternal, { isLoading: isDeletingExternal }] = useDeleteExternalAssignmentMutation();
@@ -466,6 +484,77 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                                                 }}
                                             >
                                                 Save Annual Target
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            {version?.version_kind === "execution_period" && (node.annual_target ?? 0) > 0 && (
+                                <div className="mt-4 rounded-lg border bg-muted/20 p-4 space-y-3">
+                                    <div className="flex flex-wrap gap-4 text-sm">
+                                        <div>
+                                            <span className="text-muted-foreground">Annual Target: </span>
+                                            <span className="font-semibold">
+                                                {formatNodeTarget(
+                                                    node.annual_target ?? 0,
+                                                    node.weight_mode,
+                                                    node.target_unit,
+                                                    planningConfig?.target_units
+                                                )}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <span className="text-muted-foreground">
+                                                {version.period_label ?? "Period"} Target:{" "}
+                                            </span>
+                                            <span className="font-semibold">
+                                                {node.period_target != null && node.period_target > 0
+                                                    ? formatNodeTarget(
+                                                          node.period_target,
+                                                          node.weight_mode,
+                                                          node.target_unit,
+                                                          planningConfig?.target_units
+                                                      )
+                                                    : "Not yet defined"}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {canAllocatePeriodTarget && (
+                                        <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+                                            <div className="flex-1 space-y-1">
+                                                <Label htmlFor="period_target">
+                                                    Set {version.period_label ?? "Period"} Target
+                                                </Label>
+                                                <Input
+                                                    id="period_target"
+                                                    type="number"
+                                                    min={0}
+                                                    step="any"
+                                                    value={periodTargetInput}
+                                                    onChange={(e) => setPeriodTargetInput(e.target.value)}
+                                                    placeholder="Enter period allocation"
+                                                />
+                                            </div>
+                                            <Button
+                                                disabled={isSavingPeriodTarget}
+                                                onClick={async () => {
+                                                    try {
+                                                        const val =
+                                                            periodTargetInput === ""
+                                                                ? null
+                                                                : Number(periodTargetInput);
+                                                        await updatePeriodTarget({
+                                                            id: node.plan_node_id,
+                                                            period_target: val,
+                                                        }).unwrap();
+                                                        toast.success("Period target saved");
+                                                    } catch (error: unknown) {
+                                                        const err = error as { data?: { message?: string } };
+                                                        toast.error(err.data?.message || "Failed to save");
+                                                    }
+                                                }}
+                                            >
+                                                Save Period Target
                                             </Button>
                                         </div>
                                     )}

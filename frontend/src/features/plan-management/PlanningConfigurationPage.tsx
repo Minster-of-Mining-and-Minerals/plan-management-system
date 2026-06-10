@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, RotateCcw, Save, Settings2, Plus, Trash2 } from "lucide-react";
+import { Loader2, RotateCcw, Save, Settings2, Plus, Trash2, CalendarRange } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,8 @@ import {
   slugifyTargetUnitId,
   type PlanningConfiguration,
   type TargetUnit,
+  type BreakdownMode,
+  type CustomPeriod,
 } from "@/redux/types/planningConfig";
 import { formatDurationYears } from "@/utils/planDraftUtils";
 
@@ -68,6 +70,42 @@ export default function PlanningConfigurationPage() {
     }));
   };
 
+  const updateCustomPeriod = (index: number, label: string) => {
+    setForm((prev) => {
+      const periods = [...(prev.custom_periods ?? [])];
+      periods[index] = { label };
+      return { ...prev, custom_periods: periods };
+    });
+  };
+
+  const addCustomPeriod = () => {
+    setForm((prev) => ({
+      ...prev,
+      custom_periods: [
+        ...(prev.custom_periods ?? []),
+        { label: `Period ${(prev.custom_periods?.length ?? 0) + 1}` },
+      ],
+    }));
+  };
+
+  const removeCustomPeriod = (index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      custom_periods: (prev.custom_periods ?? []).filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleBreakdownModeChange = (mode: BreakdownMode) => {
+    setForm((prev) => ({
+      ...prev,
+      breakdown_mode: mode,
+      custom_periods:
+        mode === "custom" && (prev.custom_periods?.length ?? 0) === 0
+          ? [{ label: "Period 1" }, { label: "Period 2" }]
+          : prev.custom_periods,
+    }));
+  };
+
   const handleSave = async () => {
     if (form.min_duration_years > form.max_duration_years) {
       toast.error("Minimum duration cannot exceed maximum duration.");
@@ -85,6 +123,21 @@ export default function PlanningConfigurationPage() {
     if (normalizedUnits.length === 0) {
       toast.error("Add at least one target unit.");
       return;
+    }
+
+    if (form.breakdown_mode === "custom") {
+      const customLabels = (form.custom_periods ?? [])
+        .map((p) => p.label.trim())
+        .filter(Boolean);
+      if (customLabels.length === 0) {
+        toast.error("Add at least one custom execution period.");
+        return;
+      }
+      const unique = new Set(customLabels.map((l) => l.toLowerCase()));
+      if (unique.size !== customLabels.length) {
+        toast.error("Custom period labels must be unique.");
+        return;
+      }
     }
 
     const ids = new Set<string>();
@@ -108,6 +161,13 @@ export default function PlanningConfigurationPage() {
         start_year_label: form.start_year_label.trim(),
         end_year_label: form.end_year_label.trim(),
         target_units: normalizedUnits,
+        breakdown_mode: form.breakdown_mode,
+        custom_periods:
+          form.breakdown_mode === "custom"
+            ? (form.custom_periods ?? [])
+                .map((p) => ({ label: p.label.trim() }))
+                .filter((p) => p.label)
+            : [],
       }).unwrap();
       toast.success("Planning configuration saved");
     } catch (error: unknown) {
@@ -300,6 +360,80 @@ export default function PlanningConfigurationPage() {
               <Plus className="h-4 w-4" />
               Add Unit
             </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CalendarRange className="h-5 w-5 text-primary" />
+              Annual Version Breakdown
+            </CardTitle>
+            <CardDescription>
+              Configure how active annual versions are divided into execution periods. Quarterly is
+              the default, but administrators can choose semi-annual or define custom periods.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              {(
+                [
+                  { value: "quarterly" as BreakdownMode, label: "Quarterly", preview: "Q1, Q2, Q3, Q4" },
+                  { value: "semi_annual" as BreakdownMode, label: "Semi-Annual", preview: "H1, H2" },
+                  { value: "custom" as BreakdownMode, label: "Custom", preview: "Administrator-defined" },
+                ] as const
+              ).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => handleBreakdownModeChange(option.value)}
+                  className={`rounded-xl border p-4 text-left transition-colors ${
+                    form.breakdown_mode === option.value
+                      ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <p className="font-semibold text-gray-900">{option.label}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{option.preview}</p>
+                </button>
+              ))}
+            </div>
+
+            {form.breakdown_mode === "custom" && (
+              <div className="space-y-3 pt-2">
+                <p className="text-sm text-muted-foreground">
+                  Define custom execution period labels. These are generated when an annual version
+                  becomes active.
+                </p>
+                {(form.custom_periods ?? []).map((period: CustomPeriod, index: number) => (
+                  <div key={index} className="flex gap-2 items-end">
+                    <div className="flex-1 space-y-2">
+                      <Label htmlFor={`custom-period-${index}`}>Period {index + 1}</Label>
+                      <Input
+                        id={`custom-period-${index}`}
+                        value={period.label}
+                        onChange={(e) => updateCustomPeriod(index, e.target.value)}
+                        placeholder={`Period ${index + 1}`}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="text-red-500 hover:text-red-700"
+                      onClick={() => removeCustomPeriod(index)}
+                      disabled={(form.custom_periods ?? []).length <= 1}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button type="button" variant="outline" onClick={addCustomPeriod} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add Period
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 

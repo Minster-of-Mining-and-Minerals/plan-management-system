@@ -13,6 +13,7 @@ const {
     validateIdParam,
     validateVersionIdParam,
     validateUpdateAnnualTarget,
+    validateUpdatePeriodTarget,
 } = require("../../validators/plan/planValidator");
 
 const {
@@ -37,6 +38,9 @@ const {
     listAnnualVersions,
     updateAnnualTarget,
     completeAnnualPlanVersion,
+    listExecutionPeriods,
+    updatePeriodTarget,
+    completeExecutionPeriodVersion,
 } = require("../../controllers/plan/planVersionLifecycleController");
 
 const {
@@ -82,7 +86,10 @@ router.get("/versions/:id/finalization-readiness", checkPermission("PLANS", "REA
 router.post("/versions/:id/finalize", checkPermission("PLANS", "APPROVE"), validateIdParam, finalizePlanDraft);
 router.get("/versions/:id/annual-versions", checkPermission("PLANS", "READ"), validateIdParam, listAnnualVersions);
 router.post("/versions/:id/complete-annual", checkPermission("PLANS", "APPROVE"), validateIdParam, completeAnnualPlanVersion);
+router.get("/versions/:id/execution-periods", checkPermission("PLANS", "READ"), validateIdParam, listExecutionPeriods);
+router.post("/versions/:id/complete-period", checkPermission("PLANS", "APPROVE"), validateIdParam, completeExecutionPeriodVersion);
 router.patch("/nodes/:id/annual-target", checkPermission("PLANS", "UPDATE"), validateIdParam, validateUpdateAnnualTarget, updateAnnualTarget);
+router.patch("/nodes/:id/period-target", checkPermission("PLANS", "UPDATE"), validateIdParam, validateUpdatePeriodTarget, updatePeriodTarget);
 
 // ================= PLANNING CONFIGURATION =================
 

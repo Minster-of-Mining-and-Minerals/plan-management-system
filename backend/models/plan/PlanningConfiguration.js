@@ -65,6 +65,16 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: [],
       },
+      breakdown_mode: {
+        type: DataTypes.ENUM("quarterly", "semi_annual", "custom"),
+        allowNull: false,
+        defaultValue: "quarterly",
+      },
+      custom_periods: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: [],
+      },
     },
     {
       sequelize,

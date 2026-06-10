@@ -4,6 +4,12 @@ export interface TargetUnit {
   symbol: string;
 }
 
+export type BreakdownMode = "quarterly" | "semi_annual" | "custom";
+
+export interface CustomPeriod {
+  label: string;
+}
+
 export interface PlanningConfiguration {
   planning_configuration_id: string;
   government_structure_id?: string | null;
@@ -17,6 +23,8 @@ export interface PlanningConfiguration {
   start_year_label: string;
   end_year_label: string;
   target_units: TargetUnit[];
+  breakdown_mode: BreakdownMode;
+  custom_periods: CustomPeriod[];
   updated_at?: string;
 }
 
@@ -44,6 +52,8 @@ export const DEFAULT_PLANNING_CONFIGURATION: PlanningConfiguration = {
   start_year_label: "Start Date",
   end_year_label: "End Date",
   target_units: DEFAULT_TARGET_UNITS,
+  breakdown_mode: "quarterly",
+  custom_periods: [],
 };
 
 export function slugifyTargetUnitId(value: string): string {

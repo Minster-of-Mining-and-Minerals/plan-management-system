@@ -26,6 +26,7 @@ const {
 } = require("../../services/planningConfigurationService");
 const {
     completeAnnualVersion,
+    completeExecutionPeriod,
     copyNodesAndAssignments,
 } = require("../../services/planVersionLifecycleService");
 
@@ -281,6 +282,12 @@ const getPlanVersionById = async (req, res) => {
                     order: [["sequence_index", "ASC"]],
                 },
                 {
+                    model: PlanVersion,
+                    as: "executionPeriodVersions",
+                    separate: true,
+                    order: [["sequence_index", "ASC"]],
+                },
+                {
                     model: PlanRule,
                     as: "planRule",
                     include: [
@@ -488,6 +495,22 @@ const updatePlanVersionStatus = async (req, res) => {
                 message: result.unlockedVersion
                     ? `Annual version completed. Year ${result.unlockedVersion.sequence_index} is now available.`
                     : "Annual version completed",
+                data: result.data,
+                unlockedVersion: result.unlockedVersion,
+            });
+        }
+
+        if (planVersion.version_kind === "execution_period" && status === "completed") {
+            await t.rollback();
+            const result = await completeExecutionPeriod(id);
+            if (!result.success) {
+                return res.status(400).json({ success: false, message: result.message });
+            }
+            return res.json({
+                success: true,
+                message: result.unlockedVersion
+                    ? `${result.unlockedVersion.period_label} is now available for execution.`
+                    : "Execution period completed",
                 data: result.data,
                 unlockedVersion: result.unlockedVersion,
             });

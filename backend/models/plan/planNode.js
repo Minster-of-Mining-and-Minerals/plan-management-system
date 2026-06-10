@@ -120,6 +120,11 @@ module.exports = (sequelize, DataTypes) => {
                 type: DataTypes.FLOAT,
                 allowNull: true,
             },
+
+            period_target: {
+                type: DataTypes.FLOAT,
+                allowNull: true,
+            },
         },
         {
             sequelize,

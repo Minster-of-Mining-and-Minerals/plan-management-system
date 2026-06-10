@@ -7,6 +7,7 @@ import {
     GetPlanVersionsQueryParams,
     FinalizationReadiness,
     AnnualVersionsResponse,
+    ExecutionPeriodsResponse,
     PlanNode,
     CreatePlanNodePayload,
     UpdatePlanNodePayload,
@@ -187,6 +188,40 @@ export const planApi = baseApi.injectEndpoints({
             ],
         }),
 
+        getExecutionPeriods: builder.query<ExecutionPeriodsResponse, string>({
+            query: (id) => `/plan/versions/${id}/execution-periods`,
+            transformResponse: (response: { data: ExecutionPeriodsResponse }) => response.data,
+            providesTags: (_r, _e, id) => [{ type: "PlanVersions", id }],
+        }),
+
+        completeExecutionPeriod: builder.mutation<
+            PlanVersion,
+            string
+        >({
+            query: (id) => ({
+                url: `/plan/versions/${id}/complete-period`,
+                method: "POST",
+            }),
+            transformResponse: (response: { data: PlanVersion }) => response.data,
+            invalidatesTags: ["PlanVersions"],
+        }),
+
+        updatePeriodTarget: builder.mutation<
+            PlanNode,
+            { id: string; period_target: number | null }
+        >({
+            query: ({ id, period_target }) => ({
+                url: `/plan/nodes/${id}/period-target`,
+                method: "PATCH",
+                body: { period_target },
+            }),
+            transformResponse: (response: { data: PlanNode }) => response.data,
+            invalidatesTags: (_r, _e, { id }) => [
+                { type: "PlanNodes", id },
+                "PlanNodes",
+            ],
+        }),
+
         /**
          * ================= PLAN NODES =================
          */
@@ -321,6 +356,9 @@ export const {
     useGetAnnualVersionsQuery,
     useCompleteAnnualVersionMutation,
     useUpdateAnnualTargetMutation,
+    useGetExecutionPeriodsQuery,
+    useCompleteExecutionPeriodMutation,
+    useUpdatePeriodTargetMutation,
 
     // Plan Nodes
     useGetPlanNodesQuery,

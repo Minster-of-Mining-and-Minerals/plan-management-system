@@ -23,7 +23,66 @@ const DEFAULT_PLANNING_CONFIG = {
     { id: "ton", label: "Ton", symbol: "t" },
     { id: "unit", label: "Unit", symbol: "units" },
   ],
+  breakdown_mode: "quarterly",
+  custom_periods: [],
 };
+
+const QUARTERLY_PERIOD_LABELS = ["Q1", "Q2", "Q3", "Q4"];
+const SEMI_ANNUAL_PERIOD_LABELS = ["H1", "H2"];
+
+function normalizeCustomPeriods(periods) {
+  if (!Array.isArray(periods)) {
+    return { valid: false, message: "Custom periods must be an array." };
+  }
+
+  if (periods.length < 1) {
+    return { valid: false, message: "At least one custom period is required." };
+  }
+
+  if (periods.length > 12) {
+    return { valid: false, message: "Custom periods cannot exceed 12 entries." };
+  }
+
+  const normalized = [];
+  const seen = new Set();
+
+  for (const entry of periods) {
+    const label = String(entry?.label || "").trim();
+    if (!label) {
+      return { valid: false, message: "Each custom period must have a label." };
+    }
+    const key = label.toLowerCase();
+    if (seen.has(key)) {
+      return { valid: false, message: `Duplicate custom period label: ${label}` };
+    }
+    seen.add(key);
+    normalized.push({ label });
+  }
+
+  return { valid: true, periods: normalized };
+}
+
+function resolvePeriodLabels(config) {
+  const mode = config?.breakdown_mode ?? DEFAULT_PLANNING_CONFIG.breakdown_mode;
+  if (mode === "semi_annual") {
+    return [...SEMI_ANNUAL_PERIOD_LABELS];
+  }
+  if (mode === "custom") {
+    const custom = Array.isArray(config?.custom_periods) ? config.custom_periods : [];
+    return custom.map((p) => String(p.label || "").trim()).filter(Boolean);
+  }
+  return [...QUARTERLY_PERIOD_LABELS];
+}
+
+function validateBreakdownConfiguration(breakdownMode, customPeriods) {
+  if (!["quarterly", "semi_annual", "custom"].includes(breakdownMode)) {
+    return { valid: false, message: "Invalid breakdown mode." };
+  }
+  if (breakdownMode === "custom") {
+    return normalizeCustomPeriods(customPeriods);
+  }
+  return { valid: true, periods: [] };
+}
 
 function slugifyUnitId(value) {
   return String(value || "")
@@ -134,6 +193,8 @@ function pickPlanningConfigPayload(record) {
     start_year_label: plain.start_year_label,
     end_year_label: plain.end_year_label,
     target_units: plain.target_units ?? DEFAULT_PLANNING_CONFIG.target_units,
+    breakdown_mode: plain.breakdown_mode ?? DEFAULT_PLANNING_CONFIG.breakdown_mode,
+    custom_periods: plain.custom_periods ?? DEFAULT_PLANNING_CONFIG.custom_periods,
     updated_at: plain.updated_at,
   };
 }
@@ -249,4 +310,9 @@ module.exports = {
   isKnownTargetUnit,
   resolveNodeTargetUnit,
   validateNodeTargetUnit,
+  normalizeCustomPeriods,
+  resolvePeriodLabels,
+  validateBreakdownConfiguration,
+  QUARTERLY_PERIOD_LABELS,
+  SEMI_ANNUAL_PERIOD_LABELS,
 };
