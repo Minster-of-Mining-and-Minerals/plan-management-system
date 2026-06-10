@@ -96,137 +96,148 @@ export function AssignExternalModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
+            <DialogContent className="flex w-[calc(100%-2rem)] max-h-[min(90dvh,720px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[520px] top-[max(1rem,5dvh)] translate-y-0 sm:top-[50%] sm:-translate-y-1/2">
+                <DialogHeader className="shrink-0 px-6 pt-6 pb-4 pr-12">
                     <DialogTitle>Assign Sector (Level {options?.level ?? "—"})</DialogTitle>
                 </DialogHeader>
 
-                {isExclusive && hasActiveAssignment && (
-                    <p className="text-sm text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
-                        Exclusive mode: assigning a new sector will replace the current active assignment.
-                        Previous assignments are kept in history.
-                    </p>
-                )}
-
-                {options?.assignment_sharing_mode === "shared" && (
-                    <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
-                        Shared mode: multiple sectors can be assigned to this node. Each child node
-                        defines its own sharing mode independently.
-                    </p>
-                )}
-
-                {options?.message && (
-                    <p className="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                        {options.message}
-                    </p>
-                )}
-
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                        <FormField
-                            control={form.control}
-                            name="government_structure_id"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Select Sector Structure</FormLabel>
-                                    <FormDescription>
-                                        Root plans can only be assigned to this plan&apos;s sector or its child sectors.
-                                    </FormDescription>
-                                    <Select
-                                        onValueChange={field.onChange}
-                                        value={field.value}
-                                        disabled={isLoadingOptions || !options?.can_assign}
-                                    >
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder={
-                                                    isLoadingOptions
-                                                        ? "Loading sectors..."
-                                                        : sectors.length
-                                                            ? "Select sector structure"
-                                                            : "No eligible sectors"
-                                                } />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {sectors.map((struct) => (
-                                                <SelectItem
-                                                    key={struct.government_structure_id}
-                                                    value={struct.government_structure_id}
-                                                >
-                                                    {struct.name}
-                                                    {struct.level > 1 ? ` (Level ${struct.level})` : ""}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
-                        <div className="space-y-4 pt-2 border-t">
-                            <FormField
-                                control={form.control}
-                                name="is_visible"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm">
-                                        <div className="space-y-0.5">
-                                            <FormLabel>Open for Visibility</FormLabel>
-                                            <FormDescription>
-                                                Allow this sector to view the node&apos;s progress and details.
-                                            </FormDescription>
-                                        </div>
-                                        <FormControl>
-                                            <Switch
-                                                checked={field.value}
-                                                onCheckedChange={field.onChange}
-                                            />
-                                        </FormControl>
-                                    </FormItem>
+                    <form
+                        onSubmit={form.handleSubmit(onSubmit)}
+                        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+                    >
+                        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6">
+                            <div className="space-y-6 pb-4">
+                                {isExclusive && hasActiveAssignment && (
+                                    <p className="break-words rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                                        Exclusive mode: assigning a new sector will replace the current active assignment.
+                                        Previous assignments are kept in history.
+                                    </p>
                                 )}
-                            />
 
-                            <FormField
-                                control={form.control}
-                                name="requires_report"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm">
-                                        <div className="space-y-0.5">
-                                            <FormLabel>Mandatory Reporting</FormLabel>
-                                            <FormDescription>
-                                                Restricts the assigned person to provide a mandatory report.
-                                            </FormDescription>
-                                        </div>
-                                        <FormControl>
-                                            <Switch
-                                                checked={field.value}
-                                                onCheckedChange={field.onChange}
-                                            />
-                                        </FormControl>
-                                    </FormItem>
+                                {options?.assignment_sharing_mode === "shared" && (
+                                    <p className="break-words rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                                        Shared mode: multiple sectors can be assigned to this node. Each child node
+                                        defines its own sharing mode independently.
+                                    </p>
                                 )}
-                            />
+
+                                {options?.message && (
+                                    <p className="break-words rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                                        {options.message}
+                                    </p>
+                                )}
+
+                                <FormField
+                                    control={form.control}
+                                    name="government_structure_id"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Select Sector Structure</FormLabel>
+                                            <FormDescription>
+                                                Root plans can only be assigned to this plan&apos;s sector or its child sectors.
+                                            </FormDescription>
+                                            <Select
+                                                onValueChange={field.onChange}
+                                                value={field.value}
+                                                disabled={isLoadingOptions || !options?.can_assign}
+                                            >
+                                                <FormControl>
+                                                    <SelectTrigger className="min-w-0">
+                                                        <SelectValue placeholder={
+                                                            isLoadingOptions
+                                                                ? "Loading sectors..."
+                                                                : sectors.length
+                                                                    ? "Select sector structure"
+                                                                    : "No eligible sectors"
+                                                        } />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {sectors.map((struct) => (
+                                                        <SelectItem
+                                                            key={struct.government_structure_id}
+                                                            value={struct.government_structure_id}
+                                                        >
+                                                            {struct.name}
+                                                            {struct.level > 1 ? ` (Level ${struct.level})` : ""}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                <div className="space-y-4 border-t pt-2">
+                                    <FormField
+                                        control={form.control}
+                                        name="is_visible"
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-row items-center justify-between gap-3 rounded-lg border p-4 shadow-sm">
+                                                <div className="min-w-0 space-y-0.5">
+                                                    <FormLabel>Open for Visibility</FormLabel>
+                                                    <FormDescription className="break-words">
+                                                        Allow this sector to view the node&apos;s progress and details.
+                                                    </FormDescription>
+                                                </div>
+                                                <FormControl>
+                                                    <Switch
+                                                        checked={field.value}
+                                                        onCheckedChange={field.onChange}
+                                                    />
+                                                </FormControl>
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    <FormField
+                                        control={form.control}
+                                        name="requires_report"
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-row items-center justify-between gap-3 rounded-lg border p-4 shadow-sm">
+                                                <div className="min-w-0 space-y-0.5">
+                                                    <FormLabel>Mandatory Reporting</FormLabel>
+                                                    <FormDescription className="break-words">
+                                                        Restricts the assigned person to provide a mandatory report.
+                                                    </FormDescription>
+                                                </div>
+                                                <FormControl>
+                                                    <Switch
+                                                        checked={field.value}
+                                                        onCheckedChange={field.onChange}
+                                                    />
+                                                </FormControl>
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                            </div>
                         </div>
 
-                        <DialogFooter>
+                        <DialogFooter className="shrink-0 gap-2 border-t bg-background px-6 py-4 sm:flex-row sm:justify-end">
                             <Button
                                 type="button"
                                 variant="outline"
                                 onClick={onClose}
                                 disabled={isSubmitting}
+                                className="w-full sm:w-auto"
                             >
                                 Cancel
                             </Button>
                             <Button
                                 type="submit"
                                 disabled={isSubmitting || !options?.can_assign || sectors.length === 0}
+                                className="min-w-0 w-full sm:w-auto"
                             >
-                                {isSubmitting
-                                    ? "Assigning..."
-                                    : isExclusive && hasActiveAssignment
-                                      ? "Reassign Sector"
-                                      : "Assign Sector"}
+                                <span className="truncate">
+                                    {isSubmitting
+                                        ? "Assigning..."
+                                        : isExclusive && hasActiveAssignment
+                                          ? "Reassign Sector"
+                                          : "Assign Sector"}
+                                </span>
                             </Button>
                         </DialogFooter>
                     </form>

@@ -187,8 +187,8 @@ export function AssignInternalModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[520px]">
-                <DialogHeader>
+            <DialogContent className="flex w-[calc(100%-2rem)] max-h-[min(90dvh,720px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[520px] top-[max(1rem,5dvh)] translate-y-0 sm:top-[50%] sm:-translate-y-1/2">
+                <DialogHeader className="shrink-0 px-6 pt-6 pb-4 pr-12">
                     <DialogTitle>
                         Assign {allowDepartment && !allowUser
                             ? "Department"
@@ -198,39 +198,44 @@ export function AssignInternalModal({
                     </DialogTitle>
                 </DialogHeader>
 
-                {isExclusive && hasActiveAssignment && (
-                    <p className="text-sm text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
-                        Exclusive mode: assigning a new target will replace the current active assignment.
-                        Previous assignments are kept in history.
-                    </p>
-                )}
-
-                {effectiveOptions?.assignment_sharing_mode === "shared" && (
-                    <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
-                        Shared mode: this node can hold multiple active assignments. Sharing mode is
-                        independent of the parent node.
-                    </p>
-                )}
-
-                {effectiveOptions?.parent_context && (
-                    <p className="text-sm text-gray-600 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
-                        Parent assigned to:{" "}
-                        <span className="font-semibold text-gray-900">
-                            {effectiveOptions.parent_context.label}
-                        </span>{" "}
-                        ({effectiveOptions.parent_context.type})
-                    </p>
-                )}
-
-                {effectiveOptions?.message && (
-                    <p className="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                        {effectiveOptions.message}
-                    </p>
-                )}
-
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        {supportsBranchSelection && (
+                    <form
+                        onSubmit={form.handleSubmit(onSubmit)}
+                        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+                    >
+                        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6">
+                            <div className="space-y-4 pb-4">
+                                {isExclusive && hasActiveAssignment && (
+                                    <p className="break-words rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                                        Exclusive mode: assigning a new target will replace the current active assignment.
+                                        Previous assignments are kept in history.
+                                    </p>
+                                )}
+
+                                {effectiveOptions?.assignment_sharing_mode === "shared" && (
+                                    <p className="break-words rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                                        Shared mode: this node can hold multiple active assignments. Sharing mode is
+                                        independent of the parent node.
+                                    </p>
+                                )}
+
+                                {effectiveOptions?.parent_context && (
+                                    <p className="break-words rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+                                        Parent assigned to:{" "}
+                                        <span className="font-semibold text-gray-900">
+                                            {effectiveOptions.parent_context.label}
+                                        </span>{" "}
+                                        ({effectiveOptions.parent_context.type})
+                                    </p>
+                                )}
+
+                                {effectiveOptions?.message && (
+                                    <p className="break-words rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                                        {effectiveOptions.message}
+                                    </p>
+                                )}
+
+                                {supportsBranchSelection && (
                             <FormItem>
                                 <FormLabel>Branch Assignment Mode</FormLabel>
                                 <FormDescription>
@@ -266,7 +271,7 @@ export function AssignInternalModal({
                                     value={branchExternalId ?? branchInternalId ?? ""}
                                 >
                                     <FormControl>
-                                        <SelectTrigger>
+                                        <SelectTrigger className="min-w-0">
                                             <SelectValue placeholder="Select parent branch" />
                                         </SelectTrigger>
                                     </FormControl>
@@ -338,7 +343,7 @@ export function AssignInternalModal({
                                             disabled={isLoadingOptions || !effectiveOptions?.can_assign}
                                         >
                                             <FormControl>
-                                                <SelectTrigger>
+                                                <SelectTrigger className="min-w-0">
                                                     <SelectValue placeholder={
                                                         isLoadingOptions
                                                             ? "Loading users..."
@@ -373,7 +378,7 @@ export function AssignInternalModal({
                                             disabled={isLoadingOptions || !effectiveOptions?.can_assign}
                                         >
                                             <FormControl>
-                                                <SelectTrigger>
+                                                <SelectTrigger className="min-w-0">
                                                     <SelectValue placeholder={
                                                         isLoadingOptions
                                                             ? "Loading departments..."
@@ -412,7 +417,7 @@ export function AssignInternalModal({
                                             value={field.value}
                                         >
                                             <FormControl>
-                                                <SelectTrigger>
+                                                <SelectTrigger className="min-w-0">
                                                     <SelectValue placeholder="Select an action" />
                                                 </SelectTrigger>
                                             </FormControl>
@@ -432,13 +437,16 @@ export function AssignInternalModal({
                                 )}
                             />
                         )}
+                            </div>
+                        </div>
 
-                        <DialogFooter className="mt-6">
+                        <DialogFooter className="shrink-0 gap-2 border-t bg-background px-6 py-4 sm:flex-row sm:justify-end">
                             <Button
                                 type="button"
                                 variant="outline"
                                 onClick={onClose}
                                 disabled={isSubmitting}
+                                className="w-full sm:w-auto"
                             >
                                 Cancel
                             </Button>
@@ -451,14 +459,17 @@ export function AssignInternalModal({
                                     (assignmentType === "user" && users.length === 0) ||
                                     (assignmentType === "structure" && departments.length === 0)
                                 }
+                                className="min-w-0 w-full sm:w-auto"
                             >
-                                {isSubmitting
-                                    ? "Assigning..."
-                                    : isExclusive && hasActiveAssignment
-                                      ? "Reassign"
-                                      : branchMode === "auto" && allowPropagateAll
-                                        ? "Assign All Branches"
-                                        : "Assign"}
+                                <span className="truncate">
+                                    {isSubmitting
+                                        ? "Assigning..."
+                                        : isExclusive && hasActiveAssignment
+                                          ? "Reassign"
+                                          : branchMode === "auto" && allowPropagateAll
+                                            ? "Assign All Branches"
+                                            : "Assign"}
+                                </span>
                             </Button>
                         </DialogFooter>
                     </form>

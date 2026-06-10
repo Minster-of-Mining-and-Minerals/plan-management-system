@@ -394,18 +394,14 @@ async function getDefaultBranchContext(parentNode, transaction) {
 }
 
 async function deactivateActiveAssignmentsForNode(planNodeId, assignmentType, transaction) {
+  const updateOptions = { where: { plan_node_id: planNodeId, is_active: true }, transaction, validate: false };
+
   if (assignmentType === "external") {
-    await ExternalAssignment.update(
-      { is_active: false },
-      { where: { plan_node_id: planNodeId, is_active: true }, transaction }
-    );
+    await ExternalAssignment.update({ is_active: false }, updateOptions);
     return;
   }
 
-  await InternalAssignment.update(
-    { is_active: false },
-    { where: { plan_node_id: planNodeId, is_active: true }, transaction }
-  );
+  await InternalAssignment.update({ is_active: false }, updateOptions);
 }
 
 async function getAssignmentOptionsForNode(planNodeId, transaction = null, branchContext = {}) {
