@@ -16,6 +16,7 @@ import { getHierarchyNumber, sortPlanNodes } from "@/utils/planNodeOrderUtils";
 import { PlanNodeIcon } from "./PlanNodeIcon";
 import { PlanNodeHierarchyNumber } from "./PlanNodeHierarchyNumber";
 import { PlanNodeAssignmentSummary } from "./PlanNodeAssignmentSummary";
+import { PlanNodeAnnualTargetSection } from "./PlanNodeAnnualTargetSection";
 import { PlanNodeActions } from "./PlanNodeActions";
 import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
 
@@ -35,6 +36,9 @@ interface NodeItemProps {
     isReordering?: boolean;
     readOnly?: boolean;
     configuredUnits?: TargetUnit[];
+    hideAssignments?: boolean;
+    showAnnualTargets?: boolean;
+    canEditAnnualTarget?: boolean;
 }
 
 const NodeItem = ({
@@ -53,6 +57,9 @@ const NodeItem = ({
     isReordering = false,
     readOnly = false,
     configuredUnits,
+    hideAssignments = false,
+    showAnnualTargets = false,
+    canEditAnnualTarget = false,
 }: NodeItemProps) => {
     const hierarchyNumber = getHierarchyNumber(hierarchyNumberMap, node.plan_node_id);
     const [isExpanded, setIsExpanded] = useState(true);
@@ -103,7 +110,7 @@ const NodeItem = ({
                             <Badge variant="outline" className="text-[10px] uppercase font-bold py-0 h-4 shrink-0">
                                 {levelLabel}
                             </Badge>
-                            {stepRequiresWeight(rule, node.level) && node.weight > 0 && (
+                            {stepRequiresWeight(rule, node.level) && node.weight > 0 && !showAnnualTargets && (
                                 <Badge
                                     variant="secondary"
                                     className="text-[10px] py-0 h-4 bg-blue-50 text-blue-700 border-blue-100 shrink-0"
@@ -125,7 +132,16 @@ const NodeItem = ({
                         {node.description && (
                             <p className="text-xs text-gray-500 line-clamp-1">{node.description}</p>
                         )}
-                        <PlanNodeAssignmentSummary node={node} />
+                        {showAnnualTargets && (
+                            <PlanNodeAnnualTargetSection
+                                node={node}
+                                rule={rule}
+                                configuredUnits={configuredUnits}
+                                canEdit={canEditAnnualTarget}
+                                variant="compact"
+                            />
+                        )}
+                        {!hideAssignments && <PlanNodeAssignmentSummary node={node} />}
                     </div>
                 </div>
 
@@ -179,6 +195,9 @@ const NodeItem = ({
                             isReordering={isReordering}
                             readOnly={readOnly}
                             configuredUnits={configuredUnits}
+                            hideAssignments={hideAssignments}
+                            showAnnualTargets={showAnnualTargets}
+                            canEditAnnualTarget={canEditAnnualTarget}
                         />
                     ))}
                 </div>
@@ -201,6 +220,9 @@ interface PlanHierarchyTreeProps {
     /** When true, only render direct nodes without expanding nested children inline */
     scoped?: boolean;
     readOnly?: boolean;
+    hideAssignments?: boolean;
+    showAnnualTargets?: boolean;
+    canEditAnnualTarget?: boolean;
 }
 
 export function PlanHierarchyTree({
@@ -216,6 +238,9 @@ export function PlanHierarchyTree({
     isReordering = false,
     scoped = false,
     readOnly = false,
+    hideAssignments = false,
+    showAnnualTargets = false,
+    canEditAnnualTarget = false,
 }: PlanHierarchyTreeProps) {
     const { data: planningConfig } = useGetPlanningConfigurationQuery();
     const configuredUnits = planningConfig?.target_units;
@@ -242,6 +267,9 @@ export function PlanHierarchyTree({
                         isReordering={isReordering}
                         readOnly={readOnly}
                         configuredUnits={configuredUnits}
+                        hideAssignments={hideAssignments}
+                        showAnnualTargets={showAnnualTargets}
+                        canEditAnnualTarget={canEditAnnualTarget}
                     />
                 ))}
             </div>
@@ -268,6 +296,9 @@ export function PlanHierarchyTree({
                     isReordering={isReordering}
                     readOnly={readOnly}
                     configuredUnits={configuredUnits}
+                    hideAssignments={hideAssignments}
+                    showAnnualTargets={showAnnualTargets}
+                    canEditAnnualTarget={canEditAnnualTarget}
                 />
             ))}
         </div>

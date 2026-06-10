@@ -130,6 +130,12 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
     const isAnnualVersion = version?.version_kind === "annual";
     const isExecutionPeriod = version?.version_kind === "execution_period";
     const isReadOnlyHierarchy = !isMasterDraft;
+    const hideAssignments = isAnnualVersion;
+    const showAnnualTargets = isAnnualVersion;
+    const canEditAnnualTarget =
+        isAnnualVersion &&
+        version?.status === "active" &&
+        !version?.is_locked;
     const showAnnualDashboard =
         version?.version_kind === "master" &&
         (version?.status === "finalized" ||
@@ -428,6 +434,9 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                         onMoveNode={handleMoveNode}
                         isReordering={isReordering}
                         readOnly={isReadOnlyHierarchy}
+                        hideAssignments={hideAssignments}
+                        showAnnualTargets={showAnnualTargets}
+                        canEditAnnualTarget={canEditAnnualTarget}
                     />
                 ) : (
                     emptyState
@@ -439,6 +448,8 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                         hierarchyNumberMap={hierarchyNumberMap}
                         rule={rule}
                         showDualTargets={isAnnualVersion || isExecutionPeriod}
+                        hideAssignments={hideAssignments}
+                        canEditAnnualTarget={canEditAnnualTarget}
                         onAddChild={handleAddChild}
                         onEdit={handleEdit}
                         onDelete={handleDelete}
@@ -467,6 +478,9 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     isReordering={isReordering}
                     scoped={false}
                     readOnly={isReadOnlyHierarchy}
+                    hideAssignments={hideAssignments}
+                    showAnnualTargets={showAnnualTargets}
+                    canEditAnnualTarget={canEditAnnualTarget}
                 />
             ) : currentNodes.length > 0 ? (
                 <PlanHierarchyTree
@@ -482,6 +496,9 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     isReordering={isReordering}
                     scoped
                     readOnly={isReadOnlyHierarchy}
+                    hideAssignments={hideAssignments}
+                    showAnnualTargets={showAnnualTargets}
+                    canEditAnnualTarget={canEditAnnualTarget}
                 />
             ) : (
                 emptyState

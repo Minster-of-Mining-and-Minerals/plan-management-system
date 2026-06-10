@@ -34,6 +34,7 @@ import { PerformanceColorBadge } from "./PerformanceColorBadge";
 import { PlanNodeIcon } from "./PlanNodeIcon";
 import { PlanNodeHierarchyNumber } from "./PlanNodeHierarchyNumber";
 import { PlanNodeAssignmentSummary } from "./PlanNodeAssignmentSummary";
+import { PlanNodeAnnualTargetSection } from "./PlanNodeAnnualTargetSection";
 import { cn } from "@/lib/utils";
 
 interface PlanHierarchyTableViewProps {
@@ -48,6 +49,9 @@ interface PlanHierarchyTableViewProps {
     onMoveNode?: (nodeId: string, direction: "up" | "down", siblings: PlanNode[]) => void;
     isReordering?: boolean;
     readOnly?: boolean;
+    hideAssignments?: boolean;
+    showAnnualTargets?: boolean;
+    canEditAnnualTarget?: boolean;
 }
 
 interface StrategicFocusTableProps {
@@ -65,6 +69,9 @@ interface StrategicFocusTableProps {
     isReordering?: boolean;
     readOnly?: boolean;
     defaultOpen?: boolean;
+    hideAssignments?: boolean;
+    showAnnualTargets?: boolean;
+    canEditAnnualTarget?: boolean;
 }
 
 function StrategicFocusTable({
@@ -82,6 +89,9 @@ function StrategicFocusTable({
     isReordering = false,
     readOnly = false,
     defaultOpen = false,
+    hideAssignments = false,
+    showAnnualTargets = false,
+    canEditAnnualTarget = false,
 }: StrategicFocusTableProps) {
     const { data: planningConfig } = useGetPlanningConfigurationQuery();
     const configuredUnits = planningConfig?.target_units;
@@ -147,7 +157,19 @@ function StrategicFocusTable({
                             {root.description}
                         </p>
                     )}
-                    <PlanNodeAssignmentSummary node={root} className="mt-1" />
+                    {!hideAssignments && (
+                        <PlanNodeAssignmentSummary node={root} className="mt-1" />
+                    )}
+                    {showAnnualTargets && (
+                        <PlanNodeAnnualTargetSection
+                            node={root}
+                            rule={rule}
+                            configuredUnits={configuredUnits}
+                            canEdit={canEditAnnualTarget}
+                            variant="compact"
+                            className="mt-2"
+                        />
+                    )}
                 </div>
                 <div onClick={(e) => e.stopPropagation()}>
                     <PlanNodeActions
@@ -188,10 +210,19 @@ function StrategicFocusTable({
                                 <TableHead className="w-[72px]">No.</TableHead>
                                 <TableHead className="w-[100px]">Level</TableHead>
                                 <TableHead className="min-w-[220px]">Title</TableHead>
-                                <TableHead className="min-w-[140px]">Target</TableHead>
+                                <TableHead className="min-w-[140px]">
+                                    {showAnnualTargets ? "Draft Target" : "Target"}
+                                </TableHead>
+                                {showAnnualTargets && (
+                                    <TableHead className="min-w-[180px]">Annual Target</TableHead>
+                                )}
                                 <TableHead className="min-w-[120px]">Performance</TableHead>
-                                <TableHead className="min-w-[160px]">Assigned to</TableHead>
-                                <TableHead className="w-[100px]">Mode</TableHead>
+                                {!hideAssignments && (
+                                    <TableHead className="min-w-[160px]">Assigned to</TableHead>
+                                )}
+                                {!hideAssignments && (
+                                    <TableHead className="w-[100px]">Mode</TableHead>
+                                )}
                                 <TableHead className="w-[180px] text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -276,6 +307,22 @@ function StrategicFocusTable({
                                                 <span className="text-muted-foreground">—</span>
                                             )}
                                         </TableCell>
+                                        {showAnnualTargets && (
+                                            <TableCell className="whitespace-normal">
+                                                {showTarget ? (
+                                                    <PlanNodeAnnualTargetSection
+                                                        node={node}
+                                                        rule={rule}
+                                                        configuredUnits={configuredUnits}
+                                                        canEdit={canEditAnnualTarget}
+                                                        variant="table"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                ) : (
+                                                    <span className="text-muted-foreground">—</span>
+                                                )}
+                                            </TableCell>
+                                        )}
                                         <TableCell>
                                             <div className="flex items-center gap-2">
                                                 <span
@@ -291,22 +338,26 @@ function StrategicFocusTable({
                                                 />
                                             </div>
                                         </TableCell>
-                                        <TableCell className="whitespace-normal">
-                                            <PlanNodeAssignmentSummary node={node} />
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge
-                                                variant="outline"
-                                                className={cn(
-                                                    "text-[10px] capitalize",
-                                                    node.assignment_sharing_mode === "shared"
-                                                        ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                                                        : "bg-slate-50 text-slate-700 border-slate-200"
-                                                )}
-                                            >
-                                                {node.assignment_sharing_mode}
-                                            </Badge>
-                                        </TableCell>
+                                        {!hideAssignments && (
+                                            <TableCell className="whitespace-normal">
+                                                <PlanNodeAssignmentSummary node={node} />
+                                            </TableCell>
+                                        )}
+                                        {!hideAssignments && (
+                                            <TableCell>
+                                                <Badge
+                                                    variant="outline"
+                                                    className={cn(
+                                                        "text-[10px] capitalize",
+                                                        node.assignment_sharing_mode === "shared"
+                                                            ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                                                            : "bg-slate-50 text-slate-700 border-slate-200"
+                                                    )}
+                                                >
+                                                    {node.assignment_sharing_mode}
+                                                </Badge>
+                                            </TableCell>
+                                        )}
                                         <TableCell className="text-right">
                                             <div className="flex justify-end">
                                                 <PlanNodeActions
@@ -375,6 +426,9 @@ export function PlanHierarchyTableView({
     onMoveNode,
     isReordering = false,
     readOnly = false,
+    hideAssignments = false,
+    showAnnualTargets = false,
+    canEditAnnualTarget = false,
 }: PlanHierarchyTableViewProps) {
     const sortedRoots = useMemo(() => sortPlanNodes(roots), [roots]);
 
@@ -401,6 +455,9 @@ export function PlanHierarchyTableView({
                     isReordering={isReordering}
                     readOnly={readOnly}
                     defaultOpen={index === 0}
+                    hideAssignments={hideAssignments}
+                    showAnnualTargets={showAnnualTargets}
+                    canEditAnnualTarget={canEditAnnualTarget}
                 />
             ))}
         </div>

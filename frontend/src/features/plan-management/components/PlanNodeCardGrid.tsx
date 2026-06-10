@@ -7,7 +7,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PlanNodeHierarchy, PlanNode, PlanRule } from "@/redux/types/plan";
 import {
     formatNodeTarget,
-    formatNodeWeight,
     getStepLabel,
     stepRequiresWeight,
 } from "@/utils/planRuleUtils";
@@ -23,12 +22,15 @@ import { PerformanceColorBadge } from "./PerformanceColorBadge";
 import { getHierarchyNumber, sortPlanNodes } from "@/utils/planNodeOrderUtils";
 import { PlanNodeHierarchyNumber } from "./PlanNodeHierarchyNumber";
 import { PlanNodeAssignmentSummary } from "./PlanNodeAssignmentSummary";
+import { PlanNodeAnnualTargetSection } from "./PlanNodeAnnualTargetSection";
 
 interface PlanNodeCardGridProps {
     nodes: PlanNodeHierarchy[];
     hierarchyNumberMap: Map<string, string>;
     rule?: PlanRule | null;
     showDualTargets?: boolean;
+    hideAssignments?: boolean;
+    canEditAnnualTarget?: boolean;
     onAddChild: (parent: PlanNode) => void;
     onEdit: (node: PlanNode) => void;
     onDelete: (id: string) => void;
@@ -44,6 +46,8 @@ export function PlanNodeCardGrid({
     hierarchyNumberMap,
     rule,
     showDualTargets = false,
+    hideAssignments = false,
+    canEditAnnualTarget = false,
     onAddChild,
     onEdit,
     onDelete,
@@ -84,23 +88,6 @@ export function PlanNodeCardGrid({
                 };
                 const requiresWeight = stepRequiresWeight(rule, node.level);
                 const hasDraftTarget = requiresWeight && node.weight > 0;
-                const draftTargetValue = hasDraftTarget
-                    ? formatNodeWeight(
-                          node.weight,
-                          nodeWeightMode,
-                          node.target_unit,
-                          configuredUnits
-                      )
-                    : "";
-                const annualTargetValue =
-                    node.annual_target != null && node.annual_target > 0
-                        ? formatNodeWeight(
-                              node.annual_target,
-                              nodeWeightMode,
-                              node.target_unit,
-                              configuredUnits
-                          )
-                        : null;
 
                 return (
                     <Card
@@ -184,33 +171,14 @@ export function PlanNodeCardGrid({
                                         </div>
 
                                         {showDualTargets && hasDraftTarget && (
-                                            <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50/90 to-white px-3.5 py-3">
-                                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                                    <div className="min-w-0">
-                                                        <p className="text-[10px] font-bold uppercase tracking-wider text-blue-700/80">
-                                                            Draft Target
-                                                        </p>
-                                                        <p className="mt-0.5 text-2xl font-bold leading-tight text-blue-950 truncate" title={draftTargetValue}>
-                                                            {draftTargetValue}
-                                                        </p>
-                                                    </div>
-                                                    <div className="min-w-0 sm:border-l sm:border-blue-100 sm:pl-3">
-                                                        <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700/80">
-                                                            Annual Target
-                                                        </p>
-                                                        <p
-                                                            className={`mt-0.5 text-2xl font-bold leading-tight truncate ${
-                                                                annualTargetValue
-                                                                    ? "text-emerald-950"
-                                                                    : "text-gray-400 italic text-lg"
-                                                            }`}
-                                                            title={annualTargetValue ?? "Not yet defined"}
-                                                        >
-                                                            {annualTargetValue ?? "Not yet defined"}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                            <PlanNodeAnnualTargetSection
+                                                node={node}
+                                                rule={rule}
+                                                configuredUnits={configuredUnits}
+                                                canEdit={canEditAnnualTarget}
+                                                variant="card"
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
                                         )}
 
                                         <h3 className="flex items-start gap-2 text-lg font-bold text-gray-900 leading-snug">
@@ -235,7 +203,9 @@ export function PlanNodeCardGrid({
                                         ) : (
                                             <p className="text-sm text-gray-400 italic">No description</p>
                                         )}
-                                        <PlanNodeAssignmentSummary node={node} />
+                                        {!hideAssignments && (
+                                            <PlanNodeAssignmentSummary node={node} />
+                                        )}
                                     </div>
 
                                     <div className="flex items-center justify-between pt-2 border-t border-gray-100">

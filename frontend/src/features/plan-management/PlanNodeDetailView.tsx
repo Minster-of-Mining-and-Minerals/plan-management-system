@@ -414,6 +414,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                                         )}
                                     </Badge>
                                 )}
+                                {version?.version_kind !== "annual" && (
                                 <Badge
                                     variant="outline"
                                     className={
@@ -425,6 +426,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                                     <GitBranch className="h-3 w-3 mr-1" />
                                     {sharingMode === "shared" ? "Shared" : "Exclusive"}
                                 </Badge>
+                                )}
                             </div>
                             <p className="text-gray-600 leading-relaxed">
                                 {node.description || "No description provided."}
@@ -572,6 +574,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                 </CardContent>
             </Card>
 
+            {version?.version_kind !== "annual" && (
             <div className="w-full bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
                 <div className="flex items-center justify-between mb-4 px-2">
                     <h3 className="text-xl font-bold text-golden-dark">Assignments</h3>
@@ -618,6 +621,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                     />
                 </TableLayout>
             </div>
+            )}
 
             <AssignInternalModal
                 isOpen={isInternalModalOpen}
