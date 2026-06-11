@@ -1290,23 +1290,6 @@ module.exports = {
       }
 
       if (annual.planning_year === 2026) {
-        const annualAssignmentPayload = {
-          external: newExternal.map(({ created_at, updated_at, ...rest }) => rest),
-          internal: newInternal.map(({ created_at, updated_at, ...rest }) => rest),
-        };
-
-        const periodNodeMaps = await seedExecutionPeriods({
-          queryInterface,
-          annual,
-          annualNodes,
-          nodeIdMap,
-          annualAssignmentPayload,
-          now,
-        });
-
-        const q1NodeMap = periodNodeMaps.get(IDS.PERIOD_2026_Q1);
-        const q2NodeMap = periodNodeMaps.get(IDS.PERIOD_2026_Q2);
-
         const actionLogs = [
           {
             action_log_id: uuidv4(),
@@ -1346,50 +1329,6 @@ module.exports = {
           },
         ];
 
-        if (q1NodeMap) {
-          actionLogs.push(
-            {
-              action_log_id: uuidv4(),
-              plan_node_id: q1NodeMap.get(nodeIdMap.get(TASK.G1_K2_T1)),
-              action_id: actionMap.EXECUTION,
-              user_id: userGeologySenior,
-              comment: "Q1 gold production reporting: 18.5 tons achieved against 20 ton target.",
-              status: "approved",
-              created_at: now,
-            },
-            {
-              action_log_id: uuidv4(),
-              plan_node_id: q1NodeMap.get(nodeIdMap.get(TASK.G3_K1_T1)),
-              action_id: actionMap.EXECUTION,
-              user_id: userInvestmentCoordinator,
-              comment: "Q1 investor forum completed — 12 MOUs signed (100M ETB target on track).",
-              status: "approved",
-              created_at: now,
-            },
-            {
-              action_log_id: uuidv4(),
-              plan_node_id: q1NodeMap.get(nodeIdMap.get(TASK.G2_K1_T1)),
-              action_id: actionMap.EXECUTION,
-              user_id: userMappingHead,
-              comment: "Q1 mapping: 9 priority geological sheets digitized and published.",
-              status: "approved",
-              created_at: now,
-            }
-          );
-        }
-
-        if (q2NodeMap) {
-          actionLogs.push({
-            action_log_id: uuidv4(),
-            plan_node_id: q2NodeMap.get(nodeIdMap.get(TASK.G3_K2_T1)),
-            action_id: actionMap.EXECUTION,
-            user_id: userLicensingOfficer,
-            comment: "Q2 licensing backlog reduction in progress — 12% cleared in first month.",
-            status: "submitted",
-            created_at: now,
-          });
-        }
-
         const tables = await queryInterface.showAllTables();
         const tableNames = tables.map((t) => (typeof t === "string" ? t : Object.values(t)[0]));
         if (tableNames.includes("plan_node_action_logs")) {
@@ -1414,18 +1353,8 @@ module.exports = {
     console.log("    Exclusive assignment: Licensing Service Improvement → Licensing only");
     console.log("");
     console.log("  ANNUAL VERSIONS");
-    console.log("    2026 — active (year 1 execution)");
-    console.log("      Annual targets: Gold 90t, Investment 400M ETB, Mapping 35 sheets, Licensing 15%");
-    console.log("    2027 — locked (year 2, partial targets pre-allocated: Gold 100t, Investment 500M ETB)");
-    console.log("    2028 — locked (year 3, no targets yet)");
-    console.log("");
-    console.log("  EXECUTION PERIODS (2026 quarterly breakdown)");
-    console.log("    Q1 — completed (period targets allocated, action logs recorded)");
-    console.log("      Gold: 20t | Investment: 100M ETB | Mapping: 9 | Licensing: 4%");
-    console.log("    Q2 — active (period targets allocated, in-progress action logs)");
-    console.log("      Gold: 25t | Investment: 100M ETB | Mapping: 9 | Licensing: 4%");
-    console.log("    Q3 — locked | Q4 — locked");
-    console.log("    Full-year period splits sum to annual targets (e.g. Gold 20+25+20+25 = 90t)");
+    console.log("    2026 / 2027 / 2028 — open for annual target setting");
+    console.log("    Execution periods: initialize from the UI after annual execution is finalized");
     console.log("");
     console.log("  TARGET CASCADE");
     console.log("    Draft → Annual: sum across years ≤ draft target");

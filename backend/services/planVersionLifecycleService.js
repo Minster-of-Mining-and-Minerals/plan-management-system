@@ -7,6 +7,7 @@ const {
     PlanNode,
     ExternalAssignment,
     InternalAssignment,
+    PlanNodeActionLog,
     sequelize,
 } = require("../models");
 const { resolvePlanRuleForVersion } = require("./planRuleService");
@@ -799,6 +800,46 @@ async function generateExecutionPeriods(annualVersionId, transaction, options = 
     return { success: true, executionPeriods };
 }
 
+/** Removes execution period versions that exist without a formal initialize action (e.g. legacy seed data). */
+async function deleteUninitializedExecutionPeriodsForAnnual(annualVersionId, transaction) {
+    const periods = await PlanVersion.findAll({
+        where: {
+            parent_plan_version_id: annualVersionId,
+            version_kind: "execution_period",
+        },
+        transaction,
+    });
+
+    if (periods.length === 0) {
+        return;
+    }
+
+    const periodVersionIds = periods.map((period) => period.plan_version_id);
+    const nodes = await PlanNode.findAll({
+        where: { plan_version_id: periodVersionIds },
+        attributes: ["plan_node_id"],
+        transaction,
+    });
+    const nodeIds = nodes.map((node) => node.plan_node_id);
+
+    if (nodeIds.length > 0) {
+        if (PlanNodeActionLog) {
+            await PlanNodeActionLog.destroy({
+                where: { plan_node_id: nodeIds },
+                transaction,
+            });
+        }
+        await ExternalAssignment.destroy({ where: { plan_node_id: nodeIds }, transaction });
+        await InternalAssignment.destroy({ where: { plan_node_id: nodeIds }, transaction });
+        await PlanNode.destroy({ where: { plan_version_id: periodVersionIds }, transaction });
+    }
+
+    await PlanVersion.destroy({
+        where: { plan_version_id: periodVersionIds },
+        transaction,
+    });
+}
+
 async function initializeExecutionPeriodsForMaster(masterVersionId, subdivisionMode, customPeriods = []) {
     const t = await sequelize.transaction();
     try {
@@ -850,11 +891,17 @@ async function initializeExecutionPeriodsForMaster(masterVersionId, subdivisionM
             });
 
             if (existingCount > 0) {
-                await t.rollback();
-                return {
-                    success: false,
-                    message: `Execution periods already exist for ${annualVersion.planning_year ?? annualVersion.year}`,
-                };
+                if (annualVersion.period_subdivision_mode) {
+                    await t.rollback();
+                    return {
+                        success: false,
+                        message: `Execution periods have already been initialized for ${annualVersion.planning_year ?? annualVersion.year}`,
+                    };
+                }
+                await deleteUninitializedExecutionPeriodsForAnnual(
+                    annualVersion.plan_version_id,
+                    t
+                );
             }
         }
 
