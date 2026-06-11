@@ -16,7 +16,7 @@ const {
 const { v4: uuidv4, validate: isUuid } = require("uuid");
 const { Op } = require("sequelize");
 const { buildDraftAlignedSortMeta, sortHierarchyTree, enrichPeriodNodesWithLiveAnnualTargets } = require("../../utils/planHierarchyUtils");
-const { validatePlanNodeAgainstRule } = require("../../services/planRuleService");
+const { getNextSiblingOrder } = require("../../utils/planNodeOrderUtils");
 const { isWeightModeSelectionLevel } = require("../../services/planRuleStepUtils");
 const {
     getOrCreateGlobalPlanningConfig,
@@ -572,7 +572,6 @@ const createPlanNode = async (req, res) => {
             weight_mode,
             target_unit,
             level,
-            order,
             assignment_sharing_mode,
         } = req.body;
 
@@ -651,18 +650,11 @@ const createPlanNode = async (req, res) => {
             });
         }
 
-        let nodeOrder = order;
-        if (nodeOrder === undefined || nodeOrder === null) {
-            const maxOrder = await PlanNode.max("order", {
-                where: {
-                    plan_version_id,
-                    parent_id: parent_id || null,
-                    is_active: true,
-                },
-                transaction: t,
-            });
-            nodeOrder = Number.isFinite(maxOrder) ? maxOrder + 1 : 0;
-        }
+        const nodeOrder = await getNextSiblingOrder(
+            plan_version_id,
+            parent_id || null,
+            t
+        );
 
         const planNode = await PlanNode.create(
             {
