@@ -237,6 +237,7 @@ export const planApi = baseApi.injectEndpoints({
                 { type: "PlanNodes", id },
                 "PlanNodes",
                 "AnnualTargetAllocations",
+                "PeriodTargetAllocations",
             ],
         }),
 
