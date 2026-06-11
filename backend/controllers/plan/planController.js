@@ -15,8 +15,18 @@ const {
 
 const { v4: uuidv4, validate: isUuid } = require("uuid");
 const { Op } = require("sequelize");
-const { buildDraftAlignedSortMeta, sortHierarchyTree, enrichPeriodNodesWithLiveAnnualTargets } = require("../../utils/planHierarchyUtils");
-const { getNextSiblingOrder, propagateOrderFromMasterPlanNode } = require("../../utils/planNodeOrderUtils");
+const {
+    buildDraftAlignedSortMeta,
+    sortHierarchyTree,
+    sortFlatPlanNodes,
+    enrichPeriodNodesWithLiveAnnualTargets,
+} = require("../../utils/planHierarchyUtils");
+const {
+    getNextSiblingOrder,
+    propagateOrderFromMasterPlanNode,
+    validateMasterDraftReorderNodes,
+    syncAllDerivedOrdersFromMaster,
+} = require("../../utils/planNodeOrderUtils");
 const { isWeightModeSelectionLevel } = require("../../services/planRuleStepUtils");
 const {
     getOrCreateGlobalPlanningConfig,
@@ -719,9 +729,21 @@ const getPlanNodes = async (req, res) => {
             order: [["order", "ASC"], ["created_at", "ASC"]],
         });
 
+        let data = nodes.map((node) => node.toJSON());
+
+        if (plan_version_id) {
+            const planVersion = await PlanVersion.findByPk(plan_version_id, {
+                attributes: ["plan_version_id", "version_kind", "parent_plan_version_id"],
+            });
+            if (planVersion && planVersion.version_kind !== "master") {
+                const sortMetaByNodeId = await buildDraftAlignedSortMeta(planVersion, nodes);
+                data = sortFlatPlanNodes(planVersion, data, sortMetaByNodeId);
+            }
+        }
+
         return res.json({
             success: true,
-            data: nodes,
+            data,
         });
     } catch (error) {
         return res.status(500).json({ error: error.message });
@@ -910,9 +932,11 @@ const updatePlanNode = async (req, res) => {
             }
         }
 
+        const { order: _ignoredOrder, ...updateFields } = req.body;
+
         await planNode.update(
             {
-                ...req.body,
+                ...updateFields,
                 level: nextLevel,
                 weight_mode: ruleCheck.weightMode || null,
                 target_unit: unitCheck.targetUnit,
@@ -1093,12 +1117,20 @@ const getPlanHierarchy = async (req, res) => {
     }
 };
 
-// Reorder nodes
+// Reorder nodes (draft master only — derived versions inherit the same order)
 const reorderPlanNodes = async (req, res) => {
     const t = await sequelize.transaction();
     try {
         const { parent_id, nodeOrders } = req.body;
-        // nodeOrders: [{ plan_node_id, order }]
+
+        const validation = await validateMasterDraftReorderNodes(nodeOrders, parent_id, t);
+        if (!validation.valid) {
+            await t.rollback();
+            return res.status(400).json({
+                success: false,
+                message: validation.message,
+            });
+        }
 
         for (const item of nodeOrders) {
             await PlanNode.update(
@@ -1110,6 +1142,8 @@ const reorderPlanNodes = async (req, res) => {
             );
             await propagateOrderFromMasterPlanNode(item.plan_node_id, item.order, t);
         }
+
+        await syncAllDerivedOrdersFromMaster(validation.masterVersionId, t);
 
         await t.commit();
 

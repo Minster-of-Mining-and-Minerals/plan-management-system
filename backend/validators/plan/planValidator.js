@@ -114,8 +114,6 @@ const createPlanNodeSchema = Joi.object({
 
     level: Joi.number().integer().min(1).optional(),
 
-    order: Joi.number().integer().min(0).default(0).optional(),
-
     assignment_sharing_mode: Joi.string().valid("exclusive", "shared").default("exclusive").optional(),
 });
 
@@ -128,7 +126,9 @@ const updatePlanNodeSchema = Joi.object({
     weight_mode: Joi.string().valid("number", "percentage", "frequency").allow(null).optional(),
     target_unit: Joi.string().trim().max(50).allow(null).optional(),
     level: Joi.number().integer().min(1).optional(),
-    order: Joi.number().integer().min(0).optional(),
+    order: Joi.forbidden().messages({
+        "any.unknown": "Use the reorder endpoint to change node order on the draft master plan",
+    }),
     is_active: Joi.boolean().optional(),
     assignment_sharing_mode: Joi.string().valid("exclusive", "shared").optional(),
 });

@@ -14,7 +14,7 @@ function localNodeSortMeta(node) {
     return { order: node.order ?? 0, created_at: node.created_at ?? null };
 }
 
-/** Sort metadata from each node's own assigned order (per sibling level). */
+/** Sort metadata from each node's own assigned order (master draft only). */
 function buildLocalSortMeta(nodes) {
     const meta = new Map();
     for (const node of nodes) {
@@ -100,6 +100,16 @@ function sortHierarchyTree(nodes, sortMetaByNodeId) {
     return sorted;
 }
 
+/** Sort a flat node list using draft-aligned metadata (for non-master list endpoints). */
+function sortFlatPlanNodes(planVersion, nodes, sortMetaByNodeId) {
+    return [...nodes].sort((a, b) =>
+        compareSortMeta(
+            sortMetaByNodeId.get(a.plan_node_id) ?? localNodeSortMeta(a),
+            sortMetaByNodeId.get(b.plan_node_id) ?? localNodeSortMeta(b)
+        )
+    );
+}
+
 /**
  * Overlays live annual_target from the parent annual version onto execution-period nodes.
  */
@@ -142,6 +152,7 @@ module.exports = {
     buildLocalSortMeta,
     buildDraftAlignedSortMeta,
     sortHierarchyTree,
+    sortFlatPlanNodes,
     compareSortMeta,
     enrichPeriodNodesWithLiveAnnualTargets,
 };

@@ -54,6 +54,7 @@ async function copyNodesAndAssignments(sourceVersionId, targetVersionId, transac
                 weight_mode: sourceNode.weight_mode,
                 target_unit: sourceNode.target_unit,
                 level: sourceNode.level,
+                // Order is owned by the master draft; derived copies mirror source order.
                 order: sourceNode.order,
                 is_active: sourceNode.is_active,
                 assignment_sharing_mode: sourceNode.assignment_sharing_mode,

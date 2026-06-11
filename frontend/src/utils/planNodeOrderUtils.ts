@@ -52,18 +52,18 @@ export function buildSiblingReorderPayload(
     nodeId: string,
     direction: "up" | "down"
 ): ReorderPlanNodesPayload | null {
-    const sorted = sortPlanNodes(siblings);
-    const index = sorted.findIndex((n) => n.plan_node_id === nodeId);
+    // Siblings are already in draft order from the hierarchy API (single source of truth).
+    const index = siblings.findIndex((n) => n.plan_node_id === nodeId);
     if (index < 0) return null;
 
     const targetIndex = direction === "up" ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= sorted.length) return null;
+    if (targetIndex < 0 || targetIndex >= siblings.length) return null;
 
-    const reordered = [...sorted];
+    const reordered = [...siblings];
     [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
 
     return {
-        parent_id: sorted[0]?.parent_id ?? null,
+        parent_id: siblings[0]?.parent_id ?? null,
         nodeOrders: reordered.map((node, order) => ({
             plan_node_id: node.plan_node_id,
             order,

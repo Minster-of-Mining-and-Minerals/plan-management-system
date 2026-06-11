@@ -98,7 +98,6 @@ export function CreatePlanNodeModal({
                     .nullable(),
                 target_unit: z.string().optional().nullable(),
                 level: z.coerce.number().optional(),
-                order: z.coerce.number().optional(),
                 assignment_sharing_mode: z.enum(["exclusive", "shared"]).default("exclusive"),
             }),
         []
@@ -177,7 +176,6 @@ export function CreatePlanNodeModal({
                 weight_mode: node.weight_mode,
                 target_unit: node.target_unit,
                 level: node.level,
-                order: node.order,
                 assignment_sharing_mode: node.assignment_sharing_mode ?? "exclusive",
             });
         } else {
@@ -245,7 +243,7 @@ export function CreatePlanNodeModal({
             if (node) {
                 await updateNode({
                     id: node.plan_node_id,
-                    data: { ...submitData, order: values.order },
+                    data: submitData,
                 }).unwrap();
                 actionFeedback.success("Plan node updated successfully");
             } else {
