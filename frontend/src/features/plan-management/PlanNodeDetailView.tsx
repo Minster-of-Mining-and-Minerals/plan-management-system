@@ -127,7 +127,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
     }, [node?.period_target, nodeId]);
 
     const annualTargetsFinalized = Boolean(masterVersion?.annual_targets_finalized_at);
-    const periodTargetsFinalized = Boolean(annualParentVersion?.period_targets_finalized_at);
+    const periodTargetsFinalized = Boolean(masterVersion?.period_targets_finalized_at);
 
     const { data: annualAllocationList = [] } = useGetAnnualTargetAllocationsQuery(versionId, {
         skip: version?.version_kind !== "annual" || annualTargetsFinalized,
@@ -439,8 +439,9 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                                 <Badge variant="outline" className="uppercase font-bold text-[10px]">
                                     {getTypeLabel(node.type)}
                                 </Badge>
-                                {node.weight > 0 && (
+                                {version?.version_kind === "master" && node.weight > 0 && (
                                     <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100 font-bold">
+                                        Draft Target:{" "}
                                         {formatNodeTarget(
                                             node.weight,
                                             node.weight_mode,
@@ -449,6 +450,48 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                                         )}
                                     </Badge>
                                 )}
+                                {version?.version_kind === "annual" && node.weight > 0 && (
+                                    <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100 font-bold">
+                                        Draft Target:{" "}
+                                        {formatNodeTarget(
+                                            node.weight,
+                                            node.weight_mode,
+                                            node.target_unit,
+                                            planningConfig?.target_units
+                                        )}
+                                    </Badge>
+                                )}
+                                {version?.version_kind === "execution_period" &&
+                                    (node.annual_target ?? 0) > 0 && (
+                                        <>
+                                            <Badge
+                                                variant="secondary"
+                                                className="bg-blue-50 text-blue-700 border-blue-100 font-bold"
+                                            >
+                                                Annual Target:{" "}
+                                                {formatNodeTarget(
+                                                    node.annual_target ?? 0,
+                                                    node.weight_mode,
+                                                    node.target_unit,
+                                                    planningConfig?.target_units
+                                                )}
+                                            </Badge>
+                                            {node.period_target != null && node.period_target > 0 && (
+                                                <Badge
+                                                    variant="secondary"
+                                                    className="bg-emerald-50 text-emerald-700 border-emerald-100 font-bold"
+                                                >
+                                                    Period Target:{" "}
+                                                    {formatNodeTarget(
+                                                        node.period_target,
+                                                        node.weight_mode,
+                                                        node.target_unit,
+                                                        planningConfig?.target_units
+                                                    )}
+                                                </Badge>
+                                            )}
+                                        </>
+                                    )}
                                 {isMasterDraft && (
                                 <Badge
                                     variant="outline"
@@ -564,7 +607,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                                         </div>
                                         <div>
                                             <span className="text-muted-foreground">
-                                                {version.period_label ?? "Period"} Target:{" "}
+                                                Period Target:{" "}
                                             </span>
                                             <span className="font-semibold">
                                                 {node.period_target != null && node.period_target > 0
@@ -581,9 +624,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                                     {canAllocatePeriodTarget && (
                                         <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
                                             <div className="flex-1 space-y-1">
-                                                <Label htmlFor="period_target">
-                                                    Set {version.period_label ?? "Period"} Target
-                                                </Label>
+                                                <Label htmlFor="period_target">Set Period Target</Label>
                                                 <Input
                                                     id="period_target"
                                                     type="number"

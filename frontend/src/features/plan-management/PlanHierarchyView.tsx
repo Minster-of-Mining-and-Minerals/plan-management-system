@@ -6,10 +6,11 @@ import {
     useDeletePlanNodeMutation,
     useGetPlanVersionByIdQuery,
     useGetAnnualTargetAllocationsQuery,
+    useGetPeriodTargetAllocationsQuery,
     useReorderPlanNodesMutation,
 } from "@/redux/api/planApi";
 import { useGetPlanRuleForVersionQuery } from "@/redux/api/planRuleApi";
-import { PlanNodeHierarchy, PlanNode, AnnualTargetAllocation } from "@/redux/types/plan";
+import { PlanNodeHierarchy, PlanNode, AnnualTargetAllocation, PeriodTargetAllocation } from "@/redux/types/plan";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -39,7 +40,7 @@ import { AnnualVersionsDashboard } from "./components/AnnualVersionsDashboard";
 import { ExecutionPeriodsDashboard } from "./components/ExecutionPeriodsDashboard";
 import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
 import { formatStatus } from "@/utils/statusFormatter";
-import { canEditAnnualTargetForVersion } from "@/utils/planDraftUtils";
+import { canEditAnnualTargetForVersion, canEditPeriodTargetForVersion } from "@/utils/planDraftUtils";
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
 import {
     resolveCompletionForEntity,
@@ -158,15 +159,17 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
     const isReadOnlyHierarchy = !isMasterDraft;
     const hideAssignments = isAnnualVersion;
     const showAnnualTargets = isAnnualVersion;
+    const showPeriodTargets = isExecutionPeriod;
     const annualTargetsFinalized = Boolean(
         version?.version_kind === "master"
             ? version?.annual_targets_finalized_at
             : masterVersion?.annual_targets_finalized_at
     );
     const periodTargetsFinalized = Boolean(
-        version?.version_kind === "annual"
+        version?.version_kind === "master"
             ? version?.period_targets_finalized_at
-            : annualParentVersion?.period_targets_finalized_at
+            : masterVersion?.period_targets_finalized_at ??
+              annualParentVersion?.period_targets_finalized_at
     );
     const periodsInitializedGlobally = Boolean(
         version?.version_kind === "master"
@@ -174,6 +177,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
             : masterVersion?.period_subdivision_mode ?? version?.period_subdivision_mode
     );
     const canEditAnnualTarget = canEditAnnualTargetForVersion(version, annualTargetsFinalized);
+    const canEditPeriodTarget = canEditPeriodTargetForVersion(version, periodTargetsFinalized);
     const showAnnualDashboard =
         version?.version_kind === "master" &&
         (version?.status === "finalized" ||
@@ -219,6 +223,18 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
         }
         return map;
     }, [annualAllocationList]);
+
+    const shouldFetchPeriodAllocations = isExecutionPeriod && !periodTargetsFinalized;
+    const { data: periodAllocationList = [] } = useGetPeriodTargetAllocationsQuery(versionId, {
+        skip: !shouldFetchPeriodAllocations,
+    });
+    const periodTargetAllocations = useMemo(() => {
+        const map: Record<string, PeriodTargetAllocation> = {};
+        for (const item of periodAllocationList) {
+            map[item.plan_node_id] = item;
+        }
+        return map;
+    }, [periodAllocationList]);
 
     const versionStatusAppearance = version
         ? resolveWorkflowStatusAppearance(thresholds, {
@@ -431,6 +447,14 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                 </div>
             )}
 
+            {isReadOnlyHierarchy && isExecutionPeriod && !periodTargetsFinalized && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                    Set period targets so totals match annual targets for each node. Finalize globally
+                    from the strategic plan&apos;s Annual Execution tab when all years and periods are
+                    complete.
+                </div>
+            )}
+
             {isReadOnlyHierarchy && isAnnualVersion && showPeriodDashboard && periodsInitializedGlobally && !periodTargetsFinalized && (
                 <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                     Adjust period targets in the hierarchy so totals match annual targets, then finalize
@@ -506,8 +530,11 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                         readOnly={isReadOnlyHierarchy}
                         hideAssignments={hideAssignments}
                         showAnnualTargets={showAnnualTargets}
+                        showPeriodTargets={showPeriodTargets}
                         canEditAnnualTarget={canEditAnnualTarget}
+                        canEditPeriodTarget={canEditPeriodTarget}
                         annualTargetAllocations={annualTargetAllocations}
+                        periodTargetAllocations={periodTargetAllocations}
                     />
                 ) : (
                     emptyState
@@ -519,9 +546,13 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                         hierarchyNumberMap={hierarchyNumberMap}
                         rule={rule}
                         showDualTargets={isAnnualVersion || isExecutionPeriod}
+                        showAnnualTargets={showAnnualTargets}
+                        showPeriodTargets={showPeriodTargets}
                         hideAssignments={hideAssignments}
                         canEditAnnualTarget={canEditAnnualTarget}
+                        canEditPeriodTarget={canEditPeriodTarget}
                         annualTargetAllocations={annualTargetAllocations}
+                        periodTargetAllocations={periodTargetAllocations}
                         onAddChild={handleAddChild}
                         onEdit={handleEdit}
                         onDelete={handleDelete}
@@ -552,8 +583,11 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     readOnly={isReadOnlyHierarchy}
                     hideAssignments={hideAssignments}
                     showAnnualTargets={showAnnualTargets}
+                    showPeriodTargets={showPeriodTargets}
                     canEditAnnualTarget={canEditAnnualTarget}
+                    canEditPeriodTarget={canEditPeriodTarget}
                     annualTargetAllocations={annualTargetAllocations}
+                    periodTargetAllocations={periodTargetAllocations}
                 />
             ) : currentNodes.length > 0 ? (
                 <PlanHierarchyTree
@@ -571,8 +605,11 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     readOnly={isReadOnlyHierarchy}
                     hideAssignments={hideAssignments}
                     showAnnualTargets={showAnnualTargets}
+                    showPeriodTargets={showPeriodTargets}
                     canEditAnnualTarget={canEditAnnualTarget}
+                    canEditPeriodTarget={canEditPeriodTarget}
                     annualTargetAllocations={annualTargetAllocations}
+                    periodTargetAllocations={periodTargetAllocations}
                 />
             ) : (
                 emptyState

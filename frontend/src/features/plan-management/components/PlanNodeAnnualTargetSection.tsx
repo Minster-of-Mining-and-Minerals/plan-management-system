@@ -153,7 +153,8 @@ export function PlanNodeAnnualTargetSection({
                         variant="secondary"
                         className="text-[10px] py-0 h-4 bg-blue-50 text-blue-700 border-blue-100"
                     >
-                        Draft: {formatNodeTarget(
+                        Draft Target:{" "}
+                        {formatNodeTarget(
                             node.weight,
                             nodeWeightMode,
                             node.target_unit,
@@ -169,7 +170,7 @@ export function PlanNodeAnnualTargetSection({
                                 : "bg-gray-50 text-gray-400 border-gray-100 italic"
                         )}
                     >
-                        Annual: {annualTargetValue ?? "Not set"}
+                        Annual Target: {annualTargetValue ?? "Not set"}
                     </Badge>
                 </div>
                 {allocationSummary}

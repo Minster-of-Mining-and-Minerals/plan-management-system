@@ -53,6 +53,7 @@ export const baseApi = createApi({
     "PlanningConfiguration",
     "PlanNodes",
     "AnnualTargetAllocations",
+    "PeriodTargetAllocations",
     "PlanRules",
     "AssignmentActions",
     "ExternalAssignments",

@@ -16,6 +16,11 @@ const {
     initializeExecutionPeriods,
     getExecutionPeriodFinalizationReadiness,
     finalizeExecutionPeriodTargets,
+    getPeriodTargetAllocationsForVersion,
+    getGlobalPeriodTargetFinalizationReadiness,
+    finalizeGlobalPeriodTargets,
+    getStartProcessReadiness,
+    startPlanProcess,
     setPeriodTarget,
     completeExecutionPeriod,
 } = require("../../services/planVersionLifecycleService");
@@ -348,6 +353,100 @@ async function finalizeExecutionPeriodTargetsHandler(req, res) {
     }
 }
 
+async function listPeriodTargetAllocations(req, res) {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            return res.status(400).json({ success: false, message: "Invalid ID" });
+        }
+
+        const allocations = await getPeriodTargetAllocationsForVersion(id);
+        return res.json({ success: true, data: allocations });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
+
+async function getGlobalPeriodTargetFinalizationReadinessHandler(req, res) {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            return res.status(400).json({ success: false, message: "Invalid ID" });
+        }
+
+        const result = await getGlobalPeriodTargetFinalizationReadiness(id);
+        return res.json({ success: true, data: result });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
+
+async function finalizeGlobalPeriodTargetsHandler(req, res) {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            return res.status(400).json({ success: false, message: "Invalid ID" });
+        }
+
+        const result = await finalizeGlobalPeriodTargets(id);
+        if (!result.success) {
+            return res.status(400).json({
+                success: false,
+                message: "Period target finalization failed",
+                errors: result.errors,
+            });
+        }
+
+        return res.json({
+            success: true,
+            message: "Period targets finalized for all years and periods",
+            data: result.data,
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
+
+async function getStartProcessReadinessHandler(req, res) {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            return res.status(400).json({ success: false, message: "Invalid ID" });
+        }
+
+        const result = await getStartProcessReadiness(id);
+        return res.json({ success: true, data: result });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
+
+async function startPlanProcessHandler(req, res) {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            return res.status(400).json({ success: false, message: "Invalid ID" });
+        }
+
+        const result = await startPlanProcess(id);
+        if (!result.success) {
+            return res.status(400).json({
+                success: false,
+                message: "Cannot start process",
+                errors: result.errors,
+            });
+        }
+
+        return res.json({
+            success: true,
+            message: "Plan process started",
+            data: result.data,
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
+
 async function completeExecutionPeriodVersion(req, res) {
     try {
         const { id } = req.params;
@@ -388,6 +487,11 @@ module.exports = {
     initializeExecutionPeriodsForAnnual,
     getExecutionPeriodFinalizationReadinessHandler,
     finalizeExecutionPeriodTargetsHandler,
+    listPeriodTargetAllocations,
+    getGlobalPeriodTargetFinalizationReadinessHandler,
+    finalizeGlobalPeriodTargetsHandler,
+    getStartProcessReadinessHandler,
+    startPlanProcessHandler,
     updatePeriodTarget,
     completeExecutionPeriodVersion,
 };

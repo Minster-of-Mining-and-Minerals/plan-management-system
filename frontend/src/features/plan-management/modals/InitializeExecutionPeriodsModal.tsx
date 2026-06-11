@@ -106,8 +106,7 @@ export function InitializeExecutionPeriodsModal({
                             {planningYears.length > 0
                                 ? ` (${planningYears.join(", ")})`
                                 : ""}
-                            . Initial period targets are split from each year&apos;s annual targets;
-                            adjust them before finalizing.
+                            . Period targets are not pre-filled — set them manually in each period before finalizing.
                         </p>
 
                         {planningYears.length > 0 && (

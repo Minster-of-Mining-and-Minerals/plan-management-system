@@ -29,6 +29,7 @@ export interface PlanVersion {
     annual_targets_finalized_at?: string | null;
     period_subdivision_mode?: PeriodSubdivisionMode | null;
     period_targets_finalized_at?: string | null;
+    process_started_at?: string | null;
     status: PlanVersionStatus;
     government_structure_id: string;
     based_on_version_id: string | null;
@@ -87,6 +88,32 @@ export interface ExecutionPeriodFinalizationReadiness {
     errors: string[];
     period_subdivision_mode: PeriodSubdivisionMode | null;
     period_targets_finalized_at: string | null;
+}
+
+export interface GlobalPeriodTargetFinalizationReadiness {
+    ready: boolean;
+    errors: string[];
+    period_subdivision_mode: PeriodSubdivisionMode | null;
+    period_targets_finalized_at: string | null;
+    planning_years: number[];
+}
+
+export interface StartProcessReadiness {
+    ready: boolean;
+    errors: string[];
+    process_started_at: string | null;
+    period_targets_finalized_at: string | null;
+}
+
+export interface PeriodTargetAllocation {
+    plan_node_id: string;
+    source_plan_node_id: string;
+    annual_target: number;
+    allocated_other_periods: number;
+    current_period_value: number;
+    allocated_total: number;
+    remaining_for_this_period: number;
+    remaining_overall: number;
 }
 
 export interface AnnualTargetAllocation {

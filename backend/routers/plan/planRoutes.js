@@ -47,6 +47,11 @@ const {
     listAnnualTargetAllocations,
     getExecutionPeriodFinalizationReadinessHandler,
     finalizeExecutionPeriodTargetsHandler,
+    listPeriodTargetAllocations,
+    getGlobalPeriodTargetFinalizationReadinessHandler,
+    finalizeGlobalPeriodTargetsHandler,
+    getStartProcessReadinessHandler,
+    startPlanProcessHandler,
     updatePeriodTarget,
     completeExecutionPeriodVersion,
 } = require("../../controllers/plan/planVersionLifecycleController");
@@ -104,6 +109,11 @@ router.post("/versions/:id/initialize-execution-periods", checkPermission("PLANS
 router.get("/versions/:id/execution-period-readiness", checkPermission("PLANS", "READ"), validateIdParam, getExecutionPeriodFinalizationReadinessHandler);
 router.post("/versions/:id/finalize-execution-periods", checkPermission("PLANS", "APPROVE"), validateIdParam, finalizeExecutionPeriodTargetsHandler);
 router.post("/versions/:id/complete-period", checkPermission("PLANS", "APPROVE"), validateIdParam, completeExecutionPeriodVersion);
+router.get("/versions/:id/period-target-allocations", checkPermission("PLANS", "READ"), validateIdParam, listPeriodTargetAllocations);
+router.get("/versions/:id/global-period-target-readiness", checkPermission("PLANS", "READ"), validateIdParam, getGlobalPeriodTargetFinalizationReadinessHandler);
+router.post("/versions/:id/finalize-global-period-targets", checkPermission("PLANS", "APPROVE"), validateIdParam, finalizeGlobalPeriodTargetsHandler);
+router.get("/versions/:id/start-process-readiness", checkPermission("PLANS", "READ"), validateIdParam, getStartProcessReadinessHandler);
+router.post("/versions/:id/start-process", checkPermission("PLANS", "APPROVE"), validateIdParam, startPlanProcessHandler);
 router.patch("/nodes/:id/annual-target", checkPermission("PLANS", "UPDATE"), validateIdParam, validateUpdateAnnualTarget, updateAnnualTarget);
 router.patch("/nodes/:id/period-target", checkPermission("PLANS", "UPDATE"), validateIdParam, validateUpdatePeriodTarget, updatePeriodTarget);
 

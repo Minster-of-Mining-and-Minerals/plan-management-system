@@ -682,41 +682,8 @@ async function completeAnnualVersion(annualVersionId) {
     }
 }
 
-async function applyEqualPeriodTargetSplit(annualVersionId, transaction) {
-    const periods = await PlanVersion.findAll({
-        where: { parent_plan_version_id: annualVersionId, version_kind: "execution_period" },
-        transaction,
-    });
-    const annualNodes = await PlanNode.findAll({
-        where: { plan_version_id: annualVersionId },
-        transaction,
-    });
-
-    const numPeriods = periods.length;
-    if (numPeriods === 0) return;
-
-    for (const annualNode of annualNodes) {
-        const annualTarget = Number(annualNode.annual_target) || 0;
-        if (annualTarget <= 0) continue;
-
-        const perPeriod = annualTarget / numPeriods;
-        for (const period of periods) {
-            const periodNode = await PlanNode.findOne({
-                where: {
-                    plan_version_id: period.plan_version_id,
-                    source_plan_node_id: annualNode.plan_node_id,
-                },
-                transaction,
-            });
-            if (periodNode) {
-                await periodNode.update({ period_target: perPeriod }, { transaction });
-            }
-        }
-    }
-}
-
 async function generateExecutionPeriods(annualVersionId, transaction, options = {}) {
-    const { subdivisionMode = null, customPeriods = [], splitTargets = true } = options;
+    const { subdivisionMode = null, customPeriods = [] } = options;
     const annualVersion = await PlanVersion.findByPk(annualVersionId, { transaction });
     if (!annualVersion || annualVersion.version_kind !== "annual") {
         return { success: false, message: "Annual plan version not found" };
@@ -791,10 +758,6 @@ async function generateExecutionPeriods(annualVersionId, transaction, options = 
             { resetAnnualTarget: false }
         );
         executionPeriods.push(periodVersion);
-    }
-
-    if (splitTargets) {
-        await applyEqualPeriodTargetSplit(annualVersionId, transaction);
     }
 
     return { success: true, executionPeriods };
@@ -911,7 +874,6 @@ async function initializeExecutionPeriodsForMaster(masterVersionId, subdivisionM
             const result = await generateExecutionPeriods(annualVersion.plan_version_id, t, {
                 subdivisionMode,
                 customPeriods,
-                splitTargets: true,
             });
 
             if (!result.success) {
@@ -970,7 +932,8 @@ async function initializeExecutionPeriods(versionId, subdivisionMode, customPeri
     return initializeExecutionPeriodsForMaster(masterVersionId, subdivisionMode, customPeriods);
 }
 
-async function validateExecutionPeriodFinalization(annualVersionId, transaction) {
+async function validateExecutionPeriodFinalization(annualVersionId, transaction, options = {}) {
+    const { ignoreFinalizedFlag = false } = options;
     const annualVersion = await PlanVersion.findByPk(annualVersionId, { transaction });
     if (!annualVersion || annualVersion.version_kind !== "annual") {
         return { ready: false, errors: ["Annual plan version not found"] };
@@ -980,7 +943,7 @@ async function validateExecutionPeriodFinalization(annualVersionId, transaction)
         return { ready: false, errors: ["Execution periods have not been initialized"] };
     }
 
-    if (annualVersion.period_targets_finalized_at) {
+    if (!ignoreFinalizedFlag && annualVersion.period_targets_finalized_at) {
         return { ready: false, errors: ["Period targets have already been finalized"] };
     }
 
@@ -1105,8 +1068,8 @@ async function validatePeriodTargetAllocation(annualPlanNodeId, periodTarget, ex
     }
 
     const numericTarget = Number(periodTarget);
-    if (Number.isNaN(numericTarget) || numericTarget < 0) {
-        return { valid: false, message: "Period target must be a non-negative number" };
+    if (Number.isNaN(numericTarget) || numericTarget <= 0) {
+        return { valid: false, message: "Period target must be greater than 0" };
     }
 
     const annualNode = await PlanNode.findByPk(annualPlanNodeId, { transaction });
@@ -1166,11 +1129,12 @@ async function setPeriodTarget(planNodeId, periodTarget) {
         const annualVersion = await PlanVersion.findByPk(node.planVersion.parent_plan_version_id, {
             transaction: t,
         });
-        if (annualVersion?.period_targets_finalized_at) {
+        const master = await getMasterForAnnualVersion(annualVersion, t);
+        if (master?.period_targets_finalized_at) {
             await t.rollback();
             return {
                 success: false,
-                message: "Period targets are finalized — adjust targets before finalizing subdivision",
+                message: "Period targets are finalized — adjust targets before finalizing period execution",
             };
         }
 
@@ -1228,6 +1192,372 @@ async function completeExecutionPeriod(periodVersionId) {
     }
 }
 
+async function getPeriodTargetAllocationsForVersion(periodVersionId) {
+    const version = await PlanVersion.findByPk(periodVersionId);
+    if (!version || version.version_kind !== "execution_period") {
+        return [];
+    }
+
+    const annualVersion = await PlanVersion.findByPk(version.parent_plan_version_id);
+    const master = await getMasterForAnnualVersion(annualVersion);
+    if (master?.period_targets_finalized_at) {
+        return [];
+    }
+
+    const nodesInVersion = await PlanNode.findAll({
+        where: { plan_version_id: periodVersionId },
+    });
+
+    const sourceIds = [
+        ...new Set(
+            nodesInVersion
+                .map((node) => node.source_plan_node_id)
+                .filter(Boolean)
+        ),
+    ];
+
+    if (sourceIds.length === 0) {
+        return [];
+    }
+
+    const [annualNodes, allPeriodNodes] = await Promise.all([
+        PlanNode.findAll({ where: { plan_node_id: sourceIds } }),
+        PlanNode.findAll({ where: { source_plan_node_id: sourceIds } }),
+    ]);
+
+    const annualTargetBySourceId = new Map(
+        annualNodes.map((node) => [node.plan_node_id, Number(node.annual_target) || 0])
+    );
+
+    const periodBySourceId = new Map();
+    for (const periodNode of allPeriodNodes) {
+        const sourceId = periodNode.source_plan_node_id;
+        if (!periodBySourceId.has(sourceId)) {
+            periodBySourceId.set(sourceId, []);
+        }
+        periodBySourceId.get(sourceId).push(periodNode);
+    }
+
+    const allocations = [];
+
+    for (const node of nodesInVersion) {
+        if (!node.source_plan_node_id) continue;
+
+        const annualTarget = annualTargetBySourceId.get(node.source_plan_node_id) ?? 0;
+        if (annualTarget <= 0) continue;
+
+        const siblings = periodBySourceId.get(node.source_plan_node_id) ?? [];
+        let allocatedOtherPeriods = 0;
+        let currentPeriodValue = 0;
+
+        for (const sibling of siblings) {
+            const value = Number(sibling.period_target) || 0;
+            if (sibling.plan_node_id === node.plan_node_id) {
+                currentPeriodValue = value;
+            } else {
+                allocatedOtherPeriods += value;
+            }
+        }
+
+        const allocatedTotal = allocatedOtherPeriods + currentPeriodValue;
+
+        allocations.push({
+            plan_node_id: node.plan_node_id,
+            source_plan_node_id: node.source_plan_node_id,
+            annual_target: annualTarget,
+            allocated_other_periods: allocatedOtherPeriods,
+            current_period_value: currentPeriodValue,
+            allocated_total: allocatedTotal,
+            remaining_for_this_period: Math.max(0, annualTarget - allocatedOtherPeriods),
+            remaining_overall: Math.max(0, annualTarget - allocatedTotal),
+        });
+    }
+
+    return allocations;
+}
+
+async function validateGlobalPeriodTargetFinalization(masterVersionId, transaction) {
+    const master = await PlanVersion.findByPk(masterVersionId, { transaction });
+    if (!master || master.version_kind !== "master") {
+        return { ready: false, errors: ["Master plan version not found"] };
+    }
+
+    if (!master.annual_targets_finalized_at) {
+        return {
+            ready: false,
+            errors: ["Finalize annual execution before finalizing period targets"],
+        };
+    }
+
+    if (!master.period_subdivision_mode) {
+        return {
+            ready: false,
+            errors: ["Initialize execution periods before finalizing period targets"],
+        };
+    }
+
+    if (master.period_targets_finalized_at) {
+        return { ready: false, errors: ["Period targets have already been finalized"] };
+    }
+
+    const annualVersions = await PlanVersion.findAll({
+        where: { parent_plan_version_id: masterVersionId, version_kind: "annual" },
+        order: [["sequence_index", "ASC"]],
+        transaction,
+    });
+
+    if (annualVersions.length === 0) {
+        return { ready: false, errors: ["No annual execution versions exist"] };
+    }
+
+    const errors = [];
+
+    for (const annualVersion of annualVersions) {
+        const yearLabel = annualVersion.planning_year ?? annualVersion.year;
+        const result = await validateExecutionPeriodFinalization(
+            annualVersion.plan_version_id,
+            transaction
+        );
+        for (const err of result.errors ?? []) {
+            errors.push(`${yearLabel}: ${err}`);
+        }
+    }
+
+    return {
+        ready: errors.length === 0,
+        errors,
+        master,
+        annualVersions,
+    };
+}
+
+async function getGlobalPeriodTargetFinalizationReadiness(masterVersionId) {
+    const t = await sequelize.transaction();
+    try {
+        const result = await validateGlobalPeriodTargetFinalization(masterVersionId, t);
+        await t.rollback();
+        return {
+            ready: result.ready,
+            errors: result.errors,
+            period_subdivision_mode: result.master?.period_subdivision_mode ?? null,
+            period_targets_finalized_at: result.master?.period_targets_finalized_at ?? null,
+            planning_years: (result.annualVersions ?? []).map(
+                (version) => version.planning_year ?? version.year
+            ),
+        };
+    } catch (error) {
+        await t.rollback();
+        throw error;
+    }
+}
+
+async function finalizeGlobalPeriodTargets(masterVersionId) {
+    const t = await sequelize.transaction();
+    try {
+        const validation = await validateGlobalPeriodTargetFinalization(masterVersionId, t);
+        if (!validation.ready) {
+            await t.rollback();
+            return { success: false, errors: validation.errors };
+        }
+
+        const now = new Date();
+        await validation.master.update({ period_targets_finalized_at: now }, { transaction: t });
+
+        for (const annualVersion of validation.annualVersions) {
+            await annualVersion.update({ period_targets_finalized_at: now }, { transaction: t });
+        }
+
+        await t.commit();
+        return {
+            success: true,
+            data: await PlanVersion.findByPk(masterVersionId, {
+                include: [{ association: "annualVersions" }],
+            }),
+        };
+    } catch (error) {
+        await t.rollback();
+        throw error;
+    }
+}
+
+async function validatePeriodClassificationTree(periodVersionId, transaction) {
+    const periodVersion = await PlanVersion.findByPk(periodVersionId, { transaction });
+    if (!periodVersion || periodVersion.version_kind !== "execution_period") {
+        return ["Execution period version not found"];
+    }
+
+    const rule = await resolvePlanRuleForVersion(periodVersion, transaction);
+    const nodes = await PlanNode.findAll({
+        where: { plan_version_id: periodVersionId, is_active: true },
+        transaction,
+    });
+
+    const errors = [];
+
+    for (const node of nodes) {
+        if (rule && !stepRequiresWeight(rule, node.level)) {
+            continue;
+        }
+
+        const children = nodes.filter((candidate) => candidate.parent_id === node.plan_node_id);
+        const weightedChildren = children.filter(
+            (child) => !rule || stepRequiresWeight(rule, child.level)
+        );
+
+        if (weightedChildren.length > 0) {
+            const parentTarget = Number(node.period_target) || 0;
+            if (parentTarget <= 0) {
+                errors.push(
+                    `"${node.title}" in ${periodVersion.period_label} requires a period target before its children can be validated`
+                );
+                continue;
+            }
+
+            const childSum = weightedChildren.reduce(
+                (sum, child) => sum + (Number(child.period_target) || 0),
+                0
+            );
+
+            if (Math.abs(childSum - parentTarget) > 0.001) {
+                errors.push(
+                    `Children of "${node.title}" in ${periodVersion.period_label} sum to ${childSum} but parent period target is ${parentTarget}`
+                );
+            }
+            continue;
+        }
+
+        if (!node.source_plan_node_id) {
+            continue;
+        }
+
+        const annualNode = await PlanNode.findByPk(node.source_plan_node_id, { transaction });
+        const annualTarget = Number(annualNode?.annual_target) || 0;
+        if (annualTarget <= 0) {
+            continue;
+        }
+
+        const periodTarget = Number(node.period_target) || 0;
+        if (periodTarget <= 0) {
+            errors.push(
+                `Period target is not set for "${node.title}" in ${periodVersion.period_label}`
+            );
+        }
+    }
+
+    return errors;
+}
+
+async function validateStartProcessReadiness(masterVersionId, transaction) {
+    const master = await PlanVersion.findByPk(masterVersionId, { transaction });
+    if (!master || master.version_kind !== "master") {
+        return { ready: false, errors: ["Master plan version not found"] };
+    }
+
+    if (master.status !== "finalized") {
+        return { ready: false, errors: ["Strategic draft must be finalized before starting process"] };
+    }
+
+    if (!master.annual_targets_finalized_at) {
+        return { ready: false, errors: ["Finalize annual execution before starting process"] };
+    }
+
+    if (!master.period_subdivision_mode) {
+        return { ready: false, errors: ["Initialize execution periods before starting process"] };
+    }
+
+    if (!master.period_targets_finalized_at) {
+        return { ready: false, errors: ["Finalize period targets before starting process"] };
+    }
+
+    if (master.process_started_at) {
+        return { ready: false, errors: ["Process has already been started"] };
+    }
+
+    const annualVersions = await PlanVersion.findAll({
+        where: { parent_plan_version_id: masterVersionId, version_kind: "annual" },
+        order: [["sequence_index", "ASC"]],
+        transaction,
+    });
+
+    const errors = [];
+
+    for (const annualVersion of annualVersions) {
+        const yearLabel = annualVersion.planning_year ?? annualVersion.year;
+        const aggregateResult = await validateExecutionPeriodFinalization(
+            annualVersion.plan_version_id,
+            transaction,
+            { ignoreFinalizedFlag: true }
+        );
+        for (const err of aggregateResult.errors ?? []) {
+            errors.push(`${yearLabel}: ${err}`);
+        }
+
+        const periods = await PlanVersion.findAll({
+            where: {
+                parent_plan_version_id: annualVersion.plan_version_id,
+                version_kind: "execution_period",
+            },
+            transaction,
+        });
+
+        for (const period of periods) {
+            const treeErrors = await validatePeriodClassificationTree(
+                period.plan_version_id,
+                transaction
+            );
+            for (const err of treeErrors) {
+                errors.push(`${yearLabel}: ${err}`);
+            }
+        }
+    }
+
+    return {
+        ready: errors.length === 0,
+        errors,
+        master,
+    };
+}
+
+async function getStartProcessReadiness(masterVersionId) {
+    const t = await sequelize.transaction();
+    try {
+        const result = await validateStartProcessReadiness(masterVersionId, t);
+        await t.rollback();
+        return {
+            ready: result.ready,
+            errors: result.errors,
+            process_started_at: result.master?.process_started_at ?? null,
+            period_targets_finalized_at: result.master?.period_targets_finalized_at ?? null,
+        };
+    } catch (error) {
+        await t.rollback();
+        throw error;
+    }
+}
+
+async function startPlanProcess(masterVersionId) {
+    const t = await sequelize.transaction();
+    try {
+        const validation = await validateStartProcessReadiness(masterVersionId, t);
+        if (!validation.ready) {
+            await t.rollback();
+            return { success: false, errors: validation.errors };
+        }
+
+        const now = new Date();
+        await validation.master.update({ process_started_at: now }, { transaction: t });
+
+        await t.commit();
+        return {
+            success: true,
+            data: await PlanVersion.findByPk(masterVersionId),
+        };
+    } catch (error) {
+        await t.rollback();
+        throw error;
+    }
+}
+
 function isVersionEditable(planVersion) {
     if (!planVersion) return false;
     if (planVersion.version_kind === "master") {
@@ -1263,6 +1593,14 @@ module.exports = {
     getExecutionPeriodFinalizationReadiness,
     finalizeExecutionPeriodTargets,
     validatePeriodTargetAllocation,
+    getPeriodTargetAllocationsForVersion,
+    validateGlobalPeriodTargetFinalization,
+    getGlobalPeriodTargetFinalizationReadiness,
+    finalizeGlobalPeriodTargets,
+    validatePeriodClassificationTree,
+    validateStartProcessReadiness,
+    getStartProcessReadiness,
+    startPlanProcess,
     setPeriodTarget,
     completeExecutionPeriod,
     isVersionEditable,

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, CheckCircle, CalendarDays, ShieldCheck, Layers } from "lucide-react";
+import { Eye, CheckCircle, CalendarDays, ShieldCheck, Layers, Play } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +22,8 @@ import { PerformanceProgressBar } from "./PerformanceProgressBar";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
 import { FinalizeAnnualExecutionModal } from "../modals/FinalizeAnnualExecutionModal";
 import { InitializeExecutionPeriodsModal } from "../modals/InitializeExecutionPeriodsModal";
+import { FinalizeGlobalPeriodTargetsModal } from "../modals/FinalizeGlobalPeriodTargetsModal";
+import { StartProcessModal } from "../modals/StartProcessModal";
 import { cn } from "@/lib/utils";
 
 interface AnnualVersionsDashboardProps {
@@ -48,6 +50,8 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
 
     const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
     const [initPeriodsModalOpen, setInitPeriodsModalOpen] = useState(false);
+    const [finalizePeriodsModalOpen, setFinalizePeriodsModalOpen] = useState(false);
+    const [startProcessModalOpen, setStartProcessModalOpen] = useState(false);
 
     const { data, isLoading, refetch } = useGetAnnualVersionsQuery(masterVersion.plan_version_id);
     const [completeAnnual, { isLoading: isCompleting }] = useCompleteAnnualVersionMutation();
@@ -56,6 +60,8 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
     const annualVersions = data?.annualVersions ?? masterVersion.annualVersions ?? [];
     const annualTargetsFinalized = Boolean(master.annual_targets_finalized_at);
     const periodsInitializedGlobally = Boolean(master.period_subdivision_mode);
+    const periodTargetsFinalizedGlobally = Boolean(master.period_targets_finalized_at);
+    const processStarted = Boolean(master.process_started_at);
 
     const handleComplete = async (versionId: string, year: number) => {
         if (!(await actionFeedback.confirm(`Mark the ${year} annual version as completed?`))) {
@@ -108,9 +114,13 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                     <h2 className="text-lg font-semibold text-gray-900">Annual Execution Versions</h2>
                     <p className="text-sm text-muted-foreground mt-1">
                         {annualTargetsFinalized
-                            ? periodsInitializedGlobally
-                                ? "Annual targets are finalized. Open any year to set period targets and finalize."
-                                : "Annual targets are finalized. Initialize execution periods once — the same subdivision applies to all years."
+                            ? periodTargetsFinalizedGlobally
+                                ? processStarted
+                                    ? "Process started. Operational execution is underway."
+                                    : "Period targets finalized. Start the process when ready."
+                                : periodsInitializedGlobally
+                                  ? "Set period targets in each year and period, then finalize globally."
+                                  : "Initialize execution periods once — the same subdivision applies to all years."
                             : "Open any year to set annual targets (totals must match the draft target), then finalize annual execution."}
                     </p>
                 </div>
@@ -129,6 +139,20 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                                 Initialize Execution Periods
                             </Button>
                         )}
+                    {periodsInitializedGlobally &&
+                        !periodTargetsFinalizedGlobally &&
+                        canApprovePlan && (
+                            <Button className="gap-2" onClick={() => setFinalizePeriodsModalOpen(true)}>
+                                <ShieldCheck className="h-4 w-4" />
+                                Finalize Period Targets
+                            </Button>
+                        )}
+                    {periodTargetsFinalizedGlobally && !processStarted && canApprovePlan && (
+                        <Button className="gap-2" onClick={() => setStartProcessModalOpen(true)}>
+                            <Play className="h-4 w-4" />
+                            Start Process
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -136,9 +160,13 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                 <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
                     Annual execution finalized on{" "}
                     {new Date(master.annual_targets_finalized_at!).toLocaleDateString()}.
-                    {periodsInitializedGlobally
-                        ? ` All years use ${formatSubdivisionMode(master.period_subdivision_mode)} subdivision. Open a year to set period targets.`
-                        : " Initialize execution periods once below — quarterly, semi-annual, or custom — for all years."}
+                    {processStarted
+                        ? ` Process started on ${new Date(master.process_started_at!).toLocaleDateString()}.`
+                        : periodTargetsFinalizedGlobally
+                          ? ` Period targets finalized on ${new Date(master.period_targets_finalized_at!).toLocaleDateString()}.`
+                          : periodsInitializedGlobally
+                            ? ` All years use ${formatSubdivisionMode(master.period_subdivision_mode)} subdivision. Open a year to set period targets.`
+                            : " Initialize execution periods once below for all years."}
                 </div>
             )}
 
@@ -149,7 +177,7 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                         annual.plan_version_id
                     );
                     const isCompleted = annual.status === "completed";
-                    const periodTargetsFinalized = Boolean(annual.period_targets_finalized_at);
+                    const periodTargetsFinalized = periodTargetsFinalizedGlobally;
                     const showComplete =
                         annualTargetsFinalized && periodTargetsFinalized && !isCompleted;
 
@@ -294,6 +322,20 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                 planningYears={annualVersions.map(
                     (annual) => annual.planning_year ?? annual.year
                 )}
+                onSuccess={() => refetch()}
+            />
+
+            <FinalizeGlobalPeriodTargetsModal
+                isOpen={finalizePeriodsModalOpen}
+                onClose={() => setFinalizePeriodsModalOpen(false)}
+                masterVersion={master}
+                onSuccess={() => refetch()}
+            />
+
+            <StartProcessModal
+                isOpen={startProcessModalOpen}
+                onClose={() => setStartProcessModalOpen(false)}
+                masterVersion={master}
                 onSuccess={() => refetch()}
             />
         </div>

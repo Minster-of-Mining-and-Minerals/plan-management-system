@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, CheckCircle, Clock, ShieldCheck } from "lucide-react";
+import { Eye, CheckCircle, Clock } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,10 +17,8 @@ import {
     resolveWorkflowStatusAppearance,
 } from "@/utils/performanceColorUtils";
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
-import { usePermissions } from "@/hooks/usePermissions";
 import { PerformanceProgressBar } from "./PerformanceProgressBar";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
-import { FinalizeExecutionPeriodsModal } from "../modals/FinalizeExecutionPeriodsModal";
 import { cn } from "@/lib/utils";
 
 interface ExecutionPeriodsDashboardProps {
@@ -42,10 +39,6 @@ function formatSubdivisionMode(mode: string | null | undefined): string {
 export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDashboardProps) {
     const router = useRouter();
     const thresholds = usePerformanceColorThresholds();
-    const { can } = usePermissions();
-    const canApprovePlan = can("PLANS:APPROVE");
-
-    const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
 
     const { data: masterVersion } = useGetPlanVersionByIdQuery(
         annualVersion.parent_plan_version_id ?? "",
@@ -61,7 +54,7 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
     const executionPeriods =
         data?.executionPeriods ?? annualVersion.executionPeriodVersions ?? [];
     const periodsInitialized = Boolean(annual.period_subdivision_mode);
-    const periodTargetsFinalized = Boolean(annual.period_targets_finalized_at);
+    const periodTargetsFinalized = Boolean(masterVersion?.period_targets_finalized_at);
 
     const handleComplete = async (versionId: string, periodLabel: string) => {
         if (
@@ -152,22 +145,16 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
                     <h2 className="text-lg font-semibold text-gray-900">Execution Period Versions</h2>
                     <p className="text-sm text-muted-foreground mt-1">
                         {periodTargetsFinalized
-                            ? `${formatSubdivisionMode(annual.period_subdivision_mode ?? masterVersion?.period_subdivision_mode)} subdivision — period targets finalized. All periods remain open.`
-                            : `${formatSubdivisionMode(annual.period_subdivision_mode ?? masterVersion?.period_subdivision_mode)} subdivision — adjust period targets so totals match annual targets, then finalize.`}
+                            ? `${formatSubdivisionMode(annual.period_subdivision_mode ?? masterVersion?.period_subdivision_mode)} subdivision — period targets finalized globally.`
+                            : `${formatSubdivisionMode(annual.period_subdivision_mode ?? masterVersion?.period_subdivision_mode)} subdivision — set period targets so totals match annual targets, then finalize from the strategic plan.`}
                     </p>
                 </div>
-                {!periodTargetsFinalized && canApprovePlan && executionPeriods.length > 0 && (
-                    <Button className="gap-2 shrink-0" onClick={() => setFinalizeModalOpen(true)}>
-                        <ShieldCheck className="h-4 w-4" />
-                        Finalize Period Targets
-                    </Button>
-                )}
             </div>
 
-            {periodTargetsFinalized && (
+            {periodTargetsFinalized && masterVersion?.period_targets_finalized_at && (
                 <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
-                    Period targets finalized on{" "}
-                    {new Date(annual.period_targets_finalized_at!).toLocaleDateString()}.
+                    Period targets finalized globally on{" "}
+                    {new Date(masterVersion.period_targets_finalized_at).toLocaleDateString()}.
                 </div>
             )}
 
@@ -353,12 +340,6 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
                 })}
             </div>
 
-            <FinalizeExecutionPeriodsModal
-                isOpen={finalizeModalOpen}
-                onClose={() => setFinalizeModalOpen(false)}
-                annualVersion={annual}
-                onSuccess={() => refetch()}
-            />
         </div>
     );
 }

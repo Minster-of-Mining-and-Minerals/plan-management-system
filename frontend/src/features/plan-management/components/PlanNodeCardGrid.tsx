@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { ChevronRight, Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { PlanNodeHierarchy, PlanNode, PlanRule, AnnualTargetAllocation } from "@/redux/types/plan";
+import { PlanNodeHierarchy, PlanNode, PlanRule, AnnualTargetAllocation, PeriodTargetAllocation } from "@/redux/types/plan";
 import {
     formatNodeTarget,
     getStepLabel,
@@ -23,15 +23,20 @@ import { getHierarchyNumber, sortPlanNodes } from "@/utils/planNodeOrderUtils";
 import { PlanNodeHierarchyNumber } from "./PlanNodeHierarchyNumber";
 import { PlanNodeAssignmentSummary } from "./PlanNodeAssignmentSummary";
 import { PlanNodeAnnualTargetSection } from "./PlanNodeAnnualTargetSection";
+import { PlanNodePeriodTargetSection } from "./PlanNodePeriodTargetSection";
 
 interface PlanNodeCardGridProps {
     nodes: PlanNodeHierarchy[];
     hierarchyNumberMap: Map<string, string>;
     rule?: PlanRule | null;
     showDualTargets?: boolean;
+    showAnnualTargets?: boolean;
+    showPeriodTargets?: boolean;
     hideAssignments?: boolean;
     canEditAnnualTarget?: boolean;
+    canEditPeriodTarget?: boolean;
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
+    periodTargetAllocations?: Record<string, PeriodTargetAllocation>;
     onAddChild: (parent: PlanNode) => void;
     onEdit: (node: PlanNode) => void;
     onDelete: (id: string) => void;
@@ -47,9 +52,13 @@ export function PlanNodeCardGrid({
     hierarchyNumberMap,
     rule,
     showDualTargets = false,
+    showAnnualTargets = false,
+    showPeriodTargets = false,
     hideAssignments = false,
     canEditAnnualTarget = false,
+    canEditPeriodTarget = false,
     annualTargetAllocations,
+    periodTargetAllocations,
     onAddChild,
     onEdit,
     onDelete,
@@ -157,6 +166,7 @@ export function PlanNodeCardGrid({
                                                     variant="secondary"
                                                     className="text-[10px] py-0 h-4 bg-blue-50 text-blue-700 border-blue-100"
                                                 >
+                                                    Draft Target:{" "}
                                                     {formatNodeTarget(
                                                         node.weight,
                                                         nodeWeightMode,
@@ -172,13 +182,25 @@ export function PlanNodeCardGrid({
                                             />
                                         </div>
 
-                                        {showDualTargets && hasDraftTarget && (
+                                        {showAnnualTargets && hasDraftTarget && (
                                             <PlanNodeAnnualTargetSection
                                                 node={node}
                                                 rule={rule}
                                                 configuredUnits={configuredUnits}
                                                 allocation={annualTargetAllocations?.[node.plan_node_id]}
                                                 canEdit={canEditAnnualTarget}
+                                                variant="card"
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
+                                        )}
+
+                                        {showPeriodTargets && (node.annual_target ?? 0) > 0 && (
+                                            <PlanNodePeriodTargetSection
+                                                node={node}
+                                                rule={rule}
+                                                configuredUnits={configuredUnits}
+                                                allocation={periodTargetAllocations?.[node.plan_node_id]}
+                                                canEdit={canEditPeriodTarget}
                                                 variant="card"
                                                 onClick={(e) => e.stopPropagation()}
                                             />

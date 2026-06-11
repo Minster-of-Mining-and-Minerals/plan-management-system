@@ -9,6 +9,9 @@ import {
     AnnualExecutionReadiness,
     ExecutionPeriodFinalizationReadiness,
     AnnualTargetAllocation,
+    GlobalPeriodTargetFinalizationReadiness,
+    StartProcessReadiness,
+    PeriodTargetAllocation,
     AnnualVersionsResponse,
     ExecutionPeriodsResponse,
     PlanNode,
@@ -301,7 +304,46 @@ export const planApi = baseApi.injectEndpoints({
             invalidatesTags: (_r, _e, { id }) => [
                 { type: "PlanNodes", id },
                 "PlanNodes",
+                "PeriodTargetAllocations",
             ],
+        }),
+
+        getPeriodTargetAllocations: builder.query<PeriodTargetAllocation[], string>({
+            query: (id) => `/plan/versions/${id}/period-target-allocations`,
+            transformResponse: (response: { data: PeriodTargetAllocation[] }) => response.data,
+            providesTags: (_r, _e, id) => [{ type: "PeriodTargetAllocations", id }],
+        }),
+
+        getGlobalPeriodTargetFinalizationReadiness: builder.query<
+            GlobalPeriodTargetFinalizationReadiness,
+            string
+        >({
+            query: (id) => `/plan/versions/${id}/global-period-target-readiness`,
+            transformResponse: (response: { data: GlobalPeriodTargetFinalizationReadiness }) =>
+                response.data,
+        }),
+
+        finalizeGlobalPeriodTargets: builder.mutation<PlanVersion, string>({
+            query: (id) => ({
+                url: `/plan/versions/${id}/finalize-global-period-targets`,
+                method: "POST",
+            }),
+            transformResponse: (response: { data: PlanVersion }) => response.data,
+            invalidatesTags: ["PlanVersions", "PlanNodes", "PeriodTargetAllocations"],
+        }),
+
+        getStartProcessReadiness: builder.query<StartProcessReadiness, string>({
+            query: (id) => `/plan/versions/${id}/start-process-readiness`,
+            transformResponse: (response: { data: StartProcessReadiness }) => response.data,
+        }),
+
+        startPlanProcess: builder.mutation<PlanVersion, string>({
+            query: (id) => ({
+                url: `/plan/versions/${id}/start-process`,
+                method: "POST",
+            }),
+            transformResponse: (response: { data: PlanVersion }) => response.data,
+            invalidatesTags: ["PlanVersions"],
         }),
 
         /**
@@ -449,6 +491,11 @@ export const {
     useFinalizeExecutionPeriodTargetsMutation,
     useCompleteExecutionPeriodMutation,
     useUpdatePeriodTargetMutation,
+    useGetPeriodTargetAllocationsQuery,
+    useGetGlobalPeriodTargetFinalizationReadinessQuery,
+    useFinalizeGlobalPeriodTargetsMutation,
+    useGetStartProcessReadinessQuery,
+    useStartPlanProcessMutation,
 
     // Plan Nodes
     useGetPlanNodesQuery,

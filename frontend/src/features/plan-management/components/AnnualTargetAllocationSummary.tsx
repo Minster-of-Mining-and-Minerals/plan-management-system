@@ -106,7 +106,7 @@ export function AnnualTargetAllocationSummary({
                 <p>
                     Occupied (other years):{" "}
                     <span className="font-medium text-amber-800">{occupiedLabel}</span>
-                    <span className="text-gray-400"> / {draftLabel}</span>
+                    <span className="text-gray-400"> / {draftLabel} draft target</span>
                 </p>
                 <p>
                     Available this year:{" "}

@@ -16,7 +16,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { PlanNode, PlanNodeHierarchy, PlanRule, AnnualTargetAllocation } from "@/redux/types/plan";
+import { PlanNode, PlanNodeHierarchy, PlanRule, AnnualTargetAllocation, PeriodTargetAllocation } from "@/redux/types/plan";
 import {
     formatNodeTarget,
     getStepLabel,
@@ -35,7 +35,9 @@ import { PlanNodeIcon } from "./PlanNodeIcon";
 import { PlanNodeHierarchyNumber } from "./PlanNodeHierarchyNumber";
 import { PlanNodeAssignmentSummary } from "./PlanNodeAssignmentSummary";
 import { PlanNodeAnnualTargetSection } from "./PlanNodeAnnualTargetSection";
+import { PlanNodePeriodTargetSection } from "./PlanNodePeriodTargetSection";
 import { cn } from "@/lib/utils";
+import { getPlanReferenceTargetColumnLabel } from "@/utils/planDraftUtils";
 
 interface PlanHierarchyTableViewProps {
     roots: PlanNodeHierarchy[];
@@ -51,8 +53,11 @@ interface PlanHierarchyTableViewProps {
     readOnly?: boolean;
     hideAssignments?: boolean;
     showAnnualTargets?: boolean;
+    showPeriodTargets?: boolean;
     canEditAnnualTarget?: boolean;
+    canEditPeriodTarget?: boolean;
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
+    periodTargetAllocations?: Record<string, PeriodTargetAllocation>;
 }
 
 interface StrategicFocusTableProps {
@@ -72,8 +77,11 @@ interface StrategicFocusTableProps {
     defaultOpen?: boolean;
     hideAssignments?: boolean;
     showAnnualTargets?: boolean;
+    showPeriodTargets?: boolean;
     canEditAnnualTarget?: boolean;
+    canEditPeriodTarget?: boolean;
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
+    periodTargetAllocations?: Record<string, PeriodTargetAllocation>;
 }
 
 function StrategicFocusTable({
@@ -93,8 +101,11 @@ function StrategicFocusTable({
     defaultOpen = false,
     hideAssignments = false,
     showAnnualTargets = false,
+    showPeriodTargets = false,
     canEditAnnualTarget = false,
+    canEditPeriodTarget = false,
     annualTargetAllocations,
+    periodTargetAllocations,
 }: StrategicFocusTableProps) {
     const { data: planningConfig } = useGetPlanningConfigurationQuery();
     const configuredUnits = planningConfig?.target_units;
@@ -136,13 +147,28 @@ function StrategicFocusTable({
                         <Badge variant="secondary" className="text-[10px] py-0 h-4">
                             {nodeCount} item{nodeCount !== 1 ? "s" : ""}
                         </Badge>
-                        {root.weight > 0 && (
+                        {root.weight > 0 && !showPeriodTargets && (
                             <Badge
                                 variant="secondary"
                                 className="text-[10px] py-0 h-4 bg-blue-50 text-blue-700 border-blue-100"
                             >
+                                Draft Target:{" "}
                                 {formatNodeTarget(
                                     root.weight,
+                                    root.weight_mode,
+                                    root.target_unit,
+                                    configuredUnits
+                                )}
+                            </Badge>
+                        )}
+                        {showPeriodTargets && (root.annual_target ?? 0) > 0 && (
+                            <Badge
+                                variant="secondary"
+                                className="text-[10px] py-0 h-4 bg-blue-50 text-blue-700 border-blue-100"
+                            >
+                                Annual Target:{" "}
+                                {formatNodeTarget(
+                                    root.annual_target ?? 0,
                                     root.weight_mode,
                                     root.target_unit,
                                     configuredUnits
@@ -170,6 +196,17 @@ function StrategicFocusTable({
                             configuredUnits={configuredUnits}
                             allocation={annualTargetAllocations?.[root.plan_node_id]}
                             canEdit={canEditAnnualTarget}
+                            variant="compact"
+                            className="mt-2"
+                        />
+                    )}
+                    {showPeriodTargets && (root.annual_target ?? 0) > 0 && (
+                        <PlanNodePeriodTargetSection
+                            node={root}
+                            rule={rule}
+                            configuredUnits={configuredUnits}
+                            allocation={periodTargetAllocations?.[root.plan_node_id]}
+                            canEdit={canEditPeriodTarget}
                             variant="compact"
                             className="mt-2"
                         />
@@ -215,10 +252,13 @@ function StrategicFocusTable({
                                 <TableHead className="w-[100px]">Level</TableHead>
                                 <TableHead className="min-w-[220px]">Title</TableHead>
                                 <TableHead className="min-w-[140px]">
-                                    {showAnnualTargets ? "Draft Target" : "Target"}
+                                    {getPlanReferenceTargetColumnLabel(showPeriodTargets)}
                                 </TableHead>
                                 {showAnnualTargets && (
                                     <TableHead className="min-w-[180px]">Annual Target</TableHead>
+                                )}
+                                {showPeriodTargets && (
+                                    <TableHead className="min-w-[180px]">Period Target</TableHead>
                                 )}
                                 <TableHead className="min-w-[120px]">Performance</TableHead>
                                 {!hideAssignments && (
@@ -237,8 +277,10 @@ function StrategicFocusTable({
                                     thresholds,
                                     node.plan_node_id
                                 );
-                                const showTarget =
-                                    stepRequiresWeight(rule, node.level) && node.weight > 0;
+                                const showReferenceTarget = showPeriodTargets
+                                    ? stepRequiresWeight(rule, node.level) &&
+                                      (node.annual_target ?? 0) > 0
+                                    : stepRequiresWeight(rule, node.level) && node.weight > 0;
                                 const rowNumber = getHierarchyNumber(
                                     hierarchyNumberMap,
                                     node.plan_node_id
@@ -298,10 +340,19 @@ function StrategicFocusTable({
                                             </div>
                                         </TableCell>
                                         <TableCell className="whitespace-normal">
-                                            {showTarget ? (
-                                                <span className="text-sm text-gray-700">
+                                            {showReferenceTarget ? (
+                                                <span
+                                                    className={cn(
+                                                        "text-sm",
+                                                        showPeriodTargets
+                                                            ? "text-gray-900 font-medium"
+                                                            : "text-gray-700"
+                                                    )}
+                                                >
                                                     {formatNodeTarget(
-                                                        node.weight,
+                                                        showPeriodTargets
+                                                            ? (node.annual_target ?? 0)
+                                                            : node.weight,
                                                         node.weight_mode,
                                                         node.target_unit,
                                                         configuredUnits
@@ -313,13 +364,30 @@ function StrategicFocusTable({
                                         </TableCell>
                                         {showAnnualTargets && (
                                             <TableCell className="whitespace-normal">
-                                                {showTarget ? (
+                                                {stepRequiresWeight(rule, node.level) && node.weight > 0 ? (
                                                     <PlanNodeAnnualTargetSection
                                                         node={node}
                                                         rule={rule}
                                                         configuredUnits={configuredUnits}
                                                         allocation={annualTargetAllocations?.[node.plan_node_id]}
                                                         canEdit={canEditAnnualTarget}
+                                                        variant="table"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                ) : (
+                                                    <span className="text-muted-foreground">—</span>
+                                                )}
+                                            </TableCell>
+                                        )}
+                                        {showPeriodTargets && (
+                                            <TableCell className="whitespace-normal">
+                                                {(node.annual_target ?? 0) > 0 ? (
+                                                    <PlanNodePeriodTargetSection
+                                                        node={node}
+                                                        rule={rule}
+                                                        configuredUnits={configuredUnits}
+                                                        allocation={periodTargetAllocations?.[node.plan_node_id]}
+                                                        canEdit={canEditPeriodTarget}
                                                         variant="table"
                                                         onClick={(e) => e.stopPropagation()}
                                                     />
@@ -433,8 +501,11 @@ export function PlanHierarchyTableView({
     readOnly = false,
     hideAssignments = false,
     showAnnualTargets = false,
+    showPeriodTargets = false,
     canEditAnnualTarget = false,
+    canEditPeriodTarget = false,
     annualTargetAllocations,
+    periodTargetAllocations,
 }: PlanHierarchyTableViewProps) {
     const sortedRoots = useMemo(() => sortPlanNodes(roots), [roots]);
 
@@ -463,8 +534,11 @@ export function PlanHierarchyTableView({
                     defaultOpen={index === 0}
                     hideAssignments={hideAssignments}
                     showAnnualTargets={showAnnualTargets}
+                    showPeriodTargets={showPeriodTargets}
                     canEditAnnualTarget={canEditAnnualTarget}
+                    canEditPeriodTarget={canEditPeriodTarget}
                     annualTargetAllocations={annualTargetAllocations}
+                    periodTargetAllocations={periodTargetAllocations}
                 />
             ))}
         </div>

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { PlanNodeHierarchy, PlanNode, PlanRule, AnnualTargetAllocation } from "@/redux/types/plan";
+import { PlanNodeHierarchy, PlanNode, PlanRule, AnnualTargetAllocation, PeriodTargetAllocation } from "@/redux/types/plan";
 import type { TargetUnit } from "@/redux/types/planningConfig";
 import {
     formatNodeTarget,
@@ -17,6 +17,7 @@ import { PlanNodeIcon } from "./PlanNodeIcon";
 import { PlanNodeHierarchyNumber } from "./PlanNodeHierarchyNumber";
 import { PlanNodeAssignmentSummary } from "./PlanNodeAssignmentSummary";
 import { PlanNodeAnnualTargetSection } from "./PlanNodeAnnualTargetSection";
+import { PlanNodePeriodTargetSection } from "./PlanNodePeriodTargetSection";
 import { PlanNodeActions } from "./PlanNodeActions";
 import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
 
@@ -38,8 +39,11 @@ interface NodeItemProps {
     configuredUnits?: TargetUnit[];
     hideAssignments?: boolean;
     showAnnualTargets?: boolean;
+    showPeriodTargets?: boolean;
     canEditAnnualTarget?: boolean;
+    canEditPeriodTarget?: boolean;
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
+    periodTargetAllocations?: Record<string, PeriodTargetAllocation>;
 }
 
 const NodeItem = ({
@@ -60,8 +64,11 @@ const NodeItem = ({
     configuredUnits,
     hideAssignments = false,
     showAnnualTargets = false,
+    showPeriodTargets = false,
     canEditAnnualTarget = false,
+    canEditPeriodTarget = false,
     annualTargetAllocations,
+    periodTargetAllocations,
 }: NodeItemProps) => {
     const hierarchyNumber = getHierarchyNumber(hierarchyNumberMap, node.plan_node_id);
     const [isExpanded, setIsExpanded] = useState(true);
@@ -112,13 +119,28 @@ const NodeItem = ({
                             <Badge variant="outline" className="text-[10px] uppercase font-bold py-0 h-4 shrink-0">
                                 {levelLabel}
                             </Badge>
-                            {stepRequiresWeight(rule, node.level) && node.weight > 0 && !showAnnualTargets && (
+                            {stepRequiresWeight(rule, node.level) && node.weight > 0 && !showAnnualTargets && !showPeriodTargets && (
                                 <Badge
                                     variant="secondary"
                                     className="text-[10px] py-0 h-4 bg-blue-50 text-blue-700 border-blue-100 shrink-0"
                                 >
+                                    Draft Target:{" "}
                                     {formatNodeTarget(
                                         node.weight,
+                                        nodeWeightMode,
+                                        node.target_unit,
+                                        configuredUnits
+                                    )}
+                                </Badge>
+                            )}
+                            {showPeriodTargets && (node.annual_target ?? 0) > 0 && (
+                                <Badge
+                                    variant="secondary"
+                                    className="text-[10px] py-0 h-4 bg-blue-50 text-blue-700 border-blue-100 shrink-0"
+                                >
+                                    Annual Target:{" "}
+                                    {formatNodeTarget(
+                                        node.annual_target ?? 0,
                                         nodeWeightMode,
                                         node.target_unit,
                                         configuredUnits
@@ -141,6 +163,16 @@ const NodeItem = ({
                                 configuredUnits={configuredUnits}
                                 allocation={annualTargetAllocations?.[node.plan_node_id]}
                                 canEdit={canEditAnnualTarget}
+                                variant="compact"
+                            />
+                        )}
+                        {showPeriodTargets && (node.annual_target ?? 0) > 0 && (
+                            <PlanNodePeriodTargetSection
+                                node={node}
+                                rule={rule}
+                                configuredUnits={configuredUnits}
+                                allocation={periodTargetAllocations?.[node.plan_node_id]}
+                                canEdit={canEditPeriodTarget}
                                 variant="compact"
                             />
                         )}
@@ -200,8 +232,11 @@ const NodeItem = ({
                             configuredUnits={configuredUnits}
                             hideAssignments={hideAssignments}
                             showAnnualTargets={showAnnualTargets}
+                            showPeriodTargets={showPeriodTargets}
                             canEditAnnualTarget={canEditAnnualTarget}
+                            canEditPeriodTarget={canEditPeriodTarget}
                             annualTargetAllocations={annualTargetAllocations}
+                            periodTargetAllocations={periodTargetAllocations}
                         />
                     ))}
                 </div>
@@ -226,8 +261,11 @@ interface PlanHierarchyTreeProps {
     readOnly?: boolean;
     hideAssignments?: boolean;
     showAnnualTargets?: boolean;
+    showPeriodTargets?: boolean;
     canEditAnnualTarget?: boolean;
+    canEditPeriodTarget?: boolean;
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
+    periodTargetAllocations?: Record<string, PeriodTargetAllocation>;
 }
 
 export function PlanHierarchyTree({
@@ -245,8 +283,11 @@ export function PlanHierarchyTree({
     readOnly = false,
     hideAssignments = false,
     showAnnualTargets = false,
+    showPeriodTargets = false,
     canEditAnnualTarget = false,
+    canEditPeriodTarget = false,
     annualTargetAllocations,
+    periodTargetAllocations,
 }: PlanHierarchyTreeProps) {
     const { data: planningConfig } = useGetPlanningConfigurationQuery();
     const configuredUnits = planningConfig?.target_units;
@@ -275,8 +316,11 @@ export function PlanHierarchyTree({
                         configuredUnits={configuredUnits}
                         hideAssignments={hideAssignments}
                         showAnnualTargets={showAnnualTargets}
+                        showPeriodTargets={showPeriodTargets}
                         canEditAnnualTarget={canEditAnnualTarget}
+                        canEditPeriodTarget={canEditPeriodTarget}
                         annualTargetAllocations={annualTargetAllocations}
+                        periodTargetAllocations={periodTargetAllocations}
                     />
                 ))}
             </div>
@@ -305,8 +349,11 @@ export function PlanHierarchyTree({
                     configuredUnits={configuredUnits}
                     hideAssignments={hideAssignments}
                     showAnnualTargets={showAnnualTargets}
+                    showPeriodTargets={showPeriodTargets}
                     canEditAnnualTarget={canEditAnnualTarget}
+                    canEditPeriodTarget={canEditPeriodTarget}
                     annualTargetAllocations={annualTargetAllocations}
+                    periodTargetAllocations={periodTargetAllocations}
                 />
             ))}
         </div>

@@ -99,3 +99,10 @@ export function canEditPeriodTargetForVersion(
   if (periodTargetsFinalized) return false;
   return version.status !== "completed";
 }
+
+/** Column label for the read-only reference target in hierarchy table views. */
+export function getPlanReferenceTargetColumnLabel(
+  showPeriodTargets: boolean
+): "Annual Target" | "Draft Target" {
+  return showPeriodTargets ? "Annual Target" : "Draft Target";
+}
