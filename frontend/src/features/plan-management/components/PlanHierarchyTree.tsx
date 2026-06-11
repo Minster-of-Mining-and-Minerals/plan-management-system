@@ -119,7 +119,7 @@ const NodeItem = ({
                             <Badge variant="outline" className="text-[10px] uppercase font-bold py-0 h-4 shrink-0">
                                 {levelLabel}
                             </Badge>
-                            {stepRequiresWeight(rule, node.level) && node.weight > 0 && !showAnnualTargets && !showPeriodTargets && (
+                            {stepRequiresWeight(rule, node.level) && node.weight > 0 && (
                                 <Badge
                                     variant="secondary"
                                     className="text-[10px] py-0 h-4 bg-blue-50 text-blue-700 border-blue-100 shrink-0"
@@ -127,20 +127,6 @@ const NodeItem = ({
                                     Draft Target:{" "}
                                     {formatNodeTarget(
                                         node.weight,
-                                        nodeWeightMode,
-                                        node.target_unit,
-                                        configuredUnits
-                                    )}
-                                </Badge>
-                            )}
-                            {showPeriodTargets && (node.annual_target ?? 0) > 0 && (
-                                <Badge
-                                    variant="secondary"
-                                    className="text-[10px] py-0 h-4 bg-blue-50 text-blue-700 border-blue-100 shrink-0"
-                                >
-                                    Annual Target:{" "}
-                                    {formatNodeTarget(
-                                        node.annual_target ?? 0,
                                         nodeWeightMode,
                                         node.target_unit,
                                         configuredUnits
