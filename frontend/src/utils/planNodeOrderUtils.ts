@@ -10,6 +10,15 @@ export function sortPlanNodes<T extends Pick<PlanNode, "order" | "created_at">>(
     });
 }
 
+/** Recursively sort hierarchy siblings at every level (same rule as draft document order). */
+export function sortPlanHierarchy(nodes: PlanNodeHierarchy[]): PlanNodeHierarchy[] {
+    const sorted = sortPlanNodes(nodes);
+    return sorted.map((node) => ({
+        ...node,
+        children: node.children?.length ? sortPlanHierarchy(node.children) : node.children,
+    }));
+}
+
 /** Cascaded outline numbers from sibling order, e.g. 1 → 1.1 → 1.1.1 */
 export function buildHierarchyNumberMap(
     roots: PlanNodeHierarchy[]

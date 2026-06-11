@@ -55,6 +55,7 @@ import {
     buildSiblingReorderPayload,
     getHierarchyNumber,
     sortPlanNodes,
+    sortPlanHierarchy,
 } from "@/utils/planNodeOrderUtils";
 import { PlanNodeHierarchyNumber } from "./components/PlanNodeHierarchyNumber";
 
@@ -112,7 +113,8 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
     });
     const { data: planningConfig } = useGetPlanningConfigurationQuery();
     const { data: rule } = useGetPlanRuleForVersionQuery(versionId);
-    const { data: hierarchy = [], isLoading, refetch } = useGetPlanHierarchyQuery(versionId);
+    const { data: hierarchyRaw = [], isLoading, refetch } = useGetPlanHierarchyQuery(versionId);
+    const hierarchy = useMemo(() => sortPlanHierarchy(hierarchyRaw), [hierarchyRaw]);
     const [deleteNode] = useDeletePlanNodeMutation();
     const [reorderNodes, { isLoading: isReordering }] = useReorderPlanNodesMutation();
     const thresholds = usePerformanceColorThresholds();

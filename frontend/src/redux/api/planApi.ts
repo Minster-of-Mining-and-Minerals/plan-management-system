@@ -21,6 +21,7 @@ import {
     ReorderPlanNodesPayload,
     PlanNodeHierarchy,
 } from "../types/plan";
+import { sortPlanHierarchy } from "@/utils/planNodeOrderUtils";
 
 export const planApi = baseApi.injectEndpoints({
     endpoints: (builder) => ({
@@ -445,7 +446,7 @@ export const planApi = baseApi.injectEndpoints({
         >({
             query: (plan_version_id) => `/plan/hierarchy/${plan_version_id}`,
             transformResponse: (response: any): PlanNodeHierarchy[] =>
-                response.data ?? [],
+                sortPlanHierarchy(response.data ?? []),
             providesTags: ["PlanNodes"],
         }),
 

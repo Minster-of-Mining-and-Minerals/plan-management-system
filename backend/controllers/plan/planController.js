@@ -15,6 +15,7 @@ const {
 
 const { v4: uuidv4, validate: isUuid } = require("uuid");
 const { Op } = require("sequelize");
+const { buildDraftAlignedSortMeta, sortHierarchyTree } = require("../../utils/planHierarchyUtils");
 const { validatePlanNodeAgainstRule } = require("../../services/planRuleService");
 const { isWeightModeSelectionLevel } = require("../../services/planRuleStepUtils");
 const {
@@ -1066,9 +1067,15 @@ const getPlanHierarchy = async (req, res) => {
             }
         });
 
+        const planVersion = await PlanVersion.findByPk(plan_version_id, {
+            attributes: ["plan_version_id", "version_kind", "parent_plan_version_id"],
+        });
+        const sortMetaByNodeId = await buildDraftAlignedSortMeta(planVersion, nodes);
+        const sortedRoots = sortHierarchyTree(roots, sortMetaByNodeId);
+
         return res.json({
             success: true,
-            data: roots,
+            data: sortedRoots,
         });
     } catch (error) {
         return res.status(500).json({ error: error.message });
