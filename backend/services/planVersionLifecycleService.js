@@ -1,6 +1,7 @@
 "use strict";
 
 const { v4: uuidv4 } = require("uuid");
+const { Op } = require("sequelize");
 const {
     PlanVersion,
     PlanNode,
@@ -13,6 +14,8 @@ const { stepRequiresWeight } = require("./planRuleStepUtils");
 const {
     getOrCreateGlobalPlanningConfig,
     resolvePeriodLabels,
+    resolvePeriodLabelsForMode,
+    normalizeCustomPeriods,
 } = require("./planningConfigurationService");
 
 function enumeratePlanningYears(master) {
@@ -226,7 +229,6 @@ async function finalizeDraft(masterVersionId) {
         for (let i = 0; i < years.length; i += 1) {
             const planningYear = years[i];
             const sequenceIndex = i + 1;
-            const isFirstYear = sequenceIndex === 1;
 
             const annualVersion = await PlanVersion.create(
                 {
@@ -245,8 +247,8 @@ async function finalizeDraft(masterVersionId) {
                     planning_duration_years: 1,
                     year: planningYear,
                     version_number: sequenceIndex,
-                    status: isFirstYear ? "active" : "locked",
-                    is_locked: !isFirstYear,
+                    status: "draft",
+                    is_locked: false,
                     government_structure_id: master.government_structure_id,
                     based_on_version_id: null,
                     plan_rule_id: master.plan_rule_id,
@@ -256,10 +258,6 @@ async function finalizeDraft(masterVersionId) {
 
             await copyNodesAndAssignments(master.plan_version_id, annualVersion.plan_version_id, t);
             annualVersions.push(annualVersion);
-
-            if (isFirstYear) {
-                await generateExecutionPeriods(annualVersion.plan_version_id, t);
-            }
         }
 
         await t.commit();
@@ -287,6 +285,285 @@ async function getAnnualVersions(masterVersionId) {
             },
         ],
     });
+}
+
+async function getMasterForAnnualVersion(annualVersion, transaction) {
+    if (!annualVersion?.parent_plan_version_id) return null;
+    return PlanVersion.findByPk(annualVersion.parent_plan_version_id, { transaction });
+}
+
+async function validateAnnualExecutionFinalization(masterVersionId, transaction) {
+    const master = await PlanVersion.findByPk(masterVersionId, { transaction });
+    if (!master || master.version_kind !== "master") {
+        return { ready: false, errors: ["Master plan version not found"] };
+    }
+    if (master.status !== "finalized") {
+        return { ready: false, errors: ["Strategic draft must be finalized before annual execution can be finalized"] };
+    }
+    if (master.annual_targets_finalized_at) {
+        return { ready: false, errors: ["Annual execution targets have already been finalized"] };
+    }
+
+    const annualVersions = await PlanVersion.findAll({
+        where: { parent_plan_version_id: masterVersionId, version_kind: "annual" },
+        order: [["sequence_index", "ASC"]],
+        transaction,
+    });
+
+    if (annualVersions.length === 0) {
+        return { ready: false, errors: ["No annual execution versions exist"] };
+    }
+
+    const rule = await resolvePlanRuleForVersion(master, transaction);
+    const masterNodes = await PlanNode.findAll({
+        where: { plan_version_id: masterVersionId },
+        transaction,
+    });
+
+    const errors = [];
+    const numYears = annualVersions.length;
+
+    for (const masterNode of masterNodes) {
+        if (rule && !stepRequiresWeight(rule, masterNode.level)) {
+            continue;
+        }
+
+        const draftWeight = Number(masterNode.weight) || 0;
+        if (draftWeight <= 0) {
+            continue;
+        }
+
+        const expectedPerYear = draftWeight / numYears;
+        let allocatedSum = 0;
+
+        for (const annualVersion of annualVersions) {
+            const annualNode = await PlanNode.findOne({
+                where: {
+                    plan_version_id: annualVersion.plan_version_id,
+                    source_plan_node_id: masterNode.plan_node_id,
+                },
+                transaction,
+            });
+
+            if (!annualNode) {
+                errors.push(
+                    `Missing annual node for "${masterNode.title}" in year ${annualVersion.planning_year ?? annualVersion.year}`
+                );
+                continue;
+            }
+
+            const annualTarget = Number(annualNode.annual_target);
+            if (!annualTarget || annualTarget <= 0) {
+                errors.push(
+                    `Annual target is not set for "${masterNode.title}" in year ${annualVersion.planning_year ?? annualVersion.year}`
+                );
+                continue;
+            }
+
+            if (Math.abs(annualTarget - expectedPerYear) > 0.001) {
+                errors.push(
+                    `"${masterNode.title}" in ${annualVersion.planning_year ?? annualVersion.year} must be ${expectedPerYear.toFixed(4)} (equal split of ${draftWeight} across ${numYears} years), but is ${annualTarget}`
+                );
+            }
+
+            allocatedSum += annualTarget;
+        }
+
+        if (Math.abs(allocatedSum - draftWeight) > 0.001) {
+            errors.push(
+                `Total annual targets for "${masterNode.title}" (${allocatedSum}) must equal the draft target (${draftWeight})`
+            );
+        }
+    }
+
+    return {
+        ready: errors.length === 0,
+        errors,
+        master,
+        annualVersions,
+        planning_years: annualVersions.map((v) => v.planning_year ?? v.year),
+    };
+}
+
+async function getAnnualExecutionReadiness(masterVersionId) {
+    const t = await sequelize.transaction();
+    try {
+        const result = await validateAnnualExecutionFinalization(masterVersionId, t);
+        await t.rollback();
+        return {
+            ready: result.ready,
+            errors: result.errors,
+            planning_years: result.planning_years ?? [],
+            annual_targets_finalized_at: result.master?.annual_targets_finalized_at ?? null,
+        };
+    } catch (error) {
+        await t.rollback();
+        throw error;
+    }
+}
+
+async function finalizeAnnualExecution(masterVersionId) {
+    const t = await sequelize.transaction();
+    try {
+        const validation = await validateAnnualExecutionFinalization(masterVersionId, t);
+        if (!validation.ready) {
+            await t.rollback();
+            return { success: false, errors: validation.errors };
+        }
+
+        const now = new Date();
+        await validation.master.update({ annual_targets_finalized_at: now }, { transaction: t });
+
+        for (const annualVersion of validation.annualVersions) {
+            await annualVersion.update(
+                {
+                    status: "draft",
+                    is_locked: false,
+                },
+                { transaction: t }
+            );
+        }
+
+        const firstYear = validation.annualVersions.find((v) => v.sequence_index === 1)
+            ?? validation.annualVersions[0];
+
+        await t.commit();
+
+        return {
+            success: true,
+            master: await PlanVersion.findByPk(masterVersionId, {
+                include: [{ association: "annualVersions" }],
+            }),
+            activatedVersion: firstYear,
+        };
+    } catch (error) {
+        await t.rollback();
+        throw error;
+    }
+}
+
+async function lockAnnualVersion(annualVersionId) {
+    const t = await sequelize.transaction();
+    try {
+        const version = await PlanVersion.findByPk(annualVersionId, { transaction: t });
+        if (!version || version.version_kind !== "annual") {
+            await t.rollback();
+            return { success: false, message: "Annual plan version not found" };
+        }
+
+        const master = await getMasterForAnnualVersion(version, t);
+        if (!master?.annual_targets_finalized_at) {
+            await t.rollback();
+            return {
+                success: false,
+                message: "Finalize annual execution before using operational lock controls",
+            };
+        }
+
+        if (!version.period_targets_finalized_at) {
+            await t.rollback();
+            return {
+                success: false,
+                message:
+                    "Initialize and finalize execution period targets before locking this year for operational execution",
+            };
+        }
+
+        if (version.status === "completed") {
+            await t.rollback();
+            return { success: false, message: "Completed annual versions are already locked for editing" };
+        }
+
+        await version.update(
+            { is_locked: true, status: version.status === "active" ? "locked" : version.status },
+            { transaction: t }
+        );
+
+        await t.commit();
+        return { success: true, data: version };
+    } catch (error) {
+        await t.rollback();
+        throw error;
+    }
+}
+
+async function unlockAnnualVersion(annualVersionId) {
+    const t = await sequelize.transaction();
+    try {
+        const version = await PlanVersion.findByPk(annualVersionId, { transaction: t });
+        if (!version || version.version_kind !== "annual") {
+            await t.rollback();
+            return { success: false, message: "Annual plan version not found" };
+        }
+
+        const master = await getMasterForAnnualVersion(version, t);
+        if (!master) {
+            await t.rollback();
+            return { success: false, message: "Parent master plan not found" };
+        }
+
+        if (version.status === "completed") {
+            await t.rollback();
+            return { success: false, message: "Completed annual versions cannot be unlocked" };
+        }
+
+        if (!master.annual_targets_finalized_at) {
+            await t.rollback();
+            return {
+                success: false,
+                message: "Finalize annual execution before using operational unlock controls",
+            };
+        }
+
+        if (!version.period_targets_finalized_at) {
+            await t.rollback();
+            return {
+                success: false,
+                message:
+                    "Initialize and finalize execution period targets before unlocking this year for operational execution",
+            };
+        }
+
+        if (version.sequence_index > 1) {
+            const previous = await PlanVersion.findOne({
+                where: {
+                    parent_plan_version_id: master.plan_version_id,
+                    version_kind: "annual",
+                    sequence_index: version.sequence_index - 1,
+                },
+                transaction: t,
+            });
+
+            if (!previous || previous.status !== "completed") {
+                await t.rollback();
+                return {
+                    success: false,
+                    message: "The previous annual year must be completed before this year can be unlocked",
+                };
+            }
+        }
+
+        await PlanVersion.update(
+            { status: "locked", is_locked: true },
+            {
+                where: {
+                    parent_plan_version_id: master.plan_version_id,
+                    version_kind: "annual",
+                    status: "active",
+                    plan_version_id: { [Op.ne]: version.plan_version_id },
+                },
+                transaction: t,
+            }
+        );
+
+        await version.update({ status: "active", is_locked: false }, { transaction: t });
+
+        await t.commit();
+        return { success: true, data: version };
+    } catch (error) {
+        await t.rollback();
+        throw error;
+    }
 }
 
 async function validateAnnualTargetAllocation(sourcePlanNodeId, annualTarget, excludeNodeId, transaction) {
@@ -348,9 +625,13 @@ async function setAnnualTarget(planNodeId, annualTarget) {
             return { success: false, message: "Annual targets can only be set on annual plan versions" };
         }
 
-        if (node.planVersion.is_locked || node.planVersion.status === "locked") {
+        const master = await getMasterForAnnualVersion(node.planVersion, t);
+        if (master?.annual_targets_finalized_at) {
             await t.rollback();
-            return { success: false, message: "This annual version is locked" };
+            return {
+                success: false,
+                message: "Annual targets are finalized — edit targets before finalizing annual execution",
+            };
         }
 
         if (!node.source_plan_node_id) {
@@ -392,12 +673,29 @@ async function completeAnnualVersion(annualVersionId) {
             return { success: false, message: "Annual plan version not found" };
         }
 
-        if (version.status !== "active") {
+        const master = await getMasterForAnnualVersion(version, t);
+        if (!master?.annual_targets_finalized_at) {
             await t.rollback();
-            return { success: false, message: "Only active annual versions can be completed" };
+            return {
+                success: false,
+                message: "Finalize annual execution targets before completing an annual year",
+            };
         }
 
-        await version.update({ status: "completed" }, { transaction: t });
+        if (!version.period_targets_finalized_at) {
+            await t.rollback();
+            return {
+                success: false,
+                message: "Finalize execution period targets before completing this annual year",
+            };
+        }
+
+        if (version.status !== "active" || version.is_locked) {
+            await t.rollback();
+            return { success: false, message: "Only the active unlocked annual version can be completed" };
+        }
+
+        await version.update({ status: "completed", is_locked: true }, { transaction: t });
 
         const nextVersion = await PlanVersion.findOne({
             where: {
@@ -410,10 +708,9 @@ async function completeAnnualVersion(annualVersionId) {
 
         if (nextVersion) {
             await nextVersion.update(
-                { status: "active", is_locked: false },
+                { status: "draft", is_locked: false },
                 { transaction: t }
             );
-            await generateExecutionPeriods(nextVersion.plan_version_id, t);
         }
 
         await t.commit();
@@ -424,7 +721,41 @@ async function completeAnnualVersion(annualVersionId) {
     }
 }
 
-async function generateExecutionPeriods(annualVersionId, transaction) {
+async function applyEqualPeriodTargetSplit(annualVersionId, transaction) {
+    const periods = await PlanVersion.findAll({
+        where: { parent_plan_version_id: annualVersionId, version_kind: "execution_period" },
+        transaction,
+    });
+    const annualNodes = await PlanNode.findAll({
+        where: { plan_version_id: annualVersionId },
+        transaction,
+    });
+
+    const numPeriods = periods.length;
+    if (numPeriods === 0) return;
+
+    for (const annualNode of annualNodes) {
+        const annualTarget = Number(annualNode.annual_target) || 0;
+        if (annualTarget <= 0) continue;
+
+        const perPeriod = annualTarget / numPeriods;
+        for (const period of periods) {
+            const periodNode = await PlanNode.findOne({
+                where: {
+                    plan_version_id: period.plan_version_id,
+                    source_plan_node_id: annualNode.plan_node_id,
+                },
+                transaction,
+            });
+            if (periodNode) {
+                await periodNode.update({ period_target: perPeriod }, { transaction });
+            }
+        }
+    }
+}
+
+async function generateExecutionPeriods(annualVersionId, transaction, options = {}) {
+    const { subdivisionMode = null, customPeriods = [], splitTargets = true } = options;
     const annualVersion = await PlanVersion.findByPk(annualVersionId, { transaction });
     if (!annualVersion || annualVersion.version_kind !== "annual") {
         return { success: false, message: "Annual plan version not found" };
@@ -435,13 +766,27 @@ async function generateExecutionPeriods(annualVersionId, transaction) {
         transaction,
     });
     if (existingCount > 0) {
-        return { success: true, skipped: true };
+        return { success: false, message: "Execution periods already exist for this annual version" };
     }
 
-    const config = await getOrCreateGlobalPlanningConfig(transaction);
-    const periodLabels = resolvePeriodLabels(config);
+    let periodLabels = [];
+    if (subdivisionMode) {
+        if (subdivisionMode === "custom") {
+            const normalized = normalizeCustomPeriods(customPeriods);
+            if (!normalized.valid) {
+                return { success: false, message: normalized.message };
+            }
+            periodLabels = normalized.periods.map((p) => p.label);
+        } else {
+            periodLabels = resolvePeriodLabelsForMode(subdivisionMode, customPeriods);
+        }
+    } else {
+        const config = await getOrCreateGlobalPlanningConfig(transaction);
+        periodLabels = resolvePeriodLabels(config);
+    }
+
     if (periodLabels.length === 0) {
-        return { success: false, message: "No execution periods configured" };
+        return { success: false, message: "No execution periods configured for the selected subdivision" };
     }
 
     const executionPeriods = [];
@@ -470,7 +815,7 @@ async function generateExecutionPeriods(annualVersionId, transaction) {
                 planning_duration_years: 1,
                 year: planningYear,
                 version_number: 100 + sequenceIndex,
-                status: isFirstPeriod ? "active" : "locked",
+                status: isFirstPeriod ? "active" : "draft",
                 is_locked: !isFirstPeriod,
                 government_structure_id: annualVersion.government_structure_id,
                 based_on_version_id: null,
@@ -488,7 +833,195 @@ async function generateExecutionPeriods(annualVersionId, transaction) {
         executionPeriods.push(periodVersion);
     }
 
+    if (splitTargets) {
+        await applyEqualPeriodTargetSplit(annualVersionId, transaction);
+    }
+
     return { success: true, executionPeriods };
+}
+
+async function initializeExecutionPeriods(annualVersionId, subdivisionMode, customPeriods = []) {
+    const t = await sequelize.transaction();
+    try {
+        const annualVersion = await PlanVersion.findByPk(annualVersionId, { transaction: t });
+        if (!annualVersion || annualVersion.version_kind !== "annual") {
+            await t.rollback();
+            return { success: false, message: "Annual plan version not found" };
+        }
+
+        const master = await getMasterForAnnualVersion(annualVersion, t);
+        if (!master?.annual_targets_finalized_at) {
+            await t.rollback();
+            return {
+                success: false,
+                message: "Finalize annual execution targets before initializing execution periods",
+            };
+        }
+
+        if (annualVersion.period_subdivision_mode) {
+            await t.rollback();
+            return { success: false, message: "Execution periods have already been initialized" };
+        }
+
+        const result = await generateExecutionPeriods(annualVersionId, t, {
+            subdivisionMode,
+            customPeriods,
+            splitTargets: true,
+        });
+
+        if (!result.success) {
+            await t.rollback();
+            return result;
+        }
+
+        await annualVersion.update(
+            { period_subdivision_mode: subdivisionMode },
+            { transaction: t }
+        );
+
+        await t.commit();
+        return {
+            success: true,
+            data: await PlanVersion.findByPk(annualVersionId, {
+                include: [{ association: "executionPeriodVersions" }],
+            }),
+            executionPeriods: result.executionPeriods,
+        };
+    } catch (error) {
+        await t.rollback();
+        throw error;
+    }
+}
+
+async function validateExecutionPeriodFinalization(annualVersionId, transaction) {
+    const annualVersion = await PlanVersion.findByPk(annualVersionId, { transaction });
+    if (!annualVersion || annualVersion.version_kind !== "annual") {
+        return { ready: false, errors: ["Annual plan version not found"] };
+    }
+
+    if (!annualVersion.period_subdivision_mode) {
+        return { ready: false, errors: ["Execution periods have not been initialized"] };
+    }
+
+    if (annualVersion.period_targets_finalized_at) {
+        return { ready: false, errors: ["Period targets have already been finalized"] };
+    }
+
+    const periods = await PlanVersion.findAll({
+        where: { parent_plan_version_id: annualVersionId, version_kind: "execution_period" },
+        transaction,
+    });
+
+    if (periods.length === 0) {
+        return { ready: false, errors: ["No execution periods exist"] };
+    }
+
+    const rule = await resolvePlanRuleForVersion(annualVersion, transaction);
+    const annualNodes = await PlanNode.findAll({
+        where: { plan_version_id: annualVersionId },
+        transaction,
+    });
+
+    const errors = [];
+    const numPeriods = periods.length;
+
+    for (const annualNode of annualNodes) {
+        if (rule && !stepRequiresWeight(rule, annualNode.level)) {
+            continue;
+        }
+
+        const annualTarget = Number(annualNode.annual_target) || 0;
+        if (annualTarget <= 0) {
+            continue;
+        }
+
+        let allocatedSum = 0;
+
+        for (const period of periods) {
+            const periodNode = await PlanNode.findOne({
+                where: {
+                    plan_version_id: period.plan_version_id,
+                    source_plan_node_id: annualNode.plan_node_id,
+                },
+                transaction,
+            });
+
+            if (!periodNode) {
+                errors.push(`Missing period node for "${annualNode.title}" in ${period.period_label}`);
+                continue;
+            }
+
+            const periodTarget = Number(periodNode.period_target);
+            if (!periodTarget || periodTarget <= 0) {
+                errors.push(
+                    `Period target is not set for "${annualNode.title}" in ${period.period_label}`
+                );
+                continue;
+            }
+
+            allocatedSum += periodTarget;
+        }
+
+        if (Math.abs(allocatedSum - annualTarget) > 0.001) {
+            errors.push(
+                `Total period targets for "${annualNode.title}" (${allocatedSum}) must equal the annual target (${annualTarget})`
+            );
+        }
+    }
+
+    return { ready: errors.length === 0, errors, annualVersion, executionPeriods: periods };
+}
+
+async function getExecutionPeriodFinalizationReadiness(annualVersionId) {
+    const t = await sequelize.transaction();
+    try {
+        const result = await validateExecutionPeriodFinalization(annualVersionId, t);
+        await t.rollback();
+        return {
+            ready: result.ready,
+            errors: result.errors,
+            period_subdivision_mode: result.annualVersion?.period_subdivision_mode ?? null,
+            period_targets_finalized_at: result.annualVersion?.period_targets_finalized_at ?? null,
+        };
+    } catch (error) {
+        await t.rollback();
+        throw error;
+    }
+}
+
+async function finalizeExecutionPeriodTargets(annualVersionId) {
+    const t = await sequelize.transaction();
+    try {
+        const validation = await validateExecutionPeriodFinalization(annualVersionId, t);
+        if (!validation.ready) {
+            await t.rollback();
+            return { success: false, errors: validation.errors };
+        }
+
+        const now = new Date();
+        await validation.annualVersion.update(
+            { period_targets_finalized_at: now, status: "active" },
+            { transaction: t }
+        );
+
+        const firstPeriod = validation.executionPeriods.find((p) => p.sequence_index === 1)
+            ?? validation.executionPeriods[0];
+
+        if (firstPeriod) {
+            await firstPeriod.update({ status: "active", is_locked: false }, { transaction: t });
+        }
+
+        await t.commit();
+        return {
+            success: true,
+            data: await PlanVersion.findByPk(annualVersionId, {
+                include: [{ association: "executionPeriodVersions" }],
+            }),
+        };
+    } catch (error) {
+        await t.rollback();
+        throw error;
+    }
 }
 
 async function getExecutionPeriods(annualVersionId) {
@@ -563,9 +1096,20 @@ async function setPeriodTarget(planNodeId, periodTarget) {
             return { success: false, message: "Period targets can only be set on execution period versions" };
         }
 
-        if (node.planVersion.is_locked || node.planVersion.status === "locked") {
+        if (node.planVersion.is_locked) {
             await t.rollback();
             return { success: false, message: "This execution period is locked" };
+        }
+
+        const annualVersion = await PlanVersion.findByPk(node.planVersion.parent_plan_version_id, {
+            transaction: t,
+        });
+        if (annualVersion?.period_targets_finalized_at) {
+            await t.rollback();
+            return {
+                success: false,
+                message: "Period targets are finalized — adjust targets before finalizing subdivision",
+            };
         }
 
         if (!node.source_plan_node_id) {
@@ -644,10 +1188,10 @@ function isVersionEditable(planVersion) {
         return planVersion.status === "draft";
     }
     if (planVersion.version_kind === "annual") {
-        return planVersion.status === "active" && !planVersion.is_locked;
+        return !planVersion.is_locked && planVersion.status !== "completed";
     }
     if (planVersion.version_kind === "execution_period") {
-        return planVersion.status === "active" && !planVersion.is_locked;
+        return !planVersion.is_locked && planVersion.status !== "completed";
     }
     return false;
 }
@@ -660,10 +1204,19 @@ module.exports = {
     finalizeDraft,
     getAnnualVersions,
     validateAnnualTargetAllocation,
+    validateAnnualExecutionFinalization,
+    getAnnualExecutionReadiness,
+    finalizeAnnualExecution,
+    lockAnnualVersion,
+    unlockAnnualVersion,
     setAnnualTarget,
     completeAnnualVersion,
     generateExecutionPeriods,
+    initializeExecutionPeriods,
     getExecutionPeriods,
+    validateExecutionPeriodFinalization,
+    getExecutionPeriodFinalizationReadiness,
+    finalizeExecutionPeriodTargets,
     validatePeriodTargetAllocation,
     setPeriodTarget,
     completeExecutionPeriod,

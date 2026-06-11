@@ -86,6 +86,24 @@ function resolveBreadcrumbPath(
 export default function PlanHierarchyView({ versionId }: { versionId: string }) {
     const router = useRouter();
     const { data: version } = useGetPlanVersionByIdQuery(versionId);
+    const masterVersionId =
+        version?.version_kind === "master"
+            ? version.plan_version_id
+            : version?.version_kind === "annual"
+              ? version.parent_plan_version_id
+              : version?.version_kind === "execution_period"
+                ? null
+                : null;
+    const annualParentId =
+        version?.version_kind === "execution_period"
+            ? version.parent_plan_version_id
+            : null;
+    const { data: masterVersion } = useGetPlanVersionByIdQuery(masterVersionId!, {
+        skip: !masterVersionId,
+    });
+    const { data: annualParentVersion } = useGetPlanVersionByIdQuery(annualParentId!, {
+        skip: !annualParentId,
+    });
     const { data: planningConfig } = useGetPlanningConfigurationQuery();
     const { data: rule } = useGetPlanRuleForVersionQuery(versionId);
     const { data: hierarchy = [], isLoading, refetch } = useGetPlanHierarchyQuery(versionId);
@@ -112,6 +130,15 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
             resolveBreadcrumbPath(hierarchy, prev).map((n) => n.plan_node_id)
         );
     }, [hierarchy]);
+
+    useEffect(() => {
+        if (
+            version?.version_kind === "master" &&
+            version.status === "finalized"
+        ) {
+            setActiveTab("annual");
+        }
+    }, [version?.version_kind, version?.status]);
     const currentParent = breadcrumbPath.length > 0 ? breadcrumbPath[breadcrumbPath.length - 1] : null;
     const currentNodes = useMemo(
         () => sortPlanNodes(getCurrentNodes(hierarchy, pathIds)),
@@ -132,19 +159,25 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
     const isReadOnlyHierarchy = !isMasterDraft;
     const hideAssignments = isAnnualVersion;
     const showAnnualTargets = isAnnualVersion;
+    const annualTargetsFinalized = Boolean(
+        version?.version_kind === "master"
+            ? version?.annual_targets_finalized_at
+            : masterVersion?.annual_targets_finalized_at
+    );
+    const periodTargetsFinalized = Boolean(
+        version?.version_kind === "annual"
+            ? version?.period_targets_finalized_at
+            : annualParentVersion?.period_targets_finalized_at
+    );
     const canEditAnnualTarget =
         isAnnualVersion &&
-        version?.status === "active" &&
-        !version?.is_locked;
+        !annualTargetsFinalized &&
+        (version?.status === "draft" || version?.status === "active");
     const showAnnualDashboard =
         version?.version_kind === "master" &&
         (version?.status === "finalized" ||
             (version?.annualVersions && version.annualVersions.length > 0));
-    const showPeriodDashboard =
-        isAnnualVersion &&
-        (version.status === "active" ||
-            version.status === "completed" ||
-            (version.executionPeriodVersions && version.executionPeriodVersions.length > 0));
+    const showPeriodDashboard = isAnnualVersion && annualTargetsFinalized;
 
     const versionStatusAppearance = version
         ? resolveWorkflowStatusAppearance(thresholds, {
@@ -343,12 +376,6 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
 
     const hierarchyBody = (
         <>
-            {isReadOnlyHierarchy && isAnnualVersion && version.is_locked && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                    This annual version is locked. Complete the previous year to unlock it.
-                </div>
-            )}
-
             {isReadOnlyHierarchy && isExecutionPeriod && version.is_locked && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                     This execution period is locked. Complete the previous period to unlock it.
@@ -357,14 +384,22 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
 
             {isReadOnlyHierarchy && version?.status === "finalized" && showAnnualDashboard && (
                 <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                    Strategic draft is finalized. Switch to the Annual Execution tab to manage yearly plans.
+                    Strategic draft is finalized. Use the Annual Execution tab to set equal annual
+                    targets across all years, then finalize annual execution.
                 </div>
             )}
 
-            {isReadOnlyHierarchy && isAnnualVersion && showPeriodDashboard && (
+            {isReadOnlyHierarchy && isAnnualVersion && showPeriodDashboard && !version.period_subdivision_mode && (
                 <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                    Switch to the Execution Periods tab to allocate period targets and manage
-                    sequential operational execution.
+                    Annual execution is finalized. Switch to the Execution Periods tab to initialize
+                    quarterly, semi-annual, or custom subdivision.
+                </div>
+            )}
+
+            {isReadOnlyHierarchy && isAnnualVersion && showPeriodDashboard && version.period_subdivision_mode && !periodTargetsFinalized && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                    Adjust period targets in the hierarchy so totals match annual targets, then finalize
+                    from the Execution Periods tab.
                 </div>
             )}
 

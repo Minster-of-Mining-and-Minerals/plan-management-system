@@ -42,7 +42,7 @@ export function FinalizePlanDraftModal({
         try {
             const result = await finalize(version.plan_version_id).unwrap();
             actionFeedback.success(
-                `Draft finalized. ${result.annualVersions?.length ?? 0} annual version(s) generated.`
+                `Draft finalized. ${result.annualVersions?.length ?? 0} annual version(s) generated. Open the Annual Execution tab to set yearly targets.`
             );
             onSuccess?.();
             onClose();
@@ -76,8 +76,9 @@ export function FinalizePlanDraftModal({
 
                         <p className="text-muted-foreground">
                             Finalizing locks the strategic draft and generates one annual execution
-                            version per planning year. Hierarchy, assignments, and strategic targets
-                            are copied to each year.
+                            version per planning year. After finalization, use the Annual Execution
+                            tab to unlock each year, set equal annual targets, and finalize annual
+                            execution before operational periods.
                         </p>
 
                         {isLoading ? (

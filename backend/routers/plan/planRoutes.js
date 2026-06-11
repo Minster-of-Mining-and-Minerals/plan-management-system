@@ -36,9 +36,16 @@ const {
     getDraftFinalizationReadiness,
     finalizePlanDraft,
     listAnnualVersions,
+    getAnnualExecutionFinalizationReadiness,
+    finalizeAnnualExecutionPlan,
+    lockAnnualPlanVersion,
+    unlockAnnualPlanVersion,
     updateAnnualTarget,
     completeAnnualPlanVersion,
     listExecutionPeriods,
+    initializeExecutionPeriodsForAnnual,
+    getExecutionPeriodFinalizationReadinessHandler,
+    finalizeExecutionPeriodTargetsHandler,
     updatePeriodTarget,
     completeExecutionPeriodVersion,
 } = require("../../controllers/plan/planVersionLifecycleController");
@@ -85,8 +92,15 @@ router.patch("/versions/:id/status", checkPermission("PLANS", "APPROVE"), valida
 router.get("/versions/:id/finalization-readiness", checkPermission("PLANS", "READ"), validateIdParam, getDraftFinalizationReadiness);
 router.post("/versions/:id/finalize", checkPermission("PLANS", "APPROVE"), validateIdParam, finalizePlanDraft);
 router.get("/versions/:id/annual-versions", checkPermission("PLANS", "READ"), validateIdParam, listAnnualVersions);
+router.get("/versions/:id/annual-execution-readiness", checkPermission("PLANS", "READ"), validateIdParam, getAnnualExecutionFinalizationReadiness);
+router.post("/versions/:id/finalize-annual-execution", checkPermission("PLANS", "APPROVE"), validateIdParam, finalizeAnnualExecutionPlan);
+router.post("/versions/:id/lock-annual", checkPermission("PLANS", "UPDATE"), validateIdParam, lockAnnualPlanVersion);
+router.post("/versions/:id/unlock-annual", checkPermission("PLANS", "UPDATE"), validateIdParam, unlockAnnualPlanVersion);
 router.post("/versions/:id/complete-annual", checkPermission("PLANS", "APPROVE"), validateIdParam, completeAnnualPlanVersion);
 router.get("/versions/:id/execution-periods", checkPermission("PLANS", "READ"), validateIdParam, listExecutionPeriods);
+router.post("/versions/:id/initialize-execution-periods", checkPermission("PLANS", "UPDATE"), validateIdParam, initializeExecutionPeriodsForAnnual);
+router.get("/versions/:id/execution-period-readiness", checkPermission("PLANS", "READ"), validateIdParam, getExecutionPeriodFinalizationReadinessHandler);
+router.post("/versions/:id/finalize-execution-periods", checkPermission("PLANS", "APPROVE"), validateIdParam, finalizeExecutionPeriodTargetsHandler);
 router.post("/versions/:id/complete-period", checkPermission("PLANS", "APPROVE"), validateIdParam, completeExecutionPeriodVersion);
 router.patch("/nodes/:id/annual-target", checkPermission("PLANS", "UPDATE"), validateIdParam, validateUpdateAnnualTarget, updateAnnualTarget);
 router.patch("/nodes/:id/period-target", checkPermission("PLANS", "UPDATE"), validateIdParam, validateUpdatePeriodTarget, updatePeriodTarget);

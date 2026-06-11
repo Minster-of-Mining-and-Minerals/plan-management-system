@@ -60,6 +60,20 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
     const [showHistory, setShowHistory] = useState(false);
 
     const { data: version } = useGetPlanVersionByIdQuery(versionId);
+    const masterVersionId =
+        version?.version_kind === "annual"
+            ? version.parent_plan_version_id
+            : version?.version_kind === "execution_period"
+              ? null
+              : null;
+    const annualParentId =
+        version?.version_kind === "execution_period" ? version.parent_plan_version_id : null;
+    const { data: masterVersion } = useGetPlanVersionByIdQuery(masterVersionId!, {
+        skip: !masterVersionId,
+    });
+    const { data: annualParentVersion } = useGetPlanVersionByIdQuery(annualParentId!, {
+        skip: !annualParentId,
+    });
     const { data: planningConfig } = useGetPlanningConfigurationQuery();
     const [updateAnnualTarget, { isLoading: isSavingTarget }] = useUpdateAnnualTargetMutation();
     const [updatePeriodTarget, { isLoading: isSavingPeriodTarget }] = useUpdatePeriodTargetMutation();
@@ -109,17 +123,21 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
         }
     }, [node?.period_target, nodeId]);
 
+    const annualTargetsFinalized = Boolean(masterVersion?.annual_targets_finalized_at);
+    const periodTargetsFinalized = Boolean(annualParentVersion?.period_targets_finalized_at);
+
     const canAllocateAnnualTarget =
         version?.version_kind === "annual" &&
-        version.status === "active" &&
-        !version.is_locked &&
+        !annualTargetsFinalized &&
+        (version.status === "draft" || version.status === "active") &&
         node &&
         node.weight > 0;
 
     const canAllocatePeriodTarget =
         version?.version_kind === "execution_period" &&
-        version.status === "active" &&
         !version.is_locked &&
+        !periodTargetsFinalized &&
+        (version.status === "draft" || version.status === "active") &&
         node &&
         (node.annual_target ?? 0) > 0;
 

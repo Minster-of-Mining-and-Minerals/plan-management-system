@@ -1,12 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, Lock, CheckCircle, Clock } from "lucide-react";
+import { Eye, Lock, CheckCircle, Clock, Layers, ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
     useGetExecutionPeriodsQuery,
     useCompleteExecutionPeriodMutation,
+    useGetPlanVersionByIdQuery,
 } from "@/redux/api/planApi";
 import { PlanVersion } from "@/redux/types/plan";
 import { formatStatus } from "@/utils/statusFormatter";
@@ -16,8 +18,11 @@ import {
     resolveWorkflowStatusAppearance,
 } from "@/utils/performanceColorUtils";
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
+import { usePermissions } from "@/hooks/usePermissions";
 import { PerformanceProgressBar } from "./PerformanceProgressBar";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
+import { InitializeExecutionPeriodsModal } from "../modals/InitializeExecutionPeriodsModal";
+import { FinalizeExecutionPeriodsModal } from "../modals/FinalizeExecutionPeriodsModal";
 import { cn } from "@/lib/utils";
 
 interface ExecutionPeriodsDashboardProps {
@@ -29,14 +34,37 @@ function getPeriodStatusLabel(version: PlanVersion): string {
     return formatStatus(version.status);
 }
 
+function formatSubdivisionMode(mode: string | null | undefined): string {
+    if (mode === "quarterly") return "Quarterly";
+    if (mode === "semi_annual") return "Semi-annual";
+    if (mode === "custom") return "Custom";
+    return "Not set";
+}
+
 export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDashboardProps) {
     const router = useRouter();
     const thresholds = usePerformanceColorThresholds();
+    const { can } = usePermissions();
+    const canUpdatePlan = can("PLANS:UPDATE");
+    const canApprovePlan = can("PLANS:APPROVE");
+
+    const [initModalOpen, setInitModalOpen] = useState(false);
+    const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
+
+    const { data: masterVersion } = useGetPlanVersionByIdQuery(
+        annualVersion.parent_plan_version_id ?? "",
+        { skip: !annualVersion.parent_plan_version_id }
+    );
+    const annualTargetsFinalized = Boolean(masterVersion?.annual_targets_finalized_at);
+
     const { data, isLoading, refetch } = useGetExecutionPeriodsQuery(annualVersion.plan_version_id);
     const [completePeriod, { isLoading: isCompleting }] = useCompleteExecutionPeriodMutation();
 
+    const annual = data?.annual ?? annualVersion;
     const executionPeriods =
         data?.executionPeriods ?? annualVersion.executionPeriodVersions ?? [];
+    const periodsInitialized = Boolean(annual.period_subdivision_mode);
+    const periodTargetsFinalized = Boolean(annual.period_targets_finalized_at);
 
     const handleComplete = async (versionId: string, periodLabel: string) => {
         if (
@@ -73,17 +101,50 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
         );
     }
 
-    if (executionPeriods.length === 0) {
+    if (!annualTargetsFinalized) {
         return (
             <Card className="border-dashed">
                 <CardContent className="py-12 text-center text-muted-foreground">
                     <Clock className="mx-auto h-10 w-10 mb-3 opacity-40" />
-                    <p>No execution periods have been generated yet.</p>
+                    <p>Execution periods are not available yet.</p>
                     <p className="text-sm mt-1">
-                        Execution periods are created automatically when an annual version becomes active.
+                        Finalize annual execution on the master plan first, then return here to
+                        initialize quarterly, semi-annual, or custom periods.
                     </p>
                 </CardContent>
             </Card>
+        );
+    }
+
+    if (!periodsInitialized) {
+        return (
+            <>
+                <Card className="border-dashed">
+                    <CardContent className="py-12 text-center text-muted-foreground space-y-4">
+                        <Clock className="mx-auto h-10 w-10 opacity-40" />
+                        <div>
+                            <p>No execution periods have been initialized yet.</p>
+                            <p className="text-sm mt-1">
+                                Choose quarterly, semi-annual, or custom subdivision to split annual
+                                targets into operational periods.
+                            </p>
+                        </div>
+                        {canUpdatePlan && (
+                            <Button className="gap-2" onClick={() => setInitModalOpen(true)}>
+                                <Layers className="h-4 w-4" />
+                                Initialize Execution Periods
+                            </Button>
+                        )}
+                    </CardContent>
+                </Card>
+
+                <InitializeExecutionPeriodsModal
+                    isOpen={initModalOpen}
+                    onClose={() => setInitModalOpen(false)}
+                    annualVersion={annualVersion}
+                    onSuccess={() => refetch()}
+                />
+            </>
         );
     }
 
@@ -94,14 +155,29 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
 
     return (
         <div className="space-y-4">
-            <div>
-                <h2 className="text-lg font-semibold text-gray-900">Execution Period Versions</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                    Operational execution periods for {annualVersion.planning_year}. Period targets
-                    must be allocated manually and cannot exceed the annual target. Only the active
-                    period can be executed; completing a period unlocks the next.
-                </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                    <h2 className="text-lg font-semibold text-gray-900">Execution Period Versions</h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        {periodTargetsFinalized
+                            ? `${formatSubdivisionMode(annual.period_subdivision_mode)} subdivision — period targets finalized. Complete each active period sequentially.`
+                            : `${formatSubdivisionMode(annual.period_subdivision_mode)} subdivision — adjust period targets so totals match annual targets, then finalize.`}
+                    </p>
+                </div>
+                {!periodTargetsFinalized && canApprovePlan && executionPeriods.length > 0 && (
+                    <Button className="gap-2 shrink-0" onClick={() => setFinalizeModalOpen(true)}>
+                        <ShieldCheck className="h-4 w-4" />
+                        Finalize Period Targets
+                    </Button>
+                )}
             </div>
+
+            {periodTargetsFinalized && (
+                <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
+                    Period targets finalized on{" "}
+                    {new Date(annual.period_targets_finalized_at!).toLocaleDateString()}.
+                </div>
+            )}
 
             <Card
                 className="border"
@@ -181,6 +257,7 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
                     const isLocked = period.is_locked || period.status === "locked";
                     const isCompleted = period.status === "completed";
                     const periodLabel = period.period_label ?? `Period ${period.sequence_index}`;
+                    const showComplete = periodTargetsFinalized && isActive;
                     const statusAppearance = resolveWorkflowStatusAppearance(thresholds, {
                         status: period.status ?? "draft",
                         isLocked,
@@ -301,7 +378,7 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
                                         Locked
                                     </Button>
                                 )}
-                                {isActive && (
+                                {showComplete && (
                                     <Button
                                         variant="default"
                                         size="sm"
@@ -320,6 +397,13 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
                     );
                 })}
             </div>
+
+            <FinalizeExecutionPeriodsModal
+                isOpen={finalizeModalOpen}
+                onClose={() => setFinalizeModalOpen(false)}
+                annualVersion={annual}
+                onSuccess={() => refetch()}
+            />
         </div>
     );
 }

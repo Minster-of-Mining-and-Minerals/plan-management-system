@@ -5,9 +5,16 @@ const {
     getFinalizationReadiness,
     finalizeDraft,
     getAnnualVersions,
+    getAnnualExecutionReadiness,
+    finalizeAnnualExecution,
+    lockAnnualVersion,
+    unlockAnnualVersion,
     setAnnualTarget,
     completeAnnualVersion,
     getExecutionPeriods,
+    initializeExecutionPeriods,
+    getExecutionPeriodFinalizationReadiness,
+    finalizeExecutionPeriodTargets,
     setPeriodTarget,
     completeExecutionPeriod,
 } = require("../../services/planVersionLifecycleService");
@@ -76,30 +83,6 @@ async function listAnnualVersions(req, res) {
                 master,
                 annualVersions,
             },
-        });
-    } catch (error) {
-        return res.status(500).json({ success: false, message: error.message });
-    }
-}
-
-async function updateAnnualTarget(req, res) {
-    try {
-        const { id: nodeId } = req.params;
-        const { annual_target } = req.body;
-
-        if (!isUuid(nodeId)) {
-            return res.status(400).json({ success: false, message: "Invalid node ID" });
-        }
-
-        const result = await setAnnualTarget(nodeId, annual_target);
-        if (!result.success) {
-            return res.status(400).json({ success: false, message: result.message });
-        }
-
-        return res.json({
-            success: true,
-            message: "Annual target updated",
-            data: result.data,
         });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
@@ -180,6 +163,176 @@ async function updatePeriodTarget(req, res) {
     }
 }
 
+async function updateAnnualTarget(req, res) {
+    try {
+        const { id: nodeId } = req.params;
+        const { annual_target } = req.body;
+
+        if (!isUuid(nodeId)) {
+            return res.status(400).json({ success: false, message: "Invalid node ID" });
+        }
+
+        const result = await setAnnualTarget(nodeId, annual_target);
+        if (!result.success) {
+            return res.status(400).json({ success: false, message: result.message });
+        }
+
+        return res.json({
+            success: true,
+            message: "Annual target updated",
+            data: result.data,
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
+
+async function getAnnualExecutionFinalizationReadiness(req, res) {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            return res.status(400).json({ success: false, message: "Invalid ID" });
+        }
+
+        const result = await getAnnualExecutionReadiness(id);
+        return res.json({ success: true, data: result });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
+
+async function finalizeAnnualExecutionPlan(req, res) {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            return res.status(400).json({ success: false, message: "Invalid ID" });
+        }
+
+        const result = await finalizeAnnualExecution(id);
+        if (!result.success) {
+            return res.status(400).json({
+                success: false,
+                message: "Annual execution finalization failed",
+                errors: result.errors,
+            });
+        }
+
+        return res.json({
+            success: true,
+            message: "Annual execution targets finalized. Year 1 is now active for operational execution.",
+            data: result.master,
+            activatedVersion: result.activatedVersion,
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
+
+async function lockAnnualPlanVersion(req, res) {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            return res.status(400).json({ success: false, message: "Invalid ID" });
+        }
+
+        const result = await lockAnnualVersion(id);
+        if (!result.success) {
+            return res.status(400).json({ success: false, message: result.message });
+        }
+
+        return res.json({ success: true, message: "Annual version locked", data: result.data });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
+
+async function unlockAnnualPlanVersion(req, res) {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            return res.status(400).json({ success: false, message: "Invalid ID" });
+        }
+
+        const result = await unlockAnnualVersion(id);
+        if (!result.success) {
+            return res.status(400).json({ success: false, message: result.message });
+        }
+
+        return res.json({ success: true, message: "Annual version unlocked", data: result.data });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
+
+async function initializeExecutionPeriodsForAnnual(req, res) {
+    try {
+        const { id } = req.params;
+        const { subdivision_mode, custom_periods } = req.body;
+
+        if (!isUuid(id)) {
+            return res.status(400).json({ success: false, message: "Invalid ID" });
+        }
+
+        if (!["quarterly", "semi_annual", "custom"].includes(subdivision_mode)) {
+            return res.status(400).json({ success: false, message: "Invalid subdivision mode" });
+        }
+
+        const result = await initializeExecutionPeriods(id, subdivision_mode, custom_periods ?? []);
+        if (!result.success) {
+            return res.status(400).json({ success: false, message: result.message });
+        }
+
+        return res.json({
+            success: true,
+            message: "Execution periods initialized and targets split from annual allocation",
+            data: result.data,
+            executionPeriods: result.executionPeriods,
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
+
+async function getExecutionPeriodFinalizationReadinessHandler(req, res) {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            return res.status(400).json({ success: false, message: "Invalid ID" });
+        }
+
+        const result = await getExecutionPeriodFinalizationReadiness(id);
+        return res.json({ success: true, data: result });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
+
+async function finalizeExecutionPeriodTargetsHandler(req, res) {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            return res.status(400).json({ success: false, message: "Invalid ID" });
+        }
+
+        const result = await finalizeExecutionPeriodTargets(id);
+        if (!result.success) {
+            return res.status(400).json({
+                success: false,
+                message: "Execution period finalization failed",
+                errors: result.errors,
+            });
+        }
+
+        return res.json({
+            success: true,
+            message: "Execution period targets finalized",
+            data: result.data,
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
+
 async function completeExecutionPeriodVersion(req, res) {
     try {
         const { id } = req.params;
@@ -209,9 +362,16 @@ module.exports = {
     getDraftFinalizationReadiness,
     finalizePlanDraft,
     listAnnualVersions,
+    getAnnualExecutionFinalizationReadiness,
+    finalizeAnnualExecutionPlan,
+    lockAnnualPlanVersion,
+    unlockAnnualPlanVersion,
     updateAnnualTarget,
     completeAnnualPlanVersion,
     listExecutionPeriods,
+    initializeExecutionPeriodsForAnnual,
+    getExecutionPeriodFinalizationReadinessHandler,
+    finalizeExecutionPeriodTargetsHandler,
     updatePeriodTarget,
     completeExecutionPeriodVersion,
 };

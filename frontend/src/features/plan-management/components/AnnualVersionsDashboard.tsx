@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, Lock, PlayCircle, CheckCircle, CalendarDays } from "lucide-react";
+import { Eye, CheckCircle, CalendarDays, ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,8 +17,10 @@ import {
     resolveWorkflowStatusAppearance,
 } from "@/utils/performanceColorUtils";
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
+import { usePermissions } from "@/hooks/usePermissions";
 import { PerformanceProgressBar } from "./PerformanceProgressBar";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
+import { FinalizeAnnualExecutionModal } from "../modals/FinalizeAnnualExecutionModal";
 import { cn } from "@/lib/utils";
 
 interface AnnualVersionsDashboardProps {
@@ -32,13 +35,20 @@ function getAnnualStatusLabel(version: PlanVersion): string {
 export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboardProps) {
     const router = useRouter();
     const thresholds = usePerformanceColorThresholds();
+    const { can } = usePermissions();
+    const canApprovePlan = can("PLANS:APPROVE");
+
+    const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
+
     const { data, isLoading, refetch } = useGetAnnualVersionsQuery(masterVersion.plan_version_id);
     const [completeAnnual, { isLoading: isCompleting }] = useCompleteAnnualVersionMutation();
 
+    const master = data?.master ?? masterVersion;
     const annualVersions = data?.annualVersions ?? masterVersion.annualVersions ?? [];
+    const annualTargetsFinalized = Boolean(master.annual_targets_finalized_at);
 
     const handleComplete = async (versionId: string, year: number) => {
-        if (!(await actionFeedback.confirm(`Mark the ${year} annual version as completed? This will unlock the next year.`))) {
+        if (!(await actionFeedback.confirm(`Mark the ${year} annual version as completed? This will lock this year and unlock the next.`))) {
             return;
         }
         try {
@@ -83,13 +93,34 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
 
     return (
         <div className="space-y-4">
-            <div>
-                <h2 className="text-lg font-semibold text-gray-900">Annual Execution Versions</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                    Sequential yearly plans generated from this strategic draft. Only the active year
-                    can be executed; completing a year unlocks the next.
-                </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                    <h2 className="text-lg font-semibold text-gray-900">Annual Execution Versions</h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        {annualTargetsFinalized
+                            ? "Annual targets are finalized. Open any year to set up execution periods."
+                            : "Open any year to set annual targets (equal split across all years required), then finalize annual execution."}
+                    </p>
+                </div>
+                {!annualTargetsFinalized && canApprovePlan && (
+                    <Button
+                        className="gap-2 shrink-0"
+                        onClick={() => setFinalizeModalOpen(true)}
+                    >
+                        <ShieldCheck className="h-4 w-4" />
+                        Finalize Annual Execution
+                    </Button>
+                )}
             </div>
+
+            {annualTargetsFinalized && (
+                <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
+                    Annual execution finalized on{" "}
+                    {new Date(master.annual_targets_finalized_at!).toLocaleDateString()}. Open the
+                    current year, initialize execution periods, set period targets, then finalize
+                    period targets. Year lock/unlock controls will be introduced later.
+                </div>
+            )}
 
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {annualVersions.map((annual) => {
@@ -98,8 +129,15 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                         annual.plan_version_id
                     );
                     const isActive = annual.status === "active" && !annual.is_locked;
-                    const isLocked = annual.is_locked || annual.status === "locked";
                     const isCompleted = annual.status === "completed";
+                    const isLocked =
+                        !annualTargetsFinalized
+                            ? false
+                            : annual.is_locked || annual.status === "locked";
+                    const periodTargetsFinalized = Boolean(annual.period_targets_finalized_at);
+                    const showComplete =
+                        annualTargetsFinalized && periodTargetsFinalized && isActive;
+
                     const statusAppearance = resolveWorkflowStatusAppearance(thresholds, {
                         status: annual.status ?? "draft",
                         isLocked,
@@ -182,7 +220,7 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                                     />
                                 )}
 
-                                {isActive && (
+                                {isActive && periodTargetsFinalized && (
                                     <PerformanceColorBadge
                                         color={completion.color}
                                         label="Active execution year"
@@ -190,6 +228,17 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                                         className="gap-1 w-fit text-xs"
                                     />
                                 )}
+                                {annualTargetsFinalized &&
+                                    !periodTargetsFinalized &&
+                                    !isLocked &&
+                                    !isCompleted && (
+                                        <PerformanceColorBadge
+                                            color={completion.color}
+                                            label="Setup — initialize execution periods"
+                                            variant="outline"
+                                            className="gap-1 w-fit text-xs"
+                                        />
+                                    )}
                                 {isCompleted && (
                                     <PerformanceColorBadge
                                         color={completion.color}
@@ -201,26 +250,18 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                             </CardContent>
 
                             <CardFooter className="flex flex-wrap gap-2 pt-0">
-                                {!isLocked && (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="gap-2 flex-1"
-                                        onClick={() =>
-                                            router.push(`/plans/${annual.plan_version_id}`)
-                                        }
-                                    >
-                                        <Eye className="h-4 w-4" />
-                                        Open Plan
-                                    </Button>
-                                )}
-                                {isLocked && (
-                                    <Button variant="ghost" size="sm" disabled className="gap-2 flex-1">
-                                        <Lock className="h-4 w-4" />
-                                        Locked
-                                    </Button>
-                                )}
-                                {isActive && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-2 flex-1"
+                                    onClick={() =>
+                                        router.push(`/plans/${annual.plan_version_id}`)
+                                    }
+                                >
+                                    <Eye className="h-4 w-4" />
+                                    Open Plan
+                                </Button>
+                                {showComplete && (
                                     <Button
                                         variant="default"
                                         size="sm"
@@ -242,6 +283,13 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                     );
                 })}
             </div>
+
+            <FinalizeAnnualExecutionModal
+                isOpen={finalizeModalOpen}
+                onClose={() => setFinalizeModalOpen(false)}
+                masterVersion={master}
+                onSuccess={() => refetch()}
+            />
         </div>
     );
 }

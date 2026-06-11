@@ -4,6 +4,7 @@
 
 export type PlanVersionKind = "master" | "annual" | "execution_period";
 export type PlanVersionStatus = "draft" | "active" | "completed" | "finalized" | "locked";
+export type PeriodSubdivisionMode = "quarterly" | "semi_annual" | "custom";
 
 export interface PlanVersion {
     plan_version_id: string;
@@ -25,6 +26,9 @@ export interface PlanVersion {
     period_label: string | null;
     is_locked: boolean;
     finalized_at: string | null;
+    annual_targets_finalized_at?: string | null;
+    period_subdivision_mode?: PeriodSubdivisionMode | null;
+    period_targets_finalized_at?: string | null;
     status: PlanVersionStatus;
     government_structure_id: string;
     based_on_version_id: string | null;
@@ -69,6 +73,20 @@ export interface FinalizationReadiness {
     ready: boolean;
     errors: string[];
     planning_years: number[];
+}
+
+export interface AnnualExecutionReadiness {
+    ready: boolean;
+    errors: string[];
+    planning_years: number[];
+    annual_targets_finalized_at: string | null;
+}
+
+export interface ExecutionPeriodFinalizationReadiness {
+    ready: boolean;
+    errors: string[];
+    period_subdivision_mode: PeriodSubdivisionMode | null;
+    period_targets_finalized_at: string | null;
 }
 
 export interface AnnualVersionsResponse {

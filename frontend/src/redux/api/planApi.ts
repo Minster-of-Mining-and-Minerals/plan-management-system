@@ -6,6 +6,8 @@ import {
     UpdatePlanVersionStatusPayload,
     GetPlanVersionsQueryParams,
     FinalizationReadiness,
+    AnnualExecutionReadiness,
+    ExecutionPeriodFinalizationReadiness,
     AnnualVersionsResponse,
     ExecutionPeriodsResponse,
     PlanNode,
@@ -160,6 +162,44 @@ export const planApi = baseApi.injectEndpoints({
             providesTags: (_r, _e, id) => [{ type: "PlanVersions", id }],
         }),
 
+        getAnnualExecutionReadiness: builder.query<AnnualExecutionReadiness, string>({
+            query: (id) => `/plan/versions/${id}/annual-execution-readiness`,
+            transformResponse: (response: { data: AnnualExecutionReadiness }) => response.data,
+        }),
+
+        finalizeAnnualExecution: builder.mutation<
+            { data: PlanVersion; activatedVersion?: PlanVersion },
+            string
+        >({
+            query: (id) => ({
+                url: `/plan/versions/${id}/finalize-annual-execution`,
+                method: "POST",
+            }),
+            transformResponse: (response: {
+                data: PlanVersion;
+                activatedVersion?: PlanVersion;
+            }) => response,
+            invalidatesTags: ["PlanVersions", "PlanNodes"],
+        }),
+
+        lockAnnualVersion: builder.mutation<PlanVersion, string>({
+            query: (id) => ({
+                url: `/plan/versions/${id}/lock-annual`,
+                method: "POST",
+            }),
+            transformResponse: (response: { data: PlanVersion }) => response.data,
+            invalidatesTags: ["PlanVersions"],
+        }),
+
+        unlockAnnualVersion: builder.mutation<PlanVersion, string>({
+            query: (id) => ({
+                url: `/plan/versions/${id}/unlock-annual`,
+                method: "POST",
+            }),
+            transformResponse: (response: { data: PlanVersion }) => response.data,
+            invalidatesTags: ["PlanVersions"],
+        }),
+
         completeAnnualVersion: builder.mutation<
             PlanVersion,
             string
@@ -192,6 +232,40 @@ export const planApi = baseApi.injectEndpoints({
             query: (id) => `/plan/versions/${id}/execution-periods`,
             transformResponse: (response: { data: ExecutionPeriodsResponse }) => response.data,
             providesTags: (_r, _e, id) => [{ type: "PlanVersions", id }],
+        }),
+
+        getExecutionPeriodFinalizationReadiness: builder.query<
+            ExecutionPeriodFinalizationReadiness,
+            string
+        >({
+            query: (id) => `/plan/versions/${id}/execution-period-readiness`,
+            transformResponse: (response: { data: ExecutionPeriodFinalizationReadiness }) =>
+                response.data,
+        }),
+
+        initializeExecutionPeriods: builder.mutation<
+            { data: PlanVersion; executionPeriods: PlanVersion[] },
+            { id: string; subdivision_mode: "quarterly" | "semi_annual" | "custom"; custom_periods?: { label: string }[] }
+        >({
+            query: ({ id, subdivision_mode, custom_periods }) => ({
+                url: `/plan/versions/${id}/initialize-execution-periods`,
+                method: "POST",
+                body: { subdivision_mode, custom_periods },
+            }),
+            transformResponse: (response: {
+                data: PlanVersion;
+                executionPeriods: PlanVersion[];
+            }) => response,
+            invalidatesTags: ["PlanVersions", "PlanNodes"],
+        }),
+
+        finalizeExecutionPeriodTargets: builder.mutation<{ data: PlanVersion }, string>({
+            query: (id) => ({
+                url: `/plan/versions/${id}/finalize-execution-periods`,
+                method: "POST",
+            }),
+            transformResponse: (response: { data: PlanVersion }) => response,
+            invalidatesTags: ["PlanVersions", "PlanNodes"],
         }),
 
         completeExecutionPeriod: builder.mutation<
@@ -354,9 +428,16 @@ export const {
     useGetFinalizationReadinessQuery,
     useFinalizePlanDraftMutation,
     useGetAnnualVersionsQuery,
+    useGetAnnualExecutionReadinessQuery,
+    useFinalizeAnnualExecutionMutation,
+    useLockAnnualVersionMutation,
+    useUnlockAnnualVersionMutation,
     useCompleteAnnualVersionMutation,
     useUpdateAnnualTargetMutation,
     useGetExecutionPeriodsQuery,
+    useGetExecutionPeriodFinalizationReadinessQuery,
+    useInitializeExecutionPeriodsMutation,
+    useFinalizeExecutionPeriodTargetsMutation,
     useCompleteExecutionPeriodMutation,
     useUpdatePeriodTargetMutation,
 

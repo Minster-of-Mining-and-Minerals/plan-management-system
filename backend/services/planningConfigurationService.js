@@ -64,12 +64,19 @@ function normalizeCustomPeriods(periods) {
 
 function resolvePeriodLabels(config) {
   const mode = config?.breakdown_mode ?? DEFAULT_PLANNING_CONFIG.breakdown_mode;
+  return resolvePeriodLabelsForMode(mode, config?.custom_periods ?? []);
+}
+
+function resolvePeriodLabelsForMode(mode, customPeriods = []) {
   if (mode === "semi_annual") {
     return [...SEMI_ANNUAL_PERIOD_LABELS];
   }
   if (mode === "custom") {
-    const custom = Array.isArray(config?.custom_periods) ? config.custom_periods : [];
-    return custom.map((p) => String(p.label || "").trim()).filter(Boolean);
+    const normalized = normalizeCustomPeriods(customPeriods);
+    if (!normalized.valid) {
+      return [];
+    }
+    return normalized.periods.map((p) => p.label);
   }
   return [...QUARTERLY_PERIOD_LABELS];
 }
@@ -308,6 +315,7 @@ module.exports = {
   validateNodeTargetUnit,
   normalizeCustomPeriods,
   resolvePeriodLabels,
+  resolvePeriodLabelsForMode,
   validateBreakdownConfiguration,
   QUARTERLY_PERIOD_LABELS,
   SEMI_ANNUAL_PERIOD_LABELS,

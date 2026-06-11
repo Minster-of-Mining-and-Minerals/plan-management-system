@@ -160,6 +160,21 @@ module.exports = (sequelize, DataTypes) => {
                 type: DataTypes.INTEGER,
                 allowNull: false,
             },
+
+            annual_targets_finalized_at: {
+                type: DataTypes.DATE,
+                allowNull: true,
+            },
+
+            period_subdivision_mode: {
+                type: DataTypes.ENUM("quarterly", "semi_annual", "custom"),
+                allowNull: true,
+            },
+
+            period_targets_finalized_at: {
+                type: DataTypes.DATE,
+                allowNull: true,
+            },
         },
         {
             sequelize,
