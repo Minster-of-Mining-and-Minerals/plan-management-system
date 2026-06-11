@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import {
     useGetPlanHierarchyQuery,
     useDeletePlanNodeMutation,
@@ -119,6 +119,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
     const [isModalOpen, setModalOpen] = useState(false);
     const [selectedParent, setSelectedParent] = useState<PlanNode | null>(null);
     const [selectedNode, setSelectedNode] = useState<PlanNode | null>(null);
+    const appliedDefaultTabForVersion = useRef<string | null>(null);
 
     const maxDepth = getMaxRuleDepth(rule);
     const rootLabel = getStepLabel(rule, 1);
@@ -128,9 +129,13 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
     );
 
     useEffect(() => {
-        setPathIds((prev) =>
-            resolveBreadcrumbPath(hierarchy, prev).map((n) => n.plan_node_id)
-        );
+        setPathIds((prev) => {
+            const next = resolveBreadcrumbPath(hierarchy, prev).map((n) => n.plan_node_id);
+            if (next.length === prev.length && next.every((id, index) => id === prev[index])) {
+                return prev;
+            }
+            return next;
+        });
     }, [hierarchy]);
 
     const currentParent = breadcrumbPath.length > 0 ? breadcrumbPath[breadcrumbPath.length - 1] : null;
@@ -177,17 +182,31 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
         isAnnualVersion && annualTargetsFinalized && periodsInitializedGlobally;
 
     useEffect(() => {
-        if (version?.version_kind === "master" && version.status === "finalized") {
-            setActiveTab("annual");
-        } else if (version?.version_kind === "annual" && periodsInitializedGlobally) {
-            setActiveTab("periods");
+        appliedDefaultTabForVersion.current = null;
+    }, [versionId]);
+
+    useEffect(() => {
+        if (!version || appliedDefaultTabForVersion.current === versionId) {
+            return;
         }
-    }, [
-        version?.version_kind,
-        version?.status,
-        version?.plan_version_id,
-        periodsInitializedGlobally,
-    ]);
+
+        if (version.version_kind === "annual" && masterVersionId && masterVersion === undefined) {
+            return;
+        }
+
+        if (version.version_kind === "master" && version.status === "finalized") {
+            setActiveTab("annual");
+        } else if (
+            version.version_kind === "annual" &&
+            (masterVersion?.period_subdivision_mode ?? version.period_subdivision_mode)
+        ) {
+            setActiveTab("periods");
+        } else {
+            setActiveTab("hierarchy");
+        }
+
+        appliedDefaultTabForVersion.current = versionId;
+    }, [version, versionId, masterVersion, masterVersionId]);
 
     const shouldFetchAnnualAllocations = isAnnualVersion && !annualTargetsFinalized;
     const { data: annualAllocationList = [] } = useGetAnnualTargetAllocationsQuery(versionId, {
