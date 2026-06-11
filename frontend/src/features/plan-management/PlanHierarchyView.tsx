@@ -44,6 +44,11 @@ import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi"
 import { formatStatus } from "@/utils/statusFormatter";
 import { canEditAnnualTargetForVersion, canEditPeriodTargetForVersion } from "@/utils/planDraftUtils";
 import { usePermissions } from "@/hooks/usePermissions";
+import {
+    canEditMasterPlanStructure,
+    confirmFinalizedPlanStructureEdit,
+    isEditingFinalizedMasterPlan,
+} from "@/utils/planMasterEditUtils";
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
 import {
     resolveCompletionForEntity,
@@ -161,7 +166,9 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
         version?.version_kind === "master" && version?.status === "draft";
     const isAnnualVersion = version?.version_kind === "annual";
     const isExecutionPeriod = version?.version_kind === "execution_period";
-    const isReadOnlyHierarchy = !isMasterDraft;
+    const isEditingFinalizedMaster = isEditingFinalizedMasterPlan(version, can);
+    const canEditMasterStructure = canEditMasterPlanStructure(version, can);
+    const isReadOnlyHierarchy = !canEditMasterStructure;
     const hideAssignments = isAnnualVersion;
     const showAnnualTargets = isAnnualVersion;
     const showPeriodTargets = isExecutionPeriod;
@@ -255,29 +262,38 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
         : null;
 
     const canAddAtCurrentLevel =
-        isMasterDraft &&
+        canEditMasterStructure &&
         (currentParent ? canAddChild(rule, currentParent) : canAddChild(rule, null));
     const isAtRoot = breadcrumbPath.length === 0;
 
-    const handleAddAtLevel = () => {
+    const confirmIfFinalizedEdit = async (actionLabel: string) => {
+        if (!isEditingFinalizedMaster) return true;
+        return confirmFinalizedPlanStructureEdit(actionLabel);
+    };
+
+    const handleAddAtLevel = async () => {
+        if (!(await confirmIfFinalizedEdit("Adding a node"))) return;
         setSelectedParent(currentParent);
         setSelectedNode(null);
         setModalOpen(true);
     };
 
-    const handleAddChild = (parent: PlanNode) => {
+    const handleAddChild = async (parent: PlanNode) => {
+        if (!(await confirmIfFinalizedEdit("Adding a child node"))) return;
         setSelectedParent(parent);
         setSelectedNode(null);
         setModalOpen(true);
     };
 
-    const handleEdit = (node: PlanNode) => {
+    const handleEdit = async (node: PlanNode) => {
+        if (!(await confirmIfFinalizedEdit("Editing a node"))) return;
         setSelectedNode(node);
         setSelectedParent(null);
         setModalOpen(true);
     };
 
     const handleDelete = async (nodeId: string) => {
+        if (!(await confirmIfFinalizedEdit("Deleting a node"))) return;
         if (await actionFeedback.confirm("Are you sure you want to delete this node and all its children?", { destructive: true })) {
             try {
                 await deleteNode(nodeId).unwrap();
@@ -315,6 +331,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
         siblings: PlanNode[]
     ) => {
         if (isReadOnlyHierarchy) return;
+        if (!(await confirmIfFinalizedEdit("Reordering nodes"))) return;
 
         const payload = buildSiblingReorderPayload(siblings, nodeId, direction);
         if (!payload) return;
@@ -344,7 +361,10 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     : `Add a ${childLabel.toLowerCase()} under "${currentParent?.title}".`}
             </p>
             {canAddAtCurrentLevel && (
-                <Button onClick={handleAddAtLevel} variant="outline">
+                <Button
+                    onClick={handleAddAtLevel}
+                    variant={isEditingFinalizedMaster ? "destructive" : "outline"}
+                >
                     Add {childLabel}
                 </Button>
             )}
@@ -386,7 +406,11 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                 </Button>
             </div>
             {canAddAtCurrentLevel && (
-                <Button onClick={handleAddAtLevel} className="gap-2">
+                <Button
+                    onClick={handleAddAtLevel}
+                    variant={isEditingFinalizedMaster ? "destructive" : "default"}
+                    className="gap-2"
+                >
                     <Plus className="h-4 w-4" /> Add {childLabel}
                 </Button>
             )}
@@ -439,7 +463,14 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
 
     const hierarchyBody = (
         <>
-            {isReadOnlyHierarchy && version?.status === "finalized" && showAnnualDashboard && (
+            {isEditingFinalizedMaster && (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                    You are editing a finalized strategic plan. Changes affect annual and period
+                    versions. Each action requires confirmation.
+                </div>
+            )}
+
+            {isReadOnlyHierarchy && version?.status === "finalized" && showAnnualDashboard && !isEditingFinalizedMaster && (
                 <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                     Strategic draft is finalized. Use the Annual Execution tab to distribute annual
                     targets across years (total must match the draft), then finalize annual execution.
@@ -541,6 +572,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                         onMoveNode={handleMoveNode}
                         isReordering={isReordering}
                         readOnly={isReadOnlyHierarchy}
+                        dangerMode={isEditingFinalizedMaster}
                         hideAssignments={hideAssignments}
                         showAnnualTargets={showAnnualTargets}
                         showPeriodTargets={showPeriodTargets}
@@ -576,6 +608,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                         }
                         isReordering={isReordering}
                         readOnly={isReadOnlyHierarchy}
+                        dangerMode={isEditingFinalizedMaster}
                     />
                 ) : (
                     emptyState
@@ -594,6 +627,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     isReordering={isReordering}
                     scoped={false}
                     readOnly={isReadOnlyHierarchy}
+                    dangerMode={isEditingFinalizedMaster}
                     hideAssignments={hideAssignments}
                     showAnnualTargets={showAnnualTargets}
                     showPeriodTargets={showPeriodTargets}
@@ -616,6 +650,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     isReordering={isReordering}
                     scoped
                     readOnly={isReadOnlyHierarchy}
+                    dangerMode={isEditingFinalizedMaster}
                     hideAssignments={hideAssignments}
                     showAnnualTargets={showAnnualTargets}
                     showPeriodTargets={showPeriodTargets}

@@ -20,14 +20,18 @@ async function getNextSiblingOrder(planVersionId, parentId, transaction) {
     return siblingCount;
 }
 
-function isMasterDraftVersion(planVersion) {
-    return planVersion?.version_kind === "master" && planVersion?.status === "draft";
+const { isMasterDraftVersion, isMasterFinalized } = require("./planMasterEditUtils");
+
+const EDIT_FINALIZED_PERMISSION = "plans:edit_finalized";
+
+function userCanEditFinalizedMaster(user) {
+    return Boolean(user?.permissions?.includes(EDIT_FINALIZED_PERMISSION));
 }
 
 /**
- * Ensures reorder targets are sibling nodes on a single master draft version.
+ * Ensures reorder targets are sibling nodes on a single editable master plan version.
  */
-async function validateMasterDraftReorderNodes(nodeOrders, parentId, transaction) {
+async function validateMasterPlanReorderNodes(nodeOrders, parentId, user, transaction) {
     const nodeIds = nodeOrders.map((item) => item.plan_node_id);
 
     const nodes = await PlanNode.findAll({
@@ -49,16 +53,21 @@ async function validateMasterDraftReorderNodes(nodeOrders, parentId, transaction
     const masterVersionId = nodes[0].plan_version_id;
 
     for (const node of nodes) {
-        if (!isMasterDraftVersion(node.planVersion)) {
+        const isDraft = isMasterDraftVersion(node.planVersion);
+        const isFinalizedEdit =
+            isMasterFinalized(node.planVersion) && userCanEditFinalizedMaster(user);
+
+        if (!isDraft && !isFinalizedEdit) {
             return {
                 valid: false,
-                message: "Node order can only be changed on the draft master plan",
+                message:
+                    "Node order can only be changed on the draft master plan or with Edit Finalized Plan permission",
             };
         }
         if (node.plan_version_id !== masterVersionId) {
             return {
                 valid: false,
-                message: "All nodes must belong to the same draft master plan version",
+                message: "All nodes must belong to the same master plan version",
             };
         }
         if ((node.parent_id ?? null) !== (parentId ?? null)) {
@@ -137,7 +146,7 @@ async function syncAllDerivedOrdersFromMaster(masterVersionId, transaction) {
 module.exports = {
     getNextSiblingOrder,
     isMasterDraftVersion,
-    validateMasterDraftReorderNodes,
+    validateMasterPlanReorderNodes,
     propagateOrderFromMasterPlanNode,
     syncAllDerivedOrdersFromMaster,
 };

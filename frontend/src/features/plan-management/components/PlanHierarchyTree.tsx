@@ -36,6 +36,7 @@ interface NodeItemProps {
     onMoveNode?: (nodeId: string, direction: "up" | "down", siblings: PlanNode[]) => void;
     isReordering?: boolean;
     readOnly?: boolean;
+    dangerMode?: boolean;
     configuredUnits?: TargetUnit[];
     hideAssignments?: boolean;
     showAnnualTargets?: boolean;
@@ -61,6 +62,7 @@ const NodeItem = ({
     onMoveNode,
     isReordering = false,
     readOnly = false,
+    dangerMode = false,
     configuredUnits,
     hideAssignments = false,
     showAnnualTargets = false,
@@ -188,6 +190,7 @@ const NodeItem = ({
                     }
                     isReordering={isReordering}
                     readOnly={readOnly}
+                    dangerMode={dangerMode}
                     size="sm"
                     className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                 />
@@ -212,6 +215,7 @@ const NodeItem = ({
                             onMoveNode={onMoveNode}
                             isReordering={isReordering}
                             readOnly={readOnly}
+                            dangerMode={dangerMode}
                             configuredUnits={configuredUnits}
                             hideAssignments={hideAssignments}
                             showAnnualTargets={showAnnualTargets}
@@ -242,6 +246,7 @@ interface PlanHierarchyTreeProps {
     /** When true, only render direct nodes without expanding nested children inline */
     scoped?: boolean;
     readOnly?: boolean;
+    dangerMode?: boolean;
     hideAssignments?: boolean;
     showAnnualTargets?: boolean;
     showPeriodTargets?: boolean;
@@ -264,6 +269,7 @@ export function PlanHierarchyTree({
     isReordering = false,
     scoped = false,
     readOnly = false,
+    dangerMode = false,
     hideAssignments = false,
     showAnnualTargets = false,
     showPeriodTargets = false,
@@ -296,6 +302,7 @@ export function PlanHierarchyTree({
                         onMoveNode={onMoveNode}
                         isReordering={isReordering}
                         readOnly={readOnly}
+                        dangerMode={dangerMode}
                         configuredUnits={configuredUnits}
                         hideAssignments={hideAssignments}
                         showAnnualTargets={showAnnualTargets}
@@ -329,6 +336,7 @@ export function PlanHierarchyTree({
                     onMoveNode={onMoveNode}
                     isReordering={isReordering}
                     readOnly={readOnly}
+                    dangerMode={dangerMode}
                     configuredUnits={configuredUnits}
                     hideAssignments={hideAssignments}
                     showAnnualTargets={showAnnualTargets}

@@ -24,7 +24,7 @@ const {
 const {
     getNextSiblingOrder,
     propagateOrderFromMasterPlanNode,
-    validateMasterDraftReorderNodes,
+    validateMasterPlanReorderNodes,
     syncAllDerivedOrdersFromMaster,
 } = require("../../utils/planNodeOrderUtils");
 const { isWeightModeSelectionLevel } = require("../../services/planRuleStepUtils");
@@ -37,6 +37,15 @@ const {
     validateYearRange,
     validateNodeTargetUnit,
 } = require("../../services/planningConfigurationService");
+const {
+    propagateMasterPlanNodeCreate,
+    propagateMasterPlanNodeUpdate,
+    propagateMasterPlanNodeDelete,
+} = require("../../services/planMasterEditService");
+const {
+    validateCanEditMasterPlanStructure,
+    isMasterFinalized,
+} = require("../../utils/planMasterEditUtils");
 const {
     completeAnnualVersion,
     completeExecutionPeriod,
@@ -368,7 +377,7 @@ const updatePlanVersion = async (req, res) => {
             await t.rollback();
             return res.status(400).json({
                 success: false,
-                message: "Cannot update a finalized or annual plan version",
+                message: "Cannot update a finalized or annual plan version metadata",
             });
         }
 
@@ -592,11 +601,12 @@ const createPlanNode = async (req, res) => {
             return res.status(404).json({ message: "Plan version not found" });
         }
 
-        if (!isMasterDraft(planVersion)) {
+        const structureAccess = validateCanEditMasterPlanStructure(planVersion, req.user);
+        if (!structureAccess.valid) {
             await t.rollback();
             return res.status(400).json({
                 success: false,
-                message: "Can only add nodes to draft master plan versions",
+                message: structureAccess.message,
             });
         }
 
@@ -684,6 +694,10 @@ const createPlanNode = async (req, res) => {
             },
             { transaction: t }
         );
+
+        if (isMasterFinalized(planVersion)) {
+            await propagateMasterPlanNodeCreate(planNode, t);
+        }
 
         await t.commit();
 
@@ -828,12 +842,12 @@ const updatePlanNode = async (req, res) => {
             return res.status(404).json({ message: "Plan node not found" });
         }
 
-        // Check if plan version is draft
-        if (!isMasterDraft(planNode.planVersion)) {
+        const structureAccess = validateCanEditMasterPlanStructure(planNode.planVersion, req.user);
+        if (!structureAccess.valid) {
             await t.rollback();
             return res.status(400).json({
                 success: false,
-                message: "Can only update nodes in draft master plan versions",
+                message: structureAccess.message,
             });
         }
 
@@ -944,6 +958,10 @@ const updatePlanNode = async (req, res) => {
             { transaction: t }
         );
 
+        if (isMasterFinalized(planNode.planVersion)) {
+            await propagateMasterPlanNodeUpdate(planNode, t);
+        }
+
         await t.commit();
 
         return res.json({
@@ -978,11 +996,12 @@ const deletePlanNode = async (req, res) => {
             return res.status(404).json({ message: "Plan node not found" });
         }
 
-        if (!isMasterDraft(planNode.planVersion)) {
+        const structureAccess = validateCanEditMasterPlanStructure(planNode.planVersion, req.user);
+        if (!structureAccess.valid) {
             await t.rollback();
             return res.status(400).json({
                 success: false,
-                message: "Can only delete nodes from draft master plan versions",
+                message: structureAccess.message,
             });
         }
 
@@ -998,6 +1017,10 @@ const deletePlanNode = async (req, res) => {
                 success: false,
                 message: "Cannot delete node with children. Delete children first or reassign.",
             });
+        }
+
+        if (isMasterFinalized(planNode.planVersion)) {
+            await propagateMasterPlanNodeDelete(id, t);
         }
 
         await planNode.destroy({ transaction: t });
@@ -1123,7 +1146,7 @@ const reorderPlanNodes = async (req, res) => {
     try {
         const { parent_id, nodeOrders } = req.body;
 
-        const validation = await validateMasterDraftReorderNodes(nodeOrders, parent_id, t);
+        const validation = await validateMasterPlanReorderNodes(nodeOrders, parent_id, req.user, t);
         if (!validation.valid) {
             await t.rollback();
             return res.status(400).json({

@@ -51,6 +51,7 @@ interface PlanHierarchyTableViewProps {
     onMoveNode?: (nodeId: string, direction: "up" | "down", siblings: PlanNode[]) => void;
     isReordering?: boolean;
     readOnly?: boolean;
+    dangerMode?: boolean;
     hideAssignments?: boolean;
     showAnnualTargets?: boolean;
     showPeriodTargets?: boolean;
@@ -74,6 +75,7 @@ interface StrategicFocusTableProps {
     onMoveNode?: (nodeId: string, direction: "up" | "down", siblings: PlanNode[]) => void;
     isReordering?: boolean;
     readOnly?: boolean;
+    dangerMode?: boolean;
     defaultOpen?: boolean;
     hideAssignments?: boolean;
     showAnnualTargets?: boolean;
@@ -98,6 +100,7 @@ function StrategicFocusTable({
     onMoveNode,
     isReordering = false,
     readOnly = false,
+    dangerMode = false,
     defaultOpen = false,
     hideAssignments = false,
     showAnnualTargets = false,
@@ -238,6 +241,7 @@ function StrategicFocusTable({
                         }
                         isReordering={isReordering}
                         readOnly={readOnly}
+                        dangerMode={dangerMode}
                         size="sm"
                     />
                 </div>
@@ -472,6 +476,7 @@ function StrategicFocusTable({
                                                     }
                                                     isReordering={isReordering}
                                                     readOnly={readOnly}
+                                                    dangerMode={dangerMode}
                                                     size="sm"
                                                 />
                                             </div>
@@ -499,6 +504,7 @@ export function PlanHierarchyTableView({
     onMoveNode,
     isReordering = false,
     readOnly = false,
+    dangerMode = false,
     hideAssignments = false,
     showAnnualTargets = false,
     showPeriodTargets = false,
@@ -531,6 +537,7 @@ export function PlanHierarchyTableView({
                     onMoveNode={onMoveNode}
                     isReordering={isReordering}
                     readOnly={readOnly}
+                    dangerMode={dangerMode}
                     defaultOpen={index === 0}
                     hideAssignments={hideAssignments}
                     showAnnualTargets={showAnnualTargets}

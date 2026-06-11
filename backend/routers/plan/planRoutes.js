@@ -81,7 +81,12 @@ const {
     restoreDefaultPlanningConfiguration,
 } = require("../../controllers/plan/planningConfigurationController");
 
-const { authenticateToken, checkPermission } = require("../../middlewares/authMiddleware");
+const { authenticateToken, checkPermission, checkAnyPermission } = require("../../middlewares/authMiddleware");
+
+const planStructureMutation = checkAnyPermission([
+    { resource: "PLANS", action: "UPDATE" },
+    { resource: "PLANS", action: "EDIT_FINALIZED" },
+]);
 
 // Apply authentication to all routes
 router.use(authenticateToken);
@@ -143,12 +148,12 @@ router.delete("/rules/:id", checkPermission("PLANS", "DELETE"), validateRuleIdPa
 
 // ================= PLAN NODES =================
 
-router.post("/nodes", checkPermission("PLANS", "UPDATE"), validateCreatePlanNode, createPlanNode);
+router.post("/nodes", planStructureMutation, validateCreatePlanNode, createPlanNode);
 router.get("/nodes", checkPermission("PLANS", "READ"), validateGetPlanNodesQuery, getPlanNodes);
 router.get("/nodes/:id", checkPermission("PLANS", "READ"), validateIdParam, getPlanNodeById);
-router.put("/nodes/:id", checkPermission("PLANS", "UPDATE"), validateIdParam, validateUpdatePlanNode, updatePlanNode);
-router.delete("/nodes/:id", checkPermission("PLANS", "UPDATE"), validateIdParam, deletePlanNode);
+router.put("/nodes/:id", planStructureMutation, validateIdParam, validateUpdatePlanNode, updatePlanNode);
+router.delete("/nodes/:id", planStructureMutation, validateIdParam, deletePlanNode);
 router.get("/hierarchy/:plan_version_id", checkPermission("PLANS", "READ"), validateVersionIdParam, getPlanHierarchy);
-router.post("/nodes/reorder", checkPermission("PLANS", "UPDATE"), validateReorderPlanNodes, reorderPlanNodes);
+router.post("/nodes/reorder", planStructureMutation, validateReorderPlanNodes, reorderPlanNodes);
 
 module.exports = router;

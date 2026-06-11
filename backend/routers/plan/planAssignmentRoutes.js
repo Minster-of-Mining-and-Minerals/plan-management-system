@@ -46,7 +46,20 @@ const {
     getNodeActionSummary,
 } = require("../../controllers/plan/planAssignmentController");
 
-const { authenticateToken, checkPermission } = require("../../middlewares/authMiddleware");
+const { authenticateToken, checkPermission, checkAnyPermission } = require("../../middlewares/authMiddleware");
+
+const assignmentCreate = checkAnyPermission([
+    { resource: "PLAN_ASSIGNMENTS", action: "CREATE" },
+    { resource: "PLANS", action: "EDIT_FINALIZED" },
+]);
+const assignmentUpdate = checkAnyPermission([
+    { resource: "PLAN_ASSIGNMENTS", action: "UPDATE" },
+    { resource: "PLANS", action: "EDIT_FINALIZED" },
+]);
+const assignmentDelete = checkAnyPermission([
+    { resource: "PLAN_ASSIGNMENTS", action: "DELETE" },
+    { resource: "PLANS", action: "EDIT_FINALIZED" },
+]);
 
 // Apply authentication to all routes
 router.use(authenticateToken);
@@ -58,19 +71,19 @@ router.get("/actions", checkPermission("PLAN_ASSIGNMENT_ACTIONS", "READ"), valid
 
 // ================= EXTERNAL ASSIGNMENTS =================
 
-router.post("/external", checkPermission("PLAN_ASSIGNMENTS", "CREATE"), validateCreateExternalAssignment, createExternalAssignment);
+router.post("/external", assignmentCreate, validateCreateExternalAssignment, createExternalAssignment);
 router.get("/external/node/:plan_node_id", checkPermission("PLAN_ASSIGNMENTS", "READ"), validateNodeIdParam, validateGetAssignmentsByNodeQuery, getExternalAssignmentsByNode);
-router.put("/external/:id", checkPermission("PLAN_ASSIGNMENTS", "UPDATE"), validateIdParam, validateUpdateExternalAssignment, updateExternalAssignment);
-router.delete("/external/:id", checkPermission("PLAN_ASSIGNMENTS", "DELETE"), validateIdParam, deleteExternalAssignment);
+router.put("/external/:id", assignmentUpdate, validateIdParam, validateUpdateExternalAssignment, updateExternalAssignment);
+router.delete("/external/:id", assignmentDelete, validateIdParam, deleteExternalAssignment);
 
 // ================= INTERNAL ASSIGNMENTS =================
 
-router.post("/internal", checkPermission("PLAN_ASSIGNMENTS", "CREATE"), validateCreateInternalAssignment, createInternalAssignment);
+router.post("/internal", assignmentCreate, validateCreateInternalAssignment, createInternalAssignment);
 router.get("/options/node/:plan_node_id", checkPermission("PLAN_ASSIGNMENTS", "READ"), validateNodeIdParam, validateGetAssignmentOptionsQuery, getPlanNodeAssignmentOptions);
 router.get("/internal/node/:plan_node_id", checkPermission("PLAN_ASSIGNMENTS", "READ"), validateNodeIdParam, validateGetAssignmentsByNodeQuery, getInternalAssignmentsByNode);
 router.get("/internal/user/:user_id", checkPermission("PLAN_ASSIGNMENTS", "READ"), validateUserIdParam, getAssignmentsByUser);
-router.put("/internal/:id", checkPermission("PLAN_ASSIGNMENTS", "UPDATE"), validateIdParam, validateUpdateInternalAssignment, updateInternalAssignment);
-router.delete("/internal/:id", checkPermission("PLAN_ASSIGNMENTS", "DELETE"), validateIdParam, deleteInternalAssignment);
+router.put("/internal/:id", assignmentUpdate, validateIdParam, validateUpdateInternalAssignment, updateInternalAssignment);
+router.delete("/internal/:id", assignmentDelete, validateIdParam, deleteInternalAssignment);
 
 // ================= ACTION LOGS =================
 

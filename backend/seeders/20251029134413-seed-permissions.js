@@ -58,6 +58,7 @@ module.exports = {
       { resource: "plans", action: "delete" },
       { resource: "plans", action: "approve" },
       { resource: "plans", action: "submit" },
+      { resource: "plans", action: "edit_finalized" },
 
       // Plan Assignments
       { resource: "plan_assignments", action: "create" },

@@ -50,6 +50,12 @@ import { AnnualTargetAllocationSummary } from "./components/AnnualTargetAllocati
 import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
 import { formatNodeTarget } from "@/utils/planRuleUtils";
 import { canEditAnnualTargetForVersion, canEditPeriodTargetForVersion } from "@/utils/planDraftUtils";
+import { usePermissions } from "@/hooks/usePermissions";
+import {
+    canEditMasterPlanStructure,
+    confirmFinalizedPlanStructureEdit,
+    isEditingFinalizedMasterPlan,
+} from "@/utils/planMasterEditUtils";
 
 interface PlanNodeDetailViewProps {
     versionId: string;
@@ -150,8 +156,9 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
         node &&
         (node.annual_target ?? 0) > 0;
 
-    const isMasterDraft =
-        version?.version_kind === "master" && version?.status === "draft";
+    const { can } = usePermissions();
+    const canEditMasterStructure = canEditMasterPlanStructure(version, can);
+    const isEditingFinalizedMaster = isEditingFinalizedMasterPlan(version, can);
     const isExecutionVersion =
         version?.version_kind === "annual" ||
         version?.version_kind === "execution_period";
@@ -185,7 +192,13 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
         }
     };
 
+    const confirmIfFinalizedEdit = async (actionLabel: string) => {
+        if (!isEditingFinalizedMaster) return true;
+        return confirmFinalizedPlanStructureEdit(actionLabel);
+    };
+
     const handleDeleteInternal = async (id: string) => {
+        if (!(await confirmIfFinalizedEdit("Removing an assignment"))) return;
         if (await actionFeedback.confirm("Are you sure you want to remove this internal assignment?", { destructive: true })) {
             try {
                 await deleteInternal({ id, nodeId }).unwrap();
@@ -198,6 +211,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
     };
 
     const handleDeleteExternal = async (id: string) => {
+        if (!(await confirmIfFinalizedEdit("Removing an assignment"))) return;
         if (await actionFeedback.confirm("Are you sure you want to remove this external assignment?", { destructive: true })) {
             try {
                 await deleteExternal({ id, nodeId }).unwrap();
@@ -391,12 +405,19 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
             : []),
     ];
 
-    const actions: ActionButton[] = assignmentOptions?.can_assign
+    const actions: ActionButton[] = assignmentOptions?.can_assign && canEditMasterStructure
         ? [{
             label: assignLabel,
             icon: <UserPlus className="h-4 w-4" />,
-            variant: "default" as const,
-            onClick: () => activeTab === "internal" ? setInternalModalOpen(true) : setExternalModalOpen(true),
+            variant: isEditingFinalizedMaster ? "destructive" as const : "default" as const,
+            onClick: async () => {
+                if (!(await confirmIfFinalizedEdit("Adding an assignment"))) return;
+                if (activeTab === "internal") {
+                    setInternalModalOpen(true);
+                } else {
+                    setExternalModalOpen(true);
+                }
+            },
         }]
         : [];
 
@@ -498,7 +519,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                                             )}
                                         </>
                                     )}
-                                {isMasterDraft && (
+                                {canEditMasterStructure && (
                                 <Badge
                                     variant="outline"
                                     className={
@@ -671,8 +692,14 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                 </CardContent>
             </Card>
 
-            {isMasterDraft && (
-            <div className="w-full bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+            {canEditMasterStructure && (
+            <div className={`w-full bg-white rounded-3xl p-6 shadow-sm border ${isEditingFinalizedMaster ? "border-destructive/30" : "border-gray-100"}`}>
+                {isEditingFinalizedMaster && (
+                    <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                        This node belongs to a finalized strategic plan. Assignment changes require
+                        confirmation and propagate to annual versions.
+                    </div>
+                )}
                 <div className="flex items-center justify-between mb-4 px-2">
                     <h3 className="text-xl font-bold text-golden-dark">Assignments</h3>
                     <div className="flex items-center gap-2">
@@ -736,7 +763,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                 />
             )}
 
-            {isMasterDraft && (
+            {canEditMasterStructure && (
             <>
             <AssignInternalModal
                 isOpen={isInternalModalOpen}

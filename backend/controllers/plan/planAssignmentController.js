@@ -24,9 +24,14 @@ const {
     deactivateActiveAssignmentsForNode,
 } = require("../../services/planAssignmentHierarchyService");
 
-function isMasterDraft(planVersion) {
-    return planVersion?.version_kind === "master" && planVersion?.status === "draft";
-}
+const {
+    propagateExternalAssignmentCreate,
+    propagateInternalAssignmentCreate,
+} = require("../../services/planMasterEditService");
+const {
+    validateCanEditMasterPlanStructure,
+    isMasterFinalized,
+} = require("../../utils/planMasterEditUtils");
 
 /**
  * =================== PLAN ASSIGNMENT ACTIONS (Master Data) ===================
@@ -109,11 +114,12 @@ const createExternalAssignment = async (req, res) => {
             return res.status(404).json({ message: "Plan node not found" });
         }
 
-        if (!isMasterDraft(planNode.planVersion)) {
+        const structureAccess = validateCanEditMasterPlanStructure(planNode.planVersion, req.user);
+        if (!structureAccess.valid) {
             await t.rollback();
             return res.status(400).json({
                 success: false,
-                message: "Can only assign to nodes in draft master plan versions",
+                message: structureAccess.message,
             });
         }
 
@@ -152,6 +158,10 @@ const createExternalAssignment = async (req, res) => {
             },
             { transaction: t }
         );
+
+        if (isMasterFinalized(planNode.planVersion)) {
+            await propagateExternalAssignmentCreate(plan_node_id, assignment, t);
+        }
 
         await t.commit();
 
@@ -231,11 +241,12 @@ const updateExternalAssignment = async (req, res) => {
             return res.status(404).json({ message: "Assignment not found" });
         }
 
-        if (!isMasterDraft(assignment.planNode.planVersion)) {
+        const structureAccess = validateCanEditMasterPlanStructure(assignment.planNode.planVersion, req.user);
+        if (!structureAccess.valid) {
             await t.rollback();
             return res.status(400).json({
                 success: false,
-                message: "Can only update assignments in draft master plan versions",
+                message: structureAccess.message,
             });
         }
 
@@ -281,11 +292,12 @@ const deleteExternalAssignment = async (req, res) => {
             return res.status(404).json({ message: "Assignment not found" });
         }
 
-        if (!isMasterDraft(assignment.planNode.planVersion)) {
+        const structureAccess = validateCanEditMasterPlanStructure(assignment.planNode.planVersion, req.user);
+        if (!structureAccess.valid) {
             await t.rollback();
             return res.status(400).json({
                 success: false,
-                message: "Can only delete assignments from draft master plan versions",
+                message: structureAccess.message,
             });
         }
 
@@ -329,11 +341,12 @@ const createInternalAssignment = async (req, res) => {
             return res.status(404).json({ message: "Plan node not found" });
         }
 
-        if (!isMasterDraft(planNode.planVersion)) {
+        const structureAccess = validateCanEditMasterPlanStructure(planNode.planVersion, req.user);
+        if (!structureAccess.valid) {
             await t.rollback();
             return res.status(400).json({
                 success: false,
-                message: "Can only assign to nodes in draft master plan versions",
+                message: structureAccess.message,
             });
         }
 
@@ -468,6 +481,12 @@ const createInternalAssignment = async (req, res) => {
                         ? `No assignments created. Skipped branches: ${skipped.join(", ")}`
                         : "No valid branch assignments could be created.",
             });
+        }
+
+        if (isMasterFinalized(planNode.planVersion)) {
+            for (const assignment of created) {
+                await propagateInternalAssignmentCreate(plan_node_id, assignment, t);
+            }
         }
 
         await t.commit();
@@ -626,11 +645,12 @@ const updateInternalAssignment = async (req, res) => {
             return res.status(404).json({ message: "Assignment not found" });
         }
 
-        if (!isMasterDraft(assignment.planNode.planVersion)) {
+        const structureAccess = validateCanEditMasterPlanStructure(assignment.planNode.planVersion, req.user);
+        if (!structureAccess.valid) {
             await t.rollback();
             return res.status(400).json({
                 success: false,
-                message: "Can only update assignments in draft master plan versions",
+                message: structureAccess.message,
             });
         }
 
@@ -676,11 +696,12 @@ const deleteInternalAssignment = async (req, res) => {
             return res.status(404).json({ message: "Assignment not found" });
         }
 
-        if (!isMasterDraft(assignment.planNode.planVersion)) {
+        const structureAccess = validateCanEditMasterPlanStructure(assignment.planNode.planVersion, req.user);
+        if (!structureAccess.valid) {
             await t.rollback();
             return res.status(400).json({
                 success: false,
-                message: "Can only delete assignments from draft master plan versions",
+                message: structureAccess.message,
             });
         }
 

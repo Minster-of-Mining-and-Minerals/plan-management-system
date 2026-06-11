@@ -45,6 +45,7 @@ interface PlanNodeCardGridProps {
     onMoveNode?: (nodeId: string, direction: "up" | "down") => void;
     isReordering?: boolean;
     readOnly?: boolean;
+    dangerMode?: boolean;
 }
 
 export function PlanNodeCardGrid({
@@ -67,6 +68,7 @@ export function PlanNodeCardGrid({
     onMoveNode,
     isReordering = false,
     readOnly = false,
+    dangerMode = false,
 }: PlanNodeCardGridProps) {
     const { data: planningConfig } = useGetPlanningConfigurationQuery();
     const configuredUnits = planningConfig?.target_units;
@@ -147,6 +149,7 @@ export function PlanNodeCardGrid({
                                                 }
                                                 isReordering={isReordering}
                                                 readOnly={readOnly}
+                                                dangerMode={dangerMode}
                                                 size="sm"
                                                 className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                                             />

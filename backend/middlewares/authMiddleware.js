@@ -94,6 +94,34 @@ const checkPermission = (resource, action) => {
   };
 };
 
+/** Pass if the user has at least one of the given resource/action pairs. */
+const checkAnyPermission = (checks) => {
+  return (req, res, next) => {
+    if (!req.user || !req.user.permissions) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied: No permissions found",
+      });
+    }
+
+    const hasAny = checks.some(({ resource, action }) =>
+      req.user.permissions.includes(`${resource.toLowerCase()}:${action.toLowerCase()}`)
+    );
+
+    if (!hasAny) {
+      const required = checks
+        .map(({ resource, action }) => `${resource.toLowerCase()}:${action.toLowerCase()}`)
+        .join(" or ");
+      return res.status(403).json({
+        success: false,
+        message: `Access denied: Required one of permissions ${required}`,
+      });
+    }
+
+    next();
+  };
+};
+
 // Role checking middleware
 const requireRole = (roleName) => {
   return (req, res, next) => {
@@ -145,6 +173,7 @@ const requireAnyRole = (roleNames) => {
 module.exports = {
   authenticateToken,
   checkPermission,
+  checkAnyPermission,
   requireRole,
   requireAnyRole,
 };

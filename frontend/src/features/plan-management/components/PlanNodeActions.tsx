@@ -19,6 +19,7 @@ interface PlanNodeActionsProps {
     onMoveDown?: () => void;
     isReordering?: boolean;
     readOnly?: boolean;
+    dangerMode?: boolean;
     size?: "sm" | "md";
     className?: string;
 }
@@ -36,6 +37,7 @@ export function PlanNodeActions({
     onMoveDown,
     isReordering = false,
     readOnly = false,
+    dangerMode = false,
     size = "md",
     className = "",
 }: PlanNodeActionsProps) {
@@ -77,7 +79,11 @@ export function PlanNodeActions({
                     onClick={() => onAddChild(node)}
                     variant="ghost"
                     size="icon"
-                    className={`${iconClass} text-primary`}
+                    className={`${iconClass} ${
+                        dangerMode
+                            ? "text-destructive hover:text-destructive hover:bg-destructive/10"
+                            : "text-primary"
+                    }`}
                     title="Add Child"
                 >
                     <Plus className={iconSize} />
@@ -89,7 +95,11 @@ export function PlanNodeActions({
                         onClick={() => onEdit(node)}
                         variant="ghost"
                         size="icon"
-                        className={`${iconClass} text-gray-600`}
+                        className={`${iconClass} ${
+                            dangerMode
+                                ? "text-destructive hover:text-destructive hover:bg-destructive/10"
+                                : "text-gray-600"
+                        }`}
                         title="Edit"
                     >
                         <Edit className={iconSize} />
