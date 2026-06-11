@@ -19,7 +19,7 @@ import { PlanNodeIcon } from "./PlanNodeIcon";
 import { PlanNodeActions } from "./PlanNodeActions";
 import { CircularProgress } from "./CircularProgress";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
-import { getHierarchyNumber, sortPlanNodes } from "@/utils/planNodeOrderUtils";
+import { getHierarchyNumber } from "@/utils/planNodeOrderUtils";
 import { PlanNodeHierarchyNumber } from "./PlanNodeHierarchyNumber";
 import { PlanNodeAssignmentSummary } from "./PlanNodeAssignmentSummary";
 import { PlanNodeAnnualTargetSection } from "./PlanNodeAnnualTargetSection";
@@ -72,7 +72,7 @@ export function PlanNodeCardGrid({
     const configuredUnits = planningConfig?.target_units;
     const thresholds = usePerformanceColorThresholds();
 
-    const sortedNodes = useMemo(() => sortPlanNodes(nodes), [nodes]);
+    const sortedNodes = useMemo(() => nodes, [nodes]);
 
     const completionMap = useMemo(() => {
         const map = new Map<

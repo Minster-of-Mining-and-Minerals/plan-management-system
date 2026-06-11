@@ -12,7 +12,7 @@ import {
     getStepColorHex,
     getPlanStepSurfaceStyles,
 } from "@/utils/planRuleUtils";
-import { getHierarchyNumber, sortPlanNodes } from "@/utils/planNodeOrderUtils";
+import { getHierarchyNumber } from "@/utils/planNodeOrderUtils";
 import { PlanNodeIcon } from "./PlanNodeIcon";
 import { PlanNodeHierarchyNumber } from "./PlanNodeHierarchyNumber";
 import { PlanNodeAssignmentSummary } from "./PlanNodeAssignmentSummary";
@@ -75,10 +75,7 @@ const NodeItem = ({
     const hasChildren = node.children && node.children.length > 0;
     const levelLabel = getStepLabel(rule, node.level);
     const nodeWeightMode = node.weight_mode;
-    const sortedChildren = useMemo(
-        () => sortPlanNodes(node.children ?? []),
-        [node.children]
-    );
+    const sortedChildren = useMemo(() => node.children ?? [], [node.children]);
     const stepSurface = getPlanStepSurfaceStyles(getStepColorHex(rule, node.level));
 
     return (
@@ -277,7 +274,7 @@ export function PlanHierarchyTree({
 }: PlanHierarchyTreeProps) {
     const { data: planningConfig } = useGetPlanningConfigurationQuery();
     const configuredUnits = planningConfig?.target_units;
-    const sortedNodes = useMemo(() => sortPlanNodes(nodes), [nodes]);
+    const sortedNodes = useMemo(() => nodes, [nodes]);
 
     if (scoped) {
         return (

@@ -16,7 +16,7 @@ const {
 const { v4: uuidv4, validate: isUuid } = require("uuid");
 const { Op } = require("sequelize");
 const { buildDraftAlignedSortMeta, sortHierarchyTree, enrichPeriodNodesWithLiveAnnualTargets } = require("../../utils/planHierarchyUtils");
-const { getNextSiblingOrder } = require("../../utils/planNodeOrderUtils");
+const { getNextSiblingOrder, propagateOrderFromMasterPlanNode } = require("../../utils/planNodeOrderUtils");
 const { isWeightModeSelectionLevel } = require("../../services/planRuleStepUtils");
 const {
     getOrCreateGlobalPlanningConfig,
@@ -1108,6 +1108,7 @@ const reorderPlanNodes = async (req, res) => {
                     transaction: t,
                 }
             );
+            await propagateOrderFromMasterPlanNode(item.plan_node_id, item.order, t);
         }
 
         await t.commit();

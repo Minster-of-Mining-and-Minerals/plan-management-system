@@ -54,8 +54,6 @@ import {
     buildHierarchyNumberMap,
     buildSiblingReorderPayload,
     getHierarchyNumber,
-    sortPlanNodes,
-    sortPlanHierarchy,
 } from "@/utils/planNodeOrderUtils";
 import { PlanNodeHierarchyNumber } from "./components/PlanNodeHierarchyNumber";
 
@@ -113,8 +111,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
     });
     const { data: planningConfig } = useGetPlanningConfigurationQuery();
     const { data: rule } = useGetPlanRuleForVersionQuery(versionId);
-    const { data: hierarchyRaw = [], isLoading, refetch } = useGetPlanHierarchyQuery(versionId);
-    const hierarchy = useMemo(() => sortPlanHierarchy(hierarchyRaw), [hierarchyRaw]);
+    const { data: hierarchy = [], isLoading, refetch } = useGetPlanHierarchyQuery(versionId);
     const [deleteNode] = useDeletePlanNodeMutation();
     const [reorderNodes, { isLoading: isReordering }] = useReorderPlanNodesMutation();
     const thresholds = usePerformanceColorThresholds();
@@ -149,7 +146,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
 
     const currentParent = breadcrumbPath.length > 0 ? breadcrumbPath[breadcrumbPath.length - 1] : null;
     const currentNodes = useMemo(
-        () => sortPlanNodes(getCurrentNodes(hierarchy, pathIds)),
+        () => getCurrentNodes(hierarchy, pathIds),
         [hierarchy, pathIds]
     );
     const hierarchyNumberMap = useMemo(
@@ -531,7 +528,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
 
             {/* Content */}
             {viewMode === "table" ? (
-                sortPlanNodes(hierarchy).length > 0 ? (
+                hierarchy.length > 0 ? (
                     <PlanHierarchyTableView
                         roots={hierarchy}
                         hierarchyNumberMap={hierarchyNumberMap}

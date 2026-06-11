@@ -14,6 +14,15 @@ function localNodeSortMeta(node) {
     return { order: node.order ?? 0, created_at: node.created_at ?? null };
 }
 
+/** Sort metadata from each node's own assigned order (per sibling level). */
+function buildLocalSortMeta(nodes) {
+    const meta = new Map();
+    for (const node of nodes) {
+        meta.set(node.plan_node_id, localNodeSortMeta(node));
+    }
+    return meta;
+}
+
 /**
  * Maps each node in a version to draft-aligned sort metadata (order + created_at from master draft).
  */
@@ -130,6 +139,7 @@ async function enrichPeriodNodesWithLiveAnnualTargets(planVersion, nodeMap, node
 }
 
 module.exports = {
+    buildLocalSortMeta,
     buildDraftAlignedSortMeta,
     sortHierarchyTree,
     compareSortMeta,

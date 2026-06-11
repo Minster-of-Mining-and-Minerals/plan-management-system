@@ -19,6 +19,30 @@ async function getNextSiblingOrder(planVersionId, parentId, transaction) {
     return siblingCount;
 }
 
+async function propagateOrderFromMasterPlanNode(masterPlanNodeId, order, transaction) {
+    const annualNodes = await PlanNode.findAll({
+        where: { source_plan_node_id: masterPlanNodeId },
+        attributes: ["plan_node_id"],
+        transaction,
+    });
+
+    if (annualNodes.length === 0) {
+        return;
+    }
+
+    await PlanNode.update(
+        { order },
+        { where: { source_plan_node_id: masterPlanNodeId }, transaction }
+    );
+
+    const annualIds = annualNodes.map((node) => node.plan_node_id);
+    await PlanNode.update(
+        { order },
+        { where: { source_plan_node_id: annualIds }, transaction }
+    );
+}
+
 module.exports = {
     getNextSiblingOrder,
+    propagateOrderFromMasterPlanNode,
 };

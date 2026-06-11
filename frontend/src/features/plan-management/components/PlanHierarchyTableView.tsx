@@ -27,7 +27,7 @@ import {
 import { resolveCompletionForEntity } from "@/utils/performanceColorUtils";
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
 import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
-import { getHierarchyNumber, sortPlanNodes } from "@/utils/planNodeOrderUtils";
+import { getHierarchyNumber } from "@/utils/planNodeOrderUtils";
 import { flattenPlanSubtree } from "@/utils/planHierarchyTableUtils";
 import { PlanNodeActions } from "./PlanNodeActions";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
@@ -507,7 +507,7 @@ export function PlanHierarchyTableView({
     annualTargetAllocations,
     periodTargetAllocations,
 }: PlanHierarchyTableViewProps) {
-    const sortedRoots = useMemo(() => sortPlanNodes(roots), [roots]);
+    const sortedRoots = useMemo(() => roots, [roots]);
 
     return (
         <div className="space-y-3">

@@ -1,5 +1,4 @@
 import { PlanNodeHierarchy } from "@/redux/types/plan";
-import { sortPlanNodes } from "@/utils/planNodeOrderUtils";
 
 export interface FlatPlanNodeRow {
     node: PlanNodeHierarchy;
@@ -10,7 +9,6 @@ export interface FlatPlanNodeRow {
 
 export function flattenPlanSubtree(root: PlanNodeHierarchy): FlatPlanNodeRow[] {
     const rows: FlatPlanNodeRow[] = [];
-    const sortedRoots = sortPlanNodes([root]);
 
     function walk(
         node: PlanNodeHierarchy,
@@ -19,13 +17,13 @@ export function flattenPlanSubtree(root: PlanNodeHierarchy): FlatPlanNodeRow[] {
         siblingIndex: number
     ) {
         rows.push({ node, depth, siblings, siblingIndex });
-        const children = sortPlanNodes(node.children ?? []);
+        const children = node.children ?? [];
         children.forEach((child, index) => {
             walk(child, depth + 1, children, index);
         });
     }
 
-    walk(root, 0, sortedRoots, 0);
+    walk(root, 0, [root], 0);
     return rows;
 }
 

@@ -1,12 +1,13 @@
 import { PlanNode, PlanNodeHierarchy, ReorderPlanNodesPayload } from "@/redux/types/plan";
 
-export function sortPlanNodes<T extends Pick<PlanNode, "order" | "created_at">>(nodes: T[]): T[] {
+export function sortPlanNodes<T extends Pick<PlanNode, "order" | "created_at" | "plan_node_id">>(nodes: T[]): T[] {
     return [...nodes].sort((a, b) => {
         const orderDiff = (a.order ?? 0) - (b.order ?? 0);
         if (orderDiff !== 0) return orderDiff;
         const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
         const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return aTime - bTime;
+        if (aTime !== bTime) return aTime - bTime;
+        return (a.plan_node_id ?? "").localeCompare(b.plan_node_id ?? "");
     });
 }
 
@@ -26,8 +27,7 @@ export function buildHierarchyNumberMap(
     const map = new Map<string, string>();
 
     function walk(nodes: PlanNodeHierarchy[], parentNumber: string | null) {
-        const sorted = sortPlanNodes(nodes);
-        sorted.forEach((node, index) => {
+        nodes.forEach((node, index) => {
             const number = parentNumber ? `${parentNumber}.${index + 1}` : `${index + 1}`;
             map.set(node.plan_node_id, number);
             if (node.children?.length) {
