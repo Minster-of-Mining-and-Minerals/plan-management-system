@@ -299,7 +299,7 @@ async function initializeExecutionPeriodsForAnnual(req, res) {
 
         return res.json({
             success: true,
-            message: "Execution periods initialized and targets split from annual allocation",
+            message: "Execution periods initialized for all annual years with the selected subdivision",
             data: result.data,
             executionPeriods: result.executionPeriods,
         });

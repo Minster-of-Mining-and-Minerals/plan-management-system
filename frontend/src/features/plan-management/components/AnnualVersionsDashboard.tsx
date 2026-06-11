@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, CheckCircle, CalendarDays, ShieldCheck } from "lucide-react";
+import { Eye, CheckCircle, CalendarDays, ShieldCheck, Layers } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +21,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { PerformanceProgressBar } from "./PerformanceProgressBar";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
 import { FinalizeAnnualExecutionModal } from "../modals/FinalizeAnnualExecutionModal";
+import { InitializeExecutionPeriodsModal } from "../modals/InitializeExecutionPeriodsModal";
 import { cn } from "@/lib/utils";
 
 interface AnnualVersionsDashboardProps {
@@ -31,13 +32,22 @@ function getAnnualStatusLabel(version: PlanVersion): string {
     return formatStatus(version.status);
 }
 
+function formatSubdivisionMode(mode: string | null | undefined): string {
+    if (mode === "quarterly") return "Quarterly";
+    if (mode === "semi_annual") return "Semi-annual";
+    if (mode === "custom") return "Custom";
+    return "the selected";
+}
+
 export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboardProps) {
     const router = useRouter();
     const thresholds = usePerformanceColorThresholds();
     const { can } = usePermissions();
     const canApprovePlan = can("PLANS:APPROVE");
+    const canUpdatePlan = can("PLANS:UPDATE");
 
     const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
+    const [initPeriodsModalOpen, setInitPeriodsModalOpen] = useState(false);
 
     const { data, isLoading, refetch } = useGetAnnualVersionsQuery(masterVersion.plan_version_id);
     const [completeAnnual, { isLoading: isCompleting }] = useCompleteAnnualVersionMutation();
@@ -45,6 +55,7 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
     const master = data?.master ?? masterVersion;
     const annualVersions = data?.annualVersions ?? masterVersion.annualVersions ?? [];
     const annualTargetsFinalized = Boolean(master.annual_targets_finalized_at);
+    const periodsInitializedGlobally = Boolean(master.period_subdivision_mode);
 
     const handleComplete = async (versionId: string, year: number) => {
         if (!(await actionFeedback.confirm(`Mark the ${year} annual version as completed?`))) {
@@ -97,27 +108,37 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                     <h2 className="text-lg font-semibold text-gray-900">Annual Execution Versions</h2>
                     <p className="text-sm text-muted-foreground mt-1">
                         {annualTargetsFinalized
-                            ? "Annual targets are finalized. Open any year to set up execution periods."
+                            ? periodsInitializedGlobally
+                                ? "Annual targets are finalized. Open any year to set period targets and finalize."
+                                : "Annual targets are finalized. Initialize execution periods once — the same subdivision applies to all years."
                             : "Open any year to set annual targets (totals must match the draft target), then finalize annual execution."}
                     </p>
                 </div>
-                {!annualTargetsFinalized && canApprovePlan && (
-                    <Button
-                        className="gap-2 shrink-0"
-                        onClick={() => setFinalizeModalOpen(true)}
-                    >
-                        <ShieldCheck className="h-4 w-4" />
-                        Finalize Annual Execution
-                    </Button>
-                )}
+                <div className="flex flex-wrap gap-2 shrink-0">
+                    {!annualTargetsFinalized && canApprovePlan && (
+                        <Button className="gap-2" onClick={() => setFinalizeModalOpen(true)}>
+                            <ShieldCheck className="h-4 w-4" />
+                            Finalize Annual Execution
+                        </Button>
+                    )}
+                    {annualTargetsFinalized &&
+                        !periodsInitializedGlobally &&
+                        canUpdatePlan && (
+                            <Button className="gap-2" onClick={() => setInitPeriodsModalOpen(true)}>
+                                <Layers className="h-4 w-4" />
+                                Initialize Execution Periods
+                            </Button>
+                        )}
+                </div>
             </div>
 
             {annualTargetsFinalized && (
                 <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
                     Annual execution finalized on{" "}
-                    {new Date(master.annual_targets_finalized_at!).toLocaleDateString()}. Open the
-                    current year, initialize execution periods, set period targets, then finalize
-                    period targets. All years remain open for now.
+                    {new Date(master.annual_targets_finalized_at!).toLocaleDateString()}.
+                    {periodsInitializedGlobally
+                        ? ` All years use ${formatSubdivisionMode(master.period_subdivision_mode)} subdivision. Open a year to set period targets.`
+                        : " Initialize execution periods once below — quarterly, semi-annual, or custom — for all years."}
                 </div>
             )}
 
@@ -204,11 +225,12 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                                 />
 
                                 {annualTargetsFinalized &&
+                                    periodsInitializedGlobally &&
                                     !periodTargetsFinalized &&
                                     !isCompleted && (
                                         <PerformanceColorBadge
                                             color={completion.color}
-                                            label="Setup — initialize execution periods"
+                                            label="Setup — set period targets"
                                             variant="outline"
                                             className="gap-1 w-fit text-xs"
                                         />
@@ -262,6 +284,16 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                 isOpen={finalizeModalOpen}
                 onClose={() => setFinalizeModalOpen(false)}
                 masterVersion={master}
+                onSuccess={() => refetch()}
+            />
+
+            <InitializeExecutionPeriodsModal
+                isOpen={initPeriodsModalOpen}
+                onClose={() => setInitPeriodsModalOpen(false)}
+                masterVersion={master}
+                planningYears={annualVersions.map(
+                    (annual) => annual.planning_year ?? annual.year
+                )}
                 onSuccess={() => refetch()}
             />
         </div>

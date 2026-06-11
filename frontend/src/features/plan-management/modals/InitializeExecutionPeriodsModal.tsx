@@ -9,6 +9,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { actionFeedback } from "@/components/action-feedback";
@@ -20,7 +21,8 @@ import { cn } from "@/lib/utils";
 interface InitializeExecutionPeriodsModalProps {
     isOpen: boolean;
     onClose: () => void;
-    annualVersion: PlanVersion;
+    masterVersion: PlanVersion;
+    planningYears?: number[];
     onSuccess?: () => void;
 }
 
@@ -32,24 +34,25 @@ const SUBDIVISION_OPTIONS: {
     {
         value: "quarterly",
         label: "Quarterly",
-        description: "Split annual targets across Q1–Q4",
+        description: "Q1–Q4 for every annual year",
     },
     {
         value: "semi_annual",
         label: "Semi-annual",
-        description: "Split annual targets into two halves",
+        description: "Two halves for every annual year",
     },
     {
         value: "custom",
         label: "Custom",
-        description: "Define your own period labels",
+        description: "Same custom labels for every annual year",
     },
 ];
 
 export function InitializeExecutionPeriodsModal({
     isOpen,
     onClose,
-    annualVersion,
+    masterVersion,
+    planningYears = [],
     onSuccess,
 }: InitializeExecutionPeriodsModalProps) {
     const [mode, setMode] = useState<PeriodSubdivisionMode>("quarterly");
@@ -73,12 +76,13 @@ export function InitializeExecutionPeriodsModal({
 
         try {
             const result = await initialize({
-                id: annualVersion.plan_version_id,
+                id: masterVersion.plan_version_id,
                 subdivision_mode: mode,
                 custom_periods,
             }).unwrap();
+            const yearCount = planningYears.length || "all";
             actionFeedback.success(
-                `${result.executionPeriods?.length ?? 0} execution period(s) created with equal target splits`
+                `${result.executionPeriods?.length ?? 0} execution period(s) created across ${yearCount} annual year(s)`
             );
             onSuccess?.();
             onClose();
@@ -97,10 +101,24 @@ export function InitializeExecutionPeriodsModal({
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6">
                     <div className="space-y-4 pb-4 text-sm">
                         <p className="text-muted-foreground">
-                            Choose how to subdivide {annualVersion.planning_year}. Annual targets will
-                            be split equally across the selected periods. You can adjust individual
-                            period targets afterward before finalizing.
+                            Choose one subdivision for the entire plan. The same period structure
+                            will be created for every annual year
+                            {planningYears.length > 0
+                                ? ` (${planningYears.join(", ")})`
+                                : ""}
+                            . Initial period targets are split from each year&apos;s annual targets;
+                            adjust them before finalizing.
                         </p>
+
+                        {planningYears.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                                {planningYears.map((year) => (
+                                    <Badge key={year} variant="outline">
+                                        {year}
+                                    </Badge>
+                                ))}
+                            </div>
+                        )}
 
                         <div className="space-y-2">
                             {SUBDIVISION_OPTIONS.map((option) => (
@@ -148,7 +166,7 @@ export function InitializeExecutionPeriodsModal({
                                 Initializing...
                             </>
                         ) : (
-                            "Initialize Periods"
+                            "Initialize for All Years"
                         )}
                     </Button>
                 </DialogFooter>

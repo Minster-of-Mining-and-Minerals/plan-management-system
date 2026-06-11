@@ -133,14 +133,6 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
         );
     }, [hierarchy]);
 
-    useEffect(() => {
-        if (
-            version?.version_kind === "master" &&
-            version.status === "finalized"
-        ) {
-            setActiveTab("annual");
-        }
-    }, [version?.version_kind, version?.status]);
     const currentParent = breadcrumbPath.length > 0 ? breadcrumbPath[breadcrumbPath.length - 1] : null;
     const currentNodes = useMemo(
         () => sortPlanNodes(getCurrentNodes(hierarchy, pathIds)),
@@ -171,12 +163,31 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
             ? version?.period_targets_finalized_at
             : annualParentVersion?.period_targets_finalized_at
     );
+    const periodsInitializedGlobally = Boolean(
+        version?.version_kind === "master"
+            ? version?.period_subdivision_mode
+            : masterVersion?.period_subdivision_mode ?? version?.period_subdivision_mode
+    );
     const canEditAnnualTarget = canEditAnnualTargetForVersion(version, annualTargetsFinalized);
     const showAnnualDashboard =
         version?.version_kind === "master" &&
         (version?.status === "finalized" ||
             (version?.annualVersions && version.annualVersions.length > 0));
-    const showPeriodDashboard = isAnnualVersion && annualTargetsFinalized;
+    const showPeriodDashboard =
+        isAnnualVersion && annualTargetsFinalized && periodsInitializedGlobally;
+
+    useEffect(() => {
+        if (version?.version_kind === "master" && version.status === "finalized") {
+            setActiveTab("annual");
+        } else if (version?.version_kind === "annual" && periodsInitializedGlobally) {
+            setActiveTab("periods");
+        }
+    }, [
+        version?.version_kind,
+        version?.status,
+        version?.plan_version_id,
+        periodsInitializedGlobally,
+    ]);
 
     const shouldFetchAnnualAllocations = isAnnualVersion && !annualTargetsFinalized;
     const { data: annualAllocationList = [] } = useGetAnnualTargetAllocationsQuery(versionId, {
@@ -394,14 +405,14 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                 </div>
             )}
 
-            {isReadOnlyHierarchy && isAnnualVersion && showPeriodDashboard && !version.period_subdivision_mode && (
+            {isReadOnlyHierarchy && isAnnualVersion && showPeriodDashboard && !periodsInitializedGlobally && (
                 <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                    Annual execution is finalized. Switch to the Execution Periods tab to initialize
-                    quarterly, semi-annual, or custom subdivision.
+                    Annual execution is finalized. On the strategic plan&apos;s Annual Execution tab,
+                    use Initialize Execution Periods once — the same subdivision applies to all years.
                 </div>
             )}
 
-            {isReadOnlyHierarchy && isAnnualVersion && showPeriodDashboard && version.period_subdivision_mode && !periodTargetsFinalized && (
+            {isReadOnlyHierarchy && isAnnualVersion && showPeriodDashboard && periodsInitializedGlobally && !periodTargetsFinalized && (
                 <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                     Adjust period targets in the hierarchy so totals match annual targets, then finalize
                     from the Execution Periods tab.

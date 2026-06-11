@@ -799,17 +799,16 @@ async function generateExecutionPeriods(annualVersionId, transaction, options = 
     return { success: true, executionPeriods };
 }
 
-async function initializeExecutionPeriods(annualVersionId, subdivisionMode, customPeriods = []) {
+async function initializeExecutionPeriodsForMaster(masterVersionId, subdivisionMode, customPeriods = []) {
     const t = await sequelize.transaction();
     try {
-        const annualVersion = await PlanVersion.findByPk(annualVersionId, { transaction: t });
-        if (!annualVersion || annualVersion.version_kind !== "annual") {
+        const master = await PlanVersion.findByPk(masterVersionId, { transaction: t });
+        if (!master || master.version_kind !== "master") {
             await t.rollback();
-            return { success: false, message: "Annual plan version not found" };
+            return { success: false, message: "Master plan version not found" };
         }
 
-        const master = await getMasterForAnnualVersion(annualVersion, t);
-        if (!master?.annual_targets_finalized_at) {
+        if (!master.annual_targets_finalized_at) {
             await t.rollback();
             return {
                 success: false,
@@ -817,39 +816,111 @@ async function initializeExecutionPeriods(annualVersionId, subdivisionMode, cust
             };
         }
 
-        if (annualVersion.period_subdivision_mode) {
+        if (master.period_subdivision_mode) {
             await t.rollback();
             return { success: false, message: "Execution periods have already been initialized" };
         }
 
-        const result = await generateExecutionPeriods(annualVersionId, t, {
-            subdivisionMode,
-            customPeriods,
-            splitTargets: true,
+        const annualVersions = await PlanVersion.findAll({
+            where: { parent_plan_version_id: masterVersionId, version_kind: "annual" },
+            order: [["sequence_index", "ASC"]],
+            transaction: t,
         });
 
-        if (!result.success) {
+        if (annualVersions.length === 0) {
             await t.rollback();
-            return result;
+            return { success: false, message: "No annual execution versions exist" };
         }
 
-        await annualVersion.update(
-            { period_subdivision_mode: subdivisionMode },
-            { transaction: t }
-        );
+        for (const annualVersion of annualVersions) {
+            if (annualVersion.period_subdivision_mode) {
+                await t.rollback();
+                return {
+                    success: false,
+                    message: "Execution periods have already been initialized for one or more years",
+                };
+            }
+
+            const existingCount = await PlanVersion.count({
+                where: {
+                    parent_plan_version_id: annualVersion.plan_version_id,
+                    version_kind: "execution_period",
+                },
+                transaction: t,
+            });
+
+            if (existingCount > 0) {
+                await t.rollback();
+                return {
+                    success: false,
+                    message: `Execution periods already exist for ${annualVersion.planning_year ?? annualVersion.year}`,
+                };
+            }
+        }
+
+        const allExecutionPeriods = [];
+
+        for (const annualVersion of annualVersions) {
+            const result = await generateExecutionPeriods(annualVersion.plan_version_id, t, {
+                subdivisionMode,
+                customPeriods,
+                splitTargets: true,
+            });
+
+            if (!result.success) {
+                await t.rollback();
+                return result;
+            }
+
+            await annualVersion.update(
+                { period_subdivision_mode: subdivisionMode },
+                { transaction: t }
+            );
+
+            allExecutionPeriods.push(...result.executionPeriods);
+        }
+
+        await master.update({ period_subdivision_mode: subdivisionMode }, { transaction: t });
 
         await t.commit();
+
         return {
             success: true,
-            data: await PlanVersion.findByPk(annualVersionId, {
-                include: [{ association: "executionPeriodVersions" }],
+            data: await PlanVersion.findByPk(masterVersionId, {
+                include: [{ association: "annualVersions" }],
             }),
-            executionPeriods: result.executionPeriods,
+            executionPeriods: allExecutionPeriods,
+            annualVersions,
         };
     } catch (error) {
         await t.rollback();
         throw error;
     }
+}
+
+async function initializeExecutionPeriods(versionId, subdivisionMode, customPeriods = []) {
+    const version = await PlanVersion.findByPk(versionId);
+    if (!version) {
+        return { success: false, message: "Plan version not found" };
+    }
+
+    let masterVersionId = null;
+    if (version.version_kind === "master") {
+        masterVersionId = versionId;
+    } else if (version.version_kind === "annual") {
+        masterVersionId = version.parent_plan_version_id;
+    } else {
+        return {
+            success: false,
+            message: "Execution periods must be initialized from the master or annual plan version",
+        };
+    }
+
+    if (!masterVersionId) {
+        return { success: false, message: "Master plan version not found" };
+    }
+
+    return initializeExecutionPeriodsForMaster(masterVersionId, subdivisionMode, customPeriods);
 }
 
 async function validateExecutionPeriodFinalization(annualVersionId, transaction) {
@@ -1139,6 +1210,7 @@ module.exports = {
     completeAnnualVersion,
     generateExecutionPeriods,
     initializeExecutionPeriods,
+    initializeExecutionPeriodsForMaster,
     getExecutionPeriods,
     validateExecutionPeriodFinalization,
     getExecutionPeriodFinalizationReadiness,

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, CheckCircle, Clock, Layers, ShieldCheck } from "lucide-react";
+import { Eye, CheckCircle, Clock, ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,7 +21,6 @@ import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresh
 import { usePermissions } from "@/hooks/usePermissions";
 import { PerformanceProgressBar } from "./PerformanceProgressBar";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
-import { InitializeExecutionPeriodsModal } from "../modals/InitializeExecutionPeriodsModal";
 import { FinalizeExecutionPeriodsModal } from "../modals/FinalizeExecutionPeriodsModal";
 import { cn } from "@/lib/utils";
 
@@ -44,10 +43,8 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
     const router = useRouter();
     const thresholds = usePerformanceColorThresholds();
     const { can } = usePermissions();
-    const canUpdatePlan = can("PLANS:UPDATE");
     const canApprovePlan = can("PLANS:APPROVE");
 
-    const [initModalOpen, setInitModalOpen] = useState(false);
     const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
 
     const { data: masterVersion } = useGetPlanVersionByIdQuery(
@@ -55,6 +52,7 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
         { skip: !annualVersion.parent_plan_version_id }
     );
     const annualTargetsFinalized = Boolean(masterVersion?.annual_targets_finalized_at);
+    const periodsInitializedGlobally = Boolean(masterVersion?.period_subdivision_mode);
 
     const { data, isLoading, refetch } = useGetExecutionPeriodsQuery(annualVersion.plan_version_id);
     const [completePeriod, { isLoading: isCompleting }] = useCompleteExecutionPeriodMutation();
@@ -105,43 +103,40 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
                     <Clock className="mx-auto h-10 w-10 mb-3 opacity-40" />
                     <p>Execution periods are not available yet.</p>
                     <p className="text-sm mt-1">
-                        Finalize annual execution on the master plan first, then return here to
-                        initialize quarterly, semi-annual, or custom periods.
+                        Finalize annual execution on the strategic plan first, then initialize
+                        execution periods once from the Annual Execution tab.
                     </p>
                 </CardContent>
             </Card>
         );
     }
 
-    if (!periodsInitialized) {
+    if (!periodsInitialized && !periodsInitializedGlobally) {
         return (
-            <>
-                <Card className="border-dashed">
-                    <CardContent className="py-12 text-center text-muted-foreground space-y-4">
-                        <Clock className="mx-auto h-10 w-10 opacity-40" />
-                        <div>
-                            <p>No execution periods have been initialized yet.</p>
-                            <p className="text-sm mt-1">
-                                Choose quarterly, semi-annual, or custom subdivision to split annual
-                                targets into operational periods.
-                            </p>
-                        </div>
-                        {canUpdatePlan && (
-                            <Button className="gap-2" onClick={() => setInitModalOpen(true)}>
-                                <Layers className="h-4 w-4" />
-                                Initialize Execution Periods
-                            </Button>
-                        )}
-                    </CardContent>
-                </Card>
-
-                <InitializeExecutionPeriodsModal
-                    isOpen={initModalOpen}
-                    onClose={() => setInitModalOpen(false)}
-                    annualVersion={annualVersion}
-                    onSuccess={() => refetch()}
-                />
-            </>
+            <Card className="border-dashed">
+                <CardContent className="py-12 text-center text-muted-foreground space-y-4">
+                    <Clock className="mx-auto h-10 w-10 opacity-40" />
+                    <div>
+                        <p>Execution periods have not been initialized yet.</p>
+                        <p className="text-sm mt-1">
+                            Go to the strategic plan&apos;s <strong>Annual Execution</strong> tab and
+                            use <strong>Initialize Execution Periods</strong> once — the same
+                            subdivision applies to all years.
+                        </p>
+                    </div>
+                    {annualVersion.parent_plan_version_id && (
+                        <Button
+                            variant="outline"
+                            className="gap-2"
+                            onClick={() =>
+                                router.push(`/plans/${annualVersion.parent_plan_version_id}`)
+                            }
+                        >
+                            Open Strategic Plan
+                        </Button>
+                    )}
+                </CardContent>
+            </Card>
         );
     }
 
@@ -157,8 +152,8 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
                     <h2 className="text-lg font-semibold text-gray-900">Execution Period Versions</h2>
                     <p className="text-sm text-muted-foreground mt-1">
                         {periodTargetsFinalized
-                            ? `${formatSubdivisionMode(annual.period_subdivision_mode)} subdivision — period targets finalized. All periods remain open.`
-                            : `${formatSubdivisionMode(annual.period_subdivision_mode)} subdivision — adjust period targets so totals match annual targets, then finalize.`}
+                            ? `${formatSubdivisionMode(annual.period_subdivision_mode ?? masterVersion?.period_subdivision_mode)} subdivision — period targets finalized. All periods remain open.`
+                            : `${formatSubdivisionMode(annual.period_subdivision_mode ?? masterVersion?.period_subdivision_mode)} subdivision — adjust period targets so totals match annual targets, then finalize.`}
                     </p>
                 </div>
                 {!periodTargetsFinalized && canApprovePlan && executionPeriods.length > 0 && (
