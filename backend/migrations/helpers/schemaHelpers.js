@@ -2,7 +2,7 @@
 
 /**
  * Idempotent PostgreSQL schema helpers for baseline migrations.
- * All new migrations should use these utilities for safe up/down operations.
+ * All migrations should use these utilities for safe up/down operations.
  */
 
 async function tableExists(queryInterface, tableName) {
@@ -45,7 +45,25 @@ async function dropTableIfExists(queryInterface, tableName, options = {}) {
   return true;
 }
 
-async function dropIndexIfExists(queryInterface, tableName, indexName) {
+async function addColumnIfNotExists(queryInterface, tableName, columnName, definition) {
+  if (await columnExists(queryInterface, tableName, columnName)) return false;
+  await queryInterface.addColumn(tableName, columnName, definition);
+  return true;
+}
+
+async function removeColumnIfExists(queryInterface, tableName, columnName) {
+  if (!(await columnExists(queryInterface, tableName, columnName))) return false;
+  await queryInterface.removeColumn(tableName, columnName);
+  return true;
+}
+
+async function createIndexIfNotExists(queryInterface, indexName, sql) {
+  if (await indexExists(queryInterface, indexName)) return false;
+  await queryInterface.sequelize.query(sql);
+  return true;
+}
+
+async function dropIndexIfExists(queryInterface, _tableName, indexName) {
   await queryInterface.sequelize.query(`DROP INDEX IF EXISTS "${indexName}"`);
 }
 
@@ -83,6 +101,9 @@ module.exports = {
   enumTypeExists,
   createTableIfNotExists,
   dropTableIfExists,
+  addColumnIfNotExists,
+  removeColumnIfExists,
+  createIndexIfNotExists,
   dropIndexIfExists,
   dropEnumTypeIfExists,
   dropTablesInOrder,

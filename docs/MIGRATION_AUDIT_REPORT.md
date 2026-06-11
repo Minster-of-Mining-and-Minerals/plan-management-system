@@ -1,144 +1,216 @@
 # Migration Audit Report
 
 **Project:** Plan Management System  
-**Date:** 2026-06-10
+**Date:** 2026-06-10 (refactored)  
+**Architect:** Consolidated baseline + archived corrective chain
 
 ---
 
 ## Executive Summary
 
-The original **32 incremental migrations** contained corrective ALTER chains, duplicate schema operations, and rollback failures. They are **archived** in `backend/migrations/_legacy/` and replaced by **8 idempotent baseline migrations** that produce the identical final schema.
+The migration history has been refactored into **8 idempotent baseline migrations** that build the full production schema in a single `db:migrate` run on an empty database. All **15 corrective migrations** (09–23) and **32 legacy incremental migrations** are archived under `backend/migrations/_legacy/` and are **not executed** by Sequelize CLI.
 
-| Metric | Before | After |
-|--------|--------|-------|
-| Active migration files | 32 | 8 |
-| Corrective/refactor migrations | 2 | 0 |
-| ALTER-only plan_version migrations | 5 | 0 (merged) |
-| Rollback with FK-safe order | ~5/32 | 8/8 |
-| Idempotent up() guards | Rare | All baselines |
-
----
-
-## A. Removed / Archived Migrations
-
-All 32 files live in `backend/migrations/_legacy/` (not executed by Sequelize CLI).
-
-| Legacy File | Reason |
-|-------------|--------|
-| `20251210084020-create-attachments.js` | Merged into `20260701000008` |
-| `20260501000001` – `20260501000011` | Merged into `20260701000001`, `20260701000002` |
-| `20260504000012-create-plan-versions.js` | Merged into `20260701000003` (final shape) |
-| `20260504000013-create-plan-nodes.js` | Merged into `20260701000003` |
-| `20260504000014` – `20260504000017` | Merged into `20260701000004` |
-| `20260507000001-create-plan-rules.js` | Merged into `20260701000003` |
-| `20260508000001-refactor-plan-rule-weight-mode.js` | Removed — corrective migration |
-| `20260509000001-move-weight-mode-to-plan-nodes.js` | Removed — corrective migration |
-| `20260604000001` – `20260608000001` | Merged into `20260701000006`, `20260701000007` |
-| `20260609000001` – `20260613000001` | Merged into `20260701000003`, `20260701000005` |
+| Metric | Before refactor | After refactor |
+|--------|-----------------|----------------|
+| Active migration files | 23 | **8** |
+| Corrective / data-fix migrations in active path | 15 | **0** |
+| Legacy incremental migrations | 32 (archived) | 32 (archived, unchanged) |
+| Schema built from empty DB | Required 23 runs | **8 runs** |
+| Rollback-safe baselines | Partial | **8/8** (child-first + IF EXISTS) |
+| Idempotent `up()` guards | Baselines only | **All active migrations** |
 
 ---
 
-## B. Merged Changes
+## A. Removed / Archived Migrations (from active path)
 
-### Plan versions (6 legacy files → 1 CREATE)
+These files **no longer run** on new environments. They remain in `_legacy/` for audit.
 
-Final columns in baseline 3: `plan_rule_id`, draft fields, planning dates, `version_kind`, `parent_plan_version_id`, `period_label`, full status ENUM (`draft`, `active`, `completed`, `finalized`, `locked`), version_kind ENUM (`master`, `annual`, `execution_period`).
+### A.1 Legacy incremental chain (`_legacy/` — 32 files)
 
-### Plan nodes (6 legacy files → 1 CREATE)
+See `_legacy/README.md`. Superseded by baselines 01–08.
 
-Final columns: `weight_mode`, `assignment_sharing_mode`, `source_plan_node_id`, `annual_target`, `period_target`, `target_unit`.
+### A.2 Corrective chain (`_legacy/corrective/` — 15 files)
 
-### Weight mode chain eliminated
-
-```
-plan_rules.weight_mode → plan_rule_steps.weight_mode → plan_nodes.weight_mode
-```
-
-Baseline: `weight_mode` only on `plan_nodes`.
-
-### Assignments
-
-Partial unique indexes for active assignments created directly (never creates superseded full unique index).
+| File | Type | Reason archived |
+|------|------|-----------------|
+| `20260701000009-add-plan-rule-step-color.js` | Schema + data backfill | `color_hex` already in baseline 03 CREATE |
+| `20260701000010-fix-plan-version-unique-index.js` | Index fix | Partial unique index merged into baseline 03 |
+| `20260701000011-add-plan-lifecycle-finalization-fields.js` | Schema ALTER | Columns merged into baseline 03 |
+| `20260701000017-add-process-started-at.js` | Schema ALTER | Column merged into baseline 03 |
+| `20260701000023-add-plans-edit-finalized-permission.js` | Data seed | Moved to `seed-permissions.js` |
+| `20260701000012` – `20260701000016` | Data-only fixes | Not needed on empty DB; irreversible |
+| `20260701000018` – `20260701000022` | Data-only fixes | Not needed on empty DB; irreversible |
 
 ---
 
-## C. Dependency Problems Found
+## B. Merged Migrations
+
+| Original corrective | Merged into | What was merged |
+|-------------------|-------------|-----------------|
+| `09` plan-rule-step-color | `20260701000003-baseline-plan-core.js` | `color_hex` on `plan_rule_steps` (CREATE, not ALTER) |
+| `10` fix-plan-version-unique-index | `20260701000003` | `uq_plan_versions_master_year_version_govt` partial UNIQUE (master only) |
+| `11` lifecycle finalization fields | `20260701000003` | `annual_targets_finalized_at`, `period_subdivision_mode`, `period_targets_finalized_at` |
+| `17` process-started-at | `20260701000003` | `process_started_at` |
+| `23` edit-finalized permission | `20251029134413-seed-permissions.js` | `plans:edit_finalized` permission + Super Admin link |
+| Notification templates seeder | `20260701000007-baseline-notifications.js` | 7 default `notification_templates` rows (idempotent insert) |
+| `demo-users` seeder | `20251029134413-seed-permissions.js` | Super Admin role, admin user, role_permissions |
+| Branding / audit-log permission seeders | `20251029134413-seed-permissions.js` | `branding_settings:*`, `system_audit_logs:read` |
+| Performance threshold role assignment seeder | `20251029134413-seed-permissions.js` | All permissions linked to Super Admin |
+
+### Plan versions — final column set (baseline 03)
+
+`plan_rule_id`, draft fields, planning dates, `version_kind`, `parent_plan_version_id`, `period_label`, lifecycle timestamps (`annual_targets_finalized_at`, `period_targets_finalized_at`, `process_started_at`), `period_subdivision_mode`, `finalized_at`, full status ENUM, version_kind ENUM.
+
+### Plan nodes — final column set (baseline 03)
+
+`weight_mode`, `assignment_sharing_mode`, `source_plan_node_id`, `annual_target`, `period_target`, `target_unit`, `"order"`.
+
+---
+
+## C. Dependency Problems Found & Resolved
 
 | Issue | Resolution |
 |-------|------------|
-| internal → external assignment FK order | External created before internal (baseline 4) |
-| plan_versions / plan_nodes self-FKs | Single CREATE with self-references |
-| year+version_number UNIQUE collision | App uses offset version_number for execution periods |
+| Global UNIQUE on `(year, version_number, government_structure_id)` blocked multiple annual/period versions | Partial index `uq_plan_versions_master_year_version_govt` WHERE `version_kind = 'master'` |
+| `internal_assignments` references `external_assignments` | External assignments table created first (baseline 04) |
+| Self-referential FKs on `plan_versions`, `plan_nodes`, structures | Single CREATE with deferred-safe order |
+| ENUM types orphaned on rollback | `dropEnumTypes()` after all dependent tables dropped |
+| Corrective migrations 12–22 had circular dependency on runtime data | Removed from active path; not applicable to fresh installs |
+
+### Schema dependency diagram (text)
+
+```
+permissions ── role_permissions ── roles
+            └── permission_group_permissions ── permission_groups
+                      └── user_permission_groups ── users
+                      └── government_structure_permission_groups
+
+government_structures ── internal_structures
+        │                      └── users ── user_roles
+        │                              └── notifications
+        │                              └── system_audit_logs
+        ├── plan_rules ── plan_rule_steps
+        ├── plan_versions ── plan_nodes ──┬── external_assignments
+        │         (self-FK)               ├── internal_assignments ── plan_assignment_actions
+        │                                 └── plan_node_action_logs
+        ├── planning_configurations
+        └── branding_settings ── branding_audit_logs
+
+plan_assignment_actions (lookup)
+performance_color_thresholds
+notification_templates ── notifications
+attachments (standalone)
+```
 
 ---
 
-## D. Rollback Fixes
+## D. Rollback Problems Fixed
 
-- Child tables dropped before parents in every `down()`
-- `DROP INDEX IF EXISTS` before column/table drops
-- PostgreSQL ENUM types dropped after dependent tables
-- `dropTableIfExists` / `createTableIfNotExists` for idempotency
+All **8 active baselines** use `backend/migrations/helpers/schemaHelpers.js`:
 
-Verified: `20260701000008` undo + re-migrate succeeds.
+| Pattern | Implementation |
+|---------|----------------|
+| Drop child tables before parents | `dropTablesInOrder()` with explicit ordering |
+| Drop indexes before tables | `dropIndexIfExists()` per index |
+| Drop ENUMs after tables | `dropEnumTypes()` |
+| Idempotent create | `createTableIfNotExists()` |
+| Idempotent drop | `dropTableIfExists()` |
+| Safe column add (helpers available) | `addColumnIfNotExists()` / `removeColumnIfExists()` |
+
+**Verified rollback order (example: baseline 03 down):**
+
+1. Drop node indexes → drop `plan_nodes`
+2. Drop version indexes (including master partial unique) → drop `plan_versions`
+3. Drop rule step unique index → drop `plan_rule_steps` → drop `plan_rules`
+4. Drop all related ENUM types
+
+**Note:** Archived data migrations (12–22) intentionally have no-op or irreversible `down()` — they must never be re-added to the active path.
 
 ---
 
-## E. Final Migration Order
+## E. Final Migration Order (active)
 
-1. `20260701000001-baseline-auth-and-permissions.js`
-2. `20260701000002-baseline-org-and-users.js`
-3. `20260701000003-baseline-plan-core.js`
-4. `20260701000004-baseline-plan-assignments.js`
-5. `20260701000005-baseline-planning-config.js`
-6. `20260701000006-baseline-platform-settings.js`
-7. `20260701000007-baseline-notifications.js`
-8. `20260701000008-baseline-attachments.js`
+| # | File | Purpose |
+|---|------|---------|
+| 1 | `20260701000001-baseline-auth-and-permissions.js` | permissions, roles, permission_groups, junctions |
+| 2 | `20260701000002-baseline-org-and-users.js` | government/internal structures, users, assignments |
+| 3 | `20260701000003-baseline-plan-core.js` | plan_rules, plan_versions, plan_nodes (+ lifecycle fields, master-only unique index) |
+| 4 | `20260701000004-baseline-plan-assignments.js` | assignments, action logs |
+| 5 | `20260701000005-baseline-planning-config.js` | planning_configurations + default row |
+| 6 | `20260701000006-baseline-platform-settings.js` | performance thresholds, branding, audit logs |
+| 7 | `20260701000007-baseline-notifications.js` | notification_templates (+ 7 defaults), notifications |
+| 8 | `20260701000008-baseline-attachments.js` | attachments |
 
 Helper: `backend/migrations/helpers/schemaHelpers.js`
 
 ---
 
-## F. Schema Dependency Diagram
+## F. Idempotency Protection
 
-```
-permissions ── role_permissions ── roles
-            └── permission_group_permissions ── permission_groups
+All active baselines use:
 
-government_structures ── internal_structures ── users
-        │                                      ├── user_roles
-        │                                      ├── notifications
-        │                                      └── system_audit_logs
-        ├── plan_versions ── plan_nodes ── assignments / action_logs
-        ├── plan_rules ── plan_rule_steps
-        ├── planning_configurations
-        └── branding_settings ── branding_audit_logs
-
-plan_assignment_actions (lookup)
-performance_color_thresholds | notification_templates | attachments
-```
+- `CREATE TABLE IF NOT EXISTS` via `createTableIfNotExists`
+- `CREATE INDEX IF NOT EXISTS` in raw SQL
+- `DROP INDEX IF EXISTS` / `DROP TYPE IF EXISTS` on rollback
+- Seed inserts guarded by `SELECT … LIMIT 1` checks (planning config, notification templates)
 
 ---
 
-## G. Existing Database Transition
+## G. Naming Conventions (standardized)
 
-Baseline migrations are idempotent on existing databases:
+| Object | Pattern | Examples |
+|--------|---------|----------|
+| Tables | snake_case plural | `plan_versions`, `plan_nodes` |
+| Columns | snake_case | `annual_targets_finalized_at` |
+| Indexes | `idx_<table>_<column>` | `idx_plan_nodes_plan_version_id` |
+| Unique indexes | `uq_<table>_<description>` | `uq_plan_versions_master_year_version_govt` |
+| Foreign keys | Sequelize inline `references` | CASCADE/RESTRICT/SET NULL as intentional |
 
-```bash
-cd backend && npx sequelize-cli db:migrate
-```
+---
 
-Optional SequelizeMeta cleanup (after successful baseline run):
+## H. Seeder Refactoring
+
+### Removed seeders (merged or redundant)
+
+| Removed file | Replacement |
+|--------------|-------------|
+| `20251108201545-demo-users.js` | Super Admin bootstrap in `seed-permissions.js` |
+| `20260606000001-seed-notification-templates.js` | Templates in baseline 07; demo notifications removed |
+| `20260607000002-seed-branding-permissions.js` | Merged into `seed-permissions.js` |
+| `20260608000001-seed-system-audit-log-permissions.js` | Merged into `seed-permissions.js` |
+| `20260604000003-assign-performance-threshold-permissions.js` | Super Admin gets all permissions in `seed-permissions.js` |
+
+### Active seed order
+
+1. `20251029134413-seed-permissions.js` — all permissions + Super Admin + admin user (idempotent)
+2. `20260505000001-seed-plan-assignment-actions.js`
+3. `20260505500001-seed-mom-organizational-hierarchy.js`
+4. `20260507000001-seed-default-plan-rule.js`
+5. `20260604000002-seed-performance-color-thresholds.js`
+6. `20260607000001-seed-default-branding.js`
+7. `20260608000002-seed-sample-system-audit-logs.js` (demo only)
+8. `20260506000001-seed-mom-demo-plan.js` (demo only)
+
+---
+
+## I. Existing Database Transition
+
+If `SequelizeMeta` already lists migrations 09–23, **do not re-run them**. Your schema should already match after the merge if all were applied.
+
+After verifying schema parity:
 
 ```sql
 DELETE FROM "SequelizeMeta"
-WHERE name LIKE '202512%' OR name LIKE '202605%' OR name LIKE '202606%';
+WHERE name LIKE '20260701000009%'
+   OR name LIKE '2026070100001%'
+   OR name LIKE '2026070100002%';
 ```
 
-**Warning:** Do not run `db:migrate:undo:all` when SequelizeMeta lists archived legacy filenames.
+**Warning:** Do not run `db:migrate:undo:all` when SequelizeMeta lists archived legacy filenames from `_legacy/`.
 
 ---
 
-## H. Fresh Database
+## J. Fresh Database Setup
 
 ```bash
 cd backend
@@ -146,19 +218,25 @@ npx sequelize-cli db:migrate
 npx sequelize-cli db:seed:all
 ```
 
----
-
-## I. Seeder Notes
-
-- Demo plan seeder: idempotent via `removeExistingDemo()`
-- Org hierarchy seeder: fixed UUIDs
-- Planning config default row: idempotent insert in baseline 5
-- Permission/action seeders: run once; consider upsert if re-run needed
+Expected: **8 migrations**, full schema, default notification templates, permissions, optional demo seeds.
 
 ---
 
-## J. Remaining Manual Actions
+## K. Remaining Manual Actions
 
-1. Add model-only indexes via future migration if required
-2. Align `users.deleted_at` with Sequelize paranoid config
-3. Add CI job: migrate + undo baseline chain on empty PostgreSQL
+1. **CI:** Add job that runs `db:migrate` + `db:migrate:undo:all` + `db:migrate` on empty PostgreSQL.
+2. **`users.deleted_at`:** Model uses paranoid mode but column exists — align Sequelize config if needed.
+3. **Production cutover:** Run schema parity check before deleting SequelizeMeta rows for archived migrations 09–23.
+4. **Demo notifications:** Previously seeded by notification-templates seeder; re-add to demo plan seeder if needed.
+
+---
+
+## L. Data Safety Flags
+
+| Migration (archived) | Data impact | Safe strategy |
+|---------------------|-------------|---------------|
+| `16` remove-uninitialized-execution-periods | **Deletes** period versions + nodes | Never run on production with live period data unless validated |
+| `18` clear-default-period-targets | Clears `period_target` values | One-time fix only |
+| `20–22` order reassignment | Rewrites all node order | One-time fix only; fresh DB uses default order from CREATE |
+
+No production data is deleted by the **8 active baselines** on a fresh install.

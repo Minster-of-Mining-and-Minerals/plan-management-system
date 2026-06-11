@@ -113,6 +113,13 @@ module.exports = {
       sequence_index: { type: Sequelize.INTEGER, allowNull: true },
       is_locked: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
       finalized_at: { type: Sequelize.DATE, allowNull: true },
+      annual_targets_finalized_at: { type: Sequelize.DATE, allowNull: true },
+      period_subdivision_mode: {
+        type: Sequelize.ENUM("quarterly", "semi_annual", "custom"),
+        allowNull: true,
+      },
+      period_targets_finalized_at: { type: Sequelize.DATE, allowNull: true },
+      process_started_at: { type: Sequelize.DATE, allowNull: true },
       draft_name: { type: Sequelize.STRING(255), allowNull: false },
       start_year: { type: Sequelize.INTEGER, allowNull: false },
       end_year: { type: Sequelize.INTEGER, allowNull: false },
@@ -126,8 +133,9 @@ module.exports = {
     });
 
     await queryInterface.sequelize.query(`
-      CREATE UNIQUE INDEX IF NOT EXISTS uq_plan_versions_year_version_govt
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_plan_versions_master_year_version_govt
       ON plan_versions (year, version_number, government_structure_id)
+      WHERE version_kind = 'master'
     `);
     await queryInterface.sequelize.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS uq_plan_versions_parent_sequence
@@ -207,7 +215,9 @@ module.exports = {
     await dropIndexIfExists(queryInterface, "plan_nodes", "idx_plan_nodes_parent_id");
     await dropIndexIfExists(queryInterface, "plan_nodes", "idx_plan_nodes_plan_version_id");
     await dropIndexIfExists(queryInterface, "plan_versions", "uq_plan_versions_parent_sequence");
+    await dropIndexIfExists(queryInterface, "plan_versions", "uq_plan_versions_master_year_version_govt");
     await dropIndexIfExists(queryInterface, "plan_versions", "uq_plan_versions_year_version_govt");
+    await dropIndexIfExists(queryInterface, "plan_versions", "plan_versions_year_version_govt_unique");
     await dropIndexIfExists(queryInterface, "plan_rule_steps", "uq_plan_rule_steps_rule_order");
 
     await dropTablesInOrder(queryInterface, [
@@ -221,6 +231,7 @@ module.exports = {
       "enum_plan_nodes_assignment_sharing_mode",
       "enum_plan_nodes_weight_mode",
       "enum_plan_nodes_type",
+      "enum_plan_versions_period_subdivision_mode",
       "enum_plan_versions_version_kind",
       "enum_plan_versions_status",
       "enum_plan_rule_steps_node_type",
