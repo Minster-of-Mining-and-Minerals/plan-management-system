@@ -22,7 +22,6 @@ import { PerformanceProgressBar } from "./PerformanceProgressBar";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
 import { FinalizeAnnualExecutionModal } from "../modals/FinalizeAnnualExecutionModal";
 import { InitializeExecutionPeriodsModal } from "../modals/InitializeExecutionPeriodsModal";
-import { FinalizeGlobalPeriodTargetsModal } from "../modals/FinalizeGlobalPeriodTargetsModal";
 import { StartProcessModal } from "../modals/StartProcessModal";
 import { cn } from "@/lib/utils";
 
@@ -50,7 +49,6 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
 
     const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
     const [initPeriodsModalOpen, setInitPeriodsModalOpen] = useState(false);
-    const [finalizePeriodsModalOpen, setFinalizePeriodsModalOpen] = useState(false);
     const [startProcessModalOpen, setStartProcessModalOpen] = useState(false);
 
     const { data, isLoading, refetch } = useGetAnnualVersionsQuery(masterVersion.plan_version_id);
@@ -60,7 +58,9 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
     const annualVersions = data?.annualVersions ?? masterVersion.annualVersions ?? [];
     const annualTargetsFinalized = Boolean(master.annual_targets_finalized_at);
     const periodsInitializedGlobally = Boolean(master.period_subdivision_mode);
-    const periodTargetsFinalizedGlobally = Boolean(master.period_targets_finalized_at);
+    const allAnnualsPeriodFinalized =
+        annualVersions.length > 0 &&
+        annualVersions.every((annual) => Boolean(annual.period_targets_finalized_at));
     const processStarted = Boolean(master.process_started_at);
 
     const handleComplete = async (versionId: string, year: number) => {
@@ -114,12 +114,12 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                     <h2 className="text-lg font-semibold text-gray-900">Annual Execution Versions</h2>
                     <p className="text-sm text-muted-foreground mt-1">
                         {annualTargetsFinalized
-                            ? periodTargetsFinalizedGlobally
+                            ? allAnnualsPeriodFinalized
                                 ? processStarted
                                     ? "Process started. Operational execution is underway."
-                                    : "Period targets finalized. Start the process when ready."
+                                    : "All years have finalized execution periods. Start the process when ready."
                                 : periodsInitializedGlobally
-                                  ? "Set period targets in each year and period, then finalize globally."
+                                  ? "Open each year, set period targets, and finalize execution period per year."
                                   : "Initialize execution periods once — the same subdivision applies to all years."
                             : "Open any year to set annual targets (totals must match the draft target), then finalize annual execution."}
                     </p>
@@ -139,15 +139,7 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                                 Initialize Execution Periods
                             </Button>
                         )}
-                    {periodsInitializedGlobally &&
-                        !periodTargetsFinalizedGlobally &&
-                        canApprovePlan && (
-                            <Button className="gap-2" onClick={() => setFinalizePeriodsModalOpen(true)}>
-                                <ShieldCheck className="h-4 w-4" />
-                                Finalize Period Targets
-                            </Button>
-                        )}
-                    {periodTargetsFinalizedGlobally && !processStarted && canApprovePlan && (
+                    {allAnnualsPeriodFinalized && !processStarted && canApprovePlan && (
                         <Button className="gap-2" onClick={() => setStartProcessModalOpen(true)}>
                             <Play className="h-4 w-4" />
                             Start Process
@@ -162,10 +154,10 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                     {new Date(master.annual_targets_finalized_at!).toLocaleDateString()}.
                     {processStarted
                         ? ` Process started on ${new Date(master.process_started_at!).toLocaleDateString()}.`
-                        : periodTargetsFinalizedGlobally
-                          ? ` Period targets finalized on ${new Date(master.period_targets_finalized_at!).toLocaleDateString()}.`
+                        : allAnnualsPeriodFinalized
+                          ? " All years have finalized execution period targets."
                           : periodsInitializedGlobally
-                            ? ` All years use ${formatSubdivisionMode(master.period_subdivision_mode)} subdivision. Open a year to set period targets.`
+                            ? ` All years use ${formatSubdivisionMode(master.period_subdivision_mode)} subdivision. Open each year to set and finalize period targets.`
                             : " Initialize execution periods once below for all years."}
                 </div>
             )}
@@ -177,7 +169,7 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                         annual.plan_version_id
                     );
                     const isCompleted = annual.status === "completed";
-                    const periodTargetsFinalized = periodTargetsFinalizedGlobally;
+                    const periodTargetsFinalized = Boolean(annual.period_targets_finalized_at);
                     const showComplete =
                         annualTargetsFinalized && periodTargetsFinalized && !isCompleted;
 
@@ -258,11 +250,19 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                                     !isCompleted && (
                                         <PerformanceColorBadge
                                             color={completion.color}
-                                            label="Setup — set period targets"
+                                            label="Setup — finalize execution period"
                                             variant="outline"
                                             className="gap-1 w-fit text-xs"
                                         />
                                     )}
+                                {periodTargetsFinalized && !isCompleted && (
+                                    <PerformanceColorBadge
+                                        color={completion.color}
+                                        label="Execution period finalized"
+                                        variant="outline"
+                                        className="gap-1 w-fit text-xs"
+                                    />
+                                )}
                                 {isCompleted && (
                                     <PerformanceColorBadge
                                         color={completion.color}
@@ -322,13 +322,6 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                 planningYears={annualVersions.map(
                     (annual) => annual.planning_year ?? annual.year
                 )}
-                onSuccess={() => refetch()}
-            />
-
-            <FinalizeGlobalPeriodTargetsModal
-                isOpen={finalizePeriodsModalOpen}
-                onClose={() => setFinalizePeriodsModalOpen(false)}
-                masterVersion={master}
                 onSuccess={() => refetch()}
             />
 

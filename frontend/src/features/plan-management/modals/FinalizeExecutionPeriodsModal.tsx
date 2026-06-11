@@ -40,7 +40,7 @@ export function FinalizeExecutionPeriodsModal({
         try {
             await finalize(annualVersion.plan_version_id).unwrap();
             actionFeedback.success(
-                "Execution period targets finalized. All periods remain open for target entry and execution."
+                `Execution period finalized for ${annualVersion.planning_year ?? annualVersion.year}. Period targets for this year are locked.`
             );
             onSuccess?.();
             onClose();
@@ -54,16 +54,17 @@ export function FinalizeExecutionPeriodsModal({
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="flex w-[calc(100%-2rem)] max-h-[min(90dvh,720px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[520px] top-[max(1rem,5dvh)] translate-y-0 sm:top-[50%] sm:-translate-y-1/2">
                 <DialogHeader className="shrink-0 px-6 pt-6 pb-4 pr-12">
-                    <DialogTitle>Finalize Execution Period Targets</DialogTitle>
+                    <DialogTitle>Finalize Execution Period</DialogTitle>
                 </DialogHeader>
 
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6">
                     <div className="space-y-4 pb-4 text-sm">
                         <p className="text-muted-foreground">
-                            Validates that every weighted node has period targets set and that the
-                            total across all periods matches the annual target for each node. After
-                            finalization, period target values cannot be changed until you adjust
-                            the workflow (all periods stay open for execution).
+                            Validates period targets for{" "}
+                            <strong>{annualVersion.planning_year ?? annualVersion.year}</strong> only.
+                            Every weighted node must have period targets set across all periods for this
+                            year, with totals matching that node&apos;s annual target and children
+                            matching parent targets in the classification tree.
                         </p>
 
                         {isLoading ? (
@@ -75,7 +76,7 @@ export function FinalizeExecutionPeriodsModal({
                             <div className="rounded-lg border border-green-200 bg-green-50 p-4">
                                 <div className="flex items-center gap-2 text-green-800 font-medium">
                                     <CheckCircle2 className="h-5 w-5 shrink-0" />
-                                    Ready to finalize period targets
+                                    Ready to finalize execution period
                                 </div>
                             </div>
                         ) : (
@@ -108,7 +109,7 @@ export function FinalizeExecutionPeriodsModal({
                                 Finalizing...
                             </>
                         ) : (
-                            "Finalize Period Targets"
+                            "Finalize Execution Period"
                         )}
                     </Button>
                 </DialogFooter>

@@ -1009,6 +1009,13 @@ async function validateExecutionPeriodFinalization(annualVersionId, transaction,
         }
     }
 
+    for (const period of periods) {
+        const treeErrors = await validatePeriodClassificationTree(period.plan_version_id, transaction);
+        for (const err of treeErrors) {
+            errors.push(err);
+        }
+    }
+
     return { ready: errors.length === 0, errors, annualVersion, executionPeriods: periods };
 }
 
@@ -1129,12 +1136,11 @@ async function setPeriodTarget(planNodeId, periodTarget) {
         const annualVersion = await PlanVersion.findByPk(node.planVersion.parent_plan_version_id, {
             transaction: t,
         });
-        const master = await getMasterForAnnualVersion(annualVersion, t);
-        if (master?.period_targets_finalized_at) {
+        if (annualVersion?.period_targets_finalized_at) {
             await t.rollback();
             return {
                 success: false,
-                message: "Period targets are finalized — adjust targets before finalizing period execution",
+                message: "Period targets are finalized for this annual year and cannot be changed",
             };
         }
 
@@ -1199,8 +1205,7 @@ async function getPeriodTargetAllocationsForVersion(periodVersionId) {
     }
 
     const annualVersion = await PlanVersion.findByPk(version.parent_plan_version_id);
-    const master = await getMasterForAnnualVersion(annualVersion);
-    if (master?.period_targets_finalized_at) {
+    if (annualVersion?.period_targets_finalized_at) {
         return [];
     }
 
@@ -1465,14 +1470,6 @@ async function validateStartProcessReadiness(masterVersionId, transaction) {
         return { ready: false, errors: ["Initialize execution periods before starting process"] };
     }
 
-    if (!master.period_targets_finalized_at) {
-        return { ready: false, errors: ["Finalize period targets before starting process"] };
-    }
-
-    if (master.process_started_at) {
-        return { ready: false, errors: ["Process has already been started"] };
-    }
-
     const annualVersions = await PlanVersion.findAll({
         where: { parent_plan_version_id: masterVersionId, version_kind: "annual" },
         order: [["sequence_index", "ASC"]],
@@ -1483,6 +1480,11 @@ async function validateStartProcessReadiness(masterVersionId, transaction) {
 
     for (const annualVersion of annualVersions) {
         const yearLabel = annualVersion.planning_year ?? annualVersion.year;
+        if (!annualVersion.period_targets_finalized_at) {
+            errors.push(`${yearLabel}: Finalize execution period targets for this year first`);
+            continue;
+        }
+
         const aggregateResult = await validateExecutionPeriodFinalization(
             annualVersion.plan_version_id,
             transaction,
@@ -1511,10 +1513,15 @@ async function validateStartProcessReadiness(masterVersionId, transaction) {
         }
     }
 
+    if (master.process_started_at) {
+        return { ready: false, errors: ["Process has already been started"], master, annualVersions };
+    }
+
     return {
         ready: errors.length === 0,
         errors,
         master,
+        annualVersions,
     };
 }
 

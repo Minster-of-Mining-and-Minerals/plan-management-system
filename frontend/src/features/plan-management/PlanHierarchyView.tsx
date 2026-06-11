@@ -23,6 +23,7 @@ import {
     Home,
     CalendarDays,
     Clock,
+    ShieldCheck,
 } from "lucide-react";
 import { CreatePlanNodeModal } from "./modals/CreatePlanNodeModal";
 import { actionFeedback } from "@/components/action-feedback";
@@ -38,9 +39,11 @@ import { PlanHierarchyTableView } from "./components/PlanHierarchyTableView";
 import { PlanDraftHeaderMeta } from "./components/PlanDraftHeaderMeta";
 import { AnnualVersionsDashboard } from "./components/AnnualVersionsDashboard";
 import { ExecutionPeriodsDashboard } from "./components/ExecutionPeriodsDashboard";
+import { FinalizeExecutionPeriodsModal } from "./modals/FinalizeExecutionPeriodsModal";
 import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
 import { formatStatus } from "@/utils/statusFormatter";
 import { canEditAnnualTargetForVersion, canEditPeriodTargetForVersion } from "@/utils/planDraftUtils";
+import { usePermissions } from "@/hooks/usePermissions";
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
 import {
     resolveCompletionForEntity,
@@ -88,7 +91,7 @@ function resolveBreadcrumbPath(
 
 export default function PlanHierarchyView({ versionId }: { versionId: string }) {
     const router = useRouter();
-    const { data: version } = useGetPlanVersionByIdQuery(versionId);
+    const { data: version, refetch: refetchVersion } = useGetPlanVersionByIdQuery(versionId);
     const masterVersionId =
         version?.version_kind === "master"
             ? version.plan_version_id
@@ -113,11 +116,14 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
     const [deleteNode] = useDeletePlanNodeMutation();
     const [reorderNodes, { isLoading: isReordering }] = useReorderPlanNodesMutation();
     const thresholds = usePerformanceColorThresholds();
+    const { can } = usePermissions();
+    const canApprovePlan = can("PLANS:APPROVE");
 
     const [viewMode, setViewMode] = useState<ViewMode>("card");
     const [activeTab, setActiveTab] = useState<PlanDetailTab>("hierarchy");
     const [pathIds, setPathIds] = useState<string[]>([]);
     const [isModalOpen, setModalOpen] = useState(false);
+    const [finalizeExecutionPeriodOpen, setFinalizeExecutionPeriodOpen] = useState(false);
     const [selectedParent, setSelectedParent] = useState<PlanNode | null>(null);
     const [selectedNode, setSelectedNode] = useState<PlanNode | null>(null);
     const appliedDefaultTabForVersion = useRef<string | null>(null);
@@ -166,10 +172,11 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
             : masterVersion?.annual_targets_finalized_at
     );
     const periodTargetsFinalized = Boolean(
-        version?.version_kind === "master"
-            ? version?.period_targets_finalized_at
-            : masterVersion?.period_targets_finalized_at ??
-              annualParentVersion?.period_targets_finalized_at
+        isExecutionPeriod
+            ? annualParentVersion?.period_targets_finalized_at
+            : isAnnualVersion
+              ? version?.period_targets_finalized_at
+              : false
     );
     const periodsInitializedGlobally = Boolean(
         version?.version_kind === "master"
@@ -449,16 +456,23 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
 
             {isReadOnlyHierarchy && isExecutionPeriod && !periodTargetsFinalized && (
                 <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                    Set period targets so totals match annual targets for each node. Finalize globally
-                    from the strategic plan&apos;s Annual Execution tab when all years and periods are
+                    Set period targets so totals match this year&apos;s annual targets for each node.
+                    Finalize execution period from the annual plan when all periods for this year are
                     complete.
                 </div>
             )}
 
             {isReadOnlyHierarchy && isAnnualVersion && showPeriodDashboard && periodsInitializedGlobally && !periodTargetsFinalized && (
                 <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                    Adjust period targets in the hierarchy so totals match annual targets, then finalize
-                    from the Execution Periods tab.
+                    Open each execution period, set period targets so totals match annual targets, then
+                    use Finalize Execution Period for this year.
+                </div>
+            )}
+
+            {isReadOnlyHierarchy && isAnnualVersion && showPeriodDashboard && periodTargetsFinalized && version?.period_targets_finalized_at && (
+                <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
+                    Execution period finalized for {version.planning_year ?? version.year} on{" "}
+                    {new Date(version.period_targets_finalized_at).toLocaleDateString()}.
                 </div>
             )}
 
@@ -671,7 +685,20 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                 </div>
             ) : showPeriodDashboard ? (
                 <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
-                    <div className="flex items-center justify-end px-4 py-3 border-b border-gray-100">
+                    <div className="flex flex-col gap-3 px-4 py-3 border-b border-gray-100 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex flex-wrap gap-2">
+                            {periodsInitializedGlobally &&
+                                !periodTargetsFinalized &&
+                                canApprovePlan && (
+                                    <Button
+                                        className="gap-2"
+                                        onClick={() => setFinalizeExecutionPeriodOpen(true)}
+                                    >
+                                        <ShieldCheck className="h-4 w-4" />
+                                        Finalize Execution Period
+                                    </Button>
+                                )}
+                        </div>
                         {detailTabToggle}
                     </div>
                     <div className="p-4 sm:p-6 space-y-6">
@@ -698,6 +725,18 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                 parentNode={selectedParent}
                 node={selectedNode}
             />
+
+            {version && isAnnualVersion && (
+                <FinalizeExecutionPeriodsModal
+                    isOpen={finalizeExecutionPeriodOpen}
+                    onClose={() => setFinalizeExecutionPeriodOpen(false)}
+                    annualVersion={version}
+                    onSuccess={() => {
+                        refetch();
+                        refetchVersion();
+                    }}
+                />
+            )}
         </div>
     );
 }

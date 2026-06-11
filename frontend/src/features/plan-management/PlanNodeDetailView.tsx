@@ -127,7 +127,13 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
     }, [node?.period_target, nodeId]);
 
     const annualTargetsFinalized = Boolean(masterVersion?.annual_targets_finalized_at);
-    const periodTargetsFinalized = Boolean(masterVersion?.period_targets_finalized_at);
+    const periodTargetsFinalized = Boolean(
+        version?.version_kind === "execution_period"
+            ? annualParentVersion?.period_targets_finalized_at
+            : version?.version_kind === "annual"
+              ? version?.period_targets_finalized_at
+              : masterVersion?.period_targets_finalized_at
+    );
 
     const { data: annualAllocationList = [] } = useGetAnnualTargetAllocationsQuery(versionId, {
         skip: version?.version_kind !== "annual" || annualTargetsFinalized,
