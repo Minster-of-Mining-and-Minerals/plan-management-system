@@ -104,7 +104,7 @@ export default function PlanVersionTable() {
             cell: ({ row }) => {
                 const status = row.getValue("status") as string;
                 return (
-                    <Badge className="text-white" status={status}>
+                    <Badge variant="outline" className="capitalize">
                         {formatStatus(status)}
                     </Badge>
                 );

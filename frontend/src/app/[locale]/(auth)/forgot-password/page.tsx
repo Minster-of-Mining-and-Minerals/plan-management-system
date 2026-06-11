@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { createFormResolver } from "@/lib/zod-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,17 +51,17 @@ export default function ForgotPasswordPage() {
   const [resetPasswordMutation, { isLoading: resetting }] = useResetPasswordMutation();
 
   const emailForm = useForm<EmailValues>({
-    resolver: zodResolver(emailSchema),
+    resolver: createFormResolver<EmailValues>(emailSchema),
     defaultValues: { email: "" },
   });
 
   const otpForm = useForm<OtpValues>({
-    resolver: zodResolver(otpSchema),
+    resolver: createFormResolver<OtpValues>(otpSchema),
     defaultValues: { otp: "" },
   });
 
   const resetForm = useForm<ResetValues>({
-    resolver: zodResolver(resetSchema),
+    resolver: createFormResolver<ResetValues>(resetSchema),
     defaultValues: { newPassword: "", confirmPassword: "" },
   });
 

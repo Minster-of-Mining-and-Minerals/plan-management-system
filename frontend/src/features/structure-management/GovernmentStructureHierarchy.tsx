@@ -5,6 +5,7 @@ import Tree, { RawNodeDatum } from "react-d3-tree";
 import { shortenText } from "@/utils/shortenText";
 import { CustomNodeProps, D3TreeNode, HierarchyD3TreeProps } from "@/types/d3treeNode";
 import { buildSectorTree } from "@/utils/buildSectorTree";
+import type { PermissionKey } from "@/lib/permissions";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import { CreateGovernmentStructureModal } from "./modals/CreateGovernmentStructureModal";
 import { useSession } from "next-auth/react";
@@ -187,7 +188,7 @@ const GovernmentHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
     return () => window.removeEventListener("resize", updateDimensions);
   }, [selectedTree]);
 
-  const createPermission = ["GOVERNMENT_STRUCTURES:CREATE"];
+  const createPermission: PermissionKey[] = ["GOVERNMENT_STRUCTURES:CREATE"];
 
   if (isLoading) {
     return (

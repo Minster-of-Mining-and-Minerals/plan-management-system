@@ -3,6 +3,7 @@
 import { usePathname } from "@/i18n/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { canAccessRoute } from "@/lib/permission-guard";
+import { normalizeToPermissionKeys } from "@/lib/permissions";
 import {
   getDefaultFallbackRoute,
   matchRoutePermission,
@@ -27,9 +28,10 @@ export function RoutePermissionGuard({ children }: RoutePermissionGuardProps) {
   }
 
   const rule = matchRoutePermission(pathname);
+  const permissionKeys = normalizeToPermissionKeys(permissions);
 
-  if (rule === null || !canAccessRoute(permissions, rule)) {
-    const fallbackPath = getDefaultFallbackRoute(permissions);
+  if (rule === null || !canAccessRoute(permissionKeys, rule)) {
+    const fallbackPath = getDefaultFallbackRoute(permissionKeys);
     return <AccessDenied attemptedPath={pathname} fallbackPath={fallbackPath} />;
   }
 

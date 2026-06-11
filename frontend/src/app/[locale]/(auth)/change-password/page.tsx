@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { createFormResolver } from "@/lib/zod-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,7 +39,7 @@ export default function ChangePasswordPage() {
   const [showPasswords, setShowPasswords] = useState(false);
 
   const form = useForm<PasswordFormValues>({
-    resolver: zodResolver(passwordSchema),
+    resolver: createFormResolver<PasswordFormValues>(passwordSchema),
     defaultValues: {
       current_password: "",
       new_password: "",

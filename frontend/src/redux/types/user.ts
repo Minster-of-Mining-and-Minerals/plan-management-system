@@ -1,4 +1,10 @@
 
+export interface UserType {
+  user_type_id: string;
+  name: string;
+  description?: string;
+}
+
 export interface UserPosition {
   user_position_id: string;
   name: string;

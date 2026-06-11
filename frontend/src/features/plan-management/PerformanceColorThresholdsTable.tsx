@@ -5,7 +5,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Plus, Edit, Trash } from "lucide-react";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
-import { Badge } from "@/components/ui/badge";
+import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
 import { Button } from "@/components/ui/button";
 import type { ActionButton } from "@/types/tableLayout";
 import { actionFeedback } from "@/components/action-feedback";
@@ -80,9 +80,7 @@ export default function PerformanceColorThresholdsTable() {
       accessorKey: "is_active",
       header: "Status",
       cell: ({ row }) => (
-        <Badge status={row.original.is_active ? "active" : "inactive"}>
-          {row.original.is_active ? "Active" : "Inactive"}
-        </Badge>
+        <ActiveStatusBadge isActive={row.original.is_active} />
       ),
     },
     {

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { type JSX } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Check,
@@ -14,13 +14,13 @@ import {
   Layers,
   Building,
 } from "lucide-react";
-import { Permission, ResourceGroup } from "../../types/role";
+import { Permission, ResourceGroup, PermissionMatrix as PermissionMatrixType } from "../../types/role";
 
 interface PermissionMatrixProps {
   loadingPermissions: boolean;
   resourceGroups: ResourceGroup[];
   expandedResource: string | null;
-  permissionMatrix: PermissionMatrix;
+  permissionMatrix: PermissionMatrixType;
   toggleResource: (resource: string) => void;
   togglePermission: (resource: string, action: string) => void;
   selectAllInResource: (resource: string, select: boolean) => void;

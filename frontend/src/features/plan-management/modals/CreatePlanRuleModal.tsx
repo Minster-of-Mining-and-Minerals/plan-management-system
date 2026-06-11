@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { createFormResolver } from "@/lib/zod-form";
 import * as z from "zod";
 import {
     Dialog,
@@ -67,7 +67,7 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
     const { data: structures = [] } = useGetGovernmentStructuresQuery({});
 
     const form = useForm<z.infer<typeof formSchema>>({
-        resolver: zodResolver(formSchema),
+        resolver: createFormResolver<z.infer<typeof formSchema>>(formSchema),
         defaultValues: {
             name: "",
             government_structure_id: null,

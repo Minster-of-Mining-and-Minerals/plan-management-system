@@ -56,7 +56,8 @@ export function toUpdateBrandingPayload(
 ): UpdateBrandingSettingsPayload {
   const payload: UpdateBrandingSettingsPayload = {};
   for (const key of UPDATABLE_BRANDING_KEYS) {
-    payload[key] = settings[key];
+    const value = settings[key];
+    payload[key] = value ?? undefined;
   }
   return payload;
 }

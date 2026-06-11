@@ -3,7 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { format, parseISO } from "date-fns";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { createFormResolver } from "@/lib/zod-form";
 import * as z from "zod";
 import {
     Dialog,
@@ -101,7 +101,7 @@ export function CreatePlanVersionModal({
     );
 
     const form = useForm<FormValues>({
-        resolver: zodResolver(formSchema),
+        resolver: createFormResolver<z.infer<typeof formSchema>>(formSchema),
         defaultValues: {
             draft_name: "",
             planning_start_date: getDefaultPlanningStartDate(),

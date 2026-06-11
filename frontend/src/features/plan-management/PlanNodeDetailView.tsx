@@ -44,6 +44,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { InternalAssignment, ExternalAssignment } from "@/redux/types/plan";
 import { ActionButton } from "@/types/tableLayout";
 import { PlanDraftHeaderMeta } from "./components/PlanDraftHeaderMeta";
+import { PlanNodeAssignmentReadOnly } from "./components/PlanNodeAssignmentReadOnly";
 import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
 import { formatNodeTarget } from "@/utils/planRuleUtils";
 
@@ -75,6 +76,13 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
     const isExternalMode = assignmentOptions?.assignment_mode === "external";
     const showInternalTab = !isExternalMode;
     const showExternalTab = isExternalMode;
+    const readOnlyExternalMode =
+        externalAssignments.some((item) => item.is_active) &&
+        !internalAssignments.some((item) => item.is_active)
+            ? true
+            : internalAssignments.some((item) => item.is_active)
+              ? false
+              : isExternalMode;
     const sharingMode = node?.assignment_sharing_mode ?? assignmentOptions?.assignment_sharing_mode ?? "exclusive";
     const activeCount = assignmentOptions?.active_assignment_count ?? 0;
     const isExclusive = sharingMode === "exclusive";
@@ -114,6 +122,12 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
         !version.is_locked &&
         node &&
         (node.annual_target ?? 0) > 0;
+
+    const isMasterDraft =
+        version?.version_kind === "master" && version?.status === "draft";
+    const isExecutionVersion =
+        version?.version_kind === "annual" ||
+        version?.version_kind === "execution_period";
 
     const [deleteInternal, { isLoading: isDeletingInternal }] = useDeleteInternalAssignmentMutation();
     const [deleteExternal, { isLoading: isDeletingExternal }] = useDeleteExternalAssignmentMutation();
@@ -414,7 +428,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                                         )}
                                     </Badge>
                                 )}
-                                {version?.version_kind !== "annual" && (
+                                {isMasterDraft && (
                                 <Badge
                                     variant="outline"
                                     className={
@@ -574,7 +588,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                 </CardContent>
             </Card>
 
-            {version?.version_kind !== "annual" && (
+            {isMasterDraft && (
             <div className="w-full bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
                 <div className="flex items-center justify-between mb-4 px-2">
                     <h3 className="text-xl font-bold text-golden-dark">Assignments</h3>
@@ -613,8 +627,15 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                     sideActions={sideActions}
                     filterColumnsPerRow={1}
                 >
-                    <DataTable
-                        columns={activeTab === "internal" ? internalColumns : externalColumns}
+                    <DataTable<InternalAssignment | ExternalAssignment, unknown>
+                        columns={
+                            (activeTab === "internal"
+                                ? internalColumns
+                                : externalColumns) as ColumnDef<
+                                InternalAssignment | ExternalAssignment,
+                                unknown
+                            >[]
+                        }
                         data={assignmentRows}
                         isLoading={isInternalLoading || isExternalLoading || isDeletingInternal || isDeletingExternal || isOptionsLoading}
                         resetKey={`${activeTab}-${showHistory}-${assignmentRows.length}`}
@@ -623,6 +644,17 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
             </div>
             )}
 
+            {isExecutionVersion && (
+                <PlanNodeAssignmentReadOnly
+                    internalAssignments={internalAssignments}
+                    externalAssignments={externalAssignments}
+                    isExternalMode={readOnlyExternalMode}
+                    isLoading={isInternalLoading || isExternalLoading}
+                />
+            )}
+
+            {isMasterDraft && (
+            <>
             <AssignInternalModal
                 isOpen={isInternalModalOpen}
                 onClose={() => setInternalModalOpen(false)}
@@ -633,6 +665,8 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                 onClose={() => setExternalModalOpen(false)}
                 planNodeId={nodeId}
             />
+            </>
+            )}
         </div>
     );
 }

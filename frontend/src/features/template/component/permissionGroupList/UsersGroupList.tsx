@@ -4,7 +4,7 @@ import { useState } from "react";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
 import { ColumnDef } from "@tanstack/react-table";
-import { Badge } from "@/components/ui/badge";
+import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
 import { Button } from "@/components/ui/button";
 import { Eye, Trash2 } from "lucide-react";
 
@@ -72,9 +72,7 @@ export default function UsersGroupList({ sideActions, actions, users, groupId, i
             cell: ({ row }) => {
                 const isActive = row.getValue("is_active") as boolean;
                 return (
-                    <Badge className="text-white" status={isActive ? "active" : "inactive"}>
-                        {formatStatus(isActive ? "Active" : "Inactive")}
-                    </Badge>
+                    <ActiveStatusBadge isActive={isActive} />
                 );
             },
         },

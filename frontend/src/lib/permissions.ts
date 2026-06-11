@@ -20,7 +20,7 @@ export const normalizePermissions = (
 
 // Helper function to normalize different permission formats
 export const normalizeToPermissionKeys = (
-  permissions?: readonly (PermissionKey | RawPermission)[] | null
+  permissions?: readonly (PermissionKey | RawPermission | string)[] | null
 ): PermissionKey[] => {
   if (!permissions || !Array.isArray(permissions)) return [];
 

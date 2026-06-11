@@ -13,11 +13,13 @@ export interface D3TreeNode extends RawNodeDatum {
   children?: D3TreeNode[];
 }
 
+import type { PermissionKey } from "@/lib/permissions";
+
 export interface CustomNodeProps {
   nodeDatum: D3TreeNode & { __rd3t?: { collapsed?: boolean } };
   toggleNode: () => void;
   onAddChild?: (parentId: string) => void;
-  permissions?: string[];
+  permissions?: PermissionKey[];
 }
 
 export interface HierarchyD3TreeProps {

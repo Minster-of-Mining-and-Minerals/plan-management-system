@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { createFormResolver } from "@/lib/zod-form";
 import * as z from "zod";
 import {
   Dialog,
@@ -112,7 +112,7 @@ export function CreateInternalStructureModal({
     useUpdateInternalStructureMutation();
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: createFormResolver<z.infer<typeof formSchema>>(formSchema),
     defaultValues: {
       name: "",
       parent_id: null,

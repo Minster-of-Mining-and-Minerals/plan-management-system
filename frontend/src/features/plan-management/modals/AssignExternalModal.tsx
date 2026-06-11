@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { createFormResolver } from "@/lib/zod-form";
 import * as z from "zod";
 import {
     Dialog,
@@ -38,8 +38,8 @@ import {
 const formSchema = z.object({
     plan_node_id: z.string().uuid(),
     government_structure_id: z.string().uuid({ message: "Sector structure is required" }),
-    is_visible: z.boolean().default(true),
-    requires_report: z.boolean().default(true),
+    is_visible: z.boolean(),
+    requires_report: z.boolean(),
 });
 
 interface AssignExternalModalProps {
@@ -60,7 +60,7 @@ export function AssignExternalModal({
     );
 
     const form = useForm<z.infer<typeof formSchema>>({
-        resolver: zodResolver(formSchema),
+        resolver: createFormResolver<z.infer<typeof formSchema>>(formSchema),
         defaultValues: {
             plan_node_id: planNodeId,
             government_structure_id: "",

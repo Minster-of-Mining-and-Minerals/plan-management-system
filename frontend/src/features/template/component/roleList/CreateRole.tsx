@@ -92,11 +92,13 @@ export default function CreateRole({ roleId }: { roleId?: string }) {
       const role = roleResponse;
       // Set name and description
       setName(role.name || "");
-      setDescription(role.description || "");
+      setDescription("");
       // setRoleType(type);
 
+      const rolePermissions = role.permissions ?? [];
+
       // Populate permission matrix with existing permissions
-      if (role.rolePermissions && role.rolePermissions.length > 0) {
+      if (rolePermissions.length > 0) {
         const matrix: PermissionMatrix = {};
 
         // Initialize all to false first
@@ -108,18 +110,18 @@ export default function CreateRole({ roleId }: { roleId?: string }) {
         });
 
         // Set selected permissions to true
-        role.rolePermissions.forEach((rp: any) => {
-          if (rp.permission && rp.is_active) {
-            const permissionId = rp.permission.permission_id;
-            const permission = resourceGroups
+        rolePermissions.forEach((permission) => {
+          if (permission) {
+            const permissionId = permission.permission_id;
+            const matched = resourceGroups
               .flatMap((g) => g.permissions)
               .find((p) => p.permission_id === permissionId);
 
-            if (permission) {
-              if (!matrix[permission.resource]) {
-                matrix[permission.resource] = {};
+            if (matched) {
+              if (!matrix[matched.resource]) {
+                matrix[matched.resource] = {};
               }
-              matrix[permission.resource][permission.action] = true;
+              matrix[matched.resource][matched.action] = true;
             }
           }
         });

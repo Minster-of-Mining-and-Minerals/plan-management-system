@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { createFormResolver } from "@/lib/zod-form";
 import * as z from "zod";
 import {
   Dialog,
@@ -64,7 +64,7 @@ export function CreatePerformanceColorThresholdModal({
     useUpdatePerformanceColorThresholdMutation();
 
   const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+    resolver: createFormResolver<z.infer<typeof formSchema>>(formSchema),
     defaultValues: {
       label: "",
       min_percentage: 0,

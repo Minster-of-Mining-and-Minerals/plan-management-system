@@ -123,8 +123,8 @@ export default function RoleList() {
   ];
 
   const filteredData = data.filter((role) => {
-    if (!matchesActiveInactiveFilter(statusFilter, role.is_active)) return false;
-    return matchesSearchQuery(searchQuery, [role.name, role.description]);
+    if (!matchesActiveInactiveFilter(statusFilter, role.is_active ?? false)) return false;
+    return matchesSearchQuery(searchQuery, [role.name]);
   });
 
   return (

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
 import { ColumnDef } from "@tanstack/react-table";
-import { Badge } from "@/components/ui/badge";
+import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
 import { Button } from "@/components/ui/button";
 import { Plus, Eye, Edit, Trash, RotateCcw } from "lucide-react";
 
@@ -127,9 +127,7 @@ export default function InternalStructureTable({
             cell: ({ row }) => {
                 const isActive = isStructureActive(row.original.is_active);
                 return (
-                    <Badge className="text-white" status={isActive ? "active" : "inactive"}>
-                        {formatStatus(isActive ? "Active" : "Inactive")}
-                    </Badge>
+                    <ActiveStatusBadge isActive={isActive} />
                 );
             },
         },

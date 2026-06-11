@@ -462,7 +462,8 @@ export interface InternalStructure {
 
 export interface User {
     user_id: string;
-    name: string;
+    full_name: string;
+    name?: string;
     email: string;
     // Add other fields as needed
 }

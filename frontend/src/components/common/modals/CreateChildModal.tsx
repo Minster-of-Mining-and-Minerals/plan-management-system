@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { createFormResolver } from "@/lib/zod-form";
 import * as z from "zod";
 import {
   Dialog,
@@ -52,7 +52,7 @@ export function CreateChildModal({
   const [createIntStructure, { isLoading: isCreatingInt }] = useCreateInternalStructureMutation();
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: createFormResolver<z.infer<typeof formSchema>>(formSchema),
     defaultValues: {
       name: "",
     },

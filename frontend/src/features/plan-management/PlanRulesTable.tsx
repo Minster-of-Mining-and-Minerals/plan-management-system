@@ -4,7 +4,7 @@ import { useState } from "react";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
 import { ColumnDef } from "@tanstack/react-table";
-import { Badge } from "@/components/ui/badge";
+import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
 import { Button } from "@/components/ui/button";
 import { Plus, Edit, Trash } from "lucide-react";
 import type { ActionButton } from "@/types/tableLayout";
@@ -68,9 +68,7 @@ export default function PlanRulesTable() {
             accessorKey: "is_active",
             header: "Status",
             cell: ({ row }) => (
-                <Badge status={row.original.is_active ? "active" : "inactive"}>
-                    {row.original.is_active ? "Active" : "Inactive"}
-                </Badge>
+                <ActiveStatusBadge isActive={row.original.is_active} />
             ),
         },
         {

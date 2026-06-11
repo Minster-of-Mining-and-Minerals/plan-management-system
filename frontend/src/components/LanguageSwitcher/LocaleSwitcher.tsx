@@ -38,7 +38,7 @@ export default function LocaleSwitcher() {
     if (
       storedLocale &&
       storedLocale !== locale &&
-      routing.locales.includes(storedLocale)
+      (routing.locales as readonly string[]).includes(storedLocale)
     ) {
       startTransition(() => {
         router.replace(

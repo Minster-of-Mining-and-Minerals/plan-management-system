@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { createFormResolver } from "@/lib/zod-form";
 import * as z from "zod";
 import { 
   useGetUserByIdQuery, 
@@ -72,7 +72,7 @@ const UserViewPage = () => {
   const { data: govStructures = [] } = useGetGovernmentStructuresQuery({ is_active: true });
   
   const form = useForm<UserFormValues>({
-    resolver: zodResolver(userFormSchema),
+    resolver: createFormResolver<UserFormValues>(userFormSchema),
     defaultValues: {
       full_name: "",
       email: "",

@@ -13,6 +13,7 @@ import {
 import { shortenText } from "@/utils/shortenText";
 import { CustomNodeProps, D3TreeNode, HierarchyD3TreeProps } from "@/types/d3treeNode";
 import { buildSectorTree } from "@/utils/buildSectorTree";
+import type { PermissionKey } from "@/lib/permissions";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import { CreateInternalStructureModal } from "./modals/CreateInternalStructureModal";
 import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
@@ -224,7 +225,7 @@ const InternalHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
     return () => window.removeEventListener("resize", updateDimensions);
   }, [selectedTree]);
 
-  const createPermission = ["INTERNAL_STRUCTURES:CREATE"];
+  const createPermission: PermissionKey[] = ["INTERNAL_STRUCTURES:CREATE"];
 
   if (isLoading) {
     return (

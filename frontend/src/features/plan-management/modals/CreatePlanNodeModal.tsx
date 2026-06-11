@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { createFormResolver } from "@/lib/zod-form";
 import * as z from "zod";
 import {
     Dialog,
@@ -107,7 +107,7 @@ export function CreatePlanNodeModal({
     type FormValues = z.infer<typeof formSchema>;
 
     const form = useForm<FormValues>({
-        resolver: zodResolver(formSchema),
+        resolver: createFormResolver<z.infer<typeof formSchema>>(formSchema),
         defaultValues: {
             plan_version_id: planVersionId,
             parent_id: null,

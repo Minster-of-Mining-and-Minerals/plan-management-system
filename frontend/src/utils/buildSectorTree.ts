@@ -1,5 +1,3 @@
-import { SectorNode } from "@/redux/types/sectorNode";
-
 /**
  * Builds a hierarchical tree structure from a flat array of structure nodes.
  * This function ensures all children are properly nested, even if the API
