@@ -46,7 +46,7 @@ export function PlanNodePeriodTargetSection({
     const nodeWeightMode = node.weight_mode;
     const requiresWeight = stepRequiresWeight(rule, node.level);
     const resolvedAnnualTarget =
-        allocation?.annual_target ?? annualTarget ?? node.annual_target ?? 0;
+        allocation?.annual_target ?? node.annual_target ?? annualTarget ?? 0;
     const hasAnnualTarget = requiresWeight && resolvedAnnualTarget > 0;
 
     useEffect(() => {

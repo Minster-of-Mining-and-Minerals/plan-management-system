@@ -638,6 +638,14 @@ async function setAnnualTarget(planNodeId, annualTarget) {
             { transaction: t }
         );
 
+        await PlanNode.update(
+            { annual_target: annualTarget === null ? null : Number(annualTarget) },
+            {
+                where: { source_plan_node_id: node.plan_node_id },
+                transaction: t,
+            }
+        );
+
         await t.commit();
         return { success: true, data: node };
     } catch (error) {
@@ -1089,10 +1097,26 @@ async function validatePeriodTargetAllocation(annualPlanNodeId, periodTarget, ex
         return { valid: false, message: "This node has no annual target to allocate against" };
     }
 
-    const periodNodes = await PlanNode.findAll({
-        where: { source_plan_node_id: annualPlanNodeId },
+    const periodVersions = await PlanVersion.findAll({
+        where: {
+            parent_plan_version_id: annualNode.plan_version_id,
+            version_kind: "execution_period",
+        },
+        attributes: ["plan_version_id"],
         transaction,
     });
+    const periodVersionIds = periodVersions.map((period) => period.plan_version_id);
+
+    const periodNodes =
+        periodVersionIds.length > 0
+            ? await PlanNode.findAll({
+                  where: {
+                      source_plan_node_id: annualPlanNodeId,
+                      plan_version_id: periodVersionIds,
+                  },
+                  transaction,
+              })
+            : [];
 
     let allocatedTotal = 0;
     for (const node of periodNodes) {
@@ -1225,9 +1249,30 @@ async function getPeriodTargetAllocationsForVersion(periodVersionId) {
         return [];
     }
 
+    const periodVersions = await PlanVersion.findAll({
+        where: {
+            parent_plan_version_id: annualVersion.plan_version_id,
+            version_kind: "execution_period",
+        },
+        attributes: ["plan_version_id"],
+    });
+    const periodVersionIds = periodVersions.map((period) => period.plan_version_id);
+
     const [annualNodes, allPeriodNodes] = await Promise.all([
-        PlanNode.findAll({ where: { plan_node_id: sourceIds } }),
-        PlanNode.findAll({ where: { source_plan_node_id: sourceIds } }),
+        PlanNode.findAll({
+            where: {
+                plan_node_id: sourceIds,
+                plan_version_id: annualVersion.plan_version_id,
+            },
+        }),
+        periodVersionIds.length > 0
+            ? PlanNode.findAll({
+                  where: {
+                      source_plan_node_id: sourceIds,
+                      plan_version_id: periodVersionIds,
+                  },
+              })
+            : [],
     ]);
 
     const annualTargetBySourceId = new Map(

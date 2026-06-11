@@ -74,6 +74,9 @@ export function PeriodTargetAllocationSummary({
     if (variant === "compact") {
         return (
             <div className={cn("flex flex-wrap gap-1.5 text-[10px]", className)}>
+                <Badge variant="outline" className="py-0 h-4 bg-blue-50 text-blue-800 border-blue-200">
+                    Annual: {annualLabel}
+                </Badge>
                 <Badge variant="outline" className="py-0 h-4 bg-amber-50 text-amber-800 border-amber-200">
                     Occupied: {occupiedLabel}
                 </Badge>

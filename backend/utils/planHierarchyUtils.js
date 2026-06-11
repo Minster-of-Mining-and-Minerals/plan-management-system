@@ -91,8 +91,47 @@ function sortHierarchyTree(nodes, sortMetaByNodeId) {
     return sorted;
 }
 
+/**
+ * Overlays live annual_target from the parent annual version onto execution-period nodes.
+ */
+async function enrichPeriodNodesWithLiveAnnualTargets(planVersion, nodeMap, nodes) {
+    if (!planVersion || planVersion.version_kind !== "execution_period") {
+        return;
+    }
+
+    const sourceIds = [
+        ...new Set(nodes.map((node) => node.source_plan_node_id).filter(Boolean)),
+    ];
+    if (sourceIds.length === 0) {
+        return;
+    }
+
+    const annualNodes = await PlanNode.findAll({
+        where: {
+            plan_node_id: sourceIds,
+            plan_version_id: planVersion.parent_plan_version_id,
+        },
+        attributes: ["plan_node_id", "annual_target"],
+    });
+
+    const annualTargetBySourceId = new Map(
+        annualNodes.map((node) => [node.plan_node_id, node.annual_target])
+    );
+
+    for (const node of nodes) {
+        if (!node.source_plan_node_id) continue;
+        const liveAnnualTarget = annualTargetBySourceId.get(node.source_plan_node_id);
+        if (liveAnnualTarget === undefined) continue;
+        const enriched = nodeMap.get(node.plan_node_id);
+        if (enriched) {
+            enriched.annual_target = liveAnnualTarget;
+        }
+    }
+}
+
 module.exports = {
     buildDraftAlignedSortMeta,
     sortHierarchyTree,
     compareSortMeta,
+    enrichPeriodNodesWithLiveAnnualTargets,
 };

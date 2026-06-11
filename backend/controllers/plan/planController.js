@@ -15,7 +15,7 @@ const {
 
 const { v4: uuidv4, validate: isUuid } = require("uuid");
 const { Op } = require("sequelize");
-const { buildDraftAlignedSortMeta, sortHierarchyTree } = require("../../utils/planHierarchyUtils");
+const { buildDraftAlignedSortMeta, sortHierarchyTree, enrichPeriodNodesWithLiveAnnualTargets } = require("../../utils/planHierarchyUtils");
 const { validatePlanNodeAgainstRule } = require("../../services/planRuleService");
 const { isWeightModeSelectionLevel } = require("../../services/planRuleStepUtils");
 const {
@@ -766,9 +766,27 @@ const getPlanNodeById = async (req, res) => {
             return res.status(404).json({ message: "Plan node not found" });
         }
 
+        const nodeJson = planNode.toJSON();
+        if (
+            planNode.planVersion?.version_kind === "execution_period" &&
+            planNode.source_plan_node_id &&
+            planNode.planVersion.parent_plan_version_id
+        ) {
+            const annualNode = await PlanNode.findOne({
+                where: {
+                    plan_node_id: planNode.source_plan_node_id,
+                    plan_version_id: planNode.planVersion.parent_plan_version_id,
+                },
+                attributes: ["annual_target"],
+            });
+            if (annualNode) {
+                nodeJson.annual_target = annualNode.annual_target;
+            }
+        }
+
         return res.json({
             success: true,
-            data: planNode,
+            data: nodeJson,
         });
     } catch (error) {
         return res.status(500).json({ error: error.message });
@@ -1070,6 +1088,7 @@ const getPlanHierarchy = async (req, res) => {
         const planVersion = await PlanVersion.findByPk(plan_version_id, {
             attributes: ["plan_version_id", "version_kind", "parent_plan_version_id"],
         });
+        await enrichPeriodNodesWithLiveAnnualTargets(planVersion, nodeMap, nodes);
         const sortMetaByNodeId = await buildDraftAlignedSortMeta(planVersion, nodes);
         const sortedRoots = sortHierarchyTree(roots, sortMetaByNodeId);
 
