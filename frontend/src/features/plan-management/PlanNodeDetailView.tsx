@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
     useGetPlanNodeByIdQuery,
     useGetPlanVersionByIdQuery,
+    useGetAnnualTargetAllocationsQuery,
     useUpdateAnnualTargetMutation,
     useUpdatePeriodTargetMutation,
 } from "@/redux/api/planApi";
@@ -45,8 +46,10 @@ import { InternalAssignment, ExternalAssignment } from "@/redux/types/plan";
 import { ActionButton } from "@/types/tableLayout";
 import { PlanDraftHeaderMeta } from "./components/PlanDraftHeaderMeta";
 import { PlanNodeAssignmentReadOnly } from "./components/PlanNodeAssignmentReadOnly";
+import { AnnualTargetAllocationSummary } from "./components/AnnualTargetAllocationSummary";
 import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
 import { formatNodeTarget } from "@/utils/planRuleUtils";
+import { canEditAnnualTargetForVersion, canEditPeriodTargetForVersion } from "@/utils/planDraftUtils";
 
 interface PlanNodeDetailViewProps {
     versionId: string;
@@ -126,18 +129,18 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
     const annualTargetsFinalized = Boolean(masterVersion?.annual_targets_finalized_at);
     const periodTargetsFinalized = Boolean(annualParentVersion?.period_targets_finalized_at);
 
+    const { data: annualAllocationList = [] } = useGetAnnualTargetAllocationsQuery(versionId, {
+        skip: version?.version_kind !== "annual" || annualTargetsFinalized,
+    });
+    const annualAllocation = annualAllocationList.find((item) => item.plan_node_id === nodeId);
+
     const canAllocateAnnualTarget =
-        version?.version_kind === "annual" &&
-        !annualTargetsFinalized &&
-        (version.status === "draft" || version.status === "active") &&
+        canEditAnnualTargetForVersion(version, annualTargetsFinalized) &&
         node &&
         node.weight > 0;
 
     const canAllocatePeriodTarget =
-        version?.version_kind === "execution_period" &&
-        !version.is_locked &&
-        !periodTargetsFinalized &&
-        (version.status === "draft" || version.status === "active") &&
+        canEditPeriodTargetForVersion(version, periodTargetsFinalized) &&
         node &&
         (node.annual_target ?? 0) > 0;
 
@@ -491,6 +494,17 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                                             </span>
                                         </div>
                                     </div>
+                                    {annualAllocation && (
+                                        <AnnualTargetAllocationSummary
+                                            allocation={annualAllocation}
+                                            node={node}
+                                            configuredUnits={planningConfig?.target_units}
+                                            inputValue={
+                                                canAllocateAnnualTarget ? annualTargetInput : undefined
+                                            }
+                                            variant="detail"
+                                        />
+                                    )}
                                     {canAllocateAnnualTarget && (
                                         <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
                                             <div className="flex-1 space-y-1">
@@ -502,7 +516,11 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                                                     step="any"
                                                     value={annualTargetInput}
                                                     onChange={(e) => setAnnualTargetInput(e.target.value)}
-                                                    placeholder="Enter annual allocation"
+                                                    placeholder={
+                                                        annualAllocation
+                                                            ? `Up to ${annualAllocation.remaining_for_this_year}`
+                                                            : "Enter annual allocation"
+                                                    }
                                                 />
                                             </div>
                                             <Button

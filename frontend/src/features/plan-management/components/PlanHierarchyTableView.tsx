@@ -16,7 +16,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { PlanNode, PlanNodeHierarchy, PlanRule } from "@/redux/types/plan";
+import { PlanNode, PlanNodeHierarchy, PlanRule, AnnualTargetAllocation } from "@/redux/types/plan";
 import {
     formatNodeTarget,
     getStepLabel,
@@ -52,6 +52,7 @@ interface PlanHierarchyTableViewProps {
     hideAssignments?: boolean;
     showAnnualTargets?: boolean;
     canEditAnnualTarget?: boolean;
+    annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
 }
 
 interface StrategicFocusTableProps {
@@ -72,6 +73,7 @@ interface StrategicFocusTableProps {
     hideAssignments?: boolean;
     showAnnualTargets?: boolean;
     canEditAnnualTarget?: boolean;
+    annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
 }
 
 function StrategicFocusTable({
@@ -92,6 +94,7 @@ function StrategicFocusTable({
     hideAssignments = false,
     showAnnualTargets = false,
     canEditAnnualTarget = false,
+    annualTargetAllocations,
 }: StrategicFocusTableProps) {
     const { data: planningConfig } = useGetPlanningConfigurationQuery();
     const configuredUnits = planningConfig?.target_units;
@@ -165,6 +168,7 @@ function StrategicFocusTable({
                             node={root}
                             rule={rule}
                             configuredUnits={configuredUnits}
+                            allocation={annualTargetAllocations?.[root.plan_node_id]}
                             canEdit={canEditAnnualTarget}
                             variant="compact"
                             className="mt-2"
@@ -314,6 +318,7 @@ function StrategicFocusTable({
                                                         node={node}
                                                         rule={rule}
                                                         configuredUnits={configuredUnits}
+                                                        allocation={annualTargetAllocations?.[node.plan_node_id]}
                                                         canEdit={canEditAnnualTarget}
                                                         variant="table"
                                                         onClick={(e) => e.stopPropagation()}
@@ -429,6 +434,7 @@ export function PlanHierarchyTableView({
     hideAssignments = false,
     showAnnualTargets = false,
     canEditAnnualTarget = false,
+    annualTargetAllocations,
 }: PlanHierarchyTableViewProps) {
     const sortedRoots = useMemo(() => sortPlanNodes(roots), [roots]);
 
@@ -458,6 +464,7 @@ export function PlanHierarchyTableView({
                     hideAssignments={hideAssignments}
                     showAnnualTargets={showAnnualTargets}
                     canEditAnnualTarget={canEditAnnualTarget}
+                    annualTargetAllocations={annualTargetAllocations}
                 />
             ))}
         </div>

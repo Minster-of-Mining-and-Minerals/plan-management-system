@@ -44,6 +44,7 @@ const {
     completeAnnualPlanVersion,
     listExecutionPeriods,
     initializeExecutionPeriodsForAnnual,
+    listAnnualTargetAllocations,
     getExecutionPeriodFinalizationReadinessHandler,
     finalizeExecutionPeriodTargetsHandler,
     updatePeriodTarget,
@@ -92,6 +93,7 @@ router.patch("/versions/:id/status", checkPermission("PLANS", "APPROVE"), valida
 router.get("/versions/:id/finalization-readiness", checkPermission("PLANS", "READ"), validateIdParam, getDraftFinalizationReadiness);
 router.post("/versions/:id/finalize", checkPermission("PLANS", "APPROVE"), validateIdParam, finalizePlanDraft);
 router.get("/versions/:id/annual-versions", checkPermission("PLANS", "READ"), validateIdParam, listAnnualVersions);
+router.get("/versions/:id/annual-target-allocations", checkPermission("PLANS", "READ"), validateIdParam, listAnnualTargetAllocations);
 router.get("/versions/:id/annual-execution-readiness", checkPermission("PLANS", "READ"), validateIdParam, getAnnualExecutionFinalizationReadiness);
 router.post("/versions/:id/finalize-annual-execution", checkPermission("PLANS", "APPROVE"), validateIdParam, finalizeAnnualExecutionPlan);
 router.post("/versions/:id/lock-annual", checkPermission("PLANS", "UPDATE"), validateIdParam, lockAnnualPlanVersion);

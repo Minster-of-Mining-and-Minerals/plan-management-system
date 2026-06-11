@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, Lock, CheckCircle, Clock, Layers, ShieldCheck } from "lucide-react";
+import { Eye, CheckCircle, Clock, Layers, ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,7 +30,6 @@ interface ExecutionPeriodsDashboardProps {
 }
 
 function getPeriodStatusLabel(version: PlanVersion): string {
-    if (version.is_locked || version.status === "locked") return "Locked";
     return formatStatus(version.status);
 }
 
@@ -68,9 +67,7 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
 
     const handleComplete = async (versionId: string, periodLabel: string) => {
         if (
-            !(await actionFeedback.confirm(
-                `Mark ${periodLabel} as completed? This will unlock the next execution period.`
-            ))
+            !(await actionFeedback.confirm(`Mark ${periodLabel} as completed?`))
         ) {
             return;
         }
@@ -160,7 +157,7 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
                     <h2 className="text-lg font-semibold text-gray-900">Execution Period Versions</h2>
                     <p className="text-sm text-muted-foreground mt-1">
                         {periodTargetsFinalized
-                            ? `${formatSubdivisionMode(annual.period_subdivision_mode)} subdivision — period targets finalized. Complete each active period sequentially.`
+                            ? `${formatSubdivisionMode(annual.period_subdivision_mode)} subdivision — period targets finalized. All periods remain open.`
                             : `${formatSubdivisionMode(annual.period_subdivision_mode)} subdivision — adjust period targets so totals match annual targets, then finalize.`}
                     </p>
                 </div>
@@ -208,13 +205,7 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
                                     thresholds,
                                     period.plan_version_id
                                 );
-                                const isLocked = period.is_locked || period.status === "locked";
-                                const miniColor = isLocked
-                                    ? resolveWorkflowStatusAppearance(thresholds, {
-                                          status: "locked",
-                                          isLocked: true,
-                                      }).color
-                                    : periodCompletion.color;
+                                const miniColor = periodCompletion.color;
 
                                 return (
                                     <div
@@ -229,16 +220,14 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
                                             className="text-sm font-bold"
                                             style={{ color: miniColor }}
                                         >
-                                            {isLocked ? "Locked" : `${periodCompletion.percent}%`}
+                                            {`${periodCompletion.percent}%`}
                                         </p>
-                                        {!isLocked && (
-                                            <p
-                                                className="text-[10px] font-medium truncate"
-                                                style={{ color: miniColor }}
-                                            >
-                                                {periodCompletion.label}
-                                            </p>
-                                        )}
+                                        <p
+                                            className="text-[10px] font-medium truncate"
+                                            style={{ color: miniColor }}
+                                        >
+                                            {periodCompletion.label}
+                                        </p>
                                     </div>
                                 );
                             })}
@@ -253,36 +242,25 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
                         thresholds,
                         period.plan_version_id
                     );
-                    const isActive = period.status === "active" && !period.is_locked;
-                    const isLocked = period.is_locked || period.status === "locked";
                     const isCompleted = period.status === "completed";
                     const periodLabel = period.period_label ?? `Period ${period.sequence_index}`;
-                    const showComplete = periodTargetsFinalized && isActive;
+                    const showComplete = periodTargetsFinalized && !isCompleted;
                     const statusAppearance = resolveWorkflowStatusAppearance(thresholds, {
                         status: period.status ?? "draft",
-                        isLocked,
+                        isLocked: false,
                         progressPercent: completion.percent,
                         statusLabel: getPeriodStatusLabel(period),
                     });
-                    const progressColor = isLocked ? statusAppearance.color : completion.color;
-                    const progressValue = isLocked ? 0 : completion.percent;
+                    const progressColor = completion.color;
+                    const progressValue = completion.percent;
 
                     return (
                         <Card
                             key={period.plan_version_id}
                             className={cn(
                                 "relative flex flex-col overflow-hidden transition-shadow hover:shadow-md",
-                                isActive && "ring-1",
-                                isLocked && "opacity-90 bg-muted/20"
+                                isCompleted && "opacity-90 bg-muted/20"
                             )}
-                            style={
-                                isActive
-                                    ? {
-                                          borderColor: `${completion.color}66`,
-                                          boxShadow: `0 0 0 1px ${completion.color}33`,
-                                      }
-                                    : undefined
-                            }
                         >
                             <div
                                 className="absolute top-0 left-0 right-0 h-1"
@@ -323,7 +301,7 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
                                             className="font-medium"
                                             style={{ color: progressColor }}
                                         >
-                                            {isLocked ? "—" : `${completion.percent}%`}
+                                            {`${completion.percent}%`}
                                         </span>
                                     </div>
                                     <PerformanceProgressBar
@@ -332,22 +310,12 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
                                     />
                                 </div>
 
-                                {!isLocked && (
-                                    <PerformanceColorBadge
-                                        color={completion.color}
-                                        label={completion.label}
-                                        className="text-[10px] py-0 h-5"
-                                    />
-                                )}
+                                <PerformanceColorBadge
+                                    color={completion.color}
+                                    label={completion.label}
+                                    className="text-[10px] py-0 h-5"
+                                />
 
-                                {isActive && (
-                                    <PerformanceColorBadge
-                                        color={completion.color}
-                                        label="Active execution period"
-                                        variant="outline"
-                                        className="gap-1 w-fit text-xs"
-                                    />
-                                )}
                                 {isCompleted && (
                                     <PerformanceColorBadge
                                         color={completion.color}
@@ -359,25 +327,17 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
                             </CardContent>
 
                             <CardFooter className="flex flex-wrap gap-2 pt-0">
-                                {!isLocked && (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="gap-2 flex-1"
-                                        onClick={() =>
-                                            router.push(`/plans/${period.plan_version_id}`)
-                                        }
-                                    >
-                                        <Eye className="h-4 w-4" />
-                                        Open Plan
-                                    </Button>
-                                )}
-                                {isLocked && (
-                                    <Button variant="ghost" size="sm" disabled className="gap-2 flex-1">
-                                        <Lock className="h-4 w-4" />
-                                        Locked
-                                    </Button>
-                                )}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-2 flex-1"
+                                    onClick={() =>
+                                        router.push(`/plans/${period.plan_version_id}`)
+                                    }
+                                >
+                                    <Eye className="h-4 w-4" />
+                                    Open Plan
+                                </Button>
                                 {showComplete && (
                                     <Button
                                         variant="default"

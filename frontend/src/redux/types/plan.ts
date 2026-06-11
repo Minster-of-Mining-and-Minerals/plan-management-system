@@ -89,6 +89,17 @@ export interface ExecutionPeriodFinalizationReadiness {
     period_targets_finalized_at: string | null;
 }
 
+export interface AnnualTargetAllocation {
+    plan_node_id: string;
+    source_plan_node_id: string;
+    draft_target: number;
+    allocated_other_years: number;
+    current_year_value: number;
+    allocated_total: number;
+    remaining_for_this_year: number;
+    remaining_overall: number;
+}
+
 export interface AnnualVersionsResponse {
     master: PlanVersion;
     annualVersions: PlanVersion[];

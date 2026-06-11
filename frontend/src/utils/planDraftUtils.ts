@@ -79,3 +79,23 @@ export function getDefaultPlanningStartDate(): string {
   const now = new Date();
   return toDateOnlyString(new Date(now.getFullYear(), now.getMonth(), 1));
 }
+
+/** Annual targets can be edited on any non-completed year until annual execution is finalized. */
+export function canEditAnnualTargetForVersion(
+  version: Pick<PlanVersion, "version_kind" | "status"> | null | undefined,
+  annualTargetsFinalized: boolean
+): boolean {
+  if (!version || version.version_kind !== "annual") return false;
+  if (annualTargetsFinalized) return false;
+  return version.status !== "completed";
+}
+
+/** Period targets can be edited on any non-completed period until period targets are finalized. */
+export function canEditPeriodTargetForVersion(
+  version: Pick<PlanVersion, "version_kind" | "status"> | null | undefined,
+  periodTargetsFinalized: boolean
+): boolean {
+  if (!version || version.version_kind !== "execution_period") return false;
+  if (periodTargetsFinalized) return false;
+  return version.status !== "completed";
+}

@@ -28,7 +28,6 @@ interface AnnualVersionsDashboardProps {
 }
 
 function getAnnualStatusLabel(version: PlanVersion): string {
-    if (version.is_locked || version.status === "locked") return "Locked";
     return formatStatus(version.status);
 }
 
@@ -48,7 +47,7 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
     const annualTargetsFinalized = Boolean(master.annual_targets_finalized_at);
 
     const handleComplete = async (versionId: string, year: number) => {
-        if (!(await actionFeedback.confirm(`Mark the ${year} annual version as completed? This will lock this year and unlock the next.`))) {
+        if (!(await actionFeedback.confirm(`Mark the ${year} annual version as completed?`))) {
             return;
         }
         try {
@@ -99,7 +98,7 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                     <p className="text-sm text-muted-foreground mt-1">
                         {annualTargetsFinalized
                             ? "Annual targets are finalized. Open any year to set up execution periods."
-                            : "Open any year to set annual targets (equal split across all years required), then finalize annual execution."}
+                            : "Open any year to set annual targets (totals must match the draft target), then finalize annual execution."}
                     </p>
                 </div>
                 {!annualTargetsFinalized && canApprovePlan && (
@@ -118,7 +117,7 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                     Annual execution finalized on{" "}
                     {new Date(master.annual_targets_finalized_at!).toLocaleDateString()}. Open the
                     current year, initialize execution periods, set period targets, then finalize
-                    period targets. Year lock/unlock controls will be introduced later.
+                    period targets. All years remain open for now.
                 </div>
             )}
 
@@ -128,41 +127,27 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                         thresholds,
                         annual.plan_version_id
                     );
-                    const isActive = annual.status === "active" && !annual.is_locked;
                     const isCompleted = annual.status === "completed";
-                    const isLocked =
-                        !annualTargetsFinalized
-                            ? false
-                            : annual.is_locked || annual.status === "locked";
                     const periodTargetsFinalized = Boolean(annual.period_targets_finalized_at);
                     const showComplete =
-                        annualTargetsFinalized && periodTargetsFinalized && isActive;
+                        annualTargetsFinalized && periodTargetsFinalized && !isCompleted;
 
                     const statusAppearance = resolveWorkflowStatusAppearance(thresholds, {
                         status: annual.status ?? "draft",
-                        isLocked,
+                        isLocked: false,
                         progressPercent: completion.percent,
                         statusLabel: getAnnualStatusLabel(annual),
                     });
-                    const progressColor = isLocked ? statusAppearance.color : completion.color;
-                    const progressValue = isLocked ? 0 : completion.percent;
+                    const progressColor = completion.color;
+                    const progressValue = completion.percent;
 
                     return (
                         <Card
                             key={annual.plan_version_id}
                             className={cn(
                                 "relative flex flex-col overflow-hidden transition-shadow hover:shadow-md",
-                                isActive && "ring-1",
-                                isLocked && "opacity-90 bg-muted/20"
+                                isCompleted && "opacity-90 bg-muted/20"
                             )}
-                            style={
-                                isActive
-                                    ? {
-                                          borderColor: `${completion.color}66`,
-                                          boxShadow: `0 0 0 1px ${completion.color}33`,
-                                      }
-                                    : undefined
-                            }
                         >
                             <div
                                 className="absolute top-0 left-0 right-0 h-1"
@@ -203,7 +188,7 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                                             className="font-medium"
                                             style={{ color: progressColor }}
                                         >
-                                            {isLocked ? "—" : `${completion.percent}%`}
+                                            {`${completion.percent}%`}
                                         </span>
                                     </div>
                                     <PerformanceProgressBar
@@ -212,25 +197,14 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                                     />
                                 </div>
 
-                                {!isLocked && (
-                                    <PerformanceColorBadge
-                                        color={completion.color}
-                                        label={completion.label}
-                                        className="text-[10px] py-0 h-5"
-                                    />
-                                )}
+                                <PerformanceColorBadge
+                                    color={completion.color}
+                                    label={completion.label}
+                                    className="text-[10px] py-0 h-5"
+                                />
 
-                                {isActive && periodTargetsFinalized && (
-                                    <PerformanceColorBadge
-                                        color={completion.color}
-                                        label="Active execution year"
-                                        variant="outline"
-                                        className="gap-1 w-fit text-xs"
-                                    />
-                                )}
                                 {annualTargetsFinalized &&
                                     !periodTargetsFinalized &&
-                                    !isLocked &&
                                     !isCompleted && (
                                         <PerformanceColorBadge
                                             color={completion.color}

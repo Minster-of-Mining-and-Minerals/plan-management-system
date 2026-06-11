@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { PlanNodeHierarchy, PlanNode, PlanRule } from "@/redux/types/plan";
+import { PlanNodeHierarchy, PlanNode, PlanRule, AnnualTargetAllocation } from "@/redux/types/plan";
 import type { TargetUnit } from "@/redux/types/planningConfig";
 import {
     formatNodeTarget,
@@ -39,6 +39,7 @@ interface NodeItemProps {
     hideAssignments?: boolean;
     showAnnualTargets?: boolean;
     canEditAnnualTarget?: boolean;
+    annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
 }
 
 const NodeItem = ({
@@ -60,6 +61,7 @@ const NodeItem = ({
     hideAssignments = false,
     showAnnualTargets = false,
     canEditAnnualTarget = false,
+    annualTargetAllocations,
 }: NodeItemProps) => {
     const hierarchyNumber = getHierarchyNumber(hierarchyNumberMap, node.plan_node_id);
     const [isExpanded, setIsExpanded] = useState(true);
@@ -137,6 +139,7 @@ const NodeItem = ({
                                 node={node}
                                 rule={rule}
                                 configuredUnits={configuredUnits}
+                                allocation={annualTargetAllocations?.[node.plan_node_id]}
                                 canEdit={canEditAnnualTarget}
                                 variant="compact"
                             />
@@ -198,6 +201,7 @@ const NodeItem = ({
                             hideAssignments={hideAssignments}
                             showAnnualTargets={showAnnualTargets}
                             canEditAnnualTarget={canEditAnnualTarget}
+                            annualTargetAllocations={annualTargetAllocations}
                         />
                     ))}
                 </div>
@@ -223,6 +227,7 @@ interface PlanHierarchyTreeProps {
     hideAssignments?: boolean;
     showAnnualTargets?: boolean;
     canEditAnnualTarget?: boolean;
+    annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
 }
 
 export function PlanHierarchyTree({
@@ -241,6 +246,7 @@ export function PlanHierarchyTree({
     hideAssignments = false,
     showAnnualTargets = false,
     canEditAnnualTarget = false,
+    annualTargetAllocations,
 }: PlanHierarchyTreeProps) {
     const { data: planningConfig } = useGetPlanningConfigurationQuery();
     const configuredUnits = planningConfig?.target_units;
@@ -270,6 +276,7 @@ export function PlanHierarchyTree({
                         hideAssignments={hideAssignments}
                         showAnnualTargets={showAnnualTargets}
                         canEditAnnualTarget={canEditAnnualTarget}
+                        annualTargetAllocations={annualTargetAllocations}
                     />
                 ))}
             </div>
@@ -299,6 +306,7 @@ export function PlanHierarchyTree({
                     hideAssignments={hideAssignments}
                     showAnnualTargets={showAnnualTargets}
                     canEditAnnualTarget={canEditAnnualTarget}
+                    annualTargetAllocations={annualTargetAllocations}
                 />
             ))}
         </div>

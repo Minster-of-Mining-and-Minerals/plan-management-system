@@ -40,7 +40,7 @@ export function FinalizeExecutionPeriodsModal({
         try {
             await finalize(annualVersion.plan_version_id).unwrap();
             actionFeedback.success(
-                "Execution period targets finalized. The first period is now active."
+                "Execution period targets finalized. All periods remain open for target entry and execution."
             );
             onSuccess?.();
             onClose();
@@ -62,7 +62,8 @@ export function FinalizeExecutionPeriodsModal({
                         <p className="text-muted-foreground">
                             Validates that every weighted node has period targets set and that the
                             total across all periods matches the annual target for each node. After
-                            finalization, period targets are locked.
+                            finalization, period target values cannot be changed until you adjust
+                            the workflow (all periods stay open for execution).
                         </p>
 
                         {isLoading ? (

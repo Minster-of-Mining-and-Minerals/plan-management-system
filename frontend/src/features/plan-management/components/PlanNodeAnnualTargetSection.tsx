@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { PlanNode, PlanRule } from "@/redux/types/plan";
+import { AnnualTargetAllocation, PlanNode, PlanRule } from "@/redux/types/plan";
 import type { TargetUnit } from "@/redux/types/planningConfig";
 import { useUpdateAnnualTargetMutation } from "@/redux/api/planApi";
 import {
@@ -14,12 +14,14 @@ import {
     stepRequiresWeight,
 } from "@/utils/planRuleUtils";
 import { actionFeedback } from "@/components/action-feedback";
+import { AnnualTargetAllocationSummary } from "./AnnualTargetAllocationSummary";
 import { cn } from "@/lib/utils";
 
 interface PlanNodeAnnualTargetSectionProps {
     node: PlanNode;
     rule?: PlanRule | null;
     configuredUnits?: TargetUnit[];
+    allocation?: AnnualTargetAllocation | null;
     canEdit?: boolean;
     variant?: "card" | "compact" | "table";
     className?: string;
@@ -30,6 +32,7 @@ export function PlanNodeAnnualTargetSection({
     node,
     rule,
     configuredUnits,
+    allocation,
     canEdit = false,
     variant = "card",
     className,
@@ -70,10 +73,24 @@ export function PlanNodeAnnualTargetSection({
               )
             : null;
 
+    const allocationSummary = allocation ? (
+        <AnnualTargetAllocationSummary
+            allocation={allocation}
+            node={node}
+            configuredUnits={configuredUnits}
+            inputValue={canEdit ? annualTargetInput : undefined}
+            variant={variant === "table" ? "table" : variant === "compact" ? "compact" : "card"}
+        />
+    ) : null;
+
     const handleSave = async () => {
         try {
             const val =
                 annualTargetInput === "" ? null : Number(annualTargetInput);
+            if (val != null && (Number.isNaN(val) || val <= 0)) {
+                actionFeedback.error("Annual target must be greater than 0");
+                return;
+            }
             await updateAnnualTarget({
                 id: node.plan_node_id,
                 annual_target: val,
@@ -102,11 +119,15 @@ export function PlanNodeAnnualTargetSection({
                 <Input
                     id={`annual_target_${node.plan_node_id}`}
                     type="number"
-                    min={0}
+                    min={0.0001}
                     step="any"
                     value={annualTargetInput}
                     onChange={(e) => setAnnualTargetInput(e.target.value)}
-                    placeholder="Enter annual allocation"
+                    placeholder={
+                        allocation
+                            ? `Up to ${allocation.remaining_for_this_year}`
+                            : "Enter annual allocation"
+                    }
                     className={variant === "compact" ? "h-8 text-xs" : variant === "table" ? "h-8 text-sm" : ""}
                 />
             </div>
@@ -151,6 +172,7 @@ export function PlanNodeAnnualTargetSection({
                         Annual: {annualTargetValue ?? "Not set"}
                     </Badge>
                 </div>
+                {allocationSummary}
                 {editor}
             </div>
         );
@@ -158,7 +180,7 @@ export function PlanNodeAnnualTargetSection({
 
     if (variant === "table") {
         return (
-            <div className={cn("space-y-2 min-w-[140px]", className)} onClick={onClick}>
+            <div className={cn("space-y-2 min-w-[160px]", className)} onClick={onClick}>
                 <span
                     className={cn(
                         "text-sm block",
@@ -167,6 +189,7 @@ export function PlanNodeAnnualTargetSection({
                 >
                     {annualTargetValue ?? "Not yet defined"}
                 </span>
+                {allocationSummary}
                 {editor}
             </div>
         );
@@ -209,6 +232,7 @@ export function PlanNodeAnnualTargetSection({
                     </p>
                 </div>
             </div>
+            {allocationSummary}
             {editor}
         </div>
     );

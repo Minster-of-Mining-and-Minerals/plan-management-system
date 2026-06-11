@@ -8,6 +8,7 @@ import {
     FinalizationReadiness,
     AnnualExecutionReadiness,
     ExecutionPeriodFinalizationReadiness,
+    AnnualTargetAllocation,
     AnnualVersionsResponse,
     ExecutionPeriodsResponse,
     PlanNode,
@@ -162,6 +163,12 @@ export const planApi = baseApi.injectEndpoints({
             providesTags: (_r, _e, id) => [{ type: "PlanVersions", id }],
         }),
 
+        getAnnualTargetAllocations: builder.query<AnnualTargetAllocation[], string>({
+            query: (id) => `/plan/versions/${id}/annual-target-allocations`,
+            transformResponse: (response: { data: AnnualTargetAllocation[] }) => response.data,
+            providesTags: (_r, _e, id) => [{ type: "AnnualTargetAllocations", id }],
+        }),
+
         getAnnualExecutionReadiness: builder.query<AnnualExecutionReadiness, string>({
             query: (id) => `/plan/versions/${id}/annual-execution-readiness`,
             transformResponse: (response: { data: AnnualExecutionReadiness }) => response.data,
@@ -225,6 +232,7 @@ export const planApi = baseApi.injectEndpoints({
             invalidatesTags: (_r, _e, { id }) => [
                 { type: "PlanNodes", id },
                 "PlanNodes",
+                "AnnualTargetAllocations",
             ],
         }),
 
@@ -428,6 +436,7 @@ export const {
     useGetFinalizationReadinessQuery,
     useFinalizePlanDraftMutation,
     useGetAnnualVersionsQuery,
+    useGetAnnualTargetAllocationsQuery,
     useGetAnnualExecutionReadinessQuery,
     useFinalizeAnnualExecutionMutation,
     useLockAnnualVersionMutation,

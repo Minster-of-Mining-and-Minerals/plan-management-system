@@ -5,10 +5,11 @@ import {
     useGetPlanHierarchyQuery,
     useDeletePlanNodeMutation,
     useGetPlanVersionByIdQuery,
+    useGetAnnualTargetAllocationsQuery,
     useReorderPlanNodesMutation,
 } from "@/redux/api/planApi";
 import { useGetPlanRuleForVersionQuery } from "@/redux/api/planRuleApi";
-import { PlanNodeHierarchy, PlanNode } from "@/redux/types/plan";
+import { PlanNodeHierarchy, PlanNode, AnnualTargetAllocation } from "@/redux/types/plan";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -38,6 +39,7 @@ import { AnnualVersionsDashboard } from "./components/AnnualVersionsDashboard";
 import { ExecutionPeriodsDashboard } from "./components/ExecutionPeriodsDashboard";
 import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
 import { formatStatus } from "@/utils/statusFormatter";
+import { canEditAnnualTargetForVersion } from "@/utils/planDraftUtils";
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
 import {
     resolveCompletionForEntity,
@@ -169,20 +171,29 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
             ? version?.period_targets_finalized_at
             : annualParentVersion?.period_targets_finalized_at
     );
-    const canEditAnnualTarget =
-        isAnnualVersion &&
-        !annualTargetsFinalized &&
-        (version?.status === "draft" || version?.status === "active");
+    const canEditAnnualTarget = canEditAnnualTargetForVersion(version, annualTargetsFinalized);
     const showAnnualDashboard =
         version?.version_kind === "master" &&
         (version?.status === "finalized" ||
             (version?.annualVersions && version.annualVersions.length > 0));
     const showPeriodDashboard = isAnnualVersion && annualTargetsFinalized;
 
+    const shouldFetchAnnualAllocations = isAnnualVersion && !annualTargetsFinalized;
+    const { data: annualAllocationList = [] } = useGetAnnualTargetAllocationsQuery(versionId, {
+        skip: !shouldFetchAnnualAllocations,
+    });
+    const annualTargetAllocations = useMemo(() => {
+        const map: Record<string, AnnualTargetAllocation> = {};
+        for (const item of annualAllocationList) {
+            map[item.plan_node_id] = item;
+        }
+        return map;
+    }, [annualAllocationList]);
+
     const versionStatusAppearance = version
         ? resolveWorkflowStatusAppearance(thresholds, {
               status: version.status ?? "draft",
-              isLocked: version.is_locked,
+              isLocked: false,
               progressPercent: resolveCompletionForEntity(
                   thresholds,
                   version.plan_version_id
@@ -376,16 +387,10 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
 
     const hierarchyBody = (
         <>
-            {isReadOnlyHierarchy && isExecutionPeriod && version.is_locked && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                    This execution period is locked. Complete the previous period to unlock it.
-                </div>
-            )}
-
             {isReadOnlyHierarchy && version?.status === "finalized" && showAnnualDashboard && (
                 <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                    Strategic draft is finalized. Use the Annual Execution tab to set equal annual
-                    targets across all years, then finalize annual execution.
+                    Strategic draft is finalized. Use the Annual Execution tab to distribute annual
+                    targets across years (total must match the draft), then finalize annual execution.
                 </div>
             )}
 
@@ -472,6 +477,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                         hideAssignments={hideAssignments}
                         showAnnualTargets={showAnnualTargets}
                         canEditAnnualTarget={canEditAnnualTarget}
+                        annualTargetAllocations={annualTargetAllocations}
                     />
                 ) : (
                     emptyState
@@ -485,6 +491,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                         showDualTargets={isAnnualVersion || isExecutionPeriod}
                         hideAssignments={hideAssignments}
                         canEditAnnualTarget={canEditAnnualTarget}
+                        annualTargetAllocations={annualTargetAllocations}
                         onAddChild={handleAddChild}
                         onEdit={handleEdit}
                         onDelete={handleDelete}
@@ -516,6 +523,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     hideAssignments={hideAssignments}
                     showAnnualTargets={showAnnualTargets}
                     canEditAnnualTarget={canEditAnnualTarget}
+                    annualTargetAllocations={annualTargetAllocations}
                 />
             ) : currentNodes.length > 0 ? (
                 <PlanHierarchyTree
@@ -534,6 +542,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     hideAssignments={hideAssignments}
                     showAnnualTargets={showAnnualTargets}
                     canEditAnnualTarget={canEditAnnualTarget}
+                    annualTargetAllocations={annualTargetAllocations}
                 />
             ) : (
                 emptyState

@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { ChevronRight, Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { PlanNodeHierarchy, PlanNode, PlanRule } from "@/redux/types/plan";
+import { PlanNodeHierarchy, PlanNode, PlanRule, AnnualTargetAllocation } from "@/redux/types/plan";
 import {
     formatNodeTarget,
     getStepLabel,
@@ -31,6 +31,7 @@ interface PlanNodeCardGridProps {
     showDualTargets?: boolean;
     hideAssignments?: boolean;
     canEditAnnualTarget?: boolean;
+    annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
     onAddChild: (parent: PlanNode) => void;
     onEdit: (node: PlanNode) => void;
     onDelete: (id: string) => void;
@@ -48,6 +49,7 @@ export function PlanNodeCardGrid({
     showDualTargets = false,
     hideAssignments = false,
     canEditAnnualTarget = false,
+    annualTargetAllocations,
     onAddChild,
     onEdit,
     onDelete,
@@ -175,6 +177,7 @@ export function PlanNodeCardGrid({
                                                 node={node}
                                                 rule={rule}
                                                 configuredUnits={configuredUnits}
+                                                allocation={annualTargetAllocations?.[node.plan_node_id]}
                                                 canEdit={canEditAnnualTarget}
                                                 variant="card"
                                                 onClick={(e) => e.stopPropagation()}

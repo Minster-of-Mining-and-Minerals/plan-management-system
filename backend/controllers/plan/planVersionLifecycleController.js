@@ -5,6 +5,7 @@ const {
     getFinalizationReadiness,
     finalizeDraft,
     getAnnualVersions,
+    getAnnualTargetAllocationsForVersion,
     getAnnualExecutionReadiness,
     finalizeAnnualExecution,
     lockAnnualVersion,
@@ -187,6 +188,20 @@ async function updateAnnualTarget(req, res) {
     }
 }
 
+async function listAnnualTargetAllocations(req, res) {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            return res.status(400).json({ success: false, message: "Invalid ID" });
+        }
+
+        const allocations = await getAnnualTargetAllocationsForVersion(id);
+        return res.json({ success: true, data: allocations });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
+
 async function getAnnualExecutionFinalizationReadiness(req, res) {
     try {
         const { id } = req.params;
@@ -362,6 +377,7 @@ module.exports = {
     getDraftFinalizationReadiness,
     finalizePlanDraft,
     listAnnualVersions,
+    listAnnualTargetAllocations,
     getAnnualExecutionFinalizationReadiness,
     finalizeAnnualExecutionPlan,
     lockAnnualPlanVersion,

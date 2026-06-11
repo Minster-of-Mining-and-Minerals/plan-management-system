@@ -93,29 +93,29 @@ const EXECUTION_PERIODS_2026 = [
     plan_version_id: IDS.PERIOD_2026_Q1,
     period_label: "Q1",
     sequence_index: 1,
-    status: "completed",
+    status: "draft",
     is_locked: false,
   },
   {
     plan_version_id: IDS.PERIOD_2026_Q2,
     period_label: "Q2",
     sequence_index: 2,
-    status: "active",
+    status: "draft",
     is_locked: false,
   },
   {
     plan_version_id: IDS.PERIOD_2026_Q3,
     period_label: "Q3",
     sequence_index: 3,
-    status: "locked",
-    is_locked: true,
+    status: "draft",
+    is_locked: false,
   },
   {
     plan_version_id: IDS.PERIOD_2026_Q4,
     period_label: "Q4",
     sequence_index: 4,
-    status: "locked",
-    is_locked: true,
+    status: "draft",
+    is_locked: false,
   },
 ];
 
@@ -1191,13 +1191,13 @@ module.exports = {
       internal: internalAssignments.map(({ created_at, updated_at, ...rest }) => rest),
     };
 
-    // ── Annual execution versions (2026 active, 2027/2028 locked) ───────
+    // ── Annual execution versions (all open for target setting until finalized) ──
     const annualVersions = [
       {
         plan_version_id: IDS.ANNUAL_2026,
         planning_year: 2026,
         sequence_index: 1,
-        status: "active",
+        status: "draft",
         is_locked: false,
         draft_name: "National Mining Development Plan — Year 1 (2026)",
       },
@@ -1205,16 +1205,16 @@ module.exports = {
         plan_version_id: IDS.ANNUAL_2027,
         planning_year: 2027,
         sequence_index: 2,
-        status: "locked",
-        is_locked: true,
+        status: "draft",
+        is_locked: false,
         draft_name: "National Mining Development Plan — Year 2 (2027)",
       },
       {
         plan_version_id: IDS.ANNUAL_2028,
         planning_year: 2028,
         sequence_index: 3,
-        status: "locked",
-        is_locked: true,
+        status: "draft",
+        is_locked: false,
         draft_name: "National Mining Development Plan — Year 3 (2028)",
       },
     ];

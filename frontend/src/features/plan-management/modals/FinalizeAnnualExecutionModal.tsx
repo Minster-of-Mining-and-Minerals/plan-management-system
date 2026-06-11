@@ -62,9 +62,9 @@ export function FinalizeAnnualExecutionModal({
                     <div className="space-y-4 pb-4 text-sm">
                         <p className="text-muted-foreground">
                             Validates that every weighted plan node has annual targets set across all
-                            planning years, with each year receiving an equal share of the strategic
-                            draft target. After finalization, open each year to initialize execution
-                            periods before operational lock/unlock controls apply.
+                            planning years, each greater than zero, and that the total across years
+                            matches the strategic draft target exactly. After finalization, open each
+                            year to initialize execution periods.
                         </p>
 
                         {isLoading ? (
