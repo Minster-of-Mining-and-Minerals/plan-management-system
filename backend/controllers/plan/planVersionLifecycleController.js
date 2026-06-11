@@ -23,6 +23,7 @@ const {
     startPlanProcess,
     setPeriodTarget,
     completeExecutionPeriod,
+    reopenFinalizedPlanForEdit,
 } = require("../../services/planVersionLifecycleService");
 const { PlanVersion } = require("../../models");
 
@@ -472,6 +473,29 @@ async function completeExecutionPeriodVersion(req, res) {
     }
 }
 
+async function reopenFinalizedPlanForEditHandler(req, res) {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            return res.status(400).json({ success: false, message: "Invalid ID" });
+        }
+
+        const result = await reopenFinalizedPlanForEdit(id);
+        if (!result.success) {
+            return res.status(400).json({ success: false, message: result.message });
+        }
+
+        return res.json({
+            success: true,
+            message:
+                "Plan reopened for editing. Existing targets are preserved; complete all validation steps again.",
+            data: result.data,
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
+
 module.exports = {
     getDraftFinalizationReadiness,
     finalizePlanDraft,
@@ -494,4 +518,5 @@ module.exports = {
     startPlanProcessHandler,
     updatePeriodTarget,
     completeExecutionPeriodVersion,
+    reopenFinalizedPlanForEditHandler,
 };

@@ -160,6 +160,21 @@ export const planApi = baseApi.injectEndpoints({
             ],
         }),
 
+        reopenFinalizedPlanForEdit: builder.mutation<PlanVersion, string>({
+            query: (id) => ({
+                url: `/plan/versions/${id}/reopen-for-edit`,
+                method: "POST",
+            }),
+            transformResponse: (response: { data: PlanVersion }) => response.data,
+            invalidatesTags: (_r, _e, id) => [
+                { type: "PlanVersions", id },
+                "PlanVersions",
+                "PlanNodes",
+                "AnnualTargetAllocations",
+                "PeriodTargetAllocations",
+            ],
+        }),
+
         getAnnualVersions: builder.query<AnnualVersionsResponse, string>({
             query: (id) => `/plan/versions/${id}/annual-versions`,
             transformResponse: (response: { data: AnnualVersionsResponse }) => response.data,
@@ -478,6 +493,7 @@ export const {
     useUpdatePlanVersionStatusMutation,
     useGetFinalizationReadinessQuery,
     useFinalizePlanDraftMutation,
+    useReopenFinalizedPlanForEditMutation,
     useGetAnnualVersionsQuery,
     useGetAnnualTargetAllocationsQuery,
     useGetAnnualExecutionReadinessQuery,

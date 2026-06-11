@@ -41,3 +41,14 @@ export async function confirmFinalizedPlanStructureEdit(actionLabel: string): Pr
         }
     );
 }
+
+export async function confirmReopenFinalizedPlanForEdit(): Promise<boolean> {
+    return actionFeedback.confirm(
+        "This will reopen the strategic plan for editing. Targets, assignments, and annual data are preserved, but all validation steps (finalize draft, annual execution, period targets, and start process) must be completed again. Continue?",
+        {
+            destructive: true,
+            title: "Reopen Plan for Editing",
+            confirmLabel: "Reopen and edit",
+        }
+    );
+}

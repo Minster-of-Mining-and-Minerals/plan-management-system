@@ -12,7 +12,8 @@ import type { FilterField, ActionButton } from "@/types/tableLayout";
 import {
     useGetPlanVersionsQuery,
     useDeletePlanVersionMutation,
-    useUpdatePlanVersionStatusMutation
+    useUpdatePlanVersionStatusMutation,
+    useReopenFinalizedPlanForEditMutation,
 } from "@/redux/api/planApi";
 import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
 import { PlanVersion } from "@/redux/types/plan";
@@ -23,6 +24,12 @@ import {
     formatPlanningPeriod,
     getPlanDraftDisplayName,
 } from "@/utils/planDraftUtils";
+import {
+    canEditFinalizedMasterPlan,
+    confirmReopenFinalizedPlanForEdit,
+} from "@/utils/planMasterEditUtils";
+import { usePermissions } from "@/hooks/usePermissions";
+import { getApiErrorMessage } from "@/utils/apiErrorUtils";
 import { useSearchParams, useRouter } from "next/navigation";
 import { actionFeedback } from "@/components/action-feedback";
 import { CreatePlanVersionModal } from "./modals/CreatePlanVersionModal";
@@ -37,16 +44,45 @@ export default function PlanVersionTable() {
     const searchQuery = searchParams.get("search") || "";
     const router = useRouter();
     const [statusFilter, setStatusFilter] = useState("");
+    const { can } = usePermissions();
 
     const { data: config = DEFAULT_PLANNING_CONFIGURATION } = useGetPlanningConfigurationQuery();
     const [deleteVersion] = useDeletePlanVersionMutation();
     const [updateStatus] = useUpdatePlanVersionStatusMutation();
+    const [reopenForEdit, { isLoading: isReopening }] = useReopenFinalizedPlanForEditMutation();
     const [selectedVersion, setSelectedVersion] = useState<PlanVersion | null>(null);
     const [isModalOpen, setModalOpen] = useState(false);
     const [finalizeVersion, setFinalizeVersion] = useState<PlanVersion | null>(null);
 
     const draftLabel = config.draft_entity_label_singular;
     const draftsLabel = config.draft_entity_label_plural;
+
+    const handleEditVersion = async (version: PlanVersion) => {
+        if (version.status === "draft") {
+            setSelectedVersion(version);
+            setModalOpen(true);
+            return;
+        }
+
+        if (!canEditFinalizedMasterPlan(version, can)) {
+            return;
+        }
+
+        if (!(await confirmReopenFinalizedPlanForEdit())) {
+            return;
+        }
+
+        try {
+            const reopened = await reopenForEdit(version.plan_version_id).unwrap();
+            actionFeedback.success(
+                `${draftLabel} reopened for editing. Complete all validation steps again.`
+            );
+            setSelectedVersion(reopened);
+            setModalOpen(true);
+        } catch (err: unknown) {
+            actionFeedback.error(getApiErrorMessage(err, `Failed to reopen ${draftLabel.toLowerCase()}`));
+        }
+    };
 
     const columns: ColumnDef<PlanVersion>[] = [
         {
@@ -143,13 +179,11 @@ export default function PlanVersionTable() {
                     {row.original.status === "draft" && (
                         <>
                             <Button
-                                onClick={() => {
-                                    setSelectedVersion(row.original);
-                                    setModalOpen(true);
-                                }}
+                                onClick={() => handleEditVersion(row.original)}
                                 variant="ghost"
                                 size="icon"
                                 title="Edit"
+                                disabled={isReopening}
                             >
                                 <Edit className="h-4 w-4" />
                             </Button>
@@ -163,6 +197,18 @@ export default function PlanVersionTable() {
                                 <Rocket className="h-4 w-4" />
                             </Button>
                         </>
+                    )}
+                    {canEditFinalizedMasterPlan(row.original, can) && (
+                        <Button
+                            onClick={() => handleEditVersion(row.original)}
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            title="Reopen for editing (restarts validation process)"
+                            disabled={isReopening}
+                        >
+                            <Edit className="h-4 w-4" />
+                        </Button>
                     )}
                     {row.original.status === "active" && row.original.version_kind === "annual" && (
                         <Button

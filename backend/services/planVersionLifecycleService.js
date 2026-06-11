@@ -141,17 +141,6 @@ async function validateDraftForFinalization(masterVersionId, transaction) {
     if (master.status !== "draft") {
         return { ready: false, errors: ["Plan draft is not in draft status"] };
     }
-    if (master.finalized_at) {
-        return { ready: false, errors: ["Plan draft has already been finalized"] };
-    }
-
-    const existingAnnual = await PlanVersion.count({
-        where: { parent_plan_version_id: masterVersionId, version_kind: "annual" },
-        transaction,
-    });
-    if (existingAnnual > 0) {
-        return { ready: false, errors: ["Annual versions already exist for this draft"] };
-    }
 
     const errors = [];
     const nodes = await PlanNode.findAll({
@@ -217,6 +206,43 @@ async function finalizeDraft(masterVersionId) {
         const master = validation.master;
         const years = enumeratePlanningYears(master);
         const now = new Date();
+
+        const existingAnnual = await PlanVersion.findAll({
+            where: { parent_plan_version_id: masterVersionId, version_kind: "annual" },
+            order: [["sequence_index", "ASC"]],
+            transaction: t,
+        });
+
+        if (existingAnnual.length > 0) {
+            if (existingAnnual.length !== years.length) {
+                await t.rollback();
+                return {
+                    success: false,
+                    errors: [
+                        "Annual version count does not match the planning duration. Adjust the draft or contact an administrator.",
+                    ],
+                };
+            }
+
+            await master.update(
+                {
+                    status: "finalized",
+                    finalized_at: now,
+                },
+                { transaction: t }
+            );
+
+            await t.commit();
+
+            return {
+                success: true,
+                master: await PlanVersion.findByPk(masterVersionId, {
+                    include: [{ association: "annualVersions" }],
+                }),
+                annualVersions: existingAnnual,
+                refinalized: true,
+            };
+        }
 
         await master.update(
             {
@@ -1622,6 +1648,78 @@ function isVersionEditable(planVersion) {
     return false;
 }
 
+async function reopenFinalizedPlanForEdit(masterVersionId) {
+    const t = await sequelize.transaction();
+    try {
+        const master = await PlanVersion.findByPk(masterVersionId, { transaction: t });
+        if (!master || master.version_kind !== "master") {
+            await t.rollback();
+            return { success: false, message: "Master plan version not found" };
+        }
+        if (master.status !== "finalized") {
+            await t.rollback();
+            return {
+                success: false,
+                message: "Only finalized strategic plans can be reopened for editing",
+            };
+        }
+
+        const annualVersions = await PlanVersion.findAll({
+            where: { parent_plan_version_id: masterVersionId, version_kind: "annual" },
+            transaction: t,
+        });
+
+        await master.update(
+            {
+                status: "draft",
+                finalized_at: null,
+                annual_targets_finalized_at: null,
+                period_targets_finalized_at: null,
+                process_started_at: null,
+            },
+            { transaction: t }
+        );
+
+        for (const annualVersion of annualVersions) {
+            const updates = {
+                period_targets_finalized_at: null,
+                is_locked: false,
+            };
+
+            if (annualVersion.status !== "completed") {
+                updates.status = "draft";
+            }
+
+            await annualVersion.update(updates, { transaction: t });
+
+            const executionPeriods = await PlanVersion.findAll({
+                where: {
+                    parent_plan_version_id: annualVersion.plan_version_id,
+                    version_kind: "execution_period",
+                },
+                transaction: t,
+            });
+
+            for (const period of executionPeriods) {
+                if (period.status === "completed") continue;
+                await period.update({ status: "draft", is_locked: false }, { transaction: t });
+            }
+        }
+
+        await t.commit();
+
+        return {
+            success: true,
+            data: await PlanVersion.findByPk(masterVersionId, {
+                include: [{ association: "annualVersions" }],
+            }),
+        };
+    } catch (error) {
+        await t.rollback();
+        throw error;
+    }
+}
+
 module.exports = {
     enumeratePlanningYears,
     copyNodesAndAssignments,
@@ -1657,4 +1755,5 @@ module.exports = {
     setPeriodTarget,
     completeExecutionPeriod,
     isVersionEditable,
+    reopenFinalizedPlanForEdit,
 };
