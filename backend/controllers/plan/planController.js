@@ -46,6 +46,7 @@ const {
     validateCanEditMasterPlanStructure,
     isMasterFinalized,
 } = require("../../utils/planMasterEditUtils");
+const { validatePlanNodeAgainstRule } = require("../../services/planRuleService");
 const {
     completeAnnualVersion,
     completeExecutionPeriod,

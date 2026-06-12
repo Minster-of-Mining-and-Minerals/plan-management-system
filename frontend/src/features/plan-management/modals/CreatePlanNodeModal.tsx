@@ -188,7 +188,7 @@ export function CreatePlanNodeModal({
                 weight_mode: null,
                 target_unit: null,
                 level: nodeLevel,
-                assignment_sharing_mode: values.assignment_sharing_mode ?? "exclusive",
+                assignment_sharing_mode: parentNode?.assignment_sharing_mode ?? "exclusive",
             });
         }
     }, [node, parentNode, planVersionId, form, isOpen, nodeLevel]);
@@ -222,8 +222,7 @@ export function CreatePlanNodeModal({
                 ? values.weight_mode
                 : inheritedMode;
 
-            const submitData = {
-                plan_version_id: values.plan_version_id,
+            const sharedFields = {
                 parent_id: normalizeOptionalId(values.parent_id),
                 type: levelToNodeType(nodeLevel),
                 title: values.title,
@@ -243,11 +242,14 @@ export function CreatePlanNodeModal({
             if (node) {
                 await updateNode({
                     id: node.plan_node_id,
-                    data: submitData,
+                    data: sharedFields,
                 }).unwrap();
                 actionFeedback.success("Plan node updated successfully");
             } else {
-                await createNode(submitData).unwrap();
+                await createNode({
+                    plan_version_id: values.plan_version_id,
+                    ...sharedFields,
+                }).unwrap();
                 actionFeedback.success("Plan node created successfully");
             }
             onClose();
