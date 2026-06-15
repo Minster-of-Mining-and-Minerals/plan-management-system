@@ -23,7 +23,7 @@ import { getHierarchyNumber } from "@/utils/planNodeOrderUtils";
 import { PlanNodeHierarchyNumber } from "./PlanNodeHierarchyNumber";
 import { PlanNodeAssignmentSummary } from "./PlanNodeAssignmentSummary";
 import { PlanNodeAnnualTargetSection } from "./PlanNodeAnnualTargetSection";
-import { PlanNodePeriodTargetSection } from "./PlanNodePeriodTargetSection";
+import { resolveLiveDraftTarget } from "@/utils/planDraftUtils";
 
 interface PlanNodeCardGridProps {
     nodes: PlanNodeHierarchy[];
@@ -100,7 +100,9 @@ export function PlanNodeCardGrid({
                     label: "Unknown",
                 };
                 const requiresWeight = stepRequiresWeight(rule, node.level);
-                const hasDraftTarget = requiresWeight && node.weight > 0;
+                const allocation = annualTargetAllocations?.[node.plan_node_id];
+                const liveDraftTarget = resolveLiveDraftTarget(node, allocation);
+                const hasDraftTarget = requiresWeight && liveDraftTarget > 0;
 
                 return (
                     <Card
@@ -171,7 +173,7 @@ export function PlanNodeCardGrid({
                                                 >
                                                     Draft Target:{" "}
                                                     {formatNodeTarget(
-                                                        node.weight,
+                                                        liveDraftTarget,
                                                         nodeWeightMode,
                                                         node.target_unit,
                                                         configuredUnits

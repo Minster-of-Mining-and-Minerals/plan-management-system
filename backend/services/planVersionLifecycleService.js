@@ -18,6 +18,7 @@ const {
     resolvePeriodLabelsForMode,
     normalizeCustomPeriods,
 } = require("./planningConfigurationService");
+const { syncAllDerivedNodesFromMaster } = require("./planMasterEditService");
 
 function enumeratePlanningYears(master) {
     const years = [];
@@ -231,6 +232,8 @@ async function finalizeDraft(masterVersionId) {
                 },
                 { transaction: t }
             );
+
+            await syncAllDerivedNodesFromMaster(masterVersionId, t);
 
             await t.commit();
 

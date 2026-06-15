@@ -204,10 +204,45 @@ async function propagateInternalAssignmentCreate(masterNodeId, assignment, trans
     }
 }
 
+async function masterHasDerivedAnnualVersions(masterVersionId, transaction) {
+    const count = await PlanVersion.count({
+        where: {
+            parent_plan_version_id: masterVersionId,
+            version_kind: "annual",
+        },
+        transaction,
+    });
+    return count > 0;
+}
+
+async function shouldPropagateMasterStructureChanges(planVersion, transaction) {
+    if (!planVersion || planVersion.version_kind !== "master") {
+        return false;
+    }
+    if (planVersion.status === "finalized") {
+        return true;
+    }
+    return masterHasDerivedAnnualVersions(planVersion.plan_version_id, transaction);
+}
+
+async function syncAllDerivedNodesFromMaster(masterVersionId, transaction) {
+    const masterNodes = await PlanNode.findAll({
+        where: { plan_version_id: masterVersionId },
+        transaction,
+    });
+
+    for (const masterNode of masterNodes) {
+        await propagateMasterPlanNodeUpdate(masterNode, transaction);
+    }
+}
+
 module.exports = {
     propagateMasterPlanNodeCreate,
     propagateMasterPlanNodeUpdate,
     propagateMasterPlanNodeDelete,
     propagateExternalAssignmentCreate,
     propagateInternalAssignmentCreate,
+    masterHasDerivedAnnualVersions,
+    shouldPropagateMasterStructureChanges,
+    syncAllDerivedNodesFromMaster,
 };

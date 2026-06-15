@@ -12,6 +12,7 @@ import {
     getStepColorHex,
     getPlanStepSurfaceStyles,
 } from "@/utils/planRuleUtils";
+import { resolveLiveDraftTarget } from "@/utils/planDraftUtils";
 import { getHierarchyNumber } from "@/utils/planNodeOrderUtils";
 import { PlanNodeIcon } from "./PlanNodeIcon";
 import { PlanNodeHierarchyNumber } from "./PlanNodeHierarchyNumber";
@@ -77,6 +78,8 @@ const NodeItem = ({
     const hasChildren = node.children && node.children.length > 0;
     const levelLabel = getStepLabel(rule, node.level);
     const nodeWeightMode = node.weight_mode;
+    const allocation = annualTargetAllocations?.[node.plan_node_id];
+    const liveDraftTarget = resolveLiveDraftTarget(node, allocation);
     const sortedChildren = useMemo(() => node.children ?? [], [node.children]);
     const stepSurface = getPlanStepSurfaceStyles(getStepColorHex(rule, node.level));
 
@@ -118,14 +121,14 @@ const NodeItem = ({
                             <Badge variant="outline" className="text-[10px] uppercase font-bold py-0 h-4 shrink-0">
                                 {levelLabel}
                             </Badge>
-                            {stepRequiresWeight(rule, node.level) && node.weight > 0 && (
+                            {stepRequiresWeight(rule, node.level) && liveDraftTarget > 0 && (
                                 <Badge
                                     variant="secondary"
                                     className="text-[10px] py-0 h-4 bg-blue-50 text-blue-700 border-blue-100 shrink-0"
                                 >
                                     Draft Target:{" "}
                                     {formatNodeTarget(
-                                        node.weight,
+                                        liveDraftTarget,
                                         nodeWeightMode,
                                         node.target_unit,
                                         configuredUnits

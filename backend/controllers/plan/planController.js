@@ -41,10 +41,10 @@ const {
     propagateMasterPlanNodeCreate,
     propagateMasterPlanNodeUpdate,
     propagateMasterPlanNodeDelete,
+    shouldPropagateMasterStructureChanges,
 } = require("../../services/planMasterEditService");
 const {
     validateCanEditMasterPlanStructure,
-    isMasterFinalized,
 } = require("../../utils/planMasterEditUtils");
 const { validatePlanNodeAgainstRule } = require("../../services/planRuleService");
 const {
@@ -696,7 +696,7 @@ const createPlanNode = async (req, res) => {
             { transaction: t }
         );
 
-        if (isMasterFinalized(planVersion)) {
+        if (await shouldPropagateMasterStructureChanges(planVersion, t)) {
             await propagateMasterPlanNodeCreate(planNode, t);
         }
 
@@ -959,7 +959,7 @@ const updatePlanNode = async (req, res) => {
             { transaction: t }
         );
 
-        if (isMasterFinalized(planNode.planVersion)) {
+        if (await shouldPropagateMasterStructureChanges(planNode.planVersion, t)) {
             await propagateMasterPlanNodeUpdate(planNode, t);
         }
 
@@ -1020,7 +1020,7 @@ const deletePlanNode = async (req, res) => {
             });
         }
 
-        if (isMasterFinalized(planNode.planVersion)) {
+        if (await shouldPropagateMasterStructureChanges(planNode.planVersion, t)) {
             await propagateMasterPlanNodeDelete(id, t);
         }
 

@@ -37,7 +37,7 @@ import { PlanNodeAssignmentSummary } from "./PlanNodeAssignmentSummary";
 import { PlanNodeAnnualTargetSection } from "./PlanNodeAnnualTargetSection";
 import { PlanNodePeriodTargetSection } from "./PlanNodePeriodTargetSection";
 import { cn } from "@/lib/utils";
-import { getPlanReferenceTargetColumnLabel } from "@/utils/planDraftUtils";
+import { getPlanReferenceTargetColumnLabel, resolveLiveDraftTarget } from "@/utils/planDraftUtils";
 
 interface PlanHierarchyTableViewProps {
     roots: PlanNodeHierarchy[];
@@ -281,10 +281,12 @@ function StrategicFocusTable({
                                     thresholds,
                                     node.plan_node_id
                                 );
+                                const allocation = annualTargetAllocations?.[node.plan_node_id];
+                                const liveDraftTarget = resolveLiveDraftTarget(node, allocation);
                                 const showReferenceTarget = showPeriodTargets
                                     ? stepRequiresWeight(rule, node.level) &&
                                       (node.annual_target ?? 0) > 0
-                                    : stepRequiresWeight(rule, node.level) && node.weight > 0;
+                                    : stepRequiresWeight(rule, node.level) && liveDraftTarget > 0;
                                 const rowNumber = getHierarchyNumber(
                                     hierarchyNumberMap,
                                     node.plan_node_id
@@ -356,7 +358,7 @@ function StrategicFocusTable({
                                                     {formatNodeTarget(
                                                         showPeriodTargets
                                                             ? (node.annual_target ?? 0)
-                                                            : node.weight,
+                                                            : liveDraftTarget,
                                                         node.weight_mode,
                                                         node.target_unit,
                                                         configuredUnits

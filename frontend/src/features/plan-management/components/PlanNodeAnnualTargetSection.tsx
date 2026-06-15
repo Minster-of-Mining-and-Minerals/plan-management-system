@@ -13,6 +13,7 @@ import {
     formatNodeWeight,
     stepRequiresWeight,
 } from "@/utils/planRuleUtils";
+import { resolveLiveDraftTarget } from "@/utils/planDraftUtils";
 import { actionFeedback } from "@/components/action-feedback";
 import { AnnualTargetAllocationSummary } from "./AnnualTargetAllocationSummary";
 import { cn } from "@/lib/utils";
@@ -43,7 +44,8 @@ export function PlanNodeAnnualTargetSection({
 
     const nodeWeightMode = node.weight_mode;
     const requiresWeight = stepRequiresWeight(rule, node.level);
-    const hasDraftTarget = requiresWeight && node.weight > 0;
+    const liveDraftTarget = resolveLiveDraftTarget(node, allocation);
+    const hasDraftTarget = requiresWeight && liveDraftTarget > 0;
 
     useEffect(() => {
         if (node.annual_target != null) {
@@ -58,7 +60,7 @@ export function PlanNodeAnnualTargetSection({
     }
 
     const draftTargetValue = formatNodeWeight(
-        node.weight,
+        liveDraftTarget,
         nodeWeightMode,
         node.target_unit,
         configuredUnits
@@ -155,7 +157,7 @@ export function PlanNodeAnnualTargetSection({
                     >
                         Draft Target:{" "}
                         {formatNodeTarget(
-                            node.weight,
+                            liveDraftTarget,
                             nodeWeightMode,
                             node.target_unit,
                             configuredUnits

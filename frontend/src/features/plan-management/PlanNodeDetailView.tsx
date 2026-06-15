@@ -49,7 +49,7 @@ import { PlanNodeAssignmentReadOnly } from "./components/PlanNodeAssignmentReadO
 import { AnnualTargetAllocationSummary } from "./components/AnnualTargetAllocationSummary";
 import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
 import { formatNodeTarget } from "@/utils/planRuleUtils";
-import { canEditAnnualTargetForVersion, canEditPeriodTargetForVersion } from "@/utils/planDraftUtils";
+import { canEditAnnualTargetForVersion, canEditPeriodTargetForVersion, resolveLiveDraftTarget } from "@/utils/planDraftUtils";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
     canEditMasterPlanStructure,
@@ -145,11 +145,12 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
         skip: version?.version_kind !== "annual" || annualTargetsFinalized,
     });
     const annualAllocation = annualAllocationList.find((item) => item.plan_node_id === nodeId);
+    const liveDraftTarget = node ? resolveLiveDraftTarget(node, annualAllocation) : 0;
 
     const canAllocateAnnualTarget =
         canEditAnnualTargetForVersion(version, annualTargetsFinalized) &&
         node &&
-        node.weight > 0;
+        liveDraftTarget > 0;
 
     const canAllocatePeriodTarget =
         canEditPeriodTargetForVersion(version, periodTargetsFinalized) &&
@@ -477,11 +478,11 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                                         )}
                                     </Badge>
                                 )}
-                                {version?.version_kind === "annual" && node.weight > 0 && (
+                                {version?.version_kind === "annual" && liveDraftTarget > 0 && (
                                     <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100 font-bold">
                                         Draft Target:{" "}
                                         {formatNodeTarget(
-                                            node.weight,
+                                            liveDraftTarget,
                                             node.weight_mode,
                                             node.target_unit,
                                             planningConfig?.target_units
@@ -536,14 +537,14 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                             <p className="text-gray-600 leading-relaxed">
                                 {node.description || "No description provided."}
                             </p>
-                            {version?.version_kind === "annual" && node.weight > 0 && (
+                            {version?.version_kind === "annual" && liveDraftTarget > 0 && (
                                 <div className="mt-4 rounded-lg border bg-muted/20 p-4 space-y-3">
                                     <div className="flex flex-wrap gap-4 text-sm">
                                         <div>
                                             <span className="text-muted-foreground">Draft Target: </span>
                                             <span className="font-semibold">
                                                 {formatNodeTarget(
-                                            node.weight,
+                                            liveDraftTarget,
                                             node.weight_mode,
                                             node.target_unit,
                                             planningConfig?.target_units

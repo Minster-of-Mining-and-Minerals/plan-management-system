@@ -1,5 +1,5 @@
 import { format, parseISO } from "date-fns";
-import type { PlanVersion } from "@/redux/types/plan";
+import type { PlanVersion, AnnualTargetAllocation } from "@/redux/types/plan";
 
 export function toDateOnlyString(date: Date): string {
   return format(date, "yyyy-MM-dd");
@@ -105,4 +105,15 @@ export function getPlanReferenceTargetColumnLabel(
   showPeriodTargets: boolean
 ): "Annual Target" | "Draft Target" {
   return showPeriodTargets ? "Annual Target" : "Draft Target";
+}
+
+/** Use live master draft weight when annual allocation data is available. */
+export function resolveLiveDraftTarget(
+  node: Pick<{ weight?: number | null }, "weight">,
+  allocation?: AnnualTargetAllocation | null
+): number {
+  if (allocation?.draft_target != null) {
+    return allocation.draft_target;
+  }
+  return Number(node.weight) || 0;
 }
