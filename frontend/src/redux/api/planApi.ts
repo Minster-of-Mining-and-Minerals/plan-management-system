@@ -2,6 +2,7 @@ import { baseApi } from "../baseApi";
 import {
     PlanVersion,
     CreatePlanVersionPayload,
+    DuplicatePlanDraftPayload,
     UpdatePlanVersionPayload,
     UpdatePlanVersionStatusPayload,
     GetPlanVersionsQueryParams,
@@ -80,6 +81,16 @@ export const planApi = baseApi.injectEndpoints({
             transformResponse: (response: any): PlanVersion =>
                 response.data,
             invalidatesTags: ["PlanVersions"],
+        }),
+
+        duplicatePlanDraft: builder.mutation<PlanVersion, { id: string; data?: DuplicatePlanDraftPayload }>({
+            query: ({ id, data }) => ({
+                url: `/plan/versions/${id}/duplicate`,
+                method: "POST",
+                body: data ?? {},
+            }),
+            transformResponse: (response: any): PlanVersion => response.data,
+            invalidatesTags: ["PlanVersions", "PlanNodes"],
         }),
 
         /** ---------------------------
@@ -506,6 +517,7 @@ export const {
     useGetPlanVersionsQuery,
     useGetPlanVersionByIdQuery,
     useCreatePlanVersionMutation,
+    useDuplicatePlanDraftMutation,
     useUpdatePlanVersionMutation,
     useDeletePlanVersionMutation,
     useUpdatePlanVersionStatusMutation,

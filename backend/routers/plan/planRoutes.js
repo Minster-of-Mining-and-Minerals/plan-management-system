@@ -5,6 +5,7 @@ const {
     validateCreatePlanVersion,
     validateUpdatePlanVersion,
     validateUpdatePlanVersionStatus,
+    validateDuplicatePlanDraft,
     validateGetPlanVersionsQuery,
     validateCreatePlanNode,
     validateUpdatePlanNode,
@@ -55,6 +56,7 @@ const {
     updatePeriodTarget,
     completeExecutionPeriodVersion,
     reopenFinalizedPlanForEditHandler,
+    duplicatePlanDraftHandler,
 } = require("../../controllers/plan/planVersionLifecycleController");
 
 const {
@@ -95,6 +97,13 @@ router.use(authenticateToken);
 // ================= PLAN VERSIONS =================
 
 router.post("/versions", checkPermission("PLANS", "CREATE"), validateCreatePlanVersion, createPlanVersion);
+router.post(
+    "/versions/:id/duplicate",
+    checkPermission("PLANS", "CREATE"),
+    validateIdParam,
+    validateDuplicatePlanDraft,
+    duplicatePlanDraftHandler
+);
 router.get("/versions", checkPermission("PLANS", "READ"), validateGetPlanVersionsQuery, getPlanVersions);
 router.get("/versions/:id", checkPermission("PLANS", "READ"), validateIdParam, getPlanVersionById);
 router.put("/versions/:id", checkPermission("PLANS", "UPDATE"), validateIdParam, validateUpdatePlanVersion, updatePlanVersion);

@@ -6,7 +6,7 @@ import { TableLayout } from "@/features/template/component/tableList/TableLayout
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Eye, Edit, Trash, CheckCircle, Rocket } from "lucide-react";
+import { Plus, Eye, Edit, Trash, CheckCircle, Rocket, Copy } from "lucide-react";
 
 import type { FilterField, ActionButton } from "@/types/tableLayout";
 import {
@@ -34,6 +34,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { actionFeedback } from "@/components/action-feedback";
 import { CreatePlanVersionModal } from "./modals/CreatePlanVersionModal";
 import { FinalizePlanDraftModal } from "./modals/FinalizePlanDraftModal";
+import { DuplicatePlanDraftModal } from "./modals/DuplicatePlanDraftModal";
 import {
   matchesMultiValueFilter,
   matchesSearchQuery,
@@ -53,9 +54,11 @@ export default function PlanVersionTable() {
     const [selectedVersion, setSelectedVersion] = useState<PlanVersion | null>(null);
     const [isModalOpen, setModalOpen] = useState(false);
     const [finalizeVersion, setFinalizeVersion] = useState<PlanVersion | null>(null);
+    const [duplicateVersion, setDuplicateVersion] = useState<PlanVersion | null>(null);
 
     const draftLabel = config.draft_entity_label_singular;
     const draftsLabel = config.draft_entity_label_plural;
+    const canCreatePlan = can("PLANS:CREATE");
 
     const handleEditVersion = async (version: PlanVersion) => {
         if (version.status === "draft") {
@@ -221,6 +224,16 @@ export default function PlanVersionTable() {
                             <CheckCircle className="h-4 w-4" />
                         </Button>
                     )}
+                    {canCreatePlan && (
+                        <Button
+                            onClick={() => setDuplicateVersion(row.original)}
+                            variant="ghost"
+                            size="icon"
+                            title={`Duplicate ${draftLabel.toLowerCase()}`}
+                        >
+                            <Copy className="h-4 w-4" />
+                        </Button>
+                    )}
                     <Button
                         onClick={() => handleDelete(row.original.plan_version_id)}
                         variant="ghost"
@@ -342,6 +355,14 @@ export default function PlanVersionTable() {
                     isOpen={!!finalizeVersion}
                     onClose={() => setFinalizeVersion(null)}
                     version={finalizeVersion}
+                />
+            )}
+            {duplicateVersion && (
+                <DuplicatePlanDraftModal
+                    isOpen={!!duplicateVersion}
+                    onClose={() => setDuplicateVersion(null)}
+                    version={duplicateVersion}
+                    draftLabel={draftLabel}
                 />
             )}
         </>

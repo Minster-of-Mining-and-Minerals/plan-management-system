@@ -64,6 +64,10 @@ const updatePlanVersionStatusSchema = Joi.object({
         }),
 });
 
+const duplicatePlanDraftSchema = Joi.object({
+    draft_name: Joi.string().trim().max(255).optional(),
+});
+
 const updateAnnualTargetSchema = Joi.object({
     annual_target: Joi.number().min(0).allow(null).required(),
 });
@@ -221,6 +225,7 @@ module.exports = {
     validateCreatePlanVersion: validate(createPlanVersionSchema),
     validateUpdatePlanVersion: validate(updatePlanVersionSchema),
     validateUpdatePlanVersionStatus: validate(updatePlanVersionStatusSchema),
+    validateDuplicatePlanDraft: validate(duplicatePlanDraftSchema),
     validateUpdateAnnualTarget: validate(updateAnnualTargetSchema),
     validateUpdatePeriodTarget: validate(updatePeriodTargetSchema),
     validateGetPlanVersionsQuery: validate(getPlanVersionsQuerySchema, "query"),

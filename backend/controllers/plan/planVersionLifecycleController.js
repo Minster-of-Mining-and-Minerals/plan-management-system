@@ -24,6 +24,7 @@ const {
     setPeriodTarget,
     completeExecutionPeriod,
     reopenFinalizedPlanForEdit,
+    duplicateMasterPlanDraft,
 } = require("../../services/planVersionLifecycleService");
 const { PlanVersion } = require("../../models");
 
@@ -496,6 +497,32 @@ async function reopenFinalizedPlanForEditHandler(req, res) {
     }
 }
 
+async function duplicatePlanDraftHandler(req, res) {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            return res.status(400).json({ success: false, message: "Invalid ID" });
+        }
+
+        const result = await duplicateMasterPlanDraft(id, {
+            draft_name: req.body?.draft_name,
+        });
+
+        if (!result.success) {
+            return res.status(400).json({ success: false, message: result.message });
+        }
+
+        return res.status(201).json({
+            success: true,
+            message:
+                "Plan draft duplicated. The copy is independent and workflow milestones have been reset.",
+            data: result.data,
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
+
 module.exports = {
     getDraftFinalizationReadiness,
     finalizePlanDraft,
@@ -519,4 +546,5 @@ module.exports = {
     updatePeriodTarget,
     completeExecutionPeriodVersion,
     reopenFinalizedPlanForEditHandler,
+    duplicatePlanDraftHandler,
 };

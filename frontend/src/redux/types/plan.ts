@@ -54,6 +54,10 @@ export interface CreatePlanVersionPayload {
     plan_rule_id?: string | null;
 }
 
+export interface DuplicatePlanDraftPayload {
+    draft_name?: string;
+}
+
 export interface UpdatePlanVersionPayload {
     draft_name?: string;
     planning_start_date?: string;

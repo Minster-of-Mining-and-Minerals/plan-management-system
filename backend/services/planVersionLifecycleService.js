@@ -28,8 +28,18 @@ function enumeratePlanningYears(master) {
     return years;
 }
 
-async function copyNodesAndAssignments(sourceVersionId, targetVersionId, transaction, options = {}) {
-    const { resetAnnualTarget = true } = options;
+async function copyNodesWithAssignments(
+    sourceVersionId,
+    targetVersionId,
+    transaction,
+    options = {}
+) {
+    const {
+        resolveSourcePlanNodeId = (sourceNode) => sourceNode.plan_node_id,
+        preserveTargets = false,
+        preservePeriodTarget = false,
+    } = options;
+
     const sourceNodes = await PlanNode.findAll({
         where: { plan_version_id: sourceVersionId },
         order: [["level", "ASC"], ["order", "ASC"]],
@@ -47,7 +57,7 @@ async function copyNodesAndAssignments(sourceVersionId, targetVersionId, transac
                 plan_node_id: newNodeId,
                 plan_version_id: targetVersionId,
                 parent_id: null,
-                source_plan_node_id: sourceNode.plan_node_id,
+                source_plan_node_id: resolveSourcePlanNodeId(sourceNode),
                 type: sourceNode.type,
                 title: sourceNode.title,
                 description: sourceNode.description,
@@ -59,8 +69,8 @@ async function copyNodesAndAssignments(sourceVersionId, targetVersionId, transac
                 order: sourceNode.order,
                 is_active: sourceNode.is_active,
                 assignment_sharing_mode: sourceNode.assignment_sharing_mode,
-                annual_target: resetAnnualTarget ? null : sourceNode.annual_target,
-                period_target: null,
+                annual_target: preserveTargets ? sourceNode.annual_target : null,
+                period_target: preservePeriodTarget ? sourceNode.period_target : null,
             },
             { transaction }
         );
@@ -129,6 +139,210 @@ async function copyNodesAndAssignments(sourceVersionId, targetVersionId, transac
     }
 
     return nodeIdMap;
+}
+
+async function copyNodesAndAssignments(sourceVersionId, targetVersionId, transaction, options = {}) {
+    const { resetAnnualTarget = true } = options;
+    return copyNodesWithAssignments(sourceVersionId, targetVersionId, transaction, {
+        resolveSourcePlanNodeId: (sourceNode) => sourceNode.plan_node_id,
+        preserveTargets: !resetAnnualTarget,
+        preservePeriodTarget: false,
+    });
+}
+
+function freshDraftWorkflowFields() {
+    return {
+        status: "draft",
+        is_locked: false,
+        finalized_at: null,
+        annual_targets_finalized_at: null,
+        period_targets_finalized_at: null,
+        process_started_at: null,
+    };
+}
+
+/**
+ * Deep-clone a master plan draft into a new independent version tree.
+ * Copies hierarchy, assignments, and target values; resets workflow milestones.
+ * The copy is not linked to the source (based_on_version_id is null).
+ */
+async function duplicateMasterPlanDraft(sourceMasterVersionId, options = {}) {
+    const t = await sequelize.transaction();
+    try {
+        const sourceMaster = await PlanVersion.findByPk(sourceMasterVersionId, { transaction: t });
+        if (!sourceMaster || sourceMaster.version_kind !== "master") {
+            await t.rollback();
+            return { success: false, message: "Master plan draft not found" };
+        }
+
+        const draftName =
+            options.draft_name?.trim() || `Copy of ${sourceMaster.draft_name}`;
+
+        const latestVersion = await PlanVersion.findOne({
+            where: {
+                start_year: sourceMaster.start_year,
+                government_structure_id: sourceMaster.government_structure_id,
+                version_kind: "master",
+            },
+            order: [["version_number", "DESC"]],
+            transaction: t,
+        });
+        const version_number = latestVersion ? latestVersion.version_number + 1 : 1;
+
+        const newMaster = await PlanVersion.create(
+            {
+                plan_version_id: uuidv4(),
+                draft_name: draftName,
+                planning_start_date: sourceMaster.planning_start_date,
+                planning_end_date: sourceMaster.planning_end_date,
+                start_year: sourceMaster.start_year,
+                start_month: sourceMaster.start_month,
+                end_year: sourceMaster.end_year,
+                end_month: sourceMaster.end_month,
+                planning_duration_years: sourceMaster.planning_duration_years,
+                year: sourceMaster.year,
+                version_number,
+                version_kind: "master",
+                government_structure_id: sourceMaster.government_structure_id,
+                based_on_version_id: null,
+                plan_rule_id: sourceMaster.plan_rule_id,
+                period_subdivision_mode: sourceMaster.period_subdivision_mode,
+                ...freshDraftWorkflowFields(),
+            },
+            { transaction: t }
+        );
+
+        const masterNodeIdMap = await copyNodesWithAssignments(
+            sourceMaster.plan_version_id,
+            newMaster.plan_version_id,
+            t,
+            {
+                resolveSourcePlanNodeId: () => null,
+                preserveTargets: true,
+                preservePeriodTarget: true,
+            }
+        );
+
+        const sourceAnnualVersions = await PlanVersion.findAll({
+            where: {
+                parent_plan_version_id: sourceMasterVersionId,
+                version_kind: "annual",
+            },
+            order: [["sequence_index", "ASC"]],
+            transaction: t,
+        });
+
+        for (const sourceAnnual of sourceAnnualVersions) {
+            const planningYear = sourceAnnual.planning_year ?? sourceAnnual.year;
+            const sequenceIndex = sourceAnnual.sequence_index ?? sourceAnnual.version_number;
+
+            const newAnnual = await PlanVersion.create(
+                {
+                    plan_version_id: uuidv4(),
+                    version_kind: "annual",
+                    parent_plan_version_id: newMaster.plan_version_id,
+                    planning_year: planningYear,
+                    sequence_index: sequenceIndex,
+                    draft_name: `${draftName} — Year ${sequenceIndex} (${planningYear})`,
+                    planning_start_date: sourceAnnual.planning_start_date,
+                    planning_end_date: sourceAnnual.planning_end_date,
+                    start_year: sourceAnnual.start_year,
+                    end_year: sourceAnnual.end_year,
+                    start_month: sourceAnnual.start_month,
+                    end_month: sourceAnnual.end_month,
+                    planning_duration_years: sourceAnnual.planning_duration_years,
+                    year: planningYear,
+                    version_number: sourceAnnual.version_number,
+                    government_structure_id: sourceAnnual.government_structure_id,
+                    based_on_version_id: null,
+                    plan_rule_id: sourceAnnual.plan_rule_id,
+                    period_subdivision_mode: sourceAnnual.period_subdivision_mode,
+                    ...freshDraftWorkflowFields(),
+                },
+                { transaction: t }
+            );
+
+            const annualNodeIdMap = await copyNodesWithAssignments(
+                sourceAnnual.plan_version_id,
+                newAnnual.plan_version_id,
+                t,
+                {
+                    resolveSourcePlanNodeId: (sourceNode) =>
+                        sourceNode.source_plan_node_id
+                            ? masterNodeIdMap.get(sourceNode.source_plan_node_id) ?? null
+                            : null,
+                    preserveTargets: true,
+                    preservePeriodTarget: true,
+                }
+            );
+
+            const sourcePeriodVersions = await PlanVersion.findAll({
+                where: {
+                    parent_plan_version_id: sourceAnnual.plan_version_id,
+                    version_kind: "execution_period",
+                },
+                order: [["sequence_index", "ASC"]],
+                transaction: t,
+            });
+
+            for (const sourcePeriod of sourcePeriodVersions) {
+                const periodYear = sourcePeriod.planning_year ?? planningYear;
+                const periodSequence = sourcePeriod.sequence_index ?? 1;
+
+                const newPeriod = await PlanVersion.create(
+                    {
+                        plan_version_id: uuidv4(),
+                        version_kind: "execution_period",
+                        parent_plan_version_id: newAnnual.plan_version_id,
+                        period_label: sourcePeriod.period_label,
+                        planning_year: periodYear,
+                        sequence_index: periodSequence,
+                        draft_name: `${newAnnual.draft_name} — ${sourcePeriod.period_label}`,
+                        planning_start_date: sourcePeriod.planning_start_date,
+                        planning_end_date: sourcePeriod.planning_end_date,
+                        start_year: sourcePeriod.start_year,
+                        end_year: sourcePeriod.end_year,
+                        start_month: sourcePeriod.start_month,
+                        end_month: sourcePeriod.end_month,
+                        planning_duration_years: sourcePeriod.planning_duration_years,
+                        year: periodYear,
+                        version_number: sourcePeriod.version_number,
+                        government_structure_id: sourcePeriod.government_structure_id,
+                        based_on_version_id: null,
+                        plan_rule_id: sourcePeriod.plan_rule_id,
+                        ...freshDraftWorkflowFields(),
+                    },
+                    { transaction: t }
+                );
+
+                await copyNodesWithAssignments(
+                    sourcePeriod.plan_version_id,
+                    newPeriod.plan_version_id,
+                    t,
+                    {
+                        resolveSourcePlanNodeId: (sourceNode) =>
+                            sourceNode.source_plan_node_id
+                                ? annualNodeIdMap.get(sourceNode.source_plan_node_id) ?? null
+                                : null,
+                        preserveTargets: true,
+                        preservePeriodTarget: true,
+                    }
+                );
+            }
+        }
+
+        await t.commit();
+
+        return {
+            success: true,
+            data: await PlanVersion.findByPk(newMaster.plan_version_id, {
+                include: [{ association: "annualVersions" }],
+            }),
+        };
+    } catch (error) {
+        await t.rollback();
+        throw error;
+    }
 }
 
 async function validateDraftForFinalization(masterVersionId, transaction) {
@@ -1727,7 +1941,9 @@ async function reopenFinalizedPlanForEdit(masterVersionId) {
 
 module.exports = {
     enumeratePlanningYears,
+    copyNodesWithAssignments,
     copyNodesAndAssignments,
+    duplicateMasterPlanDraft,
     validateDraftForFinalization,
     getFinalizationReadiness,
     finalizeDraft,
