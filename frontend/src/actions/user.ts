@@ -18,6 +18,14 @@ export const login = async (email: string, password: string) => {
     return { success: true };
   } catch (error) {
     if (error instanceof AuthError) {
+      const code = (error as AuthError & { code?: string }).code;
+      if (code === "inactive_user") {
+        return {
+          error:
+            "Your account has been deactivated. Contact an administrator to regain access.",
+        };
+      }
+
       switch (error.type) {
         case "CredentialsSignin":
           return { error: "Invalid email or password." };

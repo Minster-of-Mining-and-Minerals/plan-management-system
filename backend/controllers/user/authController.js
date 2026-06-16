@@ -17,8 +17,12 @@ const login = async (req, res) => {
 
     if (!user)
       return res.status(401).json({ message: "Invalid email or password" });
-    if (!user.is_active)
-      return res.status(403).json({ message: "User is inactive" });
+    if (!user.is_active) {
+      return res.status(403).json({
+        success: false,
+        message: "User is inactive",
+      });
+    }
 
     // Compare password
     const isMatch = await bcrypt.compare(password, user.password);

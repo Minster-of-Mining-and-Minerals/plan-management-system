@@ -3,6 +3,7 @@ import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 const TOKEN_AUTH_FAILURE_MESSAGES = new Set([
   "access token required",
   "invalid or expired token",
+  "user not found or inactive",
 ]);
 
 function getResponseMessage(data: unknown): string {

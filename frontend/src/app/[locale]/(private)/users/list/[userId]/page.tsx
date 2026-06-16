@@ -7,7 +7,8 @@ import * as z from "zod";
 import { 
   useGetUserByIdQuery, 
   useDeleteUserMutation,
-  useUpdateUserMutation 
+  useUpdateUserMutation,
+  useToggleUserStatusMutation,
 } from "@/redux/api/userApi";
 import { useGetRolesQuery } from "@/redux/api/roleApi";
 import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
@@ -23,11 +24,11 @@ import {
   GitBranch, 
   Trash2, 
   Edit, 
-  ArrowLeft,
   CheckCircle2,
   XCircle,
   Save,
-  X
+  X,
+  UserCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +45,7 @@ import {
 import { actionFeedback } from "@/components/action-feedback";
 import DetailHeader from "@/components/common/DetailHeader";
 import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 const userFormSchema = z.object({
   full_name: z.string().min(2, "Full name must be at least 2 characters"),
@@ -61,10 +63,13 @@ const UserViewPage = () => {
   const params = useParams();
   const router = useRouter();
   const userId = params.userId as string;
+  const { data: session } = useSession();
+  const isCurrentUser = session?.user?.id === userId;
 
   const { data: user, isLoading, isError } = useGetUserByIdQuery(userId);
   const [updateUser, { isLoading: isUpdating }] = useUpdateUserMutation();
-  const [deleteUser, { isLoading: isDeleting }] = useDeleteUserMutation();
+  const [deleteUser, { isLoading: isDeactivating }] = useDeleteUserMutation();
+  const [toggleUserStatus, { isLoading: isTogglingStatus }] = useToggleUserStatusMutation();
 
   const [isEditing, setIsEditing] = useState(false);
 
@@ -145,15 +150,41 @@ const UserViewPage = () => {
     );
   }
 
-  const handleDelete = async () => {
-    if (await actionFeedback.confirm("Are you sure you want to delete this user?", { destructive: true })) {
-      try {
-        await deleteUser(userId).unwrap();
-        actionFeedback.success("User deleted successfully");
-        router.push("/users/list");
-      } catch (error: any) {
-        actionFeedback.error(error?.data?.message || "Failed to delete user");
-      }
+  const handleDeactivate = async () => {
+    if (
+      !(await actionFeedback.confirm(
+        "Deactivate this user? They will be signed out and unable to log in until reactivated.",
+        { destructive: true }
+      ))
+    ) {
+      return;
+    }
+
+    try {
+      await deleteUser(userId).unwrap();
+      actionFeedback.success("User deactivated successfully");
+    } catch (error: any) {
+      actionFeedback.error(error?.data?.message || "Failed to deactivate user");
+    }
+  };
+
+  const handleReactivate = async () => {
+    if (
+      !(await actionFeedback.confirm(
+        "Reactivate this user? They will be able to log in again with their assigned roles and permissions."
+      ))
+    ) {
+      return;
+    }
+
+    try {
+      await toggleUserStatus({
+        id: userId,
+        data: { is_active: true },
+      }).unwrap();
+      actionFeedback.success("User reactivated successfully");
+    } catch (error: any) {
+      actionFeedback.error(error?.data?.message || "Failed to reactivate user");
     }
   };
 
@@ -182,13 +213,40 @@ const UserViewPage = () => {
               <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
                 <Edit className="mr-2 h-4 w-4" /> Edit User
               </Button>
-              <Button variant="destructive" size="sm" onClick={handleDelete} disabled={isDeleting}>
-                <Trash2 className="mr-2 h-4 w-4" /> {isDeleting ? "Deleting..." : "Delete User"}
-              </Button>
+              {user.is_active ? (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleDeactivate}
+                  disabled={isDeactivating || isCurrentUser}
+                  title={isCurrentUser ? "You cannot deactivate your own account" : undefined}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />{" "}
+                  {isDeactivating ? "Deactivating..." : "Deactivate User"}
+                </Button>
+              ) : (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleReactivate}
+                  disabled={isTogglingStatus}
+                  className="bg-green-700 hover:bg-green-800"
+                >
+                  <UserCheck className="mr-2 h-4 w-4" />{" "}
+                  {isTogglingStatus ? "Reactivating..." : "Reactivate User"}
+                </Button>
+              )}
             </>
           )}
         </div>
       </div>
+
+      {!user.is_active && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          This user is deactivated and cannot log in. Use <strong>Reactivate User</strong> to restore
+          access with their existing roles and permissions.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Profile Card */}

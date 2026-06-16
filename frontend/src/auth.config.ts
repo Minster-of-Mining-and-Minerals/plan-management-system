@@ -1,5 +1,9 @@
 import CredentialsProvider from "next-auth/providers/credentials";
-import type { NextAuthConfig } from "next-auth";
+import { CredentialsSignin, type NextAuthConfig } from "next-auth";
+
+class InactiveUserError extends CredentialsSignin {
+  code = "inactive_user";
+}
 
 export default {
   providers: [
@@ -28,8 +32,12 @@ export default {
 
           const data = await res.json();
 
-          if (!data?.success) {
-            throw new Error("Invalid credentials");
+          if (res.status === 403 && data?.message === "User is inactive") {
+            throw new InactiveUserError();
+          }
+
+          if (!res.ok || !data?.success) {
+            return null;
           }
 
           const user = data.data.user;
@@ -45,6 +53,9 @@ export default {
             internal_structure: user.internal_structure,
           };
         } catch (err) {
+          if (err instanceof InactiveUserError) {
+            throw err;
+          }
           console.error("Authorize error:", err);
           return null;
         }
