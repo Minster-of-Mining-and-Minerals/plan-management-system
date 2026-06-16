@@ -20,6 +20,11 @@ import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructure
 import { useSession } from "next-auth/react";
 import { GitForkIcon } from "lucide-react";
 import { isStructureActive } from "@/utils/structureUtils";
+import {
+  departmentHierarchyPathFunc,
+  DEPARTMENT_HIERARCHY_TREE_LAYOUT,
+  DEPARTMENT_HIERARCHY_LINK_STYLES,
+} from "@/utils/departmentHierarchyTreeLayout";
  
 /**
  * Converts a StructureNode to D3Tree format
@@ -301,7 +306,7 @@ const InternalHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
             </div>
           </div>
 
-          <style>{`.rd3t-link { stroke: #CBD5E1 !important; stroke-width: 2.5px !important; fill: none !important; transition: all 0.3s ease; }`}</style>
+          <style>{DEPARTMENT_HIERARCHY_LINK_STYLES}</style>
 
           {selectedTree && selectedTree.length > 0 ? (
             <div id="tree-container" className="w-full h-full" style={{ width: "100%", height: dimensions.height || "600px" }}>
@@ -309,10 +314,10 @@ const InternalHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
                 data={selectedTree as unknown as RawNodeDatum[]}
                 translate={translate}
                 orientation="vertical"
-                pathFunc="straight"
-                separation={{ siblings: 2.5, nonSiblings: 2 }}
-                nodeSize={{ x: 220, y: 250 }}
-                zoom={0.75}
+                pathFunc={departmentHierarchyPathFunc}
+                separation={DEPARTMENT_HIERARCHY_TREE_LAYOUT.separation}
+                nodeSize={DEPARTMENT_HIERARCHY_TREE_LAYOUT.nodeSize}
+                zoom={DEPARTMENT_HIERARCHY_TREE_LAYOUT.zoom}
                 scaleExtent={{ min: 0.1, max: 2 }}
                 enableLegacyTransitions={true}
                 transitionDuration={300}
