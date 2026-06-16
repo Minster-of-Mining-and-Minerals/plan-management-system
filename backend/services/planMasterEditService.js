@@ -1,6 +1,7 @@
 "use strict";
 
 const { v4: uuidv4 } = require("uuid");
+const { Op } = require("sequelize");
 const {
     PlanVersion,
     PlanNode,
@@ -23,6 +24,17 @@ function pickNodeFields(node) {
     };
 }
 
+async function getAnnualVersionsForMaster(masterVersionId, transaction) {
+    return PlanVersion.findAll({
+        where: {
+            parent_plan_version_id: masterVersionId,
+            version_kind: "annual",
+        },
+        order: [["sequence_index", "ASC"]],
+        transaction,
+    });
+}
+
 async function findAnnualNodeForMaster(annualVersionId, masterNodeId, transaction) {
     return PlanNode.findOne({
         where: {
@@ -33,67 +45,101 @@ async function findAnnualNodeForMaster(annualVersionId, masterNodeId, transactio
     });
 }
 
-async function propagateMasterPlanNodeCreate(masterNode, transaction) {
-    const annualVersions = await PlanVersion.findAll({
+async function resolveAnnualParentId(annualVersionId, masterParentId, transaction) {
+    if (!masterParentId) {
+        return null;
+    }
+    const parentAnnualNode = await findAnnualNodeForMaster(
+        annualVersionId,
+        masterParentId,
+        transaction
+    );
+    return parentAnnualNode?.plan_node_id ?? null;
+}
+
+async function upsertAnnualCopyForMaster(masterNode, annualVersion, transaction) {
+    const derivedParentId = await resolveAnnualParentId(
+        annualVersion.plan_version_id,
+        masterNode.parent_id,
+        transaction
+    );
+    const existing = await findAnnualNodeForMaster(
+        annualVersion.plan_version_id,
+        masterNode.plan_node_id,
+        transaction
+    );
+    const fields = {
+        ...pickNodeFields(masterNode),
+        parent_id: derivedParentId,
+    };
+
+    if (existing) {
+        await existing.update(fields, { transaction });
+        return existing;
+    }
+
+    return PlanNode.create(
+        {
+            plan_node_id: uuidv4(),
+            plan_version_id: annualVersion.plan_version_id,
+            source_plan_node_id: masterNode.plan_node_id,
+            ...fields,
+            annual_target: null,
+            period_target: null,
+        },
+        { transaction }
+    );
+}
+
+async function upsertPeriodCopiesForAnnualNode(
+    annualNode,
+    masterNode,
+    annualVersionId,
+    transaction
+) {
+    const periodVersions = await PlanVersion.findAll({
         where: {
-            parent_plan_version_id: masterNode.plan_version_id,
-            version_kind: "annual",
+            parent_plan_version_id: annualVersionId,
+            version_kind: "execution_period",
         },
         transaction,
     });
 
-    for (const annualVersion of annualVersions) {
-        let derivedParentId = null;
-        if (masterNode.parent_id) {
-            const parentAnnualNode = await findAnnualNodeForMaster(
-                annualVersion.plan_version_id,
-                masterNode.parent_id,
-                transaction
-            );
-            derivedParentId = parentAnnualNode?.plan_node_id ?? null;
+    for (const periodVersion of periodVersions) {
+        let periodParentId = null;
+        if (annualNode.parent_id) {
+            const parentPeriodNode = await PlanNode.findOne({
+                where: {
+                    plan_version_id: periodVersion.plan_version_id,
+                    source_plan_node_id: annualNode.parent_id,
+                },
+                transaction,
+            });
+            periodParentId = parentPeriodNode?.plan_node_id ?? null;
         }
 
-        const annualNode = await PlanNode.create(
-            {
-                plan_node_id: uuidv4(),
-                plan_version_id: annualVersion.plan_version_id,
-                parent_id: derivedParentId,
-                source_plan_node_id: masterNode.plan_node_id,
-                ...pickNodeFields(masterNode),
-                annual_target: null,
-                period_target: null,
-            },
-            { transaction }
-        );
-
-        const periodVersions = await PlanVersion.findAll({
+        const existing = await PlanNode.findOne({
             where: {
-                parent_plan_version_id: annualVersion.plan_version_id,
-                version_kind: "execution_period",
+                plan_version_id: periodVersion.plan_version_id,
+                source_plan_node_id: annualNode.plan_node_id,
             },
             transaction,
         });
 
-        for (const periodVersion of periodVersions) {
-            let periodParentId = null;
-            if (derivedParentId) {
-                const parentPeriodNode = await PlanNode.findOne({
-                    where: {
-                        plan_version_id: periodVersion.plan_version_id,
-                        source_plan_node_id: derivedParentId,
-                    },
-                    transaction,
-                });
-                periodParentId = parentPeriodNode?.plan_node_id ?? null;
-            }
+        const fields = {
+            ...pickNodeFields(masterNode),
+            parent_id: periodParentId,
+        };
 
+        if (existing) {
+            await existing.update(fields, { transaction });
+        } else {
             await PlanNode.create(
                 {
                     plan_node_id: uuidv4(),
                     plan_version_id: periodVersion.plan_version_id,
-                    parent_id: periodParentId,
                     source_plan_node_id: annualNode.plan_node_id,
-                    ...pickNodeFields(masterNode),
+                    ...fields,
                     annual_target: null,
                     period_target: null,
                 },
@@ -103,26 +149,98 @@ async function propagateMasterPlanNodeCreate(masterNode, transaction) {
     }
 }
 
-async function propagateMasterPlanNodeUpdate(masterNode, transaction) {
-    const fields = pickNodeFields(masterNode);
+async function syncMasterNodeToDerivedCopies(masterNode, transaction) {
+    const annualVersions = await getAnnualVersionsForMaster(
+        masterNode.plan_version_id,
+        transaction
+    );
 
-    const annualNodes = await PlanNode.findAll({
-        where: { source_plan_node_id: masterNode.plan_node_id },
+    for (const annualVersion of annualVersions) {
+        const annualNode = await upsertAnnualCopyForMaster(
+            masterNode,
+            annualVersion,
+            transaction
+        );
+        await upsertPeriodCopiesForAnnualNode(
+            annualNode,
+            masterNode,
+            annualVersion.plan_version_id,
+            transaction
+        );
+    }
+}
+
+async function destroyDerivedNodesByIds(nodeIds, transaction) {
+    if (!nodeIds.length) {
+        return;
+    }
+
+    await ExternalAssignment.destroy({
+        where: { plan_node_id: nodeIds },
         transaction,
     });
+    await InternalAssignment.destroy({
+        where: { plan_node_id: nodeIds },
+        transaction,
+    });
+    await PlanNode.destroy({
+        where: { plan_node_id: nodeIds },
+        transaction,
+    });
+}
 
-    for (const annualNode of annualNodes) {
-        await annualNode.update(fields, { transaction });
+async function removeOrphanDerivedNodes(masterVersionId, transaction) {
+    const masterNodes = await PlanNode.findAll({
+        where: { plan_version_id: masterVersionId },
+        attributes: ["plan_node_id"],
+        transaction,
+    });
+    const masterNodeIds = masterNodes.map((node) => node.plan_node_id);
 
-        const periodNodes = await PlanNode.findAll({
-            where: { source_plan_node_id: annualNode.plan_node_id },
+    const annualVersions = await getAnnualVersionsForMaster(masterVersionId, transaction);
+
+    for (const annualVersion of annualVersions) {
+        const orphanWhere =
+            masterNodeIds.length > 0
+                ? {
+                      plan_version_id: annualVersion.plan_version_id,
+                      source_plan_node_id: { [Op.notIn]: masterNodeIds },
+                  }
+                : {
+                      plan_version_id: annualVersion.plan_version_id,
+                      source_plan_node_id: { [Op.ne]: null },
+                  };
+
+        const orphanAnnualNodes = await PlanNode.findAll({
+            where: orphanWhere,
+            attributes: ["plan_node_id"],
             transaction,
         });
 
-        for (const periodNode of periodNodes) {
-            await periodNode.update(fields, { transaction });
+        const orphanAnnualIds = orphanAnnualNodes.map((node) => node.plan_node_id);
+        if (orphanAnnualIds.length === 0) {
+            continue;
         }
+
+        const orphanPeriodNodes = await PlanNode.findAll({
+            where: { source_plan_node_id: orphanAnnualIds },
+            attributes: ["plan_node_id"],
+            transaction,
+        });
+
+        await destroyDerivedNodesByIds(
+            [...orphanAnnualIds, ...orphanPeriodNodes.map((node) => node.plan_node_id)],
+            transaction
+        );
     }
+}
+
+async function propagateMasterPlanNodeCreate(masterNode, transaction) {
+    await syncMasterNodeToDerivedCopies(masterNode, transaction);
+}
+
+async function propagateMasterPlanNodeUpdate(masterNode, transaction) {
+    await syncMasterNodeToDerivedCopies(masterNode, transaction);
 }
 
 async function propagateMasterPlanNodeDelete(masterNodeId, transaction) {
@@ -143,20 +261,10 @@ async function propagateMasterPlanNodeDelete(masterNodeId, transaction) {
         transaction,
     });
 
-    const allDerivedIds = [...annualNodeIds, ...periodNodes.map((node) => node.plan_node_id)];
-
-    await ExternalAssignment.destroy({
-        where: { plan_node_id: allDerivedIds },
-        transaction,
-    });
-    await InternalAssignment.destroy({
-        where: { plan_node_id: allDerivedIds },
-        transaction,
-    });
-    await PlanNode.destroy({
-        where: { plan_node_id: allDerivedIds },
-        transaction,
-    });
+    await destroyDerivedNodesByIds(
+        [...annualNodeIds, ...periodNodes.map((node) => node.plan_node_id)],
+        transaction
+    );
 }
 
 async function propagateExternalAssignmentCreate(masterNodeId, assignment, transaction) {
@@ -225,15 +333,31 @@ async function shouldPropagateMasterStructureChanges(planVersion, transaction) {
     return masterHasDerivedAnnualVersions(planVersion.plan_version_id, transaction);
 }
 
+/**
+ * Full reconcile: upsert every master node into annual/period copies (parents first),
+ * then remove derived nodes whose master source no longer exists.
+ */
 async function syncAllDerivedNodesFromMaster(masterVersionId, transaction) {
+    const hasAnnual = await masterHasDerivedAnnualVersions(masterVersionId, transaction);
+    if (!hasAnnual) {
+        return;
+    }
+
     const masterNodes = await PlanNode.findAll({
         where: { plan_version_id: masterVersionId },
+        order: [
+            ["level", "ASC"],
+            ["order", "ASC"],
+            ["created_at", "ASC"],
+        ],
         transaction,
     });
 
     for (const masterNode of masterNodes) {
-        await propagateMasterPlanNodeUpdate(masterNode, transaction);
+        await syncMasterNodeToDerivedCopies(masterNode, transaction);
     }
+
+    await removeOrphanDerivedNodes(masterVersionId, transaction);
 }
 
 module.exports = {

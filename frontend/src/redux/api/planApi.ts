@@ -157,6 +157,9 @@ export const planApi = baseApi.injectEndpoints({
             invalidatesTags: (_r, _e, id) => [
                 { type: "PlanVersions", id },
                 "PlanVersions",
+                "PlanNodes",
+                "AnnualTargetAllocations",
+                "PeriodTargetAllocations",
             ],
         }),
 
@@ -414,7 +417,12 @@ export const planApi = baseApi.injectEndpoints({
             }),
             transformResponse: (response: any): PlanNode =>
                 response.data,
-            invalidatesTags: ["PlanNodes", "PlanVersions"],
+            invalidatesTags: [
+                "PlanNodes",
+                "PlanVersions",
+                "AnnualTargetAllocations",
+                "PeriodTargetAllocations",
+            ],
         }),
 
         /** ---------------------------
@@ -434,6 +442,8 @@ export const planApi = baseApi.injectEndpoints({
             invalidatesTags: (_r, _e, { id }) => [
                 { type: "PlanNodes", id },
                 "PlanNodes",
+                "AnnualTargetAllocations",
+                "PeriodTargetAllocations",
             ],
         }),
 
@@ -449,7 +459,11 @@ export const planApi = baseApi.injectEndpoints({
                 method: "DELETE",
             }),
             transformResponse: (response: any) => response,
-            invalidatesTags: ["PlanNodes"],
+            invalidatesTags: [
+                "PlanNodes",
+                "AnnualTargetAllocations",
+                "PeriodTargetAllocations",
+            ],
         }),
 
         /** ---------------------------
@@ -478,7 +492,11 @@ export const planApi = baseApi.injectEndpoints({
                 body,
             }),
             transformResponse: (response: any) => response,
-            invalidatesTags: ["PlanNodes"],
+            invalidatesTags: [
+                "PlanNodes",
+                "AnnualTargetAllocations",
+                "PeriodTargetAllocations",
+            ],
         }),
     }),
 });

@@ -1709,6 +1709,8 @@ async function reopenFinalizedPlanForEdit(masterVersionId) {
             }
         }
 
+        await syncAllDerivedNodesFromMaster(masterVersionId, t);
+
         await t.commit();
 
         return {
