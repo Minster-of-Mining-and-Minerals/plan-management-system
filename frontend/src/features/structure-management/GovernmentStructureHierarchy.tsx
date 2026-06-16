@@ -8,8 +8,8 @@ import { buildSectorTree } from "@/utils/buildSectorTree";
 import type { PermissionKey } from "@/lib/permissions";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import { CreateGovernmentStructureModal } from "./modals/CreateGovernmentStructureModal";
+import { HierarchyTreeParentBadge } from "./components/HierarchyTreeParentBadge";
 import { useSession } from "next-auth/react";
-import { GitForkIcon } from "lucide-react";
 import { isStructureActive } from "@/utils/structureUtils";
 import { Label } from "@/components/ui/label";
 import {
@@ -75,7 +75,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
       )}
 
       <foreignObject x={-150} y={-90} width={300} height={150}>
-        <div className="w-full h-full bg-white rounded-2xl border border-gray-200 shadow-lg hover:border-[#073954] hover:shadow-xl transition-all duration-200 cursor-pointer p-5 flex flex-col justify-between">
+        <div className="flex h-full w-full min-h-0 flex-col justify-between overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-lg transition-all duration-200 hover:border-[#073954] hover:shadow-xl cursor-pointer">
           <div className="flex items-start justify-between mb-3">
             <h3 className="text-[#073954] text-base font-semibold flex-1 pr-2 line-clamp-2">
               {nodeDatum.name}
@@ -89,10 +89,10 @@ const CustomNode: React.FC<CustomNodeProps> = ({
           </div>
 
           {nodeDatum.attributes.parent_name && (
-            <div className="flex items-center gap-1.5 text-[11px] text-[#073954]/70 bg-blue-50 px-2 py-0.5 rounded-md w-fit mb-2">
-              <GitForkIcon className="w-3 h-3 rotate-180" />
-              <span>Parent: {nodeDatum.attributes.parent_name}</span>
-            </div>
+            <HierarchyTreeParentBadge
+              parentName={nodeDatum.attributes.parent_name}
+              variant="government"
+            />
           )}
 
           {nodeDatum.attributes.description && (
@@ -101,7 +101,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
             </p>
           )}
 
-          <div className="flex flex-row justify-center gap-3">
+          <div className="mt-auto flex shrink-0 flex-row justify-center gap-3">
             <button className="flex-1 bg-gray-100 hover:bg-gray-200 text-[#073954] font-semibold py-2 rounded-lg transition-colors duration-200 text-xs">
               Details
             </button>
