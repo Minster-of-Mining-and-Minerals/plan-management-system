@@ -27,10 +27,10 @@ const {
 const {
     propagateExternalAssignmentCreate,
     propagateInternalAssignmentCreate,
+    shouldPropagateMasterStructureChanges,
 } = require("../../services/planMasterEditService");
 const {
     validateCanEditMasterPlanStructure,
-    isMasterFinalized,
 } = require("../../utils/planMasterEditUtils");
 
 /**
@@ -159,7 +159,7 @@ const createExternalAssignment = async (req, res) => {
             { transaction: t }
         );
 
-        if (isMasterFinalized(planNode.planVersion)) {
+        if (await shouldPropagateMasterStructureChanges(planNode.planVersion, t)) {
             await propagateExternalAssignmentCreate(plan_node_id, assignment, t);
         }
 
@@ -483,7 +483,7 @@ const createInternalAssignment = async (req, res) => {
             });
         }
 
-        if (isMasterFinalized(planNode.planVersion)) {
+        if (await shouldPropagateMasterStructureChanges(planNode.planVersion, t)) {
             for (const assignment of created) {
                 await propagateInternalAssignmentCreate(plan_node_id, assignment, t);
             }

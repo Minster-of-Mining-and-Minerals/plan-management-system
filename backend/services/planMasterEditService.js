@@ -237,6 +237,7 @@ async function removeOrphanDerivedNodes(masterVersionId, transaction) {
 
 async function propagateMasterPlanNodeCreate(masterNode, transaction) {
     await syncMasterNodeToDerivedCopies(masterNode, transaction);
+    await syncMasterNodeAssignmentsToDerived(masterNode, transaction);
 }
 
 async function propagateMasterPlanNodeUpdate(masterNode, transaction) {
@@ -267,48 +268,219 @@ async function propagateMasterPlanNodeDelete(masterNodeId, transaction) {
     );
 }
 
-async function propagateExternalAssignmentCreate(masterNodeId, assignment, transaction) {
+async function getDerivedNodesForMaster(masterNodeId, transaction) {
     const annualNodes = await PlanNode.findAll({
         where: { source_plan_node_id: masterNodeId },
-        attributes: ["plan_node_id"],
+        attributes: ["plan_node_id", "plan_version_id"],
         transaction,
     });
 
-    for (const annualNode of annualNodes) {
-        await ExternalAssignment.create(
-            {
-                external_assignment_id: uuidv4(),
-                plan_node_id: annualNode.plan_node_id,
-                government_structure_id: assignment.government_structure_id,
-                is_visible: assignment.is_visible,
-                requires_report: assignment.requires_report,
-                is_active: assignment.is_active,
-            },
-            { transaction }
-        );
+    if (annualNodes.length === 0) {
+        return [];
+    }
+
+    const annualIds = annualNodes.map((node) => node.plan_node_id);
+    const periodNodes = await PlanNode.findAll({
+        where: { source_plan_node_id: { [Op.in]: annualIds } },
+        attributes: ["plan_node_id", "plan_version_id"],
+        transaction,
+    });
+
+    return [...annualNodes, ...periodNodes];
+}
+
+async function resolveDerivedBranchExternalId(
+    masterBranchExternalId,
+    derivedPlanVersionId,
+    transaction
+) {
+    if (!masterBranchExternalId) {
+        return null;
+    }
+
+    const masterBranch = await ExternalAssignment.findByPk(masterBranchExternalId, {
+        transaction,
+    });
+    if (!masterBranch) {
+        return null;
+    }
+
+    const derivedBranchNode = await PlanNode.findOne({
+        where: {
+            plan_version_id: derivedPlanVersionId,
+            source_plan_node_id: masterBranch.plan_node_id,
+        },
+        transaction,
+    });
+    if (!derivedBranchNode) {
+        return null;
+    }
+
+    const derivedBranch = await ExternalAssignment.findOne({
+        where: {
+            plan_node_id: derivedBranchNode.plan_node_id,
+            government_structure_id: masterBranch.government_structure_id,
+            is_active: true,
+        },
+        transaction,
+    });
+
+    return derivedBranch?.external_assignment_id ?? null;
+}
+
+async function resolveDerivedBranchInternalId(
+    masterBranchInternalId,
+    derivedPlanVersionId,
+    transaction
+) {
+    if (!masterBranchInternalId) {
+        return null;
+    }
+
+    const masterBranch = await InternalAssignment.findByPk(masterBranchInternalId, {
+        transaction,
+    });
+    if (!masterBranch) {
+        return null;
+    }
+
+    const derivedBranchNode = await PlanNode.findOne({
+        where: {
+            plan_version_id: derivedPlanVersionId,
+            source_plan_node_id: masterBranch.plan_node_id,
+        },
+        transaction,
+    });
+    if (!derivedBranchNode) {
+        return null;
+    }
+
+    const branchWhere = masterBranch.user_id
+        ? { user_id: masterBranch.user_id }
+        : { internal_structure_id: masterBranch.internal_structure_id };
+
+    const derivedBranch = await InternalAssignment.findOne({
+        where: {
+            plan_node_id: derivedBranchNode.plan_node_id,
+            is_active: true,
+            ...branchWhere,
+        },
+        transaction,
+    });
+
+    return derivedBranch?.internal_assignment_id ?? null;
+}
+
+async function copyExternalAssignmentToDerivedNode(assignment, derivedNode, transaction) {
+    const existing = await ExternalAssignment.findOne({
+        where: {
+            plan_node_id: derivedNode.plan_node_id,
+            government_structure_id: assignment.government_structure_id,
+            is_active: true,
+        },
+        transaction,
+    });
+    if (existing) {
+        return existing;
+    }
+
+    return ExternalAssignment.create(
+        {
+            external_assignment_id: uuidv4(),
+            plan_node_id: derivedNode.plan_node_id,
+            government_structure_id: assignment.government_structure_id,
+            is_visible: assignment.is_visible,
+            requires_report: assignment.requires_report,
+            is_active: assignment.is_active,
+        },
+        { transaction }
+    );
+}
+
+async function copyInternalAssignmentToDerivedNode(assignment, derivedNode, transaction) {
+    const targetWhere = assignment.user_id
+        ? { user_id: assignment.user_id }
+        : { internal_structure_id: assignment.internal_structure_id };
+
+    const existing = await InternalAssignment.findOne({
+        where: {
+            plan_node_id: derivedNode.plan_node_id,
+            is_active: true,
+            ...targetWhere,
+        },
+        transaction,
+    });
+    if (existing) {
+        return existing;
+    }
+
+    const branchExternalAssignmentId = await resolveDerivedBranchExternalId(
+        assignment.branch_external_assignment_id,
+        derivedNode.plan_version_id,
+        transaction
+    );
+    const branchInternalAssignmentId = await resolveDerivedBranchInternalId(
+        assignment.branch_internal_assignment_id,
+        derivedNode.plan_version_id,
+        transaction
+    );
+
+    return InternalAssignment.create(
+        {
+            internal_assignment_id: uuidv4(),
+            plan_node_id: derivedNode.plan_node_id,
+            internal_structure_id: assignment.internal_structure_id,
+            user_id: assignment.user_id,
+            action_id: assignment.action_id,
+            is_active: assignment.is_active,
+            branch_external_assignment_id: branchExternalAssignmentId,
+            branch_internal_assignment_id: branchInternalAssignmentId,
+        },
+        { transaction }
+    );
+}
+
+async function syncMasterNodeAssignmentsToDerived(masterNode, transaction) {
+    const derivedNodes = await getDerivedNodesForMaster(masterNode.plan_node_id, transaction);
+    if (derivedNodes.length === 0) {
+        return;
+    }
+
+    const [externalAssignments, internalAssignments] = await Promise.all([
+        ExternalAssignment.findAll({
+            where: { plan_node_id: masterNode.plan_node_id, is_active: true },
+            transaction,
+        }),
+        InternalAssignment.findAll({
+            where: { plan_node_id: masterNode.plan_node_id, is_active: true },
+            order: [["created_at", "ASC"]],
+            transaction,
+        }),
+    ]);
+
+    for (const derivedNode of derivedNodes) {
+        for (const assignment of externalAssignments) {
+            await copyExternalAssignmentToDerivedNode(assignment, derivedNode, transaction);
+        }
+        for (const assignment of internalAssignments) {
+            await copyInternalAssignmentToDerivedNode(assignment, derivedNode, transaction);
+        }
+    }
+}
+
+async function propagateExternalAssignmentCreate(masterNodeId, assignment, transaction) {
+    const derivedNodes = await getDerivedNodesForMaster(masterNodeId, transaction);
+
+    for (const derivedNode of derivedNodes) {
+        await copyExternalAssignmentToDerivedNode(assignment, derivedNode, transaction);
     }
 }
 
 async function propagateInternalAssignmentCreate(masterNodeId, assignment, transaction) {
-    const annualNodes = await PlanNode.findAll({
-        where: { source_plan_node_id: masterNodeId },
-        attributes: ["plan_node_id"],
-        transaction,
-    });
+    const derivedNodes = await getDerivedNodesForMaster(masterNodeId, transaction);
 
-    for (const annualNode of annualNodes) {
-        await InternalAssignment.create(
-            {
-                internal_assignment_id: uuidv4(),
-                plan_node_id: annualNode.plan_node_id,
-                internal_structure_id: assignment.internal_structure_id,
-                user_id: assignment.user_id,
-                is_visible: assignment.is_visible,
-                requires_report: assignment.requires_report,
-                is_active: assignment.is_active,
-            },
-            { transaction }
-        );
+    for (const derivedNode of derivedNodes) {
+        await copyInternalAssignmentToDerivedNode(assignment, derivedNode, transaction);
     }
 }
 
@@ -355,6 +527,7 @@ async function syncAllDerivedNodesFromMaster(masterVersionId, transaction) {
 
     for (const masterNode of masterNodes) {
         await syncMasterNodeToDerivedCopies(masterNode, transaction);
+        await syncMasterNodeAssignmentsToDerived(masterNode, transaction);
     }
 
     await removeOrphanDerivedNodes(masterVersionId, transaction);
