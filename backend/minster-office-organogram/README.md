@@ -11,18 +11,80 @@ Source document: `MoM organogram.docx` (Ministry of Mines Alternative Institutio
 | Sector ID | `10000000-0000-4000-8000-000000000004` |
 | Seeder | `backend/seeders/20260616000001-seed-alternative-minister-of-mines-structure.js` |
 
-**Excluded** (not in this structure): Ethiopian Geological Institute, Mining Industry Development Institute.
+**Excluded** from the ministry sector (seeded as child institute sectors instead): Ethiopian Geological Institute, Mining Industry Development Institute.
 
 ## Apply / refresh
 
 ```bash
 cd backend
 npm run seed:alt-mom
+npm run seed:alt-mom-institutes
 ```
 
-Re-running replaces departments for this sector with the latest tree (idempotent sync).
+Re-running replaces departments for each sector with the latest tree (idempotent sync).
 
-## Department hierarchy
+## Alternative Minister of Mines — ministry sector
+
+| Item | Value |
+|------|--------|
+| Sector name | **Alternative Minister of Mines** |
+| Root department | **Minister** |
+| Sector ID | `10000000-0000-4000-8000-000000000004` |
+| Seeder | `20260616000001-seed-alternative-minister-of-mines-structure.js` |
+
+## Institute sectors (under Alternative Minister of Mines)
+
+| Institute | Sector ID | Root department | Seeder |
+|-----------|-----------|-----------------|--------|
+| Ethiopian Geological Institute | `10000000-0000-4000-8000-000000000005` | Director General | `20260616000002-seed-alternative-mom-institutes-structure.js` |
+| Mining Industry Development Institute | `10000000-0000-4000-8000-000000000006` | Director General | `20260616000002-seed-alternative-mom-institutes-structure.js` |
+
+```
+Alternative Minister of Mines
+├── [ministry departments under Minister — see below]
+├── Ethiopian Geological Institute
+│   └── Director General
+│       ├── Chief Executive Office
+│       ├── Geological Survey Department
+│       │   ├── Field Survey Section
+│       │   └── Regional Survey Unit
+│       ├── Mapping Department
+│       │   ├── Cartography Desk
+│       │   └── GIS and Remote Sensing Unit
+│       ├── Data Management Department
+│       │   ├── Geoscience Data Catalog Desk
+│       │   └── Records and Archive Section
+│       ├── Laboratory Department
+│       │   ├── Analytical Testing Desk
+│       │   └── Sample Processing Unit
+│       ├── Exploration Support Department
+│       │   ├── Technical Advisory Desk
+│       │   └── Exploration Data Support Unit
+│       ├── Strategic Planning Directorate
+│       └── Human Resources Directorate
+└── Mining Industry Development Institute
+    └── Director General
+        ├── Director General Office
+        ├── Investment Promotion Department
+        │   ├── Domestic Investment Desk
+        │   └── Foreign Investment Desk
+        ├── Licensing Department
+        │   ├── License Processing Desk
+        │   └── License Compliance Unit
+        ├── Mineral Development Department
+        │   ├── Feasibility Studies Desk
+        │   └── Project Appraisal Unit
+        ├── Investor Support Department
+        │   ├── Investor Help Desk
+        │   └── One-Stop Service Unit
+        ├── Project Management Department
+        │   ├── Project Monitoring Desk
+        │   └── Project Coordination Unit
+        ├── Human Resources Directorate
+        └── Finance Directorate
+```
+
+## Ministry department hierarchy
 
 ```
 Alternative Minister of Mines (sector)
