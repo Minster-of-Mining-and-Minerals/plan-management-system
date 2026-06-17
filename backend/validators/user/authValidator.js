@@ -1,9 +1,8 @@
 const Joi = require("joi");
-
+const { joiEmailField, normalizeEmailBody } = require("../../utils/emailUtils");
 
 const loginSchema = Joi.object({
-  email: Joi.string().email().required().messages({
-    "string.email": "Must be a valid email",
+  email: joiEmailField({ required: true }).messages({
     "any.required": "Email is required",
   }),
   password: Joi.string().min(6).required().messages({
@@ -12,29 +11,30 @@ const loginSchema = Joi.object({
   }),
 });
 
-
 const logoutSchema = Joi.object({
   token: Joi.string().required().messages({
     "any.required": "Token is required for logout",
   }),
 });
 
-
 exports.validateLogin = (req, res, next) => {
+  normalizeEmailBody(req);
   const { error } = loginSchema.validate(req.body);
   if (error) {
     return res.status(400).json({
+      success: false,
+      message: error.details[0].message,
       errors: error.details.map((err) => err.message),
     });
   }
   next();
 };
 
-
 exports.validateLogout = (req, res, next) => {
   const { error } = logoutSchema.validate(req.body);
   if (error) {
     return res.status(400).json({
+      success: false,
       errors: error.details.map((err) => err.message),
     });
   }

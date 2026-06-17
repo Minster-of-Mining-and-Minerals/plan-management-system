@@ -1,8 +1,13 @@
 import CredentialsProvider from "next-auth/providers/credentials";
 import { CredentialsSignin, type NextAuthConfig } from "next-auth";
+import { normalizeEmail } from "@/utils/emailUtils";
 
 class InactiveUserError extends CredentialsSignin {
   code = "inactive_user";
+}
+
+class LoginValidationError extends CredentialsSignin {
+  code = "validation_error";
 }
 
 export default {
@@ -17,6 +22,7 @@ export default {
         if (!credentials) return null;
 
         const { email, password } = credentials;
+        const normalizedEmail = normalizeEmail(String(email ?? ""));
 
         try {
           const res = await fetch(
@@ -26,11 +32,18 @@ export default {
               headers: {
                 "Content-Type": "application/json",
               },
-              body: JSON.stringify({ email, password }),
+              body: JSON.stringify({
+                email: normalizedEmail,
+                password: String(password ?? "").trim(),
+              }),
             }
           );
 
           const data = await res.json();
+
+          if (res.status === 400) {
+            throw new LoginValidationError();
+          }
 
           if (res.status === 403 && data?.message === "User is inactive") {
             throw new InactiveUserError();
@@ -53,7 +66,7 @@ export default {
             internal_structure: user.internal_structure,
           };
         } catch (err) {
-          if (err instanceof InactiveUserError) {
+          if (err instanceof InactiveUserError || err instanceof LoginValidationError) {
             throw err;
           }
           console.error("Authorize error:", err);

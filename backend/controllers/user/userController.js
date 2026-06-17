@@ -12,6 +12,7 @@ const { Op } = require("sequelize");
 const bcrypt = require("bcrypt");
 const { generateRandomPassword } = require("../../utils/password");
 const { sendEmail } = require("../../utils/sendEmail");
+const { normalizeEmail } = require("../../utils/emailUtils");
 const {
   AUDIT_MODULES,
   getClientIp,
@@ -22,11 +23,12 @@ const {
 const createUser = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    const { full_name, email, role_ids, phone_number, government_structure_id, internal_structure_id } = req.body;
+    const { full_name, role_ids, phone_number, government_structure_id, internal_structure_id } = req.body;
+    const email = normalizeEmail(req.body.email);
 
     // ====== Check existing email ======
     const existingUser = await User.findOne({
-      where: { email },
+      where: { email: { [Op.iLike]: email } },
       transaction: t,
     });
     if (existingUser) {
@@ -147,13 +149,13 @@ const updateUser = async (req, res) => {
     const { id: user_id } = req.params;
     const {
       full_name,
-      email,
       phone_number,
       is_active,
       role_ids,
       government_structure_id,
       internal_structure_id,
     } = req.body;
+    const email = req.body.email != null ? normalizeEmail(req.body.email) : undefined;
 
     // ====== Find user ======
     const user = await User.findByPk(user_id, { transaction: t });
@@ -177,9 +179,12 @@ const updateUser = async (req, res) => {
     };
 
     // ====== Check for email duplication ======
-    if (email && email !== user.email) {
+    if (email && email !== user.email.toLowerCase()) {
       const existingEmail = await User.findOne({
-        where: { email },
+        where: {
+          email: { [Op.iLike]: email },
+          user_id: { [Op.ne]: user.user_id },
+        },
         transaction: t,
       });
       if (existingEmail) {

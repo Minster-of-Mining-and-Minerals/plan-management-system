@@ -3,16 +3,20 @@
 import { signIn, signOut, auth } from "@/auth";
 import { AuthError } from "next-auth";
 
+import { normalizeEmail } from "@/utils/emailUtils";
+
 export const login = async (email: string, password: string) => {
-  if (!email || !password) {
+  const normalizedEmail = normalizeEmail(email);
+
+  if (!normalizedEmail || !password) {
     return { error: "Email and password are required." };
   }
 
   try {
     await signIn("credentials", {
       redirect: false,
-      email,
-      password,
+      email: normalizedEmail,
+      password: password.trim(),
     });
 
     return { success: true };
@@ -24,6 +28,9 @@ export const login = async (email: string, password: string) => {
           error:
             "Your account has been deactivated. Contact an administrator to regain access.",
         };
+      }
+      if (code === "validation_error") {
+        return { error: "Please enter a valid email address." };
       }
 
       switch (error.type) {

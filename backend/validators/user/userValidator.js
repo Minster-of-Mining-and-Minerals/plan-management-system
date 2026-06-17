@@ -1,4 +1,5 @@
 const Joi = require("joi");
+const { joiEmailField, normalizeEmailBody } = require("../../utils/emailUtils");
 const ETHIOPIAN_PHONE_REGEX = /^(\+251|0)(9|7)\d{8}$/;
 // =================== Create User Schema ===================
 const createUserSchema = Joi.object({
@@ -7,9 +8,8 @@ const createUserSchema = Joi.object({
     "string.min": "Full name must be at least 3 characters long.",
   }),
 
-  email: Joi.string().email().required().messages({
+  email: joiEmailField({ required: true }).messages({
     "string.empty": "Email is required.",
-    "string.email": "Please provide a valid email address.",
   }),
 
   phone_number: Joi.string()
@@ -38,7 +38,7 @@ const createUserSchema = Joi.object({
 // =================== Update User Schema ===================
 const updateUserSchema = Joi.object({
   full_name: Joi.string().min(3).max(100).optional(),
-  email: Joi.string().email().optional(),
+  email: joiEmailField({ required: false }),
   phone_number: Joi.string()
     .pattern(ETHIOPIAN_PHONE_REGEX)
     .optional()
@@ -58,6 +58,7 @@ const updateUserSchema = Joi.object({
 
 // =================== Validators ===================
 exports.validateCreateUser = (req, res, next) => {
+  normalizeEmailBody(req);
   const { error } = createUserSchema.validate(req.body, { abortEarly: true });
   if (error) {
     return res.status(400).json({
@@ -69,7 +70,7 @@ exports.validateCreateUser = (req, res, next) => {
 };
 
 exports.validateUpdateUser = (req, res, next) => {
-  console.log("validate update user reached");
+  normalizeEmailBody(req);
   const { error } = updateUserSchema.validate(req.body, { abortEarly: true });
   if (error) {
     return res.status(400).json({

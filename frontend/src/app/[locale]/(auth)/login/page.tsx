@@ -11,6 +11,7 @@ import { ArrowLeftIcon, EyeIcon, EyeOffIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { login } from "@/actions/user";
 import { useBranding } from "@/providers/BrandingProvider";
+import { normalizeEmail } from "@/utils/emailUtils";
 
 export default function ExternalLogin() {
   const [showPassword, setShowPassword] = useState(false);
@@ -36,7 +37,10 @@ export default function ExternalLogin() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const result = await login(formData.email as string, formData.password as string);
+    const result = await login(
+      normalizeEmail(formData.email),
+      formData.password.trim()
+    );
     if (result?.error) {
       setAuthError(result.error);
     }
@@ -103,7 +107,9 @@ export default function ExternalLogin() {
               <div>
                 <Label className="text-primary">Email</Label>
                 <Input
-                  placeholder="example.xx@gov.et"
+                  type="text"
+                  autoComplete="username"
+                  placeholder="user@mom-demo.et"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="w-full h-14 mt-1"

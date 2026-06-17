@@ -2,13 +2,18 @@ const db = require("../../models");
 const { User, Role, RolePermission, Permission, PermissionGroup, GovernmentStructure, InternalStructure } = db;
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const { normalizeEmail } = require("../../utils/emailUtils");
+const { Op } = require("sequelize");
 
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
     const user = await User.findOne({
-      where: { email },
+      where: {
+        email: { [Op.iLike]: normalizedEmail },
+      },
       include: [
         { model: GovernmentStructure, as: "governmentStructure" },
         { model: InternalStructure, as: "internalStructure" },
