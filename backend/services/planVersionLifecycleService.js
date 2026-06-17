@@ -19,6 +19,10 @@ const {
     normalizeCustomPeriods,
 } = require("./planningConfigurationService");
 const { syncAllDerivedNodesFromMaster } = require("./planMasterEditService");
+const {
+    hasBeenPublishedForReview,
+    isMasterReviewCompleted,
+} = require("../utils/planReviewUtils");
 
 function enumeratePlanningYears(master) {
     const years = [];
@@ -852,6 +856,13 @@ async function setAnnualTarget(planNodeId, annualTarget) {
         }
 
         const master = await getMasterForAnnualVersion(node.planVersion, t);
+        if (master?.review_status === "under_review") {
+            await t.rollback();
+            return {
+                success: false,
+                message: "Plan is under review — annual targets cannot be edited",
+            };
+        }
         if (master?.annual_targets_finalized_at) {
             await t.rollback();
             return {
@@ -921,6 +932,14 @@ async function completeAnnualVersion(annualVersionId) {
             return {
                 success: false,
                 message: "Finalize execution period targets before completing this annual year",
+            };
+        }
+
+        if (!master.process_started_at) {
+            await t.rollback();
+            return {
+                success: false,
+                message: "Start process before completing an annual year",
             };
         }
 
@@ -1404,6 +1423,18 @@ async function setPeriodTarget(planNodeId, periodTarget) {
         const annualVersion = await PlanVersion.findByPk(node.planVersion.parent_plan_version_id, {
             transaction: t,
         });
+        if (annualVersion?.parent_plan_version_id) {
+            const reviewMaster = await PlanVersion.findByPk(annualVersion.parent_plan_version_id, {
+                transaction: t,
+            });
+            if (reviewMaster?.review_status === "under_review") {
+                await t.rollback();
+                return {
+                    success: false,
+                    message: "Plan is under review — period targets cannot be edited",
+                };
+            }
+        }
         if (annualVersion?.period_targets_finalized_at) {
             await t.rollback();
             return {
@@ -1741,22 +1772,38 @@ async function validatePeriodClassificationTree(periodVersionId, transaction) {
     return errors;
 }
 
-async function validateStartProcessReadiness(masterVersionId, transaction) {
+/** Target pipeline checks shared by publish-for-review and start-process (no review or process gates). */
+async function validatePlanTargetPipelineReadiness(masterVersionId, transaction) {
     const master = await PlanVersion.findByPk(masterVersionId, { transaction });
     if (!master || master.version_kind !== "master") {
-        return { ready: false, errors: ["Master plan version not found"] };
+        return { ready: false, errors: ["Master plan version not found"], master: null, annualVersions: [] };
     }
 
     if (master.status !== "finalized") {
-        return { ready: false, errors: ["Strategic draft must be finalized before starting process"] };
+        return {
+            ready: false,
+            errors: ["Strategic draft must be finalized first"],
+            master,
+            annualVersions: [],
+        };
     }
 
     if (!master.annual_targets_finalized_at) {
-        return { ready: false, errors: ["Finalize annual execution before starting process"] };
+        return {
+            ready: false,
+            errors: ["Finalize annual execution first"],
+            master,
+            annualVersions: [],
+        };
     }
 
     if (!master.period_subdivision_mode) {
-        return { ready: false, errors: ["Initialize execution periods before starting process"] };
+        return {
+            ready: false,
+            errors: ["Initialize execution periods first"],
+            master,
+            annualVersions: [],
+        };
     }
 
     const annualVersions = await PlanVersion.findAll({
@@ -1802,15 +1849,42 @@ async function validateStartProcessReadiness(masterVersionId, transaction) {
         }
     }
 
-    if (master.process_started_at) {
-        return { ready: false, errors: ["Process has already been started"], master, annualVersions };
-    }
-
     return {
         ready: errors.length === 0,
         errors,
         master,
         annualVersions,
+    };
+}
+
+async function validateStartProcessReadiness(masterVersionId, transaction) {
+    const result = await validatePlanTargetPipelineReadiness(masterVersionId, transaction);
+    const errors = [...(result.errors ?? [])];
+
+    if (result.master?.process_started_at) {
+        return {
+            ready: false,
+            errors: ["Process has already been started"],
+            master: result.master,
+            annualVersions: result.annualVersions,
+        };
+    }
+
+    const master = result.master;
+    if (master) {
+        if (!hasBeenPublishedForReview(master)) {
+            errors.push("Publish the plan for review at least once before starting process");
+        }
+        if (!isMasterReviewCompleted(master)) {
+            errors.push("Complete and close plan review before starting process");
+        }
+    }
+
+    return {
+        ready: errors.length === 0,
+        errors,
+        master: result.master,
+        annualVersions: result.annualVersions,
     };
 }
 
@@ -1857,7 +1931,8 @@ async function startPlanProcess(masterVersionId) {
 function isVersionEditable(planVersion) {
     if (!planVersion) return false;
     if (planVersion.version_kind === "master") {
-        return planVersion.status === "draft";
+        if (planVersion.review_status === "under_review") return false;
+        return planVersion.status === "draft" || planVersion.review_status === "corrections_unlocked";
     }
     if (planVersion.version_kind === "annual" || planVersion.version_kind === "execution_period") {
         return planVersion.status !== "completed";
@@ -1970,6 +2045,7 @@ module.exports = {
     getGlobalPeriodTargetFinalizationReadiness,
     finalizeGlobalPeriodTargets,
     validatePeriodClassificationTree,
+    validatePlanTargetPipelineReadiness,
     validateStartProcessReadiness,
     getStartProcessReadiness,
     startPlanProcess,

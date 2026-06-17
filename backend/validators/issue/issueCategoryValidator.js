@@ -4,9 +4,13 @@ const Joi = require("joi");
 const { validateMiddleware, requiredUuid, optionalUuid } = require("../helpers/joiFieldHelpers");
 
 const ENTITY_TYPES = [
+  "plan_version",
+  "strategic",
   "objective",
+  "goal",
   "kpi",
   "activity",
+  "task",
   "initiative",
   "budget",
   "target",

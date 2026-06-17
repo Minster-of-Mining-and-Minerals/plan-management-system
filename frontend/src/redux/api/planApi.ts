@@ -12,6 +12,8 @@ import {
     AnnualTargetAllocation,
     GlobalPeriodTargetFinalizationReadiness,
     StartProcessReadiness,
+    PlanReviewReadiness,
+    PlanReviewDashboardResponse,
     PeriodTargetAllocation,
     AnnualVersionsResponse,
     ExecutionPeriodsResponse,
@@ -376,6 +378,64 @@ export const planApi = baseApi.injectEndpoints({
             invalidatesTags: ["PlanVersions"],
         }),
 
+        getPublishForReviewReadiness: builder.query<PlanReviewReadiness, string>({
+            query: (id) => `/plan/versions/${id}/publish-for-review-readiness`,
+            transformResponse: (response: { data: PlanReviewReadiness }) => response.data,
+        }),
+
+        publishForReview: builder.mutation<PlanVersion, string>({
+            query: (id) => ({
+                url: `/plan/versions/${id}/publish-for-review`,
+                method: "POST",
+            }),
+            transformResponse: (response: { data: PlanVersion }) => response.data,
+            invalidatesTags: ["PlanVersions", "Issues", "IssueDashboard"],
+        }),
+
+        unlockReviewCorrections: builder.mutation<PlanVersion, string>({
+            query: (id) => ({
+                url: `/plan/versions/${id}/unlock-review-corrections`,
+                method: "POST",
+            }),
+            transformResponse: (response: { data: PlanVersion }) => response.data,
+            invalidatesTags: ["PlanVersions"],
+        }),
+
+        republishForReview: builder.mutation<PlanVersion, string>({
+            query: (id) => ({
+                url: `/plan/versions/${id}/republish-for-review`,
+                method: "POST",
+            }),
+            transformResponse: (response: { data: PlanVersion }) => response.data,
+            invalidatesTags: ["PlanVersions", "Issues", "IssueDashboard"],
+        }),
+
+        getCompleteReviewReadiness: builder.query<PlanReviewReadiness, string>({
+            query: (id) => `/plan/versions/${id}/complete-review-readiness`,
+            transformResponse: (response: { data: PlanReviewReadiness }) => response.data,
+        }),
+
+        completeReview: builder.mutation<PlanVersion, string>({
+            query: (id) => ({
+                url: `/plan/versions/${id}/complete-review`,
+                method: "POST",
+            }),
+            transformResponse: (response: { data: PlanVersion }) => response.data,
+            invalidatesTags: ["PlanVersions"],
+        }),
+
+        getPlanReviewDashboard: builder.query<
+            PlanReviewDashboardResponse,
+            { masterId: string; status?: string; issue_category_id?: string; issue_priority_id?: string; raised_by?: string; assigned_to?: string }
+        >({
+            query: ({ masterId, ...params }) => ({
+                url: `/plan/versions/${masterId}/review-dashboard`,
+                params,
+            }),
+            transformResponse: (response: { data: PlanReviewDashboardResponse }) => response.data,
+            providesTags: ["Issues", "IssueDashboard"],
+        }),
+
         /**
          * ================= PLAN NODES =================
          */
@@ -543,6 +603,13 @@ export const {
     useFinalizeGlobalPeriodTargetsMutation,
     useGetStartProcessReadinessQuery,
     useStartPlanProcessMutation,
+    useGetPublishForReviewReadinessQuery,
+    usePublishForReviewMutation,
+    useUnlockReviewCorrectionsMutation,
+    useRepublishForReviewMutation,
+    useGetCompleteReviewReadinessQuery,
+    useCompleteReviewMutation,
+    useGetPlanReviewDashboardQuery,
 
     // Plan Nodes
     useGetPlanNodesQuery,

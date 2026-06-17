@@ -18,6 +18,7 @@ import { PeriodTargetAllocationSummary } from "./PeriodTargetAllocationSummary";
 import { cn } from "@/lib/utils";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import { PLAN_UPDATE_PERMISSIONS } from "@/utils/planPermissionUtils";
+import { RaiseIssueButton } from "./RaiseIssueButton";
 
 interface PlanNodePeriodTargetSectionProps {
     node: PlanNode;
@@ -26,6 +27,7 @@ interface PlanNodePeriodTargetSectionProps {
     allocation?: PeriodTargetAllocation | null;
     annualTarget?: number | null;
     canEdit?: boolean;
+    showRaiseIssue?: boolean;
     variant?: "card" | "compact" | "table";
     className?: string;
     onClick?: (event: React.MouseEvent) => void;
@@ -38,6 +40,7 @@ export function PlanNodePeriodTargetSection({
     allocation,
     annualTarget,
     canEdit = false,
+    showRaiseIssue = false,
     variant = "card",
     className,
     onClick,
@@ -152,6 +155,16 @@ export function PlanNodePeriodTargetSection({
         </div>
     ) : null;
 
+    const raiseIssueAction = showRaiseIssue ? (
+        <RaiseIssueButton
+            entityType="target"
+            entityId={node.plan_node_id}
+            size="sm"
+            variant="outline"
+            label="Raise Target Issue"
+        />
+    ) : null;
+
     if (variant === "compact") {
         return (
             <div className={cn("space-y-2", className)} onClick={onClick}>
@@ -182,6 +195,7 @@ export function PlanNodePeriodTargetSection({
                 </div>
                 {allocationSummary}
                 {editor}
+                {raiseIssueAction}
             </div>
         );
     }
@@ -199,6 +213,7 @@ export function PlanNodePeriodTargetSection({
                 </span>
                 {allocationSummary}
                 {editor}
+                {raiseIssueAction}
             </div>
         );
     }
@@ -242,6 +257,7 @@ export function PlanNodePeriodTargetSection({
             </div>
             {allocationSummary}
             {editor}
+            {raiseIssueAction}
         </div>
     );
 }

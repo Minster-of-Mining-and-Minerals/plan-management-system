@@ -23,6 +23,7 @@ import { getHierarchyNumber } from "@/utils/planNodeOrderUtils";
 import { PlanNodeHierarchyNumber } from "./PlanNodeHierarchyNumber";
 import { PlanNodeAssignmentSummary } from "./PlanNodeAssignmentSummary";
 import { PlanNodeAnnualTargetSection } from "./PlanNodeAnnualTargetSection";
+import { PlanNodePeriodTargetSection } from "./PlanNodePeriodTargetSection";
 import { resolveLiveDraftTarget } from "@/utils/planDraftUtils";
 
 interface PlanNodeCardGridProps {
@@ -46,6 +47,7 @@ interface PlanNodeCardGridProps {
     isReordering?: boolean;
     readOnly?: boolean;
     dangerMode?: boolean;
+    showRaiseIssue?: boolean;
 }
 
 export function PlanNodeCardGrid({
@@ -69,6 +71,7 @@ export function PlanNodeCardGrid({
     isReordering = false,
     readOnly = false,
     dangerMode = false,
+    showRaiseIssue = false,
 }: PlanNodeCardGridProps) {
     const { data: planningConfig } = useGetPlanningConfigurationQuery();
     const configuredUnits = planningConfig?.target_units;
@@ -152,6 +155,7 @@ export function PlanNodeCardGrid({
                                                 isReordering={isReordering}
                                                 readOnly={readOnly}
                                                 dangerMode={dangerMode}
+                                                showRaiseIssue={showRaiseIssue}
                                                 size="sm"
                                                 className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                                             />
@@ -194,6 +198,7 @@ export function PlanNodeCardGrid({
                                                 configuredUnits={configuredUnits}
                                                 allocation={annualTargetAllocations?.[node.plan_node_id]}
                                                 canEdit={canEditAnnualTarget}
+                                                showRaiseIssue={showRaiseIssue}
                                                 variant="card"
                                                 onClick={(e) => e.stopPropagation()}
                                             />
@@ -206,6 +211,7 @@ export function PlanNodeCardGrid({
                                                 configuredUnits={configuredUnits}
                                                 allocation={periodTargetAllocations?.[node.plan_node_id]}
                                                 canEdit={canEditPeriodTarget}
+                                                showRaiseIssue={showRaiseIssue}
                                                 variant="card"
                                                 onClick={(e) => e.stopPropagation()}
                                             />

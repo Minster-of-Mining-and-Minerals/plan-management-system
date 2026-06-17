@@ -2,6 +2,11 @@
 
 const UPDATE_PERMISSION = "plans:update";
 const EDIT_FINALIZED_PERMISSION = "plans:edit_finalized";
+const {
+    isPlanInActiveReview,
+    isMasterCorrectionsUnlocked,
+    canEditPlanDuringReview,
+} = require("./planReviewUtils");
 
 function isMasterDraft(planVersion) {
     return planVersion?.version_kind === "master" && planVersion?.status === "draft";
@@ -20,6 +25,9 @@ function userCanEditFinalizedMaster(user) {
 }
 
 function canEditMasterPlanStructure(planVersion, user) {
+    if (planVersion?.version_kind === "master" && isPlanInActiveReview(planVersion)) {
+        return canEditPlanDuringReview(planVersion, user);
+    }
     if (isMasterDraft(planVersion)) {
         return userCanUpdatePlans(user);
     }
@@ -43,6 +51,12 @@ function validateCanEditMasterPlanStructure(planVersion, user) {
     }
 
     if (isMasterFinalized(planVersion)) {
+        if (isPlanInActiveReview(planVersion) && !isMasterCorrectionsUnlocked(planVersion)) {
+            return {
+                valid: false,
+                message: "This plan is under review and is read-only until corrections are unlocked.",
+            };
+        }
         return {
             valid: false,
             message:
@@ -75,6 +89,11 @@ module.exports = {
         COMPLETE_PERIOD: "plan:complete_period",
         FINALIZE: "plan:finalize",
         DRAFT_PUBLISH: "plan:draft_publish",
+        PUBLISH_FOR_REVIEW: "plan:publish_for_review",
+        VIEW_ASSIGNED_REVIEW: "plan:view_assigned_review",
+        COMPLETE_REVIEW: "plan:complete_review",
+        UNLOCK_REVIEW_CORRECTIONS: "plan:unlock_review_corrections",
+        REPUBLISH_REVIEW: "plan:republish_review",
     },
     isMasterDraft,
     isMasterDraftVersion: isMasterDraft,

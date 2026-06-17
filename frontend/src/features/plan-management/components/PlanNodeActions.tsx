@@ -10,6 +10,8 @@ import {
     PLAN_PERMISSIONS,
     PLAN_STRUCTURE_MUTATION_PERMISSIONS,
 } from "@/utils/planPermissionUtils";
+import { RaiseIssueButton } from "./RaiseIssueButton";
+import { planNodeTypeToIssueEntityType } from "@/utils/planReviewUtils";
 
 interface PlanNodeActionsProps {
     node: PlanNode;
@@ -25,6 +27,7 @@ interface PlanNodeActionsProps {
     isReordering?: boolean;
     readOnly?: boolean;
     dangerMode?: boolean;
+    showRaiseIssue?: boolean;
     size?: "sm" | "md";
     className?: string;
 }
@@ -43,6 +46,7 @@ export function PlanNodeActions({
     isReordering = false,
     readOnly = false,
     dangerMode = false,
+    showRaiseIssue = false,
     size = "md",
     className = "",
 }: PlanNodeActionsProps) {
@@ -71,6 +75,16 @@ export function PlanNodeActions({
                         onMoveDown={onMoveDown!}
                     />
                 </PermissionGuard>
+            )}
+            {showRaiseIssue && (
+                <RaiseIssueButton
+                    entityType={planNodeTypeToIssueEntityType(node.type)}
+                    entityId={node.plan_node_id}
+                    size="icon"
+                    variant="ghost"
+                    iconOnly
+                    className={`${iconClass} text-amber-600 hover:text-amber-700 hover:bg-amber-50`}
+                />
             )}
             <PermissionGuard requireAll={[PLAN_PERMISSIONS.READ]}>
                 <Button

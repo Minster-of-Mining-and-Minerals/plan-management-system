@@ -80,6 +80,11 @@ const PERMISSIONS = [
   { resource: "issue_categories", action: "read" },
   { resource: "issue_categories", action: "update" },
   { resource: "issue_categories", action: "delete" },
+  { resource: "plan", action: "publish_for_review" },
+  { resource: "plan", action: "view_assigned_review" },
+  { resource: "plan", action: "complete_review" },
+  { resource: "plan", action: "unlock_review_corrections" },
+  { resource: "plan", action: "republish_review" },
 ];
 
 function dedupePermissions(permissions) {

@@ -60,9 +60,9 @@ export function StartProcessModal({
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6">
                     <div className="space-y-4 pb-4 text-sm">
                         <p className="text-muted-foreground">
-                            Validates that all targets are set throughout the classification
-                            hierarchy — period totals match annual targets, children match parent
-                            targets, and no required target is missing.
+                            Validates that all targets are set and that plan review has been
+                            published at least once and closed. Period totals must match annual
+                            targets and no required target may be missing.
                         </p>
 
                         {isLoading ? (

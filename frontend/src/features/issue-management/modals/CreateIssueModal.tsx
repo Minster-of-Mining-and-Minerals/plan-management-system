@@ -60,6 +60,7 @@ interface CreateIssueModalProps {
   onClose: () => void;
   defaultEntityType?: IssueEntityType;
   defaultEntityId?: string;
+  lockEntityFields?: boolean;
 }
 
 export function CreateIssueModal({
@@ -67,6 +68,7 @@ export function CreateIssueModal({
   onClose,
   defaultEntityType,
   defaultEntityId,
+  lockEntityFields = false,
 }: CreateIssueModalProps) {
   const [createIssue, { isLoading }] = useCreateIssueMutation();
   const { data: categories = [] } = useGetIssueCategoriesQuery({ is_active: true });
@@ -209,7 +211,11 @@ export function CreateIssueModal({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Affected Entity Type *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={lockEntityFields}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Entity type" />
@@ -235,7 +241,11 @@ export function CreateIssueModal({
                   <FormItem>
                     <FormLabel>Affected Entity ID *</FormLabel>
                     <FormControl>
-                      <Input placeholder="UUID of affected entity" {...field} />
+                      <Input
+                        placeholder="UUID of affected entity"
+                        {...field}
+                        disabled={lockEntityFields}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

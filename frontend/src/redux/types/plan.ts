@@ -4,6 +4,7 @@
 
 export type PlanVersionKind = "master" | "annual" | "execution_period";
 export type PlanVersionStatus = "draft" | "active" | "completed" | "finalized" | "locked";
+export type PlanReviewStatus = "under_review" | "corrections_unlocked" | "review_completed";
 export type PeriodSubdivisionMode = "quarterly" | "semi_annual" | "custom";
 
 export interface PlanVersion {
@@ -30,6 +31,10 @@ export interface PlanVersion {
     period_subdivision_mode?: PeriodSubdivisionMode | null;
     period_targets_finalized_at?: string | null;
     process_started_at?: string | null;
+    review_status?: PlanReviewStatus | null;
+    published_for_review_at?: string | null;
+    review_unlocked_at?: string | null;
+    review_completed_at?: string | null;
     status: PlanVersionStatus;
     government_structure_id: string;
     based_on_version_id: string | null;
@@ -107,6 +112,18 @@ export interface StartProcessReadiness {
     errors: string[];
     process_started_at: string | null;
     period_targets_finalized_at: string | null;
+}
+
+export interface PlanReviewReadiness {
+    ready: boolean;
+    errors: string[];
+    review_status?: PlanReviewStatus | null;
+    issue_count?: number;
+}
+
+export interface PlanReviewDashboardResponse {
+    stats: import("./issue").IssueDashboardStats;
+    issues: import("./issue").Issue[];
 }
 
 export interface PeriodTargetAllocation {

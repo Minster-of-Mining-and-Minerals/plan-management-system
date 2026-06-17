@@ -180,6 +180,26 @@ module.exports = (sequelize, DataTypes) => {
                 type: DataTypes.DATE,
                 allowNull: true,
             },
+
+            review_status: {
+                type: DataTypes.ENUM("under_review", "corrections_unlocked", "review_completed"),
+                allowNull: true,
+            },
+
+            published_for_review_at: {
+                type: DataTypes.DATE,
+                allowNull: true,
+            },
+
+            review_unlocked_at: {
+                type: DataTypes.DATE,
+                allowNull: true,
+            },
+
+            review_completed_at: {
+                type: DataTypes.DATE,
+                allowNull: true,
+            },
         },
         {
             sequelize,

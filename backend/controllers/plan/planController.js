@@ -29,6 +29,12 @@ const {
 } = require("../../utils/planNodeOrderUtils");
 const { isWeightModeSelectionLevel } = require("../../services/planRuleStepUtils");
 const {
+    resolveMasterVersionId,
+    getAssignedMasterNodeIds,
+    filterHierarchyNodes,
+    mapMasterNodeIdsToVersion,
+} = require("../../services/planReviewVisibilityService");
+const {
     getOrCreateGlobalPlanningConfig,
     pickPlanningConfigPayload,
     computePlanningPeriodEnd,
@@ -1150,7 +1156,36 @@ const getPlanHierarchy = async (req, res) => {
         });
         await enrichPeriodNodesWithLiveAnnualTargets(planVersion, nodeMap, nodes);
         const sortMetaByNodeId = await buildDraftAlignedSortMeta(planVersion, nodes);
-        const sortedRoots = sortHierarchyTree(roots, sortMetaByNodeId);
+        let sortedRoots = sortHierarchyTree(roots, sortMetaByNodeId);
+
+        const masterId = await resolveMasterVersionId(plan_version_id);
+        const masterVersion = masterId
+            ? await PlanVersion.findByPk(masterId, {
+                  attributes: ["plan_version_id", "review_status"],
+              })
+            : null;
+        const inReview =
+            masterVersion?.review_status === "under_review" ||
+            masterVersion?.review_status === "review_completed" ||
+            masterVersion?.review_status === "corrections_unlocked";
+        const hasFullRead = req.user?.permissions?.includes("plans:read");
+        const isAssignedReviewer = req.user?.permissions?.includes("plan:view_assigned_review");
+
+        if (inReview && !hasFullRead && isAssignedReviewer && masterId) {
+            const visibleMasterIds = await getAssignedMasterNodeIds(
+                masterId,
+                req.user.user_id
+            );
+            if (plan_version_id === masterId) {
+                sortedRoots = filterHierarchyNodes(sortedRoots, visibleMasterIds);
+            } else {
+                const visibleIds = await mapMasterNodeIdsToVersion(
+                    visibleMasterIds,
+                    plan_version_id
+                );
+                sortedRoots = filterHierarchyNodes(sortedRoots, visibleIds);
+            }
+        }
 
         return res.json({
             success: true,

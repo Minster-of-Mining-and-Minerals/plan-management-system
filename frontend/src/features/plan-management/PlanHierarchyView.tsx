@@ -38,6 +38,7 @@ import { PlanHierarchyTree } from "./components/PlanHierarchyTree";
 import { PlanHierarchyTableView } from "./components/PlanHierarchyTableView";
 import { PlanDraftHeaderMeta } from "./components/PlanDraftHeaderMeta";
 import { AnnualVersionsDashboard } from "./components/AnnualVersionsDashboard";
+import { PlanReviewDashboard } from "./components/PlanReviewDashboard";
 import { ExecutionPeriodsDashboard } from "./components/ExecutionPeriodsDashboard";
 import { FinalizeExecutionPeriodsModal } from "./modals/FinalizeExecutionPeriodsModal";
 import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
@@ -47,8 +48,15 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import {
     PLAN_FINALIZE_PERMISSIONS,
+    PLAN_PERMISSIONS,
     PLAN_STRUCTURE_MUTATION_PERMISSIONS,
 } from "@/utils/planPermissionUtils";
+import {
+    canRaiseReviewIssue,
+    isPlanCorrectionsUnlocked,
+    isPlanInActiveReview,
+    isPlanUnderReview,
+} from "@/utils/planReviewUtils";
 import {
     canEditMasterPlanStructure,
     confirmFinalizedPlanStructureEdit,
@@ -68,7 +76,7 @@ import {
 import { PlanNodeHierarchyNumber } from "./components/PlanNodeHierarchyNumber";
 
 type ViewMode = "card" | "hierarchy" | "table";
-type PlanDetailTab = "hierarchy" | "annual" | "periods";
+type PlanDetailTab = "hierarchy" | "annual" | "periods" | "review";
 
 function getCurrentNodes(
     hierarchy: PlanNodeHierarchy[],
@@ -106,18 +114,24 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
             ? version.plan_version_id
             : version?.version_kind === "annual"
               ? version.parent_plan_version_id
-              : version?.version_kind === "execution_period"
-                ? null
-                : null;
+              : null;
     const annualParentId =
         version?.version_kind === "execution_period"
             ? version.parent_plan_version_id
             : null;
-    const { data: masterVersion } = useGetPlanVersionByIdQuery(masterVersionId!, {
-        skip: !masterVersionId,
-    });
     const { data: annualParentVersion } = useGetPlanVersionByIdQuery(annualParentId!, {
         skip: !annualParentId,
+    });
+    const resolvedMasterVersionId =
+        version?.version_kind === "master"
+            ? version.plan_version_id
+            : version?.version_kind === "annual"
+              ? version.parent_plan_version_id
+              : version?.version_kind === "execution_period"
+                ? annualParentVersion?.parent_plan_version_id ?? null
+                : null;
+    const { data: masterVersion } = useGetPlanVersionByIdQuery(resolvedMasterVersionId!, {
+        skip: !resolvedMasterVersionId,
     });
     const { data: planningConfig } = useGetPlanningConfigurationQuery();
     const { data: rule } = useGetPlanRuleForVersionQuery(versionId);
@@ -166,6 +180,14 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
     const currentLevelLabel = getStepLabel(rule, currentLevel);
     const childLabel = currentLevelLabel;
 
+    const effectiveMasterVersion =
+        version?.version_kind === "master" ? version : masterVersion;
+    const masterReviewStatus = effectiveMasterVersion?.review_status;
+    const showRaiseIssue = canRaiseReviewIssue(effectiveMasterVersion);
+    const showReviewTab =
+        Boolean(masterReviewStatus) &&
+        (can(PLAN_PERMISSIONS.READ) || can(PLAN_PERMISSIONS.UPDATE));
+
     const isMasterDraft =
         version?.version_kind === "master" && version?.status === "draft";
     const isAnnualVersion = version?.version_kind === "annual";
@@ -193,8 +215,16 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
             ? version?.period_subdivision_mode
             : masterVersion?.period_subdivision_mode ?? version?.period_subdivision_mode
     );
-    const canEditAnnualTarget = canEditAnnualTargetForVersion(version, annualTargetsFinalized);
-    const canEditPeriodTarget = canEditPeriodTargetForVersion(version, periodTargetsFinalized);
+    const canEditAnnualTarget = canEditAnnualTargetForVersion(
+        version,
+        annualTargetsFinalized,
+        masterReviewStatus
+    );
+    const canEditPeriodTarget = canEditPeriodTargetForVersion(
+        version,
+        periodTargetsFinalized,
+        masterReviewStatus
+    );
     const showAnnualDashboard =
         version?.version_kind === "master" &&
         (version?.status === "finalized" ||
@@ -211,11 +241,17 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
             return;
         }
 
-        if (version.version_kind === "annual" && masterVersionId && masterVersion === undefined) {
+        if (version.version_kind === "annual" && resolvedMasterVersionId && masterVersion === undefined) {
             return;
         }
 
-        if (version.version_kind === "master" && version.status === "finalized") {
+        if (version.version_kind === "execution_period" && annualParentId && annualParentVersion === undefined) {
+            return;
+        }
+
+        if (version.version_kind === "master" && version.status === "finalized" && showReviewTab) {
+            setActiveTab("review");
+        } else if (version.version_kind === "master" && version.status === "finalized") {
             setActiveTab("annual");
         } else if (
             version.version_kind === "annual" &&
@@ -227,7 +263,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
         }
 
         appliedDefaultTabForVersion.current = versionId;
-    }, [version, versionId, masterVersion, masterVersionId]);
+    }, [version, versionId, masterVersion, resolvedMasterVersionId, annualParentId, annualParentVersion, showReviewTab]);
 
     const shouldFetchAnnualAllocations = isAnnualVersion && !annualTargetsFinalized;
     const { data: annualAllocationList = [] } = useGetAnnualTargetAllocationsQuery(versionId, {
@@ -426,7 +462,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
     );
 
     const detailTabToggle = showAnnualDashboard ? (
-        <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1">
+        <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 flex-wrap">
             <Button
                 variant={activeTab === "hierarchy" ? "default" : "ghost"}
                 size="sm"
@@ -445,6 +481,17 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                 <CalendarDays className="h-4 w-4" />
                 Annual Execution
             </Button>
+            {showReviewTab && (
+                <Button
+                    variant={activeTab === "review" ? "default" : "ghost"}
+                    size="sm"
+                    className="gap-2 h-8"
+                    onClick={() => setActiveTab("review")}
+                >
+                    <ShieldCheck className="h-4 w-4" />
+                    Review Dashboard
+                </Button>
+            )}
         </div>
     ) : showPeriodDashboard ? (
         <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1">
@@ -478,7 +525,22 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                 </div>
             )}
 
-            {isReadOnlyHierarchy && version?.status === "finalized" && showAnnualDashboard && !isEditingFinalizedMaster && (
+            {isPlanUnderReview(masterReviewStatus) && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    This plan is under review. All content is read-only. Assigned reviewers can
+                    raise issues on their sections. Use the Review Dashboard to track and resolve
+                    findings.
+                </div>
+            )}
+
+            {isPlanCorrectionsUnlocked(masterReviewStatus) && (
+                <div className="rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-900">
+                    Review corrections are unlocked. Apply approved changes, then republish for
+                    review when ready.
+                </div>
+            )}
+
+            {isReadOnlyHierarchy && version?.status === "finalized" && showAnnualDashboard && !isEditingFinalizedMaster && !isPlanInActiveReview(effectiveMasterVersion) && (
                 <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                     Strategic draft is finalized. Use the Annual Execution tab to distribute annual
                     targets across years (total must match the draft), then finalize annual execution.
@@ -581,6 +643,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                         isReordering={isReordering}
                         readOnly={isReadOnlyHierarchy}
                         dangerMode={isEditingFinalizedMaster}
+                        showRaiseIssue={showRaiseIssue}
                         hideAssignments={hideAssignments}
                         showAnnualTargets={showAnnualTargets}
                         showPeriodTargets={showPeriodTargets}
@@ -617,6 +680,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                         isReordering={isReordering}
                         readOnly={isReadOnlyHierarchy}
                         dangerMode={isEditingFinalizedMaster}
+                        showRaiseIssue={showRaiseIssue}
                     />
                 ) : (
                     emptyState
@@ -636,6 +700,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     scoped={false}
                     readOnly={isReadOnlyHierarchy}
                     dangerMode={isEditingFinalizedMaster}
+                    showRaiseIssue={showRaiseIssue}
                     hideAssignments={hideAssignments}
                     showAnnualTargets={showAnnualTargets}
                     showPeriodTargets={showPeriodTargets}
@@ -659,6 +724,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     scoped
                     readOnly={isReadOnlyHierarchy}
                     dangerMode={isEditingFinalizedMaster}
+                    showRaiseIssue={showRaiseIssue}
                     hideAssignments={hideAssignments}
                     showAnnualTargets={showAnnualTargets}
                     showPeriodTargets={showPeriodTargets}
@@ -698,6 +764,11 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                                 {version.version_kind === "execution_period" && version.period_label && (
                                     <Badge variant="outline">{version.period_label}</Badge>
                                 )}
+                                {masterReviewStatus && (
+                                    <Badge variant="outline" className="capitalize border-amber-200 bg-amber-50 text-amber-800">
+                                        {masterReviewStatus.replace(/_/g, " ")}
+                                    </Badge>
+                                )}
                             </div>
                         )}
                         {rule && (
@@ -720,6 +791,8 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     <div className="p-4 sm:p-6 space-y-6">
                         {activeTab === "annual" ? (
                             version && <AnnualVersionsDashboard masterVersion={version} />
+                        ) : activeTab === "review" && resolvedMasterVersionId ? (
+                            <PlanReviewDashboard masterVersionId={resolvedMasterVersionId} />
                         ) : (
                             hierarchyBody
                         )}

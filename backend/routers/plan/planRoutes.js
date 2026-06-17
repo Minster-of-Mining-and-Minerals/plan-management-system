@@ -60,6 +60,16 @@ const {
 } = require("../../controllers/plan/planVersionLifecycleController");
 
 const {
+    getPublishForReviewReadinessHandler,
+    publishForReviewHandler,
+    unlockForCorrectionsHandler,
+    republishForReviewHandler,
+    getCompleteReviewReadinessHandler,
+    completeReviewHandler,
+    getPlanReviewDashboardHandler,
+} = require("../../controllers/plan/planReviewController");
+
+const {
     getPlanRules,
     getPlanRuleById,
     getPlanRuleForVersion,
@@ -135,6 +145,18 @@ router.get("/versions/:id/global-period-target-readiness", checkPermission("PLAN
 router.post("/versions/:id/finalize-global-period-targets", checkPermission("PLAN", "FINALIZE"), validateIdParam, finalizeGlobalPeriodTargetsHandler);
 router.get("/versions/:id/start-process-readiness", checkPermission("PLANS", "READ"), validateIdParam, getStartProcessReadinessHandler);
 router.post("/versions/:id/start-process", checkPermission("PLAN", "START_PROCESS"), validateIdParam, startPlanProcessHandler);
+
+router.get("/versions/:id/publish-for-review-readiness", checkPermission("PLAN", "PUBLISH_FOR_REVIEW"), validateIdParam, getPublishForReviewReadinessHandler);
+router.post("/versions/:id/publish-for-review", checkPermission("PLAN", "PUBLISH_FOR_REVIEW"), validateIdParam, publishForReviewHandler);
+router.post("/versions/:id/unlock-review-corrections", checkPermission("PLAN", "UNLOCK_REVIEW_CORRECTIONS"), validateIdParam, unlockForCorrectionsHandler);
+router.post("/versions/:id/republish-for-review", checkPermission("PLAN", "REPUBLISH_REVIEW"), validateIdParam, republishForReviewHandler);
+router.get("/versions/:id/complete-review-readiness", checkPermission("PLAN", "COMPLETE_REVIEW"), validateIdParam, getCompleteReviewReadinessHandler);
+router.post("/versions/:id/complete-review", checkPermission("PLAN", "COMPLETE_REVIEW"), validateIdParam, completeReviewHandler);
+router.get("/versions/:id/review-dashboard", checkAnyPermission([
+    { resource: "PLANS", action: "READ" },
+    { resource: "PLAN", action: "COMPLETE_REVIEW" },
+    { resource: "PLAN", action: "PUBLISH_FOR_REVIEW" },
+]), validateIdParam, getPlanReviewDashboardHandler);
 router.patch("/nodes/:id/annual-target", checkPermission("PLANS", "UPDATE"), validateIdParam, validateUpdateAnnualTarget, updateAnnualTarget);
 router.patch("/nodes/:id/period-target", checkPermission("PLANS", "UPDATE"), validateIdParam, validateUpdatePeriodTarget, updatePeriodTarget);
 
@@ -169,7 +191,10 @@ router.get("/nodes", checkPermission("PLANS", "READ"), validateGetPlanNodesQuery
 router.get("/nodes/:id", checkPermission("PLANS", "READ"), validateIdParam, getPlanNodeById);
 router.put("/nodes/:id", planStructureMutation, validateIdParam, validateUpdatePlanNode, updatePlanNode);
 router.delete("/nodes/:id", planStructureMutation, validateIdParam, deletePlanNode);
-router.get("/hierarchy/:plan_version_id", checkPermission("PLANS", "READ"), validateVersionIdParam, getPlanHierarchy);
+router.get("/hierarchy/:plan_version_id", checkAnyPermission([
+    { resource: "PLANS", action: "READ" },
+    { resource: "PLAN", action: "VIEW_ASSIGNED_REVIEW" },
+]), validateVersionIdParam, getPlanHierarchy);
 router.post("/nodes/reorder", planStructureMutation, validateReorderPlanNodes, reorderPlanNodes);
 
 module.exports = router;

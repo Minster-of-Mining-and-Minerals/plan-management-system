@@ -19,6 +19,7 @@ import { AnnualTargetAllocationSummary } from "./AnnualTargetAllocationSummary";
 import { cn } from "@/lib/utils";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import { PLAN_UPDATE_PERMISSIONS } from "@/utils/planPermissionUtils";
+import { RaiseIssueButton } from "./RaiseIssueButton";
 
 interface PlanNodeAnnualTargetSectionProps {
     node: PlanNode;
@@ -26,6 +27,7 @@ interface PlanNodeAnnualTargetSectionProps {
     configuredUnits?: TargetUnit[];
     allocation?: AnnualTargetAllocation | null;
     canEdit?: boolean;
+    showRaiseIssue?: boolean;
     variant?: "card" | "compact" | "table";
     className?: string;
     onClick?: (event: React.MouseEvent) => void;
@@ -37,6 +39,7 @@ export function PlanNodeAnnualTargetSection({
     configuredUnits,
     allocation,
     canEdit = false,
+    showRaiseIssue = false,
     variant = "card",
     className,
     onClick,
@@ -151,6 +154,16 @@ export function PlanNodeAnnualTargetSection({
         </div>
     ) : null;
 
+    const raiseIssueAction = showRaiseIssue ? (
+        <RaiseIssueButton
+            entityType="target"
+            entityId={node.plan_node_id}
+            size="sm"
+            variant="outline"
+            label="Raise Target Issue"
+        />
+    ) : null;
+
     if (variant === "compact") {
         return (
             <div className={cn("space-y-2", className)} onClick={onClick}>
@@ -181,6 +194,7 @@ export function PlanNodeAnnualTargetSection({
                 </div>
                 {allocationSummary}
                 {editor}
+                {raiseIssueAction}
             </div>
         );
     }
@@ -198,6 +212,7 @@ export function PlanNodeAnnualTargetSection({
                 </span>
                 {allocationSummary}
                 {editor}
+                {raiseIssueAction}
             </div>
         );
     }
@@ -241,6 +256,7 @@ export function PlanNodeAnnualTargetSection({
             </div>
             {allocationSummary}
             {editor}
+            {raiseIssueAction}
         </div>
     );
 }

@@ -25,6 +25,8 @@ import {
     PLAN_START_PROCESS_PERMISSIONS,
     PLAN_UPDATE_PERMISSIONS,
 } from "@/utils/planPermissionUtils";
+import { PlanReviewWorkflowBar } from "./PlanReviewWorkflowBar";
+import { canStartProcessAfterReview } from "@/utils/planReviewUtils";
 import { PerformanceProgressBar } from "./PerformanceProgressBar";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
 import { FinalizeAnnualExecutionModal } from "../modals/FinalizeAnnualExecutionModal";
@@ -66,6 +68,7 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
         annualVersions.length > 0 &&
         annualVersions.every((annual) => Boolean(annual.period_targets_finalized_at));
     const processStarted = Boolean(master.process_started_at);
+    const startProcessReady = canStartProcessAfterReview(master);
 
     const handleComplete = async (versionId: string, year: number) => {
         if (!(await actionFeedback.confirm(`Mark the ${year} annual version as completed?`))) {
@@ -145,7 +148,7 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                             </Button>
                         </PermissionGuard>
                     )}
-                    {allAnnualsPeriodFinalized && !processStarted && (
+                    {allAnnualsPeriodFinalized && !processStarted && startProcessReady && (
                         <PermissionGuard requireAll={PLAN_START_PROCESS_PERMISSIONS}>
                             <Button className="gap-2" onClick={() => setStartProcessModalOpen(true)}>
                                 <Play className="h-4 w-4" />
@@ -155,6 +158,21 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                     )}
                 </div>
             </div>
+
+            {allAnnualsPeriodFinalized && !processStarted && !startProcessReady && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    {master.published_for_review_at
+                        ? "Complete and close plan review before starting process."
+                        : "Publish the plan for review at least once, then complete and close review before starting process."}
+                </div>
+            )}
+
+            <PlanReviewWorkflowBar
+                master={master}
+                allPeriodsFinalized={allAnnualsPeriodFinalized}
+                processStarted={processStarted}
+                onUpdated={refetch}
+            />
 
             {annualTargetsFinalized && (
                 <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
@@ -179,7 +197,10 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                     const isCompleted = annual.status === "completed";
                     const periodTargetsFinalized = Boolean(annual.period_targets_finalized_at);
                     const showComplete =
-                        annualTargetsFinalized && periodTargetsFinalized && !isCompleted;
+                        processStarted &&
+                        annualTargetsFinalized &&
+                        periodTargetsFinalized &&
+                        !isCompleted;
 
                     const statusAppearance = resolveWorkflowStatusAppearance(thresholds, {
                         status: annual.status ?? "draft",

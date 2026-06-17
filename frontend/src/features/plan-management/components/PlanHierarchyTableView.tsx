@@ -52,6 +52,7 @@ interface PlanHierarchyTableViewProps {
     isReordering?: boolean;
     readOnly?: boolean;
     dangerMode?: boolean;
+    showRaiseIssue?: boolean;
     hideAssignments?: boolean;
     showAnnualTargets?: boolean;
     showPeriodTargets?: boolean;
@@ -76,6 +77,7 @@ interface StrategicFocusTableProps {
     isReordering?: boolean;
     readOnly?: boolean;
     dangerMode?: boolean;
+    showRaiseIssue?: boolean;
     defaultOpen?: boolean;
     hideAssignments?: boolean;
     showAnnualTargets?: boolean;
@@ -101,6 +103,7 @@ function StrategicFocusTable({
     isReordering = false,
     readOnly = false,
     dangerMode = false,
+    showRaiseIssue = false,
     defaultOpen = false,
     hideAssignments = false,
     showAnnualTargets = false,
@@ -199,6 +202,7 @@ function StrategicFocusTable({
                             configuredUnits={configuredUnits}
                             allocation={annualTargetAllocations?.[root.plan_node_id]}
                             canEdit={canEditAnnualTarget}
+                            showRaiseIssue={showRaiseIssue}
                             variant="compact"
                             className="mt-2"
                         />
@@ -210,6 +214,7 @@ function StrategicFocusTable({
                             configuredUnits={configuredUnits}
                             allocation={periodTargetAllocations?.[root.plan_node_id]}
                             canEdit={canEditPeriodTarget}
+                            showRaiseIssue={showRaiseIssue}
                             variant="compact"
                             className="mt-2"
                         />
@@ -242,6 +247,7 @@ function StrategicFocusTable({
                         isReordering={isReordering}
                         readOnly={readOnly}
                         dangerMode={dangerMode}
+                        showRaiseIssue={showRaiseIssue}
                         size="sm"
                     />
                 </div>
@@ -377,6 +383,7 @@ function StrategicFocusTable({
                                                         configuredUnits={configuredUnits}
                                                         allocation={annualTargetAllocations?.[node.plan_node_id]}
                                                         canEdit={canEditAnnualTarget}
+                                                        showRaiseIssue={showRaiseIssue}
                                                         variant="table"
                                                         onClick={(e) => e.stopPropagation()}
                                                     />
@@ -394,6 +401,7 @@ function StrategicFocusTable({
                                                         configuredUnits={configuredUnits}
                                                         allocation={periodTargetAllocations?.[node.plan_node_id]}
                                                         canEdit={canEditPeriodTarget}
+                                                        showRaiseIssue={showRaiseIssue}
                                                         variant="table"
                                                         onClick={(e) => e.stopPropagation()}
                                                     />
@@ -479,6 +487,7 @@ function StrategicFocusTable({
                                                     isReordering={isReordering}
                                                     readOnly={readOnly}
                                                     dangerMode={dangerMode}
+                                                    showRaiseIssue={showRaiseIssue}
                                                     size="sm"
                                                 />
                                             </div>
@@ -507,6 +516,7 @@ export function PlanHierarchyTableView({
     isReordering = false,
     readOnly = false,
     dangerMode = false,
+    showRaiseIssue = false,
     hideAssignments = false,
     showAnnualTargets = false,
     showPeriodTargets = false,
@@ -540,6 +550,7 @@ export function PlanHierarchyTableView({
                     isReordering={isReordering}
                     readOnly={readOnly}
                     dangerMode={dangerMode}
+                    showRaiseIssue={showRaiseIssue}
                     defaultOpen={index === 0}
                     hideAssignments={hideAssignments}
                     showAnnualTargets={showAnnualTargets}

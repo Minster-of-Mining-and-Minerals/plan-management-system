@@ -38,6 +38,7 @@ interface NodeItemProps {
     isReordering?: boolean;
     readOnly?: boolean;
     dangerMode?: boolean;
+    showRaiseIssue?: boolean;
     configuredUnits?: TargetUnit[];
     hideAssignments?: boolean;
     showAnnualTargets?: boolean;
@@ -64,6 +65,7 @@ const NodeItem = ({
     isReordering = false,
     readOnly = false,
     dangerMode = false,
+    showRaiseIssue = false,
     configuredUnits,
     hideAssignments = false,
     showAnnualTargets = false,
@@ -151,6 +153,7 @@ const NodeItem = ({
                                 configuredUnits={configuredUnits}
                                 allocation={annualTargetAllocations?.[node.plan_node_id]}
                                 canEdit={canEditAnnualTarget}
+                                showRaiseIssue={showRaiseIssue}
                                 variant="compact"
                             />
                         )}
@@ -161,6 +164,7 @@ const NodeItem = ({
                                 configuredUnits={configuredUnits}
                                 allocation={periodTargetAllocations?.[node.plan_node_id]}
                                 canEdit={canEditPeriodTarget}
+                                showRaiseIssue={showRaiseIssue}
                                 variant="compact"
                             />
                         )}
@@ -194,6 +198,7 @@ const NodeItem = ({
                     isReordering={isReordering}
                     readOnly={readOnly}
                     dangerMode={dangerMode}
+                    showRaiseIssue={showRaiseIssue}
                     size="sm"
                     className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                 />
@@ -219,6 +224,7 @@ const NodeItem = ({
                             isReordering={isReordering}
                             readOnly={readOnly}
                             dangerMode={dangerMode}
+                            showRaiseIssue={showRaiseIssue}
                             configuredUnits={configuredUnits}
                             hideAssignments={hideAssignments}
                             showAnnualTargets={showAnnualTargets}
@@ -250,6 +256,7 @@ interface PlanHierarchyTreeProps {
     scoped?: boolean;
     readOnly?: boolean;
     dangerMode?: boolean;
+    showRaiseIssue?: boolean;
     hideAssignments?: boolean;
     showAnnualTargets?: boolean;
     showPeriodTargets?: boolean;
@@ -273,6 +280,7 @@ export function PlanHierarchyTree({
     scoped = false,
     readOnly = false,
     dangerMode = false,
+    showRaiseIssue = false,
     hideAssignments = false,
     showAnnualTargets = false,
     showPeriodTargets = false,
@@ -306,6 +314,7 @@ export function PlanHierarchyTree({
                         isReordering={isReordering}
                         readOnly={readOnly}
                         dangerMode={dangerMode}
+                        showRaiseIssue={showRaiseIssue}
                         configuredUnits={configuredUnits}
                         hideAssignments={hideAssignments}
                         showAnnualTargets={showAnnualTargets}
@@ -340,6 +349,7 @@ export function PlanHierarchyTree({
                     isReordering={isReordering}
                     readOnly={readOnly}
                     dangerMode={dangerMode}
+                    showRaiseIssue={showRaiseIssue}
                     configuredUnits={configuredUnits}
                     hideAssignments={hideAssignments}
                     showAnnualTargets={showAnnualTargets}

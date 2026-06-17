@@ -7,9 +7,13 @@ export type IssueStatus =
   | "closed";
 
 export type IssueEntityType =
+  | "plan_version"
+  | "strategic"
   | "objective"
+  | "goal"
   | "kpi"
   | "activity"
+  | "task"
   | "initiative"
   | "budget"
   | "target";
@@ -179,10 +183,14 @@ export const ISSUE_STATUS_LABELS: Record<IssueStatus, string> = {
 };
 
 export const ISSUE_ENTITY_TYPE_LABELS: Record<IssueEntityType, string> = {
+  plan_version: "Plan",
+  strategic: "Strategic Objective",
   objective: "Objective",
+  goal: "Objective",
   kpi: "KPI",
   activity: "Activity",
+  task: "Activity",
   initiative: "Initiative",
-  budget: "Budget",
+  budget: "Budget Item",
   target: "Target",
 };

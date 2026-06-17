@@ -23,6 +23,7 @@ const {
   logStatusChange,
 } = require("./issueHistoryService");
 const { buildIssueAccessScope, canViewIssue } = require("../utils/issuePermissionUtils");
+const { validateRaisePlanReviewIssue } = require("./planReviewService");
 const { emitIssueEvent, ISSUE_EVENTS } = require("./issueNotificationService");
 
 const ISSUE_INCLUDES = [
@@ -251,6 +252,8 @@ async function createIssue(data, userId, io = null) {
       error.statusCode = 400;
       throw error;
     }
+
+    await validateRaisePlanReviewIssue(data.entity_type, data.entity_id, t);
 
     const issueNumber = await generateIssueNumber(t);
 

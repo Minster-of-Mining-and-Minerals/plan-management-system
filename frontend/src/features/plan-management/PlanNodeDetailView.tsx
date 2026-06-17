@@ -62,6 +62,8 @@ import {
     confirmFinalizedPlanStructureEdit,
     isEditingFinalizedMasterPlan,
 } from "@/utils/planMasterEditUtils";
+import { RaiseIssueButton } from "./components/RaiseIssueButton";
+import { canRaiseReviewIssue, planNodeTypeToIssueEntityType } from "@/utils/planReviewUtils";
 
 interface PlanNodeDetailViewProps {
     versionId: string;
@@ -75,19 +77,21 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
     const [showHistory, setShowHistory] = useState(false);
 
     const { data: version } = useGetPlanVersionByIdQuery(versionId);
-    const masterVersionId =
-        version?.version_kind === "annual"
-            ? version.parent_plan_version_id
-            : version?.version_kind === "execution_period"
-              ? null
-              : null;
     const annualParentId =
         version?.version_kind === "execution_period" ? version.parent_plan_version_id : null;
-    const { data: masterVersion } = useGetPlanVersionByIdQuery(masterVersionId!, {
-        skip: !masterVersionId,
-    });
     const { data: annualParentVersion } = useGetPlanVersionByIdQuery(annualParentId!, {
         skip: !annualParentId,
+    });
+    const resolvedMasterVersionId =
+        version?.version_kind === "master"
+            ? version.plan_version_id
+            : version?.version_kind === "annual"
+              ? version.parent_plan_version_id
+              : version?.version_kind === "execution_period"
+                ? annualParentVersion?.parent_plan_version_id ?? null
+                : null;
+    const { data: masterVersion } = useGetPlanVersionByIdQuery(resolvedMasterVersionId!, {
+        skip: !resolvedMasterVersionId,
     });
     const { data: planningConfig } = useGetPlanningConfigurationQuery();
     const [updateAnnualTarget, { isLoading: isSavingTarget }] = useUpdateAnnualTargetMutation();
@@ -138,6 +142,11 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
         }
     }, [node?.period_target, nodeId]);
 
+    const effectiveMasterVersion =
+        version?.version_kind === "master" ? version : masterVersion;
+    const masterReviewStatus = effectiveMasterVersion?.review_status;
+    const showRaiseIssue = canRaiseReviewIssue(effectiveMasterVersion);
+
     const annualTargetsFinalized = Boolean(masterVersion?.annual_targets_finalized_at);
     const periodTargetsFinalized = Boolean(
         version?.version_kind === "execution_period"
@@ -154,12 +163,12 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
     const liveDraftTarget = node ? resolveLiveDraftTarget(node, annualAllocation) : 0;
 
     const canAllocateAnnualTarget =
-        canEditAnnualTargetForVersion(version, annualTargetsFinalized) &&
+        canEditAnnualTargetForVersion(version, annualTargetsFinalized, masterReviewStatus) &&
         node &&
         liveDraftTarget > 0;
 
     const canAllocatePeriodTarget =
-        canEditPeriodTargetForVersion(version, periodTargetsFinalized) &&
+        canEditPeriodTargetForVersion(version, periodTargetsFinalized, masterReviewStatus) &&
         node &&
         (node.annual_target ?? 0) > 0;
 
@@ -475,6 +484,14 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                         <div className="flex-1 space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">
                                 <h2 className="text-xl font-bold text-gray-900">{node.title}</h2>
+                                {showRaiseIssue && (
+                                    <RaiseIssueButton
+                                        entityType={planNodeTypeToIssueEntityType(node.type)}
+                                        entityId={node.plan_node_id}
+                                        size="sm"
+                                        variant="outline"
+                                    />
+                                )}
                                 <Badge variant="outline" className="uppercase font-bold text-[10px]">
                                     {getTypeLabel(node.type)}
                                 </Badge>

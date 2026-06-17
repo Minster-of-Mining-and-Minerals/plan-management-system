@@ -1,7 +1,11 @@
 import { PlanVersion } from "@/redux/types/plan";
 import { actionFeedback } from "@/components/action-feedback";
 import type { PermissionKey } from "@/lib/permissions";
-import { PLAN_PERMISSIONS } from "./planPermissionUtils";
+import { PLAN_PERMISSIONS, PLAN_LIFECYCLE_PERMISSIONS } from "./planPermissionUtils";
+import {
+    isPlanCorrectionsUnlocked,
+    isPlanUnderReview,
+} from "./planReviewUtils";
 
 export const PLANS_EDIT_FINALIZED_PERMISSION = PLAN_PERMISSIONS.EDIT_FINALIZED;
 
@@ -20,6 +24,18 @@ export function canEditMasterPlanStructure(
     version: PlanVersion | undefined,
     can: (permission: PermissionKey) => boolean
 ): boolean {
+    if (version?.version_kind === "master") {
+        if (isPlanUnderReview(version.review_status)) {
+            return false;
+        }
+        if (isPlanCorrectionsUnlocked(version.review_status)) {
+            return (
+                can(PLAN_LIFECYCLE_PERMISSIONS.UNLOCK_REVIEW_CORRECTIONS) ||
+                can(PLAN_PERMISSIONS.UPDATE) ||
+                can(PLAN_PERMISSIONS.EDIT_FINALIZED)
+            );
+        }
+    }
     if (version?.version_kind === "master" && version?.status === "draft") {
         return can(PLAN_PERMISSIONS.UPDATE);
     }
