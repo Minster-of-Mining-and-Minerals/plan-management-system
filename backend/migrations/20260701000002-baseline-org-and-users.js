@@ -3,6 +3,7 @@
 const {
   createTableIfNotExists,
   dropTablesInOrder,
+  dropIndexIfExists,
 } = require("./helpers/schemaHelpers");
 
 /** @type {import('sequelize-cli').Migration} */
@@ -169,9 +170,42 @@ module.exports = {
         onDelete: "CASCADE",
       },
     });
+
+    const orgIndexes = [
+      `CREATE INDEX IF NOT EXISTS idx_government_structures_parent_id ON government_structures (parent_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_internal_structures_government_structure_id ON internal_structures (government_structure_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_internal_structures_parent_id ON internal_structures (parent_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_users_government_structure_id ON users (government_structure_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_users_internal_structure_id ON users (internal_structure_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_user_roles_user_id ON user_roles (user_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_user_roles_role_id ON user_roles (role_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_user_permission_groups_user_id ON user_permission_groups (user_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_user_permission_groups_permission_group_id ON user_permission_groups (permission_group_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_government_structure_permission_groups_government_structure_id ON government_structure_permission_groups (government_structure_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_government_structure_permission_groups_permission_group_id ON government_structure_permission_groups (permission_group_id)`,
+    ];
+    for (const sql of orgIndexes) {
+      await queryInterface.sequelize.query(sql);
+    }
   },
 
   async down(queryInterface) {
+    const orgIndexNames = [
+      "idx_government_structure_permission_groups_permission_group_id",
+      "idx_government_structure_permission_groups_government_structure_id",
+      "idx_user_permission_groups_permission_group_id",
+      "idx_user_permission_groups_user_id",
+      "idx_user_roles_role_id",
+      "idx_user_roles_user_id",
+      "idx_users_internal_structure_id",
+      "idx_users_government_structure_id",
+      "idx_internal_structures_parent_id",
+      "idx_internal_structures_government_structure_id",
+      "idx_government_structures_parent_id",
+    ];
+    for (const indexName of orgIndexNames) {
+      await dropIndexIfExists(queryInterface, null, indexName);
+    }
     await dropTablesInOrder(queryInterface, [
       "government_structure_permission_groups",
       "user_permission_groups",

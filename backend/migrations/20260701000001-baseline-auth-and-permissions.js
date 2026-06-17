@@ -3,6 +3,7 @@
 const {
   createTableIfNotExists,
   dropTablesInOrder,
+  dropIndexIfExists,
 } = require("./helpers/schemaHelpers");
 
 /** @type {import('sequelize-cli').Migration} */
@@ -96,9 +97,18 @@ module.exports = {
       },
       created_at: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn("NOW") },
     });
+
+    await queryInterface.sequelize.query(`
+      CREATE INDEX IF NOT EXISTS idx_role_permissions_role_id ON role_permissions (role_id)
+    `);
+    await queryInterface.sequelize.query(`
+      CREATE INDEX IF NOT EXISTS idx_role_permissions_permission_id ON role_permissions (permission_id)
+    `);
   },
 
   async down(queryInterface) {
+    await dropIndexIfExists(queryInterface, "role_permissions", "idx_role_permissions_permission_id");
+    await dropIndexIfExists(queryInterface, "role_permissions", "idx_role_permissions_role_id");
     await dropTablesInOrder(queryInterface, [
       "permission_group_permissions",
       "role_permissions",

@@ -1,8 +1,9 @@
 # Migration Audit Report
 
 **Project:** Plan Management System  
-**Date:** 2026-06-10 (refactored)  
-**Architect:** Consolidated baseline + archived corrective chain
+**Date:** 2026-06-16 (validated)  
+**Architect:** Consolidated baseline + archived corrective chain  
+**Validation:** `npm run db:validate-migrations` — **PASSED** (up → undo:all → up)
 
 ---
 
@@ -224,10 +225,28 @@ Expected: **8 migrations**, full schema, default notification templates, permiss
 
 ## K. Remaining Manual Actions
 
-1. **CI:** Add job that runs `db:migrate` + `db:migrate:undo:all` + `db:migrate` on empty PostgreSQL.
+1. **CI:** Add `npm run db:validate-migrations` to pipeline (script at `backend/scripts/validate-migrations.js`).
 2. **`users.deleted_at`:** Model uses paranoid mode but column exists — align Sequelize config if needed.
 3. **Production cutover:** Run schema parity check before deleting SequelizeMeta rows for archived migrations 09–23.
 4. **Demo notifications:** Previously seeded by notification-templates seeder; re-add to demo plan seeder if needed.
+5. **Intentional soft FKs:** `user_roles.assigned_by`, `notifications.template_code`, `attachments.uploaded_by` — add FKs only if product requires strict referential integrity.
+
+## M. Validation Results (2026-06-16)
+
+```
+npm run db:validate-migrations
+✓ 8 migrations up on empty DB
+✓ db:migrate:undo:all — no FK errors
+✓ Re-migrate — idempotent, no duplicate object errors
+```
+
+### FK index improvements (baseline 01–02)
+
+Added explicit indexes on junction/FK columns:
+- `idx_role_permissions_role_id`, `idx_role_permissions_permission_id`
+- 11 org/user junction indexes (government structures, internal structures, users, roles, permission groups)
+
+See `docs/MIGRATION_DEPENDENCY_REPORT.md` for the full pre-refactor dependency analysis.
 
 ---
 
