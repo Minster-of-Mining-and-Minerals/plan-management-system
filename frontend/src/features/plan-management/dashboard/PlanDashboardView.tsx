@@ -10,19 +10,25 @@ import { ProgressTab } from "./tabs/ProgressTab";
 import { SharingAnalysisTab } from "./tabs/SharingAnalysisTab";
 import { ReportsTab } from "./tabs/ReportsTab";
 
-export default function PlanDashboardView() {
+interface PlanDashboardViewProps {
+  embedded?: boolean;
+}
+
+export default function PlanDashboardView({ embedded = false }: PlanDashboardViewProps) {
   const dashboardState = usePlanDashboardFilters();
   const { activeSection } = dashboardState;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold text-golden-dark">Dashboard</h1>
-        <p className="text-sm text-muted-foreground max-w-3xl">
-          National plan management overview — structure, department, and user performance
-          with mock data. Ready for backend integration.
-        </p>
-      </div>
+      {!embedded && (
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-bold text-golden-dark">Dashboard</h1>
+          <p className="text-sm text-muted-foreground max-w-3xl">
+            National plan management overview — structure, department, and user performance
+            with mock data. Ready for backend integration.
+          </p>
+        </div>
+      )}
 
       <PlanDashboardFiltersBar state={dashboardState} />
 

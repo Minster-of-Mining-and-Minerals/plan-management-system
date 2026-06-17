@@ -74,6 +74,11 @@ export const baseApi = createApi({
     "NotificationTemplate",
     "Branding",
     "SystemAuditLog",
+    "Issues",
+    "IssueCategories",
+    "IssuePriorities",
+    "IssueDashboard",
+    "IssueHistory",
   ],
   endpoints: () => ({}),
 });

@@ -1,5 +1,5 @@
-import PlanDashboardView from "@/features/plan-management/dashboard/PlanDashboardView";
+import GlobalDashboardView from "@/features/dashboard/GlobalDashboardView";
 
 export default function DashboardPage() {
-  return <PlanDashboardView />;
+  return <GlobalDashboardView />;
 }

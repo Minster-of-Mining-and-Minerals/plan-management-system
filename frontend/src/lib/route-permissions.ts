@@ -38,6 +38,27 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/internal-structures/[id]", anyPermissions: ["INTERNAL_STRUCTURES:READ"] },
   { pattern: "/internal-structures", anyPermissions: ["INTERNAL_STRUCTURES:READ"] },
 
+  // Issues
+  { pattern: "/issues/categories", allPermissions: ["ISSUE_CATEGORIES:READ"] },
+  {
+    pattern: "/issues/[id]",
+    anyPermissions: [
+      "ISSUES:READ",
+      "ISSUES:READ_ALL",
+      "ISSUES:READ_OWN",
+      "ISSUES:READ_ASSIGNED",
+    ],
+  },
+  {
+    pattern: "/issues",
+    anyPermissions: [
+      "ISSUES:READ",
+      "ISSUES:READ_ALL",
+      "ISSUES:READ_OWN",
+      "ISSUES:READ_ASSIGNED",
+    ],
+  },
+
   // Settings
   { pattern: "/settings/branding", allPermissions: ["BRANDING_SETTINGS:READ"] },
   { pattern: "/settings/audit-logs", allPermissions: ["SYSTEM_AUDIT_LOGS:READ"] },
@@ -90,6 +111,7 @@ export function getDefaultFallbackRoute(
 ): string {
   const candidates: Array<{ path: string; rule: PermissionRule }> = [
     { path: "/dashboard", rule: { anyPermissions: ["DASHBOARD:VIEW"] } },
+    { path: "/issues", rule: { anyPermissions: ["ISSUES:READ", "ISSUES:READ_ALL", "ISSUES:READ_OWN", "ISSUES:READ_ASSIGNED"] } },
     { path: "/plans", rule: { allPermissions: ["PLANS:READ"] } },
     { path: "/government-structures", rule: { anyPermissions: ["GOVERNMENT_STRUCTURES:READ"] } },
     { path: "/internal-structures", rule: { anyPermissions: ["INTERNAL_STRUCTURES:READ"] } },

@@ -68,6 +68,18 @@ const PERMISSIONS = [
   { resource: "branding_settings", action: "read" },
   { resource: "branding_settings", action: "update" },
   { resource: "system_audit_logs", action: "read" },
+  { resource: "issues", action: "create" },
+  { resource: "issues", action: "read" },
+  { resource: "issues", action: "read_own" },
+  { resource: "issues", action: "read_assigned" },
+  { resource: "issues", action: "read_all" },
+  { resource: "issues", action: "review" },
+  { resource: "issues", action: "resolve" },
+  { resource: "issues", action: "close" },
+  { resource: "issue_categories", action: "create" },
+  { resource: "issue_categories", action: "read" },
+  { resource: "issue_categories", action: "update" },
+  { resource: "issue_categories", action: "delete" },
 ];
 
 function dedupePermissions(permissions) {

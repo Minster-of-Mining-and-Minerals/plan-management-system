@@ -33,6 +33,8 @@ const performanceColorThresholdRoutes = require("./routers/config/performanceCol
 const brandingRoutes = require("./routers/config/brandingRoutes");
 const systemAuditLogRoutes = require("./routers/config/systemAuditLogRoutes");
 const notificationRoutes = require("./routers/notification/notificationRoutes");
+const issueRoutes = require("./routers/issue/issueRoutes");
+const issueCategoryRoutes = require("./routers/issue/issueCategoryRoutes");
 
 // ================== Attachment Routes ==========================
 const attachmentRoute = require("./routers/attachment-routes/attachmentRoute");
@@ -136,6 +138,8 @@ app.use("/api/performance-color-thresholds", performanceColorThresholdRoutes);
 app.use("/api/branding", brandingRoutes);
 app.use("/api/system-audit-logs", systemAuditLogRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/issues", issueRoutes);
+app.use("/api/issue-categories", issueCategoryRoutes);
 
 // ================== Api Attachment Routes =====================
 app.use("/api/attachments", attachmentRoute);

@@ -11,6 +11,7 @@ import {
   Settings,
   Paintbrush,
   History,
+  AlertCircle,
 } from "lucide-react";
 
 export type NavItem = {
@@ -98,6 +99,37 @@ export const NAVIGATION: NavItem[] = [
         icon: Palette,
         allPermissions: ["PERFORMANCE_COLOR_THRESHOLDS:READ"],
       }
+    ],
+  },
+  {
+    title: "Issue Management",
+    url: "/issues",
+    icon: AlertCircle,
+    anyPermissions: [
+      "ISSUES:READ",
+      "ISSUES:READ_ALL",
+      "ISSUES:READ_OWN",
+      "ISSUES:READ_ASSIGNED",
+      "ISSUE_CATEGORIES:READ",
+    ],
+    children: [
+      {
+        title: "Issues",
+        url: "/issues",
+        icon: AlertCircle,
+        anyPermissions: [
+          "ISSUES:READ",
+          "ISSUES:READ_ALL",
+          "ISSUES:READ_OWN",
+          "ISSUES:READ_ASSIGNED",
+        ],
+      },
+      {
+        title: "Issue Categories",
+        url: "/issues/categories",
+        icon: Settings,
+        allPermissions: ["ISSUE_CATEGORIES:READ"],
+      },
     ],
   },
   {
