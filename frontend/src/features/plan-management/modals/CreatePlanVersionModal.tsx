@@ -23,6 +23,11 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { PermissionGuard } from "@/utils/PermissionGuard";
+import {
+    PLAN_DRAFT_PUBLISH_PERMISSIONS,
+    PLAN_UPDATE_PERMISSIONS,
+} from "@/utils/planPermissionUtils";
 import {
     Select,
     SelectContent,
@@ -376,9 +381,19 @@ export function CreatePlanVersionModal({
                             >
                                 Cancel
                             </Button>
-                            <Button type="submit" disabled={isCreating || isUpdating}>
-                                {isCreating || isUpdating ? "Saving..." : version ? "Update" : "Create"}
-                            </Button>
+                            {version ? (
+                                <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
+                                    <Button type="submit" disabled={isCreating || isUpdating}>
+                                        {isUpdating ? "Saving..." : "Update"}
+                                    </Button>
+                                </PermissionGuard>
+                            ) : (
+                                <PermissionGuard requireAll={PLAN_DRAFT_PUBLISH_PERMISSIONS}>
+                                    <Button type="submit" disabled={isCreating || isUpdating}>
+                                        {isCreating ? "Saving..." : "Create"}
+                                    </Button>
+                                </PermissionGuard>
+                            )}
                         </DialogFooter>
                     </form>
                 </Form>

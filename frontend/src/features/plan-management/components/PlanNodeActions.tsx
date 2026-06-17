@@ -5,6 +5,11 @@ import { Plus, Edit, Trash, Eye } from "lucide-react";
 import { PlanNode, PlanRule } from "@/redux/types/plan";
 import { canAddChild } from "@/utils/planRuleUtils";
 import { PlanNodeOrderControls } from "./PlanNodeOrderControls";
+import { PermissionGuard } from "@/utils/PermissionGuard";
+import {
+    PLAN_PERMISSIONS,
+    PLAN_STRUCTURE_MUTATION_PERMISSIONS,
+} from "@/utils/planPermissionUtils";
 
 interface PlanNodeActionsProps {
     node: PlanNode;
@@ -56,64 +61,72 @@ export function PlanNodeActions({
     return (
         <div className={`flex items-center gap-1 ${className}`}>
             {showOrderControls && (
-                <PlanNodeOrderControls
-                    size={size}
-                    canMoveUp={canMoveUp}
-                    canMoveDown={canMoveDown}
-                    disabled={isReordering}
-                    onMoveUp={onMoveUp!}
-                    onMoveDown={onMoveDown!}
-                />
+                <PermissionGuard requireAny={PLAN_STRUCTURE_MUTATION_PERMISSIONS}>
+                    <PlanNodeOrderControls
+                        size={size}
+                        canMoveUp={canMoveUp}
+                        canMoveDown={canMoveDown}
+                        disabled={isReordering}
+                        onMoveUp={onMoveUp!}
+                        onMoveDown={onMoveDown!}
+                    />
+                </PermissionGuard>
             )}
-            <Button
-                onClick={handleView}
-                variant="ghost"
-                size="icon"
-                className={`${iconClass} text-blue-600 hover:text-blue-700 hover:bg-blue-50`}
-                title="View Details"
-            >
-                <Eye className={iconSize} />
-            </Button>
-            {showAddChild && (
+            <PermissionGuard requireAll={[PLAN_PERMISSIONS.READ]}>
                 <Button
-                    onClick={() => onAddChild(node)}
+                    onClick={handleView}
                     variant="ghost"
                     size="icon"
-                    className={`${iconClass} ${
-                        dangerMode
-                            ? "text-destructive hover:text-destructive hover:bg-destructive/10"
-                            : "text-primary"
-                    }`}
-                    title="Add Child"
+                    className={`${iconClass} text-blue-600 hover:text-blue-700 hover:bg-blue-50`}
+                    title="View Details"
                 >
-                    <Plus className={iconSize} />
+                    <Eye className={iconSize} />
                 </Button>
-            )}
-            {!readOnly && (
-                <>
+            </PermissionGuard>
+            {showAddChild && (
+                <PermissionGuard requireAny={PLAN_STRUCTURE_MUTATION_PERMISSIONS}>
                     <Button
-                        onClick={() => onEdit(node)}
+                        onClick={() => onAddChild(node)}
                         variant="ghost"
                         size="icon"
                         className={`${iconClass} ${
                             dangerMode
                                 ? "text-destructive hover:text-destructive hover:bg-destructive/10"
-                                : "text-gray-600"
+                                : "text-primary"
                         }`}
-                        title="Edit"
+                        title="Add Child"
                     >
-                        <Edit className={iconSize} />
+                        <Plus className={iconSize} />
                     </Button>
-                    <Button
-                        onClick={() => onDelete(node.plan_node_id)}
-                        variant="ghost"
-                        size="icon"
-                        className={`${iconClass} text-red-500 hover:text-red-700 hover:bg-red-50`}
-                        title="Delete"
-                    >
-                        <Trash className={iconSize} />
-                    </Button>
-                </>
+                </PermissionGuard>
+            )}
+            {!readOnly && (
+                <PermissionGuard requireAny={PLAN_STRUCTURE_MUTATION_PERMISSIONS}>
+                    <>
+                        <Button
+                            onClick={() => onEdit(node)}
+                            variant="ghost"
+                            size="icon"
+                            className={`${iconClass} ${
+                                dangerMode
+                                    ? "text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    : "text-gray-600"
+                            }`}
+                            title="Edit"
+                        >
+                            <Edit className={iconSize} />
+                        </Button>
+                        <Button
+                            onClick={() => onDelete(node.plan_node_id)}
+                            variant="ghost"
+                            size="icon"
+                            className={`${iconClass} text-red-500 hover:text-red-700 hover:bg-red-50`}
+                            title="Delete"
+                        >
+                            <Trash className={iconSize} />
+                        </Button>
+                    </>
+                </PermissionGuard>
             )}
         </div>
     );

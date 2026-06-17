@@ -1,5 +1,6 @@
 "use strict";
 
+const UPDATE_PERMISSION = "plans:update";
 const EDIT_FINALIZED_PERMISSION = "plans:edit_finalized";
 
 function isMasterDraft(planVersion) {
@@ -10,16 +11,20 @@ function isMasterFinalized(planVersion) {
     return planVersion?.version_kind === "master" && planVersion?.status === "finalized";
 }
 
+function userCanUpdatePlans(user) {
+    return Boolean(user?.permissions?.includes(UPDATE_PERMISSION));
+}
+
 function userCanEditFinalizedMaster(user) {
     return Boolean(user?.permissions?.includes(EDIT_FINALIZED_PERMISSION));
 }
 
 function canEditMasterPlanStructure(planVersion, user) {
     if (isMasterDraft(planVersion)) {
-        return true;
+        return userCanUpdatePlans(user);
     }
-    if (isMasterFinalized(planVersion) && userCanEditFinalizedMaster(user)) {
-        return true;
+    if (isMasterFinalized(planVersion)) {
+        return userCanEditFinalizedMaster(user);
     }
     return false;
 }
@@ -27,6 +32,14 @@ function canEditMasterPlanStructure(planVersion, user) {
 function validateCanEditMasterPlanStructure(planVersion, user) {
     if (canEditMasterPlanStructure(planVersion, user)) {
         return { valid: true, isFinalizedEdit: isMasterFinalized(planVersion) };
+    }
+
+    if (isMasterDraft(planVersion)) {
+        return {
+            valid: false,
+            message:
+                "You need the Update Plans permission to edit draft strategic plan structure.",
+        };
     }
 
     if (isMasterFinalized(planVersion)) {
@@ -43,12 +56,32 @@ function validateCanEditMasterPlanStructure(planVersion, user) {
     };
 }
 
+function validatePlanLifecyclePermission(user, permission, actionLabel) {
+    if (user?.permissions?.includes(permission)) {
+        return { valid: true };
+    }
+    return {
+        valid: false,
+        message: `Access denied: ${actionLabel} permission required`,
+    };
+}
+
 module.exports = {
+    UPDATE_PERMISSION,
     EDIT_FINALIZED_PERMISSION,
+    PLAN_LIFECYCLE_PERMISSIONS: {
+        START_PROCESS: "plan:start_process",
+        COMPLETE_ANNUAL: "plan:complete_annual",
+        COMPLETE_PERIOD: "plan:complete_period",
+        FINALIZE: "plan:finalize",
+        DRAFT_PUBLISH: "plan:draft_publish",
+    },
     isMasterDraft,
     isMasterDraftVersion: isMasterDraft,
     isMasterFinalized,
+    userCanUpdatePlans,
     userCanEditFinalizedMaster,
     canEditMasterPlanStructure,
     validateCanEditMasterPlanStructure,
+    validatePlanLifecyclePermission,
 };

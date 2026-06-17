@@ -17,6 +17,8 @@ import { resolveLiveDraftTarget } from "@/utils/planDraftUtils";
 import { actionFeedback } from "@/components/action-feedback";
 import { AnnualTargetAllocationSummary } from "./AnnualTargetAllocationSummary";
 import { cn } from "@/lib/utils";
+import { PermissionGuard } from "@/utils/PermissionGuard";
+import { PLAN_UPDATE_PERMISSIONS } from "@/utils/planPermissionUtils";
 
 interface PlanNodeAnnualTargetSectionProps {
     node: PlanNode;
@@ -133,17 +135,19 @@ export function PlanNodeAnnualTargetSection({
                     className={variant === "compact" ? "h-8 text-xs" : variant === "table" ? "h-8 text-sm" : ""}
                 />
             </div>
-            <Button
-                size={variant === "compact" || variant === "table" ? "sm" : "default"}
-                disabled={isSaving}
-                onClick={(e) => {
-                    e.stopPropagation();
-                    void handleSave();
-                }}
-                className="shrink-0"
-            >
-                Save
-            </Button>
+            <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
+                <Button
+                    size={variant === "compact" || variant === "table" ? "sm" : "default"}
+                    disabled={isSaving}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        void handleSave();
+                    }}
+                    className="shrink-0"
+                >
+                    Save
+                </Button>
+            </PermissionGuard>
         </div>
     ) : null;
 

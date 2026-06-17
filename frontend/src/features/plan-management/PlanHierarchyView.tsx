@@ -44,6 +44,11 @@ import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi"
 import { formatStatus } from "@/utils/statusFormatter";
 import { canEditAnnualTargetForVersion, canEditPeriodTargetForVersion } from "@/utils/planDraftUtils";
 import { usePermissions } from "@/hooks/usePermissions";
+import { PermissionGuard } from "@/utils/PermissionGuard";
+import {
+    PLAN_FINALIZE_PERMISSIONS,
+    PLAN_STRUCTURE_MUTATION_PERMISSIONS,
+} from "@/utils/planPermissionUtils";
 import {
     canEditMasterPlanStructure,
     confirmFinalizedPlanStructureEdit,
@@ -121,7 +126,6 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
     const [reorderNodes, { isLoading: isReordering }] = useReorderPlanNodesMutation();
     const thresholds = usePerformanceColorThresholds();
     const { can } = usePermissions();
-    const canApprovePlan = can("PLANS:APPROVE");
 
     const [viewMode, setViewMode] = useState<ViewMode>("card");
     const [activeTab, setActiveTab] = useState<PlanDetailTab>("hierarchy");
@@ -361,12 +365,14 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     : `Add a ${childLabel.toLowerCase()} under "${currentParent?.title}".`}
             </p>
             {canAddAtCurrentLevel && (
-                <Button
-                    onClick={handleAddAtLevel}
-                    variant={isEditingFinalizedMaster ? "destructive" : "outline"}
-                >
-                    Add {childLabel}
-                </Button>
+                <PermissionGuard requireAny={PLAN_STRUCTURE_MUTATION_PERMISSIONS}>
+                    <Button
+                        onClick={handleAddAtLevel}
+                        variant={isEditingFinalizedMaster ? "destructive" : "outline"}
+                    >
+                        Add {childLabel}
+                    </Button>
+                </PermissionGuard>
             )}
         </div>
     );
@@ -406,13 +412,15 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                 </Button>
             </div>
             {canAddAtCurrentLevel && (
-                <Button
-                    onClick={handleAddAtLevel}
-                    variant={isEditingFinalizedMaster ? "destructive" : "default"}
-                    className="gap-2"
-                >
-                    <Plus className="h-4 w-4" /> Add {childLabel}
-                </Button>
+                <PermissionGuard requireAny={PLAN_STRUCTURE_MUTATION_PERMISSIONS}>
+                    <Button
+                        onClick={handleAddAtLevel}
+                        variant={isEditingFinalizedMaster ? "destructive" : "default"}
+                        className="gap-2"
+                    >
+                        <Plus className="h-4 w-4" /> Add {childLabel}
+                    </Button>
+                </PermissionGuard>
             )}
         </div>
     );
@@ -722,15 +730,16 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     <div className="flex flex-col gap-3 px-4 py-3 border-b border-gray-100 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex flex-wrap gap-2">
                             {periodsInitializedGlobally &&
-                                !periodTargetsFinalized &&
-                                canApprovePlan && (
-                                    <Button
-                                        className="gap-2"
-                                        onClick={() => setFinalizeExecutionPeriodOpen(true)}
-                                    >
-                                        <ShieldCheck className="h-4 w-4" />
-                                        Finalize Execution Period
-                                    </Button>
+                                !periodTargetsFinalized && (
+                                    <PermissionGuard requireAll={PLAN_FINALIZE_PERMISSIONS}>
+                                        <Button
+                                            className="gap-2"
+                                            onClick={() => setFinalizeExecutionPeriodOpen(true)}
+                                        >
+                                            <ShieldCheck className="h-4 w-4" />
+                                            Finalize Execution Period
+                                        </Button>
+                                    </PermissionGuard>
                                 )}
                         </div>
                         {detailTabToggle}

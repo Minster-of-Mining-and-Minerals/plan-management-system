@@ -18,6 +18,8 @@ import { PlanVersion } from "@/redux/types/plan";
 import { formatPlanningPeriod, getPlanDraftDisplayName } from "@/utils/planDraftUtils";
 import { getApiErrorMessage } from "@/utils/apiErrorUtils";
 import { useRouter } from "next/navigation";
+import { PermissionGuard } from "@/utils/PermissionGuard";
+import { PLAN_DRAFT_PUBLISH_PERMISSIONS } from "@/utils/planPermissionUtils";
 
 interface DuplicatePlanDraftModalProps {
     isOpen: boolean;
@@ -103,19 +105,21 @@ export function DuplicatePlanDraftModal({
                     <Button variant="outline" onClick={onClose} disabled={isLoading}>
                         Cancel
                     </Button>
-                    <Button onClick={handleDuplicate} disabled={isLoading}>
-                        {isLoading ? (
-                            <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Duplicating...
-                            </>
-                        ) : (
-                            <>
-                                <Copy className="mr-2 h-4 w-4" />
-                                Duplicate
-                            </>
-                        )}
-                    </Button>
+                    <PermissionGuard requireAll={PLAN_DRAFT_PUBLISH_PERMISSIONS}>
+                        <Button onClick={handleDuplicate} disabled={isLoading}>
+                            {isLoading ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Duplicating...
+                                </>
+                            ) : (
+                                <>
+                                    <Copy className="mr-2 h-4 w-4" />
+                                    Duplicate
+                                </>
+                            )}
+                        </Button>
+                    </PermissionGuard>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

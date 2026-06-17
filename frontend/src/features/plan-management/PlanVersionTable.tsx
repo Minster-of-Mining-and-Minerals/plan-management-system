@@ -39,6 +39,15 @@ import {
   matchesMultiValueFilter,
   matchesSearchQuery,
 } from "@/utils/tableUtils";
+import { PermissionGuard } from "@/utils/PermissionGuard";
+import {
+  PLAN_PERMISSIONS,
+  PLAN_COMPLETE_ANNUAL_PERMISSIONS,
+  PLAN_COMPLETE_PERIOD_PERMISSIONS,
+  PLAN_DRAFT_PUBLISH_PERMISSIONS,
+  PLAN_FINALIZE_PERMISSIONS,
+  PLAN_UPDATE_PERMISSIONS,
+} from "@/utils/planPermissionUtils";
 
 export default function PlanVersionTable() {
     const searchParams = useSearchParams();
@@ -58,7 +67,6 @@ export default function PlanVersionTable() {
 
     const draftLabel = config.draft_entity_label_singular;
     const draftsLabel = config.draft_entity_label_plural;
-    const canCreatePlan = can("PLANS:CREATE");
 
     const handleEditVersion = async (version: PlanVersion) => {
         if (version.status === "draft") {
@@ -171,60 +179,83 @@ export default function PlanVersionTable() {
             },
             cell: ({ row }) => (
                 <div className="flex items-center gap-1">
-                    <Button
-                        onClick={() => router.push(`/plans/${row.original.plan_version_id}`)}
-                        variant="ghost"
-                        size="icon"
-                        title="View Hierarchy"
-                    >
-                        <Eye className="h-4 w-4" />
-                    </Button>
+                    <PermissionGuard requireAll={[PLAN_PERMISSIONS.READ]}>
+                        <Button
+                            onClick={() => router.push(`/plans/${row.original.plan_version_id}`)}
+                            variant="ghost"
+                            size="icon"
+                            title="View Hierarchy"
+                        >
+                            <Eye className="h-4 w-4" />
+                        </Button>
+                    </PermissionGuard>
                     {row.original.status === "draft" && (
                         <>
+                            <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
+                                <Button
+                                    onClick={() => handleEditVersion(row.original)}
+                                    variant="ghost"
+                                    size="icon"
+                                    title="Edit"
+                                    disabled={isReopening}
+                                >
+                                    <Edit className="h-4 w-4" />
+                                </Button>
+                            </PermissionGuard>
+                            <PermissionGuard requireAll={PLAN_FINALIZE_PERMISSIONS}>
+                                <Button
+                                    onClick={() => setFinalizeVersion(row.original)}
+                                    variant="ghost"
+                                    size="icon"
+                                    className="text-green-600 hover:text-green-800"
+                                    title="Finalize Draft"
+                                >
+                                    <Rocket className="h-4 w-4" />
+                                </Button>
+                            </PermissionGuard>
+                        </>
+                    )}
+                    {canEditFinalizedMasterPlan(row.original, can) && (
+                        <PermissionGuard requireAll={[PLAN_PERMISSIONS.EDIT_FINALIZED]}>
                             <Button
                                 onClick={() => handleEditVersion(row.original)}
                                 variant="ghost"
                                 size="icon"
-                                title="Edit"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                title="Reopen for editing (restarts validation process)"
                                 disabled={isReopening}
                             >
                                 <Edit className="h-4 w-4" />
                             </Button>
-                            <Button
-                                onClick={() => setFinalizeVersion(row.original)}
-                                variant="ghost"
-                                size="icon"
-                                className="text-green-600 hover:text-green-800"
-                                title="Finalize Draft"
-                            >
-                                <Rocket className="h-4 w-4" />
-                            </Button>
-                        </>
-                    )}
-                    {canEditFinalizedMasterPlan(row.original, can) && (
-                        <Button
-                            onClick={() => handleEditVersion(row.original)}
-                            variant="ghost"
-                            size="icon"
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            title="Reopen for editing (restarts validation process)"
-                            disabled={isReopening}
-                        >
-                            <Edit className="h-4 w-4" />
-                        </Button>
+                        </PermissionGuard>
                     )}
                     {row.original.status === "active" && row.original.version_kind === "annual" && (
-                        <Button
-                            onClick={() => handleStatusChange(row.original.plan_version_id, "completed")}
-                            variant="ghost"
-                            size="icon"
-                            className="text-blue-500 hover:text-blue-700"
-                            title="Complete Plan"
-                        >
-                            <CheckCircle className="h-4 w-4" />
-                        </Button>
+                        <PermissionGuard requireAll={PLAN_COMPLETE_ANNUAL_PERMISSIONS}>
+                            <Button
+                                onClick={() => handleStatusChange(row.original.plan_version_id, "completed")}
+                                variant="ghost"
+                                size="icon"
+                                className="text-blue-500 hover:text-blue-700"
+                                title="Complete Plan"
+                            >
+                                <CheckCircle className="h-4 w-4" />
+                            </Button>
+                        </PermissionGuard>
                     )}
-                    {canCreatePlan && (
+                    {row.original.status === "active" && row.original.version_kind === "execution_period" && (
+                        <PermissionGuard requireAll={PLAN_COMPLETE_PERIOD_PERMISSIONS}>
+                            <Button
+                                onClick={() => handleStatusChange(row.original.plan_version_id, "completed")}
+                                variant="ghost"
+                                size="icon"
+                                className="text-blue-500 hover:text-blue-700"
+                                title="Complete Period"
+                            >
+                                <CheckCircle className="h-4 w-4" />
+                            </Button>
+                        </PermissionGuard>
+                    )}
+                    <PermissionGuard requireAll={PLAN_DRAFT_PUBLISH_PERMISSIONS}>
                         <Button
                             onClick={() => setDuplicateVersion(row.original)}
                             variant="ghost"
@@ -233,16 +264,18 @@ export default function PlanVersionTable() {
                         >
                             <Copy className="h-4 w-4" />
                         </Button>
-                    )}
-                    <Button
-                        onClick={() => handleDelete(row.original.plan_version_id)}
-                        variant="ghost"
-                        size="icon"
-                        className="text-red-500 hover:text-red-700"
-                        title="Delete"
-                    >
-                        <Trash className="h-4 w-4" />
-                    </Button>
+                    </PermissionGuard>
+                    <PermissionGuard requireAll={[PLAN_PERMISSIONS.DELETE]}>
+                        <Button
+                            onClick={() => handleDelete(row.original.plan_version_id)}
+                            variant="ghost"
+                            size="icon"
+                            className="text-red-500 hover:text-red-700"
+                            title="Delete"
+                        >
+                            <Trash className="h-4 w-4" />
+                        </Button>
+                    </PermissionGuard>
                 </div>
             ),
         },
@@ -308,6 +341,7 @@ export default function PlanVersionTable() {
             label: config.create_action_label,
             icon: <Plus className="h-4 w-4" />,
             variant: "default",
+            permissions: [...PLAN_DRAFT_PUBLISH_PERMISSIONS],
             onClick: () => {
                 setSelectedVersion(null);
                 setModalOpen(true);

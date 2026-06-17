@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, CheckCircle, Clock, ShieldCheck } from "lucide-react";
+import { Eye, CheckCircle, Clock } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,10 +17,13 @@ import {
     resolveWorkflowStatusAppearance,
 } from "@/utils/performanceColorUtils";
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
-import { usePermissions } from "@/hooks/usePermissions";
+import { PermissionGuard } from "@/utils/PermissionGuard";
+import {
+    PLAN_COMPLETE_PERIOD_PERMISSIONS,
+    PLAN_PERMISSIONS,
+} from "@/utils/planPermissionUtils";
 import { PerformanceProgressBar } from "./PerformanceProgressBar";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
-import { FinalizeExecutionPeriodsModal } from "../modals/FinalizeExecutionPeriodsModal";
 import { cn } from "@/lib/utils";
 
 interface ExecutionPeriodsDashboardProps {
@@ -42,9 +44,6 @@ function formatSubdivisionMode(mode: string | null | undefined): string {
 export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDashboardProps) {
     const router = useRouter();
     const thresholds = usePerformanceColorThresholds();
-    const { can } = usePermissions();
-    const canApprovePlan = can("PLANS:APPROVE");
-    const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
 
     const { data: masterVersion } = useGetPlanVersionByIdQuery(
         annualVersion.parent_plan_version_id ?? "",
@@ -155,12 +154,7 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
                             : `${formatSubdivisionMode(annual.period_subdivision_mode ?? masterVersion?.period_subdivision_mode)} subdivision — set period targets in each period so totals match this year's annual targets, then finalize execution period.`}
                     </p>
                 </div>
-                {/* {!periodTargetsFinalized && periodsInitialized && canApprovePlan && (
-                    <Button className="gap-2 shrink-0" onClick={() => setFinalizeModalOpen(true)}>
-                        <ShieldCheck className="h-4 w-4" />
-                        Finalize Execution Period
-                    </Button>
-                )} */}
+                {/* Finalize button lives on PlanHierarchyView annual tab header */}
             </div>
 
             {periodTargetsFinalized && annual.period_targets_finalized_at && (
@@ -321,43 +315,40 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
                             </CardContent>
 
                             <CardFooter className="flex flex-wrap gap-2 pt-0">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="gap-2 flex-1"
-                                    onClick={() =>
-                                        router.push(`/plans/${period.plan_version_id}`)
-                                    }
-                                >
-                                    <Eye className="h-4 w-4" />
-                                    Open Plan
-                                </Button>
-                                {showComplete && (
+                                <PermissionGuard requireAll={[PLAN_PERMISSIONS.READ]}>
                                     <Button
-                                        variant="default"
+                                        variant="outline"
                                         size="sm"
                                         className="gap-2 flex-1"
-                                        disabled={isCompleting}
                                         onClick={() =>
-                                            handleComplete(period.plan_version_id, periodLabel)
+                                            router.push(`/plans/${period.plan_version_id}`)
                                         }
                                     >
-                                        <CheckCircle className="h-4 w-4" />
-                                        Complete
+                                        <Eye className="h-4 w-4" />
+                                        Open Plan
                                     </Button>
+                                </PermissionGuard>
+                                {showComplete && (
+                                    <PermissionGuard requireAll={PLAN_COMPLETE_PERIOD_PERMISSIONS}>
+                                        <Button
+                                            variant="default"
+                                            size="sm"
+                                            className="gap-2 flex-1"
+                                            disabled={isCompleting}
+                                            onClick={() =>
+                                                handleComplete(period.plan_version_id, periodLabel)
+                                            }
+                                        >
+                                            <CheckCircle className="h-4 w-4" />
+                                            Complete
+                                        </Button>
+                                    </PermissionGuard>
                                 )}
                             </CardFooter>
                         </Card>
                     );
                 })}
             </div>
-
-            <FinalizeExecutionPeriodsModal
-                isOpen={finalizeModalOpen}
-                onClose={() => setFinalizeModalOpen(false)}
-                annualVersion={annualVersion}
-                onSuccess={() => refetch()}
-            />
         </div>
     );
 }

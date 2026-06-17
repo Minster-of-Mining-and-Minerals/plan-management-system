@@ -20,13 +20,7 @@ async function getNextSiblingOrder(planVersionId, parentId, transaction) {
     return siblingCount;
 }
 
-const { isMasterDraftVersion, isMasterFinalized } = require("./planMasterEditUtils");
-
-const EDIT_FINALIZED_PERMISSION = "plans:edit_finalized";
-
-function userCanEditFinalizedMaster(user) {
-    return Boolean(user?.permissions?.includes(EDIT_FINALIZED_PERMISSION));
-}
+const { isMasterDraftVersion, canEditMasterPlanStructure } = require("./planMasterEditUtils");
 
 /**
  * Ensures reorder targets are sibling nodes on a single editable master plan version.
@@ -53,15 +47,11 @@ async function validateMasterPlanReorderNodes(nodeOrders, parentId, user, transa
     const masterVersionId = nodes[0].plan_version_id;
 
     for (const node of nodes) {
-        const isDraft = isMasterDraftVersion(node.planVersion);
-        const isFinalizedEdit =
-            isMasterFinalized(node.planVersion) && userCanEditFinalizedMaster(user);
-
-        if (!isDraft && !isFinalizedEdit) {
+        if (!canEditMasterPlanStructure(node.planVersion, user)) {
             return {
                 valid: false,
                 message:
-                    "Node order can only be changed on the draft master plan or with Edit Finalized Plan permission",
+                    "Node order can only be changed on an editable draft master plan (Update Plans) or a finalized master plan (Edit Finalized Plan)",
             };
         }
         if (node.plan_version_id !== masterVersionId) {

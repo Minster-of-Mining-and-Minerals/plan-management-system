@@ -17,6 +17,8 @@ import {
 } from "@/redux/api/planApi";
 import { PlanVersion } from "@/redux/types/plan";
 import { getApiErrorMessage } from "@/utils/apiErrorUtils";
+import { PermissionGuard } from "@/utils/PermissionGuard";
+import { PLAN_FINALIZE_PERMISSIONS } from "@/utils/planPermissionUtils";
 
 interface FinalizeAnnualExecutionModalProps {
     isOpen: boolean;
@@ -112,19 +114,21 @@ export function FinalizeAnnualExecutionModal({
                     <Button variant="outline" onClick={onClose} disabled={isFinalizing}>
                         Cancel
                     </Button>
-                    <Button
-                        onClick={handleFinalize}
-                        disabled={!readiness?.ready || isFinalizing || isLoading}
-                    >
-                        {isFinalizing ? (
-                            <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Finalizing...
-                            </>
-                        ) : (
-                            "Finalize Annual Execution"
-                        )}
-                    </Button>
+                    <PermissionGuard requireAll={PLAN_FINALIZE_PERMISSIONS}>
+                        <Button
+                            onClick={handleFinalize}
+                            disabled={!readiness?.ready || isFinalizing || isLoading}
+                        >
+                            {isFinalizing ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Finalizing...
+                                </>
+                            ) : (
+                                "Finalize Annual Execution"
+                            )}
+                        </Button>
+                    </PermissionGuard>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

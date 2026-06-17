@@ -45,6 +45,8 @@ const {
 } = require("../../services/planMasterEditService");
 const {
     validateCanEditMasterPlanStructure,
+    validatePlanLifecyclePermission,
+    PLAN_LIFECYCLE_PERMISSIONS,
 } = require("../../utils/planMasterEditUtils");
 const { validatePlanNodeAgainstRule } = require("../../services/planRuleService");
 const {
@@ -512,6 +514,15 @@ const updatePlanVersionStatus = async (req, res) => {
         }
 
         if (planVersion.version_kind === "annual" && status === "completed") {
+            const access = validatePlanLifecyclePermission(
+                req.user,
+                PLAN_LIFECYCLE_PERMISSIONS.COMPLETE_ANNUAL,
+                "Complete Annual Plan"
+            );
+            if (!access.valid) {
+                await t.rollback();
+                return res.status(403).json({ success: false, message: access.message });
+            }
             await t.rollback();
             const result = await completeAnnualVersion(id);
             if (!result.success) {
@@ -528,6 +539,15 @@ const updatePlanVersionStatus = async (req, res) => {
         }
 
         if (planVersion.version_kind === "execution_period" && status === "completed") {
+            const access = validatePlanLifecyclePermission(
+                req.user,
+                PLAN_LIFECYCLE_PERMISSIONS.COMPLETE_PERIOD,
+                "Complete Execution Period"
+            );
+            if (!access.valid) {
+                await t.rollback();
+                return res.status(403).json({ success: false, message: access.message });
+            }
             await t.rollback();
             const result = await completeExecutionPeriod(id);
             if (!result.success) {

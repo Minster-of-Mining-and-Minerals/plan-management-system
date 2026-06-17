@@ -18,6 +18,8 @@ import {
 import { PlanVersion } from "@/redux/types/plan";
 import { formatPlanningPeriod } from "@/utils/planDraftUtils";
 import { getApiErrorMessage } from "@/utils/apiErrorUtils";
+import { PermissionGuard } from "@/utils/PermissionGuard";
+import { PLAN_FINALIZE_PERMISSIONS } from "@/utils/planPermissionUtils";
 
 interface FinalizePlanDraftModalProps {
     isOpen: boolean;
@@ -127,19 +129,21 @@ export function FinalizePlanDraftModal({
                     <Button variant="outline" onClick={onClose} disabled={isFinalizing}>
                         Cancel
                     </Button>
-                    <Button
-                        onClick={handleFinalize}
-                        disabled={!readiness?.ready || isFinalizing || isLoading}
-                    >
-                        {isFinalizing ? (
-                            <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Finalizing...
-                            </>
-                        ) : (
-                            "Finalize & Generate Annual Versions"
-                        )}
-                    </Button>
+                    <PermissionGuard requireAll={PLAN_FINALIZE_PERMISSIONS}>
+                        <Button
+                            onClick={handleFinalize}
+                            disabled={!readiness?.ready || isFinalizing || isLoading}
+                        >
+                            {isFinalizing ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Finalizing...
+                                </>
+                            ) : (
+                                "Finalize & Generate Annual Versions"
+                            )}
+                        </Button>
+                    </PermissionGuard>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

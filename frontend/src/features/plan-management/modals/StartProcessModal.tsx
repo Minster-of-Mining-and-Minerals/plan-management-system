@@ -10,6 +10,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle2, AlertCircle, Play } from "lucide-react";
 import { actionFeedback } from "@/components/action-feedback";
+import { PermissionGuard } from "@/utils/PermissionGuard";
+import { PLAN_START_PROCESS_PERMISSIONS } from "@/utils/planPermissionUtils";
 import {
     useGetStartProcessReadinessQuery,
     useStartPlanProcessMutation,
@@ -95,23 +97,25 @@ export function StartProcessModal({
                     <Button variant="outline" onClick={onClose} disabled={isStarting}>
                         Cancel
                     </Button>
-                    <Button
-                        onClick={handleStart}
-                        disabled={!readiness?.ready || isStarting || isLoading}
-                        className="gap-2"
-                    >
-                        {isStarting ? (
-                            <>
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                Starting...
-                            </>
-                        ) : (
-                            <>
-                                <Play className="h-4 w-4" />
-                                Start Process
-                            </>
-                        )}
-                    </Button>
+                    <PermissionGuard requireAll={PLAN_START_PROCESS_PERMISSIONS}>
+                        <Button
+                            onClick={handleStart}
+                            disabled={!readiness?.ready || isStarting || isLoading}
+                            className="gap-2"
+                        >
+                            {isStarting ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Starting...
+                                </>
+                            ) : (
+                                <>
+                                    <Play className="h-4 w-4" />
+                                    Start Process
+                                </>
+                            )}
+                        </Button>
+                    </PermissionGuard>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

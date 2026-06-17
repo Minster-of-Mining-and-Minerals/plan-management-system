@@ -32,6 +32,22 @@ Or with an absolute path to the `.sql` file.
 
 **Warning:** Restore uses `--clean` dumps and replaces existing objects in the target database. Use a dev/staging database unless you intend to overwrite production data.
 
+## Restore plan drafts only (from backup)
+
+If you re-seeded migrations but lost plan drafts, restore just plan tables from an export:
+
+```bash
+npm run db:restore-plans
+```
+
+Or with a specific backup file:
+
+```bash
+npm run db:restore-plans -- database/backups/pms_backup_2026-06-16_115430.sql
+```
+
+This keeps users, roles, and org structure intact and reloads `plan_versions`, `plan_nodes`, assignments, planning config, and plan rules from the backup.
+
 ## Manual commands (Windows)
 
 ```powershell

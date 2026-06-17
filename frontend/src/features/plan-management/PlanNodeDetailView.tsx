@@ -51,6 +51,12 @@ import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi"
 import { formatNodeTarget } from "@/utils/planRuleUtils";
 import { canEditAnnualTargetForVersion, canEditPeriodTargetForVersion, resolveLiveDraftTarget } from "@/utils/planDraftUtils";
 import { usePermissions } from "@/hooks/usePermissions";
+import { PermissionGuard } from "@/utils/PermissionGuard";
+import {
+    PLAN_ASSIGNMENT_CREATE_PERMISSIONS,
+    PLAN_ASSIGNMENT_DELETE_PERMISSIONS,
+    PLAN_UPDATE_PERMISSIONS,
+} from "@/utils/planPermissionUtils";
 import {
     canEditMasterPlanStructure,
     confirmFinalizedPlanStructureEdit,
@@ -295,14 +301,16 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
             header: "Actions",
             cell: ({ row }) => (
                 row.original.is_active ? (
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-gray-400 hover:text-red-500"
-                        onClick={() => handleDeleteInternal(row.original.internal_assignment_id)}
-                    >
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <PermissionGuard requireAny={PLAN_ASSIGNMENT_DELETE_PERMISSIONS}>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-gray-400 hover:text-red-500"
+                            onClick={() => handleDeleteInternal(row.original.internal_assignment_id)}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </PermissionGuard>
                 ) : null
             )
         }
@@ -360,14 +368,16 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
             header: "Actions",
             cell: ({ row }) => (
                 row.original.is_active ? (
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-gray-400 hover:text-red-500"
-                        onClick={() => handleDeleteExternal(row.original.external_assignment_id)}
-                    >
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <PermissionGuard requireAny={PLAN_ASSIGNMENT_DELETE_PERMISSIONS}>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-gray-400 hover:text-red-500"
+                            onClick={() => handleDeleteExternal(row.original.external_assignment_id)}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </PermissionGuard>
                 ) : null
             )
         }
@@ -411,6 +421,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
             label: assignLabel,
             icon: <UserPlus className="h-4 w-4" />,
             variant: isEditingFinalizedMaster ? "destructive" as const : "default" as const,
+            permissions: [...PLAN_ASSIGNMENT_CREATE_PERMISSIONS],
             onClick: async () => {
                 if (!(await confirmIfFinalizedEdit("Adding an assignment"))) return;
                 if (activeTab === "internal") {
@@ -594,27 +605,29 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                                                     }
                                                 />
                                             </div>
-                                            <Button
-                                                disabled={isSavingTarget}
-                                                onClick={async () => {
-                                                    try {
-                                                        const val =
-                                                            annualTargetInput === ""
-                                                                ? null
-                                                                : Number(annualTargetInput);
-                                                        await updateAnnualTarget({
-                                                            id: node.plan_node_id,
-                                                            annual_target: val,
-                                                        }).unwrap();
-                                                        actionFeedback.success("Annual target saved");
-                                                    } catch (error: unknown) {
-                                                        const err = error as { data?: { message?: string } };
-                                                        actionFeedback.error(err.data?.message || "Failed to save");
-                                                    }
-                                                }}
-                                            >
-                                                Save Annual Target
-                                            </Button>
+                                            <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
+                                                <Button
+                                                    disabled={isSavingTarget}
+                                                    onClick={async () => {
+                                                        try {
+                                                            const val =
+                                                                annualTargetInput === ""
+                                                                    ? null
+                                                                    : Number(annualTargetInput);
+                                                            await updateAnnualTarget({
+                                                                id: node.plan_node_id,
+                                                                annual_target: val,
+                                                            }).unwrap();
+                                                            actionFeedback.success("Annual target saved");
+                                                        } catch (error: unknown) {
+                                                            const err = error as { data?: { message?: string } };
+                                                            actionFeedback.error(err.data?.message || "Failed to save");
+                                                        }
+                                                    }}
+                                                >
+                                                    Save Annual Target
+                                                </Button>
+                                            </PermissionGuard>
                                         </div>
                                     )}
                                 </div>
@@ -663,27 +676,29 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                                                     placeholder="Enter period allocation"
                                                 />
                                             </div>
-                                            <Button
-                                                disabled={isSavingPeriodTarget}
-                                                onClick={async () => {
-                                                    try {
-                                                        const val =
-                                                            periodTargetInput === ""
-                                                                ? null
-                                                                : Number(periodTargetInput);
-                                                        await updatePeriodTarget({
-                                                            id: node.plan_node_id,
-                                                            period_target: val,
-                                                        }).unwrap();
-                                                        actionFeedback.success("Period target saved");
-                                                    } catch (error: unknown) {
-                                                        const err = error as { data?: { message?: string } };
-                                                        actionFeedback.error(err.data?.message || "Failed to save");
-                                                    }
-                                                }}
-                                            >
-                                                Save Period Target
-                                            </Button>
+                                            <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
+                                                <Button
+                                                    disabled={isSavingPeriodTarget}
+                                                    onClick={async () => {
+                                                        try {
+                                                            const val =
+                                                                periodTargetInput === ""
+                                                                    ? null
+                                                                    : Number(periodTargetInput);
+                                                            await updatePeriodTarget({
+                                                                id: node.plan_node_id,
+                                                                period_target: val,
+                                                            }).unwrap();
+                                                            actionFeedback.success("Period target saved");
+                                                        } catch (error: unknown) {
+                                                            const err = error as { data?: { message?: string } };
+                                                            actionFeedback.error(err.data?.message || "Failed to save");
+                                                        }
+                                                    }}
+                                                >
+                                                    Save Period Target
+                                                </Button>
+                                            </PermissionGuard>
                                         </div>
                                     )}
                                 </div>

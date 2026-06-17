@@ -18,6 +18,11 @@ import { CreatePlanRuleModal } from "./modals/CreatePlanRuleModal";
 import { getWeightStartLevel, sortSteps } from "@/utils/planRuleUtils";
 import { useSearchParams } from "next/navigation";
 import { matchesSearchQuery } from "@/utils/tableUtils";
+import { PermissionGuard } from "@/utils/PermissionGuard";
+import {
+    PLAN_PERMISSIONS,
+    PLAN_UPDATE_PERMISSIONS,
+} from "@/utils/planPermissionUtils";
 
 export default function PlanRulesTable() {
     const searchParams = useSearchParams();
@@ -76,26 +81,30 @@ export default function PlanRulesTable() {
             header: "Actions",
             cell: ({ row }) => (
                 <div className="flex items-center gap-1">
-                    <Button
-                        onClick={() => {
-                            setSelectedRule(row.original);
-                            setModalOpen(true);
-                        }}
-                        variant="ghost"
-                        size="icon"
-                        title="Edit"
-                    >
-                        <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                        onClick={() => handleDelete(row.original.plan_rule_id)}
-                        variant="ghost"
-                        size="icon"
-                        className="text-red-500 hover:text-red-700"
-                        title="Delete"
-                    >
-                        <Trash className="h-4 w-4" />
-                    </Button>
+                    <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
+                        <Button
+                            onClick={() => {
+                                setSelectedRule(row.original);
+                                setModalOpen(true);
+                            }}
+                            variant="ghost"
+                            size="icon"
+                            title="Edit"
+                        >
+                            <Edit className="h-4 w-4" />
+                        </Button>
+                    </PermissionGuard>
+                    <PermissionGuard requireAll={[PLAN_PERMISSIONS.DELETE]}>
+                        <Button
+                            onClick={() => handleDelete(row.original.plan_rule_id)}
+                            variant="ghost"
+                            size="icon"
+                            className="text-red-500 hover:text-red-700"
+                            title="Delete"
+                        >
+                            <Trash className="h-4 w-4" />
+                        </Button>
+                    </PermissionGuard>
                 </div>
             ),
         },
@@ -118,6 +127,7 @@ export default function PlanRulesTable() {
             label: "Create Plan Rule",
             icon: <Plus className="h-4 w-4" />,
             variant: "default",
+            permissions: [...PLAN_UPDATE_PERMISSIONS],
             onClick: () => {
                 setSelectedRule(null);
                 setModalOpen(true);

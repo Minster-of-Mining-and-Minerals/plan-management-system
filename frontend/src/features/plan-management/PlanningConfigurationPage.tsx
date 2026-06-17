@@ -22,6 +22,8 @@ import {
   type CustomPeriod,
 } from "@/redux/types/planningConfig";
 import { formatDurationYears } from "@/utils/planDraftUtils";
+import { PermissionGuard } from "@/utils/PermissionGuard";
+import { PLAN_UPDATE_PERMISSIONS } from "@/utils/planPermissionUtils";
 
 export default function PlanningConfigurationPage() {
   const { data: config, isLoading } = useGetPlanningConfigurationQuery();
@@ -210,22 +212,26 @@ export default function PlanningConfigurationPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleRestore} disabled={isRestoring || isSaving}>
-            {isRestoring ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <RotateCcw className="mr-2 h-4 w-4" />
-            )}
-            Restore Defaults
-          </Button>
-          <Button onClick={handleSave} disabled={isSaving || isRestoring}>
-            {isSaving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="mr-2 h-4 w-4" />
-            )}
-            Save Changes
-          </Button>
+          <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
+            <Button variant="outline" onClick={handleRestore} disabled={isRestoring || isSaving}>
+              {isRestoring ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RotateCcw className="mr-2 h-4 w-4" />
+              )}
+              Restore Defaults
+            </Button>
+          </PermissionGuard>
+          <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
+            <Button onClick={handleSave} disabled={isSaving || isRestoring}>
+              {isSaving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              Save Changes
+            </Button>
+          </PermissionGuard>
         </div>
       </div>
 
@@ -343,23 +349,27 @@ export default function PlanningConfigurationPage() {
                     placeholder="km"
                   />
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="text-red-500 hover:text-red-700"
-                  onClick={() => removeTargetUnit(index)}
-                  disabled={(form.target_units ?? []).length <= 1}
-                  title="Remove unit"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-red-500 hover:text-red-700"
+                    onClick={() => removeTargetUnit(index)}
+                    disabled={(form.target_units ?? []).length <= 1}
+                    title="Remove unit"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </PermissionGuard>
               </div>
             ))}
-            <Button type="button" variant="outline" onClick={addTargetUnit} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Add Unit
-            </Button>
+            <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
+              <Button type="button" variant="outline" onClick={addTargetUnit} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Add Unit
+              </Button>
+            </PermissionGuard>
           </CardContent>
         </Card>
 
@@ -416,22 +426,26 @@ export default function PlanningConfigurationPage() {
                         placeholder={`Period ${index + 1}`}
                       />
                     </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="text-red-500 hover:text-red-700"
-                      onClick={() => removeCustomPeriod(index)}
-                      disabled={(form.custom_periods ?? []).length <= 1}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-500 hover:text-red-700"
+                        onClick={() => removeCustomPeriod(index)}
+                        disabled={(form.custom_periods ?? []).length <= 1}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </PermissionGuard>
                   </div>
                 ))}
-                <Button type="button" variant="outline" onClick={addCustomPeriod} className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Add Period
-                </Button>
+                <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
+                  <Button type="button" variant="outline" onClick={addCustomPeriod} className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Add Period
+                  </Button>
+                </PermissionGuard>
               </div>
             )}
           </CardContent>

@@ -16,6 +16,14 @@ import {
 import { PerformanceColorThreshold } from "@/redux/types/performanceColorThreshold";
 import { formatPercentageRange } from "@/utils/performanceColorUtils";
 import { CreatePerformanceColorThresholdModal } from "./modals/CreatePerformanceColorThresholdModal";
+import { PermissionGuard } from "@/utils/PermissionGuard";
+import type { PermissionKey } from "@/lib/permissions";
+
+const PERFORMANCE_THRESHOLD_PERMISSIONS = {
+  CREATE: "PERFORMANCE_COLOR_THRESHOLDS:CREATE" as PermissionKey,
+  UPDATE: "PERFORMANCE_COLOR_THRESHOLDS:UPDATE" as PermissionKey,
+  DELETE: "PERFORMANCE_COLOR_THRESHOLDS:DELETE" as PermissionKey,
+};
 
 export default function PerformanceColorThresholdsTable() {
   const [selectedThreshold, setSelectedThreshold] =
@@ -88,28 +96,32 @@ export default function PerformanceColorThresholdsTable() {
       header: "Actions",
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            title="Edit"
-            onClick={() => {
-              setSelectedThreshold(row.original);
-              setModalOpen(true);
-            }}
-          >
-            <Edit className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-red-500 hover:text-red-700"
-            title="Delete"
-            onClick={() =>
-              handleDelete(row.original.performance_color_threshold_id)
-            }
-          >
-            <Trash className="h-4 w-4" />
-          </Button>
+          <PermissionGuard requireAll={[PERFORMANCE_THRESHOLD_PERMISSIONS.UPDATE]}>
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Edit"
+              onClick={() => {
+                setSelectedThreshold(row.original);
+                setModalOpen(true);
+              }}
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+          </PermissionGuard>
+          <PermissionGuard requireAll={[PERFORMANCE_THRESHOLD_PERMISSIONS.DELETE]}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-red-500 hover:text-red-700"
+              title="Delete"
+              onClick={() =>
+                handleDelete(row.original.performance_color_threshold_id)
+              }
+            >
+              <Trash className="h-4 w-4" />
+            </Button>
+          </PermissionGuard>
         </div>
       ),
     },
@@ -120,6 +132,7 @@ export default function PerformanceColorThresholdsTable() {
       label: "Add Threshold",
       icon: <Plus className="h-4 w-4" />,
       variant: "default",
+      permissions: [PERFORMANCE_THRESHOLD_PERMISSIONS.CREATE],
       onClick: () => {
         setSelectedThreshold(null);
         setModalOpen(true);

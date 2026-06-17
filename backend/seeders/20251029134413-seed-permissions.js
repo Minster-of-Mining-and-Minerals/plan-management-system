@@ -45,6 +45,11 @@ const PERMISSIONS = [
   { resource: "plans", action: "approve" },
   { resource: "plans", action: "submit" },
   { resource: "plans", action: "edit_finalized" },
+  { resource: "plan", action: "start_process" },
+  { resource: "plan", action: "complete_annual" },
+  { resource: "plan", action: "complete_period" },
+  { resource: "plan", action: "finalize" },
+  { resource: "plan", action: "draft_publish" },
   { resource: "plan_assignments", action: "create" },
   { resource: "plan_assignments", action: "read" },
   { resource: "plan_assignments", action: "update" },
@@ -64,6 +69,36 @@ const PERMISSIONS = [
   { resource: "branding_settings", action: "update" },
   { resource: "system_audit_logs", action: "read" },
 ];
+
+function dedupePermissions(permissions) {
+  const seen = new Set();
+  const unique = [];
+  const duplicates = [];
+
+  for (const perm of permissions) {
+    const resource = String(perm.resource).trim().toLowerCase();
+    const action = String(perm.action).trim().toLowerCase();
+    const key = `${resource}:${action}`;
+
+    if (seen.has(key)) {
+      duplicates.push(key);
+      continue;
+    }
+
+    seen.add(key);
+    unique.push({ resource, action });
+  }
+
+  if (duplicates.length > 0) {
+    throw new Error(
+      `Duplicate permissions in seeder (resource:action): ${[...new Set(duplicates)].join(", ")}`
+    );
+  }
+
+  return unique;
+}
+
+const UNIQUE_PERMISSIONS = dedupePermissions(PERMISSIONS);
 
 async function ensurePermission(queryInterface, perm, now) {
   const existing = await queryInterface.sequelize.query(
@@ -121,7 +156,7 @@ module.exports = {
     const now = new Date();
     const permissionIds = [];
 
-    for (const perm of PERMISSIONS) {
+    for (const perm of UNIQUE_PERMISSIONS) {
       const permissionId = await ensurePermission(queryInterface, perm, now);
       permissionIds.push(permissionId);
     }
@@ -204,7 +239,7 @@ module.exports = {
     await queryInterface.bulkDelete("roles", { role_id: SUPER_ADMIN_ROLE_ID }, {});
     await queryInterface.bulkDelete("users", { user_id: ADMIN_USER_ID }, {});
 
-    for (const perm of PERMISSIONS) {
+    for (const perm of UNIQUE_PERMISSIONS) {
       await queryInterface.bulkDelete("permissions", {
         resource: perm.resource,
         action: perm.action,

@@ -96,10 +96,10 @@ router.use(authenticateToken);
 
 // ================= PLAN VERSIONS =================
 
-router.post("/versions", checkPermission("PLANS", "CREATE"), validateCreatePlanVersion, createPlanVersion);
+router.post("/versions", checkPermission("PLAN", "DRAFT_PUBLISH"), validateCreatePlanVersion, createPlanVersion);
 router.post(
     "/versions/:id/duplicate",
-    checkPermission("PLANS", "CREATE"),
+    checkPermission("PLAN", "DRAFT_PUBLISH"),
     validateIdParam,
     validateDuplicatePlanDraft,
     duplicatePlanDraftHandler
@@ -111,7 +111,7 @@ router.delete("/versions/:id", checkPermission("PLANS", "DELETE"), validateIdPar
 router.patch("/versions/:id/status", checkPermission("PLANS", "APPROVE"), validateIdParam, validateUpdatePlanVersionStatus, updatePlanVersionStatus);
 
 router.get("/versions/:id/finalization-readiness", checkPermission("PLANS", "READ"), validateIdParam, getDraftFinalizationReadiness);
-router.post("/versions/:id/finalize", checkPermission("PLANS", "APPROVE"), validateIdParam, finalizePlanDraft);
+router.post("/versions/:id/finalize", checkPermission("PLAN", "FINALIZE"), validateIdParam, finalizePlanDraft);
 router.post(
     "/versions/:id/reopen-for-edit",
     checkPermission("PLANS", "EDIT_FINALIZED"),
@@ -121,20 +121,20 @@ router.post(
 router.get("/versions/:id/annual-versions", checkPermission("PLANS", "READ"), validateIdParam, listAnnualVersions);
 router.get("/versions/:id/annual-target-allocations", checkPermission("PLANS", "READ"), validateIdParam, listAnnualTargetAllocations);
 router.get("/versions/:id/annual-execution-readiness", checkPermission("PLANS", "READ"), validateIdParam, getAnnualExecutionFinalizationReadiness);
-router.post("/versions/:id/finalize-annual-execution", checkPermission("PLANS", "APPROVE"), validateIdParam, finalizeAnnualExecutionPlan);
+router.post("/versions/:id/finalize-annual-execution", checkPermission("PLAN", "FINALIZE"), validateIdParam, finalizeAnnualExecutionPlan);
 router.post("/versions/:id/lock-annual", checkPermission("PLANS", "UPDATE"), validateIdParam, lockAnnualPlanVersion);
 router.post("/versions/:id/unlock-annual", checkPermission("PLANS", "UPDATE"), validateIdParam, unlockAnnualPlanVersion);
-router.post("/versions/:id/complete-annual", checkPermission("PLANS", "APPROVE"), validateIdParam, completeAnnualPlanVersion);
+router.post("/versions/:id/complete-annual", checkPermission("PLAN", "COMPLETE_ANNUAL"), validateIdParam, completeAnnualPlanVersion);
 router.get("/versions/:id/execution-periods", checkPermission("PLANS", "READ"), validateIdParam, listExecutionPeriods);
 router.post("/versions/:id/initialize-execution-periods", checkPermission("PLANS", "UPDATE"), validateIdParam, initializeExecutionPeriodsForAnnual);
 router.get("/versions/:id/execution-period-readiness", checkPermission("PLANS", "READ"), validateIdParam, getExecutionPeriodFinalizationReadinessHandler);
-router.post("/versions/:id/finalize-execution-periods", checkPermission("PLANS", "APPROVE"), validateIdParam, finalizeExecutionPeriodTargetsHandler);
-router.post("/versions/:id/complete-period", checkPermission("PLANS", "APPROVE"), validateIdParam, completeExecutionPeriodVersion);
+router.post("/versions/:id/finalize-execution-periods", checkPermission("PLAN", "FINALIZE"), validateIdParam, finalizeExecutionPeriodTargetsHandler);
+router.post("/versions/:id/complete-period", checkPermission("PLAN", "COMPLETE_PERIOD"), validateIdParam, completeExecutionPeriodVersion);
 router.get("/versions/:id/period-target-allocations", checkPermission("PLANS", "READ"), validateIdParam, listPeriodTargetAllocations);
 router.get("/versions/:id/global-period-target-readiness", checkPermission("PLANS", "READ"), validateIdParam, getGlobalPeriodTargetFinalizationReadinessHandler);
-router.post("/versions/:id/finalize-global-period-targets", checkPermission("PLANS", "APPROVE"), validateIdParam, finalizeGlobalPeriodTargetsHandler);
+router.post("/versions/:id/finalize-global-period-targets", checkPermission("PLAN", "FINALIZE"), validateIdParam, finalizeGlobalPeriodTargetsHandler);
 router.get("/versions/:id/start-process-readiness", checkPermission("PLANS", "READ"), validateIdParam, getStartProcessReadinessHandler);
-router.post("/versions/:id/start-process", checkPermission("PLANS", "APPROVE"), validateIdParam, startPlanProcessHandler);
+router.post("/versions/:id/start-process", checkPermission("PLAN", "START_PROCESS"), validateIdParam, startPlanProcessHandler);
 router.patch("/nodes/:id/annual-target", checkPermission("PLANS", "UPDATE"), validateIdParam, validateUpdateAnnualTarget, updateAnnualTarget);
 router.patch("/nodes/:id/period-target", checkPermission("PLANS", "UPDATE"), validateIdParam, validateUpdatePeriodTarget, updatePeriodTarget);
 

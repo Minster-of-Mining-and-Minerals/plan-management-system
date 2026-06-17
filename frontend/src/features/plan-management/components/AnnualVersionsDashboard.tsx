@@ -17,7 +17,14 @@ import {
     resolveWorkflowStatusAppearance,
 } from "@/utils/performanceColorUtils";
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
-import { usePermissions } from "@/hooks/usePermissions";
+import { PermissionGuard } from "@/utils/PermissionGuard";
+import {
+    PLAN_COMPLETE_ANNUAL_PERMISSIONS,
+    PLAN_FINALIZE_PERMISSIONS,
+    PLAN_PERMISSIONS,
+    PLAN_START_PROCESS_PERMISSIONS,
+    PLAN_UPDATE_PERMISSIONS,
+} from "@/utils/planPermissionUtils";
 import { PerformanceProgressBar } from "./PerformanceProgressBar";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
 import { FinalizeAnnualExecutionModal } from "../modals/FinalizeAnnualExecutionModal";
@@ -43,9 +50,6 @@ function formatSubdivisionMode(mode: string | null | undefined): string {
 export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboardProps) {
     const router = useRouter();
     const thresholds = usePerformanceColorThresholds();
-    const { can } = usePermissions();
-    const canApprovePlan = can("PLANS:APPROVE");
-    const canUpdatePlan = can("PLANS:UPDATE");
 
     const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
     const [initPeriodsModalOpen, setInitPeriodsModalOpen] = useState(false);
@@ -125,25 +129,29 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2 shrink-0">
-                    {!annualTargetsFinalized && canApprovePlan && (
-                        <Button className="gap-2" onClick={() => setFinalizeModalOpen(true)}>
-                            <ShieldCheck className="h-4 w-4" />
-                            Finalize Annual Execution
-                        </Button>
+                    {!annualTargetsFinalized && (
+                        <PermissionGuard requireAll={PLAN_FINALIZE_PERMISSIONS}>
+                            <Button className="gap-2" onClick={() => setFinalizeModalOpen(true)}>
+                                <ShieldCheck className="h-4 w-4" />
+                                Finalize Annual Execution
+                            </Button>
+                        </PermissionGuard>
                     )}
-                    {annualTargetsFinalized &&
-                        !periodsInitializedGlobally &&
-                        canUpdatePlan && (
+                    {annualTargetsFinalized && !periodsInitializedGlobally && (
+                        <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
                             <Button className="gap-2" onClick={() => setInitPeriodsModalOpen(true)}>
                                 <Layers className="h-4 w-4" />
                                 Initialize Execution Periods
                             </Button>
-                        )}
-                    {allAnnualsPeriodFinalized && !processStarted && canApprovePlan && (
-                        <Button className="gap-2" onClick={() => setStartProcessModalOpen(true)}>
-                            <Play className="h-4 w-4" />
-                            Start Process
-                        </Button>
+                        </PermissionGuard>
+                    )}
+                    {allAnnualsPeriodFinalized && !processStarted && (
+                        <PermissionGuard requireAll={PLAN_START_PROCESS_PERMISSIONS}>
+                            <Button className="gap-2" onClick={() => setStartProcessModalOpen(true)}>
+                                <Play className="h-4 w-4" />
+                                Start Process
+                            </Button>
+                        </PermissionGuard>
                     )}
                 </div>
             </div>
@@ -274,33 +282,37 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                             </CardContent>
 
                             <CardFooter className="flex flex-wrap gap-2 pt-0">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="gap-2 flex-1"
-                                    onClick={() =>
-                                        router.push(`/plans/${annual.plan_version_id}`)
-                                    }
-                                >
-                                    <Eye className="h-4 w-4" />
-                                    Open Plan
-                                </Button>
-                                {showComplete && (
+                                <PermissionGuard requireAll={[PLAN_PERMISSIONS.READ]}>
                                     <Button
-                                        variant="default"
+                                        variant="outline"
                                         size="sm"
                                         className="gap-2 flex-1"
-                                        disabled={isCompleting}
                                         onClick={() =>
-                                            handleComplete(
-                                                annual.plan_version_id,
-                                                annual.planning_year ?? annual.year
-                                            )
+                                            router.push(`/plans/${annual.plan_version_id}`)
                                         }
                                     >
-                                        <CheckCircle className="h-4 w-4" />
-                                        Complete Year
+                                        <Eye className="h-4 w-4" />
+                                        Open Plan
                                     </Button>
+                                </PermissionGuard>
+                                {showComplete && (
+                                    <PermissionGuard requireAll={PLAN_COMPLETE_ANNUAL_PERMISSIONS}>
+                                        <Button
+                                            variant="default"
+                                            size="sm"
+                                            className="gap-2 flex-1"
+                                            disabled={isCompleting}
+                                            onClick={() =>
+                                                handleComplete(
+                                                    annual.plan_version_id,
+                                                    annual.planning_year ?? annual.year
+                                                )
+                                            }
+                                        >
+                                            <CheckCircle className="h-4 w-4" />
+                                            Complete Year
+                                        </Button>
+                                    </PermissionGuard>
                                 )}
                             </CardFooter>
                         </Card>
