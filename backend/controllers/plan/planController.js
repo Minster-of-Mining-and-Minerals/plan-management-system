@@ -29,17 +29,11 @@ const {
 } = require("../../utils/planNodeOrderUtils");
 const { isWeightModeSelectionLevel } = require("../../services/planRuleStepUtils");
 const {
-    resolveMasterVersionId,
     getAssignedMasterNodeIds,
-    filterHierarchyNodes,
-    mapMasterNodeIdsToVersion,
     getAssignedReviewMasterVersionIds,
-    hasFullPlanRead,
 } = require("../../services/planReviewVisibilityService");
 const {
-    attachLiveReviewFields,
     enrichLiveMasterReviewFields,
-    resolveLiveMasterFromSnapshot,
 } = require("../../services/planReviewSnapshotService");
 const {
     getOrCreateGlobalPlanningConfig,
@@ -1292,52 +1286,7 @@ const getPlanHierarchy = async (req, res) => {
         });
         await enrichPeriodNodesWithLiveAnnualTargets(planVersion, nodeMap, nodes);
         const sortMetaByNodeId = await buildDraftAlignedSortMeta(planVersion, nodes);
-        let sortedRoots = sortHierarchyTree(roots, sortMetaByNodeId);
-
-        const masterId = await resolveMasterVersionId(plan_version_id);
-        let masterReviewStatus = null;
-        if (masterId) {
-            const masterVersion = await PlanVersion.findByPk(masterId, {
-                attributes: [
-                    "plan_version_id",
-                    "review_status",
-                    "review_snapshot_of_version_id",
-                ],
-            });
-            if (masterVersion?.review_snapshot_of_version_id) {
-                const liveMasterId = await resolveLiveMasterFromSnapshot(masterId);
-                const liveMaster = liveMasterId
-                    ? await PlanVersion.findByPk(liveMasterId, {
-                          attributes: ["review_status"],
-                      })
-                    : null;
-                masterReviewStatus = liveMaster?.review_status ?? null;
-            } else {
-                masterReviewStatus = masterVersion?.review_status ?? null;
-            }
-        }
-        const inReview =
-            masterReviewStatus === "under_review" ||
-            masterReviewStatus === "review_completed" ||
-            masterReviewStatus === "corrections_unlocked";
-        const hasFullRead = hasFullPlanRead(req.user);
-        const isAssignedReviewer = req.user?.permissions?.includes("plan:view_assigned_review");
-
-        if (inReview && !hasFullRead && isAssignedReviewer && masterId) {
-            const visibleMasterIds = await getAssignedMasterNodeIds(
-                masterId,
-                req.user.user_id
-            );
-            if (plan_version_id === masterId) {
-                sortedRoots = filterHierarchyNodes(sortedRoots, visibleMasterIds);
-            } else {
-                const visibleIds = await mapMasterNodeIdsToVersion(
-                    visibleMasterIds,
-                    plan_version_id
-                );
-                sortedRoots = filterHierarchyNodes(sortedRoots, visibleIds);
-            }
-        }
+        const sortedRoots = sortHierarchyTree(roots, sortMetaByNodeId);
 
         return res.json({
             success: true,

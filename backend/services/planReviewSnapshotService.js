@@ -148,6 +148,7 @@ async function createReviewSnapshot(liveMasterVersionId, transaction) {
       resolveSourcePlanNodeId: (sourceNode) => sourceNode.plan_node_id,
       preserveTargets: true,
       preservePeriodTarget: true,
+      ensureAssignmentActions: true,
     }
   );
 
@@ -179,6 +180,7 @@ async function createReviewSnapshot(liveMasterVersionId, transaction) {
             : null,
         preserveTargets: true,
         preservePeriodTarget: true,
+        ensureAssignmentActions: true,
       }
     );
 
@@ -210,12 +212,121 @@ async function createReviewSnapshot(liveMasterVersionId, transaction) {
               : null,
           preserveTargets: true,
           preservePeriodTarget: true,
+          ensureAssignmentActions: true,
         }
       );
     }
   }
 
+  await assertReviewSnapshotCompleteness(liveMasterVersionId, snapshotRootId, transaction);
+
   return snapshotMaster;
+}
+
+async function assertReviewSnapshotCompleteness(liveMasterVersionId, snapshotRootId, transaction) {
+  const countNodes = (versionId) =>
+    PlanNode.count({ where: { plan_version_id: versionId }, transaction });
+
+  const sourceAnnuals = await PlanVersion.findAll({
+    where: {
+      parent_plan_version_id: liveMasterVersionId,
+      version_kind: "annual",
+    },
+    order: [["sequence_index", "ASC"]],
+    transaction,
+  });
+
+  const snapshotAnnuals = await PlanVersion.findAll({
+    where: {
+      parent_plan_version_id: snapshotRootId,
+      version_kind: "annual",
+    },
+    order: [["sequence_index", "ASC"]],
+    transaction,
+  });
+
+  if (sourceAnnuals.length !== snapshotAnnuals.length) {
+    const error = new Error(
+      `Review snapshot is incomplete: expected ${sourceAnnuals.length} annual version(s), copied ${snapshotAnnuals.length}`
+    );
+    error.statusCode = 500;
+    throw error;
+  }
+
+  const [sourceMasterCount, snapshotMasterCount] = await Promise.all([
+    countNodes(liveMasterVersionId),
+    countNodes(snapshotRootId),
+  ]);
+
+  if (sourceMasterCount !== snapshotMasterCount) {
+    const error = new Error(
+      `Review snapshot is incomplete: master has ${snapshotMasterCount}/${sourceMasterCount} nodes`
+    );
+    error.statusCode = 500;
+    throw error;
+  }
+
+  for (let index = 0; index < sourceAnnuals.length; index += 1) {
+    const sourceAnnual = sourceAnnuals[index];
+    const snapshotAnnual = snapshotAnnuals[index];
+    const yearLabel = sourceAnnual.planning_year ?? sourceAnnual.year ?? index + 1;
+
+    const [sourceAnnualCount, snapshotAnnualCount] = await Promise.all([
+      countNodes(sourceAnnual.plan_version_id),
+      countNodes(snapshotAnnual.plan_version_id),
+    ]);
+
+    if (sourceAnnualCount !== snapshotAnnualCount) {
+      const error = new Error(
+        `Review snapshot is incomplete for year ${yearLabel}: ${snapshotAnnualCount}/${sourceAnnualCount} nodes copied`
+      );
+      error.statusCode = 500;
+      throw error;
+    }
+
+    const sourcePeriods = await PlanVersion.findAll({
+      where: {
+        parent_plan_version_id: sourceAnnual.plan_version_id,
+        version_kind: "execution_period",
+      },
+      order: [["sequence_index", "ASC"]],
+      transaction,
+    });
+
+    const snapshotPeriods = await PlanVersion.findAll({
+      where: {
+        parent_plan_version_id: snapshotAnnual.plan_version_id,
+        version_kind: "execution_period",
+      },
+      order: [["sequence_index", "ASC"]],
+      transaction,
+    });
+
+    if (sourcePeriods.length !== snapshotPeriods.length) {
+      const error = new Error(
+        `Review snapshot is incomplete for year ${yearLabel}: expected ${sourcePeriods.length} execution period(s), copied ${snapshotPeriods.length}`
+      );
+      error.statusCode = 500;
+      throw error;
+    }
+
+    for (let periodIndex = 0; periodIndex < sourcePeriods.length; periodIndex += 1) {
+      const sourcePeriod = sourcePeriods[periodIndex];
+      const snapshotPeriod = snapshotPeriods[periodIndex];
+      const [sourcePeriodCount, snapshotPeriodCount] = await Promise.all([
+        countNodes(sourcePeriod.plan_version_id),
+        countNodes(snapshotPeriod.plan_version_id),
+      ]);
+
+      if (sourcePeriodCount !== snapshotPeriodCount) {
+        const error = new Error(
+          `Review snapshot is incomplete for year ${yearLabel} period ${periodIndex + 1}: ${snapshotPeriodCount}/${sourcePeriodCount} nodes copied`
+        );
+        error.statusCode = 500;
+        throw error;
+      }
+    }
+  }
 }
 
 async function getReviewSnapshotHistory(liveMasterVersionId, transaction = null) {

@@ -130,7 +130,7 @@ export default function PlanReviewVersionTable() {
     return (
         <TableLayout
             title="Plans for Review"
-            description="Published plans assigned to you for review. Open a plan to browse its hierarchy and raise issues on your sections."
+            description="Published plans available for your review. Open a plan to browse the full hierarchy and raise issues during active review."
         >
             <DataTable
                 columns={columns}

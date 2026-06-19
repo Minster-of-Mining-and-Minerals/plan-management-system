@@ -126,7 +126,7 @@ export function AnnualVersionsDashboard({
                     <h2 className="text-lg font-semibold text-gray-900">Annual Execution Versions</h2>
                     <p className="text-sm text-muted-foreground mt-1">
                         {isReviewMode
-                            ? "Browse each year's execution plan and open execution periods to review targets in your assigned sections."
+                            ? "Browse the full published plan across strategic, annual, and execution period views. Raise issues and track findings in the Review Dashboard."
                             : annualTargetsFinalized
                               ? allAnnualsPeriodFinalized
                                 ? processStarted

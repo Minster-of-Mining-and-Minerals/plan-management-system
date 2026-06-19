@@ -8,6 +8,7 @@ const {
     ExternalAssignment,
     InternalAssignment,
     PlanNodeActionLog,
+    PlanAssignmentAction,
     sequelize,
 } = require("../models");
 const { resolvePlanRuleForVersion } = require("./planRuleService");
@@ -32,6 +33,35 @@ function enumeratePlanningYears(master) {
     return years;
 }
 
+async function ensureAssignmentActionsExist(actionIds, transaction) {
+    const uniqueIds = [...new Set(actionIds.filter(Boolean))];
+    if (uniqueIds.length === 0) return;
+
+    const existing = await PlanAssignmentAction.findAll({
+        where: { assignment_action_id: { [Op.in]: uniqueIds } },
+        attributes: ["assignment_action_id"],
+        transaction,
+    });
+    const existingIds = new Set(existing.map((row) => row.assignment_action_id));
+
+    for (const actionId of uniqueIds) {
+        if (existingIds.has(actionId)) continue;
+
+        await PlanAssignmentAction.create(
+            {
+                assignment_action_id: actionId,
+                name: "Recovered assignment action",
+                code: `recovered_${actionId.replace(/-/g, "").slice(0, 32)}`,
+                description: "Auto-restored so plan assignments can be copied for review snapshots.",
+                is_approval: false,
+                is_execution: true,
+                is_reporting: false,
+            },
+            { transaction }
+        );
+    }
+}
+
 async function copyNodesWithAssignments(
     sourceVersionId,
     targetVersionId,
@@ -42,6 +72,7 @@ async function copyNodesWithAssignments(
         resolveSourcePlanNodeId = (sourceNode) => sourceNode.plan_node_id,
         preserveTargets = false,
         preservePeriodTarget = false,
+        ensureAssignmentActions = false,
     } = options;
 
     const sourceNodes = await PlanNode.findAll({
@@ -119,6 +150,13 @@ async function copyNodesWithAssignments(
         order: [["created_at", "ASC"]],
         transaction,
     });
+
+    if (ensureAssignmentActions) {
+        await ensureAssignmentActionsExist(
+            sourceInternals.map((assignment) => assignment.action_id),
+            transaction
+        );
+    }
 
     for (const int of sourceInternals) {
         const newId = uuidv4();

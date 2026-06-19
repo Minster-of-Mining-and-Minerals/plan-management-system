@@ -539,8 +539,8 @@ export default function PlanHierarchyView({
 
             {isReviewMode && isPlanUnderReview(masterReviewStatus) && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                    This plan is under review. Browse your assigned sections, raise issues where
-                    needed, and track findings in the Review Dashboard.
+                    This is the full published review version. Browse the strategic plan, annual
+                    execution, and execution periods, then raise issues where needed.
                 </div>
             )}
 

@@ -202,19 +202,65 @@ function filterHierarchyNodes(nodes, visibleNodeIds) {
 }
 
 async function mapMasterNodeIdsToVersion(masterVisibleIds, targetVersionId, transaction = null) {
+  const targetVersion = await PlanVersion.findByPk(targetVersionId, {
+    attributes: ["plan_version_id", "version_kind", "parent_plan_version_id"],
+    transaction,
+  });
+  if (!targetVersion) return new Set();
+
   const targetNodes = await PlanNode.findAll({
     where: { plan_version_id: targetVersionId, is_active: true },
     transaction,
   });
 
-  const visible = new Set();
-  for (const node of targetNodes) {
-    const sourceId = node.source_plan_node_id || node.plan_node_id;
-    if (masterVisibleIds.has(sourceId)) {
-      visible.add(node.plan_node_id);
-    }
+  if (targetVersion.version_kind === "master") {
+    return new Set(
+      targetNodes
+        .filter((node) => masterVisibleIds.has(node.plan_node_id))
+        .map((node) => node.plan_node_id)
+    );
   }
-  return visible;
+
+  if (targetVersion.version_kind === "annual") {
+    const visible = new Set();
+    for (const node of targetNodes) {
+      const masterSourceId = node.source_plan_node_id || node.plan_node_id;
+      if (masterVisibleIds.has(masterSourceId)) {
+        visible.add(node.plan_node_id);
+      }
+    }
+    return visible;
+  }
+
+  if (targetVersion.version_kind === "execution_period") {
+    const annualNodes = await PlanNode.findAll({
+      where: {
+        plan_version_id: targetVersion.parent_plan_version_id,
+        is_active: true,
+      },
+      attributes: ["plan_node_id", "source_plan_node_id"],
+      transaction,
+    });
+
+    const visibleAnnualIds = new Set();
+    for (const annualNode of annualNodes) {
+      const masterSourceId = annualNode.source_plan_node_id || annualNode.plan_node_id;
+      if (masterVisibleIds.has(masterSourceId)) {
+        visibleAnnualIds.add(annualNode.plan_node_id);
+      }
+    }
+
+    const visible = new Set();
+    for (const node of targetNodes) {
+      const annualSourceId = node.source_plan_node_id || node.plan_node_id;
+      if (visibleAnnualIds.has(annualSourceId)) {
+        visible.add(node.plan_node_id);
+      }
+    }
+    return visible;
+  }
+
+  return new Set();
 }
 
 async function userCanViewPlanInReview(masterVersionId, user, transaction = null) {
