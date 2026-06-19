@@ -15,8 +15,17 @@ const getIssueCategories = async (req, res) => {
     const query = req.validatedQuery || req.query;
     const isActive =
       query.is_active !== undefined ? query.is_active === true || query.is_active === "true" : undefined;
+    const parentCategoryId = query.parent_category_id || undefined;
+    const selectableOnly =
+      query.selectable_only !== undefined
+        ? query.selectable_only === true || query.selectable_only === "true"
+        : undefined;
 
-    const categories = await issueCategoryService.listCategories({ isActive });
+    const categories = await issueCategoryService.listCategories({
+      isActive,
+      parentCategoryId,
+      selectableOnly,
+    });
     return res.json({ success: true, data: categories });
   } catch (error) {
     return handleServiceError(res, error);

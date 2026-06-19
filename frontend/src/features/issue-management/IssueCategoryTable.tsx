@@ -53,7 +53,23 @@ export default function IssueCategoryTable() {
     {
       accessorKey: "name",
       header: "Name",
-      cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
+      cell: ({ row }) => (
+        <div>
+          <span className="font-medium">{row.original.name}</span>
+          {row.original.code ? (
+            <p className="text-xs text-muted-foreground font-mono">{row.original.code}</p>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      id: "parent",
+      header: "Issue Area",
+      cell: ({ row }) => (
+        <span className="text-sm">
+          {row.original.parent?.name || (row.original.is_selectable === false ? "Top-level" : "—")}
+        </span>
+      ),
     },
     {
       accessorKey: "description",
@@ -120,7 +136,7 @@ export default function IssueCategoryTable() {
     <>
       <TableLayout
         title="Issue Categories"
-        description="Configure issue categories used across the system."
+        description="Configure top-level issue areas and issue types with category-specific forms."
         actions={actions}
       >
         <DataTable columns={columns} data={categories} isLoading={isLoading} />

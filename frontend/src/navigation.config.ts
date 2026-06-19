@@ -39,38 +39,6 @@ export const NAVIGATION: NavItem[] = [
     anyPermissions: ["GOVERNMENT_STRUCTURES:READ"],
   },
   {
-    title: "Users",
-    url: "/users/list",
-    icon: User2,
-    anyPermissions: ["USERS:READ", "ROLES:READ", "PERMISSIONS:READ", "PERMISSION_GROUPS:READ"],
-    children: [
-      {
-        title: "Users List",
-        url: "/users/list",
-        icon: User2,
-        allPermissions: ["USERS:READ"],
-      },
-      {
-        title: "Role Management",
-        url: "/users/roles",
-        icon: Shield,
-        allPermissions: ["ROLES:READ"],
-      },
-      {
-        title: "Permission Group Management",
-        url: "/users/permission-groups",
-        icon: Shield,
-        allPermissions: ["PERMISSION_GROUPS:READ"],
-      },
-      {
-        title: "Permission Management",
-        url: "/users/permissions",
-        icon: Key,
-        allPermissions: ["PERMISSIONS:READ"],
-      },
-    ],
-  },
-  {
     title: "Plan Management",
     url: "/plans",
     icon: ListTree,
@@ -141,6 +109,38 @@ export const NAVIGATION: NavItem[] = [
         url: "/issues/categories",
         icon: Settings,
         allPermissions: ["ISSUE_CATEGORIES:READ"],
+      },
+    ],
+  },
+  {
+    title: "Users",
+    url: "/users/list",
+    icon: User2,
+    anyPermissions: ["USERS:READ", "ROLES:READ", "PERMISSIONS:READ", "PERMISSION_GROUPS:READ"],
+    children: [
+      {
+        title: "Users List",
+        url: "/users/list",
+        icon: User2,
+        allPermissions: ["USERS:READ"],
+      },
+      {
+        title: "Role Management",
+        url: "/users/roles",
+        icon: Shield,
+        allPermissions: ["ROLES:READ"],
+      },
+      {
+        title: "Permission Group Management",
+        url: "/users/permission-groups",
+        icon: Shield,
+        allPermissions: ["PERMISSION_GROUPS:READ"],
+      },
+      {
+        title: "Permission Management",
+        url: "/users/permissions",
+        icon: Key,
+        allPermissions: ["PERMISSIONS:READ"],
       },
     ],
   },

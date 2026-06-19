@@ -18,14 +18,44 @@ export type IssueEntityType =
   | "budget"
   | "target";
 
+export interface IssueCategoryFormConfig {
+  fields?: IssueFormFieldConfig[];
+  standardFields?: Record<string, IssueStandardFieldRule>;
+}
+
+export interface IssueFormFieldOption {
+  value: string;
+  label: string;
+}
+
+export interface IssueFormFieldConfig {
+  key: string;
+  label: string;
+  type: "text" | "textarea" | "select";
+  required?: boolean;
+  placeholder?: string;
+  options?: IssueFormFieldOption[];
+}
+
+export interface IssueStandardFieldRule {
+  visible?: boolean;
+  required?: boolean;
+  allowedTypes?: IssueEntityType[];
+}
+
 export interface IssueCategory {
   issue_category_id: string;
+  parent_category_id?: string | null;
+  code?: string | null;
   name: string;
   description: string | null;
+  form_config?: IssueCategoryFormConfig | null;
   display_order: number;
+  is_selectable?: boolean;
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  parent?: Pick<IssueCategory, "issue_category_id" | "name" | "code"> | null;
 }
 
 export interface IssuePriority {
@@ -65,6 +95,7 @@ export interface Issue {
   review_snapshot_id?: string | null;
   current_value: string | null;
   suggested_value: string | null;
+  form_data?: Record<string, string> | null;
   justification: string;
   response: string | null;
   rejection_reason: string | null;
@@ -139,6 +170,7 @@ export interface CreateIssuePayload {
   entity_id: string;
   current_value?: string;
   suggested_value?: string;
+  form_data?: Record<string, string>;
   description: string;
   justification: string;
   attachment_path?: string;
@@ -161,16 +193,24 @@ export interface UpdateIssuePayload {
 }
 
 export interface CreateIssueCategoryPayload {
+  parent_category_id?: string | null;
+  code?: string | null;
   name: string;
   description?: string;
+  form_config?: IssueCategoryFormConfig;
   display_order?: number;
+  is_selectable?: boolean;
   is_active?: boolean;
 }
 
 export interface UpdateIssueCategoryPayload {
+  parent_category_id?: string | null;
+  code?: string | null;
   name?: string;
   description?: string;
+  form_config?: IssueCategoryFormConfig;
   display_order?: number;
+  is_selectable?: boolean;
   is_active?: boolean;
 }
 

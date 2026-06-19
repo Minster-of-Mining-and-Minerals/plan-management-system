@@ -69,7 +69,10 @@ export default function IssuesDashboard({ embedded = false }: IssuesDashboardPro
     date_from: dateRange.from || undefined,
     date_to: dateRange.to || undefined,
   });
-  const { data: categories = [] } = useGetIssueCategoriesQuery({ is_active: true });
+  const { data: categories = [] } = useGetIssueCategoriesQuery({
+    is_active: true,
+    selectable_only: true,
+  });
   const { data: priorities = [] } = useGetIssuePrioritiesQuery();
   const { data: users = [] } = useGetUsersQuery({ page: 1, limit: 200 });
 

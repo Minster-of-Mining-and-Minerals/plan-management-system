@@ -24,10 +24,22 @@ const {
 } = require("./issueHistoryService");
 const { buildIssueAccessScope, canViewIssue } = require("../utils/issuePermissionUtils");
 const { validateRaisePlanReviewIssue } = require("./planReviewService");
+const { validateFormDataForCategory } = require("../utils/issueFormConfigUtils");
 const { emitIssueEvent, ISSUE_EVENTS } = require("./issueNotificationService");
 
 const ISSUE_INCLUDES = [
-  { model: IssueCategory, as: "category", attributes: ["issue_category_id", "name", "description"] },
+  {
+    model: IssueCategory,
+    as: "category",
+    attributes: ["issue_category_id", "name", "description", "code", "parent_category_id", "form_config"],
+    include: [
+      {
+        model: IssueCategory,
+        as: "parent",
+        attributes: ["issue_category_id", "name", "code"],
+      },
+    ],
+  },
   { model: IssuePriority, as: "priority", attributes: ["issue_priority_id", "code", "label", "color_hex"] },
   {
     model: User,
@@ -246,6 +258,14 @@ async function createIssue(data, userId, userPermissions = [], io = null) {
       throw error;
     }
 
+    if (category.is_selectable === false) {
+      const error = new Error("Select a specific issue type under a top-level category");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const formData = validateFormDataForCategory(category, data);
+
     const priority = await IssuePriority.findByPk(data.issue_priority_id, { transaction: t });
     if (!priority || !priority.is_active) {
       const error = new Error("Invalid or inactive issue priority");
@@ -286,6 +306,7 @@ async function createIssue(data, userId, userPermissions = [], io = null) {
         review_snapshot_id: reviewSnapshotId,
         current_value: data.current_value ?? null,
         suggested_value: data.suggested_value ?? null,
+        form_data: formData,
         justification: data.justification,
         attachment_path: data.attachment_path ?? null,
       },

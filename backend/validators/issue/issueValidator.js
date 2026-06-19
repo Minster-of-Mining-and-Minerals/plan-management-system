@@ -31,6 +31,7 @@ const createIssueSchema = Joi.object({
   suggested_value: Joi.string().trim().allow("", null).optional(),
   description: Joi.string().trim().min(3).required(),
   justification: Joi.string().trim().min(3).required(),
+  form_data: Joi.object().unknown(true).optional(),
   attachment_path: Joi.string().trim().max(500).allow("", null).optional(),
   assigned_to: optionalUuid("assigned_to"),
   attachment_ids: Joi.array().items(requiredUuid("attachment_id")).optional(),
@@ -50,6 +51,7 @@ const updateIssueSchema = Joi.object({
   suggested_value: Joi.string().trim().allow("", null).optional(),
   description: Joi.string().trim().min(3).optional(),
   justification: Joi.string().trim().min(3).optional(),
+  form_data: Joi.object().unknown(true).optional(),
   attachment_path: Joi.string().trim().max(500).allow("", null).optional(),
   assigned_to: optionalUuid("assigned_to"),
 }).min(1);

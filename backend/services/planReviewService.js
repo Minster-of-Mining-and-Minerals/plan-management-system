@@ -41,7 +41,14 @@ const REVIEW_ISSUE_INCLUDES = [
   {
     model: IssueCategory,
     as: "category",
-    attributes: ["issue_category_id", "name", "description"],
+    attributes: ["issue_category_id", "name", "description", "code", "parent_category_id", "form_config"],
+    include: [
+      {
+        model: IssueCategory,
+        as: "parent",
+        attributes: ["issue_category_id", "name", "code"],
+      },
+    ],
   },
   {
     model: IssuePriority,

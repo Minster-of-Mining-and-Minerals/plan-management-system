@@ -169,6 +169,28 @@ export default function IssueDetailView({ issueId }: IssueDetailViewProps) {
                   </div>
                 </div>
               )}
+              {issue.form_data && Object.keys(issue.form_data).length > 0 && (
+                <div className="space-y-3 rounded-lg border p-4">
+                  <p className="font-medium">Category Details</p>
+                  {(issue.category?.form_config?.fields ?? []).length > 0
+                    ? issue.category?.form_config?.fields?.map((field) => (
+                        <div key={field.key}>
+                          <p className="text-muted-foreground">{field.label}</p>
+                          <p className="mt-1 whitespace-pre-wrap">
+                            {issue.form_data?.[field.key] || "—"}
+                          </p>
+                        </div>
+                      ))
+                    : Object.entries(issue.form_data).map(([key, value]) => (
+                        <div key={key}>
+                          <p className="text-muted-foreground capitalize">
+                            {key.replace(/_/g, " ")}
+                          </p>
+                          <p className="mt-1 whitespace-pre-wrap">{value || "—"}</p>
+                        </div>
+                      ))}
+                </div>
+              )}
               {issue.response && (
                 <div>
                   <p className="text-muted-foreground">Review Response</p>
@@ -256,6 +278,11 @@ export default function IssueDetailView({ issueId }: IssueDetailViewProps) {
               <div>
                 <p className="text-muted-foreground">Category</p>
                 <p>{issue.category?.name || "—"}</p>
+                {issue.category?.parent?.name ? (
+                  <p className="text-xs text-muted-foreground">
+                    Area: {issue.category.parent.name}
+                  </p>
+                ) : null}
               </div>
               <div>
                 <p className="text-muted-foreground">Priority</p>

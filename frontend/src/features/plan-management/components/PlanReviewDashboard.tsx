@@ -58,7 +58,7 @@ export function PlanReviewDashboard({ masterVersionId }: PlanReviewDashboardProp
     skip: !canViewDashboard,
   });
   const { data: categories = [] } = useGetIssueCategoriesQuery(
-    { is_active: true },
+    { is_active: true, selectable_only: true },
     { skip: !canViewDashboard }
   );
   const { data: priorities = [] } = useGetIssuePrioritiesQuery(undefined, {

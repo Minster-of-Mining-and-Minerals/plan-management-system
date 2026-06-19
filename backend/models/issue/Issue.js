@@ -65,6 +65,7 @@ module.exports = (sequelize, DataTypes) => {
       entity_id: { type: DataTypes.UUID, allowNull: false },
       current_value: { type: DataTypes.TEXT, allowNull: true },
       suggested_value: { type: DataTypes.TEXT, allowNull: true },
+      form_data: { type: DataTypes.JSONB, allowNull: false, defaultValue: {} },
       justification: { type: DataTypes.TEXT, allowNull: false },
       response: { type: DataTypes.TEXT, allowNull: true },
       rejection_reason: { type: DataTypes.TEXT, allowNull: true },
