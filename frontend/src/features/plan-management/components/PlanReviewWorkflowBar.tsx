@@ -23,6 +23,7 @@ import {
   isPlanCorrectionsUnlocked,
   isPlanReviewCompleted,
   isPlanUnderReview,
+  formatReviewVersionLabel,
 } from "@/utils/planReviewUtils";
 
 interface PlanReviewWorkflowBarProps {
@@ -145,6 +146,17 @@ export function PlanReviewWorkflowBar({
           <Badge variant="outline" className="capitalize">
             {reviewStatus.replace(/_/g, " ")}
           </Badge>
+        )}
+        {master.active_review_version_number != null && isPlanUnderReview(reviewStatus) && (
+          <Badge variant="outline" className="font-mono text-xs">
+            {formatReviewVersionLabel(master.active_review_version_number)}
+          </Badge>
+        )}
+        {(master.review_round_count ?? 0) > 0 && (
+          <span className="text-xs text-blue-700">
+            {master.review_round_count} review round
+            {master.review_round_count === 1 ? "" : "s"} for this draft
+          </span>
         )}
         {isPlanReviewCompleted(reviewStatus) && (
           <span className="text-xs text-green-700">Review closed — Start Process is available</span>

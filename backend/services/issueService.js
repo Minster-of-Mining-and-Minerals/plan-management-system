@@ -253,7 +253,11 @@ async function createIssue(data, userId, io = null) {
       throw error;
     }
 
-    await validateRaisePlanReviewIssue(data.entity_type, data.entity_id, t);
+    const reviewSnapshotId = await validateRaisePlanReviewIssue(
+      data.entity_type,
+      data.entity_id,
+      t
+    );
 
     const issueNumber = await generateIssueNumber(t);
 
@@ -270,6 +274,7 @@ async function createIssue(data, userId, io = null) {
         assigned_to: data.assigned_to ?? null,
         entity_type: data.entity_type,
         entity_id: data.entity_id,
+        review_snapshot_id: reviewSnapshotId,
         current_value: data.current_value ?? null,
         suggested_value: data.suggested_value ?? null,
         justification: data.justification,

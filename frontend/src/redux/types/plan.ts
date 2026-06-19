@@ -35,6 +35,15 @@ export interface PlanVersion {
     published_for_review_at?: string | null;
     review_unlocked_at?: string | null;
     review_completed_at?: string | null;
+    review_snapshot_of_version_id?: string | null;
+    review_snapshot_root_id?: string | null;
+    active_review_snapshot_id?: string | null;
+    review_version_number?: number | null;
+    active_review_version_number?: number | null;
+    review_round_count?: number | null;
+    live_master_version_id?: string | null;
+    live_master_version_number?: number | null;
+    live_master_draft_name?: string | null;
     status: PlanVersionStatus;
     government_structure_id: string;
     based_on_version_id: string | null;

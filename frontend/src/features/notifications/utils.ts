@@ -31,10 +31,17 @@ export function iconForNotification(notification: AppNotification) {
 export function resolveNotificationLink(notification: AppNotification): string | null {
   if (notification.link_path) return notification.link_path;
 
+  const isPlanReviewNotification =
+    notification.notification_type === "plan_published_for_review" ||
+    notification.notification_type === "review_reopened";
+
   if (
     notification.related_entity_type === "plan_version" &&
     notification.related_entity_id
   ) {
+    if (isPlanReviewNotification) {
+      return `/plans/review/${notification.related_entity_id}`;
+    }
     return `/plans/${notification.related_entity_id}`;
   }
 
@@ -43,7 +50,8 @@ export function resolveNotificationLink(notification: AppNotification): string |
     notification.related_entity_id &&
     notification.metadata?.plan_version_id
   ) {
-    return `/plans/${notification.metadata.plan_version_id}/nodes/${notification.related_entity_id}`;
+    const base = isPlanReviewNotification ? "/plans/review" : "/plans";
+    return `${base}/${notification.metadata.plan_version_id}/nodes/${notification.related_entity_id}`;
   }
 
   return null;

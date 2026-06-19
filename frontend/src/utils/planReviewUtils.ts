@@ -56,6 +56,54 @@ export function canRaiseReviewIssue(
   return isPlanUnderReview(master?.review_status);
 }
 
+export function formatReviewVersionLabel(
+  reviewVersionNumber?: number | null
+): string {
+  if (!reviewVersionNumber) return "Review v1";
+  return `Review v${reviewVersionNumber}`;
+}
+
+export function formatMasterDraftVersionLabel(
+  versionNumber?: number | null
+): string {
+  if (!versionNumber) return "Draft v1";
+  return `Draft v${versionNumber}`;
+}
+
+export function getPlanReviewDisplayName(
+  version: Pick<
+    PlanVersion,
+    | "draft_name"
+    | "start_year"
+    | "year"
+    | "planning_start_date"
+    | "review_version_number"
+    | "live_master_draft_name"
+    | "live_master_version_number"
+  >
+): string {
+  const baseName =
+    version.live_master_draft_name ||
+    version.draft_name ||
+    (version.planning_start_date
+      ? `Plan ${version.planning_start_date.slice(0, 4)}`
+      : `Plan ${version.start_year ?? version.year}`);
+
+  const masterLabel = version.live_master_version_number
+    ? ` · ${formatMasterDraftVersionLabel(version.live_master_version_number)}`
+    : "";
+
+  const reviewLabel = version.review_version_number
+    ? ` · ${formatReviewVersionLabel(version.review_version_number)}`
+    : "";
+
+  return `${baseName}${masterLabel}${reviewLabel}`;
+}
+
+export function getPlanViewBasePath(mode: "draft" | "review" = "draft"): string {
+  return mode === "review" ? "/plans/review" : "/plans";
+}
+
 export function planNodeTypeToIssueEntityType(
   nodeType: PlanNodeType,
   context: "node" | "target" = "node"

@@ -21,12 +21,11 @@ import { PermissionGuard } from "@/utils/PermissionGuard";
 import {
     PLAN_COMPLETE_ANNUAL_PERMISSIONS,
     PLAN_FINALIZE_PERMISSIONS,
-    PLAN_PERMISSIONS,
     PLAN_START_PROCESS_PERMISSIONS,
     PLAN_UPDATE_PERMISSIONS,
 } from "@/utils/planPermissionUtils";
 import { PlanReviewWorkflowBar } from "./PlanReviewWorkflowBar";
-import { canStartProcessAfterReview } from "@/utils/planReviewUtils";
+import { canStartProcessAfterReview, getPlanViewBasePath } from "@/utils/planReviewUtils";
 import { PerformanceProgressBar } from "./PerformanceProgressBar";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
 import { FinalizeAnnualExecutionModal } from "../modals/FinalizeAnnualExecutionModal";
@@ -36,6 +35,7 @@ import { cn } from "@/lib/utils";
 
 interface AnnualVersionsDashboardProps {
     masterVersion: PlanVersion;
+    mode?: "draft" | "review";
 }
 
 function getAnnualStatusLabel(version: PlanVersion): string {
@@ -49,9 +49,14 @@ function formatSubdivisionMode(mode: string | null | undefined): string {
     return "the selected";
 }
 
-export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboardProps) {
+export function AnnualVersionsDashboard({
+    masterVersion,
+    mode = "draft",
+}: AnnualVersionsDashboardProps) {
     const router = useRouter();
     const thresholds = usePerformanceColorThresholds();
+    const isReviewMode = mode === "review";
+    const plansBasePath = getPlanViewBasePath(mode);
 
     const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
     const [initPeriodsModalOpen, setInitPeriodsModalOpen] = useState(false);
@@ -120,17 +125,20 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                 <div>
                     <h2 className="text-lg font-semibold text-gray-900">Annual Execution Versions</h2>
                     <p className="text-sm text-muted-foreground mt-1">
-                        {annualTargetsFinalized
-                            ? allAnnualsPeriodFinalized
+                        {isReviewMode
+                            ? "Browse each year's execution plan and open execution periods to review targets in your assigned sections."
+                            : annualTargetsFinalized
+                              ? allAnnualsPeriodFinalized
                                 ? processStarted
                                     ? "Process started. Operational execution is underway."
                                     : "All years have finalized execution periods. Start the process when ready."
                                 : periodsInitializedGlobally
                                   ? "Open each year, set period targets, and finalize execution period per year."
                                   : "Initialize execution periods once — the same subdivision applies to all years."
-                            : "Open any year to set annual targets (totals must match the draft target), then finalize annual execution."}
+                              : "Open any year to set annual targets (totals must match the draft target), then finalize annual execution."}
                     </p>
                 </div>
+                {!isReviewMode && (
                 <div className="flex flex-wrap gap-2 shrink-0">
                     {!annualTargetsFinalized && (
                         <PermissionGuard requireAll={PLAN_FINALIZE_PERMISSIONS}>
@@ -157,9 +165,10 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                         </PermissionGuard>
                     )}
                 </div>
+                )}
             </div>
 
-            {allAnnualsPeriodFinalized && !processStarted && !startProcessReady && (
+            {!isReviewMode && allAnnualsPeriodFinalized && !processStarted && !startProcessReady && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                     {master.published_for_review_at
                         ? "Complete and close plan review before starting process."
@@ -167,14 +176,16 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                 </div>
             )}
 
-            <PlanReviewWorkflowBar
-                master={master}
-                allPeriodsFinalized={allAnnualsPeriodFinalized}
-                processStarted={processStarted}
-                onUpdated={refetch}
-            />
+            {!isReviewMode && (
+                <PlanReviewWorkflowBar
+                    master={master}
+                    allPeriodsFinalized={allAnnualsPeriodFinalized}
+                    processStarted={processStarted}
+                    onUpdated={refetch}
+                />
+            )}
 
-            {annualTargetsFinalized && (
+            {!isReviewMode && annualTargetsFinalized && (
                 <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
                     Annual execution finalized on{" "}
                     {new Date(master.annual_targets_finalized_at!).toLocaleDateString()}.
@@ -303,20 +314,18 @@ export function AnnualVersionsDashboard({ masterVersion }: AnnualVersionsDashboa
                             </CardContent>
 
                             <CardFooter className="flex flex-wrap gap-2 pt-0">
-                                <PermissionGuard requireAll={[PLAN_PERMISSIONS.READ]}>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="gap-2 flex-1"
-                                        onClick={() =>
-                                            router.push(`/plans/${annual.plan_version_id}`)
-                                        }
-                                    >
-                                        <Eye className="h-4 w-4" />
-                                        Open Plan
-                                    </Button>
-                                </PermissionGuard>
-                                {showComplete && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-2 flex-1"
+                                    onClick={() =>
+                                        router.push(`${plansBasePath}/${annual.plan_version_id}`)
+                                    }
+                                >
+                                    <Eye className="h-4 w-4" />
+                                    {isReviewMode ? "Review Plan" : "Open Plan"}
+                                </Button>
+                                {!isReviewMode && showComplete && (
                                     <PermissionGuard requireAll={PLAN_COMPLETE_ANNUAL_PERMISSIONS}>
                                         <Button
                                             variant="default"

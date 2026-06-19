@@ -37,6 +37,11 @@ const {
     hasFullPlanRead,
 } = require("../../services/planReviewVisibilityService");
 const {
+    attachLiveReviewFields,
+    enrichLiveMasterReviewFields,
+    resolveLiveMasterFromSnapshot,
+} = require("../../services/planReviewSnapshotService");
+const {
     getOrCreateGlobalPlanningConfig,
     pickPlanningConfigPayload,
     computePlanningPeriodEnd,
@@ -248,6 +253,7 @@ const getPlanVersions = async (req, res) => {
         if (status) where.status = status;
         if (version_kind) where.version_kind = version_kind;
         if (parent_plan_version_id) where.parent_plan_version_id = parent_plan_version_id;
+        where.review_snapshot_of_version_id = null;
         if (search && search.trim()) {
             const term = `%${search.trim()}%`;
             where[Op.or] = [
@@ -306,49 +312,80 @@ const getPlanVersionsForReview = async (req, res) => {
 
         const where = {
             version_kind: "master",
+            review_snapshot_of_version_id: null,
+            active_review_snapshot_id: { [Op.ne]: null },
             published_for_review_at: { [Op.ne]: null },
             review_status: { [Op.in]: REVIEW_LIST_STATUSES },
         };
 
         if (search && search.trim()) {
             const term = `%${search.trim()}%`;
-            where[Op.or] = [
-                { draft_name: { [Op.iLike]: term } },
-                sequelize.where(
-                    sequelize.cast(sequelize.col("start_year"), "varchar"),
-                    { [Op.iLike]: term }
-                ),
-                sequelize.where(
-                    sequelize.cast(sequelize.col("end_year"), "varchar"),
-                    { [Op.iLike]: term }
-                ),
+            where[Op.and] = [
+                {
+                    [Op.or]: [
+                        { draft_name: { [Op.iLike]: term } },
+                        sequelize.where(
+                            sequelize.cast(sequelize.col("start_year"), "varchar"),
+                            { [Op.iLike]: term }
+                        ),
+                        sequelize.where(
+                            sequelize.cast(sequelize.col("end_year"), "varchar"),
+                            { [Op.iLike]: term }
+                        ),
+                    ],
+                },
             ];
         }
 
         const publishedMasters = await PlanVersion.findAll({
             where,
-            attributes: ["plan_version_id"],
+            attributes: [
+                "plan_version_id",
+                "version_number",
+                "draft_name",
+                "active_review_snapshot_id",
+                "published_for_review_at",
+                "review_status",
+                "review_completed_at",
+                "review_unlocked_at",
+            ],
             order: [["published_for_review_at", "DESC"], ["start_year", "DESC"]],
         });
 
-        const accessibleMasterIds = [];
+        const liveReviewBySnapshotId = new Map();
         for (const master of publishedMasters) {
+            if (!master.active_review_snapshot_id) continue;
+            liveReviewBySnapshotId.set(master.active_review_snapshot_id, {
+                live_master_version_id: master.plan_version_id,
+                live_master_version_number: master.version_number,
+                live_master_draft_name: master.draft_name,
+                review_status: master.review_status,
+                published_for_review_at: master.published_for_review_at,
+                review_completed_at: master.review_completed_at,
+                review_unlocked_at: master.review_unlocked_at,
+                active_review_snapshot_id: master.active_review_snapshot_id,
+            });
+        }
+
+        const accessibleSnapshotIds = [];
+        for (const master of publishedMasters) {
+            if (!master.active_review_snapshot_id) continue;
             const assigned = await getAssignedMasterNodeIds(
-                master.plan_version_id,
+                master.active_review_snapshot_id,
                 req.user.user_id
             );
             if (assigned.size > 0) {
-                accessibleMasterIds.push(master.plan_version_id);
+                accessibleSnapshotIds.push(master.active_review_snapshot_id);
             }
         }
 
-        if (accessibleMasterIds.length === 0) {
+        if (accessibleSnapshotIds.length === 0) {
             return res.json({ success: true, data: [] });
         }
 
         const versions = await PlanVersion.findAll({
             where: {
-                plan_version_id: { [Op.in]: accessibleMasterIds },
+                plan_version_id: { [Op.in]: accessibleSnapshotIds },
             },
             include: [
                 {
@@ -360,12 +397,28 @@ const getPlanVersionsForReview = async (req, res) => {
                     as: "baseVersion",
                 },
             ],
-            order: [["published_for_review_at", "DESC"], ["start_year", "DESC"]],
         });
+
+        const enriched = versions
+            .map((version) => {
+                const plain = version.toJSON();
+                const liveReview = liveReviewBySnapshotId.get(plain.plan_version_id);
+                return liveReview ? { ...plain, ...liveReview } : plain;
+            })
+            .sort((a, b) => {
+                const aTime = a.published_for_review_at
+                    ? new Date(a.published_for_review_at).getTime()
+                    : 0;
+                const bTime = b.published_for_review_at
+                    ? new Date(b.published_for_review_at).getTime()
+                    : 0;
+                if (bTime !== aTime) return bTime - aTime;
+                return (b.start_year ?? 0) - (a.start_year ?? 0);
+            });
 
         return res.json({
             success: true,
-            data: versions,
+            data: enriched,
         });
     } catch (error) {
         return res.status(500).json({ error: error.message });
@@ -436,9 +489,11 @@ const getPlanVersionById = async (req, res) => {
             return res.status(404).json({ message: "Plan version not found" });
         }
 
+        const enriched = await enrichLiveMasterReviewFields(planVersion);
+
         return res.json({
             success: true,
-            data: planVersion,
+            data: enriched,
         });
     } catch (error) {
         return res.status(500).json({ error: error.message });
@@ -1240,15 +1295,31 @@ const getPlanHierarchy = async (req, res) => {
         let sortedRoots = sortHierarchyTree(roots, sortMetaByNodeId);
 
         const masterId = await resolveMasterVersionId(plan_version_id);
-        const masterVersion = masterId
-            ? await PlanVersion.findByPk(masterId, {
-                  attributes: ["plan_version_id", "review_status"],
-              })
-            : null;
+        let masterReviewStatus = null;
+        if (masterId) {
+            const masterVersion = await PlanVersion.findByPk(masterId, {
+                attributes: [
+                    "plan_version_id",
+                    "review_status",
+                    "review_snapshot_of_version_id",
+                ],
+            });
+            if (masterVersion?.review_snapshot_of_version_id) {
+                const liveMasterId = await resolveLiveMasterFromSnapshot(masterId);
+                const liveMaster = liveMasterId
+                    ? await PlanVersion.findByPk(liveMasterId, {
+                          attributes: ["review_status"],
+                      })
+                    : null;
+                masterReviewStatus = liveMaster?.review_status ?? null;
+            } else {
+                masterReviewStatus = masterVersion?.review_status ?? null;
+            }
+        }
         const inReview =
-            masterVersion?.review_status === "under_review" ||
-            masterVersion?.review_status === "review_completed" ||
-            masterVersion?.review_status === "corrections_unlocked";
+            masterReviewStatus === "under_review" ||
+            masterReviewStatus === "review_completed" ||
+            masterReviewStatus === "corrections_unlocked";
         const hasFullRead = hasFullPlanRead(req.user);
         const isAssignedReviewer = req.user?.permissions?.includes("plan:view_assigned_review");
 

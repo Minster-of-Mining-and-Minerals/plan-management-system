@@ -12,6 +12,14 @@ const {
 } = require("../models");
 const { validatePlanTargetPipelineReadiness } = require("./planVersionLifecycleService");
 const {
+  createReviewSnapshot,
+  getActiveReviewSnapshotId,
+  resolveLiveMasterFromSnapshot,
+  resolveReviewSnapshotRootId,
+  collectReviewSnapshotEntityIds,
+  attachLiveReviewFields,
+} = require("./planReviewSnapshotService");
+const {
   getAssignedMasterNodeIds,
   resolveMasterVersionId,
 } = require("./planReviewVisibilityService");
@@ -94,15 +102,19 @@ async function collectPlanEntityIds(masterVersionId, transaction) {
   };
 }
 
-async function getPlanReviewIssues(masterVersionId, filters = {}, transaction = null) {
-  const { versionIds, nodeIds } = await collectPlanEntityIds(masterVersionId, transaction);
+async function getPlanReviewIssues(reviewSnapshotRootId, filters = {}, transaction = null) {
+  if (!reviewSnapshotRootId) return [];
+
+  const { nodeIds } = await collectReviewSnapshotEntityIds(
+    reviewSnapshotRootId,
+    transaction
+  );
 
   const where = {
+    review_snapshot_id: reviewSnapshotRootId,
     [Op.or]: [
-      { entity_type: "plan_version", entity_id: masterVersionId },
-      ...(nodeIds.length
-        ? [{ entity_id: { [Op.in]: nodeIds } }]
-        : []),
+      { entity_type: "plan_version", entity_id: reviewSnapshotRootId },
+      ...(nodeIds.length ? [{ entity_id: { [Op.in]: nodeIds } }] : []),
     ],
   };
 
@@ -117,6 +129,12 @@ async function getPlanReviewIssues(masterVersionId, filters = {}, transaction = 
     order: [["created_at", "DESC"]],
     transaction,
   });
+}
+
+async function getPlanReviewIssuesForLiveMaster(liveMasterVersionId, filters = {}, transaction = null) {
+  const snapshotId = await getActiveReviewSnapshotId(liveMasterVersionId, transaction);
+  if (!snapshotId) return [];
+  return getPlanReviewIssues(snapshotId, filters, transaction);
 }
 
 async function validatePublishReadiness(masterVersionId, transaction) {
@@ -208,12 +226,15 @@ async function publishForReview(masterVersionId, req, io = null) {
     const previousStatus = master.review_status;
     const now = new Date();
 
+    const snapshotMaster = await createReviewSnapshot(masterVersionId, t);
+
     await master.update(
       {
         review_status: REVIEW_STATUSES.UNDER_REVIEW,
         published_for_review_at: now,
         review_unlocked_at: null,
         review_completed_at: null,
+        active_review_snapshot_id: snapshotMaster.plan_version_id,
       },
       { transaction: t }
     );
@@ -230,11 +251,22 @@ async function publishForReview(masterVersionId, req, io = null) {
     const recipients = await getReviewRecipients(masterVersionId);
     await emitPlanReviewEvent(
       PLAN_REVIEW_EVENTS.PUBLISHED,
-      { master, actor: req.user, recipients },
+      {
+        master,
+        actor: req.user,
+        recipients,
+        reviewSnapshotId: snapshotMaster.plan_version_id,
+        reviewVersionNumber: snapshotMaster.review_version_number,
+      },
       io
     );
 
-    return { success: true, data: await PlanVersion.findByPk(masterVersionId) };
+    return {
+      success: true,
+      data: await PlanVersion.findByPk(masterVersionId),
+      review_snapshot_id: snapshotMaster.plan_version_id,
+      review_version_number: snapshotMaster.review_version_number,
+    };
   } catch (error) {
     await t.rollback();
     throw error;
@@ -251,7 +283,7 @@ async function unlockForCorrections(masterVersionId, req, io = null) {
       return { success: false, errors: ["Plan must be under review to unlock corrections"] };
     }
 
-    const issues = await getPlanReviewIssues(masterVersionId, {}, t);
+    const issues = await getPlanReviewIssuesForLiveMaster(masterVersionId, {}, t);
     const hasAccepted = issues.some((i) => i.status === "accepted");
     if (!hasAccepted) {
       await t.rollback();
@@ -300,10 +332,13 @@ async function republishForReview(masterVersionId, req, io = null) {
     }
 
     const previousStatus = master.review_status;
+    const snapshotMaster = await createReviewSnapshot(masterVersionId, t);
+
     await master.update(
       {
         review_status: REVIEW_STATUSES.UNDER_REVIEW,
         published_for_review_at: new Date(),
+        active_review_snapshot_id: snapshotMaster.plan_version_id,
       },
       { transaction: t }
     );
@@ -320,11 +355,22 @@ async function republishForReview(masterVersionId, req, io = null) {
     const recipients = await getReviewRecipients(masterVersionId);
     await emitPlanReviewEvent(
       PLAN_REVIEW_EVENTS.REOPENED,
-      { master, actor: req.user, recipients },
+      {
+        master,
+        actor: req.user,
+        recipients,
+        reviewSnapshotId: snapshotMaster.plan_version_id,
+        reviewVersionNumber: snapshotMaster.review_version_number,
+      },
       io
     );
 
-    return { success: true, data: await PlanVersion.findByPk(masterVersionId) };
+    return {
+      success: true,
+      data: await PlanVersion.findByPk(masterVersionId),
+      review_snapshot_id: snapshotMaster.plan_version_id,
+      review_version_number: snapshotMaster.review_version_number,
+    };
   } catch (error) {
     await t.rollback();
     throw error;
@@ -339,7 +385,7 @@ async function validateCompleteReview(masterVersionId, transaction) {
     errors.push("Plan must be under review to complete review");
   }
 
-  const issues = await getPlanReviewIssues(masterVersionId, {}, transaction);
+  const issues = await getPlanReviewIssuesForLiveMaster(masterVersionId, {}, transaction);
   const blockers = issues.filter((i) => OPEN_ISSUE_STATUSES.includes(i.status));
 
   if (blockers.length > 0) {
@@ -398,7 +444,12 @@ async function completeReview(masterVersionId, req, io = null) {
     const recipients = await getReviewRecipients(masterVersionId);
     await emitPlanReviewEvent(
       PLAN_REVIEW_EVENTS.COMPLETED,
-      { master, actor: req.user, recipients },
+      {
+        master,
+        actor: req.user,
+        recipients,
+        reviewSnapshotId: master.active_review_snapshot_id,
+      },
       io
     );
 
@@ -409,8 +460,18 @@ async function completeReview(masterVersionId, req, io = null) {
   }
 }
 
-async function getReviewDashboardStats(masterVersionId, filters = {}) {
-  const issues = await getPlanReviewIssues(masterVersionId, filters);
+async function resolveReviewSnapshotRootForQuery(versionId, transaction = null) {
+  return (
+    (await resolveReviewSnapshotRootId(versionId, transaction)) ||
+    (await getActiveReviewSnapshotId(versionId, transaction)) ||
+    null
+  );
+}
+
+async function getReviewDashboardStats(versionId, filters = {}) {
+  const snapshotRootId =
+    (await resolveReviewSnapshotRootForQuery(versionId)) || versionId;
+  const issues = await getPlanReviewIssues(snapshotRootId, filters);
   const stats = {
     total: issues.length,
     submitted: 0,
@@ -432,12 +493,12 @@ async function getReviewDashboardStats(masterVersionId, filters = {}) {
 
 async function validateRaisePlanReviewIssue(entityType, entityId, transaction = null) {
   if (!entityType || !PLAN_LINKED_ENTITY_TYPES.has(entityType)) {
-    return;
+    return null;
   }
 
-  let masterVersionId = null;
+  let planVersionId = null;
   if (entityType === "plan_version") {
-    masterVersionId = entityId;
+    planVersionId = entityId;
   } else {
     const node = await PlanNode.findByPk(entityId, { transaction });
     if (!node) {
@@ -445,16 +506,33 @@ async function validateRaisePlanReviewIssue(entityType, entityId, transaction = 
       error.statusCode = 404;
       throw error;
     }
-    masterVersionId = await resolveMasterVersionId(node.plan_version_id);
+    planVersionId = node.plan_version_id;
   }
 
-  if (!masterVersionId) {
-    const error = new Error("Could not resolve master plan for this issue");
+  const planVersion = await PlanVersion.findByPk(planVersionId, { transaction });
+  if (!planVersion) {
+    const error = new Error("Linked plan version not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const reviewSnapshotRootId = await resolveReviewSnapshotRootId(planVersionId, transaction);
+  if (!reviewSnapshotRootId) {
+    const error = new Error(
+      "Issues during review must be raised on the published review version, not the live plan."
+    );
     error.statusCode = 400;
     throw error;
   }
 
-  const master = await getMasterPlan(masterVersionId, transaction);
+  const liveMasterId = await resolveLiveMasterFromSnapshot(reviewSnapshotRootId, transaction);
+  if (!liveMasterId) {
+    const error = new Error("Could not resolve master plan for this review version");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const master = await getMasterPlan(liveMasterId, transaction);
   if (!canRaisePlanReviewIssue(master)) {
     const error = new Error(
       "Review is closed. Issues can only be raised while the plan is actively under review."
@@ -462,11 +540,23 @@ async function validateRaisePlanReviewIssue(entityType, entityId, transaction = 
     error.statusCode = 400;
     throw error;
   }
+
+  const activeSnapshotId = await getActiveReviewSnapshotId(liveMasterId, transaction);
+  if (activeSnapshotId !== reviewSnapshotRootId) {
+    const error = new Error(
+      "This review version is no longer active. Refresh and use the current published review version."
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return reviewSnapshotRootId;
 }
 
 module.exports = {
   collectPlanEntityIds,
   getPlanReviewIssues,
+  getPlanReviewIssuesForLiveMaster,
   getPublishForReviewReadiness,
   publishForReview,
   unlockForCorrections,
@@ -474,6 +564,7 @@ module.exports = {
   getCompleteReviewReadiness,
   completeReview,
   getReviewDashboardStats,
+  resolveReviewSnapshotRootForQuery,
   resolveMasterVersionId,
   validateRaisePlanReviewIssue,
   REVIEW_STATUSES,

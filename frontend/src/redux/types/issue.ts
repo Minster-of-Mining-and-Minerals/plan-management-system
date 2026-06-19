@@ -62,6 +62,7 @@ export interface Issue {
   assigned_to: string | null;
   entity_type: IssueEntityType;
   entity_id: string;
+  review_snapshot_id?: string | null;
   current_value: string | null;
   suggested_value: string | null;
   justification: string;

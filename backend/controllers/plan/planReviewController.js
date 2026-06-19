@@ -10,6 +10,7 @@ const {
   completeReview,
   getReviewDashboardStats,
   getPlanReviewIssues,
+  resolveReviewSnapshotRootForQuery,
 } = require("../../services/planReviewService");
 
 async function getPublishForReviewReadinessHandler(req, res) {
@@ -126,8 +127,10 @@ async function getPlanReviewDashboardHandler(req, res) {
     }
 
     const query = req.validatedQuery || req.query;
-    const stats = await getReviewDashboardStats(id, query);
-    const issues = await getPlanReviewIssues(id, query);
+    const snapshotRootId =
+      (await resolveReviewSnapshotRootForQuery(id)) || id;
+    const stats = await getReviewDashboardStats(snapshotRootId, query);
+    const issues = await getPlanReviewIssues(snapshotRootId, query);
 
     return res.json({
       success: true,

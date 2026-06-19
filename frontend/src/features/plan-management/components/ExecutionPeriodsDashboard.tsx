@@ -20,14 +20,15 @@ import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresh
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import {
     PLAN_COMPLETE_PERIOD_PERMISSIONS,
-    PLAN_PERMISSIONS,
 } from "@/utils/planPermissionUtils";
 import { PerformanceProgressBar } from "./PerformanceProgressBar";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
+import { getPlanViewBasePath } from "@/utils/planReviewUtils";
 import { cn } from "@/lib/utils";
 
 interface ExecutionPeriodsDashboardProps {
     annualVersion: PlanVersion;
+    mode?: "draft" | "review";
 }
 
 function getPeriodStatusLabel(version: PlanVersion): string {
@@ -41,9 +42,14 @@ function formatSubdivisionMode(mode: string | null | undefined): string {
     return "Not set";
 }
 
-export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDashboardProps) {
+export function ExecutionPeriodsDashboard({
+    annualVersion,
+    mode = "draft",
+}: ExecutionPeriodsDashboardProps) {
     const router = useRouter();
     const thresholds = usePerformanceColorThresholds();
+    const isReviewMode = mode === "review";
+    const plansBasePath = getPlanViewBasePath(mode);
 
     const { data: masterVersion } = useGetPlanVersionByIdQuery(
         annualVersion.parent_plan_version_id ?? "",
@@ -127,7 +133,9 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
                             variant="outline"
                             className="gap-2"
                             onClick={() =>
-                                router.push(`/plans/${annualVersion.parent_plan_version_id}`)
+                                router.push(
+                                    `${plansBasePath}/${annualVersion.parent_plan_version_id}`
+                                )
                             }
                         >
                             Open Strategic Plan
@@ -315,20 +323,18 @@ export function ExecutionPeriodsDashboard({ annualVersion }: ExecutionPeriodsDas
                             </CardContent>
 
                             <CardFooter className="flex flex-wrap gap-2 pt-0">
-                                <PermissionGuard requireAll={[PLAN_PERMISSIONS.READ]}>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="gap-2 flex-1"
-                                        onClick={() =>
-                                            router.push(`/plans/${period.plan_version_id}`)
-                                        }
-                                    >
-                                        <Eye className="h-4 w-4" />
-                                        Open Plan
-                                    </Button>
-                                </PermissionGuard>
-                                {showComplete && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-2 flex-1"
+                                    onClick={() =>
+                                        router.push(`${plansBasePath}/${period.plan_version_id}`)
+                                    }
+                                >
+                                    <Eye className="h-4 w-4" />
+                                    {isReviewMode ? "Review Plan" : "Open Plan"}
+                                </Button>
+                                {!isReviewMode && showComplete && (
                                     <PermissionGuard requireAll={PLAN_COMPLETE_PERIOD_PERMISSIONS}>
                                         <Button
                                             variant="default"

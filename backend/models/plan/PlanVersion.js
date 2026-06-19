@@ -200,6 +200,26 @@ module.exports = (sequelize, DataTypes) => {
                 type: DataTypes.DATE,
                 allowNull: true,
             },
+
+            review_snapshot_of_version_id: {
+                type: DataTypes.UUID,
+                allowNull: true,
+            },
+
+            review_snapshot_root_id: {
+                type: DataTypes.UUID,
+                allowNull: true,
+            },
+
+            active_review_snapshot_id: {
+                type: DataTypes.UUID,
+                allowNull: true,
+            },
+
+            review_version_number: {
+                type: DataTypes.INTEGER,
+                allowNull: true,
+            },
         },
         {
             sequelize,

@@ -72,6 +72,7 @@ module.exports = (sequelize, DataTypes) => {
       attachment_path: { type: DataTypes.STRING(500), allowNull: true },
       resolved_at: { type: DataTypes.DATE, allowNull: true },
       closed_at: { type: DataTypes.DATE, allowNull: true },
+      review_snapshot_id: { type: DataTypes.UUID, allowNull: true },
     },
     {
       sequelize,

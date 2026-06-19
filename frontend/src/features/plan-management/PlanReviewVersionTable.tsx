@@ -12,8 +12,11 @@ import { formatStatus } from "@/utils/statusFormatter";
 import {
     formatDurationYears,
     formatPlanningPeriod,
-    getPlanDraftDisplayName,
 } from "@/utils/planDraftUtils";
+import {
+    formatReviewVersionLabel,
+    getPlanReviewDisplayName,
+} from "@/utils/planReviewUtils";
 import { useSearchParams, useRouter } from "next/navigation";
 import { matchesSearchQuery } from "@/utils/tableUtils";
 
@@ -33,9 +36,10 @@ export default function PlanReviewVersionTable() {
 
     const versions = (response || []).filter((version) =>
         matchesSearchQuery(searchQuery, [
-            getPlanDraftDisplayName(version),
+            getPlanReviewDisplayName(version),
             version.governmentStructure?.name,
             version.review_status,
+            formatReviewVersionLabel(version.review_version_number),
         ])
     );
 
@@ -48,13 +52,22 @@ export default function PlanReviewVersionTable() {
                 cellClassName: "max-w-0 overflow-hidden !whitespace-normal",
             },
             cell: ({ row }) => {
-                const name = getPlanDraftDisplayName(row.original);
+                const name = getPlanReviewDisplayName(row.original);
                 return (
                     <span className="font-medium text-primary block truncate" title={name}>
                         {name}
                     </span>
                 );
             },
+        },
+        {
+            id: "review_version",
+            header: "Review Version",
+            cell: ({ row }) => (
+                <Badge variant="outline" className="font-mono text-xs">
+                    {formatReviewVersionLabel(row.original.review_version_number)}
+                </Badge>
+            ),
         },
         {
             id: "planning_period",

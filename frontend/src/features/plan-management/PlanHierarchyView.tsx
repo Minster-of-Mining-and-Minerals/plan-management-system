@@ -48,11 +48,12 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import {
     PLAN_FINALIZE_PERMISSIONS,
-    PLAN_PERMISSIONS,
     PLAN_STRUCTURE_MUTATION_PERMISSIONS,
 } from "@/utils/planPermissionUtils";
 import {
     canRaiseReviewIssue,
+    formatReviewVersionLabel,
+    hasBeenPublishedForReview,
     isPlanCorrectionsUnlocked,
     isPlanInActiveReview,
     isPlanUnderReview,
@@ -192,15 +193,8 @@ export default function PlanHierarchyView({
     const isReviewMode = mode === "review";
     const plansBasePath = isReviewMode ? "/plans/review" : "/plans";
     const showRaiseIssue = isReviewMode && canRaiseReviewIssue(effectiveMasterVersion);
-    const showReviewTab = isReviewMode
-        ? Boolean(masterReviewStatus)
-        : Boolean(masterReviewStatus) &&
-          (can(PLAN_PERMISSIONS.READ) || can(PLAN_PERMISSIONS.UPDATE));
-    const showReviewWorkspace =
-        isReviewMode &&
-        version?.version_kind === "master" &&
-        Boolean(masterReviewStatus);
-
+    const showReviewTab =
+        isReviewMode && hasBeenPublishedForReview(effectiveMasterVersion);
     const isMasterDraft =
         version?.version_kind === "master" && version?.status === "draft";
     const isAnnualVersion = version?.version_kind === "annual";
@@ -239,12 +233,12 @@ export default function PlanHierarchyView({
         masterReviewStatus
     );
     const showAnnualDashboard =
-        !isReviewMode &&
         version?.version_kind === "master" &&
         (version?.status === "finalized" ||
-            (version?.annualVersions && version.annualVersions.length > 0));
+            (version?.annualVersions && version.annualVersions.length > 0) ||
+            (isReviewMode && Boolean(masterReviewStatus)));
     const showPeriodDashboard =
-        !isReviewMode && isAnnualVersion && annualTargetsFinalized && periodsInitializedGlobally;
+        isAnnualVersion && annualTargetsFinalized && periodsInitializedGlobally;
 
     useEffect(() => {
         appliedDefaultTabForVersion.current = null;
@@ -269,9 +263,7 @@ export default function PlanHierarchyView({
             return;
         }
 
-        if (version.version_kind === "master" && version.status === "finalized" && showReviewTab) {
-            setActiveTab("review");
-        } else if (version.version_kind === "master" && version.status === "finalized") {
+        if (version.version_kind === "master" && version.status === "finalized") {
             setActiveTab("annual");
         } else if (
             version.version_kind === "annual" &&
@@ -481,31 +473,6 @@ export default function PlanHierarchyView({
         </div>
     );
 
-    const reviewTabToggle = showReviewWorkspace ? (
-        <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 flex-wrap">
-            <Button
-                variant={activeTab === "hierarchy" ? "default" : "ghost"}
-                size="sm"
-                className="gap-2 h-8"
-                onClick={() => setActiveTab("hierarchy")}
-            >
-                <ListTree className="h-4 w-4" />
-                Plan Hierarchy
-            </Button>
-            {showReviewTab && (
-                <Button
-                    variant={activeTab === "review" ? "default" : "ghost"}
-                    size="sm"
-                    className="gap-2 h-8"
-                    onClick={() => setActiveTab("review")}
-                >
-                    <ShieldCheck className="h-4 w-4" />
-                    Review Dashboard
-                </Button>
-            )}
-        </div>
-    ) : null;
-
     const detailTabToggle = showAnnualDashboard ? (
         <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 flex-wrap">
             <Button
@@ -579,8 +546,8 @@ export default function PlanHierarchyView({
 
             {!isReviewMode && isPlanUnderReview(masterReviewStatus) && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                    This plan is under review. All content is read-only. Use Plan Review in the
-                    sidebar for reviewer workflows, or the Review Dashboard to track findings.
+                    This plan is under review. All content is read-only here. Reviewers should use
+                    Plan Review in the sidebar to browse assigned sections and raise issues.
                 </div>
             )}
 
@@ -820,6 +787,11 @@ export default function PlanHierarchyView({
                                         {masterReviewStatus.replace(/_/g, " ")}
                                     </Badge>
                                 )}
+                                {isReviewMode && version?.review_version_number && (
+                                    <Badge variant="outline" className="font-mono text-xs border-blue-200 bg-blue-50 text-blue-800">
+                                        {formatReviewVersionLabel(version.review_version_number)}
+                                    </Badge>
+                                )}
                             </div>
                         )}
                         {rule && (
@@ -831,30 +803,19 @@ export default function PlanHierarchyView({
                     </div>
                 </div>
 
-                {(!showAnnualDashboard && !showPeriodDashboard && !showReviewWorkspace || activeTab === "hierarchy") && hierarchyToolbar}
+                {(!showAnnualDashboard && !showPeriodDashboard || activeTab === "hierarchy") && hierarchyToolbar}
             </div>
 
-            {showReviewWorkspace ? (
-                <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
-                    <div className="flex items-center justify-end px-4 py-3 border-b border-gray-100">
-                        {reviewTabToggle}
-                    </div>
-                    <div className="p-4 sm:p-6 space-y-6">
-                        {activeTab === "review" && resolvedMasterVersionId ? (
-                            <PlanReviewDashboard masterVersionId={resolvedMasterVersionId} />
-                        ) : (
-                            hierarchyBody
-                        )}
-                    </div>
-                </div>
-            ) : showAnnualDashboard ? (
+            {showAnnualDashboard ? (
                 <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
                     <div className="flex items-center justify-end px-4 py-3 border-b border-gray-100">
                         {detailTabToggle}
                     </div>
                     <div className="p-4 sm:p-6 space-y-6">
                         {activeTab === "annual" ? (
-                            version && <AnnualVersionsDashboard masterVersion={version} />
+                            version && (
+                                <AnnualVersionsDashboard masterVersion={version} mode={mode} />
+                            )
                         ) : activeTab === "review" && resolvedMasterVersionId ? (
                             <PlanReviewDashboard masterVersionId={resolvedMasterVersionId} />
                         ) : (
@@ -883,7 +844,9 @@ export default function PlanHierarchyView({
                     </div>
                     <div className="p-4 sm:p-6 space-y-6">
                         {activeTab === "periods" ? (
-                            version && <ExecutionPeriodsDashboard annualVersion={version} />
+                            version && (
+                                <ExecutionPeriodsDashboard annualVersion={version} mode={mode} />
+                            )
                         ) : (
                             hierarchyBody
                         )}

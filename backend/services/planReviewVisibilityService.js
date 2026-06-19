@@ -222,14 +222,33 @@ async function userCanViewPlanInReview(masterVersionId, user, transaction = null
   if (hasFullPlanRead(user)) return true;
   if (!hasAssignedReviewRead(user)) return false;
 
-  const master = await PlanVersion.findByPk(masterVersionId, {
+  const version = await PlanVersion.findByPk(masterVersionId, {
+    attributes: [
+      "plan_version_id",
+      "published_for_review_at",
+      "review_status",
+      "review_snapshot_of_version_id",
+      "review_snapshot_root_id",
+      "version_kind",
+    ],
+    transaction,
+  });
+  if (!version) return false;
+
+  const liveMasterId = version.review_snapshot_of_version_id || masterVersionId;
+  const assignmentVersionId =
+    version.review_snapshot_root_id || version.review_snapshot_of_version_id
+      ? version.review_snapshot_root_id || version.plan_version_id
+      : masterVersionId;
+
+  const liveMaster = await PlanVersion.findByPk(liveMasterId, {
     attributes: ["plan_version_id", "published_for_review_at", "review_status"],
     transaction,
   });
-  if (!isMasterVisibleForAssignedReviewer(master)) return false;
+  if (!isMasterVisibleForAssignedReviewer(liveMaster)) return false;
 
   const assigned = await getAssignedMasterNodeIds(
-    masterVersionId,
+    assignmentVersionId,
     user.user_id,
     transaction
   );
@@ -265,22 +284,24 @@ async function getAssignedReviewMasterVersionIds(user, transaction = null) {
   const masters = await PlanVersion.findAll({
     where: {
       version_kind: "master",
+      review_snapshot_of_version_id: null,
+      active_review_snapshot_id: { [Op.ne]: null },
       published_for_review_at: { [Op.ne]: null },
       review_status: { [Op.in]: REVIEW_VISIBLE_STATUSES },
     },
-    attributes: ["plan_version_id"],
+    attributes: ["plan_version_id", "active_review_snapshot_id"],
     transaction,
   });
 
   const accessible = [];
   for (const master of masters) {
     const assigned = await getAssignedMasterNodeIds(
-      master.plan_version_id,
+      master.active_review_snapshot_id,
       user.user_id,
       transaction
     );
-    if (assigned.size > 0) {
-      accessible.push(master.plan_version_id);
+    if (assigned.size > 0 && master.active_review_snapshot_id) {
+      accessible.push(master.active_review_snapshot_id);
     }
   }
   return accessible;
