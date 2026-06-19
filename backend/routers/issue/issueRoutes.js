@@ -44,7 +44,12 @@ const VIEW_ISSUE_PERMISSIONS = [
 
 router.get(
   "/priorities",
-  checkAnyPermission(VIEW_ISSUE_PERMISSIONS),
+  checkAnyPermission([
+    ...VIEW_ISSUE_PERMISSIONS,
+    { resource: "PLAN", action: "RAISE_REVIEW_ISSUE" },
+    { resource: "PLAN", action: "VIEW_OWN_REVIEW_ISSUES" },
+    { resource: "PLAN", action: "VIEW_REVIEW_DASHBOARD" },
+  ]),
   getIssuePriorities
 );
 
@@ -78,7 +83,10 @@ router.get(
 
 router.post(
   "/",
-  checkPermission("ISSUES", "CREATE"),
+  checkAnyPermission([
+    { resource: "ISSUES", action: "CREATE" },
+    { resource: "PLAN", action: "RAISE_REVIEW_ISSUE" },
+  ]),
   validateCreateIssue,
   createIssue
 );

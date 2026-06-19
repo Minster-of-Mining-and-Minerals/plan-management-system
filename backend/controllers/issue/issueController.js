@@ -73,6 +73,7 @@ const createIssue = async (req, res) => {
     const issue = await issueService.createIssue(
       req.body,
       req.user.user_id,
+      req.user.permissions || [],
       req.app.get("io")
     );
     return res.status(201).json({

@@ -177,6 +177,8 @@ router.post("/versions/:id/complete-review", checkPermission("PLAN", "COMPLETE_R
 router.get("/versions/:id/review-dashboard", checkAnyPermission([
     { resource: "PLANS", action: "READ" },
     { resource: "PLAN", action: "VIEW_ASSIGNED_REVIEW" },
+    { resource: "PLAN", action: "VIEW_OWN_REVIEW_ISSUES" },
+    { resource: "PLAN", action: "VIEW_REVIEW_DASHBOARD" },
     { resource: "PLAN", action: "COMPLETE_REVIEW" },
     { resource: "PLAN", action: "PUBLISH_FOR_REVIEW" },
 ]), validateIdParam, requirePlanVersionReadAccess(), getPlanReviewDashboardHandler);

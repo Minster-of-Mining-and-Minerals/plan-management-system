@@ -21,6 +21,9 @@ const { authenticateToken, checkPermission, checkAnyPermission } = require("../.
 const VIEW_CATEGORY_PERMISSIONS = [
   { resource: "ISSUE_CATEGORIES", action: "READ" },
   { resource: "ISSUES", action: "CREATE" },
+  { resource: "PLAN", action: "RAISE_REVIEW_ISSUE" },
+  { resource: "PLAN", action: "VIEW_OWN_REVIEW_ISSUES" },
+  { resource: "PLAN", action: "VIEW_REVIEW_DASHBOARD" },
 ];
 
 router.use(authenticateToken);

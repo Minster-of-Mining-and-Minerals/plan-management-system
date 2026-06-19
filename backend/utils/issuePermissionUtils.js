@@ -44,6 +44,14 @@ function buildIssueAccessScope(userId, userPermissions) {
 }
 
 function canViewIssue(issue, userId, userPermissions) {
+  if (issue?.review_snapshot_id) {
+    const { canViewPlanReviewIssue } = require("./planReviewIssuePermissionUtils");
+    const reviewAccess = canViewPlanReviewIssue(issue, userId, userPermissions);
+    if (reviewAccess !== null) {
+      return reviewAccess;
+    }
+  }
+
   const scope = buildIssueAccessScope(userId, userPermissions);
   if (scope.type === "all") return true;
   if (scope.type === "none") return false;

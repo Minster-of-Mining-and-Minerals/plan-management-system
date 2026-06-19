@@ -236,7 +236,7 @@ async function getIssueDashboardStats(query, { userId, userPermissions }) {
   return stats;
 }
 
-async function createIssue(data, userId, io = null) {
+async function createIssue(data, userId, userPermissions = [], io = null) {
   const t = await sequelize.transaction();
   try {
     const category = await IssueCategory.findByPk(data.issue_category_id, { transaction: t });
@@ -258,6 +258,15 @@ async function createIssue(data, userId, io = null) {
       data.entity_id,
       t
     );
+
+    if (reviewSnapshotId) {
+      const { canRaisePlanReviewIssue: canRaiseReviewIssuePermission } = require("../utils/planReviewIssuePermissionUtils");
+      if (!canRaiseReviewIssuePermission(userPermissions)) {
+        const error = new Error("You do not have permission to raise plan review issues");
+        error.statusCode = 403;
+        throw error;
+      }
+    }
 
     const issueNumber = await generateIssueNumber(t);
 
@@ -308,7 +317,10 @@ async function createIssue(data, userId, io = null) {
 
     await t.commit();
 
-    const fullIssue = await getIssueById(issue.issue_id);
+    const fullIssue = await getIssueById(issue.issue_id, {
+      userId,
+      userPermissions,
+    });
 
     const recipients = [];
     if (fullIssue.assigned_to) {

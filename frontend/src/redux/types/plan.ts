@@ -133,6 +133,7 @@ export interface PlanReviewReadiness {
 export interface PlanReviewDashboardResponse {
     stats: import("./issue").IssueDashboardStats;
     issues: import("./issue").Issue[];
+    scope?: "all" | "own";
 }
 
 export interface PeriodTargetAllocation {

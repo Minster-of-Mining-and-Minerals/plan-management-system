@@ -48,6 +48,8 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import {
     PLAN_FINALIZE_PERMISSIONS,
+    PLAN_REVIEW_DASHBOARD_ACCESS_PERMISSIONS,
+    PLAN_REVIEW_RAISE_PERMISSIONS,
     PLAN_STRUCTURE_MUTATION_PERMISSIONS,
 } from "@/utils/planPermissionUtils";
 import {
@@ -146,7 +148,7 @@ export default function PlanHierarchyView({
     const [deleteNode] = useDeletePlanNodeMutation();
     const [reorderNodes, { isLoading: isReordering }] = useReorderPlanNodesMutation();
     const thresholds = usePerformanceColorThresholds();
-    const { can } = usePermissions();
+    const { can, canAny } = usePermissions();
 
     const [viewMode, setViewMode] = useState<ViewMode>("card");
     const [activeTab, setActiveTab] = useState<PlanDetailTab>("hierarchy");
@@ -192,9 +194,14 @@ export default function PlanHierarchyView({
     const masterReviewStatus = effectiveMasterVersion?.review_status;
     const isReviewMode = mode === "review";
     const plansBasePath = isReviewMode ? "/plans/review" : "/plans";
-    const showRaiseIssue = isReviewMode && canRaiseReviewIssue(effectiveMasterVersion);
+    const showRaiseIssue =
+        isReviewMode &&
+        canRaiseReviewIssue(effectiveMasterVersion) &&
+        canAny(PLAN_REVIEW_RAISE_PERMISSIONS);
     const showReviewTab =
-        isReviewMode && hasBeenPublishedForReview(effectiveMasterVersion);
+        isReviewMode &&
+        hasBeenPublishedForReview(effectiveMasterVersion) &&
+        canAny(PLAN_REVIEW_DASHBOARD_ACCESS_PERMISSIONS);
     const isMasterDraft =
         version?.version_kind === "master" && version?.status === "draft";
     const isAnnualVersion = version?.version_kind === "annual";

@@ -91,6 +91,9 @@ const PERMISSIONS = [
   { resource: "plan", action: "complete_review" },
   { resource: "plan", action: "unlock_review_corrections" },
   { resource: "plan", action: "republish_review" },
+  { resource: "plan", action: "raise_review_issue" },
+  { resource: "plan", action: "view_own_review_issues" },
+  { resource: "plan", action: "view_review_dashboard" },
 ];
 
 function dedupePermissions(permissions) {

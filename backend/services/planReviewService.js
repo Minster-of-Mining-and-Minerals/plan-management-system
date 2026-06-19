@@ -6,6 +6,8 @@ const {
   PlanVersion,
   PlanNode,
   Issue,
+  IssueCategory,
+  IssuePriority,
   InternalAssignment,
   User,
   sequelize,
@@ -34,6 +36,29 @@ const {
 } = require("../utils/planReviewUtils");
 
 const OPEN_ISSUE_STATUSES = ["submitted", "under_review", "accepted"];
+
+const REVIEW_ISSUE_INCLUDES = [
+  {
+    model: IssueCategory,
+    as: "category",
+    attributes: ["issue_category_id", "name", "description"],
+  },
+  {
+    model: IssuePriority,
+    as: "priority",
+    attributes: ["issue_priority_id", "code", "label", "color_hex"],
+  },
+  {
+    model: User,
+    as: "raiser",
+    attributes: ["user_id", "full_name", "email"],
+  },
+  {
+    model: User,
+    as: "assignee",
+    attributes: ["user_id", "full_name", "email"],
+  },
+];
 
 const PLAN_LINKED_ENTITY_TYPES = new Set([
   "plan_version",
@@ -126,6 +151,7 @@ async function getPlanReviewIssues(reviewSnapshotRootId, filters = {}, transacti
 
   return Issue.findAll({
     where,
+    include: REVIEW_ISSUE_INCLUDES,
     order: [["created_at", "DESC"]],
     transaction,
   });

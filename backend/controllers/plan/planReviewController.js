@@ -126,17 +126,44 @@ async function getPlanReviewDashboardHandler(req, res) {
       return res.status(400).json({ success: false, message: "Invalid ID" });
     }
 
+    const {
+      canAccessPlanReviewDashboard,
+      applyPlanReviewIssueFilters,
+      hasPlanReviewDashboardAllAccess,
+    } = require("../../utils/planReviewIssuePermissionUtils");
+
+    const userPermissions = req.user?.permissions || [];
+    if (!canAccessPlanReviewDashboard(userPermissions)) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to view the plan review dashboard",
+      });
+    }
+
     const query = req.validatedQuery || req.query;
+    const scopedFilters = applyPlanReviewIssueFilters(
+      query,
+      req.user.user_id,
+      userPermissions
+    );
+    if (!scopedFilters) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to view plan review issues",
+      });
+    }
+
     const snapshotRootId =
       (await resolveReviewSnapshotRootForQuery(id)) || id;
-    const stats = await getReviewDashboardStats(snapshotRootId, query);
-    const issues = await getPlanReviewIssues(snapshotRootId, query);
+    const stats = await getReviewDashboardStats(snapshotRootId, scopedFilters);
+    const issues = await getPlanReviewIssues(snapshotRootId, scopedFilters);
 
     return res.json({
       success: true,
       data: {
         stats,
         issues,
+        scope: hasPlanReviewDashboardAllAccess(userPermissions) ? "all" : "own",
       },
     });
   } catch (error) {

@@ -55,6 +55,7 @@ import { PermissionGuard } from "@/utils/PermissionGuard";
 import {
     PLAN_ASSIGNMENT_CREATE_PERMISSIONS,
     PLAN_ASSIGNMENT_DELETE_PERMISSIONS,
+    PLAN_REVIEW_RAISE_PERMISSIONS,
     PLAN_UPDATE_PERMISSIONS,
 } from "@/utils/planPermissionUtils";
 import {
@@ -147,12 +148,17 @@ export default function PlanNodeDetailView({
         }
     }, [node?.period_target, nodeId]);
 
+    const { can, canAny } = usePermissions();
+
     const effectiveMasterVersion =
         version?.version_kind === "master" ? version : masterVersion;
     const masterReviewStatus = effectiveMasterVersion?.review_status;
     const isReviewMode = mode === "review";
     const plansBasePath = isReviewMode ? "/plans/review" : "/plans";
-    const showRaiseIssue = isReviewMode && canRaiseReviewIssue(effectiveMasterVersion);
+    const showRaiseIssue =
+        isReviewMode &&
+        canRaiseReviewIssue(effectiveMasterVersion) &&
+        canAny(PLAN_REVIEW_RAISE_PERMISSIONS);
 
     const annualTargetsFinalized = Boolean(masterVersion?.annual_targets_finalized_at);
     const periodTargetsFinalized = Boolean(
@@ -179,7 +185,6 @@ export default function PlanNodeDetailView({
         node &&
         (node.annual_target ?? 0) > 0;
 
-    const { can } = usePermissions();
     const canEditMasterStructure = canEditMasterPlanStructure(version, can);
     const isEditingFinalizedMaster = isEditingFinalizedMasterPlan(version, can);
     const isExecutionVersion =

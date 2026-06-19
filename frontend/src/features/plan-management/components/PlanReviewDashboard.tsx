@@ -19,6 +19,12 @@ import { IssueStatusBadge } from "@/features/issue-management/components/IssueSt
 import { IssueDashboardStatsCards } from "@/features/issue-management/components/IssueDashboardStatsCards";
 import { IssueStatus } from "@/redux/types/issue";
 import { format } from "date-fns";
+import { usePermissions } from "@/hooks/usePermissions";
+import {
+  PLAN_REVIEW_DASHBOARD_ALL_PERMISSIONS,
+  PLAN_REVIEW_DASHBOARD_ACCESS_PERMISSIONS,
+} from "@/utils/planPermissionUtils";
+import { ISSUE_PERMISSIONS } from "@/utils/issuePermissionUtils";
 
 interface PlanReviewDashboardProps {
   masterVersionId: string;
@@ -26,6 +32,13 @@ interface PlanReviewDashboardProps {
 
 export function PlanReviewDashboard({ masterVersionId }: PlanReviewDashboardProps) {
   const router = useRouter();
+  const { can, canAny } = usePermissions();
+  const canViewDashboard = canAny(PLAN_REVIEW_DASHBOARD_ACCESS_PERMISSIONS);
+  const canViewAllIssues =
+    canAny(PLAN_REVIEW_DASHBOARD_ALL_PERMISSIONS) ||
+    can(ISSUE_PERMISSIONS.READ_ALL) ||
+    can(ISSUE_PERMISSIONS.READ);
+
   const [statusFilter, setStatusFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
@@ -37,17 +50,28 @@ export function PlanReviewDashboard({ masterVersionId }: PlanReviewDashboardProp
     status: statusFilter || undefined,
     issue_category_id: categoryFilter || undefined,
     issue_priority_id: priorityFilter || undefined,
-    raised_by: raisedByFilter || undefined,
+    raised_by: canViewAllIssues ? raisedByFilter || undefined : undefined,
     assigned_to: assignedToFilter || undefined,
   };
 
-  const { data, isLoading, refetch } = useGetPlanReviewDashboardQuery(query);
-  const { data: categories = [] } = useGetIssueCategoriesQuery({ is_active: true });
-  const { data: priorities = [] } = useGetIssuePrioritiesQuery();
-  const { data: users = [] } = useGetUsersQuery({ page: 1, limit: 200 });
+  const { data, isLoading, refetch } = useGetPlanReviewDashboardQuery(query, {
+    skip: !canViewDashboard,
+  });
+  const { data: categories = [] } = useGetIssueCategoriesQuery(
+    { is_active: true },
+    { skip: !canViewDashboard }
+  );
+  const { data: priorities = [] } = useGetIssuePrioritiesQuery(undefined, {
+    skip: !canViewDashboard,
+  });
+  const { data: users = [] } = useGetUsersQuery(
+    { page: 1, limit: 200 },
+    { skip: !canViewDashboard || !canViewAllIssues }
+  );
 
   const issues = data?.issues ?? [];
   const stats = data?.stats;
+  const dashboardScope = data?.scope ?? (canViewAllIssues ? "all" : "own");
 
   const columns: ColumnDef<Issue>[] = useMemo(
     () => [
@@ -74,11 +98,16 @@ export function PlanReviewDashboard({ masterVersionId }: PlanReviewDashboardProp
         header: "Entity",
         cell: ({ row }) => ISSUE_ENTITY_TYPE_LABELS[row.original.entity_type],
       },
-      {
-        id: "raiser",
-        header: "Raised By",
-        cell: ({ row }) => row.original.raiser?.full_name || "—",
-      },
+      ...(canViewAllIssues
+        ? [
+            {
+              id: "raiser",
+              header: "Raised By",
+              cell: ({ row }: { row: { original: Issue } }) =>
+                row.original.raiser?.full_name || "—",
+            } as ColumnDef<Issue>,
+          ]
+        : []),
       {
         accessorKey: "created_at",
         header: "Created",
@@ -98,7 +127,7 @@ export function PlanReviewDashboard({ masterVersionId }: PlanReviewDashboardProp
         ),
       },
     ],
-    [router]
+    [router, canViewAllIssues]
   );
 
   const filters: FilterField[] = [
@@ -146,38 +175,52 @@ export function PlanReviewDashboard({ masterVersionId }: PlanReviewDashboardProp
         ...priorities.map((p) => ({ label: p.label, value: p.issue_priority_id })),
       ],
     },
-    {
-      key: "raised_by",
-      label: "Creator",
-      type: "select",
-      placeholder: "All creators",
-      value: raisedByFilter || "all",
-      onChange: (v: string) => setRaisedByFilter(v === "all" ? "" : v),
-      options: [
-        { label: "All", value: "all" },
-        ...users.map((u) => ({ label: u.full_name, value: u.user_id })),
-      ],
-    },
-    {
-      key: "assigned_to",
-      label: "Assigned User",
-      type: "select",
-      placeholder: "All assignees",
-      value: assignedToFilter || "all",
-      onChange: (v: string) => setAssignedToFilter(v === "all" ? "" : v),
-      options: [
-        { label: "All", value: "all" },
-        ...users.map((u) => ({ label: u.full_name, value: u.user_id })),
-      ],
-    },
+    ...(canViewAllIssues
+      ? [
+          {
+            key: "raised_by",
+            label: "Creator",
+            type: "select" as const,
+            placeholder: "All creators",
+            value: raisedByFilter || "all",
+            onChange: (v: string) => setRaisedByFilter(v === "all" ? "" : v),
+            options: [
+              { label: "All", value: "all" },
+              ...users.map((u) => ({ label: u.full_name, value: u.user_id })),
+            ],
+          },
+          {
+            key: "assigned_to",
+            label: "Assigned User",
+            type: "select" as const,
+            placeholder: "All assignees",
+            value: assignedToFilter || "all",
+            onChange: (v: string) => setAssignedToFilter(v === "all" ? "" : v),
+            options: [
+              { label: "All", value: "all" },
+              ...users.map((u) => ({ label: u.full_name, value: u.user_id })),
+            ],
+          },
+        ]
+      : []),
   ];
+
+  if (!canViewDashboard) {
+    return (
+      <div className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+        You do not have permission to view the plan review dashboard.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
       <div>
         <h2 className="text-lg font-semibold text-gray-900">Review Dashboard</h2>
         <p className="text-sm text-muted-foreground">
-          Track issues raised during plan review. Manage decisions through the Issue Module.
+          {dashboardScope === "all"
+            ? "Track all issues raised during this plan review round."
+            : "Track the issues you raised during this plan review round."}
         </p>
       </div>
 
