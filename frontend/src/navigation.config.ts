@@ -110,6 +110,12 @@ export const NAVIGATION: NavItem[] = [
         icon: Settings,
         allPermissions: ["ISSUE_CATEGORIES:READ"],
       },
+      {
+        title: "Form Containers",
+        url: "/issues/form-config",
+        icon: Settings,
+        allPermissions: ["FORM_CONFIG_CONTAINERS:READ"],
+      },
     ],
   },
   {

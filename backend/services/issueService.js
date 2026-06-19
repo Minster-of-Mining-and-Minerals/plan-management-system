@@ -8,6 +8,9 @@ const {
   IssuePriority,
   IssueHistory,
   IssueAttachment,
+  IssueFormResponse,
+  FormConfigField,
+  FormConfigContainer,
   Attachment,
   User,
   sequelize,
@@ -24,7 +27,9 @@ const {
 } = require("./issueHistoryService");
 const { buildIssueAccessScope, canViewIssue } = require("../utils/issuePermissionUtils");
 const { validateRaisePlanReviewIssue } = require("./planReviewService");
-const { validateFormDataForCategory } = require("../utils/issueFormConfigUtils");
+const { getPublishedFormByContainerId } = require("./formConfigContainerService");
+const { saveIssueFormResponses, listResponsesForIssue } = require("./issueFormResponseService");
+const { ATTACHMENT_FIELD_TYPES } = require("../utils/formConfigFieldValidationUtils");
 const { emitIssueEvent, ISSUE_EVENTS } = require("./issueNotificationService");
 
 const ISSUE_INCLUDES = [
@@ -42,6 +47,11 @@ const ISSUE_INCLUDES = [
   },
   { model: IssuePriority, as: "priority", attributes: ["issue_priority_id", "code", "label", "color_hex"] },
   {
+    model: FormConfigContainer,
+    as: "formConfigContainer",
+    attributes: ["form_config_container_id", "name", "code"],
+  },
+  {
     model: User,
     as: "raiser",
     attributes: ["user_id", "full_name", "email"],
@@ -55,6 +65,26 @@ const ISSUE_INCLUDES = [
     model: Attachment,
     as: "attachments",
     through: { attributes: [] },
+  },
+  {
+    model: IssueFormResponse,
+    as: "formResponses",
+    include: [
+      {
+        model: FormConfigField,
+        as: "field",
+        attributes: [
+          "form_config_field_id",
+          "label",
+          "field_key",
+          "field_type",
+          "placeholder",
+          "help_text",
+          "options",
+          "display_order",
+        ],
+      },
+    ],
   },
 ];
 
@@ -258,13 +288,21 @@ async function createIssue(data, userId, userPermissions = [], io = null) {
       throw error;
     }
 
-    if (category.is_selectable === false) {
-      const error = new Error("Select a specific issue type under a top-level category");
+    if (!data.form_config_container_id) {
+      const error = new Error("Form container is required");
       error.statusCode = 400;
       throw error;
     }
 
-    const formData = validateFormDataForCategory(category, data);
+    const publishedForm = await getPublishedFormByContainerId(data.form_config_container_id);
+    if (
+      !publishedForm ||
+      publishedForm.container.issue_category_id !== data.issue_category_id
+    ) {
+      const error = new Error("Invalid, inactive, or unpublished form container for this category");
+      error.statusCode = 400;
+      throw error;
+    }
 
     const priority = await IssuePriority.findByPk(data.issue_priority_id, { transaction: t });
     if (!priority || !priority.is_active) {
@@ -298,6 +336,7 @@ async function createIssue(data, userId, userPermissions = [], io = null) {
         description: data.description,
         issue_category_id: data.issue_category_id,
         issue_priority_id: data.issue_priority_id,
+        form_config_container_id: data.form_config_container_id,
         status: "submitted",
         raised_by: userId,
         assigned_to: data.assigned_to ?? null,
@@ -306,7 +345,7 @@ async function createIssue(data, userId, userPermissions = [], io = null) {
         review_snapshot_id: reviewSnapshotId,
         current_value: data.current_value ?? null,
         suggested_value: data.suggested_value ?? null,
-        form_data: formData,
+        form_data: {},
         justification: data.justification,
         attachment_path: data.attachment_path ?? null,
       },
@@ -324,6 +363,37 @@ async function createIssue(data, userId, userPermissions = [], io = null) {
           { transaction: t }
         );
       }
+    }
+
+    await saveIssueFormResponses(
+      issue.issue_id,
+      data.form_config_container_id,
+      data.form_responses || {},
+      t
+    );
+
+    const attachmentIdsFromForm = [];
+    for (const field of publishedForm.fields) {
+      if (!ATTACHMENT_FIELD_TYPES.has(String(field.field_type).toUpperCase())) continue;
+      const raw = data.form_responses?.[field.field_key];
+      const ids = Array.isArray(raw?.attachment_ids)
+        ? raw.attachment_ids
+        : Array.isArray(raw)
+          ? raw
+          : [];
+      attachmentIdsFromForm.push(...ids);
+    }
+
+    for (const attachmentId of [...new Set(attachmentIdsFromForm)]) {
+      await IssueAttachment.findOrCreate({
+        where: { issue_id: issue.issue_id, attachment_id: attachmentId },
+        defaults: {
+          issue_attachment_id: uuidv4(),
+          issue_id: issue.issue_id,
+          attachment_id: attachmentId,
+        },
+        transaction: t,
+      });
     }
 
     await logIssueHistory(

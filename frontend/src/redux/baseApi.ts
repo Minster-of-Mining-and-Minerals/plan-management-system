@@ -78,6 +78,7 @@ export const baseApi = createApi({
     "Issues",
     "IssueCategories",
     "IssuePriorities",
+    "FormConfigContainers",
     "IssueDashboard",
     "IssueHistory",
   ],

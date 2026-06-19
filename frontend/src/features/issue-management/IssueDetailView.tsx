@@ -19,6 +19,7 @@ import {
 } from "@/redux/api/issueApi";
 import { ISSUE_ENTITY_TYPE_LABELS } from "@/redux/types/issue";
 import { IssueStatusBadge } from "./components/IssueStatusBadge";
+import { IssueFormResponsesDisplay } from "./components/IssueFormResponsesDisplay";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import { ISSUE_PERMISSIONS } from "@/utils/issuePermissionUtils";
 
@@ -169,27 +170,17 @@ export default function IssueDetailView({ issueId }: IssueDetailViewProps) {
                   </div>
                 </div>
               )}
-              {issue.form_data && Object.keys(issue.form_data).length > 0 && (
-                <div className="space-y-3 rounded-lg border p-4">
-                  <p className="font-medium">Category Details</p>
-                  {(issue.category?.form_config?.fields ?? []).length > 0
-                    ? issue.category?.form_config?.fields?.map((field) => (
-                        <div key={field.key}>
-                          <p className="text-muted-foreground">{field.label}</p>
-                          <p className="mt-1 whitespace-pre-wrap">
-                            {issue.form_data?.[field.key] || "—"}
-                          </p>
-                        </div>
-                      ))
-                    : Object.entries(issue.form_data).map(([key, value]) => (
-                        <div key={key}>
-                          <p className="text-muted-foreground capitalize">
-                            {key.replace(/_/g, " ")}
-                          </p>
-                          <p className="mt-1 whitespace-pre-wrap">{value || "—"}</p>
-                        </div>
-                      ))}
+              {issue.formConfigContainer ? (
+                <div>
+                  <p className="text-muted-foreground">Form Container</p>
+                  <p className="mt-1">{issue.formConfigContainer.name}</p>
                 </div>
+              ) : null}
+              {issue.formResponses && issue.formResponses.length > 0 && (
+                <IssueFormResponsesDisplay
+                  responses={issue.formResponses}
+                  attachments={issue.attachments}
+                />
               )}
               {issue.response && (
                 <div>

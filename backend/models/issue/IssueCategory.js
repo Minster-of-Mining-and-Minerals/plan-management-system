@@ -8,6 +8,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "issue_category_id",
         as: "issues",
       });
+      IssueCategory.hasMany(models.FormConfigContainer, {
+        foreignKey: "issue_category_id",
+        as: "formConfigContainers",
+      });
       IssueCategory.hasMany(models.IssueCategory, {
         foreignKey: "parent_category_id",
         as: "children",

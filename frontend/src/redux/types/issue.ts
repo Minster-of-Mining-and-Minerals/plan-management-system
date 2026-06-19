@@ -18,6 +18,23 @@ export type IssueEntityType =
   | "budget"
   | "target";
 
+export interface IssueFormResponseRef {
+  issue_form_response_id: string;
+  form_config_field_id: string;
+  value_text?: string | null;
+  value_json?: Record<string, unknown> | null;
+  field?: {
+    form_config_field_id: string;
+    label: string;
+    field_key: string;
+    field_type: string;
+    placeholder?: string | null;
+    help_text?: string | null;
+    options?: { label: string; value: string }[];
+    display_order?: number;
+  };
+}
+
 export interface IssueCategoryFormConfig {
   fields?: IssueFormFieldConfig[];
   standardFields?: Record<string, IssueStandardFieldRule>;
@@ -43,19 +60,26 @@ export interface IssueStandardFieldRule {
   allowedTypes?: IssueEntityType[];
 }
 
+export interface IssueCategoryFormConfigContainerRef {
+  form_config_container_id: string;
+  name: string;
+  code: string;
+  is_published: boolean;
+  is_active: boolean;
+  fields?: { form_config_field_id: string; is_active: boolean }[];
+}
+
 export interface IssueCategory {
   issue_category_id: string;
-  parent_category_id?: string | null;
   code?: string | null;
   name: string;
   description: string | null;
-  form_config?: IssueCategoryFormConfig | null;
   display_order: number;
   is_selectable?: boolean;
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  parent?: Pick<IssueCategory, "issue_category_id" | "name" | "code"> | null;
+  formConfigContainers?: IssueCategoryFormConfigContainerRef[];
 }
 
 export interface IssuePriority {
@@ -87,6 +111,7 @@ export interface Issue {
   description: string;
   issue_category_id: string;
   issue_priority_id: string;
+  form_config_container_id: string;
   status: IssueStatus;
   raised_by: string;
   assigned_to: string | null;
@@ -96,6 +121,7 @@ export interface Issue {
   current_value: string | null;
   suggested_value: string | null;
   form_data?: Record<string, string> | null;
+  formResponses?: IssueFormResponseRef[];
   justification: string;
   response: string | null;
   rejection_reason: string | null;
@@ -106,6 +132,7 @@ export interface Issue {
   created_at: string;
   updated_at: string;
   category?: IssueCategory;
+  formConfigContainer?: { form_config_container_id: string; name: string; code: string };
   priority?: IssuePriority;
   raiser?: IssueUserRef;
   assignee?: IssueUserRef;
@@ -164,16 +191,14 @@ export interface GetIssuesQueryParams {
 
 export interface CreateIssuePayload {
   issue_category_id: string;
+  form_config_container_id: string;
   issue_priority_id: string;
   title: string;
   entity_type: IssueEntityType;
   entity_id: string;
-  current_value?: string;
-  suggested_value?: string;
-  form_data?: Record<string, string>;
+  form_responses: Record<string, unknown>;
   description: string;
   justification: string;
-  attachment_path?: string;
   assigned_to?: string | null;
   attachment_ids?: string[];
 }
@@ -193,24 +218,18 @@ export interface UpdateIssuePayload {
 }
 
 export interface CreateIssueCategoryPayload {
-  parent_category_id?: string | null;
   code?: string | null;
   name: string;
   description?: string;
-  form_config?: IssueCategoryFormConfig;
   display_order?: number;
-  is_selectable?: boolean;
   is_active?: boolean;
 }
 
 export interface UpdateIssueCategoryPayload {
-  parent_category_id?: string | null;
   code?: string | null;
   name?: string;
   description?: string;
-  form_config?: IssueCategoryFormConfig;
   display_order?: number;
-  is_selectable?: boolean;
   is_active?: boolean;
 }
 

@@ -54,6 +54,7 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/internal-structures", anyPermissions: ["INTERNAL_STRUCTURES:READ"] },
 
   // Issues
+  { pattern: "/issues/form-config", allPermissions: ["FORM_CONFIG_CONTAINERS:READ"] },
   { pattern: "/issues/categories", allPermissions: ["ISSUE_CATEGORIES:READ"] },
   {
     pattern: "/issues/[id]",

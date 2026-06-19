@@ -36,6 +36,7 @@ const systemAuditLogRoutes = require("./routers/config/systemAuditLogRoutes");
 const notificationRoutes = require("./routers/notification/notificationRoutes");
 const issueRoutes = require("./routers/issue/issueRoutes");
 const issueCategoryRoutes = require("./routers/issue/issueCategoryRoutes");
+const formConfigContainerRoutes = require("./routers/issue/formConfigContainerRoutes");
 
 // ================== Attachment Routes ==========================
 const attachmentRoute = require("./routers/attachment-routes/attachmentRoute");
@@ -142,6 +143,7 @@ app.use("/api/system-audit-logs", systemAuditLogRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/issues", issueRoutes);
 app.use("/api/issue-categories", issueCategoryRoutes);
+app.use("/api/form-config-containers", formConfigContainerRoutes);
 
 // ================== Api Attachment Routes =====================
 app.use("/api/attachments", attachmentRoute);

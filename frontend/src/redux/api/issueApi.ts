@@ -27,7 +27,7 @@ export const issueApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getIssueCategories: builder.query<
       IssueCategory[],
-      { is_active?: boolean; parent_category_id?: string; selectable_only?: boolean } | void
+      { is_active?: boolean; for_raising?: boolean } | void
     >({
       query: (params) => ({
         url: "/issue-categories",

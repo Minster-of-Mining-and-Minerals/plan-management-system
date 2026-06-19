@@ -9,6 +9,7 @@ import "@/redux/api/planningConfigApi";
 import "@/redux/api/systemAuditLogApi";
 import "@/redux/api/systemSettingsApi";
 import "@/redux/api/issueApi";
+import "@/redux/api/formConfigApi";
 export const store = configureStore({
   reducer: {
     [baseApi.reducerPath]: baseApi.reducer,

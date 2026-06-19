@@ -75,8 +75,7 @@ const updateCategorySchema = Joi.object({
 
 const listCategoriesQuerySchema = Joi.object({
   is_active: Joi.boolean().optional(),
-  parent_category_id: optionalUuid("parent_category_id"),
-  selectable_only: Joi.boolean().optional(),
+  for_raising: Joi.boolean().optional(),
 });
 
 module.exports = {

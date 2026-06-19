@@ -11,6 +11,13 @@ export const ISSUE_PERMISSIONS = {
   CLOSE: "ISSUES:CLOSE" as PermissionKey,
 } as const;
 
+export const FORM_CONFIG_PERMISSIONS = {
+  CREATE: "FORM_CONFIG_CONTAINERS:CREATE" as PermissionKey,
+  READ: "FORM_CONFIG_CONTAINERS:READ" as PermissionKey,
+  UPDATE: "FORM_CONFIG_CONTAINERS:UPDATE" as PermissionKey,
+  DELETE: "FORM_CONFIG_CONTAINERS:DELETE" as PermissionKey,
+} as const;
+
 export const ISSUE_CATEGORY_PERMISSIONS = {
   CREATE: "ISSUE_CATEGORIES:CREATE" as PermissionKey,
   READ: "ISSUE_CATEGORIES:READ" as PermissionKey,

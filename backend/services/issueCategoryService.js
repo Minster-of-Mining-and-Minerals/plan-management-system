@@ -1,32 +1,62 @@
 "use strict";
 
 const { v4: uuidv4 } = require("uuid");
-const { IssueCategory } = require("../models");
+const { IssueCategory, FormConfigContainer, FormConfigField } = require("../models");
 const {
   assertCanConfigureIssueCategoryForm,
 } = require("../utils/issueCategoryPermissionUtils");
 
 const CATEGORY_INCLUDES = [
   {
-    model: IssueCategory,
-    as: "parent",
-    attributes: ["issue_category_id", "name", "code"],
+    model: FormConfigContainer,
+    as: "formConfigContainers",
+    attributes: [
+      "form_config_container_id",
+      "name",
+      "code",
+      "is_published",
+      "is_active",
+      "display_order",
+    ],
+    required: false,
+    separate: true,
+    order: [
+      ["display_order", "ASC"],
+      ["name", "ASC"],
+    ],
+    include: [
+      {
+        model: FormConfigField,
+        as: "fields",
+        attributes: ["form_config_field_id", "is_active"],
+        required: false,
+        separate: true,
+      },
+    ],
   },
 ];
 
-async function listCategories({ isActive, parentCategoryId, selectableOnly } = {}) {
-  const where = {};
+async function listCategories({ isActive, forRaising } = {}) {
+  const where = { is_selectable: true };
+
   if (isActive !== undefined) where.is_active = isActive;
-  if (parentCategoryId !== undefined) {
-    where.parent_category_id = parentCategoryId || null;
+  if (forRaising === true) {
+    where.is_active = true;
   }
-  if (selectableOnly === true) {
-    where.is_selectable = true;
+
+  const include = [...CATEGORY_INCLUDES];
+
+  if (forRaising === true) {
+    include[0] = {
+      ...include[0],
+      where: { is_active: true, is_published: true },
+      required: true,
+    };
   }
 
   return IssueCategory.findAll({
     where,
-    include: CATEGORY_INCLUDES,
+    include,
     order: [
       ["display_order", "ASC"],
       ["name", "ASC"],
@@ -41,24 +71,15 @@ async function getCategoryById(id) {
 async function createCategory(data, userPermissions = []) {
   assertCanConfigureIssueCategoryForm(userPermissions, data, { isCreate: true });
 
-  if (data.parent_category_id) {
-    const parent = await IssueCategory.findByPk(data.parent_category_id);
-    if (!parent) {
-      const error = new Error("Parent issue category not found");
-      error.statusCode = 400;
-      throw error;
-    }
-  }
-
   return IssueCategory.create({
     issue_category_id: uuidv4(),
-    parent_category_id: data.parent_category_id ?? null,
+    parent_category_id: null,
     code: data.code ?? null,
     name: data.name,
     description: data.description ?? null,
-    form_config: data.form_config ?? {},
+    form_config: {},
     display_order: data.display_order ?? 0,
-    is_selectable: data.is_selectable !== undefined ? data.is_selectable : true,
+    is_selectable: true,
     is_active: data.is_active !== undefined ? data.is_active : true,
   });
 }
@@ -73,16 +94,12 @@ async function updateCategory(id, data, userPermissions = []) {
     throw error;
   }
 
-  if (data.parent_category_id) {
-    const parent = await IssueCategory.findByPk(data.parent_category_id);
-    if (!parent) {
-      const error = new Error("Parent issue category not found");
-      error.statusCode = 400;
-      throw error;
-    }
-  }
+  const patch = { ...data };
+  delete patch.parent_category_id;
+  delete patch.is_selectable;
+  delete patch.form_config;
 
-  await category.update(data);
+  await category.update(patch);
   return getCategoryById(id);
 }
 

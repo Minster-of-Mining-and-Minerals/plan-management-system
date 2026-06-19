@@ -33,6 +33,14 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "issue_id",
         as: "histories",
       });
+      Issue.hasMany(models.IssueFormResponse, {
+        foreignKey: "issue_id",
+        as: "formResponses",
+      });
+      Issue.belongsTo(models.FormConfigContainer, {
+        foreignKey: "form_config_container_id",
+        as: "formConfigContainer",
+      });
       Issue.belongsToMany(models.Attachment, {
         through: models.IssueAttachment,
         foreignKey: "issue_id",
@@ -54,6 +62,7 @@ module.exports = (sequelize, DataTypes) => {
       description: { type: DataTypes.TEXT, allowNull: false },
       issue_category_id: { type: DataTypes.UUID, allowNull: false },
       issue_priority_id: { type: DataTypes.UUID, allowNull: false },
+      form_config_container_id: { type: DataTypes.UUID, allowNull: true },
       status: {
         type: DataTypes.ENUM(...ISSUE_STATUSES),
         allowNull: false,

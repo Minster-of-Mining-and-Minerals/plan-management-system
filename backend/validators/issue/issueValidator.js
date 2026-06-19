@@ -19,6 +19,7 @@ const idParamSchema = Joi.object({
 
 const createIssueSchema = Joi.object({
   issue_category_id: requiredUuid("issue_category_id"),
+  form_config_container_id: requiredUuid("form_config_container_id"),
   issue_priority_id: requiredUuid("issue_priority_id"),
   title: Joi.string().trim().min(3).max(255).required(),
   entity_type: Joi.string()
@@ -32,6 +33,7 @@ const createIssueSchema = Joi.object({
   description: Joi.string().trim().min(3).required(),
   justification: Joi.string().trim().min(3).required(),
   form_data: Joi.object().unknown(true).optional(),
+  form_responses: Joi.object().unknown(true).required(),
   attachment_path: Joi.string().trim().max(500).allow("", null).optional(),
   assigned_to: optionalUuid("assigned_to"),
   attachment_ids: Joi.array().items(requiredUuid("attachment_id")).optional(),
