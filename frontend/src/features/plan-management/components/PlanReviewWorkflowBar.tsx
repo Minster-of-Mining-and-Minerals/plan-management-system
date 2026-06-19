@@ -45,18 +45,30 @@ export function PlanReviewWorkflowBar({
   const [completeReview, { isLoading: completing }] = useCompleteReviewMutation();
 
   const reviewStatus = master.review_status;
-  const canPublish =
+  const canInitialPublish =
     master.status === "finalized" &&
     allPeriodsFinalized &&
     !processStarted &&
     !reviewStatus;
 
-  const handlePublish = async () => {
+  const canPublishNextReviewRound =
+    master.status === "finalized" &&
+    allPeriodsFinalized &&
+    !processStarted &&
+    isPlanReviewCompleted(reviewStatus);
+
+  const nextReviewVersionNumber = (master.review_round_count ?? 1) + 1;
+
+  const handlePublish = async (isNextRound = false) => {
+    const confirmMessage = isNextRound
+      ? `Publish for review again? Review v${nextReviewVersionNumber} will be created and reviewers can raise issues on the updated plan. The plan becomes read-only during review.`
+      : "Publish this plan for review? Assigned reviewers will be able to view their sections and raise issues. The plan becomes read-only.";
+
     if (
-      !(await actionFeedback.confirm(
-        "Publish this plan for review? Assigned reviewers will be able to view their sections and raise issues. The plan becomes read-only.",
-        { title: "Publish for Review", confirmLabel: "Publish" }
-      ))
+      !(await actionFeedback.confirm(confirmMessage, {
+        title: isNextRound ? "Publish for Review (Next Round)" : "Publish for Review",
+        confirmLabel: "Publish",
+      }))
     ) {
       return;
     }
@@ -159,16 +171,37 @@ export function PlanReviewWorkflowBar({
           </span>
         )}
         {isPlanReviewCompleted(reviewStatus) && (
-          <span className="text-xs text-green-700">Review closed — Start Process is available</span>
+          <span className="text-xs text-green-700">
+            Review closed — Start Process is available, or publish again for another review round
+          </span>
         )}
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {canPublish && (
+        {canInitialPublish && (
           <PermissionGuard requireAll={PLAN_PUBLISH_FOR_REVIEW_PERMISSIONS}>
-            <Button size="sm" className="gap-2" onClick={handlePublish} disabled={publishing}>
+            <Button
+              size="sm"
+              className="gap-2"
+              onClick={() => handlePublish(false)}
+              disabled={publishing}
+            >
               <Send className="h-4 w-4" />
               Publish for Review
+            </Button>
+          </PermissionGuard>
+        )}
+
+        {canPublishNextReviewRound && (
+          <PermissionGuard requireAll={PLAN_PUBLISH_FOR_REVIEW_PERMISSIONS}>
+            <Button
+              size="sm"
+              className="gap-2"
+              onClick={() => handlePublish(true)}
+              disabled={publishing}
+            >
+              <RefreshCw className="h-4 w-4" />
+              Publish for Review ({formatReviewVersionLabel(nextReviewVersionNumber)})
             </Button>
           </PermissionGuard>
         )}
