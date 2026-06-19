@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import type { IssueAttachmentRef, IssueFormResponseRef } from "@/redux/types/issue";
-import { getFileUrl } from "@/utils/fileUrl";
+import { IssueAttachmentCards } from "./IssueAttachmentCards";
 
 interface IssueFormResponsesDisplayProps {
   responses: IssueFormResponseRef[];
@@ -89,24 +88,7 @@ export function IssueFormResponsesDisplay({
           <div key={response.issue_form_response_id}>
             <p className="text-muted-foreground">{response.field?.label || "Field"}</p>
             {isAttachment ? (
-              matchedAttachments.length > 0 ? (
-                <ul className="mt-1 space-y-1">
-                  {matchedAttachments.map((attachment) => (
-                    <li key={attachment.attachment_id}>
-                      <Link
-                        href={getFileUrl(attachment.file_path)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-[#073954] underline break-all"
-                      >
-                        {attachment.file_name}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-1 whitespace-pre-wrap">—</p>
-              )
+              <IssueAttachmentCards attachments={matchedAttachments} />
             ) : (
               <p className="mt-1 whitespace-pre-wrap">{formatResponseValue(response)}</p>
             )}
