@@ -25,12 +25,52 @@ const {
   logFieldChange,
   logStatusChange,
 } = require("./issueHistoryService");
-const { buildIssueAccessScope, canViewIssue } = require("../utils/issuePermissionUtils");
+const { buildIssueAccessScope, canViewIssue, assertCanPerformIssueWorkflowAction } = require("../utils/issuePermissionUtils");
 const { validateRaisePlanReviewIssue } = require("./planReviewService");
 const { getPublishedFormByContainerId } = require("./formConfigContainerService");
 const { saveIssueFormResponses, listResponsesForIssue } = require("./issueFormResponseService");
 const { ATTACHMENT_FIELD_TYPES } = require("../utils/formConfigFieldValidationUtils");
 const { emitIssueEvent, ISSUE_EVENTS } = require("./issueNotificationService");
+
+function formatFormResponseValue(rawValue) {
+  if (rawValue == null || rawValue === "") return "";
+  if (typeof rawValue === "boolean") return rawValue ? "Yes" : "No";
+  if (Array.isArray(rawValue)) return rawValue.map(String).join(", ");
+  if (typeof rawValue === "object") {
+    if (Array.isArray(rawValue.attachment_ids)) {
+      return rawValue.attachment_ids.length
+        ? `${rawValue.attachment_ids.length} attachment(s)`
+        : "";
+    }
+    if (rawValue.value != null) return String(rawValue.value);
+  }
+  return String(rawValue);
+}
+
+function buildIssueMetadataFromForm({ category, container, fields, formResponses = {} }) {
+  const title = `${category.name} — ${container.name}`.slice(0, 255);
+  const lines = [];
+
+  for (const field of fields || []) {
+    const raw = formResponses[field.field_key];
+    const formatted = formatFormResponseValue(raw);
+    if (formatted) {
+      lines.push(`${field.label}: ${formatted}`);
+    }
+  }
+
+  const description =
+    lines.join("\n") ||
+    container.description ||
+    category.description ||
+    `Issue submitted via ${container.name}`;
+
+  return {
+    title,
+    description,
+    justification: null,
+  };
+}
 
 const ISSUE_INCLUDES = [
   {
@@ -304,18 +344,25 @@ async function createIssue(data, userId, userPermissions = [], io = null) {
       throw error;
     }
 
-    const priority = await IssuePriority.findByPk(data.issue_priority_id, { transaction: t });
+    const issuePriorityId = data.issue_priority_id;
+    const priority = await IssuePriority.findByPk(issuePriorityId, { transaction: t });
     if (!priority || !priority.is_active) {
       const error = new Error("Invalid or inactive issue priority");
       error.statusCode = 400;
       throw error;
     }
 
-    const reviewSnapshotId = await validateRaisePlanReviewIssue(
-      data.entity_type,
-      data.entity_id,
-      t
-    );
+    const metadata = buildIssueMetadataFromForm({
+      category,
+      container: publishedForm.container,
+      fields: publishedForm.fields,
+      formResponses: data.form_responses,
+    });
+
+    const entityType = data.entity_type || null;
+    const entityId = data.entity_id || null;
+
+    const reviewSnapshotId = await validateRaisePlanReviewIssue(entityType, entityId, t);
 
     if (reviewSnapshotId) {
       const { canRaisePlanReviewIssue: canRaiseReviewIssuePermission } = require("../utils/planReviewIssuePermissionUtils");
@@ -332,22 +379,22 @@ async function createIssue(data, userId, userPermissions = [], io = null) {
       {
         issue_id: uuidv4(),
         issue_number: issueNumber,
-        title: data.title,
-        description: data.description,
+        title: data.title || metadata.title,
+        description: data.description || metadata.description,
         issue_category_id: data.issue_category_id,
-        issue_priority_id: data.issue_priority_id,
+        issue_priority_id: issuePriorityId,
         form_config_container_id: data.form_config_container_id,
         status: "submitted",
         raised_by: userId,
         assigned_to: data.assigned_to ?? null,
-        entity_type: data.entity_type,
-        entity_id: data.entity_id,
+        entity_type: entityType,
+        entity_id: entityId,
         review_snapshot_id: reviewSnapshotId,
-        current_value: data.current_value ?? null,
-        suggested_value: data.suggested_value ?? null,
+        current_value: null,
+        suggested_value: null,
         form_data: {},
-        justification: data.justification,
-        attachment_path: data.attachment_path ?? null,
+        justification: data.justification ?? metadata.justification,
+        attachment_path: null,
       },
       { transaction: t }
     );
@@ -521,6 +568,7 @@ async function transitionIssueStatus(id, toStatus, { userId, userPermissions, no
   const issue = await getIssueById(id, { userId, userPermissions });
   const fromStatus = issue.status;
 
+  assertCanPerformIssueWorkflowAction(issue, userId);
   assertValidTransition(fromStatus, toStatus);
 
   const t = await sequelize.transaction();

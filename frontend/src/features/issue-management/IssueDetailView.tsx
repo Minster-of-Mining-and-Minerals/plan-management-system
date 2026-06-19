@@ -22,6 +22,7 @@ import { IssueStatusBadge } from "./components/IssueStatusBadge";
 import { IssueFormResponsesDisplay } from "./components/IssueFormResponsesDisplay";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import { ISSUE_PERMISSIONS } from "@/utils/issuePermissionUtils";
+import { useAuth } from "@/hooks/use-auth";
 
 interface IssueDetailViewProps {
   issueId: string;
@@ -29,6 +30,7 @@ interface IssueDetailViewProps {
 
 export default function IssueDetailView({ issueId }: IssueDetailViewProps) {
   const router = useRouter();
+  const { user } = useAuth();
   const { data: issue, isLoading, refetch } = useGetIssueByIdQuery(issueId);
   const { data: history = [], refetch: refetchHistory } = useGetIssueHistoryQuery(issueId);
 
@@ -60,6 +62,11 @@ export default function IssueDetailView({ issueId }: IssueDetailViewProps) {
       <div className="p-6 text-center text-muted-foreground">Issue not found.</div>
     );
   }
+
+  const isRaiser = Boolean(user?.user_id && issue.raised_by === user.user_id);
+  const canShowWorkflowActions =
+    !isRaiser &&
+    ["submitted", "under_review", "accepted", "resolved"].includes(issue.status);
 
   const handleStartReview = async () => {
     try {
@@ -150,14 +157,33 @@ export default function IssueDetailView({ issueId }: IssueDetailViewProps) {
               <CardTitle>Issue Details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
-              <div>
-                <p className="text-muted-foreground">Description</p>
-                <p className="mt-1 whitespace-pre-wrap">{issue.description}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Justification</p>
-                <p className="mt-1 whitespace-pre-wrap">{issue.justification}</p>
-              </div>
+              {issue.formConfigContainer ? (
+                <div>
+                  <p className="text-muted-foreground">Form Container</p>
+                  <p className="mt-1">{issue.formConfigContainer.name}</p>
+                </div>
+              ) : null}
+              {issue.formResponses && issue.formResponses.length > 0 ? (
+                <IssueFormResponsesDisplay
+                  responses={issue.formResponses}
+                  attachments={issue.attachments}
+                />
+              ) : (
+                <>
+                  {issue.description ? (
+                    <div>
+                      <p className="text-muted-foreground">Description</p>
+                      <p className="mt-1 whitespace-pre-wrap">{issue.description}</p>
+                    </div>
+                  ) : null}
+                  {issue.justification ? (
+                    <div>
+                      <p className="text-muted-foreground">Justification</p>
+                      <p className="mt-1 whitespace-pre-wrap">{issue.justification}</p>
+                    </div>
+                  ) : null}
+                </>
+              )}
               {(issue.current_value || issue.suggested_value) && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -169,18 +195,6 @@ export default function IssueDetailView({ issueId }: IssueDetailViewProps) {
                     <p className="mt-1 whitespace-pre-wrap">{issue.suggested_value || "—"}</p>
                   </div>
                 </div>
-              )}
-              {issue.formConfigContainer ? (
-                <div>
-                  <p className="text-muted-foreground">Form Container</p>
-                  <p className="mt-1">{issue.formConfigContainer.name}</p>
-                </div>
-              ) : null}
-              {issue.formResponses && issue.formResponses.length > 0 && (
-                <IssueFormResponsesDisplay
-                  responses={issue.formResponses}
-                  attachments={issue.attachments}
-                />
               )}
               {issue.response && (
                 <div>
@@ -284,8 +298,14 @@ export default function IssueDetailView({ issueId }: IssueDetailViewProps) {
               <div>
                 <p className="text-muted-foreground">Related Entity</p>
                 <p>
-                  {ISSUE_ENTITY_TYPE_LABELS[issue.entity_type]} —{" "}
-                  <span className="font-mono text-xs">{issue.entity_id}</span>
+                  {issue.entity_type && issue.entity_id ? (
+                    <>
+                      {ISSUE_ENTITY_TYPE_LABELS[issue.entity_type]} —{" "}
+                      <span className="font-mono text-xs">{issue.entity_id}</span>
+                    </>
+                  ) : (
+                    "—"
+                  )}
                 </p>
               </div>
               <div>
@@ -320,7 +340,14 @@ export default function IssueDetailView({ issueId }: IssueDetailViewProps) {
               <CardTitle>Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {issue.status === "submitted" && (
+              {isRaiser && issue.status !== "closed" && issue.status !== "rejected" ? (
+                <p className="text-sm text-muted-foreground rounded-md border border-dashed p-3">
+                  You raised this issue. Review, resolve, and close actions must be performed by
+                  another user.
+                </p>
+              ) : null}
+
+              {canShowWorkflowActions && issue.status === "submitted" && (
                 <PermissionGuard requireAll={[ISSUE_PERMISSIONS.REVIEW]}>
                   <Button
                     className="w-full"
@@ -332,7 +359,7 @@ export default function IssueDetailView({ issueId }: IssueDetailViewProps) {
                 </PermissionGuard>
               )}
 
-              {issue.status === "under_review" && (
+              {canShowWorkflowActions && issue.status === "under_review" && (
                 <>
                   <PermissionGuard requireAll={[ISSUE_PERMISSIONS.REVIEW]}>
                     <div className="space-y-2">
@@ -370,7 +397,7 @@ export default function IssueDetailView({ issueId }: IssueDetailViewProps) {
                 </>
               )}
 
-              {issue.status === "accepted" && (
+              {canShowWorkflowActions && issue.status === "accepted" && (
                 <PermissionGuard requireAll={[ISSUE_PERMISSIONS.RESOLVE]}>
                   <div className="space-y-2">
                     <Textarea
@@ -390,7 +417,7 @@ export default function IssueDetailView({ issueId }: IssueDetailViewProps) {
                 </PermissionGuard>
               )}
 
-              {issue.status === "resolved" && (
+              {canShowWorkflowActions && issue.status === "resolved" && (
                 <PermissionGuard requireAll={[ISSUE_PERMISSIONS.CLOSE]}>
                   <Button
                     variant="outline"

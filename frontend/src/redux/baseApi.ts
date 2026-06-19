@@ -20,21 +20,45 @@ const rawBaseQuery = fetchBaseQuery({
         headers.set("authorization", `Bearer ${token}`);
       }
     }
-    headers.set("content-type", "application/json");
     headers.set("accept", "application/json");
     return headers;
   },
 });
+
+function isFormDataBody(body: unknown): body is FormData {
+  return typeof FormData !== "undefined" && body instanceof FormData;
+}
 
 const baseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> = async (
   args,
   api,
   extraOptions
 ) => {
-  const request =
-    args && typeof args === "object" && "body" in args && args.body
-      ? { ...args, body: sanitizeApiPayload(args.body) }
-      : args;
+  let request: string | FetchArgs = args;
+
+  if (args && typeof args === "object" && "body" in args && args.body) {
+    if (isFormDataBody(args.body)) {
+      // Let the browser set multipart boundary; do not JSON-serialize FormData.
+      request = args;
+    } else {
+      request = {
+        ...args,
+        body: sanitizeApiPayload(args.body),
+        headers: {
+          ...(typeof args.headers === "object" && args.headers ? args.headers : {}),
+          "content-type": "application/json",
+        },
+      };
+    }
+  } else if (args && typeof args === "object" && "method" in args && args.method && args.method !== "GET") {
+    request = {
+      ...args,
+      headers: {
+        ...(typeof args.headers === "object" && args.headers ? args.headers : {}),
+        "content-type": "application/json",
+      },
+    };
+  }
 
   const result = await rawBaseQuery(request, api, extraOptions);
 

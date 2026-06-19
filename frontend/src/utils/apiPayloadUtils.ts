@@ -10,6 +10,10 @@ export function normalizeOptionalId(value: unknown): string | null {
 }
 
 export function sanitizeApiPayload<T>(body: T): T {
+  if (typeof FormData !== "undefined" && body instanceof FormData) {
+    return body;
+  }
+
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return body;
   }

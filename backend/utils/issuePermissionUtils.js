@@ -58,8 +58,19 @@ function canViewIssue(issue, userId, userPermissions) {
   return issue.raised_by === userId || issue.assigned_to === userId;
 }
 
+function assertCanPerformIssueWorkflowAction(issue, userId) {
+  if (issue?.raised_by && issue.raised_by === userId) {
+    const error = new Error(
+      "You cannot review, resolve, or close an issue that you raised. Another user must perform these actions."
+    );
+    error.statusCode = 403;
+    throw error;
+  }
+}
+
 module.exports = {
   userHasPermission,
   buildIssueAccessScope,
   canViewIssue,
+  assertCanPerformIssueWorkflowAction,
 };

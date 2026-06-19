@@ -50,7 +50,6 @@ export function RaiseIssueButton({
         onClose={() => setOpen(false)}
         defaultEntityType={entityType}
         defaultEntityId={entityId}
-        lockEntityFields
       />
     </>
   );

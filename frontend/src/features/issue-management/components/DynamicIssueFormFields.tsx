@@ -24,6 +24,7 @@ import type { Control } from "react-hook-form";
 interface DynamicIssueFormFieldsProps {
   control: Control<Record<string, unknown>>;
   fields: FormConfigField[];
+  heading?: string;
 }
 
 function getAttachmentAccept(field: FormConfigField) {
@@ -41,19 +42,14 @@ function getAttachmentIds(value: unknown): string[] {
   return [];
 }
 
-export function DynamicIssueFormFields({ control, fields }: DynamicIssueFormFieldsProps) {
+export function DynamicIssueFormFields({ control, fields, heading }: DynamicIssueFormFieldsProps) {
   if (!fields.length) return null;
 
   const sorted = [...fields].sort((a, b) => a.display_order - b.display_order);
 
   return (
     <div className="space-y-4 rounded-lg border p-4">
-      <div>
-        <p className="text-sm font-medium">Additional Details</p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Complete the fields below for this issue type.
-        </p>
-      </div>
+      {heading ? <p className="text-sm font-medium">{heading}</p> : null}
 
       {sorted.map((field) => {
         const name = `form_responses.${field.field_key}` as const;

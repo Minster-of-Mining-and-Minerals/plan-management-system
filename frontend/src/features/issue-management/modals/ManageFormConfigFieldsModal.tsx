@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -76,6 +76,55 @@ const emptyField = (): Partial<FormConfigField> & {
   validation_rules: {},
 });
 
+function parseAllowedExtensions(text: string): string[] {
+  return text
+    .split(/[,;]+/)
+    .map((ext) => ext.trim().replace(/^\./, ""))
+    .filter(Boolean);
+}
+
+function fieldToDraft(field: FormConfigField): ReturnType<typeof emptyField> {
+  return {
+    label: field.label,
+    field_key: field.field_key,
+    field_type: field.field_type,
+    placeholder: field.placeholder || "",
+    help_text: field.help_text || "",
+    required: field.required,
+    display_order: field.display_order,
+    options: field.options?.length ? [...field.options] : [],
+    validation_rules: field.validation_rules ? { ...field.validation_rules } : {},
+  };
+}
+
+function buildFieldPayload(
+  draft: ReturnType<typeof emptyField>,
+  draftType: FormConfigFieldType,
+  allowedExtensionsText: string
+) {
+  const showOptionsEditor = OPTION_FIELD_TYPES.has(draftType);
+  const showAttachmentRules = ATTACHMENT_FIELD_TYPES.has(draftType);
+
+  const validationRules: FormConfigValidationRules = showAttachmentRules
+    ? {
+        allowed_extensions: parseAllowedExtensions(allowedExtensionsText),
+        max_file_size: draft.validation_rules?.max_file_size,
+        multiple_files: draft.validation_rules?.multiple_files,
+      }
+    : {};
+
+  return {
+    label: draft.label,
+    field_key: draft.field_key || undefined,
+    field_type: draftType,
+    placeholder: draft.placeholder || undefined,
+    help_text: draft.help_text || undefined,
+    required: draft.required,
+    validation_rules: validationRules,
+    options: showOptionsEditor ? draft.options || [] : [],
+  };
+}
+
 function OptionsEditor({
   options,
   onChange,
@@ -147,20 +196,38 @@ export function ManageFormConfigFieldsModal({
   );
 
   const [draft, setDraft] = useState(emptyField());
+  const [allowedExtensionsText, setAllowedExtensionsText] = useState("");
+  const [editingFieldId, setEditingFieldId] = useState<string | null>(null);
   const [createField, { isLoading: creating }] = useCreateFormConfigFieldMutation();
-  const [updateField] = useUpdateFormConfigFieldMutation();
+  const [updateField, { isLoading: updating }] = useUpdateFormConfigFieldMutation();
   const [deleteField] = useDeleteFormConfigFieldMutation();
   const [reorderFields] = useReorderFormConfigFieldsMutation();
 
+  const resetFieldForm = () => {
+    setDraft(emptyField());
+    setAllowedExtensionsText("");
+    setEditingFieldId(null);
+  };
+
   useEffect(() => {
-    if (isOpen) setDraft(emptyField());
+    if (isOpen) resetFieldForm();
   }, [isOpen, containerId]);
 
   const draftType = (draft.field_type as FormConfigFieldType) || "TEXT";
   const showOptionsEditor = OPTION_FIELD_TYPES.has(draftType);
   const showAttachmentRules = ATTACHMENT_FIELD_TYPES.has(draftType);
 
-  const handleAddField = async () => {
+  const handleStartEdit = (field: FormConfigField) => {
+    setEditingFieldId(field.form_config_field_id);
+    setDraft(fieldToDraft(field));
+    setAllowedExtensionsText((field.validation_rules?.allowed_extensions || []).join(", "));
+  };
+
+  const handleCancelEdit = () => {
+    resetFieldForm();
+  };
+
+  const handleSaveField = async () => {
     if (!containerId || !draft.label.trim()) {
       actionFeedback.error("Field label is required");
       return;
@@ -171,27 +238,33 @@ export function ManageFormConfigFieldsModal({
       return;
     }
 
+    const payload = buildFieldPayload(draft, draftType, allowedExtensionsText);
+
     try {
-      await createField({
-        containerId,
-        data: {
-          label: draft.label,
-          field_key: draft.field_key || undefined,
-          field_type: draftType,
-          placeholder: draft.placeholder || undefined,
-          help_text: draft.help_text || undefined,
-          required: draft.required,
-          display_order: fields.length + 1,
-          validation_rules: draft.validation_rules,
-          options: showOptionsEditor ? draft.options : undefined,
-        },
-      }).unwrap();
-      actionFeedback.success("Field added");
-      setDraft(emptyField());
+      if (editingFieldId) {
+        await updateField({
+          fieldId: editingFieldId,
+          data: payload,
+        }).unwrap();
+        actionFeedback.success("Field updated");
+      } else {
+        await createField({
+          containerId,
+          data: {
+            ...payload,
+            display_order: fields.length + 1,
+          },
+        }).unwrap();
+        actionFeedback.success("Field added");
+      }
+      resetFieldForm();
       refetch();
     } catch (err: unknown) {
       const error = err as { data?: { message?: string } };
-      actionFeedback.error(error.data?.message || "Failed to add field");
+      actionFeedback.error(
+        error.data?.message ||
+          (editingFieldId ? "Failed to update field" : "Failed to add field")
+      );
     }
   };
 
@@ -201,6 +274,9 @@ export function ManageFormConfigFieldsModal({
     }
     try {
       await deleteField(field.form_config_field_id).unwrap();
+      if (editingFieldId === field.form_config_field_id) {
+        resetFieldForm();
+      }
       actionFeedback.success("Field deleted");
       refetch();
     } catch (err: unknown) {
@@ -255,8 +331,14 @@ export function ManageFormConfigFieldsModal({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="rounded-lg border p-4 space-y-3">
-            <p className="text-sm font-medium">Add Field</p>
+          <div
+            className={`rounded-lg border p-4 space-y-3 ${
+              editingFieldId ? "border-primary bg-primary/5" : ""
+            }`}
+          >
+            <p className="text-sm font-medium">
+              {editingFieldId ? "Edit Field" : "Add Field"}
+            </p>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Label</Label>
@@ -285,7 +367,7 @@ export function ManageFormConfigFieldsModal({
                 <Label>Field Type</Label>
                 <Select
                   value={draftType}
-                  onValueChange={(value) =>
+                  onValueChange={(value) => {
                     setDraft((prev) => ({
                       ...prev,
                       field_type: value as FormConfigFieldType,
@@ -294,8 +376,14 @@ export function ManageFormConfigFieldsModal({
                           ? prev.options
                           : [{ label: "", value: "" }]
                         : [],
-                    }))
-                  }
+                    }));
+                    if (
+                      ATTACHMENT_FIELD_TYPES.has(value as FormConfigFieldType) &&
+                      !ATTACHMENT_FIELD_TYPES.has(draftType)
+                    ) {
+                      setAllowedExtensionsText("");
+                    }
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -342,20 +430,18 @@ export function ManageFormConfigFieldsModal({
                   <Label className="text-xs text-muted-foreground">Allowed extensions</Label>
                   <Input
                     placeholder="pdf, docx, png (comma-separated)"
-                    value={(draft.validation_rules?.allowed_extensions || []).join(", ")}
-                    onChange={(e) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        validation_rules: {
-                          ...prev.validation_rules,
-                          allowed_extensions: e.target.value
-                            .split(",")
-                            .map((ext) => ext.trim().replace(/^\./, ""))
-                            .filter(Boolean),
-                        },
-                      }))
-                    }
+                    value={allowedExtensionsText}
+                    onChange={(e) => setAllowedExtensionsText(e.target.value)}
+                    onBlur={() => {
+                      const parsed = parseAllowedExtensions(allowedExtensionsText);
+                      if (parsed.length) {
+                        setAllowedExtensionsText(parsed.join(", "));
+                      }
+                    }}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Separate file types with commas, e.g. pdf, docx, png
+                  </p>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Max file size (bytes)</Label>
@@ -399,10 +485,27 @@ export function ManageFormConfigFieldsModal({
               />
               <Label>Required field</Label>
             </div>
-            <Button type="button" onClick={handleAddField} disabled={creating}>
-              <Plus className="h-4 w-4 mr-1" />
-              Add Field
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                onClick={handleSaveField}
+                disabled={creating || updating}
+              >
+                {editingFieldId ? (
+                  "Save Changes"
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Field
+                  </>
+                )}
+              </Button>
+              {editingFieldId ? (
+                <Button type="button" variant="outline" onClick={handleCancelEdit}>
+                  Cancel
+                </Button>
+              ) : null}
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -415,7 +518,11 @@ export function ManageFormConfigFieldsModal({
               fields.map((field, index) => (
                 <div
                   key={field.form_config_field_id}
-                  className="flex items-start justify-between gap-3 rounded-md border p-3"
+                  className={`flex items-start justify-between gap-3 rounded-md border p-3 ${
+                    editingFieldId === field.form_config_field_id
+                      ? "border-primary bg-primary/5"
+                      : ""
+                  }`}
                 >
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -432,8 +539,23 @@ export function ManageFormConfigFieldsModal({
                         {field.options?.length} option{field.options?.length === 1 ? "" : "s"}
                       </p>
                     ) : null}
+                    {ATTACHMENT_FIELD_TYPES.has(field.field_type) &&
+                    (field.validation_rules?.allowed_extensions?.length ?? 0) > 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        Allowed: {field.validation_rules?.allowed_extensions?.join(", ")}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      title="Edit field"
+                      onClick={() => handleStartEdit(field)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
                     <Button
                       type="button"
                       size="icon"
