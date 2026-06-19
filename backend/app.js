@@ -31,6 +31,7 @@ const planRoutes = require("./routers/plan/planRoutes");
 const planAssignmentRoutes = require("./routers/plan/planAssignmentRoutes");
 const performanceColorThresholdRoutes = require("./routers/config/performanceColorThresholdRoutes");
 const brandingRoutes = require("./routers/config/brandingRoutes");
+const systemSettingsRoutes = require("./routers/config/systemSettingsRoutes");
 const systemAuditLogRoutes = require("./routers/config/systemAuditLogRoutes");
 const notificationRoutes = require("./routers/notification/notificationRoutes");
 const issueRoutes = require("./routers/issue/issueRoutes");
@@ -136,6 +137,7 @@ app.use("/api/plan", planRoutes);
 app.use("/api/plan-assignments", planAssignmentRoutes);
 app.use("/api/performance-color-thresholds", performanceColorThresholdRoutes);
 app.use("/api/branding", brandingRoutes);
+app.use("/api/system-settings", systemSettingsRoutes);
 app.use("/api/system-audit-logs", systemAuditLogRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/issues", issueRoutes);
@@ -159,10 +161,18 @@ app.use((err, req, res, next) => {
 });
 
 // ================== Start App Server ==================
+const { warmSystemSettingsCache } = require("./services/systemSettingsService");
+
 const appPort = process.env.PORT || 4000;
-appServer.listen(appPort, () => {
-  console.log(` App server running at http://localhost:${appPort}`);
-});
+warmSystemSettingsCache()
+  .catch((error) => {
+    console.error("Failed to warm system settings cache:", error.message);
+  })
+  .finally(() => {
+    appServer.listen(appPort, () => {
+      console.log(` App server running at http://localhost:${appPort}`);
+    });
+  });
 
 // ================== Socket.IO Setup ==================
 const socketServer = http.createServer();

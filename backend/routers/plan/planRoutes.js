@@ -20,6 +20,7 @@ const {
 const {
     createPlanVersion,
     getPlanVersions,
+    getPlanVersionsForReview,
     getPlanVersionById,
     updatePlanVersion,
     deletePlanVersion,
@@ -95,10 +96,25 @@ const {
 } = require("../../controllers/plan/planningConfigurationController");
 
 const { authenticateToken, checkPermission, checkAnyPermission } = require("../../middlewares/authMiddleware");
+const {
+    requirePlanVersionReadAccess,
+    requirePlanNodeReadAccess,
+    requirePlanVersionReadAccessFromQuery,
+} = require("../../middlewares/planReadAccessMiddleware");
 
 const planStructureMutation = checkAnyPermission([
     { resource: "PLANS", action: "UPDATE" },
     { resource: "PLANS", action: "EDIT_FINALIZED" },
+]);
+
+const planReadAccess = checkAnyPermission([
+    { resource: "PLANS", action: "READ" },
+    { resource: "PLAN", action: "VIEW_ASSIGNED_REVIEW" },
+]);
+
+const planRulesListAccess = checkAnyPermission([
+    { resource: "PLAN_RULES", action: "READ" },
+    { resource: "PLANS", action: "UPDATE" },
 ]);
 
 // Apply authentication to all routes
@@ -115,12 +131,18 @@ router.post(
     duplicatePlanDraftHandler
 );
 router.get("/versions", checkPermission("PLANS", "READ"), validateGetPlanVersionsQuery, getPlanVersions);
-router.get("/versions/:id", checkPermission("PLANS", "READ"), validateIdParam, getPlanVersionById);
+router.get(
+    "/versions/for-review",
+    checkPermission("PLAN", "VIEW_ASSIGNED_REVIEW"),
+    validateGetPlanVersionsQuery,
+    getPlanVersionsForReview
+);
+router.get("/versions/:id", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), getPlanVersionById);
 router.put("/versions/:id", checkPermission("PLANS", "UPDATE"), validateIdParam, validateUpdatePlanVersion, updatePlanVersion);
 router.delete("/versions/:id", checkPermission("PLANS", "DELETE"), validateIdParam, deletePlanVersion);
 router.patch("/versions/:id/status", checkPermission("PLANS", "APPROVE"), validateIdParam, validateUpdatePlanVersionStatus, updatePlanVersionStatus);
 
-router.get("/versions/:id/finalization-readiness", checkPermission("PLANS", "READ"), validateIdParam, getDraftFinalizationReadiness);
+router.get("/versions/:id/finalization-readiness", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), getDraftFinalizationReadiness);
 router.post("/versions/:id/finalize", checkPermission("PLAN", "FINALIZE"), validateIdParam, finalizePlanDraft);
 router.post(
     "/versions/:id/reopen-for-edit",
@@ -128,22 +150,22 @@ router.post(
     validateIdParam,
     reopenFinalizedPlanForEditHandler
 );
-router.get("/versions/:id/annual-versions", checkPermission("PLANS", "READ"), validateIdParam, listAnnualVersions);
-router.get("/versions/:id/annual-target-allocations", checkPermission("PLANS", "READ"), validateIdParam, listAnnualTargetAllocations);
-router.get("/versions/:id/annual-execution-readiness", checkPermission("PLANS", "READ"), validateIdParam, getAnnualExecutionFinalizationReadiness);
+router.get("/versions/:id/annual-versions", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), listAnnualVersions);
+router.get("/versions/:id/annual-target-allocations", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), listAnnualTargetAllocations);
+router.get("/versions/:id/annual-execution-readiness", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), getAnnualExecutionFinalizationReadiness);
 router.post("/versions/:id/finalize-annual-execution", checkPermission("PLAN", "FINALIZE"), validateIdParam, finalizeAnnualExecutionPlan);
 router.post("/versions/:id/lock-annual", checkPermission("PLANS", "UPDATE"), validateIdParam, lockAnnualPlanVersion);
 router.post("/versions/:id/unlock-annual", checkPermission("PLANS", "UPDATE"), validateIdParam, unlockAnnualPlanVersion);
 router.post("/versions/:id/complete-annual", checkPermission("PLAN", "COMPLETE_ANNUAL"), validateIdParam, completeAnnualPlanVersion);
-router.get("/versions/:id/execution-periods", checkPermission("PLANS", "READ"), validateIdParam, listExecutionPeriods);
+router.get("/versions/:id/execution-periods", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), listExecutionPeriods);
 router.post("/versions/:id/initialize-execution-periods", checkPermission("PLANS", "UPDATE"), validateIdParam, initializeExecutionPeriodsForAnnual);
-router.get("/versions/:id/execution-period-readiness", checkPermission("PLANS", "READ"), validateIdParam, getExecutionPeriodFinalizationReadinessHandler);
+router.get("/versions/:id/execution-period-readiness", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), getExecutionPeriodFinalizationReadinessHandler);
 router.post("/versions/:id/finalize-execution-periods", checkPermission("PLAN", "FINALIZE"), validateIdParam, finalizeExecutionPeriodTargetsHandler);
 router.post("/versions/:id/complete-period", checkPermission("PLAN", "COMPLETE_PERIOD"), validateIdParam, completeExecutionPeriodVersion);
-router.get("/versions/:id/period-target-allocations", checkPermission("PLANS", "READ"), validateIdParam, listPeriodTargetAllocations);
-router.get("/versions/:id/global-period-target-readiness", checkPermission("PLANS", "READ"), validateIdParam, getGlobalPeriodTargetFinalizationReadinessHandler);
+router.get("/versions/:id/period-target-allocations", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), listPeriodTargetAllocations);
+router.get("/versions/:id/global-period-target-readiness", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), getGlobalPeriodTargetFinalizationReadinessHandler);
 router.post("/versions/:id/finalize-global-period-targets", checkPermission("PLAN", "FINALIZE"), validateIdParam, finalizeGlobalPeriodTargetsHandler);
-router.get("/versions/:id/start-process-readiness", checkPermission("PLANS", "READ"), validateIdParam, getStartProcessReadinessHandler);
+router.get("/versions/:id/start-process-readiness", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), getStartProcessReadinessHandler);
 router.post("/versions/:id/start-process", checkPermission("PLAN", "START_PROCESS"), validateIdParam, startPlanProcessHandler);
 
 router.get("/versions/:id/publish-for-review-readiness", checkPermission("PLAN", "PUBLISH_FOR_REVIEW"), validateIdParam, getPublishForReviewReadinessHandler);
@@ -154,15 +176,16 @@ router.get("/versions/:id/complete-review-readiness", checkPermission("PLAN", "C
 router.post("/versions/:id/complete-review", checkPermission("PLAN", "COMPLETE_REVIEW"), validateIdParam, completeReviewHandler);
 router.get("/versions/:id/review-dashboard", checkAnyPermission([
     { resource: "PLANS", action: "READ" },
+    { resource: "PLAN", action: "VIEW_ASSIGNED_REVIEW" },
     { resource: "PLAN", action: "COMPLETE_REVIEW" },
     { resource: "PLAN", action: "PUBLISH_FOR_REVIEW" },
-]), validateIdParam, getPlanReviewDashboardHandler);
+]), validateIdParam, requirePlanVersionReadAccess(), getPlanReviewDashboardHandler);
 router.patch("/nodes/:id/annual-target", checkPermission("PLANS", "UPDATE"), validateIdParam, validateUpdateAnnualTarget, updateAnnualTarget);
 router.patch("/nodes/:id/period-target", checkPermission("PLANS", "UPDATE"), validateIdParam, validateUpdatePeriodTarget, updatePeriodTarget);
 
 // ================= PLANNING CONFIGURATION =================
 
-router.get("/planning-config", checkPermission("PLANS", "READ"), getPlanningConfiguration);
+router.get("/planning-config", planReadAccess, getPlanningConfiguration);
 router.put(
     "/planning-config",
     checkPermission("PLANS", "UPDATE"),
@@ -177,24 +200,21 @@ router.post(
 
 // ================= PLAN RULES =================
 
-router.get("/rules", checkPermission("PLANS", "READ"), getPlanRules);
-router.get("/rules/:id", checkPermission("PLANS", "READ"), validateRuleIdParam, getPlanRuleById);
-router.get("/versions/:versionId/rule", checkPermission("PLANS", "READ"), getPlanRuleForVersion);
-router.post("/rules", checkPermission("PLANS", "UPDATE"), validateCreatePlanRule, createPlanRule);
-router.put("/rules/:id", checkPermission("PLANS", "UPDATE"), validateRuleIdParam, validateUpdatePlanRule, updatePlanRule);
-router.delete("/rules/:id", checkPermission("PLANS", "DELETE"), validateRuleIdParam, deletePlanRule);
+router.get("/rules", planRulesListAccess, getPlanRules);
+router.get("/rules/:id", checkPermission("PLAN_RULES", "READ"), validateRuleIdParam, getPlanRuleById);
+router.get("/versions/:versionId/rule", planReadAccess, requirePlanVersionReadAccess("versionId"), getPlanRuleForVersion);
+router.post("/rules", checkPermission("PLAN_RULES", "CREATE"), validateCreatePlanRule, createPlanRule);
+router.put("/rules/:id", checkPermission("PLAN_RULES", "UPDATE"), validateRuleIdParam, validateUpdatePlanRule, updatePlanRule);
+router.delete("/rules/:id", checkPermission("PLAN_RULES", "DELETE"), validateRuleIdParam, deletePlanRule);
 
 // ================= PLAN NODES =================
 
 router.post("/nodes", planStructureMutation, validateCreatePlanNode, createPlanNode);
-router.get("/nodes", checkPermission("PLANS", "READ"), validateGetPlanNodesQuery, getPlanNodes);
-router.get("/nodes/:id", checkPermission("PLANS", "READ"), validateIdParam, getPlanNodeById);
+router.get("/nodes", planReadAccess, validateGetPlanNodesQuery, requirePlanVersionReadAccessFromQuery(), getPlanNodes);
+router.get("/nodes/:id", planReadAccess, validateIdParam, requirePlanNodeReadAccess(), getPlanNodeById);
 router.put("/nodes/:id", planStructureMutation, validateIdParam, validateUpdatePlanNode, updatePlanNode);
 router.delete("/nodes/:id", planStructureMutation, validateIdParam, deletePlanNode);
-router.get("/hierarchy/:plan_version_id", checkAnyPermission([
-    { resource: "PLANS", action: "READ" },
-    { resource: "PLAN", action: "VIEW_ASSIGNED_REVIEW" },
-]), validateVersionIdParam, getPlanHierarchy);
+router.get("/hierarchy/:plan_version_id", planReadAccess, validateVersionIdParam, requirePlanVersionReadAccess("plan_version_id"), getPlanHierarchy);
 router.post("/nodes/reorder", planStructureMutation, validateReorderPlanNodes, reorderPlanNodes);
 
 module.exports = router;

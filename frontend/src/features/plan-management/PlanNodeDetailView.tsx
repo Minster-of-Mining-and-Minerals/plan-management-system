@@ -68,9 +68,14 @@ import { canRaiseReviewIssue, planNodeTypeToIssueEntityType } from "@/utils/plan
 interface PlanNodeDetailViewProps {
     versionId: string;
     nodeId: string;
+    mode?: "draft" | "review";
 }
 
-export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetailViewProps) {
+export default function PlanNodeDetailView({
+    versionId,
+    nodeId,
+    mode = "draft",
+}: PlanNodeDetailViewProps) {
     const router = useRouter();
 
     const [activeTab, setActiveTab] = useState<"internal" | "external">("internal");
@@ -145,7 +150,9 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
     const effectiveMasterVersion =
         version?.version_kind === "master" ? version : masterVersion;
     const masterReviewStatus = effectiveMasterVersion?.review_status;
-    const showRaiseIssue = canRaiseReviewIssue(effectiveMasterVersion);
+    const isReviewMode = mode === "review";
+    const plansBasePath = isReviewMode ? "/plans/review" : "/plans";
+    const showRaiseIssue = isReviewMode && canRaiseReviewIssue(effectiveMasterVersion);
 
     const annualTargetsFinalized = Boolean(masterVersion?.annual_targets_finalized_at);
     const periodTargetsFinalized = Boolean(
@@ -457,7 +464,7 @@ export default function PlanNodeDetailView({ versionId, nodeId }: PlanNodeDetail
                     <Button
                         variant="outline"
                         size="icon"
-                        onClick={() => router.push(`/plans/${versionId}`)}
+                        onClick={() => router.push(`${plansBasePath}/${versionId}`)}
                         className="rounded-full"
                     >
                         <ChevronLeft className="h-4 w-4" />

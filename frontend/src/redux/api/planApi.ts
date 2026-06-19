@@ -53,6 +53,24 @@ export const planApi = baseApi.injectEndpoints({
             providesTags: ["PlanVersions"],
         }),
 
+        getPlanVersionsForReview: builder.query<
+            PlanVersion[],
+            Pick<GetPlanVersionsQueryParams, "search"> | void
+        >({
+            query: (params) => {
+                if (!params?.search) {
+                    return { url: "/plan/versions/for-review" };
+                }
+                return {
+                    url: "/plan/versions/for-review",
+                    params: { search: params.search },
+                };
+            },
+            transformResponse: (response: any): PlanVersion[] =>
+                response.data ?? [],
+            providesTags: ["PlanVersions"],
+        }),
+
         /** ---------------------------
          * GET PLAN VERSION BY ID
          * --------------------------- */
@@ -575,6 +593,7 @@ export const planApi = baseApi.injectEndpoints({
 export const {
     // Plan Versions
     useGetPlanVersionsQuery,
+    useGetPlanVersionsForReviewQuery,
     useGetPlanVersionByIdQuery,
     useCreatePlanVersionMutation,
     useDuplicatePlanDraftMutation,

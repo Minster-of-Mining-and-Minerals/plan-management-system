@@ -47,6 +47,9 @@ const {
 } = require("../../controllers/plan/planAssignmentController");
 
 const { authenticateToken, checkPermission, checkAnyPermission } = require("../../middlewares/authMiddleware");
+const {
+    requirePlanNodeReadAccess,
+} = require("../../middlewares/planReadAccessMiddleware");
 
 const assignmentCreate = checkAnyPermission([
     { resource: "PLAN_ASSIGNMENTS", action: "CREATE" },
@@ -61,6 +64,12 @@ const assignmentDelete = checkAnyPermission([
     { resource: "PLANS", action: "EDIT_FINALIZED" },
 ]);
 
+const assignmentReadAccess = checkAnyPermission([
+    { resource: "PLAN_ASSIGNMENTS", action: "READ" },
+    { resource: "PLANS", action: "READ" },
+    { resource: "PLAN", action: "VIEW_ASSIGNED_REVIEW" },
+]);
+
 // Apply authentication to all routes
 router.use(authenticateToken);
 
@@ -72,15 +81,15 @@ router.get("/actions", checkPermission("PLAN_ASSIGNMENT_ACTIONS", "READ"), valid
 // ================= EXTERNAL ASSIGNMENTS =================
 
 router.post("/external", assignmentCreate, validateCreateExternalAssignment, createExternalAssignment);
-router.get("/external/node/:plan_node_id", checkPermission("PLAN_ASSIGNMENTS", "READ"), validateNodeIdParam, validateGetAssignmentsByNodeQuery, getExternalAssignmentsByNode);
+router.get("/external/node/:plan_node_id", assignmentReadAccess, validateNodeIdParam, requirePlanNodeReadAccess("plan_node_id"), validateGetAssignmentsByNodeQuery, getExternalAssignmentsByNode);
 router.put("/external/:id", assignmentUpdate, validateIdParam, validateUpdateExternalAssignment, updateExternalAssignment);
 router.delete("/external/:id", assignmentDelete, validateIdParam, deleteExternalAssignment);
 
 // ================= INTERNAL ASSIGNMENTS =================
 
 router.post("/internal", assignmentCreate, validateCreateInternalAssignment, createInternalAssignment);
-router.get("/options/node/:plan_node_id", checkPermission("PLAN_ASSIGNMENTS", "READ"), validateNodeIdParam, validateGetAssignmentOptionsQuery, getPlanNodeAssignmentOptions);
-router.get("/internal/node/:plan_node_id", checkPermission("PLAN_ASSIGNMENTS", "READ"), validateNodeIdParam, validateGetAssignmentsByNodeQuery, getInternalAssignmentsByNode);
+router.get("/options/node/:plan_node_id", assignmentReadAccess, validateNodeIdParam, requirePlanNodeReadAccess("plan_node_id"), validateGetAssignmentOptionsQuery, getPlanNodeAssignmentOptions);
+router.get("/internal/node/:plan_node_id", assignmentReadAccess, validateNodeIdParam, requirePlanNodeReadAccess("plan_node_id"), validateGetAssignmentsByNodeQuery, getInternalAssignmentsByNode);
 router.get("/internal/user/:user_id", checkPermission("PLAN_ASSIGNMENTS", "READ"), validateUserIdParam, getAssignmentsByUser);
 router.put("/internal/:id", assignmentUpdate, validateIdParam, validateUpdateInternalAssignment, updateInternalAssignment);
 router.delete("/internal/:id", assignmentDelete, validateIdParam, deleteInternalAssignment);

@@ -25,11 +25,26 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/users/permissions", allPermissions: ["PERMISSIONS:READ"] },
 
   // Plans — nested before parent
-  { pattern: "/plans/[id]/nodes/[nodeId]", allPermissions: ["PLANS:READ"] },
+  {
+    pattern: "/plans/review/[id]/nodes/[nodeId]",
+    allPermissions: ["PLAN:VIEW_ASSIGNED_REVIEW"],
+  },
+  {
+    pattern: "/plans/review/[id]",
+    allPermissions: ["PLAN:VIEW_ASSIGNED_REVIEW"],
+  },
+  { pattern: "/plans/review", allPermissions: ["PLAN:VIEW_ASSIGNED_REVIEW"] },
+  {
+    pattern: "/plans/[id]/nodes/[nodeId]",
+    allPermissions: ["PLANS:READ"],
+  },
   { pattern: "/plans/configuration", allPermissions: ["PLANS:UPDATE"] },
   { pattern: "/plans/performance-colors", allPermissions: ["PERFORMANCE_COLOR_THRESHOLDS:READ"] },
-  { pattern: "/plans/rules", allPermissions: ["PLANS:READ"] },
-  { pattern: "/plans/[id]", allPermissions: ["PLANS:READ"] },
+  { pattern: "/plans/rules", allPermissions: ["PLAN_RULES:READ"] },
+  {
+    pattern: "/plans/[id]",
+    allPermissions: ["PLANS:READ"],
+  },
   { pattern: "/plans", allPermissions: ["PLANS:READ"] },
 
   // Structures
@@ -60,6 +75,7 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   },
 
   // Settings
+  { pattern: "/settings/system", allPermissions: ["SYSTEM_SETTINGS:READ"] },
   { pattern: "/settings/branding", allPermissions: ["BRANDING_SETTINGS:READ"] },
   { pattern: "/settings/audit-logs", allPermissions: ["SYSTEM_AUDIT_LOGS:READ"] },
 
@@ -88,15 +104,21 @@ export function patternToRegExp(pattern: string): RegExp {
  * Returns null when no rule matches — treated as authenticated-only access.
  */
 export function matchRoutePermission(pathname: string): PermissionRule | null {
+  const rule = matchRoutePermissionRule(pathname);
+  if (!rule) return null;
+  return {
+    anyPermissions: rule.anyPermissions,
+    allPermissions: rule.allPermissions,
+    onlyPermissions: rule.onlyPermissions,
+  };
+}
+
+export function matchRoutePermissionRule(pathname: string): RoutePermissionRule | null {
   const normalized = pathname.split("?")[0].replace(/\/+$/, "") || "/";
 
   for (const rule of ROUTE_PERMISSION_RULES) {
     if (patternToRegExp(rule.pattern).test(normalized)) {
-      return {
-        anyPermissions: rule.anyPermissions,
-        allPermissions: rule.allPermissions,
-        onlyPermissions: rule.onlyPermissions,
-      };
+      return rule;
     }
   }
 
@@ -112,7 +134,14 @@ export function getDefaultFallbackRoute(
   const candidates: Array<{ path: string; rule: PermissionRule }> = [
     { path: "/dashboard", rule: { anyPermissions: ["DASHBOARD:VIEW"] } },
     { path: "/issues", rule: { anyPermissions: ["ISSUES:READ", "ISSUES:READ_ALL", "ISSUES:READ_OWN", "ISSUES:READ_ASSIGNED"] } },
-    { path: "/plans", rule: { allPermissions: ["PLANS:READ"] } },
+    {
+      path: "/plans/review",
+      rule: { allPermissions: ["PLAN:VIEW_ASSIGNED_REVIEW"] },
+    },
+    {
+      path: "/plans",
+      rule: { allPermissions: ["PLANS:READ"] },
+    },
     { path: "/government-structures", rule: { anyPermissions: ["GOVERNMENT_STRUCTURES:READ"] } },
     { path: "/internal-structures", rule: { anyPermissions: ["INTERNAL_STRUCTURES:READ"] } },
     { path: "/users/list", rule: { allPermissions: ["USERS:READ"] } },

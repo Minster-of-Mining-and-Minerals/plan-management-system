@@ -7,7 +7,9 @@ import { normalizeToPermissionKeys } from "@/lib/permissions";
 import {
   getDefaultFallbackRoute,
   matchRoutePermission,
+  matchRoutePermissionRule,
 } from "@/lib/route-permissions";
+import { useGetSecuritySystemSettingsQuery } from "@/redux/api/systemSettingsApi";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import { AccessDenied } from "./AccessDenied";
 
@@ -22,17 +24,28 @@ interface RoutePermissionGuardProps {
 export function RoutePermissionGuard({ children }: RoutePermissionGuardProps) {
   const pathname = usePathname();
   const { permissions, isLoading } = useAuth();
+  const { data: securitySettings, isLoading: isSettingsLoading } =
+    useGetSecuritySystemSettingsQuery();
 
-  if (isLoading) {
+  if (isLoading || isSettingsLoading) {
     return <Loading01 />;
   }
 
+  const matchedRule = matchRoutePermissionRule(pathname);
   const rule = matchRoutePermission(pathname);
   const permissionKeys = normalizeToPermissionKeys(permissions);
 
   if (rule === null || !canAccessRoute(permissionKeys, rule)) {
     const fallbackPath = getDefaultFallbackRoute(permissionKeys);
-    return <AccessDenied attemptedPath={pathname} fallbackPath={fallbackPath} />;
+    return (
+      <AccessDenied
+        attemptedPath={pathname}
+        fallbackPath={fallbackPath}
+        permissionRule={rule}
+        routePattern={matchedRule?.pattern}
+        showRequiredPermissions={Boolean(securitySettings?.expose_required_permissions)}
+      />
+    );
   }
 
   return <>{children}</>;

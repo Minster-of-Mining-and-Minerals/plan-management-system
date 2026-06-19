@@ -68,6 +68,19 @@ export const PLAN_ASSIGNMENT_PERMISSIONS = {
   DELETE: "PLAN_ASSIGNMENTS:DELETE",
 } as const satisfies Record<string, PermissionKey>;
 
+export const PLAN_RULES_PERMISSIONS = {
+  CREATE: "PLAN_RULES:CREATE",
+  READ: "PLAN_RULES:READ",
+  UPDATE: "PLAN_RULES:UPDATE",
+  DELETE: "PLAN_RULES:DELETE",
+} as const satisfies Record<string, PermissionKey>;
+
+/** Create or update plan rules */
+export const PLAN_RULES_MUTATION_PERMISSIONS: PermissionKey[] = [
+  PLAN_RULES_PERMISSIONS.CREATE,
+  PLAN_RULES_PERMISSIONS.UPDATE,
+];
+
 /** Edit draft nodes, targets, initialize periods */
 export const PLAN_UPDATE_PERMISSIONS: PermissionKey[] = [PLAN_PERMISSIONS.UPDATE];
 

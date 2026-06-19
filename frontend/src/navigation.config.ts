@@ -12,6 +12,7 @@ import {
   Paintbrush,
   History,
   AlertCircle,
+  ClipboardCheck,
 } from "lucide-react";
 
 export type NavItem = {
@@ -73,13 +74,24 @@ export const NAVIGATION: NavItem[] = [
     title: "Plan Management",
     url: "/plans",
     icon: ListTree,
-    anyPermissions: ["PLANS:READ", "PERFORMANCE_COLOR_THRESHOLDS:READ"],
+    anyPermissions: [
+      "PLANS:READ",
+      "PLAN:VIEW_ASSIGNED_REVIEW",
+      "PLAN_RULES:READ",
+      "PERFORMANCE_COLOR_THRESHOLDS:READ",
+    ],
     children: [
       {
         title: "Plan Drafts",
         url: "/plans",
         icon: ListTree,
         allPermissions: ["PLANS:READ"],
+      },
+      {
+        title: "Plan Review",
+        url: "/plans/review",
+        icon: ClipboardCheck,
+        allPermissions: ["PLAN:VIEW_ASSIGNED_REVIEW"],
       },
       {
         title: "Planning Configuration",
@@ -91,7 +103,7 @@ export const NAVIGATION: NavItem[] = [
         title: "Plan Rules",
         url: "/plans/rules",
         icon: Scale,
-        allPermissions: ["PLANS:READ"],
+        allPermissions: ["PLAN_RULES:READ"],
       },
       {
         title: "Performance Colors",
@@ -136,13 +148,19 @@ export const NAVIGATION: NavItem[] = [
     title: "Settings",
     url: "/settings/branding",
     icon: Settings,
-    anyPermissions: ["BRANDING_SETTINGS:READ", "SYSTEM_AUDIT_LOGS:READ"],
+    anyPermissions: ["BRANDING_SETTINGS:READ", "SYSTEM_AUDIT_LOGS:READ", "SYSTEM_SETTINGS:READ"],
     children: [
       {
         title: "Branding",
         url: "/settings/branding",
         icon: Paintbrush,
         allPermissions: ["BRANDING_SETTINGS:READ"],
+      },
+      {
+        title: "System",
+        url: "/settings/system",
+        icon: Settings,
+        allPermissions: ["SYSTEM_SETTINGS:READ"],
       },
       {
         title: "Audit Logs",

@@ -8,6 +8,82 @@ const {
   ExternalAssignment,
   User,
 } = require("../models");
+const { hasBeenPublishedForReview } = require("../utils/planReviewUtils");
+
+const REVIEW_VISIBLE_STATUSES = [
+  "under_review",
+  "review_completed",
+  "corrections_unlocked",
+];
+
+function hasFullPlanRead(user) {
+  return Boolean(user?.permissions?.includes("plans:read"));
+}
+
+function hasAssignedReviewRead(user) {
+  return Boolean(user?.permissions?.includes("plan:view_assigned_review"));
+}
+
+function isMasterVisibleForAssignedReviewer(master) {
+  if (!master) return false;
+  if (!hasBeenPublishedForReview(master)) return false;
+  return REVIEW_VISIBLE_STATUSES.includes(master.review_status);
+}
+
+function internalAssignmentMatchesUser(
+  assignment,
+  user,
+  internalById,
+  externalById
+) {
+  if (assignment.user_id && assignment.user_id === user.user_id) {
+    return true;
+  }
+
+  if (
+    assignment.internal_structure_id &&
+    user.internal_structure_id &&
+    assignment.internal_structure_id === user.internal_structure_id
+  ) {
+    return true;
+  }
+
+  if (assignment.branch_external_assignment_id && user.government_structure_id) {
+    const branchExternal = externalById.get(assignment.branch_external_assignment_id);
+    if (
+      branchExternal?.government_structure_id === user.government_structure_id
+    ) {
+      return true;
+    }
+  }
+
+  if (assignment.branch_internal_assignment_id) {
+    const visited = new Set();
+    let currentId = assignment.branch_internal_assignment_id;
+
+    while (currentId && !visited.has(currentId)) {
+      visited.add(currentId);
+      const branchAssignment = internalById.get(currentId);
+      if (!branchAssignment) break;
+
+      if (branchAssignment.user_id === user.user_id) {
+        return true;
+      }
+
+      if (
+        branchAssignment.internal_structure_id &&
+        user.internal_structure_id &&
+        branchAssignment.internal_structure_id === user.internal_structure_id
+      ) {
+        return true;
+      }
+
+      currentId = branchAssignment.branch_internal_assignment_id;
+    }
+  }
+
+  return false;
+}
 
 async function resolveMasterVersionId(planVersionId) {
   const version = await PlanVersion.findByPk(planVersionId);
@@ -41,43 +117,49 @@ async function getAssignedMasterNodeIds(masterVersionId, userId, transaction = n
   const masterNodeIds = masterNodes.map((n) => n.plan_node_id);
   if (masterNodeIds.length === 0) return new Set();
 
-  const [userAssignments, deptAssignments, sectorAssignments] = await Promise.all([
+  const [allInternal, allExternal] = await Promise.all([
     InternalAssignment.findAll({
       where: {
         plan_node_id: { [Op.in]: masterNodeIds },
-        user_id: userId,
         is_active: true,
       },
       transaction,
     }),
-    user.internal_structure_id
-      ? InternalAssignment.findAll({
-          where: {
-            plan_node_id: { [Op.in]: masterNodeIds },
-            internal_structure_id: user.internal_structure_id,
-            is_active: true,
-          },
-          transaction,
-        })
-      : [],
-    user.government_structure_id
-      ? ExternalAssignment.findAll({
-          where: {
-            plan_node_id: { [Op.in]: masterNodeIds },
-            government_structure_id: user.government_structure_id,
-            is_active: true,
-            is_visible: true,
-          },
-          transaction,
-        })
-      : [],
+    ExternalAssignment.findAll({
+      where: {
+        plan_node_id: { [Op.in]: masterNodeIds },
+        is_active: true,
+        is_visible: true,
+      },
+      transaction,
+    }),
   ]);
 
-  const seedIds = new Set(
-    [...userAssignments, ...deptAssignments, ...sectorAssignments].map(
-      (a) => a.plan_node_id
-    )
+  const internalById = new Map(
+    allInternal.map((assignment) => [assignment.internal_assignment_id, assignment])
   );
+  const externalById = new Map(
+    allExternal.map((assignment) => [assignment.external_assignment_id, assignment])
+  );
+
+  const seedIds = new Set();
+
+  for (const assignment of allInternal) {
+    if (
+      internalAssignmentMatchesUser(assignment, user, internalById, externalById)
+    ) {
+      seedIds.add(assignment.plan_node_id);
+    }
+  }
+
+  for (const assignment of allExternal) {
+    if (
+      user.government_structure_id &&
+      assignment.government_structure_id === user.government_structure_id
+    ) {
+      seedIds.add(assignment.plan_node_id);
+    }
+  }
 
   if (seedIds.size === 0) return new Set();
 
@@ -135,13 +217,73 @@ async function mapMasterNodeIdsToVersion(masterVisibleIds, targetVersionId, tran
   return visible;
 }
 
-async function userCanViewPlanInReview(masterVersionId, user) {
+async function userCanViewPlanInReview(masterVersionId, user, transaction = null) {
   if (!user) return false;
-  if (user.permissions?.includes("plans:read")) return true;
-  if (!user.permissions?.includes("plan:view_assigned_review")) return false;
+  if (hasFullPlanRead(user)) return true;
+  if (!hasAssignedReviewRead(user)) return false;
 
-  const assigned = await getAssignedMasterNodeIds(masterVersionId, user.user_id);
+  const master = await PlanVersion.findByPk(masterVersionId, {
+    attributes: ["plan_version_id", "published_for_review_at", "review_status"],
+    transaction,
+  });
+  if (!isMasterVisibleForAssignedReviewer(master)) return false;
+
+  const assigned = await getAssignedMasterNodeIds(
+    masterVersionId,
+    user.user_id,
+    transaction
+  );
   return assigned.size > 0;
+}
+
+async function userCanAccessPlanVersion(planVersionId, user, transaction = null) {
+  if (!user) return false;
+  if (hasFullPlanRead(user)) return true;
+  if (!hasAssignedReviewRead(user)) return false;
+
+  const masterId = await resolveMasterVersionId(planVersionId);
+  if (!masterId) return false;
+
+  return userCanViewPlanInReview(masterId, user, transaction);
+}
+
+async function userCanAccessPlanNode(planNodeId, user, transaction = null) {
+  const node = await PlanNode.findByPk(planNodeId, {
+    attributes: ["plan_version_id"],
+    transaction,
+  });
+  if (!node) return false;
+  return userCanAccessPlanVersion(node.plan_version_id, user, transaction);
+}
+
+async function getAssignedReviewMasterVersionIds(user, transaction = null) {
+  if (!user) return [];
+  if (hasFullPlanRead(user)) return null;
+
+  if (!hasAssignedReviewRead(user)) return [];
+
+  const masters = await PlanVersion.findAll({
+    where: {
+      version_kind: "master",
+      published_for_review_at: { [Op.ne]: null },
+      review_status: { [Op.in]: REVIEW_VISIBLE_STATUSES },
+    },
+    attributes: ["plan_version_id"],
+    transaction,
+  });
+
+  const accessible = [];
+  for (const master of masters) {
+    const assigned = await getAssignedMasterNodeIds(
+      master.plan_version_id,
+      user.user_id,
+      transaction
+    );
+    if (assigned.size > 0) {
+      accessible.push(master.plan_version_id);
+    }
+  }
+  return accessible;
 }
 
 module.exports = {
@@ -151,4 +293,10 @@ module.exports = {
   filterHierarchyNodes,
   mapMasterNodeIdsToVersion,
   userCanViewPlanInReview,
+  userCanAccessPlanVersion,
+  userCanAccessPlanNode,
+  getAssignedReviewMasterVersionIds,
+  hasFullPlanRead,
+  hasAssignedReviewRead,
+  isMasterVisibleForAssignedReviewer,
 };

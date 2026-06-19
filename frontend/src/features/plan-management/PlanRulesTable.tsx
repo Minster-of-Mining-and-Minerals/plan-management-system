@@ -20,8 +20,8 @@ import { useSearchParams } from "next/navigation";
 import { matchesSearchQuery } from "@/utils/tableUtils";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import {
-    PLAN_PERMISSIONS,
-    PLAN_UPDATE_PERMISSIONS,
+    PLAN_RULES_MUTATION_PERMISSIONS,
+    PLAN_RULES_PERMISSIONS,
 } from "@/utils/planPermissionUtils";
 
 export default function PlanRulesTable() {
@@ -81,7 +81,7 @@ export default function PlanRulesTable() {
             header: "Actions",
             cell: ({ row }) => (
                 <div className="flex items-center gap-1">
-                    <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
+                    <PermissionGuard requireAll={[PLAN_RULES_PERMISSIONS.UPDATE]}>
                         <Button
                             onClick={() => {
                                 setSelectedRule(row.original);
@@ -94,7 +94,7 @@ export default function PlanRulesTable() {
                             <Edit className="h-4 w-4" />
                         </Button>
                     </PermissionGuard>
-                    <PermissionGuard requireAll={[PLAN_PERMISSIONS.DELETE]}>
+                    <PermissionGuard requireAll={[PLAN_RULES_PERMISSIONS.DELETE]}>
                         <Button
                             onClick={() => handleDelete(row.original.plan_rule_id)}
                             variant="ghost"
@@ -127,7 +127,7 @@ export default function PlanRulesTable() {
             label: "Create Plan Rule",
             icon: <Plus className="h-4 w-4" />,
             variant: "default",
-            permissions: [...PLAN_UPDATE_PERMISSIONS],
+            permissions: [PLAN_RULES_PERMISSIONS.CREATE],
             onClick: () => {
                 setSelectedRule(null);
                 setModalOpen(true);

@@ -1,15 +1,16 @@
+import { parseApiPermissionError } from "@/utils/permissionRequirementUtils";
+
+let exposeRequiredPermissions = false;
+
+export function setExposeRequiredPermissionsForErrors(enabled: boolean) {
+  exposeRequiredPermissions = enabled;
+}
+
 export function getApiErrorMessage(error: unknown, fallback = "Something went wrong"): string {
-  const err = error as {
-    data?: {
-      message?: string;
-      error?: string;
-      errors?: string[];
-    };
-  };
+  const details = parseApiPermissionError(error, exposeRequiredPermissions);
+  return details.message || fallback;
+}
 
-  if (err.data?.errors?.length) {
-    return err.data.errors.join("; ");
-  }
-
-  return err.data?.message || err.data?.error || fallback;
+export function getApiErrorDetails(error: unknown, fallback = "Something went wrong") {
+  return parseApiPermissionError(error, exposeRequiredPermissions) ?? { message: fallback };
 }

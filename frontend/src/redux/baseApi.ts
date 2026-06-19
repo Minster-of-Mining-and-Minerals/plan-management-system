@@ -74,6 +74,7 @@ export const baseApi = createApi({
     "NotificationTemplate",
     "Branding",
     "SystemAuditLog",
+    "SystemSettings",
     "Issues",
     "IssueCategories",
     "IssuePriorities",

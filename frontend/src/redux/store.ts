@@ -7,6 +7,7 @@ import "@/redux/api/notificationApi";
 import "@/redux/api/brandingApi";
 import "@/redux/api/planningConfigApi";
 import "@/redux/api/systemAuditLogApi";
+import "@/redux/api/systemSettingsApi";
 import "@/redux/api/issueApi";
 export const store = configureStore({
   reducer: {

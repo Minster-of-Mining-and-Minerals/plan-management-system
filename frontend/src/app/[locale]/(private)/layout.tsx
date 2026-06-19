@@ -6,6 +6,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Header } from "@/components/layout/header";
 import { RoutePermissionGuard } from "@/components/guards/RoutePermissionGuard";
+import { SecuritySettingsBridge } from "@/components/guards/SecuritySettingsBridge";
 import { useSession } from "next-auth/react";
 import { useAuth } from "@/hooks/use-auth";
 import { performLogout } from "@/utils/logout";
@@ -57,6 +58,7 @@ export default function PrivateLayout({
 
   return (
     <SidebarProvider>
+      <SecuritySettingsBridge />
       {!isFirstLogin && <AppSidebar />}
       <SidebarInset>
         <Header title={title || "Dashboard"} />

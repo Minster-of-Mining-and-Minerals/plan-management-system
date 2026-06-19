@@ -9,7 +9,7 @@ const PLAN_REVIEW_EVENTS = {
 };
 
 function buildPlanLink(masterVersionId) {
-  return `/plans/${masterVersionId}`;
+  return `/plans/review/${masterVersionId}`;
 }
 
 async function emitPlanReviewEvent(eventType, { master, actor, recipients = [] }, io = null) {

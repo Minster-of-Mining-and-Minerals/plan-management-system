@@ -3,6 +3,7 @@ const { User, Role, RolePermission, Permission, PermissionGroup, GovernmentStruc
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { normalizeEmail } = require("../../utils/emailUtils");
+const { collectUserPermissionKeysUpper } = require("../../utils/userPermissionsUtils");
 const { Op } = require("sequelize");
 
 const login = async (req, res) => {
@@ -183,25 +184,7 @@ const getMyPermissions = async (req, res) => {
         .json({ success: false, message: "User not found" });
     }
 
-    const permissionsSet = new Set();
-
-    // 1. Collect permissions from Roles
-    user.roles?.forEach((role) => {
-      role.rolePermissions?.forEach((rp) => {
-        if (rp.permission) {
-          permissionsSet.add(
-            `${rp.permission.resource}:${rp.permission.action}`.toUpperCase()
-          );
-        }
-      });
-    });
-
-    // 2. Collect permissions from Permission Groups
-    user.permissionGroups?.forEach((group) => {
-      group.permissions?.forEach((perm) => {
-        permissionsSet.add(`${perm.resource}:${perm.action}`.toUpperCase());
-      });
-    });
+    const permissionsSet = new Set(collectUserPermissionKeysUpper(user));
 
     return res.status(200).json({
       success: true,

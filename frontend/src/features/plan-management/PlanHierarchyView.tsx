@@ -106,7 +106,13 @@ function resolveBreadcrumbPath(
     return path;
 }
 
-export default function PlanHierarchyView({ versionId }: { versionId: string }) {
+export default function PlanHierarchyView({
+    versionId,
+    mode = "draft",
+}: {
+    versionId: string;
+    mode?: "draft" | "review";
+}) {
     const router = useRouter();
     const { data: version, refetch: refetchVersion } = useGetPlanVersionByIdQuery(versionId);
     const masterVersionId =
@@ -183,10 +189,17 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
     const effectiveMasterVersion =
         version?.version_kind === "master" ? version : masterVersion;
     const masterReviewStatus = effectiveMasterVersion?.review_status;
-    const showRaiseIssue = canRaiseReviewIssue(effectiveMasterVersion);
-    const showReviewTab =
-        Boolean(masterReviewStatus) &&
-        (can(PLAN_PERMISSIONS.READ) || can(PLAN_PERMISSIONS.UPDATE));
+    const isReviewMode = mode === "review";
+    const plansBasePath = isReviewMode ? "/plans/review" : "/plans";
+    const showRaiseIssue = isReviewMode && canRaiseReviewIssue(effectiveMasterVersion);
+    const showReviewTab = isReviewMode
+        ? Boolean(masterReviewStatus)
+        : Boolean(masterReviewStatus) &&
+          (can(PLAN_PERMISSIONS.READ) || can(PLAN_PERMISSIONS.UPDATE));
+    const showReviewWorkspace =
+        isReviewMode &&
+        version?.version_kind === "master" &&
+        Boolean(masterReviewStatus);
 
     const isMasterDraft =
         version?.version_kind === "master" && version?.status === "draft";
@@ -226,11 +239,12 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
         masterReviewStatus
     );
     const showAnnualDashboard =
+        !isReviewMode &&
         version?.version_kind === "master" &&
         (version?.status === "finalized" ||
             (version?.annualVersions && version.annualVersions.length > 0));
     const showPeriodDashboard =
-        isAnnualVersion && annualTargetsFinalized && periodsInitializedGlobally;
+        !isReviewMode && isAnnualVersion && annualTargetsFinalized && periodsInitializedGlobally;
 
     useEffect(() => {
         appliedDefaultTabForVersion.current = null;
@@ -249,6 +263,12 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
             return;
         }
 
+        if (isReviewMode) {
+            setActiveTab("hierarchy");
+            appliedDefaultTabForVersion.current = versionId;
+            return;
+        }
+
         if (version.version_kind === "master" && version.status === "finalized" && showReviewTab) {
             setActiveTab("review");
         } else if (version.version_kind === "master" && version.status === "finalized") {
@@ -263,7 +283,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
         }
 
         appliedDefaultTabForVersion.current = versionId;
-    }, [version, versionId, masterVersion, resolvedMasterVersionId, annualParentId, annualParentVersion, showReviewTab]);
+    }, [version, versionId, masterVersion, resolvedMasterVersionId, annualParentId, annualParentVersion, showReviewTab, isReviewMode]);
 
     const shouldFetchAnnualAllocations = isAnnualVersion && !annualTargetsFinalized;
     const { data: annualAllocationList = [] } = useGetAnnualTargetAllocationsQuery(versionId, {
@@ -362,7 +382,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
     };
 
     const handleViewDetails = (nodeId: string) => {
-        router.push(`/plans/${versionId}/nodes/${nodeId}`);
+        router.push(`${plansBasePath}/${versionId}/nodes/${nodeId}`);
     };
 
     const handleMoveNode = async (
@@ -461,6 +481,31 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
         </div>
     );
 
+    const reviewTabToggle = showReviewWorkspace ? (
+        <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 flex-wrap">
+            <Button
+                variant={activeTab === "hierarchy" ? "default" : "ghost"}
+                size="sm"
+                className="gap-2 h-8"
+                onClick={() => setActiveTab("hierarchy")}
+            >
+                <ListTree className="h-4 w-4" />
+                Plan Hierarchy
+            </Button>
+            {showReviewTab && (
+                <Button
+                    variant={activeTab === "review" ? "default" : "ghost"}
+                    size="sm"
+                    className="gap-2 h-8"
+                    onClick={() => setActiveTab("review")}
+                >
+                    <ShieldCheck className="h-4 w-4" />
+                    Review Dashboard
+                </Button>
+            )}
+        </div>
+    ) : null;
+
     const detailTabToggle = showAnnualDashboard ? (
         <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 flex-wrap">
             <Button
@@ -525,11 +570,17 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                 </div>
             )}
 
-            {isPlanUnderReview(masterReviewStatus) && (
+            {isReviewMode && isPlanUnderReview(masterReviewStatus) && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                    This plan is under review. All content is read-only. Assigned reviewers can
-                    raise issues on their sections. Use the Review Dashboard to track and resolve
-                    findings.
+                    This plan is under review. Browse your assigned sections, raise issues where
+                    needed, and track findings in the Review Dashboard.
+                </div>
+            )}
+
+            {!isReviewMode && isPlanUnderReview(masterReviewStatus) && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    This plan is under review. All content is read-only. Use Plan Review in the
+                    sidebar for reviewer workflows, or the Review Dashboard to track findings.
                 </div>
             )}
 
@@ -747,7 +798,7 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     <Button
                         variant="outline"
                         size="icon"
-                        onClick={() => router.push("/plans")}
+                        onClick={() => router.push(plansBasePath)}
                         className="rounded-full shrink-0"
                     >
                         <ChevronLeft className="h-4 w-4" />
@@ -780,10 +831,23 @@ export default function PlanHierarchyView({ versionId }: { versionId: string }) 
                     </div>
                 </div>
 
-                {(!showAnnualDashboard && !showPeriodDashboard || activeTab === "hierarchy") && hierarchyToolbar}
+                {(!showAnnualDashboard && !showPeriodDashboard && !showReviewWorkspace || activeTab === "hierarchy") && hierarchyToolbar}
             </div>
 
-            {showAnnualDashboard ? (
+            {showReviewWorkspace ? (
+                <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+                    <div className="flex items-center justify-end px-4 py-3 border-b border-gray-100">
+                        {reviewTabToggle}
+                    </div>
+                    <div className="p-4 sm:p-6 space-y-6">
+                        {activeTab === "review" && resolvedMasterVersionId ? (
+                            <PlanReviewDashboard masterVersionId={resolvedMasterVersionId} />
+                        ) : (
+                            hierarchyBody
+                        )}
+                    </div>
+                </div>
+            ) : showAnnualDashboard ? (
                 <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
                     <div className="flex items-center justify-end px-4 py-3 border-b border-gray-100">
                         {detailTabToggle}

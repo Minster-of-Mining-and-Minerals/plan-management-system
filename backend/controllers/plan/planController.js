@@ -33,6 +33,8 @@ const {
     getAssignedMasterNodeIds,
     filterHierarchyNodes,
     mapMasterNodeIdsToVersion,
+    getAssignedReviewMasterVersionIds,
+    hasFullPlanRead,
 } = require("../../services/planReviewVisibilityService");
 const {
     getOrCreateGlobalPlanningConfig,
@@ -280,6 +282,85 @@ const getPlanVersions = async (req, res) => {
                 },
             ],
             order: [["start_year", "DESC"], ["version_number", "DESC"]],
+        });
+
+        return res.json({
+            success: true,
+            data: versions,
+        });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+};
+
+const REVIEW_LIST_STATUSES = [
+    "under_review",
+    "review_completed",
+    "corrections_unlocked",
+];
+
+// Master plans published for review (assigned sections only for reviewers without full read)
+const getPlanVersionsForReview = async (req, res) => {
+    try {
+        const { search } = req.query;
+
+        const where = {
+            version_kind: "master",
+            published_for_review_at: { [Op.ne]: null },
+            review_status: { [Op.in]: REVIEW_LIST_STATUSES },
+        };
+
+        if (search && search.trim()) {
+            const term = `%${search.trim()}%`;
+            where[Op.or] = [
+                { draft_name: { [Op.iLike]: term } },
+                sequelize.where(
+                    sequelize.cast(sequelize.col("start_year"), "varchar"),
+                    { [Op.iLike]: term }
+                ),
+                sequelize.where(
+                    sequelize.cast(sequelize.col("end_year"), "varchar"),
+                    { [Op.iLike]: term }
+                ),
+            ];
+        }
+
+        const publishedMasters = await PlanVersion.findAll({
+            where,
+            attributes: ["plan_version_id"],
+            order: [["published_for_review_at", "DESC"], ["start_year", "DESC"]],
+        });
+
+        const accessibleMasterIds = [];
+        for (const master of publishedMasters) {
+            const assigned = await getAssignedMasterNodeIds(
+                master.plan_version_id,
+                req.user.user_id
+            );
+            if (assigned.size > 0) {
+                accessibleMasterIds.push(master.plan_version_id);
+            }
+        }
+
+        if (accessibleMasterIds.length === 0) {
+            return res.json({ success: true, data: [] });
+        }
+
+        const versions = await PlanVersion.findAll({
+            where: {
+                plan_version_id: { [Op.in]: accessibleMasterIds },
+            },
+            include: [
+                {
+                    model: GovernmentStructure,
+                    as: "governmentStructure",
+                },
+                {
+                    model: PlanVersion,
+                    as: "baseVersion",
+                },
+            ],
+            order: [["published_for_review_at", "DESC"], ["start_year", "DESC"]],
         });
 
         return res.json({
@@ -1168,7 +1249,7 @@ const getPlanHierarchy = async (req, res) => {
             masterVersion?.review_status === "under_review" ||
             masterVersion?.review_status === "review_completed" ||
             masterVersion?.review_status === "corrections_unlocked";
-        const hasFullRead = req.user?.permissions?.includes("plans:read");
+        const hasFullRead = hasFullPlanRead(req.user);
         const isAssignedReviewer = req.user?.permissions?.includes("plan:view_assigned_review");
 
         if (inReview && !hasFullRead && isAssignedReviewer && masterId) {
@@ -1240,6 +1321,7 @@ module.exports = {
     // Plan Version
     createPlanVersion,
     getPlanVersions,
+    getPlanVersionsForReview,
     getPlanVersionById,
     updatePlanVersion,
     deletePlanVersion,

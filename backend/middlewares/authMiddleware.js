@@ -1,5 +1,7 @@
 const jwt = require("jsonwebtoken");
 const db = require("../models");
+const { sendPermissionDenied, toPermissionKey } = require("../utils/permissionDeniedUtils");
+const { collectUserPermissionKeys } = require("../utils/userPermissionsUtils");
 
 const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers["authorization"];
@@ -15,7 +17,7 @@ const authenticateToken = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Fetch user with roles and permissions
+    // Fetch user with roles, role permissions, and permission groups
     const user = await db.User.findByPk(decoded.user_id, {
       attributes: { exclude: ["password"] },
       include: [
@@ -37,6 +39,19 @@ const authenticateToken = async (req, res, next) => {
             },
           ],
         },
+        {
+          model: db.PermissionGroup,
+          as: "permissionGroups",
+          through: { attributes: [] },
+          include: [
+            {
+              model: db.Permission,
+              as: "permissions",
+              attributes: ["resource", "action"],
+              through: { attributes: [] },
+            },
+          ],
+        },
       ],
     });
 
@@ -47,16 +62,15 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    // Flatten roles and permissions for easy checking
     const roles = user.roles.map((r) => r.name);
-    const permissions = user.roles.flatMap((r) =>
-      r.rolePermissions.map((rp) => `${rp.permission?.resource}:${rp.permission?.action}`)
-    );
+    const permissions = collectUserPermissionKeys(user);
 
     req.user = {
       user_id: user.user_id,
       email: user.email,
       full_name: user.full_name,
+      government_structure_id: user.government_structure_id,
+      internal_structure_id: user.internal_structure_id,
       roles,
       permissions,
     };
@@ -84,9 +98,10 @@ const checkPermission = (resource, action) => {
     }
 
     if (!req.user.permissions.includes(requiredPermission)) {
-      return res.status(403).json({
-        success: false,
-        message: `Access denied: Required permission ${requiredPermission}`,
+      return sendPermissionDenied(res, {
+        message: "Access denied",
+        permissions: [requiredPermission],
+        mode: "all",
       });
     }
 
@@ -109,12 +124,13 @@ const checkAnyPermission = (checks) => {
     );
 
     if (!hasAny) {
-      const required = checks
-        .map(({ resource, action }) => `${resource.toLowerCase()}:${action.toLowerCase()}`)
-        .join(" or ");
-      return res.status(403).json({
-        success: false,
-        message: `Access denied: Required one of permissions ${required}`,
+      const required = checks.map(({ resource, action }) =>
+        toPermissionKey(resource, action)
+      );
+      return sendPermissionDenied(res, {
+        message: "Access denied",
+        permissions: required,
+        mode: "any",
       });
     }
 
