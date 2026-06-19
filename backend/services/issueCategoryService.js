@@ -1,9 +1,10 @@
 "use strict";
 
 const { v4: uuidv4 } = require("uuid");
+const { IssueCategory } = require("../models");
 const {
-  IssueCategory,
-} = require("../models");
+  assertCanConfigureIssueCategoryForm,
+} = require("../utils/issueCategoryPermissionUtils");
 
 const CATEGORY_INCLUDES = [
   {
@@ -37,7 +38,9 @@ async function getCategoryById(id) {
   return IssueCategory.findByPk(id, { include: CATEGORY_INCLUDES });
 }
 
-async function createCategory(data) {
+async function createCategory(data, userPermissions = []) {
+  assertCanConfigureIssueCategoryForm(userPermissions, data, { isCreate: true });
+
   if (data.parent_category_id) {
     const parent = await IssueCategory.findByPk(data.parent_category_id);
     if (!parent) {
@@ -60,7 +63,9 @@ async function createCategory(data) {
   });
 }
 
-async function updateCategory(id, data) {
+async function updateCategory(id, data, userPermissions = []) {
+  assertCanConfigureIssueCategoryForm(userPermissions, data);
+
   const category = await IssueCategory.findByPk(id);
   if (!category) {
     const error = new Error("Issue category not found");

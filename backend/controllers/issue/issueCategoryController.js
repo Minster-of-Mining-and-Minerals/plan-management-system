@@ -46,7 +46,10 @@ const getIssueCategoryById = async (req, res) => {
 
 const createIssueCategory = async (req, res) => {
   try {
-    const category = await issueCategoryService.createCategory(req.body);
+    const category = await issueCategoryService.createCategory(
+      req.body,
+      req.user?.permissions || []
+    );
     return res.status(201).json({
       success: true,
       message: "Issue category created",
@@ -59,7 +62,11 @@ const createIssueCategory = async (req, res) => {
 
 const updateIssueCategory = async (req, res) => {
   try {
-    const category = await issueCategoryService.updateCategory(req.params.id, req.body);
+    const category = await issueCategoryService.updateCategory(
+      req.params.id,
+      req.body,
+      req.user?.permissions || []
+    );
     return res.json({
       success: true,
       message: "Issue category updated",

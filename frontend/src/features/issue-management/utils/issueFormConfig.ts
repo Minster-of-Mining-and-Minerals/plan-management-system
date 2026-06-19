@@ -74,6 +74,96 @@ export function validateDynamicFormData(
   return null;
 }
 
+export const ISSUE_STANDARD_FIELD_DEFINITIONS = [
+  {
+    key: "description",
+    label: "Description",
+    defaultVisible: true,
+    defaultRequired: true,
+  },
+  {
+    key: "justification",
+    label: "Justification",
+    defaultVisible: true,
+    defaultRequired: true,
+  },
+  {
+    key: "current_value",
+    label: "Current Value",
+    defaultVisible: true,
+    defaultRequired: false,
+  },
+  {
+    key: "suggested_value",
+    label: "Suggested Value",
+    defaultVisible: true,
+    defaultRequired: false,
+  },
+  {
+    key: "entity_type",
+    label: "Affected Entity Type",
+    defaultVisible: true,
+    defaultRequired: true,
+    supportsAllowedTypes: true,
+  },
+  {
+    key: "entity_id",
+    label: "Affected Entity ID",
+    defaultVisible: true,
+    defaultRequired: true,
+  },
+  {
+    key: "attachment_path",
+    label: "Attachment Path",
+    defaultVisible: true,
+    defaultRequired: false,
+  },
+] as const;
+
+export const ISSUE_ENTITY_TYPE_OPTIONS = [
+  "plan_version",
+  "strategic",
+  "objective",
+  "goal",
+  "kpi",
+  "activity",
+  "task",
+  "initiative",
+  "budget",
+  "target",
+] as const;
+
+export function createEmptyFormConfig(): IssueCategoryFormConfig {
+  return { fields: [], standardFields: {} };
+}
+
+export function slugifyFieldKey(label: string): string {
+  return label
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 80);
+}
+
+export function validateFormConfigBuilder(config: IssueCategoryFormConfig): string | null {
+  const normalized = normalizeFormConfig(config);
+  const keys = new Set<string>();
+
+  for (const field of normalized.fields) {
+    if (!field.key?.trim()) return "Each custom field needs a field key";
+    if (!field.label?.trim()) return "Each custom field needs a label";
+    if (keys.has(field.key)) return `Duplicate custom field key: ${field.key}`;
+    keys.add(field.key);
+
+    if (field.type === "select" && (!field.options || field.options.length === 0)) {
+      return `Select field "${field.label}" needs at least one option`;
+    }
+  }
+
+  return null;
+}
+
 export function getTopLevelCategories(categories: Array<{ parent_category_id?: string | null }>) {
   return categories.filter((c) => !c.parent_category_id);
 }

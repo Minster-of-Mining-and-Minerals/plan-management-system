@@ -12,17 +12,23 @@ function collectUserPermissionKeys(user) {
   const permissionsSet = new Set();
 
   user.roles?.forEach((role) => {
+    if (role.is_active === false) return;
+
     role.rolePermissions?.forEach((rolePermission) => {
+      if (rolePermission.is_active === false) return;
+
       const permission = rolePermission.permission;
-      if (permission?.resource && permission?.action) {
+      if (permission?.resource && permission?.action && permission.is_active !== false) {
         permissionsSet.add(toPermissionKeyLower(permission.resource, permission.action));
       }
     });
   });
 
   user.permissionGroups?.forEach((group) => {
+    if (group.is_active === false) return;
+
     group.permissions?.forEach((permission) => {
-      if (permission?.resource && permission?.action) {
+      if (permission?.resource && permission?.action && permission.is_active !== false) {
         permissionsSet.add(toPermissionKeyLower(permission.resource, permission.action));
       }
     });

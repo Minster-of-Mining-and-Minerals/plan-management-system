@@ -1,5 +1,5 @@
 import { useAuth } from "./use-auth";
-import { PermissionKey, hasPermission } from "@/lib/permissions";
+import { PermissionKey, hasPermission, normalizeToPermissionKeys } from "@/lib/permissions";
 
 /**
  * Returns the current user's permission keys from Redux (via /auth/permissions).
@@ -7,7 +7,7 @@ import { PermissionKey, hasPermission } from "@/lib/permissions";
  */
 export function usePermissions() {
   const { permissions, isLoading } = useAuth();
-  const userPermissions = permissions as PermissionKey[];
+  const userPermissions = normalizeToPermissionKeys(permissions);
 
   const checkPermission = (required: {
     anyPermissions?: PermissionKey[];
@@ -15,13 +15,14 @@ export function usePermissions() {
     onlyPermissions?: PermissionKey[];
   }) => hasPermission(userPermissions, required);
 
-  const can = (permission: PermissionKey) => userPermissions.includes(permission);
+  const can = (permission: PermissionKey) =>
+    userPermissions.includes(permission.toUpperCase() as PermissionKey);
 
   const canAny = (perms: PermissionKey[]) =>
-    perms.some((p) => userPermissions.includes(p));
+    perms.some((p) => can(p));
 
   const canAll = (perms: PermissionKey[]) =>
-    perms.every((p) => userPermissions.includes(p));
+    perms.every((p) => can(p));
 
   return {
     permissions: userPermissions,

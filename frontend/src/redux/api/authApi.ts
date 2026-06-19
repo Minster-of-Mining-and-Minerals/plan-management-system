@@ -67,6 +67,7 @@ export const authApi = baseApi.injectEndpoints({
         method: "GET",
       }),
       providesTags: ["User"],
+      keepUnusedDataFor: 60,
     }),
 
     logout: builder.mutation<{ message: string }, void>({

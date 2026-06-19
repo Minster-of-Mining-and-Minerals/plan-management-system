@@ -86,6 +86,7 @@ const PERMISSIONS = [
   { resource: "issue_categories", action: "read" },
   { resource: "issue_categories", action: "update" },
   { resource: "issue_categories", action: "delete" },
+  { resource: "issue_categories", action: "configure_form" },
   { resource: "plan", action: "publish_for_review" },
   { resource: "plan", action: "view_assigned_review" },
   { resource: "plan", action: "complete_review" },

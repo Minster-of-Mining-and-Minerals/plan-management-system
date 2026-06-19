@@ -16,6 +16,7 @@ export const ISSUE_CATEGORY_PERMISSIONS = {
   READ: "ISSUE_CATEGORIES:READ" as PermissionKey,
   UPDATE: "ISSUE_CATEGORIES:UPDATE" as PermissionKey,
   DELETE: "ISSUE_CATEGORIES:DELETE" as PermissionKey,
+  CONFIGURE_FORM: "ISSUE_CATEGORIES:CONFIGURE_FORM" as PermissionKey,
 } as const;
 
 export const ISSUE_VIEW_PERMISSIONS: PermissionKey[] = [

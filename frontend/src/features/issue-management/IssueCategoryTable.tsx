@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ColumnDef } from "@tanstack/react-table";
-import { Plus, Edit } from "lucide-react";
+import { Plus, Edit, FormInput } from "lucide-react";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
 import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
@@ -14,13 +14,18 @@ import {
 } from "@/redux/api/issueApi";
 import { IssueCategory } from "@/redux/types/issue";
 import { CreateIssueCategoryModal } from "./modals/CreateIssueCategoryModal";
+import { ConfigureIssueCategoryFormModal } from "./modals/ConfigureIssueCategoryFormModal";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import { ISSUE_CATEGORY_PERMISSIONS } from "@/utils/issuePermissionUtils";
 import { actionFeedback } from "@/components/action-feedback";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function IssueCategoryTable() {
   const [selectedCategory, setSelectedCategory] = useState<IssueCategory | null>(null);
+  const [formConfigCategory, setFormConfigCategory] = useState<IssueCategory | null>(null);
   const [isModalOpen, setModalOpen] = useState(false);
+  const [isFormModalOpen, setFormModalOpen] = useState(false);
+  const { can } = usePermissions();
 
   const { data: categories = [], isLoading, refetch } = useGetIssueCategoriesQuery({});
   const [deactivateCategory] = useDeactivateIssueCategoryMutation();
@@ -72,6 +77,21 @@ export default function IssueCategoryTable() {
       ),
     },
     {
+      id: "form_fields",
+      header: "Form Fields",
+      cell: ({ row }) => {
+        const customCount = row.original.form_config?.fields?.length ?? 0;
+        if (row.original.is_selectable === false) {
+          return <span className="text-xs text-muted-foreground">Grouping only</span>;
+        }
+        return (
+          <span className="text-xs text-muted-foreground">
+            {customCount} custom field{customCount === 1 ? "" : "s"}
+          </span>
+        );
+      },
+    },
+    {
       accessorKey: "description",
       header: "Description",
       cell: ({ row }) => (
@@ -94,7 +114,7 @@ export default function IssueCategoryTable() {
             <Button
               variant="ghost"
               size="icon"
-              title="Edit"
+              title="Edit category"
               onClick={() => {
                 setSelectedCategory(row.original);
                 setModalOpen(true);
@@ -103,6 +123,22 @@ export default function IssueCategoryTable() {
               <Edit className="h-4 w-4" />
             </Button>
           </PermissionGuard>
+
+          {row.original.is_selectable !== false &&
+          can(ISSUE_CATEGORY_PERMISSIONS.CONFIGURE_FORM) ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Configure form"
+              onClick={() => {
+                setFormConfigCategory(row.original);
+                setFormModalOpen(true);
+              }}
+            >
+              <FormInput className="h-4 w-4" />
+            </Button>
+          ) : null}
+
           <PermissionGuard requireAll={[ISSUE_CATEGORY_PERMISSIONS.UPDATE]}>
             {row.original.is_active && (
               <Button
@@ -136,7 +172,11 @@ export default function IssueCategoryTable() {
     <>
       <TableLayout
         title="Issue Categories"
-        description="Configure top-level issue areas and issue types with category-specific forms."
+        description={
+          can(ISSUE_CATEGORY_PERMISSIONS.CONFIGURE_FORM)
+            ? "Manage issue areas and configure raise-issue forms with the visual form builder."
+            : "View issue areas and types. Form configuration requires the Configure Form permission."
+        }
         actions={actions}
       >
         <DataTable columns={columns} data={categories} isLoading={isLoading} />
@@ -150,6 +190,16 @@ export default function IssueCategoryTable() {
           refetch();
         }}
         category={selectedCategory}
+      />
+
+      <ConfigureIssueCategoryFormModal
+        isOpen={isFormModalOpen}
+        onClose={() => {
+          setFormModalOpen(false);
+          setFormConfigCategory(null);
+          refetch();
+        }}
+        category={formConfigCategory}
       />
     </>
   );

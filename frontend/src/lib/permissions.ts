@@ -100,9 +100,9 @@ export function hasPermission(
   }
 
   // Normalize permissions if they're in RawPermission format
-  const normalizedPermissions = Array.isArray(userPermissions)
+  const normalizedPermissions: string[] = Array.isArray(userPermissions)
     ? userPermissions.every((p) => typeof p === "string")
-      ? (userPermissions as string[])
+      ? (userPermissions as string[]).map((p) => p.toUpperCase())
       : normalizePermissions(userPermissions as RawPermission[])
     : [];
 
@@ -116,12 +116,16 @@ export function hasPermission(
 
   // Check allPermissions (user must have all of these)
   if (allPermissions?.length) {
-    return allPermissions.every((p) => normalizedPermissions.includes(p));
+    return allPermissions.every((p) =>
+      normalizedPermissions.includes(p.toUpperCase() as PermissionKey)
+    );
   }
 
   // Check anyPermissions (user must have at least one of these)
   if (anyPermissions?.length) {
-    return anyPermissions.some((p) => normalizedPermissions.includes(p));
+    return anyPermissions.some((p) =>
+      normalizedPermissions.includes(p.toUpperCase() as PermissionKey)
+    );
   }
 
   return false;

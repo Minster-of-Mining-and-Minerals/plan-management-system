@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { createFormResolver } from "@/lib/zod-form";
 import * as z from "zod";
@@ -38,6 +38,10 @@ import {
 } from "@/redux/api/issueApi";
 import { IssueCategory } from "@/redux/types/issue";
 import { getTopLevelCategories } from "../utils/issueFormConfig";
+import { IssueCategoryFormConfigPreview } from "../components/IssueCategoryFormConfigPreview";
+import { PermissionGuard } from "@/utils/PermissionGuard";
+import { ISSUE_CATEGORY_PERMISSIONS } from "@/utils/issuePermissionUtils";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const NONE_PARENT = "__none__";
 
@@ -46,7 +50,6 @@ const formSchema = z.object({
   code: z.string().max(80).optional(),
   name: z.string().min(2, "Name is required").max(150),
   description: z.string().max(2000).optional(),
-  form_config_json: z.string().optional(),
   display_order: z.coerce.number().int().min(0).optional(),
   is_selectable: z.boolean(),
   is_active: z.boolean(),
@@ -64,21 +67,21 @@ export function CreateIssueCategoryModal({
   category,
 }: CreateIssueCategoryModalProps) {
   const isEditMode = Boolean(category);
+  const { can } = usePermissions();
+  const canConfigureForm = can(ISSUE_CATEGORY_PERMISSIONS.CONFIGURE_FORM);
   const [createCategory, { isLoading: isCreating }] = useCreateIssueCategoryMutation();
   const [updateCategory, { isLoading: isUpdating }] = useUpdateIssueCategoryMutation();
   const { data: categories = [] } = useGetIssueCategoriesQuery({});
-  const [formConfigError, setFormConfigError] = useState<string | null>(null);
 
   const topCategories = useMemo(() => getTopLevelCategories(categories), [categories]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: createFormResolver<z.infer<typeof formSchema>>(formSchema),
     defaultValues: {
-      parent_category_id: "",
+      parent_category_id: NONE_PARENT,
       code: "",
       name: "",
       description: "",
-      form_config_json: "{}",
       display_order: 0,
       is_selectable: true,
       is_active: true,
@@ -92,7 +95,6 @@ export function CreateIssueCategoryModal({
         code: category.code || "",
         name: category.name,
         description: category.description || "",
-        form_config_json: JSON.stringify(category.form_config ?? {}, null, 2),
         display_order: category.display_order,
         is_selectable: category.is_selectable !== false,
         is_active: category.is_active,
@@ -103,27 +105,14 @@ export function CreateIssueCategoryModal({
         code: "",
         name: "",
         description: "",
-        form_config_json: JSON.stringify({ fields: [], standardFields: {} }, null, 2),
         display_order: 0,
         is_selectable: true,
         is_active: true,
       });
     }
-    setFormConfigError(null);
   }, [category, isOpen, form]);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    let formConfig = {};
-    if (values.form_config_json?.trim()) {
-      try {
-        formConfig = JSON.parse(values.form_config_json);
-      } catch {
-        setFormConfigError("Form config must be valid JSON");
-        return;
-      }
-    }
-    setFormConfigError(null);
-
     const payload = {
       parent_category_id:
         values.parent_category_id && values.parent_category_id !== NONE_PARENT
@@ -132,7 +121,6 @@ export function CreateIssueCategoryModal({
       code: values.code?.trim() || null,
       name: values.name,
       description: values.description,
-      form_config: formConfig,
       display_order: values.display_order,
       is_selectable: values.is_selectable,
       is_active: values.is_active,
@@ -147,7 +135,11 @@ export function CreateIssueCategoryModal({
         actionFeedback.success("Category updated");
       } else {
         await createCategory(payload).unwrap();
-        actionFeedback.success("Category created");
+        actionFeedback.success(
+          canConfigureForm
+            ? "Category created. Use Configure Form to design its raise-issue fields."
+            : "Category created"
+        );
       }
       onClose();
     } catch (err: unknown) {
@@ -239,26 +231,21 @@ export function CreateIssueCategoryModal({
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="form_config_json"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Form Configuration (JSON)</FormLabel>
-                  <FormControl>
-                    <Textarea rows={8} className="font-mono text-xs" {...field} />
-                  </FormControl>
-                  {formConfigError ? (
-                    <p className="text-sm text-red-600">{formConfigError}</p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      Define dynamic fields and standard field visibility for this issue type.
-                    </p>
-                  )}
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {isEditMode && category?.is_selectable !== false ? (
+              <PermissionGuard
+                requireAll={[ISSUE_CATEGORY_PERMISSIONS.CONFIGURE_FORM]}
+                fallback={
+                  category ? (
+                    <IssueCategoryFormConfigPreview formConfig={category.form_config} />
+                  ) : null
+                }
+              >
+                <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                  Form fields for this category are managed separately using the{" "}
+                  <span className="font-medium text-foreground">Configure Form</span> action.
+                </div>
+              </PermissionGuard>
+            ) : null}
 
             <FormField
               control={form.control}
@@ -309,9 +296,16 @@ export function CreateIssueCategoryModal({
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isCreating || isUpdating}>
-                {isEditMode ? "Save Changes" : "Create Category"}
-              </Button>
+              <PermissionGuard
+                requireAny={[
+                  ISSUE_CATEGORY_PERMISSIONS.CREATE,
+                  ISSUE_CATEGORY_PERMISSIONS.UPDATE,
+                ]}
+              >
+                <Button type="submit" disabled={isCreating || isUpdating}>
+                  {isEditMode ? "Save Changes" : "Create Category"}
+                </Button>
+              </PermissionGuard>
             </DialogFooter>
           </form>
         </Form>

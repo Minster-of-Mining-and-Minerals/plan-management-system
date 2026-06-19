@@ -16,9 +16,11 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   requireAny,
   fallback = null,
 }) => {
-  const { check, isLoading } = usePermissions();
+  const { check, isLoading, permissions } = usePermissions();
 
-  if (isLoading) return null;
+  if (isLoading && permissions.length === 0) {
+    return <>{fallback}</>;
+  }
 
   let canAccess = true;
 

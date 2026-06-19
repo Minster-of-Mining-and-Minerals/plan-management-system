@@ -6,7 +6,6 @@ import { useDispatch, useSelector } from "react-redux";
 import { setUser, setPermissions, clearUserProfile } from "@/redux/slices/authSlice";
 import { useGetMeQuery, useGetMyPermissionsQuery } from "@/redux/api/authApi";
 import { baseApi } from "@/redux/baseApi";
-import { RootState } from "@/redux/store";
 
 /**
  * AuthInitializer
@@ -26,7 +25,6 @@ export default function AuthInitializer({
 }) {
   const { data: session, status } = useSession();
   const dispatch = useDispatch();
-  const isLoaded = useSelector((state: RootState) => state.auth.isLoaded);
 
   // Sync token during render so RTK Query requests in child components
   // have the Bearer token on the same tick (useEffect would be too late).
@@ -59,9 +57,12 @@ export default function AuthInitializer({
     skip: status !== "authenticated" || !session?.accessToken,
   });
 
-  // Step 3: Fetch roles + permissions from /permissions
+  // Step 3: Fetch roles + permissions from /permissions (always refetch while authenticated)
   const { data: permissionsData } = useGetMyPermissionsQuery(undefined, {
-    skip: status !== "authenticated" || !session?.accessToken || isLoaded,
+    skip: status !== "authenticated" || !session?.accessToken,
+    refetchOnMountOrArgChange: true,
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
   });
 
   // Step 4: Populate Redux when data responds
