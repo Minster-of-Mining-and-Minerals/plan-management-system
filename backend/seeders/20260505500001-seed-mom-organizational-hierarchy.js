@@ -12,6 +12,7 @@ const {
   MOM_DEPARTMENTS,
   MIDI_DEPARTMENTS,
   GIE_DEPARTMENTS,
+  MOM_USER_TEMPLATES,
   DIRECTORATE_USER_TEMPLATES,
   DEPARTMENT_USER_TEMPLATES,
 } = require("./data/momOrgHierarchy.data");
@@ -152,7 +153,15 @@ function buildSectorRows(now) {
   ];
 }
 
-function seedDepartmentsForSector(sectorKey, sectorId, departmentTree, now, counters, userRoleId) {
+function seedDepartmentsForSector(
+  sectorKey,
+  sectorId,
+  departmentTree,
+  now,
+  counters,
+  userRoleId,
+  userTemplates = DIRECTORATE_USER_TEMPLATES
+) {
   const internalStructures = [];
   const users = [];
   const userRoles = [];
@@ -173,7 +182,7 @@ function seedDepartmentsForSector(sectorKey, sectorId, departmentTree, now, coun
     });
 
     const short = deptShortName(dept.name);
-    DIRECTORATE_USER_TEMPLATES.forEach((template) => {
+    userTemplates.forEach((template) => {
       const userPath = `${deptPath}/${template.roleKey}`;
       const user = buildUser({
         path: userPath,
@@ -205,7 +214,7 @@ function seedDepartmentsForSector(sectorKey, sectorId, departmentTree, now, coun
       });
 
       const childShort = deptShortName(child.name);
-      DEPARTMENT_USER_TEMPLATES.forEach((template) => {
+      userTemplates.forEach((template) => {
         const userPath = `${childPath}/${template.roleKey}`;
         const user = buildUser({
           path: userPath,
@@ -276,9 +285,33 @@ module.exports = {
       now,
     };
 
-    const mom = seedDepartmentsForSector("mom", SECTOR_IDS.MOM, MOM_DEPARTMENTS, now, counters, userRoleId);
-    const midi = seedDepartmentsForSector("midi", SECTOR_IDS.MIDI, MIDI_DEPARTMENTS, now, counters, userRoleId);
-    const gie = seedDepartmentsForSector("gie", SECTOR_IDS.GIE, GIE_DEPARTMENTS, now, counters, userRoleId);
+    const mom = seedDepartmentsForSector(
+      "mom",
+      SECTOR_IDS.MOM,
+      MOM_DEPARTMENTS,
+      now,
+      counters,
+      userRoleId,
+      MOM_USER_TEMPLATES
+    );
+    const midi = seedDepartmentsForSector(
+      "midi",
+      SECTOR_IDS.MIDI,
+      MIDI_DEPARTMENTS,
+      now,
+      counters,
+      userRoleId,
+      MOM_USER_TEMPLATES
+    );
+    const gie = seedDepartmentsForSector(
+      "gie",
+      SECTOR_IDS.GIE,
+      GIE_DEPARTMENTS,
+      now,
+      counters,
+      userRoleId,
+      MOM_USER_TEMPLATES
+    );
 
     const allDepartments = [
       ...mom.internalStructures,
@@ -302,8 +335,8 @@ module.exports = {
     console.log(`  Departments: ${allDepartments.length}`);
     console.log(`  Demo users: ${allUsers.length} (role: User, password: password)`);
     console.log("");
-    console.log("Note: Re-run the demo plan seeder to restore plan data:");
-    console.log("  npx sequelize-cli db:seed --seed 20260506000001-seed-mom-demo-plan.js");
+    console.log("Note: To add demo users to the organogram without resetting structure:");
+    console.log("  npm run seed:organogram-users");
     console.log("");
     console.log("Sector descriptions:");
     console.log(`  - Ministry of Mines: ${MOM_DESCRIPTION.slice(0, 80)}...`);

@@ -10,6 +10,7 @@ const {
     clearSectorDepartments,
     ensureGovernmentSector,
     syncSectorDepartmentTree,
+    seedTwoUsersPerDepartment,
 } = require("./utils/organogramSeederUtils");
 
 async function ensureParentSector(queryInterface) {
@@ -49,7 +50,7 @@ module.exports = {
                 now
             );
 
-            const departmentCount = await syncSectorDepartmentTree(
+            const departmentRows = await syncSectorDepartmentTree(
                 queryInterface,
                 sectorId,
                 institute.sectorKey,
@@ -57,10 +58,18 @@ module.exports = {
                 now
             );
 
+            const userCount = await seedTwoUsersPerDepartment(queryInterface, {
+                sectorId,
+                sectorKey: institute.sectorKey,
+                departmentRows,
+                now,
+            });
+
             console.log(`Synced institute sector: ${institute.name}`);
             console.log(`  Sector ID: ${sectorId}`);
             console.log(`  Parent: ${PARENT_SECTOR_NAME}`);
-            console.log(`  Departments/units: ${departmentCount} (root: ${ROOT_DIRECTOR_GENERAL})`);
+            console.log(`  Departments/units: ${departmentRows.length} (root: ${ROOT_DIRECTOR_GENERAL})`);
+            console.log(`  Demo users: ${userCount} (2 per department, password: password)`);
             console.log(`  Description: ${institute.description}`);
         }
     },

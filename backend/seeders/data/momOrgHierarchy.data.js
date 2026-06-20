@@ -52,6 +52,12 @@ const GIE_DEPARTMENTS = [
   { name: "Human Resources Directorate" },
 ];
 
+/** Two demo users per department (Ministry of Mines sector). */
+const MOM_USER_TEMPLATES = [
+  { roleKey: "head", title: "Department Head", namePattern: (short) => `${short} Head` },
+  { roleKey: "officer", title: "Officer", namePattern: (short) => `${short} Officer` },
+];
+
 const DIRECTORATE_USER_TEMPLATES = [
   { roleKey: "director", title: "Director", namePattern: (short) => `Director ${short}` },
   { roleKey: "deputy-director", title: "Deputy Director", namePattern: (short) => `Deputy Director ${short}` },
@@ -75,6 +81,7 @@ module.exports = {
   MOM_DEPARTMENTS,
   MIDI_DEPARTMENTS,
   GIE_DEPARTMENTS,
+  MOM_USER_TEMPLATES,
   DIRECTORATE_USER_TEMPLATES,
   DEPARTMENT_USER_TEMPLATES,
 };
