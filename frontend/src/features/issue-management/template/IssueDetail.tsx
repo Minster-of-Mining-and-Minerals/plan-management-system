@@ -53,10 +53,11 @@ export default function IssueDetailView({ issueId }: IssueDetailViewProps) {
   const panelOpen = Boolean(selectedAction) || openTimeline;
 
   const isRaiser = Boolean(user?.user_id && issue?.raised_by === user.user_id);
-  const canShowWorkflowActions =
+  const canShowWorkflowActions = Boolean(
     !isRaiser &&
-    issue &&
-    ["submitted", "under_review", "accepted", "resolved"].includes(issue.status);
+      issue &&
+      ["submitted", "under_review", "accepted", "resolved"].includes(issue.status)
+  );
 
   const closePanels = () => {
     setSelectedAction(null);

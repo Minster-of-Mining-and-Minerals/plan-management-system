@@ -96,7 +96,10 @@ export function PlanReviewDashboard({ masterVersionId }: PlanReviewDashboardProp
       {
         id: "entity",
         header: "Entity",
-        cell: ({ row }) => ISSUE_ENTITY_TYPE_LABELS[row.original.entity_type],
+        cell: ({ row }) =>
+          row.original.entity_type
+            ? ISSUE_ENTITY_TYPE_LABELS[row.original.entity_type]
+            : "—",
       },
       ...(canViewAllIssues
         ? [

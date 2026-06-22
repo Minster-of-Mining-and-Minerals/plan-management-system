@@ -119,7 +119,9 @@ export default function IssuesDashboard({ embedded = false }: IssuesDashboardPro
         header: "Entity",
         cell: ({ row }) => (
           <span className="text-sm">
-            {ISSUE_ENTITY_TYPE_LABELS[row.original.entity_type]}
+            {row.original.entity_type
+              ? ISSUE_ENTITY_TYPE_LABELS[row.original.entity_type]
+              : "—"}
           </span>
         ),
       },

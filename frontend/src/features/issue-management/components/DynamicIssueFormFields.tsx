@@ -22,7 +22,8 @@ import type { FormConfigField } from "@/redux/types/formConfig";
 import type { Control } from "react-hook-form";
 
 interface DynamicIssueFormFieldsProps {
-  control: Control<Record<string, unknown>>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  control: Control<any>;
   fields: FormConfigField[];
   heading?: string;
 }

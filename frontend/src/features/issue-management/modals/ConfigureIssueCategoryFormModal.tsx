@@ -95,7 +95,9 @@ export function ConfigureIssueCategoryFormModal({
             </TabsContent>
           </Tabs>
         ) : (
-          <IssueCategoryFormConfigPreview formConfig={category.form_config} />
+          <IssueCategoryFormConfigPreview
+            formConfig={category.form_config ?? createEmptyFormConfig()}
+          />
         )}
 
         <DialogFooter>

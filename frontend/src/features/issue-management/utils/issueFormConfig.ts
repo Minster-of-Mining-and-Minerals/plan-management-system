@@ -1,27 +1,18 @@
-export interface IssueFormFieldOption {
-  value: string;
-  label: string;
-}
+import type {
+  IssueCategoryFormConfig,
+  IssueEntityType,
+  IssueFormFieldConfig,
+  IssueFormFieldOption,
+  IssueStandardFieldRule,
+} from "@/redux/types/issue";
 
-export interface IssueFormFieldConfig {
-  key: string;
-  label: string;
-  type: "text" | "textarea" | "select";
-  required?: boolean;
-  placeholder?: string;
-  options?: IssueFormFieldOption[];
-}
-
-export interface IssueStandardFieldRule {
-  visible?: boolean;
-  required?: boolean;
-  allowedTypes?: string[];
-}
-
-export interface IssueCategoryFormConfig {
-  fields?: IssueFormFieldConfig[];
-  standardFields?: Record<string, IssueStandardFieldRule>;
-}
+export type {
+  IssueCategoryFormConfig,
+  IssueEntityType,
+  IssueFormFieldConfig,
+  IssueFormFieldOption,
+  IssueStandardFieldRule,
+};
 
 export function normalizeFormConfig(
   formConfig?: IssueCategoryFormConfig | null
@@ -54,8 +45,8 @@ export function isStandardFieldRequired(
 
 export function getAllowedEntityTypes(
   formConfig: IssueCategoryFormConfig | null | undefined,
-  fallbackTypes: string[]
-): string[] {
+  fallbackTypes: IssueEntityType[]
+): IssueEntityType[] {
   const rule = normalizeFormConfig(formConfig).standardFields.entity_type;
   if (rule?.allowedTypes?.length) return rule.allowedTypes;
   return fallbackTypes;
@@ -120,7 +111,7 @@ export const ISSUE_STANDARD_FIELD_DEFINITIONS = [
   },
 ] as const;
 
-export const ISSUE_ENTITY_TYPE_OPTIONS = [
+export const ISSUE_ENTITY_TYPE_OPTIONS: readonly IssueEntityType[] = [
   "plan_version",
   "strategic",
   "objective",

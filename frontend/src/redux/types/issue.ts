@@ -74,11 +74,14 @@ export interface IssueCategory {
   code?: string | null;
   name: string;
   description: string | null;
+  parent_category_id?: string | null;
+  parent?: Pick<IssueCategory, "issue_category_id" | "name"> | null;
   display_order: number;
   is_selectable?: boolean;
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  form_config?: IssueCategoryFormConfig | null;
   formConfigContainers?: IssueCategoryFormConfigContainerRef[];
 }
 
@@ -228,6 +231,7 @@ export interface UpdateIssueCategoryPayload {
   description?: string;
   display_order?: number;
   is_active?: boolean;
+  form_config?: IssueCategoryFormConfig;
 }
 
 export const ISSUE_STATUS_LABELS: Record<IssueStatus, string> = {

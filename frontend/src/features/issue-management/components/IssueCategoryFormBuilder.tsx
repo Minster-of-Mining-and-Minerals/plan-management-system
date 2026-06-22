@@ -18,6 +18,7 @@ import {
   IssueCategoryFormConfig,
   IssueEntityType,
   IssueFormFieldConfig,
+  IssueStandardFieldRule,
 } from "@/redux/types/issue";
 import {
   ISSUE_ENTITY_TYPE_OPTIONS,
@@ -45,7 +46,7 @@ export function IssueCategoryFormBuilder({
 
   const updateStandardField = (
     fieldKey: string,
-    patch: Partial<{ visible: boolean; required: boolean; allowedTypes: string[] }>
+    patch: Partial<IssueStandardFieldRule>
   ) => {
     const next = cloneConfig(value);
     next.standardFields = next.standardFields ?? {};
@@ -120,10 +121,15 @@ export function IssueCategoryFormBuilder({
     onChange(next);
   };
 
-  const toggleAllowedEntityType = (fieldKey: string, entityType: string, checked: boolean) => {
+  const toggleAllowedEntityType = (
+    fieldKey: string,
+    entityType: IssueEntityType,
+    checked: boolean
+  ) => {
     const rule = config.standardFields[fieldKey] ?? {};
-    const current = rule.allowedTypes ?? [...ISSUE_ENTITY_TYPE_OPTIONS];
-    const nextTypes = checked
+    const current: IssueEntityType[] =
+      rule.allowedTypes ?? [...ISSUE_ENTITY_TYPE_OPTIONS];
+    const nextTypes: IssueEntityType[] = checked
       ? Array.from(new Set([...current, entityType]))
       : current.filter((type) => type !== entityType);
     updateStandardField(fieldKey, { allowedTypes: nextTypes });
@@ -207,7 +213,7 @@ export function IssueCategoryFormBuilder({
                               )
                             }
                           />
-                          {ISSUE_ENTITY_TYPE_LABELS[entityType as IssueEntityType]}
+                          {ISSUE_ENTITY_TYPE_LABELS[entityType]}
                         </label>
                       ))}
                     </div>
