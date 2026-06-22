@@ -3,6 +3,7 @@ import { UserType, UserPosition, User } from "../types/user";
 import {
   CreateUserPayload,
   UpdateUserPayload,
+  UpdateProfilePayload,
   ToggleUserStatusPayload,
 } from "../types/user";
 
@@ -44,6 +45,16 @@ export const userApi = baseApi.injectEndpoints({
       query: () => `/users/profile/me`,
       transformResponse: (response: any): User => response.data,
       providesTags: ["User"],
+    }),
+
+    updateProfile: builder.mutation<User, UpdateProfilePayload>({
+      query: (body) => ({
+        url: `/users/profile/me`,
+        method: "PATCH",
+        body,
+      }),
+      transformResponse: (response: any): User => response.data,
+      invalidatesTags: ["User"],
     }),
 
     /** ---------------------------
@@ -164,6 +175,7 @@ export const {
   useGetUsersQuery,
   useGetUserByIdQuery,
   useGetProfileQuery,
+  useUpdateProfileMutation,
   useCreateUserMutation,
   useUpdateUserMutation,
   useDeleteUserMutation,

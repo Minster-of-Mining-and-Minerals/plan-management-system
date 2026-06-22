@@ -14,6 +14,7 @@ import { formatStatus } from "@/utils/statusFormatter";
 import { useRouter } from "next/navigation";
 import { useRemoveUserFromGroupMutation } from "@/redux/api/permissionGroupApi";
 import { actionFeedback } from "@/components/action-feedback";
+import { UserAvatar } from "@/components/common/UserAvatar";
 import { useSearchParams } from "next/navigation";
 import { matchesActiveInactiveFilter, matchesSearchQuery } from "@/utils/tableUtils";
 
@@ -47,6 +48,17 @@ export default function UsersGroupList({ sideActions, actions, users, groupId, i
     };
 
     const columns: ColumnDef<User>[] = [
+        {
+            id: "avatar",
+            header: "",
+            cell: ({ row }) => (
+                <UserAvatar
+                    name={row.original.full_name}
+                    profileImage={row.original.profile_image}
+                    className="h-9 w-9"
+                />
+            ),
+        },
         {
             accessorKey: "full_name",
             header: "Full Name",

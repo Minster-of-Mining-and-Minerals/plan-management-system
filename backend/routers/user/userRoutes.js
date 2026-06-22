@@ -9,8 +9,12 @@ const {
   toggleUserActiveStatus,
   resetUserPassword,
   getProfile,
+  updateProfile,
 } = require("../../controllers/user/userController");
 const { authenticateToken } = require("../../middlewares/authMiddleware");
+const {
+  validateUpdateProfile,
+} = require("../../validators/user/userValidator");
 
 router.use(authenticateToken);
 
@@ -45,36 +49,10 @@ router.use(authenticateToken);
  */
 router.get("/", getUsers);
 
-/**
- * @swagger
- * /users/{id}:
- *   get:
- *     summary: Get a user by ID
- *     tags: [Users]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: User ID
- *     responses:
- *       200:
- *         description: User details
- */
-router.get("/:id", getUserById);
-
-/**
- * @swagger
- * /users/profile:
- *   get:
- *     summary: Get current logged in user's profile
- *     tags: [Users]
- *     responses:
- *       200:
- *         description: User profile
- */
 router.get("/profile/me", getProfile);
+router.patch("/profile/me", validateUpdateProfile, updateProfile);
+
+router.get("/:id", getUserById);
 
 /**
  * @swagger

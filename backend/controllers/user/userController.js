@@ -47,6 +47,27 @@ async function validateRoleAssignments(role_ids, structureId, req, transaction) 
   }
 }
 
+const userDetailIncludes = [
+  {
+    model: Role,
+    as: "roles",
+    through: { attributes: [] },
+  },
+  {
+    model: GovernmentStructure,
+    as: "governmentStructure",
+  },
+  {
+    model: InternalStructure,
+    as: "internalStructure",
+  },
+  {
+    model: PermissionGroup,
+    as: "permissionGroups",
+    through: { attributes: [] },
+  },
+];
+
 
 const createUser = async (req, res) => {
   const t = await sequelize.transaction();
@@ -92,8 +113,7 @@ const createUser = async (req, res) => {
     }
 
     const resolvedStructureId = structureId || government_structure_id || null;
-    // const password = generateRandomPassword();
-    const password = "password";
+    const password = generateRandomPassword();
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // ====== Create User ======
@@ -187,9 +207,11 @@ const updateUser = async (req, res) => {
       full_name,
       phone_number,
       is_active,
+      is_first_logged_in,
       role_ids,
       government_structure_id,
       internal_structure_id,
+      profile_image,
     } = req.body;
     const email = req.body.email != null ? normalizeEmail(req.body.email) : undefined;
 
@@ -226,6 +248,7 @@ const updateUser = async (req, res) => {
       email: user.email,
       phone_number: user.phone_number,
       is_active: user.is_active,
+      is_first_logged_in: user.is_first_logged_in,
       government_structure_id: user.government_structure_id,
       internal_structure_id: user.internal_structure_id,
     };
@@ -256,8 +279,11 @@ const updateUser = async (req, res) => {
         email: email ?? user.email,
         phone_number: phone_number ?? user.phone_number,
         is_active: is_active ?? user.is_active,
+        is_first_logged_in:
+          is_first_logged_in !== undefined ? is_first_logged_in : user.is_first_logged_in,
         government_structure_id: targetStructureId ?? user.government_structure_id,
         internal_structure_id: internal_structure_id ?? user.internal_structure_id,
+        profile_image: profile_image !== undefined ? profile_image : user.profile_image,
         updated_at: new Date(),
       },
       { transaction: t }
@@ -301,6 +327,7 @@ const updateUser = async (req, res) => {
           email: user.email,
           phone_number: user.phone_number,
           is_active: user.is_active,
+          is_first_logged_in: user.is_first_logged_in,
           government_structure_id: user.government_structure_id,
           internal_structure_id: user.internal_structure_id,
           role_ids: role_ids ?? undefined,
@@ -393,26 +420,7 @@ const getUserById = async (req, res) => {
 
     // ====== Find user with relations ======
     const user = await User.findByPk(user_id, {
-      include: [
-        {
-          model: Role,
-          as: "roles",
-          through: { attributes: [] },
-        },
-        {
-          model: GovernmentStructure,
-          as: "governmentStructure",
-        },
-        {
-          model: InternalStructure,
-          as: "internalStructure",
-        },
-        {
-          model: PermissionGroup,
-          as: "permissionGroups",
-          through: { attributes: [] },
-        },
-      ],
+      include: userDetailIncludes,
     });
 
     if (!user) {
@@ -566,31 +574,48 @@ const resetUserPassword = async (req, res) => {
       });
     }
 
-    // Generate and hash new password
+    try {
+      assertUserInStructure(user, user.government_structure_id, req);
+    } catch (error) {
+      await t.rollback();
+      return sendScopeError(res, error);
+    }
+
     const newPassword = generateRandomPassword();
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     await user.update(
       {
         password: hashedPassword,
-        is_first_logged_in: false,
+        is_first_logged_in: true,
         updated_at: new Date(),
       },
       { transaction: t }
     );
 
+    await recordSystemAuditLog(
+      {
+        module: AUDIT_MODULES.USERS,
+        action: "reset_password",
+        entityId: user.user_id,
+        entityLabel: user.full_name,
+        changedBy: req.user.user_id,
+        ipAddress: getClientIp(req),
+      },
+      t
+    );
+
     await t.commit();
 
-    // Send email notification
     await sendEmail(
       user.email,
       `Password Reset - ${process.env.APP_NAME}`,
       `
       Dear ${user.full_name},
-      Your password has been reset successfully.
+      Your password has been reset by an administrator.
       Email: ${user.email}
       New Temporary Password: ${newPassword}
-      Please change your password after logging in.
+      You will be required to change your password after logging in.
       `
     );
 
@@ -615,25 +640,12 @@ const getProfile = async (req, res) => {
 
     const user = await User.findOne({
       where: { user_id: userId },
-      attributes: [
-        "user_id",
-        "full_name",
-        "email",
-        "phone_number",
-        "profile_image",
-        "is_first_logged_in",
-        "last_login_at",
-        "password_changed_at",
-        "is_active",
-        "created_at",
-        "updated_at",
-      ],
+      include: userDetailIncludes,
     });
 
-    if (!user)
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
 
     return res.status(200).json({ success: true, data: user });
   } catch (error) {
@@ -646,6 +658,50 @@ const getProfile = async (req, res) => {
   }
 };
 
+const updateProfile = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const userId = req.user.user_id;
+    const { full_name, phone_number, profile_image } = req.body;
+
+    const user = await User.findByPk(userId, { transaction: t });
+    if (!user) {
+      await t.rollback();
+      return res.status(404).json({ success: false, message: "User not found." });
+    }
+
+    await user.update(
+      {
+        full_name: full_name ?? user.full_name,
+        phone_number:
+          phone_number !== undefined
+            ? phone_number || null
+            : user.phone_number,
+        profile_image:
+          profile_image !== undefined ? profile_image || null : user.profile_image,
+        updated_at: new Date(),
+      },
+      { transaction: t }
+    );
+
+    await t.commit();
+
+    const updatedUser = await User.findByPk(userId, {
+      include: userDetailIncludes,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully.",
+      data: updatedUser,
+    });
+  } catch (error) {
+    if (!t.finished) await t.rollback();
+    console.error("Error updating profile:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   createUser,
   getUsers,
@@ -655,4 +711,5 @@ module.exports = {
   toggleUserActiveStatus,
   resetUserPassword,
   getProfile,
+  updateProfile,
 };

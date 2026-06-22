@@ -85,6 +85,7 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
 
   // Authenticated-only routes (no extra permission required)
   { pattern: "/notifications" },
+  { pattern: "/profile" },
 ];
 
 export function patternToRegExp(pattern: string): RegExp {

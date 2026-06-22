@@ -54,7 +54,22 @@ const updateUserSchema = Joi.object({
       "string.guid": "Each role ID must be a valid UUID.",
     }),
   is_active: Joi.boolean().optional(),
+  is_first_logged_in: Joi.boolean().optional(),
+  profile_image: Joi.string().max(500).allow(null, "").optional(),
 });
+
+const updateProfileSchema = Joi.object({
+  full_name: Joi.string().min(2).max(100).optional(),
+  phone_number: Joi.string()
+    .pattern(ETHIOPIAN_PHONE_REGEX)
+    .allow(null, "")
+    .optional()
+    .messages({
+      "string.pattern.base":
+        "Phone number must be a valid Ethiopian format (e.g., +2519XXXXXXXX or 09XXXXXXXX).",
+    }),
+  profile_image: Joi.string().max(500).allow(null, "").optional(),
+}).min(1);
 
 // =================== Validators ===================
 exports.validateCreateUser = (req, res, next) => {
@@ -72,6 +87,17 @@ exports.validateCreateUser = (req, res, next) => {
 exports.validateUpdateUser = (req, res, next) => {
   normalizeEmailBody(req);
   const { error } = updateUserSchema.validate(req.body, { abortEarly: true });
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.details[0].message,
+    });
+  }
+  next();
+};
+
+exports.validateUpdateProfile = (req, res, next) => {
+  const { error } = updateProfileSchema.validate(req.body, { abortEarly: true });
   if (error) {
     return res.status(400).json({
       success: false,

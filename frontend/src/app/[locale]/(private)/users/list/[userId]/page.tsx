@@ -9,12 +9,12 @@ import {
   useDeleteUserMutation,
   useUpdateUserMutation,
   useToggleUserStatusMutation,
+  useResetUserPasswordMutation,
 } from "@/redux/api/userApi";
 import { useGetRolesQuery } from "@/redux/api/roleApi";
 import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
 import { useGetInternalStructuresQuery } from "@/redux/api/internalStructureApi";
 import { 
-  User2Icon, 
   Mail, 
   Phone, 
   Calendar, 
@@ -29,12 +29,14 @@ import {
   Save,
   X,
   UserCheck,
+  KeyRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { 
   Select, 
   SelectContent, 
@@ -44,6 +46,8 @@ import {
 } from "@/components/ui/select";
 import { actionFeedback } from "@/components/action-feedback";
 import DetailHeader from "@/components/common/DetailHeader";
+import { UserAvatar } from "@/components/common/UserAvatar";
+import { ProfileImageUpload } from "@/components/common/ProfileImageUpload";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useStructureScope } from "@/hooks/useStructureScope";
@@ -57,6 +61,8 @@ const userFormSchema = z.object({
   government_structure_id: z.string().optional().nullable(),
   internal_structure_id: z.string().optional().nullable(),
   role_ids: z.array(z.string()).min(1, "At least one role must be assigned"),
+  profile_image: z.string().nullable().optional(),
+  is_first_logged_in: z.boolean(),
 });
 
 type UserFormValues = z.infer<typeof userFormSchema>;
@@ -74,6 +80,7 @@ const UserViewPage = () => {
   const [updateUser, { isLoading: isUpdating }] = useUpdateUserMutation();
   const [deleteUser, { isLoading: isDeactivating }] = useDeleteUserMutation();
   const [toggleUserStatus, { isLoading: isTogglingStatus }] = useToggleUserStatusMutation();
+  const [resetUserPassword, { isLoading: isResettingPassword }] = useResetUserPasswordMutation();
 
   const [isEditing, setIsEditing] = useState(false);
 
@@ -89,6 +96,8 @@ const UserViewPage = () => {
       government_structure_id: "",
       internal_structure_id: "",
       role_ids: [],
+      profile_image: null,
+      is_first_logged_in: true,
     },
   });
 
@@ -121,6 +130,8 @@ const UserViewPage = () => {
         government_structure_id: user.government_structure_id || "",
         internal_structure_id: user.internal_structure_id || "",
         role_ids: user.roles?.map((r) => r.role_id) || [],
+        profile_image: user.profile_image || null,
+        is_first_logged_in: user.is_first_logged_in,
       });
     }
   }, [user, form]);
@@ -137,6 +148,8 @@ const UserViewPage = () => {
           government_structure_id: values.government_structure_id || undefined,
           internal_structure_id: values.internal_structure_id || undefined,
           is_active: values.is_active,
+          profile_image: values.profile_image ?? null,
+          is_first_logged_in: values.is_first_logged_in,
         },
       }).unwrap();
       actionFeedback.success("User updated successfully");
@@ -204,6 +217,25 @@ const UserViewPage = () => {
     }
   };
 
+  const handleResetPassword = async () => {
+    if (
+      !(await actionFeedback.confirm(
+        `Reset password for ${user.full_name}? A new system-generated password will be emailed to ${user.email}, and the user will be required to change it on next login.`,
+        { destructive: true }
+      ))
+    ) {
+      return;
+    }
+
+    try {
+      const result = await resetUserPassword(userId).unwrap();
+      actionFeedback.success(result.message || "Password reset successfully");
+    } catch (error: unknown) {
+      const err = error as { data?: { message?: string } };
+      actionFeedback.error(err?.data?.message || "Failed to reset password");
+    }
+  };
+
   return (
     <div className="min-h-screen w-full bg-[#F9FBFC] p-6 space-y-6">
       {/* Header with Breadcrumbs and Actions */}
@@ -228,6 +260,16 @@ const UserViewPage = () => {
             <>
               <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
                 <Edit className="mr-2 h-4 w-4" /> Edit User
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleResetPassword}
+                disabled={isResettingPassword || !user.is_active}
+                title={!user.is_active ? "Cannot reset password for inactive user" : undefined}
+              >
+                <KeyRound className="mr-2 h-4 w-4" />
+                {isResettingPassword ? "Resetting..." : "Reset Password"}
               </Button>
               {user.is_active ? (
                 <Button
@@ -267,12 +309,24 @@ const UserViewPage = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Profile Card */}
         <div className="lg:col-span-1 space-y-6">
-          <Card className="overflow-hidden">
+          <Card className="overflow-hidden pt-0">
             <CardHeader className="bg-[#094C81] text-white text-center pb-8 pt-8">
               <div className="flex justify-center mb-4">
-                <div className="relative w-24 h-24 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border-2 border-white/50">
-                  <User2Icon className="h-12 w-12 text-white" />
-                </div>
+                {isEditing ? (
+                  <ProfileImageUpload
+                    label=""
+                    value={form.watch("profile_image")}
+                    onChange={(value) => form.setValue("profile_image", value)}
+                    previewClassName="border-white/40 bg-white/10"
+                  />
+                ) : (
+                  <UserAvatar
+                    name={user.full_name}
+                    profileImage={user.profile_image}
+                    className="h-24 w-24 border-2 border-white/50 text-2xl"
+                    fallbackClassName="bg-white/20 text-white text-xl"
+                  />
+                )}
               </div>
               <CardTitle className="text-2xl font-bold">
                 {isEditing ? (
@@ -564,13 +618,38 @@ const UserViewPage = () => {
                   {user.password_changed_at ? new Date(user.password_changed_at).toLocaleString() : "Never changed"}
                 </p>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-2 md:col-span-2">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
                   Force Password Reset on Next Login
                 </p>
-                <Badge variant={user.is_first_logged_in ? "destructive" : "outline"} className="mt-1">
-                  {user.is_first_logged_in ? "Yes (Required)" : "No"}
-                </Badge>
+                {isEditing ? (
+                  <div className="flex items-center justify-between rounded-lg border bg-gray-50 p-3">
+                    <div className="pr-4">
+                      <p className="text-sm font-medium text-gray-900">
+                        Require password change on next login
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        New users require this by default. Turn off only if the user may keep their
+                        current password.
+                      </p>
+                    </div>
+                    <Controller
+                      control={form.control}
+                      name="is_first_logged_in"
+                      render={({ field }) => (
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          aria-label="Require password change on next login"
+                        />
+                      )}
+                    />
+                  </div>
+                ) : (
+                  <Badge variant={user.is_first_logged_in ? "destructive" : "outline"} className="mt-1">
+                    {user.is_first_logged_in ? "Yes (Required)" : "No"}
+                  </Badge>
+                )}
               </div>
             </CardContent>
           </Card>

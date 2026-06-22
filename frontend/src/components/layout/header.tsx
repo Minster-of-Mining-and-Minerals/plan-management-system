@@ -15,7 +15,7 @@ export function Header({ title }: HeaderProps) {
   const userData = {
     name: user?.full_name || "Guest",
     email: user?.email || "",
-    avatar: user?.profile_image || undefined,
+    profileImage: user?.profile_image,
   };
 
   return (

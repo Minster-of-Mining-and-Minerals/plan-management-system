@@ -75,6 +75,14 @@ export interface UpdateUserPayload {
   government_structure_id?: string;
   internal_structure_id?: string;
   is_active?: boolean;
+  is_first_logged_in?: boolean;
+  profile_image?: string | null;
+}
+
+export interface UpdateProfilePayload {
+  full_name?: string;
+  phone_number?: string | null;
+  profile_image?: string | null;
 }
 
 export interface ToggleUserStatusPayload {

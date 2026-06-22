@@ -14,6 +14,7 @@ import {
 } from "@/redux/api/userApi";
 import { User } from "@/redux/types/user";
 import { CreateUserModal } from "@/components/common/modals/CreateUserModal";
+import { UserAvatar } from "@/components/common/UserAvatar";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import {
@@ -92,6 +93,17 @@ export default function UserTable({
   }, [govStructures]);
 
   const columns: ColumnDef<User>[] = [
+    {
+      id: "avatar",
+      header: "",
+      cell: ({ row }) => (
+        <UserAvatar
+          name={row.original.full_name}
+          profileImage={row.original.profile_image}
+          className="h-9 w-9"
+        />
+      ),
+    },
     {
       accessorKey: "full_name",
       header: "Full Name",
