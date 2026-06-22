@@ -35,7 +35,8 @@ export function buildSectorTree(nodes: any[]): any[] {
     if (id) {
       nodeMap.set(id, {
         ...node,
-        children: [], // Initialize empty children array
+        logo_path: node.logo_path ?? null,
+        children: [],
       });
     }
   });

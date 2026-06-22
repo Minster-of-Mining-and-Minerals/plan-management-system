@@ -9,6 +9,7 @@ import type { PermissionKey } from "@/lib/permissions";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import { CreateGovernmentStructureModal } from "./modals/CreateGovernmentStructureModal";
 import { HierarchyTreeParentBadge } from "./components/HierarchyTreeParentBadge";
+import { SectorLogo } from "@/components/common/SectorLogo";
 import { useSession } from "next-auth/react";
 import { isStructureActive } from "@/utils/structureUtils";
 import { Label } from "@/components/ui/label";
@@ -35,6 +36,7 @@ function convertToD3Tree(node: any): D3TreeNode {
       parent_name: node.parent?.name || null,
       level: node.level,
       is_active: node.is_active,
+      logo_path: node.logo_path || null,
     },
     children: node.children?.length
       ? node.children.map(convertToD3Tree)
@@ -51,6 +53,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
   const hasChildren = !!nodeDatum.children?.length;
   const isActive = isStructureActive(nodeDatum.attributes.is_active);
   const isCollapsed = nodeDatum.__rd3t?.collapsed ?? false;
+  const logoPath = nodeDatum.attributes.logo_path as string | null | undefined;
 
   const handleAddChild = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -66,7 +69,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
           <foreignObject x={-10} y={-10} width={20} height={20}>
             <button
               onClick={toggleNode}
-              className="w-5 h-5 rounded-full bg-[#073954] hover:bg-[#0a4d70] text-white font-semibold flex items-center justify-center transition-colors duration-200 cursor-pointer text-sm"
+              className="w-5 h-5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold flex items-center justify-center transition-colors duration-200 cursor-pointer text-sm"
             >
               {isCollapsed ? "+" : "−"}
             </button>
@@ -74,42 +77,59 @@ const CustomNode: React.FC<CustomNodeProps> = ({
         </g>
       )}
 
-      <foreignObject x={-150} y={-90} width={300} height={150}>
-        <div className="flex h-full w-full min-h-0 flex-col justify-between overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-lg transition-all duration-200 hover:border-[#073954] hover:shadow-xl cursor-pointer">
-          <div className="flex items-start justify-between mb-3">
-            <h3 className="text-[#073954] text-base font-semibold flex-1 pr-2 line-clamp-2">
-              {nodeDatum.name}
-            </h3>
-            <span
-              className={`px-3 py-1 flex items-center justify-center rounded-full text-xs font-semibold whitespace-nowrap ${isActive ? "bg-green-100 text-green-900" : "bg-red-100 text-red-900"
-                }`}
-            >
-              {isActive ? "Active" : "Inactive"}
-            </span>
+      <foreignObject x={-150} y={-100} width={300} height={170}>
+        <div className="group/card flex h-full w-full min-h-0 flex-col justify-between overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-xl cursor-pointer">
+          <div className="mb-2 flex items-start gap-3">
+            <div className="relative shrink-0 transition-transform duration-300 group-hover/card:scale-105">
+              <SectorLogo
+                name={nodeDatum.name}
+                logoPath={logoPath}
+                size="lg"
+                showRing={Boolean(logoPath)}
+              />
+              {logoPath ? (
+                <div className="pointer-events-none absolute inset-0 rounded-full bg-primary/5 opacity-0 transition-opacity duration-300 group-hover/card:opacity-100" />
+              ) : null}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="line-clamp-2 flex-1 pr-1 text-base font-semibold text-foreground">
+                  {nodeDatum.name}
+                </h3>
+                <span
+                  className={`flex shrink-0 items-center justify-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                    isActive ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
+                  }`}
+                >
+                  {isActive ? "Active" : "Inactive"}
+                </span>
+              </div>
+              {nodeDatum.attributes.parent_name && (
+                <div className="mt-1.5">
+                  <HierarchyTreeParentBadge
+                    parentName={nodeDatum.attributes.parent_name}
+                    variant="government"
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
-          {nodeDatum.attributes.parent_name && (
-            <HierarchyTreeParentBadge
-              parentName={nodeDatum.attributes.parent_name}
-              variant="government"
-            />
-          )}
-
           {nodeDatum.attributes.description && (
-            <p className="text-gray-500 w-full text-sm mb-3 line-clamp-2">
+            <p className="mb-2 line-clamp-2 w-full text-xs text-muted-foreground">
               {shortenText(nodeDatum.attributes.description, 40)}
             </p>
           )}
 
-          <div className="mt-auto flex shrink-0 flex-row justify-center gap-3">
-            <button className="flex-1 bg-gray-100 hover:bg-gray-200 text-[#073954] font-semibold py-2 rounded-lg transition-colors duration-200 text-xs">
+          <div className="mt-auto flex shrink-0 flex-row justify-center gap-2">
+            <button className="flex-1 rounded-lg bg-muted py-2 text-xs font-semibold text-primary transition-colors duration-200 hover:bg-muted/80">
               Details
             </button>
             {isActive && (
               <PermissionGuard requireAll={permissions}>
                 <button
                   onClick={handleAddChild}
-                  className="flex-1 bg-[#073954] hover:bg-[#0a4d70] text-white font-semibold py-2 rounded-lg transition-colors duration-200 text-xs"
+                  className="flex-1 rounded-lg bg-primary py-2 text-xs font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90"
                 >
                   Add Child
                 </button>
@@ -206,7 +226,7 @@ const GovernmentHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
       <div className="w-full space-y-4">
         <div
           ref={containerRef}
-          className="w-full h-full min-h-[600px] bg-[#F9FBFC] rounded-lg border border-gray-200 overflow-hidden"
+          className="w-full h-full min-h-[600px] bg-background rounded-lg border border-border overflow-hidden"
           style={{ position: "relative" }}
         >
           <div className="absolute top-0 left-0 w-full p-4 z-10 flex items-center justify-between pointer-events-none">
@@ -250,7 +270,7 @@ const GovernmentHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
                 orientation="vertical"
                 pathFunc="straight"
                 separation={{ siblings: 2.5, nonSiblings: 2 }}
-                nodeSize={{ x: 220, y: 250 }}
+                nodeSize={{ x: 220, y: 280 }}
                 zoom={0.75}
                 scaleExtent={{ min: 0.1, max: 2 }}
                 enableLegacyTransitions={true}

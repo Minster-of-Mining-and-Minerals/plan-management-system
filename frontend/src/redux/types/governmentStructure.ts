@@ -4,6 +4,7 @@ export interface GovernmentStructure {
     name: string;
     level: number;
     is_active: boolean;
+    logo_path?: string | null;
     created_at?: string;
     updated_at?: string;
 
@@ -23,6 +24,7 @@ export interface CreateGovernmentStructurePayload {
     parent_id?: string | null;
     level?: number;
     is_active?: boolean;
+    logo_path?: string | null;
 }
 
 export interface UpdateGovernmentStructurePayload {
@@ -30,6 +32,7 @@ export interface UpdateGovernmentStructurePayload {
     parent_id?: string | null;
     level?: number;
     is_active?: boolean;
+    logo_path?: string | null;
 }
 
 export interface AddUsersToStructurePayload {

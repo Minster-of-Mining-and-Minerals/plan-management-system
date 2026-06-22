@@ -15,12 +15,12 @@ import {
     useReactivateGovernmentStructureMutation,
 } from "@/redux/api/governmentStructureApi";
 import { GovernmentStructure } from "@/redux/types/governmentStructure";
-import { formatStatus } from "@/utils/statusFormatter";
+import { CreateGovernmentStructureModal } from "./modals/CreateGovernmentStructureModal";
+import GovernmentHierarchyD3Tree from "./GovernmentStructureHierarchy";
+import { SectorLogo } from "@/components/common/SectorLogo";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { actionFeedback } from "@/components/action-feedback";
-import { CreateGovernmentStructureModal } from "./modals/CreateGovernmentStructureModal";
-import GovernmentHierarchyD3Tree from "./GovernmentStructureHierarchy";
 import { matchesActiveInactiveFilter } from "@/utils/tableUtils";
 import { isStructureActive } from "@/utils/structureUtils";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -83,6 +83,17 @@ export default function GovernmentStructureTable() {
     };
 
     const columns: ColumnDef<GovernmentStructure>[] = [
+        {
+            id: "logo",
+            header: "",
+            cell: ({ row }) => (
+                <SectorLogo
+                    name={row.original.name}
+                    logoPath={row.original.logo_path}
+                    size="sm"
+                />
+            ),
+        },
         {
             accessorKey: "name",
             header: "Sector Name",

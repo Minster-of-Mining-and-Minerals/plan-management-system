@@ -15,6 +15,7 @@ import {
 import { User } from "@/redux/types/user";
 import { CreateUserModal } from "@/components/common/modals/CreateUserModal";
 import { UserAvatar } from "@/components/common/UserAvatar";
+import { SectorLogo } from "@/components/common/SectorLogo";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import {
@@ -92,6 +93,16 @@ export default function UserTable({
     return map;
   }, [govStructures]);
 
+  const structureLogoById = useMemo(() => {
+    const map = new Map<string, string | null>();
+    for (const structure of govStructures) {
+      if (structure.government_structure_id) {
+        map.set(structure.government_structure_id, structure.logo_path ?? null);
+      }
+    }
+    return map;
+  }, [govStructures]);
+
   const columns: ColumnDef<User>[] = [
     {
       id: "avatar",
@@ -126,14 +137,20 @@ export default function UserTable({
           {
             id: "structure",
             header: "Sector",
-            cell: ({ row }: { row: { original: User } }) => (
-              <div className="text-sm text-muted-foreground">
-                {row.original.government_structure_id
-                  ? structureNameById.get(row.original.government_structure_id) ||
-                    "—"
-                  : "—"}
-              </div>
-            ),
+            cell: ({ row }: { row: { original: User } }) => {
+              const structureId = row.original.government_structure_id;
+              if (!structureId) {
+                return <span className="text-sm text-muted-foreground">—</span>;
+              }
+              const name = structureNameById.get(structureId) || "—";
+              const logoPath = structureLogoById.get(structureId) ?? null;
+              return (
+                <div className="flex items-center gap-2">
+                  <SectorLogo name={name} logoPath={logoPath} size="sm" />
+                  <span className="text-sm text-muted-foreground">{name}</span>
+                </div>
+              );
+            },
           } as ColumnDef<User>,
         ]
       : []),

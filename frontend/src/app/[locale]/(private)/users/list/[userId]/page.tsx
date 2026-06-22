@@ -47,6 +47,7 @@ import {
 import { actionFeedback } from "@/components/action-feedback";
 import DetailHeader from "@/components/common/DetailHeader";
 import { ProfileHeroBanner } from "@/components/common/ProfileHeroBanner";
+import { SectorLogo } from "@/components/common/SectorLogo";
 import { UserAvatar } from "@/components/common/UserAvatar";
 import { ProfileImageUpload } from "@/components/common/ProfileImageUpload";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -467,7 +468,11 @@ const UserViewPage = () => {
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg border">
-                    <Building2 className="h-4 w-4 text-primary" />
+                    <SectorLogo
+                      name={user.governmentStructure?.name || "Sector"}
+                      logoPath={user.governmentStructure?.logo_path}
+                      size="sm"
+                    />
                     <span className="text-sm font-medium">
                       {user.governmentStructure?.name || "No sector structure assigned"}
                     </span>

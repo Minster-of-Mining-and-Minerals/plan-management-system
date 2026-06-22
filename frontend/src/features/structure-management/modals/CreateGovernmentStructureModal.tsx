@@ -30,6 +30,7 @@ import {
   useGetGovernmentStructuresQuery,
 } from "@/redux/api/governmentStructureApi";
 import { GovernmentStructure } from "@/redux/types/governmentStructure";
+import { LogoUploadField } from "@/components/common/LogoUploadField";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -42,6 +43,7 @@ const formSchema = z.object({
   parent_id: z.string().optional().nullable(),
   level: z.coerce.number().min(1).default(1),
   is_active: z.boolean().default(true),
+  logo_path: z.string().nullable().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -79,6 +81,7 @@ export function CreateGovernmentStructureModal({
       parent_id: null,
       level: 1,
       is_active: true,
+      logo_path: null,
     },
   });
 
@@ -108,6 +111,7 @@ export function CreateGovernmentStructureModal({
         parent_id: structure.parent_id || null,
         level: structure.level,
         is_active: structure.is_active,
+        logo_path: structure.logo_path || null,
       });
       setSelectedParentId(structure.parent_id || null);
       setHasSelectedParent(true);
@@ -120,6 +124,7 @@ export function CreateGovernmentStructureModal({
         parent_id: null,
         level: 1,
         is_active: true,
+        logo_path: null,
       });
       setNavigationStack([]);
       handleNodeSelect(null);
@@ -399,6 +404,24 @@ export function CreateGovernmentStructureModal({
                       </FormItem>
                     )}
                   />
+                  <FormField
+                    control={form.control}
+                    name="logo_path"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <LogoUploadField
+                            label="Sector Logo"
+                            value={field.value}
+                            onChange={field.onChange}
+                            successMessage="Sector logo uploaded"
+                            errorMessage="Failed to upload sector logo"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
               )}
 
@@ -414,6 +437,24 @@ export function CreateGovernmentStructureModal({
                           <Input
                             placeholder="Enter sector name"
                             {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="logo_path"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <LogoUploadField
+                            label="Sector Logo"
+                            value={field.value}
+                            onChange={field.onChange}
+                            successMessage="Sector logo uploaded"
+                            errorMessage="Failed to upload sector logo"
                           />
                         </FormControl>
                         <FormMessage />

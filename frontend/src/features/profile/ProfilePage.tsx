@@ -27,6 +27,7 @@ import { Label } from "@/components/ui/label";
 import { actionFeedback } from "@/components/action-feedback";
 import { ProfileImageUpload } from "@/components/common/ProfileImageUpload";
 import { ProfileHeroBanner } from "@/components/common/ProfileHeroBanner";
+import { SectorLogo } from "@/components/common/SectorLogo";
 import { UserAvatar } from "@/components/common/UserAvatar";
 import {
   useGetProfileQuery,
@@ -259,7 +260,11 @@ export function ProfilePage() {
                   Sector
                 </Label>
                 <div className="mt-1 flex items-center gap-2 rounded-lg border bg-muted/30 p-3">
-                  <Building2 className="h-4 w-4 text-primary" />
+                  <SectorLogo
+                    name={user.governmentStructure?.name || "Sector"}
+                    logoPath={user.governmentStructure?.logo_path}
+                    size="sm"
+                  />
                   <span className="text-sm font-medium">
                     {user.governmentStructure?.name || "Not assigned"}
                   </span>

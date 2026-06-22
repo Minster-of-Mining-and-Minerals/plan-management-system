@@ -18,6 +18,8 @@ const createGovernmentStructureSchema = Joi.object({
   level: Joi.number().integer().min(1).optional(),
 
   is_active: Joi.boolean().optional(),
+
+  logo_path: Joi.string().max(500).allow(null, "").optional(),
 });
 
 /**
@@ -31,6 +33,8 @@ const updateGovernmentStructureSchema = Joi.object({
   level: Joi.number().integer().min(1).optional(),
 
   is_active: Joi.boolean().optional(),
+
+  logo_path: Joi.string().max(500).allow(null, "").optional(),
 });
 
 /**

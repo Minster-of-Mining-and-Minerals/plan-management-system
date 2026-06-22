@@ -50,6 +50,7 @@ export interface User {
   governmentStructure?: {
     government_structure_id: string;
     name: string;
+    logo_path?: string | null;
   };
   internalStructure?: {
     internal_structure_id: string;

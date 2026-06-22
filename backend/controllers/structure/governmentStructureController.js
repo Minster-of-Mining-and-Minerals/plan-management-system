@@ -28,7 +28,7 @@ const { sendScopeError } = require("../../utils/structureScopeUtils");
 const createGovernmentStructure = async (req, res) => {
     const t = await sequelize.transaction();
     try {
-        const { name, parent_id, level } = req.body;
+        const { name, parent_id, level, logo_path } = req.body;
 
         if (parent_id) {
             const parent = await GovernmentStructure.findByPk(parent_id, { transaction: t });
@@ -66,6 +66,7 @@ const createGovernmentStructure = async (req, res) => {
                 parent_id: parent_id || null,
                 level: level || 1,
                 is_active: true,
+                logo_path: logo_path || null,
             },
             { transaction: t }
         );

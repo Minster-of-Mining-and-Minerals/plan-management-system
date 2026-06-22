@@ -15,13 +15,15 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { GovernmentStructure } from "@/redux/types/governmentStructure";
+import { SectorLogo, resolveSectorLogoPath } from "@/components/common/SectorLogo";
 
 interface NavStructuresProps {
   structures: GovernmentStructure[];
+  structuresById?: Map<string, GovernmentStructure>;
   basePath: string;
 }
 
-export function NavStructures({ structures, basePath }: NavStructuresProps) {
+export function NavStructures({ structures, structuresById, basePath }: NavStructuresProps) {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
 
@@ -39,6 +41,29 @@ export function NavStructures({ structures, basePath }: NavStructuresProps) {
 
   const currentPath = stripLocale(pathname);
 
+  const getStructureLogoPath = (structure: GovernmentStructure) => {
+    const fromNode = resolveSectorLogoPath(structure.logo_path);
+    if (fromNode) return fromNode;
+    const id = structure.government_structure_id;
+    if (!id || !structuresById) return null;
+    return resolveSectorLogoPath(structuresById.get(id)?.logo_path);
+  };
+
+  const renderStructureIcon = (structure: GovernmentStructure) => {
+    const logoPath = getStructureLogoPath(structure);
+    if (logoPath) {
+      return (
+        <SectorLogo
+          name={structure.name}
+          logoPath={logoPath}
+          size="xs"
+          className="shrink-0"
+        />
+      );
+    }
+    return <Building className="h-4 w-4 shrink-0" aria-hidden />;
+  };
+
   const renderStructure = (structure: GovernmentStructure) => {
     const url = `${basePath}/${structure.government_structure_id}`;
     const hasChildren = structure.children && structure.children.length > 0;
@@ -50,8 +75,8 @@ export function NavStructures({ structures, basePath }: NavStructuresProps) {
         return (
           <SidebarMenuSubItem key={structure.government_structure_id}>
             <SidebarMenuSubButton asChild isActive={isActive || isChildActive}>
-              <Link href={url} className="flex items-center gap-4 w-full min-w-0">
-                <Building className="h-4 w-4 shrink-0" />
+                <Link href={url} className="flex items-center gap-4 w-full min-w-0">
+                {renderStructureIcon(structure)}
                 <span className="truncate flex-1 whitespace-nowrap">{structure.name}</span>
               </Link>
             </SidebarMenuSubButton>
@@ -71,7 +96,7 @@ export function NavStructures({ structures, basePath }: NavStructuresProps) {
                 isActive={isActive || isChildActive}
               >
                 <Link href={url} className="flex items-center gap-4 w-full min-w-0">
-                  <Building className="h-4 w-4 shrink-0" />
+                {renderStructureIcon(structure)}
                   <span className="truncate flex-1 whitespace-nowrap">{structure.name}</span>
                   <ChevronRight className="ml-auto h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                 </Link>
@@ -91,7 +116,7 @@ export function NavStructures({ structures, basePath }: NavStructuresProps) {
       <SidebarMenuSubItem key={structure.government_structure_id}>
         <SidebarMenuSubButton asChild isActive={isActive}>
           <Link href={url} className="flex items-center gap-4">
-            <Building className="h-4 w-4 shrink-0" />
+            {renderStructureIcon(structure)}
             <span className="truncate whitespace-nowrap">{structure.name}</span>
           </Link>
         </SidebarMenuSubButton>

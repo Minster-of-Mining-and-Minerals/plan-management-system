@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
@@ -11,6 +11,7 @@ import { canAccessItem } from "@/lib/can-access";
 import { PermissionKey } from "@/lib/permissions";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
+import { GovernmentStructure } from "@/redux/types/governmentStructure";
 import { buildSectorTree } from "@/utils/buildSectorTree";
 import { NavStructures } from "./nav-structures";
 import { useSession } from "next-auth/react";
@@ -67,10 +68,22 @@ export function AppSidebar() {
     ),
   }));
 
-  const { data: structuresData } = useGetGovernmentStructuresQuery(undefined, {
-    skip: !isAuthReady,
-    refetchOnMountOrArgChange: true,
-  });
+  const { data: structuresData } = useGetGovernmentStructuresQuery(
+    { is_active: true },
+    {
+      skip: !isAuthReady,
+      refetchOnMountOrArgChange: true,
+    }
+  );
+  const structuresById = useMemo(() => {
+    const map = new Map<string, GovernmentStructure>();
+    for (const structure of structuresData || []) {
+      if (structure.government_structure_id) {
+        map.set(structure.government_structure_id, structure);
+      }
+    }
+    return map;
+  }, [structuresData]);
   const structureTree = buildSectorTree(structuresData || []);
 
   return (
@@ -205,7 +218,11 @@ export function AppSidebar() {
                               ))}
                             </SidebarMenuSub>
                           ) : (
-                            <NavStructures structures={structureTree} basePath={item.url} />
+                            <NavStructures
+                              structures={structureTree}
+                              structuresById={structuresById}
+                              basePath={item.url}
+                            />
                           )}
                         </CollapsibleContent>
                       </SidebarMenuItem>

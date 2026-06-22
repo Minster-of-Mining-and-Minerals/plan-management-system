@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useGetGovernmentStructureByIdQuery, useReactivateGovernmentStructureMutation } from "@/redux/api/governmentStructureApi";
-import { Building, Users, Shield, Layers, RotateCcw, KeyRound } from "lucide-react";
+import { Users, Shield, Layers, RotateCcw, KeyRound, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import UserTable from "@/features/user-management/UserTable";
@@ -18,6 +18,8 @@ import Link from "next/link";
 import { isStructureActive } from "@/utils/structureUtils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { actionFeedback } from "@/components/action-feedback";
+import { SectorLogo } from "@/components/common/SectorLogo";
+import { CreateGovernmentStructureModal } from "./modals/CreateGovernmentStructureModal";
 
 interface GovernmentStructureDetailProps {
     id: string;
@@ -31,7 +33,9 @@ export default function GovernmentStructureDetail({ id }: GovernmentStructureDet
     const [reactivateStructure, { isLoading: isReactivating }] = useReactivateGovernmentStructureMutation();
     const { can } = usePermissions();
     const canReactivate = can("GOVERNMENT_STRUCTURES:UPDATE");
+    const canUpdate = can("GOVERNMENT_STRUCTURES:UPDATE");
     const [activeTab, setActiveTab] = useState<TabType>("users");
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
     // 🔹 Side Actions (replaces Tabs)
     const sideActions: ActionButton[] = [
@@ -106,11 +110,14 @@ export default function GovernmentStructureDetail({ id }: GovernmentStructureDet
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-lg border shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card p-6 rounded-lg border shadow-sm">
                 <div className="flex items-center space-x-4">
-                    <div className="p-3 bg-golden-soft/20 rounded-xl">
-                        <Building className="h-8 w-8 text-golden-dark" />
-                    </div>
+                    <SectorLogo
+                        name={structure.name}
+                        logoPath={structure.logo_path}
+                        size="xl"
+                        showRing={Boolean(structure.logo_path)}
+                    />
                     <div className="space-y-1">
                         {/* Breadcrumb */}
                         <nav className="flex items-center space-x-1 text-sm text-gray-400">
@@ -161,6 +168,12 @@ export default function GovernmentStructureDetail({ id }: GovernmentStructureDet
                 )}
                 {!isReadOnly && (
                     <div className="flex flex-wrap gap-2 shrink-0">
+                        {canUpdate && (
+                            <Button variant="outline" onClick={() => setIsEditModalOpen(true)}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Edit Sector
+                            </Button>
+                        )}
                         <Button variant="outline" asChild>
                             <Link href={withStructureQuery("/users/list", id)}>
                                 All Users
@@ -210,6 +223,11 @@ export default function GovernmentStructureDetail({ id }: GovernmentStructureDet
                     readOnly={isReadOnly}
                 />
             )}
+            <CreateGovernmentStructureModal
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
+                structure={structure}
+            />
         </div>
     );
 }

@@ -58,6 +58,11 @@ module.exports = (sequelize, DataTypes) => {
                 type: DataTypes.BOOLEAN,
                 defaultValue: true,
             },
+
+            logo_path: {
+                type: DataTypes.STRING(500),
+                allowNull: true,
+            },
         },
         {
             sequelize,
