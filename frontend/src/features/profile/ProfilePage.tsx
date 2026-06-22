@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { actionFeedback } from "@/components/action-feedback";
 import { ProfileImageUpload } from "@/components/common/ProfileImageUpload";
+import { ProfileHeroBanner } from "@/components/common/ProfileHeroBanner";
 import { UserAvatar } from "@/components/common/UserAvatar";
 import {
   useGetProfileQuery,
@@ -115,7 +116,7 @@ export function ProfilePage() {
   const watchedProfileImage = form.watch("profile_image");
 
   return (
-    <div className="mx-auto w-full space-y-6 p-1 sm:p-2">
+    <div className="mx-auto w-full space-y-6 bg-background p-1 sm:p-2">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">My Profile</h1>
@@ -164,21 +165,21 @@ export function ProfilePage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-1">
           <Card className="overflow-hidden border-0 shadow-md pt-0">
-            <div className="bg-gradient-to-br from-[#094C81] via-[#0d5f9f] to-[#1a7cc4] px-6 pb-8 pt-10 text-center text-white">
+            <ProfileHeroBanner className="px-6 pb-8 pt-10 text-center">
               <div className="mb-4 flex justify-center">
                 {isEditing ? (
                   <ProfileImageUpload
                     label=""
                     value={watchedProfileImage}
                     onChange={(value) => form.setValue("profile_image", value)}
-                    previewClassName="border-white/40 bg-white/10"
+                    previewClassName="border-primary-foreground/40 bg-primary-foreground/10"
                   />
                 ) : (
                   <UserAvatar
                     name={user.full_name}
                     profileImage={user.profile_image}
-                    className="h-28 w-28 border-4 border-white/40 text-3xl"
-                    fallbackClassName="bg-white/20 text-white text-2xl"
+                    className="h-28 w-28 border-4 border-primary-foreground/40 text-3xl"
+                    fallbackClassName="bg-primary-foreground/20 text-primary-foreground text-2xl"
                   />
                 )}
               </div>
@@ -187,10 +188,10 @@ export function ProfilePage() {
                   <div className="space-y-1">
                     <Input
                       {...form.register("full_name")}
-                      className="border-white/20 bg-white/10 text-center text-white placeholder:text-white/50"
+                      className="border-primary-foreground/20 bg-primary-foreground/10 text-center text-primary-foreground placeholder:text-primary-foreground/50"
                     />
                     {form.formState.errors.full_name ? (
-                      <p className="text-xs text-red-200">
+                      <p className="text-xs text-primary-foreground/80">
                         {form.formState.errors.full_name.message}
                       </p>
                     ) : null}
@@ -199,17 +200,17 @@ export function ProfilePage() {
                   user.full_name
                 )}
               </h2>
-              <p className="mt-1 text-sm text-white/80">{user.email}</p>
+              <p className="mt-1 text-sm text-primary-foreground/80">{user.email}</p>
               <div className="mt-4 flex justify-center">
                 <Badge
                   variant={user.is_active ? "secondary" : "destructive"}
-                  className="bg-white/15 text-white hover:bg-white/20"
+                  className="bg-primary-foreground/15 text-primary-foreground hover:bg-primary-foreground/20"
                 >
                   <CheckCircle2 className="mr-1 h-3 w-3" />
                   {user.is_active ? "Active" : "Inactive"}
                 </Badge>
               </div>
-            </div>
+            </ProfileHeroBanner>
             <CardContent className="space-y-4 pt-6">
               <div className="flex items-start gap-3 text-sm">
                 <Mail className="mt-0.5 h-4 w-4 text-muted-foreground" />
@@ -247,7 +248,7 @@ export function ProfilePage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg text-[#094C81]">
+              <CardTitle className="flex items-center gap-2 text-lg text-primary">
                 <Building2 className="h-5 w-5" />
                 Organization
               </CardTitle>
@@ -282,7 +283,7 @@ export function ProfilePage() {
         <div className="space-y-6 lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg text-[#094C81]">
+              <CardTitle className="flex items-center gap-2 text-lg text-primary">
                 <Shield className="h-5 w-5" />
                 Assigned Roles
               </CardTitle>
@@ -304,7 +305,7 @@ export function ProfilePage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg text-[#094C81]">
+              <CardTitle className="flex items-center gap-2 text-lg text-primary">
                 <Users className="h-5 w-5" />
                 Permission Groups
               </CardTitle>
@@ -317,7 +318,7 @@ export function ProfilePage() {
                       key={group.permission_group_id}
                       className="rounded-xl border bg-muted/20 p-4"
                     >
-                      <p className="font-semibold text-[#094C81]">{group.name}</p>
+                      <p className="font-semibold text-primary">{group.name}</p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {group.description || "No description provided"}
                       </p>
@@ -334,7 +335,7 @@ export function ProfilePage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg text-[#094C81]">
+              <CardTitle className="flex items-center gap-2 text-lg text-primary">
                 <Calendar className="h-5 w-5" />
                 Account Activity
               </CardTitle>

@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/select";
 import { actionFeedback } from "@/components/action-feedback";
 import DetailHeader from "@/components/common/DetailHeader";
+import { ProfileHeroBanner } from "@/components/common/ProfileHeroBanner";
 import { UserAvatar } from "@/components/common/UserAvatar";
 import { ProfileImageUpload } from "@/components/common/ProfileImageUpload";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -161,17 +162,17 @@ const UserViewPage = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F9FBFC]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#094C81]"></div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   if (isError || !user) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#F9FBFC] gap-4">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
         <XCircle className="h-16 w-16 text-red-500" />
-        <h2 className="text-xl font-semibold text-[#094C81]">User Not Found</h2>
+        <h2 className="text-xl font-semibold text-primary">User Not Found</h2>
         <Button variant="outline" onClick={() => router.push(withStructureQuery("/users/list", structureQueryId || user?.government_structure_id))}>
           Back to Users List
         </Button>
@@ -237,7 +238,7 @@ const UserViewPage = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#F9FBFC] p-6 space-y-6">
+    <div className="min-h-screen w-full bg-background p-6 space-y-6">
       {/* Header with Breadcrumbs and Actions */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <DetailHeader
@@ -310,21 +311,22 @@ const UserViewPage = () => {
         {/* Left Column: Profile Card */}
         <div className="lg:col-span-1 space-y-6">
           <Card className="overflow-hidden pt-0">
-            <CardHeader className="bg-[#094C81] text-white text-center pb-8 pt-8">
+            <CardHeader className="p-0">
+              <ProfileHeroBanner className="pb-8 pt-8 text-center">
               <div className="flex justify-center mb-4">
                 {isEditing ? (
                   <ProfileImageUpload
                     label=""
                     value={form.watch("profile_image")}
                     onChange={(value) => form.setValue("profile_image", value)}
-                    previewClassName="border-white/40 bg-white/10"
+                    previewClassName="border-primary-foreground/40 bg-primary-foreground/10"
                   />
                 ) : (
                   <UserAvatar
                     name={user.full_name}
                     profileImage={user.profile_image}
-                    className="h-24 w-24 border-2 border-white/50 text-2xl"
-                    fallbackClassName="bg-white/20 text-white text-xl"
+                    className="h-24 w-24 border-2 border-primary-foreground/40 text-2xl"
+                    fallbackClassName="bg-primary-foreground/20 text-primary-foreground text-xl"
                   />
                 )}
               </div>
@@ -333,25 +335,25 @@ const UserViewPage = () => {
                   <div className="space-y-1">
                     <Input 
                       {...form.register("full_name")} 
-                      className="bg-white/10 border-white/20 text-white placeholder:text-white/50 text-center" 
+                      className="border-primary-foreground/20 bg-primary-foreground/10 text-center text-primary-foreground placeholder:text-primary-foreground/50" 
                     />
                     {form.formState.errors.full_name && (
-                      <p className="text-[10px] text-red-300">{form.formState.errors.full_name.message}</p>
+                      <p className="text-[10px] text-primary-foreground/80">{form.formState.errors.full_name.message}</p>
                     )}
                   </div>
                 ) : (
                   user.full_name
                 )}
               </CardTitle>
-              <div className="text-white/80 text-sm mt-1">
+              <div className="mt-1 text-sm text-primary-foreground/80">
                 {isEditing ? (
                   <div className="space-y-1">
                     <Input 
                       {...form.register("email")} 
-                      className="bg-white/10 border-white/20 text-white placeholder:text-white/50 text-center h-8" 
+                      className="h-8 border-primary-foreground/20 bg-primary-foreground/10 text-center text-primary-foreground placeholder:text-primary-foreground/50" 
                     />
                     {form.formState.errors.email && (
-                      <p className="text-[10px] text-red-300">{form.formState.errors.email.message}</p>
+                      <p className="text-[10px] text-primary-foreground/80">{form.formState.errors.email.message}</p>
                     )}
                   </div>
                 ) : (
@@ -368,7 +370,7 @@ const UserViewPage = () => {
                         onValueChange={(val) => field.onChange(val === "active")}
                         value={field.value ? "active" : "inactive"}
                       >
-                        <SelectTrigger className="w-[120px] bg-white/10 border-white/20 text-white">
+                        <SelectTrigger className="w-[120px] border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground">
                           <SelectValue placeholder="Status" />
                         </SelectTrigger>
                         <SelectContent>
@@ -388,34 +390,35 @@ const UserViewPage = () => {
                   </Badge>
                 )}
               </div>
+              </ProfileHeroBanner>
             </CardHeader>
             <CardContent className="pt-6 space-y-4">
               <div className="flex items-center gap-3 text-sm">
-                <Mail className="h-4 w-4 text-gray-400" />
-                <span className="text-gray-600 font-medium w-24">Email:</span>
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium text-muted-foreground w-24">Email:</span>
                 {isEditing ? (
                   <div className="flex-1 space-y-1">
                     <Input {...form.register("email")} className="h-8" />
                   </div>
                 ) : (
-                  <span className="text-gray-900">{user.email}</span>
+                  <span className="text-foreground">{user.email}</span>
                 )}
               </div>
               <div className="flex items-center gap-3 text-sm">
-                <Phone className="h-4 w-4 text-gray-400" />
-                <span className="text-gray-600 font-medium w-24">Phone:</span>
+                <Phone className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium text-muted-foreground w-24">Phone:</span>
                 {isEditing ? (
                   <div className="flex-1 space-y-1">
                     <Input {...form.register("phone_number")} className="h-8" />
                   </div>
                 ) : (
-                  <span className="text-gray-900">{user.phone_number || "Not provided"}</span>
+                  <span className="text-foreground">{user.phone_number || "Not provided"}</span>
                 )}
               </div>
               <div className="flex items-center gap-3 text-sm">
-                <Calendar className="h-4 w-4 text-gray-400" />
-                <span className="text-gray-600 font-medium w-24">Joined:</span>
-                <span className="text-gray-900">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium text-muted-foreground w-24">Joined:</span>
+                <span className="text-foreground">
                   {new Date(user.created_at).toLocaleDateString("en-US", { 
                     year: "numeric", 
                     month: "long", 
@@ -429,13 +432,13 @@ const UserViewPage = () => {
           {/* Structure Details */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2 text-[#094C81]">
+              <CardTitle className="text-lg flex items-center gap-2 text-primary">
                 <Building2 className="h-5 w-5" /> Sector & Department
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
                   Sector Structure
                 </p>
                 {isEditing ? (
@@ -463,16 +466,16 @@ const UserViewPage = () => {
                     )}
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
-                    <Building2 className="h-4 w-4 text-[#094C81]" />
-                    <span className="text-sm font-medium text-gray-700">
+                  <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg border">
+                    <Building2 className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">
                       {user.governmentStructure?.name || "No sector structure assigned"}
                     </span>
                   </div>
                 )}
               </div>
               <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
                   Department
                 </p>
                 {isEditing ? (
@@ -504,9 +507,9 @@ const UserViewPage = () => {
                     )}
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
-                    <GitBranch className="h-4 w-4 text-[#094C81]" />
-                    <span className="text-sm font-medium text-gray-700">
+                  <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg border">
+                    <GitBranch className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">
                       {user.internalStructure?.name || "No department assigned"}
                     </span>
                   </div>
@@ -521,7 +524,7 @@ const UserViewPage = () => {
           {/* Roles */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2 text-[#094C81]">
+              <CardTitle className="text-lg flex items-center gap-2 text-primary">
                 <Shield className="h-5 w-5" /> Assigned Roles
               </CardTitle>
             </CardHeader>
@@ -530,11 +533,11 @@ const UserViewPage = () => {
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                     {allRoles.map((role) => (
-                      <div key={role.role_id} className="flex items-center space-x-2 border p-2 rounded-md hover:bg-gray-50 cursor-pointer">
+                      <div key={role.role_id} className="flex items-center space-x-2 border p-2 rounded-md hover:bg-muted/50 cursor-pointer">
                         <input
                           type="checkbox"
                           id={`role-${role.role_id}`}
-                          className="h-4 w-4 rounded border-gray-300 text-[#094C81] focus:ring-[#094C81]"
+                          className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
                           checked={form.watch("role_ids").includes(role.role_id)}
                           onChange={(e) => {
                             const currentRoles = form.getValues("role_ids");
@@ -564,7 +567,7 @@ const UserViewPage = () => {
                       </Badge>
                     ))
                   ) : (
-                    <p className="text-sm text-gray-500 italic">No roles assigned to this user.</p>
+                    <p className="text-sm text-muted-foreground italic">No roles assigned to this user.</p>
                   )}
                 </div>
               )}
@@ -574,7 +577,7 @@ const UserViewPage = () => {
           {/* Permission Groups */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2 text-[#094C81]">
+              <CardTitle className="text-lg flex items-center gap-2 text-primary">
                 <Users className="h-5 w-5" /> Permission Groups
               </CardTitle>
             </CardHeader>
@@ -582,13 +585,13 @@ const UserViewPage = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {user.permissionGroups && user.permissionGroups.length > 0 ? (
                   user.permissionGroups.map((group) => (
-                    <div key={group.permission_group_id} className="p-4 bg-gray-50 rounded-xl border flex flex-col gap-1">
-                      <span className="font-bold text-[#094C81]">{group.name}</span>
-                      <span className="text-xs text-gray-500">{group.description || "No description provided"}</span>
+                    <div key={group.permission_group_id} className="p-4 bg-muted/20 rounded-xl border flex flex-col gap-1">
+                      <span className="font-bold text-primary">{group.name}</span>
+                      <span className="text-xs text-muted-foreground">{group.description || "No description provided"}</span>
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-gray-500 italic col-span-2">No permission groups assigned.</p>
+                  <p className="text-sm text-muted-foreground italic col-span-2">No permission groups assigned.</p>
                 )}
               </div>
             </CardContent>
@@ -597,38 +600,38 @@ const UserViewPage = () => {
           {/* Activity Info */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2 text-[#094C81]">
+              <CardTitle className="text-lg flex items-center gap-2 text-primary">
                 <Calendar className="h-5 w-5" /> System Activity
               </CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Last Login
                 </p>
-                <p className="text-sm font-medium text-gray-900">
+                <p className="text-sm font-medium">
                   {user.last_login_at ? new Date(user.last_login_at).toLocaleString() : "Never logged in"}
                 </p>
               </div>
               <div className="space-y-1">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Password Last Changed
                 </p>
-                <p className="text-sm font-medium text-gray-900">
+                <p className="text-sm font-medium">
                   {user.password_changed_at ? new Date(user.password_changed_at).toLocaleString() : "Never changed"}
                 </p>
               </div>
               <div className="space-y-2 md:col-span-2">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Force Password Reset on Next Login
                 </p>
                 {isEditing ? (
-                  <div className="flex items-center justify-between rounded-lg border bg-gray-50 p-3">
+                  <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-3">
                     <div className="pr-4">
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="text-sm font-medium">
                         Require password change on next login
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-muted-foreground">
                         New users require this by default. Turn off only if the user may keep their
                         current password.
                       </p>
