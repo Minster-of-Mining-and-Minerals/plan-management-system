@@ -28,45 +28,42 @@ export const ResourceGroup: React.FC<ResourceGroupProps> = ({
   };
 
   const getSelectionStatusClass = () => {
-    if (isAllActive) return "bg-green-100 text-green-800 border-green-200";
-    if (isSomeActive) return "bg-yellow-100 text-yellow-800 border-yellow-200";
-    return "bg-gray-100 text-gray-600 border-gray-200";
+    if (isAllActive) return "bg-success/10 text-success border-success/30";
+    if (isSomeActive) return "bg-warning/10 text-warning border-warning/30";
+    return "bg-muted text-muted-foreground border-border";
   };
 
   return (
-    <div className="border border-gray-200 rounded-lg self-start">
-      {/* Resource Header */}
+    <div className="self-start rounded-lg border border-border">
       <div
         onClick={() => onToggleExpand(group.resource)}
-        className="flex transition-all hover:bg-[#094C81]/10 duration-200 cursor-pointer items-center justify-between p-4 bg-gray-50 rounded-t-lg"
+        className="flex cursor-pointer items-center justify-between rounded-t-lg bg-muted/40 p-4 transition-all duration-200 hover:bg-primary/10"
       >
-        <div className="flex items-center space-x-3 flex-1">
+        <div className="flex flex-1 items-center space-x-3">
           <button
             type="button"
             onClick={() => onToggleExpand(group.resource)}
-            className="p-1 hover:bg-gray-200 rounded"
+            className="rounded p-1 hover:bg-muted"
           >
             {group.isExpanded ? (
-              <ChevronDown className="h-5 w-5 text-[#094C81] hover:text-[#073954] cursor-pointer" />
+              <ChevronDown className="h-5 w-5 cursor-pointer text-primary" />
             ) : (
-              <ChevronRight className="h-5 w-5 text-[#094C81] hover:text-[#073954] cursor-pointer" />
+              <ChevronRight className="h-5 w-5 cursor-pointer text-primary" />
             )}
           </button>
-          <div className="p-2 text-[#094C81] bg-white rounded-lg shadow-sm">
-            {group.icon}
-          </div>
+          <div className="rounded-lg bg-card p-2 text-primary shadow-sm">{group.icon}</div>
           <div>
-            <h3 className="font-semibold text-[#094C81] capitalize">
+            <h3 className="font-semibold capitalize text-primary">
               {group.resource.replace(/_/g, " ")}
             </h3>
-            <p className="text-sm text-[#094C81]">
+            <p className="text-sm text-muted-foreground">
               {group.totalCount} permissions • {group.activeCount} active
             </p>
           </div>
         </div>
         <div className="flex items-center space-x-3">
           <span
-            className={`px-2 py-1 text-xs font-medium border rounded-full text-[#094C81] ${getSelectionStatusClass()}`}
+            className={`rounded-full border px-2 py-1 text-xs font-medium text-primary ${getSelectionStatusClass()}`}
           >
             {getSelectionStatusText()}
           </span>

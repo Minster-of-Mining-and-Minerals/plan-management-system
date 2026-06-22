@@ -1,5 +1,5 @@
 import React from "react";
-import { ToggleLeft, ToggleRight } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { Permission } from "../../types/permission";
 
 interface PermissionItemProps {
@@ -15,37 +15,31 @@ export const PermissionItem: React.FC<PermissionItemProps> = ({
 }) => {
   const isActive = !!permission.is_active;
 
-  const handleToggle = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    await onToggle(permission.permission_id);
+  const handleToggle = async (checked: boolean) => {
+    if (checked !== isActive) {
+      await onToggle(permission.permission_id);
+    }
   };
 
   return (
-    <div className="flex items-center justify-between py-1 px-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-      <div className="flex items-center space-x-3 flex-1">
-        <span className="text-sm font-medium text-gray-700 capitalize">
-          {permission.action.replace("_", " ")}
-        </span>
-      </div>
+    <div className="flex items-center justify-between rounded-lg border border-border px-3 py-1 transition-colors hover:bg-muted/40">
+      <span className="flex-1 text-sm font-medium capitalize text-foreground">
+        {permission.action.replace("_", " ")}
+      </span>
 
-      <button
-        className={`p-0 transition-all duration-200 ${
-          isActive ? "text-green-600" : "text-gray-400"
-        }`}
-        onClick={handleToggle}
-        disabled={isToggling}
-        title={isActive ? "Deactivate permission" : "Activate permission"}
-      >
-        {isToggling ? (
-          <div className="w-10 h-10 flex items-center justify-center">
-            <div className="h-6 w-6 border-2 border-current border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : isActive ? (
-          <ToggleRight className="h-10 w-10 text-green-600 hover:text-green-700" />
-        ) : (
-          <ToggleLeft className="h-10 w-10 text-gray-400 hover:text-gray-600" />
-        )}
-      </button>
+      {isToggling ? (
+        <div className="flex h-10 w-10 items-center justify-center">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      ) : (
+        <Switch
+          checked={isActive}
+          onCheckedChange={handleToggle}
+          aria-label={
+            isActive ? "Deactivate permission" : "Activate permission"
+          }
+        />
+      )}
     </div>
   );
 };

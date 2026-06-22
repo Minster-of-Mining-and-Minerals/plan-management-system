@@ -115,10 +115,10 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
       <div className="bg-white p-6 rounded-2xl w-full max-w-[750px] shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-[#094C81]">Create User</h2>
+          <h2 className="text-xl font-semibold text-primary">Create User</h2>
           <button
             onClick={handleClose}
-            className="text-[#094C81] hover:text-gray-600 transition"
+            className="text-primary transition hover:text-muted-foreground"
           >
             <XIcon className="w-6 h-6 cursor-pointer" />
           </button>
@@ -221,7 +221,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    className="w-full max-h-28 min-h-12 h-fit border border-golden-dark p-2 rounded-md text-[#094C81] bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-golden-dark transition-all duration-200"
+                    className="h-fit min-h-12 max-h-28 w-full rounded-md border border-input bg-background p-2 text-primary transition-all duration-200 hover:bg-muted/40 focus:outline-none focus:ring-1 focus:ring-primary"
                   >
                     <div className="flex flex-wrap items-center gap-2 w-full">
                       {selectedRoles.length === 0 && (
@@ -240,7 +240,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
                         return (
                           <span
                             key={roleId}
-                            className="inline-flex items-center gap-1 rounded-sm justify-center bg-[#094C81]/10 text-[#094C81] pl-2 text-xs"
+                            className="inline-flex items-center justify-center gap-1 rounded-sm bg-primary/10 pl-2 text-xs text-primary"
                           >
                             <span className="truncate max-w-[120px] py-1">
                               {r.name}
@@ -281,7 +281,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
                           onClick={() => {
                             setSelectedRoles((prev) => [...prev, r.role_id]);
                           }}
-                          className="w-full text-left px-3 py-2 text-sm text-[#094C81] hover:bg-[#094C81]/10 rounded-md cursor-pointer transition-colors"
+                          className="w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm text-primary transition-colors hover:bg-primary/10"
                         >
                           <span className="block truncate">{r.name}</span>
                         </button>

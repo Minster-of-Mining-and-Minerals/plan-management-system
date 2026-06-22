@@ -51,7 +51,7 @@ export function IssueAttachmentCards({ attachments }: IssueAttachmentCardsProps)
                 variant="ghost"
                 size="icon"
                 onClick={() => setPreviewFile(attachment)}
-                className="h-8 w-8 shrink-0 text-[#094C81] hover:bg-gray-100"
+                className="h-8 w-8 shrink-0 text-primary hover:bg-muted"
               >
                 <Eye className="h-5 w-5" />
               </Button>
@@ -88,7 +88,7 @@ export function IssueAttachmentCards({ attachments }: IssueAttachmentCardsProps)
                   href={previewUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[#094C81] underline"
+                  className="text-primary underline"
                 >
                   Open file in new tab
                 </a>

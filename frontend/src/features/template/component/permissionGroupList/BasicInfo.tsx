@@ -17,18 +17,15 @@ export const BasicInfo: React.FC<BasicInfoProps> = ({
   setDescription,
 }) => {
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-      <div className="p-6 border-b">
-        <h3 className="text-xl font-bold text-golden-dark">Basic Information</h3>
+    <div className="rounded-lg border border-border bg-card shadow-sm">
+      <div className="border-b border-border p-6">
+        <h3 className="text-xl font-bold text-primary">Basic Information</h3>
       </div>
-      <div className="p-6 space-y-4">
+      <div className="space-y-4 p-6">
         <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2 flex flex-col gap-2">
-            <Label
-              htmlFor="name"
-              className="text-sm font-medium text-golden-dark"
-            >
-              Group Name <span className="text-red-500">*</span>
+          <div className="flex flex-col gap-2 space-y-2">
+            <Label htmlFor="name" className="text-sm font-medium text-primary">
+              Group Name <span className="text-destructive">*</span>
             </Label>
             <Input
               id="name"
@@ -36,16 +33,13 @@ export const BasicInfo: React.FC<BasicInfoProps> = ({
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="w-full h-11 border border-gray-300 px-4 py-3 rounded-md focus:ring-2 focus:ring-golden-dark focus:border-transparent transition-all duration-200 outline-none"
+              className="h-11 w-full rounded-md border border-input px-4 py-3 outline-none transition-all duration-200 focus:border-transparent focus:ring-2 focus:ring-primary"
             />
           </div>
 
-          <div className="space-y-2 flex flex-col gap-2">
-            <Label
-              htmlFor="description"
-              className="text-sm font-medium text-golden-dark"
-            >
-              Description <span className="text-red-500">*</span>
+          <div className="flex flex-col gap-2 space-y-2">
+            <Label htmlFor="description" className="text-sm font-medium text-primary">
+              Description <span className="text-destructive">*</span>
             </Label>
             <Textarea
               id="description"
@@ -53,7 +47,7 @@ export const BasicInfo: React.FC<BasicInfoProps> = ({
               rows={4}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full min-h-[44px] border border-gray-300 px-4 py-3 rounded-md focus:ring-2 focus:ring-golden-dark focus:border-transparent transition-all duration-200 outline-none resize-none"
+              className="min-h-[44px] w-full resize-none rounded-md border border-input px-4 py-3 outline-none transition-all duration-200 focus:border-transparent focus:ring-2 focus:ring-primary"
             />
           </div>
         </div>

@@ -11,8 +11,8 @@ export function HierarchyTreeParentBadge({
 }: HierarchyTreeParentBadgeProps) {
   const variantClass =
     variant === "department"
-      ? "text-golden-dark/80 bg-golden-soft/10"
-      : "text-[#073954]/70 bg-blue-50";
+      ? "bg-primary/10 text-primary/80"
+      : "bg-primary/10 text-primary/70";
 
   return (
     <div

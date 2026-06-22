@@ -74,7 +74,7 @@ export function IssueHistoryLogPanel({ history = [], onClose }: IssueHistoryLogP
               return (
                 <div key={entry.issue_history_id} className="relative flex gap-3">
                   <div className="relative h-6 w-6 shrink-0">
-                    <div className="absolute -left-2 top-0 z-10 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-[#094C81] text-xs font-semibold text-white">
+                    <div className="absolute -left-2 top-0 z-10 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-primary text-xs font-semibold text-primary-foreground">
                       {index + 1}
                     </div>
                   </div>

@@ -193,11 +193,11 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
   const getSelectionStatusClass = useCallback((status: string) => {
     switch (status) {
       case "all":
-        return "bg-green-100 text-green-800 border-green-200";
+        return "bg-success/10 text-success border-success/30";
       case "some":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+        return "bg-warning/10 text-warning border-warning/30";
       default:
-        return "bg-gray-100 text-gray-600 border-gray-200";
+        return "bg-muted text-muted-foreground border-border";
     }
   }, []);
 

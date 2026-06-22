@@ -214,8 +214,8 @@ const GovernmentHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
     return (
       <div className="flex items-center justify-center py-12 min-h-[400px]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#073954] mx-auto mb-4"></div>
-          <p className="text-[#073954] text-lg">Loading hierarchy tree...</p>
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-primary"></div>
+          <p className="text-lg text-primary">Loading hierarchy tree...</p>
         </div>
       </div>
     );
@@ -236,7 +236,7 @@ const GovernmentHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
                   Select Root Sector
                 </Label>
                 <Select value={selectedRootId} onValueChange={setSelectedRootId}>
-                  <SelectTrigger className="w-full h-10 border border-gray-200 px-4 py-3 rounded-md focus:ring-2 focus:ring-[#073954]/20 transition-all duration-200 outline-none bg-white">
+                  <SelectTrigger className="h-10 w-full rounded-md border border-input bg-background px-4 py-3 outline-none transition-all duration-200 focus:ring-2 focus:ring-primary/20">
                     <SelectValue placeholder="Select root sector" />
                   </SelectTrigger>
                   <SelectContent>
@@ -253,7 +253,7 @@ const GovernmentHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
 
           <div className="absolute top-4 right-0 w-full p-4 z-10 flex items-center justify-end pointer-events-none">
             <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-sm p-3 border border-gray-100 pointer-events-auto text-[11px] text-gray-500 space-y-1">
-              <p className="font-bold text-[#073954] mb-1">Navigation:</p>
+              <p className="mb-1 font-bold text-primary">Navigation:</p>
               <p>• Scroll to zoom</p>
               <p>• Drag to pan</p>
               <p>• Click nodes to toggle</p>

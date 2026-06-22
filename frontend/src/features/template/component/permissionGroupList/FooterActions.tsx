@@ -26,7 +26,7 @@ export const FooterActions: React.FC<FooterActionsProps> = ({
           <Button
             type="button"
             variant="outline"
-            className="min-w-[150px] text-[#094C81] text-base bg-gray-200 hover:bg-gray-300"
+            className="min-w-[150px] text-base"
             onClick={() => router.push("/users/permission-groups")}
             disabled={isLoading}
           >
@@ -38,7 +38,7 @@ export const FooterActions: React.FC<FooterActionsProps> = ({
             disabled={
               isLoading || !name.trim() || selectedPermissionsCount === 0
             }
-            className="min-w-[150px] text-base bg-[#094C81] hover:bg-[#073954]"
+            className="min-w-[150px] text-base"
           >
             {isLoading ? (
               <>

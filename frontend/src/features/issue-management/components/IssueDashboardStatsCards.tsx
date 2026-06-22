@@ -48,11 +48,11 @@ export function IssueDashboardStatsCards({
             className={cn(
               "rounded-lg border bg-white p-4 text-left shadow-sm border-l-4 transition hover:shadow-md",
               color,
-              isActive && "ring-2 ring-[#073954]/20"
+              isActive && "ring-2 ring-primary/20"
             )}
           >
             <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
-            <p className="text-2xl font-semibold text-[#073954] mt-1">{value}</p>
+            <p className="mt-1 text-2xl font-semibold text-primary">{value}</p>
           </button>
         );
       })}
