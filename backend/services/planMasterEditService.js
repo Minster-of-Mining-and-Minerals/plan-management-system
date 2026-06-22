@@ -8,6 +8,7 @@ const {
     ExternalAssignment,
     InternalAssignment,
 } = require("../models");
+const { syncPlanNodeAssignmentContext } = require("./planAssignmentScopeService");
 
 function pickNodeFields(node) {
     return {
@@ -357,7 +358,11 @@ async function resolveDerivedBranchInternalId(
 
     const branchWhere = masterBranch.user_id
         ? { user_id: masterBranch.user_id }
-        : { internal_structure_id: masterBranch.internal_structure_id };
+        : masterBranch.role_id
+          ? { role_id: masterBranch.role_id }
+          : masterBranch.permission_group_id
+            ? { permission_group_id: masterBranch.permission_group_id }
+            : { internal_structure_id: masterBranch.internal_structure_id };
 
     const derivedBranch = await InternalAssignment.findOne({
         where: {
@@ -400,7 +405,11 @@ async function copyExternalAssignmentToDerivedNode(assignment, derivedNode, tran
 async function copyInternalAssignmentToDerivedNode(assignment, derivedNode, transaction) {
     const targetWhere = assignment.user_id
         ? { user_id: assignment.user_id }
-        : { internal_structure_id: assignment.internal_structure_id };
+        : assignment.role_id
+          ? { role_id: assignment.role_id }
+          : assignment.permission_group_id
+            ? { permission_group_id: assignment.permission_group_id }
+            : { internal_structure_id: assignment.internal_structure_id };
 
     const existing = await InternalAssignment.findOne({
         where: {
@@ -431,7 +440,8 @@ async function copyInternalAssignmentToDerivedNode(assignment, derivedNode, tran
             plan_node_id: derivedNode.plan_node_id,
             internal_structure_id: assignment.internal_structure_id,
             user_id: assignment.user_id,
-            action_id: assignment.action_id,
+            role_id: assignment.role_id,
+            permission_group_id: assignment.permission_group_id,
             is_active: assignment.is_active,
             branch_external_assignment_id: branchExternalAssignmentId,
             branch_internal_assignment_id: branchInternalAssignmentId,
@@ -465,6 +475,7 @@ async function syncMasterNodeAssignmentsToDerived(masterNode, transaction) {
         for (const assignment of internalAssignments) {
             await copyInternalAssignmentToDerivedNode(assignment, derivedNode, transaction);
         }
+        await syncPlanNodeAssignmentContext(derivedNode.plan_node_id, transaction);
     }
 }
 
@@ -473,6 +484,7 @@ async function propagateExternalAssignmentCreate(masterNodeId, assignment, trans
 
     for (const derivedNode of derivedNodes) {
         await copyExternalAssignmentToDerivedNode(assignment, derivedNode, transaction);
+        await syncPlanNodeAssignmentContext(derivedNode.plan_node_id, transaction);
     }
 }
 
@@ -481,6 +493,7 @@ async function propagateInternalAssignmentCreate(masterNodeId, assignment, trans
 
     for (const derivedNode of derivedNodes) {
         await copyInternalAssignmentToDerivedNode(assignment, derivedNode, transaction);
+        await syncPlanNodeAssignmentContext(derivedNode.plan_node_id, transaction);
     }
 }
 

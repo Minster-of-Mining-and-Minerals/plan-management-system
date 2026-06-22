@@ -76,24 +76,25 @@ const createInternalAssignmentSchema = Joi.object({
 
     user_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
 
-    action_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).required().messages({
-        "string.guid": "action_id must be a valid UUID",
-        "any.required": "action_id is required",
-    }),
+    role_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
+
+    permission_group_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
 
     branch_external_assignment_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
     branch_internal_assignment_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
     propagate_all_branches: Joi.boolean().default(true),
 }).custom((value, helpers) => {
-    if (!value.internal_structure_id && !value.user_id) {
-        return helpers.error("any.custom", {
-            message: "Must assign to either internal_structure_id or user_id",
-        });
-    }
+    const targets = [
+        value.internal_structure_id,
+        value.user_id,
+        value.role_id,
+        value.permission_group_id,
+    ].filter(Boolean);
 
-    if (value.internal_structure_id && value.user_id) {
+    if (targets.length !== 1) {
         return helpers.error("any.custom", {
-            message: "Cannot assign to both internal_structure_id and user_id simultaneously",
+            message:
+                "Must assign to exactly one of internal_structure_id, user_id, role_id, or permission_group_id",
         });
     }
 
@@ -103,21 +104,35 @@ const createInternalAssignmentSchema = Joi.object({
 const updateInternalAssignmentSchema = Joi.object({
     internal_structure_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
     user_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
-    action_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).optional(),
+    role_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
+    permission_group_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
 }).custom((value, helpers) => {
-    // Only validate if both are being set to null
-    if (value.internal_structure_id === null && value.user_id === null) {
+    const provided = [
+        value.internal_structure_id,
+        value.user_id,
+        value.role_id,
+        value.permission_group_id,
+    ].filter((v) => v !== undefined);
+
+    if (provided.length === 0) {
         return helpers.error("any.custom", {
-            message: "Must assign to either internal_structure_id or user_id",
+            message: "At least one assignment target field is required",
         });
     }
 
-    // Optionally: prevent both if business rule requires exclusive assignment
-    // if (value.internal_structure_id && value.user_id) {
-    //   return helpers.error("any.custom", {
-    //     message: "Cannot assign to both internal_structure_id and user_id simultaneously",
-    //   });
-    // }
+    const nonNull = [
+        value.internal_structure_id,
+        value.user_id,
+        value.role_id,
+        value.permission_group_id,
+    ].filter((v) => v !== undefined && v !== null);
+
+    if (nonNull.length > 1) {
+        return helpers.error("any.custom", {
+            message:
+                "Cannot assign to more than one of internal_structure_id, user_id, role_id, or permission_group_id",
+        });
+    }
 
     return value;
 });

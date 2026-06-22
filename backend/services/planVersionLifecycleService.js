@@ -20,6 +20,7 @@ const {
     normalizeCustomPeriods,
 } = require("./planningConfigurationService");
 const { syncAllDerivedNodesFromMaster } = require("./planMasterEditService");
+const { syncPlanNodeAssignmentContext } = require("./planAssignmentScopeService");
 const {
     hasBeenPublishedForReview,
     isMasterReviewCompleted,
@@ -167,6 +168,8 @@ async function copyNodesWithAssignments(
                 plan_node_id: nodeIdMap.get(int.plan_node_id),
                 internal_structure_id: int.internal_structure_id,
                 user_id: int.user_id,
+                role_id: int.role_id,
+                permission_group_id: int.permission_group_id,
                 action_id: int.action_id,
                 is_active: int.is_active,
                 branch_external_assignment_id: int.branch_external_assignment_id
@@ -178,6 +181,11 @@ async function copyNodesWithAssignments(
             },
             { transaction }
         );
+    }
+
+    for (const sourceNode of sourceNodes) {
+        const newNodeId = nodeIdMap.get(sourceNode.plan_node_id);
+        await syncPlanNodeAssignmentContext(newNodeId, transaction);
     }
 
     return nodeIdMap;

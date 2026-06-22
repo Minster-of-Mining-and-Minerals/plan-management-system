@@ -94,6 +94,7 @@ export const baseApi = createApi({
     "ActionLogs",
     "PerformanceColorThresholds",
     "PlanAssignmentOptions",
+    "PlanAssignmentScope",
     "Notification",
     "NotificationTemplate",
     "Branding",

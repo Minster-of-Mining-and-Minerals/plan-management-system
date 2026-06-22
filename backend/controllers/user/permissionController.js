@@ -10,7 +10,17 @@ const getPermissions = async (req, res) => {
   try {
     const { government_structure_id: queryStructureId, scope } = req.query;
 
-    if (scope === "all" && isSuperAdminActor(req)) {
+    let structureId;
+    try {
+      structureId = resolveManageableStructureId(req, queryStructureId);
+    } catch (error) {
+      return sendScopeError(res, error);
+    }
+
+    const listFullCatalog =
+      isSuperAdminActor(req) && (!structureId || scope === "all");
+
+    if (listFullCatalog) {
       const permissions = await Permission.findAll({
         where: { is_active: true },
         order: [["resource", "ASC"], ["action", "ASC"]],
@@ -21,13 +31,6 @@ const getPermissions = async (req, res) => {
         message: "Permissions fetched successfully.",
         data: permissions,
       });
-    }
-
-    let structureId;
-    try {
-      structureId = resolveManageableStructureId(req, queryStructureId);
-    } catch (error) {
-      return sendScopeError(res, error);
     }
 
     if (!structureId) {

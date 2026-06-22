@@ -10,6 +10,8 @@ const {
     InternalAssignment,
     InternalStructure,
     User,
+    Role,
+    PermissionGroup,
     sequelize,
 } = require("../../models");
 
@@ -1239,6 +1241,16 @@ const getPlanHierarchy = async (req, res) => {
                               model: User,
                               as: "user",
                               attributes: ["user_id", "full_name"],
+                          },
+                          {
+                              model: Role,
+                              as: "role",
+                              attributes: ["role_id", "name"],
+                          },
+                          {
+                              model: PermissionGroup,
+                              as: "permissionGroup",
+                              attributes: ["permission_group_id", "name"],
                           },
                       ],
                   })

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Building, Building2, User as UserIcon } from "lucide-react";
+import { Building, Building2, Shield, User as UserIcon } from "lucide-react";
 import { ExternalAssignment, InternalAssignment } from "@/redux/types/plan";
 import { cn } from "@/lib/utils";
 
@@ -63,12 +63,15 @@ export function PlanNodeAssignmentReadOnly({
                           name: assignment.internalStructure.name,
                       };
                   }
+                  if (assignment.role?.name) {
+                      return { type: "role" as const, name: assignment.role.name };
+                  }
                   return null;
               })
               .filter(
                   (
                       item
-                  ): item is { type: "department" | "user"; name: string } => item !== null
+                  ): item is { type: "department" | "user" | "role"; name: string } => item !== null
               );
 
     return (
@@ -99,6 +102,8 @@ export function PlanNodeAssignmentReadOnly({
                                     <Building2 className="h-4 w-4" />
                                 ) : row.type === "department" ? (
                                     <Building className="h-4 w-4" />
+                                ) : row.type === "role" ? (
+                                    <Shield className="h-4 w-4" />
                                 ) : (
                                     <UserIcon className="h-4 w-4" />
                                 )
@@ -108,7 +113,9 @@ export function PlanNodeAssignmentReadOnly({
                                     ? "Sector"
                                     : row.type === "department"
                                       ? "Department"
-                                      : "User"
+                                      : row.type === "role"
+                                        ? "Role"
+                                        : "User"
                             }
                             name={row.name}
                         />

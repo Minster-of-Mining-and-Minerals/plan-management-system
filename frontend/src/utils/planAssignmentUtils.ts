@@ -1,7 +1,38 @@
 import { PlanNode } from "@/redux/types/plan";
 
+export const PLAN_NODE_ASSIGNMENT_TYPE_LABELS: Record<PlanNode["type"], string> = {
+  strategic: "Strategic Focus Area",
+  goal: "Goal",
+  kpi: "KPI",
+  task: "Activity",
+};
+
+export function getPlanNodeAssignmentTypeLabel(
+  nodeType: PlanNode["type"] | string | undefined
+): string {
+  if (!nodeType) return "Node";
+  return (
+    PLAN_NODE_ASSIGNMENT_TYPE_LABELS[nodeType as PlanNode["type"]] ??
+    nodeType.charAt(0).toUpperCase() + nodeType.slice(1)
+  );
+}
+
+export function formatPlanAssignmentButtonLabel(
+  nodeType: PlanNode["type"] | string | undefined,
+  options?: { reassign?: boolean; allBranches?: boolean }
+): string {
+  const typeLabel = getPlanNodeAssignmentTypeLabel(nodeType);
+  const prefix = options?.reassign ? "Reassign" : "Assign";
+
+  if (options?.allBranches) {
+    return `${prefix} ${typeLabel} to All Branches`;
+  }
+
+  return `${prefix} ${typeLabel}`;
+}
+
 export type PlanAssignmentLabel = {
-  type: "sector" | "department" | "user";
+  type: "sector" | "department" | "user" | "role" | "permission_group";
   name: string;
 };
 
@@ -20,6 +51,10 @@ export function getPlanNodeAssignmentLabels(node: PlanNode): PlanAssignmentLabel
       labels.push({ type: "user", name: assignment.user.full_name });
     } else if (assignment.internalStructure?.name) {
       labels.push({ type: "department", name: assignment.internalStructure.name });
+    } else if (assignment.role?.name) {
+      labels.push({ type: "role", name: assignment.role.name });
+    } else if (assignment.permissionGroup?.name) {
+      labels.push({ type: "permission_group", name: assignment.permissionGroup.name });
     }
   }
 

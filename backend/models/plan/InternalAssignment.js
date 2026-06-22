@@ -8,6 +8,7 @@ module.exports = (sequelize, DataTypes) => {
                 foreignKey: "action_id",
                 targetKey: "assignment_action_id",
                 as: "action",
+                required: false,
             });
 
             InternalAssignment.belongsTo(models.PlanNode, {
@@ -23,6 +24,16 @@ module.exports = (sequelize, DataTypes) => {
             InternalAssignment.belongsTo(models.User, {
                 foreignKey: "user_id",
                 as: "user",
+            });
+
+            InternalAssignment.belongsTo(models.Role, {
+                foreignKey: "role_id",
+                as: "role",
+            });
+
+            InternalAssignment.belongsTo(models.PermissionGroup, {
+                foreignKey: "permission_group_id",
+                as: "permissionGroup",
             });
 
             InternalAssignment.belongsTo(models.ExternalAssignment, {
@@ -61,7 +72,17 @@ module.exports = (sequelize, DataTypes) => {
             },
             action_id: {
                 type: DataTypes.UUID,
-                allowNull: false,
+                allowNull: true,
+            },
+
+            role_id: {
+                type: DataTypes.UUID,
+                allowNull: true,
+            },
+
+            permission_group_id: {
+                type: DataTypes.UUID,
+                allowNull: true,
             },
 
             is_active: {
@@ -97,17 +118,26 @@ module.exports = (sequelize, DataTypes) => {
                 {
                     fields: ["user_id"],
                 },
+                {
+                    fields: ["role_id"],
+                },
+                {
+                    fields: ["permission_group_id"],
+                },
             ],
             validate: {
-                eitherUserOrStructure() {
-                    if (!this.user_id && !this.internal_structure_id) {
-                        throw new Error("Must assign to either user or internal structure");
-                    }
-                },
+                exactlyOneAssignmentTarget() {
+                    const targets = [
+                        this.user_id,
+                        this.internal_structure_id,
+                        this.role_id,
+                        this.permission_group_id,
+                    ].filter(Boolean);
 
-                notBothUserAndStructure() {
-                    if (this.user_id && this.internal_structure_id) {
-                        throw new Error("Cannot assign to both user and internal structure simultaneously");
+                    if (targets.length !== 1) {
+                        throw new Error(
+                            "Assignment must target exactly one of user, department, role, or permission group."
+                        );
                     }
                 },
             },

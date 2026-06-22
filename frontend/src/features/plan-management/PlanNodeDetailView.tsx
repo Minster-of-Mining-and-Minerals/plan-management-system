@@ -35,6 +35,7 @@ import {
     Building,
     UserPlus,
     GitBranch,
+    Shield,
 } from "lucide-react";
 import { actionFeedback } from "@/components/action-feedback";
 import { AssignInternalModal } from "./modals/AssignInternalModal";
@@ -46,6 +47,8 @@ import { InternalAssignment, ExternalAssignment } from "@/redux/types/plan";
 import { ActionButton } from "@/types/tableLayout";
 import { PlanDraftHeaderMeta } from "./components/PlanDraftHeaderMeta";
 import { PlanNodeAssignmentReadOnly } from "./components/PlanNodeAssignmentReadOnly";
+import { PlanAssignmentScopeBanner } from "./components/PlanAssignmentScopeBanner";
+import { AssignmentModeAlerts } from "./components/AssignmentModeAlerts";
 import { AnnualTargetAllocationSummary } from "./components/AnnualTargetAllocationSummary";
 import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
 import { formatNodeTarget } from "@/utils/planRuleUtils";
@@ -65,6 +68,7 @@ import {
 } from "@/utils/planMasterEditUtils";
 import { RaiseIssueButton } from "./components/RaiseIssueButton";
 import { canRaiseReviewIssue, planNodeTypeToIssueEntityType } from "@/utils/planReviewUtils";
+import { formatPlanAssignmentButtonLabel } from "@/utils/planAssignmentUtils";
 
 interface PlanNodeDetailViewProps {
     versionId: string;
@@ -268,30 +272,39 @@ export default function PlanNodeDetailView({
         {
             id: "entity",
             header: "Assigned To",
-            cell: ({ row }) => (
-                <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-gray-50 flex items-center justify-center text-primary border border-gray-100">
-                        {row.original.user_id ? <UserIcon className="h-4 w-4" /> : <Building className="h-4 w-4" />}
+            cell: ({ row }) => {
+                const isUser = !!row.original.user_id;
+                const isRole = !!row.original.role_id;
+                const isPermissionGroup = !!row.original.permission_group_id;
+                const label =
+                    row.original.user?.full_name ||
+                    row.original.internalStructure?.name ||
+                    row.original.role?.name ||
+                    row.original.permissionGroup?.name ||
+                    "—";
+                const typeLabel = isUser
+                    ? "User"
+                    : isRole
+                      ? "Role"
+                      : isPermissionGroup
+                        ? "Permission Group"
+                        : "Department";
+                const Icon = isUser ? UserIcon : isRole || isPermissionGroup ? Shield : Building;
+
+                return (
+                    <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-gray-50 flex items-center justify-center text-primary border border-gray-100">
+                            <Icon className="h-4 w-4" />
+                        </div>
+                        <div>
+                            <p className="font-semibold text-gray-900">{label}</p>
+                            <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">
+                                {typeLabel}
+                            </span>
+                        </div>
                     </div>
-                    <div>
-                        <p className="font-semibold text-gray-900">
-                            {row.original.user?.full_name || row.original.internalStructure?.name}
-                        </p>
-                        <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">
-                            {row.original.user_id ? "User" : "Department"}
-                        </span>
-                    </div>
-                </div>
-            )
-        },
-        {
-            accessorKey: "action.name",
-            header: "Action / Responsibility",
-            cell: ({ row }) => (
-                <Badge variant="secondary" className="bg-purple-50 text-purple-700 border-purple-100">
-                    {row.original.action?.name}
-                </Badge>
-            )
+                );
+            },
         },
         {
             id: "branch",
@@ -404,24 +417,14 @@ export default function PlanNodeDetailView({
         }
     ];
 
-    const assignLabel = (() => {
-        if (activeTab === "external") {
-            return isExclusive && activeCount > 0 ? "Reassign Sector" : "Assign Sector";
-        }
-        const allowDept = assignmentOptions?.allow_department ?? false;
-        const allowUser = assignmentOptions?.allow_user ?? false;
-        const inUserBranch = assignmentOptions?.in_user_branch ?? false;
-        const prefix = isExclusive && activeCount > 0 ? "Reassign" : "Assign";
-
-        if (inUserBranch || (allowUser && !allowDept)) return `${prefix} User`;
-        if (allowDept && !allowUser) return `${prefix} Department`;
-        return `${prefix} Department / User`;
-    })();
+    const assignLabel = formatPlanAssignmentButtonLabel(node?.type, {
+        reassign: isExclusive && activeCount > 0,
+    });
 
     const sideActions: ActionButton[] = [
         ...(showInternalTab
             ? [{
-                label: `Users & Departments (${internalAssignments.filter((a) => a.is_active).length})`,
+                label: `Internal (${internalAssignments.filter((a) => a.is_active).length})`,
                 icon: <Users className="h-4 w-4" />,
                 variant: activeTab === "internal" ? "default" as const : "outline" as const,
                 onClick: () => setActiveTab("internal"),
@@ -759,23 +762,13 @@ export default function PlanNodeDetailView({
                     </div>
                 </div>
 
-                {assignmentOptions?.message && !assignmentOptions.can_assign && (
-                    <div className="mb-4 mx-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                        {assignmentOptions.message}
-                    </div>
-                )}
-
-                {assignmentOptions?.in_user_branch && assignmentOptions.can_assign && (
-                    <div className="mb-4 mx-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-                        User branch active: deeper levels can only be assigned to users within this sector.
-                    </div>
-                )}
-
-                {sharingMode === "shared" && (
-                    <div className="mb-4 mx-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                        Shared mode: multiple active assignments are allowed. Each branch can expand independently.
-                    </div>
-                )}
+                <div className="mb-4 space-y-3 px-2">
+                    <PlanAssignmentScopeBanner
+                        options={assignmentOptions}
+                        isLoading={isOptionsLoading}
+                    />
+                    <AssignmentModeAlerts options={assignmentOptions} />
+                </div>
 
                 <TableLayout
                     actions={actions}
@@ -814,11 +807,13 @@ export default function PlanNodeDetailView({
                 isOpen={isInternalModalOpen}
                 onClose={() => setInternalModalOpen(false)}
                 planNodeId={nodeId}
+                nodeType={node?.type}
             />
             <AssignExternalModal
                 isOpen={isExternalModalOpen}
                 onClose={() => setExternalModalOpen(false)}
                 planNodeId={nodeId}
+                nodeType={node?.type}
             />
             </>
             )}

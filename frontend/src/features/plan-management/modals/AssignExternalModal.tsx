@@ -1,9 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { createFormResolver } from "@/lib/zod-form";
-import * as z from "zod";
+import { useEffect, useState } from "react";
 import {
     Dialog,
     DialogContent,
@@ -20,20 +17,24 @@ import {
     FormMessage,
     FormDescription,
 } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { createFormResolver } from "@/lib/zod-form";
+import * as z from "zod";
 import { Button } from "@/components/ui/button";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { actionFeedback } from "@/components/action-feedback";
 import {
     useCreateExternalAssignmentMutation,
     useGetPlanNodeAssignmentOptionsQuery,
 } from "@/redux/api/planAssignmentApi";
+import { AssignmentSectorsPanel } from "@/components/assignment-selectors";
+import { PlanAssignmentScopeBanner } from "../components/PlanAssignmentScopeBanner";
+import { AssignmentModeAlerts } from "../components/AssignmentModeAlerts";
+import {
+    formatPlanAssignmentButtonLabel,
+    getPlanNodeAssignmentTypeLabel,
+} from "@/utils/planAssignmentUtils";
+import { PlanNode } from "@/redux/types/plan";
 
 const formSchema = z.object({
     plan_node_id: z.string().uuid(),
@@ -46,13 +47,16 @@ interface AssignExternalModalProps {
     isOpen: boolean;
     onClose: () => void;
     planNodeId: string;
+    nodeType?: PlanNode["type"];
 }
 
 export function AssignExternalModal({
     isOpen,
     onClose,
     planNodeId,
+    nodeType,
 }: AssignExternalModalProps) {
+    const [selectedSectorId, setSelectedSectorId] = useState<string | null>(null);
     const [createAssignment, { isLoading: isSubmitting }] = useCreateExternalAssignmentMutation();
     const { data: options, isLoading: isLoadingOptions } = useGetPlanNodeAssignmentOptionsQuery(
         { nodeId: planNodeId },
@@ -71,6 +75,7 @@ export function AssignExternalModal({
 
     useEffect(() => {
         if (isOpen) {
+            setSelectedSectorId(null);
             form.reset({
                 plan_node_id: planNodeId,
                 government_structure_id: "",
@@ -80,13 +85,23 @@ export function AssignExternalModal({
         }
     }, [isOpen, planNodeId, form]);
 
+    useEffect(() => {
+        form.setValue("government_structure_id", selectedSectorId ?? "");
+    }, [selectedSectorId, form]);
+
     async function onSubmit(values: z.infer<typeof formSchema>) {
+        if (!values.government_structure_id) {
+            actionFeedback.error("Please select a sector");
+            return;
+        }
+
         try {
             await createAssignment(values).unwrap();
-            actionFeedback.success("Sector assignment created successfully");
+            actionFeedback.success(`${getPlanNodeAssignmentTypeLabel(nodeType)} assigned successfully`);
             onClose();
-        } catch (error: any) {
-            actionFeedback.error(error.data?.message || "Something went wrong");
+        } catch (error: unknown) {
+            const err = error as { data?: { message?: string } };
+            actionFeedback.error(err.data?.message || "Something went wrong");
         }
     }
 
@@ -94,11 +109,18 @@ export function AssignExternalModal({
     const isExclusive = options?.assignment_sharing_mode === "exclusive";
     const hasActiveAssignment = (options?.active_assignment_count ?? 0) > 0;
 
+    const typeLabel = getPlanNodeAssignmentTypeLabel(nodeType);
+    const submitLabel = formatPlanAssignmentButtonLabel(nodeType, {
+        reassign: isExclusive && hasActiveAssignment,
+    });
+
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="flex w-[calc(100%-2rem)] max-h-[min(90dvh,720px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[520px] top-[max(1rem,5dvh)] translate-y-0 sm:top-[50%] sm:-translate-y-1/2">
+            <DialogContent className="flex w-[calc(100%-2rem)] max-h-[min(90dvh,720px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[560px] top-[max(1rem,5dvh)] translate-y-0 sm:top-[50%] sm:-translate-y-1/2">
                 <DialogHeader className="shrink-0 px-6 pt-6 pb-4 pr-12">
-                    <DialogTitle>Assign Sector (Level {options?.level ?? "—"})</DialogTitle>
+                    <DialogTitle>
+                        Assign {typeLabel} (Level {options?.level ?? "—"})
+                    </DialogTitle>
                 </DialogHeader>
 
                 <Form {...form}>
@@ -107,64 +129,32 @@ export function AssignExternalModal({
                         className="flex min-h-0 flex-1 flex-col overflow-hidden"
                     >
                         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6">
-                            <div className="space-y-6 pb-4">
-                                {isExclusive && hasActiveAssignment && (
-                                    <p className="break-words rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-700">
-                                        Exclusive mode: assigning a new sector will replace the current active assignment.
-                                        Previous assignments are kept in history.
-                                    </p>
-                                )}
+                            <div className="space-y-4 pb-4">
+                                <PlanAssignmentScopeBanner
+                                    options={options}
+                                    isLoading={isLoadingOptions}
+                                    compact
+                                />
 
-                                {options?.assignment_sharing_mode === "shared" && (
-                                    <p className="break-words rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-                                        Shared mode: multiple sectors can be assigned to this node. Each child node
-                                        defines its own sharing mode independently.
-                                    </p>
-                                )}
-
-                                {options?.message && (
-                                    <p className="break-words rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-                                        {options.message}
-                                    </p>
-                                )}
+                                <AssignmentModeAlerts options={options} />
 
                                 <FormField
                                     control={form.control}
                                     name="government_structure_id"
-                                    render={({ field }) => (
+                                    render={() => (
                                         <FormItem>
                                             <FormLabel>Select Sector Structure</FormLabel>
                                             <FormDescription>
-                                                Root plans can only be assigned to this plan&apos;s sector or its child sectors.
+                                                Root plans can only be assigned to this plan&apos;s sector
+                                                or its child sectors.
                                             </FormDescription>
-                                            <Select
-                                                onValueChange={field.onChange}
-                                                value={field.value}
-                                                disabled={isLoadingOptions || !options?.can_assign}
-                                            >
-                                                <FormControl>
-                                                    <SelectTrigger className="min-w-0">
-                                                        <SelectValue placeholder={
-                                                            isLoadingOptions
-                                                                ? "Loading sectors..."
-                                                                : sectors.length
-                                                                    ? "Select sector structure"
-                                                                    : "No eligible sectors"
-                                                        } />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    {sectors.map((struct) => (
-                                                        <SelectItem
-                                                            key={struct.government_structure_id}
-                                                            value={struct.government_structure_id}
-                                                        >
-                                                            {struct.name}
-                                                            {struct.level > 1 ? ` (Level ${struct.level})` : ""}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <AssignmentSectorsPanel
+                                                sectors={sectors}
+                                                selectedId={selectedSectorId}
+                                                onSelect={setSelectedSectorId}
+                                                isLoading={isLoadingOptions}
+                                                disabled={!options?.can_assign}
+                                            />
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -179,7 +169,8 @@ export function AssignExternalModal({
                                                 <div className="min-w-0 space-y-0.5">
                                                     <FormLabel>Open for Visibility</FormLabel>
                                                     <FormDescription className="break-words">
-                                                        Allow this sector to view the node&apos;s progress and details.
+                                                        Allow this sector to view the node&apos;s progress
+                                                        and details.
                                                     </FormDescription>
                                                 </div>
                                                 <FormControl>
@@ -200,7 +191,8 @@ export function AssignExternalModal({
                                                 <div className="min-w-0 space-y-0.5">
                                                     <FormLabel>Mandatory Reporting</FormLabel>
                                                     <FormDescription className="break-words">
-                                                        Restricts the assigned person to provide a mandatory report.
+                                                        Restricts the assigned person to provide a mandatory
+                                                        report.
                                                     </FormDescription>
                                                 </div>
                                                 <FormControl>
@@ -228,15 +220,16 @@ export function AssignExternalModal({
                             </Button>
                             <Button
                                 type="submit"
-                                disabled={isSubmitting || !options?.can_assign || sectors.length === 0}
+                                disabled={
+                                    isSubmitting ||
+                                    !options?.can_assign ||
+                                    sectors.length === 0 ||
+                                    !selectedSectorId
+                                }
                                 className="min-w-0 w-full sm:w-auto"
                             >
                                 <span className="truncate">
-                                    {isSubmitting
-                                        ? "Assigning..."
-                                        : isExclusive && hasActiveAssignment
-                                          ? "Reassign Sector"
-                                          : "Assign Sector"}
+                                    {isSubmitting ? "Assigning..." : submitLabel}
                                 </span>
                             </Button>
                         </DialogFooter>

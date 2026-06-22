@@ -2,9 +2,6 @@ const express = require("express");
 const router = express.Router();
 
 const {
-    validateCreateAssignmentAction,
-    validateUpdateAssignmentAction,
-    validateGetAssignmentActionsQuery,
     validateCreateExternalAssignment,
     validateUpdateExternalAssignment,
     validateCreateInternalAssignment,
@@ -20,10 +17,6 @@ const {
 } = require("../../validators/plan/planAssignmentValidator");
 
 const {
-    // Assignment Actions
-    createAssignmentAction,
-    getAssignmentActions,
-
     // External Assignments
     createExternalAssignment,
     getExternalAssignmentsByNode,
@@ -34,6 +27,7 @@ const {
     createInternalAssignment,
     getInternalAssignmentsByNode,
     getPlanNodeAssignmentOptions,
+    getPlanNodeAssignmentScope,
     getAssignmentsByUser,
     updateInternalAssignment,
     deleteInternalAssignment,
@@ -73,11 +67,6 @@ const assignmentReadAccess = checkAnyPermission([
 // Apply authentication to all routes
 router.use(authenticateToken);
 
-// ================= ASSIGNMENT ACTIONS (Master Data) =================
-
-router.post("/actions", checkPermission("PLAN_ASSIGNMENT_ACTIONS", "CREATE"), validateCreateAssignmentAction, createAssignmentAction);
-router.get("/actions", checkPermission("PLAN_ASSIGNMENT_ACTIONS", "READ"), validateGetAssignmentActionsQuery, getAssignmentActions);
-
 // ================= EXTERNAL ASSIGNMENTS =================
 
 router.post("/external", assignmentCreate, validateCreateExternalAssignment, createExternalAssignment);
@@ -88,6 +77,7 @@ router.delete("/external/:id", assignmentDelete, validateIdParam, deleteExternal
 // ================= INTERNAL ASSIGNMENTS =================
 
 router.post("/internal", assignmentCreate, validateCreateInternalAssignment, createInternalAssignment);
+router.get("/scope/node/:plan_node_id", assignmentReadAccess, validateNodeIdParam, requirePlanNodeReadAccess("plan_node_id"), validateGetAssignmentOptionsQuery, getPlanNodeAssignmentScope);
 router.get("/options/node/:plan_node_id", assignmentReadAccess, validateNodeIdParam, requirePlanNodeReadAccess("plan_node_id"), validateGetAssignmentOptionsQuery, getPlanNodeAssignmentOptions);
 router.get("/internal/node/:plan_node_id", assignmentReadAccess, validateNodeIdParam, requirePlanNodeReadAccess("plan_node_id"), validateGetAssignmentsByNodeQuery, getInternalAssignmentsByNode);
 router.get("/internal/user/:user_id", checkPermission("PLAN_ASSIGNMENTS", "READ"), validateUserIdParam, getAssignmentsByUser);

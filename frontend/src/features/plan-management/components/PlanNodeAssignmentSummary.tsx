@@ -1,6 +1,6 @@
 "use client";
 
-import { Building, Layers, User } from "lucide-react";
+import { Building, Layers, Shield, User } from "lucide-react";
 import { PlanNode } from "@/redux/types/plan";
 import { cn } from "@/lib/utils";
 import {
@@ -15,6 +15,9 @@ function AssignmentIcon({ type }: { type: PlanAssignmentLabel["type"] }) {
   }
   if (type === "department") {
     return <Layers className="h-3 w-3 shrink-0" />;
+  }
+  if (type === "role" || type === "permission_group") {
+    return <Shield className="h-3 w-3 shrink-0" />;
   }
   return <User className="h-3 w-3 shrink-0" />;
 }

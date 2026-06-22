@@ -8,8 +8,11 @@ const {
   GovernmentStructure,
   InternalStructure,
   User,
+  Role,
+  PermissionGroup,
 } = require("../models");
 const { Op } = require("sequelize");
+const scopeService = require("./planAssignmentScopeService");
 
 const ACTIVE_WHERE = { is_active: true };
 
@@ -65,6 +68,8 @@ async function getActiveInternalAssignments(planNodeId, transaction) {
     include: [
       { model: InternalStructure, as: "internalStructure" },
       { model: User, as: "user", attributes: { exclude: ["password"] } },
+      { model: Role, as: "role" },
+      { model: PermissionGroup, as: "permissionGroup" },
     ],
     transaction,
   });
@@ -102,6 +107,8 @@ async function getPrimaryInternalAssignment(planNodeId, transaction, branchInter
       include: [
         { model: InternalStructure, as: "internalStructure" },
         { model: User, as: "user", attributes: { exclude: ["password"] } },
+        { model: Role, as: "role" },
+        { model: PermissionGroup, as: "permissionGroup" },
       ],
       transaction,
     });
@@ -113,6 +120,8 @@ async function getPrimaryInternalAssignment(planNodeId, transaction, branchInter
     include: [
       { model: InternalStructure, as: "internalStructure" },
       { model: User, as: "user", attributes: { exclude: ["password"] } },
+      { model: Role, as: "role" },
+      { model: PermissionGroup, as: "permissionGroup" },
     ],
     transaction,
   });
@@ -127,12 +136,26 @@ function mapExternalBranchOption(assignment) {
 }
 
 function mapInternalBranchOption(assignment) {
+  const type = assignment.user_id
+    ? "user"
+    : assignment.role_id
+      ? "role"
+      : assignment.permission_group_id
+        ? "permission_group"
+        : "department";
+
   return {
     internal_assignment_id: assignment.internal_assignment_id,
-    label: assignment.user?.full_name || assignment.internalStructure?.name,
-    type: assignment.user_id ? "user" : "department",
+    label:
+      assignment.user?.full_name ||
+      assignment.internalStructure?.name ||
+      assignment.role?.name ||
+      assignment.permissionGroup?.name,
+    type,
     user_id: assignment.user_id,
     internal_structure_id: assignment.internal_structure_id,
+    role_id: assignment.role_id,
+    permission_group_id: assignment.permission_group_id,
   };
 }
 
@@ -379,7 +402,7 @@ async function resolveAllParentBranchContexts(parentNode, transaction) {
   return activeInternal.map((assignment) => ({
     branch_external_assignment_id: assignment.branch_external_assignment_id,
     branch_internal_assignment_id: assignment.internal_assignment_id,
-    label: assignment.user?.full_name || assignment.internalStructure?.name,
+    label: assignment.user?.full_name || assignment.internalStructure?.name || assignment.role?.name,
   }));
 }
 
@@ -416,15 +439,10 @@ async function getAssignmentOptionsForNode(planNodeId, transaction = null, branc
     throw err;
   }
 
-  const planVersion = planNode.planVersion;
   const ancestorChain = await getAncestorNodes(planNode, transaction);
   const parent = ancestorChain[0] ?? null;
-  const isRootLevel = planNode.level === 1 || !planNode.parent_id;
-
   const parentBranchOptions = await getParentBranchOptions(parent, transaction);
-  const parentIsShared = parent?.assignment_sharing_mode === "shared";
   const hasMultipleBranches = parentBranchOptions.length > 1;
-  const supportsBranchSelection = hasMultipleBranches;
   const allowPropagateAllBranches =
     hasMultipleBranches && planNode.assignment_sharing_mode === "shared";
 
@@ -441,238 +459,19 @@ async function getAssignmentOptionsForNode(planNodeId, transaction = null, branc
     }
   }
 
-  const baseResponse = {
-    plan_node_id: planNodeId,
-    level: planNode.level,
-    assignment_sharing_mode: planNode.assignment_sharing_mode,
-    parent_is_shared: parentIsShared,
-    requires_branch_selection: false,
-    supports_branch_selection: supportsBranchSelection,
-    allow_propagate_all_branches: allowPropagateAllBranches,
-    branch_assignment_mode: allowPropagateAllBranches ? "auto" : "controlled",
-    parent_branch_options: parentBranchOptions,
-    active_parent_branch_count: parentBranchOptions.length,
-  };
-
-  if (isRootLevel) {
-    const allowedIds = await collectDescendantSectorIds(
-      planVersion.government_structure_id,
-      transaction
-    );
-    const sectors = await GovernmentStructure.findAll({
-      where: {
-        government_structure_id: { [Op.in]: [...allowedIds] },
-        is_active: true,
-      },
-      order: [
-        ["level", "ASC"],
-        ["name", "ASC"],
-      ],
-      transaction,
-    });
-
-    const activeExternal = await getActiveExternalAssignments(planNodeId, transaction);
-
-    return {
-      ...baseResponse,
-      assignment_mode: "external",
-      can_assign: true,
-      in_user_branch: false,
-      allow_sector: true,
-      allow_department: false,
-      allow_user: false,
-      parent_context: null,
-      sectors: mapSectorOptions(sectors),
-      departments: [],
-      users: [],
-      active_assignment_count: activeExternal.length,
-      message: null,
-    };
-  }
-
-  const userBranch = await isInUserBranch(ancestorChain, transaction, effectiveBranchContext);
-  const sectorContextId = await resolveRootSectorId(
-    ancestorChain,
-    planVersion,
-    transaction,
-    effectiveBranchContext.branchExternalAssignmentId
-  );
-
-  if (userBranch) {
-    const userWhere = {
-      is_active: true,
-    };
-
-    const branchDepartmentId = await resolveUserBranchDepartmentId(effectiveBranchContext, transaction);
-    if (branchDepartmentId) {
-      userWhere.internal_structure_id = branchDepartmentId;
-    } else if (sectorContextId) {
-      userWhere.government_structure_id = sectorContextId;
-    }
-
-    const users = await User.findAll({
-      where: userWhere,
-      attributes: ["user_id", "full_name", "email", "government_structure_id", "internal_structure_id"],
-      order: [["full_name", "ASC"]],
-      transaction,
-    });
-
-    const activeInternal = await getActiveInternalAssignments(planNodeId, transaction);
-
-    return {
-      ...baseResponse,
-      assignment_mode: "internal",
-      can_assign: true,
-      in_user_branch: true,
-      allow_sector: false,
-      allow_department: false,
-      allow_user: true,
-      parent_context: await resolveParentAssignmentContext(parent, transaction, effectiveBranchContext),
-      sectors: [],
-      departments: [],
-      users: mapUserOptions(users),
-      active_assignment_count: activeInternal.length,
-      message:
-        "This branch is assigned to a user. Only user assignments are allowed at deeper levels.",
-    };
-  }
-
-  const parentContext = await resolveParentAssignmentContext(parent, transaction, effectiveBranchContext);
-  if (!parentContext) {
-    return {
-      ...baseResponse,
-      assignment_mode: "internal",
-      can_assign: false,
-      in_user_branch: false,
-      allow_sector: false,
-      allow_department: false,
-      allow_user: false,
-      parent_context: null,
-      sectors: [],
-      departments: [],
-      users: [],
-      active_assignment_count: 0,
-      message: "Assign the parent plan level before assigning this level.",
-    };
-  }
-
-  if (parentContext.type === "sector") {
-    const departments = await InternalStructure.findAll({
-      where: {
-        government_structure_id: parentContext.government_structure_id,
-        is_active: true,
-      },
-      order: [
-        ["level", "ASC"],
-        ["name", "ASC"],
-      ],
-      transaction,
-    });
-
-    const directUsers = await User.findAll({
-      where: {
-        government_structure_id: parentContext.government_structure_id,
-        internal_structure_id: null,
-        is_active: true,
-      },
-      attributes: ["user_id", "full_name", "email", "government_structure_id", "internal_structure_id"],
-      order: [["full_name", "ASC"]],
-      transaction,
-    });
-
-    const activeInternal = await getActiveInternalAssignments(planNodeId, transaction);
-    const propagationMessage = buildPropagationMessage(baseResponse);
-
-    return {
-      ...baseResponse,
-      assignment_mode: "internal",
-      can_assign: true,
-      in_user_branch: false,
-      allow_sector: false,
-      allow_department: departments.length > 0,
-      allow_user: directUsers.length > 0,
-      parent_context: parentContext,
-      sectors: [],
-      departments: mapDepartmentOptions(departments),
-      users: mapUserOptions(directUsers),
-      active_assignment_count: activeInternal.length,
-      message: propagationMessage,
-    };
-  }
-
-  if (parentContext.type === "department") {
-    const childDepartments = await InternalStructure.findAll({
-      where: {
-        parent_id: parentContext.internal_structure_id,
-        is_active: true,
-      },
-      order: [["name", "ASC"]],
-      transaction,
-    });
-
-    const departmentUsers = await User.findAll({
-      where: {
-        internal_structure_id: parentContext.internal_structure_id,
-        is_active: true,
-      },
-      attributes: ["user_id", "full_name", "email", "government_structure_id", "internal_structure_id"],
-      order: [["full_name", "ASC"]],
-      transaction,
-    });
-
-    const isLeafDepartment = childDepartments.length === 0;
-    const activeInternal = await getActiveInternalAssignments(planNodeId, transaction);
-    const propagationMessage = buildPropagationMessage(baseResponse);
-
-    return {
-      ...baseResponse,
-      assignment_mode: "internal",
-      can_assign: true,
-      in_user_branch: false,
-      allow_sector: false,
-      allow_department: !isLeafDepartment,
-      allow_user: isLeafDepartment || departmentUsers.length > 0,
-      parent_context: parentContext,
-      sectors: [],
-      departments: mapDepartmentOptions(childDepartments),
-      users: mapUserOptions(departmentUsers),
-      active_assignment_count: activeInternal.length,
-      message: isLeafDepartment
-        ? propagationMessage
-          ? `This department has no sub-departments. Assign a user to continue. ${propagationMessage}`
-          : "This department has no sub-departments. Assign a user to continue."
-        : propagationMessage,
-    };
-  }
-
-  return {
-    ...baseResponse,
-    assignment_mode: "internal",
-    can_assign: false,
-    in_user_branch: true,
-    allow_sector: false,
-    allow_department: false,
-    allow_user: false,
-    parent_context: parentContext,
-    sectors: [],
-    departments: [],
-    users: [],
-    active_assignment_count: 0,
-    message: "Invalid parent assignment context.",
-  };
-}
-
-function buildPropagationMessage(baseResponse) {
-  if (!baseResponse.allow_propagate_all_branches) return null;
-  const count = baseResponse.active_parent_branch_count ?? baseResponse.parent_branch_options.length;
-  if (count <= 1) return null;
-  return `Default: assignment will propagate to all ${count} active parent branches. Switch to a specific branch to assign to one branch only.`;
+  return scopeService.getAssignmentOptionsForNode(planNodeId, transaction, branchContext, {
+    parentBranchOptions,
+    parentIsShared: parent?.assignment_sharing_mode === "shared",
+    supportsBranchSelection: hasMultipleBranches,
+    allowPropagateAllBranches,
+    effectiveBranchContext,
+  });
 }
 
 async function resolveInternalTargetForBranch(
   planNode,
   parentNode,
-  { internal_structure_id, user_id },
+  { internal_structure_id, user_id, role_id, permission_group_id },
   branchFields,
   transaction
 ) {
@@ -682,7 +481,30 @@ async function resolveInternalTargetForBranch(
   };
 
   if (user_id) {
-    return { user_id, internal_structure_id: null };
+    return {
+      user_id,
+      internal_structure_id: null,
+      role_id: null,
+      permission_group_id: null,
+    };
+  }
+
+  if (role_id) {
+    return {
+      user_id: null,
+      internal_structure_id: null,
+      role_id,
+      permission_group_id: null,
+    };
+  }
+
+  if (permission_group_id) {
+    return {
+      user_id: null,
+      internal_structure_id: null,
+      role_id: null,
+      permission_group_id,
+    };
   }
 
   if (!internal_structure_id) {
@@ -691,7 +513,12 @@ async function resolveInternalTargetForBranch(
 
   const options = await getAssignmentOptionsForNode(planNode.plan_node_id, transaction, branchContext);
   if (options.departments.some((d) => d.internal_structure_id === internal_structure_id)) {
-    return { internal_structure_id, user_id: null };
+    return {
+      internal_structure_id,
+      user_id: null,
+      role_id: null,
+      permission_group_id: null,
+    };
   }
 
   const source = await InternalStructure.findByPk(internal_structure_id, { transaction });
@@ -701,136 +528,41 @@ async function resolveInternalTargetForBranch(
     (d) => d.name.trim().toLowerCase() === source.name.trim().toLowerCase()
   );
   if (match) {
-    return { internal_structure_id: match.internal_structure_id, user_id: null };
+    return {
+      internal_structure_id: match.internal_structure_id,
+      user_id: null,
+      role_id: null,
+      permission_group_id: null,
+    };
   }
 
   return null;
-}
-
-function buildBranchDuplicateWhere(planNodeId, branchFields, target) {
-  const where = {
-    plan_node_id: planNodeId,
-    is_active: true,
-    ...target,
-  };
-
-  if (branchFields.branch_external_assignment_id) {
-    where.branch_external_assignment_id = branchFields.branch_external_assignment_id;
-  }
-  if (branchFields.branch_internal_assignment_id) {
-    where.branch_internal_assignment_id = branchFields.branch_internal_assignment_id;
-  }
-
-  return where;
 }
 
 async function validateExternalAssignmentTarget(planNode, governmentStructureId, transaction) {
-  const options = await getAssignmentOptionsForNode(planNode.plan_node_id, transaction);
-
-  if (options.assignment_mode !== "external") {
-    return "Root level plans must use sector assignment. Departments and users are not allowed at level 1.";
-  }
-
-  const allowed = options.sectors.some(
-    (s) => s.government_structure_id === governmentStructureId
+  return scopeService.validateExternalAssignmentTarget(
+    planNode,
+    governmentStructureId,
+    transaction
   );
-  if (!allowed) {
-    return "Selected sector is not allowed. Choose the plan sector or one of its child sectors.";
-  }
-
-  if (planNode.assignment_sharing_mode === "shared") {
-    const duplicate = await ExternalAssignment.findOne({
-      where: {
-        plan_node_id: planNode.plan_node_id,
-        government_structure_id: governmentStructureId,
-        is_active: true,
-      },
-      transaction,
-    });
-    if (duplicate) {
-      return "This sector is already actively assigned to this node.";
-    }
-  }
-
-  return null;
 }
 
 async function validateInternalAssignmentTarget(
   planNode,
-  { internal_structure_id, user_id },
+  target,
   transaction,
   branchContext = {},
-  branchFields = null
+  branchFields = null,
+  options = {}
 ) {
-  const options = await getAssignmentOptionsForNode(planNode.plan_node_id, transaction, branchContext);
-
-  if (!options.can_assign) {
-    return options.message || "Assignment is not allowed at this level.";
-  }
-
-  if (options.assignment_mode === "external") {
-    return "Use sector assignment for root plan levels.";
-  }
-
-  if (internal_structure_id && user_id) {
-    return "Cannot assign to both department and user.";
-  }
-
-  const duplicateBranchFields = branchFields || {
-    branch_external_assignment_id: branchContext.branchExternalAssignmentId || null,
-    branch_internal_assignment_id: branchContext.branchInternalAssignmentId || null,
-  };
-
-  if (internal_structure_id) {
-    if (!options.allow_department) {
-      if (options.in_user_branch) {
-        return "Cannot assign to a department after entering a user assignment branch.";
-      }
-      return "Department assignment is not allowed at this level.";
-    }
-    const allowed = options.departments.some(
-      (d) => d.internal_structure_id === internal_structure_id
-    );
-    if (!allowed) {
-      return "Selected department is not a valid child of the parent assignment.";
-    }
-
-    const duplicate = await InternalAssignment.findOne({
-      where: buildBranchDuplicateWhere(planNode.plan_node_id, duplicateBranchFields, {
-        internal_structure_id,
-      }),
-      transaction,
-    });
-    if (duplicate) {
-      return "This department is already actively assigned on this branch.";
-    }
-
-    return null;
-  }
-
-  if (user_id) {
-    if (!options.allow_user) {
-      return "User assignment is not allowed at this level.";
-    }
-    const allowed = options.users.some((u) => u.user_id === user_id);
-    if (!allowed) {
-      return "Selected user is not valid for the current assignment hierarchy.";
-    }
-
-    const duplicate = await InternalAssignment.findOne({
-      where: buildBranchDuplicateWhere(planNode.plan_node_id, duplicateBranchFields, {
-        user_id,
-      }),
-      transaction,
-    });
-    if (duplicate) {
-      return "This user is already actively assigned on this branch.";
-    }
-
-    return null;
-  }
-
-  return "Must assign to either department or user.";
+  return scopeService.validateInternalAssignmentTarget(
+    planNode,
+    target,
+    transaction,
+    branchContext,
+    branchFields,
+    options
+  );
 }
 
 module.exports = {

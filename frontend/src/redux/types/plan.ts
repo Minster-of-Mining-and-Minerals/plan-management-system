@@ -183,6 +183,25 @@ export interface GetPlanVersionsQueryParams {
 
 export type AssignmentSharingMode = "exclusive" | "shared";
 
+export type PlanAssignmentContextType = "sector" | "user" | "department" | "role" | "permission_group";
+
+export interface PlanNodeAssignmentContextEntry {
+    rootSectorId: string | null;
+    assignmentType: PlanAssignmentContextType;
+    assignmentTargetId: string;
+    scopeType: "sector" | "department_subtree" | null;
+    scopeReferenceId: string | null;
+    label: string | null;
+    externalAssignmentId?: string;
+    internalAssignmentId?: string;
+    branchExternalAssignmentId?: string | null;
+    branchInternalAssignmentId?: string | null;
+}
+
+export interface PlanNodeAssignmentContext {
+    entries: PlanNodeAssignmentContextEntry[];
+}
+
 export interface PlanNode {
     plan_node_id: string;
     plan_version_id: string;
@@ -197,6 +216,7 @@ export interface PlanNode {
     order: number;
     is_active: boolean;
     assignment_sharing_mode: AssignmentSharingMode;
+    assignment_context?: PlanNodeAssignmentContext | null;
     source_plan_node_id?: string | null;
     annual_target?: number | null;
     period_target?: number | null;
@@ -375,22 +395,40 @@ export interface PlanNodeAssignmentOptionUser {
     internal_structure_id: string | null;
 }
 
+export interface PlanNodeAssignmentOptionRole {
+    role_id: string;
+    name: string;
+    scope: string;
+    government_structure_id: string | null;
+}
+
+export interface PlanNodeAssignmentOptionPermissionGroup {
+    permission_group_id: string;
+    name: string;
+    description?: string | null;
+    structure_names?: string[];
+}
+
 export interface PlanNodeAssignmentParentContext {
-    type: "sector" | "department" | "user";
+    type: "sector" | "department" | "user" | "role" | "permission_group";
     label?: string;
     government_structure_id?: string | null;
     internal_structure_id?: string;
     user_id?: string;
+    role_id?: string;
+    permission_group_id?: string;
 }
 
 export interface PlanNodeAssignmentBranchOption {
     external_assignment_id?: string;
     internal_assignment_id?: string;
     label?: string;
-    type?: "user" | "department" | "sector";
+    type?: "user" | "department" | "sector" | "role" | "permission_group";
     government_structure_id?: string;
     user_id?: string | null;
     internal_structure_id?: string | null;
+    role_id?: string | null;
+    permission_group_id?: string | null;
 }
 
 export interface PlanNodeAssignmentOptions {
@@ -403,6 +441,7 @@ export interface PlanNodeAssignmentOptions {
     allow_sector: boolean;
     allow_department: boolean;
     allow_user: boolean;
+    allow_role: boolean;
     requires_branch_selection: boolean;
     supports_branch_selection: boolean;
     allow_propagate_all_branches: boolean;
@@ -415,6 +454,29 @@ export interface PlanNodeAssignmentOptions {
     sectors: PlanNodeAssignmentOptionSector[];
     departments: PlanNodeAssignmentOptionDepartment[];
     users: PlanNodeAssignmentOptionUser[];
+    roles: PlanNodeAssignmentOptionRole[];
+    permission_groups: PlanNodeAssignmentOptionPermissionGroup[];
+    scope_type: "sector" | "department_subtree" | null;
+    scope_reference_id: string | null;
+    scope_label: string | null;
+    root_sector_id: string | null;
+    message: string | null;
+}
+
+export interface PlanNodeAssignmentScope {
+    plan_node_id: string;
+    level: number;
+    mode: "external" | "internal";
+    can_assign: boolean;
+    root_sector_id: string | null;
+    scope_type: "sector" | "department_subtree" | null;
+    scope_reference_id: string | null;
+    parent_assignment: PlanNodeAssignmentParentContext | null;
+    allow_sector: boolean;
+    allow_user: boolean;
+    allow_department: boolean;
+    allow_role: boolean;
+    scope_label: string | null;
     message: string | null;
 }
 
@@ -456,7 +518,9 @@ export interface InternalAssignment {
     plan_node_id: string;
     internal_structure_id: string | null;
     user_id: string | null;
-    action_id: string;
+    role_id: string | null;
+    permission_group_id: string | null;
+    action_id?: string | null;
     is_active: boolean;
     branch_external_assignment_id?: string | null;
     branch_internal_assignment_id?: string | null;
@@ -467,13 +531,20 @@ export interface InternalAssignment {
     action?: PlanAssignmentAction;
     internalStructure?: InternalStructure;
     user?: User;
+    role?: Role;
+    permissionGroup?: {
+        permission_group_id: string;
+        name: string;
+        description?: string | null;
+    };
 }
 
 export interface CreateInternalAssignmentPayload {
     plan_node_id: string;
     internal_structure_id?: string | null;
     user_id?: string | null;
-    action_id: string;
+    role_id?: string | null;
+    permission_group_id?: string | null;
     branch_external_assignment_id?: string | null;
     branch_internal_assignment_id?: string | null;
     propagate_all_branches?: boolean;
@@ -482,7 +553,8 @@ export interface CreateInternalAssignmentPayload {
 export interface UpdateInternalAssignmentPayload {
     internal_structure_id?: string | null;
     user_id?: string | null;
-    action_id?: string;
+    role_id?: string | null;
+    permission_group_id?: string | null;
 }
 
 /**
@@ -553,4 +625,9 @@ export interface User {
     name?: string;
     email: string;
     // Add other fields as needed
+}
+
+export interface Role {
+    role_id: string;
+    name: string;
 }

@@ -7,7 +7,6 @@ export const PLAN_PERMISSIONS = {
   UPDATE: "PLANS:UPDATE",
   DELETE: "PLANS:DELETE",
   APPROVE: "PLANS:APPROVE",
-  APPROVE_PLAN: "PLANS:APPROVE_PLAN",
   EXECUTE_PLAN: "PLANS:EXECUTE_PLAN",
   SUBMIT: "PLANS:SUBMIT",
   EDIT_FINALIZED: "PLANS:EDIT_FINALIZED",
@@ -113,11 +112,8 @@ export const PLAN_RULES_MUTATION_PERMISSIONS: PermissionKey[] = [
 /** Edit draft nodes, targets, initialize periods */
 export const PLAN_UPDATE_PERMISSIONS: PermissionKey[] = [PLAN_PERMISSIONS.UPDATE];
 
-/** Finalize draft/annual/period targets */
+/** Change plan version status (e.g. draft → active) */
 export const PLAN_APPROVE_PERMISSIONS: PermissionKey[] = [PLAN_PERMISSIONS.APPROVE];
-
-/** Approve assigned plan nodes (assignment workflow) */
-export const PLAN_APPROVE_PLAN_PERMISSIONS: PermissionKey[] = [PLAN_PERMISSIONS.APPROVE_PLAN];
 
 /** Execute assigned plan nodes (assignment workflow) */
 export const PLAN_EXECUTE_PLAN_PERMISSIONS: PermissionKey[] = [PLAN_PERMISSIONS.EXECUTE_PLAN];

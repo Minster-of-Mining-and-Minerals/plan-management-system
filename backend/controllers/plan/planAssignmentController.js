@@ -10,6 +10,7 @@ const {
     GovernmentStructure,
     InternalStructure,
     User,
+    PermissionGroup,
     sequelize,
 } = require("../../models");
 
@@ -25,6 +26,11 @@ const {
 } = require("../../services/planAssignmentHierarchyService");
 
 const {
+    resolveAssignmentScopeForNode,
+    syncPlanNodeAssignmentContext,
+} = require("../../services/planAssignmentScopeService");
+
+const {
     propagateExternalAssignmentCreate,
     propagateInternalAssignmentCreate,
     shouldPropagateMasterStructureChanges,
@@ -32,66 +38,6 @@ const {
 const {
     validateCanEditMasterPlanStructure,
 } = require("../../utils/planMasterEditUtils");
-
-/**
- * =================== PLAN ASSIGNMENT ACTIONS (Master Data) ===================
- */
-
-// Create assignment action
-const createAssignmentAction = async (req, res) => {
-    const t = await sequelize.transaction();
-    try {
-        const { name, code, description, is_approval, is_execution, is_reporting } = req.body;
-
-        const action = await PlanAssignmentAction.create(
-            {
-                assignment_action_id: uuidv4(),
-                name,
-                code,
-                description,
-                is_approval: is_approval || false,
-                is_execution: is_execution || false,
-                is_reporting: is_reporting || false,
-            },
-            { transaction: t }
-        );
-
-        await t.commit();
-
-        return res.status(201).json({
-            success: true,
-            message: "Assignment action created",
-            data: action,
-        });
-    } catch (error) {
-        await t.rollback();
-        return res.status(500).json({ error: error.message });
-    }
-};
-
-// Get all assignment actions
-const getAssignmentActions = async (req, res) => {
-    try {
-        const { type } = req.query;
-        const where = {};
-
-        if (type === "approval") where.is_approval = true;
-        if (type === "execution") where.is_execution = true;
-        if (type === "reporting") where.is_reporting = true;
-
-        const actions = await PlanAssignmentAction.findAll({
-            where,
-            order: [["name", "ASC"]],
-        });
-
-        return res.json({
-            success: true,
-            data: actions,
-        });
-    } catch (error) {
-        return res.status(500).json({ error: error.message });
-    }
-};
 
 /**
  * =================== EXTERNAL ASSIGNMENTS ===================
@@ -130,16 +76,16 @@ const createExternalAssignment = async (req, res) => {
             return res.status(404).json({ message: "Government structure not found" });
         }
 
-        const hierarchyError = await validateExternalAssignmentTarget(
+        const scopeError = await validateExternalAssignmentTarget(
             planNode,
             government_structure_id,
             t
         );
-        if (hierarchyError) {
+        if (scopeError) {
             await t.rollback();
             return res.status(400).json({
                 success: false,
-                message: hierarchyError,
+                message: scopeError,
             });
         }
 
@@ -158,6 +104,8 @@ const createExternalAssignment = async (req, res) => {
             },
             { transaction: t }
         );
+
+        await syncPlanNodeAssignmentContext(plan_node_id, t);
 
         if (await shouldPropagateMasterStructureChanges(planNode.planVersion, t)) {
             await propagateExternalAssignmentCreate(plan_node_id, assignment, t);
@@ -302,6 +250,7 @@ const deleteExternalAssignment = async (req, res) => {
         }
 
         await assignment.update({ is_active: false }, { transaction: t });
+        await syncPlanNodeAssignmentContext(assignment.plan_node_id, t);
 
         await t.commit();
 
@@ -324,7 +273,8 @@ const createInternalAssignment = async (req, res) => {
             plan_node_id,
             internal_structure_id,
             user_id,
-            action_id,
+            role_id,
+            permission_group_id,
             branch_external_assignment_id,
             branch_internal_assignment_id,
             propagate_all_branches,
@@ -350,26 +300,14 @@ const createInternalAssignment = async (req, res) => {
             });
         }
 
-        if (!internal_structure_id && !user_id) {
+        const targets = [internal_structure_id, user_id, role_id, permission_group_id].filter(Boolean);
+        if (targets.length !== 1) {
             await t.rollback();
             return res.status(400).json({
                 success: false,
-                message: "Must assign to either internal structure or user",
+                message:
+                    "Must assign to exactly one of internal structure, user, role, or permission group",
             });
-        }
-
-        if (internal_structure_id && user_id) {
-            await t.rollback();
-            return res.status(400).json({
-                success: false,
-                message: "Cannot assign to both internal structure and user",
-            });
-        }
-
-        const action = await PlanAssignmentAction.findByPk(action_id, { transaction: t });
-        if (!action) {
-            await t.rollback();
-            return res.status(404).json({ message: "Assignment action not found" });
         }
 
         if (internal_structure_id) {
@@ -385,6 +323,22 @@ const createInternalAssignment = async (req, res) => {
             if (!user) {
                 await t.rollback();
                 return res.status(404).json({ message: "User not found" });
+            }
+        }
+
+        if (role_id) {
+            const role = await Role.findByPk(role_id, { transaction: t });
+            if (!role) {
+                await t.rollback();
+                return res.status(404).json({ message: "Role not found" });
+            }
+        }
+
+        if (permission_group_id) {
+            const permissionGroup = await PermissionGroup.findByPk(permission_group_id, { transaction: t });
+            if (!permissionGroup) {
+                await t.rollback();
+                return res.status(404).json({ message: "Permission group not found" });
             }
         }
 
@@ -421,6 +375,8 @@ const createInternalAssignment = async (req, res) => {
             let target = {
                 internal_structure_id: internal_structure_id || null,
                 user_id: user_id || null,
+                role_id: role_id || null,
+                permission_group_id: permission_group_id || null,
             };
 
             if (branchTargets.length > 1) {
@@ -443,15 +399,15 @@ const createInternalAssignment = async (req, res) => {
                 branchInternalAssignmentId: branchFields.branch_internal_assignment_id,
             };
 
-            const hierarchyError = await validateInternalAssignmentTarget(
+            const scopeError = await validateInternalAssignmentTarget(
                 planNode,
                 target,
                 t,
                 branchContext,
                 branchFields
             );
-            if (hierarchyError) {
-                skipped.push(branchFields.label || hierarchyError);
+            if (scopeError) {
+                skipped.push(branchFields.label || scopeError);
                 continue;
             }
 
@@ -461,7 +417,8 @@ const createInternalAssignment = async (req, res) => {
                     plan_node_id,
                     internal_structure_id: target.internal_structure_id,
                     user_id: target.user_id,
-                    action_id,
+                    role_id: target.role_id,
+                    permission_group_id: target.permission_group_id,
                     is_active: true,
                     branch_external_assignment_id: branchFields.branch_external_assignment_id,
                     branch_internal_assignment_id: branchFields.branch_internal_assignment_id,
@@ -482,6 +439,8 @@ const createInternalAssignment = async (req, res) => {
                         : "No valid branch assignments could be created.",
             });
         }
+
+        await syncPlanNodeAssignmentContext(plan_node_id, t);
 
         if (await shouldPropagateMasterStructureChanges(planNode.planVersion, t)) {
             for (const assignment of created) {
@@ -532,10 +491,6 @@ const getInternalAssignmentsByNode = async (req, res) => {
                     as: "planNode",
                 },
                 {
-                    model: PlanAssignmentAction,
-                    as: "action",
-                },
-                {
                     model: InternalStructure,
                     as: "internalStructure",
                 },
@@ -543,6 +498,14 @@ const getInternalAssignmentsByNode = async (req, res) => {
                     model: User,
                     as: "user",
                     attributes: { exclude: ["password"] },
+                },
+                {
+                    model: Role,
+                    as: "role",
+                },
+                {
+                    model: PermissionGroup,
+                    as: "permissionGroup",
                 },
                 {
                     model: ExternalAssignment,
@@ -555,6 +518,8 @@ const getInternalAssignmentsByNode = async (req, res) => {
                     include: [
                         { model: InternalStructure, as: "internalStructure" },
                         { model: User, as: "user", attributes: { exclude: ["password"] } },
+                        { model: Role, as: "role" },
+                        { model: PermissionGroup, as: "permissionGroup" },
                     ],
                 },
             ],
@@ -566,6 +531,8 @@ const getInternalAssignmentsByNode = async (req, res) => {
                 plain.branchExternalAssignment?.governmentStructure?.name ||
                 plain.branchInternalAssignment?.user?.full_name ||
                 plain.branchInternalAssignment?.internalStructure?.name ||
+                plain.branchInternalAssignment?.role?.name ||
+                plain.branchInternalAssignment?.permissionGroup?.name ||
                 null;
             return plain;
         });
@@ -603,8 +570,12 @@ const getAssignmentsByUser = async (req, res) => {
                     ],
                 },
                 {
-                    model: PlanAssignmentAction,
-                    as: "action",
+                    model: Role,
+                    as: "role",
+                },
+                {
+                    model: PermissionGroup,
+                    as: "permissionGroup",
                 },
             ],
         });
@@ -654,7 +625,54 @@ const updateInternalAssignment = async (req, res) => {
             });
         }
 
+        const { internal_structure_id, user_id, role_id, permission_group_id } = req.body;
+        if (
+            internal_structure_id !== undefined ||
+            user_id !== undefined ||
+            role_id !== undefined ||
+            permission_group_id !== undefined
+        ) {
+            const mergedTarget = {
+                internal_structure_id:
+                    internal_structure_id !== undefined
+                        ? internal_structure_id
+                        : assignment.internal_structure_id,
+                user_id: user_id !== undefined ? user_id : assignment.user_id,
+                role_id: role_id !== undefined ? role_id : assignment.role_id,
+                permission_group_id:
+                    permission_group_id !== undefined
+                        ? permission_group_id
+                        : assignment.permission_group_id,
+            };
+
+            const branchContext = {
+                branchExternalAssignmentId: assignment.branch_external_assignment_id,
+                branchInternalAssignmentId: assignment.branch_internal_assignment_id,
+            };
+
+            const scopeError = await validateInternalAssignmentTarget(
+                assignment.planNode,
+                mergedTarget,
+                t,
+                branchContext,
+                {
+                    branch_external_assignment_id: assignment.branch_external_assignment_id,
+                    branch_internal_assignment_id: assignment.branch_internal_assignment_id,
+                },
+                { excludeAssignmentId: assignment.internal_assignment_id }
+            );
+
+            if (scopeError) {
+                await t.rollback();
+                return res.status(400).json({
+                    success: false,
+                    message: scopeError,
+                });
+            }
+        }
+
         await assignment.update(req.body, { transaction: t });
+        await syncPlanNodeAssignmentContext(assignment.plan_node_id, t);
 
         await t.commit();
 
@@ -706,6 +724,7 @@ const deleteInternalAssignment = async (req, res) => {
         }
 
         await assignment.update({ is_active: false }, { transaction: t });
+        await syncPlanNodeAssignmentContext(assignment.plan_node_id, t);
 
         await t.commit();
 
@@ -976,6 +995,36 @@ const getNodeActionSummary = async (req, res) => {
     }
 };
 
+// Get assignment scope for a plan node
+const getPlanNodeAssignmentScope = async (req, res) => {
+    try {
+        const { plan_node_id } = req.params;
+        const { branch_external_assignment_id, branch_internal_assignment_id } = req.query;
+
+        if (!isUuid(plan_node_id)) {
+            return res.status(400).json({ message: "Invalid node ID format" });
+        }
+
+        const scope = await resolveAssignmentScopeForNode(plan_node_id, {
+            branchContext: {
+                branchExternalAssignmentId: branch_external_assignment_id || null,
+                branchInternalAssignmentId: branch_internal_assignment_id || null,
+            },
+        });
+
+        return res.json({
+            success: true,
+            data: scope,
+        });
+    } catch (error) {
+        const status = error.status || 500;
+        return res.status(status).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
 // Get hierarchical assignment options for a plan node
 const getPlanNodeAssignmentOptions = async (req, res) => {
     try {
@@ -1005,10 +1054,6 @@ const getPlanNodeAssignmentOptions = async (req, res) => {
 };
 
 module.exports = {
-    // Assignment Actions
-    createAssignmentAction,
-    getAssignmentActions,
-
     // External Assignments
     createExternalAssignment,
     getExternalAssignmentsByNode,
@@ -1019,6 +1064,7 @@ module.exports = {
     createInternalAssignment,
     getInternalAssignmentsByNode,
     getAssignmentsByUser,
+    getPlanNodeAssignmentScope,
     getPlanNodeAssignmentOptions,
     updateInternalAssignment,
     deleteInternalAssignment,

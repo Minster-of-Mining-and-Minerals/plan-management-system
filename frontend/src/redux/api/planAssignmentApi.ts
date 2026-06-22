@@ -1,8 +1,5 @@
 import { baseApi } from "../baseApi";
 import {
-    PlanAssignmentAction,
-    CreateAssignmentActionPayload,
-    GetAssignmentActionsQueryParams,
     ExternalAssignment,
     CreateExternalAssignmentPayload,
     UpdateExternalAssignmentPayload,
@@ -15,22 +12,11 @@ import {
     GetActionLogsQueryParams,
     NodeActionSummary,
     PlanNodeAssignmentOptions,
+    PlanNodeAssignmentScope,
 } from "../types/plan";
 
 export const planAssignmentApi = baseApi.injectEndpoints({
     endpoints: (builder) => ({
-        /**
-         * ================= ASSIGNMENT ACTIONS =================
-         */
-        getAssignmentActions: builder.query<PlanAssignmentAction[], GetAssignmentActionsQueryParams | void>({
-            query: (params) => ({
-                url: "/plan-assignments/actions",
-                params: params || {},
-            }),
-            transformResponse: (response: any): PlanAssignmentAction[] => response.data ?? [],
-            providesTags: ["AssignmentActions"],
-        }),
-
         getPlanNodeAssignmentOptions: builder.query<
             PlanNodeAssignmentOptions,
             { nodeId: string; branchExternalAssignmentId?: string; branchInternalAssignmentId?: string }
@@ -48,6 +34,25 @@ export const planAssignmentApi = baseApi.injectEndpoints({
             }),
             transformResponse: (response: any): PlanNodeAssignmentOptions => response.data,
             providesTags: (_r, _e, { nodeId }) => [{ type: "PlanAssignmentOptions", id: nodeId }],
+        }),
+
+        getPlanNodeAssignmentScope: builder.query<
+            PlanNodeAssignmentScope,
+            { nodeId: string; branchExternalAssignmentId?: string; branchInternalAssignmentId?: string }
+        >({
+            query: ({ nodeId, branchExternalAssignmentId, branchInternalAssignmentId }) => ({
+                url: `/plan-assignments/scope/node/${nodeId}`,
+                params: {
+                    ...(branchExternalAssignmentId
+                        ? { branch_external_assignment_id: branchExternalAssignmentId }
+                        : {}),
+                    ...(branchInternalAssignmentId
+                        ? { branch_internal_assignment_id: branchInternalAssignmentId }
+                        : {}),
+                },
+            }),
+            transformResponse: (response: any): PlanNodeAssignmentScope => response.data,
+            providesTags: (_r, _e, { nodeId }) => [{ type: "PlanAssignmentScope", id: nodeId }],
         }),
 
         /**
@@ -179,8 +184,8 @@ export const planAssignmentApi = baseApi.injectEndpoints({
 });
 
 export const {
-    useGetAssignmentActionsQuery,
     useGetPlanNodeAssignmentOptionsQuery,
+    useGetPlanNodeAssignmentScopeQuery,
     useGetExternalAssignmentsByNodeQuery,
     useCreateExternalAssignmentMutation,
     useDeleteExternalAssignmentMutation,

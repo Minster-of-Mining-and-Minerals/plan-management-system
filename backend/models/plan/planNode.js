@@ -125,6 +125,11 @@ module.exports = (sequelize, DataTypes) => {
                 type: DataTypes.FLOAT,
                 allowNull: true,
             },
+
+            assignment_context: {
+                type: DataTypes.JSONB,
+                allowNull: true,
+            },
         },
         {
             sequelize,
