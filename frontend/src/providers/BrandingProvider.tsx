@@ -7,6 +7,7 @@ import {
   useMemo,
   type ReactNode,
 } from "react";
+import { useSession } from "next-auth/react";
 import { DEFAULT_BRANDING } from "@/lib/branding/defaults";
 import {
   applyBrandingDocumentMeta,
@@ -22,6 +23,8 @@ type BrandingContextValue = {
   logoPrimaryUrl: string;
   logoSecondaryUrl: string;
   faviconUrl: string;
+  isUsingDefault: boolean;
+  resolvedFromStructureId: string | null;
 };
 
 const BrandingContext = createContext<BrandingContextValue>({
@@ -30,10 +33,37 @@ const BrandingContext = createContext<BrandingContextValue>({
   logoPrimaryUrl: DEFAULT_BRANDING.logo_primary_path ?? "",
   logoSecondaryUrl: DEFAULT_BRANDING.logo_secondary_path ?? "",
   faviconUrl: DEFAULT_BRANDING.favicon_path ?? "",
+  isUsingDefault: true,
+  resolvedFromStructureId: null,
 });
 
+function resolveSessionStructureId(
+  governmentStructure: unknown
+): string | undefined {
+  if (!governmentStructure || Array.isArray(governmentStructure)) {
+    return undefined;
+  }
+  const structure = governmentStructure as { government_structure_id?: string };
+  return structure.government_structure_id || undefined;
+}
+
 export function BrandingProvider({ children }: { children: ReactNode }) {
-  const { data, isLoading, isFetching } = useGetPublicBrandingQuery();
+  const { data: session, status } = useSession();
+
+  const structureId = useMemo(
+    () => resolveSessionStructureId(session?.user?.government_structure),
+    [session?.user?.government_structure]
+  );
+
+  const queryArg = useMemo(
+    () => (structureId ? { government_structure_id: structureId } : undefined),
+    [structureId]
+  );
+
+  const { data, isLoading, isFetching } = useGetPublicBrandingQuery(queryArg, {
+    skip: status === "loading",
+    refetchOnMountOrArgChange: true,
+  });
 
   const branding = data ?? DEFAULT_BRANDING;
 
@@ -46,12 +76,14 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
   const value = useMemo<BrandingContextValue>(
     () => ({
       branding,
-      isLoading: isLoading || isFetching,
+      isLoading: isLoading || isFetching || status === "loading",
       logoPrimaryUrl: resolveBrandingAssetUrl(branding.logo_primary_path),
       logoSecondaryUrl: resolveBrandingAssetUrl(branding.logo_secondary_path),
       faviconUrl: resolveBrandingAssetUrl(branding.favicon_path),
+      isUsingDefault: data?.is_using_default ?? !structureId,
+      resolvedFromStructureId: data?.resolved_from_structure_id ?? null,
     }),
-    [branding, isLoading, isFetching]
+    [branding, data, isLoading, isFetching, status, structureId]
   );
 
   return (

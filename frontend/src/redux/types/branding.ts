@@ -24,9 +24,24 @@ export interface BrandingSettings {
   updated_at?: string;
 }
 
+export interface BrandingSettingsMeta {
+  scope: "global" | "sector";
+  government_structure_id: string | null;
+  is_using_default: boolean;
+  resolved_from_structure_id: string | null;
+  override: BrandingSettings | null;
+  global: BrandingSettings;
+}
+
 export type UpdateBrandingSettingsPayload = Partial<
-  Omit<BrandingSettings, "branding_setting_id" | "updated_at" | "government_structure_id">
->;
+  Omit<BrandingSettings, "branding_setting_id" | "updated_at">
+> & {
+  government_structure_id?: string | null;
+};
+
+export type BrandingScopeQuery = {
+  government_structure_id?: string;
+};
 
 const UPDATABLE_BRANDING_KEYS = [
   "system_name_full",
@@ -53,8 +68,8 @@ const UPDATABLE_BRANDING_KEYS = [
 
 export function toUpdateBrandingPayload(
   settings: BrandingSettings
-): UpdateBrandingSettingsPayload {
-  const payload: UpdateBrandingSettingsPayload = {};
+): Omit<UpdateBrandingSettingsPayload, "government_structure_id"> {
+  const payload: Omit<UpdateBrandingSettingsPayload, "government_structure_id"> = {};
   for (const key of UPDATABLE_BRANDING_KEYS) {
     const value = settings[key];
     payload[key] = value ?? undefined;
@@ -64,4 +79,7 @@ export function toUpdateBrandingPayload(
 
 export interface BrandingPublicResponse extends BrandingSettings {
   css_variables: Record<string, string>;
+  resolved_from_structure_id?: string | null;
+  is_using_default?: boolean;
+  meta?: BrandingSettingsMeta;
 }

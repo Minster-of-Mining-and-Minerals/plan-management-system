@@ -1,8 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import {
+  Building2,
+  Globe,
   ImageIcon,
   Loader2,
   Palette,
@@ -13,25 +15,38 @@ import {
   Upload,
 } from "lucide-react";
 import { actionFeedback } from "@/components/action-feedback";
+import { TableTabBar } from "@/components/common/TableTabBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DEFAULT_BRANDING, BRANDING_COLOR_FIELDS } from "@/lib/branding/defaults";
 import { applyBrandingTheme, resolveBrandingAssetUrl } from "@/lib/branding/applyBrandingTheme";
+import { useStructureScope } from "@/hooks/useStructureScope";
 import {
+  useDeleteSectorBrandingMutation,
   useGetBrandingSettingsQuery,
   useRestoreDefaultBrandingMutation,
   useUpdateBrandingSettingsMutation,
 } from "@/redux/api/brandingApi";
+import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
 import { useUploadAttachmentsMutation } from "@/redux/api/attachementApi";
 import {
+  type BrandingScopeQuery,
   type BrandingSettings,
   toUpdateBrandingPayload,
 } from "@/redux/types/branding";
 import { BrandingPreview } from "./BrandingPreview";
 
 type BrandingTab = "identity" | "logos" | "theme";
+type BrandingEditScope = "global" | "sector";
 
 const TAB_OPTIONS: {
   key: BrandingTab;
@@ -153,40 +168,130 @@ function BrandingSectionTabs({
 }
 
 export default function BrandingSettingsPage() {
-  const { data: saved, isLoading } = useGetBrandingSettingsQuery();
-  const [updateBranding, { isLoading: isSaving }] = useUpdateBrandingSettingsMutation();
-  const [restoreDefaults, { isLoading: isRestoring }] = useRestoreDefaultBrandingMutation();
-
+  const { isSuperAdmin, structureId } = useStructureScope();
+  const [editScope, setEditScope] = useState<BrandingEditScope>(
+    isSuperAdmin ? "global" : "sector"
+  );
+  const [selectedSectorId, setSelectedSectorId] = useState<string | null>(structureId);
   const [draft, setDraft] = useState<BrandingSettings | null>(null);
   const [activeTab, setActiveTab] = useState<BrandingTab>("identity");
 
+  const targetStructureId = useMemo(() => {
+    if (isSuperAdmin) {
+      return editScope === "global" ? undefined : selectedSectorId ?? undefined;
+    }
+    return structureId ?? undefined;
+  }, [isSuperAdmin, editScope, selectedSectorId, structureId]);
+
+  const settingsQueryArg = useMemo<BrandingScopeQuery | void>(() => {
+    if (targetStructureId) {
+      return { government_structure_id: targetStructureId };
+    }
+    return undefined;
+  }, [targetStructureId]);
+
+  const { data: saved, isLoading, isFetching } = useGetBrandingSettingsQuery(settingsQueryArg);
+  const { data: sectors = [] } = useGetGovernmentStructuresQuery(
+    { is_active: true },
+    { skip: !isSuperAdmin || editScope !== "sector" }
+  );
+
+  const [updateBranding, { isLoading: isSaving }] = useUpdateBrandingSettingsMutation();
+  const [restoreDefaults, { isLoading: isRestoring }] = useRestoreDefaultBrandingMutation();
+  const [deleteSectorBranding, { isLoading: isDeletingSector }] =
+    useDeleteSectorBrandingMutation();
+
+  const meta = saved?.meta;
+  const hasSectorOverride = Boolean(meta?.override);
+  const isUsingDefault = meta?.is_using_default ?? editScope === "global";
+  const canEditSector = editScope === "global" || Boolean(targetStructureId);
+  const isBusy = isSaving || isRestoring || isDeletingSector;
+
   const form = draft ?? saved ?? DEFAULT_BRANDING;
+
+  useEffect(() => {
+    setDraft(null);
+  }, [editScope, targetStructureId]);
+
+  useEffect(() => {
+    if (!isSuperAdmin && structureId) {
+      setSelectedSectorId(structureId);
+      setEditScope("sector");
+    }
+  }, [isSuperAdmin, structureId]);
 
   const setField = <K extends keyof BrandingSettings>(key: K, value: BrandingSettings[K]) => {
     setDraft((prev) => ({ ...(prev ?? saved ?? DEFAULT_BRANDING), [key]: value }));
   };
 
   const handleSave = async () => {
+    if (!canEditSector) {
+      actionFeedback.error("Select a sector before saving sector branding.");
+      return;
+    }
+
     try {
-      const result = await updateBranding(toUpdateBrandingPayload(form)).unwrap();
+      const government_structure_id =
+        isSuperAdmin && editScope === "global" ? null : targetStructureId ?? null;
+
+      const result = await updateBranding({
+        ...toUpdateBrandingPayload(form),
+        government_structure_id,
+      }).unwrap();
+
       applyBrandingTheme(result, result.css_variables);
       setDraft(null);
-      actionFeedback.success("Branding settings saved");
+      actionFeedback.success(
+        editScope === "global"
+          ? "System default branding saved"
+          : "Sector branding saved"
+      );
     } catch (err: unknown) {
       const error = err as { data?: { message?: string } };
       actionFeedback.error(error.data?.message || "Failed to save branding settings");
     }
   };
 
-  const handleRestore = async () => {
-    if (!(await actionFeedback.confirm("Restore all branding settings to system defaults?", { destructive: true }))) return;
+  const handleRestoreGlobalDefaults = async () => {
+    if (
+      !(await actionFeedback.confirm(
+        "Restore system default branding to factory values? Sector overrides are not affected.",
+        { destructive: true }
+      ))
+    ) {
+      return;
+    }
+
     try {
       const result = await restoreDefaults().unwrap();
       applyBrandingTheme(result, result.css_variables);
       setDraft(null);
-      actionFeedback.success("Default branding restored");
+      actionFeedback.success("System default branding restored");
     } catch {
-      actionFeedback.error("Failed to restore defaults");
+      actionFeedback.error("Failed to restore system defaults");
+    }
+  };
+
+  const handleResetSectorToDefault = async () => {
+    if (!targetStructureId) return;
+
+    if (
+      !(await actionFeedback.confirm(
+        "Remove this sector's branding override and use inherited defaults?",
+        { destructive: true }
+      ))
+    ) {
+      return;
+    }
+
+    try {
+      const result = await deleteSectorBranding(targetStructureId).unwrap();
+      applyBrandingTheme(result, result.css_variables);
+      setDraft(null);
+      actionFeedback.success("Sector branding reset to inherited defaults");
+    } catch (err: unknown) {
+      const error = err as { data?: { message?: string } };
+      actionFeedback.error(error.data?.message || "Failed to reset sector branding");
     }
   };
 
@@ -202,22 +307,35 @@ export default function BrandingSettingsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-[#073954]">Branding Settings</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h1 className="text-2xl font-semibold text-primary">Branding Settings</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Configure system identity, logos, and theme colors. Preview updates live on the right.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleRestore}
-            disabled={isRestoring || isSaving}
-          >
-            <RotateCcw className="mr-2 h-4 w-4" />
-            Restore Defaults
-          </Button>
-          <Button type="button" onClick={handleSave} disabled={isSaving}>
+          {isSuperAdmin && editScope === "global" ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleRestoreGlobalDefaults}
+              disabled={isBusy}
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Restore Factory Defaults
+            </Button>
+          ) : null}
+          {editScope === "sector" && hasSectorOverride && targetStructureId ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleResetSectorToDefault}
+              disabled={isBusy}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Reset to Inherited Default
+            </Button>
+          ) : null}
+          <Button type="button" onClick={handleSave} disabled={isBusy || !canEditSector}>
             {isSaving ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
@@ -228,11 +346,91 @@ export default function BrandingSettingsPage() {
         </div>
       </div>
 
+      {isSuperAdmin ? (
+        <div className="space-y-3">
+          <TableTabBar
+            tabs={[
+              { value: "global", label: "System Default", icon: <Globe className="h-4 w-4" /> },
+              {
+                value: "sector",
+                label: "Sector Branding",
+                icon: <Building2 className="h-4 w-4" />,
+              },
+            ]}
+            value={editScope}
+            onChange={(value) => setEditScope(value as BrandingEditScope)}
+          />
+          {editScope === "sector" ? (
+            <div className="max-w-md space-y-2">
+              <Label htmlFor="branding-sector-select">Sector</Label>
+              <Select
+                value={selectedSectorId ?? ""}
+                onValueChange={(value) => setSelectedSectorId(value)}
+              >
+                <SelectTrigger id="branding-sector-select">
+                  <SelectValue placeholder="Select a sector" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sectors.map((sector) => (
+                    <SelectItem
+                      key={sector.government_structure_id}
+                      value={sector.government_structure_id}
+                    >
+                      {sector.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div
+        className={`rounded-lg border px-4 py-3 text-sm ${
+          editScope === "global"
+            ? "border-primary/20 bg-primary/5 text-primary"
+            : isUsingDefault
+              ? "border-amber-200 bg-amber-50 text-amber-900"
+              : "border-emerald-200 bg-emerald-50 text-emerald-900"
+        }`}
+      >
+        {editScope === "global" ? (
+          <p>
+            Editing the <strong>system default</strong>. Sectors without their own branding use
+            these settings.
+          </p>
+        ) : !targetStructureId ? (
+          <p>Select a sector to configure its branding.</p>
+        ) : isUsingDefault ? (
+          <p>
+            This sector currently uses <strong>inherited branding</strong>
+            {meta?.resolved_from_structure_id &&
+            meta.resolved_from_structure_id !== targetStructureId
+              ? " from a parent sector"
+              : " from the system default"}
+            . Save changes to create a sector-specific override.
+          </p>
+        ) : (
+          <p>
+            <strong>Custom sector branding</strong> is active. Other sectors are not affected.
+          </p>
+        )}
+      </div>
+
+      {isFetching ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Refreshing branding…
+        </div>
+      ) : null}
+
       <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
         {/* Left: configuration */}
-        <div className="space-y-4 rounded-lg border bg-white p-6 shadow-sm">
+        <div className="space-y-4 rounded-lg border bg-card p-6 shadow-sm">
           <BrandingSectionTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
+          <fieldset disabled={!canEditSector || isBusy} className="space-y-4 disabled:opacity-60">
           {activeTab === "identity" && (
             <Card className="border-0 shadow-none">
               <CardHeader className="px-0 pt-4">
@@ -330,10 +528,10 @@ export default function BrandingSettingsPage() {
             </Card>
           )}
 
+          </fieldset>
         </div>
 
-        {/* Right: always-visible live preview */}
-        <div className="lg:sticky lg:top-4 rounded-lg border bg-white p-6 shadow-sm">
+        <div className="rounded-lg border bg-card p-6 shadow-sm lg:sticky lg:top-4">
           <BrandingPreview branding={form} />
         </div>
       </div>

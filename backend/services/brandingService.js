@@ -1,5 +1,9 @@
 "use strict";
 
+const { Op } = require("sequelize");
+const { v4: uuidv4 } = require("uuid");
+const { BrandingSetting, GovernmentStructure } = require("../models");
+
 const DEFAULT_BRANDING_ID = "80000000-0000-4000-8000-000000000001";
 
 const DEFAULT_BRANDING = {
@@ -160,14 +164,278 @@ function validateReadableTheme(payload) {
   return null;
 }
 
+const BRANDING_VALUE_FIELDS = [
+  ...TEXT_FIELDS,
+  ...LOGO_FIELDS,
+  ...COLOR_FIELDS,
+];
+
+function buildUpdateFields(payload) {
+  return {
+    system_name_full: payload.system_name_full,
+    system_name_short: payload.system_name_short,
+    system_tagline: payload.system_tagline ?? null,
+    logo_primary_path: payload.logo_primary_path ?? null,
+    logo_secondary_path: payload.logo_secondary_path ?? null,
+    favicon_path: payload.favicon_path ?? null,
+    primary_color: payload.primary_color,
+    secondary_color: payload.secondary_color,
+    accent_color: payload.accent_color,
+    success_color: payload.success_color,
+    warning_color: payload.warning_color,
+    error_color: payload.error_color,
+    info_color: payload.info_color,
+    background_color: payload.background_color,
+    surface_color: payload.surface_color,
+    sidebar_color: payload.sidebar_color,
+    header_color: payload.header_color,
+    text_primary_color: payload.text_primary_color,
+    text_secondary_color: payload.text_secondary_color,
+    border_color: payload.border_color,
+  };
+}
+
+async function getOrCreateGlobalBranding(transaction) {
+  let record = await BrandingSetting.findByPk(DEFAULT_BRANDING_ID, { transaction });
+  if (!record) {
+    const now = new Date();
+    record = await BrandingSetting.create(
+      {
+        ...DEFAULT_BRANDING,
+        created_at: now,
+        updated_at: now,
+      },
+      { transaction }
+    );
+  }
+  return record;
+}
+
+async function getSectorBrandingRecord(governmentStructureId, transaction) {
+  if (!governmentStructureId) {
+    return null;
+  }
+  return BrandingSetting.findOne({
+    where: { government_structure_id: governmentStructureId },
+    transaction,
+  });
+}
+
+async function getAncestorStructureIds(governmentStructureId, transaction) {
+  const ids = [];
+  const seen = new Set();
+  let currentId = governmentStructureId;
+
+  while (currentId && !seen.has(currentId)) {
+    seen.add(currentId);
+    ids.push(currentId);
+
+    const structure = await GovernmentStructure.findByPk(currentId, {
+      attributes: ["parent_id"],
+      transaction,
+    });
+
+    if (!structure) {
+      break;
+    }
+
+    currentId = structure.parent_id;
+  }
+
+  return ids;
+}
+
+/**
+ * Resolve branding for a sector: nearest ancestor override, else global default.
+ */
+async function resolveEffectiveBranding(governmentStructureId, options = {}) {
+  const { transaction } = options;
+  const globalRecord = await getOrCreateGlobalBranding(transaction);
+  const global = pickBrandingPayload(globalRecord);
+
+  if (!governmentStructureId) {
+    return {
+      effective: global,
+      global,
+      override: null,
+      scope: "global",
+      government_structure_id: null,
+      is_using_default: true,
+      resolved_from_structure_id: null,
+    };
+  }
+
+  const ancestorIds = await getAncestorStructureIds(governmentStructureId, transaction);
+  const sectorRows = await BrandingSetting.findAll({
+    where: {
+      government_structure_id: { [Op.in]: ancestorIds },
+    },
+    transaction,
+  });
+
+  const rowByStructureId = new Map(
+    sectorRows.map((row) => [row.government_structure_id, row])
+  );
+
+  let resolvedRow = null;
+  let resolvedFromStructureId = null;
+
+  for (const structureId of ancestorIds) {
+    const row = rowByStructureId.get(structureId);
+    if (row) {
+      resolvedRow = row;
+      resolvedFromStructureId = structureId;
+      break;
+    }
+  }
+
+  const directOverrideRow = rowByStructureId.get(governmentStructureId) ?? null;
+  const effective = resolvedRow ? pickBrandingPayload(resolvedRow) : global;
+
+  return {
+    effective,
+    global,
+    override: directOverrideRow ? pickBrandingPayload(directOverrideRow) : null,
+    scope: "sector",
+    government_structure_id: governmentStructureId,
+    is_using_default: !resolvedRow,
+    resolved_from_structure_id: resolvedFromStructureId,
+  };
+}
+
+function buildBrandingResponse(resolved, options = {}) {
+  const { includeMeta = false } = options;
+  const effective = resolved.effective || DEFAULT_BRANDING;
+  const payload = {
+    ...effective,
+    css_variables: brandingToCssVariables(effective),
+    resolved_from_structure_id: resolved.resolved_from_structure_id ?? null,
+    is_using_default: Boolean(resolved.is_using_default),
+  };
+
+  if (includeMeta) {
+    payload.meta = {
+      scope: resolved.scope,
+      government_structure_id: resolved.government_structure_id ?? null,
+      is_using_default: Boolean(resolved.is_using_default),
+      resolved_from_structure_id: resolved.resolved_from_structure_id ?? null,
+      override: resolved.override,
+      global: resolved.global,
+    };
+  }
+
+  return payload;
+}
+
+async function upsertSectorBranding(governmentStructureId, updates, transaction) {
+  const structure = await GovernmentStructure.findByPk(governmentStructureId, { transaction });
+  if (!structure) {
+    const error = new Error("Sector structure not found.");
+    error.status = 404;
+    throw error;
+  }
+
+  const globalRecord = await getOrCreateGlobalBranding(transaction);
+  let record = await getSectorBrandingRecord(governmentStructureId, transaction);
+  const previous = record
+    ? pickBrandingPayload(record)
+    : pickBrandingPayload(globalRecord);
+
+  const merged = {
+    ...previous,
+    ...updates,
+    government_structure_id: governmentStructureId,
+  };
+
+  const validationError = validateReadableTheme(merged);
+  if (validationError) {
+    const error = new Error(validationError);
+    error.status = 400;
+    throw error;
+  }
+
+  const fields = buildUpdateFields(merged);
+
+  if (record) {
+    await record.update(fields, { transaction });
+    await record.reload({ transaction });
+  } else {
+    record = await BrandingSetting.create(
+      {
+        branding_setting_id: uuidv4(),
+        government_structure_id: governmentStructureId,
+        ...fields,
+      },
+      { transaction }
+    );
+  }
+
+  return {
+    record,
+    previous,
+    updated: pickBrandingPayload(record),
+  };
+}
+
+async function updateGlobalBranding(updates, transaction) {
+  const record = await getOrCreateGlobalBranding(transaction);
+  const previous = pickBrandingPayload(record);
+  const merged = {
+    ...previous,
+    ...updates,
+    branding_setting_id: DEFAULT_BRANDING_ID,
+    government_structure_id: null,
+  };
+
+  const validationError = validateReadableTheme(merged);
+  if (validationError) {
+    const error = new Error(validationError);
+    error.status = 400;
+    throw error;
+  }
+
+  await record.update(buildUpdateFields(merged), { transaction });
+  await record.reload({ transaction });
+
+  return {
+    record,
+    previous,
+    updated: pickBrandingPayload(record),
+  };
+}
+
+async function deleteSectorBranding(governmentStructureId, transaction) {
+  const record = await getSectorBrandingRecord(governmentStructureId, transaction);
+  if (!record) {
+    const error = new Error("No sector branding override exists for this structure.");
+    error.status = 404;
+    throw error;
+  }
+
+  const previous = pickBrandingPayload(record);
+  await record.destroy({ transaction });
+
+  return { previous };
+}
+
 module.exports = {
   DEFAULT_BRANDING_ID,
   DEFAULT_BRANDING,
   COLOR_FIELDS,
   TEXT_FIELDS,
   LOGO_FIELDS,
+  BRANDING_VALUE_FIELDS,
   hexToHslComponents,
   pickBrandingPayload,
   brandingToCssVariables,
   validateReadableTheme,
+  buildUpdateFields,
+  getOrCreateGlobalBranding,
+  getSectorBrandingRecord,
+  getAncestorStructureIds,
+  resolveEffectiveBranding,
+  buildBrandingResponse,
+  upsertSectorBranding,
+  updateGlobalBranding,
+  deleteSectorBranding,
 };

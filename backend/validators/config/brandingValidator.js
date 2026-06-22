@@ -1,6 +1,7 @@
 "use strict";
 
 const Joi = require("joi");
+const { optionalUuid } = require("../helpers/joiFieldHelpers");
 
 const hexColorSchema = Joi.string()
   .trim()
@@ -10,6 +11,7 @@ const hexColorSchema = Joi.string()
 const optionalPathSchema = Joi.string().trim().max(500).allow("", null);
 
 const updateSchema = Joi.object({
+  government_structure_id: optionalUuid("government_structure_id"),
   system_name_full: Joi.string().trim().max(255).optional(),
   system_name_short: Joi.string().trim().max(50).optional(),
   system_tagline: Joi.string().trim().max(255).allow("", null).optional(),
@@ -32,6 +34,21 @@ const updateSchema = Joi.object({
   border_color: hexColorSchema.optional(),
 }).min(1);
 
+const structureQuerySchema = Joi.object({
+  government_structure_id: optionalUuid("government_structure_id"),
+});
+
+const structureParamsSchema = Joi.object({
+  government_structure_id: Joi.string()
+    .trim()
+    .guid({ version: ["uuidv4", "uuidv5"] })
+    .required()
+    .messages({
+      "string.guid": '"government_structure_id" must be a valid GUID',
+      "any.required": '"government_structure_id" is required',
+    }),
+});
+
 const validate = (schema, source = "body") => (req, res, next) => {
   const dataToValidate =
     source === "query" ? req.query : source === "params" ? req.params : req.body;
@@ -47,9 +64,13 @@ const validate = (schema, source = "body") => (req, res, next) => {
     });
   }
   if (source === "body") req.body = value;
+  if (source === "query") req.query = value;
+  if (source === "params") req.params = value;
   next();
 };
 
 module.exports = {
   validateUpdateBranding: validate(updateSchema),
+  validateBrandingStructureQuery: validate(structureQuerySchema, "query"),
+  validateBrandingStructureParams: validate(structureParamsSchema, "params"),
 };
