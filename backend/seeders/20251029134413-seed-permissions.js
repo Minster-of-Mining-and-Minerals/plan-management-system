@@ -205,11 +205,20 @@ module.exports = {
           role_id: SUPER_ADMIN_ROLE_ID,
           name: "Super Admin",
           description: "Full access to all system resources and actions.",
+          scope: "private",
+          government_structure_id: null,
           is_active: true,
           created_at: now,
           updated_at: now,
         },
       ]);
+    } else {
+      await queryInterface.sequelize.query(
+        `UPDATE roles
+         SET scope = 'private', government_structure_id = NULL, updated_at = :now
+         WHERE role_id = :roleId`,
+        { replacements: { roleId: SUPER_ADMIN_ROLE_ID, now } }
+      );
     }
 
     for (const permissionId of permissionIds) {

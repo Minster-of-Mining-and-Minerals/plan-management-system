@@ -10,6 +10,7 @@ import {
 import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
 import { useGetInternalStructuresQuery } from "@/redux/api/internalStructureApi";
 import { CreateUserPayload } from "@/redux/types/user";
+import { useStructureScope } from "@/hooks/useStructureScope";
 import { Check, ChevronDown, XIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -45,7 +46,10 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   const [govId, setGovId] = useState(initialGovId || "");
   const [internalId, setInternalId] = useState(initialInternalId || "");
 
-  const { data: rolesResponse } = useGetRolesQuery();
+  const { data: rolesResponse } = useGetRolesQuery(
+    govId ? { government_structure_id: govId, is_active: true } : undefined,
+    { skip: !govId }
+  );
   const { data: govStructures = [] } = useGetGovernmentStructuresQuery();
   const { data: internalStructures = [] } = useGetInternalStructuresQuery(
     { government_structure_id: govId },
@@ -56,9 +60,16 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
 
   const [createUser, { isLoading }] = useCreateUserMutation();
 
+  const { isSuperAdmin } = useStructureScope();
+
   const handleSubmit = async () => {
     if (!fullName || !email || !selectedRoles.length) {
       actionFeedback.error("Please fill all required fields");
+      return;
+    }
+
+    if (!govId && !isSuperAdmin) {
+      actionFeedback.error("Please select a sector structure");
       return;
     }
 

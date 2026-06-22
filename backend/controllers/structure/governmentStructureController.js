@@ -17,6 +17,10 @@ const {
     alreadyActiveResponse,
     inactiveParentBlocksReactivationResponse,
 } = require("../../utils/structureLifecycleUtils");
+const {
+    assertPermissionGroupsFitStructureHierarchy,
+} = require("../../utils/structureEffectivePermissionsUtils");
+const { sendScopeError } = require("../../utils/structureScopeUtils");
 
 /**
  * =================== CREATE ===================
@@ -423,6 +427,11 @@ const addPermissionGroupsToStructure = async (req, res) => {
             return inactiveStructureResponse(res, "Sector");
         }
 
+        await assertPermissionGroupsFitStructureHierarchy(
+            permission_group_ids,
+            government_structure_id
+        );
+
         const records = permission_group_ids.map((pid) => ({
             id: uuidv4(),
             government_structure_id,
@@ -433,6 +442,9 @@ const addPermissionGroupsToStructure = async (req, res) => {
 
         return res.json({ message: "Permission groups added" });
     } catch (error) {
+        if (error.status) {
+            return sendScopeError(res, error);
+        }
         return res.status(500).json({ error: error.message });
     }
 };

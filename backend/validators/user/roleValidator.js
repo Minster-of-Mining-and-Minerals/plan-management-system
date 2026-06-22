@@ -8,6 +8,12 @@ const createRoleSchema = Joi.object({
   description: Joi.string().trim().required().messages({
     "string.empty": "Role description is required",
   }),
+  government_structure_id: Joi.string()
+    .guid({ version: ["uuidv4", "uuidv5"] })
+    .optional()
+    .messages({
+      "string.guid": "government_structure_id must be a valid UUID",
+    }),
   role_type: Joi.string()
     .trim()
     .optional()

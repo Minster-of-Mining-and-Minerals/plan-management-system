@@ -15,6 +15,8 @@ import { useRouter } from "next/navigation";
 import { actionFeedback } from "@/components/action-feedback";
 import { useSearchParams } from "next/navigation";
 import { matchesActiveInactiveFilter, matchesSearchQuery } from "@/utils/tableUtils";
+import { useStructureScope } from "@/hooks/useStructureScope";
+import { withStructureQuery } from "@/utils/structureQueryUtils";
 
 export interface PermissionGroupListProps {
   government_structure_id?: string;
@@ -28,7 +30,20 @@ export default function PermissionGroupList({
   sideActions,
   readOnly = false,
 }: PermissionGroupListProps) {
-  const { data = [], isLoading, isError, refetch } = useGetPermissionGroupsQuery({ government_structure_id });
+  const { isSuperAdmin, structureId: sessionStructureId } = useStructureScope();
+  const structureId = government_structure_id || sessionStructureId || undefined;
+
+  const queryArgs = structureId
+    ? { government_structure_id: structureId }
+    : isSuperAdmin
+      ? undefined
+      : sessionStructureId
+        ? { government_structure_id: sessionStructureId }
+        : undefined;
+
+  const { data = [], isLoading, isError, refetch } = useGetPermissionGroupsQuery(queryArgs, {
+    skip: !isSuperAdmin && !structureId && !sessionStructureId,
+  });
   const [deleteGroup] = useDeletePermissionGroupMutation();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -64,12 +79,16 @@ export default function PermissionGroupList({
       header: "Actions",
       cell: ({ row }) => {
         const group = row.original;
+        const editPath = withStructureQuery(
+          `/users/permission-groups/${group.permission_group_id}`,
+          structureId
+        );
         if (readOnly) {
           return (
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => router.push(`/users/permission-groups/${group.permission_group_id}`)}
+              onClick={() => router.push(editPath)}
               title="View Group"
             >
               <Edit className="h-4 w-4 text-blue-600" />
@@ -81,7 +100,7 @@ export default function PermissionGroupList({
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => router.push(`/users/permission-groups/${group.permission_group_id}`)}
+              onClick={() => router.push(editPath)}
               title="Edit Group"
             >
               <Edit className="h-4 w-4 text-blue-600" />
@@ -92,7 +111,10 @@ export default function PermissionGroupList({
               onClick={async () => {
                 if (await actionFeedback.confirm("Are you sure you want to delete this permission group?", { destructive: true })) {
                   try {
-                    await deleteGroup(group.permission_group_id).unwrap();
+                    await deleteGroup({
+                      id: group.permission_group_id,
+                      government_structure_id: structureId,
+                    }).unwrap();
                     actionFeedback.success("Permission group deleted successfully");
                     refetch();
                   } catch (err: any) {
@@ -151,7 +173,13 @@ export default function PermissionGroupList({
   return (
     <TableLayout
       title={hideLayout ? undefined : "Permission Group Management"}
-      description={hideLayout ? undefined : "View and manage user permission groups"}
+      description={
+        hideLayout
+          ? undefined
+          : structureId
+            ? "Permission groups assigned to this sector structure"
+            : "View and manage user permission groups"
+      }
       actions={actions}
       sideActions={sideActions}
       filters={filters}
@@ -161,7 +189,7 @@ export default function PermissionGroupList({
         columns={columns}
         data={filteredData}
         isLoading={isLoading}
-        resetKey={`${searchQuery}-${statusFilter}-${government_structure_id}`}
+        resetKey={`${searchQuery}-${statusFilter}-${structureId}`}
       />
     </TableLayout>
   );

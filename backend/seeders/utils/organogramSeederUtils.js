@@ -125,11 +125,20 @@ async function ensureUserRole(queryInterface, now) {
                 role_id: USER_ROLE_ID,
                 name: "User",
                 description: "Standard user with no administrative permissions.",
+                scope: "global",
+                government_structure_id: null,
                 is_active: true,
                 created_at: now,
                 updated_at: now,
             },
         ]);
+    } else {
+        await queryInterface.sequelize.query(
+            `UPDATE roles
+             SET scope = 'global', government_structure_id = NULL, updated_at = :now
+             WHERE role_id = :roleId`,
+            { replacements: { roleId: USER_ROLE_ID, now } }
+        );
     }
 
     return existing.length > 0 ? existing[0].role_id : USER_ROLE_ID;

@@ -17,6 +17,10 @@ module.exports = (sequelize, DataTypes) => {
         otherKey: "user_id",
         as: "users",
       });
+      Role.belongsTo(models.GovernmentStructure, {
+        foreignKey: "government_structure_id",
+        as: "governmentStructure",
+      });
     }
   }
 
@@ -30,10 +34,18 @@ module.exports = (sequelize, DataTypes) => {
       name: {
         type: DataTypes.STRING(100),
         allowNull: false,
-        unique: true,
       },
       description: {
         type: DataTypes.TEXT,
+        allowNull: true,
+      },
+      scope: {
+        type: DataTypes.STRING(20),
+        allowNull: false,
+        defaultValue: "structure",
+      },
+      government_structure_id: {
+        type: DataTypes.UUID,
         allowNull: true,
       },
       is_active: {

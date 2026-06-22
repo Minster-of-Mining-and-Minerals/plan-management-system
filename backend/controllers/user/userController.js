@@ -18,6 +18,34 @@ const {
   getClientIp,
   recordSystemAuditLog,
 } = require("../../services/auditLogService");
+const {
+  isSuperAdminActor,
+  resolveManageableStructureId,
+  assertRoleAssignable,
+  assertUserInStructure,
+  sendScopeError,
+} = require("../../utils/structureScopeUtils");
+
+async function validateRoleAssignments(role_ids, structureId, req, transaction) {
+  if (!role_ids?.length) {
+    return;
+  }
+
+  const roles = await Role.findAll({
+    where: { role_id: role_ids, is_active: true },
+    transaction,
+  });
+
+  if (roles.length !== role_ids.length) {
+    const error = new Error("One or more provided role IDs are invalid.");
+    error.status = 400;
+    throw error;
+  }
+
+  for (const role of roles) {
+    assertRoleAssignable(role, structureId, req);
+  }
+}
 
 
 const createUser = async (req, res) => {
@@ -25,6 +53,31 @@ const createUser = async (req, res) => {
   try {
     const { full_name, role_ids, phone_number, government_structure_id, internal_structure_id } = req.body;
     const email = normalizeEmail(req.body.email);
+
+    let structureId;
+    try {
+      structureId = resolveManageableStructureId(req, government_structure_id);
+    } catch (error) {
+      await t.rollback();
+      return sendScopeError(res, error);
+    }
+
+    if (!structureId && !isSuperAdminActor(req)) {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "government_structure_id is required.",
+      });
+    }
+
+    if (role_ids && Array.isArray(role_ids) && role_ids.length > 0) {
+      try {
+        await validateRoleAssignments(role_ids, structureId, req, t);
+      } catch (error) {
+        await t.rollback();
+        return sendScopeError(res, error);
+      }
+    }
 
     // ====== Check existing email ======
     const existingUser = await User.findOne({
@@ -38,24 +91,7 @@ const createUser = async (req, res) => {
         .json({ success: false, message: "User already exists." });
     }
 
-
-    // ====== MULTIPLE ROLE VALIDATION ======
-    if (role_ids && Array.isArray(role_ids) && role_ids.length > 0) {
-      const roles = await Role.findAll({
-        where: { role_id: role_ids },
-        transaction: t,
-      });
-
-      if (roles.length !== role_ids.length) {
-        await t.rollback();
-        return res.status(400).json({
-          success: false,
-          message: "One or more provided role IDs are invalid.",
-        });
-      }
-    }
-
-    // ====== Generate password ======
+    const resolvedStructureId = structureId || government_structure_id || null;
     // const password = generateRandomPassword();
     const password = "password";
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -70,7 +106,7 @@ const createUser = async (req, res) => {
         phone_number,
         is_first_logged_in: true,
         is_active: true,
-        government_structure_id,
+        government_structure_id: resolvedStructureId,
         internal_structure_id,
         created_at: new Date(),
         updated_at: new Date(),
@@ -168,6 +204,22 @@ const updateUser = async (req, res) => {
       });
     }
 
+    try {
+      assertUserInStructure(user, user.government_structure_id, req);
+    } catch (error) {
+      await t.rollback();
+      return sendScopeError(res, error);
+    }
+
+    let targetStructureId = user.government_structure_id;
+    if (government_structure_id !== undefined) {
+      try {
+        targetStructureId = resolveManageableStructureId(req, government_structure_id);
+      } catch (error) {
+        await t.rollback();
+        return sendScopeError(res, error);
+      }
+    }
     const previousValues = {
       user_id: user.user_id,
       full_name: user.full_name,
@@ -204,7 +256,7 @@ const updateUser = async (req, res) => {
         email: email ?? user.email,
         phone_number: phone_number ?? user.phone_number,
         is_active: is_active ?? user.is_active,
-        government_structure_id: government_structure_id ?? user.government_structure_id,
+        government_structure_id: targetStructureId ?? user.government_structure_id,
         internal_structure_id: internal_structure_id ?? user.internal_structure_id,
         updated_at: new Date(),
       },
@@ -213,26 +265,18 @@ const updateUser = async (req, res) => {
 
     // ====== Update roles if provided ======
     if (role_ids && Array.isArray(role_ids)) {
-      // Validate roles exist
-      const roles = await Role.findAll({
-        where: { role_id: role_ids },
-        transaction: t,
-      });
-      if (roles.length !== role_ids.length) {
+      try {
+        await validateRoleAssignments(role_ids, targetStructureId, req, t);
+      } catch (error) {
         await t.rollback();
-        return res.status(400).json({
-          success: false,
-          message: "One or more provided role IDs are invalid.",
-        });
+        return sendScopeError(res, error);
       }
 
-      // Delete old roles
       await UserRoles.destroy({
         where: { user_id },
         transaction: t,
       });
 
-      // Assign new roles
       const roleAssignments = role_ids.map((rid) => ({
         user_role_id: uuidv4(),
         user_id,
@@ -285,20 +329,32 @@ const updateUser = async (req, res) => {
 const getUsers = async (req, res) => {
   try {
     const {
-      // institute_id,
       is_active,
-      search, // optional: for name/email search
+      search,
       government_structure_id,
       internal_structure_id,
     } = req.query;
 
-    // ====== Build filters dynamically ======
     const whereClause = {};
 
-    // if (institute_id) whereClause.institute_id = institute_id;
     if (is_active !== undefined) whereClause.is_active = is_active === "true";
-    if (government_structure_id) whereClause.government_structure_id = government_structure_id;
     if (internal_structure_id) whereClause.internal_structure_id = internal_structure_id;
+
+    let structureId;
+    try {
+      structureId = resolveManageableStructureId(req, government_structure_id);
+    } catch (error) {
+      return sendScopeError(res, error);
+    }
+
+    if (structureId) {
+      whereClause.government_structure_id = structureId;
+    } else if (!isSuperAdminActor(req)) {
+      return res.status(400).json({
+        success: false,
+        message: "government_structure_id is required.",
+      });
+    }
 
     if (search) {
       whereClause[Op.or] = [
@@ -366,6 +422,12 @@ const getUserById = async (req, res) => {
       });
     }
 
+    try {
+      assertUserInStructure(user, user.government_structure_id, req);
+    } catch (error) {
+      return sendScopeError(res, error);
+    }
+
     return res.status(200).json({
       success: true,
       message: "User fetched successfully.",
@@ -401,6 +463,13 @@ const deleteUser = async (req, res) => {
         success: false,
         message: "User not found.",
       });
+    }
+
+    try {
+      assertUserInStructure(user, user.government_structure_id, req);
+    } catch (error) {
+      await t.rollback();
+      return sendScopeError(res, error);
     }
 
     // Soft delete (deactivate)

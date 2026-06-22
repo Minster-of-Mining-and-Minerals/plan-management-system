@@ -10,9 +10,9 @@ const {
   resetUserPassword,
   getProfile,
 } = require("../../controllers/user/userController");
+const { authenticateToken } = require("../../middlewares/authMiddleware");
 
-// Middleware for authentication if needed (example)
-// const { authenticate } = require("../middlewares/authMiddleware");
+router.use(authenticateToken);
 
 /**
  * @swagger

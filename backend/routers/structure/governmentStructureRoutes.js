@@ -24,11 +24,13 @@ const {
 } = require("../../controllers/structure/governmentStructureController");
 
 const { authenticateToken, checkPermission } = require("../../middlewares/authMiddleware");
+const { getStructureEffectivePermissionsHandler } = require("../../controllers/user/permissionController");
 
 // ================= CRUD =================
 
 router.post("/", authenticateToken, checkPermission("GOVERNMENT_STRUCTURES", "CREATE"), validateCreateGovernmentStructure, createGovernmentStructure);
 router.get("/", authenticateToken, getGovernmentStructures);
+router.get("/:id/effective-permissions", authenticateToken, getStructureEffectivePermissionsHandler);
 router.get("/:id", authenticateToken, getGovernmentStructureById);
 router.put("/:id", authenticateToken, checkPermission("GOVERNMENT_STRUCTURES", "UPDATE"), validateUpdateGovernmentStructure, updateGovernmentStructure);
 router.patch("/:id/reactivate", authenticateToken, checkPermission("GOVERNMENT_STRUCTURES", "UPDATE"), reactivateGovernmentStructure);

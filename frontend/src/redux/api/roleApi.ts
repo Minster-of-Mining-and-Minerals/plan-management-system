@@ -1,15 +1,17 @@
 import { baseApi } from "../baseApi";
-import { Role } from "../types/auth";
-import { CreateRolePayload, UpdateRolePayload } from "../types/roles";
+import { Role, CreateRolePayload, UpdateRolePayload } from "../types/roles";
 
 export const roleApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     /** ---------------------------
      * GET ALL ROLES
      * --------------------------- */
-    getRoles: builder.query<Role[], { is_active?: boolean } | void>({
+    getRoles: builder.query<
+      Role[],
+      { is_active?: boolean; government_structure_id?: string } | void
+    >({
       query: (params) => {
-        return params ? { url: "/roles", params } : { url: "/roles" }; // no params field when undefined
+        return params ? { url: "/roles", params } : { url: "/roles" };
       },
       transformResponse: (response: any): Role[] => response.data ?? [],
       providesTags: ["Roles"],

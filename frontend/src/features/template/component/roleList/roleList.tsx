@@ -6,25 +6,59 @@ import { TableLayout } from "@/features/template/component/tableList/TableLayout
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Download, Plus, MoreHorizontal } from "lucide-react";
-
-import { useGetRolesQuery } from "@/redux/api/roleApi";
-import type { Role } from "@/redux/types/auth";
-import type { FilterField, ActionButton } from "@/types/tableLayout";
-import { useRouter } from "next/navigation";
+import { Download, Plus } from "lucide-react";
 import { Edit, Trash2 } from "lucide-react";
-import { useDeleteRoleMutation } from "@/redux/api/roleApi";
-import { actionFeedback } from "@/components/action-feedback";
-import { useSearchParams } from "next/navigation";
-import { matchesActiveInactiveFilter, matchesSearchQuery } from "@/utils/tableUtils";
 
-export default function RoleList() {
-  const { data = [], isLoading, isError, refetch } = useGetRolesQuery();
+import { useGetRolesQuery, useDeleteRoleMutation } from "@/redux/api/roleApi";
+import type { Role } from "@/redux/types/roles";
+import type { FilterField, ActionButton } from "@/types/tableLayout";
+import { useRouter, useSearchParams } from "next/navigation";
+import { actionFeedback } from "@/components/action-feedback";
+import { matchesActiveInactiveFilter, matchesSearchQuery } from "@/utils/tableUtils";
+import { useStructureScope } from "@/hooks/useStructureScope";
+import { withStructureQuery } from "@/utils/structureQueryUtils";
+import {
+  canDeleteRole,
+  canEditRole,
+  formatRoleScopeLabel,
+} from "@/utils/roleScopeUtils";
+
+export interface RoleListProps {
+  government_structure_id?: string;
+  hideLayout?: boolean;
+  sideActions?: ActionButton[];
+  readOnly?: boolean;
+}
+
+export default function RoleList({
+  government_structure_id: propStructureId,
+  hideLayout = false,
+  sideActions,
+  readOnly = false,
+}: RoleListProps = {}) {
+  const searchParams = useSearchParams();
+  const { isSuperAdmin, structureId: sessionStructureId } = useStructureScope();
+  const structureId =
+    propStructureId ||
+    searchParams.get("government_structure_id") ||
+    sessionStructureId ||
+    undefined;
+
+  const { data = [], isLoading, refetch } = useGetRolesQuery(
+    structureId
+      ? { government_structure_id: structureId }
+      : isSuperAdmin
+        ? undefined
+        : { government_structure_id: sessionStructureId || undefined },
+    { skip: !isSuperAdmin && !structureId && !sessionStructureId }
+  );
+
   const [deleteRole] = useDeleteRoleMutation();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const searchQuery = searchParams.get("search") || "";
   const [statusFilter, setStatusFilter] = useState("");
+
+  const newRolePath = withStructureQuery("/users/roles/new", structureId);
 
   const columns: ColumnDef<Role>[] = [
     {
@@ -37,6 +71,22 @@ export default function RoleList() {
     {
       accessorKey: "description",
       header: "Description",
+    },
+    {
+      accessorKey: "scope",
+      header: "Scope",
+      cell: ({ row }) => {
+        const scope = row.original.scope;
+        const variant =
+          scope === "global"
+            ? "secondary"
+            : scope === "private"
+              ? "default"
+              : "outline";
+        return (
+          <Badge variant={variant}>{formatRoleScopeLabel(scope)}</Badge>
+        );
+      },
     },
     {
       accessorKey: "is_active",
@@ -55,27 +105,41 @@ export default function RoleList() {
       header: "Actions",
       cell: ({ row }) => {
         const role = row.original;
+        const editPath = withStructureQuery(`/users/roles/${role.role_id}`, structureId);
+        const editable = canEditRole(role, isSuperAdmin, readOnly);
+        const deletable = canDeleteRole(role, readOnly);
+
         return (
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => router.push(`/users/roles/${role.role_id}`)}
+              onClick={() => router.push(editPath)}
               title="Edit Role"
+              disabled={!editable}
             >
               <Edit className="h-4 w-4 text-blue-600" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
+              disabled={!deletable}
               onClick={async () => {
-                if (await actionFeedback.confirm("Are you sure you want to delete this role?", { destructive: true })) {
+                if (
+                  await actionFeedback.confirm(
+                    "Are you sure you want to delete this role?",
+                    { destructive: true }
+                  )
+                ) {
                   try {
                     await deleteRole(role.role_id).unwrap();
                     actionFeedback.success("Role deleted successfully");
                     refetch();
-                  } catch (err: any) {
-                    actionFeedback.error(err?.data?.message || "Failed to delete role");
+                  } catch (err: unknown) {
+                    const error = err as { data?: { message?: string } };
+                    actionFeedback.error(
+                      error?.data?.message || "Failed to delete role"
+                    );
                   }
                 }
               }}
@@ -88,8 +152,6 @@ export default function RoleList() {
       },
     },
   ];
-
-  // Filters
 
   const filters: FilterField[] = [
     {
@@ -106,32 +168,42 @@ export default function RoleList() {
     },
   ];
 
-  // Actions
-  const actions: ActionButton[] = [
-    {
-      label: "Export",
-      icon: <Download className="h-4 w-4" />,
-      variant: "outline",
-      onClick: () => console.log("Export clicked"),
-    },
-    {
-      label: "New Role",
-      icon: <Plus className="h-4 w-4" />,
-      variant: "default",
-      onClick: () => router.push("roles/new"),
-    },
-  ];
+  const actions: ActionButton[] = readOnly
+    ? []
+    : [
+        {
+          label: "Export",
+          icon: <Download className="h-4 w-4" />,
+          variant: "outline",
+          onClick: () => console.log("Export clicked"),
+        },
+        {
+          label: "New Role",
+          icon: <Plus className="h-4 w-4" />,
+          variant: "default",
+          onClick: () => router.push(newRolePath),
+        },
+      ];
 
   const filteredData = data.filter((role) => {
-    if (!matchesActiveInactiveFilter(statusFilter, role.is_active ?? false)) return false;
-    return matchesSearchQuery(searchQuery, [role.name]);
+    if (!matchesActiveInactiveFilter(statusFilter, role.is_active ?? false)) {
+      return false;
+    }
+    return matchesSearchQuery(searchQuery, [role.name, role.description]);
   });
 
   return (
     <TableLayout
-      title="Role Management"
-      description="View and manage user roles"
+      title={hideLayout ? undefined : "Role Management"}
+      description={
+        hideLayout
+          ? undefined
+          : structureId
+            ? "Roles available for this sector structure"
+            : "View and manage user roles"
+      }
       actions={actions}
+      sideActions={sideActions}
       filters={filters}
       filterColumnsPerRow={2}
     >
@@ -139,7 +211,7 @@ export default function RoleList() {
         columns={columns}
         data={filteredData}
         isLoading={isLoading}
-        resetKey={`${searchQuery}-${statusFilter}`}
+        resetKey={`${searchQuery}-${statusFilter}-${structureId}`}
       />
     </TableLayout>
   );

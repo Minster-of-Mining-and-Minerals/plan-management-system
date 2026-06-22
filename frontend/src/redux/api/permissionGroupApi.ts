@@ -73,11 +73,22 @@ export const permissionGroupApi = baseApi.injectEndpoints({
         /** ---------------------------
          * DELETE GROUP
          * --------------------------- */
-        deletePermissionGroup: builder.mutation<{ message: string }, string>({
-            query: (id) => ({
-                url: `/permission-groups/${id}`,
-                method: "DELETE",
-            }),
+        deletePermissionGroup: builder.mutation<
+            { message: string },
+            string | { id: string; government_structure_id?: string }
+        >({
+            query: (arg) => {
+                const id = typeof arg === "string" ? arg : arg.id;
+                const government_structure_id =
+                    typeof arg === "string" ? undefined : arg.government_structure_id;
+                return {
+                    url: `/permission-groups/${id}`,
+                    method: "DELETE",
+                    params: government_structure_id
+                        ? { government_structure_id }
+                        : undefined,
+                };
+            },
             transformResponse: (response: any) => response,
             invalidatesTags: ["PermissionGroups"],
         }),

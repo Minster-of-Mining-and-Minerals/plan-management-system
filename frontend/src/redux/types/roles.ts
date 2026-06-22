@@ -12,6 +12,8 @@ export interface Role {
   name: string;
   description?: string;
   is_active: boolean;
+  scope?: "global" | "private" | "structure";
+  government_structure_id?: string | null;
   rolePermissions: RolePermission[];
 }
 
@@ -19,6 +21,7 @@ export interface CreateRolePayload {
   name: string;
   description?: string;
   permission_ids?: string[];
+  government_structure_id?: string;
 }
 
 export interface UpdateRolePayload {

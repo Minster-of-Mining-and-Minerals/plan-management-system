@@ -10,6 +10,9 @@ import {
   useGetRoleByIdQuery,
   useUpdateRoleMutation,
 } from "@/redux/api/roleApi";
+import { useStructureScope } from "@/hooks/useStructureScope";
+import { useSearchParams } from "next/navigation";
+import { withStructureQuery } from "@/utils/structureQueryUtils";
 import { CreateRoleHeader } from "./Header";
 import { BasicInfo } from "./BasicInfo";
 import { PermissionMatrix as PermissionMatrixComponent } from "./PermissionMatrix";
@@ -32,8 +35,11 @@ export default function CreateRole({ roleId }: { roleId?: string }) {
   );
 
   // RTK Queries
-  const { data: permissionsResponse, isLoading: loadingPermissions } =
-    useGetPermissionsQuery();
+  const searchParams = useSearchParams();
+  const { isSuperAdmin, structureId: sessionStructureId } = useStructureScope();
+  const structureId =
+    searchParams.get("government_structure_id") || sessionStructureId || undefined;
+  const rolesListPath = withStructureQuery("/users/roles", structureId);
 
   const {
     data: roleResponse,
@@ -41,6 +47,22 @@ export default function CreateRole({ roleId }: { roleId?: string }) {
     isError: roleError,
     refetch: refetchRole,
   } = useGetRoleByIdQuery(id!, { skip: !isEditMode });
+
+  const editingSystemRole =
+    isEditMode &&
+    (roleResponse?.scope === "global" || roleResponse?.scope === "private");
+
+  const permissionQueryArgs =
+    isSuperAdmin && (!structureId || editingSystemRole)
+      ? { scope: "all" as const }
+      : structureId
+        ? { government_structure_id: structureId }
+        : undefined;
+
+  const { data: permissionsResponse, isLoading: loadingPermissions } =
+    useGetPermissionsQuery(permissionQueryArgs, {
+      skip: !permissionQueryArgs,
+    });
 
   const [createRole, { isLoading: isCreating }] = useCreateRoleMutation();
   const [updateRole, { isLoading: isUpdating }] = useUpdateRoleMutation();
@@ -92,10 +114,14 @@ export default function CreateRole({ roleId }: { roleId?: string }) {
       const role = roleResponse;
       // Set name and description
       setName(role.name || "");
-      setDescription("");
-      // setRoleType(type);
+      setDescription(role.description || "");
 
-      const rolePermissions = role.permissions ?? [];
+      const rolePermissions = (role.rolePermissions ?? [])
+        .map((entry) => entry.permission)
+        .filter(
+          (permission): permission is { permission_id: string; resource: string; action: string } =>
+            Boolean(permission?.permission_id)
+        );
 
       // Populate permission matrix with existing permissions
       if (rolePermissions.length > 0) {
@@ -238,6 +264,11 @@ export default function CreateRole({ roleId }: { roleId?: string }) {
       return;
     }
 
+    if (!isEditMode && !structureId) {
+      actionFeedback.error("Select a structure before creating a role.");
+      return;
+    }
+
     try {
       if (isEditMode) {
         await updateRole({
@@ -250,17 +281,18 @@ export default function CreateRole({ roleId }: { roleId?: string }) {
         }).unwrap();
 
         actionFeedback.success("Role updated successfully!");
-        router.push("/users/roles");
+        router.push(rolesListPath);
       } else {
         await createRole({
           name: name.trim(),
           description: description.trim(),
           permission_ids: selectedPermissionIds,
+          government_structure_id: structureId,
         }).unwrap();
 
         actionFeedback.success("Role created successfully!");
         resetForm();
-        router.push("/users/roles");
+        router.push(rolesListPath);
       }
     } catch (error: any) {
       actionFeedback.error(

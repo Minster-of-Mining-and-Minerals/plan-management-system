@@ -44,8 +44,10 @@ import {
 } from "@/components/ui/select";
 import { actionFeedback } from "@/components/action-feedback";
 import DetailHeader from "@/components/common/DetailHeader";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useStructureScope } from "@/hooks/useStructureScope";
+import { withStructureQuery } from "@/utils/structureQueryUtils";
 
 const userFormSchema = z.object({
   full_name: z.string().min(2, "Full name must be at least 2 characters"),
@@ -62,7 +64,9 @@ type UserFormValues = z.infer<typeof userFormSchema>;
 const UserViewPage = () => {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const userId = params.userId as string;
+  const structureQueryId = searchParams.get("government_structure_id");
   const { data: session } = useSession();
   const isCurrentUser = session?.user?.id === userId;
 
@@ -73,7 +77,6 @@ const UserViewPage = () => {
 
   const [isEditing, setIsEditing] = useState(false);
 
-  const { data: allRoles = [] } = useGetRolesQuery({ is_active: true });
   const { data: govStructures = [] } = useGetGovernmentStructuresQuery({ is_active: true });
   
   const form = useForm<UserFormValues>({
@@ -90,6 +93,19 @@ const UserViewPage = () => {
   });
 
   const selectedGovId = form.watch("government_structure_id");
+  const { isSuperAdmin, structureId: sessionStructureId } = useStructureScope();
+  const effectiveStructureId =
+    selectedGovId || user?.government_structure_id || sessionStructureId || undefined;
+
+  const { data: allRoles = [] } = useGetRolesQuery(
+    effectiveStructureId
+      ? { is_active: true, government_structure_id: effectiveStructureId }
+      : isSuperAdmin
+        ? { is_active: true }
+        : undefined,
+    { skip: !isSuperAdmin && !effectiveStructureId }
+  );
+
   const { data: internalStructures = [] } = useGetInternalStructuresQuery(
     { government_structure_id: selectedGovId || undefined, is_active: true },
     { skip: !selectedGovId }
@@ -143,7 +159,7 @@ const UserViewPage = () => {
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#F9FBFC] gap-4">
         <XCircle className="h-16 w-16 text-red-500" />
         <h2 className="text-xl font-semibold text-[#094C81]">User Not Found</h2>
-        <Button variant="outline" onClick={() => router.push("/users/list")}>
+        <Button variant="outline" onClick={() => router.push(withStructureQuery("/users/list", structureQueryId || user?.government_structure_id))}>
           Back to Users List
         </Button>
       </div>
@@ -194,7 +210,7 @@ const UserViewPage = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <DetailHeader
           breadcrumbs={[
-            { title: "Users", link: "/users/list" },
+            { title: "Users", link: withStructureQuery("/users/list", structureQueryId || user?.government_structure_id) },
             { title: user.full_name, link: "" },
           ]}
         />

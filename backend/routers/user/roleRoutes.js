@@ -16,6 +16,8 @@ const {
   deleteRole,
 } = require("../../controllers/user/roleController");
 
+router.use(authenticateToken);
+
 router.post("/", validateCreateRole, createRole);
 router.get("/", getRoles);
 router.get("/:id", getRoleById);

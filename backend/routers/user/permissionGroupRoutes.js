@@ -3,6 +3,8 @@
 const express = require("express");
 const router = express.Router();
 
+const { authenticateToken } = require("../../middlewares/authMiddleware");
+
 const {
     validateCreatePermissionGroup,
     validateUpdatePermissionGroup,
@@ -27,6 +29,8 @@ const {
     addStructuresToGroup,
     removeStructureFromGroup,
 } = require("../../controllers/user/permissionGroupController");
+
+router.use(authenticateToken);
 
 /**
  * @swagger

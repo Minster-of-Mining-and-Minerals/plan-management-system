@@ -11,6 +11,60 @@ const {
 } = require("../../models");
 
 const { v4: uuidv4 } = require("uuid");
+const { Op } = require("sequelize");
+const {
+    isSuperAdminActor,
+    resolveManageableStructureId,
+    sendScopeError,
+} = require("../../utils/structureScopeUtils");
+const {
+    assertPermissionGroupsFitStructureHierarchy,
+    assertPermissionGroupFitsStructureHierarchy,
+    assertPermissionIdsFitLinkedStructureHierarchies,
+    getPermissionIdsInPermissionGroup,
+} = require("../../utils/structureEffectivePermissionsUtils");
+
+async function getPermissionGroupIdsForStructure(structureId) {
+    const links = await GovernmentStructurePermissionGroup.findAll({
+        where: { government_structure_id: structureId },
+        attributes: ["permission_group_id"],
+    });
+    return links.map((link) => link.permission_group_id);
+}
+
+async function assertPermissionGroupAccessible(permissionGroupId, req, structureId) {
+    if (isSuperAdminActor(req) && !structureId) {
+        return;
+    }
+
+    let effectiveStructureId;
+    try {
+        effectiveStructureId = resolveManageableStructureId(req, structureId);
+    } catch (error) {
+        throw error;
+    }
+
+    if (!effectiveStructureId) {
+        const error = new Error("Structure context is required.");
+        error.status = 403;
+        throw error;
+    }
+
+    const link = await GovernmentStructurePermissionGroup.findOne({
+        where: {
+            permission_group_id: permissionGroupId,
+            government_structure_id: effectiveStructureId,
+        },
+    });
+
+    if (!link) {
+        const error = new Error(
+            "Access denied: permission group is not assigned to this structure."
+        );
+        error.status = 403;
+        throw error;
+    }
+}
 
 /**
  * =================== CREATE ===================
@@ -53,12 +107,42 @@ const createPermissionGroup = async (req, res) => {
  */
 const getPermissionGroups = async (req, res) => {
     try {
+        const { government_structure_id: queryStructureId, is_active } = req.query;
+
+        let structureId;
+        try {
+            structureId = resolveManageableStructureId(req, queryStructureId);
+        } catch (error) {
+            return sendScopeError(res, error);
+        }
+
+        const where = {};
+
+        if (is_active !== undefined) {
+            where.is_active = is_active === "true";
+        }
+
+        if (structureId) {
+            const groupIds = await getPermissionGroupIdsForStructure(structureId);
+            if (groupIds.length === 0) {
+                return res.json({ data: [] });
+            }
+            where.permission_group_id = { [Op.in]: groupIds };
+        } else if (!isSuperAdminActor(req)) {
+            return sendScopeError(res, {
+                status: 403,
+                message: "Access denied: structure context is required.",
+            });
+        }
+
         const groups = await PermissionGroup.findAll({
+            where,
             include: [
                 { model: Permission, as: "permissions" },
                 { model: User, as: "users" },
                 { model: GovernmentStructure, as: "structures" },
             ],
+            order: [["created_at", "DESC"]],
         });
 
         return res.json({ data: groups });
@@ -73,6 +157,8 @@ const getPermissionGroups = async (req, res) => {
 const getPermissionGroupById = async (req, res) => {
     try {
         const { id } = req.params;
+        const { government_structure_id: queryStructureId } = req.query;
+
         const group = await PermissionGroup.findByPk(id, {
             include: [
                 { model: Permission, as: "permissions" },
@@ -83,6 +169,12 @@ const getPermissionGroupById = async (req, res) => {
 
         if (!group) {
             return res.status(404).json({ message: "Not found" });
+        }
+
+        try {
+            await assertPermissionGroupAccessible(id, req, queryStructureId);
+        } catch (error) {
+            return sendScopeError(res, error);
         }
 
         return res.json({ data: group });
@@ -98,13 +190,21 @@ const updatePermissionGroup = async (req, res) => {
     const t = await PermissionGroup.sequelize.transaction();
     try {
         const { id } = req.params;
-        const { name, description, permission_ids, is_active } = req.body;
+        const { name, description, permission_ids, is_active, government_structure_id: bodyStructureId } =
+            req.body;
 
         const group = await PermissionGroup.findByPk(id, { transaction: t });
 
         if (!group) {
             await t.rollback();
             return res.status(404).json({ message: "Not found" });
+        }
+
+        try {
+            await assertPermissionGroupAccessible(id, req, bodyStructureId);
+        } catch (error) {
+            await t.rollback();
+            return sendScopeError(res, error);
         }
 
         await group.update({
@@ -114,6 +214,10 @@ const updatePermissionGroup = async (req, res) => {
         }, { transaction: t });
 
         if (Array.isArray(permission_ids)) {
+            await assertPermissionIdsFitLinkedStructureHierarchies(id, permission_ids, {
+                transaction: t,
+            });
+
             // Remove existing permissions
             await PermissionGroupPermission.destroy({
                 where: { permission_group_id: id },
@@ -136,6 +240,9 @@ const updatePermissionGroup = async (req, res) => {
         return res.json({ message: "Updated", data: group });
     } catch (error) {
         if (!t.finished) await t.rollback();
+        if (error.status) {
+            return sendScopeError(res, error);
+        }
         return res.status(500).json({ error: error.message });
     }
 };
@@ -146,11 +253,18 @@ const updatePermissionGroup = async (req, res) => {
 const deletePermissionGroup = async (req, res) => {
     try {
         const { id } = req.params;
+        const { government_structure_id: queryStructureId } = req.query;
 
         const group = await PermissionGroup.findByPk(id);
 
         if (!group) {
             return res.status(404).json({ message: "Not found" });
+        }
+
+        try {
+            await assertPermissionGroupAccessible(id, req, queryStructureId);
+        } catch (error) {
+            return sendScopeError(res, error);
         }
 
         await group.destroy();
@@ -168,6 +282,13 @@ const addPermissionsToGroup = async (req, res) => {
     try {
         const { permission_group_id, permission_ids } = req.body;
 
+        const existingIds = await getPermissionIdsInPermissionGroup(permission_group_id);
+        const mergedIds = [...new Set([...existingIds, ...permission_ids])];
+        await assertPermissionIdsFitLinkedStructureHierarchies(
+            permission_group_id,
+            mergedIds
+        );
+
         const records = permission_ids.map((pid) => ({
             permission_group_id,
             permission_id: pid,
@@ -178,6 +299,9 @@ const addPermissionsToGroup = async (req, res) => {
 
         return res.json({ message: "Permissions added" });
     } catch (error) {
+        if (error.status) {
+            return sendScopeError(res, error);
+        }
         return res.status(500).json({ error: error.message });
     }
 };
@@ -202,6 +326,42 @@ const removePermissionFromGroup = async (req, res) => {
 const addUsersToGroup = async (req, res) => {
     try {
         const { permission_group_id, user_ids } = req.body;
+        const {
+            assertUserInStructure,
+            sendScopeError,
+        } = require("../../utils/structureScopeUtils");
+
+        const structureLinks = await GovernmentStructurePermissionGroup.findAll({
+            where: { permission_group_id },
+        });
+        const allowedStructureIds = new Set(
+            structureLinks.map((link) => link.government_structure_id)
+        );
+
+        if (allowedStructureIds.size === 0) {
+            return res.status(400).json({
+                message: "Permission group is not assigned to any structure.",
+            });
+        }
+
+        const users = await User.findAll({ where: { user_id: user_ids } });
+        if (users.length !== user_ids.length) {
+            return res.status(400).json({ message: "One or more users were not found." });
+        }
+
+        for (const user of users) {
+            try {
+                assertUserInStructure(user, user.government_structure_id, req);
+            } catch (error) {
+                return sendScopeError(res, error);
+            }
+
+            if (!allowedStructureIds.has(user.government_structure_id)) {
+                return res.status(403).json({
+                    message: "User structure does not have access to this permission group.",
+                });
+            }
+        }
 
         const records = user_ids.map((uid) => ({
             id: uuidv4(),
@@ -235,6 +395,13 @@ const addStructuresToGroup = async (req, res) => {
     try {
         const { permission_group_id, government_structure_ids } = req.body;
 
+        for (const governmentStructureId of government_structure_ids) {
+            await assertPermissionGroupFitsStructureHierarchy(
+                permission_group_id,
+                governmentStructureId
+            );
+        }
+
         const records = government_structure_ids.map((gid) => ({
             id: uuidv4(),
             government_structure_id: gid,
@@ -245,6 +412,9 @@ const addStructuresToGroup = async (req, res) => {
 
         return res.json({ message: "Structures added" });
     } catch (error) {
+        if (error.status) {
+            return sendScopeError(res, error);
+        }
         return res.status(500).json({ error: error.message });
     }
 };

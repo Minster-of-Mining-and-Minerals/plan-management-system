@@ -1,11 +1,18 @@
 import { baseApi } from "../baseApi";
 import type { Permission } from "../types/permission";
 
+export type GetPermissionsParams = {
+  government_structure_id?: string;
+  scope?: "all";
+};
+
 export const permissionApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    // GET all permissions
-    getPermissions: builder.query<Permission[], void>({
-      query: () => "/permissions",
+    getPermissions: builder.query<Permission[], GetPermissionsParams | void>({
+      query: (params) =>
+        params
+          ? { url: "/permissions", params }
+          : { url: "/permissions" },
       transformResponse: (response: any): Permission[] => {
         return response.data ?? [];
       },

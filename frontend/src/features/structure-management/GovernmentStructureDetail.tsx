@@ -2,12 +2,14 @@
 
 import React, { useState } from "react";
 import { useGetGovernmentStructureByIdQuery, useReactivateGovernmentStructureMutation } from "@/redux/api/governmentStructureApi";
-import { Building, Users, Shield, Layers, RotateCcw } from "lucide-react";
+import { Building, Users, Shield, Layers, RotateCcw, KeyRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import UserTable from "@/features/user-management/UserTable";
 import InternalStructureTable from "./InternalStructureTable";
 import PermissionGroupList from "../template/component/permissionGroupList/PermissionGroupList";
+import RoleList from "../template/component/roleList/roleList";
+import { withStructureQuery } from "@/utils/structureQueryUtils";
 import { Badge } from "@/components/ui/badge";
 import { formatStatus } from "@/utils/statusFormatter";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,7 +23,7 @@ interface GovernmentStructureDetailProps {
     id: string;
 }
 
-type TabType = "users" | "internal_structures" | "permission_groups";
+type TabType = "users" | "roles" | "internal_structures" | "permission_groups";
 
 export default function GovernmentStructureDetail({ id }: GovernmentStructureDetailProps) {
     const router = useRouter();
@@ -38,6 +40,12 @@ export default function GovernmentStructureDetail({ id }: GovernmentStructureDet
             icon: <Users className="h-4 w-4" />,
             variant: activeTab === "users" ? "default" : "outline",
             onClick: () => setActiveTab("users"),
+        },
+        {
+            label: "Roles",
+            icon: <KeyRound className="h-4 w-4" />,
+            variant: activeTab === "roles" ? "default" : "outline",
+            onClick: () => setActiveTab("roles"),
         },
         {
             label: "Departments",
@@ -151,12 +159,35 @@ export default function GovernmentStructureDetail({ id }: GovernmentStructureDet
                         Reactivate Sector
                     </Button>
                 )}
+                {!isReadOnly && (
+                    <div className="flex flex-wrap gap-2 shrink-0">
+                        <Button variant="outline" asChild>
+                            <Link href={withStructureQuery("/users/list", id)}>
+                                All Users
+                            </Link>
+                        </Button>
+                        <Button variant="outline" asChild>
+                            <Link href={withStructureQuery("/users/roles", id)}>
+                                All Roles
+                            </Link>
+                        </Button>
+                    </div>
+                )}
             </div>
 
             {/* Content */}
             {activeTab === "users" && (
                 <UserTable
                     government_structure_node_id={id}
+                    sideActions={sideActions}
+                    readOnly={isReadOnly}
+                />
+            )}
+
+            {activeTab === "roles" && (
+                <RoleList
+                    government_structure_id={id}
+                    hideLayout
                     sideActions={sideActions}
                     readOnly={isReadOnly}
                 />
