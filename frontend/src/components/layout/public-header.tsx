@@ -6,6 +6,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { FileText, ClipboardCheck, BarChart3, Home } from "lucide-react";
 // import LocaleSwitcher from "@/components/common/LanguageSwitcher/LocaleSwitcher";
+import { AUTH_ROUTES } from "@/constants/authRoutes";
 import { useTranslations } from "next-intl";
 import LocaleSwitcher from "../LanguageSwitcher/LocaleSwitcher";
 
@@ -107,7 +108,7 @@ const PublicHeader = () => {
 
           {/* Login Button */}
           <Link
-            href="/login"
+            href={AUTH_ROUTES.login}
             className="px-6 py-2.5 rounded-lg text-sm font-semibold text-white 
               bg-golden-dark hover:bg-golden-darkHover 
               focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary 

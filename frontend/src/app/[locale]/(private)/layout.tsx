@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { notFound } from "next/navigation";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
@@ -9,7 +10,7 @@ import { RoutePermissionGuard } from "@/components/guards/RoutePermissionGuard";
 import { SecuritySettingsBridge } from "@/components/guards/SecuritySettingsBridge";
 import { useSession } from "next-auth/react";
 import { useAuth } from "@/hooks/use-auth";
-import { performLogout } from "@/utils/logout";
+import { AUTH_ROUTES, isChangePasswordPath } from "@/constants/authRoutes";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 
 export default function PrivateLayout({
@@ -23,17 +24,17 @@ export default function PrivateLayout({
   const { isLoading: isAuthLoading } = useAuth();
 
   const isFirstLogin = session?.user?.is_first_logged_in;
-  const isChangePasswordPage = pathname.includes("/change-password");
+  const isChangePasswordPage = isChangePasswordPath(pathname);
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      performLogout();
+      notFound();
     }
   }, [status]);
 
   useEffect(() => {
     if (status === "authenticated" && isFirstLogin && !isChangePasswordPage) {
-      router.push("/change-password");
+      router.push(AUTH_ROUTES.changePassword);
     }
   }, [status, isFirstLogin, isChangePasswordPage, router]);
 

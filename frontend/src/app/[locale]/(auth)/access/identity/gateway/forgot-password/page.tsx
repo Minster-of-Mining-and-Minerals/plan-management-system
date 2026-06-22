@@ -18,6 +18,7 @@ import { actionFeedback } from "@/components/action-feedback";
 import { useRouter } from "@/i18n/navigation";
 import { ArrowLeftIcon, Mail, ShieldCheck, Lock, EyeIcon, EyeOffIcon } from "lucide-react";
 import { useRequestOTPMutation, useVerifyOTPMutation, useResetPasswordMutation } from "@/redux/api/authApi";
+import { AUTH_ROUTES } from "@/constants/authRoutes";
 
 const emailSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -95,7 +96,7 @@ export default function ForgotPasswordPage() {
         newPassword: values.newPassword
       }).unwrap();
       actionFeedback.success("Password reset successfully! Please login.");
-      router.push("/login");
+      router.push(AUTH_ROUTES.login);
     } catch (error: any) {
       actionFeedback.error(error?.data?.message || "Failed to reset password");
     }
@@ -107,7 +108,7 @@ export default function ForgotPasswordPage() {
 
         {/* Back Button */}
         <Button
-          onClick={() => step === 1 ? router.push("/login") : setStep((prev) => (prev - 1) as any)}
+          onClick={() => step === 1 ? router.push(AUTH_ROUTES.login) : setStep((prev) => (prev - 1) as any)}
           className="cursor-pointer shadow-none z-50 bg-transparent hover:bg-slate-100 p-2 top-4 left-4 absolute flex items-center gap-1"
         >
           <ArrowLeftIcon className="w-5 h-5 text-golden-dark" />

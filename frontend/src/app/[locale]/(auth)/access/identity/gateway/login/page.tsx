@@ -12,6 +12,10 @@ import { Button } from "@/components/ui/button";
 import { login } from "@/actions/user";
 import { useBranding } from "@/providers/BrandingProvider";
 import { normalizeEmail } from "@/utils/emailUtils";
+import {
+  AUTH_ROUTES,
+  resolvePostAuthRedirect,
+} from "@/constants/authRoutes";
 
 export default function ExternalLogin() {
   const [showPassword, setShowPassword] = useState(false);
@@ -25,8 +29,7 @@ export default function ExternalLogin() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      const target = callbackUrl === "/login" || !callbackUrl ? "/dashboard" : callbackUrl;
-      router.replace(target as any);
+      router.replace(resolvePostAuthRedirect(callbackUrl) as any);
     }
   }, [status, callbackUrl, router]);
 
@@ -50,10 +53,9 @@ export default function ExternalLogin() {
       const isFirstLogin = newSession?.user?.is_first_logged_in;
 
       if (isFirstLogin) {
-        router.replace("/change-password");
+        router.replace(AUTH_ROUTES.changePassword);
       } else {
-        const target = callbackUrl === "/login" || !callbackUrl ? "/dashboard" : callbackUrl;
-        router.replace(target as any);
+        router.replace(resolvePostAuthRedirect(callbackUrl) as any);
       }
     }
   };
@@ -141,7 +143,7 @@ export default function ExternalLogin() {
               </div>
 
               <div className="w-full text-right">
-                <Link href="/forgot-password" className="text-sm text-primary hover:underline">
+                <Link href={AUTH_ROUTES.forgotPassword} className="text-sm text-primary hover:underline">
                   Forgot Password?
                 </Link>
               </div>

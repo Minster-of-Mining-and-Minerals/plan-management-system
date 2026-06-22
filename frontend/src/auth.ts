@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import authConfig from "./auth.config";
 import { JWT } from "next-auth/jwt";
+import { AUTH_ROUTES } from "./constants/authRoutes";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
@@ -11,8 +12,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     updateAge: 24 * 60 * 60,
   },
   pages: {
-    signIn: "/login",
-    error: "/login",
+    signIn: AUTH_ROUTES.login,
+    error: AUTH_ROUTES.login,
   },
   callbacks: {
     async jwt({ token, user }) {

@@ -4,6 +4,7 @@ import { signIn, signOut, auth } from "@/auth";
 import { AuthError } from "next-auth";
 
 import { normalizeEmail } from "@/utils/emailUtils";
+import { AUTH_ROUTES, POST_LOGOUT_PATH } from "@/constants/authRoutes";
 
 export const login = async (email: string, password: string) => {
   const normalizedEmail = normalizeEmail(email);
@@ -45,7 +46,7 @@ export const login = async (email: string, password: string) => {
 };
 
 export const logout = async () => {
-  await signOut({ redirectTo: "/login" });
+  await signOut({ redirectTo: POST_LOGOUT_PATH });
 };
 
 export const getSession = async () => {

@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
+import { AUTH_ROUTES } from "@/constants/authRoutes";
 import { useDispatch } from "react-redux";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -127,7 +128,7 @@ export function ProfilePage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" asChild>
-            <Link href="/change-password">
+            <Link href={AUTH_ROUTES.changePassword}>
               <KeyRound className="mr-2 h-4 w-4" />
               Change Password
             </Link>

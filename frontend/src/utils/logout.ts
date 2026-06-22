@@ -1,4 +1,5 @@
 import { signOut } from "next-auth/react";
+import { POST_LOGOUT_PATH } from "@/constants/authRoutes";
 
 /**
  * Perform a thorough logout by clearing all browser storage and sessions.
@@ -6,7 +7,7 @@ import { signOut } from "next-auth/react";
  */
 let isLoggingOut = false;
 
-export const performLogout = async (callbackUrl: string = "/login") => {
+export const performLogout = async (callbackUrl: string = POST_LOGOUT_PATH) => {
   if (isLoggingOut) return;
   isLoggingOut = true;
 

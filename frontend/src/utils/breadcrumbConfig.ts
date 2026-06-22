@@ -87,5 +87,7 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem[]> = {
     // ================================================
     // Auth Routes
     // ================================================
-    "/login": [{ title: "Login", path: "/login" }],
+    "/access/identity/gateway/login": [
+        { title: "Login", path: "/access/identity/gateway/login" },
+    ],
 };
