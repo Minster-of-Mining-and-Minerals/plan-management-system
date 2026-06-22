@@ -12,6 +12,7 @@ import {
   Paintbrush,
   History,
   AlertCircle,
+  StickyNote,
   ClipboardCheck,
 } from "lucide-react";
 
@@ -154,7 +155,13 @@ export const NAVIGATION: NavItem[] = [
     title: "Settings",
     url: "/settings/branding",
     icon: Settings,
-    anyPermissions: ["BRANDING_SETTINGS:READ", "SYSTEM_AUDIT_LOGS:READ", "SYSTEM_SETTINGS:READ"],
+    anyPermissions: [
+      "BRANDING_SETTINGS:READ",
+      "SYSTEM_AUDIT_LOGS:READ",
+      "SYSTEM_SETTINGS:READ",
+      "NOTES:VIEW",
+      "NOTES:MANAGE",
+    ],
     children: [
       {
         title: "Branding",
@@ -173,6 +180,12 @@ export const NAVIGATION: NavItem[] = [
         url: "/settings/audit-logs",
         icon: History,
         allPermissions: ["SYSTEM_AUDIT_LOGS:READ"],
+      },
+      {
+        title: "Notes",
+        url: "/settings/notes",
+        icon: StickyNote,
+        anyPermissions: ["NOTES:VIEW", "NOTES:MANAGE"],
       },
     ],
   },

@@ -9,7 +9,9 @@ const listQuerySchema = Joi.object({
   module: Joi.string()
     .valid(...Object.keys(MODULE_LABELS))
     .optional(),
-  action: Joi.string().valid("create", "update", "delete", "restore").optional(),
+  action: Joi.string()
+    .valid("create", "update", "delete", "restore", "view", "download_attachment")
+    .optional(),
   search: Joi.string().trim().max(200).optional(),
 });
 

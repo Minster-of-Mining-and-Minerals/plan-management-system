@@ -12,6 +12,7 @@ const AUDIT_MODULES = {
   PERMISSION_GROUPS: "permission_groups",
   PERFORMANCE_COLOR_THRESHOLDS: "performance_color_thresholds",
   NOTIFICATIONS: "notifications",
+  NOTES: "notes",
 };
 
 const MODULE_LABELS = {
@@ -24,6 +25,7 @@ const MODULE_LABELS = {
   permission_groups: "Permission Groups",
   performance_color_thresholds: "Performance Colors",
   notifications: "Notifications",
+  notes: "Notes",
 };
 
 function getClientIp(req) {
@@ -41,6 +43,8 @@ function buildSummary({ module, action, entityLabel, previousValues, newValues }
   if (action === "create") return `Created ${label}`;
   if (action === "delete") return `Deleted ${label}`;
   if (action === "restore") return `Restored ${label} to defaults`;
+  if (action === "view") return `Viewed ${label}`;
+  if (action === "download_attachment") return `Downloaded attachment for ${label}`;
 
   if (module === AUDIT_MODULES.BRANDING_SETTINGS && newValues?.system_name_full) {
     const prevName = previousValues?.system_name_full;

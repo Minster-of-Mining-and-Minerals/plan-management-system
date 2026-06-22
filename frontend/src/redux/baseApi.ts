@@ -106,6 +106,7 @@ export const baseApi = createApi({
     "FormConfigContainers",
     "IssueDashboard",
     "IssueHistory",
+    "Notes",
   ],
   endpoints: () => ({}),
 });

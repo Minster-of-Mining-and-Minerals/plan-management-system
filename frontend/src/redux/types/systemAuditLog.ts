@@ -1,4 +1,10 @@
-export type SystemAuditLogAction = "create" | "update" | "delete" | "restore";
+export type SystemAuditLogAction =
+  | "create"
+  | "update"
+  | "delete"
+  | "restore"
+  | "view"
+  | "download_attachment";
 
 export type SystemAuditLogModule =
   | "branding_settings"
@@ -9,7 +15,8 @@ export type SystemAuditLogModule =
   | "internal_structures"
   | "permission_groups"
   | "performance_color_thresholds"
-  | "notifications";
+  | "notifications"
+  | "notes";
 
 export const SYSTEM_AUDIT_MODULE_OPTIONS: {
   value: SystemAuditLogModule;
@@ -24,6 +31,7 @@ export const SYSTEM_AUDIT_MODULE_OPTIONS: {
   { value: "permission_groups", label: "Permission Groups" },
   { value: "performance_color_thresholds", label: "Performance Colors" },
   { value: "notifications", label: "Notifications" },
+  { value: "notes", label: "Notes" },
 ];
 
 export const SYSTEM_AUDIT_ACTION_OPTIONS: {
@@ -34,6 +42,8 @@ export const SYSTEM_AUDIT_ACTION_OPTIONS: {
   { value: "update", label: "Update" },
   { value: "delete", label: "Delete" },
   { value: "restore", label: "Restore" },
+  { value: "view", label: "View" },
+  { value: "download_attachment", label: "Download Attachment" },
 ];
 
 export interface SystemAuditLogUser {

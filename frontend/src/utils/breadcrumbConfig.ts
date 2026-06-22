@@ -90,4 +90,22 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem[]> = {
     "/access/identity/gateway/login": [
         { title: "Login", path: "/access/identity/gateway/login" },
     ],
+
+    // ================================================
+    // Settings Routes
+    // ================================================
+    "/settings/notes": [
+        { title: "Settings", path: "/settings/branding" },
+        { title: "Notes", path: "/settings/notes" },
+    ],
+    "/settings/notes/new": [
+        { title: "Settings", path: "/settings/branding" },
+        { title: "Notes", path: "/settings/notes" },
+        { title: "Create Note", path: "/settings/notes/new" },
+    ],
+    "/settings/notes/[id]": [
+        { title: "Settings", path: "/settings/branding" },
+        { title: "Notes", path: "/settings/notes" },
+        { title: "Note Details", path: "/settings/notes/[id]" },
+    ],
 };

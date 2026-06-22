@@ -10,6 +10,7 @@ import "@/redux/api/systemAuditLogApi";
 import "@/redux/api/systemSettingsApi";
 import "@/redux/api/issueApi";
 import "@/redux/api/formConfigApi";
+import "@/redux/api/noteApi";
 export const store = configureStore({
   reducer: {
     [baseApi.reducerPath]: baseApi.reducer,

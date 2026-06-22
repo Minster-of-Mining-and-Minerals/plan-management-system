@@ -88,8 +88,6 @@ const authenticateToken = async (req, res, next) => {
 // Permission middleware
 const checkPermission = (resource, action) => {
   return (req, res, next) => {
-    const requiredPermission = `${resource.toLowerCase()}:${action.toLowerCase()}`;
-
     if (!req.user || !req.user.permissions) {
       return res.status(403).json({
         success: false,
@@ -97,7 +95,15 @@ const checkPermission = (resource, action) => {
       });
     }
 
-    if (!req.user.permissions.includes(requiredPermission)) {
+    const resourceLower = resource.toLowerCase();
+    const actionLower = action.toLowerCase();
+    const requiredPermission = `${resourceLower}:${actionLower}`;
+    const managePermission = `${resourceLower}:manage`;
+
+    if (
+      !req.user.permissions.includes(requiredPermission) &&
+      !req.user.permissions.includes(managePermission)
+    ) {
       return sendPermissionDenied(res, {
         message: "Access denied",
         permissions: [requiredPermission],

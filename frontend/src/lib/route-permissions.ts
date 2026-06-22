@@ -79,6 +79,9 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/settings/system", allPermissions: ["SYSTEM_SETTINGS:READ"] },
   { pattern: "/settings/branding", allPermissions: ["BRANDING_SETTINGS:READ"] },
   { pattern: "/settings/audit-logs", allPermissions: ["SYSTEM_AUDIT_LOGS:READ"] },
+  { pattern: "/settings/notes/new", anyPermissions: ["NOTES:CREATE", "NOTES:MANAGE"] },
+  { pattern: "/settings/notes/[id]", anyPermissions: ["NOTES:VIEW", "NOTES:MANAGE"] },
+  { pattern: "/settings/notes", anyPermissions: ["NOTES:VIEW", "NOTES:MANAGE"] },
 
   // Dashboard
   { pattern: "/dashboard", anyPermissions: ["DASHBOARD:VIEW"] },
