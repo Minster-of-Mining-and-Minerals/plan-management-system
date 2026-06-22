@@ -23,6 +23,8 @@
     "seed:alt-mom-institutes": "sequelize-cli db:seed --seed 20260616000002-seed-alternative-mom-institutes-structure.js",
     "seed:mom-demo-plan": "sequelize-cli db:seed --seed 20260506000001-seed-mom-demo-plan.js",
     "seed:organogram-users": "sequelize-cli db:seed --seed 20260617000001-seed-organogram-department-users.js",
+    "seed:minster-mom": "sequelize-cli db:seed --seed 20260617000002-seed-minster-of-mines-org-hierarchy.js",
+    "seed:minster-mom-plan": "sequelize-cli db:seed --seed 20260617000003-seed-minster-of-mines-plan.js",
     "seed:admin": "node scripts/reseed-admin-permissions.js",
     "seed": "sequelize-cli db:seed:all",
     "seed:undo": "sequelize-cli db:seed:undo:all",

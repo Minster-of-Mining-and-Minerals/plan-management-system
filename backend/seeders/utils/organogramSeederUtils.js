@@ -71,17 +71,19 @@ function buildDepartmentUsers({
         const short = deptShortName(dept.name);
 
         for (const template of templates) {
-            counters.phone += 1;
             const userPath = `${sectorKey}/${pathBase}/${template.roleKey}`;
             const userId = entityId("user", userPath);
             const emailSlug = `${sectorKey}.${slugify(userPath.replace(/\//g, "."))}@mom-demo.et`;
+            const phoneSuffix = String(
+                parseInt(userId.replace(/-/g, "").slice(0, 10), 16) % 10_000_000
+            ).padStart(7, "0");
 
             users.push({
                 user_id: userId,
                 full_name: template.namePattern(short),
                 email: emailSlug,
                 password: counters.passwordHash,
-                phone_number: `2519${String(1000000 + counters.phone).slice(-7)}`,
+                phone_number: `2519${phoneSuffix}`,
                 profile_image: null,
                 is_first_logged_in: false,
                 last_login_at: null,
@@ -311,19 +313,22 @@ async function seedUsersForExistingOrganogram(queryInterface, { now = new Date()
             const short = deptShortName(dept.name);
 
             for (const template of templatesNeeded) {
-                phoneCounter += 1;
                 const userPath = `${sectorKey}/${dept.nodePath}/${template.roleKey}`;
                 const userId = entityId("user", userPath);
                 if (existingUserIds.has(userId)) {
                     continue;
                 }
 
+                const phoneSuffix = String(
+                    parseInt(userId.replace(/-/g, "").slice(0, 10), 16) % 10_000_000
+                ).padStart(7, "0");
+
                 usersToInsert.push({
                     user_id: userId,
                     full_name: template.namePattern(short),
                     email: `${sectorKey}.${slugify(userPath.replace(/\//g, "."))}@mom-demo.et`,
                     password: passwordHash,
-                    phone_number: `2519${String(1000000 + phoneCounter).slice(-7)}`,
+                    phone_number: `2519${phoneSuffix}`,
                     profile_image: null,
                     is_first_logged_in: false,
                     last_login_at: null,
