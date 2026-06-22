@@ -134,6 +134,22 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
     []
   );
 
+  const selectAllGlobally = useCallback((select: boolean) => {
+    setPermissionMatrix((prev) => {
+      const next: PermissionMatrix = {};
+      Object.entries(prev).forEach(([resource, actions]) => {
+        next[resource] = Object.keys(actions).reduce(
+          (acc, action) => {
+            acc[action] = select;
+            return acc;
+          },
+          {} as { [key: string]: boolean }
+        );
+      });
+      return next;
+    });
+  }, []);
+
   const getSelectedPermissions = useCallback((): string[] => {
     const selected: string[] = [];
     Object.entries(permissionMatrix).forEach(([resource, actions]) => {
@@ -296,6 +312,7 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
               toggleResource={toggleResource}
               togglePermission={togglePermission}
               selectAllInResource={selectAllInResource}
+              selectAllGlobally={selectAllGlobally}
               getResourceSelectionStatus={getResourceSelectionStatus}
               getSelectionStatusText={getSelectionStatusText}
               getSelectionStatusClass={getSelectionStatusClass}

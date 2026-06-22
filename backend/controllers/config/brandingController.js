@@ -21,6 +21,10 @@ const {
   sendScopeError,
 } = require("../../utils/structureScopeUtils");
 
+function getQuery(req) {
+  return req.validatedQuery ?? req.query;
+}
+
 function parseOptionalStructureId(value) {
   if (value === undefined || value === null || value === "") {
     return null;
@@ -29,7 +33,7 @@ function parseOptionalStructureId(value) {
 }
 
 function resolveReadStructureId(req) {
-  const requestedId = parseOptionalStructureId(req.query.government_structure_id);
+  const requestedId = parseOptionalStructureId(getQuery(req).government_structure_id);
 
   if (isSuperAdminActor(req)) {
     return requestedId;
@@ -82,7 +86,7 @@ function stripScopeFields(body) {
 
 const getPublicBranding = async (req, res) => {
   try {
-    const structureId = parseOptionalStructureId(req.query.government_structure_id);
+    const structureId = parseOptionalStructureId(getQuery(req).government_structure_id);
     const resolved = await resolveEffectiveBranding(structureId);
 
     return res.json({

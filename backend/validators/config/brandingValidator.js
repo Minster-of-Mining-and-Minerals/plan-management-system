@@ -51,7 +51,11 @@ const structureParamsSchema = Joi.object({
 
 const validate = (schema, source = "body") => (req, res, next) => {
   const dataToValidate =
-    source === "query" ? req.query : source === "params" ? req.params : req.body;
+    source === "query"
+      ? { ...req.query }
+      : source === "params"
+        ? req.params
+        : req.body;
   const { error, value } = schema.validate(dataToValidate, {
     abortEarly: false,
     stripUnknown: true,
@@ -64,8 +68,7 @@ const validate = (schema, source = "body") => (req, res, next) => {
     });
   }
   if (source === "body") req.body = value;
-  if (source === "query") req.query = value;
-  if (source === "params") req.params = value;
+  if (source === "query") req.validatedQuery = value;
   next();
 };
 

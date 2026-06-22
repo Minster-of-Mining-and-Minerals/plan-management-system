@@ -24,6 +24,7 @@ interface PermissionMatrixProps {
   toggleResource: (resource: string) => void;
   togglePermission: (resource: string, action: string) => void;
   selectAllInResource: (resource: string, select: boolean) => void;
+  selectAllGlobally: (select: boolean) => void;
   getResourceSelectionStatus: (resource: string) => string;
   getSelectionStatusText: (status: string) => string;
   getSelectionStatusClass: (status: string) => string;
@@ -39,6 +40,7 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
   toggleResource,
   togglePermission,
   selectAllInResource,
+  selectAllGlobally,
   getResourceSelectionStatus,
   getSelectionStatusText,
   getSelectionStatusClass,
@@ -92,9 +94,21 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
     );
   }
 
+  const totalPermissions = getTotalPermissionsCount();
+  const selectedPermissions = getSelectedPermissionsCount();
+  const globalSelectionStatus =
+    totalPermissions === 0
+      ? "none"
+      : selectedPermissions === totalPermissions
+        ? "all"
+        : selectedPermissions > 0
+          ? "some"
+          : "none";
+  const isAllGloballySelected = globalSelectionStatus === "all";
+
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-      <div className="p-6 border-b">
+      <div className="p-6 border-b space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-xl font-bold text-[#094C81]">
             Permission Matrix
@@ -102,10 +116,47 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
           <div className="flex items-center space-x-2 text-sm">
             <span className="text-[#094C81]">Selected:</span>
             <span className="font-semibold text-[#094C81]">
-              {getSelectedPermissionsCount()}
+              {selectedPermissions}
             </span>
             <span className="text-[#094C81]">/</span>
-            <span className="text-[#094C81]">{getTotalPermissionsCount()}</span>
+            <span className="text-[#094C81]">{totalPermissions}</span>
+          </div>
+        </div>
+        <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+          <div>
+            <p className="text-sm font-semibold text-[#094C81]">
+              Select all permissions
+            </p>
+            <p className="text-xs text-gray-500">
+              Toggle every permission across all sections
+            </p>
+          </div>
+          <div className="flex items-center space-x-3">
+            <span
+              className={`px-2 py-1 text-xs font-medium border rounded-full text-[#094C81] ${getSelectionStatusClass(
+                globalSelectionStatus
+              )}`}
+            >
+              {getSelectionStatusText(globalSelectionStatus)}
+            </span>
+            <button
+              type="button"
+              onClick={() => selectAllGlobally(!isAllGloballySelected)}
+              aria-label={
+                isAllGloballySelected
+                  ? "Deselect all permissions"
+                  : "Select all permissions"
+              }
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
+                isAllGloballySelected ? "bg-green-600" : "bg-gray-400"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+                  isAllGloballySelected ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
           </div>
         </div>
       </div>
