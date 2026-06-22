@@ -43,6 +43,8 @@ const PERMISSIONS = [
   { resource: "plans", action: "update" },
   { resource: "plans", action: "delete" },
   { resource: "plans", action: "approve" },
+  { resource: "plans", action: "approve_plan" },
+  { resource: "plans", action: "execute_plan" },
   { resource: "plans", action: "submit" },
   { resource: "plans", action: "edit_finalized" },
   { resource: "plan", action: "start_process" },

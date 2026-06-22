@@ -7,6 +7,8 @@ export const PLAN_PERMISSIONS = {
   UPDATE: "PLANS:UPDATE",
   DELETE: "PLANS:DELETE",
   APPROVE: "PLANS:APPROVE",
+  APPROVE_PLAN: "PLANS:APPROVE_PLAN",
+  EXECUTE_PLAN: "PLANS:EXECUTE_PLAN",
   SUBMIT: "PLANS:SUBMIT",
   EDIT_FINALIZED: "PLANS:EDIT_FINALIZED",
 } as const satisfies Record<string, PermissionKey>;
@@ -113,6 +115,12 @@ export const PLAN_UPDATE_PERMISSIONS: PermissionKey[] = [PLAN_PERMISSIONS.UPDATE
 
 /** Finalize draft/annual/period targets */
 export const PLAN_APPROVE_PERMISSIONS: PermissionKey[] = [PLAN_PERMISSIONS.APPROVE];
+
+/** Approve assigned plan nodes (assignment workflow) */
+export const PLAN_APPROVE_PLAN_PERMISSIONS: PermissionKey[] = [PLAN_PERMISSIONS.APPROVE_PLAN];
+
+/** Execute assigned plan nodes (assignment workflow) */
+export const PLAN_EXECUTE_PLAN_PERMISSIONS: PermissionKey[] = [PLAN_PERMISSIONS.EXECUTE_PLAN];
 
 /** Structure changes on draft or finalized master (UPDATE or EDIT_FINALIZED) */
 export const PLAN_STRUCTURE_MUTATION_PERMISSIONS: PermissionKey[] = [
