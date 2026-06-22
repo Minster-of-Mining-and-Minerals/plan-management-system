@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Building, Shield, User as UserIcon } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TableTabBar } from "@/components/common/TableTabBar";
 import { cn } from "@/lib/utils";
 import { AssignmentDepartmentsPanel } from "./AssignmentDepartmentsPanel";
 import { AssignmentRolesPanel } from "./AssignmentRolesPanel";
@@ -131,78 +131,75 @@ export function AssignmentTargetSelector({
         );
     }
 
+    const tabItems = useMemo(() => {
+        const items: { value: AssignmentTab; label: string; icon: ReactNode }[] = [];
+        if (allowDepartment) {
+            items.push({
+                value: "department",
+                label: "Departments",
+                icon: <Building className="h-4 w-4" />,
+            });
+        }
+        if (allowUser) {
+            items.push({
+                value: "user",
+                label: "Users",
+                icon: <UserIcon className="h-4 w-4" />,
+            });
+        }
+        if (allowRole) {
+            items.push({
+                value: "role",
+                label: "Roles & Groups",
+                icon: <Shield className="h-4 w-4" />,
+            });
+        }
+        return items;
+    }, [allowDepartment, allowUser, allowRole]);
+
     return (
-        <Tabs
-            value={activeTab}
-            onValueChange={handleTabChange}
-            className={cn("w-full", className)}
-        >
-            <TabsList
-                className={cn(
-                    "grid h-auto w-full",
-                    visibleTabs.length === 2 ? "grid-cols-2" : "grid-cols-3"
-                )}
-            >
-                {allowDepartment ? (
-                    <TabsTrigger value="department" className="gap-1.5 py-2">
-                        <Building className="h-4 w-4 shrink-0" />
-                        Departments
-                    </TabsTrigger>
-                ) : null}
-                {allowUser ? (
-                    <TabsTrigger value="user" className="gap-1.5 py-2">
-                        <UserIcon className="h-4 w-4 shrink-0" />
-                        Users
-                    </TabsTrigger>
-                ) : null}
-                {allowRole ? (
-                    <TabsTrigger value="role" className="gap-1.5 py-2">
-                        <Shield className="h-4 w-4 shrink-0" />
-                        Roles & Groups
-                    </TabsTrigger>
-                ) : null}
-            </TabsList>
+        <div className={cn("w-full space-y-4", className)}>
+            <TableTabBar
+                tabs={tabItems}
+                value={activeTab}
+                onChange={(tab) => handleTabChange(tab)}
+                className="w-full"
+            />
 
-            {allowDepartment ? (
-                <TabsContent value="department" className="mt-4">
-                    <AssignmentDepartmentsPanel
-                        departments={departments}
-                        selectedId={activeTab === "department" ? selectedId : null}
-                        onSelect={(id) => handleSelect("department", id)}
-                        isLoading={isLoading}
-                        disabled={disabled}
-                    />
-                </TabsContent>
+            {allowDepartment && activeTab === "department" ? (
+                <AssignmentDepartmentsPanel
+                    departments={departments}
+                    selectedId={activeTab === "department" ? selectedId : null}
+                    onSelect={(id) => handleSelect("department", id)}
+                    isLoading={isLoading}
+                    disabled={disabled}
+                />
             ) : null}
 
-            {allowUser ? (
-                <TabsContent value="user" className="mt-4">
-                    <AssignmentUsersPanel
-                        users={users}
-                        selectedId={activeTab === "user" ? selectedId : null}
-                        onSelect={(id) => handleSelect("user", id)}
-                        isLoading={isLoading}
-                        disabled={disabled}
-                    />
-                </TabsContent>
+            {allowUser && activeTab === "user" ? (
+                <AssignmentUsersPanel
+                    users={users}
+                    selectedId={activeTab === "user" ? selectedId : null}
+                    onSelect={(id) => handleSelect("user", id)}
+                    isLoading={isLoading}
+                    disabled={disabled}
+                />
             ) : null}
 
-            {allowRole ? (
-                <TabsContent value="role" className="mt-4">
-                    <AssignmentRolesPanel
-                        roles={roles}
-                        permissionGroups={permissionGroups}
-                        selectedRoleId={value?.type === "role" ? value.roleId : null}
-                        selectedPermissionGroupId={
-                            value?.type === "permission_group" ? value.permissionGroupId : null
-                        }
-                        onSelectRole={(id) => handleSelect("role", id)}
-                        onSelectPermissionGroup={(id) => handleSelect("permission_group", id)}
-                        isLoading={isLoading}
-                        disabled={disabled}
-                    />
-                </TabsContent>
+            {allowRole && activeTab === "role" ? (
+                <AssignmentRolesPanel
+                    roles={roles}
+                    permissionGroups={permissionGroups}
+                    selectedRoleId={value?.type === "role" ? value.roleId : null}
+                    selectedPermissionGroupId={
+                        value?.type === "permission_group" ? value.permissionGroupId : null
+                    }
+                    onSelectRole={(id) => handleSelect("role", id)}
+                    onSelectPermissionGroup={(id) => handleSelect("permission_group", id)}
+                    isLoading={isLoading}
+                    disabled={disabled}
+                />
             ) : null}
-        </Tabs>
+        </div>
     );
 }

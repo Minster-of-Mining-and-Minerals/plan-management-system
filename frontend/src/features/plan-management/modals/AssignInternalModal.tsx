@@ -22,7 +22,8 @@ import {
     useCreateInternalAssignmentMutation,
     useGetPlanNodeAssignmentOptionsQuery,
 } from "@/redux/api/planAssignmentApi";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TableTabBar } from "@/components/common/TableTabBar";
+import { GitBranch, Network } from "lucide-react";
 import {
     AssignmentTargetSelector,
     AssignmentTargetSelection,
@@ -236,22 +237,28 @@ export function AssignInternalModal({
                                         Auto mode propagates to all active parent branches. Controlled mode
                                         assigns to one branch only.
                                     </p>
-                                    <Tabs
+                                    <TableTabBar
+                                        tabs={[
+                                            {
+                                                value: "auto",
+                                                label: "All Branches",
+                                                icon: <Network className="h-4 w-4" />,
+                                                disabled: !allowPropagateAll,
+                                            },
+                                            {
+                                                value: "controlled",
+                                                label: "Single Branch",
+                                                icon: <GitBranch className="h-4 w-4" />,
+                                            },
+                                        ]}
                                         value={branchMode}
-                                        onValueChange={(value) => {
+                                        onChange={(value) => {
                                             setBranchMode(value as "auto" | "controlled");
                                             setBranchExternalId(undefined);
                                             setBranchInternalId(undefined);
                                         }}
                                         className="w-full"
-                                    >
-                                        <TabsList className="grid w-full grid-cols-2">
-                                            <TabsTrigger value="auto" disabled={!allowPropagateAll}>
-                                                All Branches
-                                            </TabsTrigger>
-                                            <TabsTrigger value="controlled">Single Branch</TabsTrigger>
-                                        </TabsList>
-                                    </Tabs>
+                                    />
                                 </div>
                             ) : null}
 

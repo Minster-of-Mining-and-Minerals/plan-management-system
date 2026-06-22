@@ -9,7 +9,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TableTabBar } from "@/components/common/TableTabBar";
 import { useGetUsersQuery } from "@/redux/api/userApi";
 import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
 import {
@@ -17,7 +17,7 @@ import {
   useAddStructuresToGroupMutation,
 } from "@/redux/api/permissionGroupApi";
 import { actionFeedback } from "@/components/action-feedback";
-import { Search } from "lucide-react";
+import { Building, Search, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -107,13 +107,22 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
           <DialogTitle className="text-golden-dark text-xl font-bold">Add Members to Group</DialogTitle>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col min-h-0">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="structures">Sector Structures</TabsTrigger>
-          </TabsList>
+        <TableTabBar
+          tabs={[
+            { value: "users", label: "Users", icon: <Users className="h-4 w-4" /> },
+            {
+              value: "structures",
+              label: "Sector Structures",
+              icon: <Building className="h-4 w-4" />,
+            },
+          ]}
+          value={activeTab}
+          onChange={setActiveTab}
+          className="w-full"
+        />
 
-          <TabsContent value="users" className="flex-1 flex flex-col min-h-0 py-4">
+        {activeTab === "users" ? (
+          <div className="flex flex-1 flex-col min-h-0 py-4">
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
@@ -151,9 +160,9 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
                 <div className="text-center py-8 text-gray-500">No users found</div>
               )}
             </div>
-          </TabsContent>
-
-          <TabsContent value="structures" className="flex-1 flex flex-col min-h-0 py-4">
+          </div>
+        ) : (
+          <div className="flex flex-1 flex-col min-h-0 py-4">
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
@@ -191,8 +200,8 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
                 <div className="text-center py-8 text-gray-500">No sectors found</div>
               )}
             </div>
-          </TabsContent>
-        </Tabs>
+          </div>
+        )}
 
         <DialogFooter className="pt-4 border-t mt-auto">
           <Button variant="outline" onClick={handleClose}>
