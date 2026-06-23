@@ -23,8 +23,11 @@ import {
   matchesSearchQuery,
 } from "@/utils/tableUtils";
 import { useStructureScope } from "@/hooks/useStructureScope";
+import { useGovernmentStructureListParams } from "@/hooks/useGovernmentStructureListParams";
 import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
 import { withStructureQuery } from "@/utils/structureQueryUtils";
+import { useSelector } from "react-redux";
+import type { RootState } from "@/redux/store";
 
 const ALL_STRUCTURES_VALUE = "__all__";
 
@@ -46,10 +49,11 @@ export default function UserTable({
   const queryStructureId = searchParams.get("government_structure_id") || "";
   const router = useRouter();
   const { isSuperAdmin, structureId: sessionStructureId } = useStructureScope();
+  const isLoaded = useSelector((state: RootState) => state.auth.isLoaded);
 
   const isEmbedded = Boolean(government_structure_node_id);
   const [structureFilter, setStructureFilter] = useState(
-    government_structure_node_id || queryStructureId || sessionStructureId || ""
+    government_structure_node_id || queryStructureId || ""
   );
 
   useEffect(() => {
@@ -78,10 +82,16 @@ export default function UserTable({
   const effectiveStructureId =
     government_structure_node_id || structureFilter || undefined;
 
+  const structureListParams = useGovernmentStructureListParams({ is_active: true });
   const { data: govStructures = [] } = useGetGovernmentStructuresQuery(
-    { is_active: true },
-    { skip: isEmbedded || !isSuperAdmin }
+    structureListParams.params,
+    { skip: isEmbedded || structureListParams.skip }
   );
+
+  const canFilterBySector =
+    !isEmbedded && (isSuperAdmin || govStructures.length > 1);
+  const showSectorColumn =
+    !isEmbedded && !effectiveStructureId && canFilterBySector;
 
   const structureNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -132,7 +142,7 @@ export default function UserTable({
       header: "Phone Number",
       cell: ({ row }) => <div>{row.getValue("phone_number")}</div>,
     },
-    ...(!isEmbedded && isSuperAdmin && !effectiveStructureId
+    ...(showSectorColumn
       ? [
           {
             id: "structure",
@@ -194,7 +204,7 @@ export default function UserTable({
       government_structure_id: effectiveStructureId,
       internal_structure_id: internal_structure_node_id,
     },
-    { skip: !isSuperAdmin && !effectiveStructureId }
+    { skip: !isLoaded || (!isSuperAdmin && !sessionStructureId) }
   );
 
   const [exportUsers, { isLoading: exportLoading }] = useExportUsersMutation();
@@ -223,18 +233,18 @@ export default function UserTable({
         { label: "Inactive", value: "inactive" },
       ],
     },
-    ...(!isEmbedded && isSuperAdmin
+    ...(canFilterBySector
       ? [
           {
             key: "government_structure_id",
             label: "Sector Structure",
             type: "select" as const,
-            placeholder: "All structures",
+            placeholder: "All in scope",
             value: structureFilter || ALL_STRUCTURES_VALUE,
             onChange: (value: string) =>
               setStructureFilter(value === ALL_STRUCTURES_VALUE ? "" : value),
             options: [
-              { label: "All structures", value: ALL_STRUCTURES_VALUE },
+              { label: "All in scope", value: ALL_STRUCTURES_VALUE },
               ...govStructures.map((structure) => ({
                 label: structure.name,
                 value: structure.government_structure_id!,
@@ -286,12 +296,14 @@ export default function UserTable({
             ? undefined
             : effectiveStructureId
               ? "Users in the selected sector structure"
-              : "View and manage users"
+              : isSuperAdmin
+                ? "View and manage users"
+                : "Users in your sector and child sectors"
         }
         actions={actions}
         sideActions={sideActions}
         filters={filters}
-        filterColumnsPerRow={isSuperAdmin && !isEmbedded ? 2 : 1}
+        filterColumnsPerRow={canFilterBySector ? 2 : 1}
       >
         <DataTable
           columns={columns}

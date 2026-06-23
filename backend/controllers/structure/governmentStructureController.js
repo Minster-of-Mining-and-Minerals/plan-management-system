@@ -20,7 +20,19 @@ const {
 const {
     assertPermissionGroupsFitStructureHierarchy,
 } = require("../../utils/structureEffectivePermissionsUtils");
-const { sendScopeError } = require("../../utils/structureScopeUtils");
+const {
+    sendScopeError,
+    resolveVisibleGovernmentStructureRootId,
+    filterGovernmentStructuresToSubtree,
+    assertGovernmentStructureAccessible,
+    assertGovernmentStructureParentAllowed,
+} = require("../../utils/structureScopeUtils");
+
+async function loadGovernmentStructureIndex() {
+    return GovernmentStructure.findAll({
+        attributes: ["government_structure_id", "parent_id"],
+    });
+}
 
 /**
  * =================== CREATE ===================
@@ -29,6 +41,9 @@ const createGovernmentStructure = async (req, res) => {
     const t = await sequelize.transaction();
     try {
         const { name, parent_id, level, logo_path } = req.body;
+        const structureIndex = await loadGovernmentStructureIndex();
+
+        assertGovernmentStructureParentAllowed(req, parent_id || null, structureIndex);
 
         if (parent_id) {
             const parent = await GovernmentStructure.findByPk(parent_id, { transaction: t });
@@ -80,6 +95,9 @@ const createGovernmentStructure = async (req, res) => {
         });
     } catch (error) {
         await t.rollback();
+        if (error.status) {
+            return sendScopeError(res, error);
+        }
         return res.status(500).json({ error: error.message });
     }
 };
@@ -119,28 +137,11 @@ const getGovernmentStructures = async (req, res) => {
             order: [["created_at", "ASC"]],
         });
 
-        if (parent_id) {
-            // Helper function to recursively find all descendants
-            const getDescendants = (pid, all) => {
-                let results = all.filter((s) => s.parent_id === pid);
-                let children = [];
-                for (let child of results) {
-                    children = children.concat(
-                        getDescendants(child.government_structure_id, all)
-                    );
-                }
-                return results.concat(children);
-            };
-
-            const root = structures.find(
-                (s) => s.government_structure_id === parent_id
-            );
-            if (root) {
-                const descendants = getDescendants(parent_id, structures);
-                structures = [root, ...descendants];
-            } else {
-                structures = [];
-            }
+        const visibleRootId = resolveVisibleGovernmentStructureRootId(req);
+        if (visibleRootId) {
+            structures = filterGovernmentStructuresToSubtree(structures, visibleRootId);
+        } else if (parent_id) {
+            structures = filterGovernmentStructuresToSubtree(structures, parent_id);
         }
 
         return res.json({
@@ -148,6 +149,9 @@ const getGovernmentStructures = async (req, res) => {
             data: structures,
         });
     } catch (error) {
+        if (error.status) {
+            return sendScopeError(res, error);
+        }
         return res.status(500).json({ error: error.message });
     }
 };
@@ -162,6 +166,9 @@ const getGovernmentStructureById = async (req, res) => {
         if (!isValidUuid(id)) {
             return res.status(400).json({ message: "Invalid ID format" });
         }
+
+        const structureIndex = await loadGovernmentStructureIndex();
+        assertGovernmentStructureAccessible(req, id, structureIndex);
 
         const structure = await GovernmentStructure.findByPk(id, {
             include: [
@@ -188,6 +195,9 @@ const getGovernmentStructureById = async (req, res) => {
             data: structure,
         });
     } catch (error) {
+        if (error.status) {
+            return sendScopeError(res, error);
+        }
         return res.status(500).json({ error: error.message });
     }
 };
@@ -205,6 +215,9 @@ const updateGovernmentStructure = async (req, res) => {
             return res.status(400).json({ message: "Invalid ID" });
         }
 
+        const structureIndex = await loadGovernmentStructureIndex();
+        assertGovernmentStructureAccessible(req, id, structureIndex);
+
         const structure = await GovernmentStructure.findByPk(id, {
             transaction: t,
         });
@@ -217,6 +230,11 @@ const updateGovernmentStructure = async (req, res) => {
         if (!structure.is_active) {
             await t.rollback();
             return inactiveStructureResponse(res, "Sector");
+        }
+
+        if (req.body.parent_id !== undefined) {
+            const nextParentId = req.body.parent_id || null;
+            assertGovernmentStructureParentAllowed(req, nextParentId, structureIndex);
         }
 
         if (req.body.parent_id) {
@@ -240,6 +258,9 @@ const updateGovernmentStructure = async (req, res) => {
         });
     } catch (error) {
         await t.rollback();
+        if (error.status) {
+            return sendScopeError(res, error);
+        }
         return res.status(500).json({ error: error.message });
     }
 };
@@ -256,6 +277,9 @@ const reactivateGovernmentStructure = async (req, res) => {
             await t.rollback();
             return res.status(400).json({ message: "Invalid ID" });
         }
+
+        const structureIndex = await loadGovernmentStructureIndex();
+        assertGovernmentStructureAccessible(req, id, structureIndex);
 
         const structure = await GovernmentStructure.findByPk(id, {
             transaction: t,
@@ -292,6 +316,9 @@ const reactivateGovernmentStructure = async (req, res) => {
         });
     } catch (error) {
         await t.rollback();
+        if (error.status) {
+            return sendScopeError(res, error);
+        }
         return res.status(500).json({ error: error.message });
     }
 };
@@ -308,6 +335,9 @@ const deleteGovernmentStructure = async (req, res) => {
             await t.rollback();
             return res.status(400).json({ message: "Invalid ID" });
         }
+
+        const structureIndex = await loadGovernmentStructureIndex();
+        assertGovernmentStructureAccessible(req, id, structureIndex);
 
         const structure = await GovernmentStructure.findByPk(id, {
             transaction: t,
@@ -354,6 +384,9 @@ const deleteGovernmentStructure = async (req, res) => {
         });
     } catch (error) {
         await t.rollback();
+        if (error.status) {
+            return sendScopeError(res, error);
+        }
         return res.status(500).json({ error: error.message });
     }
 };
@@ -365,6 +398,8 @@ const deleteGovernmentStructure = async (req, res) => {
 const addUsersToStructure = async (req, res) => {
     try {
         const { government_structure_id, user_ids } = req.body;
+        const structureIndex = await loadGovernmentStructureIndex();
+        assertGovernmentStructureAccessible(req, government_structure_id, structureIndex);
 
         const structure = await GovernmentStructure.findByPk(government_structure_id);
         if (!structure) {
@@ -383,6 +418,9 @@ const addUsersToStructure = async (req, res) => {
 
         return res.json({ message: "Users assigned to structure" });
     } catch (error) {
+        if (error.status) {
+            return sendScopeError(res, error);
+        }
         return res.status(500).json({ error: error.message });
     }
 };
@@ -393,6 +431,13 @@ const removeUserFromStructure = async (req, res) => {
 
         const user = await User.findByPk(user_id);
         if (user?.government_structure_id) {
+            const structureIndex = await loadGovernmentStructureIndex();
+            assertGovernmentStructureAccessible(
+                req,
+                user.government_structure_id,
+                structureIndex
+            );
+
             const structure = await GovernmentStructure.findByPk(user.government_structure_id);
             if (structure && !structure.is_active) {
                 return inactiveStructureResponse(res, "Sector");
@@ -408,6 +453,9 @@ const removeUserFromStructure = async (req, res) => {
 
         return res.json({ message: "User removed from structure" });
     } catch (error) {
+        if (error.status) {
+            return sendScopeError(res, error);
+        }
         return res.status(500).json({ error: error.message });
     }
 };
@@ -419,6 +467,8 @@ const removeUserFromStructure = async (req, res) => {
 const addPermissionGroupsToStructure = async (req, res) => {
     try {
         const { government_structure_id, permission_group_ids } = req.body;
+        const structureIndex = await loadGovernmentStructureIndex();
+        assertGovernmentStructureAccessible(req, government_structure_id, structureIndex);
 
         const structure = await GovernmentStructure.findByPk(government_structure_id);
         if (!structure) {
@@ -453,6 +503,8 @@ const addPermissionGroupsToStructure = async (req, res) => {
 const removePermissionGroupFromStructure = async (req, res) => {
     try {
         const { government_structure_id, permission_group_id } = req.body;
+        const structureIndex = await loadGovernmentStructureIndex();
+        assertGovernmentStructureAccessible(req, government_structure_id, structureIndex);
 
         const structure = await GovernmentStructure.findByPk(government_structure_id);
         if (!structure) {
@@ -468,6 +520,9 @@ const removePermissionGroupFromStructure = async (req, res) => {
 
         return res.json({ message: "Permission group removed" });
     } catch (error) {
+        if (error.status) {
+            return sendScopeError(res, error);
+        }
         return res.status(500).json({ error: error.message });
     }
 };

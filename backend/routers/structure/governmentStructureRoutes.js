@@ -38,19 +38,21 @@ router.delete("/:id", authenticateToken, checkPermission("GOVERNMENT_STRUCTURES"
 
 // ================= USERS =================
 
-router.post("/users/add", validateAddUsers, addUsersToStructure);
-router.post("/users/remove", validateRemoveUser, removeUserFromStructure);
+router.post("/users/add", authenticateToken, validateAddUsers, addUsersToStructure);
+router.post("/users/remove", authenticateToken, validateRemoveUser, removeUserFromStructure);
 
 // ================= PERMISSION GROUPS =================
 
 router.post(
     "/permission-groups/add",
+    authenticateToken,
     validateAddPermissionGroups,
     addPermissionGroupsToStructure
 );
 
 router.post(
     "/permission-groups/remove",
+    authenticateToken,
     validateRemovePermissionGroup,
     removePermissionGroupFromStructure
 );

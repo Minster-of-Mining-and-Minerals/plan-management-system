@@ -8,6 +8,7 @@ const {
   STRUCTURE_ASSIGNABLE_GLOBAL_ROLE_IDS,
   SYSTEM_PROTECTED_ROLE_IDS,
 } = require("../constants/systemRoles");
+const { collectDescendantIds } = require("./structureLifecycleUtils");
 
 function isSuperAdminActor(req) {
   return (
@@ -22,7 +23,7 @@ function getActorStructureId(req) {
   return req.user?.government_structure_id ?? null;
 }
 
-function resolveManageableStructureId(req, requestedStructureId) {
+function resolveManageableStructureId(req, requestedStructureId, structureIndex = null) {
   if (isSuperAdminActor(req)) {
     return requestedStructureId || getActorStructureId(req) || null;
   }
@@ -32,6 +33,22 @@ function resolveManageableStructureId(req, requestedStructureId) {
     const error = new Error("Your account is not linked to a structure.");
     error.status = 403;
     throw error;
+  }
+
+  if (structureIndex) {
+    const visibleIds = buildVisibleGovernmentStructureIdSet(
+      structureIndex,
+      actorStructureId
+    );
+    if (requestedStructureId) {
+      if (!visibleIds.has(requestedStructureId)) {
+        const error = new Error("Access denied: cannot manage another structure.");
+        error.status = 403;
+        throw error;
+      }
+      return requestedStructureId;
+    }
+    return actorStructureId;
   }
 
   if (requestedStructureId && requestedStructureId !== actorStructureId) {
@@ -156,7 +173,7 @@ function assertRoleDeletable(role, req) {
   }
 }
 
-function assertUserInStructure(user, structureId, req) {
+function assertUserInStructure(user, structureId, req, structureIndex = null) {
   if (isSuperAdminActor(req)) {
     if (!structureId || !user.government_structure_id) {
       return;
@@ -176,6 +193,25 @@ function assertUserInStructure(user, structureId, req) {
     throw error;
   }
 
+  if (!user.government_structure_id) {
+    const error = new Error("Access denied: user belongs to another structure.");
+    error.status = 403;
+    throw error;
+  }
+
+  if (structureIndex) {
+    const visibleIds = buildVisibleGovernmentStructureIdSet(
+      structureIndex,
+      actorStructureId
+    );
+    if (!visibleIds.has(user.government_structure_id)) {
+      const error = new Error("Access denied: user belongs to another structure.");
+      error.status = 403;
+      throw error;
+    }
+    return;
+  }
+
   if (user.government_structure_id !== actorStructureId) {
     const error = new Error("Access denied: user belongs to another structure.");
     error.status = 403;
@@ -193,6 +229,140 @@ function sendScopeError(res, error) {
   });
 }
 
+/**
+ * Root of the visible government-structure subtree.
+ * Super Admin: null (no filter). Sector users: their government_structure_id.
+ */
+function resolveVisibleGovernmentStructureRootId(req) {
+  if (isSuperAdminActor(req)) {
+    return null;
+  }
+
+  const actorStructureId = getActorStructureId(req);
+  if (!actorStructureId) {
+    const error = new Error("Your account is not linked to a structure.");
+    error.status = 403;
+    throw error;
+  }
+
+  return actorStructureId;
+}
+
+/**
+ * Keep only rootId and its descendants within a flat structure list.
+ */
+function filterGovernmentStructuresToSubtree(allStructures, rootId) {
+  if (!rootId) {
+    return allStructures;
+  }
+
+  const root = allStructures.find(
+    (structure) => structure.government_structure_id === rootId
+  );
+  if (!root) {
+    return [];
+  }
+
+  const descendantIds = collectDescendantIds(
+    rootId,
+    allStructures,
+    "government_structure_id"
+  );
+  const visibleIds = new Set([rootId, ...descendantIds]);
+
+  return allStructures.filter((structure) =>
+    visibleIds.has(structure.government_structure_id)
+  );
+}
+
+function buildVisibleGovernmentStructureIdSet(structureIndex, rootId) {
+  return new Set(
+    filterGovernmentStructuresToSubtree(structureIndex, rootId).map(
+      (structure) => structure.government_structure_id
+    )
+  );
+}
+
+/**
+ * Resolve government_structure_id filter for user listings.
+ * Returns null for Super Admin with no filter (all users), else an array of sector IDs.
+ */
+function resolveUserGovernmentStructureFilter(
+  req,
+  requestedStructureId,
+  structureIndex
+) {
+  if (isSuperAdminActor(req)) {
+    if (!requestedStructureId) {
+      return null;
+    }
+    assertGovernmentStructureAccessible(req, requestedStructureId, structureIndex);
+    return [
+      ...buildVisibleGovernmentStructureIdSet(
+        structureIndex,
+        requestedStructureId
+      ),
+    ];
+  }
+
+  const actorStructureId = resolveVisibleGovernmentStructureRootId(req);
+  const actorVisible = buildVisibleGovernmentStructureIdSet(
+    structureIndex,
+    actorStructureId
+  );
+
+  if (requestedStructureId) {
+    if (!actorVisible.has(requestedStructureId)) {
+      const error = new Error("Access denied: sector is outside your scope.");
+      error.status = 403;
+      throw error;
+    }
+    return [
+      ...buildVisibleGovernmentStructureIdSet(
+        structureIndex,
+        requestedStructureId
+      ),
+    ];
+  }
+
+  return [...actorVisible];
+}
+
+function assertGovernmentStructureAccessible(req, structureId, allStructures) {
+  if (!structureId) {
+    return;
+  }
+
+  if (isSuperAdminActor(req)) {
+    return;
+  }
+
+  const rootId = resolveVisibleGovernmentStructureRootId(req);
+  const visible = filterGovernmentStructuresToSubtree(allStructures, rootId);
+  const visibleIds = new Set(
+    visible.map((structure) => structure.government_structure_id)
+  );
+
+  if (!visibleIds.has(structureId)) {
+    const error = new Error("Access denied: sector is outside your scope.");
+    error.status = 403;
+    throw error;
+  }
+}
+
+function assertGovernmentStructureParentAllowed(req, parentId, allStructures) {
+  if (!parentId) {
+    if (!isSuperAdminActor(req)) {
+      const error = new Error("Only Super Admin can create root-level sectors.");
+      error.status = 403;
+      throw error;
+    }
+    return;
+  }
+
+  assertGovernmentStructureAccessible(req, parentId, allStructures);
+}
+
 module.exports = {
   isSuperAdminActor,
   getActorStructureId,
@@ -203,5 +373,11 @@ module.exports = {
   assertRoleModifiable,
   assertRoleDeletable,
   assertUserInStructure,
+  resolveVisibleGovernmentStructureRootId,
+  filterGovernmentStructuresToSubtree,
+  buildVisibleGovernmentStructureIdSet,
+  resolveUserGovernmentStructureFilter,
+  assertGovernmentStructureAccessible,
+  assertGovernmentStructureParentAllowed,
   sendScopeError,
 };

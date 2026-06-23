@@ -30,6 +30,8 @@ import {
   useGetGovernmentStructuresQuery,
 } from "@/redux/api/governmentStructureApi";
 import { GovernmentStructure } from "@/redux/types/governmentStructure";
+import { useGovernmentStructureListParams } from "@/hooks/useGovernmentStructureListParams";
+import { useStructureScope } from "@/hooks/useStructureScope";
 import { LogoUploadField } from "@/components/common/LogoUploadField";
 import {
   ArrowLeftIcon,
@@ -63,7 +65,11 @@ export function CreateGovernmentStructureModal({
 }: CreateGovernmentStructureModalProps) {
   const isEditMode = Boolean(structure);
   const showParentPicker = !isEditMode && !initialParentId;
-  const { data: structures = [] } = useGetGovernmentStructuresQuery({ is_active: true });
+  const { isSuperAdmin } = useStructureScope();
+  const listParams = useGovernmentStructureListParams({ is_active: true });
+  const { data: structures = [] } = useGetGovernmentStructuresQuery(listParams.params, {
+    skip: listParams.skip,
+  });
 
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
   const [hasSelectedParent, setHasSelectedParent] = useState(false);
@@ -127,10 +133,15 @@ export function CreateGovernmentStructureModal({
         logo_path: null,
       });
       setNavigationStack([]);
-      handleNodeSelect(null);
+      if (isSuperAdmin) {
+        handleNodeSelect(null);
+      } else {
+        setSelectedParentId(null);
+        setHasSelectedParent(false);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [structure, isOpen, initialParentId]);
+  }, [structure, isOpen, initialParentId, isSuperAdmin]);
 
   const buildStructureTree = (
     structuresList: GovernmentStructure[]
@@ -288,7 +299,7 @@ export function CreateGovernmentStructureModal({
                       </div>
                     )}
 
-                    {navigationStack.length === 0 && (
+                    {navigationStack.length === 0 && isSuperAdmin && (
                       <button
                         type="button"
                         className={cn(

@@ -1,13 +1,18 @@
 
 
-const { User, Role, UserRoles } = require("../../models");
+const { User, Role, UserRoles, GovernmentStructure } = require("../../models");
 const { v4: uuidv4 } = require("uuid");
 const {
-  resolveManageableStructureId,
   assertRoleAssignable,
   assertUserInStructure,
   sendScopeError,
 } = require("../../utils/structureScopeUtils");
+
+async function loadGovernmentStructureIndex() {
+  return GovernmentStructure.findAll({
+    attributes: ["government_structure_id", "parent_id"],
+  });
+}
 
 const assignRolesToUser = async (req, res) => {
   try {
@@ -19,7 +24,8 @@ const assignRolesToUser = async (req, res) => {
     }
 
     try {
-      assertUserInStructure(user, user.government_structure_id, req);
+      const structureIndex = await loadGovernmentStructureIndex();
+      assertUserInStructure(user, user.government_structure_id, req, structureIndex);
     } catch (error) {
       return sendScopeError(res, error);
     }
@@ -85,7 +91,8 @@ const removeRoleFromUser = async (req, res) => {
     }
 
     try {
-      assertUserInStructure(user, user.government_structure_id, req);
+      const structureIndex = await loadGovernmentStructureIndex();
+      assertUserInStructure(user, user.government_structure_id, req, structureIndex);
     } catch (error) {
       return sendScopeError(res, error);
     }

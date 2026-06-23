@@ -349,9 +349,18 @@ const addUsersToGroup = async (req, res) => {
             return res.status(400).json({ message: "One or more users were not found." });
         }
 
+        const structureIndex = await GovernmentStructure.findAll({
+            attributes: ["government_structure_id", "parent_id"],
+        });
+
         for (const user of users) {
             try {
-                assertUserInStructure(user, user.government_structure_id, req);
+                assertUserInStructure(
+                    user,
+                    user.government_structure_id,
+                    req,
+                    structureIndex
+                );
             } catch (error) {
                 return sendScopeError(res, error);
             }

@@ -19,11 +19,12 @@ import { CreateGovernmentStructureModal } from "./modals/CreateGovernmentStructu
 import GovernmentHierarchyD3Tree from "./GovernmentStructureHierarchy";
 import { SectorLogo } from "@/components/common/SectorLogo";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { actionFeedback } from "@/components/action-feedback";
 import { matchesActiveInactiveFilter } from "@/utils/tableUtils";
 import { isStructureActive } from "@/utils/structureUtils";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useGovernmentStructureListParams } from "@/hooks/useGovernmentStructureListParams";
+import { useStructureScope } from "@/hooks/useStructureScope";
 
 export default function GovernmentStructureTable() {
     const [toggleHierarchyView, setToggleHierarchyView] = useState(false);
@@ -42,18 +43,17 @@ export default function GovernmentStructureTable() {
     const [initialParentId, setInitialParentId] = useState<string | null>(null);
     const [isModalOpen, setModalOpen] = useState(false);
 
-    const { data: session } = useSession();
-    const userGovId = (session?.user?.government_structure && !Array.isArray(session.user.government_structure))
-        ? session.user.government_structure.government_structure_id
-        : undefined;
+    const { isSuperAdmin } = useStructureScope();
+    const listParams = useGovernmentStructureListParams({
+        ...(searchQuery ? { search: searchQuery } : {}),
+    });
 
     const {
         data: structures = [],
         isLoading,
         refetch,
-    } = useGetGovernmentStructuresQuery({
-        search: searchQuery,
-        parent_id: userGovId,
+    } = useGetGovernmentStructuresQuery(listParams.params, {
+        skip: listParams.skip,
     });
 
     const handleDelete = async (id: string) => {
@@ -212,19 +212,21 @@ export default function GovernmentStructureTable() {
         },
     ];
 
-    const actions: ActionButton[] = [
-        {
-            label: "Add Sector",
-            icon: <Plus className="h-4 w-4" />,
-            variant: "default",
-            permissions: ["GOVERNMENT_STRUCTURES:CREATE"],
-            onClick: () => {
-                setSelectedStructure(null);
-                setInitialParentId(null);
-                setModalOpen(true);
-            },
-        },
-    ];
+    const actions: ActionButton[] = isSuperAdmin
+        ? [
+              {
+                  label: "Add Sector",
+                  icon: <Plus className="h-4 w-4" />,
+                  variant: "default",
+                  permissions: ["GOVERNMENT_STRUCTURES:CREATE"],
+                  onClick: () => {
+                      setSelectedStructure(null);
+                      setInitialParentId(null);
+                      setModalOpen(true);
+                  },
+              },
+          ]
+        : [];
 
     const filteredData = structures.filter((item) =>
         matchesActiveInactiveFilter(statusFilter, isStructureActive(item.is_active))

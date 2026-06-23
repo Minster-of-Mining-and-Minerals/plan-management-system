@@ -21,10 +21,17 @@ const {
 const {
   isSuperAdminActor,
   resolveManageableStructureId,
+  resolveUserGovernmentStructureFilter,
   assertRoleAssignable,
   assertUserInStructure,
   sendScopeError,
 } = require("../../utils/structureScopeUtils");
+
+async function loadGovernmentStructureIndex() {
+  return GovernmentStructure.findAll({
+    attributes: ["government_structure_id", "parent_id"],
+  });
+}
 
 async function validateRoleAssignments(role_ids, structureId, req, transaction) {
   if (!role_ids?.length) {
@@ -77,7 +84,12 @@ const createUser = async (req, res) => {
 
     let structureId;
     try {
-      structureId = resolveManageableStructureId(req, government_structure_id);
+      const structureIndex = await loadGovernmentStructureIndex();
+      structureId = resolveManageableStructureId(
+        req,
+        government_structure_id,
+        structureIndex
+      );
     } catch (error) {
       await t.rollback();
       return sendScopeError(res, error);
@@ -227,7 +239,8 @@ const updateUser = async (req, res) => {
     }
 
     try {
-      assertUserInStructure(user, user.government_structure_id, req);
+      const structureIndex = await loadGovernmentStructureIndex();
+      assertUserInStructure(user, user.government_structure_id, req, structureIndex);
     } catch (error) {
       await t.rollback();
       return sendScopeError(res, error);
@@ -236,7 +249,12 @@ const updateUser = async (req, res) => {
     let targetStructureId = user.government_structure_id;
     if (government_structure_id !== undefined) {
       try {
-        targetStructureId = resolveManageableStructureId(req, government_structure_id);
+        const structureIndex = await loadGovernmentStructureIndex();
+        targetStructureId = resolveManageableStructureId(
+          req,
+          government_structure_id,
+          structureIndex
+        );
       } catch (error) {
         await t.rollback();
         return sendScopeError(res, error);
@@ -367,20 +385,20 @@ const getUsers = async (req, res) => {
     if (is_active !== undefined) whereClause.is_active = is_active === "true";
     if (internal_structure_id) whereClause.internal_structure_id = internal_structure_id;
 
-    let structureId;
+    const structureIndex = await loadGovernmentStructureIndex();
+    let structureIds;
     try {
-      structureId = resolveManageableStructureId(req, government_structure_id);
+      structureIds = resolveUserGovernmentStructureFilter(
+        req,
+        government_structure_id,
+        structureIndex
+      );
     } catch (error) {
       return sendScopeError(res, error);
     }
 
-    if (structureId) {
-      whereClause.government_structure_id = structureId;
-    } else if (!isSuperAdminActor(req)) {
-      return res.status(400).json({
-        success: false,
-        message: "government_structure_id is required.",
-      });
+    if (structureIds) {
+      whereClause.government_structure_id = { [Op.in]: structureIds };
     }
 
     if (search) {
@@ -431,7 +449,8 @@ const getUserById = async (req, res) => {
     }
 
     try {
-      assertUserInStructure(user, user.government_structure_id, req);
+      const structureIndex = await loadGovernmentStructureIndex();
+      assertUserInStructure(user, user.government_structure_id, req, structureIndex);
     } catch (error) {
       return sendScopeError(res, error);
     }
@@ -474,7 +493,8 @@ const deleteUser = async (req, res) => {
     }
 
     try {
-      assertUserInStructure(user, user.government_structure_id, req);
+      const structureIndex = await loadGovernmentStructureIndex();
+      assertUserInStructure(user, user.government_structure_id, req, structureIndex);
     } catch (error) {
       await t.rollback();
       return sendScopeError(res, error);
@@ -531,6 +551,14 @@ const toggleUserActiveStatus = async (req, res) => {
       });
     }
 
+    try {
+      const structureIndex = await loadGovernmentStructureIndex();
+      assertUserInStructure(user, user.government_structure_id, req, structureIndex);
+    } catch (error) {
+      await t.rollback();
+      return sendScopeError(res, error);
+    }
+
     await user.update(
       { is_active, updated_at: new Date() },
       { transaction: t }
@@ -575,7 +603,8 @@ const resetUserPassword = async (req, res) => {
     }
 
     try {
-      assertUserInStructure(user, user.government_structure_id, req);
+      const structureIndex = await loadGovernmentStructureIndex();
+      assertUserInStructure(user, user.government_structure_id, req, structureIndex);
     } catch (error) {
       await t.rollback();
       return sendScopeError(res, error);

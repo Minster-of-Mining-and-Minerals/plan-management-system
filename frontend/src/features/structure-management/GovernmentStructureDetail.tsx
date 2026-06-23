@@ -20,6 +20,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { actionFeedback } from "@/components/action-feedback";
 import { SectorLogo } from "@/components/common/SectorLogo";
 import { CreateGovernmentStructureModal } from "./modals/CreateGovernmentStructureModal";
+import { useStructureScope } from "@/hooks/useStructureScope";
 
 interface GovernmentStructureDetailProps {
     id: string;
@@ -29,7 +30,8 @@ type TabType = "users" | "roles" | "internal_structures" | "permission_groups";
 
 export default function GovernmentStructureDetail({ id }: GovernmentStructureDetailProps) {
     const router = useRouter();
-    const { data: structure, isLoading, isError, refetch } = useGetGovernmentStructureByIdQuery(id);
+    const { isSuperAdmin } = useStructureScope();
+    const { data: structure, isLoading, isError, error, refetch } = useGetGovernmentStructureByIdQuery(id);
     const [reactivateStructure, { isLoading: isReactivating }] = useReactivateGovernmentStructureMutation();
     const { can } = usePermissions();
     const canReactivate = can("GOVERNMENT_STRUCTURES:UPDATE");
@@ -81,10 +83,22 @@ export default function GovernmentStructureDetail({ id }: GovernmentStructureDet
     }
 
     if (isError || !structure) {
+        const isForbidden =
+            typeof error === "object" &&
+            error !== null &&
+            "status" in error &&
+            (error as { status?: number }).status === 403;
+
         return (
             <div className="text-center py-12">
-                <h2 className="text-2xl font-bold text-red-600">Error</h2>
-                <p className="text-gray-500">Failed to load sector structure details.</p>
+                <h2 className="text-2xl font-bold text-red-600">
+                    {isForbidden ? "Access denied" : "Error"}
+                </h2>
+                <p className="text-gray-500">
+                    {isForbidden
+                        ? "This sector is outside your organization scope."
+                        : "Failed to load sector structure details."}
+                </p>
                 <Button variant="link" onClick={() => router.push("/government-structures")}>
                     Back to List
                 </Button>
@@ -127,7 +141,7 @@ export default function GovernmentStructureDetail({ id }: GovernmentStructureDet
                             >
                                 Sector Structures
                             </Link>
-                            {structure.parent && (
+                            {structure.parent && isSuperAdmin && (
                                 <>
                                     <span className="text-gray-300">/</span>
                                     <Link 

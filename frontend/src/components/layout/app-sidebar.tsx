@@ -13,6 +13,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
 import { GovernmentStructure } from "@/redux/types/governmentStructure";
 import { buildSectorTree } from "@/utils/buildSectorTree";
+import { useGovernmentStructureListParams } from "@/hooks/useGovernmentStructureListParams";
 import { NavStructures } from "./nav-structures";
 import { useSession } from "next-auth/react";
 import { useBranding } from "@/providers/BrandingProvider";
@@ -68,10 +69,12 @@ export function AppSidebar() {
     ),
   }));
 
+  const structureListParams = useGovernmentStructureListParams({ is_active: true });
+
   const { data: structuresData } = useGetGovernmentStructuresQuery(
-    { is_active: true },
+    structureListParams.params,
     {
-      skip: !isAuthReady,
+      skip: !isAuthReady || structureListParams.skip,
       refetchOnMountOrArgChange: true,
     }
   );

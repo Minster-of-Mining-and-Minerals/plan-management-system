@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { actionFeedback } from "@/components/action-feedback";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructure
 import { useGetInternalStructuresQuery } from "@/redux/api/internalStructureApi";
 import { CreateUserPayload } from "@/redux/types/user";
 import { useStructureScope } from "@/hooks/useStructureScope";
+import { useGovernmentStructureListParams } from "@/hooks/useGovernmentStructureListParams";
 import { Check, ChevronDown, XIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -50,7 +51,11 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
     govId ? { government_structure_id: govId, is_active: true } : undefined,
     { skip: !govId }
   );
-  const { data: govStructures = [] } = useGetGovernmentStructuresQuery();
+  const structureListParams = useGovernmentStructureListParams({ is_active: true });
+  const { data: govStructures = [] } = useGetGovernmentStructuresQuery(
+    structureListParams.params,
+    { skip: structureListParams.skip }
+  );
   const { data: internalStructures = [] } = useGetInternalStructuresQuery(
     { government_structure_id: govId },
     { skip: !govId }
@@ -60,7 +65,15 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
 
   const [createUser, { isLoading }] = useCreateUserMutation();
 
-  const { isSuperAdmin } = useStructureScope();
+  const { isSuperAdmin, structureId: sessionStructureId } = useStructureScope();
+  const showSectorPicker = !initialGovId && (isSuperAdmin || govStructures.length > 1);
+
+  useEffect(() => {
+    if (!isOpen || initialGovId) return;
+    if (!govId && sessionStructureId && govStructures.length === 1) {
+      setGovId(sessionStructureId);
+    }
+  }, [isOpen, initialGovId, govId, sessionStructureId, govStructures.length]);
 
   const handleSubmit = async () => {
     if (!fullName || !email || !selectedRoles.length) {
@@ -128,30 +141,60 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
         <div className="w-full flex flex-col space-y-4">
           {/* Structure Selection */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="block text-sm text-golden-dark font-medium mb-1">
-                Sector Structure
-              </Label>
-              <Select
-                value={govId}
-                onValueChange={(val) => {
-                  setGovId(val);
-                  setInternalId("");
-                }}
-                disabled={!!initialGovId}
-              >
-                <SelectTrigger className="w-full h-12 border border-golden-dark">
-                  <SelectValue placeholder="Select sector structure" />
-                </SelectTrigger>
-                <SelectContent className="bg-white">
-                  {govStructures.map((s) => (
-                    <SelectItem key={s.government_structure_id} value={s.government_structure_id!}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {showSectorPicker && (
+              <div className="space-y-2">
+                <Label className="block text-sm text-golden-dark font-medium mb-1">
+                  Sector Structure <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={govId}
+                  onValueChange={(val) => {
+                    setGovId(val);
+                    setInternalId("");
+                    setSelectedRoles([]);
+                  }}
+                >
+                  <SelectTrigger className="w-full h-12 border border-golden-dark">
+                    <SelectValue placeholder="Select sector structure" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    {govStructures.map((s) => (
+                      <SelectItem
+                        key={s.government_structure_id}
+                        value={s.government_structure_id!}
+                      >
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {!showSectorPicker && initialGovId && (
+              <div className="space-y-2">
+                <Label className="block text-sm text-golden-dark font-medium mb-1">
+                  Sector Structure
+                </Label>
+                <Select value={govId} disabled>
+                  <SelectTrigger className="w-full h-12 border border-golden-dark">
+                    <SelectValue placeholder="Sector structure" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    {govStructures
+                      .filter((s) => s.government_structure_id === initialGovId)
+                      .map((s) => (
+                        <SelectItem
+                          key={s.government_structure_id}
+                          value={s.government_structure_id!}
+                        >
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label className="block text-sm text-golden-dark font-medium mb-1">
