@@ -40,6 +40,9 @@ import {
 import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
 import { PlanRule } from "@/redux/types/plan";
 import { getDefaultStepColorHex, getPlanStepSurfaceStyles } from "@/utils/planRuleUtils";
+import { useGovernmentStructureListParams } from "@/hooks/useGovernmentStructureListParams";
+import { useStructureScope } from "@/hooks/useStructureScope";
+import { canCreateGlobalPlanRule } from "@/utils/planRuleScopeUtils";
 
 const stepSchema = z.object({
     step_order: z.coerce.number().min(1),
@@ -64,7 +67,13 @@ interface CreatePlanRuleModalProps {
 export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleModalProps) {
     const [createRule, { isLoading: isCreating }] = useCreatePlanRuleMutation();
     const [updateRule, { isLoading: isUpdating }] = useUpdatePlanRuleMutation();
-    const { data: structures = [] } = useGetGovernmentStructuresQuery({});
+    const { isSuperAdmin, structureId: sessionStructureId } = useStructureScope();
+    const { params: structureQueryParams, skip: skipStructures } =
+        useGovernmentStructureListParams({ is_active: true });
+    const { data: structures = [] } = useGetGovernmentStructuresQuery(structureQueryParams, {
+        skip: skipStructures,
+    });
+    const allowGlobalScope = canCreateGlobalPlanRule(isSuperAdmin);
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: createFormResolver<z.infer<typeof formSchema>>(formSchema),
@@ -105,12 +114,12 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
         } else {
             form.reset({
                 name: "",
-                government_structure_id: null,
+                government_structure_id: allowGlobalScope ? null : sessionStructureId ?? null,
                 is_active: true,
                 steps: [{ step_order: 1, label: "Level 1", requires_weight: false, color_hex: getDefaultStepColorHex(1) }],
             });
         }
-    }, [rule, form, isOpen]);
+    }, [rule, form, isOpen, allowGlobalScope, sessionStructureId]);
 
     const addStep = () => {
         append({
@@ -201,7 +210,11 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            <SelectItem value="global">Global (all sectors)</SelectItem>
+                                            {allowGlobalScope && (
+                                                <SelectItem value="global">
+                                                    Global (all sectors)
+                                                </SelectItem>
+                                            )}
                                             {structures.map((s) => (
                                                 <SelectItem
                                                     key={s.government_structure_id}

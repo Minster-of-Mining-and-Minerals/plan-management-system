@@ -3,6 +3,7 @@
 const Joi = require("joi");
 
 const updatePlanningConfigurationSchema = Joi.object({
+  government_structure_id: Joi.string().uuid().allow(null).optional(),
   min_duration_years: Joi.number().integer().min(1).max(50).optional(),
   max_duration_years: Joi.number().integer().min(1).max(50).optional(),
   draft_entity_label_singular: Joi.string().trim().max(100).optional(),

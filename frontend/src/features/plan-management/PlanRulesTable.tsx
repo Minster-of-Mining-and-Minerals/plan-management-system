@@ -23,14 +23,33 @@ import {
     PLAN_RULES_MUTATION_PERMISSIONS,
     PLAN_RULES_PERMISSIONS,
 } from "@/utils/planPermissionUtils";
+import { useStructureScope } from "@/hooks/useStructureScope";
+import {
+    canDeletePlanRule,
+    canEditPlanRule,
+    formatPlanRuleScopeLabel,
+} from "@/utils/planRuleScopeUtils";
 
 export default function PlanRulesTable() {
     const searchParams = useSearchParams();
     const searchQuery = searchParams.get("search") || "";
+    const { isSuperAdmin, structureId: sessionStructureId } = useStructureScope();
+    const structureId =
+        searchParams.get("government_structure_id") ||
+        sessionStructureId ||
+        undefined;
+
     const [selectedRule, setSelectedRule] = useState<PlanRule | null>(null);
     const [isModalOpen, setModalOpen] = useState(false);
 
-    const { data: rules = [], isLoading, refetch } = useGetPlanRulesQuery({});
+    const { data: rules = [], isLoading, refetch } = useGetPlanRulesQuery(
+        structureId
+            ? { government_structure_id: structureId }
+            : isSuperAdmin
+              ? undefined
+              : { government_structure_id: sessionStructureId || undefined },
+        { skip: !isSuperAdmin && !structureId && !sessionStructureId }
+    );
     const [deleteRule] = useDeletePlanRuleMutation();
 
     const columns: ColumnDef<PlanRule>[] = [
@@ -66,7 +85,7 @@ export default function PlanRulesTable() {
             accessorKey: "governmentStructure",
             header: "Scope",
             cell: ({ row }) => (
-                <span>{row.original.governmentStructure?.name || "Global"}</span>
+                <span>{formatPlanRuleScopeLabel(row.original)}</span>
             ),
         },
         {
@@ -81,30 +100,34 @@ export default function PlanRulesTable() {
             header: "Actions",
             cell: ({ row }) => (
                 <div className="flex items-center gap-1">
-                    <PermissionGuard requireAll={[PLAN_RULES_PERMISSIONS.UPDATE]}>
-                        <Button
-                            onClick={() => {
-                                setSelectedRule(row.original);
-                                setModalOpen(true);
-                            }}
-                            variant="ghost"
-                            size="icon"
-                            title="Edit"
-                        >
-                            <Edit className="h-4 w-4" />
-                        </Button>
-                    </PermissionGuard>
-                    <PermissionGuard requireAll={[PLAN_RULES_PERMISSIONS.DELETE]}>
-                        <Button
-                            onClick={() => handleDelete(row.original.plan_rule_id)}
-                            variant="ghost"
-                            size="icon"
-                            className="text-red-500 hover:text-red-700"
-                            title="Delete"
-                        >
-                            <Trash className="h-4 w-4" />
-                        </Button>
-                    </PermissionGuard>
+                    {canEditPlanRule(row.original, isSuperAdmin) && (
+                        <PermissionGuard requireAll={[PLAN_RULES_PERMISSIONS.UPDATE]}>
+                            <Button
+                                onClick={() => {
+                                    setSelectedRule(row.original);
+                                    setModalOpen(true);
+                                }}
+                                variant="ghost"
+                                size="icon"
+                                title="Edit"
+                            >
+                                <Edit className="h-4 w-4" />
+                            </Button>
+                        </PermissionGuard>
+                    )}
+                    {canDeletePlanRule(row.original) && (
+                        <PermissionGuard requireAll={[PLAN_RULES_PERMISSIONS.DELETE]}>
+                            <Button
+                                onClick={() => handleDelete(row.original.plan_rule_id)}
+                                variant="ghost"
+                                size="icon"
+                                className="text-red-500 hover:text-red-700"
+                                title="Delete"
+                            >
+                                <Trash className="h-4 w-4" />
+                            </Button>
+                        </PermissionGuard>
+                    )}
                 </div>
             ),
         },

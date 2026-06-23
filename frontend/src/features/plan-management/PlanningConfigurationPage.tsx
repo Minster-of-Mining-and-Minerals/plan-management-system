@@ -1,17 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Loader2, RotateCcw, Save, Settings2, Plus, Trash2, CalendarRange } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Loader2, RotateCcw, Save, Settings2, Plus, Trash2, CalendarRange, Globe, Building2 } from "lucide-react";
 import { actionFeedback } from "@/components/action-feedback";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { TableTabBar } from "@/components/common/TableTabBar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   useGetPlanningConfigurationQuery,
   useRestoreDefaultPlanningConfigurationMutation,
   useUpdatePlanningConfigurationMutation,
 } from "@/redux/api/planningConfigApi";
+import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
 import {
   DEFAULT_PLANNING_CONFIGURATION,
   DEFAULT_TARGET_UNITS,
@@ -24,18 +33,73 @@ import {
 import { formatDurationYears } from "@/utils/planDraftUtils";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import { PLAN_UPDATE_PERMISSIONS } from "@/utils/planPermissionUtils";
+import { useStructureScope } from "@/hooks/useStructureScope";
+import { useGovernmentStructureListParams } from "@/hooks/useGovernmentStructureListParams";
+import {
+  canEditPlanningConfiguration,
+  canRestorePlanningConfiguration,
+} from "@/utils/planningConfigScopeUtils";
+
+type PlanningConfigEditScope = "global" | "sector";
+
+function toFormState(config: PlanningConfiguration): PlanningConfiguration {
+  const { meta: _meta, ...rest } = config;
+  return rest;
+}
 
 export default function PlanningConfigurationPage() {
-  const { data: config, isLoading } = useGetPlanningConfigurationQuery();
+  const { isSuperAdmin, structureId } = useStructureScope();
+  const [editScope, setEditScope] = useState<PlanningConfigEditScope>(
+    isSuperAdmin ? "global" : "sector"
+  );
+  const [selectedSectorId, setSelectedSectorId] = useState<string | null>(structureId);
+
+  const targetStructureId = useMemo(() => {
+    if (isSuperAdmin) {
+      return editScope === "global" ? undefined : selectedSectorId ?? undefined;
+    }
+    return structureId ?? undefined;
+  }, [isSuperAdmin, editScope, selectedSectorId, structureId]);
+
+  const configQueryArg = useMemo(
+    () => (targetStructureId ? { government_structure_id: targetStructureId } : undefined),
+    [targetStructureId]
+  );
+
+  const { data: config, isLoading } = useGetPlanningConfigurationQuery(configQueryArg);
+  const { params: structureQueryParams, skip: skipStructures } =
+    useGovernmentStructureListParams({ is_active: true });
+  const { data: sectors = [] } = useGetGovernmentStructuresQuery(structureQueryParams, {
+    skip: skipStructures || !isSuperAdmin || editScope !== "sector",
+  });
+
   const [updateConfig, { isLoading: isSaving }] = useUpdatePlanningConfigurationMutation();
   const [restoreDefaults, { isLoading: isRestoring }] =
     useRestoreDefaultPlanningConfigurationMutation();
 
   const [form, setForm] = useState<PlanningConfiguration>(DEFAULT_PLANNING_CONFIGURATION);
 
+  const meta = config?.meta;
+  const hasSectorOverride = Boolean(meta?.has_sector_override);
+  const isUsingDefault = meta?.is_using_default ?? editScope === "global";
+  const canEdit = canEditPlanningConfiguration(isSuperAdmin, editScope);
+  const canRestore = canRestorePlanningConfiguration(
+    isSuperAdmin,
+    editScope,
+    hasSectorOverride
+  );
+  const formDisabled = !canEdit || isSaving || isRestoring;
+
+  useEffect(() => {
+    if (!isSuperAdmin && structureId) {
+      setSelectedSectorId(structureId);
+      setEditScope("sector");
+    }
+  }, [isSuperAdmin, structureId]);
+
   useEffect(() => {
     if (config) {
-      setForm(config);
+      setForm(toFormState(config));
     }
   }, [config]);
 
@@ -109,6 +173,11 @@ export default function PlanningConfigurationPage() {
   };
 
   const handleSave = async () => {
+    if (editScope === "sector" && !targetStructureId) {
+      actionFeedback.error("Select a sector before saving sector configuration.");
+      return;
+    }
+
     if (form.min_duration_years > form.max_duration_years) {
       actionFeedback.error("Minimum duration cannot exceed maximum duration.");
       return;
@@ -152,7 +221,11 @@ export default function PlanningConfigurationPage() {
     }
 
     try {
+      const government_structure_id =
+        isSuperAdmin && editScope === "global" ? null : targetStructureId ?? null;
+
       await updateConfig({
+        government_structure_id,
         min_duration_years: form.min_duration_years,
         max_duration_years: form.max_duration_years,
         draft_entity_label_singular: form.draft_entity_label_singular.trim(),
@@ -179,11 +252,23 @@ export default function PlanningConfigurationPage() {
   };
 
   const handleRestore = async () => {
-    if (!(await actionFeedback.confirm("Restore default planning configuration?", { destructive: true }))) return;
+    const message =
+      editScope === "global"
+        ? "Restore global planning configuration to factory defaults? Sector overrides are not affected."
+        : "Remove this sector's planning configuration override and use inherited defaults?";
+
+    if (!(await actionFeedback.confirm(message, { destructive: true }))) return;
     try {
-      const restored = await restoreDefaults().unwrap();
-      setForm(restored);
-      actionFeedback.success("Defaults restored");
+      const government_structure_id =
+        isSuperAdmin && editScope === "global" ? null : targetStructureId ?? null;
+
+      const restored = await restoreDefaults(
+        government_structure_id === undefined ? undefined : { government_structure_id }
+      ).unwrap();
+      setForm(toFormState(restored));
+      actionFeedback.success(
+        editScope === "global" ? "Global defaults restored" : "Sector override removed"
+      );
     } catch (error: unknown) {
       const err = error as { data?: { message?: string } };
       actionFeedback.error(err.data?.message || "Failed to restore defaults");
@@ -208,33 +293,88 @@ export default function PlanningConfigurationPage() {
             Planning Configuration
           </h1>
           <p className="text-gray-500 mt-1">
-            Configure planning duration limits and draft naming conventions used across the system.
+            Configure planning duration limits and draft naming conventions.
+            {!canEdit && editScope === "global"
+              ? " Global settings are read-only for sector users."
+              : null}
+            {editScope === "sector" && isUsingDefault
+              ? " This sector inherits the global configuration."
+              : null}
           </p>
         </div>
         <div className="flex gap-2">
-          <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
-            <Button variant="outline" onClick={handleRestore} disabled={isRestoring || isSaving}>
-              {isRestoring ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <RotateCcw className="mr-2 h-4 w-4" />
-              )}
-              Restore Defaults
-            </Button>
-          </PermissionGuard>
-          <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
-            <Button onClick={handleSave} disabled={isSaving || isRestoring}>
-              {isSaving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="mr-2 h-4 w-4" />
-              )}
-              Save Changes
-            </Button>
-          </PermissionGuard>
+          {canRestore ? (
+            <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
+              <Button
+                variant="outline"
+                onClick={handleRestore}
+                disabled={isRestoring || isSaving || formDisabled}
+              >
+                {isRestoring ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                )}
+                {editScope === "global" ? "Restore Factory Defaults" : "Reset to Inherited Default"}
+              </Button>
+            </PermissionGuard>
+          ) : null}
+          {canEdit ? (
+            <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
+              <Button onClick={handleSave} disabled={isSaving || isRestoring || formDisabled}>
+                {isSaving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                Save Changes
+              </Button>
+            </PermissionGuard>
+          ) : null}
         </div>
       </div>
 
+      {isSuperAdmin ? (
+        <div className="space-y-3">
+          <TableTabBar
+            tabs={[
+              { value: "global", label: "System Default", icon: <Globe className="h-4 w-4" /> },
+              {
+                value: "sector",
+                label: "Sector Override",
+                icon: <Building2 className="h-4 w-4" />,
+              },
+            ]}
+            activeTab={editScope}
+            onTabChange={(value) => setEditScope(value as PlanningConfigEditScope)}
+          />
+          {editScope === "sector" ? (
+            <div className="max-w-md space-y-2">
+              <Label>Sector</Label>
+              <Select
+                value={selectedSectorId ?? ""}
+                onValueChange={(value) => setSelectedSectorId(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a sector" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sectors.map((sector) => (
+                    <SelectItem
+                      key={sector.government_structure_id}
+                      value={sector.government_structure_id}
+                    >
+                      {sector.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <fieldset disabled={formDisabled} className="min-w-0 border-0 p-0 m-0">
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -494,6 +634,7 @@ export default function PlanningConfigurationPage() {
           </CardContent>
         </Card>
       </div>
+      </fieldset>
     </div>
   );
 }

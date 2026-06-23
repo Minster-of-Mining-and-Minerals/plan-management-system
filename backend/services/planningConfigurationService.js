@@ -1,5 +1,6 @@
 "use strict";
 
+const { v4: uuidv4 } = require("uuid");
 const { PlanningConfiguration } = require("../models");
 
 const DEFAULT_PLANNING_CONFIG_ID = "90000000-0000-4000-8000-000000000001";
@@ -220,6 +221,201 @@ async function getOrCreateGlobalPlanningConfig(transaction = null) {
   return record;
 }
 
+async function getSectorPlanningConfigRecord(governmentStructureId, transaction = null) {
+  if (!governmentStructureId) return null;
+  return PlanningConfiguration.findOne({
+    where: { government_structure_id: governmentStructureId },
+    transaction,
+  });
+}
+
+async function resolveEffectivePlanningConfig(governmentStructureId, transaction = null) {
+  const globalRecord = await getOrCreateGlobalPlanningConfig(transaction);
+  const global = pickPlanningConfigPayload(globalRecord);
+
+  if (!governmentStructureId) {
+    return {
+      effective: global,
+      global,
+      override: null,
+      scope: "global",
+      government_structure_id: null,
+      is_using_default: true,
+    };
+  }
+
+  const overrideRecord = await getSectorPlanningConfigRecord(
+    governmentStructureId,
+    transaction
+  );
+
+  if (overrideRecord) {
+    const override = pickPlanningConfigPayload(overrideRecord);
+    return {
+      effective: override,
+      global,
+      override,
+      scope: "sector",
+      government_structure_id: governmentStructureId,
+      is_using_default: false,
+    };
+  }
+
+  return {
+    effective: { ...global, government_structure_id: governmentStructureId },
+    global,
+    override: null,
+    scope: "global",
+    government_structure_id: governmentStructureId,
+    is_using_default: true,
+  };
+}
+
+function buildPlanningConfigResponse(resolved) {
+  const effective = resolved.effective || DEFAULT_PLANNING_CONFIG;
+  return {
+    ...effective,
+    meta: {
+      scope: resolved.scope,
+      government_structure_id: resolved.government_structure_id ?? null,
+      is_using_default: Boolean(resolved.is_using_default),
+      has_sector_override: Boolean(resolved.override),
+    },
+  };
+}
+
+async function applyPlanningConfigUpdates(record, body, transaction = null) {
+  const nextMin = body.min_duration_years ?? record.min_duration_years;
+  const nextMax = body.max_duration_years ?? record.max_duration_years;
+
+  if (nextMin > nextMax) {
+    const error = new Error("Minimum duration cannot exceed maximum duration.");
+    error.status = 400;
+    throw error;
+  }
+
+  let nextTargetUnits = record.target_units ?? DEFAULT_PLANNING_CONFIG.target_units;
+  if (body.target_units !== undefined) {
+    const normalized = normalizeTargetUnits(body.target_units);
+    if (!normalized.valid) {
+      const error = new Error(normalized.message);
+      error.status = 400;
+      throw error;
+    }
+    nextTargetUnits = normalized.units;
+  }
+
+  const nextBreakdownMode =
+    body.breakdown_mode ?? record.breakdown_mode ?? DEFAULT_PLANNING_CONFIG.breakdown_mode;
+  let nextCustomPeriods = record.custom_periods ?? DEFAULT_PLANNING_CONFIG.custom_periods;
+  if (body.breakdown_mode !== undefined || body.custom_periods !== undefined) {
+    const breakdownValidation = validateBreakdownConfiguration(
+      nextBreakdownMode,
+      body.custom_periods ?? nextCustomPeriods
+    );
+    if (!breakdownValidation.valid) {
+      const error = new Error(breakdownValidation.message);
+      error.status = 400;
+      throw error;
+    }
+    if (nextBreakdownMode === "custom") {
+      nextCustomPeriods = breakdownValidation.periods;
+    }
+  }
+
+  await record.update(
+    {
+      min_duration_years: nextMin,
+      max_duration_years: nextMax,
+      draft_entity_label_singular:
+        body.draft_entity_label_singular ?? record.draft_entity_label_singular,
+      draft_entity_label_plural:
+        body.draft_entity_label_plural ?? record.draft_entity_label_plural,
+      create_action_label: body.create_action_label ?? record.create_action_label,
+      planning_period_label: body.planning_period_label ?? record.planning_period_label,
+      duration_label: body.duration_label ?? record.duration_label,
+      start_year_label: body.start_year_label ?? record.start_year_label,
+      end_year_label: body.end_year_label ?? record.end_year_label,
+      target_units: nextTargetUnits,
+      breakdown_mode: nextBreakdownMode,
+      custom_periods: nextCustomPeriods,
+    },
+    { transaction }
+  );
+
+  return record;
+}
+
+async function updateGlobalPlanningConfig(body, transaction = null) {
+  const record = await getOrCreateGlobalPlanningConfig(transaction);
+  await applyPlanningConfigUpdates(record, body, transaction);
+  return record;
+}
+
+async function upsertSectorPlanningConfig(governmentStructureId, body, transaction = null) {
+  const globalRecord = await getOrCreateGlobalPlanningConfig(transaction);
+  let record = await getSectorPlanningConfigRecord(governmentStructureId, transaction);
+
+  if (!record) {
+    const now = new Date();
+    const globalPlain = pickPlanningConfigPayload(globalRecord);
+    record = await PlanningConfiguration.create(
+      {
+        planning_configuration_id: uuidv4(),
+        government_structure_id: governmentStructureId,
+        min_duration_years: globalPlain.min_duration_years,
+        max_duration_years: globalPlain.max_duration_years,
+        draft_entity_label_singular: globalPlain.draft_entity_label_singular,
+        draft_entity_label_plural: globalPlain.draft_entity_label_plural,
+        create_action_label: globalPlain.create_action_label,
+        planning_period_label: globalPlain.planning_period_label,
+        duration_label: globalPlain.duration_label,
+        start_year_label: globalPlain.start_year_label,
+        end_year_label: globalPlain.end_year_label,
+        target_units: globalPlain.target_units,
+        breakdown_mode: globalPlain.breakdown_mode,
+        custom_periods: globalPlain.custom_periods,
+        created_at: now,
+        updated_at: now,
+      },
+      { transaction }
+    );
+  }
+
+  await applyPlanningConfigUpdates(record, body, transaction);
+  return record;
+}
+
+async function restoreGlobalPlanningConfig(transaction = null) {
+  const record = await getOrCreateGlobalPlanningConfig(transaction);
+  await record.update(
+    {
+      min_duration_years: DEFAULT_PLANNING_CONFIG.min_duration_years,
+      max_duration_years: DEFAULT_PLANNING_CONFIG.max_duration_years,
+      draft_entity_label_singular: DEFAULT_PLANNING_CONFIG.draft_entity_label_singular,
+      draft_entity_label_plural: DEFAULT_PLANNING_CONFIG.draft_entity_label_plural,
+      create_action_label: DEFAULT_PLANNING_CONFIG.create_action_label,
+      planning_period_label: DEFAULT_PLANNING_CONFIG.planning_period_label,
+      duration_label: DEFAULT_PLANNING_CONFIG.duration_label,
+      start_year_label: DEFAULT_PLANNING_CONFIG.start_year_label,
+      end_year_label: DEFAULT_PLANNING_CONFIG.end_year_label,
+      target_units: DEFAULT_PLANNING_CONFIG.target_units,
+      breakdown_mode: DEFAULT_PLANNING_CONFIG.breakdown_mode,
+      custom_periods: DEFAULT_PLANNING_CONFIG.custom_periods,
+    },
+    { transaction }
+  );
+  return record;
+}
+
+async function restoreSectorPlanningConfig(governmentStructureId, transaction = null) {
+  const record = await getSectorPlanningConfigRecord(governmentStructureId, transaction);
+  if (record) {
+    await record.destroy({ transaction });
+  }
+  return getOrCreateGlobalPlanningConfig(transaction);
+}
+
 function computeEndYear(startYear, durationYears) {
   return startYear + durationYears - 1;
 }
@@ -302,6 +498,13 @@ module.exports = {
   DEFAULT_PLANNING_CONFIG,
   pickPlanningConfigPayload,
   getOrCreateGlobalPlanningConfig,
+  getSectorPlanningConfigRecord,
+  resolveEffectivePlanningConfig,
+  buildPlanningConfigResponse,
+  updateGlobalPlanningConfig,
+  upsertSectorPlanningConfig,
+  restoreGlobalPlanningConfig,
+  restoreSectorPlanningConfig,
   computeEndYear,
   computePlanningPeriodEnd,
   parseDateOnly,

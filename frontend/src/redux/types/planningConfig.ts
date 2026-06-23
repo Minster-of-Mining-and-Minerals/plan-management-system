@@ -10,6 +10,13 @@ export interface CustomPeriod {
   label: string;
 }
 
+export interface PlanningConfigurationMeta {
+  scope: "global" | "sector";
+  government_structure_id?: string | null;
+  is_using_default: boolean;
+  has_sector_override: boolean;
+}
+
 export interface PlanningConfiguration {
   planning_configuration_id: string;
   government_structure_id?: string | null;
@@ -26,11 +33,22 @@ export interface PlanningConfiguration {
   breakdown_mode: BreakdownMode;
   custom_periods: CustomPeriod[];
   updated_at?: string;
+  meta?: PlanningConfigurationMeta;
 }
 
+export type PlanningConfigurationQuery = {
+  government_structure_id?: string;
+};
+
 export type UpdatePlanningConfigurationPayload = Partial<
-  Omit<PlanningConfiguration, "planning_configuration_id" | "updated_at">
->;
+  Omit<PlanningConfiguration, "planning_configuration_id" | "updated_at" | "meta">
+> & {
+  government_structure_id?: string | null;
+};
+
+export type RestorePlanningConfigurationPayload = {
+  government_structure_id?: string | null;
+};
 
 /** Sentinel value for optional unit selection in forms (stored as null in the API). */
 export const TARGET_UNIT_NONE_VALUE = "__none__";

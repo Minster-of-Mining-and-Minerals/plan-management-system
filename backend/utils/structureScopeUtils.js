@@ -363,6 +363,110 @@ function assertGovernmentStructureParentAllowed(req, parentId, allStructures) {
   assertGovernmentStructureAccessible(req, parentId, allStructures);
 }
 
+/**
+ * Plan rule visibility:
+ * - Super Admin (no structure filter): all rules
+ * - Otherwise: global rules + rules scoped to the visible subtree
+ */
+function buildPlanRuleVisibilityWhere(req, structureId, structureIndex) {
+  if (isSuperAdminActor(req) && !structureId) {
+    return {};
+  }
+
+  if (!structureId) {
+    const error = new Error("government_structure_id is required.");
+    error.status = 400;
+    throw error;
+  }
+
+  if (!structureIndex) {
+    const error = new Error("Structure index is required.");
+    error.status = 500;
+    throw error;
+  }
+
+  const visibleIds = buildVisibleGovernmentStructureIdSet(structureIndex, structureId);
+
+  return {
+    [Op.or]: [
+      { government_structure_id: null },
+      { government_structure_id: { [Op.in]: [...visibleIds] } },
+    ],
+  };
+}
+
+function assertPlanRuleAccessible(rule, req, structureId, structureIndex) {
+  if (!rule) {
+    const error = new Error("Plan rule not found.");
+    error.status = 404;
+    throw error;
+  }
+
+  if (!rule.government_structure_id) {
+    return;
+  }
+
+  if (isSuperAdminActor(req) && !structureId) {
+    return;
+  }
+
+  const rootId = structureId || getActorStructureId(req);
+  if (!rootId) {
+    const error = new Error("Structure context is required.");
+    error.status = 400;
+    throw error;
+  }
+
+  const visibleIds = buildVisibleGovernmentStructureIdSet(structureIndex, rootId);
+  if (!visibleIds.has(rule.government_structure_id)) {
+    const error = new Error("Access denied: plan rule belongs to another structure.");
+    error.status = 403;
+    throw error;
+  }
+}
+
+function assertPlanRuleModifiable(rule, req, structureIndex) {
+  if (!rule.government_structure_id) {
+    if (!isSuperAdminActor(req)) {
+      const error = new Error("Only Super Admin can modify global plan rules.");
+      error.status = 403;
+      throw error;
+    }
+    return;
+  }
+
+  if (isSuperAdminActor(req)) {
+    return;
+  }
+
+  const actorStructureId = getActorStructureId(req);
+  if (!actorStructureId) {
+    const error = new Error("Your account is not linked to a structure.");
+    error.status = 403;
+    throw error;
+  }
+
+  const visibleIds = buildVisibleGovernmentStructureIdSet(
+    structureIndex,
+    actorStructureId
+  );
+  if (!visibleIds.has(rule.government_structure_id)) {
+    const error = new Error("Access denied: plan rule belongs to another structure.");
+    error.status = 403;
+    throw error;
+  }
+}
+
+function assertPlanRuleDeletable(rule, req, structureIndex) {
+  if (!rule.government_structure_id) {
+    const error = new Error("Global plan rules cannot be deleted.");
+    error.status = 403;
+    throw error;
+  }
+
+  assertPlanRuleModifiable(rule, req, structureIndex);
+}
+
 module.exports = {
   isSuperAdminActor,
   getActorStructureId,
@@ -379,5 +483,9 @@ module.exports = {
   resolveUserGovernmentStructureFilter,
   assertGovernmentStructureAccessible,
   assertGovernmentStructureParentAllowed,
+  buildPlanRuleVisibilityWhere,
+  assertPlanRuleAccessible,
+  assertPlanRuleModifiable,
+  assertPlanRuleDeletable,
   sendScopeError,
 };
