@@ -11,6 +11,16 @@ function normalizeEmail(email) {
 }
 
 /**
+ * Loose format check for demo/internal addresses (e.g. long @mom-demo.et slugs).
+ * Joi's .email() enforces a 64-char local-part limit; seeded organogram emails can exceed that.
+ */
+function isValidEmailFormat(email) {
+  const normalized = normalizeEmail(email);
+  if (!normalized) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized);
+}
+
+/**
  * Joi email field — allows custom/internal TLDs (e.g. mom-demo.et) and trims input.
  */
 function joiEmailField({ required = true } = {}) {
@@ -18,6 +28,27 @@ function joiEmailField({ required = true } = {}) {
     .trim()
     .lowercase()
     .email({ tlds: { allow: false } })
+    .messages({
+      "string.email": "Must be a valid email address",
+      "string.empty": "Email is required",
+    });
+
+  return required ? schema.required() : schema.optional();
+}
+
+/**
+ * Login email field — relaxed format check so long seeded demo slugs can sign in.
+ */
+function joiLoginEmailField({ required = true } = {}) {
+  let schema = Joi.string()
+    .trim()
+    .lowercase()
+    .custom((value, helpers) => {
+      if (!isValidEmailFormat(value)) {
+        return helpers.error("string.email");
+      }
+      return value;
+    })
     .messages({
       "string.email": "Must be a valid email address",
       "string.empty": "Email is required",
@@ -37,6 +68,8 @@ function normalizeEmailBody(req) {
 
 module.exports = {
   normalizeEmail,
+  isValidEmailFormat,
   joiEmailField,
+  joiLoginEmailField,
   normalizeEmailBody,
 };
