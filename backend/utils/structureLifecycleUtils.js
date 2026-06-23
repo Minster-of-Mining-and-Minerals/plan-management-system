@@ -22,6 +22,25 @@ function collectDescendantIds(rootId, nodes, idField, parentField = "parent_id")
   return ids;
 }
 
+function collectAncestorIds(structureId, nodes, idField = "government_structure_id", parentField = "parent_id") {
+  const byId = new Map(nodes.map((node) => [node[idField], node]));
+  const ids = [];
+  const seen = new Set();
+  let currentId = structureId;
+
+  while (currentId && !seen.has(currentId)) {
+    seen.add(currentId);
+    ids.push(currentId);
+    const node = byId.get(currentId);
+    if (!node?.[parentField]) {
+      break;
+    }
+    currentId = node[parentField];
+  }
+
+  return ids;
+}
+
 function inactiveStructureResponse(res, entityLabel = "Structure") {
   return res.status(409).json({
     success: false,
@@ -46,6 +65,7 @@ function inactiveParentBlocksReactivationResponse(res, entityLabel = "Parent") {
 module.exports = {
   isValidUuid,
   collectDescendantIds,
+  collectAncestorIds,
   inactiveStructureResponse,
   alreadyActiveResponse,
   inactiveParentBlocksReactivationResponse,

@@ -1,6 +1,7 @@
 "use strict";
 
-const { PlanRule, PlanRuleStep, PlanVersion, PlanNode } = require("../models");
+const { PlanRule, PlanRuleStep, PlanVersion, PlanNode, GovernmentStructure } = require("../models");
+const { collectAncestorIds } = require("../utils/structureLifecycleUtils");
 const {
   levelToNodeType,
   getStepForLevel,
@@ -12,6 +13,43 @@ const {
   isWeightModeSelectionLevel,
   resolveNodeWeightMode,
 } = require("./planRuleStepUtils");
+
+async function loadStructureIndex(transaction) {
+  return GovernmentStructure.findAll({
+    attributes: ["government_structure_id", "parent_id"],
+    transaction,
+  });
+}
+
+async function findInheritedPlanRule(structureId, structureIndex, transaction) {
+  const ancestorIds = collectAncestorIds(structureId, structureIndex);
+
+  for (const ancestorId of ancestorIds) {
+    const rule = await PlanRule.findOne({
+      where: {
+        government_structure_id: ancestorId,
+        inherit_to_descendants: true,
+        is_active: true,
+      },
+      include: [
+        {
+          model: PlanRuleStep,
+          as: "steps",
+          separate: true,
+          order: [["step_order", "ASC"]],
+        },
+      ],
+      order: [["created_at", "DESC"]],
+      transaction,
+    });
+
+    if (rule) {
+      return rule;
+    }
+  }
+
+  return null;
+}
 
 async function resolvePlanRuleForVersion(planVersion, transaction) {
   const include = [
@@ -32,10 +70,11 @@ async function resolvePlanRuleForVersion(planVersion, transaction) {
     });
   }
 
-  if (!rule) {
+  if (!rule && planVersion.government_structure_id) {
     rule = await PlanRule.findOne({
       where: {
         government_structure_id: planVersion.government_structure_id,
+        inherit_to_descendants: false,
         is_active: true,
       },
       include,
@@ -44,9 +83,21 @@ async function resolvePlanRuleForVersion(planVersion, transaction) {
     });
   }
 
+  if (!rule && planVersion.government_structure_id) {
+    const structureIndex = await loadStructureIndex(transaction);
+    rule = await findInheritedPlanRule(
+      planVersion.government_structure_id,
+      structureIndex,
+      transaction
+    );
+  }
+
   if (!rule) {
     rule = await PlanRule.findOne({
-      where: { government_structure_id: null, is_active: true },
+      where: {
+        government_structure_id: null,
+        is_active: true,
+      },
       include,
       order: [["created_at", "DESC"]],
       transaction,

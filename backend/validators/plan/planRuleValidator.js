@@ -12,6 +12,7 @@ const stepSchema = Joi.object({
 const createPlanRuleSchema = Joi.object({
   name: Joi.string().trim().max(255).required(),
   government_structure_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
+  inherit_to_descendants: Joi.boolean().default(false),
   is_active: Joi.boolean().default(true),
   steps: Joi.array().items(stepSchema).min(1).required(),
 });
@@ -19,6 +20,7 @@ const createPlanRuleSchema = Joi.object({
 const updatePlanRuleSchema = Joi.object({
   name: Joi.string().trim().max(255).optional(),
   government_structure_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
+  inherit_to_descendants: Joi.boolean().optional(),
   is_active: Joi.boolean().optional(),
   steps: Joi.array().items(stepSchema).min(1).optional(),
 });

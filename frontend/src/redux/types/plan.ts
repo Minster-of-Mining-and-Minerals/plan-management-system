@@ -302,6 +302,7 @@ export interface PlanRule {
     plan_rule_id: string;
     name: string;
     government_structure_id: string | null;
+    inherit_to_descendants?: boolean;
     is_active: boolean;
     created_at: string;
     updated_at: string;
@@ -319,6 +320,7 @@ export interface PlanRuleStepInput {
 export interface CreatePlanRulePayload {
     name: string;
     government_structure_id?: string | null;
+    inherit_to_descendants?: boolean;
     is_active?: boolean;
     steps: PlanRuleStepInput[];
 }
@@ -326,6 +328,7 @@ export interface CreatePlanRulePayload {
 export interface UpdatePlanRulePayload {
     name?: string;
     government_structure_id?: string | null;
+    inherit_to_descendants?: boolean;
     is_active?: boolean;
     steps?: PlanRuleStepInput[];
 }

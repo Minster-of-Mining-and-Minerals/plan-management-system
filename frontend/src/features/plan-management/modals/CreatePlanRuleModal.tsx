@@ -42,7 +42,13 @@ import { PlanRule } from "@/redux/types/plan";
 import { getDefaultStepColorHex, getPlanStepSurfaceStyles } from "@/utils/planRuleUtils";
 import { useGovernmentStructureListParams } from "@/hooks/useGovernmentStructureListParams";
 import { useStructureScope } from "@/hooks/useStructureScope";
-import { canCreateGlobalPlanRule } from "@/utils/planRuleScopeUtils";
+import {
+    canCreateInheritedPlanRule,
+    canCreateSystemGlobalPlanRule,
+    resolvePlanRuleScopePayload,
+    resolvePlanRuleScopeType,
+    type PlanRuleScopeType,
+} from "@/utils/planRuleScopeUtils";
 
 const stepSchema = z.object({
     step_order: z.coerce.number().min(1),
@@ -51,12 +57,23 @@ const stepSchema = z.object({
     color_hex: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Use a valid hex color"),
 });
 
-const formSchema = z.object({
-    name: z.string().min(3).max(255),
-    government_structure_id: z.string().uuid().optional().nullable(),
-    is_active: z.boolean(),
-    steps: z.array(stepSchema).min(1),
-});
+const formSchema = z
+    .object({
+        name: z.string().min(3).max(255),
+        scope_type: z.enum(["system_global", "inherited", "sector"]),
+        government_structure_id: z.string().uuid().optional().nullable(),
+        is_active: z.boolean(),
+        steps: z.array(stepSchema).min(1),
+    })
+    .superRefine((values, ctx) => {
+        if (values.scope_type !== "system_global" && !values.government_structure_id) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Select a sector for this scope.",
+                path: ["government_structure_id"],
+            });
+        }
+    });
 
 interface CreatePlanRuleModalProps {
     isOpen: boolean;
@@ -73,17 +90,21 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
     const { data: structures = [] } = useGetGovernmentStructuresQuery(structureQueryParams, {
         skip: skipStructures,
     });
-    const allowGlobalScope = canCreateGlobalPlanRule(isSuperAdmin);
+    const allowSystemGlobal = canCreateSystemGlobalPlanRule(isSuperAdmin);
+    const allowInherited = canCreateInheritedPlanRule(isSuperAdmin, sessionStructureId);
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: createFormResolver<z.infer<typeof formSchema>>(formSchema),
         defaultValues: {
             name: "",
-            government_structure_id: null,
+            scope_type: allowInherited ? "inherited" : "sector",
+            government_structure_id: sessionStructureId ?? null,
             is_active: true,
             steps: [{ step_order: 1, label: "Level 1", requires_weight: false, color_hex: getDefaultStepColorHex(1) }],
         },
     });
+
+    const scopeType = form.watch("scope_type");
 
     const { fields, append, remove } = useFieldArray({
         control: form.control,
@@ -102,6 +123,7 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
             const start = sorted.find((s) => s.requires_weight)?.step_order ?? null;
             form.reset({
                 name: rule.name,
+                scope_type: resolvePlanRuleScopeType(rule),
                 government_structure_id: rule.government_structure_id,
                 is_active: rule.is_active,
                 steps: sorted.map((s) => ({
@@ -112,14 +134,31 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
                 })),
             });
         } else {
+            const defaultScope: PlanRuleScopeType = allowSystemGlobal
+                ? "system_global"
+                : allowInherited
+                  ? "inherited"
+                  : "sector";
             form.reset({
                 name: "",
-                government_structure_id: allowGlobalScope ? null : sessionStructureId ?? null,
+                scope_type: defaultScope,
+                government_structure_id: sessionStructureId ?? null,
                 is_active: true,
                 steps: [{ step_order: 1, label: "Level 1", requires_weight: false, color_hex: getDefaultStepColorHex(1) }],
             });
         }
-    }, [rule, form, isOpen, allowGlobalScope, sessionStructureId]);
+    }, [rule, form, isOpen, allowSystemGlobal, allowInherited, sessionStructureId]);
+
+    useEffect(() => {
+        if (scopeType === "system_global") {
+            form.setValue("government_structure_id", null, { shouldValidate: true });
+            return;
+        }
+
+        if (!form.getValues("government_structure_id") && sessionStructureId) {
+            form.setValue("government_structure_id", sessionStructureId, { shouldValidate: true });
+        }
+    }, [scopeType, form, sessionStructureId]);
 
     const addStep = () => {
         append({
@@ -144,9 +183,14 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
 
     async function onSubmit(values: z.infer<typeof formSchema>) {
         try {
+            const scopePayload = resolvePlanRuleScopePayload(
+                values.scope_type,
+                values.government_structure_id
+            );
+
             const payload = {
                 name: values.name,
-                government_structure_id: values.government_structure_id || null,
+                ...scopePayload,
                 is_active: values.is_active,
                 steps: values.steps.map((step, index) => ({
                     step_order: index + 1,
@@ -194,41 +238,79 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
 
                         <FormField
                             control={form.control}
-                            name="government_structure_id"
+                            name="scope_type"
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Scope</FormLabel>
+                                    <FormDescription>
+                                        Sector-specific rules apply to one sector only. Inherited global
+                                        rules flow from a parent sector to its children. System global
+                                        applies everywhere (Super Admin only).
+                                    </FormDescription>
                                     <Select
-                                        onValueChange={(val) =>
-                                            field.onChange(val === "global" ? null : val)
+                                        value={field.value}
+                                        onValueChange={(value) =>
+                                            field.onChange(value as PlanRuleScopeType)
                                         }
-                                        value={field.value || "global"}
                                     >
                                         <FormControl>
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Global (all sectors)" />
+                                                <SelectValue placeholder="Select scope" />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            {allowGlobalScope && (
-                                                <SelectItem value="global">
-                                                    Global (all sectors)
+                                            {allowSystemGlobal ? (
+                                                <SelectItem value="system_global">
+                                                    System global (all sectors)
                                                 </SelectItem>
-                                            )}
-                                            {structures.map((s) => (
-                                                <SelectItem
-                                                    key={s.government_structure_id}
-                                                    value={s.government_structure_id}
-                                                >
-                                                    {s.name}
+                                            ) : null}
+                                            {allowInherited ? (
+                                                <SelectItem value="inherited">
+                                                    Global (inherited by child sectors)
                                                 </SelectItem>
-                                            ))}
+                                            ) : null}
+                                            <SelectItem value="sector">Sector-specific</SelectItem>
                                         </SelectContent>
                                     </Select>
                                     <FormMessage />
                                 </FormItem>
                             )}
                         />
+
+                        {scopeType !== "system_global" ? (
+                            <FormField
+                                control={form.control}
+                                name="government_structure_id"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>
+                                            {scopeType === "inherited" ? "Parent sector" : "Sector"}
+                                        </FormLabel>
+                                        <Select
+                                            onValueChange={field.onChange}
+                                            value={field.value || undefined}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select a sector" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {structures.map((s) => (
+                                                    <SelectItem
+                                                        key={s.government_structure_id}
+                                                        value={s.government_structure_id}
+                                                    >
+                                                        {s.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        ) : null}
 
                         <FormField
                             control={form.control}

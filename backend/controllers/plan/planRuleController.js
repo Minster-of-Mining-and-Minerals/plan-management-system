@@ -138,11 +138,38 @@ const getPlanRuleForVersion = async (req, res) => {
 const createPlanRule = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    const { name, government_structure_id: bodyStructureId, is_active, steps } = req.body;
+    const {
+      name,
+      government_structure_id: bodyStructureId,
+      inherit_to_descendants = false,
+      is_active,
+      steps,
+    } = req.body;
     const structureIndex = await loadGovernmentStructureIndex();
 
-    let resolvedStructureId;
-    if (bodyStructureId) {
+    let resolvedStructureId = null;
+    let inheritToDescendants = Boolean(inherit_to_descendants);
+
+    if (inheritToDescendants) {
+      try {
+        resolvedStructureId = resolveManageableStructureId(
+          req,
+          bodyStructureId,
+          structureIndex
+        );
+      } catch (error) {
+        await t.rollback();
+        return sendScopeError(res, error);
+      }
+
+      if (!resolvedStructureId) {
+        await t.rollback();
+        return res.status(400).json({
+          success: false,
+          message: "A sector is required for inherited global plan rules.",
+        });
+      }
+    } else if (bodyStructureId) {
       try {
         resolvedStructureId = resolveManageableStructureId(
           req,
@@ -157,7 +184,7 @@ const createPlanRule = async (req, res) => {
       await t.rollback();
       return res.status(403).json({
         success: false,
-        message: "Only Super Admin can create global plan rules.",
+        message: "Only Super Admin can create system-wide global plan rules.",
       });
     }
 
@@ -173,7 +200,8 @@ const createPlanRule = async (req, res) => {
       {
         plan_rule_id: uuidv4(),
         name,
-        government_structure_id: resolvedStructureId || null,
+        government_structure_id: resolvedStructureId,
+        inherit_to_descendants: inheritToDescendants,
         is_active: is_active !== false,
       },
       { transaction: t }
@@ -220,38 +248,73 @@ const updatePlanRule = async (req, res) => {
       return sendScopeError(res, error);
     }
 
-    const { name, government_structure_id: bodyStructureId, is_active, steps } = req.body;
+    const { name, government_structure_id: bodyStructureId, inherit_to_descendants, is_active, steps } = req.body;
 
     let nextStructureId = rule.government_structure_id;
-    if (bodyStructureId !== undefined) {
-      if (bodyStructureId) {
+    let nextInheritToDescendants = Boolean(rule.inherit_to_descendants);
+
+    if (bodyStructureId !== undefined || inherit_to_descendants !== undefined) {
+      const requestedInherit =
+        inherit_to_descendants !== undefined
+          ? Boolean(inherit_to_descendants)
+          : nextInheritToDescendants;
+      const requestedStructureId =
+        bodyStructureId !== undefined ? bodyStructureId || null : nextStructureId;
+
+      if (requestedInherit) {
         try {
           nextStructureId = resolveManageableStructureId(
             req,
-            bodyStructureId,
+            requestedStructureId,
             structureIndex
           );
         } catch (error) {
           await t.rollback();
           return sendScopeError(res, error);
         }
+
+        if (!nextStructureId) {
+          await t.rollback();
+          return res.status(400).json({
+            success: false,
+            message: "A sector is required for inherited global plan rules.",
+          });
+        }
+
+        nextInheritToDescendants = true;
+      } else if (requestedStructureId) {
+        try {
+          nextStructureId = resolveManageableStructureId(
+            req,
+            requestedStructureId,
+            structureIndex
+          );
+        } catch (error) {
+          await t.rollback();
+          return sendScopeError(res, error);
+        }
+        nextInheritToDescendants = false;
       } else if (!isSuperAdminActor(req)) {
         await t.rollback();
         return res.status(403).json({
           success: false,
-          message: "Only Super Admin can assign global scope to plan rules.",
+          message: "Only Super Admin can assign system-wide global scope to plan rules.",
         });
       } else {
         nextStructureId = null;
+        nextInheritToDescendants = false;
       }
     }
 
     await rule.update(
       {
         ...(name !== undefined && { name }),
-        ...(bodyStructureId !== undefined && {
-          government_structure_id: nextStructureId,
-        }),
+        ...(bodyStructureId !== undefined || inherit_to_descendants !== undefined
+          ? {
+              government_structure_id: nextStructureId,
+              inherit_to_descendants: nextInheritToDescendants,
+            }
+          : {}),
         ...(is_active !== undefined && { is_active }),
       },
       { transaction: t }
