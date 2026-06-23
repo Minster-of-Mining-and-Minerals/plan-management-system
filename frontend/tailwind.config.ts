@@ -61,6 +61,22 @@ const config = {
           "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
+          "nav-hover": "hsl(var(--sidebar-nav-hover))",
+          "nav-active": "hsl(var(--sidebar-nav-active))",
+          "nav-active-foreground": "hsl(var(--sidebar-nav-active-foreground))",
+          "subnav-active": "hsl(var(--sidebar-subnav-active))",
+          "subnav-active-foreground": "hsl(var(--sidebar-subnav-active-foreground))",
+          "header-text": "hsl(var(--sidebar-header-text))",
+        },
+        toolbar: {
+          DEFAULT: "hsl(var(--toolbar-button))",
+          hover: "hsl(var(--toolbar-button-hover))",
+          foreground: "hsl(var(--toolbar-button-foreground))",
+        },
+        "table-header": {
+          DEFAULT: "hsl(var(--table-header))",
+          hover: "hsl(var(--table-header-hover))",
+          foreground: "hsl(var(--table-header-foreground))",
         },
         header: {
           DEFAULT: "hsl(var(--header-background))",

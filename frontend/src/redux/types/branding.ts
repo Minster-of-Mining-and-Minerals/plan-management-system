@@ -21,6 +21,18 @@ export interface BrandingSettings {
   text_primary_color: string;
   text_secondary_color: string;
   border_color: string;
+  sidebar_nav_hover_color: string;
+  sidebar_nav_active_color: string;
+  sidebar_nav_active_text_color: string;
+  sidebar_subnav_active_color: string;
+  sidebar_subnav_active_text_color: string;
+  sidebar_header_text_color: string;
+  toolbar_button_color: string;
+  toolbar_button_hover_color: string;
+  toolbar_button_text_color: string;
+  table_header_color: string;
+  table_header_hover_color: string;
+  table_header_text_color: string;
   updated_at?: string;
 }
 
@@ -64,6 +76,18 @@ const UPDATABLE_BRANDING_KEYS = [
   "text_primary_color",
   "text_secondary_color",
   "border_color",
+  "sidebar_nav_hover_color",
+  "sidebar_nav_active_color",
+  "sidebar_nav_active_text_color",
+  "sidebar_subnav_active_color",
+  "sidebar_subnav_active_text_color",
+  "sidebar_header_text_color",
+  "toolbar_button_color",
+  "toolbar_button_hover_color",
+  "toolbar_button_text_color",
+  "table_header_color",
+  "table_header_hover_color",
+  "table_header_text_color",
 ] as const satisfies ReadonlyArray<keyof UpdateBrandingSettingsPayload>;
 
 export function toUpdateBrandingPayload(

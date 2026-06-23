@@ -17,6 +17,11 @@ import { useGovernmentStructureListParams } from "@/hooks/useGovernmentStructure
 import { NavStructures } from "./nav-structures";
 import { useSession } from "next-auth/react";
 import { useBranding } from "@/providers/BrandingProvider";
+import {
+  sidebarSubNavClasses,
+  sidebarTopNavClasses,
+  sidebarTopNavCollapsibleClasses,
+} from "@/lib/branding/sidebarNavClasses";
 
 import {
   Sidebar,
@@ -107,10 +112,10 @@ export function AppSidebar() {
                 />
               ) : null}
               <div className="grid flex-1 text-center gap-1 text-sm leading-tight group-data-[collapsible=icon]:opacity-0">
-                <span className="truncate font-semibold text-golden-dark">
+                <span className="truncate font-semibold text-sidebar-header-text">
                   {branding.system_name_short}
                 </span>
-                <span className="truncate text-golden-dark">
+                <span className="truncate text-sidebar-header-text">
                   {branding.system_tagline || branding.system_name_full}
                 </span>
               </div>
@@ -141,11 +146,7 @@ export function AppSidebar() {
                           asChild
                           isActive={pathname.startsWith(item.url)}
                           tooltip={item.title}
-                          className="text-primary hover:bg-golden-metallic px-5 py-5
-                            group-data-[collapsible=icon]:px-2
-                            group-data-[collapsible=icon]:justify-center
-                            data-[active=true]:bg-golden-dark
-                            data-[active=true]:text-primary-foreground"
+                          className={sidebarTopNavClasses}
                         >
                           <Link
                             href={item.url}
@@ -173,11 +174,7 @@ export function AppSidebar() {
                           <SidebarMenuButton
                             tooltip={item.title}
                             isActive={pathname.startsWith(item.url)}
-                            className="text-primary hover:bg-golden-metallic hover:data-[active=false]:bg-golden-metallic
-                              hover:data-[active=true]:bg-golden-dark hover:data-[active=true]:text-primary-foreground
-                              px-5 py-5 group-data-[collapsible=icon]:px-2
-                              group-data-[collapsible=icon]:justify-center
-                              data-[active=true]:bg-golden-dark data-[active=true]:text-primary-foreground"
+                            className={sidebarTopNavCollapsibleClasses}
                           >
                             <Link
                               href={item.url}
@@ -204,13 +201,7 @@ export function AppSidebar() {
                                   <SidebarMenuSubButton
                                     asChild
                                     isActive={pathname === child.url}
-                                    className="text-primary hover:bg-golden-metallic
-                                      hover:data-[active=false]:bg-golden-metallic
-                                      hover:data-[active=true]:bg-golden-metallic
-                                      hover:data-[active=true]:text-primary-foreground
-                                      group-data-[collapsible=icon]:justify-center
-                                      data-[active=true]:bg-golden-metallic
-                                      data-[active=true]:text-primary"
+                                    className={sidebarSubNavClasses}
                                   >
                                     <Link href={child.url} className="flex items-center gap-4">
                                       <child.icon className="h-4 w-4 shrink-0" />
@@ -242,11 +233,7 @@ export function AppSidebar() {
                       asChild
                       isActive={pathname === item.url}
                       tooltip={item.title}
-                      className="text-primary hover:bg-golden-metallic px-5 py-5
-                        group-data-[collapsible=icon]:px-2
-                        group-data-[collapsible=icon]:justify-center
-                        data-[active=true]:bg-golden-dark
-                        data-[active=true]:text-primary-foreground"
+                      className={sidebarTopNavClasses}
                     >
                       <Link
                         href={item.url}

@@ -46,7 +46,19 @@
     --sidebar-background: 0 0% 100%;
     /* White */
     --sidebar-foreground: 201 85% 18%;
-    /* golden colors */
+    --sidebar-nav-hover: 43 71% 88%;
+    --sidebar-nav-active: 41 96% 40%;
+    --sidebar-nav-active-foreground: 0 0% 100%;
+    --sidebar-subnav-active: 43 71% 88%;
+    --sidebar-subnav-active-foreground: 201 85% 18%;
+    --sidebar-header-text: 41 96% 40%;
+    --toolbar-button: 41 96% 40%;
+    --toolbar-button-hover: 32 95% 33%;
+    --toolbar-button-foreground: 0 0% 100%;
+    --table-header: 41 96% 40%;
+    --table-header-hover: 32 95% 33%;
+    --table-header-foreground: 0 0% 100%;
+    /* golden colors (legacy aliases — overridden by branding at runtime) */
     --golden-dark: 45, 80%, 40%;
     --golden-metallic: 43, 85%, 55%, 10%;
     --golden-soft: 42, 90%, 60%;

@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { DEFAULT_BRANDING, BRANDING_COLOR_FIELDS } from "@/lib/branding/defaults";
+import { DEFAULT_BRANDING, BRANDING_COLOR_FIELD_GROUPS } from "@/lib/branding/defaults";
 import { applyBrandingTheme, resolveBrandingAssetUrl } from "@/lib/branding/applyBrandingTheme";
 import { useStructureScope } from "@/hooks/useStructureScope";
 import {
@@ -501,26 +501,34 @@ export default function BrandingSettingsPage() {
               <CardHeader className="px-0 pt-4">
                 <CardTitle>Theme Configuration</CardTitle>
                 <CardDescription>
-                  Colors are applied platform-wide via CSS variables after saving.
+                  Core theme, sidebar navigation, and toolbar/table colors are applied platform-wide
+                  via CSS variables after saving.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="grid gap-4 px-0 sm:grid-cols-2">
-                {BRANDING_COLOR_FIELDS.map(({ key, label }) => (
-                  <div key={key} className="space-y-2">
-                    <Label htmlFor={key}>{label}</Label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        id={key}
-                        type="color"
-                        value={form[key]}
-                        onChange={(e) => setField(key, e.target.value)}
-                        className="h-10 w-12 cursor-pointer rounded border"
-                      />
-                      <Input
-                        value={form[key]}
-                        onChange={(e) => setField(key, e.target.value)}
-                        className="font-mono text-sm"
-                      />
+              <CardContent className="space-y-8 px-0">
+                {BRANDING_COLOR_FIELD_GROUPS.map((group) => (
+                  <div key={group.title} className="space-y-4">
+                    <h3 className="text-sm font-semibold text-primary">{group.title}</h3>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {group.fields.map(({ key, label }) => (
+                        <div key={key} className="space-y-2">
+                          <Label htmlFor={key}>{label}</Label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              id={key}
+                              type="color"
+                              value={form[key]}
+                              onChange={(e) => setField(key, e.target.value)}
+                              className="h-10 w-12 cursor-pointer rounded border"
+                            />
+                            <Input
+                              value={form[key]}
+                              onChange={(e) => setField(key, e.target.value)}
+                              className="font-mono text-sm"
+                            />
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}

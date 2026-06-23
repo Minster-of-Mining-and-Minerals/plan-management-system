@@ -32,6 +32,18 @@ const updateSchema = Joi.object({
   text_primary_color: hexColorSchema.optional(),
   text_secondary_color: hexColorSchema.optional(),
   border_color: hexColorSchema.optional(),
+  sidebar_nav_hover_color: hexColorSchema.optional(),
+  sidebar_nav_active_color: hexColorSchema.optional(),
+  sidebar_nav_active_text_color: hexColorSchema.optional(),
+  sidebar_subnav_active_color: hexColorSchema.optional(),
+  sidebar_subnav_active_text_color: hexColorSchema.optional(),
+  sidebar_header_text_color: hexColorSchema.optional(),
+  toolbar_button_color: hexColorSchema.optional(),
+  toolbar_button_hover_color: hexColorSchema.optional(),
+  toolbar_button_text_color: hexColorSchema.optional(),
+  table_header_color: hexColorSchema.optional(),
+  table_header_hover_color: hexColorSchema.optional(),
+  table_header_text_color: hexColorSchema.optional(),
 }).min(1);
 
 const structureQuerySchema = Joi.object({

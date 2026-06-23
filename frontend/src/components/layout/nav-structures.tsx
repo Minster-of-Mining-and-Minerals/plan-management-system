@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/collapsible";
 import { GovernmentStructure } from "@/redux/types/governmentStructure";
 import { SectorLogo, resolveSectorLogoPath } from "@/components/common/SectorLogo";
+import { sidebarSubNavClasses } from "@/lib/branding/sidebarNavClasses";
 
 interface NavStructuresProps {
   structures: GovernmentStructure[];
@@ -74,7 +75,7 @@ export function NavStructures({ structures, structuresById, basePath }: NavStruc
       if (!mounted) {
         return (
           <SidebarMenuSubItem key={structure.government_structure_id}>
-            <SidebarMenuSubButton asChild isActive={isActive || isChildActive}>
+            <SidebarMenuSubButton asChild isActive={isActive || isChildActive} className={sidebarSubNavClasses}>
                 <Link href={url} className="flex items-center gap-4 w-full min-w-0">
                 {renderStructureIcon(structure)}
                 <span className="truncate flex-1 whitespace-nowrap">{structure.name}</span>
@@ -94,6 +95,7 @@ export function NavStructures({ structures, structuresById, basePath }: NavStruc
               <SidebarMenuSubButton
                 asChild
                 isActive={isActive || isChildActive}
+                className={sidebarSubNavClasses}
               >
                 <Link href={url} className="flex items-center gap-4 w-full min-w-0">
                 {renderStructureIcon(structure)}
@@ -114,7 +116,7 @@ export function NavStructures({ structures, structuresById, basePath }: NavStruc
 
     return (
       <SidebarMenuSubItem key={structure.government_structure_id}>
-        <SidebarMenuSubButton asChild isActive={isActive}>
+        <SidebarMenuSubButton asChild isActive={isActive} className={sidebarSubNavClasses}>
           <Link href={url} className="flex items-center gap-4">
             {renderStructureIcon(structure)}
             <span className="truncate whitespace-nowrap">{structure.name}</span>

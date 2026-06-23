@@ -1,7 +1,7 @@
 "use client";
 
 import { resolveBrandingAssetUrl, brandingToCssVariables } from "@/lib/branding/applyBrandingTheme";
-import { BRANDING_COLOR_FIELDS } from "@/lib/branding/defaults";
+import { BRANDING_COLOR_FIELD_GROUPS } from "@/lib/branding/defaults";
 import type { BrandingSettings } from "@/redux/types/branding";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -126,9 +126,16 @@ export function BrandingPreview({ branding }: Props) {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Theme Colors</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-2">
-            {BRANDING_COLOR_FIELDS.map(({ key, label }) => (
-              <ColorSwatch key={key} label={label} color={branding[key]} />
+          <CardContent className="space-y-4">
+            {BRANDING_COLOR_FIELD_GROUPS.map((group) => (
+              <div key={group.title} className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground">{group.title}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {group.fields.map(({ key, label }) => (
+                    <ColorSwatch key={key} label={label} color={branding[key]} />
+                  ))}
+                </div>
+              </div>
             ))}
           </CardContent>
         </Card>
@@ -162,27 +169,42 @@ export function BrandingPreview({ branding }: Props) {
                 )}
                 <p
                   className="text-center text-[10px] font-semibold leading-tight"
-                  style={{ color: branding.text_primary_color }}
+                  style={{ color: branding.sidebar_header_text_color }}
                 >
                   {branding.system_name_short}
                 </p>
                 <p
                   className="text-center text-[9px] leading-tight"
-                  style={{ color: branding.text_secondary_color }}
+                  style={{ color: branding.sidebar_header_text_color }}
                 >
                   {branding.system_tagline}
                 </p>
                 <div
-                  className="rounded px-2 py-1 text-[10px] text-white"
-                  style={{ backgroundColor: branding.primary_color }}
+                  className="rounded px-2 py-1 text-[10px]"
+                  style={{
+                    backgroundColor: branding.sidebar_nav_active_color,
+                    color: branding.sidebar_nav_active_text_color,
+                  }}
                 >
-                  Menu
+                  Active menu
                 </div>
                 <div
                   className="rounded px-2 py-1 text-[10px]"
-                  style={{ color: branding.text_secondary_color }}
+                  style={{
+                    backgroundColor: branding.sidebar_nav_hover_color,
+                    color: branding.text_primary_color,
+                  }}
                 >
-                  Item
+                  Hover menu
+                </div>
+                <div
+                  className="rounded px-2 py-1 text-[10px] ml-2"
+                  style={{
+                    backgroundColor: branding.sidebar_subnav_active_color,
+                    color: branding.sidebar_subnav_active_text_color,
+                  }}
+                >
+                  Active sub-item
                 </div>
               </div>
               <div className="flex-1 flex flex-col min-w-0">
@@ -258,6 +280,12 @@ export function BrandingPreview({ branding }: Props) {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex flex-wrap gap-1.5">
+              <Button size="sm" className="h-7 text-xs bg-toolbar text-toolbar-foreground hover:bg-toolbar-hover">
+                Selected toolbar
+              </Button>
+              <Button size="sm" variant="outline" className="h-7 text-xs">
+                Toolbar outline
+              </Button>
               <Button size="sm" style={{ backgroundColor: branding.primary_color }} className="text-white h-7 text-xs">
                 Primary
               </Button>
@@ -295,7 +323,12 @@ export function BrandingPreview({ branding }: Props) {
             <div className="rounded border overflow-hidden" style={{ borderColor: branding.border_color }}>
               <Table>
                 <TableHeader>
-                  <TableRow style={{ backgroundColor: branding.surface_color }}>
+                  <TableRow
+                    style={{
+                      backgroundColor: branding.table_header_color,
+                      color: branding.table_header_text_color,
+                    }}
+                  >
                     <TableHead className="h-8 text-xs">Name</TableHead>
                     <TableHead className="h-8 text-xs">Status</TableHead>
                   </TableRow>

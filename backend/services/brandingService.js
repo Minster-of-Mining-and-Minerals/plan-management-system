@@ -29,6 +29,18 @@ const DEFAULT_BRANDING = {
   text_primary_color: "#0F172A",
   text_secondary_color: "#64748B",
   border_color: "#E2E8F0",
+  sidebar_nav_hover_color: "#F5E6C8",
+  sidebar_nav_active_color: "#CA8A04",
+  sidebar_nav_active_text_color: "#FFFFFF",
+  sidebar_subnav_active_color: "#F5E6C8",
+  sidebar_subnav_active_text_color: "#0C4A6E",
+  sidebar_header_text_color: "#CA8A04",
+  toolbar_button_color: "#CA8A04",
+  toolbar_button_hover_color: "#A16207",
+  toolbar_button_text_color: "#FFFFFF",
+  table_header_color: "#CA8A04",
+  table_header_hover_color: "#A16207",
+  table_header_text_color: "#FFFFFF",
 };
 
 const COLOR_FIELDS = [
@@ -106,9 +118,31 @@ function pickBrandingPayload(record) {
     surface_color: plain.surface_color,
     sidebar_color: plain.sidebar_color,
     header_color: plain.header_color,
-    text_primary_color: plain.text_primary_color,
-    text_secondary_color: plain.text_secondary_color,
-    border_color: plain.border_color,
+    text_primary_color: plain.text_primary_color ?? DEFAULT_BRANDING.text_primary_color,
+    text_secondary_color: plain.text_secondary_color ?? DEFAULT_BRANDING.text_secondary_color,
+    border_color: plain.border_color ?? DEFAULT_BRANDING.border_color,
+    sidebar_nav_hover_color:
+      plain.sidebar_nav_hover_color ?? DEFAULT_BRANDING.sidebar_nav_hover_color,
+    sidebar_nav_active_color:
+      plain.sidebar_nav_active_color ?? DEFAULT_BRANDING.sidebar_nav_active_color,
+    sidebar_nav_active_text_color:
+      plain.sidebar_nav_active_text_color ?? DEFAULT_BRANDING.sidebar_nav_active_text_color,
+    sidebar_subnav_active_color:
+      plain.sidebar_subnav_active_color ?? DEFAULT_BRANDING.sidebar_subnav_active_color,
+    sidebar_subnav_active_text_color:
+      plain.sidebar_subnav_active_text_color ?? DEFAULT_BRANDING.sidebar_subnav_active_text_color,
+    sidebar_header_text_color:
+      plain.sidebar_header_text_color ?? DEFAULT_BRANDING.sidebar_header_text_color,
+    toolbar_button_color: plain.toolbar_button_color ?? DEFAULT_BRANDING.toolbar_button_color,
+    toolbar_button_hover_color:
+      plain.toolbar_button_hover_color ?? DEFAULT_BRANDING.toolbar_button_hover_color,
+    toolbar_button_text_color:
+      plain.toolbar_button_text_color ?? DEFAULT_BRANDING.toolbar_button_text_color,
+    table_header_color: plain.table_header_color ?? DEFAULT_BRANDING.table_header_color,
+    table_header_hover_color:
+      plain.table_header_hover_color ?? DEFAULT_BRANDING.table_header_hover_color,
+    table_header_text_color:
+      plain.table_header_text_color ?? DEFAULT_BRANDING.table_header_text_color,
     updated_at: plain.updated_at,
   };
 }
@@ -145,7 +179,21 @@ function brandingToCssVariables(branding) {
     "--success": hexToHslComponents(b.success_color),
     "--warning": hexToHslComponents(b.warning_color),
     "--info": hexToHslComponents(b.info_color),
-    "--golden-dark": hexToHslComponents(b.accent_color),
+    "--sidebar-nav-hover": hexToHslComponents(b.sidebar_nav_hover_color),
+    "--sidebar-nav-active": hexToHslComponents(b.sidebar_nav_active_color),
+    "--sidebar-nav-active-foreground": hexToHslComponents(b.sidebar_nav_active_text_color),
+    "--sidebar-subnav-active": hexToHslComponents(b.sidebar_subnav_active_color),
+    "--sidebar-subnav-active-foreground": hexToHslComponents(b.sidebar_subnav_active_text_color),
+    "--sidebar-header-text": hexToHslComponents(b.sidebar_header_text_color),
+    "--toolbar-button": hexToHslComponents(b.toolbar_button_color),
+    "--toolbar-button-hover": hexToHslComponents(b.toolbar_button_hover_color),
+    "--toolbar-button-foreground": hexToHslComponents(b.toolbar_button_text_color),
+    "--table-header": hexToHslComponents(b.table_header_color),
+    "--table-header-hover": hexToHslComponents(b.table_header_hover_color),
+    "--table-header-foreground": hexToHslComponents(b.table_header_text_color),
+    "--golden-dark": hexToHslComponents(b.toolbar_button_color),
+    "--golden-metallic": hexToHslComponents(b.sidebar_nav_hover_color),
+    "--golden-dark-hover": hexToHslComponents(b.toolbar_button_hover_color),
   };
 }
 
@@ -192,6 +240,18 @@ function buildUpdateFields(payload) {
     text_primary_color: payload.text_primary_color,
     text_secondary_color: payload.text_secondary_color,
     border_color: payload.border_color,
+    sidebar_nav_hover_color: payload.sidebar_nav_hover_color,
+    sidebar_nav_active_color: payload.sidebar_nav_active_color,
+    sidebar_nav_active_text_color: payload.sidebar_nav_active_text_color,
+    sidebar_subnav_active_color: payload.sidebar_subnav_active_color,
+    sidebar_subnav_active_text_color: payload.sidebar_subnav_active_text_color,
+    sidebar_header_text_color: payload.sidebar_header_text_color,
+    toolbar_button_color: payload.toolbar_button_color,
+    toolbar_button_hover_color: payload.toolbar_button_hover_color,
+    toolbar_button_text_color: payload.toolbar_button_text_color,
+    table_header_color: payload.table_header_color,
+    table_header_hover_color: payload.table_header_hover_color,
+    table_header_text_color: payload.table_header_text_color,
   };
 }
 

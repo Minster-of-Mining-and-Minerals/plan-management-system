@@ -138,13 +138,13 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow
               key={headerGroup.id}
-              className="bg-golden-dark hover:bg-golden-darkHover rounded-md overflow-clip"
+              className="bg-table-header hover:bg-table-header-hover rounded-md overflow-clip"
             >
               {headerGroup.headers.map((header) => (
                 <TableHead
                   key={header.id}
                   className={cn(
-                    "text-primary-foreground font-bold first:rounded-l-md last:rounded-r-md py-5",
+                    "text-table-header-foreground font-bold first:rounded-l-md last:rounded-r-md py-5",
                     header.column.columnDef.meta?.headerClassName
                   )}
                 >

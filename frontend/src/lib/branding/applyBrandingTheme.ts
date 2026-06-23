@@ -65,7 +65,25 @@ export function brandingToCssVariables(
     "--success": hexToHslComponents(branding.success_color),
     "--warning": hexToHslComponents(branding.warning_color),
     "--info": hexToHslComponents(branding.info_color),
-    "--golden-dark": hexToHslComponents(branding.accent_color),
+    "--sidebar-nav-hover": hexToHslComponents(branding.sidebar_nav_hover_color),
+    "--sidebar-nav-active": hexToHslComponents(branding.sidebar_nav_active_color),
+    "--sidebar-nav-active-foreground": hexToHslComponents(
+      branding.sidebar_nav_active_text_color
+    ),
+    "--sidebar-subnav-active": hexToHslComponents(branding.sidebar_subnav_active_color),
+    "--sidebar-subnav-active-foreground": hexToHslComponents(
+      branding.sidebar_subnav_active_text_color
+    ),
+    "--sidebar-header-text": hexToHslComponents(branding.sidebar_header_text_color),
+    "--toolbar-button": hexToHslComponents(branding.toolbar_button_color),
+    "--toolbar-button-hover": hexToHslComponents(branding.toolbar_button_hover_color),
+    "--toolbar-button-foreground": hexToHslComponents(branding.toolbar_button_text_color),
+    "--table-header": hexToHslComponents(branding.table_header_color),
+    "--table-header-hover": hexToHslComponents(branding.table_header_hover_color),
+    "--table-header-foreground": hexToHslComponents(branding.table_header_text_color),
+    "--golden-dark": hexToHslComponents(branding.toolbar_button_color),
+    "--golden-metallic": hexToHslComponents(branding.sidebar_nav_hover_color),
+    "--golden-dark-hover": hexToHslComponents(branding.toolbar_button_hover_color),
   };
 }
 
