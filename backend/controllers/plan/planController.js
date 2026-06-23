@@ -35,6 +35,18 @@ const {
     getAssignedReviewMasterVersionIds,
 } = require("../../services/planReviewVisibilityService");
 const {
+    resolveAccessibleMasterPlanIds,
+    loadGovernmentStructureIndex,
+    getVisibleNodeIdsForVersion,
+    filterFlatPlanNodesByVisibility,
+    filterNestedPlanNodes,
+    filterHierarchyNodes,
+} = require("../../services/planVisibilityService");
+const {
+    resolveManageableStructureId,
+    sendScopeError,
+} = require("../../utils/structureScopeUtils");
+const {
     enrichLiveMasterReviewFields,
 } = require("../../services/planReviewSnapshotService");
 const {
@@ -170,6 +182,14 @@ const createPlanVersion = async (req, res) => {
             });
         }
 
+        try {
+            const structureIndex = await loadGovernmentStructureIndex();
+            resolveManageableStructureId(req, government_structure_id, structureIndex);
+        } catch (error) {
+            await t.rollback();
+            return sendScopeError(res, error);
+        }
+
         const latestVersion = await PlanVersion.findOne({
             where: {
                 start_year: period.start_year,
@@ -250,6 +270,15 @@ const getPlanVersions = async (req, res) => {
         if (version_kind) where.version_kind = version_kind;
         if (parent_plan_version_id) where.parent_plan_version_id = parent_plan_version_id;
         where.review_snapshot_of_version_id = null;
+
+        const accessibleMasterIds = await resolveAccessibleMasterPlanIds(req);
+        if (accessibleMasterIds !== null) {
+            if (accessibleMasterIds.length === 0) {
+                return res.json({ success: true, data: [] });
+            }
+            where.plan_version_id = { [Op.in]: accessibleMasterIds };
+        }
+
         if (search && search.trim()) {
             const term = `%${search.trim()}%`;
             where[Op.or] = [
@@ -486,6 +515,11 @@ const getPlanVersionById = async (req, res) => {
         }
 
         const enriched = await enrichLiveMasterReviewFields(planVersion);
+        const visibleNodeIds = await getVisibleNodeIdsForVersion(req, id);
+
+        if (enriched?.planNodes) {
+            enriched.planNodes = filterNestedPlanNodes(enriched.planNodes, visibleNodeIds);
+        }
 
         return res.json({
             success: true,
@@ -908,6 +942,9 @@ const getPlanNodes = async (req, res) => {
             const planVersion = await PlanVersion.findByPk(plan_version_id, {
                 attributes: ["plan_version_id", "version_kind", "parent_plan_version_id"],
             });
+            const visibleNodeIds = await getVisibleNodeIdsForVersion(req, plan_version_id);
+            data = filterFlatPlanNodesByVisibility(data, visibleNodeIds);
+
             if (planVersion && planVersion.version_kind !== "master") {
                 const sortMetaByNodeId = await buildDraftAlignedSortMeta(planVersion, nodes);
                 data = sortFlatPlanNodes(planVersion, data, sortMetaByNodeId);
@@ -1298,7 +1335,12 @@ const getPlanHierarchy = async (req, res) => {
         });
         await enrichPeriodNodesWithLiveAnnualTargets(planVersion, nodeMap, nodes);
         const sortMetaByNodeId = await buildDraftAlignedSortMeta(planVersion, nodes);
-        const sortedRoots = sortHierarchyTree(roots, sortMetaByNodeId);
+        let sortedRoots = sortHierarchyTree(roots, sortMetaByNodeId);
+
+        const visibleNodeIds = await getVisibleNodeIdsForVersion(req, plan_version_id);
+        if (visibleNodeIds) {
+            sortedRoots = filterHierarchyNodes(sortedRoots, visibleNodeIds);
+        }
 
         return res.json({
             success: true,
