@@ -14,7 +14,7 @@ const {
 const { resolvePlanRuleForVersion } = require("./planRuleService");
 const { stepRequiresWeight } = require("./planRuleStepUtils");
 const {
-    getOrCreateGlobalPlanningConfig,
+    getEffectivePlanningConfigForStructure,
     resolvePeriodLabels,
     resolvePeriodLabelsForMode,
     normalizeCustomPeriods,
@@ -1026,7 +1026,10 @@ async function generateExecutionPeriods(annualVersionId, transaction, options = 
             periodLabels = resolvePeriodLabelsForMode(subdivisionMode, customPeriods);
         }
     } else {
-        const config = await getOrCreateGlobalPlanningConfig(transaction);
+        const config = await getEffectivePlanningConfigForStructure(
+            annualVersion.government_structure_id,
+            transaction
+        );
         periodLabels = resolvePeriodLabels(config);
     }
 

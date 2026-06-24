@@ -416,6 +416,17 @@ async function restoreSectorPlanningConfig(governmentStructureId, transaction = 
   return getOrCreateGlobalPlanningConfig(transaction);
 }
 
+async function getEffectivePlanningConfigForStructure(
+  governmentStructureId,
+  transaction = null
+) {
+  const resolved = await resolveEffectivePlanningConfig(
+    governmentStructureId ?? null,
+    transaction
+  );
+  return resolved.effective;
+}
+
 function computeEndYear(startYear, durationYears) {
   return startYear + durationYears - 1;
 }
@@ -505,6 +516,7 @@ module.exports = {
   upsertSectorPlanningConfig,
   restoreGlobalPlanningConfig,
   restoreSectorPlanningConfig,
+  getEffectivePlanningConfigForStructure,
   computeEndYear,
   computePlanningPeriodEnd,
   parseDateOnly,

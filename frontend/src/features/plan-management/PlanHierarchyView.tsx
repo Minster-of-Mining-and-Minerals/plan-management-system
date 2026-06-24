@@ -41,7 +41,7 @@ import { AnnualVersionsDashboard } from "./components/AnnualVersionsDashboard";
 import { PlanReviewDashboard } from "./components/PlanReviewDashboard";
 import { ExecutionPeriodsDashboard } from "./components/ExecutionPeriodsDashboard";
 import { FinalizeExecutionPeriodsModal } from "./modals/FinalizeExecutionPeriodsModal";
-import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
+import { usePlanVersionPlanningConfiguration } from "@/hooks/usePlanVersionPlanningConfiguration";
 import { formatStatus } from "@/utils/statusFormatter";
 import { canEditAnnualTargetForVersion, canEditPeriodTargetForVersion } from "@/utils/planDraftUtils";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -142,7 +142,10 @@ export default function PlanHierarchyView({
     const { data: masterVersion } = useGetPlanVersionByIdQuery(resolvedMasterVersionId!, {
         skip: !resolvedMasterVersionId,
     });
-    const { data: planningConfig } = useGetPlanningConfigurationQuery();
+    const { config: planningConfig } = usePlanVersionPlanningConfiguration(
+        version,
+        masterVersion
+    );
     const { data: rule } = useGetPlanRuleForVersionQuery(versionId);
     const { data: hierarchy = [], isLoading, refetch } = useGetPlanHierarchyQuery(versionId);
     const [deleteNode] = useDeletePlanNodeMutation();
@@ -191,6 +194,7 @@ export default function PlanHierarchyView({
 
     const effectiveMasterVersion =
         version?.version_kind === "master" ? version : masterVersion;
+    const planningStructureId = effectiveMasterVersion?.government_structure_id;
     const masterReviewStatus = effectiveMasterVersion?.review_status;
     const isReviewMode = mode === "review";
     const plansBasePath = isReviewMode ? "/plans/review" : "/plans";
@@ -660,6 +664,7 @@ export default function PlanHierarchyView({
                         hierarchyNumberMap={hierarchyNumberMap}
                         rule={rule}
                         rootLabel={rootLabel}
+                        governmentStructureId={planningStructureId}
                         onAddChild={handleAddChild}
                         onEdit={handleEdit}
                         onDelete={handleDelete}
@@ -686,6 +691,7 @@ export default function PlanHierarchyView({
                         nodes={currentNodes}
                         hierarchyNumberMap={hierarchyNumberMap}
                         rule={rule}
+                        governmentStructureId={planningStructureId}
                         showDualTargets={isAnnualVersion || isExecutionPeriod}
                         showAnnualTargets={showAnnualTargets}
                         showPeriodTargets={showPeriodTargets}
@@ -715,6 +721,7 @@ export default function PlanHierarchyView({
                     nodes={hierarchy}
                     hierarchyNumberMap={hierarchyNumberMap}
                     rule={rule}
+                    governmentStructureId={planningStructureId}
                     onAddChild={handleAddChild}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
@@ -739,6 +746,7 @@ export default function PlanHierarchyView({
                     nodes={currentNodes}
                     hierarchyNumberMap={hierarchyNumberMap}
                     rule={rule}
+                    governmentStructureId={planningStructureId}
                     onAddChild={handleAddChild}
                     onEdit={handleEdit}
                     onDelete={handleDelete}

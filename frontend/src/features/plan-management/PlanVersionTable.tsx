@@ -15,9 +15,8 @@ import {
     useUpdatePlanVersionStatusMutation,
     useReopenFinalizedPlanForEditMutation,
 } from "@/redux/api/planApi";
-import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
+import { useEffectivePlanningConfiguration } from "@/hooks/useEffectivePlanningConfiguration";
 import { PlanVersion } from "@/redux/types/plan";
-import { DEFAULT_PLANNING_CONFIGURATION } from "@/redux/types/planningConfig";
 import { formatStatus } from "@/utils/statusFormatter";
 import {
     formatDurationYears,
@@ -56,7 +55,7 @@ export default function PlanVersionTable() {
     const [statusFilter, setStatusFilter] = useState("");
     const { can } = usePermissions();
 
-    const { data: config = DEFAULT_PLANNING_CONFIGURATION } = useGetPlanningConfigurationQuery();
+    const { config } = useEffectivePlanningConfiguration();
     const [deleteVersion] = useDeletePlanVersionMutation();
     const [updateStatus] = useUpdatePlanVersionStatusMutation();
     const [reopenForEdit, { isLoading: isReopening }] = useReopenFinalizedPlanForEditMutation();
@@ -69,6 +68,10 @@ export default function PlanVersionTable() {
     const draftsLabel = config.draft_entity_label_plural;
 
     const handleEditVersion = async (version: PlanVersion) => {
+        if (version.access_role === "participant") {
+            return;
+        }
+
         if (version.status === "draft") {
             setSelectedVersion(version);
             setModalOpen(true);
@@ -142,6 +145,29 @@ export default function PlanVersionTable() {
             ),
         },
         {
+            id: "access",
+            header: "Access",
+            meta: {
+                headerClassName: "w-[12%] whitespace-nowrap",
+                cellClassName: "whitespace-nowrap",
+            },
+            cell: ({ row }) => {
+                const role = row.original.access_role ?? "owner";
+                if (role === "participant") {
+                    return (
+                        <Badge variant="secondary" className="text-xs">
+                            Participant
+                        </Badge>
+                    );
+                }
+                return (
+                    <Badge variant="outline" className="text-xs">
+                        Owner
+                    </Badge>
+                );
+            },
+        },
+        {
             accessorKey: "status",
             header: "Status",
             meta: {
@@ -177,7 +203,10 @@ export default function PlanVersionTable() {
                 headerClassName: "w-[16%] whitespace-nowrap",
                 cellClassName: "whitespace-nowrap",
             },
-            cell: ({ row }) => (
+            cell: ({ row }) => {
+                const isParticipant = row.original.access_role === "participant";
+
+                return (
                 <div className="flex items-center gap-1">
                     <PermissionGuard requireAll={[PLAN_PERMISSIONS.READ]}>
                         <Button
@@ -189,7 +218,7 @@ export default function PlanVersionTable() {
                             <Eye className="h-4 w-4" />
                         </Button>
                     </PermissionGuard>
-                    {row.original.status === "draft" && (
+                    {row.original.status === "draft" && !isParticipant && (
                         <>
                             <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
                                 <Button
@@ -215,7 +244,7 @@ export default function PlanVersionTable() {
                             </PermissionGuard>
                         </>
                     )}
-                    {canEditFinalizedMasterPlan(row.original, can) && (
+                    {canEditFinalizedMasterPlan(row.original, can) && !isParticipant && (
                         <PermissionGuard requireAll={[PLAN_PERMISSIONS.EDIT_FINALIZED]}>
                             <Button
                                 onClick={() => handleEditVersion(row.original)}
@@ -256,6 +285,7 @@ export default function PlanVersionTable() {
                         </PermissionGuard>
                     )}
                     <PermissionGuard requireAll={PLAN_DRAFT_PUBLISH_PERMISSIONS}>
+                        {!isParticipant ? (
                         <Button
                             onClick={() => setDuplicateVersion(row.original)}
                             variant="ghost"
@@ -264,7 +294,9 @@ export default function PlanVersionTable() {
                         >
                             <Copy className="h-4 w-4" />
                         </Button>
+                        ) : null}
                     </PermissionGuard>
+                    {!isParticipant && (
                     <PermissionGuard requireAll={[PLAN_PERMISSIONS.DELETE]}>
                         <Button
                             onClick={() => handleDelete(row.original.plan_version_id)}
@@ -276,8 +308,10 @@ export default function PlanVersionTable() {
                             <Trash className="h-4 w-4" />
                         </Button>
                     </PermissionGuard>
+                    )}
                 </div>
-            ),
+                );
+            },
         },
     ];
 

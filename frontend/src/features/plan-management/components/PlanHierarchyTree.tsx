@@ -20,7 +20,7 @@ import { PlanNodeAssignmentSummary } from "./PlanNodeAssignmentSummary";
 import { PlanNodeAnnualTargetSection } from "./PlanNodeAnnualTargetSection";
 import { PlanNodePeriodTargetSection } from "./PlanNodePeriodTargetSection";
 import { PlanNodeActions } from "./PlanNodeActions";
-import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
+import { useEffectivePlanningConfiguration } from "@/hooks/useEffectivePlanningConfiguration";
 
 interface NodeItemProps {
     node: PlanNodeHierarchy;
@@ -264,6 +264,7 @@ interface PlanHierarchyTreeProps {
     canEditPeriodTarget?: boolean;
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
     periodTargetAllocations?: Record<string, PeriodTargetAllocation>;
+    governmentStructureId?: string;
 }
 
 export function PlanHierarchyTree({
@@ -288,8 +289,12 @@ export function PlanHierarchyTree({
     canEditPeriodTarget = false,
     annualTargetAllocations,
     periodTargetAllocations,
+    governmentStructureId,
 }: PlanHierarchyTreeProps) {
-    const { data: planningConfig } = useGetPlanningConfigurationQuery();
+    const { config: planningConfig } = useEffectivePlanningConfiguration({
+        governmentStructureId,
+        skip: !governmentStructureId,
+    });
     const configuredUnits = planningConfig?.target_units;
     const sortedNodes = useMemo(() => nodes, [nodes]);
 

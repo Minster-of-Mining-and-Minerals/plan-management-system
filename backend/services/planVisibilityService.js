@@ -224,6 +224,62 @@ function filterNestedPlanNodes(nodes, visibleNodeIds) {
     }));
 }
 
+/**
+ * Batch-resolve access_role for master plan list rows.
+ * owner — plan owned by actor's visible subtree
+ * participant — external assignment only (assigned branch)
+ */
+async function resolvePlanAccessRolesForMasters(req, masterPlanVersionIds) {
+  const roles = new Map();
+  if (!masterPlanVersionIds?.length) {
+    return roles;
+  }
+
+  if (isSuperAdminActor(req)) {
+    for (const planVersionId of masterPlanVersionIds) {
+      roles.set(planVersionId, "owner");
+    }
+    return roles;
+  }
+
+  const structureIndex = await loadGovernmentStructureIndex();
+  const actorSectorId = req.user?.government_structure_id;
+  if (!actorSectorId) {
+    for (const planVersionId of masterPlanVersionIds) {
+      roles.set(planVersionId, "participant");
+    }
+    return roles;
+  }
+
+  const visibleSet = buildVisibleGovernmentStructureIdSet(
+    structureIndex,
+    actorSectorId
+  );
+  const participantMasterIds = new Set(
+    await getParticipatingMasterPlanIds(req.user)
+  );
+
+  const masters = await PlanVersion.findAll({
+    where: {
+      plan_version_id: { [Op.in]: masterPlanVersionIds },
+      version_kind: "master",
+    },
+    attributes: ["plan_version_id", "government_structure_id"],
+  });
+
+  for (const master of masters) {
+    if (visibleSet.has(master.government_structure_id)) {
+      roles.set(master.plan_version_id, "owner");
+    } else if (participantMasterIds.has(master.plan_version_id)) {
+      roles.set(master.plan_version_id, "participant");
+    } else {
+      roles.set(master.plan_version_id, "participant");
+    }
+  }
+
+  return roles;
+}
+
 module.exports = {
   loadGovernmentStructureIndex,
   getMasterPlanVersion,
@@ -237,4 +293,5 @@ module.exports = {
   filterFlatPlanNodesByVisibility,
   filterNestedPlanNodes,
   filterHierarchyNodes,
+  resolvePlanAccessRolesForMasters,
 };

@@ -39,9 +39,10 @@ import {
     useCreatePlanNodeMutation,
     useUpdatePlanNodeMutation,
     useGetPlanNodesQuery,
+    useGetPlanVersionByIdQuery,
 } from "@/redux/api/planApi";
 import { useGetPlanRuleForVersionQuery } from "@/redux/api/planRuleApi";
-import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
+import { usePlanVersionPlanningConfiguration } from "@/hooks/usePlanVersionPlanningConfiguration";
 import { TARGET_UNIT_NONE_VALUE } from "@/redux/types/planningConfig";
 import { PlanNode, PlanRuleWeightMode, AssignmentSharingMode } from "@/redux/types/plan";
 import {
@@ -75,7 +76,8 @@ export function CreatePlanNodeModal({
     const [createNode, { isLoading: isCreating }] = useCreatePlanNodeMutation();
     const [updateNode, { isLoading: isUpdating }] = useUpdatePlanNodeMutation();
     const { data: rule } = useGetPlanRuleForVersionQuery(planVersionId, { skip: !isOpen });
-    const { data: planningConfig } = useGetPlanningConfigurationQuery(undefined, { skip: !isOpen });
+    const { data: planVersion } = useGetPlanVersionByIdQuery(planVersionId, { skip: !isOpen });
+    const { config: planningConfig } = usePlanVersionPlanningConfiguration(planVersion);
     const configuredUnits = planningConfig?.target_units ?? [];
 
     const nodeLevel = node?.level ?? (parentNode ? parentNode.level + 1 : 1);

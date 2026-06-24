@@ -4,6 +4,7 @@
 
 export type PlanVersionKind = "master" | "annual" | "execution_period";
 export type PlanVersionStatus = "draft" | "active" | "completed" | "finalized" | "locked";
+export type PlanAccessRole = "owner" | "participant";
 export type PlanReviewStatus = "under_review" | "corrections_unlocked" | "review_completed";
 export type PeriodSubdivisionMode = "quarterly" | "semi_annual" | "custom";
 
@@ -48,6 +49,7 @@ export interface PlanVersion {
     government_structure_id: string;
     based_on_version_id: string | null;
     plan_rule_id?: string | null;
+    access_role?: PlanAccessRole;
     created_at: string;
     updated_at: string;
     governmentStructure?: GovernmentStructure;

@@ -41,6 +41,7 @@ const {
     filterFlatPlanNodesByVisibility,
     filterNestedPlanNodes,
     filterHierarchyNodes,
+    resolvePlanAccessRolesForMasters,
 } = require("../../services/planVisibilityService");
 const {
     resolveManageableStructureId,
@@ -50,13 +51,13 @@ const {
     enrichLiveMasterReviewFields,
 } = require("../../services/planReviewSnapshotService");
 const {
-    getOrCreateGlobalPlanningConfig,
-    pickPlanningConfigPayload,
+    getEffectivePlanningConfigForStructure,
     computePlanningPeriodEnd,
     validatePlanningStartDate,
     validatePlanningDuration,
     validateYearRange,
     validateNodeTargetUnit,
+    resolvePeriodLabels,
 } = require("../../services/planningConfigurationService");
 const {
     propagateMasterPlanNodeCreate,
@@ -70,6 +71,9 @@ const {
     PLAN_LIFECYCLE_PERMISSIONS,
 } = require("../../utils/planMasterEditUtils");
 const { validatePlanNodeAgainstRule } = require("../../services/planRuleService");
+const {
+    assertPlanRuleApplicableToSector,
+} = require("../../utils/planRuleApplicabilityUtils");
 const {
     completeAnnualVersion,
     completeExecutionPeriod,
@@ -96,7 +100,15 @@ async function validateTargetUnitForNode({
             ],
             transaction,
         }),
-        getOrCreateGlobalPlanningConfig(transaction),
+        PlanVersion.findByPk(planVersionId, {
+            attributes: ["government_structure_id"],
+            transaction,
+        }).then((version) =>
+            getEffectivePlanningConfigForStructure(
+                version?.government_structure_id ?? null,
+                transaction
+            )
+        ),
     ]);
 
     const isSelectionLevel = isWeightModeSelectionLevel(planVersion?.planRule, nodeLevel);
@@ -146,8 +158,10 @@ const createPlanVersion = async (req, res) => {
             plan_rule_id,
         } = req.body;
 
-        const configRecord = await getOrCreateGlobalPlanningConfig(t);
-        const config = pickPlanningConfigPayload(configRecord);
+        const config = await getEffectivePlanningConfigForStructure(
+            government_structure_id,
+            t
+        );
 
         const planningStartDate = resolvePlanningStartDate(req.body);
         const startDateError = validatePlanningStartDate(planningStartDate);
@@ -209,6 +223,24 @@ const createPlanVersion = async (req, res) => {
                 return res.status(404).json({
                     success: false,
                     message: "Base plan draft not found",
+                });
+            }
+        }
+
+        if (plan_rule_id) {
+            const structureIndex = await loadGovernmentStructureIndex();
+            const selectedRule = await PlanRule.findByPk(plan_rule_id, { transaction: t });
+            try {
+                assertPlanRuleApplicableToSector(
+                    selectedRule,
+                    government_structure_id,
+                    structureIndex
+                );
+            } catch (error) {
+                await t.rollback();
+                return res.status(error.status || 400).json({
+                    success: false,
+                    message: error.message,
                 });
             }
         }
@@ -315,9 +347,19 @@ const getPlanVersions = async (req, res) => {
             order: [["start_year", "DESC"], ["version_number", "DESC"]],
         });
 
+        const accessRoles = await resolvePlanAccessRolesForMasters(
+            req,
+            versions.map((version) => version.plan_version_id)
+        );
+
         return res.json({
             success: true,
-            data: versions,
+            data: versions.map((version) => ({
+                ...(typeof version.get === "function"
+                    ? version.get({ plain: true })
+                    : version.toJSON()),
+                access_role: accessRoles.get(version.plan_version_id) || "owner",
+            })),
         });
     } catch (error) {
         return res.status(500).json({ error: error.message });
@@ -556,11 +598,14 @@ const updatePlanVersion = async (req, res) => {
             });
         }
 
-        const configRecord = await getOrCreateGlobalPlanningConfig(t);
-        const config = pickPlanningConfigPayload(configRecord);
+        const body = { ...req.body };
+        delete body.end_year;
 
-        const updates = { ...req.body };
-        delete updates.end_year;
+        const targetStructureId =
+            body.government_structure_id ?? planVersion.government_structure_id;
+        const config = await getEffectivePlanningConfigForStructure(targetStructureId, t);
+
+        const updates = { ...body };
 
         const planningStartDate =
             updates.planning_start_date ??
@@ -606,6 +651,26 @@ const updatePlanVersion = async (req, res) => {
             updates.end_month = period.end_month;
             updates.planning_duration_years = durationYears;
             updates.year = period.start_year;
+        }
+
+        if (updates.plan_rule_id) {
+            const structureIndex = await loadGovernmentStructureIndex();
+            const selectedRule = await PlanRule.findByPk(updates.plan_rule_id, {
+                transaction: t,
+            });
+            try {
+                assertPlanRuleApplicableToSector(
+                    selectedRule,
+                    targetStructureId,
+                    structureIndex
+                );
+            } catch (error) {
+                await t.rollback();
+                return res.status(error.status || 400).json({
+                    success: false,
+                    message: error.message,
+                });
+            }
         }
 
         await planVersion.update(updates, { transaction: t });

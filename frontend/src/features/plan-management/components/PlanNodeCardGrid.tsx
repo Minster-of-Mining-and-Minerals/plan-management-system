@@ -14,7 +14,7 @@ import {
     resolveCompletionForEntity,
 } from "@/utils/performanceColorUtils";
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
-import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
+import { useEffectivePlanningConfiguration } from "@/hooks/useEffectivePlanningConfiguration";
 import { PlanNodeIcon } from "./PlanNodeIcon";
 import { PlanNodeActions } from "./PlanNodeActions";
 import { CircularProgress } from "./CircularProgress";
@@ -48,6 +48,7 @@ interface PlanNodeCardGridProps {
     readOnly?: boolean;
     dangerMode?: boolean;
     showRaiseIssue?: boolean;
+    governmentStructureId?: string;
 }
 
 export function PlanNodeCardGrid({
@@ -72,8 +73,12 @@ export function PlanNodeCardGrid({
     readOnly = false,
     dangerMode = false,
     showRaiseIssue = false,
+    governmentStructureId,
 }: PlanNodeCardGridProps) {
-    const { data: planningConfig } = useGetPlanningConfigurationQuery();
+    const { config: planningConfig } = useEffectivePlanningConfiguration({
+        governmentStructureId,
+        skip: !governmentStructureId,
+    });
     const configuredUnits = planningConfig?.target_units;
     const thresholds = usePerformanceColorThresholds();
 

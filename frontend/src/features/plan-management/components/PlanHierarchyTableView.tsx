@@ -17,6 +17,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { PlanNode, PlanNodeHierarchy, PlanRule, AnnualTargetAllocation, PeriodTargetAllocation } from "@/redux/types/plan";
+import type { TargetUnit } from "@/redux/types/planningConfig";
 import {
     formatNodeTarget,
     getStepLabel,
@@ -26,7 +27,7 @@ import {
 } from "@/utils/planRuleUtils";
 import { resolveCompletionForEntity } from "@/utils/performanceColorUtils";
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
-import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
+import { useEffectivePlanningConfiguration } from "@/hooks/useEffectivePlanningConfiguration";
 import { getHierarchyNumber } from "@/utils/planNodeOrderUtils";
 import { flattenPlanSubtree } from "@/utils/planHierarchyTableUtils";
 import { PlanNodeActions } from "./PlanNodeActions";
@@ -60,6 +61,7 @@ interface PlanHierarchyTableViewProps {
     canEditPeriodTarget?: boolean;
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
     periodTargetAllocations?: Record<string, PeriodTargetAllocation>;
+    governmentStructureId?: string;
 }
 
 interface StrategicFocusTableProps {
@@ -86,6 +88,7 @@ interface StrategicFocusTableProps {
     canEditPeriodTarget?: boolean;
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
     periodTargetAllocations?: Record<string, PeriodTargetAllocation>;
+    configuredUnits?: TargetUnit[];
 }
 
 function StrategicFocusTable({
@@ -112,9 +115,8 @@ function StrategicFocusTable({
     canEditPeriodTarget = false,
     annualTargetAllocations,
     periodTargetAllocations,
+    configuredUnits,
 }: StrategicFocusTableProps) {
-    const { data: planningConfig } = useGetPlanningConfigurationQuery();
-    const configuredUnits = planningConfig?.target_units;
     const thresholds = usePerformanceColorThresholds();
 
     const rows = useMemo(() => flattenPlanSubtree(root), [root]);
@@ -524,7 +526,13 @@ export function PlanHierarchyTableView({
     canEditPeriodTarget = false,
     annualTargetAllocations,
     periodTargetAllocations,
+    governmentStructureId,
 }: PlanHierarchyTableViewProps) {
+    const { config: planningConfig } = useEffectivePlanningConfiguration({
+        governmentStructureId,
+        skip: !governmentStructureId,
+    });
+    const configuredUnits = planningConfig?.target_units;
     const sortedRoots = useMemo(() => roots, [roots]);
 
     return (
@@ -559,6 +567,7 @@ export function PlanHierarchyTableView({
                     canEditPeriodTarget={canEditPeriodTarget}
                     annualTargetAllocations={annualTargetAllocations}
                     periodTargetAllocations={periodTargetAllocations}
+                    configuredUnits={configuredUnits}
                 />
             ))}
         </div>

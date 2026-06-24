@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { useForm } from "react-hook-form";
 import { createFormResolver } from "@/lib/zod-form";
@@ -41,12 +41,15 @@ import {
     useUpdatePlanVersionMutation,
     useGetPlanVersionsQuery,
 } from "@/redux/api/planApi";
-import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
 import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
 import { useGetPlanRulesQuery } from "@/redux/api/planRuleApi";
 import { PlanVersion } from "@/redux/types/plan";
-import { DEFAULT_PLANNING_CONFIGURATION } from "@/redux/types/planningConfig";
 import { PlanningStartDatePicker } from "../components/PlanningStartDatePicker";
+import { useEffectivePlanningConfiguration } from "@/hooks/useEffectivePlanningConfiguration";
+import { useGovernmentStructureListParams } from "@/hooks/useGovernmentStructureListParams";
+import { useStructureScope } from "@/hooks/useStructureScope";
+import { filterApplicablePlanRules } from "@/utils/planRuleApplicabilityUtils";
+import { formatPlanRuleScopeLabel } from "@/utils/planRuleScopeUtils";
 import {
     buildDurationOptions,
     computePlanningEndDate,
@@ -87,13 +90,37 @@ export function CreatePlanVersionModal({
     onClose,
     version,
 }: CreatePlanVersionModalProps) {
-    const { data: config = DEFAULT_PLANNING_CONFIGURATION } = useGetPlanningConfigurationQuery();
+    const { structureId: sessionStructureId } = useStructureScope();
+    const { params: structureQueryParams, skip: skipStructures } =
+        useGovernmentStructureListParams({ is_active: true });
     const [createVersion, { isLoading: isCreating }] = useCreatePlanVersionMutation();
     const [updateVersion, { isLoading: isUpdating }] = useUpdatePlanVersionMutation();
 
-    const { data: structures = [] } = useGetGovernmentStructuresQuery({});
-    const { data: planRules = [] } = useGetPlanRulesQuery({ is_active: true });
+    const { data: structures = [] } = useGetGovernmentStructuresQuery(structureQueryParams, {
+        skip: skipStructures,
+    });
+
+    const initialStructureId =
+        version?.government_structure_id ?? sessionStructureId ?? "";
+    const [configStructureId, setConfigStructureId] = useState(initialStructureId);
+
+    const { data: planRules = [] } = useGetPlanRulesQuery(
+        configStructureId
+            ? { government_structure_id: configStructureId, is_active: true }
+            : { is_active: true },
+        { skip: !isOpen }
+    );
     const { data: existingVersions = [] } = useGetPlanVersionsQuery({});
+
+    const applicablePlanRules = useMemo(
+        () => filterApplicablePlanRules(planRules, configStructureId, structures),
+        [planRules, configStructureId, structures]
+    );
+
+    const { config } = useEffectivePlanningConfiguration({
+        governmentStructureId: configStructureId || undefined,
+        skip: !isOpen,
+    });
 
     const formSchema = useMemo(
         () => buildFormSchema(config.min_duration_years, config.max_duration_years),
@@ -106,12 +133,12 @@ export function CreatePlanVersionModal({
     );
 
     const form = useForm<FormValues>({
-        resolver: createFormResolver<z.infer<typeof formSchema>>(formSchema),
+        resolver: createFormResolver(formSchema),
         defaultValues: {
             draft_name: "",
             planning_start_date: getDefaultPlanningStartDate(),
             planning_duration_years: config.min_duration_years,
-            government_structure_id: "",
+            government_structure_id: initialStructureId,
             based_on_version_id: null,
             plan_rule_id: null,
         },
@@ -124,6 +151,12 @@ export function CreatePlanVersionModal({
         : "";
 
     useEffect(() => {
+        if (!isOpen) return;
+
+        const nextStructureId =
+            version?.government_structure_id ?? sessionStructureId ?? "";
+        setConfigStructureId(nextStructureId);
+
         if (version) {
             form.reset({
                 draft_name: version.draft_name,
@@ -140,12 +173,35 @@ export function CreatePlanVersionModal({
                 draft_name: "",
                 planning_start_date: getDefaultPlanningStartDate(),
                 planning_duration_years: config.min_duration_years,
-                government_structure_id: "",
+                government_structure_id: nextStructureId,
                 based_on_version_id: null,
                 plan_rule_id: null,
             });
         }
-    }, [version, form, isOpen, config.min_duration_years]);
+    }, [version, form, isOpen, sessionStructureId, config.min_duration_years]);
+
+    useEffect(() => {
+        const currentDuration = Number(form.getValues("planning_duration_years"));
+        if (!Number.isFinite(currentDuration)) return;
+
+        if (currentDuration < config.min_duration_years) {
+            form.setValue("planning_duration_years", config.min_duration_years);
+        } else if (currentDuration > config.max_duration_years) {
+            form.setValue("planning_duration_years", config.max_duration_years);
+        }
+    }, [config.min_duration_years, config.max_duration_years, form]);
+
+    useEffect(() => {
+        const currentRuleId = form.getValues("plan_rule_id");
+        if (!currentRuleId) return;
+
+        const stillApplicable = applicablePlanRules.some(
+            (rule) => rule.plan_rule_id === currentRuleId
+        );
+        if (!stillApplicable) {
+            form.setValue("plan_rule_id", null);
+        }
+    }, [applicablePlanRules, form]);
 
     async function onSubmit(values: FormValues) {
         try {
@@ -287,7 +343,10 @@ export function CreatePlanVersionModal({
                                 <FormItem>
                                     <FormLabel>Sector Structure</FormLabel>
                                     <Select
-                                        onValueChange={field.onChange}
+                                        onValueChange={(value) => {
+                                            field.onChange(value);
+                                            setConfigStructureId(value);
+                                        }}
                                         value={field.value}
                                     >
                                         <FormControl>
@@ -360,9 +419,9 @@ export function CreatePlanVersionModal({
                                             <SelectItem value="default">
                                                 Auto (sector or global default)
                                             </SelectItem>
-                                            {planRules.map((r) => (
+                                            {applicablePlanRules.map((r) => (
                                                 <SelectItem key={r.plan_rule_id} value={r.plan_rule_id}>
-                                                    {r.name}
+                                                    {r.name} ({formatPlanRuleScopeLabel(r)})
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>

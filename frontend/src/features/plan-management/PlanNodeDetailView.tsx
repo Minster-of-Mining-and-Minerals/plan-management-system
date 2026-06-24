@@ -50,7 +50,7 @@ import { PlanNodeAssignmentReadOnly } from "./components/PlanNodeAssignmentReadO
 import { PlanAssignmentScopeBanner } from "./components/PlanAssignmentScopeBanner";
 import { AssignmentModeAlerts } from "./components/AssignmentModeAlerts";
 import { AnnualTargetAllocationSummary } from "./components/AnnualTargetAllocationSummary";
-import { useGetPlanningConfigurationQuery } from "@/redux/api/planningConfigApi";
+import { usePlanVersionPlanningConfiguration } from "@/hooks/usePlanVersionPlanningConfiguration";
 import { formatNodeTarget } from "@/utils/planRuleUtils";
 import { canEditAnnualTargetForVersion, canEditPeriodTargetForVersion, resolveLiveDraftTarget } from "@/utils/planDraftUtils";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -103,7 +103,10 @@ export default function PlanNodeDetailView({
     const { data: masterVersion } = useGetPlanVersionByIdQuery(resolvedMasterVersionId!, {
         skip: !resolvedMasterVersionId,
     });
-    const { data: planningConfig } = useGetPlanningConfigurationQuery();
+    const { config: planningConfig } = usePlanVersionPlanningConfiguration(
+        version,
+        masterVersion
+    );
     const [updateAnnualTarget, { isLoading: isSavingTarget }] = useUpdateAnnualTargetMutation();
     const [updatePeriodTarget, { isLoading: isSavingPeriodTarget }] = useUpdatePeriodTargetMutation();
     const [annualTargetInput, setAnnualTargetInput] = useState("");
