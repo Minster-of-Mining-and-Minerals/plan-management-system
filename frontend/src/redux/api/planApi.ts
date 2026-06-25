@@ -72,6 +72,35 @@ export const planApi = baseApi.injectEndpoints({
             providesTags: ["PlanVersions"],
         }),
 
+        getPlanExecutionDashboard: builder.query<
+            import("@/features/plan-management/dashboard/types").PlanExecutionDashboardResponse,
+            {
+                government_structure_id?: string;
+                master_plan_version_id?: string;
+                status?: string;
+                sharing_mode?: string;
+                search?: string;
+                date_from?: string;
+                date_to?: string;
+            } | void
+        >({
+            query: (params) => {
+                if (!params) return { url: "/plan/execution-dashboard" };
+                const cleanParams = Object.fromEntries(
+                    Object.entries(params).filter(
+                        ([, value]) => value !== "" && value != null && value !== "all" && value !== "auto"
+                    )
+                );
+                return Object.keys(cleanParams).length > 0
+                    ? { url: "/plan/execution-dashboard", params: cleanParams }
+                    : { url: "/plan/execution-dashboard" };
+            },
+            transformResponse: (response: {
+                data: import("@/features/plan-management/dashboard/types").PlanExecutionDashboardResponse;
+            }) => response.data,
+            providesTags: ["PlanExecutionDashboard"],
+        }),
+
         /** ---------------------------
          * GET PLAN VERSION BY ID
          * --------------------------- */
@@ -378,6 +407,7 @@ export const planApi = baseApi.injectEndpoints({
                 { type: "PlanNodes", id },
                 "PlanNodes",
                 "PlanVersions",
+                "PlanExecutionDashboard",
                 { type: "PlanVersions", id: "LIST" },
             ],
         }),
@@ -622,6 +652,7 @@ export const planApi = baseApi.injectEndpoints({
 export const {
     // Plan Versions
     useGetPlanVersionsQuery,
+    useGetPlanExecutionDashboardQuery,
     useGetPlanVersionsForReviewQuery,
     useGetPlanVersionByIdQuery,
     useCreatePlanVersionMutation,

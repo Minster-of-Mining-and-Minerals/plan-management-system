@@ -28,7 +28,7 @@ export function DepartmentTab({ state }: DepartmentTabProps) {
       <div>
         <h2 className="text-lg font-semibold text-golden-dark">Department Analytics</h2>
         <p className="text-sm text-muted-foreground">
-          Departments grouped by structure — filtered by global mock filters.
+          Departments grouped by structure — progress inherits structure execution average.
         </p>
       </div>
 
@@ -49,7 +49,7 @@ export function DepartmentTab({ state }: DepartmentTabProps) {
                   <div>
                     <h4 className="font-medium text-golden-dark">{dept.name}</h4>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {dept.planCount} plans (mock)
+                      {dept.planCount} linked plan{dept.planCount !== 1 ? "s" : ""}
                     </p>
                   </div>
                   <StatusBadge status={dept.status} />

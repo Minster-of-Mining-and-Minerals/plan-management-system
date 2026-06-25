@@ -50,8 +50,8 @@ export function PlanDashboardFiltersBar({ state }: PlanDashboardFiltersProps) {
           <div className="flex items-center gap-2 text-sm font-semibold text-golden-dark">
             <Filter className="h-4 w-4" />
             Global Filters
-            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700 border border-amber-100">
-              Mock UI
+            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-700 border border-emerald-100">
+              Live Data
             </span>
           </div>
           <Button variant="ghost" size="sm" onClick={resetFilters} className="h-8 gap-1.5">

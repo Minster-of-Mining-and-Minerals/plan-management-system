@@ -1,38 +1,95 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useGetPlanExecutionDashboardQuery } from "@/redux/api/planApi";
 import {
   DEFAULT_DASHBOARD_FILTERS,
   type DashboardFilters,
   type PlanDashboardData,
 } from "../types";
-import {
-  MOCK_DEPARTMENTS,
-  MOCK_PLAN_TREE,
-  MOCK_STRUCTURES,
-  MOCK_USERS,
-} from "../mockData";
 
-/**
- * Mock-only filter hook. Replace `data` with RTK Query / API when integrating.
- */
 export function usePlanDashboardFilters() {
   const [filters, setFilters] = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS);
   const [activeSection, setActiveSection] = useState<
     import("../types").DashboardSectionId
   >("overview");
 
-  const data: PlanDashboardData = useMemo(
-    () => ({
-      structures: MOCK_STRUCTURES,
-      departments: MOCK_DEPARTMENTS,
-      users: MOCK_USERS,
-      planTree: MOCK_PLAN_TREE,
-      isLoading: false,
+  const queryParams = useMemo(() => {
+    const masterPlanVersionId =
+      filters.masterPlanVersionId !== "auto"
+        ? filters.masterPlanVersionId
+        : undefined;
+
+    return {
+      government_structure_id:
+        filters.structureId !== "all" ? filters.structureId : undefined,
+      status: filters.status !== "all" ? filters.status : undefined,
+      sharing_mode: filters.sharingMode !== "all" ? filters.sharingMode : undefined,
+      date_from: filters.dateFrom || undefined,
+      date_to: filters.dateTo || undefined,
+      master_plan_version_id: masterPlanVersionId,
+    };
+  }, [filters]);
+
+  const {
+    data: apiData,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useGetPlanExecutionDashboardQuery(queryParams);
+
+  const data: PlanDashboardData = useMemo(() => {
+    if (!apiData) {
+      return {
+        kpi: {
+          totalPlans: 0,
+          activePlans: 0,
+          completedPlans: 0,
+          inExecutionPlans: 0,
+          sharedPlans: 0,
+          exclusivePlans: 0,
+          averageProgress: null,
+        },
+        plans: [],
+        structures: [],
+        departments: [],
+        users: [],
+        planTree: [],
+        progressMeta: {
+          period_label: null,
+          planning_year: null,
+          focus_master_plan_version_id: null,
+        },
+        annualTimeline: [],
+        sharing: { shared: [], exclusive: [] },
+        generatedAt: null,
+        isLoading,
+        isFetching,
+        error: error ? "Failed to load execution dashboard" : null,
+      };
+    }
+
+    return {
+      kpi: apiData.kpi,
+      plans: apiData.plans,
+      structures: apiData.structures,
+      departments: apiData.departments,
+      users: apiData.users,
+      planTree: apiData.progress_tree.nodes,
+      progressMeta: {
+        period_label: apiData.progress_tree.period_label,
+        planning_year: apiData.progress_tree.planning_year,
+        focus_master_plan_version_id: apiData.focus_master_plan_version_id,
+      },
+      annualTimeline: apiData.annual_timeline,
+      sharing: apiData.sharing,
+      generatedAt: apiData.generated_at,
+      isLoading,
+      isFetching,
       error: null,
-    }),
-    []
-  );
+    };
+  }, [apiData, isLoading, isFetching, error]);
 
   const filteredDepartments = useMemo(() => {
     return data.departments.filter((dept) => {
@@ -77,6 +134,11 @@ export function usePlanDashboardFilters() {
     return users;
   }, [data.users, filters.structureId, filters.departmentId]);
 
+  const executionPlanOptions = useMemo(
+    () => data.plans.filter((plan) => plan.process_started_at),
+    [data.plans]
+  );
+
   const updateFilter = <K extends keyof DashboardFilters>(
     key: K,
     value: DashboardFilters[K]
@@ -107,6 +169,8 @@ export function usePlanDashboardFilters() {
     filteredUsers,
     departmentOptions,
     userOptions,
+    executionPlanOptions,
+    refetch,
   };
 }
 

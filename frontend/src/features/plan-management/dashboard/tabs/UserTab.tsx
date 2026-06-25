@@ -24,7 +24,7 @@ export function UserTab({ state }: UserTabProps) {
       <div>
         <h2 className="text-lg font-semibold text-golden-dark">User Performance</h2>
         <p className="text-sm text-muted-foreground">
-          Individual assignee metrics — mock data with activity timeline placeholder.
+          Individual assignee coverage from internal plan assignments.
         </p>
       </div>
 

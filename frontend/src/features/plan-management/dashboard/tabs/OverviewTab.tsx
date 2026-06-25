@@ -8,52 +8,99 @@ import {
   ListChecks,
   TrendingUp,
 } from "lucide-react";
-import { MOCK_KPI_SUMMARY } from "../mockData";
 import { KpiCard } from "../components/KpiCard";
-import { ChartPlaceholder } from "../components/ChartPlaceholder";
+import { SimpleBarChart } from "../components/SimpleBarChart";
+import type { PlanDashboardFiltersState } from "../hooks/usePlanDashboardFilters";
 
-export function OverviewTab() {
-  const kpi = MOCK_KPI_SUMMARY;
+interface OverviewTabProps {
+  state: PlanDashboardFiltersState;
+}
+
+export function OverviewTab({ state }: OverviewTabProps) {
+  const { data } = state;
+  const kpi = data.kpi;
+
+  if (data.isLoading) {
+    return <div className="text-sm text-muted-foreground">Loading execution dashboard…</div>;
+  }
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-semibold text-golden-dark">Overview Dashboard</h2>
         <p className="text-sm text-muted-foreground">
-          National-level plan KPIs — mock values for template preview.
+          Live execution metrics from strategic plans in your access scope.
+          {data.generatedAt && (
+            <span className="block mt-1 text-xs">
+              Updated {new Date(data.generatedAt).toLocaleString()}
+            </span>
+          )}
         </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-4">
         <KpiCard title="Total Plans" value={kpi.totalPlans} icon={Layers} />
-        <KpiCard title="Active Plans" value={kpi.activePlans} icon={Activity} trend="+4 this month" />
+        <KpiCard
+          title="In Execution"
+          value={kpi.inExecutionPlans}
+          icon={Activity}
+        />
         <KpiCard title="Completed Plans" value={kpi.completedPlans} icon={CheckCircle2} />
-        <KpiCard title="Shared Plans" value={kpi.sharedPlans} icon={GitBranch} />
-        <KpiCard title="Exclusive Plans" value={kpi.exclusivePlans} icon={ListChecks} />
-        <KpiCard title="Avg Progress" value={`${kpi.averageProgress}%`} icon={TrendingUp} />
+        <KpiCard title="Shared Roots" value={kpi.sharedPlans} icon={GitBranch} />
+        <KpiCard title="Exclusive Roots" value={kpi.exclusivePlans} icon={ListChecks} />
+        <KpiCard
+          title="Avg Progress"
+          value={kpi.averageProgress != null ? `${kpi.averageProgress}%` : "—"}
+          icon={TrendingUp}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <ChartPlaceholder
-          title="Progress Trend"
-          description="Monthly completion trend across all structures"
-          variant="line"
+        <SimpleBarChart
+          title="Annual Progress Trend"
+          description="Average master-plan achievement by planning year"
+          items={data.annualTimeline.map((entry) => ({
+            label: entry.label,
+            value: entry.average_percent,
+            subtitle: `${entry.plan_count} plan${entry.plan_count !== 1 ? "s" : ""}`,
+          }))}
         />
-        <ChartPlaceholder
-          title="Shared vs Exclusive Distribution"
-          description="Plan assignment mode breakdown"
-          variant="pie"
-        />
-        <ChartPlaceholder
+        <SimpleBarChart
           title="Structure Comparison"
-          description="Completion rate by structure (MIDI, GIE, MoM)"
-          variant="bar"
+          description="Average execution progress by government structure"
+          items={data.structures.map((structure) => ({
+            label: structure.name,
+            value: structure.completionPercent,
+            subtitle: `${structure.totalPlans} plans`,
+          }))}
+          color="#2563eb"
         />
-        <ChartPlaceholder
-          title="Performance Heatmap"
-          description="Structure × department performance grid"
-          variant="heatmap"
-          height={240}
+        <SimpleBarChart
+          title="Sharing Mode Distribution"
+          description="Strategic root nodes by assignment mode"
+          items={[
+            { label: "Shared", value: kpi.sharedPlans, subtitle: "roots" },
+            { label: "Exclusive", value: kpi.exclusivePlans, subtitle: "roots" },
+          ]}
+          valueSuffix=""
+          color="#7c3aed"
+        />
+        <SimpleBarChart
+          title="Top Plans In Execution"
+          description="Master plans with the highest recorded achievement"
+          items={[...data.plans]
+            .filter((plan) => plan.execution_progress_percent != null)
+            .sort(
+              (a, b) =>
+                (b.execution_progress_percent ?? 0) - (a.execution_progress_percent ?? 0)
+            )
+            .slice(0, 6)
+            .map((plan) => ({
+              label: plan.draft_name,
+              value: plan.execution_progress_percent ?? 0,
+              subtitle: plan.government_structure_name ?? undefined,
+            }))}
+          color="#059669"
         />
       </div>
     </div>

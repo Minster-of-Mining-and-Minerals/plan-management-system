@@ -12,7 +12,7 @@ export type DashboardSectionId =
   | "sharing"
   | "reports";
 
-export interface MockDepartment {
+export interface DashboardDepartment {
   id: string;
   name: string;
   structureId: string;
@@ -22,17 +22,17 @@ export interface MockDepartment {
   userIds: string[];
 }
 
-export interface MockUser {
+export interface DashboardUser {
   id: string;
   name: string;
   role: string;
-  departmentId: string;
-  structureId: string;
+  departmentId?: string | null;
+  structureId?: string | null;
   performance: PerformanceLevel;
   activityScore: number;
 }
 
-export interface MockStructure {
+export interface DashboardStructure {
   id: string;
   name: string;
   code: string;
@@ -41,16 +41,78 @@ export interface MockStructure {
   activeDepartments: number;
   performance: PerformanceLevel;
   departmentIds: string[];
-  userIds: string[];
 }
 
-export interface MockPlanNode {
+export interface DashboardProgressNode {
   id: string;
   title: string;
   sharingMode: "shared" | "exclusive";
   progress: number;
+  has_progress?: boolean;
   status: Exclude<PlanStatus, "all">;
-  children?: MockPlanNode[];
+  children?: DashboardProgressNode[];
+}
+
+export interface DashboardPlanRow {
+  plan_version_id: string;
+  draft_name: string;
+  status: string;
+  government_structure_id: string;
+  government_structure_name: string | null;
+  government_structure_code: string | null;
+  process_started_at: string | null;
+  execution_progress_percent: number | null;
+  has_contributing_data?: boolean;
+  active_planning_year?: number | null;
+  dashboard_status: Exclude<PlanStatus, "all">;
+  start_year: number;
+  end_year: number;
+  created_at: string;
+}
+
+export interface DashboardKpiSummary {
+  totalPlans: number;
+  activePlans: number;
+  completedPlans: number;
+  inExecutionPlans: number;
+  sharedPlans: number;
+  exclusivePlans: number;
+  averageProgress: number | null;
+}
+
+export interface DashboardSharingPlan {
+  id: string;
+  plan_version_id?: string;
+  title: string;
+  progress: number;
+  status: Exclude<PlanStatus, "all">;
+  branches?: number;
+  target?: string;
+  structure_name?: string | null;
+}
+
+export interface PlanExecutionDashboardResponse {
+  kpi: DashboardKpiSummary;
+  plans: DashboardPlanRow[];
+  structures: DashboardStructure[];
+  departments: DashboardDepartment[];
+  users: DashboardUser[];
+  annual_timeline: Array<{
+    label: string;
+    average_percent: number;
+    plan_count: number;
+  }>;
+  sharing: {
+    shared: DashboardSharingPlan[];
+    exclusive: DashboardSharingPlan[];
+  };
+  progress_tree: {
+    period_label: string | null;
+    planning_year: number | null;
+    nodes: DashboardProgressNode[];
+  };
+  focus_master_plan_version_id: string | null;
+  generated_at: string;
 }
 
 export interface DashboardFilters {
@@ -62,6 +124,7 @@ export interface DashboardFilters {
   priority: PlanPriority;
   dateFrom: string;
   dateTo: string;
+  masterPlanVersionId: string;
 }
 
 export const DEFAULT_DASHBOARD_FILTERS: DashboardFilters = {
@@ -71,16 +134,36 @@ export const DEFAULT_DASHBOARD_FILTERS: DashboardFilters = {
   sharingMode: "all",
   status: "all",
   priority: "all",
-  dateFrom: "2026-01-01",
-  dateTo: "2026-12-31",
+  dateFrom: "",
+  dateTo: "",
+  masterPlanVersionId: "auto",
 };
 
-/** Hook return shape for future API integration */
 export interface PlanDashboardData {
-  structures: MockStructure[];
-  departments: MockDepartment[];
-  users: MockUser[];
-  planTree: MockPlanNode[];
+  kpi: DashboardKpiSummary;
+  plans: DashboardPlanRow[];
+  structures: DashboardStructure[];
+  departments: DashboardDepartment[];
+  users: DashboardUser[];
+  planTree: DashboardProgressNode[];
+  progressMeta: {
+    period_label: string | null;
+    planning_year: number | null;
+    focus_master_plan_version_id: string | null;
+  };
+  annualTimeline: PlanExecutionDashboardResponse["annual_timeline"];
+  sharing: PlanExecutionDashboardResponse["sharing"];
+  generatedAt: string | null;
   isLoading: boolean;
-  error: null;
+  error: string | null;
+  isFetching: boolean;
 }
+
+/** @deprecated Use DashboardStructure */
+export type MockStructure = DashboardStructure;
+/** @deprecated Use DashboardDepartment */
+export type MockDepartment = DashboardDepartment;
+/** @deprecated Use DashboardUser */
+export type MockUser = DashboardUser;
+/** @deprecated Use DashboardProgressNode */
+export type MockPlanNode = DashboardProgressNode;

@@ -91,6 +91,16 @@ const getPlanVersionsQuerySchema = Joi.object({
     search: Joi.string().trim().allow("").optional(),
 });
 
+const getPlanExecutionDashboardQuerySchema = Joi.object({
+    government_structure_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).optional(),
+    master_plan_version_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).optional(),
+    status: Joi.string().valid("all", "active", "completed", "delayed").optional(),
+    sharing_mode: Joi.string().valid("all", "shared", "exclusive").optional(),
+    search: Joi.string().trim().allow("").optional(),
+    date_from: Joi.string().isoDate().optional(),
+    date_to: Joi.string().isoDate().optional(),
+});
+
 /**
  * ================= PLAN NODE VALIDATORS =================
  */
@@ -236,6 +246,10 @@ module.exports = {
     validateUpdatePeriodTarget: validate(updatePeriodTargetSchema),
     validateUpdatePeriodActual: validate(updatePeriodActualSchema),
     validateGetPlanVersionsQuery: validate(getPlanVersionsQuerySchema, "query"),
+    validateGetPlanExecutionDashboardQuery: validate(
+        getPlanExecutionDashboardQuerySchema,
+        "query"
+    ),
 
     // Plan Node Validators
     validateCreatePlanNode: validate(createPlanNodeSchema),

@@ -7,6 +7,7 @@ const {
     validateUpdatePlanVersionStatus,
     validateDuplicatePlanDraft,
     validateGetPlanVersionsQuery,
+    validateGetPlanExecutionDashboardQuery,
     validateCreatePlanNode,
     validateUpdatePlanNode,
     validateGetPlanNodesQuery,
@@ -17,6 +18,8 @@ const {
     validateUpdatePeriodTarget,
     validateUpdatePeriodActual,
 } = require("../../validators/plan/planValidator");
+
+const { getExecutionDashboard } = require("../../controllers/plan/planDashboardController");
 
 const {
     createPlanVersion,
@@ -134,6 +137,12 @@ router.post(
     duplicatePlanDraftHandler
 );
 router.get("/versions", checkPermission("PLANS", "READ"), validateGetPlanVersionsQuery, getPlanVersions);
+router.get(
+    "/execution-dashboard",
+    checkPermission("PLANS", "READ"),
+    validateGetPlanExecutionDashboardQuery,
+    getExecutionDashboard
+);
 router.get(
     "/versions/for-review",
     checkPermission("PLAN", "VIEW_ASSIGNED_REVIEW"),

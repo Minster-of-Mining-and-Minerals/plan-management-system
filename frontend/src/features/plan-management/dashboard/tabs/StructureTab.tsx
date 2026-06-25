@@ -23,7 +23,7 @@ export function StructureTab({ state }: StructureTabProps) {
       <div>
         <h2 className="text-lg font-semibold text-golden-dark">Structure Performance</h2>
         <p className="text-sm text-muted-foreground">
-          Sector-level plan metrics — expandable cards with placeholder drill-down.
+          Sector-level plan metrics from live execution rollups.
         </p>
       </div>
 
@@ -120,7 +120,8 @@ function StructureCard({
           ))}
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground pt-1">
             <Users className="h-3.5 w-3.5" />
-            {structure.userIds.length} users assigned (placeholder)
+            {state.data.users.filter((user) => user.structureId === structure.id).length}{" "}
+            assignees tracked
           </p>
         </div>
       )}

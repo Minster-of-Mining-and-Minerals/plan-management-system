@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, GitBranch } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { MockPlanNode } from "../types";
+import type { DashboardProgressNode } from "../types";
 import { ProgressBar } from "./ProgressBar";
 import { SharingBadge, StatusBadge } from "./StatusBadge";
 
 interface TreeNodeRowProps {
-  node: MockPlanNode;
+  node: DashboardProgressNode;
   depth?: number;
   defaultExpanded?: boolean;
 }
@@ -49,7 +49,13 @@ export function TreeNodeRow({
             <SharingBadge mode={node.sharingMode} />
             <StatusBadge status={node.status} />
           </div>
-          <ProgressBar value={node.progress} size="sm" />
+          <ProgressBar
+            value={node.has_progress === false ? 0 : node.progress}
+            size="sm"
+          />
+          {node.has_progress === false && (
+            <p className="text-[10px] text-muted-foreground">No achievement recorded yet</p>
+          )}
         </div>
       </div>
 
