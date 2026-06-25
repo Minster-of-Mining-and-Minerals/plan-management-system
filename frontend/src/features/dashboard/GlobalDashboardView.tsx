@@ -5,7 +5,7 @@ import { AlertCircle, ListTree } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import PlanDashboardView from "@/features/plan-management/dashboard/PlanDashboardView";
-import IssuesDashboard from "@/features/issue-management/IssuesDashboard";
+import IssueDashboardOverview from "@/features/issue-management/IssueDashboardOverview";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ISSUE_VIEW_PERMISSIONS } from "@/utils/issuePermissionUtils";
 
@@ -35,7 +35,7 @@ export default function GlobalDashboardView() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold text-golden-dark">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-primary">Dashboard</h1>
         <p className="text-sm text-muted-foreground max-w-3xl">
           National plan performance and issue tracking in one place. Switch between
           plan analytics and issue management overview.
@@ -57,7 +57,7 @@ export default function GlobalDashboardView() {
             "h-10 rounded-xl px-4 shadow-none",
             activeTab === "plan"
               ? "bg-primary text-primary-foreground"
-              : "border-border text-muted-foreground hover:bg-golden-dark/10 hover:text-golden-dark"
+              : "border-border text-muted-foreground hover:bg-primary/10 hover:text-primary"
           )}
         >
           <ListTree className="h-4 w-4 shrink-0" />
@@ -75,7 +75,7 @@ export default function GlobalDashboardView() {
               "h-10 rounded-xl px-4 shadow-none",
               activeTab === "issues"
                 ? "bg-primary text-primary-foreground"
-                : "border-border text-muted-foreground hover:bg-golden-dark/10 hover:text-golden-dark"
+                : "border-border text-muted-foreground hover:bg-primary/10 hover:text-primary"
             )}
           >
             <AlertCircle className="h-4 w-4 shrink-0" />
@@ -88,7 +88,7 @@ export default function GlobalDashboardView() {
         {activeTab === "plan" ? (
           <PlanDashboardView embedded />
         ) : (
-          <IssuesDashboard embedded />
+          <IssueDashboardOverview />
         )}
       </div>
     </div>
