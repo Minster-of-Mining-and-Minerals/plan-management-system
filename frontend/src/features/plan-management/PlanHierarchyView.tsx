@@ -869,6 +869,9 @@ export default function PlanHierarchyView({
                     showPeriodTargets={showPeriodTargets}
                     showPeriodActuals={showPeriodActuals}
                     canEditPeriodActual={canEditPeriodActual}
+                    useExecutionCompletion={showPeriodActuals}
+                    processStarted={processStarted}
+                    periodHasRecordedActuals={periodHasRecordedActuals}
                     canEditAnnualTarget={canEditAnnualTarget}
                     canEditPeriodTarget={canEditPeriodTarget}
                     annualTargetAllocations={annualTargetAllocations}
@@ -896,6 +899,9 @@ export default function PlanHierarchyView({
                     showPeriodTargets={showPeriodTargets}
                     showPeriodActuals={showPeriodActuals}
                     canEditPeriodActual={canEditPeriodActual}
+                    useExecutionCompletion={showPeriodActuals}
+                    processStarted={processStarted}
+                    periodHasRecordedActuals={periodHasRecordedActuals}
                     canEditAnnualTarget={canEditAnnualTarget}
                     canEditPeriodTarget={canEditPeriodTarget}
                     annualTargetAllocations={annualTargetAllocations}

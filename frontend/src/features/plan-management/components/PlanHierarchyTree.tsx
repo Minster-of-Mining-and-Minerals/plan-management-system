@@ -22,6 +22,13 @@ import { PlanNodePeriodTargetSection } from "./PlanNodePeriodTargetSection";
 import { PlanNodePeriodActualSection } from "./PlanNodePeriodActualSection";
 import { PlanNodeActions } from "./PlanNodeActions";
 import { useEffectivePlanningConfiguration } from "@/hooks/useEffectivePlanningConfiguration";
+import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
+import {
+    hiddenProgressAppearance,
+    resolveCompletionForPlanNode,
+} from "@/utils/performanceColorUtils";
+import { PerformanceColorBadge } from "./PerformanceColorBadge";
+import { PerformanceProgressBar } from "./PerformanceProgressBar";
 
 interface NodeItemProps {
     node: PlanNodeHierarchy;
@@ -46,6 +53,9 @@ interface NodeItemProps {
     showPeriodTargets?: boolean;
     showPeriodActuals?: boolean;
     canEditPeriodActual?: boolean;
+    useExecutionCompletion?: boolean;
+    processStarted?: boolean;
+    periodHasRecordedActuals?: boolean;
     canEditAnnualTarget?: boolean;
     canEditPeriodTarget?: boolean;
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
@@ -75,11 +85,15 @@ const NodeItem = ({
     showPeriodTargets = false,
     showPeriodActuals = false,
     canEditPeriodActual = false,
+    useExecutionCompletion = false,
+    processStarted = false,
+    periodHasRecordedActuals = false,
     canEditAnnualTarget = false,
     canEditPeriodTarget = false,
     annualTargetAllocations,
     periodTargetAllocations,
 }: NodeItemProps) => {
+    const thresholds = usePerformanceColorThresholds();
     const hierarchyNumber = getHierarchyNumber(hierarchyNumberMap, node.plan_node_id);
     const [isExpanded, setIsExpanded] = useState(true);
     const hasChildren = node.children && node.children.length > 0;
@@ -89,6 +103,14 @@ const NodeItem = ({
     const liveDraftTarget = resolveLiveDraftTarget(node, allocation);
     const sortedChildren = useMemo(() => node.children ?? [], [node.children]);
     const stepSurface = getPlanStepSurfaceStyles(getStepColorHex(rule, node.level));
+    const completion = useExecutionCompletion
+        ? resolveCompletionForPlanNode(
+              thresholds,
+              node,
+              processStarted,
+              periodHasRecordedActuals
+          )
+        : hiddenProgressAppearance();
 
     return (
         <div className="space-y-2">
@@ -96,6 +118,12 @@ const NodeItem = ({
                 className="flex items-center group p-3 rounded-xl border border-gray-100/90 hover:brightness-[0.99] transition-all duration-200"
                 style={{ marginLeft: `${level * 24}px`, ...stepSurface }}
             >
+                <div
+                    className="w-1 self-stretch rounded-full shrink-0"
+                    style={{
+                        backgroundColor: completion.visible ? completion.color : "#E5E7EB",
+                    }}
+                />
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                     <button
                         onClick={() => setIsExpanded(!isExpanded)}
@@ -147,7 +175,21 @@ const NodeItem = ({
                                     {node.children.length} child{node.children.length !== 1 ? "ren" : ""}
                                 </Badge>
                             )}
+                            {completion.visible && (
+                                <PerformanceColorBadge
+                                    color={completion.color}
+                                    label={`${completion.percent}%`}
+                                    className="text-[10px] py-0 h-4"
+                                />
+                            )}
                         </div>
+                        {completion.visible && (
+                            <PerformanceProgressBar
+                                value={completion.percent}
+                                color={completion.color}
+                                className="h-1.5 mt-2"
+                            />
+                        )}
                         {node.description && (
                             <p className="text-xs text-gray-500 line-clamp-1">{node.description}</p>
                         )}
@@ -245,6 +287,9 @@ const NodeItem = ({
                             showPeriodTargets={showPeriodTargets}
                             showPeriodActuals={showPeriodActuals}
                             canEditPeriodActual={canEditPeriodActual}
+                            useExecutionCompletion={useExecutionCompletion}
+                            processStarted={processStarted}
+                            periodHasRecordedActuals={periodHasRecordedActuals}
                             canEditAnnualTarget={canEditAnnualTarget}
                             canEditPeriodTarget={canEditPeriodTarget}
                             annualTargetAllocations={annualTargetAllocations}
@@ -278,6 +323,9 @@ interface PlanHierarchyTreeProps {
     showPeriodTargets?: boolean;
     showPeriodActuals?: boolean;
     canEditPeriodActual?: boolean;
+    useExecutionCompletion?: boolean;
+    processStarted?: boolean;
+    periodHasRecordedActuals?: boolean;
     canEditAnnualTarget?: boolean;
     canEditPeriodTarget?: boolean;
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
@@ -305,6 +353,9 @@ export function PlanHierarchyTree({
     showPeriodTargets = false,
     showPeriodActuals = false,
     canEditPeriodActual = false,
+    useExecutionCompletion = false,
+    processStarted = false,
+    periodHasRecordedActuals = false,
     canEditAnnualTarget = false,
     canEditPeriodTarget = false,
     annualTargetAllocations,
@@ -346,6 +397,9 @@ export function PlanHierarchyTree({
                         showPeriodTargets={showPeriodTargets}
                         showPeriodActuals={showPeriodActuals}
                         canEditPeriodActual={canEditPeriodActual}
+                        useExecutionCompletion={useExecutionCompletion}
+                        processStarted={processStarted}
+                        periodHasRecordedActuals={periodHasRecordedActuals}
                         canEditAnnualTarget={canEditAnnualTarget}
                         canEditPeriodTarget={canEditPeriodTarget}
                         annualTargetAllocations={annualTargetAllocations}
@@ -383,6 +437,9 @@ export function PlanHierarchyTree({
                     showPeriodTargets={showPeriodTargets}
                     showPeriodActuals={showPeriodActuals}
                     canEditPeriodActual={canEditPeriodActual}
+                    useExecutionCompletion={useExecutionCompletion}
+                    processStarted={processStarted}
+                    periodHasRecordedActuals={periodHasRecordedActuals}
                     canEditAnnualTarget={canEditAnnualTarget}
                     canEditPeriodTarget={canEditPeriodTarget}
                     annualTargetAllocations={annualTargetAllocations}

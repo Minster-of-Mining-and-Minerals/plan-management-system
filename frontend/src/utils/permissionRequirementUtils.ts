@@ -26,6 +26,7 @@ const PERMISSION_LABELS: Partial<Record<PermissionKey, string>> = {
   "PLAN:VIEW_OWN_REVIEW_ISSUES": "View own plan review issues",
   "PLAN:VIEW_REVIEW_DASHBOARD": "View all plan review issues",
   "PLAN:START_PROCESS": "Start plan process",
+  "PLAN:OVERRIDE_PARENT_ACHIEVEMENT": "Override parent achievement rollup",
   "ISSUES:READ": "View issues",
   "ISSUES:READ_ALL": "View all issues",
   "ISSUES:READ_OWN": "View own issues",

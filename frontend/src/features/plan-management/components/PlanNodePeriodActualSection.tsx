@@ -11,13 +11,19 @@ import { useUpdatePeriodActualMutation } from "@/redux/api/planApi";
 import { formatNodeWeight } from "@/utils/planRuleUtils";
 import {
     canManuallyEnterAchievement,
+    canRequestParentOverride,
     isWeightedTargetNode,
     resolveAchievementEntryMode,
 } from "@/utils/planExecutionAchievementUtils";
 import { actionFeedback } from "@/components/action-feedback";
 import { cn } from "@/lib/utils";
 import { PermissionGuard } from "@/utils/PermissionGuard";
-import { PLAN_UPDATE_PERMISSIONS } from "@/utils/planPermissionUtils";
+import {
+    PLAN_LIFECYCLE_PERMISSIONS,
+    PLAN_OVERRIDE_PARENT_ACHIEVEMENT_PERMISSIONS,
+    PLAN_UPDATE_PERMISSIONS,
+} from "@/utils/planPermissionUtils";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface PlanNodePeriodActualSectionProps {
     node: PlanNode;
@@ -38,13 +44,19 @@ export function PlanNodePeriodActualSection({
     className,
     onClick,
 }: PlanNodePeriodActualSectionProps) {
+    const { can } = usePermissions();
     const [updatePeriodActual, { isLoading: isSaving }] = useUpdatePeriodActualMutation();
     const [periodActualInput, setPeriodActualInput] = useState("");
+    const [pendingOverride, setPendingOverride] = useState(false);
 
     const nodeWeightMode = node.weight_mode;
     const entryMode = resolveAchievementEntryMode(node, rule);
     const isRollupEntry = entryMode === "rollup";
     const isParentOverride = entryMode === "parent_override";
+    const canOverrideParent = can(PLAN_LIFECYCLE_PERMISSIONS.OVERRIDE_PARENT_ACHIEVEMENT);
+    const mayRequestOverride =
+        canEdit && canOverrideParent && canRequestParentOverride(node, rule);
+    const isEditingManual = isParentOverride || pendingOverride;
     const periodTarget = Number(node.period_target) || 0;
     const rollupTarget = Number(node.computed_period_target) || 0;
     const effectiveTarget =
@@ -56,7 +68,10 @@ export function PlanNodePeriodActualSection({
     const showSection =
         isWeightedTargetNode(node, rule) &&
         (effectiveTarget > 0 || isRollupEntry || node.has_contributing_data);
-    const canEnter = canEdit && canManuallyEnterAchievement(node, rule);
+    const canEnterLeaf = canEdit && canManuallyEnterAchievement(node, rule);
+    const canEnterManual =
+        canEdit && isEditingManual && periodTarget > 0 && (isParentOverride || pendingOverride);
+    const canEnter = canEnterLeaf || canEnterManual;
 
     useEffect(() => {
         if (node.period_actual != null) {
@@ -65,6 +80,10 @@ export function PlanNodePeriodActualSection({
             setPeriodActualInput("");
         }
     }, [node.period_actual, node.plan_node_id]);
+
+    useEffect(() => {
+        setPendingOverride(false);
+    }, [node.plan_node_id, node.period_actual_override]);
 
     if (!showSection) {
         return null;
@@ -120,14 +139,79 @@ export function PlanNodePeriodActualSection({
             await updatePeriodActual({
                 id: node.plan_node_id,
                 period_actual: val,
-                use_parent_override: isParentOverride ? undefined : false,
+                ...(pendingOverride && !isParentOverride ? { use_parent_override: true } : {}),
             }).unwrap();
+            setPendingOverride(false);
             actionFeedback.success("Period achievement saved");
         } catch (error: unknown) {
             const err = error as { data?: { message?: string } };
             actionFeedback.error(err.data?.message || "Failed to save achievement");
         }
     };
+
+    const handleRevertRollup = async () => {
+        if (
+            !(await actionFeedback.confirm(
+                "Revert to rolled-up achievement from children? Any manual value on this node will be cleared.",
+                { destructive: true }
+            ))
+        ) {
+            return;
+        }
+
+        try {
+            await updatePeriodActual({
+                id: node.plan_node_id,
+                period_actual: null,
+                clear_parent_override: true,
+            }).unwrap();
+            setPendingOverride(false);
+            setPeriodActualInput("");
+            actionFeedback.success("Reverted to child rollup");
+        } catch (error: unknown) {
+            const err = error as { data?: { message?: string } };
+            actionFeedback.error(err.data?.message || "Failed to revert override");
+        }
+    };
+
+    const overrideActions =
+        mayRequestOverride || isParentOverride ? (
+            <div className="flex flex-wrap gap-2" onClick={onClick}>
+                {mayRequestOverride && !isEditingManual && (
+                    <PermissionGuard requireAll={PLAN_OVERRIDE_PARENT_ACHIEVEMENT_PERMISSIONS}>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs border-amber-200 text-amber-900 hover:bg-amber-50"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setPendingOverride(true);
+                            }}
+                        >
+                            Override rollup
+                        </Button>
+                    </PermissionGuard>
+                )}
+                {isParentOverride && (
+                    <PermissionGuard requireAll={PLAN_OVERRIDE_PARENT_ACHIEVEMENT_PERMISSIONS}>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 text-xs text-amber-800 hover:bg-amber-50"
+                            disabled={isSaving}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                void handleRevertRollup();
+                            }}
+                        >
+                            Revert to rollup
+                        </Button>
+                    </PermissionGuard>
+                )}
+            </div>
+        ) : null;
 
     const editor =
         canEnter && periodTarget > 0 ? (
@@ -143,7 +227,7 @@ export function PlanNodePeriodActualSection({
                 <div className="flex-1 space-y-1 min-w-0">
                     {variant !== "table" && (
                         <Label htmlFor={`period_actual_${node.plan_node_id}`} className="text-xs">
-                            {isParentOverride
+                            {isEditingManual
                                 ? "Manual Override Achievement"
                                 : "Achievement This Period"}
                         </Label>
@@ -189,7 +273,7 @@ export function PlanNodePeriodActualSection({
                     Rolled up from children
                 </Badge>
             )}
-            {isParentOverride && (
+            {isEditingManual && (
                 <Badge
                     variant="outline"
                     className="text-[10px] py-0 h-4 border-amber-200 text-amber-800"
@@ -228,6 +312,7 @@ export function PlanNodePeriodActualSection({
                     </Badge>
                     {statusBadges}
                 </div>
+                {overrideActions}
                 {editor}
             </div>
         );
@@ -244,6 +329,7 @@ export function PlanNodePeriodActualSection({
                 >
                     {periodActualValue ?? (isRollupEntry ? "—" : "Not recorded")}
                 </span>
+                {overrideActions}
                 {editor}
             </div>
         );
@@ -254,6 +340,7 @@ export function PlanNodePeriodActualSection({
             className={cn(
                 "rounded-xl border border-violet-100 bg-gradient-to-br from-violet-50/90 to-white px-3.5 py-3 space-y-3",
                 isRollupEntry && "border-slate-200 from-slate-50/90",
+                isEditingManual && "border-amber-200 from-amber-50/90",
                 className
             )}
             onClick={onClick}
@@ -289,6 +376,7 @@ export function PlanNodePeriodActualSection({
                     )}
                 </div>
             </div>
+            {overrideActions}
             {editor}
         </div>
     );

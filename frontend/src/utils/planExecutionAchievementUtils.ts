@@ -44,6 +44,18 @@ export function canManuallyEnterAchievement(
     return mode === "leaf" || mode === "parent_override";
 }
 
+export function canRequestParentOverride(
+    node: Pick<PlanNode, "level" | "period_target" | "children" | "period_actual_override">,
+    rule?: PlanRule | null
+): boolean {
+    return (
+        isWeightedTargetNode(node, rule) &&
+        hasActiveChildNodes(node) &&
+        Number(node.period_target) > 0 &&
+        !node.period_actual_override
+    );
+}
+
 export function canEditNodePeriodActual(
     node: Pick<PlanNode, "level" | "period_target" | "children" | "period_actual_override">,
     rule: PlanRule | null | undefined,

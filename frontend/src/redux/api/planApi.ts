@@ -378,6 +378,7 @@ export const planApi = baseApi.injectEndpoints({
                 { type: "PlanNodes", id },
                 "PlanNodes",
                 "PlanVersions",
+                { type: "PlanVersions", id: "LIST" },
             ],
         }),
 
