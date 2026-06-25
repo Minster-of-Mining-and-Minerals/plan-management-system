@@ -76,6 +76,10 @@ const updatePeriodTargetSchema = Joi.object({
     period_target: Joi.number().min(0).allow(null).required(),
 });
 
+const updatePeriodActualSchema = Joi.object({
+    period_actual: Joi.number().min(0).allow(null).required(),
+});
+
 const getPlanVersionsQuerySchema = Joi.object({
     year: Joi.number().integer().min(2000).max(2100).optional(),
     government_structure_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).optional(),
@@ -228,6 +232,7 @@ module.exports = {
     validateDuplicatePlanDraft: validate(duplicatePlanDraftSchema),
     validateUpdateAnnualTarget: validate(updateAnnualTargetSchema),
     validateUpdatePeriodTarget: validate(updatePeriodTargetSchema),
+    validateUpdatePeriodActual: validate(updatePeriodActualSchema),
     validateGetPlanVersionsQuery: validate(getPlanVersionsQuerySchema, "query"),
 
     // Plan Node Validators

@@ -1,0 +1,230 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { PlanNode, PlanRule } from "@/redux/types/plan";
+import type { TargetUnit } from "@/redux/types/planningConfig";
+import { useUpdatePeriodActualMutation } from "@/redux/api/planApi";
+import { formatNodeWeight, stepRequiresWeight } from "@/utils/planRuleUtils";
+import { actionFeedback } from "@/components/action-feedback";
+import { cn } from "@/lib/utils";
+import { PermissionGuard } from "@/utils/PermissionGuard";
+import { PLAN_UPDATE_PERMISSIONS } from "@/utils/planPermissionUtils";
+
+interface PlanNodePeriodActualSectionProps {
+    node: PlanNode;
+    rule?: PlanRule | null;
+    configuredUnits?: TargetUnit[];
+    canEdit?: boolean;
+    variant?: "card" | "compact" | "table";
+    className?: string;
+    onClick?: (event: React.MouseEvent) => void;
+}
+
+export function PlanNodePeriodActualSection({
+    node,
+    rule,
+    configuredUnits,
+    canEdit = false,
+    variant = "card",
+    className,
+    onClick,
+}: PlanNodePeriodActualSectionProps) {
+    const [updatePeriodActual, { isLoading: isSaving }] = useUpdatePeriodActualMutation();
+    const [periodActualInput, setPeriodActualInput] = useState("");
+
+    const nodeWeightMode = node.weight_mode;
+    const requiresWeight = stepRequiresWeight(rule, node.level);
+    const periodTarget = Number(node.period_target) || 0;
+    const hasPeriodTarget = requiresWeight && periodTarget > 0;
+
+    useEffect(() => {
+        if (node.period_actual != null) {
+            setPeriodActualInput(String(node.period_actual));
+        } else {
+            setPeriodActualInput("");
+        }
+    }, [node.period_actual, node.plan_node_id]);
+
+    if (!hasPeriodTarget) {
+        return null;
+    }
+
+    const periodTargetValue = formatNodeWeight(
+        periodTarget,
+        nodeWeightMode,
+        node.target_unit,
+        configuredUnits
+    );
+    const periodActualValue =
+        node.period_actual != null
+            ? formatNodeWeight(
+                  node.period_actual,
+                  nodeWeightMode,
+                  node.target_unit,
+                  configuredUnits
+              )
+            : null;
+
+    const achievementPercent =
+        node.period_actual != null && periodTarget > 0
+            ? Math.min(100, Math.round((Number(node.period_actual) / periodTarget) * 100))
+            : null;
+
+    const handleSave = async () => {
+        try {
+            const val = periodActualInput === "" ? null : Number(periodActualInput);
+            if (val != null && (Number.isNaN(val) || val < 0)) {
+                actionFeedback.error("Achievement must be zero or greater");
+                return;
+            }
+            if (val != null && val > periodTarget + 0.001) {
+                actionFeedback.error(`Achievement cannot exceed the period target (${periodTarget})`);
+                return;
+            }
+            await updatePeriodActual({
+                id: node.plan_node_id,
+                period_actual: val,
+            }).unwrap();
+            actionFeedback.success("Period achievement saved");
+        } catch (error: unknown) {
+            const err = error as { data?: { message?: string } };
+            actionFeedback.error(err.data?.message || "Failed to save achievement");
+        }
+    };
+
+    const editor = canEdit ? (
+        <div
+            className={cn(
+                "flex gap-2",
+                variant === "table" ? "flex-col sm:flex-row sm:items-end" : "flex-col sm:flex-row sm:items-end"
+            )}
+            onClick={onClick}
+        >
+            <div className="flex-1 space-y-1 min-w-0">
+                {variant !== "table" && (
+                    <Label htmlFor={`period_actual_${node.plan_node_id}`} className="text-xs">
+                        Achievement This Period
+                    </Label>
+                )}
+                <Input
+                    id={`period_actual_${node.plan_node_id}`}
+                    type="number"
+                    min={0}
+                    max={periodTarget}
+                    step="any"
+                    value={periodActualInput}
+                    onChange={(e) => setPeriodActualInput(e.target.value)}
+                    placeholder={`Up to ${periodTarget}`}
+                    className={variant === "compact" ? "h-8 text-xs" : variant === "table" ? "h-8 text-sm" : ""}
+                />
+            </div>
+            <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
+                <Button
+                    size={variant === "compact" || variant === "table" ? "sm" : "default"}
+                    disabled={isSaving}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        void handleSave();
+                    }}
+                    className="shrink-0"
+                >
+                    Save
+                </Button>
+            </PermissionGuard>
+        </div>
+    ) : null;
+
+    if (variant === "compact") {
+        return (
+            <div className={cn("space-y-2", className)} onClick={onClick}>
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <Badge
+                        variant="secondary"
+                        className="text-[10px] py-0 h-4 bg-emerald-50 text-emerald-700 border-emerald-100"
+                    >
+                        Target: {periodTargetValue}
+                    </Badge>
+                    <Badge
+                        variant="secondary"
+                        className={cn(
+                            "text-[10px] py-0 h-4",
+                            periodActualValue
+                                ? "bg-violet-50 text-violet-700 border-violet-100"
+                                : "bg-gray-50 text-gray-400 border-gray-100 italic"
+                        )}
+                    >
+                        Achieved: {periodActualValue ?? "Not recorded"}
+                    </Badge>
+                    {achievementPercent != null && (
+                        <Badge variant="outline" className="text-[10px] py-0 h-4">
+                            {achievementPercent}%
+                        </Badge>
+                    )}
+                </div>
+                {editor}
+            </div>
+        );
+    }
+
+    if (variant === "table") {
+        return (
+            <div className={cn("space-y-2 min-w-[160px]", className)} onClick={onClick}>
+                <span
+                    className={cn(
+                        "text-sm block",
+                        periodActualValue ? "text-gray-900 font-medium" : "text-gray-400 italic"
+                    )}
+                >
+                    {periodActualValue ?? "Not recorded"}
+                </span>
+                {editor}
+            </div>
+        );
+    }
+
+    return (
+        <div
+            className={cn(
+                "rounded-xl border border-violet-100 bg-gradient-to-br from-violet-50/90 to-white px-3.5 py-3 space-y-3",
+                className
+            )}
+            onClick={onClick}
+        >
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700/80">
+                        Period Target
+                    </p>
+                    <p
+                        className="mt-0.5 text-2xl font-bold leading-tight text-emerald-950 truncate"
+                        title={periodTargetValue}
+                    >
+                        {periodTargetValue}
+                    </p>
+                </div>
+                <div className="min-w-0 sm:border-l sm:border-violet-100 sm:pl-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-violet-700/80">
+                        Achievement
+                    </p>
+                    <p
+                        className={cn(
+                            "mt-0.5 text-2xl font-bold leading-tight truncate",
+                            periodActualValue ? "text-violet-950" : "text-gray-400 italic text-lg"
+                        )}
+                        title={periodActualValue ?? "Not recorded"}
+                    >
+                        {periodActualValue ?? "Not recorded"}
+                    </p>
+                    {achievementPercent != null && (
+                        <p className="text-xs text-violet-700 mt-1">{achievementPercent}% of target</p>
+                    )}
+                </div>
+            </div>
+            {editor}
+        </div>
+    );
+}

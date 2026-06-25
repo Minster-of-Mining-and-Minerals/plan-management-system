@@ -969,7 +969,28 @@ async function setAnnualTarget(planNodeId, annualTarget) {
 async function completeAnnualVersion(annualVersionId) {
     const t = await sequelize.transaction();
     try {
-        const version = await PlanVersion.findByPk(annualVersionId, { transaction: t });
+        const { isExecutionSnapshotVersion } = require("./planExecutionSnapshotService");
+        const { advanceExecutionGateAfterAnnualComplete } = require("./planExecutionGateService");
+
+        let resolvedAnnualId = annualVersionId;
+        let version = await PlanVersion.findByPk(annualVersionId, { transaction: t });
+
+        if (version && !isExecutionSnapshotVersion(version)) {
+            const master = await getMasterForAnnualVersion(version, t);
+            if (master?.active_execution_snapshot_id) {
+                const { buildLiveToSnapshotVersionMap } = require("./planExecutionSnapshotService");
+                const versionMap = await buildLiveToSnapshotVersionMap(
+                    master.active_execution_snapshot_id,
+                    t
+                );
+                const snapshotAnnual = versionMap.get(version.plan_version_id);
+                if (snapshotAnnual) {
+                    version = snapshotAnnual;
+                    resolvedAnnualId = snapshotAnnual.plan_version_id;
+                }
+            }
+        }
+
         if (!version || version.version_kind !== "annual") {
             await t.rollback();
             return { success: false, message: "Annual plan version not found" };
@@ -1010,7 +1031,7 @@ async function completeAnnualVersion(annualVersionId) {
 
         const periods = await PlanVersion.findAll({
             where: {
-                parent_plan_version_id: annualVersionId,
+                parent_plan_version_id: resolvedAnnualId,
                 version_kind: "execution_period",
             },
             transaction: t,
@@ -1028,13 +1049,10 @@ async function completeAnnualVersion(annualVersionId) {
             };
         }
 
-        const { isExecutionSnapshotVersion } = require("./planExecutionSnapshotService");
-        const { advanceExecutionGateAfterAnnualComplete } = require("./planExecutionGateService");
-
         let unlockedVersion = null;
         if (isExecutionSnapshotVersion(version)) {
             unlockedVersion = await advanceExecutionGateAfterAnnualComplete(
-                annualVersionId,
+                resolvedAnnualId,
                 t
             );
         } else {
@@ -1044,7 +1062,7 @@ async function completeAnnualVersion(annualVersionId) {
         await t.commit();
         return {
             success: true,
-            data: await PlanVersion.findByPk(annualVersionId),
+            data: await PlanVersion.findByPk(resolvedAnnualId),
             unlockedVersion,
         };
     } catch (error) {
@@ -1590,10 +1608,41 @@ async function setPeriodTarget(planNodeId, periodTarget) {
 async function completeExecutionPeriod(periodVersionId) {
     const t = await sequelize.transaction();
     try {
-        const version = await PlanVersion.findByPk(periodVersionId, { transaction: t });
+        let version = await PlanVersion.findByPk(periodVersionId, { transaction: t });
         if (!version || version.version_kind !== "execution_period") {
             await t.rollback();
             return { success: false, message: "Execution period version not found" };
+        }
+
+        const { isExecutionSnapshotVersion, buildLiveToSnapshotVersionMap } = require(
+            "./planExecutionSnapshotService"
+        );
+
+        if (!isExecutionSnapshotVersion(version)) {
+            const annual = await PlanVersion.findByPk(version.parent_plan_version_id, {
+                transaction: t,
+            });
+            const master = annual?.parent_plan_version_id
+                ? await PlanVersion.findByPk(annual.parent_plan_version_id, { transaction: t })
+                : null;
+            const liveMaster =
+                master?.execution_snapshot_of_version_id
+                    ? await PlanVersion.findByPk(master.execution_snapshot_of_version_id, {
+                          transaction: t,
+                      })
+                    : master;
+
+            if (liveMaster?.active_execution_snapshot_id) {
+                const versionMap = await buildLiveToSnapshotVersionMap(
+                    liveMaster.active_execution_snapshot_id,
+                    t
+                );
+                const snapshotPeriod = versionMap.get(version.plan_version_id);
+                if (snapshotPeriod) {
+                    version = snapshotPeriod;
+                    periodVersionId = snapshotPeriod.plan_version_id;
+                }
+            }
         }
 
         if (version.status === "completed" || version.execution_status === "completed") {
@@ -1609,7 +1658,13 @@ async function completeExecutionPeriod(periodVersionId) {
             };
         }
 
-        const { isExecutionSnapshotVersion } = require("./planExecutionSnapshotService");
+        const { validatePeriodReadyToComplete } = require("./planExecutionActualService");
+        const actualsCheck = await validatePeriodReadyToComplete(periodVersionId, t);
+        if (!actualsCheck.ready) {
+            await t.rollback();
+            return { success: false, message: actualsCheck.message };
+        }
+
         const { advanceExecutionGateAfterPeriodComplete } = require("./planExecutionGateService");
 
         let unlockedVersion = null;

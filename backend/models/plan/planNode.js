@@ -126,6 +126,11 @@ module.exports = (sequelize, DataTypes) => {
                 allowNull: true,
             },
 
+            period_actual: {
+                type: DataTypes.FLOAT,
+                allowNull: true,
+            },
+
             assignment_context: {
                 type: DataTypes.JSONB,
                 allowNull: true,

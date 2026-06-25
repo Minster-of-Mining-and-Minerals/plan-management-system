@@ -310,13 +310,29 @@ async function resolveLiveMasterFromVersion(version, transaction = null) {
 
 async function enrichExecutionPeriodsWithExecution(liveAnnual, livePeriods, transaction = null) {
   const annualPlain = liveAnnual?.toJSON ? liveAnnual.toJSON() : { ...liveAnnual };
+  const { computePeriodActualsReadiness, computeAnnualPeriodsCompletion } = require(
+    "./planExecutionActualService"
+  );
 
   if (annualPlain?.execution_snapshot_of_version_id) {
-    const enrichedPeriods = livePeriods.map((period) =>
-      enrichSnapshotVersionExecutionFields(period)
-    );
+    const enrichedPeriods = [];
+    for (const period of livePeriods) {
+      const plain = enrichSnapshotVersionExecutionFields(period);
+      const readiness = await computePeriodActualsReadiness(plain.plan_version_id, transaction);
+      enrichedPeriods.push({
+        ...plain,
+        execution_actuals_ready: readiness.ready,
+        execution_actuals_readiness: readiness,
+      });
+    }
+
+    const periodMeta = await computeAnnualPeriodsCompletion(liveAnnual.plan_version_id, transaction);
+
     return {
-      annual: enrichSnapshotVersionExecutionFields(liveAnnual),
+      annual: {
+        ...enrichSnapshotVersionExecutionFields(liveAnnual),
+        ...periodMeta,
+      },
       executionPeriods: enrichedPeriods,
       executionSnapshot: annualPlain.execution_snapshot_root_id
         ? {
@@ -345,22 +361,37 @@ async function enrichExecutionPeriodsWithExecution(liveAnnual, livePeriods, tran
   );
 
   const snapshotAnnual = versionMap.get(annualPlain.plan_version_id);
+  const enrichedPeriods = [];
 
-  const enrichedPeriods = livePeriods.map((period) => {
+  for (const period of livePeriods) {
     const plain = period.toJSON ? period.toJSON() : { ...period };
     const snapshotPeriod = versionMap.get(plain.plan_version_id);
-    return {
+    const readiness = snapshotPeriod
+      ? await computePeriodActualsReadiness(snapshotPeriod.plan_version_id, transaction)
+      : { ready: false, required_count: 0, recorded_count: 0, missing_titles: [] };
+
+    enrichedPeriods.push({
       ...plain,
       ...attachExecutionOverlay(plain, snapshotPeriod),
-    };
-  });
+      execution_actuals_ready: readiness.ready,
+      execution_actuals_readiness: readiness,
+    });
+  }
 
   const snapshotMaster = versionMap.get(master.plan_version_id);
+  const periodMeta = snapshotAnnual
+    ? await computeAnnualPeriodsCompletion(snapshotAnnual.plan_version_id, transaction)
+    : {
+        execution_periods_total: 0,
+        execution_periods_completed: 0,
+        all_execution_periods_completed: false,
+      };
 
   return {
     annual: {
       ...annualPlain,
       ...attachExecutionOverlay(annualPlain, snapshotAnnual),
+      ...periodMeta,
     },
     executionPeriods: enrichedPeriods,
     executionSnapshot: snapshotMaster
@@ -389,14 +420,26 @@ async function enrichAnnualVersionsWithExecution(liveMaster, liveAnnualVersions,
   );
 
   const snapshotMaster = versionMap.get(liveMaster.plan_version_id);
-  const enrichedAnnuals = liveAnnualVersions.map((annual) => {
+  const { computeAnnualPeriodsCompletion } = require("./planExecutionActualService");
+  const enrichedAnnuals = [];
+
+  for (const annual of liveAnnualVersions) {
     const plain = annual.toJSON ? annual.toJSON() : { ...annual };
     const snapshotAnnual = versionMap.get(plain.plan_version_id);
-    return {
+    const periodMeta = snapshotAnnual
+      ? await computeAnnualPeriodsCompletion(snapshotAnnual.plan_version_id, transaction)
+      : {
+          execution_periods_total: 0,
+          execution_periods_completed: 0,
+          all_execution_periods_completed: false,
+        };
+
+    enrichedAnnuals.push({
       ...plain,
       ...attachExecutionOverlay(plain, snapshotAnnual),
-    };
-  });
+      ...periodMeta,
+    });
+  }
 
   return {
     executionSnapshot: snapshotMaster

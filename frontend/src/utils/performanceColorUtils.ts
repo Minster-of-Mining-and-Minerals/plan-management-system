@@ -93,6 +93,25 @@ export function resolveCompletionForEntity(
   return resolveCompletionAppearance(thresholds, getDemoCompletionPercent(entityId));
 }
 
+export function resolveCompletionForPlanNode(
+  thresholds: PerformanceColorThreshold[],
+  node: {
+    plan_node_id: string;
+    period_target?: number | null;
+    period_actual?: number | null;
+  },
+  useExecutionActuals: boolean
+): CompletionAppearance {
+  if (useExecutionActuals) {
+    const target = Number(node.period_target) || 0;
+    if (target > 0) {
+      const actual = node.period_actual != null ? Number(node.period_actual) : 0;
+      return resolveCompletionAppearance(thresholds, (actual / target) * 100);
+    }
+  }
+  return resolveCompletionForEntity(thresholds, node.plan_node_id);
+}
+
 /** Maps workflow status (locked / completed / active) to configured performance colors. */
 export function resolveWorkflowStatusAppearance(
   thresholds: PerformanceColorThreshold[],

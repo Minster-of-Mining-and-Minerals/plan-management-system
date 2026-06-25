@@ -25,7 +25,7 @@ import { PerformanceProgressBar } from "./PerformanceProgressBar";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
 import { getPlanViewBasePath } from "@/utils/planReviewUtils";
 import {
-    canShowExecutionCompleteAction,
+    canShowPeriodExecutionCompleteAction,
     getExecutionStatusLabel,
     resolvePlanNavigationVersionId,
 } from "@/utils/planExecutionUtils";
@@ -256,11 +256,15 @@ export function ExecutionPeriodsDashboard({
                     const isCompleted =
                         period.execution_status === "completed" || period.status === "completed";
                     const periodLabel = period.period_label ?? `Period ${period.sequence_index}`;
-                    const showComplete = canShowExecutionCompleteAction(
+                    const showComplete = canShowPeriodExecutionCompleteAction(
                         period,
                         processStarted,
                         periodTargetsFinalized
                     );
+                    const needsActuals =
+                        processStarted &&
+                        period.execution_status === "open" &&
+                        period.execution_actuals_ready === false;
                     const executionLocked =
                         processStarted &&
                         period.execution_status === "locked" &&
@@ -341,6 +345,14 @@ export function ExecutionPeriodsDashboard({
                                     className="text-[10px] py-0 h-5"
                                 />
 
+                                {needsActuals && (
+                                    <PerformanceColorBadge
+                                        color="#f59e0b"
+                                        label="Record all KPI achievements"
+                                        variant="outline"
+                                        className="gap-1 w-fit text-xs"
+                                    />
+                                )}
                                 {executionOpen && (
                                     <PerformanceColorBadge
                                         color={progressColor}

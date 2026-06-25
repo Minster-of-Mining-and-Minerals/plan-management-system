@@ -19,6 +19,7 @@ import { PlanNodeHierarchyNumber } from "./PlanNodeHierarchyNumber";
 import { PlanNodeAssignmentSummary } from "./PlanNodeAssignmentSummary";
 import { PlanNodeAnnualTargetSection } from "./PlanNodeAnnualTargetSection";
 import { PlanNodePeriodTargetSection } from "./PlanNodePeriodTargetSection";
+import { PlanNodePeriodActualSection } from "./PlanNodePeriodActualSection";
 import { PlanNodeActions } from "./PlanNodeActions";
 import { useEffectivePlanningConfiguration } from "@/hooks/useEffectivePlanningConfiguration";
 
@@ -43,6 +44,8 @@ interface NodeItemProps {
     hideAssignments?: boolean;
     showAnnualTargets?: boolean;
     showPeriodTargets?: boolean;
+    showPeriodActuals?: boolean;
+    canEditPeriodActual?: boolean;
     canEditAnnualTarget?: boolean;
     canEditPeriodTarget?: boolean;
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
@@ -70,6 +73,8 @@ const NodeItem = ({
     hideAssignments = false,
     showAnnualTargets = false,
     showPeriodTargets = false,
+    showPeriodActuals = false,
+    canEditPeriodActual = false,
     canEditAnnualTarget = false,
     canEditPeriodTarget = false,
     annualTargetAllocations,
@@ -168,6 +173,15 @@ const NodeItem = ({
                                 variant="compact"
                             />
                         )}
+                        {showPeriodActuals && (
+                            <PlanNodePeriodActualSection
+                                node={node}
+                                rule={rule}
+                                configuredUnits={configuredUnits}
+                                canEdit={canEditPeriodActual}
+                                variant="compact"
+                            />
+                        )}
                         {!hideAssignments && <PlanNodeAssignmentSummary node={node} />}
                     </div>
                 </div>
@@ -229,6 +243,8 @@ const NodeItem = ({
                             hideAssignments={hideAssignments}
                             showAnnualTargets={showAnnualTargets}
                             showPeriodTargets={showPeriodTargets}
+                            showPeriodActuals={showPeriodActuals}
+                            canEditPeriodActual={canEditPeriodActual}
                             canEditAnnualTarget={canEditAnnualTarget}
                             canEditPeriodTarget={canEditPeriodTarget}
                             annualTargetAllocations={annualTargetAllocations}
@@ -260,6 +276,8 @@ interface PlanHierarchyTreeProps {
     hideAssignments?: boolean;
     showAnnualTargets?: boolean;
     showPeriodTargets?: boolean;
+    showPeriodActuals?: boolean;
+    canEditPeriodActual?: boolean;
     canEditAnnualTarget?: boolean;
     canEditPeriodTarget?: boolean;
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
@@ -285,6 +303,8 @@ export function PlanHierarchyTree({
     hideAssignments = false,
     showAnnualTargets = false,
     showPeriodTargets = false,
+    showPeriodActuals = false,
+    canEditPeriodActual = false,
     canEditAnnualTarget = false,
     canEditPeriodTarget = false,
     annualTargetAllocations,
@@ -324,6 +344,8 @@ export function PlanHierarchyTree({
                         hideAssignments={hideAssignments}
                         showAnnualTargets={showAnnualTargets}
                         showPeriodTargets={showPeriodTargets}
+                        showPeriodActuals={showPeriodActuals}
+                        canEditPeriodActual={canEditPeriodActual}
                         canEditAnnualTarget={canEditAnnualTarget}
                         canEditPeriodTarget={canEditPeriodTarget}
                         annualTargetAllocations={annualTargetAllocations}
@@ -359,6 +381,8 @@ export function PlanHierarchyTree({
                     hideAssignments={hideAssignments}
                     showAnnualTargets={showAnnualTargets}
                     showPeriodTargets={showPeriodTargets}
+                    showPeriodActuals={showPeriodActuals}
+                    canEditPeriodActual={canEditPeriodActual}
                     canEditAnnualTarget={canEditAnnualTarget}
                     canEditPeriodTarget={canEditPeriodTarget}
                     annualTargetAllocations={annualTargetAllocations}

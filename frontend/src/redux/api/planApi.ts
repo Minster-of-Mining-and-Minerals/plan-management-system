@@ -359,6 +359,23 @@ export const planApi = baseApi.injectEndpoints({
             ],
         }),
 
+        updatePeriodActual: builder.mutation<
+            PlanNode,
+            { id: string; period_actual: number | null }
+        >({
+            query: ({ id, period_actual }) => ({
+                url: `/plan/nodes/${id}/period-actual`,
+                method: "PATCH",
+                body: { period_actual },
+            }),
+            transformResponse: (response: { data: PlanNode }) => response.data,
+            invalidatesTags: (_r, _e, { id }) => [
+                { type: "PlanNodes", id },
+                "PlanNodes",
+                "PlanVersions",
+            ],
+        }),
+
         getPeriodTargetAllocations: builder.query<PeriodTargetAllocation[], string>({
             query: (id) => `/plan/versions/${id}/period-target-allocations`,
             transformResponse: (response: { data: PeriodTargetAllocation[] }) => response.data,
@@ -623,6 +640,7 @@ export const {
     useFinalizeExecutionPeriodTargetsMutation,
     useCompleteExecutionPeriodMutation,
     useUpdatePeriodTargetMutation,
+    useUpdatePeriodActualMutation,
     useGetPeriodTargetAllocationsQuery,
     useGetGlobalPeriodTargetFinalizationReadinessQuery,
     useFinalizeGlobalPeriodTargetsMutation,

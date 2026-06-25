@@ -12,6 +12,7 @@ import {
 } from "@/utils/planRuleUtils";
 import {
     resolveCompletionForEntity,
+    resolveCompletionForPlanNode,
 } from "@/utils/performanceColorUtils";
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
 import { useEffectivePlanningConfiguration } from "@/hooks/useEffectivePlanningConfiguration";
@@ -24,6 +25,7 @@ import { PlanNodeHierarchyNumber } from "./PlanNodeHierarchyNumber";
 import { PlanNodeAssignmentSummary } from "./PlanNodeAssignmentSummary";
 import { PlanNodeAnnualTargetSection } from "./PlanNodeAnnualTargetSection";
 import { PlanNodePeriodTargetSection } from "./PlanNodePeriodTargetSection";
+import { PlanNodePeriodActualSection } from "./PlanNodePeriodActualSection";
 import { resolveLiveDraftTarget } from "@/utils/planDraftUtils";
 
 interface PlanNodeCardGridProps {
@@ -33,6 +35,9 @@ interface PlanNodeCardGridProps {
     showDualTargets?: boolean;
     showAnnualTargets?: boolean;
     showPeriodTargets?: boolean;
+    showPeriodActuals?: boolean;
+    canEditPeriodActual?: boolean;
+    useExecutionCompletion?: boolean;
     hideAssignments?: boolean;
     canEditAnnualTarget?: boolean;
     canEditPeriodTarget?: boolean;
@@ -58,6 +63,9 @@ export function PlanNodeCardGrid({
     showDualTargets = false,
     showAnnualTargets = false,
     showPeriodTargets = false,
+    showPeriodActuals = false,
+    canEditPeriodActual = false,
+    useExecutionCompletion = false,
     hideAssignments = false,
     canEditAnnualTarget = false,
     canEditPeriodTarget = false,
@@ -90,11 +98,13 @@ export function PlanNodeCardGrid({
             { percent: number; color: string; label: string }
         >();
         for (const node of sortedNodes) {
-            const completion = resolveCompletionForEntity(thresholds, node.plan_node_id);
+            const completion = useExecutionCompletion
+                ? resolveCompletionForPlanNode(thresholds, node, true)
+                : resolveCompletionForEntity(thresholds, node.plan_node_id);
             map.set(node.plan_node_id, completion);
         }
         return map;
-    }, [sortedNodes, thresholds]);
+    }, [sortedNodes, thresholds, useExecutionCompletion]);
 
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -217,6 +227,17 @@ export function PlanNodeCardGrid({
                                                 allocation={periodTargetAllocations?.[node.plan_node_id]}
                                                 canEdit={canEditPeriodTarget}
                                                 showRaiseIssue={showRaiseIssue}
+                                                variant="card"
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
+                                        )}
+
+                                        {showPeriodActuals && (
+                                            <PlanNodePeriodActualSection
+                                                node={node}
+                                                rule={rule}
+                                                configuredUnits={configuredUnits}
+                                                canEdit={canEditPeriodActual}
                                                 variant="card"
                                                 onClick={(e) => e.stopPropagation()}
                                             />

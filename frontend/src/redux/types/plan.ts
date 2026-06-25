@@ -60,6 +60,16 @@ export interface PlanVersion {
         is_locked: boolean;
         planning_mode?: boolean;
     } | null;
+    execution_periods_total?: number;
+    execution_periods_completed?: number;
+    all_execution_periods_completed?: boolean;
+    execution_actuals_ready?: boolean;
+    execution_actuals_readiness?: {
+        required_count: number;
+        recorded_count: number;
+        ready: boolean;
+        missing_titles?: string[];
+    };
     status: PlanVersionStatus;
     government_structure_id: string;
     based_on_version_id: string | null;
@@ -254,6 +264,7 @@ export interface PlanNode {
     source_plan_node_id?: string | null;
     annual_target?: number | null;
     period_target?: number | null;
+    period_actual?: number | null;
     created_at: string;
     updated_at: string;
     deleted_at: string | null;

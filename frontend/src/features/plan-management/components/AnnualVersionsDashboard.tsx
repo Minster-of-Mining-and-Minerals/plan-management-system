@@ -27,7 +27,7 @@ import {
 import { PlanReviewWorkflowBar } from "./PlanReviewWorkflowBar";
 import { canStartProcessAfterReview, getPlanViewBasePath } from "@/utils/planReviewUtils";
 import {
-    canShowExecutionCompleteAction,
+    canShowAnnualExecutionCompleteAction,
     getExecutionStatusLabel,
     resolvePlanNavigationVersionId,
 } from "@/utils/planExecutionUtils";
@@ -223,11 +223,16 @@ export function AnnualVersionsDashboard({
                     const isCompleted =
                         annual.execution_status === "completed" || annual.status === "completed";
                     const periodTargetsFinalized = Boolean(annual.period_targets_finalized_at);
-                    const showComplete = canShowExecutionCompleteAction(
+                    const showComplete = canShowAnnualExecutionCompleteAction(
                         annual,
                         processStarted,
                         annualTargetsFinalized && periodTargetsFinalized
                     );
+                    const awaitingPeriods =
+                        processStarted &&
+                        annual.execution_status === "open" &&
+                        !annual.all_execution_periods_completed &&
+                        !isCompleted;
                     const executionLocked =
                         processStarted &&
                         annual.execution_status === "locked" &&
@@ -319,6 +324,14 @@ export function AnnualVersionsDashboard({
                                             className="gap-1 w-fit text-xs"
                                         />
                                     )}
+                                {awaitingPeriods && (
+                                    <PerformanceColorBadge
+                                        color="#94a3b8"
+                                        label={`${annual.execution_periods_completed ?? 0}/${annual.execution_periods_total ?? 0} periods done`}
+                                        variant="outline"
+                                        className="gap-1 w-fit text-xs"
+                                    />
+                                )}
                                 {executionOpen && (
                                     <PerformanceColorBadge
                                         color={progressColor}

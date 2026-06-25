@@ -177,6 +177,31 @@ async function updatePeriodTarget(req, res) {
     }
 }
 
+async function updatePeriodActual(req, res) {
+    try {
+        const { id: nodeId } = req.params;
+        const { period_actual } = req.body;
+
+        if (!isUuid(nodeId)) {
+            return res.status(400).json({ success: false, message: "Invalid node ID" });
+        }
+
+        const { setPeriodActual } = require("../../services/planExecutionActualService");
+        const result = await setPeriodActual(nodeId, period_actual);
+        if (!result.success) {
+            return res.status(400).json({ success: false, message: result.message });
+        }
+
+        return res.json({
+            success: true,
+            message: "Period achievement recorded",
+            data: result.data,
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
+
 async function updateAnnualTarget(req, res) {
     try {
         const { id: nodeId } = req.params;
@@ -575,6 +600,7 @@ module.exports = {
     startPlanProcessHandler,
     getExecutionAccessHandler,
     updatePeriodTarget,
+    updatePeriodActual,
     completeExecutionPeriodVersion,
     reopenFinalizedPlanForEditHandler,
     duplicatePlanDraftHandler,

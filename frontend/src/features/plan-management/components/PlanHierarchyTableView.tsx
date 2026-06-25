@@ -37,6 +37,7 @@ import { PlanNodeHierarchyNumber } from "./PlanNodeHierarchyNumber";
 import { PlanNodeAssignmentSummary } from "./PlanNodeAssignmentSummary";
 import { PlanNodeAnnualTargetSection } from "./PlanNodeAnnualTargetSection";
 import { PlanNodePeriodTargetSection } from "./PlanNodePeriodTargetSection";
+import { PlanNodePeriodActualSection } from "./PlanNodePeriodActualSection";
 import { cn } from "@/lib/utils";
 import { getPlanReferenceTargetColumnLabel, resolveLiveDraftTarget } from "@/utils/planDraftUtils";
 
@@ -57,6 +58,9 @@ interface PlanHierarchyTableViewProps {
     hideAssignments?: boolean;
     showAnnualTargets?: boolean;
     showPeriodTargets?: boolean;
+    showPeriodActuals?: boolean;
+    canEditPeriodActual?: boolean;
+    useExecutionCompletion?: boolean;
     canEditAnnualTarget?: boolean;
     canEditPeriodTarget?: boolean;
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
@@ -84,6 +88,9 @@ interface StrategicFocusTableProps {
     hideAssignments?: boolean;
     showAnnualTargets?: boolean;
     showPeriodTargets?: boolean;
+    showPeriodActuals?: boolean;
+    canEditPeriodActual?: boolean;
+    useExecutionCompletion?: boolean;
     canEditAnnualTarget?: boolean;
     canEditPeriodTarget?: boolean;
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
@@ -111,6 +118,8 @@ function StrategicFocusTable({
     hideAssignments = false,
     showAnnualTargets = false,
     showPeriodTargets = false,
+    showPeriodActuals = false,
+    canEditPeriodActual = false,
     canEditAnnualTarget = false,
     canEditPeriodTarget = false,
     annualTargetAllocations,
@@ -412,6 +421,18 @@ function StrategicFocusTable({
                                                 )}
                                             </TableCell>
                                         )}
+                                        {showPeriodActuals && (
+                                            <TableCell className="whitespace-normal">
+                                                <PlanNodePeriodActualSection
+                                                    node={node}
+                                                    rule={rule}
+                                                    configuredUnits={configuredUnits}
+                                                    canEdit={canEditPeriodActual}
+                                                    variant="table"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                />
+                                            </TableCell>
+                                        )}
                                         <TableCell>
                                             <div className="flex items-center gap-2">
                                                 <span
@@ -522,6 +543,8 @@ export function PlanHierarchyTableView({
     hideAssignments = false,
     showAnnualTargets = false,
     showPeriodTargets = false,
+    showPeriodActuals = false,
+    canEditPeriodActual = false,
     canEditAnnualTarget = false,
     canEditPeriodTarget = false,
     annualTargetAllocations,
@@ -563,6 +586,8 @@ export function PlanHierarchyTableView({
                     hideAssignments={hideAssignments}
                     showAnnualTargets={showAnnualTargets}
                     showPeriodTargets={showPeriodTargets}
+                    showPeriodActuals={showPeriodActuals}
+                    canEditPeriodActual={canEditPeriodActual}
                     canEditAnnualTarget={canEditAnnualTarget}
                     canEditPeriodTarget={canEditPeriodTarget}
                     annualTargetAllocations={annualTargetAllocations}

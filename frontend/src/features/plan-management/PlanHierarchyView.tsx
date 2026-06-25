@@ -44,7 +44,7 @@ import { FinalizeExecutionPeriodsModal } from "./modals/FinalizeExecutionPeriods
 import { usePlanVersionPlanningConfiguration } from "@/hooks/usePlanVersionPlanningConfiguration";
 import { formatStatus } from "@/utils/statusFormatter";
 import { canEditAnnualTargetForVersion, canEditPeriodTargetForVersion } from "@/utils/planDraftUtils";
-import { getExecutionStatusLabel } from "@/utils/planExecutionUtils";
+import { getExecutionStatusLabel, canEditPeriodActualForVersion } from "@/utils/planExecutionUtils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import {
@@ -219,7 +219,6 @@ export default function PlanHierarchyView({
     const isReadOnlyHierarchy = !canEditMasterStructure;
     const hideAssignments = isAnnualVersion;
     const showAnnualTargets = isAnnualVersion;
-    const showPeriodTargets = isExecutionPeriod;
     const annualTargetsFinalized = Boolean(
         version?.version_kind === "master"
             ? version?.annual_targets_finalized_at
@@ -238,6 +237,8 @@ export default function PlanHierarchyView({
             : masterVersion?.period_subdivision_mode ?? version?.period_subdivision_mode
     );
     const processStarted = Boolean(masterVersion?.process_started_at);
+    const showPeriodTargets = isExecutionPeriod && !processStarted;
+    const showPeriodActuals = isExecutionPeriod && processStarted;
     const isExecutionSnapshotView = Boolean(version?.execution_snapshot_of_version_id);
     const executionPeriodLocked =
         isExecutionPeriod &&
@@ -255,6 +256,7 @@ export default function PlanHierarchyView({
         periodTargetsFinalized,
         masterReviewStatus
     );
+    const canEditPeriodActual = canEditPeriodActualForVersion(version, processStarted);
     const showAnnualDashboard =
         version?.version_kind === "master" &&
         (version?.status === "finalized" ||
@@ -712,6 +714,9 @@ export default function PlanHierarchyView({
                         hideAssignments={hideAssignments}
                         showAnnualTargets={showAnnualTargets}
                         showPeriodTargets={showPeriodTargets}
+                        showPeriodActuals={showPeriodActuals}
+                        canEditPeriodActual={canEditPeriodActual}
+                        useExecutionCompletion={showPeriodActuals}
                         canEditAnnualTarget={canEditAnnualTarget}
                         canEditPeriodTarget={canEditPeriodTarget}
                         annualTargetAllocations={annualTargetAllocations}
@@ -730,6 +735,9 @@ export default function PlanHierarchyView({
                         showDualTargets={isAnnualVersion || isExecutionPeriod}
                         showAnnualTargets={showAnnualTargets}
                         showPeriodTargets={showPeriodTargets}
+                        showPeriodActuals={showPeriodActuals}
+                        canEditPeriodActual={canEditPeriodActual}
+                        useExecutionCompletion={showPeriodActuals}
                         hideAssignments={hideAssignments}
                         canEditAnnualTarget={canEditAnnualTarget}
                         canEditPeriodTarget={canEditPeriodTarget}
@@ -771,6 +779,8 @@ export default function PlanHierarchyView({
                     hideAssignments={hideAssignments}
                     showAnnualTargets={showAnnualTargets}
                     showPeriodTargets={showPeriodTargets}
+                    showPeriodActuals={showPeriodActuals}
+                    canEditPeriodActual={canEditPeriodActual}
                     canEditAnnualTarget={canEditAnnualTarget}
                     canEditPeriodTarget={canEditPeriodTarget}
                     annualTargetAllocations={annualTargetAllocations}
@@ -796,6 +806,8 @@ export default function PlanHierarchyView({
                     hideAssignments={hideAssignments}
                     showAnnualTargets={showAnnualTargets}
                     showPeriodTargets={showPeriodTargets}
+                    showPeriodActuals={showPeriodActuals}
+                    canEditPeriodActual={canEditPeriodActual}
                     canEditAnnualTarget={canEditAnnualTarget}
                     canEditPeriodTarget={canEditPeriodTarget}
                     annualTargetAllocations={annualTargetAllocations}
