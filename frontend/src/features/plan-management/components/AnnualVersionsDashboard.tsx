@@ -30,6 +30,7 @@ import {
     canShowAnnualExecutionCompleteAction,
     getExecutionStatusLabel,
     resolvePlanNavigationVersionId,
+    resolvePlanVersionStatusLabel,
 } from "@/utils/planExecutionUtils";
 import { PerformanceProgressBar } from "./PerformanceProgressBar";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
@@ -43,8 +44,8 @@ interface AnnualVersionsDashboardProps {
     mode?: "draft" | "review";
 }
 
-function getAnnualStatusLabel(version: PlanVersion): string {
-    return formatStatus(version.status);
+function formatPlanningStatus(version: Pick<PlanVersion, "status">): string {
+    return formatStatus(version.status ?? "draft");
 }
 
 function formatSubdivisionMode(mode: string | null | undefined): string {
@@ -243,14 +244,21 @@ export function AnnualVersionsDashboard({
 
                     const statusAppearance = resolveWorkflowStatusAppearance(thresholds, {
                         status: annual.status ?? "draft",
-                        isLocked: executionLocked || Boolean(annual.is_locked),
-                        progressPercent: completion.percent,
-                        statusLabel: processStarted
-                            ? getExecutionStatusLabel(annual.execution_status)
-                            : getAnnualStatusLabel(annual),
+                        isLocked:
+                            processStarted &&
+                            (executionLocked ||
+                                annual.execution_status === "locked" ||
+                                Boolean(annual.is_locked)),
+                        progress: completion,
+                        statusLabel: resolvePlanVersionStatusLabel(
+                            annual,
+                            processStarted,
+                            formatPlanningStatus
+                        ),
+                        useAchievementColors: completion.visible,
                     });
-                    const progressColor = completion.color;
-                    const progressValue = completion.percent;
+                    const progressColor = completion.visible ? completion.color : "#9CA3AF";
+                    const progressValue = completion.visible ? completion.percent : 0;
 
                     return (
                         <Card
@@ -260,19 +268,25 @@ export function AnnualVersionsDashboard({
                                 isCompleted && "opacity-90 bg-muted/20"
                             )}
                         >
-                            <div
-                                className="absolute top-0 left-0 right-0 h-1"
-                                style={{
-                                    background: `linear-gradient(90deg, ${progressColor}, ${progressColor}55)`,
-                                }}
-                            />
+                            {completion.visible && (
+                                <div
+                                    className="absolute top-0 left-0 right-0 h-1"
+                                    style={{
+                                        background: `linear-gradient(90deg, ${progressColor}, ${progressColor}55)`,
+                                    }}
+                                />
+                            )}
                             <CardHeader className="pb-3">
                                 <div className="flex items-start justify-between gap-2">
                                     <div className="space-y-1 min-w-0">
                                         <CardTitle className="text-base flex items-center gap-2">
                                             <CalendarDays
-                                                className="h-4 w-4 shrink-0"
-                                                style={{ color: progressColor }}
+                                                className="h-4 w-4 shrink-0 text-muted-foreground"
+                                                style={
+                                                    completion.visible
+                                                        ? { color: progressColor }
+                                                        : undefined
+                                                }
                                             />
                                             {annual.planning_year}
                                         </CardTitle>
@@ -292,34 +306,38 @@ export function AnnualVersionsDashboard({
                             </CardHeader>
 
                             <CardContent className="flex-1 space-y-3">
-                                <div className="space-y-1.5">
-                                    <div className="flex justify-between text-xs text-muted-foreground">
-                                        <span>Progress</span>
-                                        <span
-                                            className="font-medium"
-                                            style={{ color: progressColor }}
-                                        >
-                                            {`${completion.percent}%`}
-                                        </span>
-                                    </div>
-                                    <PerformanceProgressBar
-                                        value={progressValue}
-                                        color={progressColor}
-                                    />
-                                </div>
+                                {completion.visible && (
+                                    <>
+                                        <div className="space-y-1.5">
+                                            <div className="flex justify-between text-xs text-muted-foreground">
+                                                <span>Progress</span>
+                                                <span
+                                                    className="font-medium"
+                                                    style={{ color: progressColor }}
+                                                >
+                                                    {`${completion.percent}%`}
+                                                </span>
+                                            </div>
+                                            <PerformanceProgressBar
+                                                value={progressValue}
+                                                color={progressColor}
+                                            />
+                                        </div>
 
-                                <PerformanceColorBadge
-                                    color={completion.color}
-                                    label={completion.label}
-                                    className="text-[10px] py-0 h-5"
-                                />
+                                        <PerformanceColorBadge
+                                            color={completion.color}
+                                            label={completion.label}
+                                            className="text-[10px] py-0 h-5"
+                                        />
+                                    </>
+                                )}
 
                                 {annualTargetsFinalized &&
                                     periodsInitializedGlobally &&
                                     !periodTargetsFinalized &&
                                     !isCompleted && (
                                         <PerformanceColorBadge
-                                            color={completion.color}
+                                            color="#94a3b8"
                                             label="Setup — finalize execution period"
                                             variant="outline"
                                             className="gap-1 w-fit text-xs"
@@ -335,7 +353,7 @@ export function AnnualVersionsDashboard({
                                 )}
                                 {executionOpen && (
                                     <PerformanceColorBadge
-                                        color={progressColor}
+                                        color="#94a3b8"
                                         label="Open for execution"
                                         variant="outline"
                                         className="gap-1 w-fit text-xs"

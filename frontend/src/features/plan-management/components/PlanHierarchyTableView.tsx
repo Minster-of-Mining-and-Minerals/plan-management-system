@@ -25,7 +25,10 @@ import {
     getStepColorHex,
     getPlanStepSurfaceStyles,
 } from "@/utils/planRuleUtils";
-import { resolveCompletionForEntity, resolveCompletionForPlanNode } from "@/utils/performanceColorUtils";
+import {
+    hiddenProgressAppearance,
+    resolveCompletionForPlanNode,
+} from "@/utils/performanceColorUtils";
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
 import { useEffectivePlanningConfiguration } from "@/hooks/useEffectivePlanningConfiguration";
 import { getHierarchyNumber } from "@/utils/planNodeOrderUtils";
@@ -61,6 +64,8 @@ interface PlanHierarchyTableViewProps {
     showPeriodActuals?: boolean;
     canEditPeriodActual?: boolean;
     useExecutionCompletion?: boolean;
+    processStarted?: boolean;
+    periodHasRecordedActuals?: boolean;
     canEditAnnualTarget?: boolean;
     canEditPeriodTarget?: boolean;
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
@@ -91,6 +96,8 @@ interface StrategicFocusTableProps {
     showPeriodActuals?: boolean;
     canEditPeriodActual?: boolean;
     useExecutionCompletion?: boolean;
+    processStarted?: boolean;
+    periodHasRecordedActuals?: boolean;
     canEditAnnualTarget?: boolean;
     canEditPeriodTarget?: boolean;
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
@@ -121,6 +128,8 @@ function StrategicFocusTable({
     showPeriodActuals = false,
     canEditPeriodActual = false,
     useExecutionCompletion = false,
+    processStarted = false,
+    periodHasRecordedActuals = false,
     canEditAnnualTarget = false,
     canEditPeriodTarget = false,
     annualTargetAllocations,
@@ -131,8 +140,13 @@ function StrategicFocusTable({
 
     const resolveNodeCompletion = (node: PlanNode) =>
         useExecutionCompletion
-            ? resolveCompletionForPlanNode(thresholds, node, true)
-            : resolveCompletionForEntity(thresholds, node.plan_node_id);
+            ? resolveCompletionForPlanNode(
+                  thresholds,
+                  node,
+                  processStarted,
+                  periodHasRecordedActuals
+              )
+            : hiddenProgressAppearance();
 
     const rows = useMemo(() => flattenPlanSubtree(root), [root]);
     const nodeCount = rows.length;
@@ -153,7 +167,11 @@ function StrategicFocusTable({
                 <ChevronRight className="chevron h-4 w-4 shrink-0 text-gray-400 transition-transform" />
                 <div
                     className="h-8 w-1 rounded-full shrink-0"
-                    style={{ backgroundColor: rootCompletion.color }}
+                    style={{
+                        backgroundColor: rootCompletion.visible
+                            ? rootCompletion.color
+                            : "#E5E7EB",
+                    }}
                 />
                 <div className="p-1.5 rounded-lg bg-gray-50 shrink-0">
                     <PlanNodeIcon type={root.type} className="h-4 w-4" />
@@ -198,11 +216,13 @@ function StrategicFocusTable({
                                 )}
                             </Badge>
                         )}
-                        <PerformanceColorBadge
-                            color={rootCompletion.color}
-                            label={rootCompletion.label}
-                            className="text-[10px] py-0 h-4"
-                        />
+                        {rootCompletion.visible && (
+                            <PerformanceColorBadge
+                                color={rootCompletion.color}
+                                label={rootCompletion.label}
+                                className="text-[10px] py-0 h-4"
+                            />
+                        )}
                     </div>
                     {root.description && (
                         <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
@@ -437,19 +457,23 @@ function StrategicFocusTable({
                                             </TableCell>
                                         )}
                                         <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <span
-                                                    className="text-sm font-semibold tabular-nums"
-                                                    style={{ color: completion.color }}
-                                                >
-                                                    {completion.percent}%
-                                                </span>
-                                                <PerformanceColorBadge
-                                                    color={completion.color}
-                                                    label={completion.label}
-                                                    className="text-[10px] py-0 h-5"
-                                                />
-                                            </div>
+                                            {completion.visible ? (
+                                                <div className="flex items-center gap-2">
+                                                    <span
+                                                        className="text-sm font-semibold tabular-nums"
+                                                        style={{ color: completion.color }}
+                                                    >
+                                                        {completion.percent}%
+                                                    </span>
+                                                    <PerformanceColorBadge
+                                                        color={completion.color}
+                                                        label={completion.label}
+                                                        className="text-[10px] py-0 h-5"
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <span className="text-sm text-muted-foreground">—</span>
+                                            )}
                                         </TableCell>
                                         {!hideAssignments && (
                                             <TableCell className="whitespace-normal">
@@ -549,6 +573,8 @@ export function PlanHierarchyTableView({
     showPeriodActuals = false,
     canEditPeriodActual = false,
     useExecutionCompletion = false,
+    processStarted = false,
+    periodHasRecordedActuals = false,
     canEditAnnualTarget = false,
     canEditPeriodTarget = false,
     annualTargetAllocations,
@@ -593,6 +619,8 @@ export function PlanHierarchyTableView({
                     showPeriodActuals={showPeriodActuals}
                     canEditPeriodActual={canEditPeriodActual}
                     useExecutionCompletion={useExecutionCompletion}
+                    processStarted={processStarted}
+                    periodHasRecordedActuals={periodHasRecordedActuals}
                     canEditAnnualTarget={canEditAnnualTarget}
                     canEditPeriodTarget={canEditPeriodTarget}
                     annualTargetAllocations={annualTargetAllocations}

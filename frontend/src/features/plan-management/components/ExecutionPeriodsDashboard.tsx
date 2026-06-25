@@ -28,6 +28,7 @@ import {
     canShowPeriodExecutionCompleteAction,
     getExecutionStatusLabel,
     resolvePlanNavigationVersionId,
+    resolvePlanVersionStatusLabel,
 } from "@/utils/planExecutionUtils";
 import { cn } from "@/lib/utils";
 
@@ -36,8 +37,8 @@ interface ExecutionPeriodsDashboardProps {
     mode?: "draft" | "review";
 }
 
-function getPeriodStatusLabel(version: PlanVersion): string {
-    return formatStatus(version.status);
+function formatPlanningStatus(version: Pick<PlanVersion, "status">): string {
+    return formatStatus(version.status ?? "draft");
 }
 
 function formatSubdivisionMode(mode: string | null | undefined): string {
@@ -188,66 +189,71 @@ export function ExecutionPeriodsDashboard({
                 </div>
             )}
 
-            <Card
-                className="border"
-                style={{
-                    borderColor: `${annualCompletion.color}44`,
-                    backgroundColor: `${annualCompletion.color}0A`,
-                }}
-            >
-                <CardContent className="py-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                            <p className="text-sm text-muted-foreground">Annual Achievement</p>
-                            <p
-                                className="text-2xl font-bold"
-                                style={{ color: annualCompletion.color }}
-                            >
-                                {annualCompletion.percent}%
-                            </p>
-                            <PerformanceColorBadge
-                                color={annualCompletion.color}
-                                label={annualCompletion.label}
-                                className="mt-1 text-[10px] py-0 h-5"
-                            />
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                            {executionPeriods.map((period) => {
-                                const periodCompletion = resolveCompletionForVersion(
-                                    thresholds,
-                                    period,
-                                    processStarted
-                                );
-                                const miniColor = periodCompletion.color;
+            {annualCompletion.visible && (
+                <Card
+                    className="border"
+                    style={{
+                        borderColor: `${annualCompletion.color}44`,
+                        backgroundColor: `${annualCompletion.color}0A`,
+                    }}
+                >
+                    <CardContent className="py-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <p className="text-sm text-muted-foreground">Annual Achievement</p>
+                                <p
+                                    className="text-2xl font-bold"
+                                    style={{ color: annualCompletion.color }}
+                                >
+                                    {annualCompletion.percent}%
+                                </p>
+                                <PerformanceColorBadge
+                                    color={annualCompletion.color}
+                                    label={annualCompletion.label}
+                                    className="mt-1 text-[10px] py-0 h-5"
+                                />
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {executionPeriods.map((period) => {
+                                    const periodCompletion = resolveCompletionForVersion(
+                                        thresholds,
+                                        period,
+                                        processStarted
+                                    );
+                                    if (!periodCompletion.visible) {
+                                        return null;
+                                    }
+                                    const miniColor = periodCompletion.color;
 
-                                return (
-                                    <div
-                                        key={period.plan_version_id}
-                                        className="rounded-lg border bg-white px-3 py-2 text-center min-w-[72px]"
-                                        style={{ borderColor: `${miniColor}55` }}
-                                    >
-                                        <p className="text-xs font-semibold text-gray-700">
-                                            {period.period_label}
-                                        </p>
-                                        <p
-                                            className="text-sm font-bold"
-                                            style={{ color: miniColor }}
+                                    return (
+                                        <div
+                                            key={period.plan_version_id}
+                                            className="rounded-lg border bg-white px-3 py-2 text-center min-w-[72px]"
+                                            style={{ borderColor: `${miniColor}55` }}
                                         >
-                                            {`${periodCompletion.percent}%`}
-                                        </p>
-                                        <p
-                                            className="text-[10px] font-medium truncate"
-                                            style={{ color: miniColor }}
-                                        >
-                                            {periodCompletion.label}
-                                        </p>
-                                    </div>
-                                );
-                            })}
+                                            <p className="text-xs font-semibold text-gray-700">
+                                                {period.period_label}
+                                            </p>
+                                            <p
+                                                className="text-sm font-bold"
+                                                style={{ color: miniColor }}
+                                            >
+                                                {`${periodCompletion.percent}%`}
+                                            </p>
+                                            <p
+                                                className="text-[10px] font-medium truncate"
+                                                style={{ color: miniColor }}
+                                            >
+                                                {periodCompletion.label}
+                                            </p>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
-                    </div>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
+            )}
 
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {executionPeriods.map((period) => {
@@ -277,14 +283,21 @@ export function ExecutionPeriodsDashboard({
 
                     const statusAppearance = resolveWorkflowStatusAppearance(thresholds, {
                         status: period.status ?? "draft",
-                        isLocked: executionLocked || Boolean(period.is_locked),
-                        progressPercent: completion.percent,
-                        statusLabel: processStarted
-                            ? getExecutionStatusLabel(period.execution_status)
-                            : getPeriodStatusLabel(period),
+                        isLocked:
+                            processStarted &&
+                            (executionLocked ||
+                                period.execution_status === "locked" ||
+                                Boolean(period.is_locked)),
+                        progress: completion,
+                        statusLabel: resolvePlanVersionStatusLabel(
+                            period,
+                            processStarted,
+                            formatPlanningStatus
+                        ),
+                        useAchievementColors: completion.visible,
                     });
-                    const progressColor = completion.color;
-                    const progressValue = completion.percent;
+                    const progressColor = completion.visible ? completion.color : "#9CA3AF";
+                    const progressValue = completion.visible ? completion.percent : 0;
 
                     return (
                         <Card
@@ -294,19 +307,25 @@ export function ExecutionPeriodsDashboard({
                                 isCompleted && "opacity-90 bg-muted/20"
                             )}
                         >
-                            <div
-                                className="absolute top-0 left-0 right-0 h-1"
-                                style={{
-                                    background: `linear-gradient(90deg, ${progressColor}, ${progressColor}55)`,
-                                }}
-                            />
+                            {completion.visible && (
+                                <div
+                                    className="absolute top-0 left-0 right-0 h-1"
+                                    style={{
+                                        background: `linear-gradient(90deg, ${progressColor}, ${progressColor}55)`,
+                                    }}
+                                />
+                            )}
                             <CardHeader className="pb-3">
                                 <div className="flex items-start justify-between gap-2">
                                     <div className="space-y-1 min-w-0">
                                         <CardTitle className="text-base flex items-center gap-2">
                                             <Clock
-                                                className="h-4 w-4 shrink-0"
-                                                style={{ color: progressColor }}
+                                                className="h-4 w-4 shrink-0 text-muted-foreground"
+                                                style={
+                                                    completion.visible
+                                                        ? { color: progressColor }
+                                                        : undefined
+                                                }
                                             />
                                             {periodLabel}
                                         </CardTitle>
@@ -326,27 +345,31 @@ export function ExecutionPeriodsDashboard({
                             </CardHeader>
 
                             <CardContent className="flex-1 space-y-3">
-                                <div className="space-y-1.5">
-                                    <div className="flex justify-between text-xs text-muted-foreground">
-                                        <span>Period Progress</span>
-                                        <span
-                                            className="font-medium"
-                                            style={{ color: progressColor }}
-                                        >
-                                            {`${completion.percent}%`}
-                                        </span>
-                                    </div>
-                                    <PerformanceProgressBar
-                                        value={progressValue}
-                                        color={progressColor}
-                                    />
-                                </div>
+                                {completion.visible && (
+                                    <>
+                                        <div className="space-y-1.5">
+                                            <div className="flex justify-between text-xs text-muted-foreground">
+                                                <span>Period Progress</span>
+                                                <span
+                                                    className="font-medium"
+                                                    style={{ color: progressColor }}
+                                                >
+                                                    {`${completion.percent}%`}
+                                                </span>
+                                            </div>
+                                            <PerformanceProgressBar
+                                                value={progressValue}
+                                                color={progressColor}
+                                            />
+                                        </div>
 
-                                <PerformanceColorBadge
-                                    color={completion.color}
-                                    label={completion.label}
-                                    className="text-[10px] py-0 h-5"
-                                />
+                                        <PerformanceColorBadge
+                                            color={completion.color}
+                                            label={completion.label}
+                                            className="text-[10px] py-0 h-5"
+                                        />
+                                    </>
+                                )}
 
                                 {needsActuals && (
                                     <PerformanceColorBadge
@@ -358,7 +381,7 @@ export function ExecutionPeriodsDashboard({
                                 )}
                                 {executionOpen && (
                                     <PerformanceColorBadge
-                                        color={progressColor}
+                                        color="#94a3b8"
                                         label="Open for execution"
                                         variant="outline"
                                         className="gap-1 w-fit text-xs"
@@ -374,7 +397,7 @@ export function ExecutionPeriodsDashboard({
                                 )}
                                 {isCompleted && (
                                     <PerformanceColorBadge
-                                        color={completion.color}
+                                        color={completion.visible ? completion.color : "#9CA3AF"}
                                         label="Completed"
                                         variant="outline"
                                         className="gap-1 w-fit text-xs"

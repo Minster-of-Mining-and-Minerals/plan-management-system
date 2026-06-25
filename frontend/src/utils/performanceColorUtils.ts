@@ -1,4 +1,5 @@
 import { PerformanceColorThreshold } from "@/redux/types/performanceColorThreshold";
+import { PlanNodeHierarchy } from "@/redux/types/plan";
 
 export const DEFAULT_PERFORMANCE_THRESHOLDS: PerformanceColorThreshold[] = [
   { performance_color_threshold_id: "default-0", label: "No Performance", min_percentage: 0, max_percentage: 0, color_hex: "#DC2626", sort_order: 1, is_active: true },
@@ -9,6 +10,25 @@ export const DEFAULT_PERFORMANCE_THRESHOLDS: PerformanceColorThreshold[] = [
   { performance_color_threshold_id: "default-5", label: "Very Good", min_percentage: 85, max_percentage: 99, color_hex: "#16A34A", sort_order: 6, is_active: true },
   { performance_color_threshold_id: "default-6", label: "Completed", min_percentage: 100, max_percentage: 100, color_hex: "#15803D", sort_order: 7, is_active: true },
 ];
+
+export const LOCKED_STATUS_COLOR = "#9CA3AF";
+export const NEUTRAL_PLANNING_COLOR = "#9CA3AF";
+
+export interface CompletionAppearance {
+  percent: number;
+  color: string;
+  label: string;
+}
+
+export interface ProgressAppearance extends CompletionAppearance {
+  /** False during planning or before any achievement is recorded. */
+  visible: boolean;
+}
+
+export interface AchievementProgressContext {
+  processStarted: boolean;
+  hasRecordedActuals: boolean;
+}
 
 export function sortPerformanceThresholds(
   thresholds: PerformanceColorThreshold[]
@@ -48,29 +68,11 @@ export function resolveColorForPercentage(
   return resolveThresholdForPercentage(thresholds, percentage)?.color_hex ?? "#6B7280";
 }
 
-/** Stable demo completion % per node (0–100) until real progress is wired up. */
-export function getDemoCompletionPercent(nodeId: string): number {
-  let hash = 0;
-  for (let i = 0; i < nodeId.length; i++) {
-    hash = (hash << 5) - hash + nodeId.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash) % 101;
-}
-
 export function formatPercentageRange(threshold: PerformanceColorThreshold): string {
   if (threshold.min_percentage === threshold.max_percentage) {
     return `${threshold.min_percentage}%`;
   }
   return `${threshold.min_percentage}–${threshold.max_percentage}%`;
-}
-
-export const LOCKED_STATUS_COLOR = "#9CA3AF";
-
-export interface CompletionAppearance {
-  percent: number;
-  color: string;
-  label: string;
 }
 
 export function resolveCompletionAppearance(
@@ -86,11 +88,42 @@ export function resolveCompletionAppearance(
   };
 }
 
-export function resolveCompletionForEntity(
-  thresholds: PerformanceColorThreshold[],
-  entityId: string
-): CompletionAppearance {
-  return resolveCompletionAppearance(thresholds, getDemoCompletionPercent(entityId));
+export function hiddenProgressAppearance(): ProgressAppearance {
+  return {
+    percent: 0,
+    color: NEUTRAL_PLANNING_COLOR,
+    label: "",
+    visible: false,
+  };
+}
+
+export function versionHasRecordedActuals(version: {
+  execution_has_recorded_actuals?: boolean;
+  execution_actuals_readiness?: { recorded_count?: number } | null;
+}): boolean {
+  if (version.execution_has_recorded_actuals === true) {
+    return true;
+  }
+  return (version.execution_actuals_readiness?.recorded_count ?? 0) > 0;
+}
+
+export function shouldShowAchievementProgress(
+  processStarted: boolean,
+  hasRecordedActuals: boolean
+): boolean {
+  return processStarted && hasRecordedActuals;
+}
+
+export function treeHasRecordedActual(nodes: PlanNodeHierarchy[]): boolean {
+  for (const node of nodes) {
+    if (node.period_actual != null) {
+      return true;
+    }
+    if (node.children?.length && treeHasRecordedActual(node.children)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function resolveCompletionForVersion(
@@ -100,19 +133,37 @@ export function resolveCompletionForVersion(
     execution_progress_percent?: number | null;
     execution_status?: string | null;
     status?: string | null;
+    execution_has_recorded_actuals?: boolean;
+    execution_actuals_readiness?: { recorded_count?: number } | null;
   },
-  useExecutionProgress: boolean
-): CompletionAppearance {
-  if (useExecutionProgress && version.execution_progress_percent != null) {
-    return resolveCompletionAppearance(thresholds, version.execution_progress_percent);
-  }
+  processStarted: boolean,
+  hasRecordedActuals?: boolean
+): ProgressAppearance {
+  const recorded =
+    hasRecordedActuals ?? versionHasRecordedActuals(version);
+
   if (
-    useExecutionProgress &&
+    processStarted &&
     (version.execution_status === "completed" || version.status === "completed")
   ) {
-    return resolveCompletionAppearance(thresholds, 100);
+    return {
+      ...resolveCompletionAppearance(thresholds, 100),
+      visible: true,
+    };
   }
-  return resolveCompletionForEntity(thresholds, version.plan_version_id);
+
+  if (!shouldShowAchievementProgress(processStarted, recorded)) {
+    return hiddenProgressAppearance();
+  }
+
+  if (version.execution_progress_percent != null) {
+    return {
+      ...resolveCompletionAppearance(thresholds, version.execution_progress_percent),
+      visible: true,
+    };
+  }
+
+  return hiddenProgressAppearance();
 }
 
 export function resolveCompletionForPlanNode(
@@ -121,41 +172,62 @@ export function resolveCompletionForPlanNode(
     plan_node_id: string;
     period_target?: number | null;
     period_actual?: number | null;
+    period_actual_override?: boolean;
     execution_progress_percent?: number | null;
     computed_period_actual?: number | null;
     computed_period_target?: number | null;
+    children?: PlanNodeHierarchy[];
   },
-  useExecutionActuals: boolean
-): CompletionAppearance {
-  if (useExecutionActuals) {
-    if (node.execution_progress_percent != null) {
-      return resolveCompletionAppearance(thresholds, node.execution_progress_percent);
-    }
-
-    const target =
-      Number(node.computed_period_target) || Number(node.period_target) || 0;
-    if (target > 0) {
-      const actual =
-        node.period_actual != null
-          ? Number(node.period_actual)
-          : Number(node.computed_period_actual) || 0;
-      return resolveCompletionAppearance(thresholds, (actual / target) * 100);
-    }
+  processStarted: boolean,
+  periodHasRecordedActuals: boolean
+): ProgressAppearance {
+  if (!shouldShowAchievementProgress(processStarted, periodHasRecordedActuals)) {
+    return hiddenProgressAppearance();
   }
-  return resolveCompletionForEntity(thresholds, node.plan_node_id);
+
+  const hasChildren = (node.children ?? []).some((child) => child.is_active !== false);
+  const isManualLeaf =
+    !hasChildren && !node.period_actual_override && node.period_actual == null;
+
+  if (isManualLeaf) {
+    return hiddenProgressAppearance();
+  }
+
+  if (node.execution_progress_percent != null) {
+    return {
+      ...resolveCompletionAppearance(thresholds, node.execution_progress_percent),
+      visible: true,
+    };
+  }
+
+  const target =
+    Number(node.computed_period_target) || Number(node.period_target) || 0;
+  if (target > 0 && node.period_actual != null) {
+    return {
+      ...resolveCompletionAppearance(
+        thresholds,
+        (Number(node.period_actual) / target) * 100
+      ),
+      visible: true,
+    };
+  }
+
+  return hiddenProgressAppearance();
 }
 
-/** Maps workflow status (locked / completed / active) to configured performance colors. */
+/** Workflow badge only — no performance coloring until achievements exist. */
 export function resolveWorkflowStatusAppearance(
   thresholds: PerformanceColorThreshold[],
   options: {
     status: string;
     isLocked?: boolean;
-    progressPercent?: number;
+    progress?: ProgressAppearance;
     statusLabel?: string;
+    useAchievementColors?: boolean;
   }
 ): CompletionAppearance {
-  const { status, isLocked, progressPercent = 0, statusLabel } = options;
+  const { status, isLocked, progress, statusLabel, useAchievementColors = false } =
+    options;
 
   if (isLocked || status === "locked") {
     return {
@@ -166,10 +238,25 @@ export function resolveWorkflowStatusAppearance(
   }
 
   if (status === "completed") {
-    const completed = resolveCompletionAppearance(thresholds, 100);
-    return { ...completed, label: statusLabel ?? completed.label };
+    if (useAchievementColors && progress?.visible) {
+      const completed = resolveCompletionAppearance(thresholds, 100);
+      return { ...completed, label: statusLabel ?? completed.label };
+    }
+    return {
+      percent: 0,
+      color: NEUTRAL_PLANNING_COLOR,
+      label: statusLabel ?? "Completed",
+    };
   }
 
-  const active = resolveCompletionAppearance(thresholds, progressPercent);
-  return { ...active, label: statusLabel ?? active.label };
+  if (useAchievementColors && progress?.visible) {
+    const active = resolveCompletionAppearance(thresholds, progress.percent);
+    return { ...active, label: statusLabel ?? active.label };
+  }
+
+  return {
+    percent: 0,
+    color: NEUTRAL_PLANNING_COLOR,
+    label: statusLabel ?? "",
+  };
 }

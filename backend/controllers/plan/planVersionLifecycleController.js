@@ -92,10 +92,12 @@ async function listAnnualVersions(req, res) {
         const annualVersions = await getAnnualVersions(id);
         const { annualVersions: enrichedAnnuals, executionSnapshot } =
             await enrichAnnualVersionsWithExecution(master, annualVersions);
+        const { attachLiveExecutionOverlay } = require("../../services/planExecutionGateService");
+        const enrichedMaster = await attachLiveExecutionOverlay(master);
         return res.json({
             success: true,
             data: {
-                master,
+                master: enrichedMaster,
                 annualVersions: enrichedAnnuals,
                 executionSnapshot,
             },
@@ -144,9 +146,14 @@ async function listExecutionPeriods(req, res) {
 
         const executionPeriods = await getExecutionPeriods(id);
         const enriched = await enrichExecutionPeriodsWithExecution(annual, executionPeriods);
+        const { attachLiveExecutionOverlay } = require("../../services/planExecutionGateService");
+        const enrichedAnnual = await attachLiveExecutionOverlay(annual);
         return res.json({
             success: true,
-            data: enriched,
+            data: {
+                ...enriched,
+                annual: enriched.annual ?? enrichedAnnual,
+            },
         });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });

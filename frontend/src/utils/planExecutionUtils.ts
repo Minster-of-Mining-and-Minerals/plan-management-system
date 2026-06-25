@@ -40,6 +40,39 @@ export function getExecutionStatusLabel(status: PlanExecutionStatus | null | und
     return "Not started";
 }
 
+/** Planning workflow label, or execution gate label once process has started. */
+export function resolvePlanVersionStatusLabel(
+    version: Pick<
+        PlanVersion,
+        "version_kind" | "status" | "execution_status" | "sequence_index"
+    >,
+    processStarted: boolean,
+    formatPlanningStatus: (version: Pick<PlanVersion, "status">) => string
+): string {
+    if (!processStarted) {
+        return formatPlanningStatus(version);
+    }
+
+    if (version.version_kind === "master") {
+        return "In execution";
+    }
+
+    if (
+        version.version_kind === "annual" ||
+        version.version_kind === "execution_period"
+    ) {
+        if (version.execution_status) {
+            return getExecutionStatusLabel(version.execution_status);
+        }
+        if (version.version_kind === "annual" && version.sequence_index === 1) {
+            return "Open";
+        }
+        return "Locked";
+    }
+
+    return formatPlanningStatus(version);
+}
+
 export function resolvePlanNavigationVersionId(
     version: PlanVersion & PlanVersionExecutionOverlay,
     processStarted: boolean

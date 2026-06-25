@@ -11,7 +11,7 @@ import {
     stepRequiresWeight,
 } from "@/utils/planRuleUtils";
 import {
-    resolveCompletionForEntity,
+    hiddenProgressAppearance,
     resolveCompletionForPlanNode,
 } from "@/utils/performanceColorUtils";
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
@@ -38,6 +38,8 @@ interface PlanNodeCardGridProps {
     showPeriodActuals?: boolean;
     canEditPeriodActual?: boolean;
     useExecutionCompletion?: boolean;
+    processStarted?: boolean;
+    periodHasRecordedActuals?: boolean;
     hideAssignments?: boolean;
     canEditAnnualTarget?: boolean;
     canEditPeriodTarget?: boolean;
@@ -66,6 +68,8 @@ export function PlanNodeCardGrid({
     showPeriodActuals = false,
     canEditPeriodActual = false,
     useExecutionCompletion = false,
+    processStarted = false,
+    periodHasRecordedActuals = false,
     hideAssignments = false,
     canEditAnnualTarget = false,
     canEditPeriodTarget = false,
@@ -99,12 +103,17 @@ export function PlanNodeCardGrid({
         >();
         for (const node of sortedNodes) {
             const completion = useExecutionCompletion
-                ? resolveCompletionForPlanNode(thresholds, node, true)
-                : resolveCompletionForEntity(thresholds, node.plan_node_id);
+                ? resolveCompletionForPlanNode(
+                      thresholds,
+                      node,
+                      processStarted,
+                      periodHasRecordedActuals
+                  )
+                : hiddenProgressAppearance();
             map.set(node.plan_node_id, completion);
         }
         return map;
-    }, [sortedNodes, thresholds, useExecutionCompletion]);
+    }, [sortedNodes, thresholds, useExecutionCompletion, processStarted, periodHasRecordedActuals]);
 
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -112,11 +121,7 @@ export function PlanNodeCardGrid({
                 const hasChildren = node.children && node.children.length > 0;
                 const levelLabel = getStepLabel(rule, node.level);
                 const nodeWeightMode = node.weight_mode;
-                const completion = completionMap.get(node.plan_node_id) ?? {
-                    percent: 0,
-                    color: "#6B7280",
-                    label: "Unknown",
-                };
+                const completion = completionMap.get(node.plan_node_id) ?? hiddenProgressAppearance();
                 const requiresWeight = stepRequiresWeight(rule, node.level);
                 const allocation = annualTargetAllocations?.[node.plan_node_id];
                 const liveDraftTarget = resolveLiveDraftTarget(node, allocation);
@@ -130,12 +135,14 @@ export function PlanNodeCardGrid({
                             if (hasChildren) onDrillDown(node);
                         }}
                     >
-                        <div
-                            className="absolute top-0 left-0 right-0 h-1"
-                            style={{
-                                background: `linear-gradient(90deg, ${completion.color}, ${completion.color}55)`,
-                            }}
-                        />
+                        {completion.visible && (
+                            <div
+                                className="absolute top-0 left-0 right-0 h-1"
+                                style={{
+                                    background: `linear-gradient(90deg, ${completion.color}, ${completion.color}55)`,
+                                }}
+                            />
+                        )}
                         <CardContent className="p-5">
                             <div className="flex items-start gap-4">
                                 <div className="flex-1 min-w-0 space-y-3">
@@ -199,11 +206,13 @@ export function PlanNodeCardGrid({
                                                     )}
                                                 </Badge>
                                             )}
-                                            <PerformanceColorBadge
-                                                color={completion.color}
-                                                label={completion.label}
-                                                className="text-[10px] py-0 h-4"
-                                            />
+                                            {completion.visible && (
+                                                <PerformanceColorBadge
+                                                    color={completion.color}
+                                                    label={completion.label}
+                                                    className="text-[10px] py-0 h-4"
+                                                />
+                                            )}
                                         </div>
 
                                         {showAnnualTargets && hasDraftTarget && (
@@ -289,23 +298,25 @@ export function PlanNodeCardGrid({
                                     </div>
                                 </div>
 
-                                <div
-                                    className="shrink-0 pt-1"
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    <CircularProgress
-                                        value={completion.percent}
-                                        color={completion.color}
-                                        size={76}
-                                        className="hidden sm:block"
-                                    />
-                                    <CircularProgress
-                                        value={completion.percent}
-                                        color={completion.color}
-                                        size={64}
-                                        className="sm:hidden"
-                                    />
-                                </div>
+                                {completion.visible && (
+                                    <div
+                                        className="shrink-0 pt-1"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <CircularProgress
+                                            value={completion.percent}
+                                            color={completion.color}
+                                            size={76}
+                                            className="hidden sm:block"
+                                        />
+                                        <CircularProgress
+                                            value={completion.percent}
+                                            color={completion.color}
+                                            size={64}
+                                            className="sm:hidden"
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </CardContent>
                     </Card>

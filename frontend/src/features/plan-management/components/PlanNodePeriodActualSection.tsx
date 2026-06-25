@@ -94,6 +94,11 @@ export function PlanNodePeriodActualSection({
         (displayActualRaw != null && effectiveTarget > 0
             ? Math.min(100, Math.round((displayActualRaw / effectiveTarget) * 100))
             : null);
+    const showAchievementPercent =
+        achievementPercent != null &&
+        (isRollupEntry
+            ? displayActualRaw != null
+            : node.period_actual != null || node.period_actual_override);
 
     const handleSave = async () => {
         try {
@@ -186,7 +191,7 @@ export function PlanNodePeriodActualSection({
                     Manual override
                 </Badge>
             )}
-            {achievementPercent != null && (
+            {achievementPercent != null && showAchievementPercent && (
                 <Badge variant="outline" className="text-[10px] py-0 h-4">
                     {achievementPercent}%
                 </Badge>
@@ -273,7 +278,7 @@ export function PlanNodePeriodActualSection({
                     >
                         {periodActualValue ?? (isRollupEntry ? "—" : "Not recorded")}
                     </p>
-                    {achievementPercent != null && (
+                    {achievementPercent != null && showAchievementPercent && (
                         <p className="text-xs text-violet-700 mt-1">{achievementPercent}% of target</p>
                     )}
                 </div>

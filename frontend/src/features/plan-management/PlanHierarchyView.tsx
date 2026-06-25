@@ -44,7 +44,7 @@ import { FinalizeExecutionPeriodsModal } from "./modals/FinalizeExecutionPeriods
 import { usePlanVersionPlanningConfiguration } from "@/hooks/usePlanVersionPlanningConfiguration";
 import { formatStatus } from "@/utils/statusFormatter";
 import { canEditAnnualTargetForVersion, canEditPeriodTargetForVersion } from "@/utils/planDraftUtils";
-import { getExecutionStatusLabel, canEditPeriodActualForVersion } from "@/utils/planExecutionUtils";
+import { getExecutionStatusLabel, canEditPeriodActualForVersion, resolvePlanVersionStatusLabel } from "@/utils/planExecutionUtils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import {
@@ -70,6 +70,8 @@ import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresh
 import {
     resolveCompletionForVersion,
     resolveWorkflowStatusAppearance,
+    treeHasRecordedActual,
+    versionHasRecordedActuals,
 } from "@/utils/performanceColorUtils";
 import { PerformanceColorBadge } from "./components/PerformanceColorBadge";
 import {
@@ -236,7 +238,7 @@ export default function PlanHierarchyView({
             ? version?.period_subdivision_mode
             : masterVersion?.period_subdivision_mode ?? version?.period_subdivision_mode
     );
-    const processStarted = Boolean(masterVersion?.process_started_at);
+    const processStarted = Boolean(effectiveMasterVersion?.process_started_at);
     const showPeriodTargets = isExecutionPeriod && !processStarted;
     const showPeriodActuals = isExecutionPeriod && processStarted;
     const isExecutionSnapshotView = Boolean(version?.execution_snapshot_of_version_id);
@@ -244,6 +246,12 @@ export default function PlanHierarchyView({
         isExecutionPeriod &&
         processStarted &&
         (version?.execution_status === "locked" || version?.execution_access?.is_locked);
+    const executionAnnualLocked =
+        isAnnualVersion &&
+        processStarted &&
+        (version?.execution_status === "locked" || version?.execution_access?.is_locked);
+    const executionAnnualOpen =
+        isAnnualVersion && processStarted && version?.execution_status === "open";
     const executionPeriodOpen =
         isExecutionPeriod && processStarted && version?.execution_status === "open";
     const canEditAnnualTarget = canEditAnnualTargetForVersion(
@@ -326,16 +334,40 @@ export default function PlanHierarchyView({
         return map;
     }, [periodAllocationList]);
 
+    const periodHasRecordedActuals = useMemo(
+        () =>
+            versionHasRecordedActuals(version ?? {}) ||
+            treeHasRecordedActual(hierarchy),
+        [version, hierarchy]
+    );
+
+    const versionProgress = version
+        ? resolveCompletionForVersion(
+              thresholds,
+              version,
+              processStarted,
+              periodHasRecordedActuals
+          )
+        : null;
+
+    const versionPlanningStatusLabel = (v: typeof version) =>
+        formatStatus(v?.status ?? "draft");
+
     const versionStatusAppearance = version
         ? resolveWorkflowStatusAppearance(thresholds, {
               status: version.status ?? "draft",
-              isLocked: false,
-              progressPercent: resolveCompletionForVersion(
-                  thresholds,
+              isLocked:
+                  processStarted &&
+                  (version.execution_status === "locked" ||
+                      version.execution_access?.is_locked ||
+                      false),
+              progress: versionProgress ?? undefined,
+              statusLabel: resolvePlanVersionStatusLabel(
                   version,
-                  showPeriodActuals
-              ).percent,
-              statusLabel: formatStatus(version.status),
+                  processStarted,
+                  versionPlanningStatusLabel
+              ),
+              useAchievementColors: versionProgress?.visible ?? false,
           })
         : null;
 
@@ -584,7 +616,18 @@ export default function PlanHierarchyView({
                 </div>
             )}
 
-            {isReadOnlyHierarchy && version?.status === "finalized" && showAnnualDashboard && !isEditingFinalizedMaster && !isPlanInActiveReview(effectiveMasterVersion) && (
+            {processStarted && version?.version_kind === "master" && (
+                <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+                    Process started
+                    {version.process_started_at
+                        ? ` on ${new Date(version.process_started_at).toLocaleDateString()}`
+                        : ""}
+                    . Execution version {version.active_execution_snapshot_id ? "is active" : "pending"} —
+                    use the Annual Execution tab to work through each year in order.
+                </div>
+            )}
+
+            {isReadOnlyHierarchy && version?.status === "finalized" && showAnnualDashboard && !isEditingFinalizedMaster && !isPlanInActiveReview(effectiveMasterVersion) && !processStarted && (
                 <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                     Strategic draft is finalized. Use the Annual Execution tab to distribute annual
                     targets across years (total must match the draft), then finalize annual execution.
@@ -595,6 +638,32 @@ export default function PlanHierarchyView({
                 <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                     Annual execution is finalized. On the strategic plan&apos;s Annual Execution tab,
                     use Initialize Execution Periods once — the same subdivision applies to all years.
+                </div>
+            )}
+
+            {isAnnualVersion && processStarted && (
+                <div
+                    className={cn(
+                        "rounded-lg border px-4 py-3 text-sm",
+                        executionAnnualOpen
+                            ? "border-green-200 bg-green-50 text-green-900"
+                            : executionAnnualLocked
+                              ? "border-slate-200 bg-slate-50 text-slate-800"
+                              : "border-blue-200 bg-blue-50 text-blue-900"
+                    )}
+                >
+                    Annual execution —{" "}
+                    {resolvePlanVersionStatusLabel(
+                        version,
+                        processStarted,
+                        versionPlanningStatusLabel
+                    )}
+                    .
+                    {executionAnnualLocked
+                        ? " This year is view-only until the previous year is completed."
+                        : executionAnnualOpen
+                          ? " Open execution periods below to record achievements."
+                          : " This year is completed."}
                 </div>
             )}
 
@@ -718,6 +787,8 @@ export default function PlanHierarchyView({
                         showPeriodActuals={showPeriodActuals}
                         canEditPeriodActual={canEditPeriodActual}
                         useExecutionCompletion={showPeriodActuals}
+                        processStarted={processStarted}
+                        periodHasRecordedActuals={periodHasRecordedActuals}
                         canEditAnnualTarget={canEditAnnualTarget}
                         canEditPeriodTarget={canEditPeriodTarget}
                         annualTargetAllocations={annualTargetAllocations}
@@ -739,6 +810,8 @@ export default function PlanHierarchyView({
                         showPeriodActuals={showPeriodActuals}
                         canEditPeriodActual={canEditPeriodActual}
                         useExecutionCompletion={showPeriodActuals}
+                        processStarted={processStarted}
+                        periodHasRecordedActuals={periodHasRecordedActuals}
                         hideAssignments={hideAssignments}
                         canEditAnnualTarget={canEditAnnualTarget}
                         canEditPeriodTarget={canEditPeriodTarget}
@@ -842,6 +915,17 @@ export default function PlanHierarchyView({
                                     label={versionStatusAppearance.label}
                                     variant="solid"
                                 />
+                                {versionProgress?.visible && (
+                                    <Badge
+                                        variant="outline"
+                                        style={{
+                                            borderColor: `${versionProgress.color}55`,
+                                            color: versionProgress.color,
+                                        }}
+                                    >
+                                        {versionProgress.percent}% achievement
+                                    </Badge>
+                                )}
                                 {version.version_kind === "execution_period" && version.period_label && (
                                     <Badge variant="outline">{version.period_label}</Badge>
                                 )}

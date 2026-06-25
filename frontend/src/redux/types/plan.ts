@@ -70,6 +70,7 @@ export interface PlanVersion {
         ready: boolean;
         missing_titles?: string[];
     };
+    execution_has_recorded_actuals?: boolean;
     execution_progress_percent?: number | null;
     execution_period_progress?: Array<{
         plan_version_id: string;
