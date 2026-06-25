@@ -165,7 +165,7 @@ function aggregateEligibleChildren(children, memo, mode, childrenByParent, rule)
  * Bottom-up rollup aligned with target distribution scope.
  * Leaf: actual/target when period_actual is set; eligible leaves without actual count as 0.
  * Parent weighted: sums actual/target across ALL eligible children (full planned set).
- * Org levels: weighted average of ALL eligible children (missing = 0%).
+ * Org levels: sum actual/target across ALL eligible children (same as weighted parents).
  */
 function computeNodeRollup(node, nodeById, childrenByParent, rule, memo) {
   if (memo.has(node.plan_node_id)) {
@@ -185,19 +185,19 @@ function computeNodeRollup(node, nodeById, childrenByParent, rule, memo) {
       for (const child of children) {
         computeNodeRollup(child, nodeById, childrenByParent, rule, memo);
       }
-      const hasEligible = children.some((child) =>
-        hasTargetBearingSubtree(child, childrenByParent, rule)
+      const mode = resolveWeightMode(node, nodeById);
+      const aggregated = aggregateEligibleChildren(
+        children,
+        memo,
+        mode,
+        childrenByParent,
+        rule
       );
-      const percent = hasEligible
-        ? averageEligibleChildProgress(children, memo, childrenByParent, rule)
-        : null;
       result = {
-        execution_progress_percent: percent,
-        computed_period_actual: null,
-        computed_period_target: null,
-        has_contributing_data: children.some((child) =>
-          subtreeHasContributingData(child, memo, childrenByParent)
-        ),
+        execution_progress_percent: aggregated.execution_progress_percent,
+        computed_period_actual: aggregated.computed_period_actual,
+        computed_period_target: aggregated.computed_period_target,
+        has_contributing_data: aggregated.has_contributing_data,
       };
     }
   } else if (children.length === 0 || usesManualAchievementForRollup(node, childrenByParent)) {
@@ -308,11 +308,17 @@ function computeVersionProgressFromRoots(nodes, rule) {
     totalTarget += Number(metrics.computed_period_target) || 0;
   }
 
+  let execution_progress_percent = null;
+  if (totalTarget > 0) {
+    execution_progress_percent = roundPercent((totalActual / totalTarget) * 100);
+  } else if (progressWeight > 0) {
+    execution_progress_percent = roundPercent(weightedProgress / progressWeight);
+  }
+
   return {
-    execution_progress_percent:
-      progressWeight > 0 ? roundPercent(weightedProgress / progressWeight) : null,
-    computed_period_actual: totalActual,
-    computed_period_target: totalTarget,
+    execution_progress_percent,
+    computed_period_actual: totalTarget > 0 ? totalActual : null,
+    computed_period_target: totalTarget > 0 ? totalTarget : null,
     has_contributing_data: true,
     rollup_by_node_id: rollupMap,
   };
