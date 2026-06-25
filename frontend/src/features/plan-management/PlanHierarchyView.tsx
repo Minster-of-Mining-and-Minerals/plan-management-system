@@ -44,6 +44,7 @@ import { FinalizeExecutionPeriodsModal } from "./modals/FinalizeExecutionPeriods
 import { usePlanVersionPlanningConfiguration } from "@/hooks/usePlanVersionPlanningConfiguration";
 import { formatStatus } from "@/utils/statusFormatter";
 import { canEditAnnualTargetForVersion, canEditPeriodTargetForVersion } from "@/utils/planDraftUtils";
+import { getExecutionStatusLabel } from "@/utils/planExecutionUtils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import {
@@ -77,6 +78,7 @@ import {
     getHierarchyNumber,
 } from "@/utils/planNodeOrderUtils";
 import { PlanNodeHierarchyNumber } from "./components/PlanNodeHierarchyNumber";
+import { cn } from "@/lib/utils";
 
 type ViewMode = "card" | "hierarchy" | "table";
 type PlanDetailTab = "hierarchy" | "annual" | "periods" | "review";
@@ -119,11 +121,12 @@ export default function PlanHierarchyView({
     const router = useRouter();
     const { data: version, refetch: refetchVersion } = useGetPlanVersionByIdQuery(versionId);
     const masterVersionId =
-        version?.version_kind === "master"
+        version?.live_master_version_id ??
+        (version?.version_kind === "master"
             ? version.plan_version_id
             : version?.version_kind === "annual"
               ? version.parent_plan_version_id
-              : null;
+              : null);
     const annualParentId =
         version?.version_kind === "execution_period"
             ? version.parent_plan_version_id
@@ -132,13 +135,14 @@ export default function PlanHierarchyView({
         skip: !annualParentId,
     });
     const resolvedMasterVersionId =
-        version?.version_kind === "master"
+        version?.live_master_version_id ??
+        (version?.version_kind === "master"
             ? version.plan_version_id
             : version?.version_kind === "annual"
               ? version.parent_plan_version_id
               : version?.version_kind === "execution_period"
                 ? annualParentVersion?.parent_plan_version_id ?? null
-                : null;
+                : null);
     const { data: masterVersion } = useGetPlanVersionByIdQuery(resolvedMasterVersionId!, {
         skip: !resolvedMasterVersionId,
     });
@@ -233,6 +237,14 @@ export default function PlanHierarchyView({
             ? version?.period_subdivision_mode
             : masterVersion?.period_subdivision_mode ?? version?.period_subdivision_mode
     );
+    const processStarted = Boolean(masterVersion?.process_started_at);
+    const isExecutionSnapshotView = Boolean(version?.execution_snapshot_of_version_id);
+    const executionPeriodLocked =
+        isExecutionPeriod &&
+        processStarted &&
+        (version?.execution_status === "locked" || version?.execution_access?.is_locked);
+    const executionPeriodOpen =
+        isExecutionPeriod && processStarted && version?.execution_status === "open";
     const canEditAnnualTarget = canEditAnnualTargetForVersion(
         version,
         annualTargetsFinalized,
@@ -583,7 +595,30 @@ export default function PlanHierarchyView({
                 </div>
             )}
 
-            {isReadOnlyHierarchy && isExecutionPeriod && !periodTargetsFinalized && (
+            {isExecutionPeriod && processStarted && (
+                <div
+                    className={cn(
+                        "rounded-lg border px-4 py-3 text-sm",
+                        executionPeriodOpen
+                            ? "border-green-200 bg-green-50 text-green-900"
+                            : executionPeriodLocked
+                              ? "border-slate-200 bg-slate-50 text-slate-800"
+                              : "border-blue-200 bg-blue-50 text-blue-900"
+                    )}
+                >
+                    {isExecutionSnapshotView
+                        ? "Execution version"
+                        : "Planning version"}{" "}
+                    — {getExecutionStatusLabel(version?.execution_status)}.
+                    {executionPeriodLocked
+                        ? " This period is view-only until the previous period is completed."
+                        : executionPeriodOpen
+                          ? " Record achievement against period targets in this hierarchy."
+                          : " This period is completed."}
+                </div>
+            )}
+
+            {isReadOnlyHierarchy && isExecutionPeriod && !processStarted && !periodTargetsFinalized && (
                 <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                     Set period targets so totals match this year&apos;s annual targets for each node.
                     Finalize execution period from the annual plan when all periods for this year are

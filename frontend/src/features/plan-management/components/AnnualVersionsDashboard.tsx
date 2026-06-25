@@ -26,6 +26,11 @@ import {
 } from "@/utils/planPermissionUtils";
 import { PlanReviewWorkflowBar } from "./PlanReviewWorkflowBar";
 import { canStartProcessAfterReview, getPlanViewBasePath } from "@/utils/planReviewUtils";
+import {
+    canShowExecutionCompleteAction,
+    getExecutionStatusLabel,
+    resolvePlanNavigationVersionId,
+} from "@/utils/planExecutionUtils";
 import { PerformanceProgressBar } from "./PerformanceProgressBar";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
 import { FinalizeAnnualExecutionModal } from "../modals/FinalizeAnnualExecutionModal";
@@ -67,6 +72,7 @@ export function AnnualVersionsDashboard({
 
     const master = data?.master ?? masterVersion;
     const annualVersions = data?.annualVersions ?? masterVersion.annualVersions ?? [];
+    const executionSnapshot = data?.executionSnapshot ?? null;
     const annualTargetsFinalized = Boolean(master.annual_targets_finalized_at);
     const periodsInitializedGlobally = Boolean(master.period_subdivision_mode);
     const allAnnualsPeriodFinalized =
@@ -185,6 +191,15 @@ export function AnnualVersionsDashboard({
                 />
             )}
 
+            {!isReviewMode && processStarted && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                    Execution version{" "}
+                    {executionSnapshot?.execution_version_number ?? master.execution_version_number ?? 1}{" "}
+                    is active. Planning targets are frozen; only the open year and period accept
+                    execution updates. Locked periods remain viewable.
+                </div>
+            )}
+
             {!isReviewMode && annualTargetsFinalized && (
                 <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
                     Annual execution finalized on{" "}
@@ -205,19 +220,28 @@ export function AnnualVersionsDashboard({
                         thresholds,
                         annual.plan_version_id
                     );
-                    const isCompleted = annual.status === "completed";
+                    const isCompleted =
+                        annual.execution_status === "completed" || annual.status === "completed";
                     const periodTargetsFinalized = Boolean(annual.period_targets_finalized_at);
-                    const showComplete =
+                    const showComplete = canShowExecutionCompleteAction(
+                        annual,
+                        processStarted,
+                        annualTargetsFinalized && periodTargetsFinalized
+                    );
+                    const executionLocked =
                         processStarted &&
-                        annualTargetsFinalized &&
-                        periodTargetsFinalized &&
+                        annual.execution_status === "locked" &&
                         !isCompleted;
+                    const executionOpen =
+                        processStarted && annual.execution_status === "open";
 
                     const statusAppearance = resolveWorkflowStatusAppearance(thresholds, {
                         status: annual.status ?? "draft",
-                        isLocked: false,
+                        isLocked: executionLocked || Boolean(annual.is_locked),
                         progressPercent: completion.percent,
-                        statusLabel: getAnnualStatusLabel(annual),
+                        statusLabel: processStarted
+                            ? getExecutionStatusLabel(annual.execution_status)
+                            : getAnnualStatusLabel(annual),
                     });
                     const progressColor = completion.color;
                     const progressValue = completion.percent;
@@ -295,7 +319,23 @@ export function AnnualVersionsDashboard({
                                             className="gap-1 w-fit text-xs"
                                         />
                                     )}
-                                {periodTargetsFinalized && !isCompleted && (
+                                {executionOpen && (
+                                    <PerformanceColorBadge
+                                        color={progressColor}
+                                        label="Open for execution"
+                                        variant="outline"
+                                        className="gap-1 w-fit text-xs"
+                                    />
+                                )}
+                                {executionLocked && (
+                                    <PerformanceColorBadge
+                                        color="#94a3b8"
+                                        label="Locked until prior year completes"
+                                        variant="outline"
+                                        className="gap-1 w-fit text-xs"
+                                    />
+                                )}
+                                {periodTargetsFinalized && !isCompleted && !processStarted && (
                                     <PerformanceColorBadge
                                         color={completion.color}
                                         label="Execution period finalized"
@@ -319,11 +359,19 @@ export function AnnualVersionsDashboard({
                                     size="sm"
                                     className="gap-2 flex-1"
                                     onClick={() =>
-                                        router.push(`${plansBasePath}/${annual.plan_version_id}`)
+                                        router.push(
+                                            `${plansBasePath}/${resolvePlanNavigationVersionId(annual, processStarted)}`
+                                        )
                                     }
                                 >
                                     <Eye className="h-4 w-4" />
-                                    {isReviewMode ? "Review Plan" : "Open Plan"}
+                                    {isReviewMode
+                                        ? "Review Plan"
+                                        : processStarted
+                                          ? executionLocked
+                                            ? "View (locked)"
+                                            : "Open execution"
+                                          : "Open Plan"}
                                 </Button>
                                 {!isReviewMode && showComplete && (
                                     <PermissionGuard requireAll={PLAN_COMPLETE_ANNUAL_PERMISSIONS}>
@@ -334,7 +382,8 @@ export function AnnualVersionsDashboard({
                                             disabled={isCompleting}
                                             onClick={() =>
                                                 handleComplete(
-                                                    annual.plan_version_id,
+                                                    annual.execution_snapshot_plan_version_id ??
+                                                        annual.plan_version_id,
                                                     annual.planning_year ?? annual.year
                                                 )
                                             }

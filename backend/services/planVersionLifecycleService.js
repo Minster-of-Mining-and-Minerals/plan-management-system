@@ -571,8 +571,19 @@ async function finalizeDraft(masterVersionId) {
 }
 
 async function getAnnualVersions(masterVersionId) {
+    const master = await PlanVersion.findByPk(masterVersionId, {
+        attributes: ["execution_snapshot_of_version_id"],
+    });
+    const where = {
+        parent_plan_version_id: masterVersionId,
+        version_kind: "annual",
+    };
+    if (!master?.execution_snapshot_of_version_id) {
+        where.execution_snapshot_of_version_id = null;
+    }
+
     return PlanVersion.findAll({
-        where: { parent_plan_version_id: masterVersionId, version_kind: "annual" },
+        where,
         order: [["sequence_index", "ASC"]],
         include: [
             {
@@ -989,10 +1000,53 @@ async function completeAnnualVersion(annualVersionId) {
             };
         }
 
-        await version.update({ status: "completed", is_locked: false }, { transaction: t });
+        if (version.execution_status && version.execution_status !== "open") {
+            await t.rollback();
+            return {
+                success: false,
+                message: "Only the open annual year can be completed",
+            };
+        }
+
+        const periods = await PlanVersion.findAll({
+            where: {
+                parent_plan_version_id: annualVersionId,
+                version_kind: "execution_period",
+            },
+            transaction: t,
+        });
+
+        const incompletePeriod = periods.find(
+            (period) =>
+                period.execution_status !== "completed" && period.status !== "completed"
+        );
+        if (incompletePeriod) {
+            await t.rollback();
+            return {
+                success: false,
+                message: "Complete all execution periods for this year before completing the annual year",
+            };
+        }
+
+        const { isExecutionSnapshotVersion } = require("./planExecutionSnapshotService");
+        const { advanceExecutionGateAfterAnnualComplete } = require("./planExecutionGateService");
+
+        let unlockedVersion = null;
+        if (isExecutionSnapshotVersion(version)) {
+            unlockedVersion = await advanceExecutionGateAfterAnnualComplete(
+                annualVersionId,
+                t
+            );
+        } else {
+            await version.update({ status: "completed", is_locked: false }, { transaction: t });
+        }
 
         await t.commit();
-        return { success: true, data: version, unlockedVersion: null };
+        return {
+            success: true,
+            data: await PlanVersion.findByPk(annualVersionId),
+            unlockedVersion,
+        };
     } catch (error) {
         await t.rollback();
         throw error;
@@ -1382,8 +1436,19 @@ async function finalizeExecutionPeriodTargets(annualVersionId) {
 }
 
 async function getExecutionPeriods(annualVersionId) {
+    const annual = await PlanVersion.findByPk(annualVersionId, {
+        attributes: ["execution_snapshot_of_version_id"],
+    });
+    const where = {
+        parent_plan_version_id: annualVersionId,
+        version_kind: "execution_period",
+    };
+    if (!annual?.execution_snapshot_of_version_id) {
+        where.execution_snapshot_of_version_id = null;
+    }
+
     return PlanVersion.findAll({
-        where: { parent_plan_version_id: annualVersionId, version_kind: "execution_period" },
+        where,
         order: [["sequence_index", "ASC"]],
         include: [{ association: "governmentStructure" }],
     });
@@ -1531,15 +1596,38 @@ async function completeExecutionPeriod(periodVersionId) {
             return { success: false, message: "Execution period version not found" };
         }
 
-        if (version.status === "completed") {
+        if (version.status === "completed" || version.execution_status === "completed") {
             await t.rollback();
             return { success: false, message: "This execution period is already completed" };
         }
 
-        await version.update({ status: "completed", is_locked: false }, { transaction: t });
+        if (version.execution_status && version.execution_status !== "open") {
+            await t.rollback();
+            return {
+                success: false,
+                message: "Only the open execution period can be completed",
+            };
+        }
+
+        const { isExecutionSnapshotVersion } = require("./planExecutionSnapshotService");
+        const { advanceExecutionGateAfterPeriodComplete } = require("./planExecutionGateService");
+
+        let unlockedVersion = null;
+        if (isExecutionSnapshotVersion(version)) {
+            unlockedVersion = await advanceExecutionGateAfterPeriodComplete(
+                periodVersionId,
+                t
+            );
+        } else {
+            await version.update({ status: "completed", is_locked: false }, { transaction: t });
+        }
 
         await t.commit();
-        return { success: true, data: version, unlockedVersion: null };
+        return {
+            success: true,
+            data: await PlanVersion.findByPk(periodVersionId),
+            unlockedVersion,
+        };
     } catch (error) {
         await t.rollback();
         throw error;
@@ -1963,13 +2051,35 @@ async function startPlanProcess(masterVersionId) {
             return { success: false, errors: validation.errors };
         }
 
+        const {
+            createExecutionSnapshot,
+        } = require("./planExecutionSnapshotService");
+        const {
+            lockLivePlanningVersions,
+            initializeExecutionGate,
+        } = require("./planExecutionGateService");
+
         const now = new Date();
-        await validation.master.update({ process_started_at: now }, { transaction: t });
+        const snapshotMaster = await createExecutionSnapshot(masterVersionId, t);
+
+        await validation.master.update(
+            {
+                process_started_at: now,
+                active_execution_snapshot_id: snapshotMaster.plan_version_id,
+            },
+            { transaction: t }
+        );
+
+        await snapshotMaster.update({ process_started_at: now }, { transaction: t });
+
+        await lockLivePlanningVersions(masterVersionId, t);
+        await initializeExecutionGate(snapshotMaster.plan_version_id, t);
 
         await t.commit();
         return {
             success: true,
             data: await PlanVersion.findByPk(masterVersionId),
+            executionSnapshot: snapshotMaster,
         };
     } catch (error) {
         await t.rollback();
@@ -2017,6 +2127,7 @@ async function reopenFinalizedPlanForEdit(masterVersionId) {
                 annual_targets_finalized_at: null,
                 period_targets_finalized_at: null,
                 process_started_at: null,
+                active_execution_snapshot_id: null,
             },
             { transaction: t }
         );

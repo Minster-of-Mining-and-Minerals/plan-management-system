@@ -4,6 +4,7 @@
 
 export type PlanVersionKind = "master" | "annual" | "execution_period";
 export type PlanVersionStatus = "draft" | "active" | "completed" | "finalized" | "locked";
+export type PlanExecutionStatus = "locked" | "open" | "completed";
 export type PlanAccessRole = "owner" | "participant";
 export type PlanReviewStatus = "under_review" | "corrections_unlocked" | "review_completed";
 export type PeriodSubdivisionMode = "quarterly" | "semi_annual" | "custom";
@@ -45,6 +46,20 @@ export interface PlanVersion {
     live_master_version_id?: string | null;
     live_master_version_number?: number | null;
     live_master_draft_name?: string | null;
+    active_execution_snapshot_id?: string | null;
+    execution_snapshot_of_version_id?: string | null;
+    execution_snapshot_root_id?: string | null;
+    execution_version_number?: number | null;
+    execution_status?: PlanExecutionStatus | null;
+    execution_snapshot_plan_version_id?: string | null;
+    execution_access?: {
+        execution_status: PlanExecutionStatus | null;
+        can_view: boolean;
+        can_edit_actuals: boolean;
+        can_complete: boolean;
+        is_locked: boolean;
+        planning_mode?: boolean;
+    } | null;
     status: PlanVersionStatus;
     government_structure_id: string;
     based_on_version_id: string | null;
@@ -163,11 +178,28 @@ export interface AnnualTargetAllocation {
 export interface AnnualVersionsResponse {
     master: PlanVersion;
     annualVersions: PlanVersion[];
+    executionSnapshot?: {
+        snapshot_root_id: string;
+        execution_version_number: number | null;
+        snapshot_master_plan_version_id?: string;
+    } | null;
 }
 
 export interface ExecutionPeriodsResponse {
     annual: PlanVersion;
     executionPeriods: PlanVersion[];
+    executionSnapshot?: {
+        snapshot_root_id: string;
+        execution_version_number: number | null;
+    } | null;
+}
+
+export interface PlanExecutionAccessResponse {
+    found: boolean;
+    is_execution_snapshot?: boolean;
+    live_plan_version_id?: string;
+    snapshot_plan_version_id?: string | null;
+    access?: PlanVersion["execution_access"];
 }
 
 export interface GetPlanVersionsQueryParams {

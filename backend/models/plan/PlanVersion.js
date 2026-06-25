@@ -220,6 +220,31 @@ module.exports = (sequelize, DataTypes) => {
                 type: DataTypes.INTEGER,
                 allowNull: true,
             },
+
+            execution_snapshot_of_version_id: {
+                type: DataTypes.UUID,
+                allowNull: true,
+            },
+
+            execution_snapshot_root_id: {
+                type: DataTypes.UUID,
+                allowNull: true,
+            },
+
+            active_execution_snapshot_id: {
+                type: DataTypes.UUID,
+                allowNull: true,
+            },
+
+            execution_version_number: {
+                type: DataTypes.INTEGER,
+                allowNull: true,
+            },
+
+            execution_status: {
+                type: DataTypes.ENUM("locked", "open", "completed"),
+                allowNull: true,
+            },
         },
         {
             sequelize,

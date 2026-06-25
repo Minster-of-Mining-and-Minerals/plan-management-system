@@ -27,6 +27,11 @@ const {
     duplicateMasterPlanDraft,
 } = require("../../services/planVersionLifecycleService");
 const { PlanVersion } = require("../../models");
+const {
+    enrichAnnualVersionsWithExecution,
+    enrichExecutionPeriodsWithExecution,
+    resolveVersionExecutionAccess,
+} = require("../../services/planExecutionGateService");
 
 async function getDraftFinalizationReadiness(req, res) {
     try {
@@ -85,11 +90,14 @@ async function listAnnualVersions(req, res) {
         }
 
         const annualVersions = await getAnnualVersions(id);
+        const { annualVersions: enrichedAnnuals, executionSnapshot } =
+            await enrichAnnualVersionsWithExecution(master, annualVersions);
         return res.json({
             success: true,
             data: {
                 master,
-                annualVersions,
+                annualVersions: enrichedAnnuals,
+                executionSnapshot,
             },
         });
     } catch (error) {
@@ -135,12 +143,10 @@ async function listExecutionPeriods(req, res) {
         }
 
         const executionPeriods = await getExecutionPeriods(id);
+        const enriched = await enrichExecutionPeriodsWithExecution(annual, executionPeriods);
         return res.json({
             success: true,
-            data: {
-                annual,
-                executionPeriods,
-            },
+            data: enriched,
         });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
@@ -443,6 +449,12 @@ async function startPlanProcessHandler(req, res) {
             success: true,
             message: "Plan process started",
             data: result.data,
+            executionSnapshot: result.executionSnapshot
+                ? {
+                      plan_version_id: result.executionSnapshot.plan_version_id,
+                      execution_version_number: result.executionSnapshot.execution_version_number,
+                  }
+                : null,
         });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
@@ -523,6 +535,24 @@ async function duplicatePlanDraftHandler(req, res) {
     }
 }
 
+async function getExecutionAccessHandler(req, res) {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            return res.status(400).json({ success: false, message: "Invalid ID" });
+        }
+
+        const result = await resolveVersionExecutionAccess(id);
+        if (!result.found) {
+            return res.status(404).json({ success: false, message: "Plan version not found" });
+        }
+
+        return res.json({ success: true, data: result });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
+
 module.exports = {
     getDraftFinalizationReadiness,
     finalizePlanDraft,
@@ -543,6 +573,7 @@ module.exports = {
     finalizeGlobalPeriodTargetsHandler,
     getStartProcessReadinessHandler,
     startPlanProcessHandler,
+    getExecutionAccessHandler,
     updatePeriodTarget,
     completeExecutionPeriodVersion,
     reopenFinalizedPlanForEditHandler,

@@ -51,6 +51,9 @@ const {
     enrichLiveMasterReviewFields,
 } = require("../../services/planReviewSnapshotService");
 const {
+    attachExecutionSnapshotContext,
+} = require("../../services/planExecutionGateService");
+const {
     getEffectivePlanningConfigForStructure,
     computePlanningPeriodEnd,
     validatePlanningStartDate,
@@ -302,6 +305,7 @@ const getPlanVersions = async (req, res) => {
         if (version_kind) where.version_kind = version_kind;
         if (parent_plan_version_id) where.parent_plan_version_id = parent_plan_version_id;
         where.review_snapshot_of_version_id = null;
+        where.execution_snapshot_of_version_id = null;
 
         const accessibleMasterIds = await resolveAccessibleMasterPlanIds(req);
         if (accessibleMasterIds !== null) {
@@ -557,15 +561,16 @@ const getPlanVersionById = async (req, res) => {
         }
 
         const enriched = await enrichLiveMasterReviewFields(planVersion);
+        const withExecution = await attachExecutionSnapshotContext(enriched);
         const visibleNodeIds = await getVisibleNodeIdsForVersion(req, id);
 
-        if (enriched?.planNodes) {
-            enriched.planNodes = filterNestedPlanNodes(enriched.planNodes, visibleNodeIds);
+        if (withExecution?.planNodes) {
+            withExecution.planNodes = filterNestedPlanNodes(withExecution.planNodes, visibleNodeIds);
         }
 
         return res.json({
             success: true,
-            data: enriched,
+            data: withExecution,
         });
     } catch (error) {
         return res.status(500).json({ error: error.message });

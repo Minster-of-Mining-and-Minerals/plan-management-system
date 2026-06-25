@@ -88,18 +88,25 @@ function internalAssignmentMatchesUser(
 async function resolveMasterVersionId(planVersionId) {
   const version = await PlanVersion.findByPk(planVersionId);
   if (!version) return null;
-  if (version.version_kind === "master") return version.plan_version_id;
 
+  if (version.version_kind === "master") {
+    return version.execution_snapshot_of_version_id || version.plan_version_id;
+  }
+
+  let masterId = null;
   if (version.version_kind === "annual") {
-    return version.parent_plan_version_id;
-  }
-
-  if (version.version_kind === "execution_period") {
+    masterId = version.parent_plan_version_id;
+  } else if (version.version_kind === "execution_period") {
     const annual = await PlanVersion.findByPk(version.parent_plan_version_id);
-    return annual?.parent_plan_version_id ?? null;
+    masterId = annual?.parent_plan_version_id ?? null;
   }
 
-  return null;
+  if (!masterId) return null;
+
+  const master = await PlanVersion.findByPk(masterId);
+  if (!master) return null;
+
+  return master.execution_snapshot_of_version_id || master.plan_version_id;
 }
 
 async function getMasterNodes(masterVersionId, transaction = null) {
@@ -201,6 +208,41 @@ function filterHierarchyNodes(nodes, visibleNodeIds) {
     }));
 }
 
+/**
+ * Walk source_plan_node_id through annual/snapshot-master layers to the live master draft node id.
+ */
+async function resolveLiveMasterPlanNodeId(planNode, transaction = null) {
+  if (!planNode) return null;
+
+  let cursor = planNode;
+  for (let depth = 0; depth < 4; depth += 1) {
+    if (!cursor.source_plan_node_id) {
+      return cursor.plan_node_id;
+    }
+
+    const parentNode = await PlanNode.findByPk(cursor.source_plan_node_id, {
+      attributes: ["plan_node_id", "source_plan_node_id", "plan_version_id"],
+      transaction,
+    });
+    if (!parentNode) {
+      return cursor.source_plan_node_id;
+    }
+
+    const parentVersion = await PlanVersion.findByPk(parentNode.plan_version_id, {
+      attributes: ["version_kind"],
+      transaction,
+    });
+
+    if (parentVersion?.version_kind === "master") {
+      return parentNode.source_plan_node_id || parentNode.plan_node_id;
+    }
+
+    cursor = parentNode;
+  }
+
+  return cursor.plan_node_id;
+}
+
 async function mapMasterNodeIdsToVersion(masterVisibleIds, targetVersionId, transaction = null) {
   const targetVersion = await PlanVersion.findByPk(targetVersionId, {
     attributes: ["plan_version_id", "version_kind", "parent_plan_version_id"],
@@ -216,44 +258,22 @@ async function mapMasterNodeIdsToVersion(masterVisibleIds, targetVersionId, tran
   if (targetVersion.version_kind === "master") {
     return new Set(
       targetNodes
-        .filter((node) => masterVisibleIds.has(node.plan_node_id))
+        .filter((node) => {
+          const liveMasterNodeId = node.source_plan_node_id || node.plan_node_id;
+          return masterVisibleIds.has(liveMasterNodeId);
+        })
         .map((node) => node.plan_node_id)
     );
   }
 
-  if (targetVersion.version_kind === "annual") {
+  if (
+    targetVersion.version_kind === "annual" ||
+    targetVersion.version_kind === "execution_period"
+  ) {
     const visible = new Set();
     for (const node of targetNodes) {
-      const masterSourceId = node.source_plan_node_id || node.plan_node_id;
-      if (masterVisibleIds.has(masterSourceId)) {
-        visible.add(node.plan_node_id);
-      }
-    }
-    return visible;
-  }
-
-  if (targetVersion.version_kind === "execution_period") {
-    const annualNodes = await PlanNode.findAll({
-      where: {
-        plan_version_id: targetVersion.parent_plan_version_id,
-        is_active: true,
-      },
-      attributes: ["plan_node_id", "source_plan_node_id"],
-      transaction,
-    });
-
-    const visibleAnnualIds = new Set();
-    for (const annualNode of annualNodes) {
-      const masterSourceId = annualNode.source_plan_node_id || annualNode.plan_node_id;
-      if (masterVisibleIds.has(masterSourceId)) {
-        visibleAnnualIds.add(annualNode.plan_node_id);
-      }
-    }
-
-    const visible = new Set();
-    for (const node of targetNodes) {
-      const annualSourceId = node.source_plan_node_id || node.plan_node_id;
-      if (visibleAnnualIds.has(annualSourceId)) {
+      const liveMasterNodeId = await resolveLiveMasterPlanNodeId(node, transaction);
+      if (liveMasterNodeId && masterVisibleIds.has(liveMasterNodeId)) {
         visible.add(node.plan_node_id);
       }
     }
@@ -355,6 +375,7 @@ async function getAssignedReviewMasterVersionIds(user, transaction = null) {
 
 module.exports = {
   resolveMasterVersionId,
+  resolveLiveMasterPlanNodeId,
   getMasterNodes,
   getAssignedMasterNodeIds,
   filterHierarchyNodes,

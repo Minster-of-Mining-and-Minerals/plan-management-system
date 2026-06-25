@@ -60,9 +60,9 @@ export function StartProcessModal({
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6">
                     <div className="space-y-4 pb-4 text-sm">
                         <p className="text-muted-foreground">
-                            Validates that all targets are set and that plan review has been
-                            published at least once and closed. Period totals must match annual
-                            targets and no required target may be missing.
+                            Creates execution version 1 of the approved plan tree, freezes planning
+                            targets, and opens the first period for operational execution. Later
+                            periods and years stay locked until their predecessor completes.
                         </p>
 
                         {isLoading ? (

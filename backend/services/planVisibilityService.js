@@ -34,11 +34,26 @@ async function getMasterPlanVersion(planVersionId, transaction = null) {
       "parent_plan_version_id",
       "government_structure_id",
       "review_snapshot_of_version_id",
+      "execution_snapshot_of_version_id",
     ],
     transaction,
   });
   if (!version) return null;
-  if (version.version_kind === "master") return version;
+  if (version.version_kind === "master") {
+    if (version.execution_snapshot_of_version_id) {
+      return PlanVersion.findByPk(version.execution_snapshot_of_version_id, {
+        attributes: [
+          "plan_version_id",
+          "version_kind",
+          "parent_plan_version_id",
+          "government_structure_id",
+          "review_snapshot_of_version_id",
+        ],
+        transaction,
+      });
+    }
+    return version;
+  }
 
   const masterId = await resolveMasterVersionId(planVersionId);
   if (!masterId) return null;
@@ -124,6 +139,7 @@ async function resolveAccessibleMasterPlanIds(req, transaction = null) {
     where: {
       version_kind: "master",
       review_snapshot_of_version_id: null,
+      execution_snapshot_of_version_id: null,
       government_structure_id: { [Op.in]: [...visibleSet] },
     },
     attributes: ["plan_version_id"],

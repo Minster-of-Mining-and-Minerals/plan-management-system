@@ -24,6 +24,11 @@ import {
 import { PerformanceProgressBar } from "./PerformanceProgressBar";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
 import { getPlanViewBasePath } from "@/utils/planReviewUtils";
+import {
+    canShowExecutionCompleteAction,
+    getExecutionStatusLabel,
+    resolvePlanNavigationVersionId,
+} from "@/utils/planExecutionUtils";
 import { cn } from "@/lib/utils";
 
 interface ExecutionPeriodsDashboardProps {
@@ -57,6 +62,7 @@ export function ExecutionPeriodsDashboard({
     );
     const annualTargetsFinalized = Boolean(masterVersion?.annual_targets_finalized_at);
     const periodsInitializedGlobally = Boolean(masterVersion?.period_subdivision_mode);
+    const processStarted = Boolean(masterVersion?.process_started_at);
 
     const { data, isLoading, refetch } = useGetExecutionPeriodsQuery(annualVersion.plan_version_id);
     const [completePeriod, { isLoading: isCompleting }] = useCompleteExecutionPeriodMutation();
@@ -64,6 +70,7 @@ export function ExecutionPeriodsDashboard({
     const annual = data?.annual ?? annualVersion;
     const executionPeriods =
         data?.executionPeriods ?? annualVersion.executionPeriodVersions ?? [];
+    const executionSnapshot = data?.executionSnapshot ?? null;
     const periodsInitialized = Boolean(annual.period_subdivision_mode);
     const periodTargetsFinalized = Boolean(annual.period_targets_finalized_at);
 
@@ -165,6 +172,14 @@ export function ExecutionPeriodsDashboard({
                 {/* Finalize button lives on PlanHierarchyView annual tab header */}
             </div>
 
+            {processStarted && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                    Execution version{" "}
+                    {executionSnapshot?.execution_version_number ?? 1} — only the open period
+                    accepts updates. Complete each period in order to unlock the next.
+                </div>
+            )}
+
             {periodTargetsFinalized && annual.period_targets_finalized_at && (
                 <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
                     Execution period finalized for {annual.planning_year ?? annual.year} on{" "}
@@ -238,14 +253,28 @@ export function ExecutionPeriodsDashboard({
                         thresholds,
                         period.plan_version_id
                     );
-                    const isCompleted = period.status === "completed";
+                    const isCompleted =
+                        period.execution_status === "completed" || period.status === "completed";
                     const periodLabel = period.period_label ?? `Period ${period.sequence_index}`;
-                    const showComplete = periodTargetsFinalized && !isCompleted;
+                    const showComplete = canShowExecutionCompleteAction(
+                        period,
+                        processStarted,
+                        periodTargetsFinalized
+                    );
+                    const executionLocked =
+                        processStarted &&
+                        period.execution_status === "locked" &&
+                        !isCompleted;
+                    const executionOpen =
+                        processStarted && period.execution_status === "open";
+
                     const statusAppearance = resolveWorkflowStatusAppearance(thresholds, {
                         status: period.status ?? "draft",
-                        isLocked: false,
+                        isLocked: executionLocked || Boolean(period.is_locked),
                         progressPercent: completion.percent,
-                        statusLabel: getPeriodStatusLabel(period),
+                        statusLabel: processStarted
+                            ? getExecutionStatusLabel(period.execution_status)
+                            : getPeriodStatusLabel(period),
                     });
                     const progressColor = completion.color;
                     const progressValue = completion.percent;
@@ -312,6 +341,22 @@ export function ExecutionPeriodsDashboard({
                                     className="text-[10px] py-0 h-5"
                                 />
 
+                                {executionOpen && (
+                                    <PerformanceColorBadge
+                                        color={progressColor}
+                                        label="Open for execution"
+                                        variant="outline"
+                                        className="gap-1 w-fit text-xs"
+                                    />
+                                )}
+                                {executionLocked && (
+                                    <PerformanceColorBadge
+                                        color="#94a3b8"
+                                        label="Locked until prior period completes"
+                                        variant="outline"
+                                        className="gap-1 w-fit text-xs"
+                                    />
+                                )}
                                 {isCompleted && (
                                     <PerformanceColorBadge
                                         color={completion.color}
@@ -328,11 +373,19 @@ export function ExecutionPeriodsDashboard({
                                     size="sm"
                                     className="gap-2 flex-1"
                                     onClick={() =>
-                                        router.push(`${plansBasePath}/${period.plan_version_id}`)
+                                        router.push(
+                                            `${plansBasePath}/${resolvePlanNavigationVersionId(period, processStarted)}`
+                                        )
                                     }
                                 >
                                     <Eye className="h-4 w-4" />
-                                    {isReviewMode ? "Review Plan" : "Open Plan"}
+                                    {isReviewMode
+                                        ? "Review Plan"
+                                        : processStarted
+                                          ? executionLocked
+                                            ? "View (locked)"
+                                            : "Open execution"
+                                          : "Open Plan"}
                                 </Button>
                                 {!isReviewMode && showComplete && (
                                     <PermissionGuard requireAll={PLAN_COMPLETE_PERIOD_PERMISSIONS}>
@@ -342,7 +395,11 @@ export function ExecutionPeriodsDashboard({
                                             className="gap-2 flex-1"
                                             disabled={isCompleting}
                                             onClick={() =>
-                                                handleComplete(period.plan_version_id, periodLabel)
+                                                handleComplete(
+                                                    period.execution_snapshot_plan_version_id ??
+                                                        period.plan_version_id,
+                                                    periodLabel
+                                                )
                                             }
                                         >
                                             <CheckCircle className="h-4 w-4" />

@@ -17,6 +17,7 @@ import {
     PeriodTargetAllocation,
     AnnualVersionsResponse,
     ExecutionPeriodsResponse,
+    PlanExecutionAccessResponse,
     PlanNode,
     CreatePlanNodePayload,
     UpdatePlanNodePayload,
@@ -382,6 +383,11 @@ export const planApi = baseApi.injectEndpoints({
             invalidatesTags: ["PlanVersions", "PlanNodes", "PeriodTargetAllocations"],
         }),
 
+        getExecutionAccess: builder.query<PlanExecutionAccessResponse, string>({
+            query: (id) => `/plan/versions/${id}/execution-access`,
+            transformResponse: (response: { data: PlanExecutionAccessResponse }) => response.data,
+        }),
+
         getStartProcessReadiness: builder.query<StartProcessReadiness, string>({
             query: (id) => `/plan/versions/${id}/start-process-readiness`,
             transformResponse: (response: { data: StartProcessReadiness }) => response.data,
@@ -621,6 +627,7 @@ export const {
     useGetGlobalPeriodTargetFinalizationReadinessQuery,
     useFinalizeGlobalPeriodTargetsMutation,
     useGetStartProcessReadinessQuery,
+    useGetExecutionAccessQuery,
     useStartPlanProcessMutation,
     useGetPublishForReviewReadinessQuery,
     usePublishForReviewMutation,
