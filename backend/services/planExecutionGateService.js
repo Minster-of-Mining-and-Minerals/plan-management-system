@@ -289,7 +289,24 @@ async function attachExecutionSnapshotContext(version, transaction = null) {
     return withLiveMaster;
   }
 
-  return enrichSnapshotVersionExecutionFields(withLiveMaster);
+  const enriched = enrichSnapshotVersionExecutionFields(withLiveMaster);
+  const { computePeriodExecutionProgress, computeAnnualExecutionProgress } = require(
+    "./planExecutionRollupService"
+  );
+
+  if (enriched.version_kind === "execution_period") {
+    const progress = await computePeriodExecutionProgress(enriched.plan_version_id, transaction);
+    enriched.execution_progress_percent = progress.execution_progress_percent;
+  } else if (enriched.version_kind === "annual") {
+    const annualProgress = await computeAnnualExecutionProgress(
+      enriched.plan_version_id,
+      transaction
+    );
+    enriched.execution_progress_percent = annualProgress.execution_progress_percent;
+    enriched.execution_period_progress = annualProgress.execution_period_progress;
+  }
+
+  return enriched;
 }
 
 async function resolveLiveMasterFromVersion(version, transaction = null) {
@@ -313,25 +330,43 @@ async function enrichExecutionPeriodsWithExecution(liveAnnual, livePeriods, tran
   const { computePeriodActualsReadiness, computeAnnualPeriodsCompletion } = require(
     "./planExecutionActualService"
   );
+  const {
+    computePeriodExecutionProgress,
+    computeAnnualExecutionProgress,
+  } = require("./planExecutionRollupService");
+
+  async function enrichPeriodRow(periodRow, snapshotPeriodId) {
+    const readiness = await computePeriodActualsReadiness(snapshotPeriodId, transaction);
+    const progress = await computePeriodExecutionProgress(snapshotPeriodId, transaction);
+    return {
+      ...periodRow,
+      execution_actuals_ready: readiness.ready,
+      execution_actuals_readiness: readiness,
+      execution_progress_percent: progress.execution_progress_percent,
+      computed_period_actual: progress.computed_period_actual,
+      computed_period_target: progress.computed_period_target,
+    };
+  }
 
   if (annualPlain?.execution_snapshot_of_version_id) {
     const enrichedPeriods = [];
     for (const period of livePeriods) {
       const plain = enrichSnapshotVersionExecutionFields(period);
-      const readiness = await computePeriodActualsReadiness(plain.plan_version_id, transaction);
-      enrichedPeriods.push({
-        ...plain,
-        execution_actuals_ready: readiness.ready,
-        execution_actuals_readiness: readiness,
-      });
+      enrichedPeriods.push(await enrichPeriodRow(plain, plain.plan_version_id));
     }
 
     const periodMeta = await computeAnnualPeriodsCompletion(liveAnnual.plan_version_id, transaction);
+    const annualProgress = await computeAnnualExecutionProgress(
+      liveAnnual.plan_version_id,
+      transaction
+    );
 
     return {
       annual: {
         ...enrichSnapshotVersionExecutionFields(liveAnnual),
         ...periodMeta,
+        execution_progress_percent: annualProgress.execution_progress_percent,
+        execution_period_progress: annualProgress.execution_period_progress,
       },
       executionPeriods: enrichedPeriods,
       executionSnapshot: annualPlain.execution_snapshot_root_id
@@ -366,16 +401,15 @@ async function enrichExecutionPeriodsWithExecution(liveAnnual, livePeriods, tran
   for (const period of livePeriods) {
     const plain = period.toJSON ? period.toJSON() : { ...period };
     const snapshotPeriod = versionMap.get(plain.plan_version_id);
-    const readiness = snapshotPeriod
-      ? await computePeriodActualsReadiness(snapshotPeriod.plan_version_id, transaction)
-      : { ready: false, required_count: 0, recorded_count: 0, missing_titles: [] };
-
-    enrichedPeriods.push({
+    const periodRow = {
       ...plain,
       ...attachExecutionOverlay(plain, snapshotPeriod),
-      execution_actuals_ready: readiness.ready,
-      execution_actuals_readiness: readiness,
-    });
+    };
+    if (snapshotPeriod) {
+      enrichedPeriods.push(await enrichPeriodRow(periodRow, snapshotPeriod.plan_version_id));
+    } else {
+      enrichedPeriods.push(periodRow);
+    }
   }
 
   const snapshotMaster = versionMap.get(master.plan_version_id);
@@ -386,12 +420,17 @@ async function enrichExecutionPeriodsWithExecution(liveAnnual, livePeriods, tran
         execution_periods_completed: 0,
         all_execution_periods_completed: false,
       };
+  const annualProgress = snapshotAnnual
+    ? await computeAnnualExecutionProgress(snapshotAnnual.plan_version_id, transaction)
+    : { execution_progress_percent: null, execution_period_progress: [] };
 
   return {
     annual: {
       ...annualPlain,
       ...attachExecutionOverlay(annualPlain, snapshotAnnual),
       ...periodMeta,
+      execution_progress_percent: annualProgress.execution_progress_percent,
+      execution_period_progress: annualProgress.execution_period_progress,
     },
     executionPeriods: enrichedPeriods,
     executionSnapshot: snapshotMaster
@@ -421,6 +460,7 @@ async function enrichAnnualVersionsWithExecution(liveMaster, liveAnnualVersions,
 
   const snapshotMaster = versionMap.get(liveMaster.plan_version_id);
   const { computeAnnualPeriodsCompletion } = require("./planExecutionActualService");
+  const { computeAnnualExecutionProgress } = require("./planExecutionRollupService");
   const enrichedAnnuals = [];
 
   for (const annual of liveAnnualVersions) {
@@ -433,11 +473,16 @@ async function enrichAnnualVersionsWithExecution(liveMaster, liveAnnualVersions,
           execution_periods_completed: 0,
           all_execution_periods_completed: false,
         };
+    const annualProgress = snapshotAnnual
+      ? await computeAnnualExecutionProgress(snapshotAnnual.plan_version_id, transaction)
+      : { execution_progress_percent: null, execution_period_progress: [] };
 
     enrichedAnnuals.push({
       ...plain,
       ...attachExecutionOverlay(plain, snapshotAnnual),
       ...periodMeta,
+      execution_progress_percent: annualProgress.execution_progress_percent,
+      execution_period_progress: annualProgress.execution_period_progress,
     });
   }
 
@@ -582,6 +627,33 @@ async function advanceExecutionGateAfterAnnualComplete(completedAnnualId, transa
   return nextAnnual;
 }
 
+/**
+ * When process is active, live execution-period URLs should load snapshot nodes
+ * (where period_actual is recorded) for hierarchy and rollup.
+ */
+async function resolveExecutionHierarchyVersionId(planVersionId, transaction = null) {
+  const version = await PlanVersion.findByPk(planVersionId, { transaction });
+  if (!version || version.version_kind !== "execution_period") {
+    return planVersionId;
+  }
+
+  if (version.execution_snapshot_of_version_id) {
+    return planVersionId;
+  }
+
+  const master = await resolveLiveMasterFromVersion(version, transaction);
+  if (!master?.active_execution_snapshot_id) {
+    return planVersionId;
+  }
+
+  const versionMap = await buildLiveToSnapshotVersionMap(
+    master.active_execution_snapshot_id,
+    transaction
+  );
+  const snapshotPeriod = versionMap.get(planVersionId);
+  return snapshotPeriod?.plan_version_id ?? planVersionId;
+}
+
 module.exports = {
   lockLivePlanningVersions,
   initializeExecutionGate,
@@ -594,4 +666,5 @@ module.exports = {
   advanceExecutionGateAfterAnnualComplete,
   attachExecutionSnapshotContext,
   enrichSnapshotVersionExecutionFields,
+  resolveExecutionHierarchyVersionId,
 };

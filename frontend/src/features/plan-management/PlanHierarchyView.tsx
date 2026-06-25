@@ -68,7 +68,7 @@ import {
 } from "@/utils/planMasterEditUtils";
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
 import {
-    resolveCompletionForEntity,
+    resolveCompletionForVersion,
     resolveWorkflowStatusAppearance,
 } from "@/utils/performanceColorUtils";
 import { PerformanceColorBadge } from "./components/PerformanceColorBadge";
@@ -330,9 +330,10 @@ export default function PlanHierarchyView({
         ? resolveWorkflowStatusAppearance(thresholds, {
               status: version.status ?? "draft",
               isLocked: false,
-              progressPercent: resolveCompletionForEntity(
+              progressPercent: resolveCompletionForVersion(
                   thresholds,
-                  version.plan_version_id
+                  version,
+                  showPeriodActuals
               ).percent,
               statusLabel: formatStatus(version.status),
           })

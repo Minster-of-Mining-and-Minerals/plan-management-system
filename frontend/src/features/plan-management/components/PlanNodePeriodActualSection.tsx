@@ -8,7 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { PlanNode, PlanRule } from "@/redux/types/plan";
 import type { TargetUnit } from "@/redux/types/planningConfig";
 import { useUpdatePeriodActualMutation } from "@/redux/api/planApi";
-import { formatNodeWeight, stepRequiresWeight } from "@/utils/planRuleUtils";
+import { formatNodeWeight } from "@/utils/planRuleUtils";
+import {
+    canManuallyEnterAchievement,
+    isWeightedTargetNode,
+    resolveAchievementEntryMode,
+} from "@/utils/planExecutionAchievementUtils";
 import { actionFeedback } from "@/components/action-feedback";
 import { cn } from "@/lib/utils";
 import { PermissionGuard } from "@/utils/PermissionGuard";
@@ -37,9 +42,15 @@ export function PlanNodePeriodActualSection({
     const [periodActualInput, setPeriodActualInput] = useState("");
 
     const nodeWeightMode = node.weight_mode;
-    const requiresWeight = stepRequiresWeight(rule, node.level);
+    const entryMode = resolveAchievementEntryMode(node, rule);
+    const isRollupEntry = entryMode === "rollup";
+    const isParentOverride = entryMode === "parent_override";
     const periodTarget = Number(node.period_target) || 0;
-    const hasPeriodTarget = requiresWeight && periodTarget > 0;
+    const rollupTarget = Number(node.computed_period_target) || 0;
+    const effectiveTarget = periodTarget > 0 ? periodTarget : rollupTarget;
+    const showSection =
+        isWeightedTargetNode(node, rule) && (effectiveTarget > 0 || isRollupEntry);
+    const canEnter = canEdit && canManuallyEnterAchievement(node, rule);
 
     useEffect(() => {
         if (node.period_actual != null) {
@@ -49,20 +60,29 @@ export function PlanNodePeriodActualSection({
         }
     }, [node.period_actual, node.plan_node_id]);
 
-    if (!hasPeriodTarget) {
+    if (!showSection) {
         return null;
     }
 
     const periodTargetValue = formatNodeWeight(
-        periodTarget,
+        effectiveTarget,
         nodeWeightMode,
         node.target_unit,
         configuredUnits
     );
+    const displayActualRaw = isRollupEntry
+        ? node.computed_period_actual != null
+            ? Number(node.computed_period_actual)
+            : null
+        : node.period_actual != null
+          ? Number(node.period_actual)
+          : node.computed_period_actual != null
+            ? Number(node.computed_period_actual)
+            : null;
     const periodActualValue =
-        node.period_actual != null
+        displayActualRaw != null
             ? formatNodeWeight(
-                  node.period_actual,
+                  displayActualRaw,
                   nodeWeightMode,
                   node.target_unit,
                   configuredUnits
@@ -70,9 +90,10 @@ export function PlanNodePeriodActualSection({
             : null;
 
     const achievementPercent =
-        node.period_actual != null && periodTarget > 0
-            ? Math.min(100, Math.round((Number(node.period_actual) / periodTarget) * 100))
-            : null;
+        node.execution_progress_percent ??
+        (displayActualRaw != null && effectiveTarget > 0
+            ? Math.min(100, Math.round((displayActualRaw / effectiveTarget) * 100))
+            : null);
 
     const handleSave = async () => {
         try {
@@ -88,6 +109,7 @@ export function PlanNodePeriodActualSection({
             await updatePeriodActual({
                 id: node.plan_node_id,
                 period_actual: val,
+                use_parent_override: isParentOverride ? undefined : false,
             }).unwrap();
             actionFeedback.success("Period achievement saved");
         } catch (error: unknown) {
@@ -96,47 +118,81 @@ export function PlanNodePeriodActualSection({
         }
     };
 
-    const editor = canEdit ? (
-        <div
-            className={cn(
-                "flex gap-2",
-                variant === "table" ? "flex-col sm:flex-row sm:items-end" : "flex-col sm:flex-row sm:items-end"
-            )}
-            onClick={onClick}
-        >
-            <div className="flex-1 space-y-1 min-w-0">
-                {variant !== "table" && (
-                    <Label htmlFor={`period_actual_${node.plan_node_id}`} className="text-xs">
-                        Achievement This Period
-                    </Label>
+    const editor =
+        canEnter && periodTarget > 0 ? (
+            <div
+                className={cn(
+                    "flex gap-2",
+                    variant === "table"
+                        ? "flex-col sm:flex-row sm:items-end"
+                        : "flex-col sm:flex-row sm:items-end"
                 )}
-                <Input
-                    id={`period_actual_${node.plan_node_id}`}
-                    type="number"
-                    min={0}
-                    max={periodTarget}
-                    step="any"
-                    value={periodActualInput}
-                    onChange={(e) => setPeriodActualInput(e.target.value)}
-                    placeholder={`Up to ${periodTarget}`}
-                    className={variant === "compact" ? "h-8 text-xs" : variant === "table" ? "h-8 text-sm" : ""}
-                />
+                onClick={onClick}
+            >
+                <div className="flex-1 space-y-1 min-w-0">
+                    {variant !== "table" && (
+                        <Label htmlFor={`period_actual_${node.plan_node_id}`} className="text-xs">
+                            {isParentOverride
+                                ? "Manual Override Achievement"
+                                : "Achievement This Period"}
+                        </Label>
+                    )}
+                    <Input
+                        id={`period_actual_${node.plan_node_id}`}
+                        type="number"
+                        min={0}
+                        max={periodTarget}
+                        step="any"
+                        value={periodActualInput}
+                        onChange={(e) => setPeriodActualInput(e.target.value)}
+                        placeholder={`Up to ${periodTarget}`}
+                        className={
+                            variant === "compact"
+                                ? "h-8 text-xs"
+                                : variant === "table"
+                                  ? "h-8 text-sm"
+                                  : ""
+                        }
+                    />
+                </div>
+                <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
+                    <Button
+                        size={variant === "compact" || variant === "table" ? "sm" : "default"}
+                        disabled={isSaving}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            void handleSave();
+                        }}
+                        className="shrink-0"
+                    >
+                        Save
+                    </Button>
+                </PermissionGuard>
             </div>
-            <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
-                <Button
-                    size={variant === "compact" || variant === "table" ? "sm" : "default"}
-                    disabled={isSaving}
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        void handleSave();
-                    }}
-                    className="shrink-0"
+        ) : null;
+
+    const statusBadges = (
+        <>
+            {isRollupEntry && (
+                <Badge variant="outline" className="text-[10px] py-0 h-4">
+                    Rolled up from children
+                </Badge>
+            )}
+            {isParentOverride && (
+                <Badge
+                    variant="outline"
+                    className="text-[10px] py-0 h-4 border-amber-200 text-amber-800"
                 >
-                    Save
-                </Button>
-            </PermissionGuard>
-        </div>
-    ) : null;
+                    Manual override
+                </Badge>
+            )}
+            {achievementPercent != null && (
+                <Badge variant="outline" className="text-[10px] py-0 h-4">
+                    {achievementPercent}%
+                </Badge>
+            )}
+        </>
+    );
 
     if (variant === "compact") {
         return (
@@ -159,11 +215,7 @@ export function PlanNodePeriodActualSection({
                     >
                         Achieved: {periodActualValue ?? "Not recorded"}
                     </Badge>
-                    {achievementPercent != null && (
-                        <Badge variant="outline" className="text-[10px] py-0 h-4">
-                            {achievementPercent}%
-                        </Badge>
-                    )}
+                    {statusBadges}
                 </div>
                 {editor}
             </div>
@@ -179,7 +231,7 @@ export function PlanNodePeriodActualSection({
                         periodActualValue ? "text-gray-900 font-medium" : "text-gray-400 italic"
                     )}
                 >
-                    {periodActualValue ?? "Not recorded"}
+                    {periodActualValue ?? (isRollupEntry ? "—" : "Not recorded")}
                 </span>
                 {editor}
             </div>
@@ -190,10 +242,12 @@ export function PlanNodePeriodActualSection({
         <div
             className={cn(
                 "rounded-xl border border-violet-100 bg-gradient-to-br from-violet-50/90 to-white px-3.5 py-3 space-y-3",
+                isRollupEntry && "border-slate-200 from-slate-50/90",
                 className
             )}
             onClick={onClick}
         >
+            <div className="flex flex-wrap gap-2">{statusBadges}</div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="min-w-0">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700/80">
@@ -217,7 +271,7 @@ export function PlanNodePeriodActualSection({
                         )}
                         title={periodActualValue ?? "Not recorded"}
                     >
-                        {periodActualValue ?? "Not recorded"}
+                        {periodActualValue ?? (isRollupEntry ? "—" : "Not recorded")}
                     </p>
                     {achievementPercent != null && (
                         <p className="text-xs text-violet-700 mt-1">{achievementPercent}% of target</p>

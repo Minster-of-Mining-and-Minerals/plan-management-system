@@ -87,6 +87,7 @@ module.exports = {
         START_PROCESS: "plan:start_process",
         COMPLETE_ANNUAL: "plan:complete_annual",
         COMPLETE_PERIOD: "plan:complete_period",
+        OVERRIDE_PARENT_ACHIEVEMENT: "plan:override_parent_achievement",
         FINALIZE: "plan:finalize",
         DRAFT_PUBLISH: "plan:draft_publish",
         PUBLISH_FOR_REVIEW: "plan:publish_for_review",

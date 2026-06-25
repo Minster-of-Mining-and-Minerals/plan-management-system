@@ -78,6 +78,8 @@ const updatePeriodTargetSchema = Joi.object({
 
 const updatePeriodActualSchema = Joi.object({
     period_actual: Joi.number().min(0).allow(null).required(),
+    use_parent_override: Joi.boolean().optional(),
+    clear_parent_override: Joi.boolean().optional(),
 });
 
 const getPlanVersionsQuerySchema = Joi.object({

@@ -180,14 +180,18 @@ async function updatePeriodTarget(req, res) {
 async function updatePeriodActual(req, res) {
     try {
         const { id: nodeId } = req.params;
-        const { period_actual } = req.body;
+        const { period_actual, use_parent_override, clear_parent_override } = req.body;
 
         if (!isUuid(nodeId)) {
             return res.status(400).json({ success: false, message: "Invalid node ID" });
         }
 
         const { setPeriodActual } = require("../../services/planExecutionActualService");
-        const result = await setPeriodActual(nodeId, period_actual);
+        const result = await setPeriodActual(nodeId, period_actual, {
+            user: req.user,
+            use_parent_override: Boolean(use_parent_override),
+            clear_parent_override: Boolean(clear_parent_override),
+        });
         if (!result.success) {
             return res.status(400).json({ success: false, message: result.message });
         }

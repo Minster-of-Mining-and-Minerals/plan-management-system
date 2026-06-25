@@ -70,6 +70,14 @@ export interface PlanVersion {
         ready: boolean;
         missing_titles?: string[];
     };
+    execution_progress_percent?: number | null;
+    execution_period_progress?: Array<{
+        plan_version_id: string;
+        period_label: string | null;
+        sequence_index: number | null;
+        execution_status: PlanExecutionStatus | null;
+        execution_progress_percent: number | null;
+    }>;
     status: PlanVersionStatus;
     government_structure_id: string;
     based_on_version_id: string | null;
@@ -265,6 +273,10 @@ export interface PlanNode {
     annual_target?: number | null;
     period_target?: number | null;
     period_actual?: number | null;
+    period_actual_override?: boolean;
+    execution_progress_percent?: number | null;
+    computed_period_actual?: number | null;
+    computed_period_target?: number | null;
     created_at: string;
     updated_at: string;
     deleted_at: string | null;

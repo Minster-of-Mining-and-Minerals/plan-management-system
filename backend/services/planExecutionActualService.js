@@ -4,11 +4,16 @@ const { PlanNode, PlanVersion, sequelize } = require("../models");
 const { resolvePlanRuleForVersion } = require("./planRuleService");
 const { stepRequiresWeight } = require("./planRuleStepUtils");
 const { resolveVersionExecutionAccess } = require("./planExecutionGateService");
+const {
+  buildChildrenByParent,
+  resolveManualAchievementEntry,
+  getRequiredAchievementNodes,
+} = require("./planExecutionAchievementUtils");
 
-async function getWeightLevelNodesWithPeriodTarget(periodVersionId, transaction = null) {
+async function loadPeriodAchievementContext(periodVersionId, transaction = null) {
   const version = await PlanVersion.findByPk(periodVersionId, { transaction });
   if (!version || version.version_kind !== "execution_period") {
-    return { version: null, rule: null, requiredNodes: [] };
+    return { version: null, rule: null, nodes: [], childrenByParent: new Map() };
   }
 
   const rule = await resolvePlanRuleForVersion(version, transaction);
@@ -17,14 +22,21 @@ async function getWeightLevelNodesWithPeriodTarget(periodVersionId, transaction 
     transaction,
   });
 
-  const requiredNodes = nodes.filter((node) => {
-    if (rule && !stepRequiresWeight(rule, node.level)) {
-      return false;
-    }
-    return Number(node.period_target) > 0;
-  });
+  const plainNodes = nodes.map((node) => (node.toJSON ? node.toJSON() : node));
+  const childrenByParent = buildChildrenByParent(plainNodes);
 
-  return { version, rule, requiredNodes };
+  return { version, rule, nodes: plainNodes, childrenByParent };
+}
+
+async function getWeightLevelNodesWithPeriodTarget(periodVersionId, transaction = null) {
+  const { version, rule, nodes } = await loadPeriodAchievementContext(
+    periodVersionId,
+    transaction
+  );
+
+  const requiredNodes = getRequiredAchievementNodes(nodes, rule);
+
+  return { version, rule, requiredNodes, nodes };
 }
 
 async function computePeriodActualsReadiness(periodVersionId, transaction = null) {
@@ -68,7 +80,7 @@ async function computeAnnualPeriodsCompletion(annualVersionId, transaction = nul
   };
 }
 
-async function setPeriodActual(planNodeId, periodActual) {
+async function setPeriodActual(planNodeId, periodActual, options = {}) {
   const t = await sequelize.transaction();
   try {
     const node = await PlanNode.findByPk(planNodeId, {
@@ -99,12 +111,18 @@ async function setPeriodActual(planNodeId, periodActual) {
     }
 
     const rule = await resolvePlanRuleForVersion(node.planVersion, t);
-    if (rule && !stepRequiresWeight(rule, node.level)) {
+    const siblings = await PlanNode.findAll({
+      where: { plan_version_id: node.plan_version_id, is_active: true },
+      transaction: t,
+    });
+    const plainNodes = siblings.map((row) => (row.toJSON ? row.toJSON() : row));
+    const childrenByParent = buildChildrenByParent(plainNodes);
+    const nodePlain = node.toJSON ? node.toJSON() : node;
+
+    const entry = resolveManualAchievementEntry(nodePlain, rule, childrenByParent, options);
+    if (!entry.allowed) {
       await t.rollback();
-      return {
-        success: false,
-        message: "Achievement is only recorded at KPI / weighted levels",
-      };
+      return { success: false, message: entry.reason };
     }
 
     const periodTarget = Number(node.period_target) || 0;
@@ -117,7 +135,13 @@ async function setPeriodActual(planNodeId, periodActual) {
     }
 
     if (periodActual === null || periodActual === undefined || periodActual === "") {
-      await node.update({ period_actual: null }, { transaction: t });
+      const updates = { period_actual: null };
+      if (options.clear_parent_override) {
+        updates.period_actual_override = false;
+      } else if (entry.mode === "parent_override" && node.period_actual_override) {
+        updates.period_actual_override = false;
+      }
+      await node.update(updates, { transaction: t });
       await t.commit();
       return { success: true, data: await PlanNode.findByPk(planNodeId) };
     }
@@ -136,7 +160,12 @@ async function setPeriodActual(planNodeId, periodActual) {
       };
     }
 
-    await node.update({ period_actual: numericActual }, { transaction: t });
+    const updates = { period_actual: numericActual };
+    if (entry.mode === "parent_override" && !node.period_actual_override) {
+      updates.period_actual_override = true;
+    }
+
+    await node.update(updates, { transaction: t });
 
     await t.commit();
     return { success: true, data: await PlanNode.findByPk(planNodeId) };
@@ -156,7 +185,7 @@ async function validatePeriodReadyToComplete(periodVersionId, transaction = null
         : "";
     return {
       ready: false,
-      message: `Record achievement for all weighted KPI sections before completing this period (${preview}${suffix})`,
+      message: `Record achievement for all required leaf targets before completing this period (${preview}${suffix})`,
       readiness,
     };
   }
@@ -169,4 +198,5 @@ module.exports = {
   computeAnnualPeriodsCompletion,
   validatePeriodReadyToComplete,
   getWeightLevelNodesWithPeriodTarget,
+  loadPeriodAchievementContext,
 };

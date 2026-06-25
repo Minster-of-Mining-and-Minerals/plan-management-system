@@ -13,7 +13,7 @@ import { PlanVersion } from "@/redux/types/plan";
 import { formatStatus } from "@/utils/statusFormatter";
 import { actionFeedback } from "@/components/action-feedback";
 import {
-    resolveCompletionForEntity,
+    resolveCompletionForVersion,
     resolveWorkflowStatusAppearance,
 } from "@/utils/performanceColorUtils";
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
@@ -216,9 +216,10 @@ export function AnnualVersionsDashboard({
 
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {annualVersions.map((annual) => {
-                    const completion = resolveCompletionForEntity(
+                    const completion = resolveCompletionForVersion(
                         thresholds,
-                        annual.plan_version_id
+                        annual,
+                        processStarted
                     );
                     const isCompleted =
                         annual.execution_status === "completed" || annual.status === "completed";

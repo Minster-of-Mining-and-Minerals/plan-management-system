@@ -361,12 +361,17 @@ export const planApi = baseApi.injectEndpoints({
 
         updatePeriodActual: builder.mutation<
             PlanNode,
-            { id: string; period_actual: number | null }
+            {
+                id: string;
+                period_actual: number | null;
+                use_parent_override?: boolean;
+                clear_parent_override?: boolean;
+            }
         >({
-            query: ({ id, period_actual }) => ({
+            query: ({ id, period_actual, use_parent_override, clear_parent_override }) => ({
                 url: `/plan/nodes/${id}/period-actual`,
                 method: "PATCH",
-                body: { period_actual },
+                body: { period_actual, use_parent_override, clear_parent_override },
             }),
             transformResponse: (response: { data: PlanNode }) => response.data,
             invalidatesTags: (_r, _e, { id }) => [

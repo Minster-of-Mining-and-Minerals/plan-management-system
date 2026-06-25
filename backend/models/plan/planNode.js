@@ -131,6 +131,12 @@ module.exports = (sequelize, DataTypes) => {
                 allowNull: true,
             },
 
+            period_actual_override: {
+                type: DataTypes.BOOLEAN,
+                allowNull: false,
+                defaultValue: false,
+            },
+
             assignment_context: {
                 type: DataTypes.JSONB,
                 allowNull: true,

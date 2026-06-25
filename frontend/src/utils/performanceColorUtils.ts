@@ -93,19 +93,52 @@ export function resolveCompletionForEntity(
   return resolveCompletionAppearance(thresholds, getDemoCompletionPercent(entityId));
 }
 
+export function resolveCompletionForVersion(
+  thresholds: PerformanceColorThreshold[],
+  version: {
+    plan_version_id: string;
+    execution_progress_percent?: number | null;
+    execution_status?: string | null;
+    status?: string | null;
+  },
+  useExecutionProgress: boolean
+): CompletionAppearance {
+  if (useExecutionProgress && version.execution_progress_percent != null) {
+    return resolveCompletionAppearance(thresholds, version.execution_progress_percent);
+  }
+  if (
+    useExecutionProgress &&
+    (version.execution_status === "completed" || version.status === "completed")
+  ) {
+    return resolveCompletionAppearance(thresholds, 100);
+  }
+  return resolveCompletionForEntity(thresholds, version.plan_version_id);
+}
+
 export function resolveCompletionForPlanNode(
   thresholds: PerformanceColorThreshold[],
   node: {
     plan_node_id: string;
     period_target?: number | null;
     period_actual?: number | null;
+    execution_progress_percent?: number | null;
+    computed_period_actual?: number | null;
+    computed_period_target?: number | null;
   },
   useExecutionActuals: boolean
 ): CompletionAppearance {
   if (useExecutionActuals) {
-    const target = Number(node.period_target) || 0;
+    if (node.execution_progress_percent != null) {
+      return resolveCompletionAppearance(thresholds, node.execution_progress_percent);
+    }
+
+    const target =
+      Number(node.computed_period_target) || Number(node.period_target) || 0;
     if (target > 0) {
-      const actual = node.period_actual != null ? Number(node.period_actual) : 0;
+      const actual =
+        node.period_actual != null
+          ? Number(node.period_actual)
+          : Number(node.computed_period_actual) || 0;
       return resolveCompletionAppearance(thresholds, (actual / target) * 100);
     }
   }

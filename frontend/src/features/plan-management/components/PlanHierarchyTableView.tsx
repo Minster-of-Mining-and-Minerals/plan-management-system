@@ -25,7 +25,7 @@ import {
     getStepColorHex,
     getPlanStepSurfaceStyles,
 } from "@/utils/planRuleUtils";
-import { resolveCompletionForEntity } from "@/utils/performanceColorUtils";
+import { resolveCompletionForEntity, resolveCompletionForPlanNode } from "@/utils/performanceColorUtils";
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
 import { useEffectivePlanningConfiguration } from "@/hooks/useEffectivePlanningConfiguration";
 import { getHierarchyNumber } from "@/utils/planNodeOrderUtils";
@@ -120,6 +120,7 @@ function StrategicFocusTable({
     showPeriodTargets = false,
     showPeriodActuals = false,
     canEditPeriodActual = false,
+    useExecutionCompletion = false,
     canEditAnnualTarget = false,
     canEditPeriodTarget = false,
     annualTargetAllocations,
@@ -128,9 +129,14 @@ function StrategicFocusTable({
 }: StrategicFocusTableProps) {
     const thresholds = usePerformanceColorThresholds();
 
+    const resolveNodeCompletion = (node: PlanNode) =>
+        useExecutionCompletion
+            ? resolveCompletionForPlanNode(thresholds, node, true)
+            : resolveCompletionForEntity(thresholds, node.plan_node_id);
+
     const rows = useMemo(() => flattenPlanSubtree(root), [root]);
     const nodeCount = rows.length;
-    const rootCompletion = resolveCompletionForEntity(thresholds, root.plan_node_id);
+    const rootCompletion = resolveNodeCompletion(root);
     const levelLabel = getStepLabel(rule, root.level);
     const rootNumber = getHierarchyNumber(hierarchyNumberMap, root.plan_node_id);
     const rootSurface = getPlanStepSurfaceStyles(getStepColorHex(rule, root.level));
@@ -294,10 +300,7 @@ function StrategicFocusTable({
                         <TableBody>
                             {rows.map(({ node, depth, siblings, siblingIndex }) => {
                                 const rowLevelLabel = getStepLabel(rule, node.level);
-                                const completion = resolveCompletionForEntity(
-                                    thresholds,
-                                    node.plan_node_id
-                                );
+                                const completion = resolveNodeCompletion(node);
                                 const allocation = annualTargetAllocations?.[node.plan_node_id];
                                 const liveDraftTarget = resolveLiveDraftTarget(node, allocation);
                                 const showReferenceTarget = showPeriodTargets
@@ -545,6 +548,7 @@ export function PlanHierarchyTableView({
     showPeriodTargets = false,
     showPeriodActuals = false,
     canEditPeriodActual = false,
+    useExecutionCompletion = false,
     canEditAnnualTarget = false,
     canEditPeriodTarget = false,
     annualTargetAllocations,
@@ -588,6 +592,7 @@ export function PlanHierarchyTableView({
                     showPeriodTargets={showPeriodTargets}
                     showPeriodActuals={showPeriodActuals}
                     canEditPeriodActual={canEditPeriodActual}
+                    useExecutionCompletion={useExecutionCompletion}
                     canEditAnnualTarget={canEditAnnualTarget}
                     canEditPeriodTarget={canEditPeriodTarget}
                     annualTargetAllocations={annualTargetAllocations}

@@ -13,7 +13,7 @@ import { PlanVersion } from "@/redux/types/plan";
 import { formatStatus } from "@/utils/statusFormatter";
 import { actionFeedback } from "@/components/action-feedback";
 import {
-    resolveCompletionForEntity,
+    resolveCompletionForVersion,
     resolveWorkflowStatusAppearance,
 } from "@/utils/performanceColorUtils";
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
@@ -153,9 +153,10 @@ export function ExecutionPeriodsDashboard({
         );
     }
 
-    const annualCompletion = resolveCompletionForEntity(
+    const annualCompletion = resolveCompletionForVersion(
         thresholds,
-        annualVersion.plan_version_id
+        annual,
+        processStarted
     );
 
     return (
@@ -212,9 +213,10 @@ export function ExecutionPeriodsDashboard({
                         </div>
                         <div className="flex flex-wrap gap-2">
                             {executionPeriods.map((period) => {
-                                const periodCompletion = resolveCompletionForEntity(
+                                const periodCompletion = resolveCompletionForVersion(
                                     thresholds,
-                                    period.plan_version_id
+                                    period,
+                                    processStarted
                                 );
                                 const miniColor = periodCompletion.color;
 
@@ -249,9 +251,10 @@ export function ExecutionPeriodsDashboard({
 
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {executionPeriods.map((period) => {
-                    const completion = resolveCompletionForEntity(
+                    const completion = resolveCompletionForVersion(
                         thresholds,
-                        period.plan_version_id
+                        period,
+                        processStarted
                     );
                     const isCompleted =
                         period.execution_status === "completed" || period.status === "completed";

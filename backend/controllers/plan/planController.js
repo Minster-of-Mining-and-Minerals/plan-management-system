@@ -52,6 +52,7 @@ const {
 } = require("../../services/planReviewSnapshotService");
 const {
     attachExecutionSnapshotContext,
+    resolveExecutionHierarchyVersionId,
 } = require("../../services/planExecutionGateService");
 const {
     getEffectivePlanningConfigForStructure,
@@ -1309,8 +1310,10 @@ const getPlanHierarchy = async (req, res) => {
             return res.status(400).json({ message: "Invalid version ID format" });
         }
 
+        const hierarchyVersionId = await resolveExecutionHierarchyVersionId(plan_version_id);
+
         const nodes = await PlanNode.findAll({
-            where: { plan_version_id, is_active: true },
+            where: { plan_version_id: hierarchyVersionId, is_active: true },
             order: [["order", "ASC"], ["created_at", "ASC"]],
         });
 
@@ -1400,8 +1403,8 @@ const getPlanHierarchy = async (req, res) => {
             }
         });
 
-        const planVersion = await PlanVersion.findByPk(plan_version_id, {
-            attributes: ["plan_version_id", "version_kind", "parent_plan_version_id"],
+        const planVersion = await PlanVersion.findByPk(hierarchyVersionId, {
+            attributes: ["plan_version_id", "version_kind", "parent_plan_version_id", "execution_snapshot_of_version_id"],
         });
         await enrichPeriodNodesWithLiveAnnualTargets(planVersion, nodeMap, nodes);
         const sortMetaByNodeId = await buildDraftAlignedSortMeta(planVersion, nodes);
@@ -1410,6 +1413,15 @@ const getPlanHierarchy = async (req, res) => {
         const visibleNodeIds = await getVisibleNodeIdsForVersion(req, plan_version_id);
         if (visibleNodeIds) {
             sortedRoots = filterHierarchyNodes(sortedRoots, visibleNodeIds);
+        }
+
+        if (planVersion?.version_kind === "execution_period") {
+            const { enrichExecutionHierarchyTree } = require("../../services/planExecutionRollupService");
+            const enriched = await enrichExecutionHierarchyTree(
+                hierarchyVersionId,
+                sortedRoots
+            );
+            sortedRoots = enriched.roots ?? sortedRoots;
         }
 
         return res.json({
