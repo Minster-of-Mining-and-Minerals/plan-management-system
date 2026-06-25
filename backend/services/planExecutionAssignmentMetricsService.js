@@ -66,26 +66,26 @@ function applyContribution(bucket, contribution, meta = {}) {
 
 /**
  * Achievement slice for a period node tied to an assignment.
- * Leaves without actuals count as 0 against their target.
+ * Leaves use actual/target; rollup parents use their averaged achievement percent.
  */
 function getAssignedNodeContribution(node, metrics) {
   const directTarget = Number(node.period_target) || 0;
-  const rollupTarget = Number(metrics?.computed_period_target) || 0;
   const hasDirectActual = node.period_actual != null && node.period_actual !== undefined;
-
-  if (rollupTarget > 0) {
-    return {
-      actual: Number(metrics?.computed_period_actual) || 0,
-      target: rollupTarget,
-      reported: Boolean(metrics?.has_contributing_data),
-    };
-  }
 
   if (directTarget > 0) {
     return {
       actual: hasDirectActual ? Number(node.period_actual) : 0,
       target: directTarget,
       reported: hasDirectActual,
+    };
+  }
+
+  if (metrics?.is_evaluable && metrics.execution_progress_percent != null) {
+    const percent = Number(metrics.execution_progress_percent) || 0;
+    return {
+      actual: percent,
+      target: 100,
+      reported: Boolean(metrics.has_contributing_data),
     };
   }
 

@@ -35,6 +35,7 @@ import { getHierarchyNumber } from "@/utils/planNodeOrderUtils";
 import { flattenPlanSubtree } from "@/utils/planHierarchyTableUtils";
 import { PlanNodeActions } from "./PlanNodeActions";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
+import { EvaluationStatusBadge } from "./EvaluationStatusBadge";
 import { PlanNodeIcon } from "./PlanNodeIcon";
 import { PlanNodeHierarchyNumber } from "./PlanNodeHierarchyNumber";
 import { PlanNodeAssignmentSummary } from "./PlanNodeAssignmentSummary";
@@ -457,19 +458,28 @@ function StrategicFocusTable({
                                             </TableCell>
                                         )}
                                         <TableCell>
-                                            {completion.visible ? (
-                                                <div className="flex items-center gap-2">
-                                                    <span
-                                                        className="text-sm font-semibold tabular-nums"
-                                                        style={{ color: completion.color }}
-                                                    >
-                                                        {completion.percent}%
-                                                    </span>
-                                                    <PerformanceColorBadge
-                                                        color={completion.color}
-                                                        label={completion.label}
-                                                        className="text-[10px] py-0 h-5"
-                                                    />
+                                            {completion.visible || node.evaluation_status ? (
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    {completion.visible ? (
+                                                        <>
+                                                            <span
+                                                                className="text-sm font-semibold tabular-nums"
+                                                                style={{ color: completion.color }}
+                                                            >
+                                                                {completion.percent}%
+                                                            </span>
+                                                            <PerformanceColorBadge
+                                                                color={completion.color}
+                                                                label={completion.label}
+                                                                className="text-[10px] py-0 h-5"
+                                                            />
+                                                        </>
+                                                    ) : (
+                                                        <span className="text-sm text-muted-foreground">—</span>
+                                                    )}
+                                                    {useExecutionCompletion && node.evaluation_status && (
+                                                        <EvaluationStatusBadge status={node.evaluation_status} />
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <span className="text-sm text-muted-foreground">—</span>

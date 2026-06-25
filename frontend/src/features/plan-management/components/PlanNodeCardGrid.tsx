@@ -20,6 +20,7 @@ import { PlanNodeIcon } from "./PlanNodeIcon";
 import { PlanNodeActions } from "./PlanNodeActions";
 import { CircularProgress } from "./CircularProgress";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
+import { EvaluationStatusBadge } from "./EvaluationStatusBadge";
 import { getHierarchyNumber } from "@/utils/planNodeOrderUtils";
 import { PlanNodeHierarchyNumber } from "./PlanNodeHierarchyNumber";
 import { PlanNodeAssignmentSummary } from "./PlanNodeAssignmentSummary";
@@ -210,6 +211,12 @@ export function PlanNodeCardGrid({
                                                 <PerformanceColorBadge
                                                     color={completion.color}
                                                     label={completion.label}
+                                                    className="text-[10px] py-0 h-4"
+                                                />
+                                            )}
+                                            {useExecutionCompletion && node.evaluation_status && (
+                                                <EvaluationStatusBadge
+                                                    status={node.evaluation_status}
                                                     className="text-[10px] py-0 h-4"
                                                 />
                                             )}

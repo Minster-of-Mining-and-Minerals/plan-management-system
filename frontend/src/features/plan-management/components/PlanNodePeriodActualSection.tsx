@@ -66,8 +66,9 @@ export function PlanNodePeriodActualSection({
               ? periodTarget
               : rollupTarget;
     const showSection =
-        isWeightedTargetNode(node, rule) &&
-        (effectiveTarget > 0 || isRollupEntry || node.has_contributing_data);
+        (isWeightedTargetNode(node, rule) &&
+            (effectiveTarget > 0 || isRollupEntry || node.has_contributing_data)) ||
+        (isRollupEntry && node.is_evaluable);
     const canEnterLeaf = canEdit && canManuallyEnterAchievement(node, rule);
     const canEnterManual =
         canEdit && isEditingManual && periodTarget > 0 && (isParentOverride || pendingOverride);
@@ -122,7 +123,7 @@ export function PlanNodePeriodActualSection({
     const showAchievementPercent =
         achievementPercent != null &&
         (isRollupEntry
-            ? node.has_contributing_data || displayActualRaw != null
+            ? node.is_evaluable || node.has_contributing_data || displayActualRaw != null
             : node.period_actual != null || node.period_actual_override);
 
     const handleSave = async () => {

@@ -70,7 +70,7 @@ import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresh
 import {
     resolveCompletionForVersion,
     resolveWorkflowStatusAppearance,
-    treeHasContributingProgress,
+    treeHasEvaluableOrContributingProgress,
     versionHasRecordedActuals,
 } from "@/utils/performanceColorUtils";
 import { PerformanceColorBadge } from "./components/PerformanceColorBadge";
@@ -337,7 +337,8 @@ export default function PlanHierarchyView({
     const periodHasRecordedActuals = useMemo(
         () =>
             versionHasRecordedActuals(version ?? {}) ||
-            treeHasContributingProgress(hierarchy),
+            version?.execution_is_evaluable === true ||
+            treeHasEvaluableOrContributingProgress(hierarchy),
         [version, hierarchy]
     );
 

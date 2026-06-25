@@ -21,12 +21,12 @@ function run() {
   const rollupParent = getAssignedNodeContribution(
     { period_target: 0 },
     {
-      computed_period_actual: 8,
-      computed_period_target: 30,
+      is_evaluable: true,
+      execution_progress_percent: 27,
       has_contributing_data: true,
     }
   );
-  assert.deepStrictEqual(rollupParent, { actual: 8, target: 30, reported: true });
+  assert.deepStrictEqual(rollupParent, { actual: 27, target: 100, reported: true });
 
   const bucket = createAggregateBucket();
   applyContribution(

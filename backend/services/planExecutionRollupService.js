@@ -2,12 +2,14 @@
 
 const { PlanNode, PlanVersion } = require("../models");
 const { resolvePlanRuleForVersion } = require("./planRuleService");
-const { stepRequiresWeight } = require("./planRuleStepUtils");
-const {
-  usesManualAchievementForRollup,
-  isWeightedTargetNode,
-} = require("./planExecutionAchievementUtils");
 const { isExecutionSnapshotVersion } = require("./planExecutionSnapshotService");
+
+const EVALUATION_STATUS = {
+  COMPLETED: "completed",
+  IN_PROGRESS: "in_progress",
+  NOT_STARTED: "not_started",
+  NO_EVALUATION: "no_evaluation",
+};
 
 function roundPercent(value) {
   if (value === null || value === undefined || Number.isNaN(value)) return null;
@@ -17,20 +19,12 @@ function roundPercent(value) {
 function emptyNodeMetrics() {
   return {
     execution_progress_percent: null,
+    is_evaluable: false,
+    evaluation_status: EVALUATION_STATUS.NO_EVALUATION,
+    has_contributing_data: false,
     computed_period_actual: null,
     computed_period_target: null,
-    has_contributing_data: false,
   };
-}
-
-function resolveWeightMode(node, nodeById) {
-  if (node.weight_mode) return node.weight_mode;
-  let current = node;
-  while (current?.parent_id) {
-    current = nodeById.get(current.parent_id);
-    if (current?.weight_mode) return current.weight_mode;
-  }
-  return "number";
 }
 
 function getActiveChildren(node, childrenByParent) {
@@ -39,20 +33,74 @@ function getActiveChildren(node, childrenByParent) {
   );
 }
 
+function hasPeriodTarget(node) {
+  return Number(node.period_target) > 0;
+}
+
+function hasRecordedActual(node) {
+  return node.period_actual != null && node.period_actual !== undefined;
+}
+
 /**
- * Whether this node or any descendant carries a weighted period target
- * (mirrors target-distribution scope: all planned siblings participate).
+ * Leaf evaluation: target-based achievement with evaluability rules.
  */
-function hasTargetBearingSubtree(node, childrenByParent, rule) {
-  if (node.is_active === false) {
-    return false;
+function evaluateLeafNode(node) {
+  const target = Number(node.period_target) || 0;
+
+  if (target <= 0) {
+    return {
+      execution_progress_percent: 0,
+      is_evaluable: false,
+      evaluation_status: EVALUATION_STATUS.NO_EVALUATION,
+      has_contributing_data: false,
+      computed_period_actual: null,
+      computed_period_target: null,
+    };
   }
-  if (usesManualAchievementForRollup(node, childrenByParent) && isWeightedTargetNode(node, rule)) {
-    return true;
+
+  const hasActual = hasRecordedActual(node);
+  const actual = hasActual ? Number(node.period_actual) : 0;
+  const percent = hasActual ? roundPercent((actual / target) * 100) : 0;
+
+  let evaluation_status = EVALUATION_STATUS.NOT_STARTED;
+  if (hasActual) {
+    evaluation_status =
+      percent >= 100 ? EVALUATION_STATUS.COMPLETED : EVALUATION_STATUS.IN_PROGRESS;
   }
-  return getActiveChildren(node, childrenByParent).some((child) =>
-    hasTargetBearingSubtree(child, childrenByParent, rule)
+
+  return {
+    execution_progress_percent: percent,
+    is_evaluable: true,
+    evaluation_status,
+    has_contributing_data: hasActual,
+    computed_period_actual: hasActual ? actual : null,
+    computed_period_target: target,
+  };
+}
+
+function deriveParentEvaluationStatus(childMetrics) {
+  if (childMetrics.every((child) => child.evaluation_status === EVALUATION_STATUS.COMPLETED)) {
+    return EVALUATION_STATUS.COMPLETED;
+  }
+  if (
+    childMetrics.every(
+      (child) =>
+        child.evaluation_status === EVALUATION_STATUS.NOT_STARTED &&
+        !child.has_contributing_data
+    )
+  ) {
+    return EVALUATION_STATUS.NOT_STARTED;
+  }
+  return EVALUATION_STATUS.IN_PROGRESS;
+}
+
+function averageChildPercentages(childMetrics) {
+  if (childMetrics.length === 0) return null;
+  const total = childMetrics.reduce(
+    (sum, child) => sum + (child.execution_progress_percent ?? 0),
+    0
   );
+  return roundPercent(total / childMetrics.length);
 }
 
 function subtreeHasContributingData(node, memo, childrenByParent) {
@@ -65,169 +113,56 @@ function subtreeHasContributingData(node, memo, childrenByParent) {
   );
 }
 
-function getChildProgressForRollup(child, memo, childrenByParent, rule) {
-  if (!hasTargetBearingSubtree(child, childrenByParent, rule)) {
-    return null;
-  }
-  const metrics = memo.get(child.plan_node_id);
-  if (metrics?.has_contributing_data && metrics.execution_progress_percent != null) {
-    return metrics.execution_progress_percent;
-  }
-  return 0;
-}
-
-function averageEligibleChildProgress(children, memo, childrenByParent, rule) {
-  const entries = [];
-  for (const child of children) {
-    const percent = getChildProgressForRollup(child, memo, childrenByParent, rule);
-    if (percent === null) continue;
-    const weight = Math.max(Number(child.weight) || 0, 1);
-    entries.push({ percent, weight });
-  }
-  if (entries.length === 0) return null;
-  const totalWeight = entries.reduce((sum, entry) => sum + entry.weight, 0);
-  const weighted = entries.reduce((sum, entry) => sum + entry.percent * entry.weight, 0);
-  return roundPercent(weighted / totalWeight);
-}
-
-function getChildActualTargetForRollup(child, memo, childrenByParent, rule) {
-  if (!hasTargetBearingSubtree(child, childrenByParent, rule)) {
-    return null;
-  }
-
-  if (usesManualAchievementForRollup(child, childrenByParent)) {
-    const target = Number(child.period_target) || 0;
-    if (target <= 0) {
-      return null;
-    }
-    const hasActual = child.period_actual != null && child.period_actual !== undefined;
-    const actual = hasActual ? Number(child.period_actual) : 0;
-    return {
-      actual,
-      target,
-      percent: hasActual ? roundPercent((actual / target) * 100) : 0,
-    };
-  }
-
-  const metrics = memo.get(child.plan_node_id);
-  return {
-    actual: Number(metrics?.computed_period_actual) || 0,
-    target: Number(metrics?.computed_period_target) || 0,
-    percent: metrics?.execution_progress_percent ?? 0,
-  };
-}
-
-function aggregateEligibleChildren(children, memo, mode, childrenByParent, rule) {
-  let totalActual = 0;
-  let totalTarget = 0;
-  let weightedProgress = 0;
-  let progressWeight = 0;
-  let hasEligible = false;
-
-  for (const child of children) {
-    const contribution = getChildActualTargetForRollup(child, memo, childrenByParent, rule);
-    if (!contribution) continue;
-
-    hasEligible = true;
-    totalActual += contribution.actual;
-    totalTarget += contribution.target;
-
-    if (contribution.target > 0) {
-      weightedProgress += contribution.percent * contribution.target;
-      progressWeight += contribution.target;
-    }
-  }
-
-  if (!hasEligible) {
-    return emptyNodeMetrics();
-  }
-
-  let execution_progress_percent = null;
-  if (mode === "percentage" && progressWeight > 0) {
-    execution_progress_percent = roundPercent(weightedProgress / progressWeight);
-  } else if (totalTarget > 0) {
-    execution_progress_percent = roundPercent((totalActual / totalTarget) * 100);
-  } else {
-    execution_progress_percent = averageEligibleChildProgress(children, memo, childrenByParent, rule);
-  }
-
-  return {
-    execution_progress_percent,
-    computed_period_actual: totalActual,
-    computed_period_target: totalTarget,
-    has_contributing_data: children.some((child) =>
-      subtreeHasContributingData(child, memo, childrenByParent)
-    ),
-  };
-}
-
 /**
- * Bottom-up rollup aligned with target distribution scope.
- * Leaf: actual/target when period_actual is set; eligible leaves without actual count as 0.
- * Parent weighted: sums actual/target across ALL eligible children (full planned set).
- * Org levels: sum actual/target across ALL eligible children (same as weighted parents).
+ * Recursive performance rollup — depth-agnostic, average of evaluable children.
+ * Parent override nodes with a target are evaluated as a single leaf unit.
  */
-function computeNodeRollup(node, nodeById, childrenByParent, rule, memo) {
+function computeNodeRollup(node, childrenByParent, memo) {
   if (memo.has(node.plan_node_id)) {
     return memo.get(node.plan_node_id);
   }
 
-  const children = (childrenByParent.get(node.plan_node_id) ?? [])
-    .filter((child) => child.is_active !== false)
-    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const children = getActiveChildren(node, childrenByParent).sort(
+    (a, b) => (a.order ?? 0) - (b.order ?? 0)
+  );
 
   let result;
 
-  if (!stepRequiresWeight(rule, node.level)) {
-    if (children.length === 0) {
-      result = emptyNodeMetrics();
-    } else {
-      for (const child of children) {
-        computeNodeRollup(child, nodeById, childrenByParent, rule, memo);
-      }
-      const mode = resolveWeightMode(node, nodeById);
-      const aggregated = aggregateEligibleChildren(
-        children,
-        memo,
-        mode,
-        childrenByParent,
-        rule
-      );
-      result = {
-        execution_progress_percent: aggregated.execution_progress_percent,
-        computed_period_actual: aggregated.computed_period_actual,
-        computed_period_target: aggregated.computed_period_target,
-        has_contributing_data: aggregated.has_contributing_data,
-      };
-    }
-  } else if (children.length === 0 || usesManualAchievementForRollup(node, childrenByParent)) {
+  const treatAsLeaf =
+    children.length === 0 ||
+    (node.period_actual_override && hasPeriodTarget(node));
+
+  if (treatAsLeaf) {
     if (children.length > 0) {
       for (const child of children) {
-        computeNodeRollup(child, nodeById, childrenByParent, rule, memo);
+        computeNodeRollup(child, childrenByParent, memo);
       }
     }
-
-    const target = Number(node.period_target) || 0;
-    const hasActual = node.period_actual != null && node.period_actual !== undefined;
-
-    if (hasActual && target > 0) {
-      const actual = Number(node.period_actual);
-      result = {
-        execution_progress_percent: roundPercent((actual / target) * 100),
-        computed_period_actual: actual,
-        computed_period_target: target,
-        has_contributing_data: true,
-      };
-    } else {
-      result = emptyNodeMetrics();
-    }
+    result = evaluateLeafNode(node);
   } else {
     for (const child of children) {
-      computeNodeRollup(child, nodeById, childrenByParent, rule, memo);
+      computeNodeRollup(child, childrenByParent, memo);
     }
 
-    const mode = resolveWeightMode(node, nodeById);
-    result = aggregateEligibleChildren(children, memo, mode, childrenByParent, rule);
+    const evaluableChildren = children
+      .map((child) => memo.get(child.plan_node_id))
+      .filter((metrics) => metrics?.is_evaluable);
+
+    if (evaluableChildren.length === 0) {
+      result = emptyNodeMetrics();
+    } else {
+      const percent = averageChildPercentages(evaluableChildren);
+      result = {
+        execution_progress_percent: percent,
+        is_evaluable: true,
+        evaluation_status: deriveParentEvaluationStatus(evaluableChildren),
+        has_contributing_data: children.some((child) =>
+          subtreeHasContributingData(child, memo, childrenByParent)
+        ),
+        computed_period_actual: null,
+        computed_period_target: null,
+      };
+    }
   }
 
   memo.set(node.plan_node_id, result);
@@ -245,28 +180,54 @@ function buildChildrenByParent(nodes) {
   return childrenByParent;
 }
 
-function computeRollupMap(nodes, rule) {
+function computeRollupMap(nodes) {
   if (!nodes.length) {
     return new Map();
   }
 
-  const nodeById = new Map(nodes.map((node) => [node.plan_node_id, node]));
   const childrenByParent = buildChildrenByParent(nodes);
   const memo = new Map();
 
+  const nodeById = new Map(nodes.map((node) => [node.plan_node_id, node]));
   const roots = nodes
     .filter((node) => !node.parent_id || !nodeById.has(node.parent_id))
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   for (const root of roots) {
-    computeNodeRollup(root, nodeById, childrenByParent, rule, memo);
+    computeNodeRollup(root, childrenByParent, memo);
   }
 
   return memo;
 }
 
-function computeVersionProgressFromRoots(nodes, rule) {
-  const rollupMap = computeRollupMap(nodes, rule);
+function aggregateEvaluableNodeMetrics(nodeMetrics) {
+  const evaluable = nodeMetrics.filter((metrics) => metrics?.is_evaluable);
+  if (evaluable.length === 0) {
+    return {
+      execution_progress_percent: null,
+      is_evaluable: false,
+      evaluation_status: EVALUATION_STATUS.NO_EVALUATION,
+      has_contributing_data: false,
+      computed_period_actual: null,
+      computed_period_target: null,
+    };
+  }
+
+  const percent = averageChildPercentages(evaluable);
+  const hasContributing = evaluable.some((metrics) => metrics.has_contributing_data);
+
+  return {
+    execution_progress_percent: percent,
+    is_evaluable: true,
+    evaluation_status: deriveParentEvaluationStatus(evaluable),
+    has_contributing_data: hasContributing,
+    computed_period_actual: null,
+    computed_period_target: null,
+  };
+}
+
+function computeVersionProgressFromRoots(nodes) {
+  const rollupMap = computeRollupMap(nodes);
   const nodeById = new Map(nodes.map((node) => [node.plan_node_id, node]));
   const childrenByParent = buildChildrenByParent(nodes);
 
@@ -274,52 +235,11 @@ function computeVersionProgressFromRoots(nodes, rule) {
     .filter((node) => !node.parent_id || !nodeById.has(node.parent_id))
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-  const eligibleRoots = roots.filter((root) =>
-    hasTargetBearingSubtree(root, childrenByParent, rule)
-  );
-
-  const hasContributing = roots.some((root) =>
-    subtreeHasContributingData(root, rollupMap, childrenByParent)
-  );
-
-  if (eligibleRoots.length === 0 || !hasContributing) {
-    return {
-      execution_progress_percent: null,
-      computed_period_actual: null,
-      computed_period_target: null,
-      has_contributing_data: false,
-      rollup_by_node_id: rollupMap,
-    };
-  }
-
-  let totalActual = 0;
-  let totalTarget = 0;
-  let weightedProgress = 0;
-  let progressWeight = 0;
-
-  for (const root of eligibleRoots) {
-    const metrics = rollupMap.get(root.plan_node_id);
-    if (!metrics) continue;
-    const rootWeight = Math.max(Number(root.weight) || 0, 1);
-    const rootPercent = metrics.execution_progress_percent ?? 0;
-    weightedProgress += rootPercent * rootWeight;
-    progressWeight += rootWeight;
-    totalActual += Number(metrics.computed_period_actual) || 0;
-    totalTarget += Number(metrics.computed_period_target) || 0;
-  }
-
-  let execution_progress_percent = null;
-  if (totalTarget > 0) {
-    execution_progress_percent = roundPercent((totalActual / totalTarget) * 100);
-  } else if (progressWeight > 0) {
-    execution_progress_percent = roundPercent(weightedProgress / progressWeight);
-  }
+  const rootMetrics = roots.map((root) => rollupMap.get(root.plan_node_id));
+  const versionMetrics = aggregateEvaluableNodeMetrics(rootMetrics);
 
   return {
-    execution_progress_percent,
-    computed_period_actual: totalTarget > 0 ? totalActual : null,
-    computed_period_target: totalTarget > 0 ? totalTarget : null,
-    has_contributing_data: true,
+    ...versionMetrics,
     rollup_by_node_id: rollupMap,
   };
 }
@@ -329,28 +249,28 @@ async function computePeriodExecutionProgress(periodVersionId, transaction = nul
   if (!version || version.version_kind !== "execution_period") {
     return {
       execution_progress_percent: null,
+      is_evaluable: false,
+      evaluation_status: EVALUATION_STATUS.NO_EVALUATION,
+      has_contributing_data: false,
       computed_period_actual: null,
       computed_period_target: null,
-      has_contributing_data: false,
       rollup_by_node_id: new Map(),
     };
   }
 
-  const rule = await resolvePlanRuleForVersion(version, transaction);
+  await resolvePlanRuleForVersion(version, transaction);
   const nodes = await PlanNode.findAll({
     where: { plan_version_id: periodVersionId, is_active: true },
     transaction,
   });
 
   return computeVersionProgressFromRoots(
-    nodes.map((node) => (node.toJSON ? node.toJSON() : node)),
-    rule
+    nodes.map((node) => (node.toJSON ? node.toJSON() : node))
   );
 }
 
 /**
- * Annual achievement = average across ALL periods in the year (open, locked, completed).
- * Periods without leaf data count as 0% in the annual blend.
+ * Annual achievement = average across evaluable periods only.
  */
 async function computeAnnualExecutionProgress(annualVersionId, transaction = null) {
   const periods = await PlanVersion.findAll({
@@ -365,42 +285,54 @@ async function computeAnnualExecutionProgress(annualVersionId, transaction = nul
   if (periods.length === 0) {
     return {
       execution_progress_percent: null,
+      is_evaluable: false,
+      evaluation_status: EVALUATION_STATUS.NO_EVALUATION,
       has_contributing_data: false,
       execution_period_progress: [],
     };
   }
 
   const execution_period_progress = [];
-  let totalPercent = 0;
+  const evaluablePercents = [];
   let anyContributing = false;
 
   for (const period of periods) {
     const progress = await computePeriodExecutionProgress(period.plan_version_id, transaction);
-    const periodPercent = progress.has_contributing_data
-      ? progress.execution_progress_percent ?? 0
-      : 0;
 
     if (progress.has_contributing_data) {
       anyContributing = true;
     }
+    if (progress.is_evaluable) {
+      evaluablePercents.push(progress.execution_progress_percent ?? 0);
+    }
 
-    totalPercent += periodPercent;
     execution_period_progress.push({
       plan_version_id: period.plan_version_id,
       period_label: period.period_label,
       sequence_index: period.sequence_index,
       execution_status: period.execution_status,
-      execution_progress_percent: progress.has_contributing_data
+      execution_progress_percent: progress.is_evaluable
         ? progress.execution_progress_percent
         : null,
+      is_evaluable: progress.is_evaluable,
+      evaluation_status: progress.evaluation_status,
       has_contributing_data: progress.has_contributing_data,
     });
   }
 
+  const annualMetrics = aggregateEvaluableNodeMetrics(
+    evaluablePercents.map((percent) => ({
+      execution_progress_percent: percent,
+      is_evaluable: true,
+      evaluation_status: EVALUATION_STATUS.IN_PROGRESS,
+      has_contributing_data: anyContributing,
+    }))
+  );
+
   return {
-    execution_progress_percent: anyContributing
-      ? roundPercent(totalPercent / periods.length)
-      : null,
+    execution_progress_percent: annualMetrics.execution_progress_percent,
+    is_evaluable: annualMetrics.is_evaluable,
+    evaluation_status: annualMetrics.evaluation_status,
     has_contributing_data: anyContributing,
     execution_period_progress,
   };
@@ -411,6 +343,8 @@ function applyRollupToHierarchyNodes(nodes, rollupMap) {
     const metrics = rollupMap.get(node.plan_node_id);
     if (metrics) {
       node.execution_progress_percent = metrics.execution_progress_percent;
+      node.is_evaluable = metrics.is_evaluable;
+      node.evaluation_status = metrics.evaluation_status;
       node.computed_period_actual = metrics.computed_period_actual;
       node.computed_period_target = metrics.computed_period_target;
       node.has_contributing_data = metrics.has_contributing_data;
@@ -424,6 +358,8 @@ function applyRollupToHierarchyNodes(nodes, rollupMap) {
 function emptyMasterProgress() {
   return {
     execution_progress_percent: null,
+    is_evaluable: false,
+    evaluation_status: EVALUATION_STATUS.NO_EVALUATION,
     has_contributing_data: false,
     execution_annual_progress: [],
     active_planning_year: null,
@@ -432,8 +368,7 @@ function emptyMasterProgress() {
 }
 
 /**
- * Master achievement = average across ALL annual years in the execution snapshot
- * (open, locked, completed). Years without leaf data count as 0% in the blend.
+ * Master achievement = average across evaluable annual years only.
  */
 async function computeMasterExecutionProgress(masterVersionId, transaction = null) {
   const version = await PlanVersion.findByPk(masterVersionId, { transaction });
@@ -446,9 +381,6 @@ async function computeMasterExecutionProgress(masterVersionId, transaction = nul
     : version.active_execution_snapshot_id;
 
   if (!snapshotRootId) {
-    if (!version.process_started_at) {
-      return emptyMasterProgress();
-    }
     return emptyMasterProgress();
   }
 
@@ -466,38 +398,48 @@ async function computeMasterExecutionProgress(masterVersionId, transaction = nul
   }
 
   const execution_annual_progress = [];
-  let totalPercent = 0;
+  const evaluablePercents = [];
   let anyContributing = false;
 
   for (const annual of annuals) {
     const progress = await computeAnnualExecutionProgress(annual.plan_version_id, transaction);
-    const annualPercent = progress.has_contributing_data
-      ? progress.execution_progress_percent ?? 0
-      : 0;
 
     if (progress.has_contributing_data) {
       anyContributing = true;
     }
+    if (progress.is_evaluable) {
+      evaluablePercents.push(progress.execution_progress_percent ?? 0);
+    }
 
-    totalPercent += annualPercent;
     execution_annual_progress.push({
       plan_version_id: annual.plan_version_id,
       planning_year: annual.planning_year ?? annual.year,
       sequence_index: annual.sequence_index,
       execution_status: annual.execution_status,
-      execution_progress_percent: progress.has_contributing_data
+      execution_progress_percent: progress.is_evaluable
         ? progress.execution_progress_percent
         : null,
+      is_evaluable: progress.is_evaluable,
+      evaluation_status: progress.evaluation_status,
       has_contributing_data: progress.has_contributing_data,
     });
   }
 
+  const masterMetrics = aggregateEvaluableNodeMetrics(
+    evaluablePercents.map((percent) => ({
+      execution_progress_percent: percent,
+      is_evaluable: true,
+      evaluation_status: EVALUATION_STATUS.IN_PROGRESS,
+      has_contributing_data: anyContributing,
+    }))
+  );
+
   const openAnnual = annuals.find((annual) => annual.execution_status === "open");
 
   return {
-    execution_progress_percent: anyContributing
-      ? roundPercent(totalPercent / annuals.length)
-      : null,
+    execution_progress_percent: masterMetrics.execution_progress_percent,
+    is_evaluable: masterMetrics.is_evaluable,
+    evaluation_status: masterMetrics.evaluation_status,
     has_contributing_data: anyContributing,
     execution_annual_progress,
     active_planning_year: openAnnual ? openAnnual.planning_year ?? openAnnual.year : null,
@@ -514,6 +456,8 @@ async function enrichExecutionHierarchyTree(planVersionId, roots, transaction = 
   const {
     rollup_by_node_id,
     execution_progress_percent,
+    is_evaluable,
+    evaluation_status,
     has_contributing_data,
   } = await computePeriodExecutionProgress(planVersionId, transaction);
 
@@ -522,12 +466,15 @@ async function enrichExecutionHierarchyTree(planVersionId, roots, transaction = 
   return {
     roots,
     execution_progress_percent,
+    is_evaluable,
+    evaluation_status,
     has_contributing_data,
     rollup_by_node_id,
   };
 }
 
 module.exports = {
+  EVALUATION_STATUS,
   computeRollupMap,
   computeVersionProgressFromRoots,
   computePeriodExecutionProgress,

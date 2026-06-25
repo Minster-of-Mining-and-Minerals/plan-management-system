@@ -5,6 +5,11 @@
 export type PlanVersionKind = "master" | "annual" | "execution_period";
 export type PlanVersionStatus = "draft" | "active" | "completed" | "finalized" | "locked";
 export type PlanExecutionStatus = "locked" | "open" | "completed";
+export type ExecutionEvaluationStatus =
+    | "completed"
+    | "in_progress"
+    | "not_started"
+    | "no_evaluation";
 export type PlanAccessRole = "owner" | "participant";
 export type PlanReviewStatus = "under_review" | "corrections_unlocked" | "review_completed";
 export type PeriodSubdivisionMode = "quarterly" | "semi_annual" | "custom";
@@ -73,12 +78,16 @@ export interface PlanVersion {
     execution_has_recorded_actuals?: boolean;
     execution_has_contributing_progress?: boolean;
     execution_progress_percent?: number | null;
+    execution_is_evaluable?: boolean;
+    execution_evaluation_status?: ExecutionEvaluationStatus | null;
     execution_annual_progress?: Array<{
         plan_version_id: string;
         planning_year: number | null;
         sequence_index: number | null;
         execution_status: PlanExecutionStatus | null;
         execution_progress_percent: number | null;
+        is_evaluable?: boolean;
+        evaluation_status?: ExecutionEvaluationStatus | null;
         has_contributing_data?: boolean;
     }>;
     active_planning_year?: number | null;
@@ -89,6 +98,8 @@ export interface PlanVersion {
         sequence_index: number | null;
         execution_status: PlanExecutionStatus | null;
         execution_progress_percent: number | null;
+        is_evaluable?: boolean;
+        evaluation_status?: ExecutionEvaluationStatus | null;
         has_contributing_data?: boolean;
     }>;
     status: PlanVersionStatus;
@@ -290,6 +301,8 @@ export interface PlanNode {
     execution_progress_percent?: number | null;
     computed_period_actual?: number | null;
     computed_period_target?: number | null;
+    is_evaluable?: boolean;
+    evaluation_status?: ExecutionEvaluationStatus | null;
     has_contributing_data?: boolean;
     created_at: string;
     updated_at: string;

@@ -299,6 +299,8 @@ async function applyExecutionProgressFields(version, snapshotVersionId, transact
     return {
       ...version,
       execution_progress_percent: progress.execution_progress_percent,
+      execution_is_evaluable: progress.is_evaluable,
+      execution_evaluation_status: progress.evaluation_status,
       execution_annual_progress: progress.execution_annual_progress,
       execution_has_contributing_progress: progress.has_contributing_data,
       execution_has_recorded_actuals: progress.has_contributing_data,
@@ -312,6 +314,8 @@ async function applyExecutionProgressFields(version, snapshotVersionId, transact
     return {
       ...version,
       execution_progress_percent: progress.execution_progress_percent,
+      execution_is_evaluable: progress.is_evaluable,
+      execution_evaluation_status: progress.evaluation_status,
       computed_period_actual: progress.computed_period_actual,
       computed_period_target: progress.computed_period_target,
       execution_has_contributing_progress: progress.has_contributing_data,
@@ -324,6 +328,8 @@ async function applyExecutionProgressFields(version, snapshotVersionId, transact
     return {
       ...version,
       execution_progress_percent: annualProgress.execution_progress_percent,
+      execution_is_evaluable: annualProgress.is_evaluable,
+      execution_evaluation_status: annualProgress.evaluation_status,
       execution_period_progress: annualProgress.execution_period_progress,
       execution_has_contributing_progress: annualProgress.has_contributing_data,
       execution_has_recorded_actuals: annualProgress.has_contributing_data,
@@ -403,6 +409,8 @@ async function enrichMasterVersionsWithExecutionProgress(versions, transaction =
     enriched.push({
       ...plain,
       execution_progress_percent: progress.execution_progress_percent,
+      execution_is_evaluable: progress.is_evaluable,
+      execution_evaluation_status: progress.evaluation_status,
       execution_annual_progress: progress.execution_annual_progress,
       execution_has_contributing_progress: progress.has_contributing_data,
       execution_has_recorded_actuals: progress.has_contributing_data,
@@ -493,6 +501,8 @@ async function enrichExecutionPeriodsWithExecution(liveAnnual, livePeriods, tran
       execution_has_recorded_actuals: readiness.recorded_count > 0,
       execution_has_contributing_progress: progress.has_contributing_data,
       execution_progress_percent: progress.execution_progress_percent,
+      execution_is_evaluable: progress.is_evaluable,
+      execution_evaluation_status: progress.evaluation_status,
       computed_period_actual: progress.computed_period_actual,
       computed_period_target: progress.computed_period_target,
     };
@@ -519,6 +529,8 @@ async function enrichExecutionPeriodsWithExecution(liveAnnual, livePeriods, tran
         execution_has_recorded_actuals: annualHasActuals,
         execution_has_contributing_progress: annualProgress.has_contributing_data,
         execution_progress_percent: annualProgress.execution_progress_percent,
+        execution_is_evaluable: annualProgress.is_evaluable,
+        execution_evaluation_status: annualProgress.evaluation_status,
         execution_period_progress: annualProgress.execution_period_progress,
       },
       executionPeriods: enrichedPeriods,
@@ -579,6 +591,8 @@ async function enrichExecutionPeriodsWithExecution(liveAnnual, livePeriods, tran
         execution_progress_percent: null,
         execution_period_progress: [],
         has_contributing_data: false,
+        is_evaluable: false,
+        evaluation_status: "no_evaluation",
       };
   const annualHasActuals = snapshotAnnual
     ? await annualHasRecordedActuals(snapshotAnnual.plan_version_id, transaction)
@@ -592,6 +606,8 @@ async function enrichExecutionPeriodsWithExecution(liveAnnual, livePeriods, tran
       execution_has_recorded_actuals: annualHasActuals,
       execution_has_contributing_progress: annualProgress.has_contributing_data,
       execution_progress_percent: annualProgress.execution_progress_percent,
+      execution_is_evaluable: annualProgress.is_evaluable,
+      execution_evaluation_status: annualProgress.evaluation_status,
       execution_period_progress: annualProgress.execution_period_progress,
     },
     executionPeriods: enrichedPeriods,
@@ -641,6 +657,8 @@ async function enrichAnnualVersionsWithExecution(liveMaster, liveAnnualVersions,
           execution_progress_percent: null,
           execution_period_progress: [],
           has_contributing_data: false,
+          is_evaluable: false,
+          evaluation_status: "no_evaluation",
         };
     const annualHasActuals = snapshotAnnual
       ? await annualHasRecordedActuals(snapshotAnnual.plan_version_id, transaction)
@@ -653,6 +671,8 @@ async function enrichAnnualVersionsWithExecution(liveMaster, liveAnnualVersions,
       execution_has_recorded_actuals: annualHasActuals,
       execution_has_contributing_progress: annualProgress.has_contributing_data,
       execution_progress_percent: annualProgress.execution_progress_percent,
+      execution_is_evaluable: annualProgress.is_evaluable,
+      execution_evaluation_status: annualProgress.evaluation_status,
       execution_period_progress: annualProgress.execution_period_progress,
     });
   }

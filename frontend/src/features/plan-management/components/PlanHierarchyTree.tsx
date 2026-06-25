@@ -29,6 +29,7 @@ import {
 } from "@/utils/performanceColorUtils";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
 import { PerformanceProgressBar } from "./PerformanceProgressBar";
+import { EvaluationStatusBadge } from "./EvaluationStatusBadge";
 
 interface NodeItemProps {
     node: PlanNodeHierarchy;
@@ -179,6 +180,12 @@ const NodeItem = ({
                                 <PerformanceColorBadge
                                     color={completion.color}
                                     label={`${completion.percent}%`}
+                                    className="text-[10px] py-0 h-4"
+                                />
+                            )}
+                            {useExecutionCompletion && node.evaluation_status && (
+                                <EvaluationStatusBadge
+                                    status={node.evaluation_status}
                                     className="text-[10px] py-0 h-4"
                                 />
                             )}

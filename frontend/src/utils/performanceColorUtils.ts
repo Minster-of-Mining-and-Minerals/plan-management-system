@@ -126,6 +126,18 @@ export function treeHasContributingProgress(nodes: PlanNodeHierarchy[]): boolean
   return false;
 }
 
+export function treeHasEvaluableOrContributingProgress(nodes: PlanNodeHierarchy[]): boolean {
+  for (const node of nodes) {
+    if (node.is_evaluable || node.has_contributing_data || node.period_actual != null) {
+      return true;
+    }
+    if (node.children?.length && treeHasEvaluableOrContributingProgress(node.children)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /** @deprecated Use treeHasContributingProgress */
 export function treeHasRecordedActual(nodes: PlanNodeHierarchy[]): boolean {
   return treeHasContributingProgress(nodes);
@@ -145,6 +157,8 @@ export function resolveCompletionForVersion(
     execution_progress_percent?: number | null;
     execution_status?: string | null;
     status?: string | null;
+    execution_is_evaluable?: boolean;
+    execution_evaluation_status?: string | null;
     execution_has_contributing_progress?: boolean;
     execution_has_recorded_actuals?: boolean;
     execution_actuals_readiness?: { recorded_count?: number } | null;
@@ -154,6 +168,7 @@ export function resolveCompletionForVersion(
 ): ProgressAppearance {
   const recorded =
     hasRecordedActuals ?? versionHasRecordedActuals(version);
+  const evaluable = version.execution_is_evaluable === true;
 
   if (
     processStarted &&
@@ -165,11 +180,15 @@ export function resolveCompletionForVersion(
     };
   }
 
-  if (!shouldShowAchievementProgress(processStarted, recorded)) {
+  if (!processStarted) {
     return hiddenProgressAppearance();
   }
 
-  if (version.execution_progress_percent != null) {
+  if (!recorded && !evaluable) {
+    return hiddenProgressAppearance();
+  }
+
+  if (version.execution_progress_percent != null && (evaluable || recorded)) {
     return {
       ...resolveCompletionAppearance(thresholds, version.execution_progress_percent),
       visible: true,
@@ -187,6 +206,8 @@ export function resolveCompletionForPlanNode(
     period_actual?: number | null;
     period_actual_override?: boolean;
     execution_progress_percent?: number | null;
+    is_evaluable?: boolean;
+    evaluation_status?: string | null;
     computed_period_actual?: number | null;
     computed_period_target?: number | null;
     has_contributing_data?: boolean;
@@ -195,28 +216,30 @@ export function resolveCompletionForPlanNode(
   processStarted: boolean,
   periodHasRecordedActuals: boolean
 ): ProgressAppearance {
-  if (!shouldShowAchievementProgress(processStarted, periodHasRecordedActuals)) {
+  if (!processStarted) {
     return hiddenProgressAppearance();
   }
 
   const hasChildren = (node.children ?? []).some((child) => child.is_active !== false);
+  const isEvaluable = node.is_evaluable === true;
   const isManualLeaf =
     !hasChildren && !node.period_actual_override && node.period_actual == null;
 
-  if (isManualLeaf) {
+  if (isManualLeaf && !isEvaluable) {
     return hiddenProgressAppearance();
   }
 
   const nodeContributes =
+    isEvaluable ||
     node.has_contributing_data === true ||
     node.period_actual != null ||
     node.period_actual_override === true;
 
-  if (!nodeContributes) {
+  if (!nodeContributes && !periodHasRecordedActuals) {
     return hiddenProgressAppearance();
   }
 
-  if (node.execution_progress_percent != null) {
+  if (node.execution_progress_percent != null && (isEvaluable || nodeContributes)) {
     return {
       ...resolveCompletionAppearance(thresholds, node.execution_progress_percent),
       visible: true,
@@ -231,6 +254,13 @@ export function resolveCompletionForPlanNode(
         thresholds,
         (Number(node.period_actual) / target) * 100
       ),
+      visible: true,
+    };
+  }
+
+  if (isEvaluable && node.execution_progress_percent != null) {
+    return {
+      ...resolveCompletionAppearance(thresholds, node.execution_progress_percent),
       visible: true,
     };
   }

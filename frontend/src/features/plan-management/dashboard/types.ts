@@ -70,6 +70,8 @@ export interface DashboardPlanRow {
   government_structure_code: string | null;
   process_started_at: string | null;
   execution_progress_percent: number | null;
+  is_evaluable?: boolean;
+  evaluation_status?: string | null;
   has_contributing_data?: boolean;
   active_planning_year?: number | null;
   dashboard_status: Exclude<PlanStatus, "all">;
