@@ -1,13 +1,15 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { useDashboardAppearance } from "../hooks/useDashboardAppearance";
 
 interface ProgressBarProps {
   value: number;
   label?: string;
   showValue?: boolean;
   size?: "sm" | "md";
-  colorClassName?: string;
+  /** When set, bar and value use performance threshold coloring for this percent. */
+  performancePercent?: number | null;
   className?: string;
 }
 
@@ -16,10 +18,15 @@ export function ProgressBar({
   label,
   showValue = true,
   size = "md",
-  colorClassName = "bg-golden-dark",
+  performancePercent,
   className,
 }: ProgressBarProps) {
+  const { performanceColor, color } = useDashboardAppearance();
   const clamped = Math.max(0, Math.min(100, value));
+  const barColor =
+    performancePercent != null
+      ? performanceColor(performancePercent)
+      : color("primary");
 
   return (
     <div className={cn("space-y-1.5", className)}>
@@ -27,19 +34,24 @@ export function ProgressBar({
         <div className="flex items-center justify-between text-xs">
           {label && <span className="text-muted-foreground">{label}</span>}
           {showValue && (
-            <span className="font-semibold text-golden-dark tabular-nums">{clamped}%</span>
+            <span className="font-semibold tabular-nums" style={{ color: barColor }}>
+              {clamped}%
+            </span>
           )}
         </div>
       )}
       <div
         className={cn(
-          "w-full overflow-hidden rounded-full bg-gray-100",
+          "w-full overflow-hidden rounded-full bg-muted/80",
           size === "sm" ? "h-1.5" : "h-2.5"
         )}
       >
         <div
-          className={cn("h-full rounded-full transition-all duration-500", colorClassName)}
-          style={{ width: `${clamped}%` }}
+          className="h-full rounded-full transition-all duration-500"
+          style={{
+            width: `${clamped}%`,
+            backgroundColor: barColor,
+          }}
           role="progressbar"
           aria-valuenow={clamped}
           aria-valuemin={0}

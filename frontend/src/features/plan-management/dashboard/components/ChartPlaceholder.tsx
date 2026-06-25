@@ -2,6 +2,8 @@
 
 import { BarChart3, LineChart, PieChart, Grid3X3 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useDashboardAppearance } from "../hooks/useDashboardAppearance";
+import { hexToRgba } from "../utils/dashboardAppearanceUtils";
 
 type ChartVariant = "line" | "bar" | "pie" | "heatmap";
 
@@ -30,6 +32,9 @@ export function ChartPlaceholder({
   className,
   height = 220,
 }: ChartPlaceholderProps) {
+  const { textPrimary, color, chartPalette } = useDashboardAppearance();
+  const primary = color("primary");
+  const accent = color("accent");
   const meta = VARIANT_META[variant];
   const Icon = meta.icon;
 
@@ -42,7 +47,9 @@ export function ChartPlaceholder({
     >
       <div className="mb-4 flex items-start justify-between gap-2">
         <div>
-          <h3 className="font-semibold text-golden-dark">{title}</h3>
+          <h3 className="font-semibold" style={{ color: textPrimary }}>
+            {title}
+          </h3>
           {description && (
             <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
           )}
@@ -58,7 +65,14 @@ export function ChartPlaceholder({
       >
         {variant === "pie" ? (
           <div className="flex h-full items-center justify-center">
-            <div className="relative h-28 w-28 rounded-full border-[10px] border-golden-dark/20 border-t-golden-dark border-r-emerald-400/60" />
+            <div
+              className="relative h-28 w-28 rounded-full border-[10px]"
+              style={{
+                borderColor: hexToRgba(primary, 0.2),
+                borderTopColor: primary,
+                borderRightColor: hexToRgba(accent, 0.6),
+              }}
+            />
           </div>
         ) : variant === "heatmap" ? (
           <div className="grid w-full grid-cols-6 gap-1 pt-6">
@@ -67,7 +81,10 @@ export function ChartPlaceholder({
                 key={i}
                 className="aspect-square rounded-sm"
                 style={{
-                  backgroundColor: `rgba(7, 57, 84, ${0.15 + (i % 4) * 0.15})`,
+                  backgroundColor: hexToRgba(
+                    chartPalette[i % chartPalette.length],
+                    0.15 + (i % 4) * 0.15
+                  ),
                 }}
               />
             ))}
@@ -77,8 +94,14 @@ export function ChartPlaceholder({
             {Array.from({ length: meta.bars }).map((_, i) => (
               <div
                 key={i}
-                className="w-full max-w-[28px] rounded-t-sm bg-primary/70"
-                style={{ height: `${30 + ((i * 17) % 60)}%` }}
+                className="w-full max-w-[28px] rounded-t-sm"
+                style={{
+                  height: `${30 + ((i * 17) % 60)}%`,
+                  backgroundColor: hexToRgba(
+                    chartPalette[i % chartPalette.length],
+                    0.7
+                  ),
+                }}
               />
             ))}
           </>

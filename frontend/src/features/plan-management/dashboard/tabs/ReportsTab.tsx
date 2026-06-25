@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button";
 import { actionFeedback } from "@/components/action-feedback";
 import type { PlanDashboardFiltersState } from "../hooks/usePlanDashboardFilters";
 import { FilterDropdown } from "../components/FilterDropdown";
+import { useDashboardAppearance } from "../hooks/useDashboardAppearance";
 
 interface ReportsTabProps {
   state: PlanDashboardFiltersState;
 }
 
 export function ReportsTab({ state }: ReportsTabProps) {
+  const { textPrimary, color } = useDashboardAppearance();
   const [reportType, setReportType] = useState("summary");
   const [localStructure, setLocalStructure] = useState("all");
   const [localDepartment, setLocalDepartment] = useState("all");
@@ -124,14 +126,16 @@ export function ReportsTab({ state }: ReportsTabProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-golden-dark">Reports</h2>
+        <h2 className="text-lg font-semibold" style={{ color: textPrimary }}>
+          Reports
+        </h2>
         <p className="text-sm text-muted-foreground">
           Export the current execution dashboard snapshot for offline analysis.
         </p>
       </div>
 
       <div className="rounded-xl border bg-white p-6 shadow-sm space-y-6 max-w-2xl">
-        <div className="flex items-center gap-2 text-golden-dark font-semibold">
+        <div className="flex items-center gap-2 font-semibold" style={{ color: color("primary") }}>
           <FileText className="h-4 w-4" />
           Export Snapshot
         </div>

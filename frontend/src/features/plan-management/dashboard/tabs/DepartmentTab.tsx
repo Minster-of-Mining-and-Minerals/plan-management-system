@@ -1,15 +1,20 @@
 "use client";
 
-import { Building2 } from "lucide-react";
+import { Building2, Users } from "lucide-react";
 import type { PlanDashboardFiltersState } from "../hooks/usePlanDashboardFilters";
-import { ProgressBar } from "../components/ProgressBar";
-import { StatusBadge } from "../components/StatusBadge";
+import { StatusBadge, PerformanceBadge } from "../components/StatusBadge";
+import { AnalyticsPanel, DashboardSectionHeader } from "../components/AnalyticsPanel";
+import { RankedLeaderboard } from "../components/RankedLeaderboard";
+import { CircularProgress } from "../../components/CircularProgress";
+import { DashboardPerformanceBar } from "../components/DashboardPerformanceBar";
+import { useDashboardAppearance } from "../hooks/useDashboardAppearance";
 
 interface DepartmentTabProps {
   state: PlanDashboardFiltersState;
 }
 
 export function DepartmentTab({ state }: DepartmentTabProps) {
+  const { performanceColor, textPrimary } = useDashboardAppearance();
   const grouped = state.data.structures
     .filter(
       (s) =>
@@ -23,51 +28,121 @@ export function DepartmentTab({ state }: DepartmentTabProps) {
     }))
     .filter((g) => g.departments.length > 0);
 
+  const allDepts = state.filteredDepartments;
+  const reportingDepts = allDepts.filter((d) => d.has_progress);
+  const topDepts = [...reportingDepts]
+    .sort((a, b) => b.progress - a.progress)
+    .slice(0, 5);
+
+  const avgDeptProgress =
+    reportingDepts.length > 0
+      ? Math.round(
+          reportingDepts.reduce((sum, d) => sum + d.progress, 0) / reportingDepts.length
+        )
+      : 0;
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-golden-dark">Department Analytics</h2>
-        <p className="text-sm text-muted-foreground">
-          Achievement from assigned nodes in each structure&apos;s focused execution
-          period — unreported targets count as zero.
-        </p>
+      <DashboardSectionHeader
+        title="Department Analytics"
+        description="Achievement from assigned nodes in each structure's focused execution period."
+        badge={`${reportingDepts.length} reporting`}
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <AnalyticsPanel title="Departments Tracked" icon={Users} variant="accent" tone="accent">
+          <p className="text-3xl font-bold tabular-nums" style={{ color: textPrimary }}>
+            {allDepts.length}
+          </p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {reportingDepts.length} with recorded achievement
+          </p>
+        </AnalyticsPanel>
+        <AnalyticsPanel
+          title="Avg Department Score"
+          icon={Building2}
+          variant="gradient"
+          tone="primary"
+          className="lg:col-span-2"
+        >
+          <div className="flex items-center gap-6">
+            <CircularProgress
+              value={avgDeptProgress}
+              color={performanceColor(avgDeptProgress)}
+              size={100}
+            />
+            <div className="flex-1">
+              <DashboardPerformanceBar
+                value={avgDeptProgress}
+                label="Mean achievement across reporting departments"
+                performancePercent={avgDeptProgress}
+              />
+            </div>
+          </div>
+        </AnalyticsPanel>
       </div>
 
+      {topDepts.length > 0 && (
+        <RankedLeaderboard
+          title="Top Departments"
+          description="Highest achievement on assigned nodes"
+          entries={topDepts.map((dept) => ({
+            id: dept.id,
+            title: dept.name,
+            subtitle: `${dept.planCount} plan${dept.planCount !== 1 ? "s" : ""} · ${dept.reportedNodeCount}/${dept.assignedNodeCount} reported`,
+            value: dept.progress,
+          }))}
+        />
+      )}
+
       {grouped.map(({ structure, departments }) => (
-        <section key={structure.id} className="space-y-3">
+        <section key={structure.id} className="space-y-4">
           <div className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-golden-dark" />
-            <h3 className="font-semibold text-golden-dark">{structure.name}</h3>
+            <Building2 className="h-4 w-4" style={{ color: textPrimary }} />
+            <h3 className="font-semibold" style={{ color: textPrimary }}>
+              {structure.name}
+            </h3>
+            <PerformanceBadge
+              level={structure.performance}
+              percent={structure.completionPercent}
+            />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {departments.map((dept) => (
-              <div
+            {departments.map((dept, index) => (
+              <AnalyticsPanel
                 key={dept.id}
-                className="rounded-xl border bg-white p-5 shadow-sm space-y-4"
+                title={dept.name}
+                description={`${dept.planCount} plan${dept.planCount !== 1 ? "s" : ""} · ${dept.assignedNodeCount} nodes`}
+                variant={index % 3 === 0 ? "gradient" : index % 3 === 1 ? "accent" : "default"}
+                tone={index % 3 === 0 ? "info" : index % 3 === 1 ? "accent" : "secondary"}
+                headerAction={<StatusBadge status={dept.status} />}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <h4 className="font-medium text-golden-dark">{dept.name}</h4>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {dept.planCount} plan{dept.planCount !== 1 ? "s" : ""} ·{" "}
-                      {dept.assignedNodeCount} assigned node
-                      {dept.assignedNodeCount !== 1 ? "s" : ""}
-                      {dept.has_progress
-                        ? ` · ${dept.reportedNodeCount} reported`
-                        : ""}
-                    </p>
-                  </div>
-                  <StatusBadge status={dept.status} />
-                </div>
                 {dept.has_progress ? (
-                  <ProgressBar value={dept.progress} label="Achievement" />
+                  <div className="space-y-3">
+                    <div className="flex items-end justify-between">
+                      <span
+                        className="text-3xl font-bold tabular-nums"
+                        style={{ color: performanceColor(dept.progress) }}
+                      >
+                        {dept.progress}%
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {dept.reportedNodeCount} reported
+                      </span>
+                    </div>
+                    <DashboardPerformanceBar
+                      value={dept.progress}
+                      showValue={false}
+                      performancePercent={dept.progress}
+                    />
+                  </div>
                 ) : (
                   <p className="text-sm text-muted-foreground italic">
                     No achievement recorded on assigned nodes yet.
                   </p>
                 )}
-              </div>
+              </AnalyticsPanel>
             ))}
           </div>
         </section>

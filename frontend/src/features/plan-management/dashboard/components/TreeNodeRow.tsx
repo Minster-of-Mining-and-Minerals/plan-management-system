@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight, GitBranch } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DashboardProgressNode } from "../types";
-import { ProgressBar } from "./ProgressBar";
 import { SharingBadge, StatusBadge } from "./StatusBadge";
+import { DashboardPerformanceBar } from "./DashboardPerformanceBar";
+import { useDashboardAppearance } from "../hooks/useDashboardAppearance";
+import { ChevronDown, ChevronRight, GitBranch } from "lucide-react";
 
 interface TreeNodeRowProps {
   node: DashboardProgressNode;
@@ -19,7 +20,9 @@ export function TreeNodeRow({
   defaultExpanded = depth < 1,
 }: TreeNodeRowProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
+  const { textPrimary } = useDashboardAppearance();
   const hasChildren = (node.children?.length ?? 0) > 0;
+  const progressValue = node.has_progress === false ? 0 : node.progress;
 
   return (
     <div className="select-none">
@@ -45,13 +48,17 @@ export function TreeNodeRow({
 
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium text-golden-dark truncate">{node.title}</span>
+            <span className="font-medium truncate" style={{ color: textPrimary }}>
+              {node.title}
+            </span>
             <SharingBadge mode={node.sharingMode} />
             <StatusBadge status={node.status} />
           </div>
-          <ProgressBar
-            value={node.has_progress === false ? 0 : node.progress}
+          <DashboardPerformanceBar
+            value={progressValue}
             size="sm"
+            showValue={node.has_progress !== false}
+            performancePercent={node.has_progress === false ? null : progressValue}
           />
           {node.has_progress === false && (
             <p className="text-[10px] text-muted-foreground">No achievement recorded yet</p>

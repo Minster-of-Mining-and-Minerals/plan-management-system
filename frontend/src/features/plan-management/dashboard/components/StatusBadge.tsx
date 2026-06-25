@@ -3,19 +3,9 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { PerformanceLevel, PlanStatus } from "../types";
-
-const STATUS_STYLES: Record<Exclude<PlanStatus, "all">, string> = {
-  active: "bg-blue-50 text-blue-700 border-blue-100",
-  completed: "bg-emerald-50 text-emerald-700 border-emerald-100",
-  delayed: "bg-amber-50 text-amber-700 border-amber-100",
-};
-
-const PERFORMANCE_STYLES: Record<PerformanceLevel, string> = {
-  excellent: "bg-emerald-50 text-emerald-700 border-emerald-100",
-  good: "bg-blue-50 text-blue-700 border-blue-100",
-  average: "bg-amber-50 text-amber-700 border-amber-100",
-  "at-risk": "bg-red-50 text-red-700 border-red-100",
-};
+import { useDashboardAppearance } from "../hooks/useDashboardAppearance";
+import { hexToRgba } from "../utils/dashboardAppearanceUtils";
+import { DashboardPerformanceBadge } from "./DashboardPerformanceBadge";
 
 interface StatusBadgeProps {
   status: Exclude<PlanStatus, "all">;
@@ -23,8 +13,24 @@ interface StatusBadgeProps {
 }
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
+  const { color } = useDashboardAppearance();
+  const statusColor =
+    status === "completed"
+      ? color("success")
+      : status === "delayed"
+        ? color("warning")
+        : color("info");
+
   return (
-    <Badge variant="outline" className={cn("capitalize", STATUS_STYLES[status], className)}>
+    <Badge
+      variant="outline"
+      className={cn("capitalize", className)}
+      style={{
+        color: statusColor,
+        borderColor: hexToRgba(statusColor, 0.25),
+        backgroundColor: hexToRgba(statusColor, 0.1),
+      }}
+    >
       {status}
     </Badge>
   );
@@ -32,15 +38,13 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
 
 interface PerformanceBadgeProps {
   level: PerformanceLevel;
+  percent?: number | null;
   className?: string;
 }
 
-export function PerformanceBadge({ level, className }: PerformanceBadgeProps) {
-  const label = level === "at-risk" ? "At Risk" : level.charAt(0).toUpperCase() + level.slice(1);
+export function PerformanceBadge({ level, percent, className }: PerformanceBadgeProps) {
   return (
-    <Badge variant="outline" className={cn(PERFORMANCE_STYLES[level], className)}>
-      {label}
-    </Badge>
+    <DashboardPerformanceBadge level={level} percent={percent} className={className} />
   );
 }
 
@@ -50,16 +54,18 @@ interface SharingBadgeProps {
 }
 
 export function SharingBadge({ mode, className }: SharingBadgeProps) {
+  const { color } = useDashboardAppearance();
+  const badgeColor = mode === "shared" ? color("accent") : color("secondary");
+
   return (
     <Badge
       variant="outline"
-      className={cn(
-        mode === "shared"
-          ? "bg-violet-50 text-violet-700 border-violet-100"
-          : "bg-slate-50 text-slate-700 border-slate-200",
-        "capitalize",
-        className
-      )}
+      className={cn("capitalize", className)}
+      style={{
+        color: badgeColor,
+        borderColor: hexToRgba(badgeColor, 0.25),
+        backgroundColor: hexToRgba(badgeColor, 0.1),
+      }}
     >
       {mode}
     </Badge>

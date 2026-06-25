@@ -38,7 +38,7 @@ export function PlanDashboardSectionTabs({
 }: PlanDashboardSectionTabsProps) {
   return (
     <div
-      className="px-5 pt-5 pb-4 border-b border-border bg-gradient-to-b from-golden-dark/5 to-transparent"
+      className="px-5 pt-5 pb-4 border-b border-border bg-gradient-to-b from-primary/5 to-transparent"
       role="tablist"
       aria-label="Dashboard sections"
     >
@@ -58,7 +58,7 @@ export function PlanDashboardSectionTabs({
                 "h-10 rounded-xl px-4 py-2.5 shadow-none transition-all duration-200",
                 active
                   ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
-                  : "border-border bg-white text-muted-foreground hover:border-golden-dark/30 hover:bg-golden-dark/10 hover:text-golden-dark"
+                  : "border-border bg-white text-muted-foreground hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />

@@ -6,6 +6,8 @@ import { Filter, RotateCcw } from "lucide-react";
 import type { PlanDashboardFiltersState } from "../hooks/usePlanDashboardFilters";
 import { FilterDropdown } from "./FilterDropdown";
 import { PlanDashboardSectionTabs } from "./PlanDashboardSectionTabs";
+import { useDashboardAppearance } from "../hooks/useDashboardAppearance";
+import { hexToRgba } from "../utils/dashboardAppearanceUtils";
 
 interface PlanDashboardFiltersProps {
   state: PlanDashboardFiltersState;
@@ -22,6 +24,8 @@ export function PlanDashboardFiltersBar({ state }: PlanDashboardFiltersProps) {
     activeSection,
     setActiveSection,
   } = state;
+  const { color } = useDashboardAppearance();
+  const liveBadgeColor = color("success");
 
   const structureOptions = [
     { value: "all", label: "All Structures" },
@@ -47,10 +51,17 @@ export function PlanDashboardFiltersBar({ state }: PlanDashboardFiltersProps) {
 
       <div className="p-5 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-sm font-semibold text-golden-dark">
+          <div className="flex items-center gap-2 text-sm font-semibold text-primary">
             <Filter className="h-4 w-4" />
             Global Filters
-            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-700 border border-emerald-100">
+            <span
+              className="rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide border"
+              style={{
+                color: liveBadgeColor,
+                borderColor: hexToRgba(liveBadgeColor, 0.2),
+                backgroundColor: hexToRgba(liveBadgeColor, 0.1),
+              }}
+            >
               Live Data
             </span>
           </div>

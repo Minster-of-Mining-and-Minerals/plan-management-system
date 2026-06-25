@@ -10,7 +10,12 @@ import {
 } from "lucide-react";
 import { KpiCard } from "../components/KpiCard";
 import { SimpleBarChart } from "../components/SimpleBarChart";
+import { DonutStatCard } from "../components/DonutStatCard";
+import { RankedLeaderboard } from "../components/RankedLeaderboard";
+import { AnalyticsPanel, DashboardSectionHeader } from "../components/AnalyticsPanel";
 import type { PlanDashboardFiltersState } from "../hooks/usePlanDashboardFilters";
+import { CircularProgress } from "../../components/CircularProgress";
+import { useDashboardAppearance } from "../hooks/useDashboardAppearance";
 
 interface OverviewTabProps {
   state: PlanDashboardFiltersState;
@@ -19,40 +24,113 @@ interface OverviewTabProps {
 export function OverviewTab({ state }: OverviewTabProps) {
   const { data } = state;
   const kpi = data.kpi;
+  const { performanceColor, chartPalette } = useDashboardAppearance();
 
   if (data.isLoading) {
     return <div className="text-sm text-muted-foreground">Loading execution dashboard…</div>;
   }
 
+  const topPlans = [...data.plans]
+    .filter((plan) => plan.execution_progress_percent != null)
+    .sort((a, b) => (b.execution_progress_percent ?? 0) - (a.execution_progress_percent ?? 0))
+    .slice(0, 5);
+
+  const delayedCount = data.plans.filter((p) => p.dashboard_status === "delayed").length;
+  const avgPercent = kpi.averageProgress ?? 0;
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-golden-dark">Overview Dashboard</h2>
-        <p className="text-sm text-muted-foreground">
-          Live execution metrics from strategic plans in your access scope.
-          {data.generatedAt && (
-            <span className="block mt-1 text-xs">
-              Updated {new Date(data.generatedAt).toLocaleString()}
-            </span>
-          )}
-        </p>
+      <DashboardSectionHeader
+        title="Overview Dashboard"
+        description="Live execution metrics from strategic plans in your access scope."
+        badge={data.generatedAt ? `Updated ${new Date(data.generatedAt).toLocaleString()}` : "Live"}
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <KpiCard
+          title="Total Plans"
+          value={kpi.totalPlans}
+          subtitle={`${kpi.inExecutionPlans} in execution`}
+          icon={Layers}
+          variant="gradient"
+          accent="primary"
+        />
+        <KpiCard
+          title="Avg Achievement"
+          value={kpi.averageProgress != null ? `${kpi.averageProgress}%` : "—"}
+          subtitle="Across reporting plans"
+          icon={TrendingUp}
+          variant="solid"
+          accent="success"
+        />
+        <KpiCard
+          title="Completed"
+          value={kpi.completedPlans}
+          subtitle={`${delayedCount} delayed`}
+          icon={CheckCircle2}
+          variant="gradient"
+          accent="accent"
+        />
+        <KpiCard
+          title="Sharing Split"
+          value={`${kpi.sharedPlans}/${kpi.exclusivePlans}`}
+          subtitle="Shared vs exclusive roots"
+          icon={GitBranch}
+          variant="gradient"
+          accent="warning"
+        />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-4">
-        <KpiCard title="Total Plans" value={kpi.totalPlans} icon={Layers} />
-        <KpiCard
-          title="In Execution"
-          value={kpi.inExecutionPlans}
-          icon={Activity}
-        />
-        <KpiCard title="Completed Plans" value={kpi.completedPlans} icon={CheckCircle2} />
-        <KpiCard title="Shared Roots" value={kpi.sharedPlans} icon={GitBranch} />
-        <KpiCard title="Exclusive Roots" value={kpi.exclusivePlans} icon={ListChecks} />
-        <KpiCard
-          title="Avg Progress"
-          value={kpi.averageProgress != null ? `${kpi.averageProgress}%` : "—"}
-          icon={TrendingUp}
-        />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <KpiCard title="In Execution" value={kpi.inExecutionPlans} icon={Activity} variant="outline" accent="info" />
+        <KpiCard title="Active Plans" value={kpi.activePlans} icon={ListChecks} variant="outline" accent="primary" />
+        <KpiCard title="Shared Roots" value={kpi.sharedPlans} icon={GitBranch} variant="outline" accent="accent" />
+        <KpiCard title="Exclusive Roots" value={kpi.exclusivePlans} icon={Layers} variant="outline" accent="secondary" />
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+        <AnalyticsPanel
+          title="Execution Pulse"
+          description="Portfolio-wide average achievement"
+          variant="gradient"
+          tone="primary"
+          className="xl:col-span-4"
+        >
+          <div className="flex flex-col items-center justify-center py-2">
+            <CircularProgress
+              value={avgPercent}
+              color={performanceColor(avgPercent)}
+              size={160}
+              label="Average"
+            />
+            <p className="mt-3 text-sm text-muted-foreground text-center">
+              {kpi.inExecutionPlans} plan{kpi.inExecutionPlans !== 1 ? "s" : ""} actively reporting
+            </p>
+          </div>
+        </AnalyticsPanel>
+
+        <div className="xl:col-span-8 grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <DonutStatCard
+            title="Sharing Mode Mix"
+            description="Strategic root distribution"
+            centerValue={kpi.sharedPlans + kpi.exclusivePlans}
+            centerLabel="Roots"
+            segments={[
+              { label: "Shared", value: kpi.sharedPlans, color: chartPalette[1] },
+              { label: "Exclusive", value: kpi.exclusivePlans, color: chartPalette[3] },
+            ]}
+          />
+          <RankedLeaderboard
+            title="Top Plans"
+            description="Highest achievement in execution"
+            entries={topPlans.map((plan) => ({
+              id: plan.plan_version_id,
+              title: plan.draft_name,
+              subtitle: plan.government_structure_name ?? undefined,
+              value: plan.execution_progress_percent ?? 0,
+            }))}
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -64,6 +142,7 @@ export function OverviewTab({ state }: OverviewTabProps) {
             value: entry.average_percent,
             subtitle: `${entry.plan_count} plan${entry.plan_count !== 1 ? "s" : ""}`,
           }))}
+          colorMode="performance"
         />
         <SimpleBarChart
           title="Structure Comparison"
@@ -72,35 +151,9 @@ export function OverviewTab({ state }: OverviewTabProps) {
             label: structure.name,
             value: structure.completionPercent,
             subtitle: `${structure.totalPlans} plans`,
+            color: performanceColor(structure.completionPercent),
           }))}
-          color="#2563eb"
-        />
-        <SimpleBarChart
-          title="Sharing Mode Distribution"
-          description="Strategic root nodes by assignment mode"
-          items={[
-            { label: "Shared", value: kpi.sharedPlans, subtitle: "roots" },
-            { label: "Exclusive", value: kpi.exclusivePlans, subtitle: "roots" },
-          ]}
-          valueSuffix=""
-          color="#7c3aed"
-        />
-        <SimpleBarChart
-          title="Top Plans In Execution"
-          description="Master plans with the highest recorded achievement"
-          items={[...data.plans]
-            .filter((plan) => plan.execution_progress_percent != null)
-            .sort(
-              (a, b) =>
-                (b.execution_progress_percent ?? 0) - (a.execution_progress_percent ?? 0)
-            )
-            .slice(0, 6)
-            .map((plan) => ({
-              label: plan.draft_name,
-              value: plan.execution_progress_percent ?? 0,
-              subtitle: plan.government_structure_name ?? undefined,
-            }))}
-          color="#059669"
+          colorMode="item"
         />
       </div>
     </div>
