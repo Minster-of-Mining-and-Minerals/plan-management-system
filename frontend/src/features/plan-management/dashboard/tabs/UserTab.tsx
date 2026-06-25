@@ -1,6 +1,6 @@
 "use client";
 
-import { Award, Clock, User as UserIcon } from "lucide-react";
+import { Award, User as UserIcon } from "lucide-react";
 import type { PlanDashboardFiltersState } from "../hooks/usePlanDashboardFilters";
 import { PerformanceBadge } from "../components/StatusBadge";
 
@@ -11,7 +11,8 @@ interface UserTabProps {
 export function UserTab({ state }: UserTabProps) {
   const users = state.filteredUsers;
   const topPerformers = [...users]
-    .sort((a, b) => b.activityScore - a.activityScore)
+    .filter((user) => user.has_progress && user.achievementPercent != null)
+    .sort((a, b) => (b.achievementPercent ?? 0) - (a.achievementPercent ?? 0))
     .slice(0, 3);
 
   const getStructureName = (id: string) =>
@@ -24,7 +25,8 @@ export function UserTab({ state }: UserTabProps) {
       <div>
         <h2 className="text-lg font-semibold text-golden-dark">User Performance</h2>
         <p className="text-sm text-muted-foreground">
-          Individual assignee coverage from internal plan assignments.
+          Achievement on nodes directly assigned to each user in the focused execution
+          period.
         </p>
       </div>
 
@@ -46,7 +48,8 @@ export function UserTab({ state }: UserTabProps) {
                 <div className="min-w-0">
                   <p className="font-medium truncate">{user.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    Score: {user.activityScore}%
+                    {user.achievementPercent}% · {user.reportedNodeCount}/
+                    {user.assignedNodeCount} reported
                   </p>
                 </div>
               </div>
@@ -64,6 +67,8 @@ export function UserTab({ state }: UserTabProps) {
                 <th className="px-4 py-3 text-left font-semibold text-golden-dark">Role</th>
                 <th className="px-4 py-3 text-left font-semibold text-golden-dark">Department</th>
                 <th className="px-4 py-3 text-left font-semibold text-golden-dark">Structure</th>
+                <th className="px-4 py-3 text-left font-semibold text-golden-dark">Assigned</th>
+                <th className="px-4 py-3 text-left font-semibold text-golden-dark">Achievement</th>
                 <th className="px-4 py-3 text-left font-semibold text-golden-dark">Performance</th>
               </tr>
             </thead>
@@ -79,10 +84,26 @@ export function UserTab({ state }: UserTabProps) {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{user.role}</td>
-                  <td className="px-4 py-3">{getDepartmentName(user.departmentId)}</td>
-                  <td className="px-4 py-3">{getStructureName(user.structureId)}</td>
                   <td className="px-4 py-3">
-                    <PerformanceBadge level={user.performance} />
+                    {user.departmentId ? getDepartmentName(user.departmentId) : "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    {user.structureId ? getStructureName(user.structureId) : "—"}
+                  </td>
+                  <td className="px-4 py-3 tabular-nums text-muted-foreground">
+                    {user.assignedNodeCount}
+                  </td>
+                  <td className="px-4 py-3 tabular-nums">
+                    {user.has_progress && user.achievementPercent != null
+                      ? `${user.achievementPercent}%`
+                      : "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    {user.has_progress ? (
+                      <PerformanceBadge level={user.performance} />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Not started</span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -92,23 +113,6 @@ export function UserTab({ state }: UserTabProps) {
         {users.length === 0 && (
           <p className="p-8 text-center text-muted-foreground">No users match filters.</p>
         )}
-      </div>
-
-      <div className="rounded-xl border border-dashed bg-gray-50/50 p-8">
-        <div className="flex items-center gap-2 text-muted-foreground mb-4">
-          <Clock className="h-4 w-4" />
-          <span className="text-sm font-medium">Activity Timeline (Placeholder)</span>
-        </div>
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="flex gap-3">
-              <div className="w-2 rounded-full bg-primary/20" />
-              <div className="flex-1 rounded-lg border bg-white p-3 text-sm text-muted-foreground">
-                Activity event #{i} — connect to audit / action log API
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );

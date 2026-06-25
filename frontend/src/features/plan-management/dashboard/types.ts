@@ -17,7 +17,10 @@ export interface DashboardDepartment {
   name: string;
   structureId: string;
   planCount: number;
+  assignedNodeCount: number;
+  reportedNodeCount: number;
   progress: number;
+  has_progress: boolean;
   status: Exclude<PlanStatus, "all">;
   userIds: string[];
 }
@@ -28,7 +31,12 @@ export interface DashboardUser {
   role: string;
   departmentId?: string | null;
   structureId?: string | null;
+  assignedNodeCount: number;
+  reportedNodeCount: number;
+  achievementPercent: number | null;
+  has_progress: boolean;
   performance: PerformanceLevel;
+  /** @deprecated Use achievementPercent */
   activityScore: number;
 }
 

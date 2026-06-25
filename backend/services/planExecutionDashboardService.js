@@ -6,8 +6,6 @@ const {
   PlanNode,
   GovernmentStructure,
   InternalStructure,
-  User,
-  InternalAssignment,
 } = require("../models");
 const { resolveAccessibleMasterPlanIds } = require("./planVisibilityService");
 const {
@@ -15,6 +13,7 @@ const {
   computePeriodExecutionProgress,
 } = require("./planExecutionRollupService");
 const { buildLiveToSnapshotVersionMap } = require("./planExecutionSnapshotService");
+const { buildDepartmentAndUserMetrics } = require("./planExecutionAssignmentMetricsService");
 
 function roundPercent(value) {
   if (value == null || Number.isNaN(value)) return null;
@@ -304,86 +303,21 @@ async function buildStructureMetrics(planRows) {
   });
 }
 
-async function buildDepartmentMetrics(planRows, structures) {
-  const structureProgress = new Map(
-    structures.map((structure) => [structure.id, structure.completionPercent])
-  );
-  const structurePlanCount = new Map(
-    structures.map((structure) => [structure.id, structure.totalPlans])
-  );
+async function collectFocusPeriodContexts(planRows) {
+  const contexts = [];
 
-  const internalStructures = await InternalStructure.findAll({
-    where: {
-      government_structure_id: {
-        [Op.in]: structures.map((structure) => structure.id),
-      },
-      is_active: true,
-    },
-    attributes: ["internal_structure_id", "name", "government_structure_id"],
-    order: [["name", "ASC"]],
-  });
-
-  return internalStructures.map((dept) => {
-    const progress = structureProgress.get(dept.government_structure_id) ?? 0;
-    return {
-      id: dept.internal_structure_id,
-      name: dept.name,
-      structureId: dept.government_structure_id,
-      planCount: structurePlanCount.get(dept.government_structure_id) ?? 0,
-      progress,
-      status: progress < 50 ? "delayed" : "active",
-      userIds: [],
-    };
-  });
-}
-
-async function buildUserMetrics(masterIds) {
-  if (!masterIds.length) {
-    return [];
+  for (const plan of planRows) {
+    if (!plan.process_started_at) continue;
+    const period = await resolveFocusPeriodForMaster(plan.plan_version_id);
+    if (!period) continue;
+    contexts.push({
+      liveMasterPlanId: plan.plan_version_id,
+      periodVersionId: period.plan_version_id,
+      structureId: plan.government_structure_id,
+    });
   }
 
-  const assignments = await InternalAssignment.findAll({
-    where: { is_active: true },
-    include: [
-      {
-        model: PlanNode,
-        as: "planNode",
-        required: true,
-        where: { plan_version_id: { [Op.in]: masterIds } },
-        attributes: ["plan_version_id"],
-      },
-      {
-        model: User,
-        as: "user",
-        required: true,
-        attributes: ["user_id", "full_name", "email", "government_structure_id", "internal_structure_id"],
-      },
-    ],
-  });
-
-  const byUser = new Map();
-  for (const assignment of assignments) {
-    const user = assignment.user;
-    if (!user) continue;
-    const userId = user.user_id;
-    if (!byUser.has(userId)) {
-      byUser.set(userId, {
-        id: userId,
-        name: user.full_name?.trim() || user.email || "User",
-        role: "Assignee",
-        structureId: user.government_structure_id,
-        departmentId: assignment.internal_structure_id ?? user.internal_structure_id ?? null,
-        assignmentCount: 0,
-      });
-    }
-    byUser.get(userId).assignmentCount += 1;
-  }
-
-  return Array.from(byUser.values()).map((entry) => ({
-    ...entry,
-    performance: entry.assignmentCount >= 3 ? "good" : "average",
-    activityScore: Math.min(100, entry.assignmentCount * 25),
-  }));
+  return contexts;
 }
 
 async function getPlanExecutionDashboard(req, query = {}) {
@@ -492,8 +426,8 @@ async function getPlanExecutionDashboard(req, query = {}) {
   };
 
   const structures = await buildStructureMetrics(planRows);
-  const departments = await buildDepartmentMetrics(planRows, structures);
-  const users = await buildUserMetrics(masterIds);
+  const focusContexts = await collectFocusPeriodContexts(planRows);
+  const { departments, users } = await buildDepartmentAndUserMetrics(focusContexts, structures);
   const annualTimeline = buildAnnualTimeline(planRows);
   const sharing = await buildSharingPlans(planRows, masterIds);
 

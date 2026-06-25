@@ -28,7 +28,8 @@ export function DepartmentTab({ state }: DepartmentTabProps) {
       <div>
         <h2 className="text-lg font-semibold text-golden-dark">Department Analytics</h2>
         <p className="text-sm text-muted-foreground">
-          Departments grouped by structure — progress inherits structure execution average.
+          Achievement from assigned nodes in each structure&apos;s focused execution
+          period — unreported targets count as zero.
         </p>
       </div>
 
@@ -49,12 +50,23 @@ export function DepartmentTab({ state }: DepartmentTabProps) {
                   <div>
                     <h4 className="font-medium text-golden-dark">{dept.name}</h4>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {dept.planCount} linked plan{dept.planCount !== 1 ? "s" : ""}
+                      {dept.planCount} plan{dept.planCount !== 1 ? "s" : ""} ·{" "}
+                      {dept.assignedNodeCount} assigned node
+                      {dept.assignedNodeCount !== 1 ? "s" : ""}
+                      {dept.has_progress
+                        ? ` · ${dept.reportedNodeCount} reported`
+                        : ""}
                     </p>
                   </div>
                   <StatusBadge status={dept.status} />
                 </div>
-                <ProgressBar value={dept.progress} label="Progress" />
+                {dept.has_progress ? (
+                  <ProgressBar value={dept.progress} label="Achievement" />
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">
+                    No achievement recorded on assigned nodes yet.
+                  </p>
+                )}
               </div>
             ))}
           </div>

@@ -112,10 +112,17 @@ function StructureCard({
           {depts.map((dept) => (
             <div
               key={dept.id}
-              className="flex items-center justify-between rounded-lg border bg-white px-3 py-2 text-sm"
+              className="flex items-center justify-between gap-3 rounded-lg border bg-white px-3 py-2 text-sm"
             >
               <span>{dept.name}</span>
-              <span className="text-muted-foreground tabular-nums">{dept.planCount} plans</span>
+              <div className="text-right text-xs text-muted-foreground">
+                <p className="tabular-nums">
+                  {dept.has_progress ? `${dept.progress}%` : "Not started"}
+                </p>
+                <p>
+                  {dept.planCount} plan{dept.planCount !== 1 ? "s" : ""}
+                </p>
+              </div>
             </div>
           ))}
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground pt-1">
