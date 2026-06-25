@@ -25,7 +25,7 @@ const {
   logFieldChange,
   logStatusChange,
 } = require("./issueHistoryService");
-const { buildIssueAccessScope, canViewIssue, assertCanPerformIssueWorkflowAction } = require("../utils/issuePermissionUtils");
+const { buildIssueAccessScope, canViewIssue, assertCanPerformIssueWorkflowAction, resolveIssueListScope } = require("../utils/issuePermissionUtils");
 const { validateRaisePlanReviewIssue } = require("./planReviewService");
 const { getPublishedFormByContainerId } = require("./formConfigContainerService");
 const { saveIssueFormResponses, listResponsesForIssue } = require("./issueFormResponseService");
@@ -196,9 +196,10 @@ async function listIssues(query, { userId, userPermissions }) {
     date_to,
     sort_by = "created_at",
     sort_order = "DESC",
+    list_scope,
   } = query;
 
-  const accessScope = buildIssueAccessScope(userId, userPermissions);
+  const accessScope = resolveIssueListScope(list_scope, userId, userPermissions);
   if (accessScope.type === "none") {
     return { rows: [], count: 0, page: Number(page), limit: Number(limit), totalPages: 0 };
   }
@@ -255,7 +256,8 @@ async function listIssues(query, { userId, userPermissions }) {
 }
 
 async function getIssueDashboardStats(query, { userId, userPermissions }) {
-  const accessScope = buildIssueAccessScope(userId, userPermissions);
+  const { list_scope, ...filterQuery } = query || {};
+  const accessScope = resolveIssueListScope(list_scope, userId, userPermissions);
   if (accessScope.type === "none") {
     return {
       total: 0,
@@ -280,7 +282,7 @@ async function getIssueDashboardStats(query, { userId, userPermissions }) {
     assigned_to,
     date_from,
     date_to,
-  } = query || {};
+  } = filterQuery || {};
 
   if (issue_category_id) where.issue_category_id = issue_category_id;
   if (issue_priority_id) where.issue_priority_id = issue_priority_id;

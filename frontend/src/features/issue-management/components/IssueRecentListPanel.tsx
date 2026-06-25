@@ -6,15 +6,18 @@ import { format } from "date-fns";
 import { useGetIssuesQuery } from "@/redux/api/issueApi";
 import { IssueStatusBadge } from "./IssueStatusBadge";
 import { AnalyticsPanel } from "@/features/plan-management/dashboard/components/AnalyticsPanel";
+import type { IssueListScope } from "@/redux/types/issue";
 
 interface IssueRecentListPanelProps {
   limit?: number;
   className?: string;
+  listScope?: IssueListScope;
 }
 
 export function IssueRecentListPanel({
   limit = 8,
   className,
+  listScope = "mine",
 }: IssueRecentListPanelProps) {
   const router = useRouter();
   const { data: recentResponse, isLoading } = useGetIssuesQuery({
@@ -22,6 +25,7 @@ export function IssueRecentListPanel({
     limit,
     sort_by: "created_at",
     sort_order: "DESC",
+    list_scope: listScope,
   });
 
   const recentIssues = recentResponse?.data ?? [];

@@ -83,8 +83,6 @@ const PERMISSIONS = [
   { resource: "notes", action: "manage" },
   { resource: "issues", action: "create" },
   { resource: "issues", action: "read" },
-  { resource: "issues", action: "read_own" },
-  { resource: "issues", action: "read_assigned" },
   { resource: "issues", action: "read_all" },
   { resource: "issues", action: "review" },
   { resource: "issues", action: "resolve" },

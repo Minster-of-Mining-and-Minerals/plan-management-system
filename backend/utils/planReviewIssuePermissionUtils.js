@@ -6,7 +6,6 @@ function hasPlanReviewDashboardAllAccess(userPermissions) {
   return (
     userHasPermission(userPermissions, "plans", "read") ||
     userHasPermission(userPermissions, "issues", "read_all") ||
-    userHasPermission(userPermissions, "issues", "read") ||
     userHasPermission(userPermissions, "plan", "view_review_dashboard") ||
     userHasPermission(userPermissions, "plan", "complete_review") ||
     userHasPermission(userPermissions, "plan", "publish_for_review") ||

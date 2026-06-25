@@ -7,11 +7,14 @@ import { IssueIssuesTablePanel } from "./components/IssueIssuesTablePanel";
 import { CreateIssueModal } from "./modals/CreateIssueModal";
 import { ISSUE_PERMISSIONS } from "@/utils/issuePermissionUtils";
 import { useIssuesTable } from "./hooks/useIssuesTable";
+import { useIssueListScope } from "./hooks/useIssueListScope";
+import { issueListScopeLabel } from "./utils/issueListScopeUtils";
 import type { IssueStatus } from "@/redux/types/issue";
 
 export default function IssuesDashboard() {
   const [isCreateOpen, setCreateOpen] = useState(false);
-  const tableState = useIssuesTable();
+  const { listScope, sideActions } = useIssueListScope();
+  const tableState = useIssuesTable({ listScope });
 
   const actions = [
     {
@@ -33,10 +36,10 @@ export default function IssuesDashboard() {
         />
 
         <IssueIssuesTablePanel
-          title="Issues"
-          description="Track, review, and resolve issues across the system."
           actions={actions}
+          sideActions={sideActions}
           filterColumnsPerRow={2}
+          listScope={listScope}
           tableState={tableState}
         />
       </div>

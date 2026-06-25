@@ -58,21 +58,11 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/issues/categories", allPermissions: ["ISSUE_CATEGORIES:READ"] },
   {
     pattern: "/issues/[id]",
-    anyPermissions: [
-      "ISSUES:READ",
-      "ISSUES:READ_ALL",
-      "ISSUES:READ_OWN",
-      "ISSUES:READ_ASSIGNED",
-    ],
+    anyPermissions: ["ISSUES:READ", "ISSUES:READ_ALL"],
   },
   {
     pattern: "/issues",
-    anyPermissions: [
-      "ISSUES:READ",
-      "ISSUES:READ_ALL",
-      "ISSUES:READ_OWN",
-      "ISSUES:READ_ASSIGNED",
-    ],
+    anyPermissions: ["ISSUES:READ", "ISSUES:READ_ALL"],
   },
 
   // Settings
@@ -138,7 +128,7 @@ export function getDefaultFallbackRoute(
 ): string {
   const candidates: Array<{ path: string; rule: PermissionRule }> = [
     { path: "/dashboard", rule: { anyPermissions: ["DASHBOARD:VIEW"] } },
-    { path: "/issues", rule: { anyPermissions: ["ISSUES:READ", "ISSUES:READ_ALL", "ISSUES:READ_OWN", "ISSUES:READ_ASSIGNED"] } },
+    { path: "/issues", rule: { anyPermissions: ["ISSUES:READ", "ISSUES:READ_ALL"] } },
     {
       path: "/plans/review",
       rule: { allPermissions: ["PLAN:VIEW_ASSIGNED_REVIEW"] },

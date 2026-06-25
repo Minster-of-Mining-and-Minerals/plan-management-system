@@ -36,8 +36,7 @@ export function PlanReviewDashboard({ masterVersionId }: PlanReviewDashboardProp
   const canViewDashboard = canAny(PLAN_REVIEW_DASHBOARD_ACCESS_PERMISSIONS);
   const canViewAllIssues =
     canAny(PLAN_REVIEW_DASHBOARD_ALL_PERMISSIONS) ||
-    can(ISSUE_PERMISSIONS.READ_ALL) ||
-    can(ISSUE_PERMISSIONS.READ);
+    can(ISSUE_PERMISSIONS.READ_ALL);
 
   const [statusFilter, setStatusFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");

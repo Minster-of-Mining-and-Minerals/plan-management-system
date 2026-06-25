@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { IssueDashboardStatsCards } from "./components/IssueDashboardStatsCards";
 import { IssueIssuesTablePanel } from "./components/IssueIssuesTablePanel";
@@ -7,18 +8,20 @@ import { IssueRecentListPanel } from "./components/IssueRecentListPanel";
 import { useIssuesTable } from "./hooks/useIssuesTable";
 import { DashboardSectionHeader } from "@/features/plan-management/dashboard/components/AnalyticsPanel";
 import {
-  issueDashboardScopeBadge,
-  issueDashboardScopeLabel,
-  resolveIssueDashboardScope,
-} from "./utils/issueDashboardScopeUtils";
+  canViewAnyIssues,
+  issueDashboardAnalyticsBadge,
+  issueDashboardAnalyticsLabel,
+  resolveDashboardIssueListScope,
+} from "./utils/issueListScopeUtils";
 import type { IssueStatus } from "@/redux/types/issue";
 
 export default function IssueDashboardOverview() {
   const { can, canAny } = usePermissions();
-  const tableState = useIssuesTable();
-  const scope = resolveIssueDashboardScope(can, canAny);
 
-  if (scope === "none") {
+  const listScope = useMemo(() => resolveDashboardIssueListScope(can), [can]);
+  const tableState = useIssuesTable({ listScope });
+
+  if (!canViewAnyIssues(can, canAny)) {
     return (
       <div className="rounded-xl border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
         You do not have permission to view the issue dashboard.
@@ -30,8 +33,8 @@ export default function IssueDashboardOverview() {
     <div className="space-y-6">
       <DashboardSectionHeader
         title="Issue Overview"
-        description={issueDashboardScopeLabel(scope)}
-        badge={issueDashboardScopeBadge(scope)}
+        description={issueDashboardAnalyticsLabel(can)}
+        badge={issueDashboardAnalyticsBadge(can)}
       />
 
       <IssueDashboardStatsCards
@@ -45,13 +48,14 @@ export default function IssueDashboardOverview() {
         <div className="min-w-0 lg:col-span-2">
           <IssueIssuesTablePanel
             title="Issues"
-            description="Browse and filter issues in your scope."
-            tableState={tableState}
+            description="Summary of issue activity in your accessible scope."
             filterColumnsPerRow={2}
+            listScope={listScope}
+            tableState={tableState}
           />
         </div>
         <div className="min-w-0 lg:col-span-1">
-          <IssueRecentListPanel />
+          <IssueRecentListPanel listScope={listScope} />
         </div>
       </div>
     </div>

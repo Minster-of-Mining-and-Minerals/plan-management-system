@@ -69,9 +69,11 @@ const listIssuesQuerySchema = Joi.object({
     .valid("created_at", "updated_at", "issue_number", "title", "status")
     .default("created_at"),
   sort_order: Joi.string().valid("ASC", "DESC", "asc", "desc").default("DESC"),
+  list_scope: Joi.string().valid("global", "mine").optional(),
 });
 
 const dashboardQuerySchema = Joi.object({
+  list_scope: Joi.string().valid("global", "mine").optional(),
   issue_category_id: optionalUuid("issue_category_id"),
   issue_priority_id: optionalUuid("issue_priority_id"),
   raised_by: optionalUuid("raised_by"),

@@ -6,6 +6,7 @@ import {
   IssueHistoryEntry,
   IssueDashboardStats,
   IssueListResponse,
+  IssueListScope,
   GetIssuesQueryParams,
   CreateIssuePayload,
   UpdateIssuePayload,
@@ -117,7 +118,9 @@ export const issueApi = baseApi.injectEndpoints({
 
     getIssueDashboard: builder.query<
       IssueDashboardStats,
-      Omit<GetIssuesQueryParams, "page" | "limit" | "search" | "status"> | void
+      (Omit<GetIssuesQueryParams, "page" | "limit" | "search" | "status"> & {
+        list_scope?: IssueListScope;
+      }) | void
     >({
       query: (params) => ({
         url: "/issues/dashboard",

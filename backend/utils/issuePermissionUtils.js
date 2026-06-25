@@ -18,29 +18,67 @@ function userHasPermission(userPermissions, resource, action) {
   return keys.includes(key);
 }
 
-function buildIssueAccessScope(userId, userPermissions) {
-  const canReadAll = userHasPermission(userPermissions, "issues", "read_all");
-  const canReadAssigned = userHasPermission(userPermissions, "issues", "read_assigned");
-  const canReadOwn = userHasPermission(userPermissions, "issues", "read_own");
-  const canRead = userHasPermission(userPermissions, "issues", "read");
+function hasIssueReadAll(userPermissions) {
+  return userHasPermission(userPermissions, "issues", "read_all");
+}
 
-  if (canReadAll || canRead) {
-    return { type: "all" };
-  }
+function hasIssueReadSelf(userPermissions) {
+  return (
+    userHasPermission(userPermissions, "issues", "read") ||
+    userHasPermission(userPermissions, "issues", "read_own") ||
+    userHasPermission(userPermissions, "issues", "read_assigned")
+  );
+}
 
-  const scopes = [];
-  if (canReadOwn) {
-    scopes.push({ raised_by: userId });
-  }
-  if (canReadAssigned) {
-    scopes.push({ assigned_to: userId });
-  }
+function buildSelfIssueScope(userId) {
+  return {
+    [Op.or]: [{ raised_by: userId }, { assigned_to: userId }],
+  };
+}
 
-  if (scopes.length === 0) {
+/**
+ * Resolves row-level scope for issue list/dashboard queries.
+ * @param {"global"|"mine"|undefined} listScope
+ */
+function resolveIssueListScope(listScope, userId, userPermissions) {
+  const canReadAll = hasIssueReadAll(userPermissions);
+  const canReadSelf = hasIssueReadSelf(userPermissions);
+
+  if (!canReadAll && !canReadSelf) {
     return { type: "none" };
   }
 
-  return { type: "scoped", where: { [Op.or]: scopes } };
+  const requested =
+    listScope === "mine" ? "mine" : listScope === "global" ? "global" : null;
+
+  if (requested === "global") {
+    if (!canReadAll) {
+      const error = new Error("You do not have permission to view all issues");
+      error.statusCode = 403;
+      throw error;
+    }
+    return { type: "all" };
+  }
+
+  if (requested === "mine") {
+    if (!canReadSelf) {
+      const error = new Error("You do not have permission to view your issues");
+      error.statusCode = 403;
+      throw error;
+    }
+    return { type: "scoped", where: buildSelfIssueScope(userId) };
+  }
+
+  if (canReadAll) {
+    return { type: "all" };
+  }
+
+  return { type: "scoped", where: buildSelfIssueScope(userId) };
+}
+
+/** @deprecated Use resolveIssueListScope — kept for callers not yet passing list_scope */
+function buildIssueAccessScope(userId, userPermissions) {
+  return resolveIssueListScope(undefined, userId, userPermissions);
 }
 
 function canViewIssue(issue, userId, userPermissions) {
@@ -52,9 +90,14 @@ function canViewIssue(issue, userId, userPermissions) {
     }
   }
 
-  const scope = buildIssueAccessScope(userId, userPermissions);
-  if (scope.type === "all") return true;
-  if (scope.type === "none") return false;
+  if (hasIssueReadAll(userPermissions)) {
+    return true;
+  }
+
+  if (!hasIssueReadSelf(userPermissions)) {
+    return false;
+  }
+
   return issue.raised_by === userId || issue.assigned_to === userId;
 }
 
@@ -70,6 +113,9 @@ function assertCanPerformIssueWorkflowAction(issue, userId) {
 
 module.exports = {
   userHasPermission,
+  hasIssueReadAll,
+  hasIssueReadSelf,
+  resolveIssueListScope,
   buildIssueAccessScope,
   canViewIssue,
   assertCanPerformIssueWorkflowAction,

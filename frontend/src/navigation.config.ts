@@ -89,8 +89,6 @@ export const NAVIGATION: NavItem[] = [
     anyPermissions: [
       "ISSUES:READ",
       "ISSUES:READ_ALL",
-      "ISSUES:READ_OWN",
-      "ISSUES:READ_ASSIGNED",
       "ISSUE_CATEGORIES:READ",
     ],
     children: [
@@ -98,12 +96,7 @@ export const NAVIGATION: NavItem[] = [
         title: "Issues",
         url: "/issues",
         icon: AlertCircle,
-        anyPermissions: [
-          "ISSUES:READ",
-          "ISSUES:READ_ALL",
-          "ISSUES:READ_OWN",
-          "ISSUES:READ_ASSIGNED",
-        ],
+        anyPermissions: ["ISSUES:READ", "ISSUES:READ_ALL"],
       },
       {
         title: "Issue Categories",

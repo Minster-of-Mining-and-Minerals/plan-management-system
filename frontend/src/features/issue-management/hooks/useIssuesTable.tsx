@@ -13,11 +13,20 @@ import {
   useGetIssuePrioritiesQuery,
 } from "@/redux/api/issueApi";
 import { useGetUsersQuery } from "@/redux/api/userApi";
-import { Issue, IssueStatus, ISSUE_ENTITY_TYPE_LABELS } from "@/redux/types/issue";
+import {
+  Issue,
+  IssueListScope,
+  IssueStatus,
+  ISSUE_ENTITY_TYPE_LABELS,
+} from "@/redux/types/issue";
 import { IssueStatusBadge } from "../components/IssueStatusBadge";
 import { format } from "date-fns";
 
-export function useIssuesTable() {
+interface UseIssuesTableOptions {
+  listScope: IssueListScope;
+}
+
+export function useIssuesTable({ listScope }: UseIssuesTableOptions) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialStatus = searchParams.get("status") || "";
@@ -37,7 +46,14 @@ export function useIssuesTable() {
     setStatusFilter(statusFromUrl);
   }, [statusFromUrl]);
 
-  const resetKey = `${search}-${statusFilter}-${categoryFilter}-${priorityFilter}-${raisedByFilter}-${assignedToFilter}-${dateRange.from}-${dateRange.to}`;
+  useEffect(() => {
+    if (listScope === "mine") {
+      setRaisedByFilter("");
+      setAssignedToFilter("");
+    }
+  }, [listScope]);
+
+  const resetKey = `${listScope}-${search}-${statusFilter}-${categoryFilter}-${priorityFilter}-${raisedByFilter}-${assignedToFilter}-${dateRange.from}-${dateRange.to}`;
 
   useEffect(() => {
     setPageIndex(0);
@@ -46,6 +62,7 @@ export function useIssuesTable() {
   const listQuery = {
     page: pageIndex + 1,
     limit: pageSize,
+    list_scope: listScope,
     search: search || undefined,
     status: (statusFilter || undefined) as IssueStatus | undefined,
     issue_category_id: categoryFilter || undefined,
@@ -57,6 +74,7 @@ export function useIssuesTable() {
   };
 
   const dashboardQuery = {
+    list_scope: listScope,
     issue_category_id: categoryFilter || undefined,
     issue_priority_id: priorityFilter || undefined,
     raised_by: raisedByFilter || undefined,
@@ -152,92 +170,113 @@ export function useIssuesTable() {
     [router]
   );
 
-  const filters: FilterField[] = [
-    {
-      key: "status",
-      label: "Status",
-      type: "select",
-      placeholder: "All statuses",
-      value: statusFilter || "all",
-      onChange: (value: string) => setStatusFilter(value === "all" ? "" : value),
-      options: [
-        { label: "All statuses", value: "all" },
-        { label: "Submitted", value: "submitted" },
-        { label: "Under Review", value: "under_review" },
-        { label: "Accepted", value: "accepted" },
-        { label: "Rejected", value: "rejected" },
-        { label: "Resolved", value: "resolved" },
-        { label: "Closed", value: "closed" },
-      ],
-    },
-    {
-      key: "issue_category_id",
-      label: "Category",
-      type: "select",
-      placeholder: "All categories",
-      value: categoryFilter || "all",
-      onChange: (value: string) => setCategoryFilter(value === "all" ? "" : value),
-      options: [
-        { label: "All categories", value: "all" },
-        ...categories.map((c) => ({
-          label: c.name,
-          value: c.issue_category_id,
-        })),
-      ],
-    },
-    {
-      key: "issue_priority_id",
-      label: "Priority",
-      type: "select",
-      placeholder: "All priorities",
-      value: priorityFilter || "all",
-      onChange: (value: string) => setPriorityFilter(value === "all" ? "" : value),
-      options: [
-        { label: "All priorities", value: "all" },
-        ...priorities.map((p) => ({
-          label: p.label,
-          value: p.issue_priority_id,
-        })),
-      ],
-    },
-    {
-      key: "raised_by",
-      label: "Creator",
-      type: "select",
-      placeholder: "All creators",
-      value: raisedByFilter || "all",
-      onChange: (value: string) => setRaisedByFilter(value === "all" ? "" : value),
-      options: [
-        { label: "All creators", value: "all" },
-        ...users.map((u) => ({
-          label: u.full_name,
-          value: u.user_id,
-        })),
-      ],
-    },
-    {
-      key: "assigned_to",
-      label: "Assigned To",
-      type: "select",
-      placeholder: "All assignees",
-      value: assignedToFilter || "all",
-      onChange: (value: string) => setAssignedToFilter(value === "all" ? "" : value),
-      options: [
-        { label: "All assignees", value: "all" },
-        ...users.map((u) => ({
-          label: u.full_name,
-          value: u.user_id,
-        })),
-      ],
-    },
-    {
+  const filters: FilterField[] = useMemo(() => {
+    const baseFilters: FilterField[] = [
+      {
+        key: "status",
+        label: "Status",
+        type: "select",
+        placeholder: "All statuses",
+        value: statusFilter || "all",
+        onChange: (value: string) => setStatusFilter(value === "all" ? "" : value),
+        options: [
+          { label: "All statuses", value: "all" },
+          { label: "Submitted", value: "submitted" },
+          { label: "Under Review", value: "under_review" },
+          { label: "Accepted", value: "accepted" },
+          { label: "Rejected", value: "rejected" },
+          { label: "Resolved", value: "resolved" },
+          { label: "Closed", value: "closed" },
+        ],
+      },
+      {
+        key: "issue_category_id",
+        label: "Category",
+        type: "select",
+        placeholder: "All categories",
+        value: categoryFilter || "all",
+        onChange: (value: string) => setCategoryFilter(value === "all" ? "" : value),
+        options: [
+          { label: "All categories", value: "all" },
+          ...categories.map((c) => ({
+            label: c.name,
+            value: c.issue_category_id,
+          })),
+        ],
+      },
+      {
+        key: "issue_priority_id",
+        label: "Priority",
+        type: "select",
+        placeholder: "All priorities",
+        value: priorityFilter || "all",
+        onChange: (value: string) => setPriorityFilter(value === "all" ? "" : value),
+        options: [
+          { label: "All priorities", value: "all" },
+          ...priorities.map((p) => ({
+            label: p.label,
+            value: p.issue_priority_id,
+          })),
+        ],
+      },
+    ];
+
+    if (listScope === "global") {
+      baseFilters.push(
+        {
+          key: "raised_by",
+          label: "Creator",
+          type: "select",
+          placeholder: "All creators",
+          value: raisedByFilter || "all",
+          onChange: (value: string) => setRaisedByFilter(value === "all" ? "" : value),
+          options: [
+            { label: "All creators", value: "all" },
+            ...users.map((u) => ({
+              label: u.full_name,
+              value: u.user_id,
+            })),
+          ],
+        },
+        {
+          key: "assigned_to",
+          label: "Assigned To",
+          type: "select",
+          placeholder: "All assignees",
+          value: assignedToFilter || "all",
+          onChange: (value: string) => setAssignedToFilter(value === "all" ? "" : value),
+          options: [
+            { label: "All assignees", value: "all" },
+            ...users.map((u) => ({
+              label: u.full_name,
+              value: u.user_id,
+            })),
+          ],
+        }
+      );
+    }
+
+    baseFilters.push({
       key: "created_at",
       label: "Date Range",
       type: "daterange",
       value: dateRange,
       onChange: (value: { from?: string; to?: string }) => setDateRange(value || {}),
-    },
-  ];
+    });
+
+    return baseFilters;
+  }, [
+    listScope,
+    statusFilter,
+    categoryFilter,
+    priorityFilter,
+    raisedByFilter,
+    assignedToFilter,
+    dateRange,
+    categories,
+    priorities,
+    users,
+  ]);
 
   const handleStatusClick = (next: IssueStatus | "all") => {
     setStatusFilter(next === "all" ? "" : next);
@@ -258,6 +297,7 @@ export function useIssuesTable() {
     setPageIndex,
     setPageSize,
     statusFilter,
+    listScope,
     handleStatusClick,
   };
 }

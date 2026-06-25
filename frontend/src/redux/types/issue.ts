@@ -6,6 +6,8 @@ export type IssueStatus =
   | "resolved"
   | "closed";
 
+export type IssueListScope = "global" | "mine";
+
 export type IssueEntityType =
   | "plan_version"
   | "strategic"
@@ -190,6 +192,7 @@ export interface GetIssuesQueryParams {
   date_to?: string;
   sort_by?: string;
   sort_order?: "ASC" | "DESC";
+  list_scope?: IssueListScope;
 }
 
 export interface CreateIssuePayload {
