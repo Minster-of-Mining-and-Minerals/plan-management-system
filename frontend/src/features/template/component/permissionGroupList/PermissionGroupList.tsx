@@ -80,8 +80,9 @@ export default function PermissionGroupList({
       cell: ({ row }) => {
         const group = row.original;
         const viewPath = withStructureQuery(
-          `/users/permission-groups/${group.permission_group_id}?mode=view`,
-          structureId
+          `/users/permission-groups/${group.permission_group_id}`,
+          structureId,
+          { mode: "view" }
         );
         const editPath = withStructureQuery(
           `/users/permission-groups/${group.permission_group_id}`,

@@ -17,7 +17,7 @@ import { FooterActions } from "./FooterActions";
 import { PermissionGroupFormSkeleton } from "./Skeleton";
 import { ErrorState } from "./ErrorState";
 import GroupManagement from "./GroupManagement";
-import { usePermissions } from "@/hooks/usePermissions";
+import { governmentStructureDetailPath } from "@/utils/structureQueryUtils";
 
 export default function CreatePermissionGroup({ groupId }: { groupId?: string }) {
   const { id: paramId } = useParams<{ id?: string }>();
@@ -31,7 +31,7 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
   const canUpdateGroups = can("PERMISSION_GROUPS:UPDATE");
   const isViewOnly = forceViewMode || (isEditMode && !canUpdateGroups);
   const cancelHref = structureId
-    ? `/structures/government/${structureId}`
+    ? governmentStructureDetailPath(structureId)
     : "/users/permission-groups";
 
   const [name, setName] = useState("");

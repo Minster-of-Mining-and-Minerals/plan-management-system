@@ -10,11 +10,10 @@ import { Eye, Trash2 } from "lucide-react";
 
 import type { FilterField, ActionButton } from "@/types/tableLayout";
 import { GovernmentStructure } from "@/redux/types/governmentStructure";
-import { formatStatus } from "@/utils/statusFormatter";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useRemoveStructureFromGroupMutation } from "@/redux/api/permissionGroupApi";
 import { actionFeedback } from "@/components/action-feedback";
-import { useSearchParams } from "next/navigation";
+import { governmentStructureDetailPath } from "@/utils/structureQueryUtils";
 import { matchesActiveInactiveFilter, matchesSearchQuery } from "@/utils/tableUtils";
 
 export interface GovernmentStructuresGroupListProps {
@@ -65,7 +64,8 @@ export default function GovernmentStructuresGroupList({ sideActions, actions, st
             header: "Parent Sector",
             cell: ({ row }) => (
                 <div className="text-gray-500 italic">
-                    {row.original.parent?.name || "N/A"}
+                    {row.original.parent?.name ??
+                        (row.original.parent_id ? "—" : "N/A")}
                 </div>
             ),
         },
@@ -86,7 +86,13 @@ export default function GovernmentStructuresGroupList({ sideActions, actions, st
                 <div className="flex items-center gap-2">
                     <Button
                         type="button"
-                        onClick={() => router.push(`/structures/government/${row.original.government_structure_id}`)}
+                        onClick={() =>
+                            router.push(
+                                governmentStructureDetailPath(
+                                    row.original.government_structure_id
+                                )
+                            )
+                        }
                         variant="ghost"
                         size="icon"
                         title="View Details"

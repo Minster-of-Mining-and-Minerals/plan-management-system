@@ -24,6 +24,18 @@ const {
     getPermissionIdsInPermissionGroup,
 } = require("../../utils/structureEffectivePermissionsUtils");
 
+const STRUCTURE_INCLUDE = {
+    model: GovernmentStructure,
+    as: "structures",
+    include: [
+        {
+            model: GovernmentStructure,
+            as: "parent",
+            attributes: ["government_structure_id", "name", "level", "parent_id"],
+        },
+    ],
+};
+
 async function getPermissionGroupIdsForStructure(structureId) {
     const links = await GovernmentStructurePermissionGroup.findAll({
         where: { government_structure_id: structureId },
@@ -140,7 +152,7 @@ const getPermissionGroups = async (req, res) => {
             include: [
                 { model: Permission, as: "permissions" },
                 { model: User, as: "users" },
-                { model: GovernmentStructure, as: "structures" },
+                STRUCTURE_INCLUDE,
             ],
             order: [["created_at", "DESC"]],
         });
@@ -163,7 +175,7 @@ const getPermissionGroupById = async (req, res) => {
             include: [
                 { model: Permission, as: "permissions" },
                 { model: User, as: "users" },
-                { model: GovernmentStructure, as: "structures" },
+                STRUCTURE_INCLUDE,
             ],
         });
 
