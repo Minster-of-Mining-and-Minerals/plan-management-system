@@ -29,8 +29,21 @@ export const permissionGroupApi = baseApi.injectEndpoints({
         /** ---------------------------
          * GET GROUP BY ID
          * --------------------------- */
-        getPermissionGroupById: builder.query<PermissionGroup, string>({
-            query: (id) => `/permission-groups/${id}`,
+        getPermissionGroupById: builder.query<
+            PermissionGroup,
+            string | { id: string; government_structure_id?: string }
+        >({
+            query: (arg) => {
+                const id = typeof arg === "string" ? arg : arg.id;
+                const government_structure_id =
+                    typeof arg === "string" ? undefined : arg.government_structure_id;
+                return {
+                    url: `/permission-groups/${id}`,
+                    params: government_structure_id
+                        ? { government_structure_id }
+                        : undefined,
+                };
+            },
             transformResponse: (response: any): PermissionGroup => response.data,
             providesTags: (_r, _e, id) => [{ type: "PermissionGroups", id }],
         }),

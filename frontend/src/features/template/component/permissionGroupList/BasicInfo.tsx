@@ -8,6 +8,7 @@ interface BasicInfoProps {
   setName: (value: string) => void;
   description: string;
   setDescription: (value: string) => void;
+  readOnly?: boolean;
 }
 
 export const BasicInfo: React.FC<BasicInfoProps> = ({
@@ -15,6 +16,7 @@ export const BasicInfo: React.FC<BasicInfoProps> = ({
   setName,
   description,
   setDescription,
+  readOnly = false,
 }) => {
   return (
     <div className="rounded-lg border border-border bg-card shadow-sm">
@@ -33,6 +35,7 @@ export const BasicInfo: React.FC<BasicInfoProps> = ({
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
+              disabled={readOnly}
               className="h-11 w-full rounded-md border border-input px-4 py-3 outline-none transition-all duration-200 focus:border-transparent focus:ring-2 focus:ring-primary"
             />
           </div>
@@ -47,6 +50,7 @@ export const BasicInfo: React.FC<BasicInfoProps> = ({
               rows={4}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              disabled={readOnly}
               className="min-h-[44px] w-full resize-none rounded-md border border-input px-4 py-3 outline-none transition-all duration-200 focus:border-transparent focus:ring-2 focus:ring-primary"
             />
           </div>

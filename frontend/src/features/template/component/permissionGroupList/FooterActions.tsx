@@ -5,17 +5,21 @@ import { useRouter } from "next/navigation";
 interface FooterActionsProps {
   isLoading: boolean;
   isEditMode: boolean;
+  isViewOnly?: boolean;
   name: string;
   selectedPermissionsCount: number;
   onSubmit: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  cancelHref?: string;
 }
 
 export const FooterActions: React.FC<FooterActionsProps> = ({
   isLoading,
   isEditMode,
+  isViewOnly = false,
   name,
   selectedPermissionsCount,
   onSubmit,
+  cancelHref = "/users/permission-groups",
 }) => {
   const router = useRouter();
 
@@ -27,30 +31,32 @@ export const FooterActions: React.FC<FooterActionsProps> = ({
             type="button"
             variant="outline"
             className="min-w-[150px] text-base"
-            onClick={() => router.push("/users/permission-groups")}
+            onClick={() => router.push(cancelHref)}
             disabled={isLoading}
           >
-            Cancel
+            {isViewOnly ? "Back" : "Cancel"}
           </Button>
-          <Button
-            type="submit"
-            onClick={onSubmit}
-            disabled={
-              isLoading || !name.trim() || selectedPermissionsCount === 0
-            }
-            className="min-w-[150px] text-base"
-          >
-            {isLoading ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                {isEditMode ? "Updating..." : "Creating..."}
-              </>
-            ) : isEditMode ? (
-              "Update"
-            ) : (
-              "Create"
-            )}
-          </Button>
+          {!isViewOnly && (
+            <Button
+              type="submit"
+              onClick={onSubmit}
+              disabled={
+                isLoading || !name.trim() || selectedPermissionsCount === 0
+              }
+              className="min-w-[150px] text-base"
+            >
+              {isLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  {isEditMode ? "Updating..." : "Creating..."}
+                </>
+              ) : isEditMode ? (
+                "Update"
+              ) : (
+                "Create"
+              )}
+            </Button>
+          )}
         </div>
       </div>
     </div>

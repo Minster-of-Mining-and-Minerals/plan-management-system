@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { actionFeedback } from "@/components/action-feedback";
 import { Permission, ResourceGroup, PermissionMatrix } from "../../types/role";
 import { useGetPermissionsQuery } from "@/redux/api/permissionApi";
@@ -10,7 +10,6 @@ import {
   useGetPermissionGroupByIdQuery,
   useUpdatePermissionGroupMutation,
 } from "@/redux/api/permissionGroupApi";
-import { useGetPermissionGroupsQuery } from "@/redux/api/permissionGroupApi";
 import { CreatePermissionGroupHeader } from "./Header";
 import { BasicInfo } from "./BasicInfo";
 import { PermissionMatrix as PermissionMatrixComponent } from "./PermissionMatrix";
@@ -18,12 +17,22 @@ import { FooterActions } from "./FooterActions";
 import { PermissionGroupFormSkeleton } from "./Skeleton";
 import { ErrorState } from "./ErrorState";
 import GroupManagement from "./GroupManagement";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function CreatePermissionGroup({ groupId }: { groupId?: string }) {
   const { id: paramId } = useParams<{ id?: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { can } = usePermissions();
   const id = groupId || paramId;
   const isEditMode = Boolean(id && id !== "create" && id !== "new");
+  const structureId = searchParams.get("government_structure_id") || undefined;
+  const forceViewMode = searchParams.get("mode") === "view";
+  const canUpdateGroups = can("PERMISSION_GROUPS:UPDATE");
+  const isViewOnly = forceViewMode || (isEditMode && !canUpdateGroups);
+  const cancelHref = structureId
+    ? `/structures/government/${structureId}`
+    : "/users/permission-groups";
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -32,7 +41,6 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
     {}
   );
 
-  // RTK Queries
   const { data: permissionsResponse, isLoading: loadingPermissions } =
     useGetPermissionsQuery();
 
@@ -41,7 +49,12 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
     isLoading: loadingGroup,
     isError: groupError,
     refetch: refetchGroup,
-  } = useGetPermissionGroupByIdQuery(id as string, { skip: !isEditMode });
+  } = useGetPermissionGroupByIdQuery(
+    structureId
+      ? { id: id as string, government_structure_id: structureId }
+      : (id as string),
+    { skip: !isEditMode }
+  );
 
   const [createGroup, { isLoading: isCreating }] = useCreatePermissionGroupMutation();
   const [updateGroup, { isLoading: isUpdating }] = useUpdatePermissionGroupMutation();
@@ -216,6 +229,7 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
   // Form submission
   const handleSubmit = async (e: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (isViewOnly) return;
 
     if (!name.trim()) {
       actionFeedback.error("Permission group name is required");
@@ -244,14 +258,12 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
             name: name.trim(),
             description: description.trim(),
             permission_ids: selectedPermissionIds,
+            government_structure_id: structureId,
           },
         }).unwrap();
 
-        // For now, let's assume the user just wants to update basic info or the backend handles permissions in update.
-        // If not, we'd need more complex logic to diff permissions.
-
         actionFeedback.success("Permission group updated successfully!");
-        router.push("/users/permission-groups");
+        router.push(cancelHref);
       } else {
         await createGroup({
           name: name.trim(),
@@ -291,19 +303,18 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
   return (
     <div className="w-full flex items-center justify-center bg-white rounded-lg p-4">
       <div className="w-full" onClick={(e) => e.stopPropagation()}>
-        <CreatePermissionGroupHeader isEditMode={isEditMode} />
+        <CreatePermissionGroupHeader isEditMode={isEditMode} isViewOnly={isViewOnly} />
 
         <form onSubmit={handleSubmit} className="flex flex-col">
           <div className="flex-1 overflow-y-auto py-5 space-y-6">
-            {/* Basic Information */}
             <BasicInfo
               name={name}
               setName={setName}
               description={description}
               setDescription={setDescription}
+              readOnly={isViewOnly}
             />
 
-            {/* Permission Matrix */}
             <PermissionMatrixComponent
               loadingPermissions={loadingPermissions}
               resourceGroups={resourceGroups}
@@ -318,22 +329,24 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
               getSelectionStatusClass={getSelectionStatusClass}
               getSelectedPermissionsCount={getSelectedPermissionsCount}
               getTotalPermissionsCount={getTotalPermissionsCount}
+              readOnly={isViewOnly}
             />
           </div>
 
-          {/* Footer Actions */}
           <FooterActions
             isLoading={isLoading}
             isEditMode={isEditMode}
+            isViewOnly={isViewOnly}
             name={name}
             selectedPermissionsCount={getSelectedPermissionsCount()}
+            cancelHref={cancelHref}
             onSubmit={(e) => {
               e.preventDefault();
               handleSubmit(e as any);
             }}
           />
-          <GroupManagement groupId={isEditMode ? id : undefined} />
         </form>
+        <GroupManagement groupId={isEditMode ? id : undefined} readOnly={isViewOnly} />
       </div>
     </div>
   );

@@ -6,7 +6,7 @@ import { TableLayout } from "@/features/template/component/tableList/TableLayout
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Download, Plus, Edit, Trash2 } from "lucide-react";
+import { Download, Plus, Edit, Trash2, Eye } from "lucide-react";
 
 import { useGetPermissionGroupsQuery, useDeletePermissionGroupMutation } from "@/redux/api/permissionGroupApi";
 import type { PermissionGroup } from "@/redux/types/permissionGroup";
@@ -79,6 +79,10 @@ export default function PermissionGroupList({
       header: "Actions",
       cell: ({ row }) => {
         const group = row.original;
+        const viewPath = withStructureQuery(
+          `/users/permission-groups/${group.permission_group_id}?mode=view`,
+          structureId
+        );
         const editPath = withStructureQuery(
           `/users/permission-groups/${group.permission_group_id}`,
           structureId
@@ -86,18 +90,20 @@ export default function PermissionGroupList({
         if (readOnly) {
           return (
             <Button
+              type="button"
               variant="ghost"
               size="icon"
-              onClick={() => router.push(editPath)}
+              onClick={() => router.push(viewPath)}
               title="View Group"
             >
-              <Edit className="h-4 w-4 text-blue-600" />
+              <Eye className="h-4 w-4 text-blue-600" />
             </Button>
           );
         }
         return (
           <div className="flex items-center gap-2">
             <Button
+              type="button"
               variant="ghost"
               size="icon"
               onClick={() => router.push(editPath)}
@@ -106,6 +112,7 @@ export default function PermissionGroupList({
               <Edit className="h-4 w-4 text-blue-600" />
             </Button>
             <Button
+              type="button"
               variant="ghost"
               size="icon"
               onClick={async () => {

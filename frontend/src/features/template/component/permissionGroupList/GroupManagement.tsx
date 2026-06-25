@@ -9,9 +9,10 @@ import { AddGroupMembersModal } from "./AddGroupMembersModal";
 
 interface GroupManagementProps {
     groupId?: string;
+    readOnly?: boolean;
 }
 
-function GroupManagement({ groupId }: GroupManagementProps) {
+function GroupManagement({ groupId, readOnly = false }: GroupManagementProps) {
     const [activeTab, setActiveTab] = useState<"users" | "government_structures">(
         "users"
     );
@@ -38,7 +39,7 @@ function GroupManagement({ groupId }: GroupManagementProps) {
         },
     ];
 
-    const actions: ActionButton[] = groupId ? [
+    const actions: ActionButton[] = groupId && !readOnly ? [
         {
             label: "Add Member",
             icon: <UserPlus className="h-4 w-4" />,
@@ -60,7 +61,7 @@ function GroupManagement({ groupId }: GroupManagementProps) {
                     sideActions={sideActions}
                     actions={actions}
                     users={group?.users || []}
-                    groupId={groupId}
+                    groupId={readOnly ? undefined : groupId}
                     isLoading={isLoading}
                 />
             )}
@@ -69,7 +70,7 @@ function GroupManagement({ groupId }: GroupManagementProps) {
                     sideActions={sideActions}
                     actions={actions}
                     structures={group?.structures || []}
-                    groupId={groupId}
+                    groupId={readOnly ? undefined : groupId}
                     isLoading={isLoading}
                 />
             )}

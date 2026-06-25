@@ -85,6 +85,7 @@ export default function GovernmentStructuresGroupList({ sideActions, actions, st
             cell: ({ row }) => (
                 <div className="flex items-center gap-2">
                     <Button
+                        type="button"
                         onClick={() => router.push(`/structures/government/${row.original.government_structure_id}`)}
                         variant="ghost"
                         size="icon"
@@ -94,6 +95,7 @@ export default function GovernmentStructuresGroupList({ sideActions, actions, st
                     </Button>
                     {groupId && (
                         <Button
+                            type="button"
                             onClick={() => handleRemove(row.original.government_structure_id)}
                             variant="ghost"
                             size="icon"

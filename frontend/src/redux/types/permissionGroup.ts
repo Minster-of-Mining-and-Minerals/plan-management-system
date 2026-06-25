@@ -45,6 +45,7 @@ export interface UpdatePermissionGroupPayload {
     description?: string;
     is_active?: boolean;
     permission_ids?: string[];
+    government_structure_id?: string;
 }
 
 /** ---------------------------

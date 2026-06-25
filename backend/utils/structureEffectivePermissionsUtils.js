@@ -166,6 +166,26 @@ async function getPermissionIdsInPermissionGroup(permissionGroupId, options = {}
   return rows.map((row) => row.permission_id);
 }
 
+async function isStructureLinkedToPermissionGroup(
+  permissionGroupId,
+  governmentStructureId,
+  options = {}
+) {
+  if (!permissionGroupId || !governmentStructureId) {
+    return false;
+  }
+
+  const link = await GovernmentStructurePermissionGroup.findOne({
+    where: {
+      permission_group_id: permissionGroupId,
+      government_structure_id: governmentStructureId,
+    },
+    transaction: options.transaction,
+  });
+
+  return Boolean(link);
+}
+
 async function assertPermissionGroupFitsStructureHierarchy(
   permissionGroupId,
   governmentStructureId,
@@ -173,6 +193,12 @@ async function assertPermissionGroupFitsStructureHierarchy(
 ) {
   const parentId = await getParentStructureId(governmentStructureId, options);
   if (!parentId) {
+    return;
+  }
+
+  if (
+    await isStructureLinkedToPermissionGroup(permissionGroupId, parentId, options)
+  ) {
     return;
   }
 
@@ -255,7 +281,21 @@ async function assertPermissionIdsFitLinkedStructureHierarchies(
     transaction: options.transaction,
   });
 
+  const linkedStructureIds = new Set(
+    links.map((link) => link.government_structure_id)
+  );
+
   for (const link of links) {
+    const parentId = await getParentStructureId(link.government_structure_id, options);
+    if (!parentId) {
+      continue;
+    }
+
+    // Parent and child share this group — permissions apply as one bundle.
+    if (linkedStructureIds.has(parentId)) {
+      continue;
+    }
+
     await assertPermissionIdsAllowedForParentStructure(
       permissionIds,
       link.government_structure_id,
@@ -278,4 +318,5 @@ module.exports = {
   assertPermissionGroupFitsStructureHierarchy,
   assertPermissionGroupsFitStructureHierarchy,
   assertPermissionIdsFitLinkedStructureHierarchies,
+  isStructureLinkedToPermissionGroup,
 };

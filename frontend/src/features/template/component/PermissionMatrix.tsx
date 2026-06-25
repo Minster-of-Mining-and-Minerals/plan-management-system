@@ -34,6 +34,7 @@ interface PermissionMatrixProps {
   getSelectionStatusClass: (status: string) => string;
   getSelectedPermissionsCount: () => number;
   getTotalPermissionsCount: () => number;
+  readOnly?: boolean;
 }
 
 export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
@@ -50,6 +51,7 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
   getSelectionStatusClass,
   getSelectedPermissionsCount,
   getTotalPermissionsCount,
+  readOnly = false,
 }) => {
   const resourceIcons: { [key: string]: JSX.Element } = {
     dashboard: <Home className="h-4 w-4" />,
@@ -133,7 +135,8 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
             </span>
             <Switch
               checked={isAllGloballySelected}
-              onCheckedChange={selectAllGlobally}
+              onCheckedChange={readOnly ? undefined : selectAllGlobally}
+              disabled={readOnly}
               aria-label={
                 isAllGloballySelected
                   ? "Deselect all permissions"
@@ -196,9 +199,12 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
                     </span>
                     <Switch
                       checked={isAllSelected}
-                      onCheckedChange={(checked) =>
-                        selectAllInResource(group.resource, checked)
+                      onCheckedChange={
+                        readOnly
+                          ? undefined
+                          : (checked) => selectAllInResource(group.resource, checked)
                       }
+                      disabled={readOnly}
                       onClick={(e) => e.stopPropagation()}
                       aria-label={
                         isAllSelected
@@ -228,15 +234,22 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
                             return (
                               <label
                                 key={permission.permission_id}
-                                className="flex w-full cursor-pointer items-center space-x-3 rounded-lg border border-border p-3 transition-colors duration-150 hover:bg-muted/40"
+                                className={`flex w-full items-center space-x-3 rounded-lg border border-border p-3 transition-colors duration-150 ${
+                                  readOnly
+                                    ? "cursor-default"
+                                    : "cursor-pointer hover:bg-muted/40"
+                                }`}
                               >
                                 <div className="relative">
                                   <input
                                     type="checkbox"
                                     checked={isChecked}
-                                    onChange={() =>
-                                      togglePermission(group.resource, permission.action)
-                                    }
+                                    disabled={readOnly}
+                                    onChange={() => {
+                                      if (!readOnly) {
+                                        togglePermission(group.resource, permission.action);
+                                      }
+                                    }}
                                     className="sr-only"
                                   />
                                   <div

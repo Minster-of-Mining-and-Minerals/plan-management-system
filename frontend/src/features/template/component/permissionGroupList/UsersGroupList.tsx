@@ -93,8 +93,9 @@ export default function UsersGroupList({ sideActions, actions, users, groupId, i
             header: "Actions",
             cell: ({ row }) => (
                 <div className="flex items-center gap-2">
-                    <Button 
-                        onClick={() => router.push(`/users/list/${row.original.user_id}`)} 
+                    <Button
+                        type="button"
+                        onClick={() => router.push(`/users/list/${row.original.user_id}`)}
                         variant="ghost" 
                         size="icon"
                         title="View Profile"
@@ -102,8 +103,9 @@ export default function UsersGroupList({ sideActions, actions, users, groupId, i
                         <Eye className="h-4 w-4" />
                     </Button>
                     {groupId && (
-                        <Button 
-                            onClick={() => handleRemove(row.original.user_id)} 
+                        <Button
+                            type="button"
+                            onClick={() => handleRemove(row.original.user_id)}
                             variant="ghost" 
                             size="icon"
                             className="text-red-500 hover:text-red-700 hover:bg-red-50"
