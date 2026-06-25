@@ -3,7 +3,10 @@
 const { PlanNode, PlanVersion } = require("../models");
 const { resolvePlanRuleForVersion } = require("./planRuleService");
 const { stepRequiresWeight } = require("./planRuleStepUtils");
-const { usesManualAchievementForRollup } = require("./planExecutionAchievementUtils");
+const {
+  usesManualAchievementForRollup,
+  isWeightedTargetNode,
+} = require("./planExecutionAchievementUtils");
 const { isExecutionSnapshotVersion } = require("./planExecutionSnapshotService");
 
 function roundPercent(value) {
@@ -30,14 +33,56 @@ function resolveWeightMode(node, nodeById) {
   return "number";
 }
 
-function averageContributingChildProgress(children, memo) {
+function getActiveChildren(node, childrenByParent) {
+  return (childrenByParent.get(node.plan_node_id) ?? []).filter(
+    (child) => child.is_active !== false
+  );
+}
+
+/**
+ * Whether this node or any descendant carries a weighted period target
+ * (mirrors target-distribution scope: all planned siblings participate).
+ */
+function hasTargetBearingSubtree(node, childrenByParent, rule) {
+  if (node.is_active === false) {
+    return false;
+  }
+  if (usesManualAchievementForRollup(node, childrenByParent) && isWeightedTargetNode(node, rule)) {
+    return true;
+  }
+  return getActiveChildren(node, childrenByParent).some((child) =>
+    hasTargetBearingSubtree(child, childrenByParent, rule)
+  );
+}
+
+function subtreeHasContributingData(node, memo, childrenByParent) {
+  const metrics = memo.get(node.plan_node_id);
+  if (metrics?.has_contributing_data) {
+    return true;
+  }
+  return getActiveChildren(node, childrenByParent).some((child) =>
+    subtreeHasContributingData(child, memo, childrenByParent)
+  );
+}
+
+function getChildProgressForRollup(child, memo, childrenByParent, rule) {
+  if (!hasTargetBearingSubtree(child, childrenByParent, rule)) {
+    return null;
+  }
+  const metrics = memo.get(child.plan_node_id);
+  if (metrics?.has_contributing_data && metrics.execution_progress_percent != null) {
+    return metrics.execution_progress_percent;
+  }
+  return 0;
+}
+
+function averageEligibleChildProgress(children, memo, childrenByParent, rule) {
   const entries = [];
   for (const child of children) {
-    const metrics = memo.get(child.plan_node_id);
-    if (!metrics?.has_contributing_data) continue;
-    if (metrics.execution_progress_percent == null) continue;
+    const percent = getChildProgressForRollup(child, memo, childrenByParent, rule);
+    if (percent === null) continue;
     const weight = Math.max(Number(child.weight) || 0, 1);
-    entries.push({ percent: metrics.execution_progress_percent, weight });
+    entries.push({ percent, weight });
   }
   if (entries.length === 0) return null;
   const totalWeight = entries.reduce((sum, entry) => sum + entry.weight, 0);
@@ -45,32 +90,55 @@ function averageContributingChildProgress(children, memo) {
   return roundPercent(weighted / totalWeight);
 }
 
-function aggregateContributingChildren(children, memo, mode) {
+function getChildActualTargetForRollup(child, memo, childrenByParent, rule) {
+  if (!hasTargetBearingSubtree(child, childrenByParent, rule)) {
+    return null;
+  }
+
+  if (usesManualAchievementForRollup(child, childrenByParent)) {
+    const target = Number(child.period_target) || 0;
+    if (target <= 0) {
+      return null;
+    }
+    const hasActual = child.period_actual != null && child.period_actual !== undefined;
+    const actual = hasActual ? Number(child.period_actual) : 0;
+    return {
+      actual,
+      target,
+      percent: hasActual ? roundPercent((actual / target) * 100) : 0,
+    };
+  }
+
+  const metrics = memo.get(child.plan_node_id);
+  return {
+    actual: Number(metrics?.computed_period_actual) || 0,
+    target: Number(metrics?.computed_period_target) || 0,
+    percent: metrics?.execution_progress_percent ?? 0,
+  };
+}
+
+function aggregateEligibleChildren(children, memo, mode, childrenByParent, rule) {
   let totalActual = 0;
   let totalTarget = 0;
   let weightedProgress = 0;
   let progressWeight = 0;
-  let hasContributing = false;
+  let hasEligible = false;
 
   for (const child of children) {
-    const childMetrics = memo.get(child.plan_node_id);
-    if (!childMetrics?.has_contributing_data) continue;
+    const contribution = getChildActualTargetForRollup(child, memo, childrenByParent, rule);
+    if (!contribution) continue;
 
-    hasContributing = true;
-    totalActual += Number(childMetrics.computed_period_actual) || 0;
-    totalTarget += Number(childMetrics.computed_period_target) || 0;
+    hasEligible = true;
+    totalActual += contribution.actual;
+    totalTarget += contribution.target;
 
-    if (
-      childMetrics.execution_progress_percent != null &&
-      Number(childMetrics.computed_period_target) > 0
-    ) {
-      weightedProgress +=
-        childMetrics.execution_progress_percent * Number(childMetrics.computed_period_target);
-      progressWeight += Number(childMetrics.computed_period_target);
+    if (contribution.target > 0) {
+      weightedProgress += contribution.percent * contribution.target;
+      progressWeight += contribution.target;
     }
   }
 
-  if (!hasContributing) {
+  if (!hasEligible) {
     return emptyNodeMetrics();
   }
 
@@ -80,23 +148,24 @@ function aggregateContributingChildren(children, memo, mode) {
   } else if (totalTarget > 0) {
     execution_progress_percent = roundPercent((totalActual / totalTarget) * 100);
   } else {
-    execution_progress_percent = averageContributingChildProgress(children, memo);
+    execution_progress_percent = averageEligibleChildProgress(children, memo, childrenByParent, rule);
   }
 
   return {
     execution_progress_percent,
     computed_period_actual: totalActual,
     computed_period_target: totalTarget,
-    has_contributing_data: true,
+    has_contributing_data: children.some((child) =>
+      subtreeHasContributingData(child, memo, childrenByParent)
+    ),
   };
 }
 
 /**
- * Bottom-up contributing rollup for arbitrary hierarchy depth.
- * Leaf: actual/target when period_actual is set.
- * Parent weighted: sums actual/target only from children with contributing data
- *   (parent effective target grows as children report achievement).
- * Org levels: weighted average of contributing children's progress.
+ * Bottom-up rollup aligned with target distribution scope.
+ * Leaf: actual/target when period_actual is set; eligible leaves without actual count as 0.
+ * Parent weighted: sums actual/target across ALL eligible children (full planned set).
+ * Org levels: weighted average of ALL eligible children (missing = 0%).
  */
 function computeNodeRollup(node, nodeById, childrenByParent, rule, memo) {
   if (memo.has(node.plan_node_id)) {
@@ -116,13 +185,18 @@ function computeNodeRollup(node, nodeById, childrenByParent, rule, memo) {
       for (const child of children) {
         computeNodeRollup(child, nodeById, childrenByParent, rule, memo);
       }
-      const percent = averageContributingChildProgress(children, memo);
+      const hasEligible = children.some((child) =>
+        hasTargetBearingSubtree(child, childrenByParent, rule)
+      );
+      const percent = hasEligible
+        ? averageEligibleChildProgress(children, memo, childrenByParent, rule)
+        : null;
       result = {
         execution_progress_percent: percent,
         computed_period_actual: null,
         computed_period_target: null,
-        has_contributing_data: children.some(
-          (child) => memo.get(child.plan_node_id)?.has_contributing_data
+        has_contributing_data: children.some((child) =>
+          subtreeHasContributingData(child, memo, childrenByParent)
         ),
       };
     }
@@ -153,7 +227,7 @@ function computeNodeRollup(node, nodeById, childrenByParent, rule, memo) {
     }
 
     const mode = resolveWeightMode(node, nodeById);
-    result = aggregateContributingChildren(children, memo, mode);
+    result = aggregateEligibleChildren(children, memo, mode, childrenByParent, rule);
   }
 
   memo.set(node.plan_node_id, result);
@@ -194,16 +268,21 @@ function computeRollupMap(nodes, rule) {
 function computeVersionProgressFromRoots(nodes, rule) {
   const rollupMap = computeRollupMap(nodes, rule);
   const nodeById = new Map(nodes.map((node) => [node.plan_node_id, node]));
+  const childrenByParent = buildChildrenByParent(nodes);
 
   const roots = nodes
     .filter((node) => !node.parent_id || !nodeById.has(node.parent_id))
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-  const contributingRoots = roots.filter(
-    (root) => rollupMap.get(root.plan_node_id)?.has_contributing_data
+  const eligibleRoots = roots.filter((root) =>
+    hasTargetBearingSubtree(root, childrenByParent, rule)
   );
 
-  if (contributingRoots.length === 0) {
+  const hasContributing = roots.some((root) =>
+    subtreeHasContributingData(root, rollupMap, childrenByParent)
+  );
+
+  if (eligibleRoots.length === 0 || !hasContributing) {
     return {
       execution_progress_percent: null,
       computed_period_actual: null,
@@ -218,14 +297,13 @@ function computeVersionProgressFromRoots(nodes, rule) {
   let weightedProgress = 0;
   let progressWeight = 0;
 
-  for (const root of contributingRoots) {
+  for (const root of eligibleRoots) {
     const metrics = rollupMap.get(root.plan_node_id);
     if (!metrics) continue;
     const rootWeight = Math.max(Number(root.weight) || 0, 1);
-    if (metrics.execution_progress_percent != null) {
-      weightedProgress += metrics.execution_progress_percent * rootWeight;
-      progressWeight += rootWeight;
-    }
+    const rootPercent = metrics.execution_progress_percent ?? 0;
+    weightedProgress += rootPercent * rootWeight;
+    progressWeight += rootWeight;
     totalActual += Number(metrics.computed_period_actual) || 0;
     totalTarget += Number(metrics.computed_period_target) || 0;
   }
