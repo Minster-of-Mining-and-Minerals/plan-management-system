@@ -47,9 +47,15 @@ export function PlanNodePeriodActualSection({
     const isParentOverride = entryMode === "parent_override";
     const periodTarget = Number(node.period_target) || 0;
     const rollupTarget = Number(node.computed_period_target) || 0;
-    const effectiveTarget = periodTarget > 0 ? periodTarget : rollupTarget;
+    const effectiveTarget =
+        isRollupEntry && rollupTarget > 0
+            ? rollupTarget
+            : periodTarget > 0
+              ? periodTarget
+              : rollupTarget;
     const showSection =
-        isWeightedTargetNode(node, rule) && (effectiveTarget > 0 || isRollupEntry);
+        isWeightedTargetNode(node, rule) &&
+        (effectiveTarget > 0 || isRollupEntry || node.has_contributing_data);
     const canEnter = canEdit && canManuallyEnterAchievement(node, rule);
 
     useEffect(() => {
@@ -97,7 +103,7 @@ export function PlanNodePeriodActualSection({
     const showAchievementPercent =
         achievementPercent != null &&
         (isRollupEntry
-            ? displayActualRaw != null
+            ? node.has_contributing_data || displayActualRaw != null
             : node.period_actual != null || node.period_actual_override);
 
     const handleSave = async () => {

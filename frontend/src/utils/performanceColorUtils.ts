@@ -98,13 +98,37 @@ export function hiddenProgressAppearance(): ProgressAppearance {
 }
 
 export function versionHasRecordedActuals(version: {
+  execution_has_contributing_progress?: boolean;
   execution_has_recorded_actuals?: boolean;
   execution_actuals_readiness?: { recorded_count?: number } | null;
 }): boolean {
+  if (version.execution_has_contributing_progress === true) {
+    return true;
+  }
   if (version.execution_has_recorded_actuals === true) {
     return true;
   }
   return (version.execution_actuals_readiness?.recorded_count ?? 0) > 0;
+}
+
+export function treeHasContributingProgress(nodes: PlanNodeHierarchy[]): boolean {
+  for (const node of nodes) {
+    if (node.has_contributing_data) {
+      return true;
+    }
+    if (node.period_actual != null) {
+      return true;
+    }
+    if (node.children?.length && treeHasContributingProgress(node.children)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** @deprecated Use treeHasContributingProgress */
+export function treeHasRecordedActual(nodes: PlanNodeHierarchy[]): boolean {
+  return treeHasContributingProgress(nodes);
 }
 
 export function shouldShowAchievementProgress(
@@ -114,18 +138,6 @@ export function shouldShowAchievementProgress(
   return processStarted && hasRecordedActuals;
 }
 
-export function treeHasRecordedActual(nodes: PlanNodeHierarchy[]): boolean {
-  for (const node of nodes) {
-    if (node.period_actual != null) {
-      return true;
-    }
-    if (node.children?.length && treeHasRecordedActual(node.children)) {
-      return true;
-    }
-  }
-  return false;
-}
-
 export function resolveCompletionForVersion(
   thresholds: PerformanceColorThreshold[],
   version: {
@@ -133,6 +145,7 @@ export function resolveCompletionForVersion(
     execution_progress_percent?: number | null;
     execution_status?: string | null;
     status?: string | null;
+    execution_has_contributing_progress?: boolean;
     execution_has_recorded_actuals?: boolean;
     execution_actuals_readiness?: { recorded_count?: number } | null;
   },
@@ -176,6 +189,7 @@ export function resolveCompletionForPlanNode(
     execution_progress_percent?: number | null;
     computed_period_actual?: number | null;
     computed_period_target?: number | null;
+    has_contributing_data?: boolean;
     children?: PlanNodeHierarchy[];
   },
   processStarted: boolean,
@@ -190,6 +204,15 @@ export function resolveCompletionForPlanNode(
     !hasChildren && !node.period_actual_override && node.period_actual == null;
 
   if (isManualLeaf) {
+    return hiddenProgressAppearance();
+  }
+
+  const nodeContributes =
+    node.has_contributing_data === true ||
+    node.period_actual != null ||
+    node.period_actual_override === true;
+
+  if (!nodeContributes) {
     return hiddenProgressAppearance();
   }
 

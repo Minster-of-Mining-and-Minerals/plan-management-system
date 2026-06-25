@@ -285,15 +285,37 @@ async function applyExecutionProgressFields(version, snapshotVersionId, transact
     return version;
   }
 
-  const { computePeriodExecutionProgress, computeAnnualExecutionProgress } = require(
-    "./planExecutionRollupService"
-  );
+  const {
+    computePeriodExecutionProgress,
+    computeAnnualExecutionProgress,
+    computeMasterExecutionProgress,
+  } = require("./planExecutionRollupService");
+
+  if (version.version_kind === "master") {
+    const liveMasterId = version.execution_snapshot_of_version_id
+      ? version.execution_snapshot_of_version_id
+      : version.plan_version_id;
+    const progress = await computeMasterExecutionProgress(liveMasterId, transaction);
+    return {
+      ...version,
+      execution_progress_percent: progress.execution_progress_percent,
+      execution_annual_progress: progress.execution_annual_progress,
+      execution_has_contributing_progress: progress.has_contributing_data,
+      execution_has_recorded_actuals: progress.has_contributing_data,
+      active_planning_year: progress.active_planning_year,
+      active_annual_plan_version_id: progress.active_annual_plan_version_id,
+    };
+  }
 
   if (version.version_kind === "execution_period") {
     const progress = await computePeriodExecutionProgress(snapshotVersionId, transaction);
     return {
       ...version,
       execution_progress_percent: progress.execution_progress_percent,
+      computed_period_actual: progress.computed_period_actual,
+      computed_period_target: progress.computed_period_target,
+      execution_has_contributing_progress: progress.has_contributing_data,
+      execution_has_recorded_actuals: progress.has_contributing_data,
     };
   }
 
@@ -303,6 +325,8 @@ async function applyExecutionProgressFields(version, snapshotVersionId, transact
       ...version,
       execution_progress_percent: annualProgress.execution_progress_percent,
       execution_period_progress: annualProgress.execution_period_progress,
+      execution_has_contributing_progress: annualProgress.has_contributing_data,
+      execution_has_recorded_actuals: annualProgress.has_contributing_data,
     };
   }
 
@@ -357,6 +381,34 @@ async function attachLiveExecutionOverlay(version, transaction = null) {
       snapshotVersion.plan_version_id,
       transaction
     );
+  }
+
+  return enriched;
+}
+
+async function enrichMasterVersionsWithExecutionProgress(versions, transaction = null) {
+  const { computeMasterExecutionProgress } = require("./planExecutionRollupService");
+  const enriched = [];
+
+  for (const version of versions) {
+    const plain =
+      typeof version.get === "function" ? version.get({ plain: true }) : { ...version };
+
+    if (plain.version_kind !== "master" || !plain.process_started_at) {
+      enriched.push(plain);
+      continue;
+    }
+
+    const progress = await computeMasterExecutionProgress(plain.plan_version_id, transaction);
+    enriched.push({
+      ...plain,
+      execution_progress_percent: progress.execution_progress_percent,
+      execution_annual_progress: progress.execution_annual_progress,
+      execution_has_contributing_progress: progress.has_contributing_data,
+      execution_has_recorded_actuals: progress.has_contributing_data,
+      active_planning_year: progress.active_planning_year,
+      active_annual_plan_version_id: progress.active_annual_plan_version_id,
+    });
   }
 
   return enriched;
@@ -439,6 +491,7 @@ async function enrichExecutionPeriodsWithExecution(liveAnnual, livePeriods, tran
       execution_actuals_ready: readiness.ready,
       execution_actuals_readiness: readiness,
       execution_has_recorded_actuals: readiness.recorded_count > 0,
+      execution_has_contributing_progress: progress.has_contributing_data,
       execution_progress_percent: progress.execution_progress_percent,
       computed_period_actual: progress.computed_period_actual,
       computed_period_target: progress.computed_period_target,
@@ -464,6 +517,7 @@ async function enrichExecutionPeriodsWithExecution(liveAnnual, livePeriods, tran
         ...enrichSnapshotVersionExecutionFields(liveAnnual),
         ...periodMeta,
         execution_has_recorded_actuals: annualHasActuals,
+        execution_has_contributing_progress: annualProgress.has_contributing_data,
         execution_progress_percent: annualProgress.execution_progress_percent,
         execution_period_progress: annualProgress.execution_period_progress,
       },
@@ -521,7 +575,11 @@ async function enrichExecutionPeriodsWithExecution(liveAnnual, livePeriods, tran
       };
   const annualProgress = snapshotAnnual
     ? await computeAnnualExecutionProgress(snapshotAnnual.plan_version_id, transaction)
-    : { execution_progress_percent: null, execution_period_progress: [] };
+    : {
+        execution_progress_percent: null,
+        execution_period_progress: [],
+        has_contributing_data: false,
+      };
   const annualHasActuals = snapshotAnnual
     ? await annualHasRecordedActuals(snapshotAnnual.plan_version_id, transaction)
     : false;
@@ -532,6 +590,7 @@ async function enrichExecutionPeriodsWithExecution(liveAnnual, livePeriods, tran
       ...attachExecutionOverlay(annualPlain, snapshotAnnual),
       ...periodMeta,
       execution_has_recorded_actuals: annualHasActuals,
+      execution_has_contributing_progress: annualProgress.has_contributing_data,
       execution_progress_percent: annualProgress.execution_progress_percent,
       execution_period_progress: annualProgress.execution_period_progress,
     },
@@ -578,7 +637,11 @@ async function enrichAnnualVersionsWithExecution(liveMaster, liveAnnualVersions,
         };
     const annualProgress = snapshotAnnual
       ? await computeAnnualExecutionProgress(snapshotAnnual.plan_version_id, transaction)
-      : { execution_progress_percent: null, execution_period_progress: [] };
+      : {
+          execution_progress_percent: null,
+          execution_period_progress: [],
+          has_contributing_data: false,
+        };
     const annualHasActuals = snapshotAnnual
       ? await annualHasRecordedActuals(snapshotAnnual.plan_version_id, transaction)
       : false;
@@ -588,6 +651,7 @@ async function enrichAnnualVersionsWithExecution(liveMaster, liveAnnualVersions,
       ...attachExecutionOverlay(plain, snapshotAnnual),
       ...periodMeta,
       execution_has_recorded_actuals: annualHasActuals,
+      execution_has_contributing_progress: annualProgress.has_contributing_data,
       execution_progress_percent: annualProgress.execution_progress_percent,
       execution_period_progress: annualProgress.execution_period_progress,
     });
@@ -765,6 +829,7 @@ module.exports = {
   lockLivePlanningVersions,
   initializeExecutionGate,
   resolveVersionExecutionAccess,
+  enrichMasterVersionsWithExecutionProgress,
   enrichAnnualVersionsWithExecution,
   enrichExecutionPeriodsWithExecution,
   executionAccessFromStatus,

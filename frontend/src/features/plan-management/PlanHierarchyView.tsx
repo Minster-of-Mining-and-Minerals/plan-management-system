@@ -10,7 +10,7 @@ import {
     useReorderPlanNodesMutation,
 } from "@/redux/api/planApi";
 import { useGetPlanRuleForVersionQuery } from "@/redux/api/planRuleApi";
-import { PlanNodeHierarchy, PlanNode, AnnualTargetAllocation, PeriodTargetAllocation } from "@/redux/types/plan";
+import { PlanNodeHierarchy, PlanNode, AnnualTargetAllocation, PeriodTargetAllocation, PlanVersion } from "@/redux/types/plan";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -70,7 +70,7 @@ import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresh
 import {
     resolveCompletionForVersion,
     resolveWorkflowStatusAppearance,
-    treeHasRecordedActual,
+    treeHasContributingProgress,
     versionHasRecordedActuals,
 } from "@/utils/performanceColorUtils";
 import { PerformanceColorBadge } from "./components/PerformanceColorBadge";
@@ -337,7 +337,7 @@ export default function PlanHierarchyView({
     const periodHasRecordedActuals = useMemo(
         () =>
             versionHasRecordedActuals(version ?? {}) ||
-            treeHasRecordedActual(hierarchy),
+            treeHasContributingProgress(hierarchy),
         [version, hierarchy]
     );
 
@@ -350,7 +350,7 @@ export default function PlanHierarchyView({
           )
         : null;
 
-    const versionPlanningStatusLabel = (v: typeof version) =>
+    const versionPlanningStatusLabel = (v: Pick<PlanVersion, "status">) =>
         formatStatus(v?.status ?? "draft");
 
     const versionStatusAppearance = version
@@ -618,12 +618,26 @@ export default function PlanHierarchyView({
 
             {processStarted && version?.version_kind === "master" && (
                 <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
-                    Process started
-                    {version.process_started_at
-                        ? ` on ${new Date(version.process_started_at).toLocaleDateString()}`
-                        : ""}
-                    . Execution version {version.active_execution_snapshot_id ? "is active" : "pending"} —
-                    use the Annual Execution tab to work through each year in order.
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <p>
+                            Process started
+                            {version.process_started_at
+                                ? ` on ${new Date(version.process_started_at).toLocaleDateString()}`
+                                : ""}
+                            . Execution version{" "}
+                            {version.active_execution_snapshot_id ? "is active" : "pending"} —
+                            use the Annual Execution tab to work through each year in order.
+                        </p>
+                        {versionProgress?.visible && (
+                            <div className="flex items-center gap-2 shrink-0">
+                                <PerformanceColorBadge
+                                    color={versionProgress.color}
+                                    label={`${versionProgress.percent}% plan achievement`}
+                                    variant="tint"
+                                />
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
 

@@ -52,6 +52,7 @@ const {
 } = require("../../services/planReviewSnapshotService");
 const {
     attachExecutionSnapshotContext,
+    enrichMasterVersionsWithExecutionProgress,
     resolveExecutionHierarchyVersionId,
 } = require("../../services/planExecutionGateService");
 const {
@@ -357,12 +358,12 @@ const getPlanVersions = async (req, res) => {
             versions.map((version) => version.plan_version_id)
         );
 
+        const withExecutionProgress = await enrichMasterVersionsWithExecutionProgress(versions);
+
         return res.json({
             success: true,
-            data: versions.map((version) => ({
-                ...(typeof version.get === "function"
-                    ? version.get({ plain: true })
-                    : version.toJSON()),
+            data: withExecutionProgress.map((version) => ({
+                ...version,
                 access_role: accessRoles.get(version.plan_version_id) || "owner",
             })),
         });

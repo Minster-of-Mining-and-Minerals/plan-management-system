@@ -16,8 +16,14 @@ import {
     useReopenFinalizedPlanForEditMutation,
 } from "@/redux/api/planApi";
 import { useEffectivePlanningConfiguration } from "@/hooks/useEffectivePlanningConfiguration";
+import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
 import { PlanVersion } from "@/redux/types/plan";
 import { formatStatus } from "@/utils/statusFormatter";
+import {
+    resolveCompletionForVersion,
+} from "@/utils/performanceColorUtils";
+import { PerformanceProgressBar } from "./components/PerformanceProgressBar";
+import { PerformanceColorBadge } from "./components/PerformanceColorBadge";
 import {
     formatDurationYears,
     formatPlanningPeriod,
@@ -56,6 +62,7 @@ export default function PlanVersionTable() {
     const { can } = usePermissions();
 
     const { config } = useEffectivePlanningConfiguration();
+    const thresholds = usePerformanceColorThresholds();
     const [deleteVersion] = useDeletePlanVersionMutation();
     const [updateStatus] = useUpdatePlanVersionStatusMutation();
     const [reopenForEdit, { isLoading: isReopening }] = useReopenFinalizedPlanForEditMutation();
@@ -171,7 +178,7 @@ export default function PlanVersionTable() {
             accessorKey: "status",
             header: "Status",
             meta: {
-                headerClassName: "w-[12%] whitespace-nowrap",
+                headerClassName: "w-[10%] whitespace-nowrap",
                 cellClassName: "whitespace-nowrap",
             },
             cell: ({ row }) => {
@@ -184,10 +191,58 @@ export default function PlanVersionTable() {
             },
         },
         {
+            id: "achievement",
+            header: "Achievement",
+            meta: {
+                headerClassName: "w-[14%] min-w-[120px]",
+                cellClassName: "max-w-0 overflow-hidden",
+            },
+            cell: ({ row }) => {
+                const version = row.original;
+                const processStarted = Boolean(version.process_started_at);
+                const progress = resolveCompletionForVersion(
+                    thresholds,
+                    version,
+                    processStarted
+                );
+
+                if (!progress.visible) {
+                    return (
+                        <span className="text-sm text-muted-foreground">
+                            {processStarted ? "—" : "Not started"}
+                        </span>
+                    );
+                }
+
+                return (
+                    <div className="flex flex-col gap-1.5 min-w-0">
+                        <div className="flex items-center gap-2 min-w-0">
+                            <PerformanceColorBadge
+                                color={progress.color}
+                                label={`${progress.percent}%`}
+                                variant="tint"
+                                className="text-xs"
+                            />
+                            {version.active_planning_year != null && (
+                                <span className="text-[10px] text-muted-foreground truncate">
+                                    Yr {version.active_planning_year}
+                                </span>
+                            )}
+                        </div>
+                        <PerformanceProgressBar
+                            value={progress.percent}
+                            color={progress.color}
+                            className="h-1.5"
+                        />
+                    </div>
+                );
+            },
+        },
+        {
             accessorKey: "created_at",
             header: "Created Date",
             meta: {
-                headerClassName: "w-[14%] whitespace-nowrap",
+                headerClassName: "w-[12%] whitespace-nowrap",
                 cellClassName: "whitespace-nowrap",
             },
             cell: ({ row }) => (

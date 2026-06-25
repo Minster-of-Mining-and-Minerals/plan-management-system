@@ -71,13 +71,25 @@ export interface PlanVersion {
         missing_titles?: string[];
     };
     execution_has_recorded_actuals?: boolean;
+    execution_has_contributing_progress?: boolean;
     execution_progress_percent?: number | null;
+    execution_annual_progress?: Array<{
+        plan_version_id: string;
+        planning_year: number | null;
+        sequence_index: number | null;
+        execution_status: PlanExecutionStatus | null;
+        execution_progress_percent: number | null;
+        has_contributing_data?: boolean;
+    }>;
+    active_planning_year?: number | null;
+    active_annual_plan_version_id?: string | null;
     execution_period_progress?: Array<{
         plan_version_id: string;
         period_label: string | null;
         sequence_index: number | null;
         execution_status: PlanExecutionStatus | null;
         execution_progress_percent: number | null;
+        has_contributing_data?: boolean;
     }>;
     status: PlanVersionStatus;
     government_structure_id: string;
@@ -278,6 +290,7 @@ export interface PlanNode {
     execution_progress_percent?: number | null;
     computed_period_actual?: number | null;
     computed_period_target?: number | null;
+    has_contributing_data?: boolean;
     created_at: string;
     updated_at: string;
     deleted_at: string | null;

@@ -81,6 +81,11 @@ export function AnnualVersionsDashboard({
         annualVersions.every((annual) => Boolean(annual.period_targets_finalized_at));
     const processStarted = Boolean(master.process_started_at);
     const startProcessReady = canStartProcessAfterReview(master);
+    const masterCompletion = resolveCompletionForVersion(
+        thresholds,
+        master,
+        processStarted
+    );
 
     const handleComplete = async (versionId: string, year: number) => {
         if (!(await actionFeedback.confirm(`Mark the ${year} annual version as completed?`))) {
@@ -199,6 +204,42 @@ export function AnnualVersionsDashboard({
                     is active. Planning targets are frozen; only the open year and period accept
                     execution updates. Locked periods remain viewable.
                 </div>
+            )}
+
+            {!isReviewMode && processStarted && masterCompletion.visible && (
+                <Card
+                    className="border"
+                    style={{ borderColor: `${masterCompletion.color}44` }}
+                >
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base">Plan achievement</CardTitle>
+                        <CardDescription>
+                            Average across all planning years
+                            {master.active_planning_year != null
+                                ? ` — year ${master.active_planning_year} is currently open`
+                                : ""}
+                            . Years without data count as 0%.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        <div className="flex items-center gap-3 flex-wrap">
+                            <PerformanceColorBadge
+                                color={masterCompletion.color}
+                                label={`${masterCompletion.percent}%`}
+                                variant="solid"
+                            />
+                            {masterCompletion.label && (
+                                <span className="text-sm text-muted-foreground">
+                                    {masterCompletion.label}
+                                </span>
+                            )}
+                        </div>
+                        <PerformanceProgressBar
+                            value={masterCompletion.percent}
+                            color={masterCompletion.color}
+                        />
+                    </CardContent>
+                </Card>
             )}
 
             {!isReviewMode && annualTargetsFinalized && (
