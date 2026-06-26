@@ -23,6 +23,7 @@ import {
 } from "@/utils/planPermissionUtils";
 import { PerformanceProgressBar } from "./PerformanceProgressBar";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
+import { EvaluationStatusBadge } from "./EvaluationStatusBadge";
 import { getPlanViewBasePath } from "@/utils/planReviewUtils";
 import {
     canShowPeriodExecutionCompleteAction,
@@ -212,6 +213,12 @@ export function ExecutionPeriodsDashboard({
                                     label={annualCompletion.label}
                                     className="mt-1 text-[10px] py-0 h-5"
                                 />
+                                {annual.execution_evaluation_status && (
+                                    <EvaluationStatusBadge
+                                        status={annual.execution_evaluation_status}
+                                        className="mt-1 text-[10px] py-0 h-5"
+                                    />
+                                )}
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 {executionPeriods.map((period) => {
@@ -220,15 +227,20 @@ export function ExecutionPeriodsDashboard({
                                         period,
                                         processStarted
                                     );
-                                    if (!periodCompletion.visible) {
+                                    if (
+                                        !periodCompletion.visible &&
+                                        !period.execution_is_evaluable
+                                    ) {
                                         return null;
                                     }
-                                    const miniColor = periodCompletion.color;
+                                    const miniColor = periodCompletion.visible
+                                        ? periodCompletion.color
+                                        : "#9CA3AF";
 
                                     return (
                                         <div
                                             key={period.plan_version_id}
-                                            className="rounded-lg border bg-white px-3 py-2 text-center min-w-[72px]"
+                                            className="rounded-lg border bg-white px-3 py-2 text-center min-w-[88px]"
                                             style={{ borderColor: `${miniColor}55` }}
                                         >
                                             <p className="text-xs font-semibold text-gray-700">
@@ -238,14 +250,16 @@ export function ExecutionPeriodsDashboard({
                                                 className="text-sm font-bold"
                                                 style={{ color: miniColor }}
                                             >
-                                                {`${periodCompletion.percent}%`}
+                                                {periodCompletion.visible
+                                                    ? `${periodCompletion.percent}%`
+                                                    : "—"}
                                             </p>
-                                            <p
-                                                className="text-[10px] font-medium truncate"
-                                                style={{ color: miniColor }}
-                                            >
-                                                {periodCompletion.label}
-                                            </p>
+                                            {period.execution_evaluation_status && (
+                                                <EvaluationStatusBadge
+                                                    status={period.execution_evaluation_status}
+                                                    className="mt-1 text-[9px] py-0 h-4"
+                                                />
+                                            )}
                                         </div>
                                     );
                                 })}
@@ -274,6 +288,11 @@ export function ExecutionPeriodsDashboard({
                         processStarted &&
                         period.execution_status === "open" &&
                         period.execution_actuals_ready === false;
+                    const readiness = period.execution_actuals_readiness;
+                    const readinessSummary =
+                        readiness && readiness.required_count > 0
+                            ? `${readiness.recorded_count ?? 0}/${readiness.required_count} KPIs reported`
+                            : null;
                     const executionLocked =
                         processStarted &&
                         period.execution_status === "locked" &&
@@ -368,7 +387,19 @@ export function ExecutionPeriodsDashboard({
                                             label={completion.label}
                                             className="text-[10px] py-0 h-5"
                                         />
+                                        {period.execution_evaluation_status && (
+                                            <EvaluationStatusBadge
+                                                status={period.execution_evaluation_status}
+                                                className="text-[10px] py-0 h-5"
+                                            />
+                                        )}
                                     </>
+                                )}
+
+                                {readinessSummary && processStarted && !isCompleted && (
+                                    <p className="text-xs text-muted-foreground">
+                                        {readinessSummary}
+                                    </p>
                                 )}
 
                                 {needsActuals && (
@@ -398,7 +429,11 @@ export function ExecutionPeriodsDashboard({
                                 {isCompleted && (
                                     <PerformanceColorBadge
                                         color={completion.visible ? completion.color : "#9CA3AF"}
-                                        label="Completed"
+                                        label={
+                                            completion.visible
+                                                ? `Closed at ${completion.percent}%`
+                                                : "Completed"
+                                        }
                                         variant="outline"
                                         className="gap-1 w-fit text-xs"
                                     />

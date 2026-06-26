@@ -74,6 +74,7 @@ import {
     versionHasRecordedActuals,
 } from "@/utils/performanceColorUtils";
 import { PerformanceColorBadge } from "./components/PerformanceColorBadge";
+import { EvaluationStatusBadge } from "./components/EvaluationStatusBadge";
 import {
     buildHierarchyNumberMap,
     buildSiblingReorderPayload,
@@ -946,6 +947,11 @@ export default function PlanHierarchyView({
                                     >
                                         {versionProgress.percent}% achievement
                                     </Badge>
+                                )}
+                                {processStarted && version.execution_evaluation_status && (
+                                    <EvaluationStatusBadge
+                                        status={version.execution_evaluation_status}
+                                    />
                                 )}
                                 {version.version_kind === "execution_period" && version.period_label && (
                                     <Badge variant="outline">{version.period_label}</Badge>

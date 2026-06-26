@@ -9,12 +9,7 @@ const { Op } = require("sequelize");
 const db = require("../models");
 const { PlanVersion, PlanNode, GovernmentStructure } = db;
 const { resolvePlanRuleForVersion } = require("../services/planRuleService");
-const {
-  computePeriodExecutionProgress,
-  computeRollupMap,
-} = require("../services/planExecutionRollupService");
-const { stepRequiresWeight } = require("../services/planRuleStepUtils");
-const { usesManualAchievementForRollup } = require("../services/planExecutionAchievementUtils");
+const { computePeriodExecutionProgress } = require("../services/planExecutionRollupService");
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -31,14 +26,12 @@ function indent(level) {
   return "  ".repeat(level);
 }
 
-function printNodeTree(node, childrenByParent, rollupMap, rule, level = 0) {
+function printNodeTree(node, childrenByParent, rollupMap, level = 0) {
   const children = (childrenByParent.get(node.plan_node_id) ?? [])
     .filter((c) => c.is_active !== false)
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   const metrics = rollupMap.get(node.plan_node_id) ?? {};
-  const manual = usesManualAchievementForRollup(node, childrenByParent);
-  const weighted = stepRequiresWeight(rule, node.level);
   const leafActual =
     node.period_actual != null && node.period_actual !== undefined
       ? Number(node.period_actual)
@@ -52,18 +45,16 @@ function printNodeTree(node, childrenByParent, rollupMap, rule, level = 0) {
   const parts = [
     `${indent(level)}${node.title || node.name || "(untitled)"}`,
     `[level ${node.level}]`,
-    weighted ? "weighted" : "org",
-    manual ? "manual/leaf" : "rollup",
+    metrics.is_evaluable ? "evaluable" : "not evaluable",
+    metrics.evaluation_status ?? "—",
   ];
 
   if (leafTarget > 0) {
     parts.push(`leaf ${leafActual ?? "—"}/${leafTarget} (${leafPct ?? 0}%)`);
   }
 
-  if (metrics.computed_period_target != null) {
-    parts.push(
-      `rollup ${metrics.computed_period_actual ?? 0}/${metrics.computed_period_target} => ${metrics.execution_progress_percent ?? "—"}%`
-    );
+  if (metrics.execution_progress_percent != null) {
+    parts.push(`rollup => ${metrics.execution_progress_percent}%`);
   }
 
   if (node.period_actual_override) {
@@ -73,7 +64,7 @@ function printNodeTree(node, childrenByParent, rollupMap, rule, level = 0) {
   console.log(parts.join(" | "));
 
   for (const child of children) {
-    printNodeTree(child, childrenByParent, rollupMap, rule, level + 1);
+    printNodeTree(child, childrenByParent, rollupMap, level + 1);
   }
 }
 
@@ -152,12 +143,8 @@ async function main() {
   }
   console.log(`Period: ${period.period_label} (${period.plan_version_id})`);
   console.log(`Status: ${period.execution_status} / planning ${period.status}`);
-  console.log(
-    `Dates: ${period.planning_period_start ?? "—"} → ${period.planning_period_end ?? "—"}`
-  );
 
-  const rule = await resolvePlanRuleForVersion(period);
-  console.log(`Rule steps: ${rule?.steps?.length ?? 0} levels`);
+  await resolvePlanRuleForVersion(period);
 
   const nodes = await PlanNode.findAll({
     where: { plan_version_id: period.plan_version_id, is_active: true },
@@ -184,28 +171,18 @@ async function main() {
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   console.log("\n=== Period achievement (what UI shows) ===");
-  console.log(
-    `execution_progress_percent: ${progress.execution_progress_percent}%`
-  );
-  console.log(
-    `computed actual/target: ${progress.computed_period_actual} / ${progress.computed_period_target}`
-  );
-  if (progress.computed_period_target > 0) {
-    const derived = Math.round(
-      (progress.computed_period_actual / progress.computed_period_target) * 100
-    );
-    console.log(`derived from Σactual/Σtarget: ${derived}%`);
-  }
+  console.log(`execution_progress_percent: ${progress.execution_progress_percent}%`);
+  console.log(`is_evaluable: ${progress.is_evaluable}`);
+  console.log(`evaluation_status: ${progress.evaluation_status}`);
 
   const kpiLeaves = plainNodes.filter((n) => {
     const kids = childrenByParent.get(n.plan_node_id) ?? [];
     return kids.length === 0 && Number(n.period_target) > 0;
   });
 
-  console.log("\n=== KPI / leaf targets (reporting units) ===");
-  let sumActual = 0;
-  let sumTarget = 0;
+  console.log("\n=== KPI / leaf targets ===");
   let reported = 0;
+  const leafPercents = [];
   for (const leaf of kpiLeaves) {
     const actual =
       leaf.period_actual != null && leaf.period_actual !== undefined
@@ -214,30 +191,29 @@ async function main() {
     const target = Number(leaf.period_target) || 0;
     const pct = actual != null && target > 0 ? Math.round((actual / target) * 100) : 0;
     if (actual != null) reported += 1;
-    sumActual += actual ?? 0;
-    sumTarget += target;
+    leafPercents.push(pct);
     console.log(
-      `  ${leaf.title || leaf.name}: ${actual ?? "NOT REPORTED"}/${target} => ${actual != null ? pct + "%" : "counts as 0%"}`
+      `  ${leaf.title || leaf.name}: ${actual ?? "NOT REPORTED"}/${target} => ${pct}%`
     );
   }
   console.log(`Leaves with targets: ${kpiLeaves.length}, reported: ${reported}`);
-  console.log(`Σ leaf actual/target: ${sumActual}/${sumTarget} => ${sumTarget > 0 ? Math.round((sumActual / sumTarget) * 100) : "—"}%`);
-
-  console.log("\n=== Rollup tree (bottom-up) ===");
-  for (const root of roots) {
-    printNodeTree(root, childrenByParent, rollupMap, rule, 0);
+  if (leafPercents.length > 0) {
+    const avg = Math.round(
+      leafPercents.reduce((sum, value) => sum + value, 0) / leafPercents.length
+    );
+    console.log(`Simple average of leaf % (not used for rollup): ${avg}%`);
   }
 
-  console.log("\n=== How 74% is produced ===");
-  console.log(
-    "Period % = Σ(root computed_actual) / Σ(root computed_target) across all strategic roots."
-  );
-  console.log(
-    "Each parent sums ALL sibling children with period targets; unreported leaves count as actual=0."
-  );
-  console.log(
-    "Org levels (e.g. SF) use the same sum rule, not an average of child percentages."
-  );
+  console.log("\n=== Rollup tree (recursive average) ===");
+  for (const root of roots) {
+    printNodeTree(root, childrenByParent, rollupMap, 0);
+  }
+
+  console.log("\n=== Algorithm ===");
+  console.log("Leaf: (actual/target)*100; missing actual = 0% if target exists.");
+  console.log("Parent: average of evaluable children only.");
+  console.log("Period: average of evaluable strategic roots.");
+  console.log("Non-evaluable branches (no targets) are excluded from denominators.");
 
   await db.sequelize.close();
 }

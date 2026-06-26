@@ -170,16 +170,6 @@ export function resolveCompletionForVersion(
     hasRecordedActuals ?? versionHasRecordedActuals(version);
   const evaluable = version.execution_is_evaluable === true;
 
-  if (
-    processStarted &&
-    (version.execution_status === "completed" || version.status === "completed")
-  ) {
-    return {
-      ...resolveCompletionAppearance(thresholds, 100),
-      visible: true,
-    };
-  }
-
   if (!processStarted) {
     return hiddenProgressAppearance();
   }
@@ -191,6 +181,13 @@ export function resolveCompletionForVersion(
   if (version.execution_progress_percent != null && (evaluable || recorded)) {
     return {
       ...resolveCompletionAppearance(thresholds, version.execution_progress_percent),
+      visible: true,
+    };
+  }
+
+  if (evaluable) {
+    return {
+      ...resolveCompletionAppearance(thresholds, 0),
       visible: true,
     };
   }
@@ -292,8 +289,11 @@ export function resolveWorkflowStatusAppearance(
 
   if (status === "completed") {
     if (useAchievementColors && progress?.visible) {
-      const completed = resolveCompletionAppearance(thresholds, 100);
-      return { ...completed, label: statusLabel ?? completed.label };
+      const achievement = resolveCompletionAppearance(thresholds, progress.percent);
+      return {
+        ...achievement,
+        label: statusLabel ?? "Completed",
+      };
     }
     return {
       percent: 0,

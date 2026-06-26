@@ -23,11 +23,7 @@ function hasIssueReadAll(userPermissions) {
 }
 
 function hasIssueReadSelf(userPermissions) {
-  return (
-    userHasPermission(userPermissions, "issues", "read") ||
-    userHasPermission(userPermissions, "issues", "read_own") ||
-    userHasPermission(userPermissions, "issues", "read_assigned")
-  );
+  return userHasPermission(userPermissions, "issues", "read");
 }
 
 function buildSelfIssueScope(userId) {

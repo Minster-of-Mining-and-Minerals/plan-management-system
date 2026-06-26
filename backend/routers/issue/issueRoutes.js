@@ -38,8 +38,6 @@ router.use(authenticateToken);
 const VIEW_ISSUE_PERMISSIONS = [
   { resource: "ISSUES", action: "READ_ALL" },
   { resource: "ISSUES", action: "READ" },
-  { resource: "ISSUES", action: "READ_OWN" },
-  { resource: "ISSUES", action: "READ_ASSIGNED" },
 ];
 
 router.get(

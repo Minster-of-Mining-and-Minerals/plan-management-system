@@ -34,6 +34,7 @@ import {
 } from "@/utils/planExecutionUtils";
 import { PerformanceProgressBar } from "./PerformanceProgressBar";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
+import { EvaluationStatusBadge } from "./EvaluationStatusBadge";
 import { FinalizeAnnualExecutionModal } from "../modals/FinalizeAnnualExecutionModal";
 import { InitializeExecutionPeriodsModal } from "../modals/InitializeExecutionPeriodsModal";
 import { StartProcessModal } from "../modals/StartProcessModal";
@@ -214,11 +215,11 @@ export function AnnualVersionsDashboard({
                     <CardHeader className="pb-2">
                         <CardTitle className="text-base">Plan achievement</CardTitle>
                         <CardDescription>
-                            Average across all planning years
+                            Average across evaluable planning years
                             {master.active_planning_year != null
                                 ? ` — year ${master.active_planning_year} is currently open`
                                 : ""}
-                            . Years without data count as 0%.
+                            . Years without targets are excluded.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
@@ -232,6 +233,11 @@ export function AnnualVersionsDashboard({
                                 <span className="text-sm text-muted-foreground">
                                     {masterCompletion.label}
                                 </span>
+                            )}
+                            {master.execution_evaluation_status && (
+                                <EvaluationStatusBadge
+                                    status={master.execution_evaluation_status}
+                                />
                             )}
                         </div>
                         <PerformanceProgressBar
@@ -370,6 +376,12 @@ export function AnnualVersionsDashboard({
                                             label={completion.label}
                                             className="text-[10px] py-0 h-5"
                                         />
+                                        {annual.execution_evaluation_status && (
+                                            <EvaluationStatusBadge
+                                                status={annual.execution_evaluation_status}
+                                                className="text-[10px] py-0 h-5"
+                                            />
+                                        )}
                                     </>
                                 )}
 
@@ -418,8 +430,12 @@ export function AnnualVersionsDashboard({
                                 )}
                                 {isCompleted && (
                                     <PerformanceColorBadge
-                                        color={completion.color}
-                                        label="Completed"
+                                        color={completion.visible ? completion.color : "#9CA3AF"}
+                                        label={
+                                            completion.visible
+                                                ? `Closed at ${completion.percent}%`
+                                                : "Completed"
+                                        }
                                         variant="outline"
                                         className="gap-1 w-fit text-xs"
                                     />
