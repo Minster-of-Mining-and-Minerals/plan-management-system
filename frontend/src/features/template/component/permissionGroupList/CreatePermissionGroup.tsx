@@ -18,6 +18,7 @@ import { PermissionGroupFormSkeleton } from "./Skeleton";
 import { ErrorState } from "./ErrorState";
 import GroupManagement from "./GroupManagement";
 import { governmentStructureDetailPath } from "@/utils/structureQueryUtils";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function CreatePermissionGroup({ groupId }: { groupId?: string }) {
   const { id: paramId } = useParams<{ id?: string }>();
