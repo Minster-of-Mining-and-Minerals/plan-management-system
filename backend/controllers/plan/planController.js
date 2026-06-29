@@ -33,6 +33,7 @@ const { isWeightModeSelectionLevel } = require("../../services/planRuleStepUtils
 const {
     getAssignedMasterNodeIds,
     getAssignedReviewMasterVersionIds,
+    resolveMasterVersionId,
 } = require("../../services/planReviewVisibilityService");
 const {
     resolveAccessibleMasterPlanIds,
@@ -76,6 +77,10 @@ const {
     validatePlanLifecyclePermission,
     PLAN_LIFECYCLE_PERMISSIONS,
 } = require("../../utils/planMasterEditUtils");
+const {
+    validatePlanStructureMutationAccess,
+    validateNotOversightReadOnly,
+} = require("../../utils/planMutationAccessUtils");
 const { validatePlanNodeAgainstRule } = require("../../services/planRuleService");
 const {
     assertPlanRuleApplicableToSector,
@@ -572,11 +577,21 @@ const getPlanVersionById = async (req, res) => {
             withExecution.planNodes = filterNestedPlanNodes(withExecution.planNodes, visibleNodeIds);
         }
 
+        const masterId = await resolveMasterVersionId(id);
+        const accessRoles = await resolvePlanAccessRolesForMasters(
+            req,
+            masterId ? [masterId] : []
+        );
+        const access_role = masterId
+            ? accessRoles.get(masterId) || "participant"
+            : "participant";
+
         return res.json({
             success: true,
             data: {
                 ...withExecution,
                 tree_access_mode: treeAccess.mode,
+                access_role,
             },
         });
     } catch (error) {
@@ -607,6 +622,18 @@ const updatePlanVersion = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: "Cannot update a finalized or annual plan version metadata",
+            });
+        }
+
+        const oversightAccess = await validateNotOversightReadOnly(
+            req,
+            planVersion.plan_version_id
+        );
+        if (!oversightAccess.valid) {
+            await t.rollback();
+            return res.status(403).json({
+                success: false,
+                message: oversightAccess.message,
             });
         }
 
@@ -871,7 +898,7 @@ const createPlanNode = async (req, res) => {
             return res.status(404).json({ message: "Plan version not found" });
         }
 
-        const structureAccess = validateCanEditMasterPlanStructure(planVersion, req.user);
+        const structureAccess = await validatePlanStructureMutationAccess(req, planVersion);
         if (!structureAccess.valid) {
             await t.rollback();
             return res.status(400).json({
@@ -1115,7 +1142,10 @@ const updatePlanNode = async (req, res) => {
             return res.status(404).json({ message: "Plan node not found" });
         }
 
-        const structureAccess = validateCanEditMasterPlanStructure(planNode.planVersion, req.user);
+        const structureAccess = await validatePlanStructureMutationAccess(
+            req,
+            planNode.planVersion
+        );
         if (!structureAccess.valid) {
             await t.rollback();
             return res.status(400).json({
@@ -1269,7 +1299,10 @@ const deletePlanNode = async (req, res) => {
             return res.status(404).json({ message: "Plan node not found" });
         }
 
-        const structureAccess = validateCanEditMasterPlanStructure(planNode.planVersion, req.user);
+        const structureAccess = await validatePlanStructureMutationAccess(
+            req,
+            planNode.planVersion
+        );
         if (!structureAccess.valid) {
             await t.rollback();
             return res.status(400).json({

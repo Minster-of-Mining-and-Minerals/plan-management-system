@@ -33,6 +33,7 @@ import {
     canEditFinalizedMasterPlan,
     confirmReopenFinalizedPlanForEdit,
 } from "@/utils/planMasterEditUtils";
+import { isOversightReadOnlyAccessRole } from "@/utils/planTreeAccessUtils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { getApiErrorMessage } from "@/utils/apiErrorUtils";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -75,7 +76,7 @@ export default function PlanVersionTable() {
     const draftsLabel = config.draft_entity_label_plural;
 
     const handleEditVersion = async (version: PlanVersion) => {
-        if (version.access_role === "participant") {
+        if (isOversightReadOnlyAccessRole(version.access_role)) {
             return;
         }
 
@@ -273,7 +274,9 @@ export default function PlanVersionTable() {
                 cellClassName: "whitespace-nowrap",
             },
             cell: ({ row }) => {
-                const isParticipant = row.original.access_role === "participant";
+                const isReadOnlyAccess = isOversightReadOnlyAccessRole(
+                    row.original.access_role
+                );
 
                 return (
                 <div className="flex items-center gap-1">
@@ -287,7 +290,7 @@ export default function PlanVersionTable() {
                             <Eye className="h-4 w-4" />
                         </Button>
                     </PermissionGuard>
-                    {row.original.status === "draft" && !isParticipant && (
+                    {row.original.status === "draft" && !isReadOnlyAccess && (
                         <>
                             <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
                                 <Button
@@ -313,7 +316,7 @@ export default function PlanVersionTable() {
                             </PermissionGuard>
                         </>
                     )}
-                    {canEditFinalizedMasterPlan(row.original, can) && !isParticipant && (
+                    {canEditFinalizedMasterPlan(row.original, can) && !isReadOnlyAccess && (
                         <PermissionGuard requireAll={[PLAN_PERMISSIONS.EDIT_FINALIZED]}>
                             <Button
                                 onClick={() => handleEditVersion(row.original)}
@@ -354,7 +357,7 @@ export default function PlanVersionTable() {
                         </PermissionGuard>
                     )}
                     <PermissionGuard requireAll={PLAN_DRAFT_PUBLISH_PERMISSIONS}>
-                        {!isParticipant ? (
+                        {!isReadOnlyAccess ? (
                         <Button
                             onClick={() => setDuplicateVersion(row.original)}
                             variant="ghost"
@@ -365,7 +368,7 @@ export default function PlanVersionTable() {
                         </Button>
                         ) : null}
                     </PermissionGuard>
-                    {!isParticipant && (
+                    {!isReadOnlyAccess && (
                     <PermissionGuard requireAll={[PLAN_PERMISSIONS.DELETE]}>
                         <Button
                             onClick={() => handleDelete(row.original.plan_version_id)}

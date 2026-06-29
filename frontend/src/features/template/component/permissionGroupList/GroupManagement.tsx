@@ -11,6 +11,7 @@ import {
   PermissionGroupSectionConfig,
   STANDARD_PERMISSION_GROUP_CONFIG,
 } from "./permissionGroupSectionConfig";
+import { SpecialPermissionGroupGuidance } from "./SpecialPermissionGroupGuidance";
 
 interface GroupManagementProps {
   groupId?: string;
@@ -82,6 +83,8 @@ function GroupManagement({
       <div className="flex items-center justify-between">
         <h3 className="text-xl font-bold text-golden-dark">Group Members</h3>
       </div>
+
+      {isSpecial && <SpecialPermissionGroupGuidance />}
 
       {activeTab === "users" && (
         <UsersGroupList

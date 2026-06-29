@@ -81,6 +81,8 @@ import {
     getHierarchyNumber,
 } from "@/utils/planNodeOrderUtils";
 import { PlanNodeHierarchyNumber } from "./components/PlanNodeHierarchyNumber";
+import { PlanTreeAccessBanner } from "./components/PlanTreeAccessBanner";
+import { isOversightReadOnlyAccessRole } from "@/utils/planTreeAccessUtils";
 import { cn } from "@/lib/utils";
 
 type ViewMode = "card" | "hierarchy" | "table";
@@ -218,7 +220,13 @@ export default function PlanHierarchyView({
     const isAnnualVersion = version?.version_kind === "annual";
     const isExecutionPeriod = version?.version_kind === "execution_period";
     const isEditingFinalizedMaster = isEditingFinalizedMasterPlan(version, can);
-    const canEditMasterStructure = canEditMasterPlanStructure(version, can);
+    const planAccessRole =
+        effectiveMasterVersion?.access_role ?? version?.access_role;
+    const treeAccessMode =
+        effectiveMasterVersion?.tree_access_mode ?? version?.tree_access_mode;
+    const isOversightReadOnly = isOversightReadOnlyAccessRole(planAccessRole);
+    const canEditMasterStructure =
+        canEditMasterPlanStructure(version, can) && !isOversightReadOnly;
     const isReadOnlyHierarchy = !canEditMasterStructure;
     const hideAssignments = isAnnualVersion;
     const showAnnualTargets = isAnnualVersion;
@@ -466,21 +474,32 @@ export default function PlanHierarchyView({
             <div className="mx-auto w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center mb-4">
                 <Plus className="h-6 w-6 text-gray-400" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900">No {childLabel.toLowerCase()} yet</h3>
-            <p className="text-gray-500 mb-6">
-                {isAtRoot
-                    ? `Start by adding the first ${rootLabel.toLowerCase()} to this plan draft.`
-                    : `Add a ${childLabel.toLowerCase()} under "${currentParent?.title}".`}
-            </p>
-            {canAddAtCurrentLevel && (
-                <PermissionGuard requireAny={PLAN_STRUCTURE_MUTATION_PERMISSIONS}>
-                    <Button
-                        onClick={handleAddAtLevel}
-                        variant={isEditingFinalizedMaster ? "destructive" : "outline"}
-                    >
-                        Add {childLabel}
-                    </Button>
-                </PermissionGuard>
+            {treeAccessMode === "none" || (hierarchy.length === 0 && isOversightReadOnly) ? (
+                <>
+                    <h3 className="text-lg font-semibold text-gray-900">No visible nodes</h3>
+                    <p className="text-gray-500 mb-6">
+                        Your current access does not include any nodes in this plan hierarchy.
+                    </p>
+                </>
+            ) : (
+                <>
+                    <h3 className="text-lg font-semibold text-gray-900">No {childLabel.toLowerCase()} yet</h3>
+                    <p className="text-gray-500 mb-6">
+                        {isAtRoot
+                            ? `Start by adding the first ${rootLabel.toLowerCase()} to this plan draft.`
+                            : `Add a ${childLabel.toLowerCase()} under "${currentParent?.title}".`}
+                    </p>
+                    {canAddAtCurrentLevel && (
+                        <PermissionGuard requireAny={PLAN_STRUCTURE_MUTATION_PERMISSIONS}>
+                            <Button
+                                onClick={handleAddAtLevel}
+                                variant={isEditingFinalizedMaster ? "destructive" : "outline"}
+                            >
+                                Add {childLabel}
+                            </Button>
+                        </PermissionGuard>
+                    )}
+                </>
             )}
         </div>
     );
@@ -590,6 +609,14 @@ export default function PlanHierarchyView({
 
     const hierarchyBody = (
         <>
+            {(treeAccessMode || planAccessRole) && (
+                <PlanTreeAccessBanner
+                    treeAccessMode={treeAccessMode}
+                    accessRole={planAccessRole}
+                    hierarchyEmpty={hierarchy.length === 0}
+                />
+            )}
+
             {isEditingFinalizedMaster && (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
                     You are editing a finalized strategic plan. Changes affect annual and period

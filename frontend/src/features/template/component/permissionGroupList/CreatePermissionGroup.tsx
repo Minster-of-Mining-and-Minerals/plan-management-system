@@ -25,6 +25,7 @@ import {
   PermissionGroupSectionConfig,
   STANDARD_PERMISSION_GROUP_CONFIG,
 } from "./permissionGroupSectionConfig";
+import { SpecialPermissionGroupGuidance } from "./SpecialPermissionGroupGuidance";
 
 export default function CreatePermissionGroup({
   groupId,
@@ -367,6 +368,8 @@ export default function CreatePermissionGroup({
               setDescription={setDescription}
               readOnly={isViewOnly}
             />
+
+            {config.groupKind === "special" && <SpecialPermissionGroupGuidance />}
 
             <PermissionMatrixComponent
               loadingPermissions={loadingPermissions}

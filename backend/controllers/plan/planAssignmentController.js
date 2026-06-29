@@ -38,6 +38,7 @@ const {
 const {
     validateCanEditMasterPlanStructure,
 } = require("../../utils/planMasterEditUtils");
+const { validatePlanStructureMutationAccess } = require("../../utils/planMutationAccessUtils");
 
 /**
  * =================== EXTERNAL ASSIGNMENTS ===================
@@ -60,7 +61,7 @@ const createExternalAssignment = async (req, res) => {
             return res.status(404).json({ message: "Plan node not found" });
         }
 
-        const structureAccess = validateCanEditMasterPlanStructure(planNode.planVersion, req.user);
+        const structureAccess = await validatePlanStructureMutationAccess(req, planNode.planVersion);
         if (!structureAccess.valid) {
             await t.rollback();
             return res.status(400).json({
@@ -189,7 +190,10 @@ const updateExternalAssignment = async (req, res) => {
             return res.status(404).json({ message: "Assignment not found" });
         }
 
-        const structureAccess = validateCanEditMasterPlanStructure(assignment.planNode.planVersion, req.user);
+        const structureAccess = await validatePlanStructureMutationAccess(
+            req,
+            assignment.planNode.planVersion
+        );
         if (!structureAccess.valid) {
             await t.rollback();
             return res.status(400).json({
@@ -240,7 +244,10 @@ const deleteExternalAssignment = async (req, res) => {
             return res.status(404).json({ message: "Assignment not found" });
         }
 
-        const structureAccess = validateCanEditMasterPlanStructure(assignment.planNode.planVersion, req.user);
+        const structureAccess = await validatePlanStructureMutationAccess(
+            req,
+            assignment.planNode.planVersion
+        );
         if (!structureAccess.valid) {
             await t.rollback();
             return res.status(400).json({
@@ -291,7 +298,7 @@ const createInternalAssignment = async (req, res) => {
             return res.status(404).json({ message: "Plan node not found" });
         }
 
-        const structureAccess = validateCanEditMasterPlanStructure(planNode.planVersion, req.user);
+        const structureAccess = await validatePlanStructureMutationAccess(req, planNode.planVersion);
         if (!structureAccess.valid) {
             await t.rollback();
             return res.status(400).json({
@@ -616,7 +623,10 @@ const updateInternalAssignment = async (req, res) => {
             return res.status(404).json({ message: "Assignment not found" });
         }
 
-        const structureAccess = validateCanEditMasterPlanStructure(assignment.planNode.planVersion, req.user);
+        const structureAccess = await validatePlanStructureMutationAccess(
+            req,
+            assignment.planNode.planVersion
+        );
         if (!structureAccess.valid) {
             await t.rollback();
             return res.status(400).json({
@@ -714,7 +724,10 @@ const deleteInternalAssignment = async (req, res) => {
             return res.status(404).json({ message: "Assignment not found" });
         }
 
-        const structureAccess = validateCanEditMasterPlanStructure(assignment.planNode.planVersion, req.user);
+        const structureAccess = await validatePlanStructureMutationAccess(
+            req,
+            assignment.planNode.planVersion
+        );
         if (!structureAccess.valid) {
             await t.rollback();
             return res.status(400).json({

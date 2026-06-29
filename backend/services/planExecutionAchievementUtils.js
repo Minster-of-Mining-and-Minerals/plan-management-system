@@ -32,8 +32,10 @@ function isAchievementLeaf(node, childrenByParent) {
   return getActiveChildren(node, childrenByParent).length === 0;
 }
 
+const { userHasSpecialPermission } = require("../utils/userPermissionsUtils");
+
 function userCanOverrideParentAchievement(user) {
-  return Boolean(user?.permissions?.includes(OVERRIDE_PARENT_ACHIEVEMENT_PERMISSION));
+  return userHasSpecialPermission(user, OVERRIDE_PARENT_ACHIEVEMENT_PERMISSION);
 }
 
 /**
