@@ -301,7 +301,7 @@ module.exports = {
       now,
       counters,
       userRoleId,
-      MOM_USER_TEMPLATES
+      DEPARTMENT_USER_TEMPLATES
     );
     const gie = seedDepartmentsForSector(
       "gie",
@@ -310,7 +310,7 @@ module.exports = {
       now,
       counters,
       userRoleId,
-      MOM_USER_TEMPLATES
+      DEPARTMENT_USER_TEMPLATES
     );
 
     const allDepartments = [

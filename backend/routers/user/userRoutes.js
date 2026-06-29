@@ -10,6 +10,7 @@ const {
   resetUserPassword,
   getProfile,
   updateProfile,
+  getUserDisplayNames,
 } = require("../../controllers/user/userController");
 const { authenticateToken } = require("../../middlewares/authMiddleware");
 const {
@@ -51,6 +52,7 @@ router.get("/", getUsers);
 
 router.get("/profile/me", getProfile);
 router.patch("/profile/me", validateUpdateProfile, updateProfile);
+router.post("/display-names", getUserDisplayNames);
 
 router.get("/:id", getUserById);
 

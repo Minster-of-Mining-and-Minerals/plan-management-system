@@ -731,10 +731,47 @@ const updateProfile = async (req, res) => {
   }
 };
 
+const getUserDisplayNames = async (req, res) => {
+  try {
+    const userIds = Array.isArray(req.body?.user_ids) ? req.body.user_ids : [];
+    const uniqueIds = [...new Set(userIds.filter((id) => isUuid(id)))].slice(0, 100);
+
+    if (!uniqueIds.length) {
+      return res.status(200).json({ success: true, data: {} });
+    }
+
+    const users = await User.findAll({
+      where: { user_id: { [Op.in]: uniqueIds } },
+      attributes: ["user_id", "full_name", "email"],
+    });
+
+    const data = {};
+    for (const user of users) {
+      data[user.user_id] = {
+        full_name: user.full_name,
+        email: user.email,
+      };
+    }
+
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    console.error("Error resolving user display names:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to resolve user display names.",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createUser,
   getUsers,
   getUserById,
+  getUserDisplayNames,
   updateUser,
   deleteUser,
   toggleUserActiveStatus,

@@ -146,6 +146,16 @@ async function ensureUserRole(queryInterface, now) {
 
 async function removeSectorDemoUsers(queryInterface, sectorId) {
     await queryInterface.sequelize.query(
+        `DELETE FROM plan_node_action_logs
+         WHERE user_id IN (
+           SELECT user_id FROM users
+           WHERE government_structure_id = :sectorId
+             AND user_id != :adminId
+         )`,
+        { replacements: { sectorId, adminId: ADMIN_USER_ID } }
+    );
+
+    await queryInterface.sequelize.query(
         `DELETE FROM user_roles
          WHERE user_id IN (
            SELECT user_id FROM users
@@ -411,10 +421,11 @@ async function clearSectorDepartments(queryInterface, sectorId) {
 async function ensureGovernmentSector(queryInterface, sector, now) {
     const existingSector = await queryInterface.sequelize.query(
         `SELECT government_structure_id FROM government_structures
-         WHERE government_structure_id = :id OR name = :name
+         WHERE government_structure_id = :id
+            OR (name = :name AND parent_id IS NOT DISTINCT FROM :parentId)
          LIMIT 1`,
         {
-            replacements: { id: sector.id, name: sector.name },
+            replacements: { id: sector.id, name: sector.name, parentId: sector.parentId },
             type: queryInterface.sequelize.QueryTypes.SELECT,
         }
     );
