@@ -8,7 +8,6 @@ import { CreateIssueModal } from "./modals/CreateIssueModal";
 import { ISSUE_PERMISSIONS } from "@/utils/issuePermissionUtils";
 import { useIssuesTable } from "./hooks/useIssuesTable";
 import { useIssueListScope } from "./hooks/useIssueListScope";
-import { issueListScopeLabel } from "./utils/issueListScopeUtils";
 import type { IssueStatus } from "@/redux/types/issue";
 
 export default function IssuesDashboard() {
