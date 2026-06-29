@@ -38,6 +38,7 @@ const {
     resolveAccessibleMasterPlanIds,
     loadGovernmentStructureIndex,
     getVisibleNodeIdsForVersion,
+    resolvePlanTreeAccess,
     filterFlatPlanNodesByVisibility,
     filterNestedPlanNodes,
     filterHierarchyNodes,
@@ -364,7 +365,7 @@ const getPlanVersions = async (req, res) => {
             success: true,
             data: withExecutionProgress.map((version) => ({
                 ...version,
-                access_role: accessRoles.get(version.plan_version_id) || "owner",
+                access_role: accessRoles.get(version.plan_version_id) || "participant",
             })),
         });
     } catch (error) {
@@ -564,7 +565,8 @@ const getPlanVersionById = async (req, res) => {
 
         const enriched = await enrichLiveMasterReviewFields(planVersion);
         const withExecution = await attachExecutionSnapshotContext(enriched);
-        const visibleNodeIds = await getVisibleNodeIdsForVersion(req, id);
+        const treeAccess = await resolvePlanTreeAccess(req, id);
+        const visibleNodeIds = treeAccess.visibleNodeIds;
 
         if (withExecution?.planNodes) {
             withExecution.planNodes = filterNestedPlanNodes(withExecution.planNodes, visibleNodeIds);
@@ -572,7 +574,10 @@ const getPlanVersionById = async (req, res) => {
 
         return res.json({
             success: true,
-            data: withExecution,
+            data: {
+                ...withExecution,
+                tree_access_mode: treeAccess.mode,
+            },
         });
     } catch (error) {
         return res.status(500).json({ error: error.message });

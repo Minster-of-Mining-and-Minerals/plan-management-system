@@ -10,7 +10,7 @@ export type ExecutionEvaluationStatus =
     | "in_progress"
     | "not_started"
     | "no_evaluation";
-export type PlanAccessRole = "owner" | "participant";
+export type PlanAccessRole = "owner" | "participant" | "oversight";
 export type PlanReviewStatus = "under_review" | "corrections_unlocked" | "review_completed";
 export type PeriodSubdivisionMode = "quarterly" | "semi_annual" | "custom";
 
@@ -107,6 +107,7 @@ export interface PlanVersion {
     based_on_version_id: string | null;
     plan_rule_id?: string | null;
     access_role?: PlanAccessRole;
+    tree_access_mode?: "full" | "participant" | "none";
     created_at: string;
     updated_at: string;
     governmentStructure?: GovernmentStructure;

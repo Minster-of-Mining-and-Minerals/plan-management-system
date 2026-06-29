@@ -16,6 +16,10 @@ const REVIEW_VISIBLE_STATUSES = [
   "corrections_unlocked",
 ];
 
+function isSuperAdminUser(user) {
+  return Boolean(user?.roles?.includes("Super Admin"));
+}
+
 function hasFullPlanRead(user) {
   return Boolean(user?.permissions?.includes("plans:read"));
 }
@@ -285,7 +289,7 @@ async function mapMasterNodeIdsToVersion(masterVisibleIds, targetVersionId, tran
 
 async function userCanViewPlanInReview(masterVersionId, user, transaction = null) {
   if (!user) return false;
-  if (hasFullPlanRead(user)) return true;
+  if (isSuperAdminUser(user)) return true;
   if (!hasAssignedReviewRead(user)) return false;
 
   const version = await PlanVersion.findByPk(masterVersionId, {
@@ -323,7 +327,7 @@ async function userCanViewPlanInReview(masterVersionId, user, transaction = null
 
 async function userCanAccessPlanVersion(planVersionId, user, transaction = null) {
   if (!user) return false;
-  if (hasFullPlanRead(user)) return true;
+  if (isSuperAdminUser(user)) return true;
   if (!hasAssignedReviewRead(user)) return false;
 
   const masterId = await resolveMasterVersionId(planVersionId);
@@ -343,8 +347,7 @@ async function userCanAccessPlanNode(planNodeId, user, transaction = null) {
 
 async function getAssignedReviewMasterVersionIds(user, transaction = null) {
   if (!user) return [];
-  if (hasFullPlanRead(user)) return null;
-
+  if (isSuperAdminUser(user)) return null;
   if (!hasAssignedReviewRead(user)) return [];
 
   const masters = await PlanVersion.findAll({
@@ -387,4 +390,5 @@ module.exports = {
   hasFullPlanRead,
   hasAssignedReviewRead,
   isMasterVisibleForAssignedReviewer,
+  isSuperAdminUser,
 };

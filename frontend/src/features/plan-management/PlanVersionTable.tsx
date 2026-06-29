@@ -159,11 +159,18 @@ export default function PlanVersionTable() {
                 cellClassName: "whitespace-nowrap",
             },
             cell: ({ row }) => {
-                const role = row.original.access_role ?? "owner";
+                const role = row.original.access_role ?? "participant";
                 if (role === "participant") {
                     return (
                         <Badge variant="secondary" className="text-xs">
                             Participant
+                        </Badge>
+                    );
+                }
+                if (role === "oversight") {
+                    return (
+                        <Badge variant="default" className="text-xs">
+                            Sector oversight
                         </Badge>
                     );
                 }

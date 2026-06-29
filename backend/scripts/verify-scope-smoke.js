@@ -83,10 +83,13 @@ async function main() {
     if (accessibleIds.length > 0) {
       const roles = await resolvePlanAccessRolesForMasters(sectorReq, accessibleIds);
       const ownerCount = [...roles.values()].filter((role) => role === "owner").length;
+      const oversightCount = [...roles.values()].filter((role) => role === "oversight").length;
       const participantCount = [...roles.values()].filter(
         (role) => role === "participant"
       ).length;
-      ok(`Plan access roles: ${ownerCount} owner, ${participantCount} participant`);
+      ok(
+        `Plan access roles: ${ownerCount} owner, ${oversightCount} oversight, ${participantCount} participant`
+      );
     }
   } else {
     info("No sector-linked user found for access-role check");
