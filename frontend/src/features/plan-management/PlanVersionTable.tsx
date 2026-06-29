@@ -170,7 +170,14 @@ export default function PlanVersionTable() {
                 if (role === "oversight") {
                     return (
                         <Badge variant="default" className="text-xs">
-                            Sector oversight
+                            Sector scope
+                        </Badge>
+                    );
+                }
+                if (role === "global") {
+                    return (
+                        <Badge variant="default" className="text-xs">
+                            Full plan
                         </Badge>
                     );
                 }

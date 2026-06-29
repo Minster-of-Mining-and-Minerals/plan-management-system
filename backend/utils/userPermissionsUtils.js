@@ -2,6 +2,7 @@
 
 const {
   VIEW_SECTOR_PLAN_HIERARCHY_KEY,
+  VIEW_FULL_PLAN_HIERARCHY_KEY,
   SPECIAL_PERMISSION_KEYS,
 } = require("./specialPermissionGroupUtils");
 
@@ -87,6 +88,10 @@ function userCanViewSectorPlanHierarchy(userOrPermissions) {
   return userHasSpecialPermission(userOrPermissions, VIEW_SECTOR_PLAN_HIERARCHY_KEY);
 }
 
+function userCanViewFullPlanHierarchy(userOrPermissions) {
+  return userHasSpecialPermission(userOrPermissions, VIEW_FULL_PLAN_HIERARCHY_KEY);
+}
+
 module.exports = {
   toPermissionKeyLower,
   toPermissionKeyUpper,
@@ -97,5 +102,7 @@ module.exports = {
   userHasPermission,
   userHasSpecialPermission,
   userCanViewSectorPlanHierarchy,
+  userCanViewFullPlanHierarchy,
   VIEW_SECTOR_PLAN_HIERARCHY_KEY,
+  VIEW_FULL_PLAN_HIERARCHY_KEY,
 };

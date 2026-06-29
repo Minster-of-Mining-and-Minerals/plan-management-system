@@ -83,12 +83,13 @@ async function main() {
     if (accessibleIds.length > 0) {
       const roles = await resolvePlanAccessRolesForMasters(sectorReq, accessibleIds);
       const ownerCount = [...roles.values()].filter((role) => role === "owner").length;
+      const globalCount = [...roles.values()].filter((role) => role === "global").length;
       const oversightCount = [...roles.values()].filter((role) => role === "oversight").length;
       const participantCount = [...roles.values()].filter(
         (role) => role === "participant"
       ).length;
       ok(
-        `Plan access roles: ${ownerCount} owner, ${oversightCount} oversight, ${participantCount} participant`
+        `Plan access roles: ${ownerCount} owner, ${globalCount} global, ${oversightCount} sector-scope, ${participantCount} participant`
       );
     }
   } else {

@@ -11,33 +11,25 @@ const {
 const {
   isSuperAdminActor,
 } = require("../utils/structureScopeUtils");
-const { userCanViewSectorPlanHierarchy } = require("../utils/userPermissionsUtils");
+const {
+  userCanViewSectorPlanHierarchy,
+  userCanViewFullPlanHierarchy,
+} = require("../utils/userPermissionsUtils");
 const {
   resolveMasterVersionId,
-  getAssignedMasterNodeIds,
   filterHierarchyNodes,
   mapMasterNodeIdsToVersion,
   hasFullPlanRead,
   userCanAccessPlanVersion,
 } = require("./planReviewVisibilityService");
+const {
+  getDirectAssignmentMasterNodeIds,
+  getSectorScopedMasterNodeIds,
+  resolveTreeAccessMode,
+} = require("./planTreeVisibilityUtils");
 
 function isSuperAdminUser(user) {
   return Boolean(user?.roles?.includes("Super Admin"));
-}
-
-/**
- * Pure decision helper for tree access (unit-tested).
- */
-function resolveTreeAccessMode({
-  isSuperAdmin = false,
-  hasSectorOversight = false,
-  hasSectorExternalAssignment = false,
-  assignedNodeCount = 0,
-} = {}) {
-  if (isSuperAdmin) return "full";
-  if (hasSectorOversight && hasSectorExternalAssignment) return "full";
-  if (assignedNodeCount > 0) return "participant";
-  return "none";
 }
 
 async function loadGovernmentStructureIndex() {
@@ -90,10 +82,6 @@ async function getMasterPlanVersion(planVersionId, transaction = null) {
   });
 }
 
-/**
- * @deprecated Owner-sector visibility no longer grants plan access in Phase B.
- * Kept for callers that still need structure ownership checks outside tree visibility.
- */
 async function userHasOwnerPlanAccess(req, planVersionId, structureIndex = null) {
   if (isSuperAdminActor(req) || isSuperAdminUser(req?.user)) return true;
 
@@ -109,9 +97,6 @@ async function userHasOwnerPlanAccess(req, planVersionId, structureIndex = null)
   return visibleSet.has(master.government_structure_id);
 }
 
-/**
- * Master plan IDs where the user's sector has an active external assignment on any node.
- */
 async function getParticipatingMasterPlanIds(user, transaction = null) {
   if (!user?.government_structure_id) return [];
 
@@ -155,9 +140,6 @@ async function userSectorHasExternalAssignmentOnMaster(
   return participatingMasterIds.includes(masterVersionId);
 }
 
-/**
- * Master plans reachable through external sector assignment or direct internal/user assignment.
- */
 async function getAssignmentLinkedMasterPlanIds(user, transaction = null) {
   const masterIds = new Set(
     await getParticipatingMasterPlanIds(user, transaction)
@@ -200,9 +182,11 @@ async function getAssignmentLinkedMasterPlanIds(user, transaction = null) {
   return [...masterIds];
 }
 
-/**
- * null = Super Admin (all master plans). Otherwise array of accessible master plan_version_ids.
- */
+async function userHasAssignmentLinkedPlanAccess(user, masterVersionId, transaction = null) {
+  const linkedMasterIds = await getAssignmentLinkedMasterPlanIds(user, transaction);
+  return linkedMasterIds.includes(masterVersionId);
+}
+
 async function resolveAccessibleMasterPlanIds(req, transaction = null) {
   if (isSuperAdminActor(req)) return null;
   if (!req.user) return [];
@@ -217,16 +201,7 @@ async function userCanAccessDraftPlan(req, planVersionId) {
   const master = await getMasterPlanVersion(planVersionId);
   if (!master) return false;
 
-  const linkedMasterIds = await getAssignmentLinkedMasterPlanIds(req.user);
-  if (linkedMasterIds.includes(master.plan_version_id)) {
-    return true;
-  }
-
-  if (userCanViewSectorPlanHierarchy(req.user)) {
-    return userSectorHasExternalAssignmentOnMaster(req.user, master.plan_version_id);
-  }
-
-  return false;
+  return userHasAssignmentLinkedPlanAccess(req.user, master.plan_version_id);
 }
 
 async function userCanReadPlanVersion(req, planVersionId) {
@@ -236,9 +211,10 @@ async function userCanReadPlanVersion(req, planVersionId) {
 }
 
 /**
- * full — Super Admin or sector oversight (special permission + sector external assignment)
- * participant — assigned branch only
- * none — no tree access
+ * full   — complete plan tree (PLAN:VIEW_FULL_PLAN_HIERARCHY or Super Admin)
+ * sector — sector-assigned node subtree (PLAN:VIEW_SECTOR_PLAN_HIERARCHY + sector external assignment)
+ * direct — exact user/department assigned nodes (+ ancestors only)
+ * none   — no tree
  */
 async function resolvePlanTreeAccess(req, planVersionId, transaction = null) {
   if (isSuperAdminActor(req) || isSuperAdminUser(req?.user)) {
@@ -250,22 +226,35 @@ async function resolvePlanTreeAccess(req, planVersionId, transaction = null) {
     return { mode: "none", visibleNodeIds: new Set() };
   }
 
-  const hasSectorOversight = userCanViewSectorPlanHierarchy(req.user);
-  const hasSectorExternalAssignment = hasSectorOversight
+  const canAccessPlan = await userHasAssignmentLinkedPlanAccess(
+    req.user,
+    masterId,
+    transaction
+  );
+  if (!canAccessPlan) {
+    return { mode: "none", visibleNodeIds: new Set() };
+  }
+
+  const hasFullPlanHierarchy = userCanViewFullPlanHierarchy(req.user);
+  const hasSectorPlanHierarchy = userCanViewSectorPlanHierarchy(req.user);
+  const hasSectorExternalAssignment = hasSectorPlanHierarchy
     ? await userSectorHasExternalAssignmentOnMaster(req.user, masterId, transaction)
     : false;
 
-  const assignedMasterNodeIds = await getAssignedMasterNodeIds(
-    masterId,
-    req.user.user_id,
-    transaction
-  );
+  const [sectorScopedMasterNodeIds, directAssignmentMasterNodeIds] = await Promise.all([
+    hasSectorPlanHierarchy && hasSectorExternalAssignment
+      ? getSectorScopedMasterNodeIds(masterId, req.user, transaction)
+      : Promise.resolve(new Set()),
+    getDirectAssignmentMasterNodeIds(masterId, req.user, transaction),
+  ]);
 
   const mode = resolveTreeAccessMode({
     isSuperAdmin: false,
-    hasSectorOversight,
+    hasFullPlanHierarchy,
+    hasSectorPlanHierarchy,
     hasSectorExternalAssignment,
-    assignedNodeCount: assignedMasterNodeIds.size,
+    sectorScopedNodeCount: sectorScopedMasterNodeIds.size,
+    directAssignmentNodeCount: directAssignmentMasterNodeIds.size,
   });
 
   if (mode === "full") {
@@ -276,13 +265,16 @@ async function resolvePlanTreeAccess(req, planVersionId, transaction = null) {
     return { mode: "none", visibleNodeIds: new Set() };
   }
 
+  const masterVisibleIds =
+    mode === "sector" ? sectorScopedMasterNodeIds : directAssignmentMasterNodeIds;
+
   const visibleForVersion = await mapMasterNodeIdsToVersion(
-    assignedMasterNodeIds,
+    masterVisibleIds,
     planVersionId,
     transaction
   );
 
-  return { mode: "participant", visibleNodeIds: visibleForVersion };
+  return { mode, visibleNodeIds: visibleForVersion };
 }
 
 async function getVisibleNodeIdsForVersion(req, planVersionId, transaction = null) {
@@ -307,12 +299,6 @@ function filterNestedPlanNodes(nodes, visibleNodeIds) {
     }));
 }
 
-/**
- * Batch-resolve access_role for master plan list rows.
- * owner — Super Admin only
- * oversight — sector external assignment + PLAN:VIEW_SECTOR_PLAN_HIERARCHY
- * participant — assignment-based access only
- */
 async function resolvePlanAccessRolesForMasters(req, masterPlanVersionIds) {
   const roles = new Map();
   if (!masterPlanVersionIds?.length) {
@@ -329,8 +315,9 @@ async function resolvePlanAccessRolesForMasters(req, masterPlanVersionIds) {
   const linkedMasterIds = new Set(
     await getAssignmentLinkedMasterPlanIds(req.user)
   );
-  const hasSectorOversight = userCanViewSectorPlanHierarchy(req.user);
-  const oversightMasterIds = hasSectorOversight
+  const hasFullPlanHierarchy = userCanViewFullPlanHierarchy(req.user);
+  const hasSectorPlanHierarchy = userCanViewSectorPlanHierarchy(req.user);
+  const sectorMasterIds = hasSectorPlanHierarchy
     ? new Set(await getParticipatingMasterPlanIds(req.user))
     : new Set();
 
@@ -340,7 +327,9 @@ async function resolvePlanAccessRolesForMasters(req, masterPlanVersionIds) {
       continue;
     }
 
-    if (oversightMasterIds.has(planVersionId)) {
+    if (hasFullPlanHierarchy) {
+      roles.set(planVersionId, "global");
+    } else if (sectorMasterIds.has(planVersionId)) {
       roles.set(planVersionId, "oversight");
     } else {
       roles.set(planVersionId, "participant");
@@ -352,13 +341,13 @@ async function resolvePlanAccessRolesForMasters(req, masterPlanVersionIds) {
 
 module.exports = {
   isSuperAdminUser,
-  resolveTreeAccessMode,
   loadGovernmentStructureIndex,
   getMasterPlanVersion,
   userHasOwnerPlanAccess,
   getParticipatingMasterPlanIds,
   getAssignmentLinkedMasterPlanIds,
   userSectorHasExternalAssignmentOnMaster,
+  userHasAssignmentLinkedPlanAccess,
   resolveAccessibleMasterPlanIds,
   userCanAccessDraftPlan,
   userCanReadPlanVersion,

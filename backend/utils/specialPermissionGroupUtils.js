@@ -18,11 +18,13 @@ const PERMISSION_TIER = {
 };
 
 const VIEW_SECTOR_PLAN_HIERARCHY_KEY = "plan:view_sector_plan_hierarchy";
+const VIEW_FULL_PLAN_HIERARCHY_KEY = "plan:view_full_plan_hierarchy";
 
 const SPECIAL_PERMISSION_KEYS = new Set([
   "plans:edit_finalized",
   "plan:override_parent_achievement",
   VIEW_SECTOR_PLAN_HIERARCHY_KEY,
+  VIEW_FULL_PLAN_HIERARCHY_KEY,
 ]);
 
 function normalizeGroupKind(groupKind) {
@@ -187,6 +189,7 @@ module.exports = {
   GROUP_KIND,
   PERMISSION_TIER,
   VIEW_SECTOR_PLAN_HIERARCHY_KEY,
+  VIEW_FULL_PLAN_HIERARCHY_KEY,
   SPECIAL_PERMISSION_KEYS,
   normalizeGroupKind,
   normalizePermissionTier,

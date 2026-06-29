@@ -61,6 +61,7 @@ const PERMISSIONS = [
   { resource: "plan", action: "complete_period" },
   { resource: "plan", action: "override_parent_achievement" },
   { resource: "plan", action: "view_sector_plan_hierarchy" },
+  { resource: "plan", action: "view_full_plan_hierarchy" },
   { resource: "plan", action: "finalize" },
   { resource: "plan", action: "draft_publish" },
   { resource: "plan_assignments", action: "create" },
