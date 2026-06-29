@@ -369,7 +369,9 @@ export default function CreatePermissionGroup({
               readOnly={isViewOnly}
             />
 
-            {config.groupKind === "special" && <SpecialPermissionGroupGuidance />}
+            {config.groupKind === "special" && (
+              <SpecialPermissionGroupGuidance defaultOpen />
+            )}
 
             <PermissionMatrixComponent
               loadingPermissions={loadingPermissions}
