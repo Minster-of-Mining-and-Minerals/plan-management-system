@@ -16,11 +16,14 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   // Users — create/edit (static before dynamic)
   { pattern: "/users/roles/new", allPermissions: ["ROLES:CREATE"] },
   { pattern: "/users/permission-groups/new", allPermissions: ["PERMISSION_GROUPS:CREATE"] },
+  { pattern: "/users/special-permission-groups/new", allPermissions: ["SPECIAL_PERMISSION_GROUPS:CREATE"] },
   { pattern: "/users/list/[userId]", allPermissions: ["USERS:READ"] },
   { pattern: "/users/roles/[id]", allPermissions: ["ROLES:READ"] },
+  { pattern: "/users/special-permission-groups/[id]", allPermissions: ["SPECIAL_PERMISSION_GROUPS:READ"] },
   { pattern: "/users/permission-groups/[id]", allPermissions: ["PERMISSION_GROUPS:READ"] },
   { pattern: "/users/list", allPermissions: ["USERS:READ"] },
   { pattern: "/users/roles", allPermissions: ["ROLES:READ"] },
+  { pattern: "/users/special-permission-groups", allPermissions: ["SPECIAL_PERMISSION_GROUPS:READ"] },
   { pattern: "/users/permission-groups", allPermissions: ["PERMISSION_GROUPS:READ"] },
   { pattern: "/users/permissions", allPermissions: ["PERMISSIONS:READ"] },
 

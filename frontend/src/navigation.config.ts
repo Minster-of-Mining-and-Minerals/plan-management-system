@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   User2,
   Shield,
+  KeyRound,
   Key,
   Building2,
   ListTree,
@@ -116,7 +117,7 @@ export const NAVIGATION: NavItem[] = [
     title: "Users",
     url: "/users/list",
     icon: User2,
-    anyPermissions: ["USERS:READ", "ROLES:READ", "PERMISSIONS:READ", "PERMISSION_GROUPS:READ"],
+    anyPermissions: ["USERS:READ", "ROLES:READ", "PERMISSIONS:READ", "PERMISSION_GROUPS:READ", "SPECIAL_PERMISSION_GROUPS:READ"],
     children: [
       {
         title: "Users List",
@@ -135,6 +136,12 @@ export const NAVIGATION: NavItem[] = [
         url: "/users/permission-groups",
         icon: Shield,
         allPermissions: ["PERMISSION_GROUPS:READ"],
+      },
+      {
+        title: "Special Permission Groups",
+        url: "/users/special-permission-groups",
+        icon: KeyRound,
+        allPermissions: ["SPECIAL_PERMISSION_GROUPS:READ"],
       },
       {
         title: "Permission Management",

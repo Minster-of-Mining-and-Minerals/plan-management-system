@@ -16,6 +16,8 @@ const createPermissionGroupSchema = Joi.object({
 
     is_active: Joi.boolean().optional(),
 
+    group_kind: Joi.string().valid("standard", "special").optional(),
+
     permission_ids: Joi.array()
         .items(
             Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).messages({
@@ -49,6 +51,7 @@ const updatePermissionGroupSchema = Joi.object({
     name: Joi.string().trim().min(2).max(150).optional(),
     description: Joi.string().allow("", null).optional(),
     is_active: Joi.boolean().optional(),
+    group_kind: Joi.string().valid("standard", "special").optional(),
     permission_ids: Joi.array()
         .items(
             Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).messages({
@@ -131,6 +134,27 @@ const removeStructureSchema = Joi.object({
         .required(),
 });
 
+const addDepartmentsSchema = Joi.object({
+    permission_group_id: Joi.string()
+        .guid({ version: ["uuidv4", "uuidv5"] })
+        .required(),
+
+    internal_structure_ids: Joi.array()
+        .items(Joi.string().guid({ version: ["uuidv4", "uuidv5"] }))
+        .min(1)
+        .required(),
+});
+
+const removeDepartmentSchema = Joi.object({
+    permission_group_id: Joi.string()
+        .guid({ version: ["uuidv4", "uuidv5"] })
+        .required(),
+
+    internal_structure_id: Joi.string()
+        .guid({ version: ["uuidv4", "uuidv5"] })
+        .required(),
+});
+
 /**
  * =================== WRAPPERS ===================
  */
@@ -160,4 +184,7 @@ module.exports = {
 
     validateAddStructures: validate(addStructuresSchema),
     validateRemoveStructure: validate(removeStructureSchema),
+
+    validateAddDepartments: validate(addDepartmentsSchema),
+    validateRemoveDepartment: validate(removeDepartmentSchema),
 };

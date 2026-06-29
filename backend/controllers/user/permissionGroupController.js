@@ -5,9 +5,11 @@ const {
     Permission,
     User,
     GovernmentStructure,
+    InternalStructure,
     PermissionGroupPermission,
     UserPermissionGroup,
     GovernmentStructurePermissionGroup,
+    InternalStructurePermissionGroup,
 } = require("../../models");
 
 const { v4: uuidv4 } = require("uuid");
@@ -23,6 +25,17 @@ const {
     assertPermissionIdsFitLinkedStructureHierarchies,
     getPermissionIdsInPermissionGroup,
 } = require("../../utils/structureEffectivePermissionsUtils");
+const {
+    GROUP_KIND,
+    normalizeGroupKind,
+    assertPermissionIdsMatchGroupKind,
+    assertGroupIsSpecial,
+    assertInternalStructuresFitPermissionGroup,
+} = require("../../utils/specialPermissionGroupUtils");
+const {
+    assertCanManagePermissionGroup,
+    resolveRequestedGroupKind,
+} = require("../../utils/permissionGroupAccessUtils");
 
 const STRUCTURE_INCLUDE = {
     model: GovernmentStructure,
@@ -36,12 +49,40 @@ const STRUCTURE_INCLUDE = {
     ],
 };
 
+const INTERNAL_STRUCTURE_INCLUDE = {
+    model: InternalStructure,
+    as: "internalStructures",
+    attributes: [
+        "internal_structure_id",
+        "government_structure_id",
+        "parent_id",
+        "name",
+        "level",
+        "is_active",
+    ],
+};
+
 async function getPermissionGroupIdsForStructure(structureId) {
     const links = await GovernmentStructurePermissionGroup.findAll({
         where: { government_structure_id: structureId },
         attributes: ["permission_group_id"],
     });
     return links.map((link) => link.permission_group_id);
+}
+
+async function getPermissionGroupKind(permissionGroupId, options = {}) {
+    const group = await PermissionGroup.findByPk(permissionGroupId, {
+        attributes: ["group_kind"],
+        transaction: options.transaction,
+    });
+
+    if (!group) {
+        const error = new Error("Permission group not found.");
+        error.status = 404;
+        throw error;
+    }
+
+    return normalizeGroupKind(group.group_kind);
 }
 
 async function assertPermissionGroupAccessible(permissionGroupId, req, structureId) {
@@ -84,13 +125,23 @@ async function assertPermissionGroupAccessible(permissionGroupId, req, structure
 const createPermissionGroup = async (req, res) => {
     const t = await PermissionGroup.sequelize.transaction();
     try {
-        const { name, description, permission_ids } = req.body;
+        const { name, description, permission_ids, group_kind } = req.body;
+        const normalizedGroupKind = normalizeGroupKind(group_kind);
+
+        assertCanManagePermissionGroup(req.user, normalizedGroupKind, "create");
+
+        if (permission_ids?.length) {
+            await assertPermissionIdsMatchGroupKind(permission_ids, normalizedGroupKind, {
+                transaction: t,
+            });
+        }
 
         const group = await PermissionGroup.create({
             permission_group_id: uuidv4(),
             name,
             description,
             is_active: true,
+            group_kind: normalizedGroupKind,
         }, { transaction: t });
 
         if (permission_ids && permission_ids.length > 0) {
@@ -110,6 +161,9 @@ const createPermissionGroup = async (req, res) => {
         });
     } catch (error) {
         if (!t.finished) await t.rollback();
+        if (error.status) {
+            return sendScopeError(res, error);
+        }
         return res.status(500).json({ error: error.message });
     }
 };
@@ -119,7 +173,10 @@ const createPermissionGroup = async (req, res) => {
  */
 const getPermissionGroups = async (req, res) => {
     try {
-        const { government_structure_id: queryStructureId, is_active } = req.query;
+        const { government_structure_id: queryStructureId, is_active, group_kind } = req.query;
+        const normalizedGroupKind = resolveRequestedGroupKind(group_kind, undefined, GROUP_KIND.STANDARD);
+
+        assertCanManagePermissionGroup(req.user, normalizedGroupKind, "read");
 
         let structureId;
         try {
@@ -128,7 +185,9 @@ const getPermissionGroups = async (req, res) => {
             return sendScopeError(res, error);
         }
 
-        const where = {};
+        const where = {
+            group_kind: normalizedGroupKind,
+        };
 
         if (is_active !== undefined) {
             where.is_active = is_active === "true";
@@ -153,12 +212,16 @@ const getPermissionGroups = async (req, res) => {
                 { model: Permission, as: "permissions" },
                 { model: User, as: "users" },
                 STRUCTURE_INCLUDE,
+                INTERNAL_STRUCTURE_INCLUDE,
             ],
             order: [["created_at", "DESC"]],
         });
 
         return res.json({ data: groups });
     } catch (error) {
+        if (error.status) {
+            return sendScopeError(res, error);
+        }
         return res.status(500).json({ error: error.message });
     }
 };
@@ -171,11 +234,15 @@ const getPermissionGroupById = async (req, res) => {
         const { id } = req.params;
         const { government_structure_id: queryStructureId } = req.query;
 
+        const groupKind = await getPermissionGroupKind(id);
+        assertCanManagePermissionGroup(req.user, groupKind, "read");
+
         const group = await PermissionGroup.findByPk(id, {
             include: [
                 { model: Permission, as: "permissions" },
                 { model: User, as: "users" },
                 STRUCTURE_INCLUDE,
+                INTERNAL_STRUCTURE_INCLUDE,
             ],
         });
 
@@ -191,6 +258,9 @@ const getPermissionGroupById = async (req, res) => {
 
         return res.json({ data: group });
     } catch (error) {
+        if (error.status) {
+            return sendScopeError(res, error);
+        }
         return res.status(500).json({ error: error.message });
     }
 };
@@ -202,7 +272,7 @@ const updatePermissionGroup = async (req, res) => {
     const t = await PermissionGroup.sequelize.transaction();
     try {
         const { id } = req.params;
-        const { name, description, permission_ids, is_active, government_structure_id: bodyStructureId } =
+        const { name, description, permission_ids, is_active, government_structure_id: bodyStructureId, group_kind } =
             req.body;
 
         const group = await PermissionGroup.findByPk(id, { transaction: t });
@@ -212,6 +282,8 @@ const updatePermissionGroup = async (req, res) => {
             return res.status(404).json({ message: "Not found" });
         }
 
+        assertCanManagePermissionGroup(req.user, group.group_kind, "update");
+
         try {
             await assertPermissionGroupAccessible(id, req, bodyStructureId);
         } catch (error) {
@@ -219,10 +291,25 @@ const updatePermissionGroup = async (req, res) => {
             return sendScopeError(res, error);
         }
 
+        const nextGroupKind =
+            group_kind !== undefined ? normalizeGroupKind(group_kind) : group.group_kind;
+
+        if (Array.isArray(permission_ids)) {
+            await assertPermissionIdsMatchGroupKind(permission_ids, nextGroupKind, {
+                transaction: t,
+            });
+        } else if (group_kind !== undefined && nextGroupKind !== group.group_kind) {
+            const existingIds = await getPermissionIdsInPermissionGroup(id, { transaction: t });
+            await assertPermissionIdsMatchGroupKind(existingIds, nextGroupKind, {
+                transaction: t,
+            });
+        }
+
         await group.update({
             name: name || group.name,
             description: description || group.description,
             is_active: is_active !== undefined ? is_active : group.is_active,
+            group_kind: nextGroupKind,
         }, { transaction: t });
 
         if (Array.isArray(permission_ids)) {
@@ -273,6 +360,8 @@ const deletePermissionGroup = async (req, res) => {
             return res.status(404).json({ message: "Not found" });
         }
 
+        assertCanManagePermissionGroup(req.user, group.group_kind, "delete");
+
         try {
             await assertPermissionGroupAccessible(id, req, queryStructureId);
         } catch (error) {
@@ -283,6 +372,9 @@ const deletePermissionGroup = async (req, res) => {
 
         return res.json({ message: "Deleted" });
     } catch (error) {
+        if (error.status) {
+            return sendScopeError(res, error);
+        }
         return res.status(500).json({ error: error.message });
     }
 };
@@ -294,8 +386,17 @@ const addPermissionsToGroup = async (req, res) => {
     try {
         const { permission_group_id, permission_ids } = req.body;
 
+        const group = await PermissionGroup.findByPk(permission_group_id);
+        if (!group) {
+            return res.status(404).json({ message: "Permission group not found" });
+        }
+
+        assertCanManagePermissionGroup(req.user, group.group_kind, "addPermissions");
+
         const existingIds = await getPermissionIdsInPermissionGroup(permission_group_id);
         const mergedIds = [...new Set([...existingIds, ...permission_ids])];
+
+        await assertPermissionIdsMatchGroupKind(mergedIds, group.group_kind);
         await assertPermissionIdsFitLinkedStructureHierarchies(
             permission_group_id,
             mergedIds
@@ -325,6 +426,9 @@ const removePermissionFromGroup = async (req, res) => {
     try {
         const { permission_group_id, permission_id } = req.body;
 
+        const groupKind = await getPermissionGroupKind(permission_group_id);
+        assertCanManagePermissionGroup(req.user, groupKind, "removePermission");
+
         await PermissionGroupPermission.destroy({
             where: { permission_group_id, permission_id },
         });
@@ -342,6 +446,9 @@ const addUsersToGroup = async (req, res) => {
             assertUserInStructure,
             sendScopeError,
         } = require("../../utils/structureScopeUtils");
+
+        const groupKind = await getPermissionGroupKind(permission_group_id);
+        assertCanManagePermissionGroup(req.user, groupKind, "addUsers");
 
         const structureLinks = await GovernmentStructurePermissionGroup.findAll({
             where: { permission_group_id },
@@ -394,6 +501,9 @@ const addUsersToGroup = async (req, res) => {
 
         return res.json({ message: "Users added" });
     } catch (error) {
+        if (error.status) {
+            return sendScopeError(res, error);
+        }
         return res.status(500).json({ error: error.message });
     }
 };
@@ -401,6 +511,9 @@ const addUsersToGroup = async (req, res) => {
 const removeUserFromGroup = async (req, res) => {
     try {
         const { permission_group_id, user_id } = req.body;
+
+        const groupKind = await getPermissionGroupKind(permission_group_id);
+        assertCanManagePermissionGroup(req.user, groupKind, "removeUser");
 
         await UserPermissionGroup.destroy({
             where: { permission_group_id, user_id },
@@ -415,6 +528,9 @@ const removeUserFromGroup = async (req, res) => {
 const addStructuresToGroup = async (req, res) => {
     try {
         const { permission_group_id, government_structure_ids } = req.body;
+
+        const groupKind = await getPermissionGroupKind(permission_group_id);
+        assertCanManagePermissionGroup(req.user, groupKind, "addStructures");
 
         for (const governmentStructureId of government_structure_ids) {
             await assertPermissionGroupFitsStructureHierarchy(
@@ -444,6 +560,9 @@ const removeStructureFromGroup = async (req, res) => {
     try {
         const { permission_group_id, government_structure_id } = req.body;
 
+        const groupKind = await getPermissionGroupKind(permission_group_id);
+        assertCanManagePermissionGroup(req.user, groupKind, "removeStructure");
+
         await GovernmentStructurePermissionGroup.destroy({
             where: { permission_group_id, government_structure_id },
         });
@@ -453,6 +572,61 @@ const removeStructureFromGroup = async (req, res) => {
         return res.status(500).json({ error: error.message });
     }
 };
+
+const addDepartmentsToGroup = async (req, res) => {
+    try {
+        const { permission_group_id, internal_structure_ids } = req.body;
+
+        const groupKind = await getPermissionGroupKind(permission_group_id);
+        assertCanManagePermissionGroup(req.user, groupKind, "addDepartments");
+
+        await assertGroupIsSpecial(permission_group_id);
+        await assertInternalStructuresFitPermissionGroup(
+            permission_group_id,
+            internal_structure_ids
+        );
+
+        const records = internal_structure_ids.map((internalStructureId) => ({
+            id: uuidv4(),
+            internal_structure_id: internalStructureId,
+            permission_group_id,
+        }));
+
+        await InternalStructurePermissionGroup.bulkCreate(records, {
+            ignoreDuplicates: true,
+        });
+
+        return res.json({ message: "Departments added" });
+    } catch (error) {
+        if (error.status) {
+            return sendScopeError(res, error);
+        }
+        return res.status(500).json({ error: error.message });
+    }
+};
+
+const removeDepartmentFromGroup = async (req, res) => {
+    try {
+        const { permission_group_id, internal_structure_id } = req.body;
+
+        const groupKind = await getPermissionGroupKind(permission_group_id);
+        assertCanManagePermissionGroup(req.user, groupKind, "removeDepartment");
+
+        await assertGroupIsSpecial(permission_group_id);
+
+        await InternalStructurePermissionGroup.destroy({
+            where: { permission_group_id, internal_structure_id },
+        });
+
+        return res.json({ message: "Department removed" });
+    } catch (error) {
+        if (error.status) {
+            return sendScopeError(res, error);
+        }
+        return res.status(500).json({ error: error.message });
+    }
+};
+
 module.exports = {
     createPermissionGroup,
     getPermissionGroups,
@@ -465,4 +639,6 @@ module.exports = {
     removeUserFromGroup,
     addStructuresToGroup,
     removeStructureFromGroup,
+    addDepartmentsToGroup,
+    removeDepartmentFromGroup,
 };

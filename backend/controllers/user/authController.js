@@ -4,6 +4,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { normalizeEmail } = require("../../utils/emailUtils");
 const { collectUserPermissionKeysUpper } = require("../../utils/userPermissionsUtils");
+const { loadDepartmentPermissionGroups } = require("../../utils/specialPermissionGroupUtils");
 const { Op } = require("sequelize");
 
 const login = async (req, res) => {
@@ -183,6 +184,10 @@ const getMyPermissions = async (req, res) => {
         .status(404)
         .json({ success: false, message: "User not found" });
     }
+
+    user.departmentPermissionGroups = await loadDepartmentPermissionGroups(
+      user.internal_structure_id
+    );
 
     const permissionsSet = new Set(collectUserPermissionKeysUpper(user));
 

@@ -17,33 +17,49 @@ import { useSearchParams } from "next/navigation";
 import { matchesActiveInactiveFilter, matchesSearchQuery } from "@/utils/tableUtils";
 import { useStructureScope } from "@/hooks/useStructureScope";
 import { withStructureQuery } from "@/utils/structureQueryUtils";
+import { usePermissions } from "@/hooks/usePermissions";
+import {
+  PermissionGroupSectionConfig,
+  STANDARD_PERMISSION_GROUP_CONFIG,
+} from "./permissionGroupSectionConfig";
 
 export interface PermissionGroupListProps {
   government_structure_id?: string;
   hideLayout?: boolean;
   sideActions?: ActionButton[];
   readOnly?: boolean;
+  config?: PermissionGroupSectionConfig;
 }
+
 export default function PermissionGroupList({
   government_structure_id,
   hideLayout = false,
   sideActions,
   readOnly = false,
+  config = STANDARD_PERMISSION_GROUP_CONFIG,
 }: PermissionGroupListProps) {
   const { isSuperAdmin, structureId: sessionStructureId } = useStructureScope();
+  const { can } = usePermissions();
   const structureId = government_structure_id || sessionStructureId || undefined;
+  const canCreate = can(config.createPermission);
+  const canUpdate = can(config.updatePermission);
+  const canDelete = can(config.deletePermission);
+  const effectiveReadOnly = readOnly || !canUpdate;
 
-  const queryArgs = structureId
-    ? { government_structure_id: structureId }
-    : isSuperAdmin
-      ? undefined
-      : sessionStructureId
-        ? { government_structure_id: sessionStructureId }
-        : undefined;
+  const queryArgs = {
+    ...(structureId ? { government_structure_id: structureId } : {}),
+    group_kind: config.groupKind,
+    ...(!structureId && isSuperAdmin ? {} : {}),
+  };
 
-  const { data = [], isLoading, isError, refetch } = useGetPermissionGroupsQuery(queryArgs, {
-    skip: !isSuperAdmin && !structureId && !sessionStructureId,
-  });
+  const { data = [], isLoading, isError, refetch } = useGetPermissionGroupsQuery(
+    structureId || isSuperAdmin || sessionStructureId
+      ? queryArgs
+      : undefined,
+    {
+      skip: !isSuperAdmin && !structureId && !sessionStructureId,
+    }
+  );
   const [deleteGroup] = useDeletePermissionGroupMutation();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -80,15 +96,15 @@ export default function PermissionGroupList({
       cell: ({ row }) => {
         const group = row.original;
         const viewPath = withStructureQuery(
-          `/users/permission-groups/${group.permission_group_id}`,
+          `${config.basePath}/${group.permission_group_id}`,
           structureId,
           { mode: "view" }
         );
         const editPath = withStructureQuery(
-          `/users/permission-groups/${group.permission_group_id}`,
+          `${config.basePath}/${group.permission_group_id}`,
           structureId
         );
-        if (readOnly) {
+        if (effectiveReadOnly) {
           return (
             <Button
               type="button"
@@ -112,28 +128,35 @@ export default function PermissionGroupList({
             >
               <Edit className="h-4 w-4 text-blue-600" />
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={async () => {
-                if (await actionFeedback.confirm("Are you sure you want to delete this permission group?", { destructive: true })) {
-                  try {
-                    await deleteGroup({
-                      id: group.permission_group_id,
-                      government_structure_id: structureId,
-                    }).unwrap();
-                    actionFeedback.success("Permission group deleted successfully");
-                    refetch();
-                  } catch (err: any) {
-                    actionFeedback.error(err?.data?.message || "Failed to delete group");
+            {canDelete && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={async () => {
+                  if (
+                    await actionFeedback.confirm(
+                      "Are you sure you want to delete this permission group?",
+                      { destructive: true }
+                    )
+                  ) {
+                    try {
+                      await deleteGroup({
+                        id: group.permission_group_id,
+                        government_structure_id: structureId,
+                      }).unwrap();
+                      actionFeedback.success("Permission group deleted successfully");
+                      refetch();
+                    } catch (err: any) {
+                      actionFeedback.error(err?.data?.message || "Failed to delete group");
+                    }
                   }
-                }
-              }}
-              title="Delete Group"
-            >
-              <Trash2 className="h-4 w-4 text-red-600" />
-            </Button>
+                }}
+                title="Delete Group"
+              >
+                <Trash2 className="h-4 w-4 text-red-600" />
+              </Button>
+            )}
           </div>
         );
       },
@@ -155,23 +178,23 @@ export default function PermissionGroupList({
     },
   ];
 
-  // Actions
-  const actions: ActionButton[] = readOnly
-    ? []
-    : [
-      {
-        label: "Export",
-        icon: <Download className="h-4 w-4" />,
-        variant: "outline",
-        onClick: () => console.log("Export clicked"),
-      },
-      {
-        label: "New Group",
-        icon: <Plus className="h-4 w-4" />,
-        variant: "default",
-        onClick: () => router.push("/users/permission-groups/new"),
-      },
-    ];
+  const actions: ActionButton[] =
+    effectiveReadOnly || !canCreate
+      ? []
+      : [
+          {
+            label: "Export",
+            icon: <Download className="h-4 w-4" />,
+            variant: "outline",
+            onClick: () => console.log("Export clicked"),
+          },
+          {
+            label: config.groupKind === "special" ? "New Special Group" : "New Group",
+            icon: <Plus className="h-4 w-4" />,
+            variant: "default",
+            onClick: () => router.push(`${config.basePath}/new`),
+          },
+        ];
 
   const filteredData = data.filter((group) => {
     if (!matchesActiveInactiveFilter(statusFilter, group.is_active)) return false;
@@ -180,13 +203,13 @@ export default function PermissionGroupList({
 
   return (
     <TableLayout
-      title={hideLayout ? undefined : "Permission Group Management"}
+      title={hideLayout ? undefined : config.listTitle}
       description={
         hideLayout
           ? undefined
           : structureId
-            ? "Permission groups assigned to this sector structure"
-            : "View and manage user permission groups"
+            ? `Groups assigned to this sector structure`
+            : config.listDescription
       }
       actions={actions}
       sideActions={sideActions}
@@ -197,7 +220,7 @@ export default function PermissionGroupList({
         columns={columns}
         data={filteredData}
         isLoading={isLoading}
-        resetKey={`${searchQuery}-${statusFilter}-${structureId}`}
+        resetKey={`${searchQuery}-${statusFilter}-${structureId}-${config.groupKind}`}
       />
     </TableLayout>
   );

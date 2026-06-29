@@ -14,6 +14,8 @@ const {
     validateRemoveUser,
     validateAddStructures,
     validateRemoveStructure,
+    validateAddDepartments,
+    validateRemoveDepartment,
 } = require("../../validators/user/permissionGroupValidator");
 
 const {
@@ -28,6 +30,8 @@ const {
     removeUserFromGroup,
     addStructuresToGroup,
     removeStructureFromGroup,
+    addDepartmentsToGroup,
+    removeDepartmentFromGroup,
 } = require("../../controllers/user/permissionGroupController");
 
 router.use(authenticateToken);
@@ -87,6 +91,21 @@ router.post(
     "/remove-structure",
     validateRemoveStructure,
     removeStructureFromGroup
+);
+
+/**
+ * =================== DEPARTMENTS (special groups only) ===================
+ */
+router.post(
+    "/add-departments",
+    validateAddDepartments,
+    addDepartmentsToGroup
+);
+
+router.post(
+    "/remove-department",
+    validateRemoveDepartment,
+    removeDepartmentFromGroup
 );
 
 module.exports = router;

@@ -2,11 +2,15 @@
 
 import { User } from "./user";
 import { GovernmentStructure } from "./governmentStructure";
+import { InternalStructure } from "./internalStructure";
+
+export type PermissionGroupKind = "standard" | "special";
 
 export interface Permission {
     permission_id: string;
     resource: string;
     action: string;
+    permission_tier?: string;
 }
 
 export interface PermissionGroup {
@@ -16,6 +20,7 @@ export interface PermissionGroup {
     description?: string;
 
     is_active: boolean;
+    group_kind?: PermissionGroupKind;
 
     created_at?: string;
     updated_at?: string;
@@ -23,6 +28,7 @@ export interface PermissionGroup {
     permissions?: Permission[];
     users?: User[];
     structures?: GovernmentStructure[];
+    internalStructures?: InternalStructure[];
 }
 
 /** ---------------------------
@@ -31,6 +37,7 @@ export interface PermissionGroup {
 export interface CreatePermissionGroupPayload {
     name: string;
     description?: string;
+    group_kind?: PermissionGroupKind;
 
     permission_ids?: string[];
     user_ids?: string[];
@@ -44,6 +51,7 @@ export interface UpdatePermissionGroupPayload {
     name?: string;
     description?: string;
     is_active?: boolean;
+    group_kind?: PermissionGroupKind;
     permission_ids?: string[];
     government_structure_id?: string;
 }
@@ -79,4 +87,20 @@ export interface AddStructuresPayload {
 export interface RemoveStructurePayload {
     permission_group_id: string;
     government_structure_id: string;
+}
+
+export interface AddDepartmentsPayload {
+    permission_group_id: string;
+    internal_structure_ids: string[];
+}
+
+export interface RemoveDepartmentPayload {
+    permission_group_id: string;
+    internal_structure_id: string;
+}
+
+export interface GetPermissionGroupsParams {
+    government_structure_id?: string;
+    search?: string;
+    group_kind?: PermissionGroupKind;
 }

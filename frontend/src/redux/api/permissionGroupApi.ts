@@ -9,6 +9,9 @@ import {
     RemoveUserPayload,
     AddStructuresPayload,
     RemoveStructurePayload,
+    AddDepartmentsPayload,
+    RemoveDepartmentPayload,
+    GetPermissionGroupsParams,
 } from "../types/permissionGroup";
 
 export const permissionGroupApi = baseApi.injectEndpoints({
@@ -16,7 +19,7 @@ export const permissionGroupApi = baseApi.injectEndpoints({
         /** ---------------------------
          * GET ALL GROUPS
          * --------------------------- */
-        getPermissionGroups: builder.query<PermissionGroup[], { government_structure_id?: string; search?: string } | void>({
+        getPermissionGroups: builder.query<PermissionGroup[], GetPermissionGroupsParams | void>({
             query: (params) => ({
                 url: "/permission-groups",
                 params: params || {},
@@ -195,6 +198,30 @@ export const permissionGroupApi = baseApi.injectEndpoints({
             }),
             invalidatesTags: ["PermissionGroups"],
         }),
+
+        addDepartmentsToGroup: builder.mutation<
+            { message: string },
+            AddDepartmentsPayload
+        >({
+            query: (body) => ({
+                url: "/permission-groups/add-departments",
+                method: "POST",
+                body,
+            }),
+            invalidatesTags: ["PermissionGroups"],
+        }),
+
+        removeDepartmentFromGroup: builder.mutation<
+            { message: string },
+            RemoveDepartmentPayload
+        >({
+            query: (body) => ({
+                url: "/permission-groups/remove-department",
+                method: "POST",
+                body,
+            }),
+            invalidatesTags: ["PermissionGroups"],
+        }),
     }),
 });
 
@@ -213,4 +240,6 @@ export const {
 
     useAddStructuresToGroupMutation,
     useRemoveStructureFromGroupMutation,
+    useAddDepartmentsToGroupMutation,
+    useRemoveDepartmentFromGroupMutation,
 } = permissionGroupApi;

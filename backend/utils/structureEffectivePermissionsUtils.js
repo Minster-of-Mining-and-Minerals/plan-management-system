@@ -16,7 +16,7 @@ async function getStructureEffectivePermissions(governmentStructureId, options =
   }
 
   return sequelize.query(
-    `SELECT DISTINCT p.permission_id, p.resource, p.action, p.is_active, p.created_at, p.updated_at
+    `SELECT DISTINCT p.permission_id, p.resource, p.action, p.permission_tier, p.is_active, p.created_at, p.updated_at
      FROM government_structure_permission_groups gspg
      INNER JOIN permission_groups pg ON pg.permission_group_id = gspg.permission_group_id
      INNER JOIN permission_group_permissions pgp ON pgp.permission_group_id = gspg.permission_group_id

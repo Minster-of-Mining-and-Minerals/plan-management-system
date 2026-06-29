@@ -28,6 +28,14 @@ module.exports = (sequelize, DataTypes) => {
                 otherKey: "government_structure_id",
                 as: "structures",
             });
+
+            // Special groups: department members (exact match, no inheritance)
+            PermissionGroup.belongsToMany(models.InternalStructure, {
+                through: models.InternalStructurePermissionGroup,
+                foreignKey: "permission_group_id",
+                otherKey: "internal_structure_id",
+                as: "internalStructures",
+            });
         }
     }
 
@@ -52,6 +60,12 @@ module.exports = (sequelize, DataTypes) => {
             is_active: {
                 type: DataTypes.BOOLEAN,
                 defaultValue: true,
+            },
+
+            group_kind: {
+                type: DataTypes.STRING(20),
+                allowNull: false,
+                defaultValue: "standard",
             },
 
             created_at: {

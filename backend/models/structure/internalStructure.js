@@ -26,6 +26,13 @@ module.exports = (sequelize, DataTypes) => {
                 foreignKey: "internal_structure_id",
                 as: "users",
             });
+
+            InternalStructure.belongsToMany(models.PermissionGroup, {
+                through: models.InternalStructurePermissionGroup,
+                foreignKey: "internal_structure_id",
+                otherKey: "permission_group_id",
+                as: "permissionGroups",
+            });
         }
     }
 

@@ -1,7 +1,10 @@
 const jwt = require("jsonwebtoken");
 const db = require("../models");
 const { sendPermissionDenied, toPermissionKey } = require("../utils/permissionDeniedUtils");
-const { collectUserPermissionKeys } = require("../utils/userPermissionsUtils");
+const {
+  collectUserPermissionKeys,
+} = require("../utils/userPermissionsUtils");
+const { loadDepartmentPermissionGroups } = require("../utils/specialPermissionGroupUtils");
 
 const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers["authorization"];
@@ -61,6 +64,10 @@ const authenticateToken = async (req, res, next) => {
         message: "User not found or inactive",
       });
     }
+
+    user.departmentPermissionGroups = await loadDepartmentPermissionGroups(
+      user.internal_structure_id
+    );
 
     const roles = user.roles.map((r) => r.name);
     const permissions = collectUserPermissionKeys(user);

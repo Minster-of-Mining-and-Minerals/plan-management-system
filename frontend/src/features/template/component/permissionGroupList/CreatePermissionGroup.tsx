@@ -19,21 +19,35 @@ import { ErrorState } from "./ErrorState";
 import GroupManagement from "./GroupManagement";
 import { governmentStructureDetailPath } from "@/utils/structureQueryUtils";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useStructureScope } from "@/hooks/useStructureScope";
+import type { GetPermissionsParams } from "@/redux/api/permissionApi";
+import {
+  PermissionGroupSectionConfig,
+  STANDARD_PERMISSION_GROUP_CONFIG,
+} from "./permissionGroupSectionConfig";
 
-export default function CreatePermissionGroup({ groupId }: { groupId?: string }) {
+export default function CreatePermissionGroup({
+  groupId,
+  config = STANDARD_PERMISSION_GROUP_CONFIG,
+}: {
+  groupId?: string;
+  config?: PermissionGroupSectionConfig;
+}) {
   const { id: paramId } = useParams<{ id?: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isSuperAdmin, structureId: sessionStructureId } = useStructureScope();
   const { can } = usePermissions();
   const id = groupId || paramId;
   const isEditMode = Boolean(id && id !== "create" && id !== "new");
-  const structureId = searchParams.get("government_structure_id") || undefined;
+  const structureId =
+    searchParams.get("government_structure_id") || sessionStructureId || undefined;
   const forceViewMode = searchParams.get("mode") === "view";
-  const canUpdateGroups = can("PERMISSION_GROUPS:UPDATE");
+  const canUpdateGroups = can(config.updatePermission);
   const isViewOnly = forceViewMode || (isEditMode && !canUpdateGroups);
   const cancelHref = structureId
     ? governmentStructureDetailPath(structureId)
-    : "/users/permission-groups";
+    : config.basePath;
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -42,8 +56,24 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
     {}
   );
 
+  const permissionTier = config.groupKind === "special" ? "special" : "standard";
+
+  const permissionQueryArgs = useMemo((): GetPermissionsParams | undefined => {
+    const base: GetPermissionsParams = { tier: permissionTier };
+    if (structureId) {
+      return { ...base, government_structure_id: structureId };
+    }
+    if (isSuperAdmin) {
+      return { ...base, scope: "all" };
+    }
+    if (sessionStructureId) {
+      return { ...base, government_structure_id: sessionStructureId };
+    }
+    return base;
+  }, [permissionTier, structureId, isSuperAdmin, sessionStructureId]);
+
   const { data: permissionsResponse, isLoading: loadingPermissions } =
-    useGetPermissionsQuery();
+    useGetPermissionsQuery(permissionQueryArgs);
 
   const {
     data: group,
@@ -62,13 +92,15 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
 
   const isLoading = isCreating || isUpdating;
 
-  // Group permissions by resource
+  // Group permissions by resource (tier-filtered by API; keep a client guard too)
   const resourceGroups = useMemo((): ResourceGroup[] => {
     if (!permissionsResponse) return [];
 
-    const activePermissions = permissionsResponse.filter(
-      (p: Permission) => p.is_active === true
-    );
+    const activePermissions = permissionsResponse.filter((p: Permission & { permission_tier?: string }) => {
+      if (p.is_active !== true) return false;
+      const tier = (p.permission_tier || "standard").toLowerCase();
+      return config.groupKind === "special" ? tier === "special" : tier === "standard";
+    });
 
     const grouped = activePermissions.reduce(
       (acc: { [key: string]: Permission[] }, permission) => {
@@ -87,7 +119,7 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
       permissions: permissions as Permission[],
       selected: false,
     }));
-  }, [permissionsResponse]);
+  }, [permissionsResponse, config.groupKind]);
 
   // Initialize permission matrix
   useEffect(() => {
@@ -270,11 +302,16 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
           name: name.trim(),
           description: description.trim(),
           permission_ids: selectedPermissionIds,
+          group_kind: config.groupKind,
         }).unwrap();
 
-        actionFeedback.success("Permission group created successfully!");
+        actionFeedback.success(
+          config.groupKind === "special"
+            ? "Special permission group created successfully!"
+            : "Permission group created successfully!"
+        );
         resetForm();
-        router.push("/users/permission-groups");
+        router.push(config.basePath);
       }
     } catch (error: any) {
       actionFeedback.error(
@@ -304,7 +341,22 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
   return (
     <div className="w-full flex items-center justify-center bg-white rounded-lg p-4">
       <div className="w-full" onClick={(e) => e.stopPropagation()}>
-        <CreatePermissionGroupHeader isEditMode={isEditMode} isViewOnly={isViewOnly} />
+        <CreatePermissionGroupHeader
+          isEditMode={isEditMode}
+          isViewOnly={isViewOnly}
+          title={
+            isViewOnly
+              ? config.viewTitle
+              : isEditMode
+                ? config.editTitle
+                : config.createTitle
+          }
+          description={
+            config.groupKind === "special"
+              ? "Special permissions only — used for governance actions such as sector plan hierarchy oversight"
+              : undefined
+          }
+        />
 
         <form onSubmit={handleSubmit} className="flex flex-col">
           <div className="flex-1 overflow-y-auto py-5 space-y-6">
@@ -347,7 +399,11 @@ export default function CreatePermissionGroup({ groupId }: { groupId?: string })
             }}
           />
         </form>
-        <GroupManagement groupId={isEditMode ? id : undefined} readOnly={isViewOnly} />
+        <GroupManagement
+          groupId={isEditMode ? id : undefined}
+          readOnly={isViewOnly}
+          config={config}
+        />
       </div>
     </div>
   );

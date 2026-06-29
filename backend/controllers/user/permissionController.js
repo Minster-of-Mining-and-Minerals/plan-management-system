@@ -1,5 +1,6 @@
 const { Permission } = require("../../models");
 const { getStructureAssignablePermissions } = require("../../utils/structureEffectivePermissionsUtils");
+const { normalizePermissionTier, PERMISSION_TIER, filterPermissionsByTier } = require("../../utils/specialPermissionGroupUtils");
 const {
   isSuperAdminActor,
   resolveManageableStructureId,
@@ -8,7 +9,7 @@ const {
 
 const getPermissions = async (req, res) => {
   try {
-    const { government_structure_id: queryStructureId, scope } = req.query;
+    const { government_structure_id: queryStructureId, scope, tier } = req.query;
 
     let structureId;
     try {
@@ -21,8 +22,13 @@ const getPermissions = async (req, res) => {
       isSuperAdminActor(req) && (!structureId || scope === "all");
 
     if (listFullCatalog) {
+      const where = { is_active: true };
+      if (tier) {
+        where.permission_tier = normalizePermissionTier(tier);
+      }
+
       const permissions = await Permission.findAll({
-        where: { is_active: true },
+        where,
         order: [["resource", "ASC"], ["action", "ASC"]],
       });
 
@@ -41,11 +47,13 @@ const getPermissions = async (req, res) => {
     }
 
     const permissions = await getStructureAssignablePermissions(structureId);
+    const effectiveTier = tier ? normalizePermissionTier(tier) : PERMISSION_TIER.STANDARD;
+    const filteredPermissions = filterPermissionsByTier(permissions, effectiveTier);
 
     return res.status(200).json({
       success: true,
       message: "Structure assignable permissions fetched successfully.",
-      data: permissions,
+      data: filteredPermissions,
     });
   } catch (error) {
     console.error("Error fetching permissions:", error);

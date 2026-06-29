@@ -4,6 +4,7 @@ import type { Permission } from "../types/permission";
 export type GetPermissionsParams = {
   government_structure_id?: string;
   scope?: "all";
+  tier?: "standard" | "special";
 };
 
 export const permissionApi = baseApi.injectEndpoints({

@@ -54,9 +54,9 @@ export default function CreateRole({ roleId }: { roleId?: string }) {
 
   const permissionQueryArgs =
     isSuperAdmin && (!structureId || editingSystemRole)
-      ? { scope: "all" as const }
+      ? { scope: "all" as const, tier: "standard" as const }
       : structureId
-        ? { government_structure_id: structureId }
+        ? { government_structure_id: structureId, tier: "standard" as const }
         : undefined;
 
   const { data: permissionsResponse, isLoading: loadingPermissions } =

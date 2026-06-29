@@ -4,11 +4,15 @@ import { Shield } from "lucide-react";
 interface CreatePermissionGroupHeaderProps {
   isEditMode: boolean;
   isViewOnly?: boolean;
+  title?: string;
+  description?: string;
 }
 
 export const CreatePermissionGroupHeader: React.FC<CreatePermissionGroupHeaderProps> = ({
   isEditMode,
   isViewOnly = false,
+  title,
+  description,
 }) => (
   <div className="flex rounded-t-lg items-center justify-between p-6 border-b border-golden-dark/20 bg-gradient-to-r from-golden-soft/10 to-golden-soft/20">
     <div className="flex items-center space-x-3">
@@ -17,18 +21,20 @@ export const CreatePermissionGroupHeader: React.FC<CreatePermissionGroupHeaderPr
       </div>
       <div>
         <h2 className="text-2xl font-bold text-gray-900">
-          {isViewOnly
-            ? "View Permission Group"
-            : isEditMode
-              ? "Edit Permission Group"
-              : "Create New Permission Group"}
+          {title ??
+            (isViewOnly
+              ? "View Permission Group"
+              : isEditMode
+                ? "Edit Permission Group"
+                : "Create New Permission Group")}
         </h2>
         <p className="text-sm text-gray-600">
-          {isViewOnly
-            ? "Review permission group settings and assignments"
-            : isEditMode
-              ? "Update permission group settings and access levels"
-              : "Define permission group settings and access levels"}
+          {description ??
+            (isViewOnly
+              ? "Review permission group settings and assignments"
+              : isEditMode
+                ? "Update permission group settings and access levels"
+                : "Define permission group settings and access levels")}
         </p>
       </div>
     </div>

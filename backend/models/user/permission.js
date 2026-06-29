@@ -36,6 +36,12 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
 
+      permission_tier: {
+        type: DataTypes.STRING(20),
+        allowNull: false,
+        defaultValue: "standard",
+      },
+
       created_at: {
         type: DataTypes.DATE,
         defaultValue: DataTypes.NOW,
