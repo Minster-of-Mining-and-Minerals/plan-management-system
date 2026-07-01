@@ -11,6 +11,8 @@ export type ExecutionEvaluationStatus =
     | "not_started"
     | "no_evaluation";
 export type PlanAccessRole = "owner" | "participant" | "oversight" | "global";
+
+export type PlanAchievementStatus = "empty" | "submitted" | "approved" | "rejected";
 export type PlanReviewStatus = "under_review" | "corrections_unlocked" | "review_completed";
 export type PeriodSubdivisionMode = "quarterly" | "semi_annual" | "custom";
 
@@ -299,6 +301,14 @@ export interface PlanNode {
     period_target?: number | null;
     period_actual?: number | null;
     period_actual_override?: boolean;
+    period_actual_status?: PlanAchievementStatus;
+    period_actual_submitted_at?: string | null;
+    period_actual_submitted_by?: string | null;
+    period_actual_approved_at?: string | null;
+    period_actual_approved_by?: string | null;
+    period_actual_rejection_comment?: string | null;
+    periodActualSubmittedBy?: User;
+    periodActualApprovedBy?: User;
     execution_progress_percent?: number | null;
     computed_period_actual?: number | null;
     computed_period_target?: number | null;

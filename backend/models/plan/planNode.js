@@ -38,7 +38,15 @@ module.exports = (sequelize, DataTypes) => {
                 as: "internalAssignments",
             });
 
+            PlanNode.belongsTo(models.User, {
+                foreignKey: "period_actual_submitted_by",
+                as: "periodActualSubmittedBy",
+            });
 
+            PlanNode.belongsTo(models.User, {
+                foreignKey: "period_actual_approved_by",
+                as: "periodActualApprovedBy",
+            });
         }
     }
 
@@ -135,6 +143,37 @@ module.exports = (sequelize, DataTypes) => {
                 type: DataTypes.BOOLEAN,
                 allowNull: false,
                 defaultValue: false,
+            },
+
+            period_actual_status: {
+                type: DataTypes.ENUM("empty", "submitted", "approved", "rejected"),
+                allowNull: false,
+                defaultValue: "empty",
+            },
+
+            period_actual_submitted_at: {
+                type: DataTypes.DATE,
+                allowNull: true,
+            },
+
+            period_actual_submitted_by: {
+                type: DataTypes.UUID,
+                allowNull: true,
+            },
+
+            period_actual_approved_at: {
+                type: DataTypes.DATE,
+                allowNull: true,
+            },
+
+            period_actual_approved_by: {
+                type: DataTypes.UUID,
+                allowNull: true,
+            },
+
+            period_actual_rejection_comment: {
+                type: DataTypes.TEXT,
+                allowNull: true,
             },
 
             assignment_context: {
