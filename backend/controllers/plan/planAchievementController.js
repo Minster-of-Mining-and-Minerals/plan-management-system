@@ -9,6 +9,9 @@ const {
   rejectAchievement,
 } = require("../../services/planAchievementWorkflowService");
 const { setPeriodActual } = require("../../services/planExecutionActualService");
+const {
+  resolveAchievementWorkflowScopeForVersion,
+} = require("../../services/planAchievementWorkflowScopeService");
 
 function auditContext(req) {
   return {
@@ -171,10 +174,33 @@ async function updatePeriodActual(req, res) {
   }
 }
 
+async function getAchievementWorkflowScope(req, res) {
+  try {
+    const { id: versionId } = req.params;
+
+    if (!isUuid(versionId)) {
+      return res.status(400).json({ success: false, message: "Invalid version ID" });
+    }
+
+    const result = await resolveAchievementWorkflowScopeForVersion(versionId, req.user);
+    if (!result.success) {
+      return res.status(400).json({ success: false, message: result.message });
+    }
+
+    return res.json({
+      success: true,
+      data: result.data,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
   updatePeriodTarget,
   submitAchievementHandler,
   approveAchievementHandler,
   rejectAchievementHandler,
   updatePeriodActual,
+  getAchievementWorkflowScope,
 };

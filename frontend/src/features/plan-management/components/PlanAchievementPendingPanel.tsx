@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight, ClipboardCheck } from "lucide-react";
@@ -15,6 +15,7 @@ import type { TargetUnit } from "@/redux/types/planningConfig";
 import { cn } from "@/lib/utils";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import { PLAN_APPROVE_ACHIEVEMENT_PERMISSIONS } from "@/utils/planPermissionUtils";
+import { usePlanAchievementScope } from "@/hooks/usePlanAchievementScope";
 
 type PlanAchievementPendingPanelProps = {
   pendingNodes: PlanNodeHierarchy[];
@@ -34,9 +35,18 @@ export function PlanAchievementPendingPanel({
   const [expanded, setExpanded] = useState(true);
   const [approveAchievement, { isLoading: isApproving }] = useApproveAchievementMutation();
   const [rejectAchievement, { isLoading: isRejecting }] = useRejectAchievementMutation();
+  const { canApproveOnNode, isReady: scopeReady } = usePlanAchievementScope();
   const isSaving = isApproving || isRejecting;
 
-  if (pendingNodes.length === 0) {
+  const scopedPendingNodes = useMemo(
+    () =>
+      scopeReady
+        ? pendingNodes.filter((node) => canApproveOnNode(node.plan_node_id))
+        : [],
+    [pendingNodes, scopeReady, canApproveOnNode]
+  );
+
+  if (!scopeReady || scopedPendingNodes.length === 0) {
     return null;
   }
 
@@ -89,13 +99,13 @@ export function PlanAchievementPendingPanel({
           <ClipboardCheck className="h-4 w-4 shrink-0" />
           <span>Pending achievement approvals</span>
           <Badge variant="secondary" className="ml-1 bg-amber-100 text-amber-900 border-amber-200">
-            {pendingNodes.length}
+            {scopedPendingNodes.length}
           </Badge>
         </button>
 
         {expanded && (
           <ul className="divide-y divide-amber-200/80 border-t border-amber-200/80">
-            {pendingNodes.map((node) => {
+            {scopedPendingNodes.map((node) => {
               const hierarchyNumber = hierarchyNumberMap?.get(node.plan_node_id);
               const actualLabel =
                 node.period_actual != null

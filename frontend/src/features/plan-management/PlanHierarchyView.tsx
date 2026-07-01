@@ -94,6 +94,7 @@ import {
 } from "@/utils/planAchievementHierarchyUtils";
 import { isOversightReadOnlyAccessRole } from "@/utils/planTreeAccessUtils";
 import { cn } from "@/lib/utils";
+import { PlanAchievementScopeProvider } from "@/hooks/usePlanAchievementScope";
 
 type ViewMode = "card" | "hierarchy" | "table";
 type PlanDetailTab = "hierarchy" | "annual" | "periods" | "review";
@@ -1026,6 +1027,10 @@ export default function PlanHierarchyView({
     );
 
     return (
+        <PlanAchievementScopeProvider
+            versionId={versionId}
+            enabled={Boolean(isExecutionPeriod && processStarted)}
+        >
         <div className="space-y-6">
             {/* Header */}
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -1209,5 +1214,6 @@ export default function PlanHierarchyView({
                 />
             )}
         </div>
+        </PlanAchievementScopeProvider>
     );
 }

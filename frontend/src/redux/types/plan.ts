@@ -243,6 +243,13 @@ export interface ExecutionPeriodsResponse {
     } | null;
 }
 
+export interface PlanAchievementWorkflowScope {
+    master_version_id: string | null;
+    plan_version_id: string;
+    executor_node_ids: string[];
+    approver_node_ids: string[];
+}
+
 export interface PlanExecutionAccessResponse {
     found: boolean;
     is_execution_snapshot?: boolean;

@@ -51,6 +51,7 @@ function run() {
   assertExportedFunction(controllerSource, "approveAchievementHandler");
   assertExportedFunction(controllerSource, "rejectAchievementHandler");
   assertExportedFunction(controllerSource, "updatePeriodActual");
+  assertExportedFunction(controllerSource, "getAchievementWorkflowScope");
 
   assertExportedFunction(workflowSource, "setPeriodTargetForExecutor");
   assertExportedFunction(workflowSource, "submitAchievement");
@@ -71,6 +72,11 @@ function run() {
   assertRouteWired("post", "/nodes/:id/achievement/approve", "approveAchievementHandler");
   assertRouteWired("post", "/nodes/:id/achievement/reject", "rejectAchievementHandler");
   assertRouteWired("patch", "/nodes/:id/period-actual", "updatePeriodActual");
+  assertRouteWired(
+    "get",
+    "/versions/:id/achievement-workflow-scope",
+    "getAchievementWorkflowScope"
+  );
 
   assert.match(planRoutesSource, /checkPermission\("PLAN",\s*"EXECUTE_ACHIEVEMENT"\)/);
   assert.match(planRoutesSource, /checkPermission\("PLAN",\s*"APPROVE_ACHIEVEMENT"\)/);

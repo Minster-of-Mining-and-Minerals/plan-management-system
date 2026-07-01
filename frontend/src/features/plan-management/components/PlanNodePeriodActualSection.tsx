@@ -32,6 +32,7 @@ import {
 } from "@/utils/planAchievementWorkflowUtils";
 import { planAchievementExecutorHint } from "@/utils/planAchievementHierarchyUtils";
 import { usePermissions } from "@/hooks/usePermissions";
+import { usePlanAchievementScope } from "@/hooks/usePlanAchievementScope";
 
 interface PlanNodePeriodActualSectionProps {
     node: PlanNode;
@@ -53,6 +54,7 @@ export function PlanNodePeriodActualSection({
     onClick,
 }: PlanNodePeriodActualSectionProps) {
     const { can } = usePermissions();
+    const { canExecuteOnNode, canApproveOnNode, isReady: scopeReady } = usePlanAchievementScope();
     const [submitAchievement, { isLoading: isSubmitting }] = useSubmitAchievementMutation();
     const [approveAchievement, { isLoading: isApproving }] = useApproveAchievementMutation();
     const [rejectAchievement, { isLoading: isRejecting }] = useRejectAchievementMutation();
@@ -86,7 +88,11 @@ export function PlanNodePeriodActualSection({
             (effectiveTarget > 0 || isRollupEntry || node.has_contributing_data)) ||
         (isRollupEntry && node.is_evaluable);
     const canEnterLeaf =
-        canEdit && canExecuteAchievement && canManuallyEnterAchievement(node, rule);
+        canEdit &&
+        canExecuteAchievement &&
+        canManuallyEnterAchievement(node, rule) &&
+        scopeReady &&
+        canExecuteOnNode(node.plan_node_id);
     const canEnterManual =
         canEdit &&
         canExecuteAchievement &&
@@ -208,7 +214,16 @@ export function PlanNodePeriodActualSection({
     const showApprovalActions =
         achievementStatus === PLAN_ACHIEVEMENT_STATUS.SUBMITTED &&
         canApproveAchievement &&
+        scopeReady &&
+        canApproveOnNode(node.plan_node_id) &&
         !isEditingManual;
+
+    const showExecutorAssignmentHint =
+        scopeReady &&
+        canEdit &&
+        canExecuteAchievement &&
+        canManuallyEnterAchievement(node, rule) &&
+        !canExecuteOnNode(node.plan_node_id);
 
     const executorHint = planAchievementExecutorHint(achievementStatus, {
         canSubmit: canSubmitAchievement,
@@ -231,6 +246,10 @@ export function PlanNodePeriodActualSection({
                 )}
             >
                 {executorHint}
+            </p>
+        ) : showExecutorAssignmentHint ? (
+            <p className="text-xs rounded-md px-2 py-1.5 border text-slate-700 bg-slate-50 border-slate-200">
+                You are not assigned to record achievement on this section.
             </p>
         ) : null;
 

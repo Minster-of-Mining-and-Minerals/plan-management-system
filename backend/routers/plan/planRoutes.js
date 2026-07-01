@@ -72,6 +72,7 @@ const {
     submitAchievementHandler,
     approveAchievementHandler,
     rejectAchievementHandler,
+    getAchievementWorkflowScope,
 } = require("../../controllers/plan/planAchievementController");
 
 const {
@@ -188,6 +189,13 @@ router.post("/versions/:id/finalize-global-period-targets", checkPermission("PLA
 router.get("/versions/:id/start-process-readiness", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), getStartProcessReadinessHandler);
 router.post("/versions/:id/start-process", checkPermission("PLAN", "START_PROCESS"), validateIdParam, startPlanProcessHandler);
 router.get("/versions/:id/execution-access", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), getExecutionAccessHandler);
+router.get(
+    "/versions/:id/achievement-workflow-scope",
+    planReadAccess,
+    validateIdParam,
+    requirePlanVersionReadAccess(),
+    getAchievementWorkflowScope
+);
 
 router.get("/versions/:id/publish-for-review-readiness", checkPermission("PLAN", "PUBLISH_FOR_REVIEW"), validateIdParam, getPublishForReviewReadinessHandler);
 router.post("/versions/:id/publish-for-review", checkPermission("PLAN", "PUBLISH_FOR_REVIEW"), validateIdParam, publishForReviewHandler);

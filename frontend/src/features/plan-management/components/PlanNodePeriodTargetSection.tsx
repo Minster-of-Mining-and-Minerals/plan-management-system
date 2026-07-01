@@ -21,6 +21,7 @@ import { PLAN_EXECUTE_ACHIEVEMENT_PERMISSIONS, PLAN_LIFECYCLE_PERMISSIONS } from
 import { RaiseIssueButton } from "./RaiseIssueButton";
 import { canSetPeriodTargetOnNode } from "@/utils/planAchievementHierarchyUtils";
 import { usePermissions } from "@/hooks/usePermissions";
+import { usePlanAchievementScope } from "@/hooks/usePlanAchievementScope";
 
 interface PlanNodePeriodTargetSectionProps {
     node: PlanNode;
@@ -48,12 +49,18 @@ export function PlanNodePeriodTargetSection({
     onClick,
 }: PlanNodePeriodTargetSectionProps) {
     const { can } = usePermissions();
+    const { canExecuteOnNode, isReady: scopeReady } = usePlanAchievementScope();
     const [updatePeriodTarget, { isLoading: isSaving }] = useUpdatePeriodTargetMutation();
     const [periodTargetInput, setPeriodTargetInput] = useState("");
 
     const canExecuteAchievement = can(PLAN_LIFECYCLE_PERMISSIONS.EXECUTE_ACHIEVEMENT);
     const isTargetLeaf = canSetPeriodTargetOnNode(node);
-    const canEditTarget = canEdit && canExecuteAchievement && isTargetLeaf;
+    const canEditTarget =
+        canEdit &&
+        canExecuteAchievement &&
+        isTargetLeaf &&
+        scopeReady &&
+        canExecuteOnNode(node.plan_node_id);
 
     const nodeWeightMode = node.weight_mode;
     const requiresWeight = stepRequiresWeight(rule, node.level);

@@ -18,6 +18,7 @@ import {
     AnnualVersionsResponse,
     ExecutionPeriodsResponse,
     PlanExecutionAccessResponse,
+    PlanAchievementWorkflowScope,
     PlanNode,
     CreatePlanNodePayload,
     UpdatePlanNodePayload,
@@ -408,6 +409,7 @@ export const planApi = baseApi.injectEndpoints({
                 "PlanNodes",
                 "PlanVersions",
                 "PlanExecutionDashboard",
+                "PlanAchievementWorkflowScope",
                 { type: "PlanVersions", id: "LIST" },
             ],
         }),
@@ -427,6 +429,7 @@ export const planApi = baseApi.injectEndpoints({
                 "PlanNodes",
                 "PlanVersions",
                 "PlanExecutionDashboard",
+                "PlanAchievementWorkflowScope",
                 { type: "PlanVersions", id: "LIST" },
             ],
         }),
@@ -442,6 +445,7 @@ export const planApi = baseApi.injectEndpoints({
                 "PlanNodes",
                 "PlanVersions",
                 "PlanExecutionDashboard",
+                "PlanAchievementWorkflowScope",
                 { type: "PlanVersions", id: "LIST" },
             ],
         }),
@@ -461,6 +465,7 @@ export const planApi = baseApi.injectEndpoints({
                 "PlanNodes",
                 "PlanVersions",
                 "PlanExecutionDashboard",
+                "PlanAchievementWorkflowScope",
                 { type: "PlanVersions", id: "LIST" },
             ],
         }),
@@ -492,6 +497,12 @@ export const planApi = baseApi.injectEndpoints({
         getExecutionAccess: builder.query<PlanExecutionAccessResponse, string>({
             query: (id) => `/plan/versions/${id}/execution-access`,
             transformResponse: (response: { data: PlanExecutionAccessResponse }) => response.data,
+        }),
+
+        getPlanAchievementWorkflowScope: builder.query<PlanAchievementWorkflowScope, string>({
+            query: (id) => `/plan/versions/${id}/achievement-workflow-scope`,
+            transformResponse: (response: { data: PlanAchievementWorkflowScope }) => response.data,
+            providesTags: (_r, _e, id) => [{ type: "PlanAchievementWorkflowScope", id }],
         }),
 
         getStartProcessReadiness: builder.query<StartProcessReadiness, string>({
@@ -739,6 +750,7 @@ export const {
     useFinalizeGlobalPeriodTargetsMutation,
     useGetStartProcessReadinessQuery,
     useGetExecutionAccessQuery,
+    useGetPlanAchievementWorkflowScopeQuery,
     useStartPlanProcessMutation,
     useGetPublishForReviewReadinessQuery,
     usePublishForReviewMutation,

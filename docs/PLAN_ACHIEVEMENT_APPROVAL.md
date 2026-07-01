@@ -48,10 +48,20 @@ If **no approver** exists on the path:
 
 Parent nodes without manual override always show **rolled-up** achievement from eligible children.
 
+### Compact workflow scope (UI)
+
+`GET /api/plan/versions/:id/achievement-workflow-scope` returns two UUID arrays for the **current user** on that execution period (snapshot-aware):
+
+- `executor_node_ids` — period leaf nodes where the user may set period targets and submit achievement
+- `approver_node_ids` — period leaf nodes where the user may approve/reject submissions
+
+The hierarchy payload is unchanged; the frontend uses this lightweight response to show editors only where allowed.
+
 ## API endpoints
 
 | Method | Path | Permission |
 |--------|------|------------|
+| `GET` | `/api/plan/versions/:id/achievement-workflow-scope` | Plan read access |
 | `PATCH` | `/api/plan/nodes/:id/period-target` | `PLAN:EXECUTE_ACHIEVEMENT` |
 | `POST` | `/api/plan/nodes/:id/achievement/submit` | `PLAN:EXECUTE_ACHIEVEMENT` |
 | `POST` | `/api/plan/nodes/:id/achievement/approve` | `PLAN:APPROVE_ACHIEVEMENT` |
