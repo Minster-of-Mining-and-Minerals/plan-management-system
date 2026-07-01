@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
 import { ColumnDef } from "@tanstack/react-table";
@@ -24,6 +24,7 @@ import InternalHierarchyD3Tree from "./InternalStructureHierarchy";
 import { matchesActiveInactiveFilter } from "@/utils/tableUtils";
 import { isStructureActive } from "@/utils/structureUtils";
 import { usePermissions } from "@/hooks/usePermissions";
+import { sortStructuresByTreeDepth } from "@/utils/structureTreeOrderUtils";
 
 export interface InternalStructureTableProps {
     sideActions?: ActionButton[];
@@ -236,8 +237,14 @@ export default function InternalStructureTable({
             },
         ];
 
-    const filteredData = structures.filter((item) =>
-        matchesActiveInactiveFilter(statusFilter, isStructureActive(item.is_active))
+    const filteredData = useMemo(
+        () =>
+            sortStructuresByTreeDepth(
+                structures.filter((item) =>
+                    matchesActiveInactiveFilter(statusFilter, isStructureActive(item.is_active))
+                )
+            ),
+        [structures, statusFilter]
     );
 
     return (

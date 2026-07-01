@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
 import { ColumnDef } from "@tanstack/react-table";
@@ -25,6 +25,7 @@ import { isStructureActive } from "@/utils/structureUtils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useGovernmentStructureListParams } from "@/hooks/useGovernmentStructureListParams";
 import { useStructureScope } from "@/hooks/useStructureScope";
+import { sortStructuresByTreeDepth } from "@/utils/structureTreeOrderUtils";
 
 export default function GovernmentStructureTable() {
     const [toggleHierarchyView, setToggleHierarchyView] = useState(false);
@@ -228,8 +229,14 @@ export default function GovernmentStructureTable() {
           ]
         : [];
 
-    const filteredData = structures.filter((item) =>
-        matchesActiveInactiveFilter(statusFilter, isStructureActive(item.is_active))
+    const filteredData = useMemo(
+        () =>
+            sortStructuresByTreeDepth(
+                structures.filter((item) =>
+                    matchesActiveInactiveFilter(statusFilter, isStructureActive(item.is_active))
+                )
+            ),
+        [structures, statusFilter]
     );
 
     return (

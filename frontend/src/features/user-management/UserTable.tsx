@@ -291,15 +291,15 @@ export default function UserTable({
     <>
       <TableLayout
         title={isEmbedded ? undefined : "User Management"}
-        description={
-          isEmbedded
-            ? undefined
-            : effectiveStructureId
-              ? "Users in the selected sector structure"
-              : isSuperAdmin
-                ? "View and manage users"
-                : "Users in your sector and child sectors"
-        }
+        // description={
+        //   isEmbedded
+        //     ? undefined
+        //     : effectiveStructureId
+        //       ? "Users in the selected sector structure"
+        //       : isSuperAdmin
+        //         ? "View and manage users"
+        //         : "Users in your sector and child sectors"
+        // }
         actions={actions}
         sideActions={sideActions}
         filters={filters}

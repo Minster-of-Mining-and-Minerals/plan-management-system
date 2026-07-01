@@ -19,6 +19,7 @@ import { CreateInternalStructureModal } from "./modals/CreateInternalStructureMo
 import { HierarchyTreeParentBadge } from "./components/HierarchyTreeParentBadge";
 import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { isStructureActive } from "@/utils/structureUtils";
 import {
   departmentHierarchyPathFunc,
@@ -52,6 +53,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
   nodeDatum,
   toggleNode,
   onAddChild,
+  onViewDetails,
   permissions = [],
 }) => {
   const hasChildren = !!nodeDatum.children?.length;
@@ -63,6 +65,11 @@ const CustomNode: React.FC<CustomNodeProps> = ({
     if (onAddChild) {
       onAddChild(nodeDatum.attributes.node_id);
     }
+  };
+
+  const handleViewDetails = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onViewDetails?.(nodeDatum.attributes.node_id);
   };
 
   return (
@@ -110,6 +117,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
           <div className="mt-auto flex shrink-0 flex-row justify-center gap-3">
             <button
               type="button"
+              onClick={handleViewDetails}
               className="flex-1 rounded-lg bg-muted py-2 text-xs font-semibold text-primary transition-colors duration-200 hover:bg-muted/80"
             >
               Details
@@ -138,6 +146,7 @@ const InternalHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
   governmentStructureId,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
   const { data: session } = useSession();
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -178,6 +187,10 @@ const InternalHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedParentId(null);
+  };
+
+  const handleViewDetails = (nodeId: string) => {
+    router.push(`/internal-structures/${nodeId}`);
   };
 
   const rootNodes = useMemo(() => {
@@ -330,6 +343,7 @@ const InternalHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
                     nodeDatum={props.nodeDatum as unknown as D3TreeNode & { __rd3t?: { collapsed?: boolean } }}
                     toggleNode={props.toggleNode}
                     onAddChild={handleAddChild}
+                    onViewDetails={handleViewDetails}
                     permissions={createPermission}
                   />
                 )}

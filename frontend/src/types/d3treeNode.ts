@@ -19,6 +19,7 @@ export interface CustomNodeProps {
   nodeDatum: D3TreeNode & { __rd3t?: { collapsed?: boolean } };
   toggleNode: () => void;
   onAddChild?: (parentId: string) => void;
+  onViewDetails?: (nodeId: string) => void;
   permissions?: PermissionKey[];
 }
 

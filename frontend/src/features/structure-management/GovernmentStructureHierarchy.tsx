@@ -11,6 +11,7 @@ import { CreateGovernmentStructureModal } from "./modals/CreateGovernmentStructu
 import { HierarchyTreeParentBadge } from "./components/HierarchyTreeParentBadge";
 import { SectorLogo } from "@/components/common/SectorLogo";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { isStructureActive } from "@/utils/structureUtils";
 import { Label } from "@/components/ui/label";
 import {
@@ -48,6 +49,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({
   nodeDatum,
   toggleNode,
   onAddChild,
+  onViewDetails,
   permissions = [],
 }) => {
   const hasChildren = !!nodeDatum.children?.length;
@@ -60,6 +62,11 @@ const CustomNode: React.FC<CustomNodeProps> = ({
     if (onAddChild) {
       onAddChild(nodeDatum.attributes.node_id);
     }
+  };
+
+  const handleViewDetails = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onViewDetails?.(nodeDatum.attributes.node_id);
   };
 
   return (
@@ -122,7 +129,11 @@ const CustomNode: React.FC<CustomNodeProps> = ({
           )}
 
           <div className="mt-auto flex shrink-0 flex-row justify-center gap-2">
-            <button className="flex-1 rounded-lg bg-muted py-2 text-xs font-semibold text-primary transition-colors duration-200 hover:bg-muted/80">
+            <button
+              type="button"
+              onClick={handleViewDetails}
+              className="flex-1 rounded-lg bg-muted py-2 text-xs font-semibold text-primary transition-colors duration-200 hover:bg-muted/80"
+            >
               Details
             </button>
             {isActive && (
@@ -147,6 +158,7 @@ const GovernmentHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
   isLoading = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
   const { data: session } = useSession();
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -163,6 +175,10 @@ const GovernmentHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedParentId("");
+  };
+
+  const handleViewDetails = (nodeId: string) => {
+    router.push(`/government-structures/${nodeId}`);
   };
 
   const userGovId = useMemo(() => {
@@ -280,6 +296,7 @@ const GovernmentHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
                     nodeDatum={props.nodeDatum as unknown as D3TreeNode & { __rd3t?: { collapsed?: boolean } }}
                     toggleNode={props.toggleNode}
                     onAddChild={handleAddChild}
+                    onViewDetails={handleViewDetails}
                     permissions={createPermission}
                   />
                 )}
