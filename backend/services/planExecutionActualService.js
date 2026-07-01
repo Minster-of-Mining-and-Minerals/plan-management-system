@@ -4,6 +4,13 @@ const { PlanNode, PlanVersion, sequelize } = require("../models");
 const { resolvePlanRuleForVersion } = require("./planRuleService");
 const { stepRequiresWeight } = require("./planRuleStepUtils");
 const { resolveVersionExecutionAccess } = require("./planExecutionGateService");
+const { buildRollupContextForPeriod } = require("./planAchievementRollupService");
+const { isAchievementReadyForPeriodCompletion } = require("../utils/planAchievementRollupUtils");
+const {
+  resolveAchievementStatus,
+  ACHIEVEMENT_STATUS,
+  hasRecordedAchievementValue,
+} = require("../utils/planAchievementWorkflowUtils");
 const {
   buildChildrenByParent,
   resolveManualAchievementEntry,
@@ -44,16 +51,42 @@ async function computePeriodActualsReadiness(periodVersionId, transaction = null
     periodVersionId,
     transaction
   );
+  const rollupContext = await buildRollupContextForPeriod(periodVersionId, transaction);
 
-  const missing = requiredNodes.filter(
-    (node) => node.period_actual === null || node.period_actual === undefined
-  );
+  const missing = [];
+  const pendingApproval = [];
+  let recordedCount = 0;
+
+  for (const node of requiredNodes) {
+    if (hasRecordedAchievementValue(node)) {
+      recordedCount += 1;
+    }
+
+    if (isAchievementReadyForPeriodCompletion(node, rollupContext)) {
+      continue;
+    }
+
+    if (
+      hasRecordedAchievementValue(node) &&
+      resolveAchievementStatus(node) === ACHIEVEMENT_STATUS.SUBMITTED
+    ) {
+      pendingApproval.push(node);
+    } else {
+      missing.push(node);
+    }
+  }
+
+  const approvedCount = requiredNodes.length - missing.length - pendingApproval.length;
 
   return {
     required_count: requiredNodes.length,
-    recorded_count: requiredNodes.length - missing.length,
-    ready: requiredNodes.length === 0 || missing.length === 0,
+    recorded_count: recordedCount,
+    approved_count: approvedCount,
+    pending_approval_count: pendingApproval.length,
+    pending_approval_titles: pendingApproval.map((node) => node.title),
+    missing_count: missing.length,
     missing_titles: missing.map((node) => node.title),
+    ready: requiredNodes.length === 0 || (missing.length === 0 && pendingApproval.length === 0),
   };
 }
 
@@ -178,6 +211,19 @@ async function setPeriodActual(planNodeId, periodActual, options = {}) {
 async function validatePeriodReadyToComplete(periodVersionId, transaction = null) {
   const readiness = await computePeriodActualsReadiness(periodVersionId, transaction);
   if (!readiness.ready) {
+    if (readiness.pending_approval_count > 0) {
+      const preview = readiness.pending_approval_titles.slice(0, 3).join(", ");
+      const suffix =
+        readiness.pending_approval_titles.length > 3
+          ? ` and ${readiness.pending_approval_titles.length - 3} more`
+          : "";
+      return {
+        ready: false,
+        message: `Approve all pending achievements before completing this period (${preview}${suffix})`,
+        readiness,
+      };
+    }
+
     const preview = readiness.missing_titles.slice(0, 3).join(", ");
     const suffix =
       readiness.missing_titles.length > 3

@@ -82,6 +82,14 @@ const updatePeriodActualSchema = Joi.object({
     clear_parent_override: Joi.boolean().optional(),
 });
 
+const submitAchievementSchema = Joi.object({
+    period_actual: Joi.number().min(0).allow(null).required(),
+});
+
+const rejectAchievementSchema = Joi.object({
+    comment: Joi.string().trim().max(2000).allow(null, "").optional(),
+});
+
 const getPlanVersionsQuerySchema = Joi.object({
     year: Joi.number().integer().min(2000).max(2100).optional(),
     government_structure_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).optional(),
@@ -245,6 +253,8 @@ module.exports = {
     validateUpdateAnnualTarget: validate(updateAnnualTargetSchema),
     validateUpdatePeriodTarget: validate(updatePeriodTargetSchema),
     validateUpdatePeriodActual: validate(updatePeriodActualSchema),
+    validateSubmitAchievement: validate(submitAchievementSchema),
+    validateRejectAchievement: validate(rejectAchievementSchema),
     validateGetPlanVersionsQuery: validate(getPlanVersionsQuerySchema, "query"),
     validateGetPlanExecutionDashboardQuery: validate(
         getPlanExecutionDashboardQuerySchema,

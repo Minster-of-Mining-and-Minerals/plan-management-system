@@ -82,6 +82,11 @@ import {
 } from "@/utils/planNodeOrderUtils";
 import { PlanNodeHierarchyNumber } from "./components/PlanNodeHierarchyNumber";
 import { PlanTreeAccessBanner } from "./components/PlanTreeAccessBanner";
+import { PlanAchievementPendingPanel } from "./components/PlanAchievementPendingPanel";
+import {
+    collectPendingAchievementNodes,
+    findAncestorPathIds,
+} from "@/utils/planAchievementHierarchyUtils";
 import { isOversightReadOnlyAccessRole } from "@/utils/planTreeAccessUtils";
 import { cn } from "@/lib/utils";
 
@@ -274,6 +279,23 @@ export default function PlanHierarchyView({
         masterReviewStatus
     );
     const canEditPeriodActual = canEditPeriodActualForVersion(version, processStarted);
+    const configuredUnits = planningConfig?.target_units ?? [];
+    const pendingAchievementNodes = useMemo(
+        () =>
+            showPeriodActuals && executionPeriodOpen
+                ? collectPendingAchievementNodes(hierarchy)
+                : [],
+        [hierarchy, showPeriodActuals, executionPeriodOpen]
+    );
+    const handleNavigateToPendingNode = (nodeId: string) => {
+        const ancestors = findAncestorPathIds(hierarchy, nodeId);
+        if (ancestors) {
+            setPathIds(ancestors);
+            if (viewMode === "table") {
+                setViewMode("card");
+            }
+        }
+    };
     const showAnnualDashboard =
         version?.version_kind === "master" &&
         (version?.status === "finalized" ||
@@ -728,9 +750,18 @@ export default function PlanHierarchyView({
                     {executionPeriodLocked
                         ? " This period is view-only until the previous period is completed."
                         : executionPeriodOpen
-                          ? " Record achievement against period targets in this hierarchy."
+                          ? " Record achievement on assigned leaf nodes, then submit for approval where required."
                           : " This period is completed."}
                 </div>
+            )}
+
+            {showPeriodActuals && executionPeriodOpen && pendingAchievementNodes.length > 0 && (
+                <PlanAchievementPendingPanel
+                    pendingNodes={pendingAchievementNodes}
+                    hierarchyNumberMap={hierarchyNumberMap}
+                    configuredUnits={configuredUnits}
+                    onNavigateToNode={handleNavigateToPendingNode}
+                />
             )}
 
             {isReadOnlyHierarchy && isExecutionPeriod && !processStarted && !periodTargetsFinalized && (

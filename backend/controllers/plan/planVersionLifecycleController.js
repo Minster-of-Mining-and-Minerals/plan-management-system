@@ -21,7 +21,6 @@ const {
     finalizeGlobalPeriodTargets,
     getStartProcessReadiness,
     startPlanProcess,
-    setPeriodTarget,
     completeExecutionPeriod,
     reopenFinalizedPlanForEdit,
     duplicateMasterPlanDraft,
@@ -154,59 +153,6 @@ async function listExecutionPeriods(req, res) {
                 ...enriched,
                 annual: enriched.annual ?? enrichedAnnual,
             },
-        });
-    } catch (error) {
-        return res.status(500).json({ success: false, message: error.message });
-    }
-}
-
-async function updatePeriodTarget(req, res) {
-    try {
-        const { id: nodeId } = req.params;
-        const { period_target } = req.body;
-
-        if (!isUuid(nodeId)) {
-            return res.status(400).json({ success: false, message: "Invalid node ID" });
-        }
-
-        const result = await setPeriodTarget(nodeId, period_target);
-        if (!result.success) {
-            return res.status(400).json({ success: false, message: result.message });
-        }
-
-        return res.json({
-            success: true,
-            message: "Period target updated",
-            data: result.data,
-        });
-    } catch (error) {
-        return res.status(500).json({ success: false, message: error.message });
-    }
-}
-
-async function updatePeriodActual(req, res) {
-    try {
-        const { id: nodeId } = req.params;
-        const { period_actual, use_parent_override, clear_parent_override } = req.body;
-
-        if (!isUuid(nodeId)) {
-            return res.status(400).json({ success: false, message: "Invalid node ID" });
-        }
-
-        const { setPeriodActual } = require("../../services/planExecutionActualService");
-        const result = await setPeriodActual(nodeId, period_actual, {
-            user: req.user,
-            use_parent_override: Boolean(use_parent_override),
-            clear_parent_override: Boolean(clear_parent_override),
-        });
-        if (!result.success) {
-            return res.status(400).json({ success: false, message: result.message });
-        }
-
-        return res.json({
-            success: true,
-            message: "Period achievement recorded",
-            data: result.data,
         });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
@@ -610,8 +556,6 @@ module.exports = {
     getStartProcessReadinessHandler,
     startPlanProcessHandler,
     getExecutionAccessHandler,
-    updatePeriodTarget,
-    updatePeriodActual,
     completeExecutionPeriodVersion,
     reopenFinalizedPlanForEditHandler,
     duplicatePlanDraftHandler,

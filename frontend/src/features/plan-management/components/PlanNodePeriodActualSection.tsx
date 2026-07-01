@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { PlanNode, PlanRule } from "@/redux/types/plan";
 import type { TargetUnit } from "@/redux/types/planningConfig";
-import { useUpdatePeriodActualMutation } from "@/redux/api/planApi";
+import { useUpdatePeriodActualMutation, useSubmitAchievementMutation, useApproveAchievementMutation, useRejectAchievementMutation } from "@/redux/api/planApi";
 import { formatNodeWeight } from "@/utils/planRuleUtils";
 import {
     canManuallyEnterAchievement,
@@ -21,8 +21,16 @@ import { PermissionGuard } from "@/utils/PermissionGuard";
 import {
     PLAN_LIFECYCLE_PERMISSIONS,
     PLAN_OVERRIDE_PARENT_ACHIEVEMENT_PERMISSIONS,
-    PLAN_UPDATE_PERMISSIONS,
+    PLAN_EXECUTE_ACHIEVEMENT_PERMISSIONS,
+    PLAN_APPROVE_ACHIEVEMENT_PERMISSIONS,
 } from "@/utils/planPermissionUtils";
+import {
+    resolvePlanAchievementStatus,
+    planAchievementStatusLabel,
+    isPendingPlanAchievement,
+    PLAN_ACHIEVEMENT_STATUS,
+} from "@/utils/planAchievementWorkflowUtils";
+import { planAchievementExecutorHint } from "@/utils/planAchievementHierarchyUtils";
 import { usePermissions } from "@/hooks/usePermissions";
 
 interface PlanNodePeriodActualSectionProps {
@@ -45,9 +53,17 @@ export function PlanNodePeriodActualSection({
     onClick,
 }: PlanNodePeriodActualSectionProps) {
     const { can } = usePermissions();
-    const [updatePeriodActual, { isLoading: isSaving }] = useUpdatePeriodActualMutation();
+    const [submitAchievement, { isLoading: isSubmitting }] = useSubmitAchievementMutation();
+    const [approveAchievement, { isLoading: isApproving }] = useApproveAchievementMutation();
+    const [rejectAchievement, { isLoading: isRejecting }] = useRejectAchievementMutation();
+    const [updatePeriodActual, { isLoading: isOverrideSaving }] = useUpdatePeriodActualMutation();
     const [periodActualInput, setPeriodActualInput] = useState("");
     const [pendingOverride, setPendingOverride] = useState(false);
+
+    const isSaving = isSubmitting || isApproving || isRejecting || isOverrideSaving;
+    const achievementStatus = resolvePlanAchievementStatus(node);
+    const canExecuteAchievement = can(PLAN_LIFECYCLE_PERMISSIONS.EXECUTE_ACHIEVEMENT);
+    const canApproveAchievement = can(PLAN_LIFECYCLE_PERMISSIONS.APPROVE_ACHIEVEMENT);
 
     const nodeWeightMode = node.weight_mode;
     const entryMode = resolveAchievementEntryMode(node, rule);
@@ -69,10 +85,19 @@ export function PlanNodePeriodActualSection({
         (isWeightedTargetNode(node, rule) &&
             (effectiveTarget > 0 || isRollupEntry || node.has_contributing_data)) ||
         (isRollupEntry && node.is_evaluable);
-    const canEnterLeaf = canEdit && canManuallyEnterAchievement(node, rule);
+    const canEnterLeaf =
+        canEdit && canExecuteAchievement && canManuallyEnterAchievement(node, rule);
     const canEnterManual =
-        canEdit && isEditingManual && periodTarget > 0 && (isParentOverride || pendingOverride);
+        canEdit &&
+        canExecuteAchievement &&
+        isEditingManual &&
+        periodTarget > 0 &&
+        (isParentOverride || pendingOverride);
     const canEnter = canEnterLeaf || canEnterManual;
+    const canSubmitAchievement =
+        canEnter &&
+        !isPendingPlanAchievement(achievementStatus) &&
+        achievementStatus !== PLAN_ACHIEVEMENT_STATUS.APPROVED;
 
     useEffect(() => {
         if (node.period_actual != null) {
@@ -126,7 +151,194 @@ export function PlanNodePeriodActualSection({
             ? node.is_evaluable || node.has_contributing_data || displayActualRaw != null
             : node.period_actual != null || node.period_actual_override);
 
-    const handleSave = async () => {
+    const handleSubmit = async () => {
+        try {
+            const val = periodActualInput === "" ? null : Number(periodActualInput);
+            if (val != null && (Number.isNaN(val) || val < 0)) {
+                actionFeedback.error("Achievement must be zero or greater");
+                return;
+            }
+            if (val != null && val > periodTarget + 0.001) {
+                actionFeedback.error(`Achievement cannot exceed the period target (${periodTarget})`);
+                return;
+            }
+            await submitAchievement({
+                id: node.plan_node_id,
+                period_actual: val,
+            }).unwrap();
+            actionFeedback.success(
+                val == null ? "Achievement cleared" : "Achievement submitted for approval"
+            );
+        } catch (error: unknown) {
+            const err = error as { data?: { message?: string } };
+            actionFeedback.error(err.data?.message || "Failed to submit achievement");
+        }
+    };
+
+    const handleApprove = async () => {
+        try {
+            await approveAchievement({ id: node.plan_node_id }).unwrap();
+            actionFeedback.success("Achievement approved");
+        } catch (error: unknown) {
+            const err = error as { data?: { message?: string } };
+            actionFeedback.error(err.data?.message || "Failed to approve achievement");
+        }
+    };
+
+    const handleReject = async () => {
+        if (
+            !(await actionFeedback.confirm("Reject this achievement submission?", {
+                destructive: true,
+            }))
+        ) {
+            return;
+        }
+
+        try {
+            await rejectAchievement({ id: node.plan_node_id }).unwrap();
+            actionFeedback.success("Achievement rejected");
+        } catch (error: unknown) {
+            const err = error as { data?: { message?: string } };
+            actionFeedback.error(err.data?.message || "Failed to reject achievement");
+        }
+    };
+
+    const showLeafEditor = canEnterLeaf && periodTarget > 0 && canSubmitAchievement;
+    const showManualEditor = canEnterManual && periodTarget > 0;
+    const showApprovalActions =
+        achievementStatus === PLAN_ACHIEVEMENT_STATUS.SUBMITTED &&
+        canApproveAchievement &&
+        !isEditingManual;
+
+    const executorHint = planAchievementExecutorHint(achievementStatus, {
+        canSubmit: canSubmitAchievement,
+        isRollup: isRollupEntry && !isEditingManual,
+    });
+
+    const statusNotice =
+        executorHint && !isEditingManual ? (
+            <p
+                className={cn(
+                    "text-xs rounded-md px-2 py-1.5 border",
+                    achievementStatus === PLAN_ACHIEVEMENT_STATUS.SUBMITTED &&
+                        "text-amber-800 bg-amber-50 border-amber-100",
+                    achievementStatus === PLAN_ACHIEVEMENT_STATUS.REJECTED &&
+                        "text-red-800 bg-red-50 border-red-100",
+                    achievementStatus === PLAN_ACHIEVEMENT_STATUS.APPROVED &&
+                        "text-emerald-800 bg-emerald-50 border-emerald-100",
+                    achievementStatus === PLAN_ACHIEVEMENT_STATUS.EMPTY &&
+                        "text-violet-800 bg-violet-50 border-violet-100"
+                )}
+            >
+                {executorHint}
+            </p>
+        ) : null;
+
+    const workflowStatusBadge = (
+        <Badge
+            variant="outline"
+            className={cn(
+                "text-[10px] py-0 h-4",
+                achievementStatus === PLAN_ACHIEVEMENT_STATUS.SUBMITTED &&
+                    "border-amber-200 text-amber-800 bg-amber-50",
+                achievementStatus === PLAN_ACHIEVEMENT_STATUS.APPROVED &&
+                    "border-emerald-200 text-emerald-800 bg-emerald-50",
+                achievementStatus === PLAN_ACHIEVEMENT_STATUS.REJECTED &&
+                    "border-red-200 text-red-800 bg-red-50",
+                achievementStatus === PLAN_ACHIEVEMENT_STATUS.EMPTY &&
+                    "border-gray-200 text-gray-600 bg-gray-50"
+            )}
+        >
+            {planAchievementStatusLabel(achievementStatus)}
+        </Badge>
+    );
+
+    const approvalActions = showApprovalActions ? (
+        <div className="flex flex-wrap gap-2" onClick={onClick}>
+            <PermissionGuard requireAll={PLAN_APPROVE_ACHIEVEMENT_PERMISSIONS}>
+                <Button
+                    type="button"
+                    size="sm"
+                    className="h-8 text-xs"
+                    disabled={isSaving}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        void handleApprove();
+                    }}
+                >
+                    Approve
+                </Button>
+                <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs border-red-200 text-red-800 hover:bg-red-50"
+                    disabled={isSaving}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        void handleReject();
+                    }}
+                >
+                    Reject
+                </Button>
+            </PermissionGuard>
+        </div>
+    ) : null;
+
+    const leafEditor =
+        showLeafEditor ? (
+            <div
+                className={cn(
+                    "flex gap-2",
+                    variant === "table"
+                        ? "flex-col sm:flex-row sm:items-end"
+                        : "flex-col sm:flex-row sm:items-end"
+                )}
+                onClick={onClick}
+            >
+                <div className="flex-1 space-y-1 min-w-0">
+                    {variant !== "table" && (
+                        <Label htmlFor={`period_actual_${node.plan_node_id}`} className="text-xs">
+                            Achievement This Period
+                        </Label>
+                    )}
+                    <Input
+                        id={`period_actual_${node.plan_node_id}`}
+                        type="number"
+                        min={0}
+                        max={periodTarget}
+                        step="any"
+                        value={periodActualInput}
+                        onChange={(e) => setPeriodActualInput(e.target.value)}
+                        placeholder={`Up to ${periodTarget}`}
+                        className={
+                            variant === "compact"
+                                ? "h-8 text-xs"
+                                : variant === "table"
+                                  ? "h-8 text-sm"
+                                  : ""
+                        }
+                    />
+                </div>
+                <PermissionGuard requireAll={PLAN_EXECUTE_ACHIEVEMENT_PERMISSIONS}>
+                    <Button
+                        size={variant === "compact" || variant === "table" ? "sm" : "default"}
+                        disabled={isSaving}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            void handleSubmit();
+                        }}
+                        className="shrink-0"
+                    >
+                        {achievementStatus === PLAN_ACHIEVEMENT_STATUS.REJECTED
+                            ? "Resubmit"
+                            : "Submit"}
+                    </Button>
+                </PermissionGuard>
+            </div>
+        ) : null;
+
+    const handleSaveOverride = async () => {
         try {
             const val = periodActualInput === "" ? null : Number(periodActualInput);
             if (val != null && (Number.isNaN(val) || val < 0)) {
@@ -214,8 +426,8 @@ export function PlanNodePeriodActualSection({
             </div>
         ) : null;
 
-    const editor =
-        canEnter && periodTarget > 0 ? (
+    const manualEditor =
+        showManualEditor ? (
             <div
                 className={cn(
                     "flex gap-2",
@@ -228,9 +440,7 @@ export function PlanNodePeriodActualSection({
                 <div className="flex-1 space-y-1 min-w-0">
                     {variant !== "table" && (
                         <Label htmlFor={`period_actual_${node.plan_node_id}`} className="text-xs">
-                            {isEditingManual
-                                ? "Manual Override Achievement"
-                                : "Achievement This Period"}
+                            Manual Override Achievement
                         </Label>
                     )}
                     <Input
@@ -251,13 +461,13 @@ export function PlanNodePeriodActualSection({
                         }
                     />
                 </div>
-                <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
+                <PermissionGuard requireAll={PLAN_OVERRIDE_PARENT_ACHIEVEMENT_PERMISSIONS}>
                     <Button
                         size={variant === "compact" || variant === "table" ? "sm" : "default"}
                         disabled={isSaving}
                         onClick={(e) => {
                             e.stopPropagation();
-                            void handleSave();
+                            void handleSaveOverride();
                         }}
                         className="shrink-0"
                     >
@@ -269,6 +479,7 @@ export function PlanNodePeriodActualSection({
 
     const statusBadges = (
         <>
+            {!isEditingManual && !isRollupEntry && workflowStatusBadge}
             {isRollupEntry && (
                 <Badge variant="outline" className="text-[10px] py-0 h-4">
                     Rolled up from children
@@ -313,8 +524,17 @@ export function PlanNodePeriodActualSection({
                     </Badge>
                     {statusBadges}
                 </div>
+                {statusNotice}
+                {achievementStatus === PLAN_ACHIEVEMENT_STATUS.REJECTED &&
+                    node.period_actual_rejection_comment && (
+                        <p className="text-xs text-red-700 bg-red-50 border border-red-100 rounded-md px-2 py-1.5">
+                            {node.period_actual_rejection_comment}
+                        </p>
+                    )}
                 {overrideActions}
-                {editor}
+                {approvalActions}
+                {leafEditor}
+                {manualEditor}
             </div>
         );
     }
@@ -330,8 +550,11 @@ export function PlanNodePeriodActualSection({
                 >
                     {periodActualValue ?? (isRollupEntry ? "—" : "Not recorded")}
                 </span>
+                {statusNotice}
                 {overrideActions}
-                {editor}
+                {approvalActions}
+                {leafEditor}
+                {manualEditor}
             </div>
         );
     }
@@ -347,6 +570,13 @@ export function PlanNodePeriodActualSection({
             onClick={onClick}
         >
             <div className="flex flex-wrap gap-2">{statusBadges}</div>
+            {statusNotice}
+            {achievementStatus === PLAN_ACHIEVEMENT_STATUS.REJECTED &&
+                node.period_actual_rejection_comment && (
+                    <p className="text-xs text-red-700 bg-red-50 border border-red-100 rounded-md px-2 py-1.5">
+                        {node.period_actual_rejection_comment}
+                    </p>
+                )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="min-w-0">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700/80">
@@ -378,7 +608,9 @@ export function PlanNodePeriodActualSection({
                 </div>
             </div>
             {overrideActions}
-            {editor}
+            {approvalActions}
+            {leafEditor}
+            {manualEditor}
         </div>
     );
 }

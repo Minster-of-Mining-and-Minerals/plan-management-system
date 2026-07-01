@@ -260,6 +260,7 @@ module.exports = {
   buildChildrenByParent,
   getActiveChildren,
   isMasterPlanLeaf,
+  buildNodeById,
   collectDescendantIds,
   internalAssignmentMatchesUser,
   userHasSectorAccessToMasterNode,

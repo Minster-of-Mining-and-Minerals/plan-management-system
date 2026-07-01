@@ -412,6 +412,59 @@ export const planApi = baseApi.injectEndpoints({
             ],
         }),
 
+        submitAchievement: builder.mutation<
+            PlanNode,
+            { id: string; period_actual: number | null }
+        >({
+            query: ({ id, period_actual }) => ({
+                url: `/plan/nodes/${id}/achievement/submit`,
+                method: "POST",
+                body: { period_actual },
+            }),
+            transformResponse: (response: { data: PlanNode }) => response.data,
+            invalidatesTags: (_r, _e, { id }) => [
+                { type: "PlanNodes", id },
+                "PlanNodes",
+                "PlanVersions",
+                "PlanExecutionDashboard",
+                { type: "PlanVersions", id: "LIST" },
+            ],
+        }),
+
+        approveAchievement: builder.mutation<PlanNode, { id: string }>({
+            query: ({ id }) => ({
+                url: `/plan/nodes/${id}/achievement/approve`,
+                method: "POST",
+            }),
+            transformResponse: (response: { data: PlanNode }) => response.data,
+            invalidatesTags: (_r, _e, { id }) => [
+                { type: "PlanNodes", id },
+                "PlanNodes",
+                "PlanVersions",
+                "PlanExecutionDashboard",
+                { type: "PlanVersions", id: "LIST" },
+            ],
+        }),
+
+        rejectAchievement: builder.mutation<
+            PlanNode,
+            { id: string; comment?: string | null }
+        >({
+            query: ({ id, comment }) => ({
+                url: `/plan/nodes/${id}/achievement/reject`,
+                method: "POST",
+                body: { comment },
+            }),
+            transformResponse: (response: { data: PlanNode }) => response.data,
+            invalidatesTags: (_r, _e, { id }) => [
+                { type: "PlanNodes", id },
+                "PlanNodes",
+                "PlanVersions",
+                "PlanExecutionDashboard",
+                { type: "PlanVersions", id: "LIST" },
+            ],
+        }),
+
         getPeriodTargetAllocations: builder.query<PeriodTargetAllocation[], string>({
             query: (id) => `/plan/versions/${id}/period-target-allocations`,
             transformResponse: (response: { data: PeriodTargetAllocation[] }) => response.data,
@@ -678,6 +731,9 @@ export const {
     useCompleteExecutionPeriodMutation,
     useUpdatePeriodTargetMutation,
     useUpdatePeriodActualMutation,
+    useSubmitAchievementMutation,
+    useApproveAchievementMutation,
+    useRejectAchievementMutation,
     useGetPeriodTargetAllocationsQuery,
     useGetGlobalPeriodTargetFinalizationReadinessQuery,
     useFinalizeGlobalPeriodTargetsMutation,

@@ -17,8 +17,10 @@ import { actionFeedback } from "@/components/action-feedback";
 import { PeriodTargetAllocationSummary } from "./PeriodTargetAllocationSummary";
 import { cn } from "@/lib/utils";
 import { PermissionGuard } from "@/utils/PermissionGuard";
-import { PLAN_UPDATE_PERMISSIONS } from "@/utils/planPermissionUtils";
+import { PLAN_EXECUTE_ACHIEVEMENT_PERMISSIONS, PLAN_LIFECYCLE_PERMISSIONS } from "@/utils/planPermissionUtils";
 import { RaiseIssueButton } from "./RaiseIssueButton";
+import { canSetPeriodTargetOnNode } from "@/utils/planAchievementHierarchyUtils";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface PlanNodePeriodTargetSectionProps {
     node: PlanNode;
@@ -45,8 +47,13 @@ export function PlanNodePeriodTargetSection({
     className,
     onClick,
 }: PlanNodePeriodTargetSectionProps) {
+    const { can } = usePermissions();
     const [updatePeriodTarget, { isLoading: isSaving }] = useUpdatePeriodTargetMutation();
     const [periodTargetInput, setPeriodTargetInput] = useState("");
+
+    const canExecuteAchievement = can(PLAN_LIFECYCLE_PERMISSIONS.EXECUTE_ACHIEVEMENT);
+    const isTargetLeaf = canSetPeriodTargetOnNode(node);
+    const canEditTarget = canEdit && canExecuteAchievement && isTargetLeaf;
 
     const nodeWeightMode = node.weight_mode;
     const requiresWeight = stepRequiresWeight(rule, node.level);
@@ -110,7 +117,7 @@ export function PlanNodePeriodTargetSection({
         }
     };
 
-    const editor = canEdit ? (
+    const editor = canEditTarget ? (
         <div
             className={cn(
                 "flex gap-2",
@@ -139,7 +146,7 @@ export function PlanNodePeriodTargetSection({
                     className={variant === "compact" ? "h-8 text-xs" : variant === "table" ? "h-8 text-sm" : ""}
                 />
             </div>
-            <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
+            <PermissionGuard requireAll={PLAN_EXECUTE_ACHIEVEMENT_PERMISSIONS}>
                 <Button
                     size={variant === "compact" || variant === "table" ? "sm" : "default"}
                     disabled={isSaving}
@@ -154,6 +161,13 @@ export function PlanNodePeriodTargetSection({
             </PermissionGuard>
         </div>
     ) : null;
+
+    const readOnlyTargetHint =
+        canEdit && canExecuteAchievement && !isTargetLeaf ? (
+            <p className="text-xs text-slate-600">
+                Period targets are set on leaf nodes in your assignment scope.
+            </p>
+        ) : null;
 
     const raiseIssueAction = showRaiseIssue ? (
         <RaiseIssueButton
@@ -194,6 +208,7 @@ export function PlanNodePeriodTargetSection({
                     </Badge>
                 </div>
                 {allocationSummary}
+                {readOnlyTargetHint}
                 {editor}
                 {raiseIssueAction}
             </div>
@@ -212,6 +227,7 @@ export function PlanNodePeriodTargetSection({
                     {periodTargetValue ?? "Not yet defined"}
                 </span>
                 {allocationSummary}
+                {readOnlyTargetHint}
                 {editor}
                 {raiseIssueAction}
             </div>
@@ -256,6 +272,7 @@ export function PlanNodePeriodTargetSection({
                 </div>
             </div>
             {allocationSummary}
+            {readOnlyTargetHint}
             {editor}
             {raiseIssueAction}
         </div>

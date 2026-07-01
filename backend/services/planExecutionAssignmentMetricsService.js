@@ -9,6 +9,7 @@ const {
   Role,
 } = require("../models");
 const { computePeriodExecutionProgress } = require("./planExecutionRollupService");
+const { nodeContributesToRollup } = require("../utils/planAchievementRollupUtils");
 
 function roundPercent(value) {
   if (value == null || Number.isNaN(value)) return null;
@@ -68,15 +69,15 @@ function applyContribution(bucket, contribution, meta = {}) {
  * Achievement slice for a period node tied to an assignment.
  * Leaves use actual/target; rollup parents use their averaged achievement percent.
  */
-function getAssignedNodeContribution(node, metrics) {
+function getAssignedNodeContribution(node, metrics, rollupContext = {}) {
   const directTarget = Number(node.period_target) || 0;
-  const hasDirectActual = node.period_actual != null && node.period_actual !== undefined;
+  const contributes = nodeContributesToRollup(node, rollupContext);
 
   if (directTarget > 0) {
     return {
-      actual: hasDirectActual ? Number(node.period_actual) : 0,
+      actual: contributes ? Number(node.period_actual) : 0,
       target: directTarget,
-      reported: hasDirectActual,
+      reported: contributes,
     };
   }
 
@@ -122,7 +123,7 @@ async function buildAssignmentAchievementMetrics(focusContexts) {
     const [nodes, assignments, progress] = await Promise.all([
       PlanNode.findAll({
         where: { plan_version_id: periodVersionId, is_active: true },
-        attributes: ["plan_node_id", "period_target", "period_actual"],
+        attributes: ["plan_node_id", "period_target", "period_actual", "period_actual_status"],
       }),
       InternalAssignment.findAll({
         where: { is_active: true },
@@ -132,7 +133,7 @@ async function buildAssignmentAchievementMetrics(focusContexts) {
             as: "planNode",
             required: true,
             where: { plan_version_id: periodVersionId },
-            attributes: ["plan_node_id", "period_target", "period_actual"],
+            attributes: ["plan_node_id", "period_target", "period_actual", "period_actual_status"],
           },
           {
             model: User,
@@ -182,7 +183,11 @@ async function buildAssignmentAchievementMetrics(focusContexts) {
         nodeById.get(planNode.plan_node_id) ??
         (planNode.toJSON ? planNode.toJSON() : planNode);
       const metrics = rollupMap.get(node.plan_node_id);
-      const contribution = getAssignedNodeContribution(node, metrics);
+      const contribution = getAssignedNodeContribution(
+        node,
+        metrics,
+        progress.rollup_context
+      );
       if (!contribution) continue;
 
       const nodeKey = `${periodVersionId}:${node.plan_node_id}`;

@@ -17,6 +17,8 @@ const {
     validateUpdateAnnualTarget,
     validateUpdatePeriodTarget,
     validateUpdatePeriodActual,
+    validateSubmitAchievement,
+    validateRejectAchievement,
 } = require("../../validators/plan/planValidator");
 
 const { getExecutionDashboard } = require("../../controllers/plan/planDashboardController");
@@ -59,12 +61,18 @@ const {
     getStartProcessReadinessHandler,
     startPlanProcessHandler,
     getExecutionAccessHandler,
-    updatePeriodTarget,
-    updatePeriodActual,
     completeExecutionPeriodVersion,
     reopenFinalizedPlanForEditHandler,
     duplicatePlanDraftHandler,
 } = require("../../controllers/plan/planVersionLifecycleController");
+
+const {
+    updatePeriodTarget,
+    updatePeriodActual,
+    submitAchievementHandler,
+    approveAchievementHandler,
+    rejectAchievementHandler,
+} = require("../../controllers/plan/planAchievementController");
 
 const {
     getPublishForReviewReadinessHandler,
@@ -196,8 +204,43 @@ router.get("/versions/:id/review-dashboard", checkAnyPermission([
     { resource: "PLAN", action: "PUBLISH_FOR_REVIEW" },
 ]), validateIdParam, requirePlanVersionReadAccess(), getPlanReviewDashboardHandler);
 router.patch("/nodes/:id/annual-target", checkPermission("PLANS", "UPDATE"), validateIdParam, validateUpdateAnnualTarget, updateAnnualTarget);
-router.patch("/nodes/:id/period-target", checkPermission("PLANS", "UPDATE"), validateIdParam, validateUpdatePeriodTarget, updatePeriodTarget);
-router.patch("/nodes/:id/period-actual", checkPermission("PLANS", "UPDATE"), validateIdParam, validateUpdatePeriodActual, updatePeriodActual);
+router.patch(
+    "/nodes/:id/period-target",
+    checkPermission("PLAN", "EXECUTE_ACHIEVEMENT"),
+    validateIdParam,
+    validateUpdatePeriodTarget,
+    updatePeriodTarget
+);
+router.post(
+    "/nodes/:id/achievement/submit",
+    checkPermission("PLAN", "EXECUTE_ACHIEVEMENT"),
+    validateIdParam,
+    validateSubmitAchievement,
+    submitAchievementHandler
+);
+router.post(
+    "/nodes/:id/achievement/approve",
+    checkPermission("PLAN", "APPROVE_ACHIEVEMENT"),
+    validateIdParam,
+    approveAchievementHandler
+);
+router.post(
+    "/nodes/:id/achievement/reject",
+    checkPermission("PLAN", "APPROVE_ACHIEVEMENT"),
+    validateIdParam,
+    validateRejectAchievement,
+    rejectAchievementHandler
+);
+router.patch(
+    "/nodes/:id/period-actual",
+    checkAnyPermission([
+        { resource: "PLAN", action: "EXECUTE_ACHIEVEMENT" },
+        { resource: "PLAN", action: "OVERRIDE_PARENT_ACHIEVEMENT" },
+    ]),
+    validateIdParam,
+    validateUpdatePeriodActual,
+    updatePeriodActual
+);
 
 // ================= PLANNING CONFIGURATION =================
 

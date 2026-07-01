@@ -289,9 +289,12 @@ export function ExecutionPeriodsDashboard({
                         period.execution_status === "open" &&
                         period.execution_actuals_ready === false;
                     const readiness = period.execution_actuals_readiness;
+                    const pendingApprovals = readiness?.pending_approval_count ?? 0;
                     const readinessSummary =
                         readiness && readiness.required_count > 0
-                            ? `${readiness.recorded_count ?? 0}/${readiness.required_count} KPIs reported`
+                            ? pendingApprovals > 0
+                                ? `${readiness.approved_count ?? readiness.recorded_count ?? 0}/${readiness.required_count} approved · ${pendingApprovals} pending`
+                                : `${readiness.approved_count ?? readiness.recorded_count ?? 0}/${readiness.required_count} KPIs ready`
                             : null;
                     const executionLocked =
                         processStarted &&
@@ -405,7 +408,11 @@ export function ExecutionPeriodsDashboard({
                                 {needsActuals && (
                                     <PerformanceColorBadge
                                         color="#f59e0b"
-                                        label="Record all KPI achievements"
+                                        label={
+                                            pendingApprovals > 0
+                                                ? "Pending achievement approvals"
+                                                : "Record all KPI achievements"
+                                        }
                                         variant="outline"
                                         className="gap-1 w-fit text-xs"
                                     />

@@ -74,6 +74,10 @@ export interface PlanVersion {
     execution_actuals_readiness?: {
         required_count: number;
         recorded_count: number;
+        approved_count?: number;
+        pending_approval_count?: number;
+        pending_approval_titles?: string[];
+        missing_count?: number;
         ready: boolean;
         missing_titles?: string[];
     };

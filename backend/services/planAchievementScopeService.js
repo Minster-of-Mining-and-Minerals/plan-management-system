@@ -1,6 +1,8 @@
 "use strict";
 
 const { loadMasterPlanAssignments } = require("./planTreeVisibilityUtils");
+const { PlanNode } = require("../models");
+const { resolveMasterVersionId } = require("./planReviewVisibilityService");
 const {
   userCanExecuteAchievement,
   userCanApproveAchievement,
@@ -103,10 +105,34 @@ async function assertUserCanApproveAchievementForLeaf(
   return { allowed: true };
 }
 
+async function resolveMasterPlanNodeIdForPeriodNode(periodNode, transaction = null) {
+  if (!periodNode?.source_plan_node_id) {
+    return null;
+  }
+
+  const annualNode = await PlanNode.findByPk(periodNode.source_plan_node_id, {
+    transaction,
+  });
+
+  return annualNode?.source_plan_node_id ?? null;
+}
+
+async function resolveAchievementScopeForPeriodNode(periodNode, transaction = null) {
+  const masterVersionId = await resolveMasterVersionId(periodNode.plan_version_id);
+  const masterPlanNodeId = await resolveMasterPlanNodeIdForPeriodNode(
+    periodNode,
+    transaction
+  );
+
+  return { masterVersionId, masterPlanNodeId };
+}
+
 module.exports = {
   loadAchievementScopeContext,
   resolveExecutorLeafMasterNodeIdsForUser,
   resolveApproverScopeMasterNodeIdsForUser,
   assertUserCanExecuteAchievementOnMasterNode,
   assertUserCanApproveAchievementForLeaf,
+  resolveMasterPlanNodeIdForPeriodNode,
+  resolveAchievementScopeForPeriodNode,
 };

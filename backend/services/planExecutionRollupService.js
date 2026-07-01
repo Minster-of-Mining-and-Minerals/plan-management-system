@@ -2,7 +2,10 @@
 
 const { PlanNode, PlanVersion } = require("../models");
 const { resolvePlanRuleForVersion } = require("./planRuleService");
-const { isExecutionSnapshotVersion } = require("./planExecutionSnapshotService");
+const {
+  nodeContributesToRollup,
+} = require("../utils/planAchievementRollupUtils");
+const { buildRollupContextForPeriod } = require("./planAchievementRollupService");
 
 const EVALUATION_STATUS = {
   COMPLETED: "completed",
@@ -37,14 +40,14 @@ function hasPeriodTarget(node) {
   return Number(node.period_target) > 0;
 }
 
-function hasRecordedActual(node) {
-  return node.period_actual != null && node.period_actual !== undefined;
+function hasRecordedActual(node, rollupContext = {}) {
+  return nodeContributesToRollup(node, rollupContext);
 }
 
 /**
  * Leaf evaluation: target-based achievement with evaluability rules.
  */
-function evaluateLeafNode(node) {
+function evaluateLeafNode(node, rollupContext = {}) {
   const target = Number(node.period_target) || 0;
 
   if (target <= 0) {
@@ -58,7 +61,7 @@ function evaluateLeafNode(node) {
     };
   }
 
-  const hasActual = hasRecordedActual(node);
+  const hasActual = hasRecordedActual(node, rollupContext);
   const actual = hasActual ? Number(node.period_actual) : 0;
   const percent = hasActual ? roundPercent((actual / target) * 100) : 0;
 
@@ -117,7 +120,7 @@ function subtreeHasContributingData(node, memo, childrenByParent) {
  * Recursive performance rollup — depth-agnostic, average of evaluable children.
  * Parent override nodes with a target are evaluated as a single leaf unit.
  */
-function computeNodeRollup(node, childrenByParent, memo) {
+function computeNodeRollup(node, childrenByParent, memo, rollupContext = {}) {
   if (memo.has(node.plan_node_id)) {
     return memo.get(node.plan_node_id);
   }
@@ -135,13 +138,13 @@ function computeNodeRollup(node, childrenByParent, memo) {
   if (treatAsLeaf) {
     if (children.length > 0) {
       for (const child of children) {
-        computeNodeRollup(child, childrenByParent, memo);
+        computeNodeRollup(child, childrenByParent, memo, rollupContext);
       }
     }
-    result = evaluateLeafNode(node);
+    result = evaluateLeafNode(node, rollupContext);
   } else {
     for (const child of children) {
-      computeNodeRollup(child, childrenByParent, memo);
+      computeNodeRollup(child, childrenByParent, memo, rollupContext);
     }
 
     const evaluableChildren = children
@@ -180,7 +183,7 @@ function buildChildrenByParent(nodes) {
   return childrenByParent;
 }
 
-function computeRollupMap(nodes) {
+function computeRollupMap(nodes, rollupContext = {}) {
   if (!nodes.length) {
     return new Map();
   }
@@ -194,7 +197,7 @@ function computeRollupMap(nodes) {
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   for (const root of roots) {
-    computeNodeRollup(root, childrenByParent, memo);
+    computeNodeRollup(root, childrenByParent, memo, rollupContext);
   }
 
   return memo;
@@ -226,8 +229,8 @@ function aggregateEvaluableNodeMetrics(nodeMetrics) {
   };
 }
 
-function computeVersionProgressFromRoots(nodes) {
-  const rollupMap = computeRollupMap(nodes);
+function computeVersionProgressFromRoots(nodes, rollupContext = {}) {
+  const rollupMap = computeRollupMap(nodes, rollupContext);
   const nodeById = new Map(nodes.map((node) => [node.plan_node_id, node]));
   const childrenByParent = buildChildrenByParent(nodes);
 
@@ -241,6 +244,7 @@ function computeVersionProgressFromRoots(nodes) {
   return {
     ...versionMetrics,
     rollup_by_node_id: rollupMap,
+    rollup_context: rollupContext,
   };
 }
 
@@ -264,9 +268,10 @@ async function computePeriodExecutionProgress(periodVersionId, transaction = nul
     transaction,
   });
 
-  return computeVersionProgressFromRoots(
-    nodes.map((node) => (node.toJSON ? node.toJSON() : node))
-  );
+  const plainNodes = nodes.map((node) => (node.toJSON ? node.toJSON() : node));
+  const rollupContext = await buildRollupContextForPeriod(periodVersionId, transaction);
+
+  return computeVersionProgressFromRoots(plainNodes, rollupContext);
 }
 
 /**
