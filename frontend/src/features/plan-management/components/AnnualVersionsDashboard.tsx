@@ -39,6 +39,7 @@ import { FinalizeAnnualExecutionModal } from "../modals/FinalizeAnnualExecutionM
 import { InitializeExecutionPeriodsModal } from "../modals/InitializeExecutionPeriodsModal";
 import { StartProcessModal } from "../modals/StartProcessModal";
 import { cn } from "@/lib/utils";
+import { PlanDetailLoadingPanel } from "./PlanDetailLoadingStates";
 
 interface AnnualVersionsDashboardProps {
     masterVersion: PlanVersion;
@@ -103,21 +104,7 @@ export function AnnualVersionsDashboard({
     };
 
     if (isLoading && annualVersions.length === 0) {
-        return (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {[1, 2, 3].map((i) => (
-                    <Card key={i} className="animate-pulse">
-                        <CardHeader>
-                            <div className="h-5 w-32 rounded bg-muted" />
-                            <div className="h-4 w-full rounded bg-muted mt-2" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="h-2 w-full rounded-full bg-muted" />
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
-        );
+        return <PlanDetailLoadingPanel variant="cards" count={3} />;
     }
 
     if (annualVersions.length === 0) {

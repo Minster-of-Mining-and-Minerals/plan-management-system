@@ -32,9 +32,11 @@ import {
     resolvePlanVersionStatusLabel,
 } from "@/utils/planExecutionUtils";
 import { cn } from "@/lib/utils";
+import { PlanDetailLoadingPanel } from "./PlanDetailLoadingStates";
 
 interface ExecutionPeriodsDashboardProps {
     annualVersion: PlanVersion;
+    masterVersion?: PlanVersion;
     mode?: "draft" | "review";
 }
 
@@ -51,6 +53,7 @@ function formatSubdivisionMode(mode: string | null | undefined): string {
 
 export function ExecutionPeriodsDashboard({
     annualVersion,
+    masterVersion: masterVersionProp,
     mode = "draft",
 }: ExecutionPeriodsDashboardProps) {
     const router = useRouter();
@@ -58,10 +61,12 @@ export function ExecutionPeriodsDashboard({
     const isReviewMode = mode === "review";
     const plansBasePath = getPlanViewBasePath(mode);
 
-    const { data: masterVersion } = useGetPlanVersionByIdQuery(
-        annualVersion.parent_plan_version_id ?? "",
-        { skip: !annualVersion.parent_plan_version_id }
+    const parentMasterId = annualVersion.parent_plan_version_id ?? "";
+    const { data: fetchedMasterVersion, isLoading: isMasterLoading } = useGetPlanVersionByIdQuery(
+        parentMasterId,
+        { skip: !parentMasterId || !!masterVersionProp }
     );
+    const masterVersion = masterVersionProp ?? fetchedMasterVersion;
     const annualTargetsFinalized = Boolean(masterVersion?.annual_targets_finalized_at);
     const periodsInitializedGlobally = Boolean(masterVersion?.period_subdivision_mode);
     const processStarted = Boolean(masterVersion?.process_started_at);
@@ -92,21 +97,8 @@ export function ExecutionPeriodsDashboard({
         }
     };
 
-    if (isLoading && executionPeriods.length === 0) {
-        return (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {[1, 2, 3, 4].map((i) => (
-                    <Card key={i} className="animate-pulse">
-                        <CardHeader>
-                            <div className="h-5 w-16 rounded bg-muted" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="h-2 w-full rounded-full bg-muted" />
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
-        );
+    if ((isLoading || isMasterLoading) && executionPeriods.length === 0) {
+        return <PlanDetailLoadingPanel variant="cards" count={4} />;
     }
 
     if (!annualTargetsFinalized) {

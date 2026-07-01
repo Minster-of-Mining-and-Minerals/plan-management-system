@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useLayoutEffect, useRef } from "react";
 import {
     useGetPlanHierarchyQuery,
     useDeletePlanNodeMutation,
@@ -84,6 +84,11 @@ import { PlanNodeHierarchyNumber } from "./components/PlanNodeHierarchyNumber";
 import { PlanTreeAccessBanner } from "./components/PlanTreeAccessBanner";
 import { PlanAchievementPendingPanel } from "./components/PlanAchievementPendingPanel";
 import {
+    PlanDetailHeaderSkeleton,
+    PlanDetailLoadingPanel,
+    PlanDetailPanelShell,
+} from "./components/PlanDetailLoadingStates";
+import {
     collectPendingAchievementNodes,
     findAncestorPathIds,
 } from "@/utils/planAchievementHierarchyUtils";
@@ -129,7 +134,8 @@ export default function PlanHierarchyView({
     mode?: "draft" | "review";
 }) {
     const router = useRouter();
-    const { data: version, refetch: refetchVersion } = useGetPlanVersionByIdQuery(versionId);
+    const { data: version, isLoading: isVersionLoading, refetch: refetchVersion } =
+        useGetPlanVersionByIdQuery(versionId);
     const masterVersionId =
         version?.live_master_version_id ??
         (version?.version_kind === "master"
@@ -160,10 +166,6 @@ export default function PlanHierarchyView({
         version,
         masterVersion
     );
-    const { data: rule } = useGetPlanRuleForVersionQuery(versionId);
-    const { data: hierarchy = [], isLoading, refetch } = useGetPlanHierarchyQuery(versionId);
-    const [deleteNode] = useDeletePlanNodeMutation();
-    const [reorderNodes, { isLoading: isReordering }] = useReorderPlanNodesMutation();
     const thresholds = usePerformanceColorThresholds();
     const { can, canAny } = usePermissions();
 
@@ -175,6 +177,76 @@ export default function PlanHierarchyView({
     const [selectedParent, setSelectedParent] = useState<PlanNode | null>(null);
     const [selectedNode, setSelectedNode] = useState<PlanNode | null>(null);
     const appliedDefaultTabForVersion = useRef<string | null>(null);
+
+    const isReviewMode = mode === "review";
+    const isAnnualVersion = version?.version_kind === "annual";
+    const isExecutionPeriod = version?.version_kind === "execution_period";
+
+    const awaitingMasterForAnnual =
+        isAnnualVersion && !!resolvedMasterVersionId && masterVersion === undefined;
+    const awaitingAnnualParentForPeriod =
+        isExecutionPeriod && !!annualParentId && annualParentVersion === undefined;
+
+    const effectiveMasterVersion =
+        version?.version_kind === "master" ? version : masterVersion;
+    const masterReviewStatus = effectiveMasterVersion?.review_status;
+    const annualTargetsFinalized = Boolean(
+        version?.version_kind === "master"
+            ? version?.annual_targets_finalized_at
+            : masterVersion?.annual_targets_finalized_at
+    );
+    const periodsInitializedGlobally = Boolean(
+        version?.version_kind === "master"
+            ? version?.period_subdivision_mode
+            : masterVersion?.period_subdivision_mode ?? version?.period_subdivision_mode
+    );
+    const showAnnualDashboard =
+        version?.version_kind === "master" &&
+        (version?.status === "finalized" ||
+            (version?.annualVersions && version.annualVersions.length > 0) ||
+            (isReviewMode && Boolean(masterReviewStatus)));
+    const showPeriodDashboard =
+        isAnnualVersion && annualTargetsFinalized && periodsInitializedGlobally;
+
+    const willDefaultToNonHierarchyTab = Boolean(
+        version &&
+            !isReviewMode &&
+            appliedDefaultTabForVersion.current !== versionId &&
+            ((version.version_kind === "master" && version.status === "finalized") ||
+                (version.version_kind === "annual" &&
+                    !awaitingMasterForAnnual &&
+                    (masterVersion?.period_subdivision_mode ?? version.period_subdivision_mode)))
+    );
+
+    const shouldFetchHierarchy = useMemo(() => {
+        if (!versionId || !version) return false;
+        if (awaitingMasterForAnnual || awaitingAnnualParentForPeriod) return false;
+        if (willDefaultToNonHierarchyTab) return false;
+        if (showAnnualDashboard || showPeriodDashboard) {
+            return activeTab === "hierarchy";
+        }
+        return true;
+    }, [
+        versionId,
+        version,
+        awaitingMasterForAnnual,
+        awaitingAnnualParentForPeriod,
+        willDefaultToNonHierarchyTab,
+        showAnnualDashboard,
+        showPeriodDashboard,
+        activeTab,
+    ]);
+
+    const { data: rule } = useGetPlanRuleForVersionQuery(versionId, {
+        skip: !shouldFetchHierarchy,
+    });
+    const {
+        data: hierarchy = [],
+        isLoading: isHierarchyLoading,
+        refetch,
+    } = useGetPlanHierarchyQuery(versionId, { skip: !shouldFetchHierarchy });
+    const [deleteNode] = useDeletePlanNodeMutation();
+    const [reorderNodes, { isLoading: isReordering }] = useReorderPlanNodesMutation();
 
     const maxDepth = getMaxRuleDepth(rule);
     const rootLabel = getStepLabel(rule, 1);
@@ -206,11 +278,7 @@ export default function PlanHierarchyView({
     const currentLevelLabel = getStepLabel(rule, currentLevel);
     const childLabel = currentLevelLabel;
 
-    const effectiveMasterVersion =
-        version?.version_kind === "master" ? version : masterVersion;
     const planningStructureId = effectiveMasterVersion?.government_structure_id;
-    const masterReviewStatus = effectiveMasterVersion?.review_status;
-    const isReviewMode = mode === "review";
     const plansBasePath = isReviewMode ? "/plans/review" : "/plans";
     const showRaiseIssue =
         isReviewMode &&
@@ -222,8 +290,6 @@ export default function PlanHierarchyView({
         canAny(PLAN_REVIEW_DASHBOARD_ACCESS_PERMISSIONS);
     const isMasterDraft =
         version?.version_kind === "master" && version?.status === "draft";
-    const isAnnualVersion = version?.version_kind === "annual";
-    const isExecutionPeriod = version?.version_kind === "execution_period";
     const isEditingFinalizedMaster = isEditingFinalizedMasterPlan(version, can);
     const planAccessRole =
         effectiveMasterVersion?.access_role ?? version?.access_role;
@@ -235,22 +301,12 @@ export default function PlanHierarchyView({
     const isReadOnlyHierarchy = !canEditMasterStructure;
     const hideAssignments = isAnnualVersion;
     const showAnnualTargets = isAnnualVersion;
-    const annualTargetsFinalized = Boolean(
-        version?.version_kind === "master"
-            ? version?.annual_targets_finalized_at
-            : masterVersion?.annual_targets_finalized_at
-    );
     const periodTargetsFinalized = Boolean(
         isExecutionPeriod
             ? annualParentVersion?.period_targets_finalized_at
             : isAnnualVersion
               ? version?.period_targets_finalized_at
               : false
-    );
-    const periodsInitializedGlobally = Boolean(
-        version?.version_kind === "master"
-            ? version?.period_subdivision_mode
-            : masterVersion?.period_subdivision_mode ?? version?.period_subdivision_mode
     );
     const processStarted = Boolean(effectiveMasterVersion?.process_started_at);
     const showPeriodTargets = isExecutionPeriod && !processStarted;
@@ -296,19 +352,12 @@ export default function PlanHierarchyView({
             }
         }
     };
-    const showAnnualDashboard =
-        version?.version_kind === "master" &&
-        (version?.status === "finalized" ||
-            (version?.annualVersions && version.annualVersions.length > 0) ||
-            (isReviewMode && Boolean(masterReviewStatus)));
-    const showPeriodDashboard =
-        isAnnualVersion && annualTargetsFinalized && periodsInitializedGlobally;
 
     useEffect(() => {
         appliedDefaultTabForVersion.current = null;
     }, [versionId]);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (!version || appliedDefaultTabForVersion.current === versionId) {
             return;
         }
@@ -341,7 +390,8 @@ export default function PlanHierarchyView({
         appliedDefaultTabForVersion.current = versionId;
     }, [version, versionId, masterVersion, resolvedMasterVersionId, annualParentId, annualParentVersion, showReviewTab, isReviewMode]);
 
-    const shouldFetchAnnualAllocations = isAnnualVersion && !annualTargetsFinalized;
+    const shouldFetchAnnualAllocations =
+        shouldFetchHierarchy && isAnnualVersion && !annualTargetsFinalized;
     const { data: annualAllocationList = [] } = useGetAnnualTargetAllocationsQuery(versionId, {
         skip: !shouldFetchAnnualAllocations,
     });
@@ -353,7 +403,8 @@ export default function PlanHierarchyView({
         return map;
     }, [annualAllocationList]);
 
-    const shouldFetchPeriodAllocations = isExecutionPeriod && !periodTargetsFinalized;
+    const shouldFetchPeriodAllocations =
+        shouldFetchHierarchy && isExecutionPeriod && !periodTargetsFinalized;
     const { data: periodAllocationList = [] } = useGetPeriodTargetAllocationsQuery(versionId, {
         skip: !shouldFetchPeriodAllocations,
     });
@@ -487,9 +538,8 @@ export default function PlanHierarchyView({
         }
     };
 
-    if (isLoading) {
-        return <div className="p-8 text-center">Loading hierarchy...</div>;
-    }
+    const isBootstrappingRelatedVersions =
+        awaitingMasterForAnnual || awaitingAnnualParentForPeriod;
 
     const emptyState = (
         <div className="p-12 text-center bg-white rounded-3xl border-2 border-dashed border-gray-200">
@@ -629,7 +679,9 @@ export default function PlanHierarchyView({
         </div>
     ) : null;
 
-    const hierarchyBody = (
+    const hierarchyBody = isHierarchyLoading ? (
+        <PlanDetailLoadingPanel variant="hierarchy" />
+    ) : (
         <>
             {(treeAccessMode || planAccessRole) && (
                 <PlanTreeAccessBanner
@@ -987,50 +1039,56 @@ export default function PlanHierarchyView({
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
                     <div className="flex-1">
-                        <PlanDraftHeaderMeta version={version} config={planningConfig} />
-                        {version && versionStatusAppearance && (
-                            <div className="flex items-center gap-2 flex-wrap mt-1">
-                                <PerformanceColorBadge
-                                    color={versionStatusAppearance.color}
-                                    label={versionStatusAppearance.label}
-                                    variant="solid"
-                                />
-                                {versionProgress?.visible && (
-                                    <Badge
-                                        variant="outline"
-                                        style={{
-                                            borderColor: `${versionProgress.color}55`,
-                                            color: versionProgress.color,
-                                        }}
-                                    >
-                                        {versionProgress.percent}% achievement
-                                    </Badge>
+                        {isVersionLoading && !version ? (
+                            <PlanDetailHeaderSkeleton />
+                        ) : (
+                            <>
+                                <PlanDraftHeaderMeta version={version} config={planningConfig} />
+                                {version && versionStatusAppearance && (
+                                    <div className="flex items-center gap-2 flex-wrap mt-1">
+                                        <PerformanceColorBadge
+                                            color={versionStatusAppearance.color}
+                                            label={versionStatusAppearance.label}
+                                            variant="solid"
+                                        />
+                                        {versionProgress?.visible && (
+                                            <Badge
+                                                variant="outline"
+                                                style={{
+                                                    borderColor: `${versionProgress.color}55`,
+                                                    color: versionProgress.color,
+                                                }}
+                                            >
+                                                {versionProgress.percent}% achievement
+                                            </Badge>
+                                        )}
+                                        {processStarted && version.execution_evaluation_status && (
+                                            <EvaluationStatusBadge
+                                                status={version.execution_evaluation_status}
+                                            />
+                                        )}
+                                        {version.version_kind === "execution_period" && version.period_label && (
+                                            <Badge variant="outline">{version.period_label}</Badge>
+                                        )}
+                                        {masterReviewStatus && (
+                                            <Badge variant="outline" className="capitalize border-amber-200 bg-amber-50 text-amber-800">
+                                                {masterReviewStatus.replace(/_/g, " ")}
+                                            </Badge>
+                                        )}
+                                        {isReviewMode && version?.review_version_number && (
+                                            <Badge variant="outline" className="font-mono text-xs border-blue-200 bg-blue-50 text-blue-800">
+                                                {formatReviewVersionLabel(version.review_version_number)}
+                                            </Badge>
+                                        )}
+                                    </div>
                                 )}
-                                {processStarted && version.execution_evaluation_status && (
-                                    <EvaluationStatusBadge
-                                        status={version.execution_evaluation_status}
-                                    />
+                                {rule && (
+                                    <div className="flex items-center gap-2 text-gray-500 flex-wrap mt-1">
+                                        <Badge variant="outline">{rule.name}</Badge>
+                                        <span className="text-xs">({maxDepth} levels)</span>
+                                    </div>
                                 )}
-                                {version.version_kind === "execution_period" && version.period_label && (
-                                    <Badge variant="outline">{version.period_label}</Badge>
-                                )}
-                                {masterReviewStatus && (
-                                    <Badge variant="outline" className="capitalize border-amber-200 bg-amber-50 text-amber-800">
-                                        {masterReviewStatus.replace(/_/g, " ")}
-                                    </Badge>
-                                )}
-                                {isReviewMode && version?.review_version_number && (
-                                    <Badge variant="outline" className="font-mono text-xs border-blue-200 bg-blue-50 text-blue-800">
-                                        {formatReviewVersionLabel(version.review_version_number)}
-                                    </Badge>
-                                )}
-                            </div>
-                        )}
-                        {rule && (
-                            <div className="flex items-center gap-2 text-gray-500 flex-wrap mt-1">
-                                <Badge variant="outline">{rule.name}</Badge>
-                                <span className="text-xs">({maxDepth} levels)</span>
-                            </div>
+                            </>
                         )}
                     </div>
                 </div>
@@ -1038,7 +1096,41 @@ export default function PlanHierarchyView({
                 {(!showAnnualDashboard && !showPeriodDashboard || activeTab === "hierarchy") && hierarchyToolbar}
             </div>
 
-            {showAnnualDashboard ? (
+            {isBootstrappingRelatedVersions ? (
+                <PlanDetailPanelShell
+                    toolbar={
+                        awaitingMasterForAnnual && !isReviewMode ? (
+                            <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="gap-2 h-8"
+                                    disabled
+                                >
+                                    <ListTree className="h-4 w-4" />
+                                    Plan Hierarchy
+                                </Button>
+                                <Button
+                                    variant="default"
+                                    size="sm"
+                                    className="gap-2 h-8"
+                                    disabled
+                                >
+                                    <Clock className="h-4 w-4" />
+                                    Execution Periods
+                                </Button>
+                            </div>
+                        ) : (
+                            detailTabToggle
+                        )
+                    }
+                >
+                    <PlanDetailLoadingPanel
+                        variant="cards"
+                        count={isAnnualVersion ? 4 : 3}
+                    />
+                </PlanDetailPanelShell>
+            ) : showAnnualDashboard ? (
                 <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
                     <div className="flex items-center justify-end px-4 py-3 border-b border-gray-100">
                         {detailTabToggle}
@@ -1077,7 +1169,11 @@ export default function PlanHierarchyView({
                     <div className="p-4 sm:p-6 space-y-6">
                         {activeTab === "periods" ? (
                             version && (
-                                <ExecutionPeriodsDashboard annualVersion={version} mode={mode} />
+                                <ExecutionPeriodsDashboard
+                                    annualVersion={version}
+                                    masterVersion={masterVersion ?? undefined}
+                                    mode={mode}
+                                />
                             )
                         ) : (
                             hierarchyBody
