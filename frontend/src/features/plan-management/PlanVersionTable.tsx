@@ -393,6 +393,7 @@ export default function PlanVersionTable() {
     } = useGetPlanVersionsQuery({
         search: searchQuery,
         version_kind: "master",
+        view: "summary",
     });
 
     const versions = response || [];

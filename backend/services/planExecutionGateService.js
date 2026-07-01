@@ -392,7 +392,12 @@ async function attachLiveExecutionOverlay(version, transaction = null) {
   return enriched;
 }
 
-async function enrichMasterVersionsWithExecutionProgress(versions, transaction = null) {
+async function enrichMasterVersionsWithExecutionProgress(
+  versions,
+  transaction = null,
+  options = {}
+) {
+  const { summary = false } = options;
   const { computeMasterExecutionProgress } = require("./planExecutionRollupService");
   const enriched = [];
 
@@ -406,16 +411,23 @@ async function enrichMasterVersionsWithExecutionProgress(versions, transaction =
     }
 
     const progress = await computeMasterExecutionProgress(plain.plan_version_id, transaction);
-    enriched.push({
-      ...plain,
+    const executionFields = {
       execution_progress_percent: progress.execution_progress_percent,
       execution_is_evaluable: progress.is_evaluable,
       execution_evaluation_status: progress.evaluation_status,
-      execution_annual_progress: progress.execution_annual_progress,
       execution_has_contributing_progress: progress.has_contributing_data,
       execution_has_recorded_actuals: progress.has_contributing_data,
       active_planning_year: progress.active_planning_year,
       active_annual_plan_version_id: progress.active_annual_plan_version_id,
+    };
+
+    if (!summary) {
+      executionFields.execution_annual_progress = progress.execution_annual_progress;
+    }
+
+    enriched.push({
+      ...plain,
+      ...executionFields,
     });
   }
 

@@ -110,7 +110,10 @@ export function CreatePlanVersionModal({
             : { is_active: true },
         { skip: !isOpen }
     );
-    const { data: existingVersions = [] } = useGetPlanVersionsQuery({});
+    const { data: existingVersions = [] } = useGetPlanVersionsQuery(
+        { version_kind: "master", view: "summary" },
+        { skip: !isOpen }
+    );
 
     const applicablePlanRules = useMemo(
         () => filterApplicablePlanRules(planRules, configStructureId, structures),

@@ -422,13 +422,15 @@ async function ensureGovernmentSector(queryInterface, sector, now) {
     if (existingSector.length > 0) {
         await queryInterface.sequelize.query(
             `UPDATE government_structures
-             SET parent_id = :parentId, level = :level, updated_at = :now
+             SET parent_id = :parentId, level = :level,
+                 logo_path = COALESCE(:logoPath, logo_path), updated_at = :now
              WHERE government_structure_id = :id`,
             {
                 replacements: {
                     id: existingSector[0].government_structure_id,
                     parentId: sector.parentId,
                     level: sector.level,
+                    logoPath: sector.logoPath ?? null,
                     now,
                 },
             }
@@ -442,6 +444,7 @@ async function ensureGovernmentSector(queryInterface, sector, now) {
             parent_id: sector.parentId,
             name: sector.name,
             level: sector.level,
+            logo_path: sector.logoPath ?? null,
             is_active: true,
             created_at: now,
             updated_at: now,

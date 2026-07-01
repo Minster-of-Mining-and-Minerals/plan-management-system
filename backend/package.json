@@ -30,6 +30,7 @@
     "seed:organogram-users": "sequelize-cli db:seed --seed 20260617000001-seed-organogram-department-users.js",
     "seed:minster-mom": "sequelize-cli db:seed --seed 20260617000002-seed-minster-of-mines-org-hierarchy.js",
     "seed:minster-mom-plan": "sequelize-cli db:seed --seed 20260617000003-seed-minster-of-mines-plan.js",
+    "seed:minster-mom-branding": "sequelize-cli db:seed --seed 20260617000004-seed-minster-of-mines-sector-branding.js",
     "seed:admin": "node scripts/reseed-admin-permissions.js",
     "seed": "sequelize-cli db:seed:all",
     "seed:undo": "sequelize-cli db:seed:undo:all",

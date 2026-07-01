@@ -265,6 +265,8 @@ export interface GetPlanVersionsQueryParams {
     version_kind?: PlanVersionKind;
     parent_plan_version_id?: string;
     search?: string;
+    /** Lite list payload for tables and dropdowns (default: full). */
+    view?: "summary" | "full";
 }
 
 /**

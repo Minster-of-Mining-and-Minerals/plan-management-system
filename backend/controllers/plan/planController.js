@@ -300,10 +300,43 @@ async function copyNodesFromVersion(sourceVersionId, targetVersionId, transactio
     await copyNodesAndAssignments(sourceVersionId, targetVersionId, transaction);
 }
 
+const PLAN_VERSION_SUMMARY_ATTRIBUTES = [
+    "plan_version_id",
+    "draft_name",
+    "planning_start_date",
+    "planning_end_date",
+    "start_year",
+    "end_year",
+    "start_month",
+    "end_month",
+    "planning_duration_years",
+    "year",
+    "version_number",
+    "version_kind",
+    "status",
+    "created_at",
+    "updated_at",
+    "process_started_at",
+    "finalized_at",
+    "government_structure_id",
+    "parent_plan_version_id",
+    "based_on_version_id",
+];
+
 // Get all plan versions with filters
 const getPlanVersions = async (req, res) => {
     try {
-        const { year, government_structure_id, status, search, version_kind, parent_plan_version_id } = req.query;
+        const {
+            year,
+            government_structure_id,
+            status,
+            search,
+            version_kind,
+            parent_plan_version_id,
+            view,
+        } = req.query;
+
+        const isSummaryView = view === "summary";
 
         const where = {};
 
@@ -340,22 +373,31 @@ const getPlanVersions = async (req, res) => {
 
         const versions = await PlanVersion.findAll({
             where,
-            include: [
-                {
-                    model: GovernmentStructure,
-                    as: "governmentStructure",
-                },
-                {
-                    model: PlanVersion,
-                    as: "baseVersion",
-                },
-                {
-                    model: PlanNode,
-                    as: "planNodes",
-                    required: false,
-                    attributes: ["plan_node_id", "title", "type", "level"],
-                },
-            ],
+            ...(isSummaryView ? { attributes: PLAN_VERSION_SUMMARY_ATTRIBUTES } : {}),
+            include: isSummaryView
+                ? [
+                      {
+                          model: GovernmentStructure,
+                          as: "governmentStructure",
+                          attributes: ["government_structure_id", "name"],
+                      },
+                  ]
+                : [
+                      {
+                          model: GovernmentStructure,
+                          as: "governmentStructure",
+                      },
+                      {
+                          model: PlanVersion,
+                          as: "baseVersion",
+                      },
+                      {
+                          model: PlanNode,
+                          as: "planNodes",
+                          required: false,
+                          attributes: ["plan_node_id", "title", "type", "level"],
+                      },
+                  ],
             order: [["start_year", "DESC"], ["version_number", "DESC"]],
         });
 
@@ -364,7 +406,11 @@ const getPlanVersions = async (req, res) => {
             versions.map((version) => version.plan_version_id)
         );
 
-        const withExecutionProgress = await enrichMasterVersionsWithExecutionProgress(versions);
+        const withExecutionProgress = await enrichMasterVersionsWithExecutionProgress(
+            versions,
+            null,
+            { summary: isSummaryView }
+        );
 
         return res.json({
             success: true,

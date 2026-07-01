@@ -97,6 +97,7 @@ const getPlanVersionsQuerySchema = Joi.object({
     version_kind: Joi.string().valid("master", "annual", "execution_period").optional(),
     parent_plan_version_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).optional(),
     search: Joi.string().trim().allow("").optional(),
+    view: Joi.string().valid("summary", "full").optional(),
 });
 
 const getPlanExecutionDashboardQuerySchema = Joi.object({

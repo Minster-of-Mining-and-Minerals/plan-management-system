@@ -56,6 +56,7 @@ const SECTORS = [
     parentId: SECTOR_IDS.MINSTER,
     level: 2,
     sectorKey: "minster-midi",
+    logoPath: "/midi.jpg",
     departmentTree: buildDepartmentTree("Director General Office", [
       {
         name: "Investment & Licensing Directorate",
@@ -73,6 +74,7 @@ const SECTORS = [
     parentId: SECTOR_IDS.MINSTER,
     level: 2,
     sectorKey: "minster-gie",
+    logoPath: "/gie.webp",
     departmentTree: buildDepartmentTree("Chief Executive Office", [
       {
         name: "Geoscience Directorate",

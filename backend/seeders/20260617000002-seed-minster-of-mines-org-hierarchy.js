@@ -73,13 +73,15 @@ module.exports = {
           sectorId = existing.government_structure_id;
           await queryInterface.sequelize.query(
             `UPDATE government_structures
-             SET parent_id = :parentId, level = :level, is_active = true, updated_at = :now
+             SET parent_id = :parentId, level = :level, is_active = true,
+                 logo_path = COALESCE(:logoPath, logo_path), updated_at = :now
              WHERE government_structure_id = :id`,
             {
               replacements: {
                 id: sectorId,
                 parentId: parentSectorId,
                 level: sector.level,
+                logoPath: sector.logoPath ?? null,
                 now,
               },
             }
@@ -93,6 +95,7 @@ module.exports = {
               name: sector.name,
               parentId: parentSectorId,
               level: sector.level,
+              logoPath: sector.logoPath ?? null,
             },
             now
           );
