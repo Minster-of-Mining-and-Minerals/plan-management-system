@@ -61,6 +61,7 @@ const listIssuesQuerySchema = Joi.object({
   issue_priority_id: optionalUuid("issue_priority_id"),
   raised_by: optionalUuid("raised_by"),
   assigned_to: optionalUuid("assigned_to"),
+  government_structure_id: optionalUuid("government_structure_id"),
   entity_type: Joi.string().trim().lowercase().optional(),
   entity_id: optionalUuid("entity_id"),
   date_from: Joi.date().iso().optional(),
@@ -78,6 +79,7 @@ const dashboardQuerySchema = Joi.object({
   issue_priority_id: optionalUuid("issue_priority_id"),
   raised_by: optionalUuid("raised_by"),
   assigned_to: optionalUuid("assigned_to"),
+  government_structure_id: optionalUuid("government_structure_id"),
   date_from: Joi.date().iso().optional(),
   date_to: Joi.date().iso().optional(),
 });

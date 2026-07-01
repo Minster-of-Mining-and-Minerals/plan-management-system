@@ -13,6 +13,7 @@ const {
   FormConfigContainer,
   Attachment,
   User,
+  GovernmentStructure,
   sequelize,
 } = require("../models");
 const {
@@ -31,6 +32,128 @@ const { getPublishedFormByContainerId } = require("./formConfigContainerService"
 const { saveIssueFormResponses, listResponsesForIssue } = require("./issueFormResponseService");
 const { ATTACHMENT_FIELD_TYPES } = require("../utils/formConfigFieldValidationUtils");
 const { emitIssueEvent, ISSUE_EVENTS } = require("./issueNotificationService");
+
+const ENTITY_TYPE_LABELS = {
+  plan_version: "Plan",
+  strategic: "Strategic Objective",
+  objective: "Objective",
+  goal: "Objective",
+  kpi: "KPI",
+  activity: "Activity",
+  task: "Activity",
+  initiative: "Initiative",
+  budget: "Budget Item",
+  target: "Target",
+};
+
+function buildIssueSearchWhere(search) {
+  const term = String(search || "").trim();
+  if (!term) return null;
+
+  const pattern = `%${term}%`;
+  const normalized = term.toLowerCase();
+  const or = [
+    { title: { [Op.iLike]: pattern } },
+    { issue_number: { [Op.iLike]: pattern } },
+    { description: { [Op.iLike]: pattern } },
+    { status: { [Op.iLike]: pattern } },
+    { entity_type: { [Op.iLike]: pattern } },
+    { "$category.name$": { [Op.iLike]: pattern } },
+    { "$priority.label$": { [Op.iLike]: pattern } },
+    { "$raiser.full_name$": { [Op.iLike]: pattern } },
+    { "$raiser.email$": { [Op.iLike]: pattern } },
+  ];
+
+  const matchingStatuses = Object.entries(STATUS_LABELS)
+    .filter(([, label]) => label.toLowerCase().includes(normalized))
+    .map(([key]) => key);
+  if (matchingStatuses.length) {
+    or.push({ status: { [Op.in]: matchingStatuses } });
+  }
+
+  const matchingEntityTypes = Object.entries(ENTITY_TYPE_LABELS)
+    .filter(([, label]) => label.toLowerCase().includes(normalized))
+    .map(([key]) => key);
+  if (matchingEntityTypes.length) {
+    or.push({ entity_type: { [Op.in]: matchingEntityTypes } });
+  }
+
+  or.push(
+    sequelize.where(
+      sequelize.fn("to_char", sequelize.col("Issue.created_at"), "DD Mon YYYY"),
+      { [Op.iLike]: pattern }
+    )
+  );
+  or.push(
+    sequelize.where(
+      sequelize.fn("to_char", sequelize.col("Issue.created_at"), "YYYY-MM-DD"),
+      { [Op.iLike]: pattern }
+    )
+  );
+
+  return { [Op.or]: or };
+}
+
+function buildIssueFilterWhere({
+  status,
+  issue_category_id,
+  issue_priority_id,
+  raised_by,
+  assigned_to,
+  government_structure_id,
+  entity_type,
+  entity_id,
+  date_from,
+  date_to,
+}) {
+  const fieldWhere = {};
+
+  if (status) fieldWhere.status = status;
+  if (issue_category_id) fieldWhere.issue_category_id = issue_category_id;
+  if (issue_priority_id) fieldWhere.issue_priority_id = issue_priority_id;
+  if (raised_by) fieldWhere.raised_by = raised_by;
+  if (assigned_to) fieldWhere.assigned_to = assigned_to;
+  if (entity_type) fieldWhere.entity_type = entity_type;
+  if (entity_id) fieldWhere.entity_id = entity_id;
+
+  if (government_structure_id) {
+    fieldWhere.raised_by = {
+      [Op.in]: sequelize.literal(
+        `(SELECT user_id FROM users WHERE government_structure_id = ${sequelize.escape(government_structure_id)})`
+      ),
+    };
+  }
+
+  if (date_from || date_to) {
+    fieldWhere.created_at = {};
+    if (date_from) fieldWhere.created_at[Op.gte] = new Date(date_from);
+    if (date_to) fieldWhere.created_at[Op.lte] = new Date(date_to);
+  }
+
+  return fieldWhere;
+}
+
+function composeIssueWhere(accessScope, filterQuery, { search } = {}) {
+  const andClauses = [];
+
+  if (accessScope.type === "scoped") {
+    andClauses.push(accessScope.where);
+  }
+
+  const fieldWhere = buildIssueFilterWhere(filterQuery);
+  if (Object.keys(fieldWhere).length > 0) {
+    andClauses.push(fieldWhere);
+  }
+
+  if (search) {
+    const searchWhere = buildIssueSearchWhere(search);
+    if (searchWhere) andClauses.push(searchWhere);
+  }
+
+  if (andClauses.length === 0) return {};
+  if (andClauses.length === 1) return andClauses[0];
+  return { [Op.and]: andClauses };
+}
 
 function formatFormResponseValue(rawValue) {
   if (rawValue == null || rawValue === "") return "";
@@ -94,7 +217,15 @@ const ISSUE_INCLUDES = [
   {
     model: User,
     as: "raiser",
-    attributes: ["user_id", "full_name", "email"],
+    attributes: ["user_id", "full_name", "email", "government_structure_id"],
+    include: [
+      {
+        model: GovernmentStructure,
+        as: "governmentStructure",
+        attributes: ["government_structure_id", "name"],
+        required: false,
+      },
+    ],
   },
   {
     model: User,
@@ -185,18 +316,10 @@ async function listIssues(query, { userId, userPermissions }) {
     page = 1,
     limit = 20,
     search,
-    status,
-    issue_category_id,
-    issue_priority_id,
-    raised_by,
-    assigned_to,
-    entity_type,
-    entity_id,
-    date_from,
-    date_to,
     sort_by = "created_at",
     sort_order = "DESC",
     list_scope,
+    ...filterQuery
   } = query;
 
   const accessScope = resolveIssueListScope(list_scope, userId, userPermissions);
@@ -204,32 +327,7 @@ async function listIssues(query, { userId, userPermissions }) {
     return { rows: [], count: 0, page: Number(page), limit: Number(limit), totalPages: 0 };
   }
 
-  const where = {};
-  if (accessScope.type === "scoped") {
-    Object.assign(where, accessScope.where);
-  }
-
-  if (status) where.status = status;
-  if (issue_category_id) where.issue_category_id = issue_category_id;
-  if (issue_priority_id) where.issue_priority_id = issue_priority_id;
-  if (raised_by) where.raised_by = raised_by;
-  if (assigned_to) where.assigned_to = assigned_to;
-  if (entity_type) where.entity_type = entity_type;
-  if (entity_id) where.entity_id = entity_id;
-
-  if (date_from || date_to) {
-    where.created_at = {};
-    if (date_from) where.created_at[Op.gte] = new Date(date_from);
-    if (date_to) where.created_at[Op.lte] = new Date(date_to);
-  }
-
-  if (search) {
-    where[Op.or] = [
-      { title: { [Op.iLike]: `%${search}%` } },
-      { issue_number: { [Op.iLike]: `%${search}%` } },
-      { description: { [Op.iLike]: `%${search}%` } },
-    ];
-  }
+  const where = composeIssueWhere(accessScope, filterQuery, { search });
 
   const allowedSortFields = ["created_at", "updated_at", "issue_number", "title", "status"];
   const orderField = allowedSortFields.includes(sort_by) ? sort_by : "created_at";
@@ -244,6 +342,7 @@ async function listIssues(query, { userId, userPermissions }) {
     limit: Number(limit),
     offset,
     distinct: true,
+    subQuery: false,
   });
 
   return {
@@ -270,30 +369,7 @@ async function getIssueDashboardStats(query, { userId, userPermissions }) {
     };
   }
 
-  const where = {};
-  if (accessScope.type === "scoped") {
-    Object.assign(where, accessScope.where);
-  }
-
-  const {
-    issue_category_id,
-    issue_priority_id,
-    raised_by,
-    assigned_to,
-    date_from,
-    date_to,
-  } = filterQuery || {};
-
-  if (issue_category_id) where.issue_category_id = issue_category_id;
-  if (issue_priority_id) where.issue_priority_id = issue_priority_id;
-  if (raised_by) where.raised_by = raised_by;
-  if (assigned_to) where.assigned_to = assigned_to;
-
-  if (date_from || date_to) {
-    where.created_at = {};
-    if (date_from) where.created_at[Op.gte] = new Date(date_from);
-    if (date_to) where.created_at[Op.lte] = new Date(date_to);
-  }
+  const where = composeIssueWhere(accessScope, filterQuery);
 
   const issues = await Issue.findAll({
     where,

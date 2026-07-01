@@ -13,6 +13,7 @@ import {
   useGetIssuePrioritiesQuery,
 } from "@/redux/api/issueApi";
 import { useGetUsersQuery } from "@/redux/api/userApi";
+import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
 import {
   Issue,
   IssueListScope,
@@ -33,7 +34,7 @@ export function useIssuesTable({ listScope }: UseIssuesTableOptions) {
   const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
-  const [raisedByFilter, setRaisedByFilter] = useState("");
+  const [sectorFilter, setSectorFilter] = useState("");
   const [assignedToFilter, setAssignedToFilter] = useState("");
   const [dateRange, setDateRange] = useState<{ from?: string; to?: string }>({});
   const [pageIndex, setPageIndex] = useState(0);
@@ -48,12 +49,12 @@ export function useIssuesTable({ listScope }: UseIssuesTableOptions) {
 
   useEffect(() => {
     if (listScope === "mine") {
-      setRaisedByFilter("");
+      setSectorFilter("");
       setAssignedToFilter("");
     }
   }, [listScope]);
 
-  const resetKey = `${listScope}-${search}-${statusFilter}-${categoryFilter}-${priorityFilter}-${raisedByFilter}-${assignedToFilter}-${dateRange.from}-${dateRange.to}`;
+  const resetKey = `${listScope}-${search}-${statusFilter}-${categoryFilter}-${priorityFilter}-${sectorFilter}-${assignedToFilter}-${dateRange.from}-${dateRange.to}`;
 
   useEffect(() => {
     setPageIndex(0);
@@ -67,7 +68,7 @@ export function useIssuesTable({ listScope }: UseIssuesTableOptions) {
     status: (statusFilter || undefined) as IssueStatus | undefined,
     issue_category_id: categoryFilter || undefined,
     issue_priority_id: priorityFilter || undefined,
-    raised_by: raisedByFilter || undefined,
+    government_structure_id: sectorFilter || undefined,
     assigned_to: assignedToFilter || undefined,
     date_from: dateRange.from || undefined,
     date_to: dateRange.to || undefined,
@@ -77,7 +78,7 @@ export function useIssuesTable({ listScope }: UseIssuesTableOptions) {
     list_scope: listScope,
     issue_category_id: categoryFilter || undefined,
     issue_priority_id: priorityFilter || undefined,
-    raised_by: raisedByFilter || undefined,
+    government_structure_id: sectorFilter || undefined,
     assigned_to: assignedToFilter || undefined,
     date_from: dateRange.from || undefined,
     date_to: dateRange.to || undefined,
@@ -88,6 +89,7 @@ export function useIssuesTable({ listScope }: UseIssuesTableOptions) {
   const { data: categories = [] } = useGetIssueCategoriesQuery({ is_active: true });
   const { data: priorities = [] } = useGetIssuePrioritiesQuery();
   const { data: users = [] } = useGetUsersQuery({ page: 1, limit: 200 });
+  const { data: sectors = [] } = useGetGovernmentStructuresQuery({ is_active: true });
 
   const issues = listResponse?.data ?? [];
   const totalRows = listResponse?.pagination.total ?? 0;
@@ -224,17 +226,17 @@ export function useIssuesTable({ listScope }: UseIssuesTableOptions) {
     if (listScope === "global") {
       baseFilters.push(
         {
-          key: "raised_by",
-          label: "Creator",
+          key: "government_structure_id",
+          label: "Sector",
           type: "select",
-          placeholder: "All creators",
-          value: raisedByFilter || "all",
-          onChange: (value: string) => setRaisedByFilter(value === "all" ? "" : value),
+          placeholder: "All sectors",
+          value: sectorFilter || "all",
+          onChange: (value: string) => setSectorFilter(value === "all" ? "" : value),
           options: [
-            { label: "All creators", value: "all" },
-            ...users.map((u) => ({
-              label: u.full_name,
-              value: u.user_id,
+            { label: "All sectors", value: "all" },
+            ...sectors.map((sector) => ({
+              label: sector.name,
+              value: sector.government_structure_id!,
             })),
           ],
         },
@@ -270,12 +272,13 @@ export function useIssuesTable({ listScope }: UseIssuesTableOptions) {
     statusFilter,
     categoryFilter,
     priorityFilter,
-    raisedByFilter,
+    sectorFilter,
     assignedToFilter,
     dateRange,
     categories,
     priorities,
     users,
+    sectors,
   ]);
 
   const handleStatusClick = (next: IssueStatus | "all") => {

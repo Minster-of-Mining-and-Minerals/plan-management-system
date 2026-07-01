@@ -186,6 +186,7 @@ export interface GetIssuesQueryParams {
   issue_priority_id?: string;
   raised_by?: string;
   assigned_to?: string;
+  government_structure_id?: string;
   entity_type?: IssueEntityType;
   entity_id?: string;
   date_from?: string;

@@ -6,6 +6,7 @@ const {
   nodeContributesToRollup,
 } = require("../utils/planAchievementRollupUtils");
 const { buildRollupContextForPeriod } = require("./planAchievementRollupService");
+const { isExecutionSnapshotVersion } = require("./planExecutionSnapshotService");
 
 const EVALUATION_STATUS = {
   COMPLETED: "completed",
