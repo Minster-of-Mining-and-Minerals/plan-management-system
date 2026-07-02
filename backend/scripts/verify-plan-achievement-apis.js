@@ -52,6 +52,7 @@ function run() {
   assertExportedFunction(controllerSource, "rejectAchievementHandler");
   assertExportedFunction(controllerSource, "updatePeriodActual");
   assertExportedFunction(controllerSource, "getAchievementWorkflowScope");
+  assert.match(controllerSource, /workflowOptions/);
 
   assertExportedFunction(workflowSource, "setPeriodTargetForExecutor");
   assertExportedFunction(workflowSource, "submitAchievement");
@@ -61,6 +62,7 @@ function run() {
   assert.match(notificationSource, /emitAchievementSubmittedEvent/);
   assert.match(notificationSource, /emitAchievementApprovedEvent/);
   assert.match(notificationSource, /emitAchievementRejectedEvent/);
+  assert.match(notificationSource, /focus=achievement/);
   assert.match(workflowSource, /emitAchievementSubmittedEvent/);
 
   assert.strictEqual(typeof validateSubmitAchievement, "function");

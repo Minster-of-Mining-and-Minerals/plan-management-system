@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,6 +42,7 @@ interface PlanNodePeriodActualSectionProps {
     variant?: "card" | "compact" | "table";
     className?: string;
     onClick?: (event: React.MouseEvent) => void;
+    focused?: boolean;
 }
 
 export function PlanNodePeriodActualSection({
@@ -52,7 +53,9 @@ export function PlanNodePeriodActualSection({
     variant = "card",
     className,
     onClick,
+    focused = false,
 }: PlanNodePeriodActualSectionProps) {
+    const sectionRef = useRef<HTMLDivElement>(null);
     const { can } = usePermissions();
     const { canExecuteOnNode, canApproveOnNode, isReady: scopeReady } = usePlanAchievementScope();
     const [submitAchievement, { isLoading: isSubmitting }] = useSubmitAchievementMutation();
@@ -116,6 +119,17 @@ export function PlanNodePeriodActualSection({
     useEffect(() => {
         setPendingOverride(false);
     }, [node.plan_node_id, node.period_actual_override]);
+
+    useEffect(() => {
+        if (!focused || !sectionRef.current) {
+            return;
+        }
+        sectionRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, [focused, node.plan_node_id]);
+
+    const focusClassName = focused
+        ? "ring-2 ring-primary ring-offset-2 shadow-md"
+        : undefined;
 
     if (!showSection) {
         return null;
@@ -522,7 +536,12 @@ export function PlanNodePeriodActualSection({
 
     if (variant === "compact") {
         return (
-            <div className={cn("space-y-2", className)} onClick={onClick}>
+            <div
+                ref={sectionRef}
+                id="plan-achievement-section"
+                className={cn("space-y-2", focusClassName, className)}
+                onClick={onClick}
+            >
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                     <Badge
                         variant="secondary"
@@ -560,7 +579,12 @@ export function PlanNodePeriodActualSection({
 
     if (variant === "table") {
         return (
-            <div className={cn("space-y-2 min-w-[160px]", className)} onClick={onClick}>
+            <div
+                ref={sectionRef}
+                id="plan-achievement-section"
+                className={cn("space-y-2 min-w-[160px]", focusClassName, className)}
+                onClick={onClick}
+            >
                 <span
                     className={cn(
                         "text-sm block",
@@ -580,10 +604,13 @@ export function PlanNodePeriodActualSection({
 
     return (
         <div
+            ref={sectionRef}
+            id="plan-achievement-section"
             className={cn(
                 "rounded-xl border border-violet-100 bg-gradient-to-br from-violet-50/90 to-white px-3.5 py-3 space-y-3",
                 isRollupEntry && "border-slate-200 from-slate-50/90",
                 isEditingManual && "border-amber-200 from-amber-50/90",
+                focusClassName,
                 className
             )}
             onClick={onClick}

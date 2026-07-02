@@ -6,6 +6,20 @@ import {
 } from "./constants";
 import type { AppNotification } from "@/redux/api/notificationApi";
 
+const PLAN_ACHIEVEMENT_NOTIFICATION_TYPES = new Set([
+  "plan_achievement_submitted",
+  "plan_achievement_approved",
+  "plan_achievement_rejected",
+]);
+
+function withAchievementFocus(link: string): string {
+  if (link.includes("focus=achievement")) {
+    return link;
+  }
+  const separator = link.includes("?") ? "&" : "?";
+  return `${link}${separator}focus=achievement`;
+}
+
 export function formatNotificationWhen(iso: string) {
   return new Date(iso).toLocaleString("en-US", {
     month: "short",
@@ -29,7 +43,16 @@ export function iconForNotification(notification: AppNotification) {
 }
 
 export function resolveNotificationLink(notification: AppNotification): string | null {
-  if (notification.link_path) return notification.link_path;
+  const isAchievementNotification = PLAN_ACHIEVEMENT_NOTIFICATION_TYPES.has(
+    notification.notification_type ?? ""
+  );
+
+  if (notification.link_path) {
+    if (isAchievementNotification) {
+      return withAchievementFocus(notification.link_path);
+    }
+    return notification.link_path;
+  }
 
   const isPlanReviewNotification =
     notification.notification_type === "plan_published_for_review" ||
@@ -51,7 +74,8 @@ export function resolveNotificationLink(notification: AppNotification): string |
     notification.metadata?.plan_version_id
   ) {
     const base = isPlanReviewNotification ? "/plans/review" : "/plans";
-    return `${base}/${notification.metadata.plan_version_id}/nodes/${notification.related_entity_id}`;
+    const path = `${base}/${notification.metadata.plan_version_id}/nodes/${notification.related_entity_id}`;
+    return isAchievementNotification ? withAchievementFocus(path) : path;
   }
 
   return null;

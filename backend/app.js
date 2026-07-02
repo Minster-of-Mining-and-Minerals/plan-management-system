@@ -207,6 +207,7 @@ socketServer.listen(socketPort, () => {
 
 // Make Socket.IO accessible globally
 app.set("socketio", io);
+app.set("io", io);
 
 module.exports = { appServer, io, onlineUsers };
 

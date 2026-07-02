@@ -20,6 +20,13 @@ function auditContext(req) {
   };
 }
 
+function workflowOptions(req) {
+  return {
+    ...auditContext(req),
+    io: req.app.get("io") ?? req.app.get("socketio") ?? null,
+  };
+}
+
 async function updatePeriodTarget(req, res) {
   try {
     const { id: nodeId } = req.params;
@@ -56,7 +63,7 @@ async function submitAchievementHandler(req, res) {
       return res.status(400).json({ success: false, message: "Invalid node ID" });
     }
 
-    const result = await submitAchievement(nodeId, period_actual, auditContext(req));
+    const result = await submitAchievement(nodeId, period_actual, workflowOptions(req));
     if (!result.success) {
       return res.status(result.message?.includes("permission") ? 403 : 400).json({
         success: false,
@@ -82,7 +89,7 @@ async function approveAchievementHandler(req, res) {
       return res.status(400).json({ success: false, message: "Invalid node ID" });
     }
 
-    const result = await approveAchievement(nodeId, auditContext(req));
+    const result = await approveAchievement(nodeId, workflowOptions(req));
     if (!result.success) {
       return res.status(result.message?.includes("permission") ? 403 : 400).json({
         success: false,
@@ -109,7 +116,7 @@ async function rejectAchievementHandler(req, res) {
       return res.status(400).json({ success: false, message: "Invalid node ID" });
     }
 
-    const result = await rejectAchievement(nodeId, comment, auditContext(req));
+    const result = await rejectAchievement(nodeId, comment, workflowOptions(req));
     if (!result.success) {
       return res.status(result.message?.includes("permission") ? 403 : 400).json({
         success: false,
@@ -153,7 +160,7 @@ async function updatePeriodActual(req, res) {
       });
     }
 
-    const result = await submitAchievement(nodeId, period_actual, auditContext(req));
+    const result = await submitAchievement(nodeId, period_actual, workflowOptions(req));
     if (!result.success) {
       return res.status(result.message?.includes("permission") ? 403 : 400).json({
         success: false,

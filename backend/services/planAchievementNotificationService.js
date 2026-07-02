@@ -8,8 +8,8 @@ const PLAN_ACHIEVEMENT_EVENTS = {
   REJECTED: "plan_achievement_rejected",
 };
 
-function buildPeriodPlanLink(periodVersionId) {
-  return `/plans/${periodVersionId}`;
+function buildPlanNodeAchievementLink(periodVersionId, planNodeId) {
+  return `/plans/${periodVersionId}/nodes/${planNodeId}?focus=achievement`;
 }
 
 function normalizeRecipients(recipients = [], excludeUserId = null) {
@@ -46,7 +46,7 @@ async function emitAchievementSubmittedEvent(
       message: `${actor?.full_name || "An executor"} submitted achievement for "${node.title}". Review and approve or reject.`,
       related_entity_type: "plan_node",
       related_entity_id: node.plan_node_id,
-      link_path: buildPeriodPlanLink(periodVersionId),
+      link_path: buildPlanNodeAchievementLink(periodVersionId, node.plan_node_id),
       icon_variant: "clipboard-check",
       priority: "normal",
       metadata: {
@@ -79,7 +79,7 @@ async function emitAchievementApprovedEvent(
       message: `Achievement for "${node.title}" was approved and now counts toward plan progress.`,
       related_entity_type: "plan_node",
       related_entity_id: node.plan_node_id,
-      link_path: buildPeriodPlanLink(periodVersionId),
+      link_path: buildPlanNodeAchievementLink(periodVersionId, node.plan_node_id),
       icon_variant: "check-circle",
       priority: "normal",
       metadata: {
@@ -113,7 +113,7 @@ async function emitAchievementRejectedEvent(
       message: `Achievement for "${node.title}" was rejected. Update and resubmit.${suffix}`,
       related_entity_type: "plan_node",
       related_entity_id: node.plan_node_id,
-      link_path: buildPeriodPlanLink(periodVersionId),
+      link_path: buildPlanNodeAchievementLink(periodVersionId, node.plan_node_id),
       icon_variant: "alert-circle",
       priority: "high",
       metadata: {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
     useGetPlanNodeByIdQuery,
     useGetPlanVersionByIdQuery,
@@ -9,6 +9,7 @@ import {
     useUpdateAnnualTargetMutation,
     useUpdatePeriodTargetMutation,
 } from "@/redux/api/planApi";
+import { useGetPlanRuleForVersionQuery } from "@/redux/api/planRuleApi";
 import {
     useGetInternalAssignmentsByNodeQuery,
     useGetExternalAssignmentsByNodeQuery,
@@ -69,6 +70,9 @@ import {
 import { RaiseIssueButton } from "./components/RaiseIssueButton";
 import { canRaiseReviewIssue, planNodeTypeToIssueEntityType } from "@/utils/planReviewUtils";
 import { formatPlanAssignmentButtonLabel } from "@/utils/planAssignmentUtils";
+import { PlanNodePeriodActualSection } from "./components/PlanNodePeriodActualSection";
+import { canEditPeriodActualForVersion } from "@/utils/planExecutionUtils";
+import { PlanAchievementScopeProvider } from "@/hooks/usePlanAchievementScope";
 
 interface PlanNodeDetailViewProps {
     versionId: string;
@@ -82,6 +86,8 @@ export default function PlanNodeDetailView({
     mode = "draft",
 }: PlanNodeDetailViewProps) {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const focusAchievement = searchParams.get("focus") === "achievement";
 
     const [activeTab, setActiveTab] = useState<"internal" | "external">("internal");
     const [showHistory, setShowHistory] = useState(false);
@@ -197,6 +203,13 @@ export default function PlanNodeDetailView({
     const isExecutionVersion =
         version?.version_kind === "annual" ||
         version?.version_kind === "execution_period";
+    const isExecutionPeriod = version?.version_kind === "execution_period";
+    const processStarted = Boolean(masterVersion?.process_started_at);
+    const showPeriodActuals = isExecutionPeriod && processStarted;
+    const canEditPeriodActual = canEditPeriodActualForVersion(version, processStarted);
+    const { data: rule } = useGetPlanRuleForVersionQuery(versionId, {
+        skip: !showPeriodActuals,
+    });
 
     const [deleteInternal, { isLoading: isDeletingInternal }] = useDeleteInternalAssignmentMutation();
     const [deleteExternal, { isLoading: isDeletingExternal }] = useDeleteExternalAssignmentMutation();
@@ -469,6 +482,10 @@ export default function PlanNodeDetailView({
     }
 
     return (
+        <PlanAchievementScopeProvider
+            versionId={versionId}
+            enabled={showPeriodActuals}
+        >
         <div className="space-y-6 px-6 ">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -743,6 +760,20 @@ export default function PlanNodeDetailView({
                 </CardContent>
             </Card>
 
+            {showPeriodActuals && (
+                <div className="space-y-2">
+                    <h3 className="text-lg font-bold text-gray-900 px-1">Period Achievement</h3>
+                    <PlanNodePeriodActualSection
+                        node={node}
+                        rule={rule}
+                        configuredUnits={planningConfig?.target_units}
+                        canEdit={canEditPeriodActual}
+                        variant="card"
+                        focused={focusAchievement}
+                    />
+                </div>
+            )}
+
             {canEditMasterStructure && (
             <div className={`w-full bg-white rounded-3xl p-6 shadow-sm border ${isEditingFinalizedMaster ? "border-destructive/30" : "border-gray-100"}`}>
                 {isEditingFinalizedMaster && (
@@ -821,5 +852,6 @@ export default function PlanNodeDetailView({
             </>
             )}
         </div>
+        </PlanAchievementScopeProvider>
     );
 }
