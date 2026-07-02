@@ -12,9 +12,9 @@ type StructureNode = {
 
 export function getStructureNodeId(node: StructureNode): string {
   return (
-    node.government_structure_id ||
     node.internal_structure_id ||
     node.sector_node_id ||
+    node.government_structure_id ||
     node.id ||
     ""
   );

@@ -16,7 +16,16 @@ const {
 async function ensureParentSector(queryInterface) {
     const parent = await queryInterface.sequelize.query(
         `SELECT government_structure_id FROM government_structures
-         WHERE government_structure_id = :id OR name = :name
+         WHERE government_structure_id = :id
+            OR LOWER(TRIM(name)) IN (
+              LOWER(TRIM(:name)),
+              'ministry of mines',
+              'alternative minister of mines'
+            )
+         ORDER BY CASE
+           WHEN government_structure_id = :id THEN 0
+           ELSE 1
+         END
          LIMIT 1`,
         {
             replacements: { id: PARENT_SECTOR_ID, name: PARENT_SECTOR_NAME },

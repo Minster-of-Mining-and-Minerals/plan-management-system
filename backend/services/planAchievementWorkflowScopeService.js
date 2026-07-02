@@ -11,10 +11,12 @@ const {
 const {
   userCanApproveAchievement,
 } = require("../utils/planAchievementPermissionUtils");
+const { userQualifiesForAchievementAssignmentBypass } = require("../utils/planAchievementBypassUtils");
 const {
   buildChildrenByParent,
   isMasterPlanLeaf,
   userCanApproveLeafMasterNode,
+  collectAllMasterLeafIds,
 } = require("./planAchievementScopeUtils");
 
 async function resolveAchievementWorkflowScopeForVersion(planVersionId, user, transaction = null) {
@@ -48,6 +50,7 @@ async function resolveAchievementWorkflowScopeForVersion(planVersionId, user, tr
         plan_version_id: hierarchyVersionId,
         executor_node_ids: [],
         approver_node_ids: [],
+        assignment_bypass_active: userQualifiesForAchievementAssignmentBypass(user),
       },
     };
   }
@@ -69,13 +72,20 @@ async function resolveAchievementWorkflowScopeForVersion(planVersionId, user, tr
   const masterChildrenByParent = buildChildrenByParent(masterNodes);
 
   const approverMasterLeaves = new Set();
+  const bypassAssignment = userQualifiesForAchievementAssignmentBypass(user);
   if (userCanApproveAchievement(user)) {
-    for (const masterNode of masterNodes) {
-      if (!isMasterPlanLeaf(masterNode, masterChildrenByParent)) {
-        continue;
+    if (bypassAssignment) {
+      for (const leafId of collectAllMasterLeafIds(masterNodes)) {
+        approverMasterLeaves.add(leafId);
       }
-      if (userCanApproveLeafMasterNode({ user, ...scopeContext }, masterNode.plan_node_id)) {
-        approverMasterLeaves.add(masterNode.plan_node_id);
+    } else {
+      for (const masterNode of masterNodes) {
+        if (!isMasterPlanLeaf(masterNode, masterChildrenByParent)) {
+          continue;
+        }
+        if (userCanApproveLeafMasterNode({ user, ...scopeContext }, masterNode.plan_node_id)) {
+          approverMasterLeaves.add(masterNode.plan_node_id);
+        }
       }
     }
   }
@@ -108,6 +118,7 @@ async function resolveAchievementWorkflowScopeForVersion(planVersionId, user, tr
       plan_version_id: hierarchyVersionId,
       executor_node_ids,
       approver_node_ids,
+      assignment_bypass_active: bypassAssignment,
     },
   };
 }

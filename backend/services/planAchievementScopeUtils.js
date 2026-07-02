@@ -256,12 +256,24 @@ function userCanApproveLeafMasterNode(scopeInput, leafMasterNodeId) {
   return false;
 }
 
+function collectAllMasterLeafIds(masterNodes) {
+  const childrenByParent = buildChildrenByParent(masterNodes);
+  return new Set(
+    masterNodes
+      .filter(
+        (node) => node.is_active !== false && isMasterPlanLeaf(node, childrenByParent)
+      )
+      .map((node) => node.plan_node_id)
+  );
+}
+
 module.exports = {
   buildChildrenByParent,
   getActiveChildren,
   isMasterPlanLeaf,
   buildNodeById,
   collectDescendantIds,
+  collectAllMasterLeafIds,
   internalAssignmentMatchesUser,
   userHasSectorAccessToMasterNode,
   collectInternallyAssignedMasterNodeIds,

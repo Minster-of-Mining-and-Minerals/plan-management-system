@@ -145,20 +145,40 @@ async function ensureUserRole(queryInterface, now) {
 }
 
 async function removeSectorDemoUsers(queryInterface, sectorId) {
+    const demoUserFilter = `
+      government_structure_id = :sectorId
+      AND user_id != :adminId
+      AND email LIKE '%@mom-demo.et'
+    `;
+
+    await queryInterface.sequelize.query(
+        `UPDATE users
+         SET is_active = false, internal_structure_id = NULL, updated_at = NOW()
+         WHERE ${demoUserFilter}
+           AND user_id IN (
+             SELECT changed_by FROM system_audit_logs WHERE changed_by IS NOT NULL
+           )`,
+        { replacements: { sectorId, adminId: ADMIN_USER_ID } }
+    );
+
     await queryInterface.sequelize.query(
         `DELETE FROM user_roles
          WHERE user_id IN (
            SELECT user_id FROM users
-           WHERE government_structure_id = :sectorId
-             AND user_id != :adminId
+           WHERE ${demoUserFilter}
+             AND user_id NOT IN (
+               SELECT changed_by FROM system_audit_logs WHERE changed_by IS NOT NULL
+             )
          )`,
         { replacements: { sectorId, adminId: ADMIN_USER_ID } }
     );
 
     await queryInterface.sequelize.query(
         `DELETE FROM users
-         WHERE government_structure_id = :sectorId
-           AND user_id != :adminId`,
+         WHERE ${demoUserFilter}
+           AND user_id NOT IN (
+             SELECT changed_by FROM system_audit_logs WHERE changed_by IS NOT NULL
+           )`,
         { replacements: { sectorId, adminId: ADMIN_USER_ID } }
     );
 }
@@ -188,8 +208,45 @@ async function seedTwoUsersPerDepartment(queryInterface, {
     });
 
     if (users.length > 0) {
-        await queryInterface.bulkInsert("users", users);
-        await queryInterface.bulkInsert("user_roles", userRoles);
+        for (const user of users) {
+            await queryInterface.sequelize.query(
+                `INSERT INTO users (
+                   user_id, full_name, email, password, phone_number, profile_image,
+                   is_first_logged_in, last_login_at, password_changed_at,
+                   is_active, government_structure_id, internal_structure_id,
+                   created_at, updated_at
+                 ) VALUES (
+                   :user_id, :full_name, :email, :password, :phone_number, :profile_image,
+                   :is_first_logged_in, :last_login_at, :password_changed_at,
+                   :is_active, :government_structure_id, :internal_structure_id,
+                   :created_at, :updated_at
+                 )
+                 ON CONFLICT (email) DO UPDATE SET
+                   full_name = EXCLUDED.full_name,
+                   password = EXCLUDED.password,
+                   phone_number = EXCLUDED.phone_number,
+                   is_active = EXCLUDED.is_active,
+                   government_structure_id = EXCLUDED.government_structure_id,
+                   internal_structure_id = EXCLUDED.internal_structure_id,
+                   updated_at = EXCLUDED.updated_at`,
+                { replacements: user }
+            );
+        }
+
+        for (const userRole of userRoles) {
+            await queryInterface.sequelize.query(
+                `INSERT INTO user_roles (
+                   user_role_id, user_id, role_id, assigned_at, is_active, created_at, updated_at
+                 )
+                 SELECT
+                   :user_role_id, :user_id, :role_id, :assigned_at, :is_active, :created_at, :updated_at
+                 WHERE NOT EXISTS (
+                   SELECT 1 FROM user_roles ur
+                   WHERE ur.user_id = :user_id AND ur.role_id = :role_id
+                 )`,
+                { replacements: userRole }
+            );
+        }
     }
 
     return users.length;

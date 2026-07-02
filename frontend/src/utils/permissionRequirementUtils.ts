@@ -27,6 +27,8 @@ const PERMISSION_LABELS: Partial<Record<PermissionKey, string>> = {
   "PLAN:VIEW_REVIEW_DASHBOARD": "View all plan review issues",
   "PLAN:START_PROCESS": "Start plan process",
   "PLAN:OVERRIDE_PARENT_ACHIEVEMENT": "Override parent achievement rollup",
+  "PLAN:BYPASS_ACHIEVEMENT_ASSIGNMENT":
+    "Bypass plan-tree assignment for achievement execute/approve (QA)",
   "PLAN:EXECUTE_ACHIEVEMENT": "Submit achievement on assigned plan leaf nodes",
   "PLAN:APPROVE_ACHIEVEMENT": "Approve submitted plan achievements in assigned scope",
   "PLAN:VIEW_SECTOR_PLAN_HIERARCHY": "View sector-assigned plan subtree (read-only)",

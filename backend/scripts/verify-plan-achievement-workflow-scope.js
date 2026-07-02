@@ -29,6 +29,7 @@ async function run() {
     assert.ok(result.data);
     assert.ok(Array.isArray(result.data.executor_node_ids));
     assert.ok(Array.isArray(result.data.approver_node_ids));
+    assert.strictEqual(typeof result.data.assignment_bypass_active, "boolean");
   }
 
   const invalid = await resolveAchievementWorkflowScopeForVersion(

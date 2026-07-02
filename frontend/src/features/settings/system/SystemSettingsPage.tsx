@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +10,7 @@ import {
   useGetSystemSettingsQuery,
   useUpdateSystemSettingsMutation,
 } from "@/redux/api/systemSettingsApi";
+import type { UpdateSystemSettingsPayload } from "@/redux/types/systemSettings";
 
 const SYSTEM_SETTINGS_READ = ["SYSTEM_SETTINGS:READ"] as const;
 const SYSTEM_SETTINGS_UPDATE = ["SYSTEM_SETTINGS:UPDATE"] as const;
@@ -20,10 +20,14 @@ export default function SystemSettingsPage() {
   const [updateSettings, { isLoading: isSaving }] = useUpdateSystemSettingsMutation();
 
   const exposeRequiredPermissions = Boolean(settings?.expose_required_permissions);
+  const allowAchievementBypass = Boolean(settings?.allow_achievement_assignment_bypass);
 
-  const handleToggle = async (checked: boolean) => {
+  const updateField = async (
+    field: keyof UpdateSystemSettingsPayload,
+    checked: boolean
+  ) => {
     try {
-      await updateSettings({ expose_required_permissions: checked }).unwrap();
+      await updateSettings({ [field]: checked }).unwrap();
       actionFeedback.success("System settings updated");
     } catch (error: unknown) {
       const err = error as { data?: { message?: string } };
@@ -41,8 +45,8 @@ export default function SystemSettingsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">System Settings</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Security and platform behavior options. Keep permission disclosure disabled in
-            production unless administrators need it for support.
+            Security and platform behavior options. Keep test-only bypasses disabled in
+            production unless administrators explicitly need them.
           </p>
         </div>
 
@@ -70,7 +74,9 @@ export default function SystemSettingsPage() {
                   id="expose_required_permissions"
                   checked={exposeRequiredPermissions}
                   disabled={isSaving}
-                  onCheckedChange={(checked) => void handleToggle(checked)}
+                  onCheckedChange={(checked) =>
+                    void updateField("expose_required_permissions", checked)
+                  }
                 />
               </PermissionGuard>
             </div>
@@ -79,9 +85,54 @@ export default function SystemSettingsPage() {
               <Button
                 variant="outline"
                 disabled={isSaving || !exposeRequiredPermissions}
-                onClick={() => void handleToggle(false)}
+                onClick={() => void updateField("expose_required_permissions", false)}
               >
                 Turn off permission disclosure
+              </Button>
+            </PermissionGuard>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Achievement workflow QA bypass</CardTitle>
+            <CardDescription>
+              When enabled, super administrators and members of the &quot;Achievement Workflow
+              QA&quot; special permission group may execute, approve, and override achievements
+              without being assigned on the plan tree or sector. Users still need the normal
+              achievement permissions.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+              <div className="space-y-1">
+                <Label htmlFor="allow_achievement_assignment_bypass" className="text-base">
+                  Allow achievement assignment bypass
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Recommended: off in production. Enable in dev/test so administrators and QA
+                  testers can validate execution approval flows end-to-end.
+                </p>
+              </div>
+              <PermissionGuard requireAll={[...SYSTEM_SETTINGS_UPDATE]}>
+                <Switch
+                  id="allow_achievement_assignment_bypass"
+                  checked={allowAchievementBypass}
+                  disabled={isSaving}
+                  onCheckedChange={(checked) =>
+                    void updateField("allow_achievement_assignment_bypass", checked)
+                  }
+                />
+              </PermissionGuard>
+            </div>
+
+            <PermissionGuard requireAll={[...SYSTEM_SETTINGS_UPDATE]}>
+              <Button
+                variant="outline"
+                disabled={isSaving || !allowAchievementBypass}
+                onClick={() => void updateField("allow_achievement_assignment_bypass", false)}
+              >
+                Turn off achievement bypass
               </Button>
             </PermissionGuard>
           </CardContent>

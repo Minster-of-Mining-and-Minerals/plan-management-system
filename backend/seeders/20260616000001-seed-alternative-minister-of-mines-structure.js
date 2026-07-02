@@ -16,8 +16,18 @@ const SECTOR_KEY = "alt-mom";
 
 async function ensureSector(queryInterface, now) {
     const existingSector = await queryInterface.sequelize.query(
-        `SELECT government_structure_id FROM government_structures
-         WHERE government_structure_id = :id OR name = :name
+        `SELECT government_structure_id, name FROM government_structures
+         WHERE government_structure_id = :id
+            OR LOWER(TRIM(name)) IN (
+              LOWER(TRIM(:name)),
+              'ministry of mines',
+              'alternative minister of mines'
+            )
+         ORDER BY CASE
+           WHEN government_structure_id = :id THEN 0
+           WHEN LOWER(TRIM(name)) = LOWER(TRIM(:name)) THEN 1
+           ELSE 2
+         END
          LIMIT 1`,
         {
             replacements: { id: SECTOR_ID, name: SECTOR_NAME },
@@ -26,6 +36,14 @@ async function ensureSector(queryInterface, now) {
     );
 
     if (existingSector.length > 0) {
+        await queryInterface.sequelize.query(
+            `UPDATE government_structures
+             SET is_active = true, updated_at = :now
+             WHERE government_structure_id = :id`,
+            {
+                replacements: { id: existingSector[0].government_structure_id, now },
+            }
+        );
         return existingSector[0].government_structure_id;
     }
 

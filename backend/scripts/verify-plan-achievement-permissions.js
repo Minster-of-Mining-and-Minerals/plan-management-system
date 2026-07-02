@@ -15,6 +15,10 @@ const {
   isMasterPlanLeaf,
   buildChildrenByParent,
 } = require("../services/planAchievementScopeUtils");
+const {
+  userQualifiesForAchievementAssignmentBypass,
+} = require("../utils/planAchievementBypassUtils");
+const { shouldAllowAchievementAssignmentBypass } = require("../services/systemSettingsService");
 
 const masterNodes = [
   { plan_node_id: "sf", parent_id: null, is_active: true },
@@ -137,9 +141,51 @@ function runScopeTests() {
   assert.strictEqual(wrongSectorLeaves.size, 0);
 }
 
+function runBypassTests() {
+  const original = shouldAllowAchievementAssignmentBypass();
+  const { applyCache } = require("../services/systemSettingsService");
+  applyCache({
+    system_setting_id: "test",
+    expose_required_permissions: false,
+    allow_achievement_assignment_bypass: true,
+  });
+
+  const executor = buildUser({
+    roles: ["Super Admin"],
+    permissions: [EXECUTE_ACHIEVEMENT_KEY],
+  });
+
+  assert.strictEqual(userQualifiesForAchievementAssignmentBypass(executor), true);
+
+  const qaTester = buildUser({
+    permissions: [
+      EXECUTE_ACHIEVEMENT_KEY,
+      "plan:bypass_achievement_assignment",
+    ],
+  });
+  assert.strictEqual(userQualifiesForAchievementAssignmentBypass(qaTester), true);
+
+  const regular = buildUser({
+    permissions: [EXECUTE_ACHIEVEMENT_KEY],
+  });
+  assert.strictEqual(userQualifiesForAchievementAssignmentBypass(regular), false);
+
+  const { collectAllMasterLeafIds } = require("../services/planAchievementScopeUtils");
+  const allLeaves = collectAllMasterLeafIds(masterNodes);
+  assert.ok(allLeaves.has("kpi-a"));
+  assert.ok(allLeaves.has("kpi-b"));
+
+  applyCache({
+    system_setting_id: "test",
+    expose_required_permissions: false,
+    allow_achievement_assignment_bypass: original,
+  });
+}
+
 function run() {
   runPermissionTests();
   runScopeTests();
+  runBypassTests();
   console.log("Plan achievement Step 1 checks passed.");
 }
 

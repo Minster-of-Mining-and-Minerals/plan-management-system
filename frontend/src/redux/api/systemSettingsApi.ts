@@ -27,7 +27,7 @@ export const systemSettingsApi = baseApi.injectEndpoints({
         body,
       }),
       transformResponse: (response: { data: SystemSettings }) => response.data,
-      invalidatesTags: ["SystemSettings", "SystemAuditLog"],
+      invalidatesTags: ["SystemSettings", "SystemAuditLog", "PlanAchievementWorkflowScope"],
     }),
   }),
 });

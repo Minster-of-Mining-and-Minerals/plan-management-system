@@ -248,6 +248,8 @@ export interface PlanAchievementWorkflowScope {
     plan_version_id: string;
     executor_node_ids: string[];
     approver_node_ids: string[];
+    /** True when system bypass is on and the current user qualifies (QA / super admin). */
+    assignment_bypass_active?: boolean;
 }
 
 export interface PlanExecutionAccessResponse {

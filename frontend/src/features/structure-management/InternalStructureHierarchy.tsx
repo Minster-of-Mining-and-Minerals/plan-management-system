@@ -33,6 +33,8 @@ import {
 function convertToD3Tree(node: any): D3TreeNode {
   const node_id = node.internal_structure_id || node.id;
 
+  const builtChildren = Array.isArray(node.children) ? node.children : [];
+
   return {
     name: node.name || "Unnamed",
     attributes: {
@@ -43,8 +45,8 @@ function convertToD3Tree(node: any): D3TreeNode {
       level: node.level,
       is_active: node.is_active,
     },
-    children: node.children?.length
-      ? node.children.map(convertToD3Tree)
+    children: builtChildren.length
+      ? builtChildren.map(convertToD3Tree)
       : undefined,
   };
 }
@@ -172,10 +174,14 @@ const InternalHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
 
   const govOptions = useMemo(
     () =>
-      govStructures.map((gov) => ({
-        value: gov.government_structure_id,
-        label: gov.name,
-      })),
+      govStructures.map((gov) => {
+        const parentLabel = gov.parent?.name;
+        const label = parentLabel ? `${gov.name} (${parentLabel})` : gov.name;
+        return {
+          value: gov.government_structure_id,
+          label,
+        };
+      }),
     [govStructures]
   );
 
@@ -193,14 +199,21 @@ const InternalHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
     router.push(`/internal-structures/${nodeId}`);
   };
 
-  const rootNodes = useMemo(() => {
-    if (lockedGovId) return buildSectorTree(data);
+  const normalizedData = useMemo(
+    () => data.map((node) => ({ ...node, children: undefined })),
+    [data]
+  );
 
-    const filteredData = data.filter(
+  const rootNodes = useMemo(() => {
+    if (lockedGovId) return buildSectorTree(normalizedData);
+
+    if (!selectedGovId) return [];
+
+    const filteredData = normalizedData.filter(
       (s) => s.government_structure_id === selectedGovId
     );
     return buildSectorTree(filteredData);
-  }, [data, selectedGovId, lockedGovId]);
+  }, [normalizedData, selectedGovId, lockedGovId]);
 
   const d3TreeData = useMemo(() => rootNodes.map(convertToD3Tree), [rootNodes]);
 
@@ -216,10 +229,30 @@ const InternalHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
   useEffect(() => {
     if (lockedGovId) {
       setSelectedGovId(lockedGovId);
-    } else if (govOptions.length > 0 && !selectedGovId) {
-      setSelectedGovId(govOptions[0].value);
+      return;
     }
-  }, [govOptions, selectedGovId, lockedGovId]);
+    if (govOptions.length === 0) return;
+
+    const sectorsWithData = govOptions.filter((opt) =>
+      data.some((row) => row.government_structure_id === opt.value)
+    );
+    const preferred =
+      sectorsWithData.find((opt) => opt.label === "Ministry of Mines") ??
+      sectorsWithData.find((opt) => opt.label === "Alternative Minister of Mines") ??
+      sectorsWithData.find(
+        (opt) =>
+          opt.label === "Ethiopian Geological Institute" ||
+          opt.label === "Mining Industry Development Institute"
+      ) ??
+      sectorsWithData.find((opt) => opt.label === "Minster Of Mines") ??
+      sectorsWithData.find((opt) => opt.label.endsWith("(Minster Of Mines)")) ??
+      sectorsWithData[0] ??
+      govOptions[0];
+
+    if (!selectedGovId || !govOptions.some((opt) => opt.value === selectedGovId)) {
+      setSelectedGovId(preferred.value);
+    }
+  }, [govOptions, selectedGovId, lockedGovId, data]);
 
   useEffect(() => {
     if (rootOptions.length > 0 && (!selectedRootId || !rootOptions.find((opt) => opt.value === selectedRootId))) {
@@ -349,11 +382,22 @@ const InternalHierarchyD3Tree: React.FC<HierarchyD3TreeProps> = ({
                 )}
               />
             </div>
-          ) : (
+          ) : isLoading || (!lockedGovId && !selectedGovId) ? (
             <div className="flex items-center justify-center py-12 h-full min-h-[600px]">
               <div className="text-center">
+                <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-primary"></div>
+                <p className="text-lg text-primary">Loading department organogram...</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center py-12 h-full min-h-[600px]">
+              <div className="text-center max-w-md">
                 <p className="text-gray-400 text-lg font-medium">No departments found</p>
-                <p className="text-gray-300 text-sm mt-2">Create a new department to get started.</p>
+                <p className="text-gray-300 text-sm mt-2">
+                  {lockedGovId
+                    ? "This sector has no department tree yet. Seed the organogram from the backend, then refresh."
+                    : "Select a sector that has departments, or create a new department to get started."}
+                </p>
               </div>
             </div>
           )}

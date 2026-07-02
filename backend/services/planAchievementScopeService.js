@@ -7,11 +7,13 @@ const {
   userCanExecuteAchievement,
   userCanApproveAchievement,
 } = require("../utils/planAchievementPermissionUtils");
+const { userQualifiesForAchievementAssignmentBypass } = require("../utils/planAchievementBypassUtils");
 const {
   resolveExecutorLeafMasterNodeIds,
   resolveApproverScopeMasterNodeIds,
   userCanExecuteOnMasterNode,
   userCanApproveLeafMasterNode,
+  collectAllMasterLeafIds,
 } = require("./planAchievementScopeUtils");
 
 async function loadAchievementScopeContext(masterVersionId, transaction = null) {
@@ -35,6 +37,10 @@ async function resolveExecutorLeafMasterNodeIdsForUser(
   }
 
   const context = await loadAchievementScopeContext(masterVersionId, transaction);
+  if (userQualifiesForAchievementAssignmentBypass(user)) {
+    return collectAllMasterLeafIds(context.masterNodes);
+  }
+
   return resolveExecutorLeafMasterNodeIds({ user, ...context });
 }
 
@@ -48,6 +54,10 @@ async function resolveApproverScopeMasterNodeIdsForUser(
   }
 
   const context = await loadAchievementScopeContext(masterVersionId, transaction);
+  if (userQualifiesForAchievementAssignmentBypass(user)) {
+    return collectAllMasterLeafIds(context.masterNodes);
+  }
+
   return resolveApproverScopeMasterNodeIds({ user, ...context });
 }
 
@@ -62,6 +72,10 @@ async function assertUserCanExecuteAchievementOnMasterNode(
       allowed: false,
       message: "Plan execute achievement permission required",
     };
+  }
+
+  if (userQualifiesForAchievementAssignmentBypass(user)) {
+    return { allowed: true };
   }
 
   const context = await loadAchievementScopeContext(masterVersionId, transaction);
@@ -89,6 +103,10 @@ async function assertUserCanApproveAchievementForLeaf(
       allowed: false,
       message: "Plan approve achievement permission required",
     };
+  }
+
+  if (userQualifiesForAchievementAssignmentBypass(user)) {
+    return { allowed: true };
   }
 
   const context = await loadAchievementScopeContext(masterVersionId, transaction);

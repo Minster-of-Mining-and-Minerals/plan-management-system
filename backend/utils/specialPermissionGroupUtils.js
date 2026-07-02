@@ -23,6 +23,7 @@ const VIEW_FULL_PLAN_HIERARCHY_KEY = "plan:view_full_plan_hierarchy";
 const SPECIAL_PERMISSION_KEYS = new Set([
   "plans:edit_finalized",
   "plan:override_parent_achievement",
+  "plan:bypass_achievement_assignment",
   VIEW_SECTOR_PLAN_HIERARCHY_KEY,
   VIEW_FULL_PLAN_HIERARCHY_KEY,
 ]);

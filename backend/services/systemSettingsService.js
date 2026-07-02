@@ -7,6 +7,7 @@ const DEFAULT_SYSTEM_SETTINGS_ID = "a0000000-0000-4000-8000-000000000001";
 const DEFAULT_SYSTEM_SETTINGS = {
   system_setting_id: DEFAULT_SYSTEM_SETTINGS_ID,
   expose_required_permissions: false,
+  allow_achievement_assignment_bypass: false,
 };
 
 let cachedSettings = { ...DEFAULT_SYSTEM_SETTINGS };
@@ -15,6 +16,9 @@ function applyCache(record) {
   cachedSettings = {
     system_setting_id: record.system_setting_id,
     expose_required_permissions: Boolean(record.expose_required_permissions),
+    allow_achievement_assignment_bypass: Boolean(
+      record.allow_achievement_assignment_bypass
+    ),
   };
   return cachedSettings;
 }
@@ -25,6 +29,10 @@ function getCachedSystemSettings() {
 
 function shouldExposeRequiredPermissions() {
   return Boolean(cachedSettings.expose_required_permissions);
+}
+
+function shouldAllowAchievementAssignmentBypass() {
+  return Boolean(cachedSettings.allow_achievement_assignment_bypass);
 }
 
 async function warmSystemSettingsCache() {
@@ -44,13 +52,20 @@ async function getSystemSettings() {
 
 async function updateSystemSettings(payload) {
   let record = await SystemSetting.findByPk(DEFAULT_SYSTEM_SETTINGS_ID);
+  const current = record ? record.get({ plain: true }) : { ...DEFAULT_SYSTEM_SETTINGS };
+  const merged = {
+    ...DEFAULT_SYSTEM_SETTINGS,
+    ...current,
+    ...payload,
+  };
+
   if (!record) {
-    record = await SystemSetting.create({
-      ...DEFAULT_SYSTEM_SETTINGS,
-      ...payload,
-    });
+    record = await SystemSetting.create(merged);
   } else {
-    await record.update(payload);
+    await record.update({
+      expose_required_permissions: merged.expose_required_permissions,
+      allow_achievement_assignment_bypass: merged.allow_achievement_assignment_bypass,
+    });
   }
   return applyCache(record);
 }
@@ -59,7 +74,9 @@ module.exports = {
   DEFAULT_SYSTEM_SETTINGS,
   getCachedSystemSettings,
   shouldExposeRequiredPermissions,
+  shouldAllowAchievementAssignmentBypass,
   warmSystemSettingsCache,
   getSystemSettings,
   updateSystemSettings,
+  applyCache,
 };

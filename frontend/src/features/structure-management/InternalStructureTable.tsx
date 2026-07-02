@@ -21,7 +21,7 @@ import { useSession } from "next-auth/react";
 import { actionFeedback } from "@/components/action-feedback";
 import { CreateInternalStructureModal } from "./modals/CreateInternalStructureModal";
 import InternalHierarchyD3Tree from "./InternalStructureHierarchy";
-import { matchesActiveInactiveFilter } from "@/utils/tableUtils";
+import { matchesActiveInactiveFilter, matchesSearchQuery } from "@/utils/tableUtils";
 import { isStructureActive } from "@/utils/structureUtils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { sortStructuresByTreeDepth } from "@/utils/structureTreeOrderUtils";
@@ -43,7 +43,7 @@ export default function InternalStructureTable({
 }: InternalStructureTableProps) {
     const [toggleHierarchyView, setToggleHierarchyView] = useState(false);
     const searchParams = useSearchParams();
-    const searchQuery = searchParams.get("search") || "";
+    const searchQuery = hideLayout ? "" : searchParams.get("search") || "";
     const router = useRouter();
 
     const [statusFilter, setStatusFilter] = useState("");
@@ -66,11 +66,18 @@ export default function InternalStructureTable({
         data: structures = [],
         isLoading,
         refetch,
-    } = useGetInternalStructuresQuery({
-        search: searchQuery,
-        government_structure_id: forced_government_structure_id || userGovId,
-        parent_id: forced_parent_id,
-    });
+    } = useGetInternalStructuresQuery(
+        {
+            ...(forced_government_structure_id || userGovId
+                ? {
+                      government_structure_id:
+                          forced_government_structure_id || userGovId,
+                  }
+                : {}),
+            ...(forced_parent_id ? { parent_id: forced_parent_id } : {}),
+        },
+        { skip: false }
+    );
 
     const handleDelete = async (id: string) => {
         if (await actionFeedback.confirm("Are you sure you want to deactivate this department?", { destructive: true })) {
@@ -240,11 +247,22 @@ export default function InternalStructureTable({
     const filteredData = useMemo(
         () =>
             sortStructuresByTreeDepth(
-                structures.filter((item) =>
-                    matchesActiveInactiveFilter(statusFilter, isStructureActive(item.is_active))
-                )
+                structures.filter((item) => {
+                    if (
+                        !matchesActiveInactiveFilter(
+                            statusFilter,
+                            isStructureActive(item.is_active)
+                        )
+                    ) {
+                        return false;
+                    }
+                    return matchesSearchQuery(searchQuery, [
+                        item.name,
+                        item.parent?.name,
+                    ]);
+                })
             ),
-        [structures, statusFilter]
+        [structures, statusFilter, searchQuery]
     );
 
     return (
@@ -259,16 +277,18 @@ export default function InternalStructureTable({
                 showToggleHierarchyNode={true}
                 toggleHierarchyNode={toggleHierarchyView}
                 setToggleHierarchyNode={setToggleHierarchyView}
+                showSearch={!hideLayout}
             >
                 {!toggleHierarchyView ? (<DataTable
                     columns={columns}
                     data={filteredData}
                     isLoading={isLoading}
                     resetKey={`${searchQuery}-${statusFilter}-${toggleHierarchyView}-${forced_government_structure_id}-${forced_parent_id}`}
-                />) : (
+                />                ) : (
                     <InternalHierarchyD3Tree
                         data={filteredData}
                         type="internal"
+                        isLoading={isLoading}
                         governmentStructureId={forced_government_structure_id}
                     />
                 )}

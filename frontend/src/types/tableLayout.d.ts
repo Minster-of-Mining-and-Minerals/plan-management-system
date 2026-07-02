@@ -38,6 +38,7 @@ export interface PageLayoutProps {
   showToggleHierarchyNode?: boolean;
   toggleHierarchyNode?: boolean;
   setToggleHierarchyNode?;
+  showSearch?: boolean;
 }
 
 export interface DetailPageLayoutProps {

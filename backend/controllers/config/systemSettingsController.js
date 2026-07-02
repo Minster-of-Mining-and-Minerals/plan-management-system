@@ -32,16 +32,37 @@ async function getSecuritySystemSettingsHandler(req, res) {
 async function updateSystemSettingsHandler(req, res) {
   try {
     const previous = await getSystemSettings();
-    const updated = await updateSystemSettings({
-      expose_required_permissions: Boolean(req.body.expose_required_permissions),
-    });
+    const updates = {};
+
+    if (req.body.expose_required_permissions !== undefined) {
+      updates.expose_required_permissions = Boolean(req.body.expose_required_permissions);
+    }
+    if (req.body.allow_achievement_assignment_bypass !== undefined) {
+      updates.allow_achievement_assignment_bypass = Boolean(
+        req.body.allow_achievement_assignment_bypass
+      );
+    }
+
+    const updated = await updateSystemSettings(updates);
+
+    const summaryParts = [];
+    if (updates.expose_required_permissions !== undefined) {
+      summaryParts.push(
+        `permission disclosure ${updated.expose_required_permissions ? "enabled" : "disabled"}`
+      );
+    }
+    if (updates.allow_achievement_assignment_bypass !== undefined) {
+      summaryParts.push(
+        `achievement assignment bypass ${updated.allow_achievement_assignment_bypass ? "enabled" : "disabled"}`
+      );
+    }
 
     await recordSystemAuditLog({
       module: "system_settings",
       action: "update",
       entityId: updated.system_setting_id,
       entityLabel: "System settings",
-      summary: `Expose required permissions ${updated.expose_required_permissions ? "enabled" : "disabled"}`,
+      summary: summaryParts.join("; ") || "System settings updated",
       previousValues: previous,
       newValues: updated,
       changedBy: req.user.user_id,

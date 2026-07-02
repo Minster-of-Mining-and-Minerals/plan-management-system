@@ -9,6 +9,7 @@ const {
   Role,
 } = require("../models");
 const { computePeriodExecutionProgress } = require("./planExecutionRollupService");
+const { buildMasterNodeIdByPeriodNodeId } = require("./planAchievementRollupService");
 const { nodeContributesToRollup } = require("../utils/planAchievementRollupUtils");
 
 function roundPercent(value) {
@@ -120,6 +121,12 @@ async function buildAssignmentAchievementMetrics(focusContexts) {
   for (const context of focusContexts) {
     const { liveMasterPlanId, periodVersionId, structureId } = context;
 
+    const masterNodeIdByPeriodNodeId = await buildMasterNodeIdByPeriodNodeId(periodVersionId);
+    const periodNodeIdByMasterNodeId = new Map();
+    for (const [periodNodeId, masterNodeId] of masterNodeIdByPeriodNodeId) {
+      periodNodeIdByMasterNodeId.set(masterNodeId, periodNodeId);
+    }
+
     const [nodes, assignments, progress] = await Promise.all([
       PlanNode.findAll({
         where: { plan_version_id: periodVersionId, is_active: true },
@@ -132,8 +139,8 @@ async function buildAssignmentAchievementMetrics(focusContexts) {
             model: PlanNode,
             as: "planNode",
             required: true,
-            where: { plan_version_id: periodVersionId },
-            attributes: ["plan_node_id", "period_target", "period_actual", "period_actual_status"],
+            where: { plan_version_id: liveMasterPlanId },
+            attributes: ["plan_node_id"],
           },
           {
             model: User,
@@ -176,13 +183,16 @@ async function buildAssignmentAchievementMetrics(focusContexts) {
     const rollupMap = progress.rollup_by_node_id ?? new Map();
 
     for (const assignment of assignments) {
-      const planNode = assignment.planNode;
-      if (!planNode) continue;
+      const masterPlanNodeId = assignment.plan_node_id ?? assignment.planNode?.plan_node_id;
+      if (!masterPlanNodeId) continue;
 
-      const node =
-        nodeById.get(planNode.plan_node_id) ??
-        (planNode.toJSON ? planNode.toJSON() : planNode);
-      const metrics = rollupMap.get(node.plan_node_id);
+      const periodNodeId = periodNodeIdByMasterNodeId.get(masterPlanNodeId);
+      if (!periodNodeId) continue;
+
+      const node = nodeById.get(periodNodeId);
+      if (!node) continue;
+
+      const metrics = rollupMap.get(periodNodeId);
       const contribution = getAssignedNodeContribution(
         node,
         metrics,
@@ -190,7 +200,7 @@ async function buildAssignmentAchievementMetrics(focusContexts) {
       );
       if (!contribution) continue;
 
-      const nodeKey = `${periodVersionId}:${node.plan_node_id}`;
+      const nodeKey = `${periodVersionId}:${periodNodeId}`;
       const meta = {
         nodeKey,
         planId: liveMasterPlanId,
@@ -219,7 +229,8 @@ async function buildAssignmentAchievementMetrics(focusContexts) {
             name: user.full_name?.trim() || user.email || "User",
             role: roleName,
             structureId: user.government_structure_id ?? structureId ?? null,
-            departmentId: user.internal_structure_id ?? null,
+            departmentId:
+              assignment.internal_structure_id ?? user.internal_structure_id ?? null,
           });
         }
 
@@ -228,8 +239,10 @@ async function buildAssignmentAchievementMetrics(focusContexts) {
           userId,
         });
 
-        if (user?.internal_structure_id) {
-          const deptId = user.internal_structure_id;
+        const deptIdForUser =
+          assignment.internal_structure_id ?? user?.internal_structure_id ?? null;
+        if (deptIdForUser) {
+          const deptId = deptIdForUser;
           if (!departmentBuckets.has(deptId)) {
             departmentBuckets.set(deptId, createAggregateBucket());
           }

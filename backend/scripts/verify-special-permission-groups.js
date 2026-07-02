@@ -98,6 +98,7 @@ function run() {
       buildGroup([
         buildPermission("plan", "view_sector_plan_hierarchy"),
         buildPermission("plan", "override_parent_achievement"),
+        buildPermission("plan", "bypass_achievement_assignment"),
       ]),
     ],
   });
@@ -105,6 +106,7 @@ function run() {
   assert.deepStrictEqual(getUserDepartmentPermissionKeys(departmentGroupUser), [
     VIEW_SECTOR_PLAN_HIERARCHY_KEY,
     "plan:override_parent_achievement",
+  "plan:bypass_achievement_assignment",
   ]);
   assert.ok(userHasSpecialPermission(departmentGroupUser, VIEW_SECTOR_PLAN_HIERARCHY_KEY));
   assert.strictEqual(
@@ -121,7 +123,7 @@ function run() {
   const merged = collectUserPermissionKeys(mergedUser);
   assert.ok(merged.includes("plans:read"));
   assert.ok(merged.includes(VIEW_SECTOR_PLAN_HIERARCHY_KEY));
-  assert.ok(merged.includes("plan:override_parent_achievement"));
+  assert.ok(merged.includes("plan:bypass_achievement_assignment"));
 
   const inactiveDeptGroupUser = buildUserFixture({
     departmentPermissionGroups: [
