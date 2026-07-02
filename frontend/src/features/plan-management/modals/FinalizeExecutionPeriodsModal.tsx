@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import {
     Dialog,
     DialogContent,
@@ -18,6 +19,7 @@ import { PlanVersion } from "@/redux/types/plan";
 import { getApiErrorMessage } from "@/utils/apiErrorUtils";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import { PLAN_FINALIZE_PERMISSIONS } from "@/utils/planPermissionUtils";
+import { handleDialogOpenChange, useSingleFlightAction } from "@/hooks/useSingleFlightAction";
 
 interface FinalizeExecutionPeriodsModalProps {
     isOpen: boolean;
@@ -37,23 +39,36 @@ export function FinalizeExecutionPeriodsModal({
             skip: !isOpen,
         });
     const [finalize, { isLoading: isFinalizing }] = useFinalizeExecutionPeriodTargetsMutation();
+    const runSingleFlight = useSingleFlightAction();
+    const closedAfterSuccessRef = useRef(false);
 
-    const handleFinalize = async () => {
-        try {
-            await finalize(annualVersion.plan_version_id).unwrap();
-            actionFeedback.success(
-                `Execution period finalized for ${annualVersion.planning_year ?? annualVersion.year}. Period targets for this year are locked.`
-            );
-            onSuccess?.();
-            onClose();
-        } catch (error: unknown) {
-            actionFeedback.error(getApiErrorMessage(error, "Failed to finalize period targets"));
-            refetch();
-        }
+    const handleFinalize = () => {
+        void runSingleFlight(async () => {
+            try {
+                await finalize(annualVersion.plan_version_id).unwrap();
+                closedAfterSuccessRef.current = true;
+                actionFeedback.success(
+                    `Execution period finalized for ${annualVersion.planning_year ?? annualVersion.year}. Period targets for this year are locked.`
+                );
+                onSuccess?.();
+                onClose();
+            } catch (error: unknown) {
+                if (closedAfterSuccessRef.current) {
+                    return;
+                }
+                actionFeedback.error(getApiErrorMessage(error, "Failed to finalize period targets"));
+                refetch();
+            }
+        });
+    };
+
+    const handleClose = () => {
+        closedAfterSuccessRef.current = false;
+        onClose();
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
+        <Dialog open={isOpen} onOpenChange={(open) => handleDialogOpenChange(open, handleClose)}>
             <DialogContent className="flex w-[calc(100%-2rem)] max-h-[min(90dvh,720px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[520px] top-[max(1rem,5dvh)] translate-y-0 sm:top-[50%] sm:-translate-y-1/2">
                 <DialogHeader className="shrink-0 px-6 pt-6 pb-4 pr-12">
                     <DialogTitle>Finalize Execution Period</DialogTitle>
@@ -98,11 +113,12 @@ export function FinalizeExecutionPeriodsModal({
                 </div>
 
                 <DialogFooter className="px-6 py-4 shrink-0 border-t bg-background">
-                    <Button variant="outline" onClick={onClose} disabled={isFinalizing}>
+                    <Button type="button" variant="outline" onClick={handleClose} disabled={isFinalizing}>
                         Cancel
                     </Button>
                     <PermissionGuard requireAll={PLAN_FINALIZE_PERMISSIONS}>
                         <Button
+                            type="button"
                             onClick={handleFinalize}
                             disabled={!readiness?.ready || isFinalizing || isLoading}
                         >

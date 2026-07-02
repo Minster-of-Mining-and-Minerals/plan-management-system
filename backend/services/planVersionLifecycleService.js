@@ -1429,6 +1429,18 @@ async function getExecutionPeriodFinalizationReadiness(annualVersionId) {
 }
 
 async function finalizeExecutionPeriodTargets(annualVersionId) {
+    const existing = await PlanVersion.findByPk(annualVersionId, {
+        include: [{ association: "executionPeriodVersions" }],
+    });
+
+    if (!existing || existing.version_kind !== "annual") {
+        return { success: false, errors: ["Annual plan version not found"] };
+    }
+
+    if (existing.period_targets_finalized_at) {
+        return { success: true, alreadyFinalized: true, data: existing };
+    }
+
     const t = await sequelize.transaction();
     try {
         const validation = await validateExecutionPeriodFinalization(annualVersionId, t);
@@ -1869,6 +1881,18 @@ async function getGlobalPeriodTargetFinalizationReadiness(masterVersionId) {
 }
 
 async function finalizeGlobalPeriodTargets(masterVersionId) {
+    const existingMaster = await PlanVersion.findByPk(masterVersionId, {
+        include: [{ association: "annualVersions" }],
+    });
+
+    if (!existingMaster || existingMaster.version_kind !== "master") {
+        return { success: false, errors: ["Master plan version not found"] };
+    }
+
+    if (existingMaster.period_targets_finalized_at) {
+        return { success: true, alreadyFinalized: true, data: existingMaster };
+    }
+
     const t = await sequelize.transaction();
     try {
         const validation = await validateGlobalPeriodTargetFinalization(masterVersionId, t);
