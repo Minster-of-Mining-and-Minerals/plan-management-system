@@ -7,11 +7,18 @@ const {
   PermissionGroup,
   RolePermission,
   Permission,
+  PlanVersion,
+  GovernmentStructure,
 } = require("../models");
 const { loadDepartmentPermissionGroups } = require("../utils/specialPermissionGroupUtils");
 const { collectUserPermissionKeys } = require("../utils/userPermissionsUtils");
 const { userCanApproveAchievement } = require("../utils/planAchievementPermissionUtils");
-const { userCanApproveLeafMasterNode } = require("./planAchievementScopeUtils");
+const { buildVisibleGovernmentStructureIdSet } = require("../utils/structureScopeUtils");
+const {
+  userCanApproveLeafMasterNode,
+  userCanAccessPlanSector,
+  collectRootMasterNodeIds,
+} = require("./planAchievementScopeUtils");
 const { loadMasterPlanAssignments } = require("./planTreeVisibilityUtils");
 
 async function loadUsersWithEffectivePermissions(userIds, transaction = null) {
@@ -107,6 +114,77 @@ async function collectCandidateApproverUserIds(internalAssignments, transaction 
   return [...userIds];
 }
 
+async function loadPlanSectorContext(masterVersionId, transaction = null) {
+  const masterVersion = await PlanVersion.findByPk(masterVersionId, {
+    attributes: ["government_structure_id"],
+    transaction,
+  });
+  const planSectorId = masterVersion?.government_structure_id ?? null;
+  if (!planSectorId) {
+    return { planSectorId: null, structureIndex: [] };
+  }
+
+  const structureIndex = await GovernmentStructure.findAll({
+    attributes: ["government_structure_id", "parent_id"],
+    transaction,
+  });
+
+  return { planSectorId, structureIndex };
+}
+
+async function loadSectorApproverUsers(masterVersionId, transaction = null) {
+  const { planSectorId, structureIndex } = await loadPlanSectorContext(
+    masterVersionId,
+    transaction
+  );
+  if (!planSectorId) {
+    return { planSectorId: null, structureIndex: [], users: [] };
+  }
+
+  const visibleFromPlan = buildVisibleGovernmentStructureIdSet(structureIndex, planSectorId);
+  const sectorIds = [...visibleFromPlan];
+
+  const users = await User.findAll({
+    where: {
+      is_active: true,
+      [Op.or]: [
+        { government_structure_id: { [Op.in]: sectorIds } },
+        { government_structure_id: null },
+      ],
+    },
+    attributes: ["user_id"],
+    transaction,
+  });
+
+  const enriched = await loadUsersWithEffectivePermissions(
+    users.map((user) => user.user_id),
+    transaction
+  );
+
+  return {
+    planSectorId,
+    structureIndex,
+    users: enriched.filter(
+      (user) =>
+        userCanApproveAchievement(user) &&
+        userCanAccessPlanSector(user, planSectorId, structureIndex)
+    ),
+  };
+}
+
+async function resolveSectorApproverGateMasterNodeIds(
+  masterVersionId,
+  masterNodes,
+  transaction = null
+) {
+  const { users } = await loadSectorApproverUsers(masterVersionId, transaction);
+  if (!users.length) {
+    return new Set();
+  }
+
+  return new Set(collectRootMasterNodeIds(masterNodes));
+}
+
 async function resolveApproverUsersForLeafMasterNode(
   masterVersionId,
   leafMasterNodeId,
@@ -121,17 +199,44 @@ async function resolveApproverUsersForLeafMasterNode(
     context.internalAssignments,
     transaction
   );
-  const users = await loadUsersWithEffectivePermissions(candidateUserIds, transaction);
+  const { planSectorId, structureIndex, users: sectorApprovers } =
+    await loadSectorApproverUsers(masterVersionId, transaction);
+  const allCandidateIds = [
+    ...new Set([
+      ...candidateUserIds,
+      ...sectorApprovers.map((user) => user.user_id),
+    ]),
+  ];
+  const users = await loadUsersWithEffectivePermissions(allCandidateIds, transaction);
+  const seen = new Set();
+  const approvers = [];
 
-  return users.filter(
-    (user) =>
-      userCanApproveAchievement(user) &&
-      userCanApproveLeafMasterNode({ user, ...context }, leafMasterNodeId)
-  );
+  for (const user of users) {
+    if (!userCanApproveAchievement(user) || seen.has(user.user_id)) {
+      continue;
+    }
+
+    const assignmentScoped = userCanApproveLeafMasterNode(
+      { user, ...context },
+      leafMasterNodeId
+    );
+    const sectorScoped =
+      planSectorId &&
+      userCanAccessPlanSector(user, planSectorId, structureIndex);
+
+    if (assignmentScoped || sectorScoped) {
+      seen.add(user.user_id);
+      approvers.push(user);
+    }
+  }
+
+  return approvers;
 }
 
 module.exports = {
   loadUsersWithEffectivePermissions,
   collectCandidateApproverUserIds,
+  loadSectorApproverUsers,
+  resolveSectorApproverGateMasterNodeIds,
   resolveApproverUsersForLeafMasterNode,
 };

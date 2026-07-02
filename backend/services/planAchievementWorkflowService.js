@@ -316,7 +316,15 @@ async function submitAchievement(planNodeId, periodActual, options = {}) {
       period_actual_status: node.period_actual_status,
     };
 
-    const workflowFields = buildSubmittedAchievementWorkflowFields(user.user_id);
+    const rollupContext = await buildRollupContextForPeriod(node.plan_version_id, t);
+    const requiresApproval = Boolean(
+      masterPlanNodeId &&
+        rollupContext.requiresApprovalByMasterNodeId?.get(masterPlanNodeId)
+    );
+
+    const workflowFields = requiresApproval
+      ? buildSubmittedAchievementWorkflowFields(user.user_id)
+      : buildApprovedAchievementWorkflowFields(user.user_id);
 
     await node.update(
       {
@@ -329,7 +337,7 @@ async function submitAchievement(planNodeId, periodActual, options = {}) {
 
     await recordAchievementAudit(
       {
-        action: "achievement_submitted",
+        action: requiresApproval ? "achievement_submitted" : "achievement_auto_approved",
         node,
         userId: user.user_id,
         ipAddress,
@@ -338,7 +346,9 @@ async function submitAchievement(planNodeId, periodActual, options = {}) {
           period_actual: numericActual,
           ...workflowFields,
         },
-        summary: `Achievement submitted on "${node.title}"`,
+        summary: requiresApproval
+          ? `Achievement submitted on "${node.title}"`
+          : `Achievement auto-approved on "${node.title}"`,
       },
       t
     );
@@ -346,17 +356,10 @@ async function submitAchievement(planNodeId, periodActual, options = {}) {
     await t.commit();
 
     try {
-      const scope = await resolveAchievementScopeForPeriodNode(node);
-      const rollupContext = await buildRollupContextForPeriod(node.plan_version_id);
-      const requiresApproval = Boolean(
-        scope.masterPlanNodeId &&
-          rollupContext.requiresApprovalByMasterNodeId?.get(scope.masterPlanNodeId)
-      );
-
-      if (requiresApproval && scope.masterVersionId) {
+      if (requiresApproval && masterVersionId) {
         const approvers = await resolveApproverUsersForLeafMasterNode(
-          scope.masterVersionId,
-          scope.masterPlanNodeId
+          masterVersionId,
+          masterPlanNodeId
         );
         await emitAchievementSubmittedEvent(
           {

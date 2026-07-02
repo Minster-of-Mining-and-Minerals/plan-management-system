@@ -62,7 +62,7 @@ function runGateUtilsTests() {
 
   assert.strictEqual(nodeContributesToRollup(submittedLeaf, gatedContext), false);
   assert.strictEqual(nodeContributesToRollup(approvedLeaf, gatedContext), true);
-  assert.strictEqual(nodeContributesToRollup(submittedLeaf, openContext), true);
+  assert.strictEqual(nodeContributesToRollup(submittedLeaf, openContext), false);
   assert.strictEqual(isAchievementReadyForPeriodCompletion(submittedLeaf, gatedContext), false);
   assert.strictEqual(isAchievementReadyForPeriodCompletion(approvedLeaf, gatedContext), true);
 }
@@ -106,6 +106,24 @@ function runRollupTests() {
 
   const openNodes = [
     nodes[0],
+    { ...nodes[1], period_actual_status: ACHIEVEMENT_STATUS.APPROVED },
+    {
+      plan_node_id: "kpi-b",
+      parent_id: "goal",
+      level: 3,
+      order: 1,
+      period_target: 100,
+      period_actual: 50,
+      period_actual_status: ACHIEVEMENT_STATUS.APPROVED,
+      is_active: true,
+    },
+  ];
+  const openContext = buildGateContext({ "kpi-a": false, "kpi-b": false });
+  const openMap = computeRollupMap(openNodes, openContext);
+  assert.strictEqual(metrics(openMap, "goal").execution_progress_percent, 75);
+
+  const openSubmittedOnly = [
+    nodes[0],
     { ...nodes[1], period_actual_status: ACHIEVEMENT_STATUS.SUBMITTED },
     {
       plan_node_id: "kpi-b",
@@ -118,9 +136,8 @@ function runRollupTests() {
       is_active: true,
     },
   ];
-  const openContext = buildGateContext({ "kpi-a": false, "kpi-b": false });
-  const openMap = computeRollupMap(openNodes, openContext);
-  assert.strictEqual(metrics(openMap, "goal").execution_progress_percent, 75);
+  const openSubmittedMap = computeRollupMap(openSubmittedOnly, openContext);
+  assert.strictEqual(metrics(openSubmittedMap, "goal").execution_progress_percent, 0);
 }
 
 function run() {

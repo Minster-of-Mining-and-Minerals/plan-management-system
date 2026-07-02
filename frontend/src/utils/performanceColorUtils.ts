@@ -1,5 +1,9 @@
 import { PerformanceColorThreshold } from "@/redux/types/performanceColorThreshold";
 import { PlanNodeHierarchy } from "@/redux/types/plan";
+import {
+  PLAN_ACHIEVEMENT_STATUS,
+  resolvePlanAchievementStatus,
+} from "@/utils/planAchievementWorkflowUtils";
 
 export const DEFAULT_PERFORMANCE_THRESHOLDS: PerformanceColorThreshold[] = [
   { performance_color_threshold_id: "default-0", label: "No Performance", min_percentage: 0, max_percentage: 0, color_hex: "#DC2626", sort_order: 1, is_active: true },
@@ -221,16 +225,19 @@ export function resolveCompletionForPlanNode(
   const isEvaluable = node.is_evaluable === true;
   const isManualLeaf =
     !hasChildren && !node.period_actual_override && node.period_actual == null;
+  const achievementStatus = resolvePlanAchievementStatus(node);
+  const isPendingApproval = achievementStatus === PLAN_ACHIEVEMENT_STATUS.SUBMITTED;
 
   if (isManualLeaf && !isEvaluable) {
     return hiddenProgressAppearance();
   }
 
   const nodeContributes =
-    isEvaluable ||
-    node.has_contributing_data === true ||
-    node.period_actual != null ||
-    node.period_actual_override === true;
+    !isPendingApproval &&
+    (isEvaluable ||
+      node.has_contributing_data === true ||
+      node.period_actual != null ||
+      node.period_actual_override === true);
 
   if (!nodeContributes && !periodHasRecordedActuals) {
     return hiddenProgressAppearance();
@@ -245,7 +252,7 @@ export function resolveCompletionForPlanNode(
 
   const target =
     Number(node.computed_period_target) || Number(node.period_target) || 0;
-  if (target > 0 && node.period_actual != null) {
+  if (target > 0 && node.period_actual != null && !isPendingApproval) {
     return {
       ...resolveCompletionAppearance(
         thresholds,

@@ -1,5 +1,7 @@
 "use strict";
 
+const { buildVisibleGovernmentStructureIdSet } = require("../utils/structureScopeUtils");
+
 function buildChildrenByParent(masterNodes) {
   const childrenByParent = new Map();
   for (const node of masterNodes) {
@@ -256,6 +258,26 @@ function userCanApproveLeafMasterNode(scopeInput, leafMasterNodeId) {
   return false;
 }
 
+function userCanAccessPlanSector(user, planSectorId, structureIndex) {
+  if (!planSectorId) {
+    return false;
+  }
+  if (!user?.government_structure_id) {
+    return true;
+  }
+  const visibleSet = buildVisibleGovernmentStructureIdSet(
+    structureIndex,
+    user.government_structure_id
+  );
+  return visibleSet.has(planSectorId);
+}
+
+function collectRootMasterNodeIds(masterNodes) {
+  return masterNodes
+    .filter((node) => node.is_active !== false && !node.parent_id)
+    .map((node) => node.plan_node_id);
+}
+
 function collectAllMasterLeafIds(masterNodes) {
   const childrenByParent = buildChildrenByParent(masterNodes);
   return new Set(
@@ -282,4 +304,6 @@ module.exports = {
   resolveApproverScopeMasterNodeIds,
   userCanExecuteOnMasterNode,
   userCanApproveLeafMasterNode,
+  userCanAccessPlanSector,
+  collectRootMasterNodeIds,
 };

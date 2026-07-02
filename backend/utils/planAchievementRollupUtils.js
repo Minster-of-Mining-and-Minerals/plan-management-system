@@ -46,7 +46,7 @@ function nodeContributesToRollup(node, rollupContext = {}) {
 
   const requiresApproval = resolveRollupRequiresApprovalForNode(node, rollupContext);
   const status = resolveAchievementStatus(node);
-  return isRollupEligibleAchievementStatus(status, { requiresApproval });
+  return isRollupEligibleAchievementStatus(status);
 }
 
 function isAchievementReadyForPeriodCompletion(node, rollupContext = {}) {

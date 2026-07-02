@@ -46,22 +46,16 @@ function run() {
   );
 
   assert.strictEqual(
-    isRollupEligibleAchievementStatus(ACHIEVEMENT_STATUS.SUBMITTED, {
-      requiresApproval: false,
-    }),
-    true
-  );
-  assert.strictEqual(
-    isRollupEligibleAchievementStatus(ACHIEVEMENT_STATUS.SUBMITTED, {
-      requiresApproval: true,
-    }),
+    isRollupEligibleAchievementStatus(ACHIEVEMENT_STATUS.SUBMITTED),
     false
   );
   assert.strictEqual(
-    isRollupEligibleAchievementStatus(ACHIEVEMENT_STATUS.APPROVED, {
-      requiresApproval: true,
-    }),
+    isRollupEligibleAchievementStatus(ACHIEVEMENT_STATUS.APPROVED),
     true
+  );
+  assert.strictEqual(
+    isRollupEligibleAchievementStatus(ACHIEVEMENT_STATUS.REJECTED),
+    false
   );
 
   const submitted = buildSubmittedAchievementWorkflowFields("user-1");

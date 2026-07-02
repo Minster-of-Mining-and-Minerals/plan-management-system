@@ -51,18 +51,12 @@ function canTransitionAchievementStatus(fromStatus, toStatus) {
 }
 
 /**
- * Whether a node value may contribute to parent rollup (Step 4 will use approval gates).
- * When approval is not required, submitted values count immediately.
+ * Whether a node value may contribute to parent rollup.
+ * Only approved achievements roll up; submitted values stay pending at the leaf.
  */
-function isRollupEligibleAchievementStatus(status, { requiresApproval = false } = {}) {
+function isRollupEligibleAchievementStatus(status) {
   const normalized = normalizeAchievementStatus(status);
-  if (requiresApproval) {
-    return normalized === ACHIEVEMENT_STATUS.APPROVED;
-  }
-  return (
-    normalized === ACHIEVEMENT_STATUS.APPROVED ||
-    normalized === ACHIEVEMENT_STATUS.SUBMITTED
-  );
+  return normalized === ACHIEVEMENT_STATUS.APPROVED;
 }
 
 function buildEmptyAchievementWorkflowFields() {
