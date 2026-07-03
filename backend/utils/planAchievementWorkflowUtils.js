@@ -4,6 +4,7 @@ const ACHIEVEMENT_STATUS = Object.freeze({
   EMPTY: "empty",
   SUBMITTED: "submitted",
   APPROVED: "approved",
+  VALIDATED: "validated",
   REJECTED: "rejected",
 });
 
@@ -16,7 +17,11 @@ const ACHIEVEMENT_STATUS_TRANSITIONS = Object.freeze({
     ACHIEVEMENT_STATUS.APPROVED,
     ACHIEVEMENT_STATUS.REJECTED,
   ]),
-  [ACHIEVEMENT_STATUS.APPROVED]: new Set([]),
+  [ACHIEVEMENT_STATUS.APPROVED]: new Set([
+    ACHIEVEMENT_STATUS.VALIDATED,
+    ACHIEVEMENT_STATUS.REJECTED,
+  ]),
+  [ACHIEVEMENT_STATUS.VALIDATED]: new Set([]),
 });
 
 function normalizeAchievementStatus(status) {
@@ -52,10 +57,13 @@ function canTransitionAchievementStatus(fromStatus, toStatus) {
 
 /**
  * Whether a node value may contribute to parent rollup.
- * Only approved achievements roll up; submitted values stay pending at the leaf.
+ * When validation gate is on, only validated achievements roll up.
  */
-function isRollupEligibleAchievementStatus(status) {
+function isRollupEligibleAchievementStatus(status, options = {}) {
   const normalized = normalizeAchievementStatus(status);
+  if (options.requiresValidation) {
+    return normalized === ACHIEVEMENT_STATUS.VALIDATED;
+  }
   return normalized === ACHIEVEMENT_STATUS.APPROVED;
 }
 
@@ -66,6 +74,8 @@ function buildEmptyAchievementWorkflowFields() {
     period_actual_submitted_by: null,
     period_actual_approved_at: null,
     period_actual_approved_by: null,
+    period_actual_validated_at: null,
+    period_actual_validated_by: null,
     period_actual_rejection_comment: null,
   };
 }
@@ -77,6 +87,8 @@ function buildSubmittedAchievementWorkflowFields(userId, submittedAt = new Date(
     period_actual_submitted_by: userId,
     period_actual_approved_at: null,
     period_actual_approved_by: null,
+    period_actual_validated_at: null,
+    period_actual_validated_by: null,
     period_actual_rejection_comment: null,
   };
 }
@@ -86,6 +98,17 @@ function buildApprovedAchievementWorkflowFields(userId, approvedAt = new Date())
     period_actual_status: ACHIEVEMENT_STATUS.APPROVED,
     period_actual_approved_at: approvedAt,
     period_actual_approved_by: userId,
+    period_actual_validated_at: null,
+    period_actual_validated_by: null,
+    period_actual_rejection_comment: null,
+  };
+}
+
+function buildValidatedAchievementWorkflowFields(userId, validatedAt = new Date()) {
+  return {
+    period_actual_status: ACHIEVEMENT_STATUS.VALIDATED,
+    period_actual_validated_at: validatedAt,
+    period_actual_validated_by: userId,
     period_actual_rejection_comment: null,
   };
 }
@@ -95,6 +118,8 @@ function buildRejectedAchievementWorkflowFields(comment = null) {
     period_actual_status: ACHIEVEMENT_STATUS.REJECTED,
     period_actual_approved_at: null,
     period_actual_approved_by: null,
+    period_actual_validated_at: null,
+    period_actual_validated_by: null,
     period_actual_rejection_comment: comment || null,
   };
 }
@@ -110,5 +135,6 @@ module.exports = {
   buildEmptyAchievementWorkflowFields,
   buildSubmittedAchievementWorkflowFields,
   buildApprovedAchievementWorkflowFields,
+  buildValidatedAchievementWorkflowFields,
   buildRejectedAchievementWorkflowFields,
 };

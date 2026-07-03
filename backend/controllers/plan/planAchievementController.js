@@ -6,6 +6,8 @@ const {
   setPeriodTargetForExecutor,
   submitAchievement,
   approveAchievement,
+  validateAchievement,
+  rejectValidationAchievement,
   rejectAchievement,
 } = require("../../services/planAchievementWorkflowService");
 const { setPeriodActual } = require("../../services/planExecutionActualService");
@@ -134,6 +136,59 @@ async function rejectAchievementHandler(req, res) {
   }
 }
 
+async function validateAchievementHandler(req, res) {
+  try {
+    const { id: nodeId } = req.params;
+
+    if (!isUuid(nodeId)) {
+      return res.status(400).json({ success: false, message: "Invalid node ID" });
+    }
+
+    const result = await validateAchievement(nodeId, workflowOptions(req));
+    if (!result.success) {
+      return res.status(result.message?.includes("permission") ? 403 : 400).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Achievement validated",
+      data: result.data,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+async function rejectValidationAchievementHandler(req, res) {
+  try {
+    const { id: nodeId } = req.params;
+    const { comment } = req.body;
+
+    if (!isUuid(nodeId)) {
+      return res.status(400).json({ success: false, message: "Invalid node ID" });
+    }
+
+    const result = await rejectValidationAchievement(nodeId, comment, workflowOptions(req));
+    if (!result.success) {
+      return res.status(result.message?.includes("permission") ? 403 : 400).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Achievement validation rejected",
+      data: result.data,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 async function updatePeriodActual(req, res) {
   try {
     const { id: nodeId } = req.params;
@@ -207,6 +262,8 @@ module.exports = {
   updatePeriodTarget,
   submitAchievementHandler,
   approveAchievementHandler,
+  validateAchievementHandler,
+  rejectValidationAchievementHandler,
   rejectAchievementHandler,
   updatePeriodActual,
   getAchievementWorkflowScope,

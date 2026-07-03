@@ -13,7 +13,7 @@ const {
   assertUserCanApproveAchievementForLeaf,
   resolveAchievementScopeForPeriodNode,
 } = require("./planAchievementScopeService");
-const { resolveApproverUsersForLeafMasterNode } = require("./planAchievementUserService");
+const { resolveApproverUsersForLeafMasterNode, loadSectorValidationUsers, assertUserCanValidateAchievement } = require("./planAchievementUserService");
 const { buildRollupContextForPeriod } = require("./planAchievementRollupService");
 const { userCanExecuteAchievement } = require("../utils/planAchievementPermissionUtils");
 const {
@@ -23,6 +23,7 @@ const {
   buildEmptyAchievementWorkflowFields,
   buildSubmittedAchievementWorkflowFields,
   buildApprovedAchievementWorkflowFields,
+  buildValidatedAchievementWorkflowFields,
   buildRejectedAchievementWorkflowFields,
 } = require("../utils/planAchievementWorkflowUtils");
 const { AUDIT_MODULES, recordSystemAuditLog } = require("./auditLogService");
@@ -30,6 +31,9 @@ const {
   emitAchievementSubmittedEvent,
   emitAchievementApprovedEvent,
   emitAchievementRejectedEvent,
+  emitAchievementPendingValidationEvent,
+  emitAchievementValidatedEvent,
+  emitAchievementValidationRejectedEvent,
 } = require("./planAchievementNotificationService");
 
 async function loadPeriodNode(planNodeId, transaction) {
@@ -248,11 +252,11 @@ async function submitAchievement(planNodeId, periodActual, options = {}) {
     const currentStatus = resolveAchievementStatus(node);
 
     if (periodActual === null || periodActual === undefined || periodActual === "") {
-      if (currentStatus === ACHIEVEMENT_STATUS.APPROVED) {
+      if (currentStatus === ACHIEVEMENT_STATUS.APPROVED || currentStatus === ACHIEVEMENT_STATUS.VALIDATED) {
         await t.rollback();
         return {
           success: false,
-          message: "Approved achievement cannot be cleared in this period",
+          message: "Approved or validated achievement cannot be cleared in this period",
         };
       }
 
@@ -293,7 +297,9 @@ async function submitAchievement(planNodeId, periodActual, options = {}) {
         message:
           currentStatus === ACHIEVEMENT_STATUS.SUBMITTED
             ? "Achievement is already pending approval"
-            : "Approved achievement cannot be resubmitted without clearing first",
+            : currentStatus === ACHIEVEMENT_STATUS.VALIDATED
+              ? "Validated achievement cannot be resubmitted"
+              : "Approved achievement cannot be resubmitted without clearing first",
       };
     }
 
@@ -366,6 +372,17 @@ async function submitAchievement(planNodeId, periodActual, options = {}) {
             node,
             periodVersionId: node.plan_version_id,
             approvers,
+            actor: user,
+          },
+          options.io ?? null
+        );
+      } else if (!requiresApproval && rollupContext.hasValidationGate && masterVersionId) {
+        const { users: validators } = await loadSectorValidationUsers(masterVersionId);
+        await emitAchievementPendingValidationEvent(
+          {
+            node,
+            periodVersionId: node.plan_version_id,
+            validators,
             actor: user,
           },
           options.io ?? null
@@ -462,6 +479,12 @@ async function approveAchievement(planNodeId, options = {}) {
     await t.commit();
 
     try {
+      const rollupContext = await buildRollupContextForPeriod(node.plan_version_id);
+      const requiresValidation = Boolean(
+        masterPlanNodeId &&
+          rollupContext.requiresValidationByMasterNodeId?.get(masterPlanNodeId)
+      );
+
       if (node.period_actual_submitted_by) {
         await emitAchievementApprovedEvent(
           {
@@ -469,12 +492,225 @@ async function approveAchievement(planNodeId, options = {}) {
             periodVersionId: node.plan_version_id,
             recipients: [{ user_id: node.period_actual_submitted_by }],
             actor: user,
+            pendingValidation: requiresValidation,
+          },
+          options.io ?? null
+        );
+      }
+
+      if (requiresValidation && masterVersionId) {
+        const { users: validators } = await loadSectorValidationUsers(masterVersionId);
+        await emitAchievementPendingValidationEvent(
+          {
+            node,
+            periodVersionId: node.plan_version_id,
+            validators,
+            actor: user,
           },
           options.io ?? null
         );
       }
     } catch (notifyError) {
       console.error("Achievement approve notification failed:", notifyError);
+    }
+
+    return { success: true, data: await PlanNode.findByPk(planNodeId) };
+  } catch (error) {
+    await t.rollback();
+    throw error;
+  }
+}
+
+async function validateAchievement(planNodeId, options = {}) {
+  const t = await sequelize.transaction();
+  try {
+    const { user, ipAddress = null } = options;
+
+    const node = await loadPeriodNode(planNodeId, t);
+    if (!node) {
+      await t.rollback();
+      return { success: false, message: "Plan node not found" };
+    }
+
+    if (node.planVersion.version_kind !== "execution_period") {
+      await t.rollback();
+      return {
+        success: false,
+        message: "Achievement validation applies to execution period nodes only",
+      };
+    }
+
+    const periodAccess = await assertPeriodOpenForAchievement(node.plan_version_id, t);
+    if (!periodAccess.allowed) {
+      await t.rollback();
+      return { success: false, message: periodAccess.message };
+    }
+
+    const currentStatus = resolveAchievementStatus(node);
+    if (!canTransitionAchievementStatus(currentStatus, ACHIEVEMENT_STATUS.VALIDATED)) {
+      await t.rollback();
+      return {
+        success: false,
+        message: "Only execution-approved achievements can be validated",
+      };
+    }
+
+    const { masterVersionId } = await resolveAchievementScopeForPeriodNode(node, t);
+    if (!masterVersionId) {
+      await t.rollback();
+      return { success: false, message: "Node is not linked to a master plan assignment" };
+    }
+
+    const scope = await assertUserCanValidateAchievement(user, masterVersionId, t);
+    if (!scope.allowed) {
+      await t.rollback();
+      return { success: false, message: scope.message };
+    }
+
+    const previousValues = {
+      period_actual_status: node.period_actual_status,
+      period_actual_validated_by: node.period_actual_validated_by,
+    };
+
+    const workflowFields = {
+      ...buildValidatedAchievementWorkflowFields(user.user_id),
+      period_actual_submitted_at: node.period_actual_submitted_at,
+      period_actual_submitted_by: node.period_actual_submitted_by,
+      period_actual_approved_at: node.period_actual_approved_at,
+      period_actual_approved_by: node.period_actual_approved_by,
+    };
+
+    await node.update(workflowFields, { transaction: t });
+
+    await recordAchievementAudit(
+      {
+        action: "achievement_validated",
+        node,
+        userId: user.user_id,
+        ipAddress,
+        previousValues,
+        newValues: workflowFields,
+        summary: `Achievement validated on "${node.title}" by ${user.full_name || user.user_id}`,
+      },
+      t
+    );
+
+    await t.commit();
+
+    try {
+      const recipients = [];
+      if (node.period_actual_submitted_by) {
+        recipients.push({ user_id: node.period_actual_submitted_by });
+      }
+      await emitAchievementValidatedEvent(
+        {
+          node,
+          periodVersionId: node.plan_version_id,
+          recipients,
+          actor: user,
+        },
+        options.io ?? null
+      );
+    } catch (notifyError) {
+      console.error("Achievement validate notification failed:", notifyError);
+    }
+
+    return { success: true, data: await PlanNode.findByPk(planNodeId) };
+  } catch (error) {
+    await t.rollback();
+    throw error;
+  }
+}
+
+async function rejectValidationAchievement(planNodeId, comment, options = {}) {
+  const t = await sequelize.transaction();
+  try {
+    const { user, ipAddress = null } = options;
+
+    const node = await loadPeriodNode(planNodeId, t);
+    if (!node) {
+      await t.rollback();
+      return { success: false, message: "Plan node not found" };
+    }
+
+    if (node.planVersion.version_kind !== "execution_period") {
+      await t.rollback();
+      return {
+        success: false,
+        message: "Validation rejection applies to execution period nodes only",
+      };
+    }
+
+    const periodAccess = await assertPeriodOpenForAchievement(node.plan_version_id, t);
+    if (!periodAccess.allowed) {
+      await t.rollback();
+      return { success: false, message: periodAccess.message };
+    }
+
+    const currentStatus = resolveAchievementStatus(node);
+    if (currentStatus !== ACHIEVEMENT_STATUS.APPROVED) {
+      await t.rollback();
+      return {
+        success: false,
+        message: "Only execution-approved achievements awaiting validation can be rejected",
+      };
+    }
+
+    const { masterVersionId } = await resolveAchievementScopeForPeriodNode(node, t);
+    if (!masterVersionId) {
+      await t.rollback();
+      return { success: false, message: "Node is not linked to a master plan assignment" };
+    }
+
+    const scope = await assertUserCanValidateAchievement(user, masterVersionId, t);
+    if (!scope.allowed) {
+      await t.rollback();
+      return { success: false, message: scope.message };
+    }
+
+    const previousValues = {
+      period_actual_status: node.period_actual_status,
+      period_actual_rejection_comment: node.period_actual_rejection_comment,
+    };
+
+    const workflowFields = {
+      ...buildRejectedAchievementWorkflowFields(comment),
+      period_actual_submitted_at: node.period_actual_submitted_at,
+      period_actual_submitted_by: node.period_actual_submitted_by,
+    };
+
+    await node.update(workflowFields, { transaction: t });
+
+    await recordAchievementAudit(
+      {
+        action: "achievement_validation_rejected",
+        node,
+        userId: user.user_id,
+        ipAddress,
+        previousValues,
+        newValues: workflowFields,
+        summary: `Achievement validation rejected on "${node.title}"`,
+      },
+      t
+    );
+
+    await t.commit();
+
+    try {
+      if (node.period_actual_submitted_by) {
+        await emitAchievementValidationRejectedEvent(
+          {
+            node,
+            periodVersionId: node.plan_version_id,
+            recipients: [{ user_id: node.period_actual_submitted_by }],
+            actor: user,
+            comment,
+          },
+          options.io ?? null
+        );
+      }
+    } catch (notifyError) {
+      console.error("Achievement validation reject notification failed:", notifyError);
     }
 
     return { success: true, data: await PlanNode.findByPk(planNodeId) };
@@ -588,5 +824,7 @@ module.exports = {
   setPeriodTargetForExecutor,
   submitAchievement,
   approveAchievement,
+  validateAchievement,
+  rejectValidationAchievement,
   rejectAchievement,
 };

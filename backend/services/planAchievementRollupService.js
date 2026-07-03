@@ -12,6 +12,7 @@ const {
   loadUsersWithEffectivePermissions,
   resolveSectorApproverGateMasterNodeIds,
   loadSectorApproverUsers,
+  loadSectorValidationUsers,
 } = require("./planAchievementUserService");
 
 async function resolveApproverGateMasterNodeIds(masterVersionId, transaction = null) {
@@ -96,25 +97,30 @@ async function buildRollupContextForPeriod(periodVersionId, transaction = null) 
       approverGateNodeIds: new Set(),
       masterNodeIdByPeriodNodeId: new Map(),
       requiresApprovalByMasterNodeId: new Map(),
+      requiresValidationByMasterNodeId: new Map(),
+      hasValidationGate: false,
     };
   }
 
   const { masterNodes } = await loadMasterPlanAssignments(masterVersionId, transaction);
-  const [{ users: sectorApprovers }, approverGateNodeIds, masterNodeIdByPeriodNodeId] =
+  const [{ users: sectorApprovers }, { hasValidationGate }, approverGateNodeIds, masterNodeIdByPeriodNodeId] =
     await Promise.all([
       loadSectorApproverUsers(masterVersionId, transaction),
+      loadSectorValidationUsers(masterVersionId, transaction),
       resolveApproverGateMasterNodeIds(masterVersionId, transaction),
       buildMasterNodeIdByPeriodNodeId(periodVersionId, transaction),
     ]);
   const hasSectorApprovalOversight = sectorApprovers.length > 0;
 
   const requiresApprovalByMasterNodeId = new Map();
+  const requiresValidationByMasterNodeId = new Map();
   for (const masterNodeId of new Set(masterNodeIdByPeriodNodeId.values())) {
     requiresApprovalByMasterNodeId.set(
       masterNodeId,
       hasSectorApprovalOversight ||
         masterNodeRequiresApproval(masterNodeId, masterNodes, approverGateNodeIds)
     );
+    requiresValidationByMasterNodeId.set(masterNodeId, hasValidationGate);
   }
 
   return {
@@ -122,6 +128,8 @@ async function buildRollupContextForPeriod(periodVersionId, transaction = null) 
     approverGateNodeIds,
     masterNodeIdByPeriodNodeId,
     requiresApprovalByMasterNodeId,
+    requiresValidationByMasterNodeId,
+    hasValidationGate,
   };
 }
 

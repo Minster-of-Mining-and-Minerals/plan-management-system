@@ -1,9 +1,15 @@
-export type PlanAchievementStatus = "empty" | "submitted" | "approved" | "rejected";
+export type PlanAchievementStatus =
+  | "empty"
+  | "submitted"
+  | "approved"
+  | "validated"
+  | "rejected";
 
 export const PLAN_ACHIEVEMENT_STATUS = {
   EMPTY: "empty",
   SUBMITTED: "submitted",
   APPROVED: "approved",
+  VALIDATED: "validated",
   REJECTED: "rejected",
 } as const satisfies Record<string, PlanAchievementStatus>;
 
@@ -14,6 +20,7 @@ export function normalizePlanAchievementStatus(
   if (
     normalized === PLAN_ACHIEVEMENT_STATUS.SUBMITTED ||
     normalized === PLAN_ACHIEVEMENT_STATUS.APPROVED ||
+    normalized === PLAN_ACHIEVEMENT_STATUS.VALIDATED ||
     normalized === PLAN_ACHIEVEMENT_STATUS.REJECTED
   ) {
     return normalized;
@@ -40,6 +47,8 @@ export function planAchievementStatusLabel(status: PlanAchievementStatus): strin
       return "Pending approval";
     case PLAN_ACHIEVEMENT_STATUS.APPROVED:
       return "Approved";
+    case PLAN_ACHIEVEMENT_STATUS.VALIDATED:
+      return "Validated";
     case PLAN_ACHIEVEMENT_STATUS.REJECTED:
       return "Rejected";
     case PLAN_ACHIEVEMENT_STATUS.EMPTY:
@@ -48,6 +57,33 @@ export function planAchievementStatusLabel(status: PlanAchievementStatus): strin
   }
 }
 
+export function planAchievementStatusLabelForDisplay(
+  status: PlanAchievementStatus,
+  options: { hasValidationGate?: boolean } = {}
+): string {
+  if (
+    status === PLAN_ACHIEVEMENT_STATUS.APPROVED &&
+    options.hasValidationGate
+  ) {
+    return "Pending validation";
+  }
+  return planAchievementStatusLabel(status);
+}
+
 export function isPendingPlanAchievement(status: PlanAchievementStatus): boolean {
   return status === PLAN_ACHIEVEMENT_STATUS.SUBMITTED;
+}
+
+export function isPendingPlanAchievementValidation(status: PlanAchievementStatus): boolean {
+  return status === PLAN_ACHIEVEMENT_STATUS.APPROVED;
+}
+
+export function isRollupEligiblePlanAchievement(
+  status: PlanAchievementStatus,
+  options: { requiresValidation?: boolean } = {}
+): boolean {
+  if (options.requiresValidation) {
+    return status === PLAN_ACHIEVEMENT_STATUS.VALIDATED;
+  }
+  return status === PLAN_ACHIEVEMENT_STATUS.APPROVED;
 }

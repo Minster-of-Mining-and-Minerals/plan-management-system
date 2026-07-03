@@ -341,11 +341,14 @@ export function ExecutionPeriodsDashboard({
                         !periodReadyToComplete;
                     const readiness = period.execution_actuals_readiness;
                     const pendingApprovals = readiness?.pending_approval_count ?? 0;
+                    const pendingValidations = readiness?.pending_validation_count ?? 0;
                     const rejectedCount = readiness?.rejected_count ?? 0;
                     const readinessSummary =
                         readiness && readiness.required_count > 0
                             ? pendingApprovals > 0
                                 ? `${readiness.approved_count ?? 0}/${readiness.required_count} approved · ${pendingApprovals} pending`
+                                : pendingValidations > 0
+                                  ? `${readiness.approved_count ?? 0}/${readiness.required_count} ready · ${pendingValidations} awaiting validation`
                                 : rejectedCount > 0
                                   ? `${readiness.approved_count ?? 0}/${readiness.required_count} approved · ${rejectedCount} rejected`
                                   : `${readiness.approved_count ?? readiness.recorded_count ?? 0}/${readiness.required_count} KPIs ready`

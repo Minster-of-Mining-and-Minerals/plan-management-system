@@ -9,10 +9,11 @@ const {
   Permission,
   PlanVersion,
   GovernmentStructure,
+  InternalStructure,
 } = require("../models");
 const { loadDepartmentPermissionGroups } = require("../utils/specialPermissionGroupUtils");
 const { collectUserPermissionKeys } = require("../utils/userPermissionsUtils");
-const { userCanApproveAchievement } = require("../utils/planAchievementPermissionUtils");
+const { userCanApproveAchievement, userCanValidateAchievement } = require("../utils/planAchievementPermissionUtils");
 const { buildVisibleGovernmentStructureIdSet } = require("../utils/structureScopeUtils");
 const {
   userCanApproveLeafMasterNode,
@@ -233,10 +234,114 @@ async function resolveApproverUsersForLeafMasterNode(
   return approvers;
 }
 
+async function loadSectorDepartmentIds(planSectorId, transaction = null) {
+  const departments = await InternalStructure.findAll({
+    where: { government_structure_id: planSectorId, is_active: true },
+    attributes: ["internal_structure_id"],
+    transaction,
+  });
+
+  return departments.map((row) => row.internal_structure_id);
+}
+
+async function loadSectorValidationUsers(masterVersionId, transaction = null) {
+  const { planSectorId, structureIndex } = await loadPlanSectorContext(
+    masterVersionId,
+    transaction
+  );
+  if (!planSectorId) {
+    return {
+      planSectorId: null,
+      structureIndex: [],
+      users: [],
+      hasValidationGate: false,
+    };
+  }
+
+  const departmentIds = await loadSectorDepartmentIds(planSectorId, transaction);
+  if (!departmentIds.length) {
+    return {
+      planSectorId,
+      structureIndex: [],
+      users: [],
+      hasValidationGate: false,
+    };
+  }
+
+  const departmentUsers = await User.findAll({
+    where: {
+      is_active: true,
+      internal_structure_id: { [Op.in]: departmentIds },
+    },
+    attributes: ["user_id"],
+    transaction,
+  });
+
+  const enriched = await loadUsersWithEffectivePermissions(
+    departmentUsers.map((user) => user.user_id),
+    transaction
+  );
+
+  const validators = enriched.filter(
+    (user) =>
+      userCanValidateAchievement(user) &&
+      user.internal_structure_id &&
+      departmentIds.includes(user.internal_structure_id) &&
+      userCanAccessPlanSector(user, planSectorId, structureIndex)
+  );
+
+  return {
+    planSectorId,
+    structureIndex,
+    users: validators,
+    hasValidationGate: validators.length > 0,
+  };
+}
+
+async function assertUserCanValidateAchievement(user, masterVersionId, transaction = null) {
+  if (!userCanValidateAchievement(user)) {
+    return {
+      allowed: false,
+      message: "Plan validate approval permission required",
+    };
+  }
+
+  const { hasValidationGate, users, planSectorId } = await loadSectorValidationUsers(
+    masterVersionId,
+    transaction
+  );
+
+  if (!planSectorId) {
+    return {
+      allowed: false,
+      message: "Approval validation applies to sector plans only",
+    };
+  }
+
+  if (!hasValidationGate) {
+    return {
+      allowed: false,
+      message: "No validation gate is configured for this sector plan",
+    };
+  }
+
+  if (!users.some((candidate) => candidate.user_id === user.user_id)) {
+    return {
+      allowed: false,
+      message:
+        "You must belong to a department in this sector with validate approval permission",
+    };
+  }
+
+  return { allowed: true };
+}
+
 module.exports = {
   loadUsersWithEffectivePermissions,
   collectCandidateApproverUserIds,
   loadSectorApproverUsers,
+  loadSectorValidationUsers,
+  assertUserCanValidateAchievement,
   resolveSectorApproverGateMasterNodeIds,
   resolveApproverUsersForLeafMasterNode,
 };

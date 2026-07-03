@@ -31,6 +31,16 @@ export function collectPendingAchievementNodes(
   );
 }
 
+export function collectPendingValidationNodes(
+  nodes: PlanNodeHierarchy[]
+): PlanNodeHierarchy[] {
+  return flattenPlanHierarchy(nodes).filter(
+    (node) =>
+      resolvePlanAchievementStatus(node) === PLAN_ACHIEVEMENT_STATUS.APPROVED &&
+      node.period_actual != null
+  );
+}
+
 export function findAncestorPathIds(
   roots: PlanNodeHierarchy[],
   targetNodeId: string
@@ -60,7 +70,7 @@ export function findAncestorPathIds(
 
 export function planAchievementExecutorHint(
   status: PlanAchievementStatus,
-  options: { canSubmit?: boolean; isRollup?: boolean } = {}
+  options: { canSubmit?: boolean; isRollup?: boolean; awaitingValidation?: boolean } = {}
 ): string | null {
   if (options.isRollup) {
     return "Achievement is rolled up from child nodes.";
@@ -70,7 +80,11 @@ export function planAchievementExecutorHint(
     case PLAN_ACHIEVEMENT_STATUS.SUBMITTED:
       return "Submitted and awaiting approver action. Parent rollup updates after approval.";
     case PLAN_ACHIEVEMENT_STATUS.APPROVED:
-      return "Approved — this value counts toward parent progress.";
+      return options.awaitingValidation
+        ? "Execution-approved and awaiting validation. Parent rollup updates after validation."
+        : "Approved — this value counts toward parent progress.";
+    case PLAN_ACHIEVEMENT_STATUS.VALIDATED:
+      return "Validated — this value counts toward parent progress.";
     case PLAN_ACHIEVEMENT_STATUS.REJECTED:
       return "Rejected — update the value and resubmit.";
     case PLAN_ACHIEVEMENT_STATUS.EMPTY:

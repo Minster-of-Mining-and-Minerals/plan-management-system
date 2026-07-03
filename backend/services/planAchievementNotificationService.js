@@ -6,6 +6,9 @@ const PLAN_ACHIEVEMENT_EVENTS = {
   SUBMITTED: "plan_achievement_submitted",
   APPROVED: "plan_achievement_approved",
   REJECTED: "plan_achievement_rejected",
+  PENDING_VALIDATION: "plan_achievement_pending_validation",
+  VALIDATED: "plan_achievement_validated",
+  VALIDATION_REJECTED: "plan_achievement_validation_rejected",
 };
 
 function buildPlanNodeAchievementLink(periodVersionId, planNodeId) {
@@ -62,7 +65,7 @@ async function emitAchievementSubmittedEvent(
 }
 
 async function emitAchievementApprovedEvent(
-  { node, periodVersionId, recipients = [], actor = null },
+  { node, periodVersionId, recipients = [], actor = null, pendingValidation = false },
   io = null
 ) {
   const normalized = normalizeRecipients(recipients, actor?.user_id);
@@ -75,8 +78,10 @@ async function emitAchievementApprovedEvent(
     {
       category: "plans",
       notification_type: PLAN_ACHIEVEMENT_EVENTS.APPROVED,
-      title: "Achievement approved",
-      message: `Achievement for "${node.title}" was approved and now counts toward plan progress.`,
+      title: pendingValidation ? "Achievement execution-approved" : "Achievement approved",
+      message: pendingValidation
+        ? `Achievement for "${node.title}" was execution-approved and is pending validation before it counts toward plan progress.`
+        : `Achievement for "${node.title}" was approved and now counts toward plan progress.`,
       related_entity_type: "plan_node",
       related_entity_id: node.plan_node_id,
       link_path: buildPlanNodeAchievementLink(periodVersionId, node.plan_node_id),
@@ -86,6 +91,7 @@ async function emitAchievementApprovedEvent(
         event_type: PLAN_ACHIEVEMENT_EVENTS.APPROVED,
         plan_node_id: node.plan_node_id,
         plan_version_id: periodVersionId,
+        pending_validation: pendingValidation,
         actor_id: actor?.user_id || null,
       },
     },
@@ -128,9 +134,112 @@ async function emitAchievementRejectedEvent(
   );
 }
 
+async function emitAchievementPendingValidationEvent(
+  { node, periodVersionId, validators = [], actor = null },
+  io = null
+) {
+  const recipients = normalizeRecipients(validators, actor?.user_id);
+  if (!recipients.length) {
+    return [];
+  }
+
+  return sendNotification(
+    recipients,
+    {
+      category: "plans",
+      notification_type: PLAN_ACHIEVEMENT_EVENTS.PENDING_VALIDATION,
+      title: "Achievement pending validation",
+      message: `Achievement for "${node.title}" is awaiting your validation before it counts toward plan progress.`,
+      related_entity_type: "plan_node",
+      related_entity_id: node.plan_node_id,
+      link_path: buildPlanNodeAchievementLink(periodVersionId, node.plan_node_id),
+      icon_variant: "shield-check",
+      priority: "normal",
+      metadata: {
+        event_type: PLAN_ACHIEVEMENT_EVENTS.PENDING_VALIDATION,
+        plan_node_id: node.plan_node_id,
+        plan_version_id: periodVersionId,
+        actor_id: actor?.user_id || null,
+      },
+    },
+    io
+  );
+}
+
+async function emitAchievementValidatedEvent(
+  { node, periodVersionId, recipients = [], actor = null },
+  io = null
+) {
+  const normalized = normalizeRecipients(recipients, actor?.user_id);
+  if (!normalized.length) {
+    return [];
+  }
+
+  return sendNotification(
+    normalized,
+    {
+      category: "plans",
+      notification_type: PLAN_ACHIEVEMENT_EVENTS.VALIDATED,
+      title: "Achievement validated",
+      message: `Achievement for "${node.title}" was validated and now counts toward plan progress.`,
+      related_entity_type: "plan_node",
+      related_entity_id: node.plan_node_id,
+      link_path: buildPlanNodeAchievementLink(periodVersionId, node.plan_node_id),
+      icon_variant: "check-circle",
+      priority: "normal",
+      metadata: {
+        event_type: PLAN_ACHIEVEMENT_EVENTS.VALIDATED,
+        plan_node_id: node.plan_node_id,
+        plan_version_id: periodVersionId,
+        validated_by: actor?.user_id || null,
+        actor_id: actor?.user_id || null,
+      },
+    },
+    io
+  );
+}
+
+async function emitAchievementValidationRejectedEvent(
+  { node, periodVersionId, recipients = [], actor = null, comment = null },
+  io = null
+) {
+  const normalized = normalizeRecipients(recipients, actor?.user_id);
+  if (!normalized.length) {
+    return [];
+  }
+
+  const suffix = comment ? ` Comment: ${comment}` : "";
+
+  return sendNotification(
+    normalized,
+    {
+      category: "plans",
+      notification_type: PLAN_ACHIEVEMENT_EVENTS.VALIDATION_REJECTED,
+      title: "Achievement validation rejected",
+      message: `Validation was rejected for "${node.title}". Update and resubmit.${suffix}`,
+      related_entity_type: "plan_node",
+      related_entity_id: node.plan_node_id,
+      link_path: buildPlanNodeAchievementLink(periodVersionId, node.plan_node_id),
+      icon_variant: "alert-circle",
+      priority: "high",
+      metadata: {
+        event_type: PLAN_ACHIEVEMENT_EVENTS.VALIDATION_REJECTED,
+        plan_node_id: node.plan_node_id,
+        plan_version_id: periodVersionId,
+        rejection_comment: comment,
+        actor_id: actor?.user_id || null,
+      },
+    },
+    io
+  );
+}
+
 module.exports = {
   PLAN_ACHIEVEMENT_EVENTS,
   emitAchievementSubmittedEvent,
   emitAchievementApprovedEvent,
   emitAchievementRejectedEvent,
+  emitAchievementPendingValidationEvent,
+  emitAchievementValidatedEvent,
+  emitAchievementValidationRejectedEvent,
 };

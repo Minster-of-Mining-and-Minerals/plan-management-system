@@ -94,6 +94,12 @@ import {
 import { isOversightReadOnlyAccessRole } from "@/utils/planTreeAccessUtils";
 import { cn } from "@/lib/utils";
 import { PlanAchievementScopeProvider } from "@/hooks/usePlanAchievementScope";
+import { PlanAchievementPendingPanel } from "./components/PlanAchievementPendingPanel";
+import { PlanAchievementPendingValidationPanel } from "./components/PlanAchievementPendingValidationPanel";
+import {
+    collectPendingAchievementNodes,
+    collectPendingValidationNodes,
+} from "@/utils/planAchievementHierarchyUtils";
 
 type ViewMode = "card" | "hierarchy" | "table";
 type PlanDetailTab = "hierarchy" | "annual" | "periods" | "review";
@@ -329,6 +335,14 @@ export default function PlanHierarchyView({
               : false
     );
     const processStarted = Boolean(effectiveMasterVersion?.process_started_at);
+    const pendingApprovalNodes = useMemo(
+        () => (isExecutionPeriod && processStarted ? collectPendingAchievementNodes(hierarchy) : []),
+        [hierarchy, isExecutionPeriod, processStarted]
+    );
+    const pendingValidationNodes = useMemo(
+        () => (isExecutionPeriod && processStarted ? collectPendingValidationNodes(hierarchy) : []),
+        [hierarchy, isExecutionPeriod, processStarted]
+    );
     const showPeriodTargets = isExecutionPeriod && !processStarted;
     const showPeriodActuals = isExecutionPeriod && processStarted;
     const isExecutionSnapshotView = Boolean(version?.execution_snapshot_of_version_id);
@@ -861,6 +875,23 @@ export default function PlanHierarchyView({
                         : executionPeriodOpen
                           ? " Record achievement on assigned leaf nodes, then submit for approval where required."
                           : " This period is completed."}
+                </div>
+            )}
+
+            {isExecutionPeriod && processStarted && (
+                <div className="space-y-3">
+                    <PlanAchievementPendingPanel
+                        pendingNodes={pendingApprovalNodes}
+                        hierarchyNumberMap={hierarchyNumberMap}
+                        configuredUnits={planningConfig?.target_units}
+                        onNavigateToNode={handleViewDetails}
+                    />
+                    <PlanAchievementPendingValidationPanel
+                        pendingNodes={pendingValidationNodes}
+                        hierarchyNumberMap={hierarchyNumberMap}
+                        configuredUnits={planningConfig?.target_units}
+                        onNavigateToNode={handleViewDetails}
+                    />
                 </div>
             )}
 

@@ -71,6 +71,8 @@ const {
     updatePeriodActual,
     submitAchievementHandler,
     approveAchievementHandler,
+    validateAchievementHandler,
+    rejectValidationAchievementHandler,
     rejectAchievementHandler,
     getAchievementWorkflowScope,
 } = require("../../controllers/plan/planAchievementController");
@@ -231,6 +233,19 @@ router.post(
     checkPermission("PLAN", "APPROVE_ACHIEVEMENT"),
     validateIdParam,
     approveAchievementHandler
+);
+router.post(
+    "/nodes/:id/achievement/validate",
+    checkPermission("PLAN", "VALIDATE_APPROVAL"),
+    validateIdParam,
+    validateAchievementHandler
+);
+router.post(
+    "/nodes/:id/achievement/validation-reject",
+    checkPermission("PLAN", "VALIDATE_APPROVAL"),
+    validateIdParam,
+    validateRejectAchievement,
+    rejectValidationAchievementHandler
 );
 router.post(
     "/nodes/:id/achievement/reject",

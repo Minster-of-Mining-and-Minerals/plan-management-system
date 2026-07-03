@@ -44,9 +44,9 @@ function nodeContributesToRollup(node, rollupContext = {}) {
     return false;
   }
 
-  const requiresApproval = resolveRollupRequiresApprovalForNode(node, rollupContext);
+  const requiresValidation = resolveRollupRequiresValidationForNode(node, rollupContext);
   const status = resolveAchievementStatus(node);
-  return isRollupEligibleAchievementStatus(status);
+  return isRollupEligibleAchievementStatus(status, { requiresValidation });
 }
 
 function isAchievementReadyForPeriodCompletion(node, rollupContext = {}) {
@@ -57,9 +57,24 @@ function isAchievementReadyForPeriodCompletion(node, rollupContext = {}) {
   return nodeContributesToRollup(node, rollupContext);
 }
 
+function resolveRollupRequiresValidationForNode(node, rollupContext = {}) {
+  const { masterNodeIdByPeriodNodeId, requiresValidationByMasterNodeId } = rollupContext;
+  if (!masterNodeIdByPeriodNodeId || !requiresValidationByMasterNodeId) {
+    return false;
+  }
+
+  const masterNodeId = masterNodeIdByPeriodNodeId.get(node.plan_node_id);
+  if (!masterNodeId) {
+    return false;
+  }
+
+  return Boolean(requiresValidationByMasterNodeId.get(masterNodeId));
+}
+
 module.exports = {
   masterNodeRequiresApproval,
   resolveRollupRequiresApprovalForNode,
+  resolveRollupRequiresValidationForNode,
   nodeContributesToRollup,
   isAchievementReadyForPeriodCompletion,
 };

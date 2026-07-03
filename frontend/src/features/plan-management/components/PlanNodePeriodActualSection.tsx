@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { PlanNode, PlanRule } from "@/redux/types/plan";
 import type { TargetUnit } from "@/redux/types/planningConfig";
-import { useUpdatePeriodActualMutation, useSubmitAchievementMutation, useApproveAchievementMutation, useRejectAchievementMutation } from "@/redux/api/planApi";
+import { useUpdatePeriodActualMutation, useSubmitAchievementMutation, useApproveAchievementMutation, useRejectAchievementMutation, useValidateAchievementMutation, useRejectValidationAchievementMutation } from "@/redux/api/planApi";
 import { formatNodeWeight } from "@/utils/planRuleUtils";
 import {
     canManuallyEnterAchievement,
@@ -23,11 +23,13 @@ import {
     PLAN_OVERRIDE_PARENT_ACHIEVEMENT_PERMISSIONS,
     PLAN_EXECUTE_ACHIEVEMENT_PERMISSIONS,
     PLAN_APPROVE_ACHIEVEMENT_PERMISSIONS,
+    PLAN_VALIDATE_APPROVAL_PERMISSIONS,
 } from "@/utils/planPermissionUtils";
 import {
     resolvePlanAchievementStatus,
-    planAchievementStatusLabel,
+    planAchievementStatusLabelForDisplay,
     isPendingPlanAchievement,
+    isPendingPlanAchievementValidation,
     PLAN_ACHIEVEMENT_STATUS,
 } from "@/utils/planAchievementWorkflowUtils";
 import { planAchievementExecutorHint } from "@/utils/planAchievementHierarchyUtils";
@@ -57,18 +59,22 @@ export function PlanNodePeriodActualSection({
 }: PlanNodePeriodActualSectionProps) {
     const sectionRef = useRef<HTMLDivElement>(null);
     const { can } = usePermissions();
-    const { canExecuteOnNode, canApproveOnNode, isReady: scopeReady } = usePlanAchievementScope();
+    const { canExecuteOnNode, canApproveOnNode, canValidateOnNode, hasValidationGate, isReady: scopeReady } = usePlanAchievementScope();
     const [submitAchievement, { isLoading: isSubmitting }] = useSubmitAchievementMutation();
     const [approveAchievement, { isLoading: isApproving }] = useApproveAchievementMutation();
     const [rejectAchievement, { isLoading: isRejecting }] = useRejectAchievementMutation();
+    const [validateAchievement, { isLoading: isValidating }] = useValidateAchievementMutation();
+    const [rejectValidationAchievement, { isLoading: isValidationRejecting }] =
+        useRejectValidationAchievementMutation();
     const [updatePeriodActual, { isLoading: isOverrideSaving }] = useUpdatePeriodActualMutation();
     const [periodActualInput, setPeriodActualInput] = useState("");
     const [pendingOverride, setPendingOverride] = useState(false);
 
-    const isSaving = isSubmitting || isApproving || isRejecting || isOverrideSaving;
+    const isSaving = isSubmitting || isApproving || isRejecting || isValidating || isValidationRejecting || isOverrideSaving;
     const achievementStatus = resolvePlanAchievementStatus(node);
     const canExecuteAchievement = can(PLAN_LIFECYCLE_PERMISSIONS.EXECUTE_ACHIEVEMENT);
     const canApproveAchievement = can(PLAN_LIFECYCLE_PERMISSIONS.APPROVE_ACHIEVEMENT);
+    const canValidateAchievementPermission = can(PLAN_LIFECYCLE_PERMISSIONS.VALIDATE_APPROVAL);
 
     const nodeWeightMode = node.weight_mode;
     const entryMode = resolveAchievementEntryMode(node, rule);
@@ -223,6 +229,35 @@ export function PlanNodePeriodActualSection({
         }
     };
 
+    const handleValidate = async () => {
+        try {
+            await validateAchievement({ id: node.plan_node_id }).unwrap();
+            actionFeedback.success("Achievement validated");
+        } catch (error: unknown) {
+            const err = error as { data?: { message?: string } };
+            actionFeedback.error(err.data?.message || "Failed to validate achievement");
+        }
+    };
+
+    const handleValidationReject = async () => {
+        if (
+            !(await actionFeedback.confirm(
+                "Send this achievement back to the executor? They will need to update and resubmit.",
+                { destructive: true }
+            ))
+        ) {
+            return;
+        }
+
+        try {
+            await rejectValidationAchievement({ id: node.plan_node_id }).unwrap();
+            actionFeedback.success("Achievement sent back to executor");
+        } catch (error: unknown) {
+            const err = error as { data?: { message?: string } };
+            actionFeedback.error(err.data?.message || "Failed to reject validation");
+        }
+    };
+
     const showLeafEditor = canEnterLeaf && periodTarget > 0 && canSubmitAchievement;
     const showManualEditor = canEnterManual && periodTarget > 0;
     const showApprovalActions =
@@ -230,6 +265,14 @@ export function PlanNodePeriodActualSection({
         canApproveAchievement &&
         scopeReady &&
         canApproveOnNode(node.plan_node_id) &&
+        !isEditingManual;
+
+    const showValidationActions =
+        isPendingPlanAchievementValidation(achievementStatus) &&
+        hasValidationGate &&
+        canValidateAchievementPermission &&
+        scopeReady &&
+        canValidateOnNode(node.plan_node_id) &&
         !isEditingManual;
 
     const showExecutorAssignmentHint =
@@ -242,6 +285,8 @@ export function PlanNodePeriodActualSection({
     const executorHint = planAchievementExecutorHint(achievementStatus, {
         canSubmit: canSubmitAchievement,
         isRollup: isRollupEntry && !isEditingManual,
+        awaitingValidation:
+            hasValidationGate && achievementStatus === PLAN_ACHIEVEMENT_STATUS.APPROVED,
     });
 
     const statusNotice =
@@ -251,10 +296,16 @@ export function PlanNodePeriodActualSection({
                     "text-xs rounded-md px-2 py-1.5 border",
                     achievementStatus === PLAN_ACHIEVEMENT_STATUS.SUBMITTED &&
                         "text-amber-800 bg-amber-50 border-amber-100",
+                    achievementStatus === PLAN_ACHIEVEMENT_STATUS.APPROVED &&
+                        hasValidationGate &&
+                        "text-sky-800 bg-sky-50 border-sky-100",
+                    achievementStatus === PLAN_ACHIEVEMENT_STATUS.APPROVED &&
+                        !hasValidationGate &&
+                        "text-emerald-800 bg-emerald-50 border-emerald-100",
+                    achievementStatus === PLAN_ACHIEVEMENT_STATUS.VALIDATED &&
+                        "text-emerald-800 bg-emerald-50 border-emerald-100",
                     achievementStatus === PLAN_ACHIEVEMENT_STATUS.REJECTED &&
                         "text-red-800 bg-red-50 border-red-100",
-                    achievementStatus === PLAN_ACHIEVEMENT_STATUS.APPROVED &&
-                        "text-emerald-800 bg-emerald-50 border-emerald-100",
                     achievementStatus === PLAN_ACHIEVEMENT_STATUS.EMPTY &&
                         "text-violet-800 bg-violet-50 border-violet-100"
                 )}
@@ -275,6 +326,12 @@ export function PlanNodePeriodActualSection({
                 achievementStatus === PLAN_ACHIEVEMENT_STATUS.SUBMITTED &&
                     "border-amber-200 text-amber-800 bg-amber-50",
                 achievementStatus === PLAN_ACHIEVEMENT_STATUS.APPROVED &&
+                    hasValidationGate &&
+                    "border-sky-200 text-sky-800 bg-sky-50",
+                achievementStatus === PLAN_ACHIEVEMENT_STATUS.APPROVED &&
+                    !hasValidationGate &&
+                    "border-emerald-200 text-emerald-800 bg-emerald-50",
+                achievementStatus === PLAN_ACHIEVEMENT_STATUS.VALIDATED &&
                     "border-emerald-200 text-emerald-800 bg-emerald-50",
                 achievementStatus === PLAN_ACHIEVEMENT_STATUS.REJECTED &&
                     "border-red-200 text-red-800 bg-red-50",
@@ -282,7 +339,9 @@ export function PlanNodePeriodActualSection({
                     "border-gray-200 text-gray-600 bg-gray-50"
             )}
         >
-            {planAchievementStatusLabel(achievementStatus)}
+            {planAchievementStatusLabelForDisplay(achievementStatus, {
+                hasValidationGate,
+            })}
         </Badge>
     );
 
@@ -313,6 +372,38 @@ export function PlanNodePeriodActualSection({
                     }}
                 >
                     Reject
+                </Button>
+            </PermissionGuard>
+        </div>
+    ) : null;
+
+    const validationActions = showValidationActions ? (
+        <div className="flex flex-wrap gap-2" onClick={onClick}>
+            <PermissionGuard requireAll={PLAN_VALIDATE_APPROVAL_PERMISSIONS}>
+                <Button
+                    type="button"
+                    size="sm"
+                    className="h-8 text-xs"
+                    disabled={isSaving}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        void handleValidate();
+                    }}
+                >
+                    Validate
+                </Button>
+                <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs border-red-200 text-red-800 hover:bg-red-50"
+                    disabled={isSaving}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        void handleValidationReject();
+                    }}
+                >
+                    Send back
                 </Button>
             </PermissionGuard>
         </div>
@@ -571,6 +662,7 @@ export function PlanNodePeriodActualSection({
                     )}
                 {overrideActions}
                 {approvalActions}
+                {validationActions}
                 {leafEditor}
                 {manualEditor}
             </div>
@@ -596,6 +688,7 @@ export function PlanNodePeriodActualSection({
                 {statusNotice}
                 {overrideActions}
                 {approvalActions}
+                {validationActions}
                 {leafEditor}
                 {manualEditor}
             </div>
@@ -655,6 +748,7 @@ export function PlanNodePeriodActualSection({
             </div>
             {overrideActions}
             {approvalActions}
+            {validationActions}
             {leafEditor}
             {manualEditor}
         </div>

@@ -36,6 +36,9 @@ export interface PlanVersionExecutionOverlay {
         pending_approval_count?: number;
         pending_approval_titles?: string[];
         pending_approval_nodes?: PlanExecutionReadinessNode[];
+        pending_validation_count?: number;
+        pending_validation_titles?: string[];
+        pending_validation_nodes?: PlanExecutionReadinessNode[];
         rejected_count?: number;
         rejected_titles?: string[];
         rejected_nodes?: PlanExecutionReadinessNode[];
@@ -194,6 +197,13 @@ export function buildPeriodCompleteValidationMessage(
         )})`;
     }
 
+    if ((readiness.pending_validation_count ?? 0) > 0) {
+        return `Validate all execution-approved achievements before completing this period (${formatTitlePreview(
+            readiness.pending_validation_nodes?.map((node) => node.label) ??
+                readiness.pending_validation_titles
+        )})`;
+    }
+
     if ((readiness.rejected_count ?? 0) > 0) {
         return `Resubmit rejected achievements before completing this period (${formatTitlePreview(
             readiness.rejected_nodes?.map((node) => node.label) ?? readiness.rejected_titles
@@ -210,7 +220,7 @@ export function buildPeriodCompleteValidationMessage(
 }
 
 export type PeriodCompleteBlockingSection = {
-    key: "approval" | "rejected" | "missing";
+    key: "approval" | "validation" | "rejected" | "missing";
     title: string;
     description: string;
     nodes: PlanExecutionReadinessNode[];
@@ -232,6 +242,21 @@ export function resolvePeriodCompleteBlockingSections(
                 readiness.pending_approval_nodes ??
                 (readiness.pending_approval_titles ?? []).map((title, index) => ({
                     plan_node_id: `pending-${index}`,
+                    title,
+                    label: title,
+                })),
+        });
+    }
+
+    if ((readiness.pending_validation_count ?? 0) > 0) {
+        sections.push({
+            key: "validation",
+            title: "Pending validation",
+            description: "Validate these achievements before completing this period.",
+            nodes:
+                readiness.pending_validation_nodes ??
+                (readiness.pending_validation_titles ?? []).map((title, index) => ({
+                    plan_node_id: `validation-${index}`,
                     title,
                     label: title,
                 })),

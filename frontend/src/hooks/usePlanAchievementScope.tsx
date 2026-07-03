@@ -8,6 +8,8 @@ import { PLAN_LIFECYCLE_PERMISSIONS } from "@/utils/planPermissionUtils";
 export type PlanAchievementScopeValue = {
     canExecuteOnNode: (nodeId: string) => boolean;
     canApproveOnNode: (nodeId: string) => boolean;
+    canValidateOnNode: (nodeId: string) => boolean;
+    hasValidationGate: boolean;
     assignmentBypassActive: boolean;
     isLoading: boolean;
     isReady: boolean;
@@ -16,6 +18,8 @@ export type PlanAchievementScopeValue = {
 const defaultScope: PlanAchievementScopeValue = {
     canExecuteOnNode: () => false,
     canApproveOnNode: () => false,
+    canValidateOnNode: () => false,
+    hasValidationGate: false,
     assignmentBypassActive: false,
     isLoading: false,
     isReady: false,
@@ -40,6 +44,7 @@ export function PlanAchievementScopeProvider({
     const { can } = usePermissions();
     const canExecuteAchievement = can(PLAN_LIFECYCLE_PERMISSIONS.EXECUTE_ACHIEVEMENT);
     const canApproveAchievement = can(PLAN_LIFECYCLE_PERMISSIONS.APPROVE_ACHIEVEMENT);
+    const canValidateAchievement = can(PLAN_LIFECYCLE_PERMISSIONS.VALIDATE_APPROVAL);
 
     const { data, isLoading, isFetching } = useGetPlanAchievementWorkflowScopeQuery(versionId, {
         skip: !enabled,
@@ -48,7 +53,9 @@ export function PlanAchievementScopeProvider({
     const value = useMemo<PlanAchievementScopeValue>(() => {
         const executorIds = new Set(data?.executor_node_ids ?? []);
         const approverIds = new Set(data?.approver_node_ids ?? []);
+        const validatorIds = new Set(data?.validator_node_ids ?? []);
         const assignmentBypassActive = Boolean(data?.assignment_bypass_active);
+        const hasValidationGate = Boolean(data?.has_validation_gate);
 
         const canExecuteOnNode = (nodeId: string) => {
             if (assignmentBypassActive && canExecuteAchievement) {
@@ -64,9 +71,18 @@ export function PlanAchievementScopeProvider({
             return approverIds.has(nodeId);
         };
 
+        const canValidateOnNode = (nodeId: string) => {
+            if (!hasValidationGate || !canValidateAchievement) {
+                return false;
+            }
+            return validatorIds.has(nodeId);
+        };
+
         return {
             canExecuteOnNode,
             canApproveOnNode,
+            canValidateOnNode,
+            hasValidationGate,
             assignmentBypassActive,
             isLoading: enabled && (isLoading || isFetching),
             isReady: !enabled || Boolean(data),
@@ -78,6 +94,7 @@ export function PlanAchievementScopeProvider({
         isFetching,
         canExecuteAchievement,
         canApproveAchievement,
+        canValidateAchievement,
     ]);
 
     return (

@@ -3,14 +3,16 @@
 const { PlanVersion, PlanNode } = require("../models");
 const { resolveMasterVersionId } = require("./planReviewVisibilityService");
 const { resolveExecutionHierarchyVersionId } = require("./planExecutionGateService");
-const { buildMasterNodeIdByPeriodNodeId } = require("./planAchievementRollupService");
+const { buildMasterNodeIdByPeriodNodeId, buildRollupContextForPeriod } = require("./planAchievementRollupService");
 const {
   loadAchievementScopeContext,
   resolveExecutorLeafMasterNodeIdsForUser,
 } = require("./planAchievementScopeService");
 const {
   userCanApproveAchievement,
+  userCanValidateAchievement,
 } = require("../utils/planAchievementPermissionUtils");
+const { loadSectorValidationUsers } = require("./planAchievementUserService");
 const { userQualifiesForAchievementAssignmentBypass } = require("../utils/planAchievementBypassUtils");
 const {
   buildChildrenByParent,
@@ -50,12 +52,14 @@ async function resolveAchievementWorkflowScopeForVersion(planVersionId, user, tr
         plan_version_id: hierarchyVersionId,
         executor_node_ids: [],
         approver_node_ids: [],
+        validator_node_ids: [],
+        has_validation_gate: false,
         assignment_bypass_active: userQualifiesForAchievementAssignmentBypass(user),
       },
     };
   }
 
-  const [executorMasterLeaves, scopeContext, masterNodeIdByPeriodNodeId, periodNodes] =
+  const [executorMasterLeaves, scopeContext, masterNodeIdByPeriodNodeId, periodNodes, rollupContext] =
     await Promise.all([
       resolveExecutorLeafMasterNodeIdsForUser(masterVersionId, user, transaction),
       loadAchievementScopeContext(masterVersionId, transaction),
@@ -65,6 +69,7 @@ async function resolveAchievementWorkflowScopeForVersion(planVersionId, user, tr
         attributes: ["plan_node_id", "parent_id"],
         transaction,
       }),
+      buildRollupContextForPeriod(planVersionId, transaction),
     ]);
 
   const periodChildrenByParent = buildChildrenByParent(periodNodes);
@@ -92,6 +97,14 @@ async function resolveAchievementWorkflowScopeForVersion(planVersionId, user, tr
 
   const executor_node_ids = [];
   const approver_node_ids = [];
+  const validator_node_ids = [];
+  const hasValidationGate = Boolean(rollupContext.hasValidationGate);
+
+  let userIsSectorValidator = false;
+  if (hasValidationGate && userCanValidateAchievement(user)) {
+    const { users: validators } = await loadSectorValidationUsers(masterVersionId, transaction);
+    userIsSectorValidator = validators.some((candidate) => candidate.user_id === user.user_id);
+  }
 
   for (const periodNode of periodNodes) {
     if (!isMasterPlanLeaf(periodNode, periodChildrenByParent)) {
@@ -109,6 +122,9 @@ async function resolveAchievementWorkflowScopeForVersion(planVersionId, user, tr
     if (approverMasterLeaves.has(masterNodeId)) {
       approver_node_ids.push(periodNode.plan_node_id);
     }
+    if (userIsSectorValidator) {
+      validator_node_ids.push(periodNode.plan_node_id);
+    }
   }
 
   return {
@@ -118,6 +134,8 @@ async function resolveAchievementWorkflowScopeForVersion(planVersionId, user, tr
       plan_version_id: hierarchyVersionId,
       executor_node_ids,
       approver_node_ids,
+      validator_node_ids,
+      has_validation_gate: hasValidationGate,
       assignment_bypass_active: bypassAssignment,
     },
   };

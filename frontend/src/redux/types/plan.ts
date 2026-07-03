@@ -12,7 +12,12 @@ export type ExecutionEvaluationStatus =
     | "no_evaluation";
 export type PlanAccessRole = "owner" | "participant" | "oversight" | "global";
 
-export type PlanAchievementStatus = "empty" | "submitted" | "approved" | "rejected";
+export type PlanAchievementStatus =
+  | "empty"
+  | "submitted"
+  | "approved"
+  | "validated"
+  | "rejected";
 
 export interface PlanExecutionReadinessNode {
     plan_node_id: string;
@@ -85,6 +90,9 @@ export interface PlanVersion {
         pending_approval_count?: number;
         pending_approval_titles?: string[];
         pending_approval_nodes?: PlanExecutionReadinessNode[];
+        pending_validation_count?: number;
+        pending_validation_titles?: string[];
+        pending_validation_nodes?: PlanExecutionReadinessNode[];
         rejected_count?: number;
         rejected_titles?: string[];
         rejected_nodes?: PlanExecutionReadinessNode[];
@@ -260,6 +268,8 @@ export interface PlanAchievementWorkflowScope {
     plan_version_id: string;
     executor_node_ids: string[];
     approver_node_ids: string[];
+    validator_node_ids: string[];
+    has_validation_gate?: boolean;
     /** True when system bypass is on and the current user qualifies (QA / super admin). */
     assignment_bypass_active?: boolean;
 }
@@ -334,6 +344,8 @@ export interface PlanNode {
     period_actual_submitted_by?: string | null;
     period_actual_approved_at?: string | null;
     period_actual_approved_by?: string | null;
+    period_actual_validated_at?: string | null;
+    period_actual_validated_by?: string | null;
     period_actual_rejection_comment?: string | null;
     periodActualSubmittedBy?: User;
     periodActualApprovedBy?: User;

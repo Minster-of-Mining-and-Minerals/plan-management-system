@@ -152,7 +152,7 @@ module.exports = (sequelize, DataTypes) => {
             },
 
             period_actual_status: {
-                type: DataTypes.ENUM("empty", "submitted", "approved", "rejected"),
+                type: DataTypes.ENUM("empty", "submitted", "approved", "validated", "rejected"),
                 allowNull: false,
                 defaultValue: "empty",
             },
@@ -173,6 +173,16 @@ module.exports = (sequelize, DataTypes) => {
             },
 
             period_actual_approved_by: {
+                type: DataTypes.UUID,
+                allowNull: true,
+            },
+
+            period_actual_validated_at: {
+                type: DataTypes.DATE,
+                allowNull: true,
+            },
+
+            period_actual_validated_by: {
                 type: DataTypes.UUID,
                 allowNull: true,
             },

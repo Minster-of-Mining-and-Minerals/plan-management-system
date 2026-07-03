@@ -5,7 +5,7 @@ const { resolvePlanRuleForVersion } = require("./planRuleService");
 const { stepRequiresWeight } = require("./planRuleStepUtils");
 const { resolveVersionExecutionAccess } = require("./planExecutionGateService");
 const { buildRollupContextForPeriod } = require("./planAchievementRollupService");
-const { isAchievementReadyForPeriodCompletion } = require("../utils/planAchievementRollupUtils");
+const { isAchievementReadyForPeriodCompletion, resolveRollupRequiresValidationForNode } = require("../utils/planAchievementRollupUtils");
 const {
   resolveAchievementStatus,
   ACHIEVEMENT_STATUS,
@@ -65,6 +65,7 @@ async function computePeriodActualsReadiness(periodVersionId, transaction = null
 
   const missing = [];
   const pendingApproval = [];
+  const pendingValidation = [];
   const rejected = [];
   let recordedCount = 0;
   let approvedCount = 0;
@@ -87,6 +88,12 @@ async function computePeriodActualsReadiness(periodVersionId, transaction = null
       pendingApproval.push(node);
     } else if (
       hasRecordedAchievementValue(node) &&
+      status === ACHIEVEMENT_STATUS.APPROVED &&
+      resolveRollupRequiresValidationForNode(node, rollupContext)
+    ) {
+      pendingValidation.push(node);
+    } else if (
+      hasRecordedAchievementValue(node) &&
       status === ACHIEVEMENT_STATUS.REJECTED
     ) {
       rejected.push(node);
@@ -96,6 +103,7 @@ async function computePeriodActualsReadiness(periodVersionId, transaction = null
   }
 
   const pendingApprovalNodes = pendingApproval.map(mapReadinessNode);
+  const pendingValidationNodes = pendingValidation.map(mapReadinessNode);
   const rejectedNodes = rejected.map(mapReadinessNode);
   const missingNodes = missing.map(mapReadinessNode);
 
@@ -106,6 +114,9 @@ async function computePeriodActualsReadiness(periodVersionId, transaction = null
     pending_approval_count: pendingApproval.length,
     pending_approval_titles: pendingApprovalNodes.map((node) => node.label),
     pending_approval_nodes: pendingApprovalNodes,
+    pending_validation_count: pendingValidation.length,
+    pending_validation_titles: pendingValidationNodes.map((node) => node.label),
+    pending_validation_nodes: pendingValidationNodes,
     rejected_count: rejected.length,
     rejected_titles: rejectedNodes.map((node) => node.label),
     rejected_nodes: rejectedNodes,
@@ -246,6 +257,19 @@ async function validatePeriodReadyToComplete(periodVersionId, transaction = null
       return {
         ready: false,
         message: `Approve all pending achievements before completing this period (${preview}${suffix})`,
+        readiness,
+      };
+    }
+
+    if (readiness.pending_validation_count > 0) {
+      const preview = readiness.pending_validation_titles.slice(0, 3).join(", ");
+      const suffix =
+        readiness.pending_validation_titles.length > 3
+          ? ` and ${readiness.pending_validation_titles.length - 3} more`
+          : "";
+      return {
+        ready: false,
+        message: `Validate all execution-approved achievements before completing this period (${preview}${suffix})`,
         readiness,
       };
     }

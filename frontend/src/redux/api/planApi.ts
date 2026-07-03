@@ -470,6 +470,42 @@ export const planApi = baseApi.injectEndpoints({
             ],
         }),
 
+        validateAchievement: builder.mutation<PlanNode, { id: string }>({
+            query: ({ id }) => ({
+                url: `/plan/nodes/${id}/achievement/validate`,
+                method: "POST",
+            }),
+            transformResponse: (response: { data: PlanNode }) => response.data,
+            invalidatesTags: (_r, _e, { id }) => [
+                { type: "PlanNodes", id },
+                "PlanNodes",
+                "PlanVersions",
+                "PlanExecutionDashboard",
+                "PlanAchievementWorkflowScope",
+                { type: "PlanVersions", id: "LIST" },
+            ],
+        }),
+
+        rejectValidationAchievement: builder.mutation<
+            PlanNode,
+            { id: string; comment?: string | null }
+        >({
+            query: ({ id, comment }) => ({
+                url: `/plan/nodes/${id}/achievement/validation-reject`,
+                method: "POST",
+                body: { comment },
+            }),
+            transformResponse: (response: { data: PlanNode }) => response.data,
+            invalidatesTags: (_r, _e, { id }) => [
+                { type: "PlanNodes", id },
+                "PlanNodes",
+                "PlanVersions",
+                "PlanExecutionDashboard",
+                "PlanAchievementWorkflowScope",
+                { type: "PlanVersions", id: "LIST" },
+            ],
+        }),
+
         getPeriodTargetAllocations: builder.query<PeriodTargetAllocation[], string>({
             query: (id) => `/plan/versions/${id}/period-target-allocations`,
             transformResponse: (response: { data: PeriodTargetAllocation[] }) => response.data,
@@ -745,6 +781,8 @@ export const {
     useSubmitAchievementMutation,
     useApproveAchievementMutation,
     useRejectAchievementMutation,
+    useValidateAchievementMutation,
+    useRejectValidationAchievementMutation,
     useGetPeriodTargetAllocationsQuery,
     useGetGlobalPeriodTargetFinalizationReadinessQuery,
     useFinalizeGlobalPeriodTargetsMutation,
