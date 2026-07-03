@@ -14,12 +14,15 @@ import { actionFeedback } from "@/components/action-feedback";
 import {
     useFinalizePlanDraftMutation,
     useGetFinalizationReadinessQuery,
+    useGetPlanNodesQuery,
 } from "@/redux/api/planApi";
+import { useGetPlanRuleForVersionQuery } from "@/redux/api/planRuleApi";
 import { PlanVersion } from "@/redux/types/plan";
 import { formatPlanningPeriod } from "@/utils/planDraftUtils";
 import { getApiErrorMessage } from "@/utils/apiErrorUtils";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import { PLAN_FINALIZE_PERMISSIONS } from "@/utils/planPermissionUtils";
+import { ContributionFinalizeSummary } from "../components/ContributionFinalizeSummary";
 
 interface FinalizePlanDraftModalProps {
     isOpen: boolean;
@@ -38,6 +41,13 @@ export function FinalizePlanDraftModal({
         version.plan_version_id,
         { skip: !isOpen }
     );
+    const { data: planNodes = [] } = useGetPlanNodesQuery(
+        { plan_version_id: version.plan_version_id },
+        { skip: !isOpen }
+    );
+    const { data: rule } = useGetPlanRuleForVersionQuery(version.plan_version_id, {
+        skip: !isOpen,
+    });
     const [finalize, { isLoading: isFinalizing }] = useFinalizePlanDraftMutation();
 
     const handleFinalize = async () => {
@@ -112,6 +122,8 @@ export function FinalizePlanDraftModal({
                                 </ul>
                             </div>
                         )}
+
+                        <ContributionFinalizeSummary nodes={planNodes} rule={rule} />
 
                         {readiness?.planning_years && readiness.planning_years.length > 0 && (
                             <div className="flex flex-wrap gap-2">

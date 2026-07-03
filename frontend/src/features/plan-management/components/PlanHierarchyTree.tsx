@@ -9,6 +9,8 @@ import {
     formatNodeTarget,
     getStepLabel,
     stepRequiresWeight,
+    stepRequiresContributionWeight,
+    childLevelRequiresContribution,
     getStepColorHex,
     getPlanStepSurfaceStyles,
 } from "@/utils/planRuleUtils";
@@ -30,6 +32,9 @@ import {
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
 import { PerformanceProgressBar } from "./PerformanceProgressBar";
 import { EvaluationStatusBadge } from "./EvaluationStatusBadge";
+import { PlanNodeContributionBadge } from "./PlanNodeContributionBadge";
+import { ContributionAllocationSummary } from "./ContributionAllocationSummary";
+import { RollupProgressTooltip } from "./RollupProgressTooltip";
 
 interface NodeItemProps {
     node: PlanNodeHierarchy;
@@ -61,6 +66,9 @@ interface NodeItemProps {
     canEditPeriodTarget?: boolean;
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
     periodTargetAllocations?: Record<string, PeriodTargetAllocation>;
+    canEditContribution?: boolean;
+    onDistributeContributionEqually?: (parent: PlanNode, children: PlanNode[]) => void;
+    isDistributingContribution?: boolean;
 }
 
 const NodeItem = ({
@@ -93,6 +101,9 @@ const NodeItem = ({
     canEditPeriodTarget = false,
     annualTargetAllocations,
     periodTargetAllocations,
+    canEditContribution = false,
+    onDistributeContributionEqually,
+    isDistributingContribution = false,
 }: NodeItemProps) => {
     const thresholds = usePerformanceColorThresholds();
     const hierarchyNumber = getHierarchyNumber(hierarchyNumberMap, node.plan_node_id);
@@ -171,17 +182,30 @@ const NodeItem = ({
                                     )}
                                 </Badge>
                             )}
+                            {stepRequiresContributionWeight(rule, node.level) && (
+                                <PlanNodeContributionBadge
+                                    contributionWeight={node.contribution_weight}
+                                    missing={!node.contribution_weight || node.contribution_weight <= 0}
+                                />
+                            )}
                             {hasChildren && onDrillDown && (
                                 <Badge variant="secondary" className="text-[10px] py-0 h-4 shrink-0">
                                     {node.children.length} child{node.children.length !== 1 ? "ren" : ""}
                                 </Badge>
                             )}
                             {completion.visible && (
-                                <PerformanceColorBadge
-                                    color={completion.color}
-                                    label={`${completion.percent}%`}
-                                    className="text-[10px] py-0 h-4"
-                                />
+                                <RollupProgressTooltip
+                                    rule={rule}
+                                    node={node}
+                                    childrenNodes={sortedChildren}
+                                    enabled={useExecutionCompletion && hasChildren}
+                                >
+                                    <PerformanceColorBadge
+                                        color={completion.color}
+                                        label={`${completion.percent}%`}
+                                        className="text-[10px] py-0 h-4"
+                                    />
+                                </RollupProgressTooltip>
                             )}
                             {useExecutionCompletion && node.evaluation_status && (
                                 <EvaluationStatusBadge
@@ -199,6 +223,19 @@ const NodeItem = ({
                         )}
                         {node.description && (
                             <p className="text-xs text-gray-500 line-clamp-1">{node.description}</p>
+                        )}
+                        {childLevelRequiresContribution(rule, sortedChildren) && (
+                            <ContributionAllocationSummary
+                                children={sortedChildren}
+                                variant="compact"
+                                canDistribute={canEditContribution}
+                                isDistributing={isDistributingContribution}
+                                onDistributeEqually={
+                                    onDistributeContributionEqually
+                                        ? () => onDistributeContributionEqually(node, sortedChildren)
+                                        : undefined
+                                }
+                            />
                         )}
                         {showAnnualTargets && (
                             <PlanNodeAnnualTargetSection
@@ -301,6 +338,9 @@ const NodeItem = ({
                             canEditPeriodTarget={canEditPeriodTarget}
                             annualTargetAllocations={annualTargetAllocations}
                             periodTargetAllocations={periodTargetAllocations}
+                            canEditContribution={canEditContribution}
+                            onDistributeContributionEqually={onDistributeContributionEqually}
+                            isDistributingContribution={isDistributingContribution}
                         />
                     ))}
                 </div>
@@ -338,6 +378,9 @@ interface PlanHierarchyTreeProps {
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
     periodTargetAllocations?: Record<string, PeriodTargetAllocation>;
     governmentStructureId?: string;
+    canEditContribution?: boolean;
+    onDistributeContributionEqually?: (parent: PlanNode, children: PlanNode[]) => void;
+    isDistributingContribution?: boolean;
 }
 
 export function PlanHierarchyTree({
@@ -368,6 +411,9 @@ export function PlanHierarchyTree({
     annualTargetAllocations,
     periodTargetAllocations,
     governmentStructureId,
+    canEditContribution = false,
+    onDistributeContributionEqually,
+    isDistributingContribution = false,
 }: PlanHierarchyTreeProps) {
     const { config: planningConfig } = useEffectivePlanningConfiguration({
         governmentStructureId,
@@ -411,6 +457,9 @@ export function PlanHierarchyTree({
                         canEditPeriodTarget={canEditPeriodTarget}
                         annualTargetAllocations={annualTargetAllocations}
                         periodTargetAllocations={periodTargetAllocations}
+                        canEditContribution={canEditContribution}
+                        onDistributeContributionEqually={onDistributeContributionEqually}
+                        isDistributingContribution={isDistributingContribution}
                     />
                 ))}
             </div>
@@ -451,6 +500,9 @@ export function PlanHierarchyTree({
                     canEditPeriodTarget={canEditPeriodTarget}
                     annualTargetAllocations={annualTargetAllocations}
                     periodTargetAllocations={periodTargetAllocations}
+                    canEditContribution={canEditContribution}
+                    onDistributeContributionEqually={onDistributeContributionEqually}
+                    isDistributingContribution={isDistributingContribution}
                 />
             ))}
         </div>

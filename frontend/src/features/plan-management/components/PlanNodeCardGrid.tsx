@@ -9,6 +9,8 @@ import {
     formatNodeTarget,
     getStepLabel,
     stepRequiresWeight,
+    stepRequiresContributionWeight,
+    childLevelRequiresContribution,
 } from "@/utils/planRuleUtils";
 import {
     hiddenProgressAppearance,
@@ -27,6 +29,9 @@ import { PlanNodeAssignmentSummary } from "./PlanNodeAssignmentSummary";
 import { PlanNodeAnnualTargetSection } from "./PlanNodeAnnualTargetSection";
 import { PlanNodePeriodTargetSection } from "./PlanNodePeriodTargetSection";
 import { PlanNodePeriodActualSection } from "./PlanNodePeriodActualSection";
+import { PlanNodeContributionBadge } from "./PlanNodeContributionBadge";
+import { ContributionAllocationSummary } from "./ContributionAllocationSummary";
+import { RollupProgressTooltip } from "./RollupProgressTooltip";
 import { resolveLiveDraftTarget } from "@/utils/planDraftUtils";
 
 interface PlanNodeCardGridProps {
@@ -46,6 +51,9 @@ interface PlanNodeCardGridProps {
     canEditPeriodTarget?: boolean;
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
     periodTargetAllocations?: Record<string, PeriodTargetAllocation>;
+    canEditContribution?: boolean;
+    onDistributeContributionEqually?: (parent: PlanNode, children: PlanNode[]) => void;
+    isDistributingContribution?: boolean;
     onAddChild: (parent: PlanNode) => void;
     onEdit: (node: PlanNode) => void;
     onDelete: (id: string) => void;
@@ -76,6 +84,9 @@ export function PlanNodeCardGrid({
     canEditPeriodTarget = false,
     annualTargetAllocations,
     periodTargetAllocations,
+    canEditContribution = false,
+    onDistributeContributionEqually,
+    isDistributingContribution = false,
     onAddChild,
     onEdit,
     onDelete,
@@ -127,6 +138,7 @@ export function PlanNodeCardGrid({
                 const allocation = annualTargetAllocations?.[node.plan_node_id];
                 const liveDraftTarget = resolveLiveDraftTarget(node, allocation);
                 const hasDraftTarget = requiresWeight && liveDraftTarget > 0;
+                const childNodes = node.children ?? [];
 
                 return (
                     <Card
@@ -207,12 +219,30 @@ export function PlanNodeCardGrid({
                                                     )}
                                                 </Badge>
                                             )}
-                                            {completion.visible && (
-                                                <PerformanceColorBadge
-                                                    color={completion.color}
-                                                    label={completion.label}
-                                                    className="text-[10px] py-0 h-4"
+                                            {stepRequiresContributionWeight(rule, node.level) && (
+                                                <PlanNodeContributionBadge
+                                                    contributionWeight={node.contribution_weight}
+                                                    missing={
+                                                        !node.contribution_weight ||
+                                                        node.contribution_weight <= 0
+                                                    }
                                                 />
+                                            )}
+                                            {completion.visible && (
+                                                <RollupProgressTooltip
+                                                    rule={rule}
+                                                    node={node}
+                                                    childrenNodes={childNodes}
+                                                    enabled={
+                                                        useExecutionCompletion && childNodes.length > 0
+                                                    }
+                                                >
+                                                    <PerformanceColorBadge
+                                                        color={completion.color}
+                                                        label={completion.label}
+                                                        className="text-[10px] py-0 h-4"
+                                                    />
+                                                </RollupProgressTooltip>
                                             )}
                                             {useExecutionCompletion && node.evaluation_status && (
                                                 <EvaluationStatusBadge
@@ -257,6 +287,26 @@ export function PlanNodeCardGrid({
                                                 variant="card"
                                                 onClick={(e) => e.stopPropagation()}
                                             />
+                                        )}
+
+                                        {childLevelRequiresContribution(rule, childNodes) && (
+                                            <div onClick={(e) => e.stopPropagation()}>
+                                                <ContributionAllocationSummary
+                                                    children={childNodes}
+                                                    variant="compact"
+                                                    canDistribute={canEditContribution}
+                                                    isDistributing={isDistributingContribution}
+                                                    onDistributeEqually={
+                                                        onDistributeContributionEqually
+                                                            ? () =>
+                                                                  onDistributeContributionEqually(
+                                                                      node,
+                                                                      childNodes
+                                                                  )
+                                                            : undefined
+                                                    }
+                                                />
+                                            </div>
                                         )}
 
                                         <h3 className="flex items-start gap-2 text-lg font-bold text-gray-900 leading-snug">

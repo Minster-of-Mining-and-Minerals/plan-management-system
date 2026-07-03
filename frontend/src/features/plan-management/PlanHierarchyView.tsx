@@ -8,6 +8,7 @@ import {
     useGetAnnualTargetAllocationsQuery,
     useGetPeriodTargetAllocationsQuery,
     useReorderPlanNodesMutation,
+    useUpdatePlanNodeMutation,
 } from "@/redux/api/planApi";
 import { useGetPlanRuleForVersionQuery } from "@/redux/api/planRuleApi";
 import { PlanNodeHierarchy, PlanNode, AnnualTargetAllocation, PeriodTargetAllocation, PlanVersion } from "@/redux/types/plan";
@@ -32,7 +33,10 @@ import {
     canAddChild,
     getMaxRuleDepth,
     getStepLabel,
+    computeEqualContributionWeights,
+    findContributionAllocationIssues,
 } from "@/utils/planRuleUtils";
+import { getApiErrorMessage } from "@/utils/apiErrorUtils";
 import { PlanNodeCardGrid } from "./components/PlanNodeCardGrid";
 import { PlanHierarchyTree } from "./components/PlanHierarchyTree";
 import { PlanHierarchyTableView } from "./components/PlanHierarchyTableView";
@@ -120,6 +124,16 @@ function resolveBreadcrumbPath(
         nodes = found.children ?? [];
     }
     return path;
+}
+
+function flattenHierarchyNodes(nodes: PlanNodeHierarchy[]): PlanNode[] {
+    const flat: PlanNode[] = [];
+    const walk = (node: PlanNodeHierarchy) => {
+        flat.push(node);
+        (node.children ?? []).forEach(walk);
+    };
+    nodes.forEach(walk);
+    return flat;
 }
 
 export default function PlanHierarchyView({
@@ -242,6 +256,7 @@ export default function PlanHierarchyView({
         refetch,
     } = useGetPlanHierarchyQuery(versionId, { skip: !shouldFetchHierarchy });
     const [deleteNode] = useDeletePlanNodeMutation();
+    const [updateNode, { isLoading: isDistributingContribution }] = useUpdatePlanNodeMutation();
     const [reorderNodes, { isLoading: isReordering }] = useReorderPlanNodesMutation();
 
     const maxDepth = getMaxRuleDepth(rule);
@@ -295,6 +310,15 @@ export default function PlanHierarchyView({
     const canEditMasterStructure =
         canEditMasterPlanStructure(version, can) && !isOversightReadOnly;
     const isReadOnlyHierarchy = !canEditMasterStructure;
+    const canEditContribution = isMasterDraft && canEditMasterStructure;
+    const flatHierarchyNodes = useMemo(
+        () => flattenHierarchyNodes(hierarchy),
+        [hierarchy]
+    );
+    const contributionIssues = useMemo(
+        () => findContributionAllocationIssues(flatHierarchyNodes, rule),
+        [flatHierarchyNodes, rule]
+    );
     const hideAssignments = isAnnualVersion;
     const showAnnualTargets = isAnnualVersion;
     const periodTargetsFinalized = Boolean(
@@ -482,6 +506,31 @@ export default function PlanHierarchyView({
                 const error = err as { data?: { message?: string } };
                 actionFeedback.error(error.data?.message || "Failed to delete node");
             }
+        }
+    };
+
+    const handleDistributeContributionEqually = async (
+        _parent: PlanNode,
+        children: PlanNode[]
+    ) => {
+        const activeChildren = children.filter((child) => child.is_active !== false);
+        if (activeChildren.length === 0) return;
+        if (!(await confirmIfFinalizedEdit("Distributing contribution weights"))) return;
+
+        const weights = computeEqualContributionWeights(activeChildren.length);
+        try {
+            await Promise.all(
+                activeChildren.map((child, index) =>
+                    updateNode({
+                        id: child.plan_node_id,
+                        data: { contribution_weight: weights[index] },
+                    }).unwrap()
+                )
+            );
+            actionFeedback.success("Contribution weights distributed equally among children");
+            refetch();
+        } catch (error: unknown) {
+            actionFeedback.error(getApiErrorMessage(error, "Failed to distribute contribution weights"));
         }
     };
 
@@ -680,6 +729,29 @@ export default function PlanHierarchyView({
                 <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
                     You are editing a finalized strategic plan. Changes affect annual and period
                     versions. Each action requires confirmation.
+                </div>
+            )}
+
+            {isMasterDraft && contributionIssues.length > 0 && (
+                <div className="rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-900 space-y-2">
+                    <p className="font-medium">Contribution weights need attention before finalize</p>
+                    <ul className="list-disc pl-5 space-y-1 text-xs">
+                        {contributionIssues.slice(0, 5).map((issue) => (
+                            <li key={issue.parentId}>
+                                <span className="font-medium">{issue.parentTitle}</span>: children
+                                sum to {issue.sum}% (need 100%)
+                                {issue.missingCount > 0
+                                    ? ` · ${issue.missingCount} missing value${issue.missingCount === 1 ? "" : "s"}`
+                                    : ""}
+                            </li>
+                        ))}
+                    </ul>
+                    {contributionIssues.length > 5 && (
+                        <p className="text-xs text-violet-800">
+                            +{contributionIssues.length - 5} more parent group
+                            {contributionIssues.length - 5 === 1 ? "" : "s"} with incomplete allocation
+                        </p>
+                    )}
                 </div>
             )}
 
@@ -895,6 +967,9 @@ export default function PlanHierarchyView({
                         canEditPeriodTarget={canEditPeriodTarget}
                         annualTargetAllocations={annualTargetAllocations}
                         periodTargetAllocations={periodTargetAllocations}
+                        canEditContribution={canEditContribution}
+                        onDistributeContributionEqually={handleDistributeContributionEqually}
+                        isDistributingContribution={isDistributingContribution}
                     />
                 ) : (
                     emptyState
@@ -919,6 +994,9 @@ export default function PlanHierarchyView({
                         canEditPeriodTarget={canEditPeriodTarget}
                         annualTargetAllocations={annualTargetAllocations}
                         periodTargetAllocations={periodTargetAllocations}
+                        canEditContribution={canEditContribution}
+                        onDistributeContributionEqually={handleDistributeContributionEqually}
+                        isDistributingContribution={isDistributingContribution}
                         onAddChild={handleAddChild}
                         onEdit={handleEdit}
                         onDelete={handleDelete}
@@ -964,6 +1042,9 @@ export default function PlanHierarchyView({
                     canEditPeriodTarget={canEditPeriodTarget}
                     annualTargetAllocations={annualTargetAllocations}
                     periodTargetAllocations={periodTargetAllocations}
+                    canEditContribution={canEditContribution}
+                    onDistributeContributionEqually={handleDistributeContributionEqually}
+                    isDistributingContribution={isDistributingContribution}
                 />
             ) : currentNodes.length > 0 ? (
                 <PlanHierarchyTree
@@ -994,6 +1075,9 @@ export default function PlanHierarchyView({
                     canEditPeriodTarget={canEditPeriodTarget}
                     annualTargetAllocations={annualTargetAllocations}
                     periodTargetAllocations={periodTargetAllocations}
+                    canEditContribution={canEditContribution}
+                    onDistributeContributionEqually={handleDistributeContributionEqually}
+                    isDistributingContribution={isDistributingContribution}
                 />
             ) : (
                 emptyState

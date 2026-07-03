@@ -22,6 +22,8 @@ import {
     formatNodeTarget,
     getStepLabel,
     stepRequiresWeight,
+    stepRequiresContributionWeight,
+    childLevelRequiresContribution,
     getStepColorHex,
     getPlanStepSurfaceStyles,
 } from "@/utils/planRuleUtils";
@@ -42,6 +44,9 @@ import { PlanNodeAssignmentSummary } from "./PlanNodeAssignmentSummary";
 import { PlanNodeAnnualTargetSection } from "./PlanNodeAnnualTargetSection";
 import { PlanNodePeriodTargetSection } from "./PlanNodePeriodTargetSection";
 import { PlanNodePeriodActualSection } from "./PlanNodePeriodActualSection";
+import { PlanNodeContributionBadge } from "./PlanNodeContributionBadge";
+import { ContributionAllocationSummary } from "./ContributionAllocationSummary";
+import { RollupProgressTooltip } from "./RollupProgressTooltip";
 import { cn } from "@/lib/utils";
 import { getPlanReferenceTargetColumnLabel, resolveLiveDraftTarget } from "@/utils/planDraftUtils";
 
@@ -72,6 +77,9 @@ interface PlanHierarchyTableViewProps {
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
     periodTargetAllocations?: Record<string, PeriodTargetAllocation>;
     governmentStructureId?: string;
+    canEditContribution?: boolean;
+    onDistributeContributionEqually?: (parent: PlanNode, children: PlanNode[]) => void;
+    isDistributingContribution?: boolean;
 }
 
 interface StrategicFocusTableProps {
@@ -104,6 +112,9 @@ interface StrategicFocusTableProps {
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
     periodTargetAllocations?: Record<string, PeriodTargetAllocation>;
     configuredUnits?: TargetUnit[];
+    canEditContribution?: boolean;
+    onDistributeContributionEqually?: (parent: PlanNode, children: PlanNode[]) => void;
+    isDistributingContribution?: boolean;
 }
 
 function StrategicFocusTable({
@@ -136,6 +147,9 @@ function StrategicFocusTable({
     annualTargetAllocations,
     periodTargetAllocations,
     configuredUnits,
+    canEditContribution = false,
+    onDistributeContributionEqually,
+    isDistributingContribution = false,
 }: StrategicFocusTableProps) {
     const thresholds = usePerformanceColorThresholds();
 
@@ -335,6 +349,7 @@ function StrategicFocusTable({
                                 const rowSurface = getPlanStepSurfaceStyles(
                                     getStepColorHex(rule, node.level)
                                 );
+                                const childNodes = node.children ?? [];
 
                                 return (
                                     <TableRow
@@ -382,6 +397,35 @@ function StrategicFocusTable({
                                                         <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
                                                             {node.description}
                                                         </p>
+                                                    )}
+                                                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                                        {stepRequiresContributionWeight(rule, node.level) && (
+                                                            <PlanNodeContributionBadge
+                                                                contributionWeight={node.contribution_weight}
+                                                                missing={
+                                                                    !node.contribution_weight ||
+                                                                    node.contribution_weight <= 0
+                                                                }
+                                                            />
+                                                        )}
+                                                    </div>
+                                                    {childLevelRequiresContribution(rule, childNodes) && (
+                                                        <ContributionAllocationSummary
+                                                            children={childNodes}
+                                                            variant="compact"
+                                                            className="mt-1"
+                                                            canDistribute={canEditContribution}
+                                                            isDistributing={isDistributingContribution}
+                                                            onDistributeEqually={
+                                                                onDistributeContributionEqually
+                                                                    ? () =>
+                                                                          onDistributeContributionEqually(
+                                                                              node,
+                                                                              childNodes
+                                                                          )
+                                                                    : undefined
+                                                            }
+                                                        />
                                                     )}
                                                 </div>
                                             </div>
@@ -461,19 +505,29 @@ function StrategicFocusTable({
                                             {completion.visible || node.evaluation_status ? (
                                                 <div className="flex items-center gap-2 flex-wrap">
                                                     {completion.visible ? (
-                                                        <>
-                                                            <span
-                                                                className="text-sm font-semibold tabular-nums"
-                                                                style={{ color: completion.color }}
-                                                            >
-                                                                {completion.percent}%
-                                                            </span>
-                                                            <PerformanceColorBadge
-                                                                color={completion.color}
-                                                                label={completion.label}
-                                                                className="text-[10px] py-0 h-5"
-                                                            />
-                                                        </>
+                                                        <RollupProgressTooltip
+                                                            rule={rule}
+                                                            node={node}
+                                                            childrenNodes={childNodes}
+                                                            enabled={
+                                                                useExecutionCompletion &&
+                                                                childNodes.length > 0
+                                                            }
+                                                        >
+                                                            <>
+                                                                <span
+                                                                    className="text-sm font-semibold tabular-nums"
+                                                                    style={{ color: completion.color }}
+                                                                >
+                                                                    {completion.percent}%
+                                                                </span>
+                                                                <PerformanceColorBadge
+                                                                    color={completion.color}
+                                                                    label={completion.label}
+                                                                    className="text-[10px] py-0 h-5"
+                                                                />
+                                                            </>
+                                                        </RollupProgressTooltip>
                                                     ) : (
                                                         <span className="text-sm text-muted-foreground">—</span>
                                                     )}
@@ -590,6 +644,9 @@ export function PlanHierarchyTableView({
     annualTargetAllocations,
     periodTargetAllocations,
     governmentStructureId,
+    canEditContribution = false,
+    onDistributeContributionEqually,
+    isDistributingContribution = false,
 }: PlanHierarchyTableViewProps) {
     const { config: planningConfig } = useEffectivePlanningConfiguration({
         governmentStructureId,
@@ -636,6 +693,9 @@ export function PlanHierarchyTableView({
                     annualTargetAllocations={annualTargetAllocations}
                     periodTargetAllocations={periodTargetAllocations}
                     configuredUnits={configuredUnits}
+                    canEditContribution={canEditContribution}
+                    onDistributeContributionEqually={onDistributeContributionEqually}
+                    isDistributingContribution={isDistributingContribution}
                 />
             ))}
         </div>

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
     useGetPlanNodeByIdQuery,
     useGetPlanVersionByIdQuery,
+    useGetPlanNodesQuery,
     useGetAnnualTargetAllocationsQuery,
     useUpdateAnnualTargetMutation,
     useUpdatePeriodTargetMutation,
@@ -51,8 +52,14 @@ import { PlanNodeAssignmentReadOnly } from "./components/PlanNodeAssignmentReadO
 import { PlanAssignmentScopeBanner } from "./components/PlanAssignmentScopeBanner";
 import { AssignmentModeAlerts } from "./components/AssignmentModeAlerts";
 import { AnnualTargetAllocationSummary } from "./components/AnnualTargetAllocationSummary";
+import { ContributionAllocationSummary } from "./components/ContributionAllocationSummary";
+import { PlanNodeContributionBadge } from "./components/PlanNodeContributionBadge";
 import { usePlanVersionPlanningConfiguration } from "@/hooks/usePlanVersionPlanningConfiguration";
-import { formatNodeTarget } from "@/utils/planRuleUtils";
+import {
+    formatNodeTarget,
+    stepRequiresContributionWeight,
+    childLevelRequiresContribution,
+} from "@/utils/planRuleUtils";
 import { canEditAnnualTargetForVersion, canEditPeriodTargetForVersion, resolveLiveDraftTarget } from "@/utils/planDraftUtils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { PermissionGuard } from "@/utils/PermissionGuard";
@@ -118,6 +125,10 @@ export default function PlanNodeDetailView({
     const [annualTargetInput, setAnnualTargetInput] = useState("");
     const [periodTargetInput, setPeriodTargetInput] = useState("");
     const { data: node, isLoading: isNodeLoading } = useGetPlanNodeByIdQuery(nodeId);
+    const { data: childNodes = [] } = useGetPlanNodesQuery(
+        { plan_version_id: versionId, parent_id: nodeId, is_active: true },
+        { skip: !nodeId || !versionId }
+    );
     const { data: internalAssignments = [], isLoading: isInternalLoading } =
         useGetInternalAssignmentsByNodeQuery({ nodeId, includeInactive: showHistory });
     const { data: externalAssignments = [], isLoading: isExternalLoading } =
@@ -583,6 +594,15 @@ export default function PlanNodeDetailView({
                                             )}
                                         </>
                                     )}
+                                {stepRequiresContributionWeight(rule, node.level) && (
+                                    <PlanNodeContributionBadge
+                                        contributionWeight={node.contribution_weight}
+                                        missing={
+                                            !node.contribution_weight || node.contribution_weight <= 0
+                                        }
+                                        className="font-bold"
+                                    />
+                                )}
                                 {canEditMasterStructure && (
                                 <Badge
                                     variant="outline"
@@ -600,6 +620,13 @@ export default function PlanNodeDetailView({
                             <p className="text-gray-600 leading-relaxed">
                                 {node.description || "No description provided."}
                             </p>
+                            {childLevelRequiresContribution(rule, childNodes) && (
+                                <ContributionAllocationSummary
+                                    children={childNodes}
+                                    variant="detail"
+                                    className="mt-4"
+                                />
+                            )}
                             {version?.version_kind === "annual" && liveDraftTarget > 0 && (
                                 <div className="mt-4 rounded-lg border bg-muted/20 p-4 space-y-3">
                                     <div className="flex flex-wrap gap-4 text-sm">

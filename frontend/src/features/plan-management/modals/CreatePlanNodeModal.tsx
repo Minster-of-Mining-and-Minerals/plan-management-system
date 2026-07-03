@@ -434,7 +434,22 @@ export function CreatePlanNodeModal({
                                 name="contribution_weight"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>{CONTRIBUTION_FIELD_LABEL} (%)</FormLabel>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <FormLabel>{CONTRIBUTION_FIELD_LABEL} (%)</FormLabel>
+                                            {remainingContribution > 0 && (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-7 text-xs"
+                                                    onClick={() =>
+                                                        field.onChange(remainingContribution)
+                                                    }
+                                                >
+                                                    Use remaining {remainingContribution}%
+                                                </Button>
+                                            )}
+                                        </div>
                                         <FormControl>
                                             <Input type="number" min={0} max={100} step="any" {...field} />
                                         </FormControl>
