@@ -47,6 +47,15 @@ function stepRequiresWeight(rule, level) {
   return start !== null && level >= start;
 }
 
+function stepRequiresContributionWeight(rule, level) {
+  const step = getStepForLevel(rule, level);
+  return Boolean(step?.requires_contribution_weight);
+}
+
+function getContributionSiblingTarget() {
+  return 100;
+}
+
 function isWeightModeSelectionLevel(rule, level) {
   return getWeightStartLevel(rule) === level;
 }
@@ -105,6 +114,7 @@ function normalizeRuleSteps(steps) {
       step_order: stepOrder,
       label: step.label?.trim() || `Level ${stepOrder}`,
       requires_weight: weightStart !== null && stepOrder >= weightStart,
+      requires_contribution_weight: Boolean(step.requires_contribution_weight),
       node_type: levelToNodeType(stepOrder),
       color_hex: normalizeStepColorHex(step.color_hex, stepOrder),
     };
@@ -153,6 +163,8 @@ module.exports = {
   levelToNodeType,
   getWeightStartLevel,
   stepRequiresWeight,
+  stepRequiresContributionWeight,
+  getContributionSiblingTarget,
   isWeightModeSelectionLevel,
   getStepForLevel,
   getStepLabel,

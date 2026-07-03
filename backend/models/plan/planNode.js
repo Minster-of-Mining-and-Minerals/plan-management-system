@@ -93,6 +93,12 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
       },
 
+      contribution_weight: {
+        type: DataTypes.FLOAT,
+        allowNull: true,
+        defaultValue: null,
+      },
+
       target_unit: {
         type: DataTypes.STRING(50),
         allowNull: true,

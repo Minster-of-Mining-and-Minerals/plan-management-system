@@ -12,7 +12,7 @@ const {
     sequelize,
 } = require("../models");
 const { resolvePlanRuleForVersion } = require("./planRuleService");
-const { stepRequiresWeight } = require("./planRuleStepUtils");
+const { stepRequiresWeight, stepRequiresContributionWeight } = require("./planRuleStepUtils");
 const {
     getEffectivePlanningConfigForStructure,
     resolvePeriodLabels,
@@ -99,6 +99,7 @@ async function copyNodesWithAssignments(
                 description: sourceNode.description,
                 weight: sourceNode.weight,
                 weight_mode: sourceNode.weight_mode,
+                contribution_weight: sourceNode.contribution_weight,
                 target_unit: sourceNode.target_unit,
                 level: sourceNode.level,
                 // Order is owned by the master draft; derived copies mirror source order.
@@ -424,6 +425,12 @@ async function validateDraftForFinalization(masterVersionId, transaction) {
             errors.push(`"${node.title}" requires a strategic target before finalization`);
         }
 
+        if (rule && stepRequiresContributionWeight(rule, node.level)) {
+            if (!node.contribution_weight || node.contribution_weight <= 0) {
+                errors.push(`"${node.title}" requires a contribution weight (%) before finalization`);
+            }
+        }
+
         const [extCount, intCount] = await Promise.all([
             ExternalAssignment.count({
                 where: { plan_node_id: node.plan_node_id, is_active: true },
@@ -437,6 +444,29 @@ async function validateDraftForFinalization(masterVersionId, transaction) {
 
         if (extCount === 0 && intCount === 0) {
             errors.push(`"${node.title}" has no active assignments`);
+        }
+    }
+
+    if (rule) {
+        const activeNodes = nodes.filter((node) => node.is_active);
+
+        for (const node of activeNodes) {
+            const children = activeNodes.filter((child) => child.parent_id === node.plan_node_id);
+            if (children.length === 0) continue;
+
+            const childLevel = children[0].level;
+            if (!stepRequiresContributionWeight(rule, childLevel)) continue;
+
+            const sum = children.reduce(
+                (total, child) => total + (Number(child.contribution_weight) || 0),
+                0
+            );
+
+            if (Math.abs(sum - 100) > 0.001) {
+                errors.push(
+                    `Children of "${node.title}" must have contribution weights summing to 100% (currently ${sum}%)`
+                );
+            }
         }
     }
 

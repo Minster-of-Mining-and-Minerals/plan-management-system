@@ -11,6 +11,8 @@ const {
   getWeightUnitLabel,
   stepRequiresWeight,
   isWeightModeSelectionLevel,
+  stepRequiresContributionWeight,
+  getContributionSiblingTarget,
   resolveNodeWeightMode,
 } = require("./planRuleStepUtils");
 
@@ -113,6 +115,7 @@ async function validatePlanNodeAgainstRule({
   type,
   weight,
   weightMode,
+  contributionWeight,
   level,
   excludeNodeId,
   transaction,
@@ -159,7 +162,9 @@ async function validatePlanNodeAgainstRule({
 
   const expectedType = levelToNodeType(resolvedLevel);
   const numericWeight = Number(weight) || 0;
+  const numericContributionWeight = Number(contributionWeight) || 0;
   const requiresWeight = stepRequiresWeight(rule, resolvedLevel);
+  const requiresContributionWeight = stepRequiresContributionWeight(rule, resolvedLevel);
   const stepLabel = getStepLabel(rule, resolvedLevel);
 
   const modeResult = await resolveNodeWeightMode({
@@ -217,6 +222,45 @@ async function validatePlanNodeAgainstRule({
     }
   }
 
+  if (requiresContributionWeight && numericContributionWeight <= 0) {
+    return {
+      valid: false,
+      message: `${stepLabel} requires a contribution weight (%)`,
+    };
+  }
+
+  if (!requiresContributionWeight && numericContributionWeight > 0) {
+    return {
+      valid: false,
+      message: `${stepLabel} does not use contribution weight at this level`,
+    };
+  }
+
+  if (requiresContributionWeight) {
+    const siblings = await PlanNode.findAll({
+      where: {
+        plan_version_id: planVersionId,
+        parent_id: parentId || null,
+        is_active: true,
+      },
+      transaction,
+    });
+
+    const otherSum = siblings
+      .filter((s) => s.plan_node_id !== excludeNodeId)
+      .reduce((sum, s) => sum + (Number(s.contribution_weight) || 0), 0);
+
+    const total = otherSum + numericContributionWeight;
+    const contributionTarget = getContributionSiblingTarget();
+
+    if (total > contributionTarget + 0.001) {
+      return {
+        valid: false,
+        message: `Combined sibling contribution weight (${total}%) exceeds ${contributionTarget}%.`,
+      };
+    }
+  }
+
   return {
     valid: true,
     rule,
@@ -238,6 +282,7 @@ module.exports = {
   getWeightTarget,
   getWeightUnitLabel,
   stepRequiresWeight,
+  stepRequiresContributionWeight,
   isWeightModeSelectionLevel,
   levelToNodeType,
   validatePlanNodeAgainstRule,

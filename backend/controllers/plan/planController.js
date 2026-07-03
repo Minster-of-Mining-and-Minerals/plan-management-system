@@ -932,6 +932,7 @@ const createPlanNode = async (req, res) => {
             description,
             weight,
             weight_mode,
+            contribution_weight,
             target_unit,
             level,
             assignment_sharing_mode,
@@ -983,6 +984,7 @@ const createPlanNode = async (req, res) => {
             type,
             weight: weight || 0,
             weightMode: weight_mode || null,
+            contributionWeight: contribution_weight ?? null,
             level: nodeLevel,
             transaction: t,
         });
@@ -1029,6 +1031,8 @@ const createPlanNode = async (req, res) => {
                 description,
                 weight: weight || 0,
                 weight_mode: ruleCheck.weightMode || null,
+                contribution_weight:
+                    contribution_weight > 0 ? contribution_weight : null,
                 target_unit: unitCheck.targetUnit,
                 level: nodeLevel,
                 order: nodeOrder,
@@ -1221,6 +1225,10 @@ const updatePlanNode = async (req, res) => {
 
         const nextWeightMode =
             req.body.weight_mode !== undefined ? req.body.weight_mode : planNode.weight_mode;
+        const nextContributionWeight =
+            req.body.contribution_weight !== undefined
+                ? req.body.contribution_weight
+                : planNode.contribution_weight;
         const nextTargetUnit =
             req.body.target_unit !== undefined ? req.body.target_unit : planNode.target_unit;
 
@@ -1241,6 +1249,7 @@ const updatePlanNode = async (req, res) => {
             type: nextType,
             weight: nextWeight || 0,
             weightMode: nextWeightMode,
+            contributionWeight: nextContributionWeight ?? null,
             level: nextLevel,
             excludeNodeId: planNode.plan_node_id,
             transaction: t,
@@ -1302,6 +1311,8 @@ const updatePlanNode = async (req, res) => {
                 ...updateFields,
                 level: nextLevel,
                 weight_mode: ruleCheck.weightMode || null,
+                contribution_weight:
+                    nextContributionWeight > 0 ? nextContributionWeight : null,
                 target_unit: unitCheck.targetUnit,
             },
             { transaction: t }

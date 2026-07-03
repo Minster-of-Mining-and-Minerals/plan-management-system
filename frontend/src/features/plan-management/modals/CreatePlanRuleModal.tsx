@@ -54,6 +54,7 @@ const stepSchema = z.object({
     step_order: z.coerce.number().min(1),
     label: z.string().min(1).max(255),
     requires_weight: z.boolean(),
+    requires_contribution_weight: z.boolean(),
     color_hex: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Use a valid hex color"),
 });
 
@@ -100,7 +101,7 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
             scope_type: allowInherited ? "inherited" : "sector",
             government_structure_id: sessionStructureId ?? null,
             is_active: true,
-            steps: [{ step_order: 1, label: "Level 1", requires_weight: false, color_hex: getDefaultStepColorHex(1) }],
+            steps: [{ step_order: 1, label: "Level 1", requires_weight: false, requires_contribution_weight: false, color_hex: getDefaultStepColorHex(1) }],
         },
     });
 
@@ -130,6 +131,7 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
                     step_order: s.step_order,
                     label: s.label,
                     requires_weight: start !== null && s.step_order === start,
+                    requires_contribution_weight: Boolean(s.requires_contribution_weight),
                     color_hex: s.color_hex || getDefaultStepColorHex(s.step_order),
                 })),
             });
@@ -144,7 +146,7 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
                 scope_type: defaultScope,
                 government_structure_id: sessionStructureId ?? null,
                 is_active: true,
-                steps: [{ step_order: 1, label: "Level 1", requires_weight: false, color_hex: getDefaultStepColorHex(1) }],
+                steps: [{ step_order: 1, label: "Level 1", requires_weight: false, requires_contribution_weight: false, color_hex: getDefaultStepColorHex(1) }],
             });
         }
     }, [rule, form, isOpen, allowSystemGlobal, allowInherited, sessionStructureId]);
@@ -165,6 +167,7 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
             step_order: fields.length + 1,
             label: `Level ${fields.length + 1}`,
             requires_weight: false,
+            requires_contribution_weight: false,
             color_hex: getDefaultStepColorHex(fields.length + 1),
         });
     };
@@ -196,6 +199,7 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
                     step_order: index + 1,
                     label: step.label.trim(),
                     requires_weight: step.requires_weight,
+                    requires_contribution_weight: step.requires_contribution_weight,
                     color_hex: step.color_hex,
                 })),
             };
@@ -216,7 +220,7 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[720px] max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{rule ? "Edit Plan Rule" : "Create Plan Rule"}</DialogTitle>
                 </DialogHeader>
@@ -334,7 +338,8 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
                                     <FormLabel>Hierarchy Levels</FormLabel>
                                     <FormDescription>
                                         Set a label and soft background color per level. Enable target on one level — deeper
-                                        levels inherit the target requirement. Colors appear subtly in plan hierarchy and table views.
+                                        levels inherit the target requirement. Contribution weight is configured per level
+                                        independently for execution rollup. Colors appear subtly in plan hierarchy and table views.
                                     </FormDescription>
                                 </div>
                                 <Button type="button" variant="outline" size="sm" onClick={addStep}>
@@ -351,7 +356,7 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
                                     return (
                                         <div
                                             key={field.id}
-                                            className="grid grid-cols-[56px_1fr_88px_1fr_auto] gap-2 items-end"
+                                            className="grid grid-cols-[56px_1fr_88px_1fr_1fr_auto] gap-2 items-end"
                                         >
                                             <div className="text-sm font-medium text-muted-foreground pb-2">
                                                 L{level}
@@ -436,6 +441,33 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
                                                     </div>
                                                 )}
                                             </FormItem>
+
+                                            <FormField
+                                                control={form.control}
+                                                name={`steps.${index}.requires_contribution_weight`}
+                                                render={({ field: contributionField }) => (
+                                                    <FormItem>
+                                                        {index === 0 && (
+                                                            <FormLabel className="text-xs">
+                                                                Contribution %
+                                                            </FormLabel>
+                                                        )}
+                                                        <div className="flex items-center gap-2 h-10">
+                                                            <Switch
+                                                                checked={
+                                                                    contributionField.value ?? false
+                                                                }
+                                                                onCheckedChange={contributionField.onChange}
+                                                            />
+                                                            <span className="text-xs text-muted-foreground">
+                                                                {contributionField.value
+                                                                    ? "Weighted rollup"
+                                                                    : "Equal average"}
+                                                            </span>
+                                                        </div>
+                                                    </FormItem>
+                                                )}
+                                            />
 
                                             <Button
                                                 type="button"

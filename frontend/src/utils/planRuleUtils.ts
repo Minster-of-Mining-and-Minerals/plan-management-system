@@ -11,6 +11,9 @@ import { resolveTargetUnitSymbol } from "@/redux/types/planningConfig";
 /** User-facing label for the plan node weight field */
 export const TARGET_FIELD_LABEL = "Target";
 
+/** User-facing label for execution rollup contribution weight */
+export const CONTRIBUTION_FIELD_LABEL = "Contribution";
+
 export const WEIGHT_MODE_LABELS: Record<PlanRuleWeightMode, string> = {
     number: "Number",
     percentage: "Percentage (%)",
@@ -65,6 +68,17 @@ export function getWeightStartLevel(rule?: PlanRule | null): number | null {
 export function stepRequiresWeight(rule: PlanRule | null | undefined, level: number): boolean {
     const start = getWeightStartLevel(rule);
     return start !== null && level >= start;
+}
+
+export function stepRequiresContributionWeight(
+    rule: PlanRule | null | undefined,
+    level: number
+): boolean {
+    return Boolean(getStepForLevel(rule, level)?.requires_contribution_weight);
+}
+
+export function getContributionSiblingTarget(): number {
+    return 100;
 }
 
 export function isWeightModeSelectionLevel(rule: PlanRule | null | undefined, level: number): boolean {

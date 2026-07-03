@@ -17,6 +17,7 @@ function pickNodeFields(node) {
         description: node.description,
         weight: node.weight,
         weight_mode: node.weight_mode,
+        contribution_weight: node.contribution_weight,
         target_unit: node.target_unit,
         level: node.level,
         order: node.order,

@@ -139,6 +139,8 @@ const createPlanNodeSchema = Joi.object({
 
     weight_mode: Joi.string().valid("number", "percentage", "frequency").allow(null).optional(),
 
+    contribution_weight: Joi.number().min(0).max(100).allow(null).optional(),
+
     target_unit: Joi.string().trim().max(50).allow(null).optional(),
 
     level: Joi.number().integer().min(1).optional(),
@@ -153,6 +155,7 @@ const updatePlanNodeSchema = Joi.object({
     description: Joi.string().trim().optional().allow(null, ""),
     weight: Joi.number().min(0).optional(),
     weight_mode: Joi.string().valid("number", "percentage", "frequency").allow(null).optional(),
+    contribution_weight: Joi.number().min(0).max(100).allow(null).optional(),
     target_unit: Joi.string().trim().max(50).allow(null).optional(),
     level: Joi.number().integer().min(1).optional(),
     order: Joi.forbidden().messages({

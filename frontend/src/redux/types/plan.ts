@@ -317,6 +317,7 @@ export interface PlanNode {
     description: string | null;
     weight: number;
     weight_mode: PlanRuleWeightMode | null;
+    contribution_weight?: number | null;
     target_unit?: string | null;
     level: number;
     order: number;
@@ -360,6 +361,7 @@ export interface CreatePlanNodePayload {
     description?: string | null;
     weight?: number;
     weight_mode?: PlanRuleWeightMode | null;
+    contribution_weight?: number | null;
     target_unit?: string | null;
     level?: number;
     order?: number;
@@ -373,6 +375,7 @@ export interface UpdatePlanNodePayload {
     description?: string | null;
     weight?: number;
     weight_mode?: PlanRuleWeightMode | null;
+    contribution_weight?: number | null;
     target_unit?: string | null;
     level?: number;
     order?: number;
@@ -414,6 +417,7 @@ export interface PlanRuleStep {
     node_type: PlanNodeType;
     label: string;
     requires_weight: boolean;
+    requires_contribution_weight?: boolean;
     color_hex?: string | null;
     inherits_weight_from_level?: number | null;
     created_at: string;
@@ -436,6 +440,7 @@ export interface PlanRuleStepInput {
     step_order: number;
     label: string;
     requires_weight?: boolean;
+    requires_contribution_weight?: boolean;
     color_hex?: string;
 }
 

@@ -52,8 +52,11 @@ import {
     resolveNodeWeightMode,
     resolveNodeTargetUnit,
     stepRequiresWeight,
+    stepRequiresContributionWeight,
     isWeightModeSelectionLevel,
     TARGET_FIELD_LABEL,
+    CONTRIBUTION_FIELD_LABEL,
+    getContributionSiblingTarget,
     levelToNodeType,
     WEIGHT_MODE_LABELS,
 } from "@/utils/planRuleUtils";
@@ -83,6 +86,7 @@ export function CreatePlanNodeModal({
     const nodeLevel = node?.level ?? (parentNode ? parentNode.level + 1 : 1);
     const levelLabel = getStepLabel(rule, nodeLevel);
     const requiresWeight = stepRequiresWeight(rule, nodeLevel);
+    const requiresContribution = stepRequiresContributionWeight(rule, nodeLevel);
     const showWeightModeSelect = isWeightModeSelectionLevel(rule, nodeLevel);
     const inheritedMode = resolveNodeWeightMode(rule, nodeLevel, parentNode, node);
 
@@ -98,6 +102,7 @@ export function CreatePlanNodeModal({
                     .enum(["number", "percentage", "frequency"])
                     .optional()
                     .nullable(),
+                contribution_weight: z.coerce.number().min(0).max(100).default(0),
                 target_unit: z.string().optional().nullable(),
                 level: z.coerce.number().optional(),
                 assignment_sharing_mode: z.enum(["exclusive", "shared"]).default("exclusive"),
@@ -116,6 +121,7 @@ export function CreatePlanNodeModal({
             description: "",
             weight: 0,
             weight_mode: null,
+            contribution_weight: 0,
             target_unit: null,
             assignment_sharing_mode: "exclusive" as AssignmentSharingMode,
         },
@@ -141,13 +147,17 @@ export function CreatePlanNodeModal({
     const canEnterWeight =
         requiresWeight && (!showWeightModeSelect || !!effectiveWeightMode);
 
+    const canEnterContribution = requiresContribution;
+
+    const needsSiblingData = canEnterWeight || canEnterContribution;
+
     const { data: siblings = [] } = useGetPlanNodesQuery(
         {
             plan_version_id: planVersionId,
             parent_id: node?.parent_id ?? parentNode?.plan_node_id ?? null,
             is_active: true,
         },
-        { skip: !isOpen || !canEnterWeight }
+        { skip: !isOpen || !needsSiblingData }
     );
 
     const weightTarget = getWeightTarget(
@@ -165,6 +175,12 @@ export function CreatePlanNodeModal({
         configuredUnits
     );
 
+    const contributionTarget = getContributionSiblingTarget();
+    const contributionSiblingUsed = siblings
+        .filter((s) => s.plan_node_id !== node?.plan_node_id)
+        .reduce((sum, s) => sum + (Number(s.contribution_weight) || 0), 0);
+    const remainingContribution = Math.max(0, contributionTarget - contributionSiblingUsed);
+
     useEffect(() => {
         if (!isOpen) return;
 
@@ -176,6 +192,7 @@ export function CreatePlanNodeModal({
                 description: node.description,
                 weight: node.weight,
                 weight_mode: node.weight_mode,
+                contribution_weight: node.contribution_weight ?? 0,
                 target_unit: node.target_unit,
                 level: node.level,
                 assignment_sharing_mode: node.assignment_sharing_mode ?? "exclusive",
@@ -188,6 +205,7 @@ export function CreatePlanNodeModal({
                 description: "",
                 weight: 0,
                 weight_mode: null,
+                contribution_weight: 0,
                 target_unit: null,
                 level: nodeLevel,
                 assignment_sharing_mode: parentNode?.assignment_sharing_mode ?? "exclusive",
@@ -219,6 +237,23 @@ export function CreatePlanNodeModal({
             return;
         }
 
+        if (requiresContribution && values.contribution_weight <= 0) {
+            form.setError("contribution_weight", {
+                message: `${CONTRIBUTION_FIELD_LABEL} is required at this level`,
+            });
+            return;
+        }
+
+        if (
+            requiresContribution &&
+            contributionSiblingUsed + values.contribution_weight > contributionTarget + 0.001
+        ) {
+            form.setError("contribution_weight", {
+                message: `Combined sibling contribution cannot exceed ${contributionTarget}%`,
+            });
+            return;
+        }
+
         try {
             const modeToSave = showWeightModeSelect
                 ? values.weight_mode
@@ -231,6 +266,7 @@ export function CreatePlanNodeModal({
                 description: values.description,
                 weight: requiresWeight ? values.weight : 0,
                 weight_mode: requiresWeight ? modeToSave : null,
+                contribution_weight: requiresContribution ? values.contribution_weight : null,
                 target_unit:
                     requiresWeight && modeToSave === "number"
                         ? showWeightModeSelect
@@ -386,6 +422,29 @@ export function CreatePlanNodeModal({
                                                 {parentNode ? ` (parent ${TARGET_FIELD_LABEL.toLowerCase()})` : ""}.
                                             </FormDescription>
                                         )}
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+
+                        {canEnterContribution && (
+                            <FormField
+                                control={form.control}
+                                name="contribution_weight"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>{CONTRIBUTION_FIELD_LABEL} (%)</FormLabel>
+                                        <FormControl>
+                                            <Input type="number" min={0} max={100} step="any" {...field} />
+                                        </FormControl>
+                                        <FormDescription>
+                                            {contributionSiblingUsed > 0
+                                                ? `${contributionSiblingUsed}% used by siblings. `
+                                                : ""}
+                                            Up to {remainingContribution}% remaining of {contributionTarget}%
+                                            {parentNode ? " for this parent" : ""}.
+                                        </FormDescription>
                                         <FormMessage />
                                     </FormItem>
                                 )}

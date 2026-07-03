@@ -2,6 +2,7 @@
 
 const { PlanNode, PlanVersion } = require("../models");
 const { resolvePlanRuleForVersion } = require("./planRuleService");
+const { stepRequiresContributionWeight } = require("./planRuleStepUtils");
 const {
   nodeContributesToRollup,
 } = require("../utils/planAchievementRollupUtils");
@@ -107,6 +108,34 @@ function averageChildPercentages(childMetrics) {
   return roundPercent(total / childMetrics.length);
 }
 
+function weightedChildPercentages(childMetrics, childNodes) {
+  if (childMetrics.length === 0) return null;
+
+  const pairs = childMetrics.map((metrics, index) => ({
+    metrics,
+    node: childNodes[index],
+  }));
+
+  const totalWeight = pairs.reduce(
+    (sum, pair) => sum + (Number(pair.node.contribution_weight) || 0),
+    0
+  );
+
+  if (totalWeight <= 0) {
+    return averageChildPercentages(childMetrics);
+  }
+
+  const weightedSum = pairs.reduce(
+    (sum, pair) =>
+      sum +
+      (pair.metrics.execution_progress_percent ?? 0) *
+        (Number(pair.node.contribution_weight) || 0),
+    0
+  );
+
+  return roundPercent(weightedSum / totalWeight);
+}
+
 function subtreeHasContributingData(node, memo, childrenByParent) {
   const metrics = memo.get(node.plan_node_id);
   if (metrics?.has_contributing_data) {
@@ -118,10 +147,11 @@ function subtreeHasContributingData(node, memo, childrenByParent) {
 }
 
 /**
- * Recursive performance rollup — depth-agnostic, average of evaluable children.
+ * Recursive performance rollup — depth-agnostic.
+ * Uses weighted child average when the child level requires contribution weight; otherwise equal average.
  * Parent override nodes with a target are evaluated as a single leaf unit.
  */
-function computeNodeRollup(node, childrenByParent, memo, rollupContext = {}) {
+function computeNodeRollup(node, childrenByParent, memo, rollupContext = {}, rule = null) {
   if (memo.has(node.plan_node_id)) {
     return memo.get(node.plan_node_id);
   }
@@ -139,23 +169,32 @@ function computeNodeRollup(node, childrenByParent, memo, rollupContext = {}) {
   if (treatAsLeaf) {
     if (children.length > 0) {
       for (const child of children) {
-        computeNodeRollup(child, childrenByParent, memo, rollupContext);
+        computeNodeRollup(child, childrenByParent, memo, rollupContext, rule);
       }
     }
     result = evaluateLeafNode(node, rollupContext);
   } else {
     for (const child of children) {
-      computeNodeRollup(child, childrenByParent, memo, rollupContext);
+      computeNodeRollup(child, childrenByParent, memo, rollupContext, rule);
     }
 
-    const evaluableChildren = children
-      .map((child) => memo.get(child.plan_node_id))
-      .filter((metrics) => metrics?.is_evaluable);
+    const evaluableChildNodes = children.filter((child) => {
+      const metrics = memo.get(child.plan_node_id);
+      return metrics?.is_evaluable;
+    });
+    const evaluableChildren = evaluableChildNodes.map((child) => memo.get(child.plan_node_id));
 
     if (evaluableChildren.length === 0) {
       result = emptyNodeMetrics();
     } else {
-      const percent = averageChildPercentages(evaluableChildren);
+      const useWeighted =
+        rule &&
+        children.length > 0 &&
+        stepRequiresContributionWeight(rule, children[0].level);
+
+      const percent = useWeighted
+        ? weightedChildPercentages(evaluableChildren, evaluableChildNodes)
+        : averageChildPercentages(evaluableChildren);
       result = {
         execution_progress_percent: percent,
         is_evaluable: true,
@@ -184,7 +223,7 @@ function buildChildrenByParent(nodes) {
   return childrenByParent;
 }
 
-function computeRollupMap(nodes, rollupContext = {}) {
+function computeRollupMap(nodes, rollupContext = {}, rule = null) {
   if (!nodes.length) {
     return new Map();
   }
@@ -198,7 +237,7 @@ function computeRollupMap(nodes, rollupContext = {}) {
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   for (const root of roots) {
-    computeNodeRollup(root, childrenByParent, memo, rollupContext);
+    computeNodeRollup(root, childrenByParent, memo, rollupContext, rule);
   }
 
   return memo;
@@ -230,8 +269,8 @@ function aggregateEvaluableNodeMetrics(nodeMetrics) {
   };
 }
 
-function computeVersionProgressFromRoots(nodes, rollupContext = {}) {
-  const rollupMap = computeRollupMap(nodes, rollupContext);
+function computeVersionProgressFromRoots(nodes, rollupContext = {}, rule = null) {
+  const rollupMap = computeRollupMap(nodes, rollupContext, rule);
   const nodeById = new Map(nodes.map((node) => [node.plan_node_id, node]));
   const childrenByParent = buildChildrenByParent(nodes);
 
@@ -263,7 +302,7 @@ async function computePeriodExecutionProgress(periodVersionId, transaction = nul
     };
   }
 
-  await resolvePlanRuleForVersion(version, transaction);
+  const rule = await resolvePlanRuleForVersion(version, transaction);
   const nodes = await PlanNode.findAll({
     where: { plan_version_id: periodVersionId, is_active: true },
     transaction,
@@ -272,7 +311,7 @@ async function computePeriodExecutionProgress(periodVersionId, transaction = nul
   const plainNodes = nodes.map((node) => (node.toJSON ? node.toJSON() : node));
   const rollupContext = await buildRollupContextForPeriod(periodVersionId, transaction);
 
-  return computeVersionProgressFromRoots(plainNodes, rollupContext);
+  return computeVersionProgressFromRoots(plainNodes, rollupContext, rule);
 }
 
 /**
