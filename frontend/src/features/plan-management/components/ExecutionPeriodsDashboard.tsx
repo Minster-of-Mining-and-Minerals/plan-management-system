@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, CheckCircle, Clock } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,13 +28,17 @@ import { PerformanceColorBadge } from "./PerformanceColorBadge";
 import { EvaluationStatusBadge } from "./EvaluationStatusBadge";
 import { getPlanViewBasePath } from "@/utils/planReviewUtils";
 import {
-    canShowPeriodExecutionCompleteAction,
+    canShowPeriodCompleteButton,
+    isPeriodReadyToComplete,
     getExecutionStatusLabel,
     resolvePlanNavigationVersionId,
     resolvePlanVersionStatusLabel,
+    resolveWorkflowDisplayStatus,
+    resolveExecutionEvaluationStatus,
 } from "@/utils/planExecutionUtils";
 import { cn } from "@/lib/utils";
 import { PlanDetailLoadingPanel } from "./PlanDetailLoadingStates";
+import { PeriodCompleteValidationModal } from "./PeriodCompleteValidationModal";
 
 interface ExecutionPeriodsDashboardProps {
     annualVersion: PlanVersion;
@@ -74,6 +79,7 @@ export function ExecutionPeriodsDashboard({
 
     const { data, isLoading, refetch } = useGetExecutionPeriodsQuery(annualVersion.plan_version_id);
     const [completePeriod, { isLoading: isCompleting }] = useCompleteExecutionPeriodMutation();
+    const [validationPeriod, setValidationPeriod] = useState<PlanVersion | null>(null);
 
     const annual = data?.annual ?? annualVersion;
     const executionPeriods =
@@ -82,7 +88,16 @@ export function ExecutionPeriodsDashboard({
     const periodsInitialized = Boolean(annual.period_subdivision_mode);
     const periodTargetsFinalized = Boolean(annual.period_targets_finalized_at);
 
-    const handleComplete = async (versionId: string, periodLabel: string) => {
+    const handleComplete = async (
+        period: PlanVersion,
+        versionId: string,
+        periodLabel: string
+    ) => {
+        if (!isPeriodReadyToComplete(period)) {
+            setValidationPeriod(period);
+            return;
+        }
+
         if (
             !(await actionFeedback.confirm(`Mark ${periodLabel} as completed?`))
         ) {
@@ -156,6 +171,21 @@ export function ExecutionPeriodsDashboard({
 
     return (
         <div className="space-y-4">
+            {validationPeriod && (
+                <PeriodCompleteValidationModal
+                    open
+                    onOpenChange={(open) => {
+                        if (!open) setValidationPeriod(null);
+                    }}
+                    period={validationPeriod}
+                    periodLabel={
+                        validationPeriod.period_label ??
+                        `Period ${validationPeriod.sequence_index}`
+                    }
+                    plansBasePath={plansBasePath}
+                    processStarted={processStarted}
+                />
+            )}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <h2 className="text-lg font-semibold text-gray-900">Execution Period Versions</h2>
@@ -270,7 +300,12 @@ export function ExecutionPeriodsDashboard({
                                             </p>
                                             {period.execution_evaluation_status && (
                                                 <EvaluationStatusBadge
-                                                    status={period.execution_evaluation_status}
+                                                    status={
+                                                        resolveExecutionEvaluationStatus(
+                                                            period,
+                                                            processStarted
+                                                        )
+                                                    }
                                                     className="mt-1 text-[9px] py-0 h-4"
                                                 />
                                             )}
@@ -293,22 +328,26 @@ export function ExecutionPeriodsDashboard({
                     const isCompleted =
                         period.execution_status === "completed" || period.status === "completed";
                     const periodLabel = period.period_label ?? `Period ${period.sequence_index}`;
-                    const showComplete = canShowPeriodExecutionCompleteAction(
+                    const showCompleteButton = canShowPeriodCompleteButton(
                         period,
                         processStarted,
                         periodTargetsFinalized
                     );
+                    const periodReadyToComplete = isPeriodReadyToComplete(period);
                     const needsActuals =
                         processStarted &&
                         period.execution_status === "open" &&
-                        period.execution_actuals_ready === false;
+                        !periodReadyToComplete;
                     const readiness = period.execution_actuals_readiness;
                     const pendingApprovals = readiness?.pending_approval_count ?? 0;
+                    const rejectedCount = readiness?.rejected_count ?? 0;
                     const readinessSummary =
                         readiness && readiness.required_count > 0
                             ? pendingApprovals > 0
-                                ? `${readiness.approved_count ?? readiness.recorded_count ?? 0}/${readiness.required_count} approved · ${pendingApprovals} pending`
-                                : `${readiness.approved_count ?? readiness.recorded_count ?? 0}/${readiness.required_count} KPIs ready`
+                                ? `${readiness.approved_count ?? 0}/${readiness.required_count} approved · ${pendingApprovals} pending`
+                                : rejectedCount > 0
+                                  ? `${readiness.approved_count ?? 0}/${readiness.required_count} approved · ${rejectedCount} rejected`
+                                  : `${readiness.approved_count ?? readiness.recorded_count ?? 0}/${readiness.required_count} KPIs ready`
                             : null;
                     const executionLocked =
                         processStarted &&
@@ -319,7 +358,7 @@ export function ExecutionPeriodsDashboard({
                     const showProgress = completion.visible && !executionLocked;
 
                     const statusAppearance = resolveWorkflowStatusAppearance(thresholds, {
-                        status: period.status ?? "draft",
+                        status: resolveWorkflowDisplayStatus(period, processStarted),
                         isLocked: executionLocked,
                         progress: completion,
                         statusLabel: resolvePlanVersionStatusLabel(
@@ -327,8 +366,12 @@ export function ExecutionPeriodsDashboard({
                             processStarted,
                             formatPlanningStatus
                         ),
-                        useAchievementColors: showProgress,
+                        useAchievementColors: showProgress && !isCompleted,
                     });
+                    const evaluationStatus = resolveExecutionEvaluationStatus(
+                        period,
+                        processStarted
+                    );
                     const progressColor = showProgress ? completion.color : LOCKED_STATUS_COLOR;
                     const progressValue = showProgress ? completion.percent : 0;
 
@@ -411,7 +454,7 @@ export function ExecutionPeriodsDashboard({
                                         />
                                         {period.execution_evaluation_status && (
                                             <EvaluationStatusBadge
-                                                status={period.execution_evaluation_status}
+                                                status={evaluationStatus}
                                                 className="text-[10px] py-0 h-5"
                                             />
                                         )}
@@ -425,16 +468,30 @@ export function ExecutionPeriodsDashboard({
                                 )}
 
                                 {needsActuals && (
-                                    <PerformanceColorBadge
-                                        color="#f59e0b"
-                                        label={
-                                            pendingApprovals > 0
-                                                ? "Pending achievement approvals"
-                                                : "Record all KPI achievements"
-                                        }
-                                        variant="outline"
-                                        className="gap-1 w-fit text-xs"
-                                    />
+                                    <button
+                                        type="button"
+                                        className="w-fit"
+                                        onClick={() => setValidationPeriod(period)}
+                                    >
+                                        <PerformanceColorBadge
+                                            color={
+                                                pendingApprovals > 0
+                                                    ? "#f59e0b"
+                                                    : rejectedCount > 0
+                                                      ? "#ef4444"
+                                                      : "#f59e0b"
+                                            }
+                                            label={
+                                                pendingApprovals > 0
+                                                    ? "Pending achievement approvals"
+                                                    : rejectedCount > 0
+                                                      ? "Rejected achievements need resubmit"
+                                                      : "Record all KPI achievements"
+                                            }
+                                            variant="outline"
+                                            className="gap-1 w-fit text-xs cursor-pointer hover:opacity-90"
+                                        />
+                                    </button>
                                 )}
                                 {executionOpen && (
                                     <PerformanceColorBadge
@@ -486,15 +543,21 @@ export function ExecutionPeriodsDashboard({
                                             : "Open execution"
                                           : "Open Plan"}
                                 </Button>
-                                {!isReviewMode && showComplete && (
+                                {!isReviewMode && showCompleteButton && (
                                     <PermissionGuard requireAll={PLAN_COMPLETE_PERIOD_PERMISSIONS}>
                                         <Button
-                                            variant="default"
+                                            variant={periodReadyToComplete ? "default" : "outline"}
                                             size="sm"
-                                            className="gap-2 flex-1"
+                                            className={cn(
+                                                "gap-2 flex-1",
+                                                !periodReadyToComplete &&
+                                                    "opacity-70 cursor-not-allowed"
+                                            )}
                                             disabled={isCompleting}
+                                            aria-disabled={!periodReadyToComplete}
                                             onClick={() =>
                                                 handleComplete(
+                                                    period,
                                                     period.execution_snapshot_plan_version_id ??
                                                         period.plan_version_id,
                                                     periodLabel

@@ -16,6 +16,11 @@ const {
   resolveManualAchievementEntry,
   getRequiredAchievementNodes,
 } = require("./planExecutionAchievementUtils");
+const {
+  buildDraftAlignedSortMeta,
+  buildHierarchyNumberMapFromFlatNodes,
+  formatReadinessNodeRef,
+} = require("../utils/planHierarchyUtils");
 
 async function loadPeriodAchievementContext(periodVersionId, transaction = null) {
   const version = await PlanVersion.findByPk(periodVersionId, { transaction });
@@ -47,15 +52,22 @@ async function getWeightLevelNodesWithPeriodTarget(periodVersionId, transaction 
 }
 
 async function computePeriodActualsReadiness(periodVersionId, transaction = null) {
-  const { requiredNodes } = await getWeightLevelNodesWithPeriodTarget(
+  const { requiredNodes, nodes, version } = await getWeightLevelNodesWithPeriodTarget(
     periodVersionId,
     transaction
   );
   const rollupContext = await buildRollupContextForPeriod(periodVersionId, transaction);
+  const sortMeta = version
+    ? await buildDraftAlignedSortMeta(version, nodes)
+    : new Map();
+  const hierarchyNumberMap = buildHierarchyNumberMapFromFlatNodes(nodes, sortMeta);
+  const mapReadinessNode = (node) => formatReadinessNodeRef(node, hierarchyNumberMap);
 
   const missing = [];
   const pendingApproval = [];
+  const rejected = [];
   let recordedCount = 0;
+  let approvedCount = 0;
 
   for (const node of requiredNodes) {
     if (hasRecordedAchievementValue(node)) {
@@ -63,30 +75,44 @@ async function computePeriodActualsReadiness(periodVersionId, transaction = null
     }
 
     if (isAchievementReadyForPeriodCompletion(node, rollupContext)) {
+      approvedCount += 1;
       continue;
     }
 
+    const status = resolveAchievementStatus(node);
     if (
       hasRecordedAchievementValue(node) &&
-      resolveAchievementStatus(node) === ACHIEVEMENT_STATUS.SUBMITTED
+      status === ACHIEVEMENT_STATUS.SUBMITTED
     ) {
       pendingApproval.push(node);
+    } else if (
+      hasRecordedAchievementValue(node) &&
+      status === ACHIEVEMENT_STATUS.REJECTED
+    ) {
+      rejected.push(node);
     } else {
       missing.push(node);
     }
   }
 
-  const approvedCount = requiredNodes.length - missing.length - pendingApproval.length;
+  const pendingApprovalNodes = pendingApproval.map(mapReadinessNode);
+  const rejectedNodes = rejected.map(mapReadinessNode);
+  const missingNodes = missing.map(mapReadinessNode);
 
   return {
     required_count: requiredNodes.length,
     recorded_count: recordedCount,
     approved_count: approvedCount,
     pending_approval_count: pendingApproval.length,
-    pending_approval_titles: pendingApproval.map((node) => node.title),
+    pending_approval_titles: pendingApprovalNodes.map((node) => node.label),
+    pending_approval_nodes: pendingApprovalNodes,
+    rejected_count: rejected.length,
+    rejected_titles: rejectedNodes.map((node) => node.label),
+    rejected_nodes: rejectedNodes,
     missing_count: missing.length,
-    missing_titles: missing.map((node) => node.title),
-    ready: requiredNodes.length === 0 || (missing.length === 0 && pendingApproval.length === 0),
+    missing_titles: missingNodes.map((node) => node.label),
+    missing_nodes: missingNodes,
+    ready: requiredNodes.length === 0 || approvedCount === requiredNodes.length,
   };
 }
 
@@ -220,6 +246,19 @@ async function validatePeriodReadyToComplete(periodVersionId, transaction = null
       return {
         ready: false,
         message: `Approve all pending achievements before completing this period (${preview}${suffix})`,
+        readiness,
+      };
+    }
+
+    if (readiness.rejected_count > 0) {
+      const preview = readiness.rejected_titles.slice(0, 3).join(", ");
+      const suffix =
+        readiness.rejected_titles.length > 3
+          ? ` and ${readiness.rejected_titles.length - 3} more`
+          : "";
+      return {
+        ready: false,
+        message: `Resubmit rejected achievements before completing this period (${preview}${suffix})`,
         readiness,
       };
     }

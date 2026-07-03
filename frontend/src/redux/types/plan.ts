@@ -13,6 +13,13 @@ export type ExecutionEvaluationStatus =
 export type PlanAccessRole = "owner" | "participant" | "oversight" | "global";
 
 export type PlanAchievementStatus = "empty" | "submitted" | "approved" | "rejected";
+
+export interface PlanExecutionReadinessNode {
+    plan_node_id: string;
+    title: string;
+    hierarchy_number?: string | null;
+    label: string;
+}
 export type PlanReviewStatus = "under_review" | "corrections_unlocked" | "review_completed";
 export type PeriodSubdivisionMode = "quarterly" | "semi_annual" | "custom";
 
@@ -77,9 +84,14 @@ export interface PlanVersion {
         approved_count?: number;
         pending_approval_count?: number;
         pending_approval_titles?: string[];
+        pending_approval_nodes?: PlanExecutionReadinessNode[];
+        rejected_count?: number;
+        rejected_titles?: string[];
+        rejected_nodes?: PlanExecutionReadinessNode[];
         missing_count?: number;
-        ready: boolean;
         missing_titles?: string[];
+        missing_nodes?: PlanExecutionReadinessNode[];
+        ready: boolean;
     };
     execution_has_recorded_actuals?: boolean;
     execution_has_contributing_progress?: boolean;

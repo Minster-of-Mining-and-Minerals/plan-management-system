@@ -44,7 +44,7 @@ import { FinalizeExecutionPeriodsModal } from "./modals/FinalizeExecutionPeriods
 import { usePlanVersionPlanningConfiguration } from "@/hooks/usePlanVersionPlanningConfiguration";
 import { formatStatus } from "@/utils/statusFormatter";
 import { canEditAnnualTargetForVersion, canEditPeriodTargetForVersion } from "@/utils/planDraftUtils";
-import { getExecutionStatusLabel, canEditPeriodActualForVersion, resolvePlanVersionStatusLabel } from "@/utils/planExecutionUtils";
+import { getExecutionStatusLabel, canEditPeriodActualForVersion, resolvePlanVersionStatusLabel, resolveWorkflowDisplayStatus, resolveExecutionEvaluationStatus } from "@/utils/planExecutionUtils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import {
@@ -417,7 +417,7 @@ export default function PlanHierarchyView({
 
     const versionStatusAppearance = version
         ? resolveWorkflowStatusAppearance(thresholds, {
-              status: version.status ?? "draft",
+              status: resolveWorkflowDisplayStatus(version, processStarted),
               isLocked:
                   processStarted &&
                   (version.execution_status === "locked" ||
@@ -429,8 +429,14 @@ export default function PlanHierarchyView({
                   processStarted,
                   versionPlanningStatusLabel
               ),
-              useAchievementColors: versionProgress?.visible ?? false,
+              useAchievementColors:
+                  (versionProgress?.visible ?? false) &&
+                  version.execution_status !== "completed",
           })
+        : null;
+
+    const versionEvaluationStatus = version
+        ? resolveExecutionEvaluationStatus(version, processStarted)
         : null;
 
     const canAddAtCurrentLevel =
@@ -1036,9 +1042,9 @@ export default function PlanHierarchyView({
                                                 {versionProgress.percent}% achievement
                                             </Badge>
                                         )}
-                                        {processStarted && version.execution_evaluation_status && (
+                                        {processStarted && versionEvaluationStatus && (
                                             <EvaluationStatusBadge
-                                                status={version.execution_evaluation_status}
+                                                status={versionEvaluationStatus}
                                             />
                                         )}
                                         {version.version_kind === "execution_period" && version.period_label && (

@@ -1,4 +1,8 @@
 import { PlanVersion } from "@/redux/types/plan";
+import type {
+    ExecutionEvaluationStatus,
+    PlanExecutionReadinessNode,
+} from "@/redux/types/plan";
 
 export type PlanExecutionStatus = "locked" | "open" | "completed";
 
@@ -28,8 +32,17 @@ export interface PlanVersionExecutionOverlay {
     execution_actuals_readiness?: {
         required_count: number;
         recorded_count: number;
-        ready: boolean;
+        approved_count?: number;
+        pending_approval_count?: number;
+        pending_approval_titles?: string[];
+        pending_approval_nodes?: PlanExecutionReadinessNode[];
+        rejected_count?: number;
+        rejected_titles?: string[];
+        rejected_nodes?: PlanExecutionReadinessNode[];
+        missing_count?: number;
         missing_titles?: string[];
+        missing_nodes?: PlanExecutionReadinessNode[];
+        ready: boolean;
     };
 }
 
@@ -73,6 +86,42 @@ export function resolvePlanVersionStatusLabel(
     return formatPlanningStatus(version);
 }
 
+/** Status token for workflow badges once execution has started. */
+export function resolveWorkflowDisplayStatus(
+    version: Pick<PlanVersion, "status" | "execution_status">,
+    processStarted: boolean
+): string {
+    if (!processStarted) {
+        return version.status ?? "draft";
+    }
+
+    if (version.execution_status === "completed") {
+        return "completed";
+    }
+
+    if (version.execution_status === "locked") {
+        return "locked";
+    }
+
+    if (version.execution_status === "open") {
+        return "active";
+    }
+
+    return version.status ?? "draft";
+}
+
+/** Closed execution periods should read as completed, not in-progress achievement. */
+export function resolveExecutionEvaluationStatus(
+    version: Pick<PlanVersion, "execution_status" | "execution_evaluation_status">,
+    processStarted: boolean
+): ExecutionEvaluationStatus | null | undefined {
+    if (processStarted && version.execution_status === "completed") {
+        return "completed";
+    }
+
+    return version.execution_evaluation_status;
+}
+
 export function resolvePlanNavigationVersionId(
     version: PlanVersion & PlanVersionExecutionOverlay,
     processStarted: boolean
@@ -101,13 +150,125 @@ export function canShowPeriodExecutionCompleteAction(
     processStarted: boolean,
     planningReady: boolean
 ): boolean {
+    return canShowPeriodCompleteButton(version, processStarted, planningReady);
+}
+
+/** Show Complete on open periods once execution has started and planning is ready. */
+export function canShowPeriodCompleteButton(
+    version: PlanVersion & PlanVersionExecutionOverlay,
+    processStarted: boolean,
+    planningReady: boolean
+): boolean {
     if (!processStarted || !planningReady) return false;
     if (version.status === "completed" || version.execution_status === "completed") {
         return false;
     }
-    if (version.execution_status !== "open") return false;
-    if (version.execution_actuals_ready === false) return false;
-    return true;
+    return version.execution_status === "open";
+}
+
+export function isPeriodReadyToComplete(
+    version: PlanVersion & PlanVersionExecutionOverlay
+): boolean {
+    return version.execution_actuals_ready !== false;
+}
+
+function formatTitlePreview(titles: string[] | undefined, max = 3): string {
+    const list = titles ?? [];
+    if (!list.length) return "";
+    const preview = list.slice(0, max).join(", ");
+    const suffix = list.length > max ? ` and ${list.length - max} more` : "";
+    return `${preview}${suffix}`;
+}
+
+export function buildPeriodCompleteValidationMessage(
+    readiness: PlanVersionExecutionOverlay["execution_actuals_readiness"] | null | undefined
+): string {
+    if (!readiness || readiness.required_count === 0) {
+        return "No required achievements are configured for this period.";
+    }
+
+    if ((readiness.pending_approval_count ?? 0) > 0) {
+        return `Approve all pending achievements before completing this period (${formatTitlePreview(
+            readiness.pending_approval_nodes?.map((node) => node.label) ??
+                readiness.pending_approval_titles
+        )})`;
+    }
+
+    if ((readiness.rejected_count ?? 0) > 0) {
+        return `Resubmit rejected achievements before completing this period (${formatTitlePreview(
+            readiness.rejected_nodes?.map((node) => node.label) ?? readiness.rejected_titles
+        )})`;
+    }
+
+    if ((readiness.missing_count ?? 0) > 0) {
+        return `Record and approve achievement for all required targets before completing this period (${formatTitlePreview(
+            readiness.missing_nodes?.map((node) => node.label) ?? readiness.missing_titles
+        )})`;
+    }
+
+    return "Complete all required achievements and approvals before closing this period.";
+}
+
+export type PeriodCompleteBlockingSection = {
+    key: "approval" | "rejected" | "missing";
+    title: string;
+    description: string;
+    nodes: PlanExecutionReadinessNode[];
+};
+
+export function resolvePeriodCompleteBlockingSections(
+    readiness: PlanVersionExecutionOverlay["execution_actuals_readiness"] | null | undefined
+): PeriodCompleteBlockingSection[] {
+    if (!readiness) return [];
+
+    const sections: PeriodCompleteBlockingSection[] = [];
+
+    if ((readiness.pending_approval_count ?? 0) > 0) {
+        sections.push({
+            key: "approval",
+            title: "Pending approval",
+            description: "Approve these achievements before completing this period.",
+            nodes:
+                readiness.pending_approval_nodes ??
+                (readiness.pending_approval_titles ?? []).map((title, index) => ({
+                    plan_node_id: `pending-${index}`,
+                    title,
+                    label: title,
+                })),
+        });
+    }
+
+    if ((readiness.rejected_count ?? 0) > 0) {
+        sections.push({
+            key: "rejected",
+            title: "Rejected",
+            description: "Resubmit these achievements before completing this period.",
+            nodes:
+                readiness.rejected_nodes ??
+                (readiness.rejected_titles ?? []).map((title, index) => ({
+                    plan_node_id: `rejected-${index}`,
+                    title,
+                    label: title,
+                })),
+        });
+    }
+
+    if ((readiness.missing_count ?? 0) > 0) {
+        sections.push({
+            key: "missing",
+            title: "Not recorded",
+            description: "Record and approve achievement for these targets.",
+            nodes:
+                readiness.missing_nodes ??
+                (readiness.missing_titles ?? []).map((title, index) => ({
+                    plan_node_id: `missing-${index}`,
+                    title,
+                    label: title,
+                })),
+        });
+    }
+
+    return sections;
 }
 
 /** Annual complete only after every period in that year is completed. */

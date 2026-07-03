@@ -311,11 +311,15 @@ async function applyExecutionProgressFields(version, snapshotVersionId, transact
 
   if (version.version_kind === "execution_period") {
     const progress = await computePeriodExecutionProgress(snapshotVersionId, transaction);
+    const snapshotPeriod = await PlanVersion.findByPk(snapshotVersionId, { transaction });
+    const executionClosed = snapshotPeriod?.execution_status === "completed";
     return {
       ...version,
       execution_progress_percent: progress.execution_progress_percent,
       execution_is_evaluable: progress.is_evaluable,
-      execution_evaluation_status: progress.evaluation_status,
+      execution_evaluation_status: executionClosed
+        ? "completed"
+        : progress.evaluation_status,
       computed_period_actual: progress.computed_period_actual,
       computed_period_target: progress.computed_period_target,
       execution_has_contributing_progress: progress.has_contributing_data,
@@ -325,11 +329,15 @@ async function applyExecutionProgressFields(version, snapshotVersionId, transact
 
   if (version.version_kind === "annual") {
     const annualProgress = await computeAnnualExecutionProgress(snapshotVersionId, transaction);
+    const snapshotAnnual = await PlanVersion.findByPk(snapshotVersionId, { transaction });
+    const executionClosed = snapshotAnnual?.execution_status === "completed";
     return {
       ...version,
       execution_progress_percent: annualProgress.execution_progress_percent,
       execution_is_evaluable: annualProgress.is_evaluable,
-      execution_evaluation_status: annualProgress.evaluation_status,
+      execution_evaluation_status: executionClosed
+        ? "completed"
+        : annualProgress.evaluation_status,
       execution_period_progress: annualProgress.execution_period_progress,
       execution_has_contributing_progress: annualProgress.has_contributing_data,
       execution_has_recorded_actuals: annualProgress.has_contributing_data,
@@ -506,6 +514,7 @@ async function enrichExecutionPeriodsWithExecution(liveAnnual, livePeriods, tran
   async function enrichPeriodRow(periodRow, snapshotPeriodId) {
     const readiness = await computePeriodActualsReadiness(snapshotPeriodId, transaction);
     const progress = await computePeriodExecutionProgress(snapshotPeriodId, transaction);
+    const executionClosed = periodRow.execution_status === "completed";
     return {
       ...periodRow,
       execution_actuals_ready: readiness.ready,
@@ -514,7 +523,9 @@ async function enrichExecutionPeriodsWithExecution(liveAnnual, livePeriods, tran
       execution_has_contributing_progress: progress.has_contributing_data,
       execution_progress_percent: progress.execution_progress_percent,
       execution_is_evaluable: progress.is_evaluable,
-      execution_evaluation_status: progress.evaluation_status,
+      execution_evaluation_status: executionClosed
+        ? "completed"
+        : progress.evaluation_status,
       computed_period_actual: progress.computed_period_actual,
       computed_period_target: progress.computed_period_target,
     };

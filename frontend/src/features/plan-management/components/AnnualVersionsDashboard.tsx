@@ -32,6 +32,8 @@ import {
     getExecutionStatusLabel,
     resolvePlanNavigationVersionId,
     resolvePlanVersionStatusLabel,
+    resolveWorkflowDisplayStatus,
+    resolveExecutionEvaluationStatus,
 } from "@/utils/planExecutionUtils";
 import { PerformanceProgressBar } from "./PerformanceProgressBar";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
@@ -279,7 +281,7 @@ export function AnnualVersionsDashboard({
                     const showProgress = completion.visible && !executionLocked;
 
                     const statusAppearance = resolveWorkflowStatusAppearance(thresholds, {
-                        status: annual.status ?? "draft",
+                        status: resolveWorkflowDisplayStatus(annual, processStarted),
                         isLocked: executionLocked,
                         progress: completion,
                         statusLabel: resolvePlanVersionStatusLabel(
@@ -287,8 +289,12 @@ export function AnnualVersionsDashboard({
                             processStarted,
                             formatPlanningStatus
                         ),
-                        useAchievementColors: showProgress,
+                        useAchievementColors: showProgress && !isCompleted,
                     });
+                    const evaluationStatus = resolveExecutionEvaluationStatus(
+                        annual,
+                        processStarted
+                    );
                     const progressColor = showProgress ? completion.color : LOCKED_STATUS_COLOR;
                     const progressValue = showProgress ? completion.percent : 0;
 
@@ -371,7 +377,7 @@ export function AnnualVersionsDashboard({
                                         />
                                         {annual.execution_evaluation_status && (
                                             <EvaluationStatusBadge
-                                                status={annual.execution_evaluation_status}
+                                                status={evaluationStatus}
                                                 className="text-[10px] py-0 h-5"
                                             />
                                         )}

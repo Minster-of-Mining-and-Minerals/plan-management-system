@@ -148,6 +148,58 @@ async function enrichPeriodNodesWithLiveAnnualTargets(planVersion, nodeMap, node
     }
 }
 
+function sortNodesByMeta(nodes, sortMetaByNodeId) {
+    return [...nodes].sort((a, b) =>
+        compareSortMeta(
+            sortMetaByNodeId.get(a.plan_node_id) ?? localNodeSortMeta(a),
+            sortMetaByNodeId.get(b.plan_node_id) ?? localNodeSortMeta(b)
+        )
+    );
+}
+
+/** Cascaded outline numbers from sibling order, e.g. 1 → 1.1 → 1.1.1 */
+function buildHierarchyNumberMapFromFlatNodes(flatNodes, sortMetaByNodeId) {
+    const activeNodes = flatNodes.filter((node) => node.is_active !== false);
+    const childrenByParent = new Map();
+
+    for (const node of activeNodes) {
+        if (!node.parent_id) continue;
+        const list = childrenByParent.get(node.parent_id) ?? [];
+        list.push(node);
+        childrenByParent.set(node.parent_id, list);
+    }
+
+    const roots = sortNodesByMeta(
+        activeNodes.filter((node) => !node.parent_id),
+        sortMetaByNodeId
+    );
+    const map = new Map();
+
+    function walk(nodes, parentNumber) {
+        sortNodesByMeta(nodes, sortMetaByNodeId).forEach((node, index) => {
+            const number = parentNumber ? `${parentNumber}.${index + 1}` : `${index + 1}`;
+            map.set(node.plan_node_id, number);
+            const children = childrenByParent.get(node.plan_node_id) ?? [];
+            if (children.length) {
+                walk(children, number);
+            }
+        });
+    }
+
+    walk(roots, null);
+    return map;
+}
+
+function formatReadinessNodeRef(node, hierarchyNumberMap) {
+    const hierarchyNumber = hierarchyNumberMap.get(node.plan_node_id) ?? null;
+    return {
+        plan_node_id: node.plan_node_id,
+        title: node.title,
+        hierarchy_number: hierarchyNumber,
+        label: hierarchyNumber ? `${hierarchyNumber} · ${node.title}` : node.title,
+    };
+}
+
 module.exports = {
     buildLocalSortMeta,
     buildDraftAlignedSortMeta,
@@ -155,4 +207,6 @@ module.exports = {
     sortFlatPlanNodes,
     compareSortMeta,
     enrichPeriodNodesWithLiveAnnualTargets,
+    buildHierarchyNumberMapFromFlatNodes,
+    formatReadinessNodeRef,
 };
