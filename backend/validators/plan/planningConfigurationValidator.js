@@ -23,7 +23,7 @@ const updatePlanningConfigurationSchema = Joi.object({
     )
     .min(1)
     .optional(),
-  breakdown_mode: Joi.string().valid("quarterly", "semi_annual", "custom").optional(),
+  breakdown_mode: Joi.string().valid("quarterly", "semi_annual", "monthly", "custom").optional(),
   custom_periods: Joi.array()
     .items(
       Joi.object({

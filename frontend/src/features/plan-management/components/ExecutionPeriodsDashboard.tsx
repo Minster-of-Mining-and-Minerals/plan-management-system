@@ -53,6 +53,7 @@ function formatPlanningStatus(version: Pick<PlanVersion, "status">): string {
 function formatSubdivisionMode(mode: string | null | undefined): string {
     if (mode === "quarterly") return "Quarterly";
     if (mode === "semi_annual") return "Semi-annual";
+    if (mode === "monthly") return "Monthly";
     if (mode === "custom") return "Custom";
     return "Not set";
 }

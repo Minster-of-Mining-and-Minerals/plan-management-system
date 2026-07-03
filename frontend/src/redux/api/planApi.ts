@@ -337,7 +337,7 @@ export const planApi = baseApi.injectEndpoints({
 
         initializeExecutionPeriods: builder.mutation<
             { data: PlanVersion; executionPeriods: PlanVersion[] },
-            { id: string; subdivision_mode: "quarterly" | "semi_annual" | "custom"; custom_periods?: { label: string }[] }
+            { id: string; subdivision_mode: "quarterly" | "semi_annual" | "monthly" | "custom"; custom_periods?: { label: string }[] }
         >({
             query: ({ id, subdivision_mode, custom_periods }) => ({
                 url: `/plan/versions/${id}/initialize-execution-periods`,

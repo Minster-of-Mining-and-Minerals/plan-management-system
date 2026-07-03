@@ -21,7 +21,7 @@ export interface PlanExecutionReadinessNode {
     label: string;
 }
 export type PlanReviewStatus = "under_review" | "corrections_unlocked" | "review_completed";
-export type PeriodSubdivisionMode = "quarterly" | "semi_annual" | "custom";
+export type PeriodSubdivisionMode = "quarterly" | "semi_annual" | "monthly" | "custom";
 
 export interface PlanVersion {
     plan_version_id: string;

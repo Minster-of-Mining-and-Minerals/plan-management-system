@@ -42,6 +42,11 @@ const SUBDIVISION_OPTIONS: {
         description: "Two halves for every annual year",
     },
     {
+        value: "monthly",
+        label: "Monthly",
+        description: "Jan–Dec (12 months) for every annual year",
+    },
+    {
         value: "custom",
         label: "Custom",
         description: "Same custom labels for every annual year",

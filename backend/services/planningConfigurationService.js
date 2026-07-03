@@ -30,6 +30,20 @@ const DEFAULT_PLANNING_CONFIG = {
 
 const QUARTERLY_PERIOD_LABELS = ["Q1", "Q2", "Q3", "Q4"];
 const SEMI_ANNUAL_PERIOD_LABELS = ["H1", "H2"];
+const MONTHLY_PERIOD_LABELS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
 function normalizeCustomPeriods(periods) {
   if (!Array.isArray(periods)) {
@@ -72,6 +86,9 @@ function resolvePeriodLabelsForMode(mode, customPeriods = []) {
   if (mode === "semi_annual") {
     return [...SEMI_ANNUAL_PERIOD_LABELS];
   }
+  if (mode === "monthly") {
+    return [...MONTHLY_PERIOD_LABELS];
+  }
   if (mode === "custom") {
     const normalized = normalizeCustomPeriods(customPeriods);
     if (!normalized.valid) {
@@ -83,7 +100,7 @@ function resolvePeriodLabelsForMode(mode, customPeriods = []) {
 }
 
 function validateBreakdownConfiguration(breakdownMode, customPeriods) {
-  if (!["quarterly", "semi_annual", "custom"].includes(breakdownMode)) {
+  if (!["quarterly", "semi_annual", "monthly", "custom"].includes(breakdownMode)) {
     return { valid: false, message: "Invalid breakdown mode." };
   }
   if (breakdownMode === "custom") {

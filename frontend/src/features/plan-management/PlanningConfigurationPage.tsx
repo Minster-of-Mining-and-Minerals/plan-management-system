@@ -521,15 +521,21 @@ export default function PlanningConfigurationPage() {
             </CardTitle>
             <CardDescription>
               Configure how active annual versions are divided into execution periods. Quarterly is
-              the default, but administrators can choose semi-annual or define custom periods.
+              the default, but administrators can choose semi-annual, monthly (12 months), or define
+              custom periods.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {(
                 [
                   { value: "quarterly" as BreakdownMode, label: "Quarterly", preview: "Q1, Q2, Q3, Q4" },
                   { value: "semi_annual" as BreakdownMode, label: "Semi-Annual", preview: "H1, H2" },
+                  {
+                    value: "monthly" as BreakdownMode,
+                    label: "Monthly",
+                    preview: "Jan–Dec (12 months)",
+                  },
                   { value: "custom" as BreakdownMode, label: "Custom", preview: "Administrator-defined" },
                 ] as const
               ).map((option) => (

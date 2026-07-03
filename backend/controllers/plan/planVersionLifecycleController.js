@@ -283,7 +283,7 @@ async function initializeExecutionPeriodsForAnnual(req, res) {
             return res.status(400).json({ success: false, message: "Invalid ID" });
         }
 
-        if (!["quarterly", "semi_annual", "custom"].includes(subdivision_mode)) {
+        if (!["quarterly", "semi_annual", "monthly", "custom"].includes(subdivision_mode)) {
             return res.status(400).json({ success: false, message: "Invalid subdivision mode" });
         }
 

@@ -167,7 +167,7 @@ module.exports = (sequelize, DataTypes) => {
             },
 
             period_subdivision_mode: {
-                type: DataTypes.ENUM("quarterly", "semi_annual", "custom"),
+                type: DataTypes.ENUM("quarterly", "semi_annual", "monthly", "custom"),
                 allowNull: true,
             },
 

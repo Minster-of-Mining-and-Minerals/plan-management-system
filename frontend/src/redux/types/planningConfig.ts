@@ -4,7 +4,7 @@ export interface TargetUnit {
   symbol: string;
 }
 
-export type BreakdownMode = "quarterly" | "semi_annual" | "custom";
+export type BreakdownMode = "quarterly" | "semi_annual" | "monthly" | "custom";
 
 export interface CustomPeriod {
   label: string;
