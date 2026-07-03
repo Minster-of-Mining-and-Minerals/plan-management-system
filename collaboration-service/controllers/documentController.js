@@ -19,7 +19,7 @@ async function listDocuments(req, res) {
 
 async function createDocument(req, res) {
   try {
-    const { title, ownerApp, ownerType, ownerId } = req.body;
+    const { title, ownerApp, ownerType, ownerId, fileType } = req.body;
 
     const document = await documentService.createDocument({
       title,
@@ -29,6 +29,7 @@ async function createDocument(req, res) {
       createdBy: req.user.user_id,
       accessToken: req.accessToken,
       uploadedFile: req.file || null,
+      fileType: fileType || "docx",
     });
 
     return res.status(201).json({ success: true, data: document });

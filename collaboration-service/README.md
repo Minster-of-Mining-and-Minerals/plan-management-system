@@ -52,7 +52,7 @@ All user endpoints require `Authorization: Bearer <main-app-jwt>`.
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/v1/documents` | List documents (`?ownerType=plan_version&ownerId=...`) |
-| `POST` | `/api/v1/documents` | Create document (JSON or multipart with `file`) |
+| `POST` | `/api/v1/documents` | Create document (JSON with optional `fileType: docx\|xlsx`, or multipart with `file`) |
 | `GET` | `/api/v1/documents/:id` | Document metadata |
 | `DELETE` | `/api/v1/documents/:id` | Delete document |
 | `GET` | `/api/v1/documents/:id/editor-session` | ONLYOFFICE config for current user |

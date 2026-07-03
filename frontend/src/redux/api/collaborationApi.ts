@@ -93,6 +93,7 @@ export const collaborationApi = createApi({
           if (payload.ownerApp) formData.append("ownerApp", payload.ownerApp);
           if (payload.ownerType) formData.append("ownerType", payload.ownerType);
           if (payload.ownerId) formData.append("ownerId", payload.ownerId);
+          if (payload.fileType) formData.append("fileType", payload.fileType);
           formData.append("file", payload.file);
           return { url: "/documents", method: "POST", body: formData };
         }
@@ -102,6 +103,7 @@ export const collaborationApi = createApi({
           method: "POST",
           body: {
             title: payload.title,
+            fileType: payload.fileType,
             ownerApp: payload.ownerApp,
             ownerType: payload.ownerType,
             ownerId: payload.ownerId,

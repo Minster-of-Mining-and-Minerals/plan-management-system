@@ -57,6 +57,7 @@ export interface VersionEditorSession extends EditorSession {
 
 export interface CreateDocumentPayload {
   title: string;
+  fileType?: DocumentFileType;
   ownerApp?: string;
   ownerType?: DocumentOwnerType;
   ownerId?: string | null;

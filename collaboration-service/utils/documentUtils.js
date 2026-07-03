@@ -29,9 +29,30 @@ function onlyofficeDocumentType(fileType) {
   return "word";
 }
 
+const BLANK_CREATE_FILE_TYPES = new Set(["docx", "xlsx"]);
+
+function normalizeFileType(fileType) {
+  const normalized = String(fileType || "docx").toLowerCase();
+  return inferFileType(`file.${normalized}`) || null;
+}
+
+function defaultFileNameForType(title, fileType) {
+  const ext = fileType || "docx";
+  const fallbackTitle = ext === "xlsx" ? "spreadsheet" : "document";
+  const base = (title || fallbackTitle).replace(/\.[^.]+$/, "");
+  return `${base}.${ext}`;
+}
+
+function canCreateBlank(fileType) {
+  return BLANK_CREATE_FILE_TYPES.has(fileType);
+}
+
 module.exports = {
   generateDocumentKey,
   inferFileType,
   mimeTypeForFileType,
   onlyofficeDocumentType,
+  normalizeFileType,
+  defaultFileNameForType,
+  canCreateBlank,
 };

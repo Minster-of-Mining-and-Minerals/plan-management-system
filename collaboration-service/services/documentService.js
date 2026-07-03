@@ -3,6 +3,9 @@ const {
   generateDocumentKey,
   inferFileType,
   mimeTypeForFileType,
+  normalizeFileType,
+  defaultFileNameForType,
+  canCreateBlank,
 } = require("../utils/documentUtils");
 const storageService = require("./storageService");
 const policyService = require("./policyService");
@@ -112,6 +115,7 @@ async function createDocument({
   createdBy,
   accessToken,
   uploadedFile = null,
+  fileType: requestedFileType = "docx",
 }) {
   const createAccess = await policyService.resolveCreateAccess({
     ownerType,
@@ -123,19 +127,28 @@ async function createDocument({
     throw forbidden("Not allowed to create documents in this context");
   }
 
-  const fileType = uploadedFile ? inferFileType(uploadedFile.originalname) : "docx";
+  const fileType = uploadedFile
+    ? inferFileType(uploadedFile.originalname)
+    : normalizeFileType(requestedFileType);
+
   if (!fileType) {
     throw new Error("Unsupported file type");
   }
 
-  const fileName = uploadedFile?.originalname || `${title || "document"}.docx`;
+  if (!uploadedFile && !canCreateBlank(fileType)) {
+    const error = new Error(`Blank creation is not supported for ${fileType}`);
+    error.status = 400;
+    throw error;
+  }
+
+  const fileName = uploadedFile?.originalname || defaultFileNameForType(title, fileType);
   const destinationPath = storageService.buildStoragePath(fileName);
 
   if (uploadedFile) {
     storageService.writeUploadedFile(uploadedFile.path, destinationPath);
     storageService.removeFile(uploadedFile.path);
   } else {
-    storageService.copyBlankTemplate(destinationPath);
+    storageService.copyBlankTemplate(destinationPath, fileType);
   }
 
   const documentKey = generateDocumentKey();

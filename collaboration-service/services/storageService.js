@@ -5,7 +5,10 @@ const { v4: uuidv4 } = require("uuid");
 const STORAGE_ROOT = path.resolve(
   process.env.DOCUMENT_STORAGE_PATH || path.join(__dirname, "../storage/documents")
 );
-const BLANK_TEMPLATE = path.join(__dirname, "../templates/blank.docx");
+const BLANK_TEMPLATES = {
+  docx: path.join(__dirname, "../templates/blank.docx"),
+  xlsx: path.join(__dirname, "../templates/blank.xlsx"),
+};
 
 function ensureStorageRoot() {
   if (!fs.existsSync(STORAGE_ROOT)) {
@@ -19,11 +22,12 @@ function buildStoragePath(fileName) {
   return path.join(STORAGE_ROOT, `${uuidv4()}_${safeName}`);
 }
 
-function copyBlankTemplate(destinationPath) {
-  if (!fs.existsSync(BLANK_TEMPLATE)) {
-    throw new Error("Blank document template is missing");
+function copyBlankTemplate(destinationPath, fileType = "docx") {
+  const templatePath = BLANK_TEMPLATES[fileType];
+  if (!templatePath || !fs.existsSync(templatePath)) {
+    throw new Error(`Blank ${fileType} template is missing`);
   }
-  fs.copyFileSync(BLANK_TEMPLATE, destinationPath);
+  fs.copyFileSync(templatePath, destinationPath);
 }
 
 function writeUploadedFile(sourcePath, destinationPath) {
