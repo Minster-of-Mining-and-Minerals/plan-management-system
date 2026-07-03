@@ -15,6 +15,7 @@ import { actionFeedback } from "@/components/action-feedback";
 import {
     resolveCompletionForVersion,
     resolveWorkflowStatusAppearance,
+    LOCKED_STATUS_COLOR,
 } from "@/utils/performanceColorUtils";
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
 import { PermissionGuard } from "@/utils/PermissionGuard";
@@ -214,17 +215,38 @@ export function ExecutionPeriodsDashboard({
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 {executionPeriods.map((period) => {
+                                    const periodLocked =
+                                        processStarted && period.execution_status === "locked";
                                     const periodCompletion = resolveCompletionForVersion(
                                         thresholds,
                                         period,
                                         processStarted
                                     );
                                     if (
+                                        !periodLocked &&
                                         !periodCompletion.visible &&
                                         !period.execution_is_evaluable
                                     ) {
                                         return null;
                                     }
+
+                                    if (periodLocked) {
+                                        return (
+                                            <div
+                                                key={period.plan_version_id}
+                                                className="rounded-lg border bg-muted/40 px-3 py-2 text-center min-w-[88px]"
+                                                style={{ borderColor: LOCKED_STATUS_COLOR }}
+                                            >
+                                                <p className="text-xs font-semibold text-gray-700">
+                                                    {period.period_label}
+                                                </p>
+                                                <p className="text-xs font-medium text-muted-foreground mt-0.5">
+                                                    Locked
+                                                </p>
+                                            </div>
+                                        );
+                                    }
+
                                     const miniColor = periodCompletion.visible
                                         ? periodCompletion.color
                                         : "#9CA3AF";
@@ -294,34 +316,37 @@ export function ExecutionPeriodsDashboard({
                         !isCompleted;
                     const executionOpen =
                         processStarted && period.execution_status === "open";
+                    const showProgress = completion.visible && !executionLocked;
 
                     const statusAppearance = resolveWorkflowStatusAppearance(thresholds, {
                         status: period.status ?? "draft",
-                        isLocked:
-                            processStarted &&
-                            (executionLocked ||
-                                period.execution_status === "locked" ||
-                                Boolean(period.is_locked)),
+                        isLocked: executionLocked,
                         progress: completion,
                         statusLabel: resolvePlanVersionStatusLabel(
                             period,
                             processStarted,
                             formatPlanningStatus
                         ),
-                        useAchievementColors: completion.visible,
+                        useAchievementColors: showProgress,
                     });
-                    const progressColor = completion.visible ? completion.color : "#9CA3AF";
-                    const progressValue = completion.visible ? completion.percent : 0;
+                    const progressColor = showProgress ? completion.color : LOCKED_STATUS_COLOR;
+                    const progressValue = showProgress ? completion.percent : 0;
 
                     return (
                         <Card
                             key={period.plan_version_id}
                             className={cn(
                                 "relative flex flex-col overflow-hidden transition-shadow hover:shadow-md",
-                                isCompleted && "opacity-90 bg-muted/20"
+                                isCompleted && "opacity-90 bg-muted/20",
+                                executionLocked && "bg-muted/40 border-muted-foreground/30"
                             )}
+                            style={
+                                executionLocked
+                                    ? { borderColor: LOCKED_STATUS_COLOR }
+                                    : undefined
+                            }
                         >
-                            {completion.visible && (
+                            {showProgress && (
                                 <div
                                     className="absolute top-0 left-0 right-0 h-1"
                                     style={{
@@ -336,9 +361,11 @@ export function ExecutionPeriodsDashboard({
                                             <Clock
                                                 className="h-4 w-4 shrink-0 text-muted-foreground"
                                                 style={
-                                                    completion.visible
+                                                    showProgress
                                                         ? { color: progressColor }
-                                                        : undefined
+                                                        : executionLocked
+                                                          ? { color: LOCKED_STATUS_COLOR }
+                                                          : undefined
                                                 }
                                             />
                                             {periodLabel}
@@ -359,7 +386,7 @@ export function ExecutionPeriodsDashboard({
                             </CardHeader>
 
                             <CardContent className="flex-1 space-y-3">
-                                {completion.visible && (
+                                {showProgress && (
                                     <>
                                         <div className="space-y-1.5">
                                             <div className="flex justify-between text-xs text-muted-foreground">
@@ -419,7 +446,7 @@ export function ExecutionPeriodsDashboard({
                                 )}
                                 {executionLocked && (
                                     <PerformanceColorBadge
-                                        color="#94a3b8"
+                                        color={LOCKED_STATUS_COLOR}
                                         label="Locked until prior period completes"
                                         variant="outline"
                                         className="gap-1 w-fit text-xs"

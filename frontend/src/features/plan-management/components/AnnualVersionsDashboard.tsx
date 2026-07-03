@@ -15,6 +15,7 @@ import { actionFeedback } from "@/components/action-feedback";
 import {
     resolveCompletionForVersion,
     resolveWorkflowStatusAppearance,
+    LOCKED_STATUS_COLOR,
 } from "@/utils/performanceColorUtils";
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
 import { PermissionGuard } from "@/utils/PermissionGuard";
@@ -275,34 +276,37 @@ export function AnnualVersionsDashboard({
                         !isCompleted;
                     const executionOpen =
                         processStarted && annual.execution_status === "open";
+                    const showProgress = completion.visible && !executionLocked;
 
                     const statusAppearance = resolveWorkflowStatusAppearance(thresholds, {
                         status: annual.status ?? "draft",
-                        isLocked:
-                            processStarted &&
-                            (executionLocked ||
-                                annual.execution_status === "locked" ||
-                                Boolean(annual.is_locked)),
+                        isLocked: executionLocked,
                         progress: completion,
                         statusLabel: resolvePlanVersionStatusLabel(
                             annual,
                             processStarted,
                             formatPlanningStatus
                         ),
-                        useAchievementColors: completion.visible,
+                        useAchievementColors: showProgress,
                     });
-                    const progressColor = completion.visible ? completion.color : "#9CA3AF";
-                    const progressValue = completion.visible ? completion.percent : 0;
+                    const progressColor = showProgress ? completion.color : LOCKED_STATUS_COLOR;
+                    const progressValue = showProgress ? completion.percent : 0;
 
                     return (
                         <Card
                             key={annual.plan_version_id}
                             className={cn(
                                 "relative flex flex-col overflow-hidden transition-shadow hover:shadow-md",
-                                isCompleted && "opacity-90 bg-muted/20"
+                                isCompleted && "opacity-90 bg-muted/20",
+                                executionLocked && "bg-muted/40 border-muted-foreground/30"
                             )}
+                            style={
+                                executionLocked
+                                    ? { borderColor: LOCKED_STATUS_COLOR }
+                                    : undefined
+                            }
                         >
-                            {completion.visible && (
+                            {showProgress && (
                                 <div
                                     className="absolute top-0 left-0 right-0 h-1"
                                     style={{
@@ -317,9 +321,11 @@ export function AnnualVersionsDashboard({
                                             <CalendarDays
                                                 className="h-4 w-4 shrink-0 text-muted-foreground"
                                                 style={
-                                                    completion.visible
+                                                    showProgress
                                                         ? { color: progressColor }
-                                                        : undefined
+                                                        : executionLocked
+                                                          ? { color: LOCKED_STATUS_COLOR }
+                                                          : undefined
                                                 }
                                             />
                                             {annual.planning_year}
@@ -340,7 +346,7 @@ export function AnnualVersionsDashboard({
                             </CardHeader>
 
                             <CardContent className="flex-1 space-y-3">
-                                {completion.visible && (
+                                {showProgress && (
                                     <>
                                         <div className="space-y-1.5">
                                             <div className="flex justify-between text-xs text-muted-foreground">
@@ -401,7 +407,7 @@ export function AnnualVersionsDashboard({
                                 )}
                                 {executionLocked && (
                                     <PerformanceColorBadge
-                                        color="#94a3b8"
+                                        color={LOCKED_STATUS_COLOR}
                                         label="Locked until prior year completes"
                                         variant="outline"
                                         className="gap-1 w-fit text-xs"
