@@ -20,6 +20,7 @@
     "db:fresh": "sequelize-cli db:drop && sequelize-cli db:create && sequelize-cli db:migrate && sequelize-cli db:seed:all",
     "db:baseline:mark": "node scripts/mark-baseline-migrations.js",
     "seed": "sequelize-cli db:seed:all",
+    "seed:diagram-images": "node scripts/seedMedicalDiagramImages.js",
     "seed:undo": "sequelize-cli db:seed:undo:all",
     "make:migration": "sequelize-cli migration:generate --name",
     "make:seed": "sequelize-cli seed:generate --name",
