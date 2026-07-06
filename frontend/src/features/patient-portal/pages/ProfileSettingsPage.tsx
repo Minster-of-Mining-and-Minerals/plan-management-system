@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useGetMyPatientProfileQuery } from "@/redux/api/patientApi";
+import { useUpdatePatientPortalProfileMutation } from "@/redux/api/patientPortalApi";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,23 +23,94 @@ import { Link } from "@/i18n/navigation";
 import { toast } from "sonner";
 import { PatientPortalShell } from "../components/PatientPortalShell";
 import { DemoBanner } from "../components/DemoBanner";
-import {
-  MOCK_EMERGENCY_CONTACTS,
-  MOCK_INSURANCE,
-} from "../data/mockPatientPortalData";
+
+type EmergencyContact = {
+  name?: string;
+  relationship?: string;
+  phone?: string;
+  address?: string;
+};
 
 export function ProfileSettingsPage() {
   const { data: session } = useSession();
   const { data, isLoading } = useGetMyPatientProfileQuery();
+  const [updateProfile, { isLoading: saving }] = useUpdatePatientPortalProfileMutation();
 
-  if (isLoading) return <Loading01 />;
+  const [phone, setPhone] = useState("");
+  const [preferredLanguage, setPreferredLanguage] = useState("en");
+  const [insurance, setInsurance] = useState<Record<string, string>>({});
+  const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([]);
 
   const profile = data?.profile;
 
-  const handleSave = () => {
-    toast.success("Settings saved — demo", {
-      description: "Profile updates use the live API when fields are wired.",
-    });
+  useEffect(() => {
+    if (!data) return;
+    setPhone(data.phone_number || "");
+    setPreferredLanguage(profile?.preferred_language || "en");
+    const insuranceProfile = profile?.insurance_profile;
+    if (insuranceProfile && typeof insuranceProfile === "object") {
+      setInsurance(
+        Object.fromEntries(
+          Object.entries(insuranceProfile).map(([key, value]) => [
+            key,
+            value == null ? "" : String(value),
+          ])
+        )
+      );
+    }
+    if (Array.isArray(profile?.emergency_contacts)) {
+      setEmergencyContacts(profile.emergency_contacts as EmergencyContact[]);
+    }
+  }, [data, profile]);
+
+  if (isLoading) return <Loading01 />;
+
+  const handleSavePersonal = async () => {
+    try {
+      await updateProfile({ phone_number: phone }).unwrap();
+      toast.success("Phone number updated");
+    } catch {
+      toast.error("Could not save profile");
+    }
+  };
+
+  const handleSaveInsurance = async () => {
+    try {
+      await updateProfile({ insurance_profile: insurance }).unwrap();
+      toast.success("Insurance information updated");
+    } catch {
+      toast.error("Could not save insurance");
+    }
+  };
+
+  const handleSaveEmergency = async () => {
+    try {
+      await updateProfile({ emergency_contacts: emergencyContacts }).unwrap();
+      toast.success("Emergency contacts updated");
+    } catch {
+      toast.error("Could not save emergency contacts");
+    }
+  };
+
+  const handleSavePreferences = async () => {
+    try {
+      await updateProfile({ preferred_language: preferredLanguage }).unwrap();
+      toast.success("Preferences saved");
+    } catch {
+      toast.error("Could not save preferences");
+    }
+  };
+
+  const updateContact = (
+    index: number,
+    field: keyof EmergencyContact,
+    value: string
+  ) => {
+    setEmergencyContacts((prev) =>
+      prev.map((contact, i) =>
+        i === index ? { ...contact, [field]: value } : contact
+      )
+    );
   };
 
   return (
@@ -76,7 +149,11 @@ export function ProfileSettingsPage() {
               </div>
               <div>
                 <Label>Phone</Label>
-                <Input className="mt-1" defaultValue={data?.phone_number || ""} />
+                <Input
+                  className="mt-1"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
               </div>
               {profile?.patient_code ? (
                 <div className="sm:col-span-2">
@@ -92,15 +169,22 @@ export function ProfileSettingsPage() {
                 <Label>Date of birth</Label>
                 <Input
                   className="mt-1"
-                  defaultValue={profile?.date_of_birth?.slice(0, 10) || "1990-05-12"}
+                  defaultValue={profile?.date_of_birth?.slice(0, 10) || ""}
+                  readOnly
                 />
               </div>
               <div>
                 <Label>Blood group</Label>
-                <Input className="mt-1" defaultValue={profile?.blood_group || "O+"} />
+                <Input
+                  className="mt-1"
+                  defaultValue={profile?.blood_group || ""}
+                  readOnly
+                />
               </div>
               <div className="sm:col-span-2">
-                <Button onClick={handleSave}>Save changes</Button>
+                <Button onClick={handleSavePersonal} disabled={saving}>
+                  Save changes
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -113,20 +197,28 @@ export function ProfileSettingsPage() {
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
               {[
-                ["Provider", MOCK_INSURANCE.provider],
-                ["Policy number", MOCK_INSURANCE.policyNumber],
-                ["Group number", MOCK_INSURANCE.groupNumber],
-                ["Coverage type", MOCK_INSURANCE.coverageType],
-                ["Policy holder", MOCK_INSURANCE.policyHolder],
-                ["Valid until", MOCK_INSURANCE.validUntil],
-              ].map(([label, value]) => (
-                <div key={label}>
+                ["provider", "Provider"],
+                ["policy_number", "Policy number"],
+                ["group_number", "Group number"],
+                ["coverage_type", "Coverage type"],
+                ["policy_holder", "Policy holder"],
+                ["valid_until", "Valid until"],
+              ].map(([key, label]) => (
+                <div key={key}>
                   <Label>{label}</Label>
-                  <Input className="mt-1" defaultValue={value} />
+                  <Input
+                    className="mt-1"
+                    value={insurance[key] ?? ""}
+                    onChange={(e) =>
+                      setInsurance((prev) => ({ ...prev, [key]: e.target.value }))
+                    }
+                  />
                 </div>
               ))}
               <div className="sm:col-span-2">
-                <Button onClick={handleSave}>Update insurance</Button>
+                <Button onClick={handleSaveInsurance} disabled={saving}>
+                  Update insurance
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -138,29 +230,67 @@ export function ProfileSettingsPage() {
               <CardTitle className="text-base">Emergency Contacts</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {MOCK_EMERGENCY_CONTACTS.map((contact, i) => (
-                <div key={i} className="grid gap-4 sm:grid-cols-2 border-b border-border/40 pb-6 last:border-0">
-                  <div>
-                    <Label>Name</Label>
-                    <Input className="mt-1" defaultValue={contact.name} />
+              {emergencyContacts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No emergency contacts on file.</p>
+              ) : (
+                emergencyContacts.map((contact, i) => (
+                  <div
+                    key={i}
+                    className="grid gap-4 sm:grid-cols-2 border-b border-border/40 pb-6 last:border-0"
+                  >
+                    <div>
+                      <Label>Name</Label>
+                      <Input
+                        className="mt-1"
+                        value={contact.name ?? ""}
+                        onChange={(e) => updateContact(i, "name", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label>Relationship</Label>
+                      <Input
+                        className="mt-1"
+                        value={contact.relationship ?? ""}
+                        onChange={(e) =>
+                          updateContact(i, "relationship", e.target.value)
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label>Phone</Label>
+                      <Input
+                        className="mt-1"
+                        value={contact.phone ?? ""}
+                        onChange={(e) => updateContact(i, "phone", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label>Address</Label>
+                      <Input
+                        className="mt-1"
+                        value={contact.address ?? ""}
+                        onChange={(e) => updateContact(i, "address", e.target.value)}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <Label>Relationship</Label>
-                    <Input className="mt-1" defaultValue={contact.relationship} />
-                  </div>
-                  <div>
-                    <Label>Phone</Label>
-                    <Input className="mt-1" defaultValue={contact.phone} />
-                  </div>
-                  <div>
-                    <Label>Address</Label>
-                    <Input className="mt-1" defaultValue={contact.address} />
-                  </div>
-                </div>
-              ))}
-              <Button variant="outline" onClick={() => toast.message("Add contact — demo")}>
-                Add contact
-              </Button>
+                ))
+              )}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    setEmergencyContacts((prev) => [
+                      ...prev,
+                      { name: "", relationship: "", phone: "", address: "" },
+                    ])
+                  }
+                >
+                  Add contact
+                </Button>
+                <Button onClick={handleSaveEmergency} disabled={saving}>
+                  Save contacts
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -204,12 +334,12 @@ export function ProfileSettingsPage() {
                     <p className="font-medium text-sm">{pref.label}</p>
                     <p className="text-xs text-muted-foreground">{pref.desc}</p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch defaultChecked disabled />
                 </div>
               ))}
               <div>
                 <Label>Preferred language</Label>
-                <Select defaultValue="am">
+                <Select value={preferredLanguage} onValueChange={setPreferredLanguage}>
                   <SelectTrigger className="mt-1 max-w-xs">
                     <SelectValue />
                   </SelectTrigger>
@@ -219,7 +349,9 @@ export function ProfileSettingsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={handleSave}>Save preferences</Button>
+              <Button onClick={handleSavePreferences} disabled={saving}>
+                Save preferences
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

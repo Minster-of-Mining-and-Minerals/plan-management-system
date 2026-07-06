@@ -44,6 +44,29 @@ function fieldFromSchema(
   const value = formData[field.field_key];
   if (isEmpty(value)) return null;
 
+  if (field.field_type === "repeater" && Array.isArray(value)) {
+    const subFields = field.config?.repeater?.fields || [];
+    const lines = value.map((row, index) => {
+      if (!row || typeof row !== "object") return `Row ${index + 1}`;
+      const parts = subFields
+        .map((sub) => {
+          const cell = (row as Record<string, unknown>)[sub.field_key];
+          if (isEmpty(cell)) return null;
+          return `${sub.label}: ${String(cell)}`;
+        })
+        .filter(Boolean);
+      return parts.length ? `• ${parts.join(" · ")}` : null;
+    }).filter(Boolean);
+    if (!lines.length) return null;
+    return {
+      key: field.field_key,
+      label: field.label || humanizeKey(field.field_key),
+      displayValue: lines.join("\n"),
+      fieldType: field.field_type,
+      multiline: true,
+    };
+  }
+
   return {
     key: field.field_key,
     label: field.label || humanizeKey(field.field_key),
@@ -67,7 +90,7 @@ export function buildLogDisplaySections(
     for (const step of steps) {
       const fields: LogDisplayField[] = [];
       for (const field of step.fields || []) {
-        if (!isFieldEffectivelyVisible(step, field)) continue;
+        if (!isFieldEffectivelyVisible(step, field, data)) continue;
         const row = fieldFromSchema(field, data);
         if (row) fields.push(row);
       }

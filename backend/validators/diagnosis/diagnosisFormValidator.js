@@ -18,6 +18,40 @@ const configSchema = Joi.object({
   canvas_source_type: Joi.string().valid("library", "custom").optional(),
   diagram_id: Joi.string().guid({ version: "uuidv4" }).optional(),
   custom_image_url: Joi.string().max(2048).allow("", null).optional(),
+  searchable: Joi.boolean().optional(),
+  visible_when: Joi.object({
+    field_key: Joi.string().max(64).required(),
+    operator: Joi.string()
+      .valid("eq", "neq", "in", "truthy", "falsy", "empty", "not_empty")
+      .required(),
+    value: Joi.alternatives()
+      .try(
+        Joi.string(),
+        Joi.number(),
+        Joi.boolean(),
+        Joi.array().items(Joi.string())
+      )
+      .optional(),
+  }).optional(),
+  repeater: Joi.object({
+    min_rows: Joi.number().integer().min(0).optional(),
+    max_rows: Joi.number().integer().min(1).optional(),
+    fields: Joi.array()
+      .items(
+        Joi.object({
+          field_key: Joi.string().max(64).required(),
+          label: Joi.string().max(255).required(),
+          field_type: Joi.string()
+            .valid("input", "textarea", "number", "select", "date")
+            .required(),
+          config: Joi.object({
+            options: Joi.array().items(Joi.string()).optional(),
+            placeholder: Joi.string().max(255).optional(),
+          }).optional(),
+        })
+      )
+      .optional(),
+  }).optional(),
 }).default({});
 
 const createTemplateSchema = Joi.object({

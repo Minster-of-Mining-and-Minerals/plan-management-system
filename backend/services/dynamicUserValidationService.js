@@ -236,6 +236,45 @@ function validateFileField(value, config, label, required) {
   return errors;
 }
 
+function validateRepeaterField(value, config, label, required) {
+  const repeater = config.repeater || {};
+  const subFields = repeater.fields || [];
+  const errors = [];
+  const rows = Array.isArray(value) ? value : [];
+
+  if (required && rows.length === 0) {
+    return [`${label} requires at least one row`];
+  }
+  if (repeater.min_rows != null && rows.length < repeater.min_rows) {
+    errors.push(`${label} requires at least ${repeater.min_rows} row(s)`);
+  }
+  if (repeater.max_rows != null && rows.length > repeater.max_rows) {
+    errors.push(`${label} allows at most ${repeater.max_rows} row(s)`);
+  }
+
+  rows.forEach((row, index) => {
+    if (!row || typeof row !== "object") {
+      errors.push(`Row ${index + 1} is invalid`);
+      return;
+    }
+    for (const sub of subFields) {
+      const subVal = row[sub.field_key];
+      if (isEmpty(subVal)) continue;
+      if (sub.field_type === "number" && Number.isNaN(Number(subVal))) {
+        errors.push(`Row ${index + 1}: ${sub.label} must be a number`);
+      }
+      if (sub.field_type === "select") {
+        const opts = sub.config?.options || [];
+        if (!opts.includes(String(subVal))) {
+          errors.push(`Row ${index + 1}: invalid ${sub.label}`);
+        }
+      }
+    }
+  });
+
+  return errors;
+}
+
 function validateFieldValue(field, value) {
   const config = field.config || {};
   const label = field.label || field.field_key;
@@ -284,6 +323,8 @@ function validateFieldValue(field, value) {
       return [];
     case "richtext":
       return validateInputField(value, config, label);
+    case "repeater":
+      return validateRepeaterField(value, config, label, required);
     default:
       return [];
   }
@@ -325,8 +366,9 @@ async function validateAndPickUserFields(body, { isUpdate = false } = {}) {
   for (const group of groups) {
     const groupFields = (group.fields || []).filter((f) =>
       isUpdate
-        ? isFieldInPayload(f, flat, true) && isFieldEffectivelyVisible(group, f)
-        : isFieldEffectivelyVisible(group, f)
+        ? isFieldInPayload(f, flat, true) &&
+          isFieldEffectivelyVisible(group, f, flat)
+        : isFieldEffectivelyVisible(group, f, flat)
     );
 
     const groupErrors = validateGroupFields(group, group.fields || [], flat, {

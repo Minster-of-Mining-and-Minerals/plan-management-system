@@ -21,6 +21,8 @@ import {
 import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import Loading01 from "@/features/template/component/Loading/Loading01";
+import { useGetPatientPortalDashboardQuery } from "@/redux/api/patientPortalApi";
 import { PatientPortalShell } from "../components/PatientPortalShell";
 import { StatCard } from "../components/StatCard";
 import { DoctorAvatar } from "../components/DoctorAvatar";
@@ -29,13 +31,14 @@ import { DemoBanner } from "../components/DemoBanner";
 import {
   MOCK_HEALTH_SUMMARY,
   MOCK_HEALTH_INSIGHTS,
-  MOCK_NOTIFICATIONS,
-  MOCK_UPCOMING_APPOINTMENTS,
   MOCK_LAB_RESULTS,
-  MOCK_PRESCRIPTIONS,
   MOCK_VITALS_CHART,
   formatDate,
 } from "../data/mockPatientPortalData";
+import {
+  formatScheduleTime,
+  initialsFromName,
+} from "../patientPortalUtils";
 
 const QUICK_ACTIONS = [
   { label: "Book Appointment", href: "/patient/appointments", icon: Calendar },
@@ -46,8 +49,14 @@ const QUICK_ACTIONS = [
 
 export function DashboardPage() {
   const { data: session } = useSession();
+  const { data: dashboard, isLoading } = useGetPatientPortalDashboardQuery();
   const firstName = session?.user?.name?.split(" ")[0] ?? "there";
-  const unread = MOCK_NOTIFICATIONS.filter((n) => !n.read).length;
+
+  if (isLoading) return <Loading01 />;
+
+  const nextAppointment = dashboard?.next_appointment;
+  const upcomingAppointments = dashboard?.upcoming_appointments ?? [];
+  const recentPrescriptions = dashboard?.recent_prescriptions ?? [];
 
   return (
     <PatientPortalShell
@@ -59,26 +68,34 @@ export function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Next Appointment"
-          value={MOCK_UPCOMING_APPOINTMENTS[0]?.date ? formatDate(MOCK_UPCOMING_APPOINTMENTS[0].date) : "—"}
-          subtext={MOCK_UPCOMING_APPOINTMENTS[0]?.time}
+          value={
+            nextAppointment?.schedule_date
+              ? formatDate(nextAppointment.schedule_date)
+              : "—"
+          }
+          subtext={
+            nextAppointment
+              ? formatScheduleTime(nextAppointment.start_time)
+              : "No upcoming visits"
+          }
           icon={Calendar}
         />
         <StatCard
           label="Active Medications"
-          value={String(MOCK_PRESCRIPTIONS.filter((p) => p.status === "active").length)}
-          subtext="2 refills due soon"
+          value={String(dashboard?.active_prescriptions_count ?? 0)}
+          subtext={`${dashboard?.upcoming_count ?? 0} upcoming visits`}
           icon={Pill}
         />
         <StatCard
           label="Lab Results"
           value={String(MOCK_LAB_RESULTS.filter((l) => l.status === "ready").length)}
-          subtext="Ready to review"
+          subtext="Demo — not yet integrated"
           icon={FlaskConical}
           trend="up"
         />
         <StatCard
           label="Notifications"
-          value={String(unread)}
+          value={String(dashboard?.unread_notifications_count ?? 0)}
           subtext="Unread alerts"
           icon={Heart}
         />
@@ -168,24 +185,35 @@ export function DashboardPage() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
-            {MOCK_UPCOMING_APPOINTMENTS.map((apt) => (
-              <div
-                key={apt.id}
-                className="flex gap-3 rounded-xl border border-border/50 p-3 transition-colors hover:bg-muted/30"
-              >
-                <DoctorAvatar doctor={apt.doctor} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium text-sm">{apt.doctor.name}</p>
-                    <StatusBadge status={apt.status} />
+            {upcomingAppointments.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No upcoming appointments.</p>
+            ) : (
+              upcomingAppointments.map((apt) => (
+                <div
+                  key={apt.schedule_id}
+                  className="flex gap-3 rounded-xl border border-border/50 p-3 transition-colors hover:bg-muted/30"
+                >
+                  <DoctorAvatar
+                    doctor={{
+                      name: apt.doctor?.name ?? "Provider",
+                      avatarInitials: initialsFromName(apt.doctor?.name ?? "?"),
+                    }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium text-sm">{apt.doctor?.name ?? "Provider"}</p>
+                      <StatusBadge status={apt.status} />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {apt.appointment_type || "Outpatient visit"}
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-primary">
+                      {formatDate(apt.schedule_date)} · {formatScheduleTime(apt.start_time)}
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground">{apt.type}</p>
-                  <p className="mt-1 text-xs font-medium text-primary">
-                    {formatDate(apt.date)} · {apt.time}
-                  </p>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
 
@@ -226,21 +254,28 @@ export function DashboardPage() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Pill className="h-4 w-4 text-primary" />
-              Active Prescriptions
+              Recent Prescriptions
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {MOCK_PRESCRIPTIONS.filter((p) => p.status === "active").map((rx) => (
-              <div key={rx.id} className="rounded-lg border border-border/50 p-3">
-                <p className="font-medium text-sm">{rx.medication}</p>
-                <p className="text-xs text-muted-foreground">
-                  {rx.dosage} · {rx.frequency}
-                </p>
-                <p className="mt-1 text-xs text-primary">
-                  {rx.refillsRemaining} refills left
-                </p>
-              </div>
-            ))}
+            {recentPrescriptions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No prescriptions yet.</p>
+            ) : (
+              recentPrescriptions.map((rx) => (
+                <div key={rx.prescription_id} className="rounded-lg border border-border/50 p-3">
+                  <p className="font-medium text-sm">
+                    {rx.template_name || rx.category || "Prescription"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {rx.prescriber?.name ? `By ${rx.prescriber.name}` : "—"}
+                  </p>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <p className="text-xs text-primary">{formatDate(rx.created_at)}</p>
+                    <StatusBadge status={rx.status} />
+                  </div>
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
 
@@ -252,15 +287,26 @@ export function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {MOCK_UPCOMING_APPOINTMENTS.map((apt) => (
-              <div key={apt.doctor.id} className="flex items-center gap-3">
-                <DoctorAvatar doctor={apt.doctor} />
-                <div>
-                  <p className="text-sm font-medium">{apt.doctor.name}</p>
-                  <p className="text-xs text-muted-foreground">{apt.doctor.specialty}</p>
+            {upcomingAppointments.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No recent providers.</p>
+            ) : (
+              upcomingAppointments.map((apt) => (
+                <div key={apt.schedule_id} className="flex items-center gap-3">
+                  <DoctorAvatar
+                    doctor={{
+                      name: apt.doctor?.name ?? "Provider",
+                      avatarInitials: initialsFromName(apt.doctor?.name ?? "?"),
+                    }}
+                  />
+                  <div>
+                    <p className="text-sm font-medium">{apt.doctor?.name ?? "Provider"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {apt.appointment_type || "Outpatient visit"}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
 

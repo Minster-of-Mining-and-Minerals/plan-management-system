@@ -10,9 +10,28 @@ export type FormFieldType =
   | "number"
   | "richtext"
   | "switch"
-  | "canvas_annotation";
+  | "canvas_annotation"
+  | "repeater";
 
-export type FormFieldStorageType = "core" | "custom";
+export type RepeaterSubFieldType =
+  | "input"
+  | "textarea"
+  | "number"
+  | "select"
+  | "date";
+
+export interface RepeaterSubFieldConfig {
+  field_key: string;
+  label: string;
+  field_type: RepeaterSubFieldType;
+  config?: Pick<FormFieldConfig, "options" | "placeholder">;
+}
+
+export interface VisibilityRuleConfig {
+  field_key: string;
+  operator: "eq" | "neq" | "in" | "truthy" | "falsy" | "empty" | "not_empty";
+  value?: string | number | boolean | string[];
+}
 
 export interface FormFieldConfig {
   options?: string[];
@@ -40,7 +59,19 @@ export interface FormFieldConfig {
     | "procedure"
     | "certificate"
     | "general";
+  /** Show field only when the rule matches current form values. */
+  visible_when?: VisibilityRuleConfig;
+  /** Use SearchableSelect for single/multi select fields. */
+  searchable?: boolean;
+  /** Repeater sub-field definitions (field_type must be "repeater"). */
+  repeater?: {
+    min_rows?: number;
+    max_rows?: number;
+    fields: RepeaterSubFieldConfig[];
+  };
 }
+
+export type FormFieldStorageType = "core" | "custom";
 
 export interface FormField {
   field_id: string;

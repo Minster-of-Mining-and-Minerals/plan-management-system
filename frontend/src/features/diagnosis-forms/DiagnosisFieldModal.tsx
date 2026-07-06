@@ -48,6 +48,7 @@ const FIELD_TYPES: FormFieldType[] = [
   "richtext",
   "switch",
   "canvas_annotation",
+  "repeater",
 ];
 
 type Props = {
@@ -92,6 +93,7 @@ export function DiagnosisFieldModal({
   const [diagramId, setDiagramId] = useState("");
   const [customImageUrl, setCustomImageUrl] = useState("");
   const [clinicalSuggestions, setClinicalSuggestions] = useState(true);
+  const [selectSearchable, setSelectSearchable] = useState(false);
   const [suggestionCategory, setSuggestionCategory] =
     useState<ClinicalSuggestionCategory>("general");
 
@@ -117,6 +119,7 @@ export function DiagnosisFieldModal({
       setDiagramId(field.config?.diagram_id || "");
       setCustomImageUrl(field.config?.custom_image_url || "");
       setClinicalSuggestions(field.config?.clinical_suggestions !== false);
+      setSelectSearchable(Boolean(field.config?.searchable));
       setSuggestionCategory(
         (field.config?.suggestion_category as ClinicalSuggestionCategory) ||
           "general"
@@ -155,6 +158,7 @@ export function DiagnosisFieldModal({
     }
     if (fieldType === "select") {
       config.multiple = false;
+      config.searchable = selectSearchable;
     }
     if (fieldType === "file") {
       config.multiple = fileMultiple;
@@ -357,6 +361,17 @@ export function DiagnosisFieldModal({
             <div className="space-y-2">
               <Label>Options (one per line)</Label>
               <Textarea value={optionsText} onChange={(e) => setOptionsText(e.target.value)} />
+            </div>
+          )}
+          {fieldType === "select" && (
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Searchable dropdown</Label>
+                <p className="text-xs text-muted-foreground">
+                  Type to filter options — recommended for long lists (e.g. ICD-10).
+                </p>
+              </div>
+              <Switch checked={selectSearchable} onCheckedChange={setSelectSearchable} />
             </div>
           )}
           {fieldType === "file" && (

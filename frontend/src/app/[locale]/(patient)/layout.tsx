@@ -9,7 +9,7 @@ import { useSession } from "next-auth/react";
 import { performLogout } from "@/utils/logout";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import { PATIENT_NAVIGATION } from "@/patient-navigation.config";
-import { MOCK_NOTIFICATIONS } from "@/features/patient-portal/data/mockPatientPortalData";
+import { useGetPatientPortalUnreadCountQuery } from "@/redux/api/patientPortalApi";
 
 const PATIENT_PAGE_TITLES: Record<string, string> = {
   dashboard: "Dashboard",
@@ -33,6 +33,7 @@ export default function PatientLayout({
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, status } = useSession();
+  const { data: unreadNotifications = 0 } = useGetPatientPortalUnreadCountQuery();
 
   const isFirstLogin = session?.user?.is_first_logged_in;
   const isChangePasswordPage = pathname.includes("/change-password");
@@ -70,7 +71,6 @@ export default function PatientLayout({
   const title = patientSegment
     ? PATIENT_PAGE_TITLES[patientSegment] ?? patientSegment.replace(/-/g, " ")
     : "Patient Portal";
-  const unreadNotifications = MOCK_NOTIFICATIONS.filter((n) => !n.read).length;
 
   return (
     <SidebarProvider>

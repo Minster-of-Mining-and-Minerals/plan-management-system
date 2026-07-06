@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   AlertTriangle,
   HeartPulse,
@@ -12,9 +12,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import Loading01 from "@/features/template/component/Loading/Loading01";
+import { useGetPatientPortalMedicalHistoryQuery } from "@/redux/api/patientPortalApi";
 import { PatientPortalShell } from "../components/PatientPortalShell";
 import { DemoBanner } from "../components/DemoBanner";
-import { MOCK_MEDICAL_HISTORY, formatDate } from "../data/mockPatientPortalData";
+import { formatDate } from "../data/mockPatientPortalData";
 import type { MedicalHistoryEvent } from "../types";
 
 const TYPE_CONFIG: Record<
@@ -30,16 +32,20 @@ const TYPE_CONFIG: Record<
 };
 
 export function MedicalHistoryPage() {
+  const { data: history = [], isLoading } = useGetPatientPortalMedicalHistoryQuery();
   const [filter, setFilter] = useState<string>("all");
 
-  const events =
-    filter === "all"
-      ? MOCK_MEDICAL_HISTORY
-      : MOCK_MEDICAL_HISTORY.filter((e) => e.type === filter);
+  const events = useMemo(() => {
+    const filtered =
+      filter === "all"
+        ? history
+        : history.filter((e) => e.type === filter);
+    return [...filtered].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+  }, [history, filter]);
 
-  const sorted = [...events].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
+  if (isLoading) return <Loading01 />;
 
   return (
     <PatientPortalShell
@@ -63,50 +69,59 @@ export function MedicalHistoryPage() {
       <div className="relative mt-6">
         <div className="absolute left-6 top-0 bottom-0 w-px bg-gradient-to-b from-primary/50 via-border to-transparent hidden sm:block" />
         <div className="space-y-6">
-          {sorted.map((event, i) => {
-            const config = TYPE_CONFIG[event.type];
-            const Icon = config.icon;
-            return (
-              <div key={event.id} className="relative flex gap-4 sm:gap-6">
-                <div className="hidden sm:flex flex-col items-center">
-                  <div
-                    className={cn(
-                      "flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-background shadow-md z-10",
-                      config.color
-                    )}
-                  >
-                    <Icon className="h-5 w-5" />
-                  </div>
-                </div>
-                <Card className="flex-1 border-border/60 bg-card/80 transition-shadow hover:shadow-md">
-                  <CardContent className="p-5">
-                    <div className="flex flex-wrap items-center gap-2 mb-2">
-                      <Badge variant="secondary" className={config.color}>
-                        {config.label}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(event.date)}
-                      </span>
-                      {event.severity === "high" ? (
-                        <Badge variant="destructive" className="text-[10px]">
-                          High priority
-                        </Badge>
-                      ) : null}
+          {events.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No medical history entries yet.</p>
+          ) : (
+            events.map((event) => {
+              const eventType = (event.type in TYPE_CONFIG
+                ? event.type
+                : "visit") as MedicalHistoryEvent["type"];
+              const config = TYPE_CONFIG[eventType];
+              const Icon = config.icon;
+              return (
+                <div key={event.id} className="relative flex gap-4 sm:gap-6">
+                  <div className="hidden sm:flex flex-col items-center">
+                    <div
+                      className={cn(
+                        "flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-background shadow-md z-10",
+                        config.color
+                      )}
+                    >
+                      <Icon className="h-5 w-5" />
                     </div>
-                    <h3 className="font-semibold text-lg">{event.title}</h3>
-                    <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                      {event.description}
-                    </p>
-                    {event.provider ? (
-                      <p className="mt-2 text-xs text-primary font-medium">
-                        {event.provider}
-                      </p>
-                    ) : null}
-                  </CardContent>
-                </Card>
-              </div>
-            );
-          })}
+                  </div>
+                  <Card className="flex-1 border-border/60 bg-card/80 transition-shadow hover:shadow-md">
+                    <CardContent className="p-5">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <Badge variant="secondary" className={config.color}>
+                          {config.label}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {formatDate(event.date)}
+                        </span>
+                        {event.status ? (
+                          <Badge variant="outline" className="text-[10px] capitalize">
+                            {event.status.replace(/_/g, " ")}
+                          </Badge>
+                        ) : null}
+                      </div>
+                      <h3 className="font-semibold text-lg">{event.title}</h3>
+                      {event.summary ? (
+                        <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                          {event.summary}
+                        </p>
+                      ) : null}
+                      {event.provider ? (
+                        <p className="mt-2 text-xs text-primary font-medium">
+                          {event.provider}
+                        </p>
+                      ) : null}
+                    </CardContent>
+                  </Card>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
     </PatientPortalShell>

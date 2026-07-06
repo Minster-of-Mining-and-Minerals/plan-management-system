@@ -488,6 +488,7 @@ function buildOphthalmologyFields() {
       canvas_source_type: "library",
       diagram_code: "oph_cataract",
       description: "Map cataract location and density.",
+      visible_when: { field_key: "oph_cataract_present", operator: "truthy" },
     }),
     field(S.CANVAS, "retinal_detachment_mapping", "Retinal detachment mapping", "canvas_annotation", 4, {
       canvas_source_type: "library",
@@ -507,7 +508,8 @@ function buildOphthalmologyFields() {
     field(S.ICD, "icd10_diagnoses", "ICD-10 diagnoses", "select", 0, {
       options: ICD10_OPTIONS,
       multiple: true,
-      placeholder: "Select one or more ICD-10 codes",
+      searchable: true,
+      placeholder: "Search and select ICD-10 codes",
     }, true),
     field(S.ICD, "primary_icd10_code", "Primary ICD-10 code", "input", 1, {
       placeholder: "e.g. H25.9",
@@ -571,12 +573,15 @@ function buildOphthalmologyFields() {
         "Congenital",
         "Traumatic",
       ],
+      visible_when: { field_key: "oph_cataract_present", operator: "truthy" },
     }),
     field(S.CATARACT, "cataract_grade", "Cataract grade", "select", 2, {
       options: ["Grade 1", "Grade 2", "Grade 3", "Grade 4", "Mature"],
+      visible_when: { field_key: "oph_cataract_present", operator: "truthy" },
     }),
     field(S.CATARACT, "surgery_recommendation", "Surgery recommendation", "textarea", 3, {
       ...suggestion("procedure"),
+      visible_when: { field_key: "oph_cataract_present", operator: "truthy" },
     }),
 
     // —— Diabetic Retinopathy Workup (conditional demo) ——
@@ -589,32 +594,48 @@ function buildOphthalmologyFields() {
         "PDR",
         "Proliferative with DME",
       ],
+      visible_when: { field_key: "oph_chronic_disease", operator: "truthy" },
     }),
     field(S.DIABETIC, "diabetic_retina_findings", "Diabetic retina findings", "textarea", 1, {
       ...suggestion("assessment"),
+      visible_when: { field_key: "oph_chronic_disease", operator: "truthy" },
     }),
-    field(S.DIABETIC, "dme_present", "Diabetic macular edema (DME)", "switch", 2),
+    field(S.DIABETIC, "dme_present", "Diabetic macular edema (DME)", "switch", 2, {
+      visible_when: { field_key: "oph_chronic_disease", operator: "truthy" },
+    }),
 
     // —— Surgical Planning (conditional demo) ——
     field(S.SURGERY, "surgical_recommendation", "Surgical recommendation", "textarea", 0, {
       ...suggestion("procedure"),
+      visible_when: { field_key: "oph_requires_surgery", operator: "truthy" },
     }),
     field(S.SURGERY, "procedure_priority", "Procedure priority", "select", 1, {
       options: ["Routine", "Urgent", "Emergency"],
+      visible_when: { field_key: "oph_requires_surgery", operator: "truthy" },
     }),
-    field(S.SURGERY, "estimated_surgery_date", "Estimated surgery date", "date", 2),
-    field(S.SURGERY, "procedure_timestamp_date", "Procedure date", "date", 3),
-    field(S.SURGERY, "procedure_timestamp_time", "Procedure time", "time", 4),
+    field(S.SURGERY, "estimated_surgery_date", "Estimated surgery date", "date", 2, {
+      visible_when: { field_key: "oph_requires_surgery", operator: "truthy" },
+    }),
+    field(S.SURGERY, "procedure_timestamp_date", "Procedure date", "date", 3, {
+      visible_when: { field_key: "oph_requires_surgery", operator: "truthy" },
+    }),
+    field(S.SURGERY, "procedure_timestamp_time", "Procedure time", "time", 4, {
+      visible_when: { field_key: "oph_requires_surgery", operator: "truthy" },
+    }),
 
-    // —— Medications & Procedures (repeater-style rows) ——
-    field(S.MEDS, "medication_1_drug", "Medication 1 — Drug", "input", 0),
-    field(S.MEDS, "medication_1_dose", "Medication 1 — Dose", "input", 1),
-    field(S.MEDS, "medication_1_frequency", "Medication 1 — Frequency", "input", 2),
-    field(S.MEDS, "medication_1_duration", "Medication 1 — Duration", "input", 3),
-    field(S.MEDS, "medication_2_drug", "Medication 2 — Drug", "input", 4),
-    field(S.MEDS, "medication_2_dose", "Medication 2 — Dose", "input", 5),
-    field(S.MEDS, "medication_2_frequency", "Medication 2 — Frequency", "input", 6),
-    field(S.MEDS, "medication_2_duration", "Medication 2 — Duration", "input", 7),
+    // —— Medications & Procedures (repeater + legacy rows) ——
+    field(S.MEDS, "medications", "Medications", "repeater", 0, {
+      repeater: {
+        min_rows: 0,
+        max_rows: 8,
+        fields: [
+          { field_key: "drug", label: "Drug", field_type: "input", config: { placeholder: "e.g. Timolol 0.5%" } },
+          { field_key: "dose", label: "Dose", field_type: "input" },
+          { field_key: "frequency", label: "Frequency", field_type: "input", config: { placeholder: "e.g. BD" } },
+          { field_key: "duration", label: "Duration", field_type: "input", config: { placeholder: "e.g. 30 days" } },
+        ],
+      },
+    }),
     field(S.MEDS, "procedure_1_name", "Procedure 1 — Name", "input", 8),
     field(S.MEDS, "procedure_1_date", "Procedure 1 — Date", "date", 9),
     field(S.MEDS, "procedure_1_outcome", "Procedure 1 — Outcome", "input", 10),

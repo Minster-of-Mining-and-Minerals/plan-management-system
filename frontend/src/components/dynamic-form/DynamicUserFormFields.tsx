@@ -19,6 +19,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { SearchableSelect, type SelectOption } from "@/components/ui/searchable-select";
+import { RepeaterField } from "@/components/dynamic-form/RepeaterField";
+import { isFieldVisibleByRules } from "@/lib/formConditionUtils";
+import { cn } from "@/lib/utils";
 import { FileUploadField } from "@/features/template/component/FileUploadField";
 const CanvasAnnotationField = dynamic(
   () =>
@@ -71,9 +75,9 @@ function FieldGrid({
   const visibleFields = useMemo(
     () =>
       [...fields]
-        .filter((f) => f.is_visible)
+        .filter((f) => f.is_visible && isFieldVisibleByRules(f, values))
         .sort((a, b) => a.sort_order - b.sort_order),
-    [fields]
+    [fields, values]
   );
 
   if (!visibleFields.length) return null;
@@ -88,7 +92,16 @@ function FieldGrid({
         ) : null;
 
         return (
-          <div key={field.field_id} className="space-y-2">
+          <div
+            key={field.field_id}
+            className={cn(
+              "space-y-2",
+              (field.field_type === "repeater" ||
+                field.field_type === "textarea" ||
+                field.field_type === "richtext") &&
+                "sm:col-span-2 xl:col-span-3"
+            )}
+          >
             <Label className="text-sm text-section-accent font-medium">
               {field.label}
               {requiredMark}
@@ -237,7 +250,32 @@ function FieldGrid({
               )
             )}
 
-            {field.field_type === "select" && !config.multiple && (
+            {field.field_type === "select" && !config.multiple && config.searchable && (
+              <SearchableSelect
+                options={(config.options || []).map((opt) => ({
+                  value: opt,
+                  label: opt,
+                }))}
+                value={
+                  values[field.field_key]
+                    ? {
+                        value: String(values[field.field_key]),
+                        label: String(values[field.field_key]),
+                      }
+                    : null
+                }
+                onChange={(opt) =>
+                  onChange(
+                    field.field_key,
+                    (opt as SelectOption | null)?.value ?? ""
+                  )
+                }
+                placeholder={config.placeholder || `Select ${field.label}`}
+                isDisabled={disabled}
+              />
+            )}
+
+            {field.field_type === "select" && !config.multiple && !config.searchable && (
               <Select
                 value={String(values[field.field_key] ?? "")}
                 onValueChange={(v) => onChange(field.field_key, v)}
@@ -256,7 +294,30 @@ function FieldGrid({
               </Select>
             )}
 
-            {field.field_type === "select" && config.multiple && (
+            {field.field_type === "select" && config.multiple && config.searchable && (
+              <SearchableSelect
+                isMulti
+                options={(config.options || []).map((opt) => ({
+                  value: opt,
+                  label: opt,
+                }))}
+                value={((values[field.field_key] as string[]) || []).map(
+                  (v) => ({ value: v, label: v })
+                )}
+                onChange={(opts) =>
+                  onChange(
+                    field.field_key,
+                    Array.isArray(opts)
+                      ? opts.map((o) => o.value)
+                      : []
+                  )
+                }
+                placeholder={config.placeholder || `Select ${field.label}`}
+                isDisabled={disabled}
+              />
+            )}
+
+            {field.field_type === "select" && config.multiple && !config.searchable && (
               <div className="flex flex-wrap gap-2 border rounded-md p-3">
                 {(config.options || []).map((opt) => {
                   const selected = (values[field.field_key] as string[]) || [];
@@ -318,6 +379,17 @@ function FieldGrid({
                   );
                 })}
               </div>
+            )}
+
+            {field.field_type === "repeater" && (
+              <RepeaterField
+                fieldKey={field.field_key}
+                label={field.label}
+                config={config}
+                value={values[field.field_key]}
+                disabled={disabled}
+                onChange={onChange}
+              />
             )}
 
             {field.field_type === "canvas_annotation" && (

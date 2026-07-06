@@ -39,7 +39,7 @@ async function validateDiagnosisFormData(configId, formData, { partial = false }
     errors.push(...groupErrors);
 
     for (const field of group.fields || []) {
-      if (!isFieldEffectivelyVisible(group, field)) continue;
+      if (!isFieldEffectivelyVisible(group, field, flat)) continue;
       if (partial && !(field.field_key in flat)) continue;
 
       const raw = flat[field.field_key];

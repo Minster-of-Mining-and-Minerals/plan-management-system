@@ -5,6 +5,7 @@ import authReducer from "./slices/authSlice";
 import "./api/patientApi";
 import "./api/medicalDiagramApi";
 import "./api/clinicalSuggestionApi";
+import "./api/patientPortalApi";
 
 export const store = configureStore({
   reducer: {

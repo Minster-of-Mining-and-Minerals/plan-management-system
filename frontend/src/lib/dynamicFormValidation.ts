@@ -11,6 +11,7 @@ import {
   groupHasAnyInput,
   getVisibleFieldsInGroup,
 } from "@/lib/formFieldRules";
+import { isFieldVisibleByRules } from "@/lib/formConditionUtils";
 
 const ETHIOPIAN_PHONE_REGEX = /^(\+251|0)(9|7)\d{8}$/;
 
@@ -125,6 +126,46 @@ function validateFile(
   return errors;
 }
 
+function validateRepeater(value: unknown, field: FormField): string[] {
+  const config = field.config?.repeater;
+  const label = field.label || field.field_key;
+  const errors: string[] = [];
+  if (!config?.fields?.length) return errors;
+
+  const rows = Array.isArray(value) ? value : [];
+  if (field.is_required && rows.length === 0) {
+    return [`${label} requires at least one row`];
+  }
+  if (config.min_rows != null && rows.length < config.min_rows) {
+    errors.push(`${label} requires at least ${config.min_rows} row(s)`);
+  }
+  if (config.max_rows != null && rows.length > config.max_rows) {
+    errors.push(`${label} allows at most ${config.max_rows} row(s)`);
+  }
+
+  rows.forEach((row, index) => {
+    if (!row || typeof row !== "object") {
+      errors.push(`Row ${index + 1} is invalid`);
+      return;
+    }
+    for (const sub of config.fields) {
+      const subVal = (row as Record<string, unknown>)[sub.field_key];
+      if (isEmpty(subVal)) continue;
+      if (sub.field_type === "number" && Number.isNaN(Number(subVal))) {
+        errors.push(`Row ${index + 1}: ${sub.label} must be a number`);
+      }
+      if (sub.field_type === "select") {
+        const opts = sub.config?.options || [];
+        if (!opts.includes(String(subVal))) {
+          errors.push(`Row ${index + 1}: invalid ${sub.label}`);
+        }
+      }
+    }
+  });
+
+  return errors;
+}
+
 function validateSingleField(
   field: FormField,
   value: unknown,
@@ -191,6 +232,9 @@ function validateSingleField(
     case "richtext":
       fieldErrors = validateInput(value, field);
       break;
+    case "repeater":
+      fieldErrors = validateRepeater(value, field);
+      break;
     case "canvas_annotation":
       fieldErrors = validateCanvasAnnotation(value);
       break;
@@ -215,8 +259,8 @@ export function validateFormStep(
   fileMetaByKey?: Record<string, File>
 ): Record<string, string> {
   const errors: Record<string, string> = {};
-  const visibleFields = getVisibleFieldsInGroup(group);
-  const stepRequired = isGroupStepRequired(group);
+  const visibleFields = getVisibleFieldsInGroup(group, values);
+  const stepRequired = isGroupStepRequired(group, values);
   const hasInput = groupHasAnyInput(group, values);
 
   if (!stepRequired && !hasInput) {
@@ -242,7 +286,7 @@ export function validateDynamicForm(
 ): Record<string, string> {
   const errors: Record<string, string> = {};
 
-  for (const field of fields.filter((f) => f.is_visible)) {
+  for (const field of fields.filter((f) => f.is_visible && isFieldVisibleByRules(f, values))) {
     const err = validateSingleField(
       field,
       values[field.field_key],
@@ -284,7 +328,8 @@ export function buildUserPayloadFromDynamicValues(
     const config = field.config || {};
     const isMulti =
       (field.field_type === "select" && config.multiple) ||
-      field.field_type === "checkbox";
+      field.field_type === "checkbox" ||
+      field.field_type === "repeater";
 
     const normalized = isMulti && Array.isArray(value) ? value : value;
 

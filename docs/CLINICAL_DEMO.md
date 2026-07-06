@@ -29,7 +29,24 @@ npx sequelize-cli db:seed --seed 20260706000002-seed-ophthalmology-demo-appointm
 | Imaging | `imaging@ophthalmology.demo` | Workflow inbox |
 | Optometrist | `optometrist@ophthalmology.demo` | Workflow inbox |
 | Pharmacist | `pharmacist@ophthalmology.demo` | Prescriptions (when prescribed) |
-| Patient (record) | `amanuel.tadesse@patient.demo.novacure` | — |
+| Patient (record) | `amanuel.tadesse@patient.demo.novacure` | Patient portal `/patient/dashboard` |
+
+## Patient portal (Phase 4)
+
+Login as **`amanuel.tadesse@patient.demo.novacure`** / **`password`** to open the patient portal.
+
+| Route | Live data |
+|-------|-----------|
+| `/patient/dashboard` | Next appointment, prescriptions, notifications |
+| `/patient/appointments` | Book, reschedule, cancel visits |
+| `/patient/medical-history` | Workflow timeline (read-only summaries) |
+| `/patient/prescriptions` | Prescription list from visits |
+| `/patient/notifications` | In-app notifications |
+| `/patient/profile` | Phone, insurance, emergency contacts, language |
+
+After seeding, Amanuel sees **today's admitted ophthalmology visit** on the dashboard and in medical history (nursing assessment + workflow events).
+
+Vitals, lab results, billing, telemedicine, and AI sections remain demo placeholders until later phases.
 
 ## Seeded demo state
 
@@ -91,6 +108,16 @@ Login: `optometrist@ophthalmology.demo` or `imaging@ophthalmology.demo`
 | `/clinical-suggestions` | Admin — manage autocomplete suggestions |
 
 ## Templates used
+
+### Form engine v2 (Phase 3)
+
+The ophthalmology template demonstrates:
+
+- **Conditional fields** — toggle *Cataract present*, *Requires surgery*, or *Chronic disease* to reveal related sections
+- **Searchable select** — ICD-10 multi-select with type-to-filter
+- **Repeater** — *Medications* rows (drug, dose, frequency, duration)
+
+Re-assign the template to staff configs after upgrading migrations to refresh copied forms.
 
 | Staff | Form |
 |-------|------|

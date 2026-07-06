@@ -15,6 +15,7 @@ const DIAGNOSIS_FIELD_TYPES = [
   "richtext",
   "switch",
   "canvas_annotation",
+  "repeater",
 ];
 
 const DEFAULT_DIAGNOSIS_SECTIONS = [

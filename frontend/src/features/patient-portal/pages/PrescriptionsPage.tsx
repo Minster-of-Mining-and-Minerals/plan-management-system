@@ -1,22 +1,35 @@
 "use client";
 
-import { History, Pill, RefreshCw } from "lucide-react";
+import { useMemo } from "react";
+import { History, Pill } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "sonner";
+import Loading01 from "@/features/template/component/Loading/Loading01";
+import { useGetPatientPortalPrescriptionsQuery } from "@/redux/api/patientPortalApi";
 import { PatientPortalShell } from "../components/PatientPortalShell";
 import { StatusBadge } from "../components/StatusBadge";
 import { DemoBanner } from "../components/DemoBanner";
-import { MOCK_PRESCRIPTIONS, formatDate } from "../data/mockPatientPortalData";
+import { formatDate } from "../data/mockPatientPortalData";
+
+const ACTIVE_STATUSES = new Set(["active", "finalized", "pending"]);
 
 function PrescriptionCard({
-  rx,
-  showRefill,
+  prescription,
 }: {
-  rx: (typeof MOCK_PRESCRIPTIONS)[0];
-  showRefill?: boolean;
+  prescription: {
+    prescription_id: string;
+    status: string;
+    created_at: string;
+    notes?: string | null;
+    category?: string | null;
+    template_name?: string | null;
+    prescriber?: { id: string; name: string } | null;
+    item_count: number;
+  };
 }) {
+  const title =
+    prescription.template_name || prescription.category || "Prescription";
+
   return (
     <Card className="border-border/60 bg-card/80">
       <CardContent className="p-5">
@@ -26,47 +39,44 @@ function PrescriptionCard({
               <Pill className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="font-semibold">{rx.medication}</h3>
+              <h3 className="font-semibold">{title}</h3>
               <p className="text-sm text-muted-foreground">
-                {rx.dosage} · {rx.frequency}
+                {prescription.item_count} item
+                {prescription.item_count === 1 ? "" : "s"}
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Prescribed by {rx.doctor}
-              </p>
+              {prescription.prescriber?.name ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Prescribed by {prescription.prescriber.name}
+                </p>
+              ) : null}
               <p className="text-xs text-muted-foreground">
-                Started {formatDate(rx.startDate)}
-                {rx.endDate ? ` · Ended ${formatDate(rx.endDate)}` : ""}
+                Issued {formatDate(prescription.created_at)}
               </p>
-              {rx.instructions ? (
-                <p className="mt-2 text-xs rounded-md bg-muted/50 p-2">{rx.instructions}</p>
+              {prescription.notes ? (
+                <p className="mt-2 text-xs rounded-md bg-muted/50 p-2">
+                  {prescription.notes}
+                </p>
               ) : null}
             </div>
           </div>
-          <StatusBadge status={rx.status} />
+          <StatusBadge status={prescription.status} />
         </div>
-        {showRefill && rx.refillsRemaining > 0 ? (
-          <Button
-            size="sm"
-            className="mt-4 gap-1"
-            variant="outline"
-            onClick={() =>
-              toast.success("Refill requested — demo", {
-                description: "Pharmacy integration will process refill requests.",
-              })
-            }
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Request Refill ({rx.refillsRemaining} left)
-          </Button>
-        ) : null}
       </CardContent>
     </Card>
   );
 }
 
 export function PrescriptionsPage() {
-  const active = MOCK_PRESCRIPTIONS.filter((p) => p.status === "active");
-  const history = MOCK_PRESCRIPTIONS.filter((p) => p.status !== "active");
+  const { data: prescriptions = [], isLoading } =
+    useGetPatientPortalPrescriptionsQuery();
+
+  const { active, history } = useMemo(() => {
+    const activeList = prescriptions.filter((p) => ACTIVE_STATUSES.has(p.status));
+    const historyList = prescriptions.filter((p) => !ACTIVE_STATUSES.has(p.status));
+    return { active: activeList, history: historyList };
+  }, [prescriptions]);
+
+  if (isLoading) return <Loading01 />;
 
   return (
     <PatientPortalShell
@@ -83,39 +93,51 @@ export function PrescriptionsPage() {
           </TabsTrigger>
           <TabsTrigger value="history" className="gap-2">
             <History className="h-4 w-4" />
-            History
+            History ({history.length})
           </TabsTrigger>
         </TabsList>
         <TabsContent value="active" className="space-y-4">
-          {active.map((rx) => (
-            <PrescriptionCard key={rx.id} rx={rx} showRefill />
-          ))}
+          {active.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No active prescriptions.</p>
+          ) : (
+            active.map((rx) => (
+              <PrescriptionCard key={rx.prescription_id} prescription={rx} />
+            ))
+          )}
         </TabsContent>
         <TabsContent value="history" className="space-y-4">
-          {history.map((rx) => (
-            <PrescriptionCard key={rx.id} rx={rx} />
-          ))}
+          {history.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No prescription history.</p>
+          ) : (
+            history.map((rx) => (
+              <PrescriptionCard key={rx.prescription_id} prescription={rx} />
+            ))
+          )}
         </TabsContent>
       </Tabs>
 
-      <Card className="border-dashed border-primary/30 bg-section-accent-subtle-10">
-        <CardHeader>
-          <CardTitle className="text-sm">Medication Timeline</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ol className="relative border-l border-primary/30 pl-6 space-y-6">
-            {MOCK_PRESCRIPTIONS.map((rx) => (
-              <li key={rx.id} className="relative">
-                <span className="absolute -left-[21px] flex h-3 w-3 rounded-full bg-primary ring-4 ring-background" />
-                <p className="text-sm font-medium">{rx.medication}</p>
-                <p className="text-xs text-muted-foreground">
-                  {formatDate(rx.startDate)} — {rx.status}
-                </p>
-              </li>
-            ))}
-          </ol>
-        </CardContent>
-      </Card>
+      {prescriptions.length > 0 ? (
+        <Card className="border-dashed border-primary/30 bg-section-accent-subtle-10">
+          <CardHeader>
+            <CardTitle className="text-sm">Medication Timeline</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ol className="relative border-l border-primary/30 pl-6 space-y-6">
+              {prescriptions.map((rx) => (
+                <li key={rx.prescription_id} className="relative">
+                  <span className="absolute -left-[21px] flex h-3 w-3 rounded-full bg-primary ring-4 ring-background" />
+                  <p className="text-sm font-medium">
+                    {rx.template_name || rx.category || "Prescription"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDate(rx.created_at)} — {rx.status}
+                  </p>
+                </li>
+              ))}
+            </ol>
+          </CardContent>
+        </Card>
+      ) : null}
     </PatientPortalShell>
   );
 }

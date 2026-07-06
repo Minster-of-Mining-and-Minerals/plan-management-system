@@ -44,6 +44,7 @@ const prescriptionRoutes = require("./routers/prescription/prescriptionRoutes");
 const notificationRoutes = require("./routers/notification/notificationRoutes");
 const pharmacyRoutes = require("./routers/pharmacy/pharmacyRoutes");
 const pharmacyPortalRoutes = require("./routers/pharmacy/pharmacyPortalRoutes");
+const patientPortalRoutes = require("./routers/patient/patientPortalRoutes");
 
 // System Branding Routes
 const brandingRoutes = require("./routers/system/brandingRoutes");
@@ -165,6 +166,7 @@ app.use("/api/clinical-suggestions", clinicalSuggestionRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/pharmacies", pharmacyRoutes);
 app.use("/api/pharmacy-portal", pharmacyPortalRoutes);
+app.use("/api/patient-portal", patientPortalRoutes);
 app.use("/api/form-fields", formFieldRoutes);
 app.use("/api/form-field-groups", formFieldGroupRoutes);
 app.use("/api/roles", roleRoute);

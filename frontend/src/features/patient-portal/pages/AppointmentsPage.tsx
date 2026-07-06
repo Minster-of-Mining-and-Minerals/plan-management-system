@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Calendar, Clock, MapPin, Plus, RefreshCw, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,57 +23,74 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import Loading01 from "@/features/template/component/Loading/Loading01";
+import {
+  useBookPatientPortalScheduleMutation,
+  useCancelPatientPortalScheduleMutation,
+  useGetPatientPortalAvailabilityQuery,
+  useGetPatientPortalDoctorsQuery,
+  useGetPatientPortalSchedulesQuery,
+  useReschedulePatientPortalScheduleMutation,
+  type PatientPortalSchedule,
+} from "@/redux/api/patientPortalApi";
 import { PatientPortalShell } from "../components/PatientPortalShell";
 import { DoctorAvatar } from "../components/DoctorAvatar";
 import { StatusBadge } from "../components/StatusBadge";
 import { DemoBanner } from "../components/DemoBanner";
+import { formatDate } from "../data/mockPatientPortalData";
 import {
-  MOCK_DOCTORS,
-  MOCK_PAST_APPOINTMENTS,
-  MOCK_UPCOMING_APPOINTMENTS,
-  formatDate,
-} from "../data/mockPatientPortalData";
-import type { Appointment } from "../types";
+  formatScheduleTime,
+  initialsFromName,
+  isUpcomingSchedule,
+} from "../patientPortalUtils";
 
 function AppointmentCard({
-  apt,
+  schedule,
   onReschedule,
   onCancel,
 }: {
-  apt: Appointment;
+  schedule: PatientPortalSchedule;
   onReschedule?: () => void;
   onCancel?: () => void;
 }) {
-  const isUpcoming = apt.status === "scheduled" || apt.status === "confirmed";
+  const isUpcoming = isUpcomingSchedule(schedule);
+  const doctorName = schedule.doctor?.name ?? "Provider";
 
   return (
     <Card className="border-border/60 bg-card/80 overflow-hidden transition-shadow hover:shadow-md">
       <CardContent className="p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-          <DoctorAvatar doctor={apt.doctor} size="lg" />
+          <DoctorAvatar
+            doctor={{
+              name: doctorName,
+              avatarInitials: initialsFromName(doctorName),
+            }}
+            size="lg"
+          />
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="font-semibold">{apt.doctor.name}</h3>
-              <StatusBadge status={apt.status} />
+              <h3 className="font-semibold">{doctorName}</h3>
+              <StatusBadge status={schedule.status} />
             </div>
-            <p className="text-sm text-muted-foreground">{apt.doctor.specialty}</p>
-            <p className="text-sm font-medium">{apt.type}</p>
+            <p className="text-sm font-medium">
+              {schedule.appointment_type || "Outpatient visit"}
+            </p>
             <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Calendar className="h-3.5 w-3.5" />
-                {formatDate(apt.date)}
+                {formatDate(schedule.schedule_date)}
               </span>
               <span className="flex items-center gap-1">
                 <Clock className="h-3.5 w-3.5" />
-                {apt.time}
+                {formatScheduleTime(schedule.start_time)}
               </span>
               <span className="flex items-center gap-1">
                 <MapPin className="h-3.5 w-3.5" />
-                {apt.location}
+                NovaCure Clinic
               </span>
             </div>
-            {apt.notes ? (
-              <p className="text-xs rounded-md bg-muted/50 p-2">{apt.notes}</p>
+            {schedule.notes ? (
+              <p className="text-xs rounded-md bg-muted/50 p-2">{schedule.notes}</p>
             ) : null}
             {isUpcoming && onReschedule && onCancel ? (
               <div className="flex flex-wrap gap-2 pt-2">
@@ -81,7 +98,12 @@ function AppointmentCard({
                   <RefreshCw className="mr-1 h-3.5 w-3.5" />
                   Reschedule
                 </Button>
-                <Button size="sm" variant="outline" className="text-destructive" onClick={onCancel}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-destructive"
+                  onClick={onCancel}
+                >
                   <X className="mr-1 h-3.5 w-3.5" />
                   Cancel
                 </Button>
@@ -95,18 +117,145 @@ function AppointmentCard({
 }
 
 export function AppointmentsPage() {
+  const { data: schedules = [], isLoading } = useGetPatientPortalSchedulesQuery();
+  const { data: doctors = [] } = useGetPatientPortalDoctorsQuery();
+  const [bookSchedule, { isLoading: booking }] = useBookPatientPortalScheduleMutation();
+  const [rescheduleSchedule, { isLoading: rescheduling }] =
+    useReschedulePatientPortalScheduleMutation();
+  const [cancelSchedule, { isLoading: cancelling }] =
+    useCancelPatientPortalScheduleMutation();
+
   const [bookOpen, setBookOpen] = useState(false);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null);
 
-  const handleDemoAction = (action: string) => {
-    toast.success(`${action} — demo only`, {
-      description: "This workflow will connect to scheduling when integrated.",
-    });
-    setBookOpen(false);
-    setRescheduleOpen(false);
-    setCancelOpen(false);
+  const [bookDoctorId, setBookDoctorId] = useState("");
+  const [bookDate, setBookDate] = useState("");
+  const [bookTime, setBookTime] = useState("");
+  const [bookType, setBookType] = useState("Outpatient visit");
+  const [bookNotes, setBookNotes] = useState("");
+
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleTime, setRescheduleTime] = useState("");
+
+  const selectedSchedule = useMemo(
+    () => schedules.find((s) => s.schedule_id === selectedScheduleId) ?? null,
+    [schedules, selectedScheduleId]
+  );
+
+  const { data: bookAvailability } = useGetPatientPortalAvailabilityQuery(
+    { date: bookDate, staff_id: bookDoctorId },
+    { skip: !bookOpen || !bookDate || !bookDoctorId }
+  );
+
+  const { data: rescheduleAvailability } = useGetPatientPortalAvailabilityQuery(
+    { date: rescheduleDate, staff_id: selectedSchedule?.doctor?.id },
+    {
+      skip:
+        !rescheduleOpen ||
+        !rescheduleDate ||
+        !selectedSchedule?.doctor?.id,
+    }
+  );
+
+  const upcoming = useMemo(
+    () => schedules.filter(isUpcomingSchedule),
+    [schedules]
+  );
+
+  const past = useMemo(
+    () => schedules.filter((s) => !isUpcomingSchedule(s)),
+    [schedules]
+  );
+
+  const openReschedule = (scheduleId: string) => {
+    const schedule = schedules.find((s) => s.schedule_id === scheduleId);
+    setSelectedScheduleId(scheduleId);
+    setRescheduleDate(schedule?.schedule_date ?? "");
+    setRescheduleTime(schedule?.start_time?.slice(0, 5) ?? "");
+    setRescheduleOpen(true);
   };
+
+  const openCancel = (scheduleId: string) => {
+    setSelectedScheduleId(scheduleId);
+    setCancelOpen(true);
+  };
+
+  const resetBookForm = () => {
+    setBookDoctorId("");
+    setBookDate("");
+    setBookTime("");
+    setBookType("Outpatient visit");
+    setBookNotes("");
+  };
+
+  const handleBook = async () => {
+    if (!bookDoctorId || !bookDate || !bookTime) {
+      toast.error("Please select a doctor, date, and time.");
+      return;
+    }
+    try {
+      await bookSchedule({
+        assigned_staff_id: bookDoctorId,
+        schedule_date: bookDate,
+        start_time: bookTime.length === 5 ? `${bookTime}:00` : bookTime,
+        appointment_type: bookType,
+        notes: bookNotes || undefined,
+      }).unwrap();
+      toast.success("Appointment booked");
+      setBookOpen(false);
+      resetBookForm();
+    } catch (error) {
+      const message =
+        error && typeof error === "object" && "data" in error
+          ? String((error as { data?: { message?: string } }).data?.message)
+          : "Could not book appointment";
+      toast.error(message);
+    }
+  };
+
+  const handleReschedule = async () => {
+    if (!selectedScheduleId || !rescheduleDate || !rescheduleTime) {
+      toast.error("Please select a new date and time.");
+      return;
+    }
+    try {
+      await rescheduleSchedule({
+        id: selectedScheduleId,
+        schedule_date: rescheduleDate,
+        start_time:
+          rescheduleTime.length === 5 ? `${rescheduleTime}:00` : rescheduleTime,
+      }).unwrap();
+      toast.success("Appointment rescheduled");
+      setRescheduleOpen(false);
+      setSelectedScheduleId(null);
+    } catch (error) {
+      const message =
+        error && typeof error === "object" && "data" in error
+          ? String((error as { data?: { message?: string } }).data?.message)
+          : "Could not reschedule appointment";
+      toast.error(message);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!selectedScheduleId) return;
+    try {
+      await cancelSchedule(selectedScheduleId).unwrap();
+      toast.success("Appointment cancelled");
+      setCancelOpen(false);
+      setSelectedScheduleId(null);
+    } catch (error) {
+      const message =
+        error && typeof error === "object" && "data" in error
+          ? String((error as { data?: { message?: string } }).data?.message)
+          : "Could not cancel appointment";
+      toast.error(message);
+    }
+  };
+
+  if (isLoading) return <Loading01 />;
 
   return (
     <PatientPortalShell
@@ -123,27 +272,41 @@ export function AppointmentsPage() {
 
       <Tabs defaultValue="upcoming" className="space-y-4">
         <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-          <TabsTrigger value="past">Previous</TabsTrigger>
+          <TabsTrigger value="upcoming">Upcoming ({upcoming.length})</TabsTrigger>
+          <TabsTrigger value="past">Previous ({past.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="upcoming" className="space-y-4">
-          {MOCK_UPCOMING_APPOINTMENTS.map((apt) => (
-            <AppointmentCard
-              key={apt.id}
-              apt={apt}
-              onReschedule={() => setRescheduleOpen(true)}
-              onCancel={() => setCancelOpen(true)}
-            />
-          ))}
+          {upcoming.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No upcoming appointments.</p>
+          ) : (
+            upcoming.map((schedule) => (
+              <AppointmentCard
+                key={schedule.schedule_id}
+                schedule={schedule}
+                onReschedule={() => openReschedule(schedule.schedule_id)}
+                onCancel={() => openCancel(schedule.schedule_id)}
+              />
+            ))
+          )}
         </TabsContent>
         <TabsContent value="past" className="space-y-4">
-          {MOCK_PAST_APPOINTMENTS.map((apt) => (
-            <AppointmentCard key={apt.id} apt={apt} />
-          ))}
+          {past.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No previous appointments.</p>
+          ) : (
+            past.map((schedule) => (
+              <AppointmentCard key={schedule.schedule_id} schedule={schedule} />
+            ))
+          )}
         </TabsContent>
       </Tabs>
 
-      <Dialog open={bookOpen} onOpenChange={setBookOpen}>
+      <Dialog
+        open={bookOpen}
+        onOpenChange={(open) => {
+          setBookOpen(open);
+          if (!open) resetBookForm();
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Book Appointment</DialogTitle>
@@ -152,14 +315,15 @@ export function AppointmentsPage() {
           <div className="grid gap-4 py-2">
             <div>
               <Label>Doctor</Label>
-              <Select>
+              <Select value={bookDoctorId} onValueChange={setBookDoctorId}>
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Choose provider" />
                 </SelectTrigger>
                 <SelectContent>
-                  {MOCK_DOCTORS.map((d) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.name} — {d.specialty}
+                  {doctors.map((doctor) => (
+                    <SelectItem key={doctor.id} value={doctor.id}>
+                      {doctor.name}
+                      {doctor.department ? ` — ${doctor.department}` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -167,33 +331,63 @@ export function AppointmentsPage() {
             </div>
             <div>
               <Label>Visit type</Label>
-              <Select>
+              <Select value={bookType} onValueChange={setBookType}>
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="followup">Follow-up</SelectItem>
-                  <SelectItem value="new">New patient</SelectItem>
-                  <SelectItem value="tele">Telemedicine</SelectItem>
+                  <SelectItem value="Follow-up">Follow-up</SelectItem>
+                  <SelectItem value="New patient">New patient</SelectItem>
+                  <SelectItem value="Outpatient visit">Outpatient visit</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Date</Label>
-                <Input type="date" className="mt-1" />
+                <Input
+                  type="date"
+                  className="mt-1"
+                  value={bookDate}
+                  onChange={(e) => {
+                    setBookDate(e.target.value);
+                    setBookTime("");
+                  }}
+                />
               </div>
               <div>
                 <Label>Time</Label>
-                <Input type="time" className="mt-1" />
+                <Select value={bookTime} onValueChange={setBookTime}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select slot" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(bookAvailability?.slots ?? []).map((slot) => (
+                      <SelectItem key={slot} value={slot.slice(0, 5)}>
+                        {formatScheduleTime(slot)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+            </div>
+            <div>
+              <Label>Notes (optional)</Label>
+              <Input
+                className="mt-1"
+                value={bookNotes}
+                onChange={(e) => setBookNotes(e.target.value)}
+                placeholder="Reason for visit"
+              />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBookOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={() => handleDemoAction("Appointment booked")}>Confirm Booking</Button>
+            <Button onClick={handleBook} disabled={booking}>
+              Confirm Booking
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -207,16 +401,39 @@ export function AppointmentsPage() {
           <div className="grid grid-cols-2 gap-3 py-2">
             <div>
               <Label>New date</Label>
-              <Input type="date" className="mt-1" />
+              <Input
+                type="date"
+                className="mt-1"
+                value={rescheduleDate}
+                onChange={(e) => {
+                  setRescheduleDate(e.target.value);
+                  setRescheduleTime("");
+                }}
+              />
             </div>
             <div>
               <Label>New time</Label>
-              <Input type="time" className="mt-1" />
+              <Select value={rescheduleTime} onValueChange={setRescheduleTime}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select slot" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(rescheduleAvailability?.slots ?? []).map((slot) => (
+                    <SelectItem key={slot} value={slot.slice(0, 5)}>
+                      {formatScheduleTime(slot)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRescheduleOpen(false)}>Cancel</Button>
-            <Button onClick={() => handleDemoAction("Appointment rescheduled")}>Confirm</Button>
+            <Button variant="outline" onClick={() => setRescheduleOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleReschedule} disabled={rescheduling}>
+              Confirm
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -226,12 +443,14 @@ export function AppointmentsPage() {
           <DialogHeader>
             <DialogTitle>Cancel Appointment</DialogTitle>
             <DialogDescription>
-              Are you sure you want to cancel this appointment? This action cannot be undone in demo mode.
+              Are you sure you want to cancel this appointment?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCancelOpen(false)}>Keep appointment</Button>
-            <Button variant="destructive" onClick={() => handleDemoAction("Appointment cancelled")}>
+            <Button variant="outline" onClick={() => setCancelOpen(false)}>
+              Keep appointment
+            </Button>
+            <Button variant="destructive" onClick={handleCancel} disabled={cancelling}>
               Cancel appointment
             </Button>
           </DialogFooter>

@@ -17,7 +17,7 @@ const STATUS_STYLES: Record<string, string> = {
   refill_requested: "bg-violet-500/15 text-violet-700",
   paid: "bg-emerald-500/15 text-emerald-700",
   overdue: "bg-destructive/15 text-destructive",
-  upcoming: "bg-primary/15 text-primary",
+  admitted: "bg-primary/15 text-primary",
 };
 
 export function StatusBadge({

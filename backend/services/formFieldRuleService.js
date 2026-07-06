@@ -1,5 +1,7 @@
 "use strict";
 
+const { isFieldVisibleByRules } = require("./formConditionService");
+
 function isEmpty(value) {
   if (value === undefined || value === null) return true;
   if (typeof value === "string" && value.trim() === "") return true;
@@ -7,16 +9,17 @@ function isEmpty(value) {
   return false;
 }
 
-/** Field visible only when group and field are both visible. */
-function isFieldEffectivelyVisible(group, field) {
+/** Field visible when group/field flags allow and conditional rules pass. */
+function isFieldEffectivelyVisible(group, field, flatValues = {}) {
   if (!group?.is_visible) return false;
-  return Boolean(field?.is_visible);
+  if (!field?.is_visible) return false;
+  return isFieldVisibleByRules(field, flatValues);
 }
 
 /** Any effectively visible required field makes the step required. */
-function groupHasRequiredVisibleField(fields, group) {
+function groupHasRequiredVisibleField(fields, group, flatValues = {}) {
   return (fields || []).some(
-    (f) => isFieldEffectivelyVisible(group, f) && Boolean(f.is_required)
+    (f) => isFieldEffectivelyVisible(group, f, flatValues) && Boolean(f.is_required)
   );
 }
 
@@ -24,8 +27,8 @@ function groupHasRequiredVisibleField(fields, group) {
  * Effective step required: at least one visible required field in the group.
  * DB group.is_required cannot force a step if all fields are optional.
  */
-function isGroupStepRequired(group, fields) {
-  return groupHasRequiredVisibleField(fields, group);
+function isGroupStepRequired(group, fields, flatValues = {}) {
+  return groupHasRequiredVisibleField(fields, group, flatValues);
 }
 
 /** Normalize stored group.is_required against field rules. */
@@ -58,7 +61,7 @@ function assertValidGroupRequiredState(group, fields) {
  */
 function groupHasAnyInput(fields, group, flatValues) {
   return (fields || []).some((field) => {
-    if (!isFieldEffectivelyVisible(group, field)) return false;
+    if (!isFieldEffectivelyVisible(group, field, flatValues)) return false;
     return !isEmpty(flatValues[field.field_key]);
   });
 }
@@ -70,14 +73,14 @@ function groupHasAnyInput(fields, group, flatValues) {
 function validateGroupFields(group, fields, flatValues, { isUpdate = false } = {}) {
   const errors = [];
   const visibleFields = (fields || []).filter((f) =>
-    isFieldEffectivelyVisible(group, f)
+    isFieldEffectivelyVisible(group, f, flatValues)
   );
 
   if (!group.is_visible || visibleFields.length === 0) {
     return errors;
   }
 
-  const stepRequired = isGroupStepRequired(group, fields);
+  const stepRequired = isGroupStepRequired(group, fields, flatValues);
   const hasInput = groupHasAnyInput(visibleFields, group, flatValues);
 
   if (!stepRequired && !hasInput) {
@@ -101,8 +104,8 @@ function validateGroupFields(group, fields, flatValues, { isUpdate = false } = {
   return errors;
 }
 
-function attachEffectiveFlagsToField(group, field) {
-  const effectiveVisible = isFieldEffectivelyVisible(group, field);
+function attachEffectiveFlagsToField(group, field, flatValues = {}) {
+  const effectiveVisible = isFieldEffectivelyVisible(group, field, flatValues);
   return {
     ...field,
     effective_visible: effectiveVisible,
