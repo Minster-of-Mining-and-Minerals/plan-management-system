@@ -1,4 +1,5 @@
 import { signOut } from "next-auth/react";
+import { clearAuthToken } from "@/lib/authToken";
 
 /**
  * Perform a thorough logout by clearing all browser storage and sessions.
@@ -10,12 +11,9 @@ export const performLogout = async (callbackUrl: string = "/login") => {
   if (isLoggingOut) return;
   isLoggingOut = true;
 
-  // 1. Clear all browser storage
+  // 1. Clear auth token and browser storage
   if (typeof window !== "undefined") {
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("user");
-    // Don't clear everything if we want to keep some preferences, 
-    // but the user's request suggests a clean state is better.
+    clearAuthToken();
     localStorage.clear(); 
     sessionStorage.clear();
 

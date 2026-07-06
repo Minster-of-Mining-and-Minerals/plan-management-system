@@ -122,12 +122,26 @@ export function StaffAppointmentsTable() {
       },
       {
         accessorKey: "status",
-        header: "Status",
+        header: "Visit status",
         cell: ({ row }) => (
           <Badge variant={APPOINTMENT_STATUS_VARIANT[row.original.status]}>
             {APPOINTMENT_STATUS_LABELS[row.original.status]}
           </Badge>
         ),
+      },
+      {
+        id: "workflow_status",
+        header: "Workflow",
+        cell: ({ row }) => {
+          const ws = row.original.workflow_status;
+          const variant =
+            ws === "completed" ? "secondary" : ("default" as const);
+          return (
+            <Badge variant={variant} className="capitalize">
+              {ws === "completed" ? "Completed" : "Active"}
+            </Badge>
+          );
+        },
       },
       {
         accessorKey: "created_at",

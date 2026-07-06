@@ -96,6 +96,36 @@ function hasLocalImage(imageFile) {
   return fs.existsSync(localPath);
 }
 
+function escapeXml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function createPlaceholderSvg(code, name) {
+  const label = escapeXml(name || code);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <rect width="800" height="600" fill="#f1f5f9"/>
+  <rect x="40" y="40" width="720" height="520" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="2"/>
+  <text x="400" y="270" text-anchor="middle" font-family="Arial,sans-serif" font-size="26" fill="#334155">${label}</text>
+  <text x="400" y="310" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" fill="#64748b">${escapeXml(code)}</text>
+  <text x="400" y="350" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#94a3b8">Placeholder — run seed:diagram-images when online</text>
+</svg>`;
+  return Buffer.from(svg, "utf8");
+}
+
+async function saveDiagramImage(diagram, buffer, ext) {
+  const { code } = diagram;
+  const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}_medical_diagram_${code}${ext}`;
+  const destPath = path.join(UPLOAD_DIR, filename);
+  const storedPath = `uploads/attachments/${filename}`;
+  fs.writeFileSync(destPath, buffer);
+  await diagram.update({ image_file: storedPath, updated_at: new Date() });
+  return storedPath;
+}
+
 function resolveUrlForCode(code, urlCache) {
   const candidates = MEDICAL_DIAGRAM_WIKIMEDIA_SOURCES[code] || [];
   for (const title of candidates) {
@@ -137,22 +167,28 @@ async function main() {
     }
 
     const ext = extensionFromUrl(resolved.url);
-    const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}_medical_diagram_${code}${ext}`;
-    const destPath = path.join(UPLOAD_DIR, filename);
-    const storedPath = `uploads/attachments/${filename}`;
 
     try {
       console.log(`[download] ${code} ← ${resolved.sourceTitle}`);
       await sleep(DOWNLOAD_DELAY_MS);
       const buffer = await fetchBuffer(resolved.url);
-      fs.writeFileSync(destPath, buffer);
-      await diagram.update({ image_file: storedPath, updated_at: new Date() });
+      const storedPath = await saveDiagramImage(diagram, buffer, ext);
       console.log(`[ok] ${code} → ${storedPath}`);
       updated++;
     } catch (e) {
       console.error(`[fail] ${code} — ${e.message}`);
-      if (fs.existsSync(destPath)) fs.unlinkSync(destPath);
-      failed++;
+      try {
+        const storedPath = await saveDiagramImage(
+          diagram,
+          createPlaceholderSvg(code, name),
+          ".svg"
+        );
+        console.log(`[placeholder] ${code} → ${storedPath}`);
+        updated++;
+      } catch (placeholderErr) {
+        console.error(`[fail] ${code} placeholder — ${placeholderErr.message}`);
+        failed++;
+      }
     }
   }
 

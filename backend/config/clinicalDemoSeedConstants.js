@@ -78,6 +78,18 @@ const CLINICAL_ROLES = [
 
 const DEMO_EMAIL_DOMAIN = "@ophthalmology.demo";
 
+/** Stable IDs for the ophthalmology walkthrough appointment (re-seed refreshes visit date to today). */
+const DEMO_SCHEDULE_ID = "00000000-0000-4000-8000-000000000040";
+const DEMO_APPOINTMENT_ID = "00000000-0000-4000-8000-000000000041";
+const DEMO_NURSE_LOG_ID = "00000000-0000-4000-8000-000000000042";
+const DEMO_FORWARD_LOG_ID = "00000000-0000-4000-8000-000000000043";
+const DEMO_WORKFLOW_TASK_ID = "00000000-0000-4000-8000-000000000044";
+const DEMO_PATIENT_EMAIL = "amanuel.tadesse@patient.demo.novacure";
+const RECEPTION_STAFF_ID = "00000000-0000-4000-8000-000000000030";
+const OPHTHALMOLOGIST_STAFF_ID = "00000000-0000-4000-8000-000000000031";
+const NURSE_STAFF_ID = "00000000-0000-4000-8000-000000000032";
+const LAB_STAFF_ID = "00000000-0000-4000-8000-000000000033";
+
 /**
  * Demo staff for ophthalmology workflow presentations.
  * Password for all accounts: password
@@ -137,7 +149,7 @@ const OPHTHALMOLOGY_DEMO_STAFF = [
     job_title: "Medical Laboratory Technologist",
     employee_id: "OPH-LAB-001",
     diagnosis: {
-      template_title: "General Doctor Diagnosis",
+      template_title: "Ophthalmology Laboratory Report",
       config_title: "Laboratory & Investigation Report",
     },
   },
@@ -224,6 +236,16 @@ module.exports = {
   CLINICAL_DEPARTMENTS,
   CLINICAL_ROLES,
   DEMO_EMAIL_DOMAIN,
+  DEMO_SCHEDULE_ID,
+  DEMO_APPOINTMENT_ID,
+  DEMO_NURSE_LOG_ID,
+  DEMO_FORWARD_LOG_ID,
+  DEMO_WORKFLOW_TASK_ID,
+  DEMO_PATIENT_EMAIL,
+  RECEPTION_STAFF_ID,
+  OPHTHALMOLOGIST_STAFF_ID,
+  NURSE_STAFF_ID,
+  LAB_STAFF_ID,
   OPHTHALMOLOGY_DEMO_STAFF,
   ROLE_PERMISSION_MATRIX,
 };

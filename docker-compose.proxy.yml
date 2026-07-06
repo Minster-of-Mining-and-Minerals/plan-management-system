@@ -1,0 +1,27 @@
+# Optional overlay when using the Nginx reverse proxy on port 80.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.proxy.yml up -d --build
+#
+# Public URL: http://localhost (not :3000 / :4000)
+
+services:
+  api:
+    environment:
+      FRONTEND_URL: http://localhost
+
+  web:
+    build:
+      args:
+        NEXT_PUBLIC_BASE_URL: http://localhost/api
+        NEXT_PUBLIC_FILE_URL: http://localhost
+        NEXT_PUBLIC_FRONTEND_URL: http://localhost
+    environment:
+      NEXT_PUBLIC_BASE_URL: http://localhost/api
+      NEXT_PUBLIC_FILE_URL: http://localhost
+      NEXT_PUBLIC_FRONTEND_URL: http://localhost
+
+  nginx:
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy

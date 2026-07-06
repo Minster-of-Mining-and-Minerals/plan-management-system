@@ -6,6 +6,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { setUser, setPermissions, clearUserProfile } from "@/redux/slices/authSlice";
 import { useGetMeQuery, useGetMyPermissionsQuery } from "@/redux/api/authApi";
 import { RootState } from "@/redux/store";
+import { clearAuthToken, setSessionAuthToken } from "@/lib/authToken";
 
 /**
  * AuthInitializer
@@ -27,12 +28,16 @@ export default function AuthInitializer({
   const dispatch = useDispatch();
   const isLoaded = useSelector((state: RootState) => state.auth.isLoaded);
 
-  // Step 1: When session is ready, persist the accessToken to localStorage
+  // Step 1: Sync NextAuth session token (single source for RTK Query)
   useEffect(() => {
-    if (session?.accessToken) {
-      localStorage.setItem("authToken", session.accessToken);
+    if (status === "authenticated" && session?.accessToken) {
+      setSessionAuthToken(session.accessToken);
+      return;
     }
-  }, [session?.accessToken]);
+    if (status === "unauthenticated") {
+      clearAuthToken();
+    }
+  }, [session?.accessToken, status]);
 
   // Step 2: Fetch user profile from /me
   const { data: meData } = useGetMeQuery(undefined, {
@@ -60,8 +65,7 @@ export default function AuthInitializer({
   // Step 5: Clear on logout
   useEffect(() => {
     if (status === "unauthenticated") {
-      localStorage.removeItem("authToken");
-      localStorage.removeItem("user");
+      clearAuthToken();
       dispatch(clearUserProfile());
     }
   }, [status, dispatch]);

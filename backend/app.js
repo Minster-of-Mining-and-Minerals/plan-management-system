@@ -56,6 +56,7 @@ const userTitleRoutes = require("./routers/organization/userTitleRoutes");
 
 // ================== Attachment Routes ==========================
 const attachmentRoute = require("./routers/attachment-routes/attachmentRoute");
+const healthRoutes = require("./routers/healthRoutes");
 
 const app = express();
 const appServer = http.createServer(app);
@@ -190,6 +191,9 @@ app.use("/api/user-titles", userTitleRoutes);
 
 // ================== Api Attachment Routes =====================
 app.use("/api/attachments", attachmentRoute);
+
+// ================== Health (no auth) ===========================
+app.use("/api", healthRoutes);
 
 // ================== Root Endpoint ==================
 app.get("/", (req, res) => {

@@ -16,6 +16,7 @@ export type StaffAppointment = {
   admitted_by?: string | null;
   admitted_at: string;
   status: StaffAppointmentStatus;
+  workflow_status?: "active" | "completed";
   notes?: string | null;
   created_at: string;
   updated_at: string;

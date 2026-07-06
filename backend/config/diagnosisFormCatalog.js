@@ -7,6 +7,12 @@ const {
   buildOphthalmologyGroups,
   buildOphthalmologyFields,
 } = require("./ophthalmologyDiagnosisPreset");
+const {
+  OPHTHALMOLOGY_LAB_TEMPLATE_TITLE,
+  OPHTHALMOLOGY_LAB_TEMPLATE_DESCRIPTION,
+  buildOphthalmologyLabGroups,
+  buildOphthalmologyLabFields,
+} = require("./ophthalmologyLabReportPreset");
 
 const buildGroups = (sections) =>
   sections.map((title, index) => ({
@@ -461,6 +467,10 @@ const TEMPLATE_PRESETS = {
       },
     ],
   },
+  [OPHTHALMOLOGY_LAB_TEMPLATE_TITLE]: {
+    groups: buildOphthalmologyLabGroups(),
+    fields: buildOphthalmologyLabFields(),
+  },
 };
 
 const STARTER_DIAGNOSIS_TEMPLATES = [
@@ -487,6 +497,10 @@ const STARTER_DIAGNOSIS_TEMPLATES = [
   {
     title: OPHTHALMOLOGY_TEMPLATE_TITLE,
     description: OPHTHALMOLOGY_TEMPLATE_DESCRIPTION,
+  },
+  {
+    title: OPHTHALMOLOGY_LAB_TEMPLATE_TITLE,
+    description: OPHTHALMOLOGY_LAB_TEMPLATE_DESCRIPTION,
   },
 ];
 

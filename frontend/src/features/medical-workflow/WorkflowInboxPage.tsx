@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Inbox } from "lucide-react";
 import DetailHeader from "@/components/common/DetailHeader";
 import { WorkflowInboxTable } from "./WorkflowInboxTable";
+import { WorkflowSummaryCards } from "./WorkflowSummaryCards";
 
 export default function WorkflowInboxPage() {
   const [status, setStatus] = useState("pending");
@@ -21,6 +22,8 @@ export default function WorkflowInboxPage() {
           Incoming forwarded patients and pending workflow tasks
         </p>
       </div>
+
+      <WorkflowSummaryCards />
 
       <WorkflowInboxTable status={status} onStatusChange={setStatus} />
     </div>
