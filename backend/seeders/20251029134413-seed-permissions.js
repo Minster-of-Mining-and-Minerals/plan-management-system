@@ -2,6 +2,12 @@
 const { v4: uuidv4 } = require("uuid");
 const bcrypt = require("bcrypt");
 const { QueryTypes } = require("sequelize");
+const {
+  ensurePermission,
+  ensureRolePermission,
+  normalizePermission,
+  permissionKey,
+} = require("../utils/permissionSeedUtils");
 
 const ADMIN_USER_ID = "00000000-0000-4000-8000-000000000001";
 const SUPER_ADMIN_ROLE_ID = "00000000-0000-4000-8000-000000000002";
@@ -123,6 +129,8 @@ const PERMISSIONS = [
   { resource: "documents", action: "update" },
   { resource: "documents", action: "delete" },
   { resource: "documents", action: "manage" },
+  { resource: "documents", action: "share" },
+  { resource: "documents", action: "forward" },
 ];
 
 function dedupePermissions(permissions) {
@@ -131,9 +139,7 @@ function dedupePermissions(permissions) {
   const duplicates = [];
 
   for (const perm of permissions) {
-    const resource = String(perm.resource).trim().toLowerCase();
-    const action = String(perm.action).trim().toLowerCase();
-    const key = `${resource}:${action}`;
+    const key = permissionKey(perm.resource, perm.action);
 
     if (seen.has(key)) {
       duplicates.push(key);
@@ -141,7 +147,7 @@ function dedupePermissions(permissions) {
     }
 
     seen.add(key);
-    unique.push({ resource, action });
+    unique.push(normalizePermission(perm.resource, perm.action));
   }
 
   if (duplicates.length > 0) {
@@ -154,57 +160,6 @@ function dedupePermissions(permissions) {
 }
 
 const UNIQUE_PERMISSIONS = dedupePermissions(PERMISSIONS);
-
-async function ensurePermission(queryInterface, perm, now) {
-  const existing = await queryInterface.sequelize.query(
-    `SELECT permission_id FROM permissions WHERE resource = :resource AND action = :action LIMIT 1`,
-    {
-      replacements: { resource: perm.resource, action: perm.action },
-      type: QueryTypes.SELECT,
-    }
-  );
-
-  if (existing.length > 0) {
-    return existing[0].permission_id;
-  }
-
-  const permissionId = uuidv4();
-  await queryInterface.bulkInsert("permissions", [
-    {
-      permission_id: permissionId,
-      resource: perm.resource,
-      action: perm.action,
-      is_active: true,
-      created_at: now,
-      updated_at: now,
-    },
-  ]);
-  return permissionId;
-}
-
-async function ensureRolePermission(queryInterface, roleId, permissionId, now) {
-  const existing = await queryInterface.sequelize.query(
-    `SELECT role_permission_id FROM role_permissions
-     WHERE role_id = :roleId AND permission_id = :permissionId LIMIT 1`,
-    {
-      replacements: { roleId, permissionId },
-      type: QueryTypes.SELECT,
-    }
-  );
-
-  if (existing.length > 0) return;
-
-  await queryInterface.bulkInsert("role_permissions", [
-    {
-      role_permission_id: uuidv4(),
-      role_id: roleId,
-      permission_id: permissionId,
-      is_active: true,
-      created_at: now,
-      updated_at: now,
-    },
-  ]);
-}
 
 module.exports = {
   async up(queryInterface) {

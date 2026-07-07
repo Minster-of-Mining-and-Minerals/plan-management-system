@@ -6,9 +6,7 @@ import {
   type FetchBaseQueryError,
 } from "@reduxjs/toolkit/query/react";
 import { sanitizeApiPayload } from "@/utils/apiPayloadUtils";
-import { isTokenAuthFailure } from "@/utils/authErrorUtils";
-import { performLogout } from "@/utils/logout";
-import { clearUserProfile } from "@/redux/slices/authSlice";
+import { handleApiSessionFailure } from "@/utils/sessionFailureUtils";
 
 const rawBaseQuery = fetchBaseQuery({
   baseUrl: `${process.env.NEXT_PUBLIC_BASE_URL}`,
@@ -62,11 +60,7 @@ const baseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> =
 
   const result = await rawBaseQuery(request, api, extraOptions);
 
-  if (isTokenAuthFailure(result.error)) {
-    api.dispatch(clearUserProfile());
-    api.dispatch(baseApi.util.resetApiState());
-    void performLogout();
-  }
+  handleApiSessionFailure(result.error, api.dispatch);
 
   return result;
 };

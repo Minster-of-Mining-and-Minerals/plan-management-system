@@ -18,6 +18,7 @@ import type {
   CreateDocumentSharePayload,
   ForwardDocumentPayload,
 } from "../types/document";
+import { handleApiSessionFailure } from "@/utils/sessionFailureUtils";
 
 const collaborationBaseQuery = fetchBaseQuery({
   baseUrl: process.env.NEXT_PUBLIC_COLLABORATION_API_URL || "http://localhost:4000/api/v1",
@@ -39,11 +40,13 @@ const baseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> =
   extraOptions
 ) => {
   if (args && typeof args === "object" && "body" in args && args.body instanceof FormData) {
-    return collaborationBaseQuery(args, api, extraOptions);
+    const result = await collaborationBaseQuery(args, api, extraOptions);
+    handleApiSessionFailure(result.error, api.dispatch);
+    return result;
   }
 
   if (args && typeof args === "object" && "method" in args && args.method && args.method !== "GET") {
-    return collaborationBaseQuery(
+    const result = await collaborationBaseQuery(
       {
         ...args,
         headers: {
@@ -54,9 +57,13 @@ const baseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> =
       api,
       extraOptions
     );
+    handleApiSessionFailure(result.error, api.dispatch);
+    return result;
   }
 
-  return collaborationBaseQuery(args, api, extraOptions);
+  const result = await collaborationBaseQuery(args, api, extraOptions);
+  handleApiSessionFailure(result.error, api.dispatch);
+  return result;
 };
 
 export const collaborationApi = createApi({

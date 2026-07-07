@@ -12,11 +12,46 @@ function getResponseMessage(data: unknown): string {
   return typeof message === "string" ? message.trim().toLowerCase() : "";
 }
 
-/** True when the backend rejected the JWT (message match; extra payload fields are ignored). */
+/** True when the backend rejected the JWT (401, or known 403 messages). */
 export function isTokenAuthFailure(
   error: FetchBaseQueryError | undefined
 ): boolean {
   if (!error || typeof error.status !== "number") return false;
-  const message = getResponseMessage(error.data);
-  return TOKEN_AUTH_FAILURE_MESSAGES.has(message);
+
+  if (error.status === 401) {
+    return true;
+  }
+
+  if (error.status === 403) {
+    const message = getResponseMessage(error.data);
+    return TOKEN_AUTH_FAILURE_MESSAGES.has(message);
+  }
+
+  return false;
+}
+
+/** True when the API is unreachable while the client still holds an auth token. */
+export function isNetworkAuthFailure(
+  error: FetchBaseQueryError | undefined
+): boolean {
+  if (!error) return false;
+  if (typeof window === "undefined") return false;
+  if (!localStorage.getItem("authToken")) return false;
+
+  if (error.status === "FETCH_ERROR" || error.status === "TIMEOUT_ERROR") {
+    return true;
+  }
+
+  if (typeof error.status === "number" && [0, 502, 503, 504].includes(error.status)) {
+    return true;
+  }
+
+  return false;
+}
+
+/** Token rejected or backend unreachable — clear session and return to login. */
+export function isForcedLogoutError(
+  error: FetchBaseQueryError | undefined
+): boolean {
+  return isTokenAuthFailure(error) || isNetworkAuthFailure(error);
 }

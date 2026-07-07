@@ -11,10 +11,10 @@ Module._initPaths();
 
 const { Op } = require("sequelize");
 
-require("dotenv").config({
-  path: path.join(__dirname, "../collaboration-service/.env"),
-  override: false,
-});
+const collaborationEnvPath = path.join(__dirname, "../collaboration-service/.env");
+
+// Merge collaboration-only vars without overriding backend PORT, DB_NAME, etc.
+require("dotenv").config({ path: collaborationEnvPath, override: false });
 
 const db = require("./models");
 const { userCanReadPlanVersion } = require("./services/planVisibilityService");
