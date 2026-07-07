@@ -62,7 +62,7 @@ export default function DocumentEditorPage({
     const errorMessage =
       (error as { data?: { message?: string }; error?: string })?.data?.message ||
       (error as { error?: string })?.error ||
-      "Unable to open this document. Check that collaboration-service (port 4100) and the main backend (port 4000) are running.";
+      "Unable to open this document. Check that the backend (port 4000) and ONLYOFFICE are running.";
 
     return (
       <div className="space-y-4">

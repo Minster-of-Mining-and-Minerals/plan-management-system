@@ -41,6 +41,7 @@ const formConfigContainerRoutes = require("./routers/issue/formConfigContainerRo
 
 // ================== Attachment Routes ==========================
 const attachmentRoute = require("./routers/attachment-routes/attachmentRoute");
+const { mountCollaboration } = require("./collaborationIntegration");
 
 const app = express();
 const appServer = http.createServer(app);
@@ -173,7 +174,13 @@ warmSystemSettingsCache()
   .catch((error) => {
     console.error("Failed to warm system settings cache:", error.message);
   })
-  .finally(() => {
+  .finally(async () => {
+    try {
+      await mountCollaboration(app);
+    } catch (error) {
+      console.error("Failed to mount collaboration routes:", error.message);
+    }
+
     appServer.listen(appPort, appHost, () => {
       console.log(` App server running at http://${appHost}:${appPort}`);
     });

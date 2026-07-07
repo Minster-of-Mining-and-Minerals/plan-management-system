@@ -7,10 +7,10 @@ const {
 } = require("../utils/fileTokenUtils");
 
 function getPublicBaseUrl() {
-  return (process.env.COLLABORATION_PUBLIC_URL || `http://localhost:${process.env.PORT || 4100}`).replace(
-    /\/$/,
-    ""
-  );
+  return (
+    process.env.COLLABORATION_PUBLIC_URL ||
+    `http://localhost:${process.env.PORT || 4000}`
+  ).replace(/\/$/, "");
 }
 
 function buildEditorConfig(document, user, mode) {

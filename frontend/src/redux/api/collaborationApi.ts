@@ -17,7 +17,7 @@ import type {
 } from "../types/document";
 
 const collaborationBaseQuery = fetchBaseQuery({
-  baseUrl: process.env.NEXT_PUBLIC_COLLABORATION_API_URL || "http://localhost:4100/api/v1",
+  baseUrl: process.env.NEXT_PUBLIC_COLLABORATION_API_URL || "http://localhost:4000/api/v1",
   prepareHeaders: (headers) => {
     if (typeof window !== "undefined") {
       const token = localStorage.getItem("authToken");
@@ -201,6 +201,6 @@ export const {
 
 export function getDocumentVersionDownloadUrl(documentId: string, versionNumber: number) {
   const baseUrl =
-    process.env.NEXT_PUBLIC_COLLABORATION_API_URL || "http://localhost:4100/api/v1";
+    process.env.NEXT_PUBLIC_COLLABORATION_API_URL || "http://localhost:4000/api/v1";
   return `${baseUrl}/documents/${documentId}/versions/${versionNumber}/file`;
 }

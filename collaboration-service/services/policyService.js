@@ -1,4 +1,5 @@
 const { getUserPermissions } = require("./userProfileService");
+const { getIntegrationAdapters } = require("./integrationContext");
 
 const PLAN_API_URL = process.env.PLAN_API_URL || "http://localhost:4000/api";
 
@@ -18,6 +19,15 @@ async function fetchPlanVersion(ownerId, accessToken) {
 
   const payload = await response.json();
   return payload?.data || null;
+}
+
+async function loadPlanVersion(ownerId, accessToken, user = null) {
+  const adapters = getIntegrationAdapters();
+  if (user && adapters.loadPlanVersion) {
+    return adapters.loadPlanVersion(ownerId, user);
+  }
+
+  return fetchPlanVersion(ownerId, accessToken);
 }
 
 function hasPermission(permissions, key) {
@@ -71,8 +81,9 @@ async function resolvePlanVersionAccess({
   accessToken,
   documentStatus,
   permissions,
+  user = null,
 }) {
-  const planVersion = await fetchPlanVersion(ownerId, accessToken);
+  const planVersion = await loadPlanVersion(ownerId, accessToken, user);
   if (!planVersion) {
     return {
       canRead: false,
@@ -135,8 +146,9 @@ async function resolveDocumentAccess({
   documentStatus,
   createdBy,
   userId,
+  user = null,
 }) {
-  const { permissions } = await getUserPermissions(accessToken);
+  const { permissions } = await getUserPermissions(accessToken, user);
 
   if (ownerType === "standalone" || !ownerId) {
     return resolveStandaloneAccess({ permissions, createdBy, userId, documentStatus });
@@ -148,6 +160,7 @@ async function resolveDocumentAccess({
       accessToken,
       documentStatus,
       permissions,
+      user,
     });
   }
 
@@ -162,8 +175,8 @@ async function resolveDocumentAccess({
   };
 }
 
-async function resolveCreateAccess({ ownerType, ownerId, accessToken }) {
-  const { permissions } = await getUserPermissions(accessToken);
+async function resolveCreateAccess({ ownerType, ownerId, accessToken, user = null }) {
+  const { permissions } = await getUserPermissions(accessToken, user);
   const canManage = hasPermission(permissions, "DOCUMENTS:MANAGE");
 
   if (ownerType === "plan_version" && ownerId) {
@@ -172,6 +185,7 @@ async function resolveCreateAccess({ ownerType, ownerId, accessToken }) {
       accessToken,
       documentStatus: "draft",
       permissions,
+      user,
     });
     return { canCreate: planAccess.canEdit };
   }

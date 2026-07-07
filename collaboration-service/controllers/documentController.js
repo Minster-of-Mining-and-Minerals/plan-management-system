@@ -9,6 +9,7 @@ async function listDocuments(req, res) {
       ownerId,
       userId: req.user.user_id,
       accessToken: req.accessToken,
+      user: req.user,
     });
 
     return res.json({ success: true, data: documents });
@@ -30,6 +31,7 @@ async function createDocument(req, res) {
       accessToken: req.accessToken,
       uploadedFile: req.file || null,
       fileType: fileType || "docx",
+      user: req.user,
     });
 
     return res.status(201).json({ success: true, data: document });
@@ -43,7 +45,8 @@ async function getDocument(req, res) {
     const result = await documentService.getDocumentWithAccess(
       req.params.id,
       req.user.user_id,
-      req.accessToken
+      req.accessToken,
+      { user: req.user }
     );
 
     if (!result) {
@@ -64,7 +67,8 @@ async function deleteDocument(req, res) {
     const deleted = await documentService.deleteDocument(
       req.params.id,
       req.user.user_id,
-      req.accessToken
+      req.accessToken,
+      req.user
     );
     if (!deleted) {
       return res.status(404).json({ success: false, message: "Document not found" });
@@ -154,7 +158,8 @@ async function downloadDocumentVersion(req, res) {
     const result = await documentService.getDocumentWithAccess(
       req.params.id,
       req.user.user_id,
-      req.accessToken
+      req.accessToken,
+      { user: req.user }
     );
 
     if (!result) {
@@ -184,7 +189,8 @@ async function listDocumentVersions(req, res) {
     const versions = await documentService.listDocumentVersions(
       req.params.id,
       req.user.user_id,
-      req.accessToken
+      req.accessToken,
+      req.user
     );
 
     if (!versions) {
@@ -218,6 +224,7 @@ async function getDocumentCounts(req, res) {
       ownerIds: ids,
       userId: req.user.user_id,
       accessToken: req.accessToken,
+      user: req.user,
     });
 
     return res.json({ success: true, data: counts });
@@ -233,7 +240,8 @@ async function restoreDocumentVersion(req, res) {
       req.params.id,
       versionNumber,
       req.user.user_id,
-      req.accessToken
+      req.accessToken,
+      req.user
     );
 
     if (!document) {
@@ -253,7 +261,8 @@ async function updateDocumentStatus(req, res) {
       req.params.id,
       status,
       req.user.user_id,
-      req.accessToken
+      req.accessToken,
+      req.user
     );
 
     if (!document) {

@@ -1,3 +1,5 @@
+const { getIntegrationAdapters } = require("./integrationContext");
+
 const PLAN_API_URL = process.env.PLAN_API_URL || "http://localhost:4000/api";
 
 async function fetchPlanApi(pathname, accessToken, options = {}) {
@@ -16,7 +18,12 @@ async function fetchPlanApi(pathname, accessToken, options = {}) {
   return { ok: response.ok, status: response.status, data };
 }
 
-async function getUserProfile(accessToken) {
+async function getUserProfile(accessToken, user = null) {
+  const adapters = getIntegrationAdapters();
+  if (user && adapters.getUserProfile) {
+    return adapters.getUserProfile(user);
+  }
+
   const result = await fetchPlanApi("/auth/me", accessToken);
   if (!result.ok) {
     return {
@@ -26,15 +33,23 @@ async function getUserProfile(accessToken) {
     };
   }
 
-  const user = result.data?.data?.user;
+  const profileUser = result.data?.data?.user;
   return {
-    user_id: user?.user_id,
-    full_name: user?.full_name || user?.email || "User",
-    email: user?.email || "",
+    user_id: profileUser?.user_id,
+    full_name: profileUser?.full_name || profileUser?.email || "User",
+    email: profileUser?.email || "",
   };
 }
 
-async function getUserPermissions(accessToken) {
+async function getUserPermissions(accessToken, user = null) {
+  const adapters = getIntegrationAdapters();
+  if (user && adapters.getPermissions) {
+    return {
+      roles: user.roles || [],
+      permissions: adapters.getPermissions(user),
+    };
+  }
+
   const result = await fetchPlanApi("/auth/permissions", accessToken);
   if (!result.ok) {
     return { roles: [], permissions: [] };
@@ -46,10 +61,15 @@ async function getUserPermissions(accessToken) {
   };
 }
 
-async function resolveUserDisplayNames(accessToken, userIds = []) {
+async function resolveUserDisplayNames(accessToken, userIds = [], user = null) {
   const uniqueIds = [...new Set(userIds.filter(Boolean))];
   if (!uniqueIds.length) {
     return {};
+  }
+
+  const adapters = getIntegrationAdapters();
+  if (user && adapters.resolveUserDisplayNames) {
+    return adapters.resolveUserDisplayNames(user, uniqueIds);
   }
 
   const result = await fetchPlanApi("/users/display-names", accessToken, {

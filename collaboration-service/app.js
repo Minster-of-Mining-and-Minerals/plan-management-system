@@ -2,10 +2,8 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
-
-const documentRoutes = require("./routers/documentRoutes");
-const { sequelize } = require("./models");
-const storageService = require("./services/storageService");
+const { authenticateToken } = require("./middlewares/authMiddleware");
+const { initCollaboration, createCollaborationRouter } = require("./mount");
 
 const app = express();
 const port = process.env.PORT || 4100;
@@ -23,7 +21,13 @@ app.use(
   })
 );
 
-storageService.ensureStorageRoot();
+function collaborationAuth(req, res, next) {
+  authenticateToken(req, res, () => {
+    const authHeader = req.headers.authorization;
+    req.accessToken = authHeader && authHeader.split(" ")[1];
+    next();
+  });
+}
 
 app.get("/health", (_req, res) => {
   res.json({
@@ -33,8 +37,6 @@ app.get("/health", (_req, res) => {
   });
 });
 
-app.use("/api/v1", documentRoutes);
-
 app.use((err, _req, res, _next) => {
   console.error("Collaboration service error:", err.message);
   res.status(err.status || 500).json({
@@ -43,10 +45,10 @@ app.use((err, _req, res, _next) => {
   });
 });
 
-sequelize
-  .authenticate()
+initCollaboration()
   .then(() => {
     console.log("Collaboration database connected");
+    app.use("/api/v1", createCollaborationRouter({ authenticateToken: collaborationAuth }));
     app.listen(port, () => {
       console.log(`Collaboration service running at http://localhost:${port}`);
     });

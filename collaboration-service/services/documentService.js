@@ -53,7 +53,7 @@ function forbidden(message = "Access denied") {
   return error;
 }
 
-async function resolveAccessForDocument(document, userId, accessToken) {
+async function resolveAccessForDocument(document, userId, accessToken, user = null) {
   return policyService.resolveDocumentAccess({
     ownerType: document.owner_type,
     ownerId: document.owner_id,
@@ -61,10 +61,11 @@ async function resolveAccessForDocument(document, userId, accessToken) {
     documentStatus: document.status,
     createdBy: document.created_by,
     userId,
+    user,
   });
 }
 
-async function listDocuments({ ownerApp, ownerType, ownerId, userId, accessToken }) {
+async function listDocuments({ ownerApp, ownerType, ownerId, userId, accessToken, user = null }) {
   const where = {};
   if (ownerApp) where.owner_app = ownerApp;
   if (ownerType) where.owner_type = ownerType;
@@ -77,7 +78,7 @@ async function listDocuments({ ownerApp, ownerType, ownerId, userId, accessToken
 
   const visible = [];
   for (const document of documents) {
-    const access = await resolveAccessForDocument(document, userId, accessToken);
+    const access = await resolveAccessForDocument(document, userId, accessToken, user);
     if (access.canRead) {
       visible.push(serializeDocument(document, access));
     }
@@ -90,13 +91,13 @@ async function getDocumentById(documentId) {
   return Document.findByPk(documentId);
 }
 
-async function getDocumentWithAccess(documentId, userId, accessToken, { requireEdit = false } = {}) {
+async function getDocumentWithAccess(documentId, userId, accessToken, { requireEdit = false, user = null } = {}) {
   const document = await getDocumentById(documentId);
   if (!document) {
     return null;
   }
 
-  const access = await resolveAccessForDocument(document, userId, accessToken);
+  const access = await resolveAccessForDocument(document, userId, accessToken, user);
   if (!access.canRead) {
     throw forbidden();
   }
@@ -116,11 +117,13 @@ async function createDocument({
   accessToken,
   uploadedFile = null,
   fileType: requestedFileType = "docx",
+  user = null,
 }) {
   const createAccess = await policyService.resolveCreateAccess({
     ownerType,
     ownerId,
     accessToken,
+    user,
   });
 
   if (!createAccess.canCreate) {
@@ -177,12 +180,12 @@ async function createDocument({
     saved_by: createdBy,
   });
 
-  const access = await resolveAccessForDocument(document, createdBy, accessToken);
+  const access = await resolveAccessForDocument(document, createdBy, accessToken, user);
   return serializeDocument(document, access);
 }
 
-async function deleteDocument(documentId, userId, accessToken) {
-  const result = await getDocumentWithAccess(documentId, userId, accessToken);
+async function deleteDocument(documentId, userId, accessToken, user = null) {
+  const result = await getDocumentWithAccess(documentId, userId, accessToken, { user });
   if (!result) {
     return null;
   }
@@ -205,13 +208,13 @@ async function deleteDocument(documentId, userId, accessToken) {
 }
 
 async function getEditorSession(documentId, user, accessToken) {
-  const result = await getDocumentWithAccess(documentId, user.user_id, accessToken);
+  const result = await getDocumentWithAccess(documentId, user.user_id, accessToken, { user });
   if (!result) {
     return null;
   }
 
   const { document, access } = result;
-  const profile = await userProfileService.getUserProfile(accessToken);
+  const profile = await userProfileService.getUserProfile(accessToken, user);
 
   const editorUser = {
     user_id: user.user_id,
@@ -230,7 +233,7 @@ async function getEditorSession(documentId, user, accessToken) {
 }
 
 async function getVersionEditorSession(documentId, versionNumber, user, accessToken) {
-  const result = await getDocumentWithAccess(documentId, user.user_id, accessToken);
+  const result = await getDocumentWithAccess(documentId, user.user_id, accessToken, { user });
   if (!result) {
     return null;
   }
@@ -261,7 +264,7 @@ async function getVersionEditorSession(documentId, versionNumber, user, accessTo
     fileSize = null;
   }
 
-  const profile = await userProfileService.getUserProfile(accessToken);
+  const profile = await userProfileService.getUserProfile(accessToken, user);
   const editorUser = {
     user_id: user.user_id,
     full_name: profile.full_name,
@@ -269,7 +272,7 @@ async function getVersionEditorSession(documentId, versionNumber, user, accessTo
   };
 
   const displayNames = version.saved_by
-    ? await userProfileService.resolveUserDisplayNames(accessToken, [version.saved_by])
+    ? await userProfileService.resolveUserDisplayNames(accessToken, [version.saved_by], user)
     : {};
   const savedByUser = version.saved_by ? displayNames[version.saved_by] : null;
 
@@ -318,8 +321,8 @@ async function getDocumentFileBuffer(documentId, versionNumber = null) {
   };
 }
 
-async function listDocumentVersions(documentId, userId, accessToken) {
-  const result = await getDocumentWithAccess(documentId, userId, accessToken);
+async function listDocumentVersions(documentId, userId, accessToken, user = null) {
+  const result = await getDocumentWithAccess(documentId, userId, accessToken, { user });
   if (!result) {
     return null;
   }
@@ -330,7 +333,7 @@ async function listDocumentVersions(documentId, userId, accessToken) {
   });
 
   const savedByIds = versions.map((version) => version.saved_by).filter(Boolean);
-  const displayNames = await userProfileService.resolveUserDisplayNames(accessToken, savedByIds);
+  const displayNames = await userProfileService.resolveUserDisplayNames(accessToken, savedByIds, user);
 
   return versions.map((version) => {
     let fileSize = null;
@@ -351,6 +354,7 @@ async function countDocumentsByOwners({
   ownerIds = [],
   userId,
   accessToken,
+  user = null,
 }) {
   const uniqueIds = [...new Set(ownerIds.filter(Boolean))];
   const counts = {};
@@ -362,6 +366,7 @@ async function countDocumentsByOwners({
       ownerId,
       userId,
       accessToken,
+      user,
     });
     counts[ownerId] = documents.length;
   }
@@ -369,8 +374,11 @@ async function countDocumentsByOwners({
   return counts;
 }
 
-async function restoreDocumentVersion(documentId, versionNumber, userId, accessToken) {
-  const result = await getDocumentWithAccess(documentId, userId, accessToken, { requireEdit: true });
+async function restoreDocumentVersion(documentId, versionNumber, userId, accessToken, user = null) {
+  const result = await getDocumentWithAccess(documentId, userId, accessToken, {
+    requireEdit: true,
+    user,
+  });
   if (!result) {
     return null;
   }
@@ -409,12 +417,12 @@ async function restoreDocumentVersion(documentId, versionNumber, userId, accessT
     updated_by: userId,
   });
 
-  const access = await resolveAccessForDocument(document, userId, accessToken);
+  const access = await resolveAccessForDocument(document, userId, accessToken, user);
   return serializeDocument(document, access);
 }
 
-async function updateDocumentStatus(documentId, status, userId, accessToken) {
-  const result = await getDocumentWithAccess(documentId, userId, accessToken);
+async function updateDocumentStatus(documentId, status, userId, accessToken, user = null) {
+  const result = await getDocumentWithAccess(documentId, userId, accessToken, { user });
   if (!result) {
     return null;
   }
@@ -440,7 +448,7 @@ async function updateDocumentStatus(documentId, status, userId, accessToken) {
     updated_by: userId,
   });
 
-  const nextAccess = await resolveAccessForDocument(document, userId, accessToken);
+  const nextAccess = await resolveAccessForDocument(document, userId, accessToken, user);
   return serializeDocument(document, nextAccess);
 }
 
