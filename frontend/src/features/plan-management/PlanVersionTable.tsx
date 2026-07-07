@@ -41,6 +41,7 @@ import { actionFeedback } from "@/components/action-feedback";
 import { CreatePlanVersionModal } from "./modals/CreatePlanVersionModal";
 import { FinalizePlanDraftModal } from "./modals/FinalizePlanDraftModal";
 import { DuplicatePlanDraftModal } from "./modals/DuplicatePlanDraftModal";
+import { PlanDocumentCountBadge } from "@/features/documents/components/PlanDocumentCountBadge";
 import {
   matchesMultiValueFilter,
   matchesSearchQuery,
@@ -188,6 +189,17 @@ export default function PlanVersionTable() {
                     </Badge>
                 );
             },
+        },
+        {
+            id: "documents",
+            header: "Documents",
+            meta: {
+                headerClassName: "w-[10%] whitespace-nowrap text-center",
+                cellClassName: "whitespace-nowrap text-center",
+            },
+            cell: ({ row }) => (
+                <PlanDocumentCountBadge planVersionId={row.original.plan_version_id} />
+            ),
         },
         {
             accessorKey: "status",

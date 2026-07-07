@@ -25,6 +25,7 @@ import {
     CalendarDays,
     Clock,
     ShieldCheck,
+    FileText,
 } from "lucide-react";
 import { CreatePlanNodeModal } from "./modals/CreatePlanNodeModal";
 import { actionFeedback } from "@/components/action-feedback";
@@ -92,6 +93,7 @@ import {
     PlanDetailPanelShell,
 } from "./components/PlanDetailLoadingStates";
 import { isOversightReadOnlyAccessRole } from "@/utils/planTreeAccessUtils";
+import { PlanDocumentCountBadge } from "@/features/documents/components/PlanDocumentCountBadge";
 import { cn } from "@/lib/utils";
 import { PlanAchievementScopeProvider } from "@/hooks/usePlanAchievementScope";
 import { PlanAchievementPendingPanel } from "./components/PlanAchievementPendingPanel";
@@ -1188,7 +1190,19 @@ export default function PlanHierarchyView({
                     </div>
                 </div>
 
-                {(!showAnnualDashboard && !showPeriodDashboard || activeTab === "hierarchy") && hierarchyToolbar}
+                <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                        variant="outline"
+                        className="gap-2"
+                        onClick={() => router.push(`/plans/${versionId}/documents`)}
+                    >
+                        <FileText className="h-4 w-4" />
+                        Documents
+                        <PlanDocumentCountBadge planVersionId={versionId} />
+                    </Button>
+                    {(!showAnnualDashboard && !showPeriodDashboard || activeTab === "hierarchy") &&
+                        hierarchyToolbar}
+                </div>
             </div>
 
             {isBootstrappingRelatedVersions ? (

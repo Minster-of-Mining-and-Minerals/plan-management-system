@@ -1,6 +1,7 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { setupListeners } from "@reduxjs/toolkit/query";
 import { baseApi } from "./baseApi";
+import { collaborationApi } from "./api/collaborationApi";
 import authReducer from "./slices/authSlice";
 import "@/redux/api/planRuleApi";
 import "@/redux/api/notificationApi";
@@ -11,15 +12,17 @@ import "@/redux/api/systemSettingsApi";
 import "@/redux/api/issueApi";
 import "@/redux/api/formConfigApi";
 import "@/redux/api/noteApi";
+import "@/redux/api/collaborationApi";
 export const store = configureStore({
   reducer: {
     [baseApi.reducerPath]: baseApi.reducer,
+    [collaborationApi.reducerPath]: collaborationApi.reducer,
     auth: authReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: false,
-    }).concat(baseApi.middleware),
+    }).concat(baseApi.middleware, collaborationApi.middleware),
 });
 
 setupListeners(store.dispatch);

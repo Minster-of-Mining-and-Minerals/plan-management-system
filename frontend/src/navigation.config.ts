@@ -15,6 +15,7 @@ import {
   AlertCircle,
   StickyNote,
   ClipboardCheck,
+  FileText,
 } from "lucide-react";
 
 export type NavItem = {
@@ -56,6 +57,12 @@ export const NAVIGATION: NavItem[] = [
         url: "/plans",
         icon: ListTree,
         allPermissions: ["PLANS:READ"],
+      },
+      {
+        title: "Documents",
+        url: "/documents",
+        icon: FileText,
+        anyPermissions: ["DOCUMENTS:READ", "DOCUMENTS:MANAGE"],
       },
       {
         title: "Plan Review",

@@ -108,4 +108,28 @@ export const breadcrumbConfig: Record<string, BreadcrumbItem[]> = {
         { title: "Notes", path: "/settings/notes" },
         { title: "Note Details", path: "/settings/notes/[id]" },
     ],
+
+    // ================================================
+    // Documents Routes
+    // ================================================
+    "/documents": [
+        { title: "Plan Management", path: "/plans" },
+        { title: "Documents", path: "/documents" },
+    ],
+    "/documents/[id]": [
+        { title: "Plan Management", path: "/plans" },
+        { title: "Documents", path: "/documents" },
+        { title: "Document", path: "/documents/[id]" },
+    ],
+    "/plans/[id]/documents": [
+        { title: "Plan Drafts", path: "/plans" },
+        { title: "Plan", path: "/plans/[id]" },
+        { title: "Documents", path: "/plans/[id]/documents" },
+    ],
+    "/plans/[id]/documents/[documentId]": [
+        { title: "Plan Drafts", path: "/plans" },
+        { title: "Plan", path: "/plans/[id]" },
+        { title: "Documents", path: "/plans/[id]/documents" },
+        { title: "Document", path: "/plans/[id]/documents/[documentId]" },
+    ],
 };

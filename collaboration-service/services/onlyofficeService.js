@@ -1,0 +1,113 @@
+const jwt = require("jsonwebtoken");
+const { onlyofficeDocumentType } = require("../utils/documentUtils");
+const {
+  createDocumentFileToken,
+  createDocumentCallbackToken,
+  createDocumentVersionFileToken,
+} = require("../utils/fileTokenUtils");
+
+function getPublicBaseUrl() {
+  return (process.env.COLLABORATION_PUBLIC_URL || `http://localhost:${process.env.PORT || 4100}`).replace(
+    /\/$/,
+    ""
+  );
+}
+
+function buildEditorConfig(document, user, mode) {
+  const publicBaseUrl = getPublicBaseUrl();
+  const fileToken = createDocumentFileToken(document.document_id);
+  const callbackToken = createDocumentCallbackToken(document.document_id);
+
+  const config = {
+    width: "100%",
+    height: "100%",
+    document: {
+      fileType: document.file_type,
+      key: document.document_key,
+      title: document.title,
+      url: `${publicBaseUrl}/api/v1/documents/${document.document_id}/file?token=${fileToken}`,
+    },
+    documentType: onlyofficeDocumentType(document.file_type),
+    editorConfig: {
+      mode,
+      callbackUrl: `${publicBaseUrl}/api/v1/documents/${document.document_id}/callback?token=${callbackToken}`,
+      user: {
+        id: String(user.user_id),
+        name: user.full_name || user.email || "User",
+      },
+      coEditing: {
+        mode: "fast",
+        change: true,
+      },
+      customization: {
+        forcesave: true,
+        chat: true,
+        comments: true,
+      },
+    },
+  };
+
+  if (document.file_type === "pdf") {
+    config.editorConfig.mode = "view";
+  }
+
+  const secret =
+    process.env.ONLYOFFICE_JWT_ENABLED === "true"
+      ? process.env.ONLYOFFICE_JWT_SECRET
+      : null;
+  if (secret) {
+    config.token = jwt.sign(config, secret);
+  }
+
+  return config;
+}
+
+function buildVersionEditorConfig(document, version, user, versionNumber) {
+  const publicBaseUrl = getPublicBaseUrl();
+  const fileToken = createDocumentVersionFileToken(document.document_id, versionNumber);
+
+  const config = {
+    width: "100%",
+    height: "100%",
+    document: {
+      fileType: document.file_type,
+      key: `${version.document_key}_v${versionNumber}`,
+      title: `${document.title} (v${versionNumber})`,
+      url: `${publicBaseUrl}/api/v1/documents/${document.document_id}/versions/${versionNumber}/onlyoffice-file?token=${fileToken}`,
+    },
+    documentType: onlyofficeDocumentType(document.file_type),
+    editorConfig: {
+      mode: "view",
+      user: {
+        id: String(user.user_id),
+        name: user.full_name || user.email || "User",
+      },
+      customization: {
+        forcesave: false,
+        chat: false,
+        comments: false,
+      },
+    },
+  };
+
+  const secret =
+    process.env.ONLYOFFICE_JWT_ENABLED === "true"
+      ? process.env.ONLYOFFICE_JWT_SECRET
+      : null;
+  if (secret) {
+    config.token = jwt.sign(config, secret);
+  }
+
+  return config;
+}
+
+function getDocumentServerUrl() {
+  return (process.env.ONLYOFFICE_URL || "http://localhost:8080").replace(/\/$/, "");
+}
+
+module.exports = {
+  buildEditorConfig,
+  buildVersionEditorConfig,
+  getDocumentServerUrl,
+  getPublicBaseUrl,
+};

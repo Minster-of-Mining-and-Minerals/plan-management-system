@@ -21,3 +21,8 @@ logs/
 
 # Database backups (may contain sensitive data)
 /database/backups/*.sql
+
+# Collaboration service
+/collaboration-service/node_modules/
+/collaboration-service/.env
+/collaboration-service/storage/

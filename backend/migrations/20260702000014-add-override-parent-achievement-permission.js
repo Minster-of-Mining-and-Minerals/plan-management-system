@@ -39,6 +39,18 @@ module.exports = {
     );
 
     for (const perm of seeded) {
+      const roleExists = await queryInterface.sequelize.query(
+        `SELECT role_id FROM roles WHERE role_id = :roleId LIMIT 1`,
+        {
+          replacements: { roleId: SUPER_ADMIN_ROLE_ID },
+          type: QueryTypes.SELECT,
+        }
+      );
+
+      if (roleExists.length === 0) {
+        continue;
+      }
+
       const existing = await queryInterface.sequelize.query(
         `SELECT role_permission_id FROM role_permissions
          WHERE role_id = :roleId AND permission_id = :permId LIMIT 1`,
