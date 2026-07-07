@@ -14,6 +14,9 @@ import type {
   ListDocumentsQuery,
   UpdateDocumentStatusPayload,
   VersionEditorSession,
+  DocumentGrant,
+  CreateDocumentSharePayload,
+  ForwardDocumentPayload,
 } from "../types/document";
 
 const collaborationBaseQuery = fetchBaseQuery({
@@ -59,7 +62,7 @@ const baseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> =
 export const collaborationApi = createApi({
   reducerPath: "collaborationApi",
   baseQuery,
-  tagTypes: ["CollaborationDocuments", "CollaborationDocumentVersions"],
+  tagTypes: ["CollaborationDocuments", "CollaborationDocumentVersions", "DocumentShares"],
   endpoints: (builder) => ({
     getDocuments: builder.query<CollaborationDocument[], ListDocumentsQuery | void>({
       query: (params) => ({
@@ -183,6 +186,55 @@ export const collaborationApi = createApi({
         { type: "CollaborationDocuments", id: "LIST" },
       ],
     }),
+    getDocumentShares: builder.query<DocumentGrant[], string>({
+      query: (documentId) => `/documents/${documentId}/shares`,
+      transformResponse: (response: { success: boolean; data: DocumentGrant[] }) => response.data,
+      providesTags: (_result, _error, documentId) => [{ type: "DocumentShares", id: documentId }],
+    }),
+    createDocumentShare: builder.mutation<DocumentGrant, CreateDocumentSharePayload>({
+      query: ({ documentId, principalType, principalId, role }) => ({
+        url: `/documents/${documentId}/shares`,
+        method: "POST",
+        body: {
+          principalType: principalType || "user",
+          principalId,
+          role: role || "viewer",
+        },
+      }),
+      transformResponse: (response: { success: boolean; data: DocumentGrant }) => response.data,
+      invalidatesTags: (_result, _error, { documentId }) => [
+        { type: "DocumentShares", id: documentId },
+        { type: "CollaborationDocuments", id: documentId },
+      ],
+    }),
+    revokeDocumentShare: builder.mutation<void, { documentId: string; grantId: string }>({
+      query: ({ documentId, grantId }) => ({
+        url: `/documents/${documentId}/shares/${grantId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { documentId }) => [
+        { type: "DocumentShares", id: documentId },
+        { type: "CollaborationDocuments", id: documentId },
+      ],
+    }),
+    forwardDocument: builder.mutation<
+      { document_id: string; recipient_user_id: string; grant_access: boolean },
+      ForwardDocumentPayload
+    >({
+      query: ({ documentId, recipientUserId, message, grantAccess }) => ({
+        url: `/documents/${documentId}/forward`,
+        method: "POST",
+        body: {
+          recipientUserId,
+          message,
+          grantAccess,
+        },
+      }),
+      transformResponse: (response: {
+        success: boolean;
+        data: { document_id: string; recipient_user_id: string; grant_access: boolean };
+      }) => response.data,
+    }),
   }),
 });
 
@@ -197,6 +249,10 @@ export const {
   useGetDocumentCountsQuery,
   useRestoreDocumentVersionMutation,
   useUpdateDocumentStatusMutation,
+  useGetDocumentSharesQuery,
+  useCreateDocumentShareMutation,
+  useRevokeDocumentShareMutation,
+  useForwardDocumentMutation,
 } = collaborationApi;
 
 export function getDocumentVersionDownloadUrl(documentId: string, versionNumber: number) {

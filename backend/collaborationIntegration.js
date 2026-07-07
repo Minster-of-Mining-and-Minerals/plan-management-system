@@ -77,6 +77,45 @@ async function mountCollaboration(app) {
         }
         return data;
       },
+      async getUserPermissionGroupIds(user) {
+        const memberships = await db.UserPermissionGroup.findAll({
+          where: { user_id: user.user_id },
+          attributes: ["permission_group_id"],
+        });
+        return memberships.map((row) => row.permission_group_id);
+      },
+      async sendDocumentForward(fromUser, recipientUserId, document, message) {
+        const { sendNotification } = require("./utils/notification");
+        let io = null;
+        try {
+          io = require("./app").io;
+        } catch {
+          io = null;
+        }
+
+        await sendNotification(
+          [{ user_id: recipientUserId }],
+          {
+            category: "documents",
+            notification_type: "document_forwarded",
+            title: `${fromUser.full_name || fromUser.email || "Someone"} forwarded a document to you`,
+            message:
+              message ||
+              `Open "${document.title}" shared with you.`,
+            related_entity_type: "document",
+            related_entity_id: document.document_id,
+            link_path: `/documents/${document.document_id}`,
+            icon_variant: "file",
+            priority: "normal",
+            metadata: {
+              document_id: document.document_id,
+              document_title: document.title,
+              forwarded_by: fromUser.user_id,
+            },
+          },
+          io
+        );
+      },
     },
   });
 

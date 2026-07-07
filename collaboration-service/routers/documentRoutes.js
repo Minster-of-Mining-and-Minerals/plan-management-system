@@ -60,6 +60,14 @@ function createDocumentRouter({ authenticateToken }) {
     documentController.restoreDocumentVersion
   );
   router.patch("/documents/:id/status", authenticateToken, documentController.updateDocumentStatus);
+  router.get("/documents/:id/shares", authenticateToken, documentController.listDocumentShares);
+  router.post("/documents/:id/shares", authenticateToken, documentController.createDocumentShare);
+  router.delete(
+    "/documents/:id/shares/:grantId",
+    authenticateToken,
+    documentController.revokeDocumentShare
+  );
+  router.post("/documents/:id/forward", authenticateToken, documentController.forwardDocument);
 
   router.get(
     "/documents/:id/file",

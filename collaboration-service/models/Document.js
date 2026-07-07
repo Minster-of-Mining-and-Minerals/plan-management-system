@@ -10,6 +10,11 @@ module.exports = (sequelize, DataTypes) => {
         as: "versions",
         onDelete: "CASCADE",
       });
+      Document.hasMany(models.DocumentGrant, {
+        foreignKey: "document_id",
+        as: "grants",
+        onDelete: "CASCADE",
+      });
     }
   }
 

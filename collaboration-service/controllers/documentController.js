@@ -284,6 +284,102 @@ async function onlyofficeCallback(req, res) {
   }
 }
 
+async function listDocumentShares(req, res) {
+  try {
+    const shares = await documentService.listDocumentShares(
+      req.params.id,
+      req.user.user_id,
+      req.accessToken,
+      req.user
+    );
+
+    if (!shares) {
+      return res.status(404).json({ success: false, message: "Document not found" });
+    }
+
+    return res.json({ success: true, data: shares });
+  } catch (error) {
+    return res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+async function createDocumentShare(req, res) {
+  try {
+    const { principalType, principalId, role, expiresAt } = req.body;
+    const share = await documentService.createDocumentShare(
+      req.params.id,
+      {
+        principalType: principalType || "user",
+        principalId,
+        role: role || "viewer",
+        expiresAt: expiresAt || null,
+      },
+      req.user.user_id,
+      req.accessToken,
+      req.user
+    );
+
+    if (!share) {
+      return res.status(404).json({ success: false, message: "Document not found" });
+    }
+
+    return res.status(201).json({ success: true, data: share });
+  } catch (error) {
+    return res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+async function revokeDocumentShare(req, res) {
+  try {
+    const revoked = await documentService.revokeDocumentShare(
+      req.params.id,
+      req.params.grantId,
+      req.user.user_id,
+      req.accessToken,
+      req.user
+    );
+
+    if (revoked === null) {
+      return res.status(404).json({ success: false, message: "Document not found" });
+    }
+    if (!revoked) {
+      return res.status(404).json({ success: false, message: "Share not found" });
+    }
+
+    return res.json({ success: true, message: "Share removed" });
+  } catch (error) {
+    return res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+async function forwardDocument(req, res) {
+  try {
+    const { recipientUserId, message, grantAccess } = req.body;
+    if (!recipientUserId) {
+      return res.status(400).json({ success: false, message: "recipientUserId is required" });
+    }
+
+    const result = await documentService.forwardDocumentToUser(
+      req.params.id,
+      {
+        recipientUserId,
+        message: message || null,
+        grantAccess: grantAccess !== false,
+      },
+      req.user,
+      req.accessToken
+    );
+
+    if (!result) {
+      return res.status(404).json({ success: false, message: "Document not found" });
+    }
+
+    return res.json({ success: true, data: result });
+  } catch (error) {
+    return res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
   listDocuments,
   createDocument,
@@ -299,4 +395,8 @@ module.exports = {
   restoreDocumentVersion,
   updateDocumentStatus,
   onlyofficeCallback,
+  listDocumentShares,
+  createDocumentShare,
+  revokeDocumentShare,
+  forwardDocument,
 };

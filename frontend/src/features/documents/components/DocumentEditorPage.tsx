@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, History, Lock, Unlock } from "lucide-react";
+import { ArrowLeft, Forward, History, Lock, Share2, Unlock } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,8 @@ import {
 } from "@/redux/api/collaborationApi";
 import { DocumentEditor } from "./DocumentEditor";
 import { DocumentVersionHistory } from "./DocumentVersionHistory";
+import { DocumentShareDialog } from "./DocumentShareDialog";
+import { DocumentForwardDialog } from "./DocumentForwardDialog";
 
 interface DocumentEditorPageProps {
   documentId: string;
@@ -32,6 +34,8 @@ export default function DocumentEditorPage({
 }: DocumentEditorPageProps) {
   const router = useRouter();
   const [versionsOpen, setVersionsOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [forwardOpen, setForwardOpen] = useState(false);
   const { data: session, isLoading, isError, error, refetch } = useGetEditorSessionQuery(documentId);
   const [updateStatus, { isLoading: isUpdatingStatus }] = useUpdateDocumentStatusMutation();
 
@@ -101,6 +105,18 @@ export default function DocumentEditorPage({
         </div>
 
         <div className="flex flex-wrap gap-2">
+          {session.access.canShare ? (
+            <Button variant="outline" onClick={() => setShareOpen(true)}>
+              <Share2 className="mr-2 h-4 w-4" />
+              Share
+            </Button>
+          ) : null}
+          {session.access.canForward ? (
+            <Button variant="outline" onClick={() => setForwardOpen(true)}>
+              <Forward className="mr-2 h-4 w-4" />
+              Forward
+            </Button>
+          ) : null}
           <Button variant="outline" onClick={() => setVersionsOpen(true)}>
             <History className="mr-2 h-4 w-4" />
             Versions
@@ -154,6 +170,19 @@ export default function DocumentEditorPage({
           </div>
         </SheetContent>
       </Sheet>
+
+      <DocumentShareDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        documentId={documentId}
+        documentTitle={session.document.title}
+      />
+      <DocumentForwardDialog
+        open={forwardOpen}
+        onOpenChange={setForwardOpen}
+        documentId={documentId}
+        documentTitle={session.document.title}
+      />
     </div>
   );
 }

@@ -8,8 +8,28 @@ export interface DocumentAccess {
   canDelete: boolean;
   canFinalize: boolean;
   canUnfinalize: boolean;
+  canShare: boolean;
+  canForward: boolean;
+  grantRole?: "viewer" | "editor" | "manager" | null;
   mode: "edit" | "view";
   reason: string;
+}
+
+export type DocumentGrantRole = "viewer" | "editor" | "manager";
+export type DocumentGrantPrincipalType = "user" | "permission_group";
+
+export interface DocumentGrant {
+  document_grant_id: string;
+  document_id: string;
+  principal_type: DocumentGrantPrincipalType;
+  principal_id: string;
+  role: DocumentGrantRole;
+  granted_by: string;
+  expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+  principal_name?: string | null;
+  principal_email?: string | null;
 }
 
 export interface CollaborationDocument {
@@ -79,4 +99,18 @@ export interface DocumentCountsQuery {
 export interface UpdateDocumentStatusPayload {
   id: string;
   status: DocumentStatus;
+}
+
+export interface CreateDocumentSharePayload {
+  documentId: string;
+  principalType?: DocumentGrantPrincipalType;
+  principalId: string;
+  role?: DocumentGrantRole;
+}
+
+export interface ForwardDocumentPayload {
+  documentId: string;
+  recipientUserId: string;
+  message?: string;
+  grantAccess?: boolean;
 }

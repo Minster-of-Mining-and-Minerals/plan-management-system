@@ -3,6 +3,7 @@
 const { Notification, NotificationTemplate, sequelize } = require("../../models");
 const { v4: uuidv4, validate: isUuid } = require("uuid");
 const { Op } = require("sequelize");
+const { sendNotification } = require("../../utils/notification");
 
 const getNotifications = async (req, res) => {
   try {
@@ -113,10 +114,68 @@ const markAllNotificationsRead = async (req, res) => {
   }
 };
 
+const forwardDocumentNotification = async (req, res) => {
+  try {
+    const {
+      recipient_user_id: recipientUserId,
+      document_id: documentId,
+      document_title: documentTitle,
+      message,
+      sender_name: senderName,
+      link_path: linkPath,
+    } = req.body || {};
+
+    if (!isUuid(recipientUserId) || !isUuid(documentId)) {
+      return res.status(400).json({
+        success: false,
+        message: "recipient_user_id and document_id are required",
+      });
+    }
+
+    const title = `${senderName || "Someone"} forwarded a document to you`;
+    const body =
+      message ||
+      `Open "${documentTitle || "Document"}" shared with you.`;
+
+    let io = null;
+    try {
+      io = require("../../app").io;
+    } catch {
+      io = null;
+    }
+
+    const notifications = await sendNotification(
+      [{ user_id: recipientUserId }],
+      {
+        category: "documents",
+        notification_type: "document_forwarded",
+        title,
+        message: body,
+        related_entity_type: "document",
+        related_entity_id: documentId,
+        link_path: linkPath || `/documents/${documentId}`,
+        icon_variant: "file",
+        priority: "normal",
+        metadata: {
+          document_id: documentId,
+          document_title: documentTitle || null,
+          forwarded_by: req.user.user_id,
+        },
+      },
+      io
+    );
+
+    return res.status(201).json({ success: true, data: notifications });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   getNotifications,
   getUnreadCount,
   getNotificationTemplates,
   markNotificationRead,
   markAllNotificationsRead,
+  forwardDocumentNotification,
 };

@@ -1,4 +1,5 @@
 const { Document, DocumentVersion } = require("../models");
+const { Op } = require("sequelize");
 const {
   generateDocumentKey,
   inferFileType,
@@ -11,6 +12,9 @@ const storageService = require("./storageService");
 const policyService = require("./policyService");
 const userProfileService = require("./userProfileService");
 const onlyofficeService = require("./onlyofficeService");
+const documentGrantService = require("./documentGrantService");
+const documentForwardService = require("./documentForwardService");
+const { canGrantRole } = require("../utils/documentAccessUtils");
 
 function serializeDocument(document, access = null) {
   return {
@@ -53,7 +57,23 @@ function forbidden(message = "Access denied") {
   return error;
 }
 
-async function resolveAccessForDocument(document, userId, accessToken, user = null) {
+async function resolveAccessForDocument(
+  document,
+  userId,
+  accessToken,
+  user = null,
+  grantRole = undefined
+) {
+  let resolvedGrantRole = grantRole;
+  if (resolvedGrantRole === undefined) {
+    const grantRoles = await documentGrantService.resolveGrantRolesForUser(
+      [document.document_id],
+      userId,
+      user
+    );
+    resolvedGrantRole = grantRoles.get(document.document_id) || null;
+  }
+
   return policyService.resolveDocumentAccess({
     ownerType: document.owner_type,
     ownerId: document.owner_id,
@@ -62,6 +82,7 @@ async function resolveAccessForDocument(document, userId, accessToken, user = nu
     createdBy: document.created_by,
     userId,
     user,
+    grantRole: resolvedGrantRole,
   });
 }
 
@@ -71,14 +92,47 @@ async function listDocuments({ ownerApp, ownerType, ownerId, userId, accessToken
   if (ownerType) where.owner_type = ownerType;
   if (ownerId) where.owner_id = ownerId;
 
-  const documents = await Document.findAll({
+  let documents = await Document.findAll({
     where,
     order: [["updated_at", "DESC"]],
   });
 
+  if (!ownerId) {
+    const grantRoles = await documentGrantService.resolveGrantRolesForUser([], userId, user);
+    const sharedDocumentIds = [...grantRoles.keys()];
+    if (sharedDocumentIds.length) {
+      const sharedDocuments = await Document.findAll({
+        where: {
+          document_id: { [Op.in]: sharedDocumentIds },
+          ...(ownerApp ? { owner_app: ownerApp } : {}),
+          ...(ownerType ? { owner_type: ownerType } : {}),
+        },
+      });
+      const byId = new Map(documents.map((document) => [document.document_id, document]));
+      for (const sharedDocument of sharedDocuments) {
+        byId.set(sharedDocument.document_id, sharedDocument);
+      }
+      documents = [...byId.values()].sort(
+        (left, right) => new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime()
+      );
+    }
+  }
+
+  const grantRoles = await documentGrantService.resolveGrantRolesForUser(
+    documents.map((document) => document.document_id),
+    userId,
+    user
+  );
+
   const visible = [];
   for (const document of documents) {
-    const access = await resolveAccessForDocument(document, userId, accessToken, user);
+    const access = await resolveAccessForDocument(
+      document,
+      userId,
+      accessToken,
+      user,
+      grantRoles.get(document.document_id) || null
+    );
     if (access.canRead) {
       visible.push(serializeDocument(document, access));
     }
@@ -499,6 +553,113 @@ async function handleOnlyofficeCallback(documentId, body) {
   return { error: 0 };
 }
 
+async function listDocumentShares(documentId, userId, accessToken, user = null) {
+  const result = await getDocumentWithAccess(documentId, userId, accessToken, { user });
+  if (!result) {
+    return null;
+  }
+  if (!result.access.canShare) {
+    throw forbidden("Not allowed to view shares for this document");
+  }
+
+  const grants = await documentGrantService.listDocumentGrants(documentId);
+  return documentGrantService.enrichGrantPrincipals(grants, accessToken, user);
+}
+
+async function createDocumentShare(
+  documentId,
+  { principalType, principalId, role, expiresAt },
+  userId,
+  accessToken,
+  user = null
+) {
+  const result = await getDocumentWithAccess(documentId, userId, accessToken, { user });
+  if (!result) {
+    return null;
+  }
+  if (!result.access.canShare) {
+    throw forbidden("Not allowed to share this document");
+  }
+
+  const { permissions } = await userProfileService.getUserPermissions(accessToken, user);
+  const isCreator = result.document.created_by === userId;
+  if (!canGrantRole(result.access.grantRole, isCreator, permissions, role)) {
+    throw forbidden("You cannot assign this access level");
+  }
+
+  if (!["user", "permission_group"].includes(principalType)) {
+    const error = new Error("Invalid principal type");
+    error.status = 400;
+    throw error;
+  }
+  if (!["viewer", "editor", "manager"].includes(role)) {
+    const error = new Error("Invalid share role");
+    error.status = 400;
+    throw error;
+  }
+
+  const grant = await documentGrantService.createDocumentGrant({
+    documentId,
+    principalType,
+    principalId,
+    role,
+    grantedBy: userId,
+    expiresAt: expiresAt || null,
+  });
+
+  const [serialized] = await documentGrantService.enrichGrantPrincipals([grant], accessToken, user);
+  return serialized;
+}
+
+async function revokeDocumentShare(documentId, grantId, userId, accessToken, user = null) {
+  const result = await getDocumentWithAccess(documentId, userId, accessToken, { user });
+  if (!result) {
+    return null;
+  }
+  if (!result.access.canShare) {
+    throw forbidden("Not allowed to revoke shares for this document");
+  }
+
+  const deleted = await documentGrantService.deleteDocumentGrant(documentId, grantId);
+  if (!deleted) {
+    return false;
+  }
+  return true;
+}
+
+async function forwardDocumentToUser(
+  documentId,
+  { recipientUserId, message, grantAccess = true },
+  user,
+  accessToken
+) {
+  const result = await getDocumentWithAccess(documentId, user.user_id, accessToken, { user });
+  if (!result) {
+    return null;
+  }
+  if (!result.access.canForward) {
+    throw forbidden("Not allowed to forward this document");
+  }
+
+  if (grantAccess) {
+    await documentGrantService.ensureViewerGrant(documentId, recipientUserId, user.user_id);
+  }
+
+  await documentForwardService.forwardDocument({
+    document: result.document,
+    fromUser: user,
+    recipientUserId,
+    message,
+    accessToken,
+  });
+
+  return {
+    document_id: documentId,
+    recipient_user_id: recipientUserId,
+    grant_access: Boolean(grantAccess),
+  };
+}
+
 module.exports = {
   listDocuments,
   getDocumentById,
@@ -514,4 +675,8 @@ module.exports = {
   updateDocumentStatus,
   handleOnlyofficeCallback,
   serializeDocument,
+  listDocumentShares,
+  createDocumentShare,
+  revokeDocumentShare,
+  forwardDocumentToUser,
 };

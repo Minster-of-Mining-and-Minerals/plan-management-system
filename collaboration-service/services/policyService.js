@@ -1,9 +1,27 @@
 const { getUserPermissions } = require("./userProfileService");
 const { getIntegrationAdapters } = require("./integrationContext");
+const {
+  accessFromGrantRole,
+  mergeDocumentAccess,
+  appendShareForwardFlags,
+} = require("../utils/documentAccessUtils");
 
 const PLAN_API_URL = process.env.PLAN_API_URL || "http://localhost:4000/api";
 
 const LOCKED_PLAN_STATUSES = new Set(["finalized", "locked", "completed"]);
+
+const DENY_ALL_ACCESS = {
+  canRead: false,
+  canEdit: false,
+  canDelete: false,
+  canFinalize: false,
+  canUnfinalize: false,
+  canShare: false,
+  canForward: false,
+  grantRole: null,
+  mode: "view",
+  reason: "access_denied",
+};
 
 async function fetchPlanVersion(ownerId, accessToken) {
   const response = await fetch(`${PLAN_API_URL}/plan/versions/${ownerId}`, {
@@ -34,12 +52,7 @@ function hasPermission(permissions, key) {
   return permissions.includes(key);
 }
 
-async function resolveStandaloneAccess({
-  permissions,
-  createdBy,
-  userId,
-  documentStatus,
-}) {
+function resolveStandaloneAccess({ permissions, createdBy, userId, documentStatus }) {
   const canManage = hasPermission(permissions, "DOCUMENTS:MANAGE");
   const canReadAll = canManage || hasPermission(permissions, "DOCUMENTS:READ");
   const canUpdate =
@@ -147,32 +160,33 @@ async function resolveDocumentAccess({
   createdBy,
   userId,
   user = null,
+  grantRole = null,
 }) {
   const { permissions } = await getUserPermissions(accessToken, user);
+  let baseAccess;
 
   if (ownerType === "standalone" || !ownerId) {
-    return resolveStandaloneAccess({ permissions, createdBy, userId, documentStatus });
-  }
-
-  if (ownerType === "plan_version") {
-    return resolvePlanVersionAccess({
+    baseAccess = resolveStandaloneAccess({ permissions, createdBy, userId, documentStatus });
+  } else if (ownerType === "plan_version") {
+    baseAccess = await resolvePlanVersionAccess({
       ownerId,
       accessToken,
       documentStatus,
       permissions,
       user,
     });
+  } else {
+    return { ...DENY_ALL_ACCESS };
   }
 
-  return {
-    canRead: false,
-    canEdit: false,
-    canDelete: false,
-    canFinalize: false,
-    canUnfinalize: false,
-    mode: "view",
-    reason: "unsupported_owner",
-  };
+  const grantAccess = accessFromGrantRole(grantRole, documentStatus);
+  const merged = mergeDocumentAccess(baseAccess, grantAccess);
+  const isCreator = Boolean(createdBy && userId && createdBy === userId);
+
+  return appendShareForwardFlags(merged, permissions, {
+    isCreator,
+    grantRole,
+  });
 }
 
 async function resolveCreateAccess({ ownerType, ownerId, accessToken, user = null }) {
@@ -191,9 +205,7 @@ async function resolveCreateAccess({ ownerType, ownerId, accessToken, user = nul
   }
 
   return {
-    canCreate:
-      canManage ||
-      hasPermission(permissions, "DOCUMENTS:CREATE"),
+    canCreate: canManage || hasPermission(permissions, "DOCUMENTS:CREATE"),
   };
 }
 
