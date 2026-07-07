@@ -16,6 +16,7 @@ const {
   DIRECTORATE_USER_TEMPLATES,
   DEPARTMENT_USER_TEMPLATES,
 } = require("./data/momOrgHierarchy.data");
+const { cleanStructureData } = require("./utils/seedCleanupUtils");
 
 const ID_NAMESPACE = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
 
@@ -36,62 +37,6 @@ function deptShortName(name) {
     .replace(/^Chief Executive$/i, "Executive")
     .replace(/^Director General$/i, "Director General")
     .trim();
-}
-
-async function cleanStructureData(queryInterface) {
-  console.log("Cleaning existing structure, department, and demo user data...");
-
-  const tables = await queryInterface.showAllTables();
-  const tableNames = tables.map((t) => (typeof t === "string" ? t : Object.values(t)[0]));
-  const hasTable = (name) => tableNames.includes(name);
-
-  await queryInterface.sequelize.query(`DELETE FROM internal_assignments`);
-  await queryInterface.sequelize.query(`DELETE FROM external_assignments`);
-
-  if (hasTable("plan_node_action_logs")) {
-    await queryInterface.sequelize.query(`DELETE FROM plan_node_action_logs`);
-  }
-
-  if (hasTable("plan_nodes")) {
-    await queryInterface.sequelize.query(`DELETE FROM plan_nodes`);
-  }
-
-  if (hasTable("plan_versions")) {
-    await queryInterface.sequelize.query(
-      `UPDATE plan_versions SET based_on_version_id = NULL WHERE based_on_version_id IS NOT NULL`
-    );
-    await queryInterface.sequelize.query(`DELETE FROM plan_versions`);
-  }
-
-  if (hasTable("plan_rule_steps")) {
-    await queryInterface.sequelize.query(
-      `DELETE FROM plan_rule_steps
-       WHERE plan_rule_id IN (
-         SELECT plan_rule_id FROM plan_rules WHERE government_structure_id IS NOT NULL
-       )`
-    );
-  }
-
-  if (hasTable("plan_rules")) {
-    await queryInterface.sequelize.query(
-      `DELETE FROM plan_rules WHERE government_structure_id IS NOT NULL`
-    );
-  }
-
-  await queryInterface.sequelize.query(`DELETE FROM user_permission_groups`);
-  await queryInterface.sequelize.query(
-    `DELETE FROM user_roles WHERE user_id != :adminId`,
-    { replacements: { adminId: ADMIN_USER_ID } }
-  );
-  await queryInterface.sequelize.query(
-    `DELETE FROM users WHERE user_id != :adminId`,
-    { replacements: { adminId: ADMIN_USER_ID } }
-  );
-  await queryInterface.sequelize.query(`DELETE FROM government_structure_permission_groups`);
-  await queryInterface.sequelize.query(`DELETE FROM internal_structures`);
-  await queryInterface.sequelize.query(`DELETE FROM government_structures`);
-
-  console.log("Structure and department cleanup complete.");
 }
 
 async function ensureUserRole(queryInterface, now) {

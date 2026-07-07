@@ -51,6 +51,21 @@ const stripLocale = (pathname: string) => {
   return pathname;
 };
 
+function isNavSectionActive(
+  pathname: string,
+  item: { url: string; children?: { url: string }[] }
+) {
+  if (pathname === item.url || pathname.startsWith(`${item.url}/`)) {
+    return true;
+  }
+
+  return (
+    item.children?.some(
+      (child) => pathname === child.url || pathname.startsWith(`${child.url}/`)
+    ) ?? false
+  );
+}
+
 export function AppSidebar() {
   const [mounted, setMounted] = useState(false);
   const { data: session, status } = useSession();
@@ -67,12 +82,14 @@ export function AppSidebar() {
 
   const visibleNav = NAVIGATION.filter((item) =>
     canAccessItem(item, userPermissions)
-  ).map((item) => ({
-    ...item,
-    children: item.children?.filter((c) =>
-      canAccessItem(c, userPermissions)
-    ),
-  }));
+  )
+    .map((item) => ({
+      ...item,
+      children: item.children?.filter((c) =>
+        canAccessItem(c, userPermissions)
+      ),
+    }))
+    .filter((item) => !item.children || item.children.length > 0);
 
   const structureListParams = useGovernmentStructureListParams({ is_active: true });
 
@@ -144,7 +161,7 @@ export function AppSidebar() {
                       >
                         <SidebarMenuButton
                           asChild
-                          isActive={pathname.startsWith(item.url)}
+                          isActive={isNavSectionActive(pathname, item)}
                           tooltip={item.title}
                           className={sidebarTopNavClasses}
                         >
@@ -166,14 +183,14 @@ export function AppSidebar() {
                     <Collapsible
                       key={item.title}
                       asChild
-                      defaultOpen={pathname.startsWith(item.url)}
+                      defaultOpen={isNavSectionActive(pathname, item)}
                       className="group/collapsible"
                     >
                       <SidebarMenuItem className="group-data-[collapsible=icon]:w-fit">
                         <CollapsibleTrigger asChild>
                           <SidebarMenuButton
                             tooltip={item.title}
-                            isActive={pathname.startsWith(item.url)}
+                            isActive={isNavSectionActive(pathname, item)}
                             className={sidebarTopNavCollapsibleClasses}
                           >
                             <Link
@@ -200,7 +217,10 @@ export function AppSidebar() {
                                 <SidebarMenuSubItem key={child.url}>
                                   <SidebarMenuSubButton
                                     asChild
-                                    isActive={pathname === child.url}
+                                    isActive={
+                                      pathname === child.url ||
+                                      pathname.startsWith(`${child.url}/`)
+                                    }
                                     className={sidebarSubNavClasses}
                                   >
                                     <Link href={child.url} className="flex items-center gap-4">

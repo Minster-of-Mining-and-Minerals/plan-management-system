@@ -16,6 +16,7 @@ import {
   StickyNote,
   ClipboardCheck,
   FileText,
+  Files,
 } from "lucide-react";
 
 export type NavItem = {
@@ -59,12 +60,6 @@ export const NAVIGATION: NavItem[] = [
         allPermissions: ["PLANS:READ"],
       },
       {
-        title: "Documents",
-        url: "/documents",
-        icon: FileText,
-        anyPermissions: ["DOCUMENTS:READ", "DOCUMENTS:MANAGE"],
-      },
-      {
         title: "Plan Review",
         url: "/plans/review",
         icon: ClipboardCheck,
@@ -88,6 +83,31 @@ export const NAVIGATION: NavItem[] = [
         icon: Palette,
         allPermissions: ["PERFORMANCE_COLOR_THRESHOLDS:READ"],
       }
+    ],
+  },
+  {
+    title: "Documents",
+    url: "/documents",
+    icon: Files,
+    anyPermissions: [
+      "DOCUMENTS:READ",
+      "DOCUMENTS:MANAGE",
+      "NOTES:VIEW",
+      "NOTES:MANAGE",
+    ],
+    children: [
+      {
+        title: "Documents",
+        url: "/documents",
+        icon: FileText,
+        anyPermissions: ["DOCUMENTS:READ", "DOCUMENTS:MANAGE"],
+      },
+      {
+        title: "Notes",
+        url: "/settings/notes",
+        icon: StickyNote,
+        anyPermissions: ["NOTES:VIEW", "NOTES:MANAGE"],
+      },
     ],
   },
   {
@@ -166,8 +186,6 @@ export const NAVIGATION: NavItem[] = [
       "BRANDING_SETTINGS:READ",
       "SYSTEM_AUDIT_LOGS:READ",
       "SYSTEM_SETTINGS:READ",
-      "NOTES:VIEW",
-      "NOTES:MANAGE",
     ],
     children: [
       {
@@ -187,12 +205,6 @@ export const NAVIGATION: NavItem[] = [
         url: "/settings/audit-logs",
         icon: History,
         allPermissions: ["SYSTEM_AUDIT_LOGS:READ"],
-      },
-      {
-        title: "Notes",
-        url: "/settings/notes",
-        icon: StickyNote,
-        anyPermissions: ["NOTES:VIEW", "NOTES:MANAGE"],
       },
     ],
   },
