@@ -168,13 +168,14 @@ app.use((err, req, res, next) => {
 const { warmSystemSettingsCache } = require("./services/systemSettingsService");
 
 const appPort = process.env.PORT || 4000;
+const appHost = process.env.HOST || "0.0.0.0";
 warmSystemSettingsCache()
   .catch((error) => {
     console.error("Failed to warm system settings cache:", error.message);
   })
   .finally(() => {
-    appServer.listen(appPort, () => {
-      console.log(` App server running at http://localhost:${appPort}`);
+    appServer.listen(appPort, appHost, () => {
+      console.log(` App server running at http://${appHost}:${appPort}`);
     });
   });
 
@@ -201,8 +202,9 @@ io.on("connection", (socket) => {
 });
 
 const socketPort = process.env.SOCKET_PORT || 5000;
-socketServer.listen(socketPort, () => {
-  console.log(`Socket.IO server running at http://localhost:${socketPort}`);
+const socketHost = process.env.SOCKET_HOST || "0.0.0.0";
+socketServer.listen(socketPort, socketHost, () => {
+  console.log(`Socket.IO server running at http://${socketHost}:${socketPort}`);
 });
 
 // Make Socket.IO accessible globally

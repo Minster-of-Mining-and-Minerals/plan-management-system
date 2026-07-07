@@ -25,19 +25,21 @@ export default {
         const normalizedEmail = normalizeEmail(String(email ?? ""));
 
         try {
-          const res = await fetch(
-            `${process.env.NEXT_PUBLIC_BASE_URL}/auth/login`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                email: normalizedEmail,
-                password: String(password ?? "").trim(),
-              }),
-            }
-          );
+          const apiBase =
+            process.env.INTERNAL_API_URL ||
+            process.env.NEXT_PUBLIC_BASE_URL ||
+            "http://localhost:4000/api";
+
+          const res = await fetch(`${apiBase}/auth/login`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              email: normalizedEmail,
+              password: String(password ?? "").trim(),
+            }),
+          });
 
           const data = await res.json();
 

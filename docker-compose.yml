@@ -1,0 +1,171 @@
+# Plan Management System — Docker Compose
+#
+# Local (via Nginx reverse proxy — mirrors production):
+#   cp .env.example .env
+#   docker compose up -d --build
+#   App: http://localhost
+#   API: http://localhost/api
+#   Swagger: http://localhost/api-docs
+#
+# Local (direct ports — matches npm run dev layout, no Nginx):
+#   docker compose -f docker-compose.yml -f docker-compose.direct.yml up -d --build
+#   Frontend: http://localhost:3000
+#   API:      http://localhost:4000/api
+#
+# Production:
+#   Set APP_URL, AUTH_URL, APP_DOMAIN, and TLS certs (see nginx/ssl/README.md)
+#   docker compose up -d --build
+
+name: plan-management-system
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-plan_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-plan_password}
+      POSTGRES_DB: ${DB_NAME:-plan_management}
+      TZ: UTC
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - app-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      TZ: UTC
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DIALECT: postgres
+      DB_USERNAME: ${DB_USERNAME:-plan_user}
+      DB_PASSWORD: ${DB_PASSWORD:-plan_password}
+      DB_NAME: ${DB_NAME:-plan_management}
+      PORT: 4000
+      HOST: 0.0.0.0
+      SOCKET_PORT: 5000
+      SOCKET_HOST: 0.0.0.0
+      TRUST_PROXY: ${TRUST_PROXY:-true}
+      APP_URL: ${APP_URL:-http://localhost}
+      AUTH_URL: ${AUTH_URL:-http://localhost}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      BASE_URL: ${BASE_URL:-http://localhost}
+      API_PUBLIC_URL: ${API_PUBLIC_URL:-http://localhost/api}
+      BACKEND_PUBLIC_URL: ${BACKEND_PUBLIC_URL:-http://localhost}
+      APP_DOMAIN: ${APP_DOMAIN:-localhost}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Africa/Addis_Ababa}
+      RUN_DB_MIGRATIONS: ${RUN_DB_MIGRATIONS:-true}
+      RUN_DB_SEEDERS: ${RUN_DB_SEEDERS:-false}
+    volumes:
+      - backend_uploads:/app/uploads
+      - backend_public_uploads:/app/public/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:4000/', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost/api}
+        NEXT_PUBLIC_FILE_URL: ${NEXT_PUBLIC_FILE_URL:-http://localhost}
+        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-http://localhost}
+        NEXT_PUBLIC_SOCKET_PORT: ${NEXT_PUBLIC_SOCKET_PORT:-5000}
+        NEXT_PUBLIC_FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+        NEXT_PUBLIC_DEPLOYMENT_MODE: ${DEPLOYMENT_MODE:-nginx}
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      TZ: UTC
+      HOSTNAME: 0.0.0.0
+      AUTH_SECRET: ${AUTH_SECRET}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      AUTH_URL: ${AUTH_URL:-http://localhost}
+      NEXTAUTH_URL: ${AUTH_URL:-http://localhost}
+      AUTH_TRUST_HOST: "true"
+      # Server-side NextAuth + SSR API calls from inside the frontend container
+      INTERNAL_API_URL: http://backend:4000/api
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:3000/', (res) => process.exit(res.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - app-network
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/snippets:/etc/nginx/snippets:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+  backend_uploads:
+  backend_public_uploads:
+
+networks:
+  app-network:
+    driver: bridge

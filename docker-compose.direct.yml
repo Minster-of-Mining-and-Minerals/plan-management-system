@@ -1,0 +1,37 @@
+# Optional override: expose service ports directly (no Nginx required).
+# Matches local `npm run dev` ports (frontend 3000, backend 4000, postgres 5432).
+#
+# Usage:
+#   cp .env.example .env
+#   # Uncomment the "direct mode" URL block in .env
+#   docker compose -f docker-compose.yml -f docker-compose.direct.yml up -d --build --scale nginx=0
+
+services:
+  db:
+    ports:
+      - "${DB_PUBLISH_PORT:-5432}:5432"
+
+  backend:
+    ports:
+      - "${BACKEND_PUBLISH_PORT:-4000}:4000"
+      - "${SOCKET_PUBLISH_PORT:-5000}:5000"
+    environment:
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      BASE_URL: ${BASE_URL:-http://localhost:4000}
+      API_PUBLIC_URL: ${API_PUBLIC_URL:-http://localhost:4000/api}
+      BACKEND_PUBLIC_URL: ${BACKEND_PUBLIC_URL:-http://localhost:4000}
+
+  frontend:
+    ports:
+      - "${FRONTEND_PUBLISH_PORT:-3000}:3000"
+    build:
+      args:
+        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:4000/api}
+        NEXT_PUBLIC_FILE_URL: ${NEXT_PUBLIC_FILE_URL:-http://localhost:4000}
+        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-http://localhost:5000}
+        NEXT_PUBLIC_DEPLOYMENT_MODE: ${DEPLOYMENT_MODE:-direct}
+    environment:
+      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+      NEXTAUTH_URL: ${AUTH_URL:-http://localhost:3000}
