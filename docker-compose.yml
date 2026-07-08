@@ -3,17 +3,20 @@
 # Local (via Nginx reverse proxy — mirrors production):
 #   cp .env.example .env
 #   docker compose up -d --build
-#   App: http://localhost
-#   API: http://localhost/api
-#   Swagger: http://localhost/api-docs
+#   App:        http://localhost
+#   API:        http://localhost/api
+#   Documents:  http://localhost/api/v1/documents  (collaboration, integrated in backend)
+#   ONLYOFFICE: http://localhost/onlyoffice
+#   Swagger:    http://localhost/api-docs
 #
 # Local (direct ports — matches npm run dev layout, no Nginx):
-#   docker compose -f docker-compose.yml -f docker-compose.direct.yml up -d --build
-#   Frontend: http://localhost:3000
-#   API:      http://localhost:4000/api
+#   docker compose -f docker-compose.yml -f docker-compose.direct.yml up -d --build --scale nginx=0
+#   Frontend:   http://localhost:3000
+#   API:        http://localhost:4000/api
+#   ONLYOFFICE: http://localhost:8080
 #
 # Production:
-#   Set APP_URL, AUTH_URL, APP_DOMAIN, and TLS certs (see nginx/ssl/README.md)
+#   Set APP_URL, AUTH_URL, APP_DOMAIN, ONLYOFFICE_URL, and TLS certs (see nginx/ssl/README.md)
 #   docker compose up -d --build
 
 name: plan-management-system
@@ -29,6 +32,7 @@ services:
       TZ: UTC
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init-collaboration-db.sh:/docker-entrypoint-initdb.d/01-init-collaboration-db.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
@@ -38,10 +42,31 @@ services:
     networks:
       - app-network
 
+  onlyoffice:
+    image: onlyoffice/documentserver:8.2
+    container_name: mom-onlyoffice
+    restart: unless-stopped
+    environment:
+      JWT_ENABLED: ${ONLYOFFICE_JWT_ENABLED:-false}
+      JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:-onlyoffice-jwt-secret}
+      ALLOW_PRIVATE_IP_ADDRESS: "true"
+      ALLOW_META_IP_ADDRESS: "true"
+    volumes:
+      - onlyoffice_data:/var/www/onlyoffice/Data
+      - onlyoffice_logs:/var/log/onlyoffice
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthcheck | grep -q true"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    networks:
+      - app-network
+
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     restart: unless-stopped
     env_file:
       - path: .env
@@ -69,10 +94,25 @@ services:
       APP_DOMAIN: ${APP_DOMAIN:-localhost}
       APP_TIMEZONE: ${APP_TIMEZONE:-Africa/Addis_Ababa}
       RUN_DB_MIGRATIONS: ${RUN_DB_MIGRATIONS:-true}
+      RUN_COLLABORATION_MIGRATIONS: ${RUN_COLLABORATION_MIGRATIONS:-true}
       RUN_DB_SEEDERS: ${RUN_DB_SEEDERS:-false}
+      # Collaboration (integrated at /api/v1 — separate DB, shared JWT)
+      COLLABORATION_DB_HOST: db
+      COLLABORATION_DB_PORT: 5432
+      COLLABORATION_DB_USERNAME: ${DB_USERNAME:-plan_user}
+      COLLABORATION_DB_PASSWORD: ${DB_PASSWORD:-plan_password}
+      COLLABORATION_DB_NAME: ${COLLABORATION_DB_NAME:-collaboration_service}
+      COLLABORATION_PUBLIC_URL: ${COLLABORATION_PUBLIC_URL:-http://backend:4000}
+      ONLYOFFICE_URL: ${ONLYOFFICE_URL:-http://localhost/onlyoffice}
+      ONLYOFFICE_JWT_ENABLED: ${ONLYOFFICE_JWT_ENABLED:-false}
+      ONLYOFFICE_JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:-onlyoffice-jwt-secret}
+      FILE_TOKEN_SECRET: ${FILE_TOKEN_SECRET:-collaboration-file-token-secret}
+      FILE_TOKEN_TTL_SECONDS: ${FILE_TOKEN_TTL_SECONDS:-3600}
+      DOCUMENT_STORAGE_PATH: /collaboration-service/storage/documents
     volumes:
       - backend_uploads:/app/uploads
       - backend_public_uploads:/app/public/uploads
+      - collaboration_documents:/collaboration-service/storage/documents
     depends_on:
       db:
         condition: service_healthy
@@ -102,6 +142,8 @@ services:
         NEXT_PUBLIC_SOCKET_PORT: ${NEXT_PUBLIC_SOCKET_PORT:-5000}
         NEXT_PUBLIC_FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
         NEXT_PUBLIC_DEPLOYMENT_MODE: ${DEPLOYMENT_MODE:-nginx}
+        NEXT_PUBLIC_COLLABORATION_API_URL: ${NEXT_PUBLIC_COLLABORATION_API_URL:-http://localhost/api/v1}
+        NEXT_PUBLIC_ONLYOFFICE_URL: ${NEXT_PUBLIC_ONLYOFFICE_URL:-http://localhost/onlyoffice}
     restart: unless-stopped
     env_file:
       - path: .env
@@ -116,7 +158,6 @@ services:
       AUTH_URL: ${AUTH_URL:-http://localhost}
       NEXTAUTH_URL: ${AUTH_URL:-http://localhost}
       AUTH_TRUST_HOST: "true"
-      # Server-side NextAuth + SSR API calls from inside the frontend container
       INTERNAL_API_URL: http://backend:4000/api
     depends_on:
       backend:
@@ -152,6 +193,8 @@ services:
         condition: service_healthy
       backend:
         condition: service_healthy
+      onlyoffice:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
       interval: 30s
@@ -165,6 +208,9 @@ volumes:
   postgres_data:
   backend_uploads:
   backend_public_uploads:
+  collaboration_documents:
+  onlyoffice_data:
+  onlyoffice_logs:
 
 networks:
   app-network:

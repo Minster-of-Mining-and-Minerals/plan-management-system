@@ -1,0 +1,18 @@
+# Root build context (backend Dockerfile copies backend/ + collaboration-service/)
+.git
+.gitignore
+**/.env
+**/.env.*
+**/.env.local
+
+frontend/
+frontend/**
+backend/node_modules/
+collaboration-service/node_modules/
+collaboration-service/storage/
+
+**/.next/
+**/node_modules/
+**/*.md
+**/.cursor/
+**/terminals/

@@ -1,4 +1,6 @@
 services:
+  # ONLYOFFICE only — for local npm run dev without the root docker-compose stack.
+  # Full deployment: use repository root `docker compose up` (backend + nginx + onlyoffice).
   onlyoffice:
     image: onlyoffice/documentserver:8.2
     container_name: mom-onlyoffice

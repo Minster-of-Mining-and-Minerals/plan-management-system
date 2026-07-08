@@ -1,17 +1,22 @@
+# Build from repository root:
+#   docker compose build backend
 FROM node:20-alpine
 
 WORKDIR /app
 
 RUN apk add --no-cache libc6-compat
 
-COPY package.json package-lock.json* ./
+COPY backend/package.json backend/package-lock.json* ./
 RUN npm ci
 
-COPY . .
+COPY backend/ ./
 
-RUN mkdir -p uploads public/uploads
+# Collaboration module (mounted in-process via collaborationIntegration.js)
+COPY collaboration-service/ /collaboration-service/
 
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN mkdir -p uploads public/uploads /collaboration-service/storage/documents
+
+COPY backend/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 4000 5000

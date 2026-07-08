@@ -10,7 +10,10 @@
     "migrate": "sequelize-cli db:migrate",
     "migrate:undo": "sequelize-cli db:migrate:undo",
     "db:create": "sequelize-cli db:create",
-    "make:migration": "sequelize-cli migration:generate --name"
+    "make:migration": "sequelize-cli migration:generate --name",
+    "onlyoffice:up": "docker compose up -d",
+    "onlyoffice:down": "docker compose down",
+    "onlyoffice:logs": "docker compose logs -f onlyoffice"
   },
   "dependencies": {
     "cors": "^2.8.5",

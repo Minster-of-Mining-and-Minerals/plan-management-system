@@ -6,6 +6,11 @@ import { Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { EditorSession } from "@/redux/types/document";
+import {
+  buildOnlyofficeStartupMessage,
+  checkOnlyofficeHealth,
+  resolveOnlyofficeUrl,
+} from "../utils/onlyofficeHealth";
 
 interface DocumentEditorProps {
   session: EditorSession;
@@ -15,12 +20,12 @@ interface DocumentEditorProps {
   showFullscreenToggle?: boolean;
 }
 
-function formatOnlyofficeError(errorCode: number, errorDescription: string) {
+function formatOnlyofficeError(errorCode: number, errorDescription: string, documentServerUrl: string) {
   switch (errorCode) {
     case -1:
       return `ONLYOFFICE failed to load: ${errorDescription}`;
     case -2:
-      return `Cannot reach ONLYOFFICE at ${errorDescription}. Run: cd collaboration-service && docker compose up -d`;
+      return buildOnlyofficeStartupMessage(documentServerUrl);
     case -3:
       return "ONLYOFFICE API is not available. Wait 1-2 minutes after starting Docker, then refresh.";
     default:
@@ -37,10 +42,11 @@ export function DocumentEditor({
 }: DocumentEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isCheckingOnlyoffice, setIsCheckingOnlyoffice] = useState(true);
+  const [isOnlyofficeReady, setIsOnlyofficeReady] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const documentServerUrl =
-    process.env.NEXT_PUBLIC_ONLYOFFICE_URL || session.documentServerUrl;
+  const documentServerUrl = resolveOnlyofficeUrl(session.documentServerUrl);
 
   const config = useMemo(() => {
     if (session.config.token) {
@@ -63,6 +69,34 @@ export function DocumentEditor({
       },
     };
   }, [session.config]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function verifyOnlyoffice() {
+      setIsCheckingOnlyoffice(true);
+      setIsOnlyofficeReady(false);
+      setError(null);
+
+      const health = await checkOnlyofficeHealth(documentServerUrl);
+      if (cancelled) return;
+
+      if (!health.ok) {
+        setError(health.message);
+        setIsOnlyofficeReady(false);
+      } else {
+        setIsOnlyofficeReady(true);
+      }
+
+      setIsCheckingOnlyoffice(false);
+    }
+
+    void verifyOnlyoffice();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [documentServerUrl]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -94,7 +128,7 @@ export function DocumentEditor({
   return (
     <div className={className}>
       {error ? (
-        <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive whitespace-pre-line">
           {error}
         </div>
       ) : null}
@@ -118,14 +152,24 @@ export function DocumentEditor({
           </Button>
         ) : null}
         <div className="h-full w-full">
-          <OnlyOfficeEditor
-            id={editorId}
-            documentServerUrl={documentServerUrl}
-            config={config}
-            onLoadComponentError={(errorCode, errorDescription) => {
-              setError(formatOnlyofficeError(errorCode, errorDescription));
-            }}
-          />
+          {isCheckingOnlyoffice ? (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              Checking ONLYOFFICE connection...
+            </div>
+          ) : isOnlyofficeReady ? (
+            <OnlyOfficeEditor
+              id={editorId}
+              documentServerUrl={documentServerUrl}
+              config={config}
+              onLoadComponentError={(errorCode, errorDescription) => {
+                setError(formatOnlyofficeError(errorCode, errorDescription, documentServerUrl));
+              }}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
+              Start ONLYOFFICE, then refresh this page.
+            </div>
+          )}
         </div>
       </div>
     </div>
