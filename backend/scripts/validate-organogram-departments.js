@@ -6,23 +6,43 @@ const fs = require("fs");
 
 require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 const { sequelize } = require("../models");
+const {
+  SECTOR_ID: ALT_MOM_SECTOR_ID,
+  SECTOR_NAME: ALT_MOM_SECTOR_NAME,
+  ROOT_MINISTER_NAME,
+} = require("../seeders/data/alternativeMomOrganogram.data");
+const { INSTITUTES } = require("../seeders/data/alternativeMomInstitutesOrganogram.data");
 
 const ORGANOGRAM_SECTORS = [
   {
     label: "Ministry of Mines (organogram.zip — ministerial units)",
-    sectorId: "10000000-0000-4000-8000-000000000004",
+    sectorId: ALT_MOM_SECTOR_ID,
+    sectorName: ALT_MOM_SECTOR_NAME,
+    rootName: ROOT_MINISTER_NAME,
   },
-  {
-    label: "Ethiopian Geological Institute",
-    sectorId: "10000000-0000-4000-8000-000000000005",
+  ...INSTITUTES.map((institute) => ({
+    label: institute.name,
+    sectorId: institute.sectorId,
+    sectorName: institute.name,
     rootName: "Director General",
-  },
-  {
-    label: "Mining Industry Development Institute",
-    sectorId: "10000000-0000-4000-8000-000000000006",
-    rootName: "Director General",
-  },
+  })),
 ];
+
+async function resolveSectorId(expectedId, sectorName) {
+  const rows = await sequelize.query(
+    `SELECT government_structure_id FROM government_structures
+     WHERE government_structure_id = :id
+        OR LOWER(TRIM(name)) = LOWER(TRIM(:name))
+     ORDER BY CASE WHEN government_structure_id = :id THEN 0 ELSE 1 END
+     LIMIT 1`,
+    {
+      replacements: { id: expectedId, name: sectorName },
+      type: sequelize.QueryTypes.SELECT,
+    }
+  );
+
+  return rows[0]?.government_structure_id ?? null;
+}
 
 function buildSectorTree(nodes) {
   if (!nodes?.length) return [];
@@ -99,7 +119,18 @@ function parseOrganogramZipNodeCount() {
   };
 }
 
-async function validateSector(sectorId, expectedRootName) {
+async function validateSector(expectedId, sectorName, expectedRootName) {
+  const sectorId = await resolveSectorId(expectedId, sectorName);
+  assert.ok(
+    sectorId,
+    `Sector "${sectorName}" (${expectedId}) must exist — run npm run seed:organogram`
+  );
+  assert.strictEqual(
+    sectorId,
+    expectedId,
+    `Sector "${sectorName}" must use canonical ID ${expectedId} (found ${sectorId}). Re-run npm run seed:organogram.`
+  );
+
   const sector = await sequelize.query(
     `SELECT government_structure_id, name FROM government_structures
      WHERE government_structure_id = :sectorId`,
@@ -160,6 +191,7 @@ async function main() {
   for (const entry of ORGANOGRAM_SECTORS) {
     const result = await validateSector(
       entry.sectorId,
+      entry.sectorName,
       entry.rootName ?? "Minister"
     );
     results.push({ ...entry, ...result });

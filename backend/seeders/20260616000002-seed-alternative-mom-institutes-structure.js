@@ -17,15 +17,8 @@ async function ensureParentSector(queryInterface) {
     const parent = await queryInterface.sequelize.query(
         `SELECT government_structure_id FROM government_structures
          WHERE government_structure_id = :id
-            OR LOWER(TRIM(name)) IN (
-              LOWER(TRIM(:name)),
-              'ministry of mines',
-              'alternative minister of mines'
-            )
-         ORDER BY CASE
-           WHEN government_structure_id = :id THEN 0
-           ELSE 1
-         END
+            OR LOWER(TRIM(name)) = LOWER(TRIM(:name))
+         ORDER BY CASE WHEN government_structure_id = :id THEN 0 ELSE 1 END
          LIMIT 1`,
         {
             replacements: { id: PARENT_SECTOR_ID, name: PARENT_SECTOR_NAME },
@@ -35,11 +28,18 @@ async function ensureParentSector(queryInterface) {
 
     if (parent.length === 0) {
         throw new Error(
-            `Parent sector "${PARENT_SECTOR_NAME}" not found. Run seed:alt-mom first.`
+            `Parent sector "${PARENT_SECTOR_NAME}" (${PARENT_SECTOR_ID}) not found. Run seed:organogram first.`
         );
     }
 
-    return parent[0].government_structure_id;
+    if (parent[0].government_structure_id !== PARENT_SECTOR_ID) {
+        throw new Error(
+            `Parent sector "${PARENT_SECTOR_NAME}" must use ID ${PARENT_SECTOR_ID} ` +
+                `(found ${parent[0].government_structure_id}). Re-run seed:organogram after the sector ID fix.`
+        );
+    }
+
+    return PARENT_SECTOR_ID;
 }
 
 module.exports = {

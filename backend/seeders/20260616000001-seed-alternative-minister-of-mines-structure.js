@@ -9,42 +9,61 @@ const {
 const {
     flattenDepartmentTree,
     clearSectorDepartments,
+    clearDepartmentsByIds,
     seedTwoUsersPerDepartment,
 } = require("./utils/organogramSeederUtils");
 
 const SECTOR_KEY = "alt-mom";
 
 async function ensureSector(queryInterface, now) {
-    const existingSector = await queryInterface.sequelize.query(
+    const byCanonicalId = await queryInterface.sequelize.query(
         `SELECT government_structure_id, name FROM government_structures
          WHERE government_structure_id = :id
-            OR LOWER(TRIM(name)) IN (
-              LOWER(TRIM(:name)),
-              'ministry of mines',
-              'alternative minister of mines'
-            )
-         ORDER BY CASE
-           WHEN government_structure_id = :id THEN 0
-           WHEN LOWER(TRIM(name)) = LOWER(TRIM(:name)) THEN 1
-           ELSE 2
-         END
          LIMIT 1`,
         {
-            replacements: { id: SECTOR_ID, name: SECTOR_NAME },
+            replacements: { id: SECTOR_ID },
             type: queryInterface.sequelize.QueryTypes.SELECT,
         }
     );
 
-    if (existingSector.length > 0) {
+    if (byCanonicalId.length > 0) {
         await queryInterface.sequelize.query(
             `UPDATE government_structures
-             SET is_active = true, updated_at = :now
+             SET name = :name, is_active = true, updated_at = :now
              WHERE government_structure_id = :id`,
             {
-                replacements: { id: existingSector[0].government_structure_id, now },
+                replacements: { id: SECTOR_ID, name: SECTOR_NAME, now },
             }
         );
-        return existingSector[0].government_structure_id;
+        return SECTOR_ID;
+    }
+
+    const byExactName = await queryInterface.sequelize.query(
+        `SELECT government_structure_id, name FROM government_structures
+         WHERE LOWER(TRIM(name)) = LOWER(TRIM(:name))
+         LIMIT 1`,
+        {
+            replacements: { name: SECTOR_NAME },
+            type: queryInterface.sequelize.QueryTypes.SELECT,
+        }
+    );
+
+    if (byExactName.length > 0) {
+        const resolvedId = byExactName[0].government_structure_id;
+        if (resolvedId !== SECTOR_ID) {
+            console.warn(
+                `  Warning: "${SECTOR_NAME}" exists as ${resolvedId}, expected ${SECTOR_ID}. ` +
+                    "Using canonical organogram sector ID for department sync."
+            );
+        } else {
+            await queryInterface.sequelize.query(
+                `UPDATE government_structures
+                 SET is_active = true, updated_at = :now
+                 WHERE government_structure_id = :id`,
+                { replacements: { id: SECTOR_ID, now } }
+            );
+            return SECTOR_ID;
+        }
     }
 
     await queryInterface.bulkInsert("government_structures", [
@@ -67,10 +86,14 @@ module.exports = {
         const now = new Date();
         const sectorId = await ensureSector(queryInterface, now);
 
-        await clearSectorDepartments(queryInterface, sectorId);
-
         const departmentRows = [];
         flattenDepartmentTree(DEPARTMENT_TREE, sectorId, SECTOR_KEY, null, 1, "", departmentRows);
+
+        await clearSectorDepartments(queryInterface, sectorId);
+        await clearDepartmentsByIds(
+            queryInterface,
+            departmentRows.map((row) => row.internal_structure_id)
+        );
 
         const insertRows = departmentRows.map(({ nodePath, ...row }) => ({
             ...row,

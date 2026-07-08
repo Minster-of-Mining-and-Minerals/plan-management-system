@@ -443,6 +443,34 @@ async function seedUsersForExistingOrganogram(queryInterface, { now = new Date()
     };
 }
 
+async function clearDepartmentsByIds(queryInterface, departmentIds) {
+    const deptIds = [...new Set((departmentIds ?? []).filter(Boolean))];
+    if (!deptIds.length) {
+        return;
+    }
+
+    await queryInterface.sequelize.query(
+        `UPDATE users SET internal_structure_id = NULL
+         WHERE internal_structure_id IN (:deptIds)`,
+        { replacements: { deptIds } }
+    );
+
+    await queryInterface.sequelize.query(
+        `DELETE FROM internal_assignments WHERE internal_structure_id IN (:deptIds)`,
+        { replacements: { deptIds } }
+    );
+
+    await queryInterface.sequelize.query(
+        `DELETE FROM internal_structure_permission_groups WHERE internal_structure_id IN (:deptIds)`,
+        { replacements: { deptIds } }
+    );
+
+    await queryInterface.sequelize.query(
+        `DELETE FROM internal_structures WHERE internal_structure_id IN (:deptIds)`,
+        { replacements: { deptIds } }
+    );
+}
+
 async function clearSectorDepartments(queryInterface, sectorId) {
     const deptRows = await queryInterface.sequelize.query(
         `SELECT internal_structure_id FROM internal_structures WHERE government_structure_id = :sectorId`,
@@ -552,6 +580,7 @@ module.exports = {
     seedTwoUsersPerDepartment,
     seedUsersForExistingOrganogram,
     clearSectorDepartments,
+    clearDepartmentsByIds,
     ensureGovernmentSector,
     syncSectorDepartmentTree,
 };
