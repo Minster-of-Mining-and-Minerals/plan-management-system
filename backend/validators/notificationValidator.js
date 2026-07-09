@@ -1,12 +1,12 @@
 const Joi = require("joi");
 
 const getNotificationsQuerySchema = Joi.object({
-  category: Joi.string().valid("plans", "assignments", "system", "logs").optional(),
+  category: Joi.string().valid("plans", "assignments", "system", "logs", "issues", "documents").optional(),
   unread_only: Joi.string().valid("true", "false").optional(),
 });
 
 const markAllReadSchema = Joi.object({
-  category: Joi.string().valid("plans", "assignments", "system", "logs").optional(),
+  category: Joi.string().valid("plans", "assignments", "system", "logs", "issues", "documents").optional(),
 });
 
 const idParamSchema = Joi.object({

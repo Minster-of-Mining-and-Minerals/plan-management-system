@@ -78,5 +78,12 @@ export function resolveNotificationLink(notification: AppNotification): string |
     return isAchievementNotification ? withAchievementFocus(path) : path;
   }
 
+  if (
+    notification.related_entity_type === "document" &&
+    notification.related_entity_id
+  ) {
+    return `/documents/${notification.related_entity_id}`;
+  }
+
   return null;
 }

@@ -7,10 +7,17 @@ import {
   Bell,
   RefreshCw,
   GitBranch,
+  FileText,
   type LucideIcon,
 } from "lucide-react";
 
-export type NotificationCategory = "plans" | "assignments" | "system" | "logs";
+export type NotificationCategory =
+  | "plans"
+  | "assignments"
+  | "system"
+  | "logs"
+  | "issues"
+  | "documents";
 export type NotificationPriority = "low" | "normal" | "high";
 
 export const NOTIFICATION_CATEGORY_OPTIONS: Array<{
@@ -22,6 +29,8 @@ export const NOTIFICATION_CATEGORY_OPTIONS: Array<{
   { key: "assignments", label: "Assignments", icon: UserPlus },
   { key: "system", label: "System", icon: ShieldAlert },
   { key: "logs", label: "Logs", icon: ClipboardList },
+  { key: "issues", label: "Issues", icon: ShieldAlert },
+  { key: "documents", label: "Documents", icon: FileText },
 ];
 
 export const NOTIFICATION_ICON_VARIANTS: Record<string, LucideIcon> = {
@@ -33,6 +42,7 @@ export const NOTIFICATION_ICON_VARIANTS: Record<string, LucideIcon> = {
   "shield-alert": ShieldAlert,
   "clipboard-list": ClipboardList,
   "git-branch": GitBranch,
+  file: FileText,
 };
 
 export const PRIORITY_STYLES: Record<

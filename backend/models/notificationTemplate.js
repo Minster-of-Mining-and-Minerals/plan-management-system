@@ -26,7 +26,7 @@ module.exports = (sequelize, DataTypes) => {
         unique: true,
       },
       category: {
-        type: DataTypes.ENUM("plans", "assignments", "system", "logs", "issues"),
+        type: DataTypes.ENUM("plans", "assignments", "system", "logs", "issues", "documents"),
         allowNull: false,
       },
       notification_type: {
