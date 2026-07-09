@@ -4,7 +4,6 @@ const { v4: uuidv4 } = require("uuid");
 const {
   loadUsersByDepartment,
   findDepartmentByName,
-  removeExistingPlan,
   copyAssignments,
 } = require("./comprehensivePlanSeederUtils");
 
@@ -37,6 +36,7 @@ function node(
     is_active: true,
     assignment_sharing_mode: opts.sharingMode ?? "exclusive",
     annual_target: opts.annualTarget ?? null,
+    period_target: opts.periodTarget ?? null,
   };
 }
 
@@ -64,6 +64,36 @@ function buildSkewedAnnualTargetMaps(masterNodes, ratios) {
     const yearlyTargets = distributeAnnualTargetsSkewed(draftWeight, ratios);
     for (let yearIndex = 0; yearIndex < ratios.length; yearIndex++) {
       maps[yearIndex][masterNode.plan_node_id] = yearlyTargets[yearIndex];
+    }
+  }
+
+  return maps;
+}
+
+function distributeQuarterlyPeriodTargets(annualTarget) {
+  const value = Number(annualTarget) || 0;
+  if (value <= 0) return [0, 0, 0, 0];
+
+  const quarter = Math.round((value / 4) * 1000) / 1000;
+  const targets = [quarter, quarter, quarter, quarter];
+  const sum = targets.reduce((total, item) => total + item, 0);
+  const diff = Math.round((value - sum) * 1000) / 1000;
+  if (Math.abs(diff) > 0.0001) {
+    targets[3] = Math.round((targets[3] + diff) * 1000) / 1000;
+  }
+  return targets;
+}
+
+function buildQuarterlyPeriodTargetMaps(annualNodes) {
+  const maps = [{}, {}, {}, {}];
+
+  for (const annualNode of annualNodes) {
+    const annualTarget = Number(annualNode.annual_target) || 0;
+    if (annualTarget <= 0) continue;
+
+    const quarterlyTargets = distributeQuarterlyPeriodTargets(annualTarget);
+    for (let quarterIndex = 0; quarterIndex < 4; quarterIndex++) {
+      maps[quarterIndex][annualNode.plan_node_id] = quarterlyTargets[quarterIndex];
     }
   }
 
@@ -102,6 +132,39 @@ function copyNodesToAnnual(masterNodes, annualVersionId, annualTargetBySourceId 
   return { annualNodes, nodeIdMap };
 }
 
+function copyNodesToPeriod(annualNodes, periodVersionId, periodTargetByAnnualNodeId = {}) {
+  const nodeIdMap = new Map();
+  const periodNodes = [];
+
+  for (const source of annualNodes) {
+    nodeIdMap.set(source.plan_node_id, uuidv4());
+  }
+
+  for (const source of annualNodes) {
+    periodNodes.push({
+      plan_node_id: nodeIdMap.get(source.plan_node_id),
+      plan_version_id: periodVersionId,
+      parent_id: source.parent_id ? nodeIdMap.get(source.parent_id) : null,
+      source_plan_node_id: source.plan_node_id,
+      type: source.type,
+      title: source.title,
+      description: source.description,
+      weight: source.weight,
+      weight_mode: source.weight_mode,
+      contribution_weight: source.contribution_weight,
+      target_unit: source.target_unit,
+      level: source.level,
+      order: source.order,
+      is_active: source.is_active,
+      assignment_sharing_mode: source.assignment_sharing_mode,
+      annual_target: source.annual_target,
+      period_target: periodTargetByAnnualNodeId[source.plan_node_id] ?? null,
+    });
+  }
+
+  return { periodNodes, nodeIdMap };
+}
+
 async function resolveDepartment(queryInterface, sectorId, name) {
   const dept = await findDepartmentByName(queryInterface, sectorId, name);
   if (!dept) {
@@ -121,131 +184,158 @@ function resolveUsers(usersByDept, deptId, label) {
   return bucket;
 }
 
-async function buildResolvedTree(queryInterface, sectorId, planTree, usersByDept) {
-  const strategicDept = await resolveDepartment(
-    queryInterface,
-    sectorId,
-    planTree.strategic.departmentName
-  );
-  const strategicUsers = resolveUsers(
-    usersByDept,
-    strategicDept.internal_structure_id,
-    planTree.strategic.departmentName
-  );
+async function resolveGoalBranch(queryInterface, sectorId, goalSpec, usersByDept) {
+  const goalDept = await resolveDepartment(queryInterface, sectorId, goalSpec.departmentName);
+  const goalUsers = resolveUsers(usersByDept, goalDept.internal_structure_id, goalSpec.title);
 
-  const goals = [];
-  for (const goalSpec of planTree.goals) {
-    const goalDept = await resolveDepartment(queryInterface, sectorId, goalSpec.departmentName);
-    const goalUsers = resolveUsers(usersByDept, goalDept.internal_structure_id, goalSpec.title);
+  const kpis = [];
+  for (const kpiSpec of goalSpec.kpis) {
+    const kpiDept = await resolveDepartment(queryInterface, sectorId, kpiSpec.departmentName);
+    const kpiUsers = resolveUsers(usersByDept, kpiDept.internal_structure_id, kpiSpec.title);
 
-    const kpis = [];
-    for (const kpiSpec of goalSpec.kpis) {
-      const kpiDept = await resolveDepartment(queryInterface, sectorId, kpiSpec.departmentName);
-      const kpiUsers = resolveUsers(usersByDept, kpiDept.internal_structure_id, kpiSpec.title);
-
-      const tasks = [];
-      for (const taskSpec of kpiSpec.tasks) {
-        const taskDept = await resolveDepartment(queryInterface, sectorId, taskSpec.departmentName);
-        const taskUsers = resolveUsers(usersByDept, taskDept.internal_structure_id, taskSpec.title);
-        tasks.push({
-          ...taskSpec,
-          deptId: taskDept.internal_structure_id,
-          officerUserId: taskUsers.officer,
-        });
-      }
-
-      kpis.push({
-        ...kpiSpec,
-        deptId: kpiDept.internal_structure_id,
-        headUserId: kpiUsers.head,
-        tasks,
+    const tasks = [];
+    for (const taskSpec of kpiSpec.tasks) {
+      const taskDept = await resolveDepartment(queryInterface, sectorId, taskSpec.departmentName);
+      const taskUsers = resolveUsers(usersByDept, taskDept.internal_structure_id, taskSpec.title);
+      tasks.push({
+        ...taskSpec,
+        deptId: taskDept.internal_structure_id,
+        officerUserId: taskUsers.officer,
       });
     }
 
-    goals.push({
-      ...goalSpec,
-      deptId: goalDept.internal_structure_id,
-      headUserId: goalUsers.head,
-      kpis,
+    kpis.push({
+      ...kpiSpec,
+      deptId: kpiDept.internal_structure_id,
+      headUserId: kpiUsers.head,
+      tasks,
     });
   }
 
   return {
-    strategic: {
-      ...planTree.strategic,
-      deptId: strategicDept.internal_structure_id,
-      headUserId: strategicUsers.head,
-    },
-    goals,
+    ...goalSpec,
+    deptId: goalDept.internal_structure_id,
+    headUserId: goalUsers.head,
+    kpis,
   };
+}
+
+async function buildResolvedTree(queryInterface, sectorId, planTree, usersByDept) {
+  const strategicAreas = [];
+
+  for (const area of planTree.strategicAreas) {
+    const strategicDept = await resolveDepartment(
+      queryInterface,
+      sectorId,
+      area.strategic.departmentName
+    );
+    const strategicUsers = resolveUsers(
+      usersByDept,
+      strategicDept.internal_structure_id,
+      area.strategic.departmentName
+    );
+
+    const goals = [];
+    for (const goalSpec of area.goals) {
+      goals.push(await resolveGoalBranch(queryInterface, sectorId, goalSpec, usersByDept));
+    }
+
+    strategicAreas.push({
+      strategic: {
+        ...area.strategic,
+        deptId: strategicDept.internal_structure_id,
+        headUserId: strategicUsers.head,
+      },
+      goals,
+    });
+  }
+
+  return { strategicAreas };
 }
 
 function buildMasterNodes(planVersionId, resolvedTree) {
   const nodes = [];
-  const { strategic, goals } = resolvedTree;
+  let strategicOrder = 1;
 
-  nodes.push(
-    node(
-      strategic.id,
-      planVersionId,
-      null,
-      "strategic",
-      strategic.title,
-      "Strategic focus for mineral resources development.",
-      strategic.weight,
-      1,
-      1
-    )
-  );
+  for (const area of resolvedTree.strategicAreas) {
+    const { strategic, goals } = area;
 
-  let goalOrder = 1;
-  for (const goal of goals) {
     nodes.push(
       node(
-        goal.id,
-        planVersionId,
         strategic.id,
-        "goal",
-        goal.title,
-        `Goal: ${goal.title}`,
-        goal.weight,
-        2,
-        goalOrder++
+        planVersionId,
+        null,
+        "strategic",
+        strategic.title,
+        `Strategic focus: ${strategic.title}`,
+        strategic.weight,
+        1,
+        strategicOrder++
       )
     );
 
-    let kpiOrder = 1;
-    for (const kpi of goal.kpis) {
+    let goalOrder = 1;
+    for (const goal of goals) {
       nodes.push(
         node(
-          kpi.id,
-          planVersionId,
           goal.id,
-          "kpi",
-          kpi.title,
-          `KPI: ${kpi.title}`,
-          kpi.weight,
-          3,
-          kpiOrder++
+          planVersionId,
+          strategic.id,
+          "goal",
+          goal.title,
+          `Goal: ${goal.title}`,
+          goal.weight,
+          2,
+          goalOrder++,
+          {
+            weightMode: goal.weightMode,
+            targetUnit: goal.targetUnit,
+            contributionWeight: goal.contributionWeight,
+          }
         )
       );
 
-      let taskOrder = 1;
-      for (const task of kpi.tasks) {
+      let kpiOrder = 1;
+      for (const kpi of goal.kpis) {
         nodes.push(
           node(
-            task.id,
-            planVersionId,
             kpi.id,
-            "task",
-            task.title,
-            `Task: ${task.title}`,
-            task.weight,
-            4,
-            taskOrder++,
-            { contributionWeight: task.contributionWeight }
+            planVersionId,
+            goal.id,
+            "kpi",
+            kpi.title,
+            `KPI: ${kpi.title}`,
+            kpi.weight,
+            3,
+            kpiOrder++,
+            {
+              weightMode: kpi.weightMode,
+              targetUnit: kpi.targetUnit,
+            }
           )
         );
+
+        let taskOrder = 1;
+        for (const task of kpi.tasks) {
+          nodes.push(
+            node(
+              task.id,
+              planVersionId,
+              kpi.id,
+              "task",
+              task.title,
+              `Task: ${task.title}`,
+              task.weight,
+              4,
+              taskOrder++,
+              {
+                weightMode: task.weightMode,
+                targetUnit: task.targetUnit,
+                contributionWeight: task.contributionWeight,
+              }
+            )
+          );
+        }
       }
     }
   }
@@ -257,53 +347,57 @@ function buildAssignments(resolvedTree, sectorId, actionMap) {
   const external = [];
   const internal = [];
 
-  external.push({
-    external_assignment_id: uuidv4(),
-    plan_node_id: resolvedTree.strategic.id,
-    government_structure_id: sectorId,
-    is_visible: true,
-    requires_report: true,
-    is_active: true,
-  });
+  for (const area of resolvedTree.strategicAreas) {
+    const { strategic, goals } = area;
 
-  internal.push({
-    internal_assignment_id: uuidv4(),
-    plan_node_id: resolvedTree.strategic.id,
-    internal_structure_id: resolvedTree.strategic.deptId,
-    user_id: resolvedTree.strategic.headUserId,
-    action_id: actionMap.APPROVAL,
-    is_active: true,
-  });
+    external.push({
+      external_assignment_id: uuidv4(),
+      plan_node_id: strategic.id,
+      government_structure_id: sectorId,
+      is_visible: true,
+      requires_report: true,
+      is_active: true,
+    });
 
-  for (const goal of resolvedTree.goals) {
     internal.push({
       internal_assignment_id: uuidv4(),
-      plan_node_id: goal.id,
-      internal_structure_id: goal.deptId,
-      user_id: goal.headUserId,
+      plan_node_id: strategic.id,
+      internal_structure_id: strategic.deptId,
+      user_id: strategic.headUserId,
       action_id: actionMap.APPROVAL,
       is_active: true,
     });
 
-    for (const kpi of goal.kpis) {
+    for (const goal of goals) {
       internal.push({
         internal_assignment_id: uuidv4(),
-        plan_node_id: kpi.id,
-        internal_structure_id: kpi.deptId,
-        user_id: kpi.headUserId,
+        plan_node_id: goal.id,
+        internal_structure_id: goal.deptId,
+        user_id: goal.headUserId,
         action_id: actionMap.APPROVAL,
         is_active: true,
       });
 
-      for (const task of kpi.tasks) {
+      for (const kpi of goal.kpis) {
         internal.push({
           internal_assignment_id: uuidv4(),
-          plan_node_id: task.id,
-          internal_structure_id: task.deptId,
-          user_id: task.officerUserId,
-          action_id: actionMap.EXECUTION,
+          plan_node_id: kpi.id,
+          internal_structure_id: kpi.deptId,
+          user_id: kpi.headUserId,
+          action_id: actionMap.APPROVAL,
           is_active: true,
         });
+
+        for (const task of kpi.tasks) {
+          internal.push({
+            internal_assignment_id: uuidv4(),
+            plan_node_id: task.id,
+            internal_structure_id: task.deptId,
+            user_id: task.officerUserId,
+            action_id: actionMap.EXECUTION,
+            is_active: true,
+          });
+        }
       }
     }
   }
@@ -311,10 +405,60 @@ function buildAssignments(resolvedTree, sectorId, actionMap) {
   return { external, internal };
 }
 
+async function removeExistingPlan(queryInterface, planIds, planningConfigId = null) {
+  const versionIds = [
+    planIds.MASTER,
+    planIds.ANNUAL_2026,
+    planIds.ANNUAL_2027,
+    planIds.ANNUAL_2028,
+    planIds.PERIOD_2029_Q1,
+    planIds.PERIOD_2029_Q2,
+    planIds.PERIOD_2029_Q3,
+    planIds.PERIOD_2029_Q4,
+  ].filter(Boolean);
+
+  const nodes = await queryInterface.sequelize.query(
+    `SELECT plan_node_id FROM plan_nodes WHERE plan_version_id IN (:versionIds)`,
+    {
+      replacements: { versionIds },
+      type: queryInterface.sequelize.QueryTypes.SELECT,
+    }
+  );
+
+  const nodeIds = nodes.map((n) => n.plan_node_id);
+
+  if (nodeIds.length > 0) {
+    const tables = await queryInterface.showAllTables();
+    const tableNames = tables.map((t) => (typeof t === "string" ? t : Object.values(t)[0]));
+
+    if (tableNames.includes("plan_node_action_logs")) {
+      await queryInterface.bulkDelete("plan_node_action_logs", { plan_node_id: nodeIds });
+    }
+
+    await queryInterface.bulkDelete("internal_assignments", { plan_node_id: nodeIds });
+    await queryInterface.bulkDelete("external_assignments", { plan_node_id: nodeIds });
+    await queryInterface.bulkDelete("plan_nodes", { plan_version_id: versionIds });
+  }
+
+  await queryInterface.bulkDelete("plan_versions", { plan_version_id: versionIds });
+
+  if (planningConfigId) {
+    const tables = await queryInterface.showAllTables();
+    const tableNames = tables.map((t) => (typeof t === "string" ? t : Object.values(t)[0]));
+    if (tableNames.includes("planning_configurations")) {
+      await queryInterface.bulkDelete("planning_configurations", {
+        planning_configuration_id: planningConfigId,
+      });
+    }
+  }
+}
+
 module.exports = {
   node,
   buildSkewedAnnualTargetMaps,
+  buildQuarterlyPeriodTargetMaps,
   copyNodesToAnnual,
+  copyNodesToPeriod,
   buildResolvedTree,
   buildMasterNodes,
   buildAssignments,

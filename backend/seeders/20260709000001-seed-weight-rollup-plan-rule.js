@@ -20,7 +20,7 @@ const STEPS = [
     node_type: "goal",
     label: "Goal",
     requires_weight: true,
-    requires_contribution_weight: false,
+    requires_contribution_weight: true,
     color_hex: "#2563EB",
   },
   {
