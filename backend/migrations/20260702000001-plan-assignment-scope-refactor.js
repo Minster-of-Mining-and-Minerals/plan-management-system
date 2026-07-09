@@ -7,16 +7,10 @@ module.exports = {
     const planNodesTable = await queryInterface.describeTable("plan_nodes");
 
     if (internalTable.action_id?.allowNull === false) {
-      await queryInterface.changeColumn("internal_assignments", "action_id", {
-        type: Sequelize.UUID,
-        allowNull: true,
-        references: {
-          model: "plan_assignment_actions",
-          key: "assignment_action_id",
-        },
-        onUpdate: "CASCADE",
-        onDelete: "SET NULL",
-      });
+      await queryInterface.sequelize.query(`
+        ALTER TABLE internal_assignments
+        ALTER COLUMN action_id DROP NOT NULL
+      `);
     }
 
     if (!internalTable.role_id) {

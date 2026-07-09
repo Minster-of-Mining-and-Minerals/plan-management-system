@@ -10,6 +10,7 @@ const {
     GovernmentStructure,
     InternalStructure,
     User,
+    Role,
     PermissionGroup,
     sequelize,
 } = require("../../models");
@@ -282,6 +283,7 @@ const createInternalAssignment = async (req, res) => {
             user_id,
             role_id,
             permission_group_id,
+            action_id,
             branch_external_assignment_id,
             branch_internal_assignment_id,
             propagate_all_branches,
@@ -346,6 +348,14 @@ const createInternalAssignment = async (req, res) => {
             if (!permissionGroup) {
                 await t.rollback();
                 return res.status(404).json({ message: "Permission group not found" });
+            }
+        }
+
+        if (action_id) {
+            const action = await PlanAssignmentAction.findByPk(action_id, { transaction: t });
+            if (!action) {
+                await t.rollback();
+                return res.status(404).json({ message: "Assignment action not found" });
             }
         }
 
@@ -426,6 +436,7 @@ const createInternalAssignment = async (req, res) => {
                     user_id: target.user_id,
                     role_id: target.role_id,
                     permission_group_id: target.permission_group_id,
+                    action_id: action_id || null,
                     is_active: true,
                     branch_external_assignment_id: branchFields.branch_external_assignment_id,
                     branch_internal_assignment_id: branchFields.branch_internal_assignment_id,
@@ -507,6 +518,10 @@ const getInternalAssignmentsByNode = async (req, res) => {
                     attributes: { exclude: ["password"] },
                 },
                 {
+                    model: PlanAssignmentAction,
+                    as: "action",
+                },
+                {
                     model: Role,
                     as: "role",
                 },
@@ -525,6 +540,7 @@ const getInternalAssignmentsByNode = async (req, res) => {
                     include: [
                         { model: InternalStructure, as: "internalStructure" },
                         { model: User, as: "user", attributes: { exclude: ["password"] } },
+                        { model: PlanAssignmentAction, as: "action" },
                         { model: Role, as: "role" },
                         { model: PermissionGroup, as: "permissionGroup" },
                     ],

@@ -80,6 +80,8 @@ const createInternalAssignmentSchema = Joi.object({
 
     permission_group_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
 
+    action_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
+
     branch_external_assignment_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
     branch_internal_assignment_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
     propagate_all_branches: Joi.boolean().default(true),
@@ -106,6 +108,7 @@ const updateInternalAssignmentSchema = Joi.object({
     user_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
     role_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
     permission_group_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
+    action_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
 }).custom((value, helpers) => {
     const provided = [
         value.internal_structure_id,
