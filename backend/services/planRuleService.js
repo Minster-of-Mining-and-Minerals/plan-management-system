@@ -2,6 +2,7 @@
 
 const { PlanRule, PlanRuleStep, PlanVersion, PlanNode, GovernmentStructure } = require("../models");
 const { collectAncestorIds } = require("../utils/structureLifecycleUtils");
+const { resolveMasterPlanVersionForConfig } = require("../utils/planVersionHierarchyUtils");
 const {
   levelToNodeType,
   getStepForLevel,
@@ -63,10 +64,13 @@ async function resolvePlanRuleForVersion(planVersion, transaction) {
     },
   ];
 
+  const masterVersion = await resolveMasterPlanVersionForConfig(planVersion, transaction);
+  const effectivePlanRuleId = masterVersion?.plan_rule_id ?? planVersion.plan_rule_id;
+
   let rule = null;
 
-  if (planVersion.plan_rule_id) {
-    rule = await PlanRule.findByPk(planVersion.plan_rule_id, {
+  if (effectivePlanRuleId) {
+    rule = await PlanRule.findByPk(effectivePlanRuleId, {
       include,
       transaction,
     });

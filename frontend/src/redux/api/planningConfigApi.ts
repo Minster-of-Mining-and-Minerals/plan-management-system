@@ -25,6 +25,30 @@ export const planningConfigApi = baseApi.injectEndpoints({
       providesTags: ["PlanningConfiguration"],
     }),
 
+    getPlanningConfigurationForVersion: builder.query<PlanningConfiguration, string>({
+      query: (versionId) => `/plan/versions/${versionId}/planning-config`,
+      transformResponse: (response: { data: PlanningConfiguration }) => response.data,
+      providesTags: (_r, _e, versionId) => [
+        { type: "PlanningConfiguration", id: `version-${versionId}` },
+      ],
+    }),
+
+    updatePlanningConfigurationForVersion: builder.mutation<
+      PlanningConfiguration,
+      { versionId: string; data: UpdatePlanningConfigurationPayload }
+    >({
+      query: ({ versionId, data }) => ({
+        url: `/plan/versions/${versionId}/planning-config`,
+        method: "PUT",
+        body: data,
+      }),
+      transformResponse: (response: { data: PlanningConfiguration }) => response.data,
+      invalidatesTags: (_r, _e, { versionId }) => [
+        { type: "PlanningConfiguration", id: `version-${versionId}` },
+        "PlanningConfiguration",
+      ],
+    }),
+
     updatePlanningConfiguration: builder.mutation<
       PlanningConfiguration,
       UpdatePlanningConfigurationPayload
@@ -55,6 +79,8 @@ export const planningConfigApi = baseApi.injectEndpoints({
 
 export const {
   useGetPlanningConfigurationQuery,
+  useGetPlanningConfigurationForVersionQuery,
   useUpdatePlanningConfigurationMutation,
+  useUpdatePlanningConfigurationForVersionMutation,
   useRestoreDefaultPlanningConfigurationMutation,
 } = planningConfigApi;

@@ -66,6 +66,22 @@ export const planRuleApi = baseApi.injectEndpoints({
             ],
         }),
 
+        updatePlanRuleForVersion: builder.mutation<
+            PlanRule,
+            { versionId: string; data: UpdatePlanRulePayload }
+        >({
+            query: ({ versionId, data }) => ({
+                url: `/plan/versions/${versionId}/rule`,
+                method: "PUT",
+                body: data,
+            }),
+            transformResponse: (response: { data: PlanRule }): PlanRule => response.data,
+            invalidatesTags: (_r, _e, { versionId }) => [
+                { type: "PlanRules", id: `version-${versionId}` },
+                "PlanRules",
+            ],
+        }),
+
         deletePlanRule: builder.mutation<{ message: string }, string>({
             query: (id) => ({
                 url: `/plan/rules/${id}`,
@@ -85,5 +101,6 @@ export const {
     useGetPlanRuleForVersionQuery,
     useCreatePlanRuleMutation,
     useUpdatePlanRuleMutation,
+    useUpdatePlanRuleForVersionMutation,
     useDeletePlanRuleMutation,
 } = planRuleApi;

@@ -23,6 +23,7 @@ interface FilterDropdownProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  onPrimary?: boolean;
 }
 
 export function FilterDropdown({
@@ -33,12 +34,27 @@ export function FilterDropdown({
   placeholder = "Select",
   className,
   disabled,
+  onPrimary = false,
 }: FilterDropdownProps) {
   return (
     <div className={cn("space-y-1.5 min-w-[140px]", className)}>
-      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <Label
+        className={cn(
+          "text-xs",
+          onPrimary ? "text-primary-foreground/75" : "text-muted-foreground"
+        )}
+      >
+        {label}
+      </Label>
       <Select value={value} onValueChange={onChange} disabled={disabled}>
-        <SelectTrigger className="h-9 bg-white">
+        <SelectTrigger
+          className={cn(
+            "h-9",
+            onPrimary
+              ? "border-primary-foreground/20 bg-primary-foreground/95 text-foreground"
+              : "bg-white"
+          )}
+        >
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>

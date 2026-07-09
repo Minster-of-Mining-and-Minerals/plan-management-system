@@ -67,6 +67,10 @@ const {
     resolvePeriodLabels,
 } = require("../../services/planningConfigurationService");
 const {
+    attachDraftSnapshotsToPlanVersion,
+    getEffectivePlanningConfigForPlanVersion,
+} = require("../../services/planVersionSnapshotService");
+const {
     propagateMasterPlanNodeCreate,
     propagateMasterPlanNodeUpdate,
     propagateMasterPlanNodeDelete,
@@ -111,14 +115,8 @@ async function validateTargetUnitForNode({
             ],
             transaction,
         }),
-        PlanVersion.findByPk(planVersionId, {
-            attributes: ["government_structure_id"],
-            transaction,
-        }).then((version) =>
-            getEffectivePlanningConfigForStructure(
-                version?.government_structure_id ?? null,
-                transaction
-            )
+        PlanVersion.findByPk(planVersionId, { transaction }).then((version) =>
+            getEffectivePlanningConfigForPlanVersion(version, transaction)
         ),
     ]);
 
@@ -282,12 +280,16 @@ const createPlanVersion = async (req, res) => {
             await copyNodesFromVersion(based_on_version_id, planVersion.plan_version_id, t);
         }
 
+        await attachDraftSnapshotsToPlanVersion(planVersion, t);
+
         await t.commit();
+
+        const refreshed = await PlanVersion.findByPk(planVersion.plan_version_id);
 
         return res.status(201).json({
             success: true,
             message: "Plan draft created successfully",
-            data: planVersion,
+            data: refreshed ?? planVersion,
         });
     } catch (error) {
         await t.rollback();
@@ -688,7 +690,7 @@ const updatePlanVersion = async (req, res) => {
 
         const targetStructureId =
             body.government_structure_id ?? planVersion.government_structure_id;
-        const config = await getEffectivePlanningConfigForStructure(targetStructureId, t);
+        const config = await getEffectivePlanningConfigForPlanVersion(planVersion, t);
 
         const updates = { ...body };
 

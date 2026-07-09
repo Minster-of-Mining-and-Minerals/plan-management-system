@@ -36,6 +36,11 @@ module.exports = (sequelize, DataTypes) => {
                 as: "planRule",
             });
 
+            PlanVersion.belongsTo(models.PlanningConfiguration, {
+                foreignKey: "planning_configuration_id",
+                as: "planningConfiguration",
+            });
+
             // Has many PlanNodes
             PlanVersion.hasMany(models.PlanNode, {
                 foreignKey: "plan_version_id",
@@ -80,6 +85,11 @@ module.exports = (sequelize, DataTypes) => {
             },
 
             plan_rule_id: {
+                type: DataTypes.UUID,
+                allowNull: true,
+            },
+
+            planning_configuration_id: {
                 type: DataTypes.UUID,
                 allowNull: true,
             },

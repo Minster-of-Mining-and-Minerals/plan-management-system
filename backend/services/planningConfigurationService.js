@@ -534,6 +534,7 @@ module.exports = {
   restoreGlobalPlanningConfig,
   restoreSectorPlanningConfig,
   getEffectivePlanningConfigForStructure,
+  applyPlanningConfigUpdates,
   computeEndYear,
   computePlanningPeriodEnd,
   parseDateOnly,

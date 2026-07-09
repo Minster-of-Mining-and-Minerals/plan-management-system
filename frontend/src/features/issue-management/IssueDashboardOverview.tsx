@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { IssueDashboardStatsCards } from "./components/IssueDashboardStatsCards";
 import { IssueIssuesTablePanel } from "./components/IssueIssuesTablePanel";
-import { IssueRecentListPanel } from "./components/IssueRecentListPanel";
+import { IssueRecentListSidebar } from "./components/IssueRecentListSidebar";
 import { useIssuesTable } from "./hooks/useIssuesTable";
 import { DashboardSectionHeader } from "@/features/plan-management/dashboard/components/AnalyticsPanel";
 import {
@@ -44,8 +44,8 @@ export default function IssueDashboardOverview() {
         onStatusClick={tableState.handleStatusClick}
       />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-start">
-        <div className="min-w-0 lg:col-span-2">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        <div className="min-w-0 flex-1">
           <IssueIssuesTablePanel
             title="Issues"
             description="Summary of issue activity in your accessible scope."
@@ -54,9 +54,7 @@ export default function IssueDashboardOverview() {
             tableState={tableState}
           />
         </div>
-        <div className="min-w-0 lg:col-span-1">
-          <IssueRecentListPanel listScope={listScope} />
-        </div>
+        <IssueRecentListSidebar listScope={listScope} />
       </div>
     </div>
   );

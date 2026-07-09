@@ -135,6 +135,84 @@ const getPlanRuleForVersion = async (req, res) => {
   }
 };
 
+const updatePlanRuleForVersion = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const planVersion = await PlanVersion.findByPk(req.params.versionId, { transaction: t });
+    if (!planVersion) {
+      await t.rollback();
+      return res.status(404).json({ message: "Plan version not found" });
+    }
+
+    if (planVersion.version_kind !== "master" || planVersion.status !== "draft") {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "Only draft master plans can update their plan rule snapshot.",
+      });
+    }
+
+    if (!planVersion.plan_rule_id) {
+      await t.rollback();
+      return res.status(404).json({
+        success: false,
+        message: "This plan draft does not have a plan rule snapshot.",
+      });
+    }
+
+    const rule = await PlanRule.findByPk(planVersion.plan_rule_id, { transaction: t });
+    if (!rule?.owned_by_plan_version_id) {
+      await t.rollback();
+      return res.status(404).json({
+        success: false,
+        message: "This plan draft does not have an owned plan rule snapshot.",
+      });
+    }
+
+    const { name, is_active, steps } = req.body;
+
+    await rule.update(
+      {
+        ...(name !== undefined && { name }),
+        ...(is_active !== undefined && { is_active }),
+      },
+      { transaction: t }
+    );
+
+    if (steps) {
+      let normalizedSteps;
+      try {
+        normalizedSteps = normalizeRuleSteps(steps);
+      } catch (err) {
+        await t.rollback();
+        return res.status(400).json({ success: false, message: err.message });
+      }
+
+      await PlanRuleStep.destroy({ where: { plan_rule_id: rule.plan_rule_id }, transaction: t });
+      await PlanRuleStep.bulkCreate(
+        normalizedSteps.map((step) => ({
+          plan_rule_step_id: uuidv4(),
+          plan_rule_id: rule.plan_rule_id,
+          ...step,
+        })),
+        { transaction: t }
+      );
+    }
+
+    await t.commit();
+
+    const updated = await PlanRule.findByPk(rule.plan_rule_id, { include: includeSteps });
+    return res.json({
+      success: true,
+      message: "Draft plan rule updated",
+      data: formatRuleResponse(updated),
+    });
+  } catch (error) {
+    await t.rollback();
+    return res.status(500).json({ error: error.message });
+  }
+};
+
 const createPlanRule = async (req, res) => {
   const t = await sequelize.transaction();
   try {
@@ -382,6 +460,7 @@ module.exports = {
   getPlanRules,
   getPlanRuleById,
   getPlanRuleForVersion,
+  updatePlanRuleForVersion,
   createPlanRule,
   updatePlanRule,
   deletePlanRule,

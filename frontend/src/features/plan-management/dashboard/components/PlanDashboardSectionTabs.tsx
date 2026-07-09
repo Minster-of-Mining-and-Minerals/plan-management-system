@@ -30,15 +30,22 @@ export const DASHBOARD_SECTIONS: Array<{
 interface PlanDashboardSectionTabsProps {
   activeSection: DashboardSectionId;
   onSectionChange: (id: DashboardSectionId) => void;
+  onPrimary?: boolean;
 }
 
 export function PlanDashboardSectionTabs({
   activeSection,
   onSectionChange,
+  onPrimary = false,
 }: PlanDashboardSectionTabsProps) {
   return (
     <div
-      className="px-5 pt-5 pb-4 border-b border-border bg-gradient-to-b from-primary/5 to-transparent"
+      className={cn(
+        "px-5 sm:px-6 pt-5 pb-4 border-b",
+        onPrimary
+          ? "border-primary-foreground/15"
+          : "border-border bg-gradient-to-b from-primary/5 to-transparent"
+      )}
       role="tablist"
       aria-label="Dashboard sections"
     >
@@ -57,8 +64,10 @@ export function PlanDashboardSectionTabs({
               className={cn(
                 "h-10 rounded-xl px-4 py-2.5 shadow-none transition-all duration-200",
                 active
-                  ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
-                  : "border-border bg-white text-muted-foreground hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
+                  ? "border-transparent bg-sidebar-nav-active text-sidebar-nav-active-foreground shadow-sm hover:bg-sidebar-nav-active/90"
+                  : onPrimary
+                    ? "border-primary-foreground/25 bg-primary-foreground/10 text-primary-foreground hover:border-golden-dark/35 hover:bg-golden-dark10 hover:text-primary-foreground"
+                    : "border-border bg-white text-muted-foreground hover:border-golden-dark/35 hover:bg-golden-dark10 hover:text-golden-dark"
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />

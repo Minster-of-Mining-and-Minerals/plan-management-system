@@ -19,6 +19,10 @@ const {
     resolvePeriodLabelsForMode,
     normalizeCustomPeriods,
 } = require("./planningConfigurationService");
+const {
+    attachDraftSnapshotsToPlanVersion,
+    getEffectivePlanningConfigForPlanVersion,
+} = require("./planVersionSnapshotService");
 const { syncAllDerivedNodesFromMaster } = require("./planMasterEditService");
 const { syncPlanNodeAssignmentContext } = require("./planAssignmentScopeService");
 const {
@@ -256,12 +260,16 @@ async function duplicateMasterPlanDraft(sourceMasterVersionId, options = {}) {
                 version_kind: "master",
                 government_structure_id: sourceMaster.government_structure_id,
                 based_on_version_id: null,
-                plan_rule_id: sourceMaster.plan_rule_id,
+                plan_rule_id: null,
+                planning_configuration_id: null,
                 period_subdivision_mode: sourceMaster.period_subdivision_mode,
                 ...freshDraftWorkflowFields(),
             },
             { transaction: t }
         );
+
+        await attachDraftSnapshotsToPlanVersion(newMaster, t);
+        await newMaster.reload({ transaction: t });
 
         const masterNodeIdMap = await copyNodesWithAssignments(
             sourceMaster.plan_version_id,
@@ -306,7 +314,8 @@ async function duplicateMasterPlanDraft(sourceMasterVersionId, options = {}) {
                     version_number: sourceAnnual.version_number,
                     government_structure_id: sourceAnnual.government_structure_id,
                     based_on_version_id: null,
-                    plan_rule_id: sourceAnnual.plan_rule_id,
+                    plan_rule_id: newMaster.plan_rule_id,
+                    planning_configuration_id: newMaster.planning_configuration_id,
                     period_subdivision_mode: sourceAnnual.period_subdivision_mode,
                     ...freshDraftWorkflowFields(),
                 },
@@ -360,7 +369,8 @@ async function duplicateMasterPlanDraft(sourceMasterVersionId, options = {}) {
                         version_number: sourcePeriod.version_number,
                         government_structure_id: sourcePeriod.government_structure_id,
                         based_on_version_id: null,
-                        plan_rule_id: sourcePeriod.plan_rule_id,
+                        plan_rule_id: newMaster.plan_rule_id,
+                        planning_configuration_id: newMaster.planning_configuration_id,
                         ...freshDraftWorkflowFields(),
                     },
                     { transaction: t }
@@ -577,6 +587,7 @@ async function finalizeDraft(masterVersionId) {
                     government_structure_id: master.government_structure_id,
                     based_on_version_id: null,
                     plan_rule_id: master.plan_rule_id,
+                    planning_configuration_id: master.planning_configuration_id,
                 },
                 { transaction: t }
             );
@@ -1128,10 +1139,7 @@ async function generateExecutionPeriods(annualVersionId, transaction, options = 
             periodLabels = resolvePeriodLabelsForMode(subdivisionMode, customPeriods);
         }
     } else {
-        const config = await getEffectivePlanningConfigForStructure(
-            annualVersion.government_structure_id,
-            transaction
-        );
+        const config = await getEffectivePlanningConfigForPlanVersion(annualVersion, transaction);
         periodLabels = resolvePeriodLabels(config);
     }
 
@@ -1169,6 +1177,7 @@ async function generateExecutionPeriods(annualVersionId, transaction, options = 
                 government_structure_id: annualVersion.government_structure_id,
                 based_on_version_id: null,
                 plan_rule_id: annualVersion.plan_rule_id,
+                planning_configuration_id: annualVersion.planning_configuration_id,
             },
             { transaction }
         );

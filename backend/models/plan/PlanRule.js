@@ -19,6 +19,16 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "plan_rule_id",
         as: "planVersions",
       });
+
+      PlanRule.belongsTo(models.PlanVersion, {
+        foreignKey: "owned_by_plan_version_id",
+        as: "ownedByPlanVersion",
+      });
+
+      PlanRule.belongsTo(models.PlanRule, {
+        foreignKey: "source_plan_rule_id",
+        as: "sourcePlanRule",
+      });
     }
   }
 
@@ -45,6 +55,14 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.BOOLEAN,
         allowNull: false,
         defaultValue: false,
+      },
+      owned_by_plan_version_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      source_plan_rule_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
       },
     },
     {

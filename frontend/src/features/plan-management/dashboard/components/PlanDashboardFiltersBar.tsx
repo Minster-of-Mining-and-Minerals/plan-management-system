@@ -3,11 +3,11 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Filter, RotateCcw } from "lucide-react";
+import { ProfileHeroBanner } from "@/components/common/ProfileHeroBanner";
+import { cn } from "@/lib/utils";
 import type { PlanDashboardFiltersState } from "../hooks/usePlanDashboardFilters";
 import { FilterDropdown } from "./FilterDropdown";
 import { PlanDashboardSectionTabs } from "./PlanDashboardSectionTabs";
-import { useDashboardAppearance } from "../hooks/useDashboardAppearance";
-import { hexToRgba } from "../utils/dashboardAppearanceUtils";
 
 interface PlanDashboardFiltersProps {
   state: PlanDashboardFiltersState;
@@ -24,8 +24,6 @@ export function PlanDashboardFiltersBar({ state }: PlanDashboardFiltersProps) {
     activeSection,
     setActiveSection,
   } = state;
-  const { color } = useDashboardAppearance();
-  const liveBadgeColor = color("success");
 
   const structureOptions = [
     { value: "all", label: "All Structures" },
@@ -42,30 +40,35 @@ export function PlanDashboardFiltersBar({ state }: PlanDashboardFiltersProps) {
     ...userOptions.map((u) => ({ value: u.id, label: u.name })),
   ];
 
+  const filterControlClass = cn(
+    "h-9 border-primary-foreground/20 bg-primary-foreground/95 text-foreground"
+  );
+
+  const dateLabelClass = "text-xs text-primary-foreground/75";
+
   return (
-    <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
+    <ProfileHeroBanner className="overflow-hidden rounded-2xl border shadow-sm">
       <PlanDashboardSectionTabs
         activeSection={activeSection}
         onSectionChange={setActiveSection}
+        onPrimary
       />
 
-      <div className="p-5 space-y-4">
+      <div className="space-y-4 px-5 py-5 sm:px-6 sm:pb-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-sm font-semibold text-primary">
-            <Filter className="h-4 w-4" />
+          <div className="flex items-center gap-2 text-sm font-semibold text-primary-foreground">
+            <Filter className="h-4 w-4 shrink-0 opacity-90" />
             Global Filters
-            <span
-              className="rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide border"
-              style={{
-                color: liveBadgeColor,
-                borderColor: hexToRgba(liveBadgeColor, 0.2),
-                backgroundColor: hexToRgba(liveBadgeColor, 0.1),
-              }}
-            >
+            <span className="rounded-full border border-primary-foreground/25 bg-primary-foreground/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary-foreground">
               Live Data
             </span>
           </div>
-          <Button variant="ghost" size="sm" onClick={resetFilters} className="h-8 gap-1.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={resetFilters}
+            className="h-8 gap-1.5 text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground"
+          >
             <RotateCcw className="h-3.5 w-3.5" />
             Reset
           </Button>
@@ -77,18 +80,21 @@ export function PlanDashboardFiltersBar({ state }: PlanDashboardFiltersProps) {
             value={filters.structureId}
             options={structureOptions}
             onChange={(v) => updateFilter("structureId", v)}
+            onPrimary
           />
           <FilterDropdown
             label="Department"
             value={filters.departmentId}
             options={departmentOpts}
             onChange={(v) => updateFilter("departmentId", v)}
+            onPrimary
           />
           <FilterDropdown
             label="User"
             value={filters.userId}
             options={userOpts}
             onChange={(v) => updateFilter("userId", v)}
+            onPrimary
           />
           <FilterDropdown
             label="Plan Type"
@@ -99,6 +105,7 @@ export function PlanDashboardFiltersBar({ state }: PlanDashboardFiltersProps) {
               { value: "exclusive", label: "Exclusive" },
             ]}
             onChange={(v) => updateFilter("sharingMode", v as typeof filters.sharingMode)}
+            onPrimary
           />
           <FilterDropdown
             label="Status"
@@ -110,6 +117,7 @@ export function PlanDashboardFiltersBar({ state }: PlanDashboardFiltersProps) {
               { value: "delayed", label: "Delayed" },
             ]}
             onChange={(v) => updateFilter("status", v as typeof filters.status)}
+            onPrimary
           />
           <FilterDropdown
             label="Priority"
@@ -121,27 +129,28 @@ export function PlanDashboardFiltersBar({ state }: PlanDashboardFiltersProps) {
               { value: "low", label: "Low" },
             ]}
             onChange={(v) => updateFilter("priority", v as typeof filters.priority)}
+            onPrimary
           />
-          <div className="space-y-1.5 min-w-[130px]">
-            <label className="text-xs text-muted-foreground">Date From</label>
+          <div className="min-w-[130px] space-y-1.5">
+            <label className={dateLabelClass}>Date From</label>
             <Input
               type="date"
-              className="h-9 bg-white"
+              className={filterControlClass}
               value={filters.dateFrom}
               onChange={(e) => updateFilter("dateFrom", e.target.value)}
             />
           </div>
-          <div className="space-y-1.5 min-w-[130px]">
-            <label className="text-xs text-muted-foreground">Date To</label>
+          <div className="min-w-[130px] space-y-1.5">
+            <label className={dateLabelClass}>Date To</label>
             <Input
               type="date"
-              className="h-9 bg-white"
+              className={filterControlClass}
               value={filters.dateTo}
               onChange={(e) => updateFilter("dateTo", e.target.value)}
             />
           </div>
         </div>
       </div>
-    </div>
+    </ProfileHeroBanner>
   );
 }

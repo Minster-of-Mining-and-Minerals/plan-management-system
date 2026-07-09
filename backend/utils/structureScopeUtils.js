@@ -370,7 +370,7 @@ function assertGovernmentStructureParentAllowed(req, parentId, allStructures) {
  */
 function buildPlanRuleVisibilityWhere(req, structureId, structureIndex) {
   if (isSuperAdminActor(req) && !structureId) {
-    return {};
+    return { owned_by_plan_version_id: null };
   }
 
   if (!structureId) {
@@ -388,6 +388,7 @@ function buildPlanRuleVisibilityWhere(req, structureId, structureIndex) {
   const visibleIds = buildVisibleGovernmentStructureIdSet(structureIndex, structureId);
 
   return {
+    owned_by_plan_version_id: null,
     [Op.or]: [
       { government_structure_id: null },
       { government_structure_id: { [Op.in]: [...visibleIds] } },

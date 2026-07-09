@@ -11,10 +11,12 @@ export interface CustomPeriod {
 }
 
 export interface PlanningConfigurationMeta {
-  scope: "global" | "sector";
+  scope: "global" | "sector" | "draft";
   government_structure_id?: string | null;
   is_using_default: boolean;
   has_sector_override: boolean;
+  owned_by_plan_version_id?: string | null;
+  source_planning_configuration_id?: string | null;
 }
 
 export interface PlanningConfiguration {

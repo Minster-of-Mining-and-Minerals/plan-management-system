@@ -132,6 +132,7 @@ export interface PlanVersion {
     government_structure_id: string;
     based_on_version_id: string | null;
     plan_rule_id?: string | null;
+    planning_configuration_id?: string | null;
     access_role?: PlanAccessRole;
     tree_access_mode?: "full" | "sector" | "direct" | "participant" | "none";
     created_at: string;
@@ -442,6 +443,8 @@ export interface PlanRule {
     government_structure_id: string | null;
     inherit_to_descendants?: boolean;
     is_active: boolean;
+    owned_by_plan_version_id?: string | null;
+    source_plan_rule_id?: string | null;
     created_at: string;
     updated_at: string;
     steps?: PlanRuleStep[];

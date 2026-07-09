@@ -9,6 +9,21 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "government_structure_id",
         as: "governmentStructure",
       });
+
+      PlanningConfiguration.belongsTo(models.PlanVersion, {
+        foreignKey: "owned_by_plan_version_id",
+        as: "ownedByPlanVersion",
+      });
+
+      PlanningConfiguration.belongsTo(models.PlanningConfiguration, {
+        foreignKey: "source_planning_configuration_id",
+        as: "sourcePlanningConfiguration",
+      });
+
+      PlanningConfiguration.hasMany(models.PlanVersion, {
+        foreignKey: "planning_configuration_id",
+        as: "planVersions",
+      });
     }
   }
 
@@ -74,6 +89,14 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.JSON,
         allowNull: false,
         defaultValue: [],
+      },
+      owned_by_plan_version_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      source_planning_configuration_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
       },
     },
     {

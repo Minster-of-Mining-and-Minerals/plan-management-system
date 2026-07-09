@@ -91,6 +91,7 @@ const {
     getPlanRules,
     getPlanRuleById,
     getPlanRuleForVersion,
+    updatePlanRuleForVersion,
     createPlanRule,
     updatePlanRule,
     deletePlanRule,
@@ -108,7 +109,9 @@ const {
 
 const {
     getPlanningConfiguration,
+    getPlanningConfigurationForVersion,
     updatePlanningConfiguration,
+    updatePlanningConfigurationForVersion,
     restoreDefaultPlanningConfiguration,
 } = require("../../controllers/plan/planningConfigurationController");
 
@@ -268,6 +271,19 @@ router.patch(
 // ================= PLANNING CONFIGURATION =================
 
 router.get("/planning-config", planReadAccess, getPlanningConfiguration);
+router.get(
+    "/versions/:versionId/planning-config",
+    planReadAccess,
+    requirePlanVersionReadAccess("versionId"),
+    getPlanningConfigurationForVersion
+);
+router.put(
+    "/versions/:versionId/planning-config",
+    checkPermission("PLAN", "DRAFT_PUBLISH"),
+    requirePlanVersionReadAccess("versionId"),
+    validateUpdatePlanningConfiguration,
+    updatePlanningConfigurationForVersion
+);
 router.put(
     "/planning-config",
     checkPermission("PLANS", "UPDATE"),
@@ -285,6 +301,13 @@ router.post(
 router.get("/rules", planRulesListAccess, getPlanRules);
 router.get("/rules/:id", checkPermission("PLAN_RULES", "READ"), validateRuleIdParam, getPlanRuleById);
 router.get("/versions/:versionId/rule", planReadAccess, requirePlanVersionReadAccess("versionId"), getPlanRuleForVersion);
+router.put(
+    "/versions/:versionId/rule",
+    checkPermission("PLAN", "DRAFT_PUBLISH"),
+    requirePlanVersionReadAccess("versionId"),
+    validateUpdatePlanRule,
+    updatePlanRuleForVersion
+);
 router.post("/rules", checkPermission("PLAN_RULES", "CREATE"), validateCreatePlanRule, createPlanRule);
 router.put("/rules/:id", checkPermission("PLAN_RULES", "UPDATE"), validateRuleIdParam, validateUpdatePlanRule, updatePlanRule);
 router.delete("/rules/:id", checkPermission("PLAN_RULES", "DELETE"), validateRuleIdParam, deletePlanRule);
