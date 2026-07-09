@@ -15,6 +15,14 @@ const PLAN_IDS = {
   PERIOD_2029_Q2: "20000000-0000-4000-8000-000000000422",
   PERIOD_2029_Q3: "20000000-0000-4000-8000-000000000423",
   PERIOD_2029_Q4: "20000000-0000-4000-8000-000000000424",
+  PERIOD_2030_Q1: "20000000-0000-4000-8000-000000000431",
+  PERIOD_2030_Q2: "20000000-0000-4000-8000-000000000432",
+  PERIOD_2030_Q3: "20000000-0000-4000-8000-000000000433",
+  PERIOD_2030_Q4: "20000000-0000-4000-8000-000000000434",
+  PERIOD_2031_Q1: "20000000-0000-4000-8000-000000000441",
+  PERIOD_2031_Q2: "20000000-0000-4000-8000-000000000442",
+  PERIOD_2031_Q3: "20000000-0000-4000-8000-000000000443",
+  PERIOD_2031_Q4: "20000000-0000-4000-8000-000000000444",
 };
 
 const PLAN_DRAFT_NAME =
@@ -44,36 +52,105 @@ const ANNUAL_VERSIONS = [
   },
 ];
 
-const EXECUTION_PERIODS_2029 = [
-  {
-    plan_version_id: PLAN_IDS.PERIOD_2029_Q1,
-    period_label: "Q1",
-    sequence_index: 1,
-    status: "draft",
-    is_locked: false,
-  },
-  {
-    plan_version_id: PLAN_IDS.PERIOD_2029_Q2,
-    period_label: "Q2",
-    sequence_index: 2,
-    status: "draft",
-    is_locked: false,
-  },
-  {
-    plan_version_id: PLAN_IDS.PERIOD_2029_Q3,
-    period_label: "Q3",
-    sequence_index: 3,
-    status: "draft",
-    is_locked: false,
-  },
-  {
-    plan_version_id: PLAN_IDS.PERIOD_2029_Q4,
-    period_label: "Q4",
-    sequence_index: 4,
-    status: "draft",
-    is_locked: false,
-  },
-];
+const EXECUTION_PERIODS_BY_ANNUAL = {
+  [PLAN_IDS.ANNUAL_2026]: [
+    {
+      plan_version_id: PLAN_IDS.PERIOD_2029_Q1,
+      period_label: "Q1",
+      sequence_index: 1,
+      status: "draft",
+      is_locked: false,
+    },
+    {
+      plan_version_id: PLAN_IDS.PERIOD_2029_Q2,
+      period_label: "Q2",
+      sequence_index: 2,
+      status: "draft",
+      is_locked: false,
+    },
+    {
+      plan_version_id: PLAN_IDS.PERIOD_2029_Q3,
+      period_label: "Q3",
+      sequence_index: 3,
+      status: "draft",
+      is_locked: false,
+    },
+    {
+      plan_version_id: PLAN_IDS.PERIOD_2029_Q4,
+      period_label: "Q4",
+      sequence_index: 4,
+      status: "draft",
+      is_locked: false,
+    },
+  ],
+  [PLAN_IDS.ANNUAL_2027]: [
+    {
+      plan_version_id: PLAN_IDS.PERIOD_2030_Q1,
+      period_label: "Q1",
+      sequence_index: 1,
+      status: "draft",
+      is_locked: false,
+    },
+    {
+      plan_version_id: PLAN_IDS.PERIOD_2030_Q2,
+      period_label: "Q2",
+      sequence_index: 2,
+      status: "draft",
+      is_locked: false,
+    },
+    {
+      plan_version_id: PLAN_IDS.PERIOD_2030_Q3,
+      period_label: "Q3",
+      sequence_index: 3,
+      status: "draft",
+      is_locked: false,
+    },
+    {
+      plan_version_id: PLAN_IDS.PERIOD_2030_Q4,
+      period_label: "Q4",
+      sequence_index: 4,
+      status: "draft",
+      is_locked: false,
+    },
+  ],
+  [PLAN_IDS.ANNUAL_2028]: [
+    {
+      plan_version_id: PLAN_IDS.PERIOD_2031_Q1,
+      period_label: "Q1",
+      sequence_index: 1,
+      status: "draft",
+      is_locked: false,
+    },
+    {
+      plan_version_id: PLAN_IDS.PERIOD_2031_Q2,
+      period_label: "Q2",
+      sequence_index: 2,
+      status: "draft",
+      is_locked: false,
+    },
+    {
+      plan_version_id: PLAN_IDS.PERIOD_2031_Q3,
+      period_label: "Q3",
+      sequence_index: 3,
+      status: "draft",
+      is_locked: false,
+    },
+    {
+      plan_version_id: PLAN_IDS.PERIOD_2031_Q4,
+      period_label: "Q4",
+      sequence_index: 4,
+      status: "draft",
+      is_locked: false,
+    },
+  ],
+};
+
+/** @deprecated Use EXECUTION_PERIODS_BY_ANNUAL */
+const EXECUTION_PERIODS_2029 = EXECUTION_PERIODS_BY_ANNUAL[PLAN_IDS.ANNUAL_2026];
+
+const ALL_EXECUTION_PERIOD_VERSION_IDS = Object.values(EXECUTION_PERIODS_BY_ANNUAL)
+  .flat()
+  .map((period) => period.plan_version_id);
 
 const NODE_IDS = {
   STRATEGIC_DEV: "42000000-0000-4000-8000-000000000401",
@@ -468,6 +545,8 @@ module.exports = {
   ANNUAL_TARGET_YEAR_RATIOS,
   ANNUAL_VERSIONS,
   EXECUTION_PERIODS_2029,
+  EXECUTION_PERIODS_BY_ANNUAL,
+  ALL_EXECUTION_PERIOD_VERSION_IDS,
   NODE_IDS,
   PLAN_TREE,
   PARENT_SECTOR_ID: SECTOR_ID,

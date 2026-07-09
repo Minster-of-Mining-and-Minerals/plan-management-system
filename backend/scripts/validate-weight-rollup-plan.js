@@ -11,6 +11,8 @@ const {
   PLAN_IDS,
   PLAN_DRAFT_NAME,
   ANNUAL_TARGET_YEAR_RATIOS,
+  ANNUAL_VERSIONS,
+  ALL_EXECUTION_PERIOD_VERSION_IDS,
   NODE_IDS,
 } = require("../seeders/data/weightRollupOrganogramPlan.data");
 const { getAnnualExecutionReadiness } = require("../services/planVersionLifecycleService");
@@ -178,7 +180,7 @@ async function verifyPlanningConfiguration(masterVersionId) {
   assert.strictEqual(versionRows[0].planning_configuration_id, PLANNING_CONFIG_ID);
 }
 
-async function verifyQuarterlyExecutionPeriods(annualVersionId) {
+async function verifyQuarterlyExecutionPeriods(annualVersionId, planningYear) {
   const periods = await sequelize.query(
     `SELECT plan_version_id, period_label, sequence_index
      FROM plan_versions
@@ -190,10 +192,24 @@ async function verifyQuarterlyExecutionPeriods(annualVersionId) {
     }
   );
 
-  assert.strictEqual(periods.length, 4, "Expected 4 quarterly execution periods for 2029");
+  assert.strictEqual(
+    periods.length,
+    4,
+    `Expected 4 quarterly execution periods for ${planningYear}`
+  );
   assert.deepStrictEqual(
     periods.map((p) => p.period_label),
     ["Q1", "Q2", "Q3", "Q4"]
+  );
+
+  const annualNodes = await sequelize.query(
+    `SELECT plan_node_id, title, annual_target
+     FROM plan_nodes
+     WHERE plan_version_id = :annualId AND annual_target > 0`,
+    {
+      replacements: { annualId: annualVersionId },
+      type: sequelize.QueryTypes.SELECT,
+    }
   );
 
   for (const period of periods) {
@@ -208,7 +224,39 @@ async function verifyQuarterlyExecutionPeriods(annualVersionId) {
     );
     assert.ok(
       nodesWithTargets.length > 0,
-      `Expected period targets on ${period.period_label}`
+      `Expected period targets on ${planningYear} ${period.period_label}`
+    );
+  }
+
+  for (const annualNode of annualNodes) {
+    let quarterSum = 0;
+
+    for (const period of periods) {
+      const periodRows = await sequelize.query(
+        `SELECT period_target
+         FROM plan_nodes
+         WHERE plan_version_id = :periodId AND source_plan_node_id = :annualNodeId
+         LIMIT 1`,
+        {
+          replacements: {
+            periodId: period.plan_version_id,
+            annualNodeId: annualNode.plan_node_id,
+          },
+          type: sequelize.QueryTypes.SELECT,
+        }
+      );
+
+      assert.ok(
+        periodRows.length > 0,
+        `Missing ${planningYear} period node for "${annualNode.title}"`
+      );
+      quarterSum += Number(periodRows[0].period_target) || 0;
+    }
+
+    const annualTarget = Number(annualNode.annual_target);
+    assert.ok(
+      Math.abs(quarterSum - annualTarget) <= 0.01,
+      `"${annualNode.title}" (${planningYear}) quarter sum ${quarterSum} != annual ${annualTarget}`
     );
   }
 }
@@ -286,10 +334,44 @@ async function main() {
     await verifyWeightModes(PLAN_IDS.MASTER);
     await verifyAnnualTargetAllocation(PLAN_IDS.MASTER);
     await verifyPlanningConfiguration(PLAN_IDS.MASTER);
-    await verifyQuarterlyExecutionPeriods(PLAN_IDS.ANNUAL_2026);
+    for (const annual of ANNUAL_VERSIONS) {
+      await verifyQuarterlyExecutionPeriods(annual.plan_version_id, annual.planning_year);
+    }
+
+    const masterSubdivision = await sequelize.query(
+      `SELECT period_subdivision_mode, annual_targets_finalized_at
+       FROM plan_versions WHERE plan_version_id = :id`,
+      {
+        replacements: { id: PLAN_IDS.MASTER },
+        type: sequelize.QueryTypes.SELECT,
+      }
+    );
+    assert.strictEqual(masterSubdivision[0].period_subdivision_mode, "quarterly");
+    assert.ok(masterSubdivision[0].annual_targets_finalized_at, "Annual targets should be finalized for demo");
+
+    const periodCount = await sequelize.query(
+      `SELECT COUNT(*)::int AS count
+       FROM plan_versions
+       WHERE version_kind = 'execution_period'
+         AND parent_plan_version_id IN (:annualIds)`,
+      {
+        replacements: {
+          annualIds: ANNUAL_VERSIONS.map((annual) => annual.plan_version_id),
+        },
+        type: sequelize.QueryTypes.SELECT,
+      }
+    );
+    assert.strictEqual(periodCount[0].count, 12, "Expected 12 quarterly periods across 3 annual years");
 
     const readiness = await getAnnualExecutionReadiness(PLAN_IDS.MASTER);
-    assert.ok(readiness.ready, `Annual execution not ready: ${readiness.errors.join("; ")}`);
+    if (masterSubdivision[0].annual_targets_finalized_at) {
+      assert.ok(
+        !readiness.ready && readiness.errors.includes("Annual execution targets have already been finalized"),
+        "Expected finalized annual state for demo data"
+      );
+    } else {
+      assert.ok(readiness.ready, `Annual execution not ready: ${readiness.errors.join("; ")}`);
+    }
 
     console.log("Weight rollup organogram plan validation passed.");
     console.log(`  Master: ${PLAN_IDS.MASTER}`);
@@ -298,7 +380,7 @@ async function main() {
     console.log(`  Weight modes: percentage, number, frequency`);
     console.log(`  Planning config: quarterly breakdown`);
     console.log(`  Annual skew: ${ANNUAL_TARGET_YEAR_RATIOS.join(" / ")}`);
-    console.log(`  Execution periods: Q1–Q4 for 2029`);
+    console.log(`  Execution periods: Q1–Q4 with period targets for 2029, 2030, and 2031`);
     console.log(`  Ready for annual execution finalization`);
   } finally {
     await sequelize.close();

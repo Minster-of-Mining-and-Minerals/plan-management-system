@@ -9,6 +9,7 @@ const {
     InternalAssignment,
 } = require("../models");
 const { syncPlanNodeAssignmentContext } = require("./planAssignmentScopeService");
+const { normalizeInternalAssignmentTargetFields } = require("../utils/internalAssignmentUtils");
 
 function pickNodeFields(node) {
     return {
@@ -435,14 +436,13 @@ async function copyInternalAssignmentToDerivedNode(assignment, derivedNode, tran
         transaction
     );
 
+    const targetFields = normalizeInternalAssignmentTargetFields(assignment);
+
     return InternalAssignment.create(
         {
             internal_assignment_id: uuidv4(),
             plan_node_id: derivedNode.plan_node_id,
-            internal_structure_id: assignment.internal_structure_id,
-            user_id: assignment.user_id,
-            role_id: assignment.role_id,
-            permission_group_id: assignment.permission_group_id,
+            ...targetFields,
             is_active: assignment.is_active,
             branch_external_assignment_id: branchExternalAssignmentId,
             branch_internal_assignment_id: branchInternalAssignmentId,

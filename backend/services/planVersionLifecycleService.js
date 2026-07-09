@@ -1,6 +1,7 @@
 "use strict";
 
 const { v4: uuidv4 } = require("uuid");
+const { normalizeInternalAssignmentTargetFields } = require("../utils/internalAssignmentUtils");
 const { Op } = require("sequelize");
 const {
     PlanVersion,
@@ -167,14 +168,12 @@ async function copyNodesWithAssignments(
     for (const int of sourceInternals) {
         const newId = uuidv4();
         internalIdMap.set(int.internal_assignment_id, newId);
+        const targetFields = normalizeInternalAssignmentTargetFields(int);
         await InternalAssignment.create(
             {
                 internal_assignment_id: newId,
                 plan_node_id: nodeIdMap.get(int.plan_node_id),
-                internal_structure_id: int.internal_structure_id,
-                user_id: int.user_id,
-                role_id: int.role_id,
-                permission_group_id: int.permission_group_id,
+                ...targetFields,
                 action_id: int.action_id,
                 is_active: int.is_active,
                 branch_external_assignment_id: int.branch_external_assignment_id

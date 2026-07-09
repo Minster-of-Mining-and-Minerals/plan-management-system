@@ -7,7 +7,8 @@ const {
   PLAN_DRAFT_NAME,
   ANNUAL_TARGET_YEAR_RATIOS,
   ANNUAL_VERSIONS,
-  EXECUTION_PERIODS_2029,
+  EXECUTION_PERIODS_BY_ANNUAL,
+  ALL_EXECUTION_PERIOD_VERSION_IDS,
   PLAN_TREE,
   PARENT_SECTOR_ID,
   PARENT_SECTOR_NAME,
@@ -85,6 +86,7 @@ async function seedExecutionPeriodsForAnnual({
   annual,
   annualNodes,
   annualAssignmentPayload,
+  executionPeriods,
   now,
   planRuleId,
   sectorId,
@@ -94,7 +96,7 @@ async function seedExecutionPeriodsForAnnual({
 
   await queryInterface.bulkInsert(
     "plan_versions",
-    EXECUTION_PERIODS_2029.map((period) => ({
+    executionPeriods.map((period) => ({
       plan_version_id: period.plan_version_id,
       version_kind: "execution_period",
       parent_plan_version_id: annual.plan_version_id,
@@ -122,8 +124,8 @@ async function seedExecutionPeriodsForAnnual({
     }))
   );
 
-  for (let quarterIndex = 0; quarterIndex < EXECUTION_PERIODS_2029.length; quarterIndex++) {
-    const period = EXECUTION_PERIODS_2029[quarterIndex];
+  for (let quarterIndex = 0; quarterIndex < executionPeriods.length; quarterIndex++) {
+    const period = executionPeriods[quarterIndex];
     const { periodNodes, nodeIdMap } = copyNodesToPeriod(
       annualNodePayload,
       period.plan_version_id,
@@ -209,6 +211,8 @@ module.exports = {
 
     await removeExistingPlan(queryInterface, PLAN_IDS, PLANNING_CONFIG_ID);
 
+    const annualTargetsFinalizedAt = new Date("2026-02-15T10:00:00.000Z");
+
     await queryInterface.bulkInsert("plan_versions", [
       {
         plan_version_id: PLAN_IDS.MASTER,
@@ -218,6 +222,8 @@ module.exports = {
         sequence_index: null,
         is_locked: false,
         finalized_at: finalizedAt,
+        annual_targets_finalized_at: annualTargetsFinalizedAt,
+        period_subdivision_mode: "quarterly",
         draft_name: PLAN_DRAFT_NAME,
         planning_start_date: "2029-01-01",
         planning_end_date: "2031-12-31",
@@ -302,13 +308,11 @@ module.exports = {
         government_structure_id: parentSectorId,
         based_on_version_id: null,
         plan_rule_id: resolvedPlanRuleId,
+        period_subdivision_mode: "quarterly",
         created_at: now,
         updated_at: now,
       }))
     );
-
-    let firstAnnualAssignmentPayload = null;
-    let firstAnnualNodes = null;
 
     for (let yearIndex = 0; yearIndex < ANNUAL_VERSIONS.length; yearIndex++) {
       const annual = ANNUAL_VERSIONS[yearIndex];
@@ -339,22 +343,19 @@ module.exports = {
         );
       }
 
-      if (yearIndex === 0) {
-        firstAnnualAssignmentPayload = annualAssignmentPayload;
-        firstAnnualNodes = annualNodes;
+      const executionPeriods = EXECUTION_PERIODS_BY_ANNUAL[annual.plan_version_id];
+      if (executionPeriods?.length) {
+        await seedExecutionPeriodsForAnnual({
+          queryInterface,
+          annual,
+          annualNodes,
+          annualAssignmentPayload,
+          executionPeriods,
+          now,
+          planRuleId: resolvedPlanRuleId,
+          sectorId: parentSectorId,
+        });
       }
-    }
-
-    if (firstAnnualAssignmentPayload && firstAnnualNodes) {
-      await seedExecutionPeriodsForAnnual({
-        queryInterface,
-        annual: ANNUAL_VERSIONS[0],
-        annualNodes: firstAnnualNodes,
-        annualAssignmentPayload: firstAnnualAssignmentPayload,
-        now,
-        planRuleId: resolvedPlanRuleId,
-        sectorId: parentSectorId,
-      });
     }
 
     const strategicCount = masterNodePayload.filter((n) => n.type === "strategic").length;
@@ -378,7 +379,7 @@ module.exports = {
     console.log(
       `  Annual targets: skewed ${ANNUAL_TARGET_YEAR_RATIOS.map((r) => `${r * 100}%`).join(" / ")} across 2029–2031`
     );
-    console.log(`  Execution periods: Q1–Q4 seeded for 2029 annual draft`);
+    console.log(`  Execution periods: Q1–Q4 with period targets for 2029, 2030, and 2031`);
   },
 
   async down(queryInterface) {

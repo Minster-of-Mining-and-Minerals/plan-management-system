@@ -368,7 +368,6 @@ function buildAssignments(resolvedBlocks, actionMap) {
     internal.push({
       internal_assignment_id: uuidv4(),
       plan_node_id: block.strategicNodeId,
-      internal_structure_id: block.strategicDeptId,
       user_id: block.strategicHeadUserId,
       action_id: actionMap.APPROVAL,
       is_active: true,
@@ -378,7 +377,6 @@ function buildAssignments(resolvedBlocks, actionMap) {
       internal.push({
         internal_assignment_id: uuidv4(),
         plan_node_id: goal.nodeId,
-        internal_structure_id: goal.deptId,
         user_id: goal.headUserId,
         action_id: actionMap.APPROVAL,
         is_active: true,
@@ -388,7 +386,6 @@ function buildAssignments(resolvedBlocks, actionMap) {
         internal.push({
           internal_assignment_id: uuidv4(),
           plan_node_id: kpi.nodeId,
-          internal_structure_id: kpi.deptId,
           user_id: kpi.officerUserId,
           action_id: actionMap.EXECUTION,
           is_active: true,
@@ -450,7 +447,6 @@ function copyAssignments(masterAssignments, nodeIdMap) {
     newInternal.push({
       internal_assignment_id: uuidv4(),
       plan_node_id: nodeIdMap.get(int.plan_node_id),
-      internal_structure_id: int.internal_structure_id,
       user_id: int.user_id,
       action_id: int.action_id,
       is_active: int.is_active ?? true,

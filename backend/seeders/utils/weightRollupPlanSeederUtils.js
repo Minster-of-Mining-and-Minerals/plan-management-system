@@ -1,6 +1,7 @@
 "use strict";
 
 const { v4: uuidv4 } = require("uuid");
+const { ALL_EXECUTION_PERIOD_VERSION_IDS } = require("../data/weightRollupOrganogramPlan.data");
 const {
   loadUsersByDepartment,
   findDepartmentByName,
@@ -362,7 +363,6 @@ function buildAssignments(resolvedTree, sectorId, actionMap) {
     internal.push({
       internal_assignment_id: uuidv4(),
       plan_node_id: strategic.id,
-      internal_structure_id: strategic.deptId,
       user_id: strategic.headUserId,
       action_id: actionMap.APPROVAL,
       is_active: true,
@@ -372,7 +372,6 @@ function buildAssignments(resolvedTree, sectorId, actionMap) {
       internal.push({
         internal_assignment_id: uuidv4(),
         plan_node_id: goal.id,
-        internal_structure_id: goal.deptId,
         user_id: goal.headUserId,
         action_id: actionMap.APPROVAL,
         is_active: true,
@@ -382,7 +381,6 @@ function buildAssignments(resolvedTree, sectorId, actionMap) {
         internal.push({
           internal_assignment_id: uuidv4(),
           plan_node_id: kpi.id,
-          internal_structure_id: kpi.deptId,
           user_id: kpi.headUserId,
           action_id: actionMap.APPROVAL,
           is_active: true,
@@ -392,7 +390,6 @@ function buildAssignments(resolvedTree, sectorId, actionMap) {
           internal.push({
             internal_assignment_id: uuidv4(),
             plan_node_id: task.id,
-            internal_structure_id: task.deptId,
             user_id: task.officerUserId,
             action_id: actionMap.EXECUTION,
             is_active: true,
@@ -411,10 +408,7 @@ async function removeExistingPlan(queryInterface, planIds, planningConfigId = nu
     planIds.ANNUAL_2026,
     planIds.ANNUAL_2027,
     planIds.ANNUAL_2028,
-    planIds.PERIOD_2029_Q1,
-    planIds.PERIOD_2029_Q2,
-    planIds.PERIOD_2029_Q3,
-    planIds.PERIOD_2029_Q4,
+    ...ALL_EXECUTION_PERIOD_VERSION_IDS,
   ].filter(Boolean);
 
   const nodes = await queryInterface.sequelize.query(
