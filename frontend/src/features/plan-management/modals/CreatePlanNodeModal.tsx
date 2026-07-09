@@ -11,6 +11,8 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog";
+import { DIALOG_SCROLLABLE_BODY, DIALOG_SCROLLABLE_CONTENT } from "@/lib/dialogLayout";
+import { cn } from "@/lib/utils";
 import {
     Form,
     FormControl,
@@ -298,8 +300,8 @@ export function CreatePlanNodeModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[600px]">
-                <DialogHeader>
+            <DialogContent className={cn(DIALOG_SCROLLABLE_CONTENT, "sm:max-w-[600px]")}>
+                <DialogHeader className="px-6 pt-6 pb-4 pr-12">
                     <DialogTitle>
                         {node
                             ? `Edit ${levelLabel}`
@@ -310,7 +312,7 @@ export function CreatePlanNodeModal({
                 </DialogHeader>
 
                 {rule && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground -mt-2">
+                    <div className="flex shrink-0 items-center gap-2 px-6 pb-2 text-sm text-muted-foreground">
                         <span>Rule:</span>
                         <Badge variant="outline">{rule.name}</Badge>
                         <Badge variant="secondary">Level {nodeLevel}</Badge>
@@ -318,7 +320,12 @@ export function CreatePlanNodeModal({
                 )}
 
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <form
+                        onSubmit={form.handleSubmit(onSubmit)}
+                        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+                    >
+                        <div className={cn(DIALOG_SCROLLABLE_BODY, "px-6 pb-4")}>
+                            <div className="space-y-4">
                         {showWeightModeSelect && (
                             <FormField
                                 control={form.control}
@@ -551,7 +558,10 @@ export function CreatePlanNodeModal({
                             )}
                         />
 
-                        <DialogFooter className="mt-6">
+                            </div>
+                        </div>
+
+                        <DialogFooter className="mt-0 shrink-0 border-t px-6 py-4">
                             <Button
                                 type="button"
                                 variant="outline"

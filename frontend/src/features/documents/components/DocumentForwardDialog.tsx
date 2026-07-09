@@ -18,6 +18,8 @@ import { TableTabBar } from "@/components/common/TableTabBar";
 import { UserCheckboxSelectPanel } from "@/components/common/UserCheckboxSelectPanel";
 import { actionFeedback } from "@/components/action-feedback";
 import { useForwardDocumentMutation } from "@/redux/api/collaborationApi";
+import { DIALOG_SCROLLABLE_CONTENT } from "@/lib/dialogLayout";
+import { cn } from "@/lib/utils";
 import { useGetUserByIdQuery } from "@/redux/api/userApi";
 
 type ForwardTab = "recipient" | "message";
@@ -95,7 +97,7 @@ export function DocumentForwardDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden bg-white sm:max-w-2xl">
+      <DialogContent className={cn(DIALOG_SCROLLABLE_CONTENT, "w-full max-w-2xl bg-white sm:max-w-2xl")}>
         <DialogHeader className="shrink-0">
           <DialogTitle className="text-xl font-bold text-golden-dark">Forward document</DialogTitle>
           <DialogDescription>

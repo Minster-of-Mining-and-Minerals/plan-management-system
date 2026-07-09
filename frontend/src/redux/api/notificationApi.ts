@@ -1,6 +1,12 @@
 import { baseApi } from "../baseApi";
 
-export type NotificationCategory = "plans" | "assignments" | "system" | "logs";
+export type NotificationCategory =
+  | "plans"
+  | "assignments"
+  | "system"
+  | "logs"
+  | "issues"
+  | "documents";
 export type NotificationPriority = "low" | "normal" | "high";
 
 export interface AppNotification {

@@ -30,6 +30,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { actionFeedback } from "@/components/action-feedback";
+import { DIALOG_SIMPLE_SCROLL } from "@/lib/dialogLayout";
+import { cn } from "@/lib/utils";
 import {
   useCreateFormConfigContainerMutation,
   useUpdateFormConfigContainerMutation,
@@ -118,7 +120,7 @@ export function CreateFormConfigContainerModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[560px]">
+      <DialogContent className={cn(DIALOG_SIMPLE_SCROLL, "sm:max-w-[560px]")}>
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Form Container" : "Add Form Container"}</DialogTitle>
         </DialogHeader>

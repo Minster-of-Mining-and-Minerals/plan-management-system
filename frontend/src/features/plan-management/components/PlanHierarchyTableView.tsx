@@ -153,7 +153,7 @@ function StrategicFocusTable({
 }: StrategicFocusTableProps) {
     const thresholds = usePerformanceColorThresholds();
 
-    const resolveNodeCompletion = (node: PlanNode) =>
+    const resolveNodeCompletion = (node: PlanNodeHierarchy) =>
         useExecutionCompletion
             ? resolveCompletionForPlanNode(
                   thresholds,

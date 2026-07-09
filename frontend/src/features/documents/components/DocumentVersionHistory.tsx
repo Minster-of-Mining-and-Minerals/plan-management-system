@@ -11,6 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DIALOG_SIMPLE_SCROLL } from "@/lib/dialogLayout";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -270,7 +272,7 @@ export function DocumentVersionHistory({
           if (!open) setDetailVersion(null);
         }}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className={cn(DIALOG_SIMPLE_SCROLL, "sm:max-w-md")}>
           <DialogHeader>
             <DialogTitle>Version {detailVersion?.version_number}</DialogTitle>
             <DialogDescription>Details for this document snapshot.</DialogDescription>

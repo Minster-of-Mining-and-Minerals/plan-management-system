@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { actionFeedback } from "@/components/action-feedback";
 import { cn } from "@/lib/utils";
+import { DIALOG_SCROLLABLE_BODY, DIALOG_SCROLLABLE_CONTENT } from "@/lib/dialogLayout";
 import { useCreateDocumentMutation } from "@/redux/api/collaborationApi";
 import type { DocumentFileType, DocumentOwnerType } from "@/redux/types/document";
 
@@ -155,14 +156,15 @@ export function CreateDocumentDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className={cn(DIALOG_SCROLLABLE_CONTENT, "sm:max-w-lg")}>
+        <DialogHeader className="px-6 pt-6 pb-4 pr-12">
           <DialogTitle>Create document</DialogTitle>
           <DialogDescription>
             Choose a type, enter a title, or upload an existing file.
           </DialogDescription>
         </DialogHeader>
 
+        <div className={cn(DIALOG_SCROLLABLE_BODY, "px-6 pb-4")}>
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="document-title">Title</Label>
@@ -255,8 +257,9 @@ export function CreateDocumentDialog({
             />
           </div>
         </div>
+        </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0 border-t px-6 py-4">
           <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={isLoading}>
             Cancel
           </Button>

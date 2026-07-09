@@ -11,9 +11,10 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { DIALOG_SCROLLABLE_CONTENT } from "@/lib/dialogLayout";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 import type { PlanVersion } from "@/redux/types/plan";
 import {
     buildPeriodCompleteValidationMessage,
@@ -74,7 +75,7 @@ export function PeriodCompleteValidationModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="flex max-h-[min(85vh,720px)] w-full max-w-lg flex-col overflow-hidden p-0 gap-0 sm:max-w-lg">
+            <DialogContent className={cn(DIALOG_SCROLLABLE_CONTENT, "w-full max-w-lg sm:max-w-lg")}>
                 <div className="h-1.5 w-full shrink-0 bg-amber-500" />
 
                 <DialogHeader className="shrink-0 space-y-3 border-b px-6 py-4 text-left">

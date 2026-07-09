@@ -122,10 +122,10 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm sm:items-center"
       onClick={handleBackdropClick}
     >
-      <div className="bg-white p-6 rounded-2xl w-full max-w-[750px] shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="my-auto w-full max-w-[750px] max-h-[min(90dvh,calc(100vh-2rem))] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-primary">Create User</h2>

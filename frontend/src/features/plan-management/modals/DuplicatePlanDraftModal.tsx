@@ -20,6 +20,8 @@ import { getApiErrorMessage } from "@/utils/apiErrorUtils";
 import { useRouter } from "next/navigation";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import { PLAN_DRAFT_PUBLISH_PERMISSIONS } from "@/utils/planPermissionUtils";
+import { DIALOG_SCROLLABLE_BODY, DIALOG_SCROLLABLE_CONTENT } from "@/lib/dialogLayout";
+import { cn } from "@/lib/utils";
 
 interface DuplicatePlanDraftModalProps {
     isOpen: boolean;
@@ -69,7 +71,7 @@ export function DuplicatePlanDraftModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="flex w-[calc(100%-2rem)] max-h-[min(90dvh,720px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[520px] top-[max(1rem,5dvh)] translate-y-0 sm:top-[50%] sm:-translate-y-1/2">
+            <DialogContent className={cn(DIALOG_SCROLLABLE_CONTENT, "sm:max-w-[520px]")}>
                 <DialogHeader className="shrink-0 px-6 pt-6 pb-4 pr-12">
                     <DialogTitle className="flex items-center gap-2">
                         <Copy className="h-5 w-5" />
@@ -77,7 +79,7 @@ export function DuplicatePlanDraftModal({
                     </DialogTitle>
                 </DialogHeader>
 
-                <div className="flex-1 overflow-y-auto px-6 pb-4 space-y-4">
+                <div className={cn(DIALOG_SCROLLABLE_BODY, "space-y-4 px-6 pb-4")}>
                     <p className="text-sm text-muted-foreground">
                         Creates a new independent {draftLabel} with the full hierarchy, assignments,
                         and target values from{" "}

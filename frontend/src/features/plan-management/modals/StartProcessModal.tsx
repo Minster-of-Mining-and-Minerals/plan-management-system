@@ -7,6 +7,8 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { DIALOG_SCROLLABLE_CONTENT } from "@/lib/dialogLayout";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle2, AlertCircle, Play } from "lucide-react";
 import { actionFeedback } from "@/components/action-feedback";
@@ -52,7 +54,7 @@ export function StartProcessModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="flex w-[calc(100%-2rem)] max-h-[min(90dvh,720px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[520px] top-[max(1rem,5dvh)] translate-y-0 sm:top-[50%] sm:-translate-y-1/2">
+            <DialogContent className={cn(DIALOG_SCROLLABLE_CONTENT, "sm:max-w-[520px]")}>
                 <DialogHeader className="shrink-0 px-6 pt-6 pb-4 pr-12">
                     <DialogTitle>Start Process</DialogTitle>
                 </DialogHeader>

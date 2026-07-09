@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { DocumentEditor as OnlyOfficeEditor } from "@onlyoffice/document-editor-react";
 import { Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,8 @@ interface DocumentEditorProps {
   heightClassName?: string;
   showFullscreenToggle?: boolean;
 }
+
+type OnlyOfficeConfig = ComponentProps<typeof OnlyOfficeEditor>["config"];
 
 function formatOnlyofficeError(errorCode: number, errorDescription: string, documentServerUrl: string) {
   switch (errorCode) {
@@ -48,7 +50,7 @@ export function DocumentEditor({
 
   const documentServerUrl = resolveOnlyofficeUrl(session.documentServerUrl);
 
-  const config = useMemo(() => {
+  const config = useMemo((): OnlyOfficeConfig => {
     if (session.config.token) {
       return { token: session.config.token as string };
     }
@@ -67,7 +69,7 @@ export function DocumentEditor({
           forcesave: customization.forcesave ?? true,
         },
       },
-    };
+    } as OnlyOfficeConfig;
   }, [session.config]);
 
   useEffect(() => {

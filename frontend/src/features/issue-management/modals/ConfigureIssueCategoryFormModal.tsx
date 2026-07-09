@@ -8,6 +8,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { DIALOG_SIMPLE_SCROLL } from "@/lib/dialogLayout";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { actionFeedback } from "@/components/action-feedback";
@@ -70,7 +72,7 @@ export function ConfigureIssueCategoryFormModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[860px] max-h-[92vh] overflow-y-auto">
+      <DialogContent className={cn(DIALOG_SIMPLE_SCROLL, "sm:max-w-[860px]")}>
         <DialogHeader>
           <DialogTitle>Configure Issue Form</DialogTitle>
           <p className="text-sm text-muted-foreground">

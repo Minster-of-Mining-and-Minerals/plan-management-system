@@ -11,6 +11,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { DIALOG_SIMPLE_SCROLL } from "@/lib/dialogLayout";
 import {
   Form,
   FormControl,
@@ -256,7 +257,8 @@ export function CreateGovernmentStructureModal({
     >
       <DialogContent
         className={cn(
-          "max-h-[85vh] overflow-y-auto transition-all duration-500 sm:max-w-[500px]",
+          DIALOG_SIMPLE_SCROLL,
+          "transition-all duration-500 sm:max-w-[500px]",
           showParentPicker && hasSelectedParent && "sm:max-w-[650px]"
         )}
       >

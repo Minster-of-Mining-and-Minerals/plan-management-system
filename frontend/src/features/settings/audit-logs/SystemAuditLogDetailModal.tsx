@@ -7,6 +7,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DIALOG_SIMPLE_SCROLL } from "@/lib/dialogLayout";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import type { SystemAuditLog } from "@/redux/types/systemAuditLog";
 
@@ -32,7 +34,7 @@ export function SystemAuditLogDetailModal({ log, open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className={cn(DIALOG_SIMPLE_SCROLL, "max-w-2xl")}>
         <DialogHeader>
           <DialogTitle>Audit Log Details</DialogTitle>
           <DialogDescription>

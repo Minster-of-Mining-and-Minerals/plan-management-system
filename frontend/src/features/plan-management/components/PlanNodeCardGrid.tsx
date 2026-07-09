@@ -15,6 +15,7 @@ import {
 import {
     hiddenProgressAppearance,
     resolveCompletionForPlanNode,
+    type ProgressAppearance,
 } from "@/utils/performanceColorUtils";
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
 import { useEffectivePlanningConfiguration } from "@/hooks/useEffectivePlanningConfiguration";
@@ -109,10 +110,7 @@ export function PlanNodeCardGrid({
     const sortedNodes = useMemo(() => nodes, [nodes]);
 
     const completionMap = useMemo(() => {
-        const map = new Map<
-            string,
-            { percent: number; color: string; label: string }
-        >();
+        const map = new Map<string, ProgressAppearance>();
         for (const node of sortedNodes) {
             const completion = useExecutionCompletion
                 ? resolveCompletionForPlanNode(

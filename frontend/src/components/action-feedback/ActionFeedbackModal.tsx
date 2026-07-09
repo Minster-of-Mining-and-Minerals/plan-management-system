@@ -87,10 +87,14 @@ export function ActionFeedbackModal({
     >
       <DialogContent
         showCloseButton={!isConfirm}
-        className={cn("sm:max-w-md overflow-hidden p-0 gap-0", styles.ring, "ring-2")}
+        className={cn(
+          "flex max-h-[min(90dvh,calc(100vh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-md top-[max(1rem,5dvh)] translate-y-0 sm:top-[50%] sm:-translate-y-1/2",
+          styles.ring,
+          "ring-2"
+        )}
       >
-        <div className={cn("h-1.5 w-full", styles.accent)} />
-        <div className="p-6 space-y-4">
+        <div className={cn("h-1.5 w-full shrink-0", styles.accent)} />
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6 space-y-4">
           <DialogHeader className="space-y-3">
             <div className="flex items-start gap-3">
               <div
@@ -112,7 +116,7 @@ export function ActionFeedbackModal({
             </div>
           </DialogHeader>
 
-          <DialogFooter className="gap-2 sm:gap-2">
+          <DialogFooter className="shrink-0 gap-2 sm:gap-2">
             {isConfirm && (
               <Button type="button" variant="outline" onClick={onCancel}>
                 {cancelLabel}

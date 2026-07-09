@@ -345,8 +345,8 @@ export default function PlanningConfigurationPage() {
                 icon: <Building2 className="h-4 w-4" />,
               },
             ]}
-            activeTab={editScope}
-            onTabChange={(value) => setEditScope(value as PlanningConfigEditScope)}
+            value={editScope}
+            onChange={(value) => setEditScope(value as PlanningConfigEditScope)}
           />
           {editScope === "sector" ? (
             <div className="max-w-md space-y-2">

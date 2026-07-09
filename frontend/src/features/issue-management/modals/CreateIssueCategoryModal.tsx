@@ -11,6 +11,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { DIALOG_SIMPLE_SCROLL } from "@/lib/dialogLayout";
+import { cn } from "@/lib/utils";
 import {
   Form,
   FormControl,
@@ -115,7 +117,7 @@ export function CreateIssueCategoryModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className={cn(DIALOG_SIMPLE_SCROLL, "sm:max-w-[560px]")}>
         <DialogHeader>
           <DialogTitle>{isEditMode ? "Edit Issue Category" : "Add Issue Category"}</DialogTitle>
         </DialogHeader>

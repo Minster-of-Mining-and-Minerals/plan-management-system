@@ -22,6 +22,8 @@ import { Building, Building2, Search, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGetInternalStructuresQuery } from "@/redux/api/internalStructureApi";
+import { DIALOG_SCROLLABLE_CONTENT } from "@/lib/dialogLayout";
+import { cn } from "@/lib/utils";
 
 interface AddGroupMembersModalProps {
   isOpen: boolean;
@@ -167,8 +169,8 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl bg-white max-h-[80vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className={cn(DIALOG_SCROLLABLE_CONTENT, "max-w-2xl bg-white")}>
+        <DialogHeader className="shrink-0 px-6 pt-6 pb-4 pr-12">
           <DialogTitle className="text-golden-dark text-xl font-bold">Add Members to Group</DialogTitle>
         </DialogHeader>
 
@@ -176,11 +178,11 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
           tabs={tabs}
           value={activeTab}
           onChange={setActiveTab}
-          className="w-full"
+          className="mx-6 shrink-0"
         />
 
         {activeTab === "users" ? (
-          <div className="flex flex-1 flex-col min-h-0 py-4">
+          <div className="flex min-h-0 flex-1 flex-col px-6 py-4">
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
@@ -190,7 +192,7 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
                 onChange={(e) => setUserSearch(e.target.value)}
               />
             </div>
-            <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-2">
               {loadingUsers ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <Skeleton key={i} className="h-12 w-full" />
@@ -220,7 +222,7 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
             </div>
           </div>
         ) : activeTab === "structures" ? (
-          <div className="flex flex-1 flex-col min-h-0 py-4">
+          <div className="flex min-h-0 flex-1 flex-col px-6 py-4">
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
@@ -230,7 +232,7 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
                 onChange={(e) => setStructureSearch(e.target.value)}
               />
             </div>
-            <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-2">
               {loadingStructures ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <Skeleton key={i} className="h-12 w-full" />
@@ -260,7 +262,7 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
             </div>
           </div>
         ) : (
-          <div className="flex flex-1 flex-col min-h-0 py-4">
+          <div className="flex min-h-0 flex-1 flex-col px-6 py-4">
             {linkedStructureIds.length !== 1 ? (
               <div className="text-center py-8 text-gray-500">
                 Link exactly one sector structure to this group before adding departments.
@@ -276,7 +278,7 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
                     onChange={(e) => setDepartmentSearch(e.target.value)}
                   />
                 </div>
-                <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-2">
                   {loadingDepartments ? (
                     Array.from({ length: 5 }).map((_, i) => (
                       <Skeleton key={i} className="h-12 w-full" />
@@ -317,7 +319,7 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
           </div>
         )}
 
-        <DialogFooter className="pt-4 border-t mt-auto">
+        <DialogFooter className="shrink-0 border-t px-6 py-4">
           <Button variant="outline" onClick={handleClose}>
             Cancel
           </Button>

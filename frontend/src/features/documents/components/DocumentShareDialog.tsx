@@ -29,6 +29,8 @@ import {
   useGetDocumentSharesQuery,
   useRevokeDocumentShareMutation,
 } from "@/redux/api/collaborationApi";
+import { DIALOG_SCROLLABLE_CONTENT } from "@/lib/dialogLayout";
+import { cn } from "@/lib/utils";
 import type { DocumentGrant, DocumentGrantRole } from "@/redux/types/document";
 
 type ShareTab = "add_users" | "current_users";
@@ -158,7 +160,7 @@ export function DocumentShareDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden bg-white sm:max-w-2xl">
+      <DialogContent className={cn(DIALOG_SCROLLABLE_CONTENT, "w-full max-w-2xl bg-white sm:max-w-2xl")}>
         <DialogHeader className="shrink-0">
           <DialogTitle className="text-xl font-bold text-golden-dark">Share document</DialogTitle>
           <DialogDescription>

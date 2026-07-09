@@ -9,6 +9,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { DIALOG_SIMPLE_SCROLL } from "@/lib/dialogLayout";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -325,7 +327,7 @@ export function ManageFormConfigFieldsModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[760px] max-h-[92vh] overflow-y-auto">
+      <DialogContent className={cn(DIALOG_SIMPLE_SCROLL, "sm:max-w-[760px]")}>
         <DialogHeader>
           <DialogTitle>Manage Fields — {container.name}</DialogTitle>
         </DialogHeader>

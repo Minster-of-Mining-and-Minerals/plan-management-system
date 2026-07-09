@@ -22,6 +22,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { actionFeedback } from "@/components/action-feedback";
+import { DIALOG_SIMPLE_SCROLL } from "@/lib/dialogLayout";
+import { cn } from "@/lib/utils";
 import { normalizeOptionalId } from "@/utils/apiPayloadUtils";
 import { useCreateGovernmentStructureMutation } from "@/redux/api/governmentStructureApi";
 import { useCreateInternalStructureMutation } from "@/redux/api/internalStructureApi";
@@ -94,7 +96,7 @@ export function CreateChildModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className={cn(DIALOG_SIMPLE_SCROLL, "sm:max-w-[425px]")}>
         <DialogHeader>
           <DialogTitle>Add Child Node</DialogTitle>
         </DialogHeader>

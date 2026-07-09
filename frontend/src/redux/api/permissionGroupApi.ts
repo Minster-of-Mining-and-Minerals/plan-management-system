@@ -48,7 +48,12 @@ export const permissionGroupApi = baseApi.injectEndpoints({
                 };
             },
             transformResponse: (response: any): PermissionGroup => response.data,
-            providesTags: (_r, _e, id) => [{ type: "PermissionGroups", id }],
+            providesTags: (_r, _e, arg) => [
+                {
+                    type: "PermissionGroups",
+                    id: typeof arg === "string" ? arg : arg.id,
+                },
+            ],
         }),
 
         /** ---------------------------

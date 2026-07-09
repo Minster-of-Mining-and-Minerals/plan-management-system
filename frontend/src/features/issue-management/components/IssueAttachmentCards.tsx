@@ -62,7 +62,7 @@ export function IssueAttachmentCards({ attachments }: IssueAttachmentCardsProps)
 
       {previewFile && previewUrl ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="relative max-h-[90vh] w-full max-w-3xl overflow-auto rounded-lg bg-white p-4">
+          <div className="relative max-h-[min(90dvh,calc(100vh-2rem))] w-full max-w-3xl overflow-auto rounded-lg bg-white p-4">
             <button
               type="button"
               className="absolute right-2 top-2 rounded-full p-2 hover:bg-gray-200"

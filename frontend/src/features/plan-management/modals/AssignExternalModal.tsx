@@ -34,6 +34,8 @@ import {
     formatPlanAssignmentButtonLabel,
     getPlanNodeAssignmentTypeLabel,
 } from "@/utils/planAssignmentUtils";
+import { DIALOG_SCROLLABLE_CONTENT } from "@/lib/dialogLayout";
+import { cn } from "@/lib/utils";
 import { PlanNode } from "@/redux/types/plan";
 
 const formSchema = z.object({
@@ -116,7 +118,7 @@ export function AssignExternalModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="flex w-[calc(100%-2rem)] max-h-[min(90dvh,720px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[560px] top-[max(1rem,5dvh)] translate-y-0 sm:top-[50%] sm:-translate-y-1/2">
+            <DialogContent className={cn(DIALOG_SCROLLABLE_CONTENT, "sm:max-w-[560px]")}>
                 <DialogHeader className="shrink-0 px-6 pt-6 pb-4 pr-12">
                     <DialogTitle>
                         Assign {typeLabel} (Level {options?.level ?? "—"})

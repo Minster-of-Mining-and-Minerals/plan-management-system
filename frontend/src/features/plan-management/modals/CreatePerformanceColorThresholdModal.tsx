@@ -23,6 +23,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { actionFeedback } from "@/components/action-feedback";
+import { DIALOG_SIMPLE_SCROLL } from "@/lib/dialogLayout";
+import { cn } from "@/lib/utils";
 import { ColorPickerField } from "@/components/ui/color-picker-field";
 import {
   useCreatePerformanceColorThresholdMutation,
@@ -125,7 +127,7 @@ export function CreatePerformanceColorThresholdModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[520px]">
+      <DialogContent className={cn(DIALOG_SIMPLE_SCROLL, "sm:max-w-[520px]")}>
         <DialogHeader>
           <DialogTitle>
             {isEditMode ? "Edit Performance Threshold" : "Add Performance Threshold"}
