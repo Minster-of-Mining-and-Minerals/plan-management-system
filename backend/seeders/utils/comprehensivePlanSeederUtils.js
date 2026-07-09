@@ -17,6 +17,35 @@ function distributeWeights(count) {
   return weights;
 }
 
+function distributeAnnualTargetsAcrossYears(draftWeight, yearCount) {
+  if (draftWeight <= 0 || yearCount <= 0) return [];
+  const parts = distributeWeights(yearCount);
+  const total = parts.reduce((sum, part) => sum + part, 0);
+  const targets = parts.map((part) => Math.round(((draftWeight * part) / total) * 1000) / 1000);
+  const sum = targets.reduce((a, b) => a + b, 0);
+  const diff = Math.round((draftWeight - sum) * 1000) / 1000;
+  if (Math.abs(diff) > 0.0001) {
+    targets[targets.length - 1] = Math.round((targets[targets.length - 1] + diff) * 1000) / 1000;
+  }
+  return targets;
+}
+
+function buildAnnualTargetMapsByYear(masterNodes, yearCount) {
+  const maps = Array.from({ length: yearCount }, () => ({}));
+
+  for (const masterNode of masterNodes) {
+    const draftWeight = Number(masterNode.weight) || 0;
+    if (draftWeight <= 0) continue;
+
+    const yearlyTargets = distributeAnnualTargetsAcrossYears(draftWeight, yearCount);
+    for (let yearIndex = 0; yearIndex < yearCount; yearIndex++) {
+      maps[yearIndex][masterNode.plan_node_id] = yearlyTargets[yearIndex];
+    }
+  }
+
+  return maps;
+}
+
 function node(
   id,
   planVersionId,
@@ -395,9 +424,7 @@ function copyNodesToAnnual(masterNodes, annualVersionId, annualTargetBySourceId 
       order: source.order,
       is_active: source.is_active,
       assignment_sharing_mode: source.assignment_sharing_mode,
-      annual_target:
-        annualTargetBySourceId[source.plan_node_id] ??
-        (source.type === "kpi" ? 100 : null),
+      annual_target: annualTargetBySourceId[source.plan_node_id] ?? null,
     });
   }
 
@@ -609,6 +636,8 @@ async function ensurePlanValidationPermissionGroup(
 module.exports = {
   planNodeId,
   distributeWeights,
+  distributeAnnualTargetsAcrossYears,
+  buildAnnualTargetMapsByYear,
   node,
   loadDepartmentsForSector,
   buildChildrenMap,

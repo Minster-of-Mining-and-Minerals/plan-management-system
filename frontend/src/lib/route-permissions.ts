@@ -38,6 +38,14 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   },
   { pattern: "/plans/review", allPermissions: ["PLAN:VIEW_ASSIGNED_REVIEW"] },
   {
+    pattern: "/plans/review/[id]/details",
+    allPermissions: ["PLAN:VIEW_ASSIGNED_REVIEW"],
+  },
+  {
+    pattern: "/plans/[id]/details",
+    allPermissions: ["PLANS:READ"],
+  },
+  {
     pattern: "/plans/[id]/documents/[documentId]",
     anyPermissions: ["PLANS:READ", "DOCUMENTS:READ"],
   },

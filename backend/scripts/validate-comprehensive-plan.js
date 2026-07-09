@@ -51,19 +51,81 @@ async function countUnassignedNodes(versionId) {
   return rows[0].count;
 }
 
-async function countKpisMissingAnnualTarget(versionId) {
+async function countWeightedNodesMissingAnnualTarget(versionId) {
   const rows = await sequelize.query(
     `SELECT COUNT(*)::int AS count
-     FROM plan_nodes
-     WHERE plan_version_id = :versionId
-       AND type = 'kpi'
-       AND (annual_target IS NULL OR annual_target <= 0)`,
+     FROM plan_nodes pn
+     INNER JOIN plan_nodes master ON master.plan_node_id = pn.source_plan_node_id
+     WHERE pn.plan_version_id = :versionId
+       AND master.weight > 0
+       AND (pn.annual_target IS NULL OR pn.annual_target <= 0)`,
     {
       replacements: { versionId },
       type: sequelize.QueryTypes.SELECT,
     }
   );
   return rows[0].count;
+}
+
+async function verifyAnnualTargetAllocation(masterVersionId) {
+  const masterNodes = await sequelize.query(
+    `SELECT plan_node_id, title, weight
+     FROM plan_nodes
+     WHERE plan_version_id = :masterId AND weight > 0`,
+    {
+      replacements: { masterId: masterVersionId },
+      type: sequelize.QueryTypes.SELECT,
+    }
+  );
+
+  const annualVersions = await sequelize.query(
+    `SELECT plan_version_id, planning_year
+     FROM plan_versions
+     WHERE parent_plan_version_id = :masterId AND version_kind = 'annual'
+     ORDER BY sequence_index ASC`,
+    {
+      replacements: { masterId: masterVersionId },
+      type: sequelize.QueryTypes.SELECT,
+    }
+  );
+
+  for (const masterNode of masterNodes) {
+    let allocatedSum = 0;
+
+    for (const annual of annualVersions) {
+      const annualRows = await sequelize.query(
+        `SELECT annual_target
+         FROM plan_nodes
+         WHERE plan_version_id = :annualId AND source_plan_node_id = :sourceId
+         LIMIT 1`,
+        {
+          replacements: {
+            annualId: annual.plan_version_id,
+            sourceId: masterNode.plan_node_id,
+          },
+          type: sequelize.QueryTypes.SELECT,
+        }
+      );
+
+      assert.ok(
+        annualRows.length > 0,
+        `Missing annual node for "${masterNode.title}" in ${annual.planning_year}`
+      );
+
+      const annualTarget = Number(annualRows[0].annual_target);
+      assert.ok(
+        annualTarget > 0,
+        `Annual target not set for "${masterNode.title}" in ${annual.planning_year}`
+      );
+      allocatedSum += annualTarget;
+    }
+
+    const draftWeight = Number(masterNode.weight);
+    assert.ok(
+      Math.abs(allocatedSum - draftWeight) <= 0.001,
+      `Annual targets for "${masterNode.title}" sum to ${allocatedSum}, expected ${draftWeight}`
+    );
+  }
 }
 
 async function verifyValidationPermission(parentSectorId) {
@@ -173,13 +235,19 @@ async function main() {
         `Annual ${annual.planning_year} has ${annualUnassigned} unassigned nodes`
       );
 
-      const missingTargets = await countKpisMissingAnnualTarget(annual.plan_version_id);
+      const missingTargets = await countWeightedNodesMissingAnnualTarget(annual.plan_version_id);
       assert.strictEqual(
         missingTargets,
         0,
-        `Annual ${annual.planning_year} has ${missingTargets} KPIs without annual targets`
+        `Annual ${annual.planning_year} has ${missingTargets} weighted nodes without annual targets`
       );
     }
+
+    await verifyAnnualTargetAllocation(PLAN_IDS.MASTER);
+
+    const { getAnnualExecutionReadiness } = require("../services/planVersionLifecycleService");
+    const readiness = await getAnnualExecutionReadiness(PLAN_IDS.MASTER);
+    assert.ok(readiness.ready, `Annual execution not ready: ${readiness.errors.join("; ")}`);
 
     await verifyValidationPermission(PARENT_SECTOR_ID);
 
@@ -205,7 +273,7 @@ async function main() {
 
     console.log("Comprehensive organogram plan validation passed.");
     console.log(`  Master: ${PLAN_IDS.MASTER} (${strategicCount} strategics, ${goalCount} goals, ${kpiCount} KPIs)`);
-    console.log(`  Annual versions: ${annualVersions.map((v) => v.planning_year).join(", ")}`);
+    console.log(`  Annual versions: ${annualVersions.map((v) => v.planning_year).join(", ")} (ready for annual execution finalization)`);
     console.log(`  Validation dept: ${PLANNING_VALIDATION_DEPT_NAME}`);
   } finally {
     await sequelize.close();

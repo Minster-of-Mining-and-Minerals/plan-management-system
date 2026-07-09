@@ -21,6 +21,7 @@ const {
   buildAssignments,
   copyNodesToAnnual,
   copyAssignments,
+  buildAnnualTargetMapsByYear,
   removeExistingPlan,
   ensurePlanValidationPermissionGroup,
 } = require("./utils/comprehensivePlanSeederUtils");
@@ -210,6 +211,10 @@ module.exports = {
       internal: internalAssignments,
     };
     const masterNodePayload = masterNodes.map(({ created_at, updated_at, ...rest }) => rest);
+    const annualTargetMaps = buildAnnualTargetMapsByYear(
+      masterNodePayload,
+      ANNUAL_VERSIONS.length
+    );
 
     await queryInterface.bulkInsert(
       "plan_versions",
@@ -240,10 +245,12 @@ module.exports = {
       }))
     );
 
-    for (const annual of ANNUAL_VERSIONS) {
+    for (let yearIndex = 0; yearIndex < ANNUAL_VERSIONS.length; yearIndex++) {
+      const annual = ANNUAL_VERSIONS[yearIndex];
       const { annualNodes, nodeIdMap } = copyNodesToAnnual(
         masterNodePayload,
-        annual.plan_version_id
+        annual.plan_version_id,
+        annualTargetMaps[yearIndex]
       );
 
       await queryInterface.bulkInsert(
@@ -276,7 +283,7 @@ module.exports = {
     console.log(`  Strategic focuses: ${strategicCount}`);
     console.log(`  Goals: ${goalCount}`);
     console.log(`  KPIs: ${kpiCount}`);
-    console.log(`  Annual drafts: 2026, 2027, 2028 (KPI annual targets on all years)`);
+    console.log(`  Annual drafts: 2026, 2027, 2028 (annual targets allocated across years)`);
     console.log(
       `  Plan validation office: ${PLANNING_VALIDATION_DEPT_NAME} → group ${validationSetup.groupId}`
     );
