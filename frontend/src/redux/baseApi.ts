@@ -85,6 +85,9 @@ export const baseApi = createApi({
     "BillingService",
     "BillingServiceCategory",
     "AppointmentBilling",
+    "CashierSession",
+    "CashierQueue",
+    "CashierAccount",
   ],
   endpoints: () => ({}),
 });

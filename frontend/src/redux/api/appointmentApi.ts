@@ -38,6 +38,15 @@ export type StaffAppointment = {
     notes?: string | null;
   };
   admittedByUser?: { user_id: string; full_name: string };
+  billing_summary?: {
+    account_id: string;
+    appointment_id: string;
+    status: string;
+    grand_total: number;
+    amount_paid: number;
+    balance_due: number;
+    currency: string;
+  } | null;
 };
 
 export const appointmentApi = baseApi.injectEndpoints({

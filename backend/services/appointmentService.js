@@ -232,9 +232,20 @@ async function getAppointmentForStaff(appointmentId, staffId) {
 async function listAppointmentsForStaffWithAccess(staffId, options = {}) {
   const rows = await listAppointmentsForStaff(staffId, options);
   const pendingForwardIds = await getPendingForwardAppointmentIds(staffId);
-  return rows.map((row) =>
+  const withAccess = rows.map((row) =>
     attachWorkflowAccess(row.get({ plain: true }), staffId, pendingForwardIds)
   );
+
+  const appointmentIds = withAccess.map((row) => row.appointment_id);
+  const {
+    getBillingSummariesForAppointments,
+  } = require("./cashierPaymentService");
+  const billingMap = await getBillingSummariesForAppointments(appointmentIds);
+
+  return withAccess.map((row) => ({
+    ...row,
+    billing_summary: billingMap.get(row.appointment_id) || null,
+  }));
 }
 
 async function userCanReceivePatients(userId) {

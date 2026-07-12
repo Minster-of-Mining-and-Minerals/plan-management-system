@@ -17,6 +17,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "account_id",
         as: "entries",
       });
+      AppointmentBillingAccount.hasMany(models.CashierPayment, {
+        foreignKey: "account_id",
+        as: "payments",
+      });
     }
   }
 
@@ -59,6 +63,18 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: "ETB",
       },
+      amount_paid: {
+        type: DataTypes.DECIMAL(14, 2),
+        allowNull: false,
+        defaultValue: 0,
+      },
+      balance_due: {
+        type: DataTypes.DECIMAL(14, 2),
+        allowNull: false,
+        defaultValue: 0,
+      },
+      paid_at: { type: DataTypes.DATE, allowNull: true },
+      last_payment_at: { type: DataTypes.DATE, allowNull: true },
     },
     {
       sequelize,

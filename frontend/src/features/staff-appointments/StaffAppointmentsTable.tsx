@@ -21,7 +21,7 @@ import {
   APPOINTMENT_STATUS_LABELS,
   APPOINTMENT_STATUS_VARIANT,
 } from "./appointmentStatusStyles";
-import { formatStatus } from "@/utils/statusFormatter";
+import { isUnpaidBillingStatus, billingStatusLabel } from "@/features/cashier/cashierUtils";
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString("en-US", {
@@ -128,6 +128,28 @@ export function StaffAppointmentsTable() {
             {APPOINTMENT_STATUS_LABELS[row.original.status]}
           </Badge>
         ),
+      },
+      {
+        id: "billing_status",
+        header: "Billing",
+        cell: ({ row }) => {
+          const billing = row.original.billing_summary;
+          if (!billing || billing.status === "draft") {
+            return <span className="text-xs text-muted-foreground">—</span>;
+          }
+          const unpaid = isUnpaidBillingStatus(billing.status);
+          return (
+            <Badge
+              variant={unpaid ? "destructive" : billing.status === "paid" ? "secondary" : "outline"}
+              className="capitalize"
+            >
+              {billingStatusLabel(billing.status)}
+              {unpaid && billing.balance_due > 0
+                ? ` · ${billing.balance_due.toFixed(0)} ${billing.currency}`
+                : ""}
+            </Badge>
+          );
+        },
       },
       {
         id: "workflow_status",

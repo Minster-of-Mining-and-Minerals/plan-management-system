@@ -18,6 +18,7 @@ import {
   Pill,
   Store,
   Receipt,
+  Wallet,
 } from "lucide-react";
 
 export type NavItem = {
@@ -199,6 +200,16 @@ export const NAVIGATION: NavItem[] = [
       "BILLING_SERVICE:VIEW",
       "BILLING_SERVICE:CREATE",
       "BILLING_SERVICE:UPDATE",
+    ],
+  },
+  {
+    title: "Cashier Desk",
+    url: "/finance/cashier",
+    icon: Wallet,
+    anyPermissions: [
+      "CASHIER_QUEUE:VIEW",
+      "CASHIER_PAYMENT:CREATE",
+      "CASHIER_SESSION:OPEN",
     ],
   },
   {

@@ -48,6 +48,7 @@ type BillingEntryRowProps = {
   entry: AppointmentBillingEntry;
   currency: string;
   disabled?: boolean;
+  accountLocked?: boolean;
   defaultOpen?: boolean;
   onRemove: (entryId: string) => void;
 };
@@ -56,6 +57,7 @@ function BillingEntryRow({
   entry,
   currency,
   disabled,
+  accountLocked,
   defaultOpen = false,
   onRemove,
 }: BillingEntryRowProps) {
@@ -116,7 +118,7 @@ function BillingEntryRow({
                     {Number(entry.tax_percent) === 0 ? " (0%)" : ""}
                   </p>
                 </div>
-                {!disabled && (
+                {!disabled && !accountLocked && (
                   <PermissionGuard
                     requireAll={[BILLING_PERMISSIONS.APPOINTMENT_DELETE]}
                     fallback={null}
@@ -158,6 +160,10 @@ export function AppointmentBillingCard({ appointmentId, disabled }: Props) {
   const activeEntries = (data?.entries ?? []).filter((e) => e.status === "active");
   const summary = data?.summary;
   const currency = data?.account?.currency || "ETB";
+  const accountLocked =
+    (data?.account?.amount_paid ?? 0) > 0 ||
+    data?.account?.status === "partially_paid" ||
+    data?.account?.status === "paid";
 
   const handleAdd = async () => {
     if (!serviceId) {
@@ -216,7 +222,7 @@ export function AppointmentBillingCard({ appointmentId, disabled }: Props) {
               {data.account.status.replace(/_/g, " ")}
             </Badge>
           ) : null}
-          {!disabled && (
+          {!disabled && !accountLocked && (
             <PermissionGuard
               requireAll={[BILLING_PERMISSIONS.APPOINTMENT_CREATE]}
               fallback={null}
@@ -245,6 +251,7 @@ export function AppointmentBillingCard({ appointmentId, disabled }: Props) {
                 entry={entry}
                 currency={currency}
                 disabled={disabled}
+                accountLocked={accountLocked}
                 defaultOpen={index === 0}
                 onRemove={handleRemove}
               />
@@ -271,6 +278,18 @@ export function AppointmentBillingCard({ appointmentId, disabled }: Props) {
                 <span>Grand total</span>
                 <span>{formatBillingCurrency(summary.grand_total, currency)}</span>
               </div>
+              {(summary.amount_paid ?? 0) > 0 && (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span>Paid</span>
+                    <span>{formatBillingCurrency(summary.amount_paid ?? 0, currency)}</span>
+                  </div>
+                  <div className="flex justify-between font-semibold text-primary">
+                    <span>Balance due</span>
+                    <span>{formatBillingCurrency(summary.balance_due ?? 0, currency)}</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         ) : null}

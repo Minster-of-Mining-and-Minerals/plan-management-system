@@ -55,6 +55,7 @@ const userTitleRoutes = require("./routers/organization/userTitleRoutes");
 const billingServiceRoutes = require("./routers/finance/billingServiceRoutes");
 const billingServiceCategoryRoutes = require("./routers/finance/billingServiceCategoryRoutes");
 const appointmentBillingRoutes = require("./routers/finance/appointmentBillingRoutes");
+const cashierRoutes = require("./routers/finance/cashierRoutes");
 
 
 
@@ -196,6 +197,7 @@ app.use("/api/user-titles", userTitleRoutes);
 app.use("/api/billing-services", billingServiceRoutes);
 app.use("/api/billing-service-categories", billingServiceCategoryRoutes);
 app.use("/api/appointment-billing", appointmentBillingRoutes);
+app.use("/api/finance/cashier", cashierRoutes);
 
 
 

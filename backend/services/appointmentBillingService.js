@@ -6,7 +6,12 @@ const billingServiceCatalogService = require("./billingServiceCatalogService");
 const {
   calculateLinePricing,
   summarizeLines,
+  roundMoney,
 } = require("../utils/billingPricing");
+const {
+  deriveAccountStatus,
+  accountIsLockedForCharges,
+} = require("../utils/billingAccountStatus");
 const {
   BILLING_ENTRY_STATUSES,
   BILLING_DISCOUNT_TYPES,
@@ -100,22 +105,54 @@ async function getOrCreateAccount(appointmentId, transaction) {
 }
 
 async function recalculateAccount(accountId, transaction) {
+  const account = await AppointmentBillingAccount.findByPk(accountId, {
+    transaction,
+  });
   const entries = await AppointmentBillingEntry.findAll({
     where: { account_id: accountId, status: "active" },
     transaction,
   });
   const summary = summarizeLines(entries.map((e) => e.get({ plain: true })));
+  const amountPaid = roundMoney(Number(account?.amount_paid || 0));
+  const balanceDue = roundMoney(Math.max(summary.grand_total - amountPaid, 0));
+  const status = deriveAccountStatus({
+    entry_count: summary.entry_count,
+    amount_paid: amountPaid,
+    grand_total: summary.grand_total,
+    current_status: account?.status,
+  });
+
   await AppointmentBillingAccount.update(
     {
       subtotal: summary.subtotal,
       discount_total: summary.discount_total,
       tax_total: summary.tax_total,
       grand_total: summary.grand_total,
-      status: summary.entry_count > 0 ? "pending_payment" : "draft",
+      balance_due: balanceDue,
+      status,
+      paid_at:
+        status === "paid"
+          ? account?.paid_at || new Date()
+          : status === "pending_payment" || status === "partially_paid"
+            ? null
+            : account?.paid_at,
     },
     { where: { account_id: accountId }, transaction }
   );
   return summary;
+}
+
+async function assertAccountUnlocked(accountId, transaction) {
+  const account = await AppointmentBillingAccount.findByPk(accountId, {
+    transaction,
+  });
+  if (account && accountIsLockedForCharges(account.get({ plain: true }))) {
+    const err = new Error(
+      "Billing lines cannot be changed after a payment has been recorded"
+    );
+    err.status = 400;
+    throw err;
+  }
 }
 
 async function getUserDepartmentId(userId) {
@@ -157,13 +194,23 @@ async function getBillingContext(appointmentId) {
   const summary = summarizeLines(activeEntries.map((e) => e.get({ plain: true })));
 
   return {
-    account: account.get({ plain: true }),
+    account: {
+      ...account.get({ plain: true }),
+      subtotal: summary.subtotal,
+      discount_total: summary.discount_total,
+      tax_total: summary.tax_total,
+      grand_total: summary.grand_total,
+      amount_paid: Number(account.amount_paid || 0),
+      balance_due: Number(account.balance_due || 0),
+    },
     entries: entries.map(formatEntry),
     summary: {
       subtotal: summary.subtotal,
       tax_total: summary.tax_total,
       discount_total: summary.discount_total,
       grand_total: summary.grand_total,
+      amount_paid: Number(account.amount_paid || 0),
+      balance_due: Number(account.balance_due || 0),
     },
   };
 }
@@ -269,6 +316,7 @@ async function createEntry(appointmentId, payload, actor, auditContext = {}) {
       err.status = 400;
       throw err;
     }
+    await assertAccountUnlocked(account.account_id, t);
 
     const entry = await AppointmentBillingEntry.create(
       {
@@ -392,6 +440,7 @@ async function updateEntry(entryId, payload, actor, auditContext = {}) {
 
   const t = await db.sequelize.transaction();
   try {
+    await assertAccountUnlocked(entry.account_id, t);
     await entry.update(patch, { transaction: t });
     await recalculateAccount(entry.account_id, t);
     await t.commit();
@@ -426,6 +475,7 @@ async function cancelEntry(entryId, actor, auditContext = {}) {
   const previous = entry.get({ plain: true });
   const t = await db.sequelize.transaction();
   try {
+    await assertAccountUnlocked(entry.account_id, t);
     await entry.update(
       {
         status: "cancelled",

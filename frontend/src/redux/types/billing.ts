@@ -70,6 +70,8 @@ export type AppointmentBillingSummary = {
   tax_total: number;
   discount_total: number;
   grand_total: number;
+  amount_paid?: number;
+  balance_due?: number;
 };
 
 export type AppointmentBillingContext = {
@@ -82,7 +84,11 @@ export type AppointmentBillingContext = {
     discount_total: number;
     tax_total: number;
     grand_total: number;
+    amount_paid: number;
+    balance_due: number;
     currency: string;
+    paid_at?: string | null;
+    last_payment_at?: string | null;
   };
   entries: AppointmentBillingEntry[];
   summary: AppointmentBillingSummary;
