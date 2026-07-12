@@ -30,6 +30,7 @@ import {
   extractAttachmentIds,
 } from "./workflowFormUtils";
 import { filterDiagnosisReportEntries } from "./workflowTimelineUtils";
+import { AppointmentBillingCard } from "@/features/billing/AppointmentBillingCard";
 import { useGetProfileQuery } from "@/redux/api/userApi";
 import type { PrescriptionRecord } from "@/redux/types/prescription";
 import { toast } from "sonner";
@@ -354,6 +355,11 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
               resetForm();
               setShowWorkflowForm(true);
             }}
+          />
+
+          <AppointmentBillingCard
+            appointmentId={appointmentId}
+            disabled={workflowDone}
           />
 
           {showWorkflowForm && !workflowDone && can(WORKFLOW_PERMISSIONS.SUBMIT) && (

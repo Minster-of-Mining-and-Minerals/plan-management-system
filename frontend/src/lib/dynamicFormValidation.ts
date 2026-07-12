@@ -235,9 +235,6 @@ function validateSingleField(
     case "repeater":
       fieldErrors = validateRepeater(value, field);
       break;
-    case "canvas_annotation":
-      fieldErrors = validateCanvasAnnotation(value);
-      break;
   }
 
   return fieldErrors.length ? fieldErrors[0] : null;

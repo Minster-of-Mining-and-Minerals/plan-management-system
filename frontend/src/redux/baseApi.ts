@@ -82,6 +82,9 @@ export const baseApi = createApi({
     "MedicalCertificateTemplate",
     "MedicalCertificate",
     "ClinicalSuggestion",
+    "BillingService",
+    "BillingServiceCategory",
+    "AppointmentBilling",
   ],
   endpoints: () => ({}),
 });

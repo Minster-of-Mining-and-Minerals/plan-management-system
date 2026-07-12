@@ -345,6 +345,7 @@ export function DiagnosisFieldModal({
                 </div>
               ) : (
                 <FileUploadField
+                  id="diagnosis-field-custom-diagram"
                   label="Custom diagram image"
                   value={customImageUrl}
                   onChange={(v) =>

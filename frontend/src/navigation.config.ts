@@ -17,6 +17,7 @@ import {
   Inbox,
   Pill,
   Store,
+  Receipt,
 } from "lucide-react";
 
 export type NavItem = {
@@ -188,6 +189,16 @@ export const NAVIGATION: NavItem[] = [
       "PHARMACY:MANAGE",
       "PHARMACY:CREATE",
       "PHARMACY:USER_MANAGE",
+    ],
+  },
+  {
+    title: "Billing Services",
+    url: "/billing/services",
+    icon: Receipt,
+    anyPermissions: [
+      "BILLING_SERVICE:VIEW",
+      "BILLING_SERVICE:CREATE",
+      "BILLING_SERVICE:UPDATE",
     ],
   },
   {

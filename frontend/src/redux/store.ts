@@ -6,6 +6,8 @@ import "./api/patientApi";
 import "./api/medicalDiagramApi";
 import "./api/clinicalSuggestionApi";
 import "./api/patientPortalApi";
+import "./api/billingServiceApi";
+import "./api/appointmentBillingApi";
 
 export const store = configureStore({
   reducer: {

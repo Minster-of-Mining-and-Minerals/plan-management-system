@@ -31,6 +31,7 @@ import {
   useDeleteMedicalDiagramCategoryMutation,
   type MedicalDiagramCategory,
 } from "@/redux/api/medicalDiagramCategoryApi";
+import { useClientDataTable } from "@/hooks/useClientDataTable";
 
 export function MedicalDiagramCategoryPanel() {
   const [includeInactive, setIncludeInactive] = useState(false);
@@ -50,6 +51,12 @@ export function MedicalDiagramCategoryPanel() {
   const [updateCategory, { isLoading: updating }] =
     useUpdateMedicalDiagramCategoryMutation();
   const [deleteCategory] = useDeleteMedicalDiagramCategoryMutation();
+
+  const { paginated, totalPageCount, pageIndex, pageSize, handlePagination } =
+    useClientDataTable(categories, {
+      searchKeys: ["name", "code"],
+      sortFn: (a, b) => a.name.localeCompare(b.name),
+    });
 
   const openCreate = () => {
     setEditing(null);
@@ -183,7 +190,15 @@ export function MedicalDiagramCategoryPanel() {
         </Button>
       </div>
       <div className="overflow-hidden rounded-lg border">
-        <DataTable columns={columns} data={categories} isLoading={isLoading} />
+        <DataTable
+          columns={columns}
+          data={paginated}
+          isLoading={isLoading}
+          totalPageCount={totalPageCount}
+          handlePagination={handlePagination}
+          tablePageSize={pageSize}
+          currentIndex={pageIndex}
+        />
       </div>
 
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>

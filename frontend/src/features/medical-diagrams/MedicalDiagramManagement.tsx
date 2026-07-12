@@ -37,6 +37,7 @@ import {
 } from "@/redux/api/medicalDiagramApi";
 import { useListMedicalDiagramCategoriesQuery } from "@/redux/api/medicalDiagramCategoryApi";
 import { MedicalDiagramCategoryPanel } from "./MedicalDiagramCategoryPanel";
+import { useClientDataTable } from "@/hooks/useClientDataTable";
 import { toast } from "sonner";
 import type { ActionButton } from "@/types/tableLayout";
 
@@ -62,6 +63,12 @@ export default function MedicalDiagramManagement() {
   const [updateDiagram, { isLoading: updating }] = useUpdateMedicalDiagramMutation();
   const [deleteDiagram] = useDeleteMedicalDiagramMutation();
   const [seedDefaults, { isLoading: seeding }] = useSeedMedicalDiagramDefaultsMutation();
+
+  const { paginated, totalPageCount, pageIndex, pageSize, handlePagination } =
+    useClientDataTable(diagrams, {
+      searchKeys: ["name", "code", "category"],
+      sortFn: (a, b) => a.name.localeCompare(b.name),
+    });
 
   const openCreate = () => {
     setEditing(null);
@@ -264,8 +271,12 @@ export default function MedicalDiagramManagement() {
             <div className="overflow-hidden rounded-lg border">
               <DataTable
                 columns={columns}
-                data={diagrams}
+                data={paginated}
                 isLoading={isLoading || seeding}
+                totalPageCount={totalPageCount}
+                handlePagination={handlePagination}
+                tablePageSize={pageSize}
+                currentIndex={pageIndex}
               />
             </div>
           </TabsContent>
@@ -323,6 +334,7 @@ export default function MedicalDiagramManagement() {
               </Select>
             </div>
             <FileUploadField
+              id="medical-diagram-image"
               label="Diagram image"
               value={imageFile}
               onChange={(v) => setImageFile(Array.isArray(v) ? v[0] || "" : String(v ?? ""))}

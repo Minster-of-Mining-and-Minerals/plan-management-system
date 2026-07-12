@@ -37,6 +37,7 @@ import {
 import { useGetDepartmentsQuery } from "@/redux/api/departmentApi";
 import { toast } from "sonner";
 import type { ActionButton } from "@/types/tableLayout";
+import { useClientDataTable } from "@/hooks/useClientDataTable";
 
 const CATEGORIES: ClinicalSuggestionCategory[] = [
   "diagnosis",
@@ -91,6 +92,12 @@ export default function ClinicalSuggestionManagement() {
     }
     return suggestions.filter((s) => s.department_id === departmentFilter);
   }, [suggestions, departmentFilter]);
+
+  const { paginated, totalPageCount, pageIndex, pageSize, handlePagination } =
+    useClientDataTable(filteredSuggestions, {
+      searchKeys: ["text", "category"],
+      sortFn: (a, b) => a.text.localeCompare(b.text),
+    });
 
   const openCreate = () => {
     setEditing(null);
@@ -340,8 +347,12 @@ export default function ClinicalSuggestionManagement() {
         <div className="overflow-hidden rounded-lg border">
           <DataTable
             columns={columns}
-            data={filteredSuggestions}
+            data={paginated}
             isLoading={isLoading || importing}
+            totalPageCount={totalPageCount}
+            handlePagination={handlePagination}
+            tablePageSize={pageSize}
+            currentIndex={pageIndex}
           />
         </div>
       </TableLayout>

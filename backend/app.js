@@ -52,6 +52,9 @@ const brandingRoutes = require("./routers/system/brandingRoutes");
 // Organization Routes
 const departmentRoutes = require("./routers/organization/departmentRoutes");
 const userTitleRoutes = require("./routers/organization/userTitleRoutes");
+const billingServiceRoutes = require("./routers/finance/billingServiceRoutes");
+const billingServiceCategoryRoutes = require("./routers/finance/billingServiceCategoryRoutes");
+const appointmentBillingRoutes = require("./routers/finance/appointmentBillingRoutes");
 
 
 
@@ -188,6 +191,11 @@ app.use("/api/departments", departmentRoutes);
 
 // User title Routes
 app.use("/api/user-titles", userTitleRoutes);
+
+// Billing Routes
+app.use("/api/billing-services", billingServiceRoutes);
+app.use("/api/billing-service-categories", billingServiceCategoryRoutes);
+app.use("/api/appointment-billing", appointmentBillingRoutes);
 
 
 

@@ -1,0 +1,35 @@
+export const BILLING_PERMISSIONS = {
+  SERVICE_VIEW: "BILLING_SERVICE:VIEW",
+  SERVICE_CREATE: "BILLING_SERVICE:CREATE",
+  SERVICE_UPDATE: "BILLING_SERVICE:UPDATE",
+  SERVICE_DELETE: "BILLING_SERVICE:DELETE",
+  SERVICE_ACTIVATE: "BILLING_SERVICE:ACTIVATE",
+  SERVICE_DEACTIVATE: "BILLING_SERVICE:DEACTIVATE",
+  CATEGORY_VIEW: "BILLING_SERVICE_CATEGORY:VIEW",
+  CATEGORY_CREATE: "BILLING_SERVICE_CATEGORY:CREATE",
+  APPOINTMENT_VIEW: "APPOINTMENT_BILLING:VIEW",
+  APPOINTMENT_CREATE: "APPOINTMENT_BILLING:CREATE",
+  APPOINTMENT_UPDATE: "APPOINTMENT_BILLING:UPDATE",
+  APPOINTMENT_DELETE: "APPOINTMENT_BILLING:DELETE",
+  APPOINTMENT_MANAGE: "APPOINTMENT_BILLING:MANAGE",
+  OVERRIDE_PRICE: "BILLING:OVERRIDE_PRICE",
+  DISCOUNT: "BILLING:DISCOUNT",
+} as const;
+
+export function formatBillingCurrency(amount: number, currency = "ETB") {
+  return new Intl.NumberFormat("en-ET", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+export function formatBillingDateTime(iso: string) {
+  return new Date(iso).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
