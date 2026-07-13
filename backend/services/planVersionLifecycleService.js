@@ -1484,6 +1484,15 @@ async function finalizeExecutionPeriodTargets(annualVersionId) {
         const validation = await validateExecutionPeriodFinalization(annualVersionId, t);
         if (!validation.ready) {
             await t.rollback();
+            if (validation.errors?.includes("Period targets have already been finalized")) {
+                return {
+                    success: true,
+                    alreadyFinalized: true,
+                    data: await PlanVersion.findByPk(annualVersionId, {
+                        include: [{ association: "executionPeriodVersions" }],
+                    }),
+                };
+            }
             return { success: false, errors: validation.errors };
         }
 

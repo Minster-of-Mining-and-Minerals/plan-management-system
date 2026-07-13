@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     Dialog,
     DialogContent,
@@ -22,7 +22,7 @@ import { PlanVersion } from "@/redux/types/plan";
 import { getApiErrorMessage } from "@/utils/apiErrorUtils";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import { PLAN_FINALIZE_PERMISSIONS } from "@/utils/planPermissionUtils";
-import { handleDialogOpenChange, useSingleFlightAction } from "@/hooks/useSingleFlightAction";
+import { handleDialogOpenChange } from "@/hooks/useSingleFlightAction";
 
 interface FinalizeGlobalPeriodTargetsModalProps {
     isOpen: boolean;
@@ -41,28 +41,58 @@ export function FinalizeGlobalPeriodTargetsModal({
         useGetGlobalPeriodTargetFinalizationReadinessQuery(masterVersion.plan_version_id, {
             skip: !isOpen,
         });
-    const [finalize, { isLoading: isFinalizing }] = useFinalizeGlobalPeriodTargetsMutation();
-    const runSingleFlight = useSingleFlightAction();
+    const [finalize, { reset: resetFinalize }] = useFinalizeGlobalPeriodTargetsMutation();
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const isSubmittingRef = useRef(false);
     const closedAfterSuccessRef = useRef(false);
+    const isCheckingReadiness = isLoading && !readiness;
 
-    const handleFinalize = () => {
-        void runSingleFlight(async () => {
-            try {
-                await finalize(masterVersion.plan_version_id).unwrap();
-                closedAfterSuccessRef.current = true;
-                actionFeedback.success(
-                    "Period targets finalized for all years and periods. You can now start the process."
-                );
-                onSuccess?.();
-                onClose();
-            } catch (error: unknown) {
-                if (closedAfterSuccessRef.current) {
-                    return;
-                }
-                actionFeedback.error(getApiErrorMessage(error, "Failed to finalize period targets"));
-                refetch();
+    useEffect(() => {
+        if (!isOpen) {
+            closedAfterSuccessRef.current = false;
+            isSubmittingRef.current = false;
+            setIsSubmitting(false);
+        }
+    }, [isOpen]);
+
+    const handleFinalize = async () => {
+        if (isSubmittingRef.current) {
+            return;
+        }
+
+        isSubmittingRef.current = true;
+        setIsSubmitting(true);
+
+        const successMessage =
+            "Period targets finalized for all years and periods. You can now start the process.";
+
+        try {
+            await finalize(masterVersion.plan_version_id).unwrap();
+            closedAfterSuccessRef.current = true;
+            onClose();
+            void actionFeedback.success(successMessage);
+            onSuccess?.();
+        } catch (error: unknown) {
+            if (closedAfterSuccessRef.current) {
+                return;
             }
-        });
+
+            const message = getApiErrorMessage(error, "Failed to finalize period targets");
+            if (message.toLowerCase().includes("already been finalized")) {
+                closedAfterSuccessRef.current = true;
+                onClose();
+                void actionFeedback.success(successMessage);
+                onSuccess?.();
+                return;
+            }
+
+            actionFeedback.error(message);
+            refetch();
+        } finally {
+            isSubmittingRef.current = false;
+            setIsSubmitting(false);
+            resetFinalize();
+        }
     };
 
     const handleClose = () => {
@@ -85,7 +115,7 @@ export function FinalizeGlobalPeriodTargetsModal({
                             annual target for each node.
                         </p>
 
-                        {isLoading ? (
+                        {isCheckingReadiness ? (
                             <div className="flex items-center gap-2 text-muted-foreground py-4">
                                 <Loader2 className="h-4 w-4 animate-spin" />
                                 Checking readiness...
@@ -127,16 +157,16 @@ export function FinalizeGlobalPeriodTargetsModal({
                 </div>
 
                 <DialogFooter className="px-6 py-4 shrink-0 border-t bg-background">
-                    <Button type="button" variant="outline" onClick={handleClose} disabled={isFinalizing}>
+                    <Button type="button" variant="outline" onClick={handleClose} disabled={isSubmitting}>
                         Cancel
                     </Button>
                     <PermissionGuard requireAll={PLAN_FINALIZE_PERMISSIONS}>
                         <Button
                             type="button"
                             onClick={handleFinalize}
-                            disabled={!readiness?.ready || isFinalizing || isLoading}
+                            disabled={!readiness?.ready || isSubmitting || isCheckingReadiness}
                         >
-                            {isFinalizing ? (
+                            {isSubmitting ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                     Finalizing...

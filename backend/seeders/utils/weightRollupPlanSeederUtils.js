@@ -289,8 +289,6 @@ function buildMasterNodes(planVersionId, resolvedTree) {
           2,
           goalOrder++,
           {
-            weightMode: goal.weightMode,
-            targetUnit: goal.targetUnit,
             contributionWeight: goal.contributionWeight,
           }
         )
@@ -330,9 +328,8 @@ function buildMasterNodes(planVersionId, resolvedTree) {
               4,
               taskOrder++,
               {
-                weightMode: task.weightMode,
-                targetUnit: task.targetUnit,
-                contributionWeight: task.contributionWeight,
+                weightMode: task.weightMode ?? kpi.weightMode,
+                targetUnit: task.targetUnit ?? kpi.targetUnit ?? null,
               }
             )
           );
@@ -413,6 +410,9 @@ async function seedOwnedPlanRuleSnapshot(
     now,
   }
 ) {
+  await queryInterface.bulkDelete("plan_rule_steps", { plan_rule_id: snapshotRuleId });
+  await queryInterface.bulkDelete("plan_rules", { plan_rule_id: snapshotRuleId });
+
   await queryInterface.bulkInsert("plan_rules", [
     {
       plan_rule_id: snapshotRuleId,

@@ -308,7 +308,8 @@ export default function PlanHierarchyView({
         canAny(PLAN_REVIEW_DASHBOARD_ACCESS_PERMISSIONS);
     const isMasterDraft =
         version?.version_kind === "master" && version?.status === "draft";
-    const isEditingFinalizedMaster = isEditingFinalizedMasterPlan(version, can);
+    const isEditingFinalizedMaster =
+        !isReviewMode && isEditingFinalizedMasterPlan(version, can);
     const planAccessRole =
         effectiveMasterVersion?.access_role ?? version?.access_role;
     const treeAccessMode =
@@ -1302,6 +1303,7 @@ export default function PlanHierarchyView({
 
             {version && isAnnualVersion && (
                 <FinalizeExecutionPeriodsModal
+                    key={version.plan_version_id}
                     isOpen={finalizeExecutionPeriodOpen}
                     onClose={() => setFinalizeExecutionPeriodOpen(false)}
                     annualVersion={version}

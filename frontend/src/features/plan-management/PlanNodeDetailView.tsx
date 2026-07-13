@@ -210,7 +210,8 @@ export default function PlanNodeDetailView({
         (node.annual_target ?? 0) > 0;
 
     const canEditMasterStructure = canEditMasterPlanStructure(version, can);
-    const isEditingFinalizedMaster = isEditingFinalizedMasterPlan(version, can);
+    const isEditingFinalizedMaster =
+        !isReviewMode && isEditingFinalizedMasterPlan(version, can);
     const isExecutionVersion =
         version?.version_kind === "annual" ||
         version?.version_kind === "execution_period";

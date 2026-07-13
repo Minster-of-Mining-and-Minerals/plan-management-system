@@ -22,6 +22,7 @@ import {
   sidebarTopNavClasses,
   sidebarTopNavCollapsibleClasses,
 } from "@/lib/branding/sidebarNavClasses";
+import { isNavChildActive } from "@/lib/navigationActive";
 
 import {
   Sidebar,
@@ -59,9 +60,10 @@ function isNavSectionActive(
     return true;
   }
 
+  const childUrls = item.children?.map((child) => child.url) ?? [];
   return (
-    item.children?.some(
-      (child) => pathname === child.url || pathname.startsWith(`${child.url}/`)
+    item.children?.some((child) =>
+      isNavChildActive(pathname, child.url, childUrls)
     ) ?? false
   );
 }
@@ -151,6 +153,7 @@ export function AppSidebar() {
                 const hasConfigChildren = item.children && item.children.length > 0;
                 const isGovStructures = item.url === "/government-structures";
                 const hasDynamicChildren = isGovStructures;
+                const childUrls = item.children?.map((child) => child.url) ?? [];
 
                 if (hasConfigChildren || hasDynamicChildren) {
                   if (!mounted) {
@@ -217,10 +220,11 @@ export function AppSidebar() {
                                 <SidebarMenuSubItem key={child.url}>
                                   <SidebarMenuSubButton
                                     asChild
-                                    isActive={
-                                      pathname === child.url ||
-                                      pathname.startsWith(`${child.url}/`)
-                                    }
+                                    isActive={isNavChildActive(
+                                      pathname,
+                                      child.url,
+                                      childUrls
+                                    )}
                                     className={sidebarSubNavClasses}
                                   >
                                     <Link href={child.url} className="flex items-center gap-4">

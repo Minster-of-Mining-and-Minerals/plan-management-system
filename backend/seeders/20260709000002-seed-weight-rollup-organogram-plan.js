@@ -392,15 +392,9 @@ module.exports = {
     console.log(`  Global template: ${PLAN_RULE_TEMPLATE_NAME} (${resolvedGlobalRuleId}) — unchanged`);
     console.log(`  Draft rule snapshot: ${PLAN_RULE_SNAPSHOT_ID}`);
     console.log(`  Planning config: quarterly breakdown (${PLANNING_CONFIG_ID})`);
-    console.log(
-      `  Nodes: ${strategicCount} strategic, ${goalCount} goals, ${kpiCount} KPIs, ${taskCount} tasks`
-    );
-    console.log(
-      `  Weight modes: percentage, number (person/ton/birr), frequency across hierarchy`
-    );
-    console.log(
-      `  Contribution weights: goals (100% per strategic) + tasks (100% per KPI)`
-    );
+    console.log(`  Nodes: ${strategicCount} strategic, ${goalCount} goals, ${kpiCount} KPIs, ${taskCount} tasks`);
+    console.log(`  Rule pattern: SF no target | goal contribution | KPI target | task inherits`);
+    console.log(`  Contribution weights: uneven per strategic (goals sum to 100%)`);
     console.log(
       `  Annual targets: skewed ${ANNUAL_TARGET_YEAR_RATIOS.map((r) => `${r * 100}%`).join(" / ")} across 2029–2031`
     );
