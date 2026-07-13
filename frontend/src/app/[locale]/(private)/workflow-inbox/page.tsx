@@ -1,5 +1,3 @@
-import WorkflowInboxPage from "@/features/medical-workflow/WorkflowInboxPage";
+"use client";
 
-export default function Page() {
-  return <WorkflowInboxPage />;
-}
+export { default } from "@/features/medical-workflow/WorkflowInboxPage";

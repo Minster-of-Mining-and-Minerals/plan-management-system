@@ -9,6 +9,7 @@ import {
   useGetNotificationsQuery,
   useMarkAllNotificationsReadMutation,
   useMarkNotificationReadMutation,
+  getNotificationHref,
 } from "@/redux/api/notificationApi";
 
 function formatWhen(iso: string) {
@@ -33,12 +34,8 @@ export default function InternalNotificationsPage() {
     if (!notification.is_read) {
       await markRead(notification.notification_id);
     }
-    if (
-      notification.related_entity_type === "appointment" &&
-      notification.related_entity_id
-    ) {
-      router.push(`/appointments/${notification.related_entity_id}`);
-    }
+    const href = getNotificationHref(notification);
+    if (href) router.push(href);
   };
 
   if (isLoading) return <Loading01 />;

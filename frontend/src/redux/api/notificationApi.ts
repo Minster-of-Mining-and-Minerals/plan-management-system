@@ -3,7 +3,7 @@ import { baseApi } from "../baseApi";
 export type AppNotification = {
   notification_id: string;
   recipient_id: string;
-  category?: "system" | "logs" | "appointments";
+  category?: "system" | "logs" | "appointments" | "workflow";
   title: string;
   message: string;
   related_entity_type?: string | null;
@@ -12,7 +12,22 @@ export type AppNotification = {
   created_at: string;
 };
 
-export type NotificationCategory = "system" | "logs" | "appointments";
+export type NotificationCategory = "system" | "logs" | "appointments" | "workflow";
+
+/** Navigate to the screen for an internal notification, if applicable. */
+export function getNotificationHref(notification: AppNotification): string | null {
+  const id = notification.related_entity_id;
+  if (!id) return null;
+
+  const type = notification.related_entity_type?.toLowerCase();
+  if (type === "appointment" || type === "workflow_task") {
+    return `/appointments/${id}`;
+  }
+  if (notification.category === "workflow") {
+    return `/appointments/${id}`;
+  }
+  return null;
+}
 
 export const notificationApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({

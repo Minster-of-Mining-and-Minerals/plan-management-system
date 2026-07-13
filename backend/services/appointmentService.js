@@ -173,32 +173,13 @@ async function listAppointmentsForStaff(
     return inc;
   });
 
-  const assignedRows = await db.StaffAppointment.findAll({
+  // Appointments list is reception-admitted visits assigned to this staff only.
+  // Forwards from other clinicians appear in the workflow inbox, not here.
+  const rows = await db.StaffAppointment.findAll({
     where: { assigned_staff_id: staffId, ...statusWhere },
     include: includes,
     order: [[sort, order]],
   });
-
-  const assignedIds = new Set(assignedRows.map((r) => r.appointment_id));
-  const pendingForwardIds = await getPendingForwardAppointmentIds(staffId);
-  const extraForwardIds = [...pendingForwardIds].filter((id) => !assignedIds.has(id));
-
-  let rows = assignedRows;
-  if (extraForwardIds.length) {
-    const forwardedRows = await db.StaffAppointment.findAll({
-      where: {
-        appointment_id: { [Op.in]: extraForwardIds },
-        ...statusWhere,
-      },
-      include: includes,
-      order: [[sort, order]],
-    });
-    rows = [...assignedRows, ...forwardedRows].sort((a, b) => {
-      const aVal = a[sort] ? new Date(a[sort]).getTime() : 0;
-      const bVal = b[sort] ? new Date(b[sort]).getTime() : 0;
-      return order === "ASC" ? aVal - bVal : bVal - aVal;
-    });
-  }
 
   return filterAppointmentsBySearch(rows, search);
 }

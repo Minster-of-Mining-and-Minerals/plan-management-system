@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
-import { Bell, CalendarClock, ClipboardList, ShieldAlert, CheckCheck } from "lucide-react";
+import { Bell, CalendarClock, ClipboardList, Inbox, ShieldAlert, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import Loading01 from "@/features/template/component/Loading/Loading01";
@@ -10,6 +10,7 @@ import {
   useGetNotificationsQuery,
   useMarkAllNotificationsReadMutation,
   useMarkNotificationReadMutation,
+  getNotificationHref,
   type AppNotification,
   type NotificationCategory,
 } from "@/redux/api/notificationApi";
@@ -20,6 +21,7 @@ const CATEGORY_OPTIONS: Array<{
   icon: typeof Bell;
 }> = [
   { key: "appointments", label: "Appointments", icon: CalendarClock },
+  { key: "workflow", label: "Workflow", icon: Inbox },
   { key: "system", label: "System", icon: ShieldAlert },
   { key: "logs", label: "Logs", icon: ClipboardList },
 ];
@@ -62,12 +64,8 @@ export default function TemplateNotificationsPage() {
     if (!notification.is_read) {
       await markRead(notification.notification_id);
     }
-    if (
-      notification.related_entity_type === "appointment" &&
-      notification.related_entity_id
-    ) {
-      router.push(`/appointments/${notification.related_entity_id}`);
-    }
+    const href = getNotificationHref(notification);
+    if (href) router.push(href);
   };
 
   if (isLoading) return <Loading01 />;

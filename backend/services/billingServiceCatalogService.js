@@ -86,9 +86,12 @@ async function list({
   };
 }
 
-async function listActive({ department_id, search } = {}) {
+async function listActive({ department_id, search, global_only } = {}) {
   const conditions = [{ status: "active" }];
-  if (department_id) {
+  if (global_only) {
+    conditions.push({ department_id: null });
+  } else if (department_id) {
+    // User's department plus global (null department) services
     conditions.push({
       [Op.or]: [{ department_id }, { department_id: null }],
     });

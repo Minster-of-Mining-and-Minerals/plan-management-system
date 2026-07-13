@@ -168,17 +168,54 @@ function userHasPermission(user, resource, action) {
   return (user?.permissions || []).includes(required);
 }
 
+function normalizeDepartmentId(value) {
+  if (value === undefined || value === null || value === "") return null;
+  return value;
+}
+
+function serviceDepartmentId(service) {
+  const plain = service?.get ? service.get({ plain: true }) : service;
+  return normalizeDepartmentId(plain?.department_id);
+}
+
 async function assertCanAddService(user, service) {
   if (userHasPermission(user, "appointment_billing", "manage")) return;
 
-  const userDeptId = await getUserDepartmentId(user.user_id);
-  if (service.department_id && userDeptId && service.department_id !== userDeptId) {
+  const serviceDeptId = serviceDepartmentId(service);
+  const userDeptId = normalizeDepartmentId(await getUserDepartmentId(user.user_id));
+
+  // Global services (department_id null) — billable from any department
+  if (!serviceDeptId) return;
+
+  // Department-scoped services — only staff in that department
+  if (!userDeptId || serviceDeptId !== userDeptId) {
     const err = new Error(
       "You can only bill services for your department or unrestricted services"
     );
     err.status = 403;
     throw err;
   }
+}
+
+async function listActiveServicesForUser(user, query = {}) {
+  if (userHasPermission(user, "appointment_billing", "manage")) {
+    return billingServiceCatalogService.listActive(query);
+  }
+
+  const userDeptId = normalizeDepartmentId(await getUserDepartmentId(user.user_id));
+  if (userDeptId) {
+    // Own department + global (department_id null) services
+    return billingServiceCatalogService.listActive({
+      ...query,
+      department_id: userDeptId,
+    });
+  }
+
+  // No department on profile — global services only
+  return billingServiceCatalogService.listActive({
+    ...query,
+    global_only: true,
+  });
 }
 
 async function getBillingContext(appointmentId) {
@@ -509,5 +546,5 @@ module.exports = {
   createEntry,
   updateEntry,
   cancelEntry,
-  listActiveServices: billingServiceCatalogService.listActive,
+  listActiveServices: listActiveServicesForUser,
 };

@@ -85,19 +85,9 @@ export function StaffAppointmentsTable() {
         accessorKey: "patient.full_name",
         header: "Patient name",
         cell: ({ row }) => (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium text-primary">
-              {row.original.patient?.full_name}
-            </span>
-            {row.original.workflow_access?.is_forwarded_to_me && (
-              <Badge
-                variant="outline"
-                className="border-primary/40 text-[10px] text-primary"
-              >
-                Forwarded
-              </Badge>
-            )}
-          </div>
+          <span className="font-medium text-primary">
+            {row.original.patient?.full_name}
+          </span>
         ),
       },
       {

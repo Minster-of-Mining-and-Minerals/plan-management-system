@@ -5,7 +5,6 @@ import { useRouter } from "@/i18n/navigation";
 import { ColumnDef } from "@tanstack/react-table";
 import { Eye, Search } from "lucide-react";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
-import { TableLayout } from "@/features/template/component/tableList/TableLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -183,7 +182,7 @@ export function WorkflowInboxTable({ status, onStatusChange }: Props) {
   );
 
   return (
-    <TableLayout title="Workflow inbox" filters={[]} showSearch={false}>
+    <div className="w-full rounded-lg border bg-white p-6 shadow">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-muted-foreground">Status</span>
@@ -224,6 +223,6 @@ export function WorkflowInboxTable({ status, onStatusChange }: Props) {
         tablePageSize={pageSize}
         currentIndex={pageIndex}
       />
-    </TableLayout>
+    </div>
   );
 }

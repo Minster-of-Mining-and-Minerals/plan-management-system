@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
-import { Bell, CalendarClock, ClipboardList, ShieldAlert, CheckCheck } from "lucide-react";
+import { Bell, CalendarClock, ClipboardList, Inbox, ShieldAlert, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -13,11 +13,13 @@ import {
   useGetNotificationsQuery,
   useMarkAllNotificationsReadMutation,
   useMarkNotificationReadMutation,
+  getNotificationHref,
   type AppNotification,
 } from "@/redux/api/notificationApi";
 
 const CATEGORY_OPTIONS = [
   { key: "appointments" as const, label: "Appointments", icon: CalendarClock },
+  { key: "workflow" as const, label: "Workflow", icon: Inbox },
   { key: "system" as const, label: "System", icon: ShieldAlert },
   { key: "logs" as const, label: "Logs", icon: ClipboardList },
 ];
@@ -44,7 +46,7 @@ export default function TemplateNotificationDropdown({
 }) {
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState<
-    "appointments" | "system" | "logs"
+    "appointments" | "workflow" | "system" | "logs"
   >("appointments");
 
   const { data: notifications = [], isLoading } = useGetNotificationsQuery({
@@ -63,11 +65,9 @@ export default function TemplateNotificationDropdown({
     if (!notification.is_read) {
       await markRead(notification.notification_id);
     }
-    if (
-      notification.related_entity_type === "appointment" &&
-      notification.related_entity_id
-    ) {
-      router.push(`/appointments/${notification.related_entity_id}`);
+    const href = getNotificationHref(notification);
+    if (href) {
+      router.push(href);
       return;
     }
     router.push("/notifications");

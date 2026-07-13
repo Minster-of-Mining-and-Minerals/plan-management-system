@@ -26,7 +26,7 @@ const getContext = async (req, res) => {
 
 const listActiveServices = async (req, res) => {
   try {
-    const data = await service.listActiveServices(req.query);
+    const data = await service.listActiveServices(req.user, req.query);
     return res.status(200).json({ success: true, data });
   } catch (error) {
     return handleError(res, error);
