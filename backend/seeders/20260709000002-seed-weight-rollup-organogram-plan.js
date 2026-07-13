@@ -2,13 +2,15 @@
 
 const {
   PLAN_RULE_ID,
+  PLAN_RULE_SNAPSHOT_ID,
+  PLAN_RULE_TEMPLATE_NAME,
+  PLAN_RULE_SNAPSHOT_STEPS,
   PLANNING_CONFIG_ID,
   PLAN_IDS,
   PLAN_DRAFT_NAME,
   ANNUAL_TARGET_YEAR_RATIOS,
   ANNUAL_VERSIONS,
   EXECUTION_PERIODS_BY_ANNUAL,
-  ALL_EXECUTION_PERIOD_VERSION_IDS,
   PLAN_TREE,
   PARENT_SECTOR_ID,
   PARENT_SECTOR_NAME,
@@ -22,6 +24,7 @@ const {
   buildResolvedTree,
   buildMasterNodes,
   buildAssignments,
+  seedOwnedPlanRuleSnapshot,
   removeExistingPlan,
   copyAssignments,
 } = require("./utils/weightRollupPlanSeederUtils");
@@ -157,7 +160,6 @@ async function seedExecutionPeriodsForAnnual({
 module.exports = {
   async up(queryInterface) {
     const now = new Date();
-    const finalizedAt = new Date("2026-02-01T10:00:00.000Z");
 
     const parentSector = await resolveSector(queryInterface);
     if (!parentSector) {
@@ -187,7 +189,7 @@ module.exports = {
       return;
     }
 
-    const resolvedPlanRuleId = ruleRows[0].plan_rule_id;
+    const resolvedGlobalRuleId = ruleRows[0].plan_rule_id;
 
     const actions = await queryInterface.sequelize.query(
       `SELECT assignment_action_id, code FROM plan_assignment_actions
@@ -221,7 +223,7 @@ module.exports = {
         planning_year: null,
         sequence_index: null,
         is_locked: false,
-        finalized_at: finalizedAt,
+        finalized_at: null,
         annual_targets_finalized_at: annualTargetsFinalizedAt,
         period_subdivision_mode: "quarterly",
         draft_name: PLAN_DRAFT_NAME,
@@ -234,14 +236,36 @@ module.exports = {
         planning_duration_years: 3,
         year: 2029,
         version_number: 0,
-        status: "finalized",
+        status: "draft",
         government_structure_id: parentSectorId,
         based_on_version_id: null,
-        plan_rule_id: resolvedPlanRuleId,
+        plan_rule_id: null,
         created_at: now,
         updated_at: now,
       },
     ]);
+
+    await seedOwnedPlanRuleSnapshot(queryInterface, {
+      masterVersionId: PLAN_IDS.MASTER,
+      snapshotRuleId: PLAN_RULE_SNAPSHOT_ID,
+      sourceRuleId: resolvedGlobalRuleId,
+      ruleName: PLAN_RULE_TEMPLATE_NAME,
+      steps: PLAN_RULE_SNAPSHOT_STEPS,
+      now,
+    });
+
+    await queryInterface.sequelize.query(
+      `UPDATE plan_versions
+       SET plan_rule_id = :ruleId, updated_at = :now
+       WHERE plan_version_id = :masterId`,
+      {
+        replacements: {
+          ruleId: PLAN_RULE_SNAPSHOT_ID,
+          masterId: PLAN_IDS.MASTER,
+          now,
+        },
+      }
+    );
 
     await seedPlanningConfiguration(queryInterface, PLAN_IDS.MASTER, now);
 
@@ -307,7 +331,7 @@ module.exports = {
         status: "draft",
         government_structure_id: parentSectorId,
         based_on_version_id: null,
-        plan_rule_id: resolvedPlanRuleId,
+        plan_rule_id: PLAN_RULE_SNAPSHOT_ID,
         period_subdivision_mode: "quarterly",
         created_at: now,
         updated_at: now,
@@ -352,7 +376,7 @@ module.exports = {
           annualAssignmentPayload,
           executionPeriods,
           now,
-          planRuleId: resolvedPlanRuleId,
+          planRuleId: PLAN_RULE_SNAPSHOT_ID,
           sectorId: parentSectorId,
         });
       }
@@ -364,8 +388,9 @@ module.exports = {
     const taskCount = masterNodePayload.filter((n) => n.type === "task").length;
 
     console.log(`Seeded weight rollup QA plan "${PLAN_DRAFT_NAME}"`);
-    console.log(`  Master plan: ${PLAN_IDS.MASTER} (finalized)`);
-    console.log(`  Plan rule: ${ruleRows[0].name} (${resolvedPlanRuleId})`);
+    console.log(`  Master plan: ${PLAN_IDS.MASTER} (draft, owned rule snapshot)`);
+    console.log(`  Global template: ${PLAN_RULE_TEMPLATE_NAME} (${resolvedGlobalRuleId}) — unchanged`);
+    console.log(`  Draft rule snapshot: ${PLAN_RULE_SNAPSHOT_ID}`);
     console.log(`  Planning config: quarterly breakdown (${PLANNING_CONFIG_ID})`);
     console.log(
       `  Nodes: ${strategicCount} strategic, ${goalCount} goals, ${kpiCount} KPIs, ${taskCount} tasks`

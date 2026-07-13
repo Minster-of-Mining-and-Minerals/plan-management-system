@@ -4,6 +4,51 @@ const { SECTOR_ID, SECTOR_NAME } = require("./alternativeMomOrganogram.data");
 
 const PLAN_RULE_ID = "60000000-0000-4000-8000-000000000002";
 
+/** Draft-owned fork of the global template — edits stay on this plan only. */
+const PLAN_RULE_SNAPSHOT_ID = "60000000-0000-4000-8000-000000000403";
+
+const PLAN_RULE_TEMPLATE_NAME = "Weight Rollup Based 4-Level Plan";
+
+/** Mirrors the global template at fork time; owned by the weight rollup master draft. */
+const PLAN_RULE_SNAPSHOT_STEPS = [
+  {
+    plan_rule_step_id: "60000000-0000-4000-8000-000000000041",
+    step_order: 1,
+    node_type: "strategic",
+    label: "Strategic Focus Area",
+    requires_weight: false,
+    requires_contribution_weight: false,
+    color_hex: "#7C3AED",
+  },
+  {
+    plan_rule_step_id: "60000000-0000-4000-8000-000000000042",
+    step_order: 2,
+    node_type: "goal",
+    label: "Goal",
+    requires_weight: true,
+    requires_contribution_weight: true,
+    color_hex: "#2563EB",
+  },
+  {
+    plan_rule_step_id: "60000000-0000-4000-8000-000000000043",
+    step_order: 3,
+    node_type: "kpi",
+    label: "KPI / Indicator",
+    requires_weight: true,
+    requires_contribution_weight: false,
+    color_hex: "#059669",
+  },
+  {
+    plan_rule_step_id: "60000000-0000-4000-8000-000000000044",
+    step_order: 4,
+    node_type: "task",
+    label: "Task / Activity",
+    requires_weight: true,
+    requires_contribution_weight: true,
+    color_hex: "#D97706",
+  },
+];
+
 const PLANNING_CONFIG_ID = "90000000-0000-4000-8000-000000000402";
 
 const PLAN_IDS = {
@@ -539,6 +584,9 @@ const PLAN_TREE = {
 
 module.exports = {
   PLAN_RULE_ID,
+  PLAN_RULE_SNAPSHOT_ID,
+  PLAN_RULE_TEMPLATE_NAME,
+  PLAN_RULE_SNAPSHOT_STEPS,
   PLANNING_CONFIG_ID,
   PLAN_IDS,
   PLAN_DRAFT_NAME,

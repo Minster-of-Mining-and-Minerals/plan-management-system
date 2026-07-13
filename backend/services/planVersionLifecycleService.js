@@ -2277,6 +2277,38 @@ async function reopenFinalizedPlanForEdit(masterVersionId) {
 
         await syncAllDerivedNodesFromMaster(masterVersionId, t);
 
+        await attachDraftSnapshotsToPlanVersion(master, t);
+
+        const refreshedMaster = await PlanVersion.findByPk(masterVersionId, { transaction: t });
+        const annualVersionsAfter = await PlanVersion.findAll({
+            where: { parent_plan_version_id: masterVersionId, version_kind: "annual" },
+            transaction: t,
+        });
+
+        for (const annualVersion of annualVersionsAfter) {
+            await annualVersion.update(
+                {
+                    plan_rule_id: refreshedMaster.plan_rule_id,
+                    planning_configuration_id: refreshedMaster.planning_configuration_id,
+                },
+                { transaction: t }
+            );
+
+            await PlanVersion.update(
+                {
+                    plan_rule_id: refreshedMaster.plan_rule_id,
+                    planning_configuration_id: refreshedMaster.planning_configuration_id,
+                },
+                {
+                    where: {
+                        parent_plan_version_id: annualVersion.plan_version_id,
+                        version_kind: "execution_period",
+                    },
+                    transaction: t,
+                }
+            );
+        }
+
         await t.commit();
 
         return {

@@ -57,40 +57,35 @@ module.exports = {
       }
     );
 
-    const resolvedRuleId = existing[0]?.plan_rule_id ?? RULE_ID;
-
-    if (existing.length === 0) {
-      await queryInterface.bulkInsert("plan_rules", [
-        {
-          plan_rule_id: resolvedRuleId,
-          name: RULE_NAME,
-          government_structure_id: null,
-          is_active: true,
-          created_at: now,
-          updated_at: now,
-        },
-      ]);
-    } else {
-      await queryInterface.sequelize.query(
-        `UPDATE plan_rules
-         SET name = :name, is_active = true, updated_at = :now
-         WHERE plan_rule_id = :id`,
-        { replacements: { id: resolvedRuleId, name: RULE_NAME, now } }
+    if (existing.length > 0) {
+      console.log(
+        `Global plan rule "${RULE_NAME}" already exists (${existing[0].plan_rule_id}) — left unchanged`
       );
-      await queryInterface.bulkDelete("plan_rule_steps", { plan_rule_id: resolvedRuleId });
+      return;
     }
+
+    await queryInterface.bulkInsert("plan_rules", [
+      {
+        plan_rule_id: RULE_ID,
+        name: RULE_NAME,
+        government_structure_id: null,
+        is_active: true,
+        created_at: now,
+        updated_at: now,
+      },
+    ]);
 
     await queryInterface.bulkInsert(
       "plan_rule_steps",
       STEPS.map((step) => ({
         ...step,
-        plan_rule_id: resolvedRuleId,
+        plan_rule_id: RULE_ID,
         created_at: now,
         updated_at: now,
       }))
     );
 
-    console.log(`Seeded plan rule "${RULE_NAME}" (${resolvedRuleId})`);
+    console.log(`Seeded global plan rule template "${RULE_NAME}" (${RULE_ID})`);
   },
 
   async down(queryInterface) {

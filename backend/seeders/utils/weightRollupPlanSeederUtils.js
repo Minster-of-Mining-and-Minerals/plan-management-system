@@ -402,6 +402,41 @@ function buildAssignments(resolvedTree, sectorId, actionMap) {
   return { external, internal };
 }
 
+async function seedOwnedPlanRuleSnapshot(
+  queryInterface,
+  {
+    masterVersionId,
+    snapshotRuleId,
+    sourceRuleId,
+    ruleName,
+    steps,
+    now,
+  }
+) {
+  await queryInterface.bulkInsert("plan_rules", [
+    {
+      plan_rule_id: snapshotRuleId,
+      name: ruleName,
+      government_structure_id: null,
+      is_active: true,
+      owned_by_plan_version_id: masterVersionId,
+      source_plan_rule_id: sourceRuleId,
+      created_at: now,
+      updated_at: now,
+    },
+  ]);
+
+  await queryInterface.bulkInsert(
+    "plan_rule_steps",
+    steps.map((step) => ({
+      ...step,
+      plan_rule_id: snapshotRuleId,
+      created_at: now,
+      updated_at: now,
+    }))
+  );
+}
+
 async function removeExistingPlan(queryInterface, planIds, planningConfigId = null) {
   const versionIds = [
     planIds.MASTER,
@@ -410,6 +445,23 @@ async function removeExistingPlan(queryInterface, planIds, planningConfigId = nu
     planIds.ANNUAL_2028,
     ...ALL_EXECUTION_PERIOD_VERSION_IDS,
   ].filter(Boolean);
+
+  const ownedRules = await queryInterface.sequelize.query(
+    `SELECT plan_rule_id FROM plan_rules WHERE owned_by_plan_version_id = :masterId`,
+    {
+      replacements: { masterId: planIds.MASTER },
+      type: queryInterface.sequelize.QueryTypes.SELECT,
+    }
+  );
+
+  for (const ownedRule of ownedRules) {
+    await queryInterface.bulkDelete("plan_rule_steps", {
+      plan_rule_id: ownedRule.plan_rule_id,
+    });
+    await queryInterface.bulkDelete("plan_rules", {
+      plan_rule_id: ownedRule.plan_rule_id,
+    });
+  }
 
   const nodes = await queryInterface.sequelize.query(
     `SELECT plan_node_id FROM plan_nodes WHERE plan_version_id IN (:versionIds)`,
@@ -456,6 +508,7 @@ module.exports = {
   buildResolvedTree,
   buildMasterNodes,
   buildAssignments,
+  seedOwnedPlanRuleSnapshot,
   removeExistingPlan,
   copyAssignments,
 };

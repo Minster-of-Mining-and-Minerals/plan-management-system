@@ -7,12 +7,13 @@ require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 const { sequelize } = require("../models");
 const {
   PLAN_RULE_ID,
+  PLAN_RULE_SNAPSHOT_ID,
+  PLAN_RULE_TEMPLATE_NAME,
   PLANNING_CONFIG_ID,
   PLAN_IDS,
   PLAN_DRAFT_NAME,
   ANNUAL_TARGET_YEAR_RATIOS,
   ANNUAL_VERSIONS,
-  ALL_EXECUTION_PERIOD_VERSION_IDS,
   NODE_IDS,
 } = require("../seeders/data/weightRollupOrganogramPlan.data");
 const { getAnnualExecutionReadiness } = require("../services/planVersionLifecycleService");
@@ -274,21 +275,35 @@ async function main() {
     );
 
     assert.ok(masterRows.length > 0, "Weight rollup master plan not seeded");
-    assert.strictEqual(masterRows[0].status, "finalized");
+    assert.strictEqual(masterRows[0].status, "draft");
     assert.ok(masterRows[0].draft_name.includes("Weight Rollup"));
 
     const ruleRows = await sequelize.query(
+      `SELECT plan_rule_id, name, owned_by_plan_version_id, source_plan_rule_id
+       FROM plan_rules
+       WHERE plan_rule_id = :snapshotId`,
+      {
+        replacements: { snapshotId: PLAN_RULE_SNAPSHOT_ID },
+        type: sequelize.QueryTypes.SELECT,
+      }
+    );
+    assert.ok(ruleRows.length > 0, "Weight rollup draft plan rule snapshot not found");
+    assert.strictEqual(ruleRows[0].name, PLAN_RULE_TEMPLATE_NAME);
+    assert.strictEqual(ruleRows[0].owned_by_plan_version_id, PLAN_IDS.MASTER);
+
+    const globalRuleRows = await sequelize.query(
       `SELECT plan_rule_id, name FROM plan_rules
        WHERE plan_rule_id = :id OR name = :ruleName
        ORDER BY CASE WHEN plan_rule_id = :id THEN 0 ELSE 1 END
        LIMIT 1`,
       {
-        replacements: { id: PLAN_RULE_ID, ruleName: "Weight Rollup Based 4-Level Plan" },
+        replacements: { id: PLAN_RULE_ID, ruleName: PLAN_RULE_TEMPLATE_NAME },
         type: sequelize.QueryTypes.SELECT,
       }
     );
-    assert.ok(ruleRows.length > 0, "Weight Rollup Based 4-Level Plan rule not found");
-    assert.strictEqual(ruleRows[0].name, "Weight Rollup Based 4-Level Plan");
+    assert.ok(globalRuleRows.length > 0, "Weight Rollup Based 4-Level Plan global template not found");
+    assert.strictEqual(globalRuleRows[0].name, PLAN_RULE_TEMPLATE_NAME);
+    assert.strictEqual(ruleRows[0].source_plan_rule_id, globalRuleRows[0].plan_rule_id);
 
     const resolvedRuleId = ruleRows[0].plan_rule_id;
     assert.strictEqual(masterRows[0].plan_rule_id, resolvedRuleId);
@@ -364,18 +379,22 @@ async function main() {
     assert.strictEqual(periodCount[0].count, 12, "Expected 12 quarterly periods across 3 annual years");
 
     const readiness = await getAnnualExecutionReadiness(PLAN_IDS.MASTER);
-    if (masterSubdivision[0].annual_targets_finalized_at) {
-      assert.ok(
-        !readiness.ready && readiness.errors.includes("Annual execution targets have already been finalized"),
-        "Expected finalized annual state for demo data"
-      );
-    } else {
-      assert.ok(readiness.ready, `Annual execution not ready: ${readiness.errors.join("; ")}`);
-    }
+    assert.ok(
+      !readiness.ready,
+      "Draft master with pre-finalized annual targets should not be ready to finalize again"
+    );
+    assert.ok(
+      readiness.errors.some(
+        (error) =>
+          error.includes("Annual execution targets have already been finalized") ||
+          error.includes("Strategic draft must be finalized")
+      ),
+      `Unexpected readiness errors: ${readiness.errors.join("; ")}`
+    );
 
     console.log("Weight rollup organogram plan validation passed.");
     console.log(`  Master: ${PLAN_IDS.MASTER}`);
-    console.log(`  Rule: Weight Rollup Based 4-Level Plan (goal + task contribution)`);
+    console.log(`  Rule: draft snapshot ${PLAN_RULE_SNAPSHOT_ID} (fork of global template)`);
     console.log(`  Hierarchy: 2 strategic, 5 goals, 10 KPIs, 20 tasks`);
     console.log(`  Weight modes: percentage, number, frequency`);
     console.log(`  Planning config: quarterly breakdown`);
