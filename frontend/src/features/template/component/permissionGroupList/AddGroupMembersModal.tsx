@@ -54,9 +54,23 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
   const [selectedStructureIds, setSelectedStructureIds] = useState<string[]>([]);
   const [selectedDepartmentIds, setSelectedDepartmentIds] = useState<string[]>([]);
 
-  const { data: allUsers = [], isLoading: loadingUsers } = useGetUsersQuery({
-    search: userSearch,
-  });
+  const singleLinkedStructureId =
+    linkedStructureIds.length === 1 ? linkedStructureIds[0] : undefined;
+  const canPickUsers = linkedStructureIds.length > 0;
+
+  const userQueryParams = canPickUsers
+    ? {
+        search: userSearch || undefined,
+        ...(singleLinkedStructureId
+          ? { government_structure_id: singleLinkedStructureId }
+          : {}),
+      }
+    : undefined;
+
+  const { data: allUsers = [], isLoading: loadingUsers } = useGetUsersQuery(
+    userQueryParams,
+    { skip: !canPickUsers }
+  );
   const { data: allStructures = [], isLoading: loadingStructures } = useGetGovernmentStructuresQuery({
     search: structureSearch,
   });
@@ -70,7 +84,13 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
   const [addStructures, { isLoading: isAddingStructures }] = useAddStructuresToGroupMutation();
   const [addDepartments, { isLoading: isAddingDepartments }] = useAddDepartmentsToGroupMutation();
 
-  const filteredUsers = allUsers.filter((u) => !existingUserIds.includes(u.user_id));
+  const filteredUsers = allUsers.filter((user) => {
+    if (existingUserIds.includes(user.user_id)) return false;
+    if (linkedStructureIds.length > 1) {
+      return linkedStructureIds.includes(user.government_structure_id);
+    }
+    return true;
+  });
   const filteredStructures = allStructures.filter(
     (s) => !existingStructureIds.includes(s.government_structure_id)
   );
@@ -134,8 +154,18 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
       }
       actionFeedback.success("Members added successfully");
       handleClose();
-    } catch (error: any) {
-      actionFeedback.error(error?.data?.message || "Failed to add members");
+    } catch (error: unknown) {
+      const message =
+        error &&
+        typeof error === "object" &&
+        "data" in error &&
+        error.data &&
+        typeof error.data === "object" &&
+        "message" in error.data &&
+        typeof error.data.message === "string"
+          ? error.data.message
+          : "Failed to add members";
+      actionFeedback.error(message);
     }
   };
 
@@ -183,10 +213,16 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
 
         {activeTab === "users" ? (
           <div className="flex min-h-0 flex-1 flex-col px-6 py-4">
+            {!canPickUsers ? (
+              <div className="text-center py-8 text-gray-500">
+                Link at least one sector structure to this group before adding users.
+              </div>
+            ) : (
+              <>
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Search users..."
+                placeholder="Search users in linked sectors..."
                 className="pl-10"
                 value={userSearch}
                 onChange={(e) => setUserSearch(e.target.value)}
@@ -217,9 +253,13 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
                   </div>
                 ))
               ) : (
-                <div className="text-center py-8 text-gray-500">No users found</div>
+                <div className="text-center py-8 text-gray-500">
+                  No eligible users found in the linked sector structures.
+                </div>
               )}
             </div>
+              </>
+            )}
           </div>
         ) : activeTab === "structures" ? (
           <div className="flex min-h-0 flex-1 flex-col px-6 py-4">

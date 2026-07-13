@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Link, usePathname } from "@/i18n/navigation";
 import { ChevronRight, Building } from "lucide-react";
 import {
   SidebarMenuSub,
@@ -29,18 +28,12 @@ export function NavStructures({ structures, structuresById, basePath }: NavStruc
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // Defer collapsible mount until after hydration to avoid Radix mismatch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional client-only gate
     setMounted(true);
   }, []);
 
-  const stripLocale = (path: string) => {
-    const segments = path.split("/");
-    if (segments.length > 1 && ["en", "am"].includes(segments[1])) {
-      return "/" + segments.slice(2).join("/");
-    }
-    return path;
-  };
-
-  const currentPath = stripLocale(pathname);
+  const currentPath = pathname;
 
   const getStructureLogoPath = (structure: GovernmentStructure) => {
     const fromNode = resolveSectorLogoPath(structure.logo_path);

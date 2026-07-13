@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { notFound } from "next/navigation";
 import { usePathname, useRouter } from "@/i18n/navigation";
+import SocketNotificationProvider from "@/providers/SocketNotificationProvider";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Header } from "@/components/layout/header";
@@ -61,12 +62,14 @@ export default function PrivateLayout({
     <SidebarProvider>
       <SecuritySettingsBridge />
       {!isFirstLogin && <AppSidebar />}
+      <SocketNotificationProvider>
       <SidebarInset>
         <Header title={title || "Dashboard"} />
         <div className="p-6">
           <RoutePermissionGuard>{children}</RoutePermissionGuard>
         </div>
       </SidebarInset>
+      </SocketNotificationProvider>
     </SidebarProvider>
   );
 }

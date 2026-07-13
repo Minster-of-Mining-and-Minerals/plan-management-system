@@ -1,14 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Link, usePathname } from "@/i18n/navigation";
 import Image from "next/image";
 import { ChevronRight } from "lucide-react";
 
 import { NAVIGATION } from "@/navigation.config";
 import { canAccessItem } from "@/lib/can-access";
-import { PermissionKey } from "@/lib/permissions";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
 import { GovernmentStructure } from "@/redux/types/governmentStructure";
@@ -44,14 +42,6 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
-const stripLocale = (pathname: string) => {
-  const segments = pathname.split("/");
-  if (segments.length > 1 && ["en", "am"].includes(segments[1])) {
-    return "/" + segments.slice(2).join("/");
-  }
-  return pathname;
-};
-
 function isNavSectionActive(
   pathname: string,
   item: { url: string; children?: { url: string }[] }
@@ -73,12 +63,14 @@ export function AppSidebar() {
   const { data: session, status } = useSession();
   const { branding, logoPrimaryUrl } = useBranding();
   const { permissions: userPermissions } = usePermissions();
-  const pathname = stripLocale(usePathname());
+  const pathname = usePathname();
 
   const isAuthReady =
     status === "authenticated" && Boolean(session?.accessToken);
 
   useEffect(() => {
+    // Defer collapsible mount until after hydration to avoid Radix mismatch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional client-only gate
     setMounted(true);
   }, []);
 
