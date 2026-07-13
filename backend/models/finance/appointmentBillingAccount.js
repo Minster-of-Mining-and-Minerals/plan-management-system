@@ -21,6 +21,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "account_id",
         as: "payments",
       });
+      AppointmentBillingAccount.hasMany(models.BillingCollectionRequest, {
+        foreignKey: "account_id",
+        as: "collectionRequests",
+      });
     }
   }
 

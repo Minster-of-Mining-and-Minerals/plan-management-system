@@ -27,29 +27,36 @@ function formatDateTime(iso) {
   });
 }
 
-function buildReceiptHtml(receipt) {
-  const lines = (receipt.entries || [])
+function buildLineItemsHtml(entries, currency = "ETB") {
+  return (entries || [])
     .map(
       (line) => `
       <tr>
         <td>${escapeHtml(line.service_name)}</td>
         <td style="text-align:center">${escapeHtml(line.quantity)}</td>
-        <td style="text-align:right">${formatMoney(line.unit_price, receipt.currency)}</td>
-        <td style="text-align:right">${formatMoney(line.line_total, receipt.currency)}</td>
+        <td style="text-align:right">${formatMoney(line.unit_price, currency)}</td>
+        <td style="text-align:right">${formatMoney(line.line_total, currency)}</td>
       </tr>`
     )
     .join("");
+}
 
-  const tenders = (receipt.tenders || [])
+function buildTendersHtml(tenders, currency = "ETB") {
+  return (tenders || [])
     .map(
       (t) => `
       <tr>
-        <td>${escapeHtml(t.method.replace(/_/g, " "))}</td>
-        <td style="text-align:right">${formatMoney(t.amount, receipt.currency)}</td>
+        <td>${escapeHtml(String(t.method || "").replace(/_/g, " "))}</td>
+        <td style="text-align:right">${formatMoney(t.amount, currency)}</td>
         <td>${escapeHtml(t.reference || "—")}</td>
       </tr>`
     )
     .join("");
+}
+
+function buildReceiptHtml(receipt) {
+  const lines = buildLineItemsHtml(receipt.entries || [], receipt.currency);
+  const tenders = buildTendersHtml(receipt.tenders || [], receipt.currency);
 
   return `<!DOCTYPE html>
 <html>
@@ -111,7 +118,10 @@ function buildReceiptHtml(receipt) {
 }
 
 module.exports = {
+  escapeHtml,
   buildReceiptHtml,
+  buildLineItemsHtml,
+  buildTendersHtml,
   formatMoney,
   formatDateTime,
 };

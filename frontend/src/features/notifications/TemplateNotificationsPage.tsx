@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
-import { Bell, CalendarClock, ClipboardList, Inbox, ShieldAlert, CheckCheck } from "lucide-react";
+import { Bell, CalendarClock, ClipboardList, Inbox, ShieldAlert, CheckCheck, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import Loading01 from "@/features/template/component/Loading/Loading01";
@@ -22,6 +22,7 @@ const CATEGORY_OPTIONS: Array<{
 }> = [
   { key: "appointments", label: "Appointments", icon: CalendarClock },
   { key: "workflow", label: "Workflow", icon: Inbox },
+  { key: "finance", label: "Finance", icon: Wallet },
   { key: "system", label: "System", icon: ShieldAlert },
   { key: "logs", label: "Logs", icon: ClipboardList },
 ];

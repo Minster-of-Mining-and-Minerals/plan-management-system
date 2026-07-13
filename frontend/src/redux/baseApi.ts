@@ -88,6 +88,10 @@ export const baseApi = createApi({
     "CashierSession",
     "CashierQueue",
     "CashierAccount",
+    "CashierPaymentsToday",
+    "CashierPaymentHistory",
+    "FinanceCollections",
+    "ReceiptTemplate",
   ],
   endpoints: () => ({}),
 });

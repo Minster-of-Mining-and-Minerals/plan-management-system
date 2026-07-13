@@ -1,6 +1,7 @@
 import { baseApi } from "../baseApi";
 import type {
   CashierAccountDetail,
+  CashierPaymentLedgerResponse,
   CashierQueueResponse,
   CashierReceipt,
   CashierSession,
@@ -87,6 +88,9 @@ export const cashierApi = baseApi.injectEndpoints({
       invalidatesTags: (_r, _e, { accountId }) => [
         "CashierQueue",
         "CashierSession",
+        "CashierPaymentsToday",
+        "CashierPaymentHistory",
+        "FinanceCollections",
         "StaffAppointment",
         { type: "CashierAccount", id: accountId },
         "AppointmentBilling",
@@ -104,6 +108,9 @@ export const cashierApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: (_r, _e, { accountId }) => [
         "CashierQueue",
+        "CashierPaymentsToday",
+        "CashierPaymentHistory",
+        "FinanceCollections",
         "StaffAppointment",
         { type: "CashierAccount", id: accountId },
         "AppointmentBilling",
@@ -113,6 +120,56 @@ export const cashierApi = baseApi.injectEndpoints({
     getCashierReceipt: builder.query<CashierReceipt, string>({
       query: (paymentId) => `/finance/cashier/payments/${paymentId}/receipt`,
       transformResponse: (r: { data: CashierReceipt }) => r.data,
+    }),
+
+    getCashierPaymentsToday: builder.query<
+      CashierPaymentLedgerResponse,
+      { search?: string; date?: string; page?: number; limit?: number }
+    >({
+      query: (params) => ({
+        url: "/finance/cashier/payments/today",
+        params,
+      }),
+      transformResponse: (r: { data: CashierPaymentLedgerResponse }) => r.data,
+      providesTags: ["CashierPaymentsToday"],
+    }),
+
+    getCashierPaymentHistory: builder.query<
+      CashierPaymentLedgerResponse,
+      {
+        search?: string;
+        from_date?: string;
+        to_date?: string;
+        cashier_user_id?: string;
+        page?: number;
+        limit?: number;
+      }
+    >({
+      query: (params) => ({
+        url: "/finance/cashier/payments",
+        params,
+      }),
+      transformResponse: (r: { data: CashierPaymentLedgerResponse }) => r.data,
+      providesTags: ["CashierPaymentHistory"],
+    }),
+
+    getFinanceCollections: builder.query<
+      CashierPaymentLedgerResponse,
+      {
+        search?: string;
+        from_date?: string;
+        to_date?: string;
+        cashier_user_id?: string;
+        page?: number;
+        limit?: number;
+      }
+    >({
+      query: (params) => ({
+        url: "/finance/cashier/collections",
+        params,
+      }),
+      transformResponse: (r: { data: CashierPaymentLedgerResponse }) => r.data,
+      providesTags: ["FinanceCollections"],
     }),
   }),
 });
@@ -127,4 +184,7 @@ export const {
   useVoidCashierPaymentMutation,
   useGetCashierReceiptQuery,
   useLazyGetCashierReceiptQuery,
+  useGetCashierPaymentsTodayQuery,
+  useGetCashierPaymentHistoryQuery,
+  useGetFinanceCollectionsQuery,
 } = cashierApi;

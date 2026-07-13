@@ -128,6 +128,8 @@ const TABLE_DROP_ORDER = [
   "cashier_payments",
   "cashier_sessions",
   "receipt_sequences",
+  "receipt_templates",
+  "billing_collection_requests",
   "appointment_billing_entries",
   "appointment_billing_accounts",
   "billing_services",

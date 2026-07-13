@@ -8,6 +8,7 @@ const NOTIFICATION_CATEGORIES = {
   LOGS: "logs",
   APPOINTMENTS: "appointments",
   WORKFLOW: "workflow",
+  FINANCE: "finance",
 };
 
 function normalizeCategory(value) {
@@ -16,7 +17,8 @@ function normalizeCategory(value) {
     v === NOTIFICATION_CATEGORIES.SYSTEM ||
     v === NOTIFICATION_CATEGORIES.LOGS ||
     v === NOTIFICATION_CATEGORIES.APPOINTMENTS ||
-    v === NOTIFICATION_CATEGORIES.WORKFLOW
+    v === NOTIFICATION_CATEGORIES.WORKFLOW ||
+    v === NOTIFICATION_CATEGORIES.FINANCE
   ) {
     return v;
   }
@@ -35,6 +37,9 @@ function inferCategoryFromRelatedType(relatedType) {
   }
   if (rt === "log" || rt === "logs" || rt === "audit" || rt === "audit_log") {
     return NOTIFICATION_CATEGORIES.LOGS;
+  }
+  if (rt === "billing_collection" || rt === "cashier_payment") {
+    return NOTIFICATION_CATEGORIES.FINANCE;
   }
   return NOTIFICATION_CATEGORIES.SYSTEM;
 }

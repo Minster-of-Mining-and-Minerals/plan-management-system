@@ -61,6 +61,24 @@ const listQueue = async (req, res) => {
   }
 };
 
+const listPaymentsToday = async (req, res) => {
+  try {
+    const data = await paymentService.listPaymentsToday(req.query);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+const listPaymentHistory = async (req, res) => {
+  try {
+    const data = await paymentService.listPaymentHistory(req.query);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
 const getAccount = async (req, res) => {
   try {
     const data = await paymentService.getAccountDetail(req.params.accountId);
@@ -111,6 +129,8 @@ module.exports = {
   openSession,
   closeSession,
   listQueue,
+  listPaymentsToday,
+  listPaymentHistory,
   getAccount,
   recordPayment,
   voidPayment,

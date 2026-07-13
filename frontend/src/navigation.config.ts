@@ -213,6 +213,22 @@ export const NAVIGATION: NavItem[] = [
     ],
   },
   {
+    title: "Daily Collections",
+    url: "/finance/collections",
+    icon: Receipt,
+    anyPermissions: ["FINANCE_COLLECTIONS:VIEW"],
+  },
+  {
+    title: "Receipt Templates",
+    url: "/finance/receipt-templates",
+    icon: Receipt,
+    anyPermissions: [
+      "RECEIPT_TEMPLATE:VIEW",
+      "RECEIPT_TEMPLATE:CREATE",
+      "RECEIPT_TEMPLATE:UPDATE",
+    ],
+  },
+  {
     title: "Branding",
     url: "/branding",
     icon: Palette,

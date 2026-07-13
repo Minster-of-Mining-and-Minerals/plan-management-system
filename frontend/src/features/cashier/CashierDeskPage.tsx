@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Banknote,
   Calendar,
@@ -35,19 +36,23 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PermissionGuard } from "@/components/common/PermissionGuard";
 import { formatBillingCurrency, formatBillingDateTime } from "@/features/billing/billingUtils";
+import { CashierPaymentLedgerList } from "./CashierPaymentLedgerList";
 import {
   useCloseCashierSessionMutation,
   useGetCashierAccountQuery,
   useGetCashierQueueQuery,
+  useGetCashierPaymentsTodayQuery,
+  useGetCashierPaymentHistoryQuery,
   useGetCurrentCashierSessionQuery,
   useOpenCashierSessionMutation,
   useRecordCashierPaymentMutation,
   useVoidCashierPaymentMutation,
   useLazyGetCashierReceiptQuery,
 } from "@/redux/api/cashierApi";
-import type { CashierQueueItem, PaymentMethod } from "@/redux/types/cashier";
+import type { CashierQueueItem, CashierPaymentLedgerItem, PaymentMethod } from "@/redux/types/cashier";
 import { printCashierReceipt } from "./cashierReceiptPrint";
 import {
   CASHIER_PERMISSIONS,
@@ -88,6 +93,9 @@ function newTenderRow(amount = ""): TenderFormRow {
 }
 
 export function CashierDeskPage() {
+  const searchParams = useSearchParams();
+  const accountFromUrl = searchParams.get("account");
+
   const [search, setSearch] = useState("");
   const [scheduleDate, setScheduleDate] = useState(formatToday());
   const [dateFilterEnabled, setDateFilterEnabled] = useState(true);
@@ -104,6 +112,14 @@ export function CashierDeskPage() {
   const [receiptTitle, setReceiptTitle] = useState("");
   const [voidPaymentId, setVoidPaymentId] = useState<string | null>(null);
   const [voidReason, setVoidReason] = useState("");
+  const [deskTab, setDeskTab] = useState<"queue" | "paid-today" | "history">(
+    "queue"
+  );
+  const [ledgerSearch, setLedgerSearch] = useState("");
+  const [historyFrom, setHistoryFrom] = useState(formatToday());
+  const [historyTo, setHistoryTo] = useState(formatToday());
+  const [selectedPayment, setSelectedPayment] =
+    useState<CashierPaymentLedgerItem | null>(null);
 
   const { data: session, isLoading: sessionLoading } =
     useGetCurrentCashierSessionQuery();
@@ -119,6 +135,29 @@ export function CashierDeskPage() {
       page: 1,
       limit: 50,
     });
+
+  const { data: paidToday, isLoading: paidTodayLoading } =
+    useGetCashierPaymentsTodayQuery(
+      {
+        search: ledgerSearch.trim() || undefined,
+        date: scheduleDate,
+        page: 1,
+        limit: 100,
+      },
+      { skip: deskTab !== "paid-today" }
+    );
+
+  const { data: paymentHistory, isLoading: historyLoading } =
+    useGetCashierPaymentHistoryQuery(
+      {
+        search: ledgerSearch.trim() || undefined,
+        from_date: historyFrom,
+        to_date: historyTo,
+        page: 1,
+        limit: 100,
+      },
+      { skip: deskTab !== "history" }
+    );
 
   const selectedAccountId = selected?.account_id;
   const { data: accountDetail, isLoading: accountLoading } =
@@ -148,6 +187,15 @@ export function CashierDeskPage() {
       setTenders([newTenderRow(String(balanceDue))]);
     }
   }, [paymentOpen, balanceDue]);
+
+  useEffect(() => {
+    if (!accountFromUrl || !queue?.results.length) return;
+    const match = queue.results.find((item) => item.account_id === accountFromUrl);
+    if (match) {
+      setSelected(match);
+      setDeskTab("queue");
+    }
+  }, [accountFromUrl, queue?.results]);
 
   const handleOpenSession = async () => {
     try {
@@ -305,9 +353,25 @@ export function CashierDeskPage() {
       <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
         <Card className="h-fit">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Payment queue</CardTitle>
+            <Tabs
+              value={deskTab}
+              onValueChange={(v) => {
+                setDeskTab(v as typeof deskTab);
+                setSelected(null);
+                setSelectedPayment(null);
+                setLedgerSearch("");
+              }}
+            >
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="queue">Queue</TabsTrigger>
+                <TabsTrigger value="paid-today">Paid today</TabsTrigger>
+                <TabsTrigger value="history">History</TabsTrigger>
+              </TabsList>
+            </Tabs>
           </CardHeader>
           <CardContent className="space-y-3">
+            {deskTab === "queue" && (
+              <>
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-1">
                 <Button
@@ -410,6 +474,11 @@ export function CashierDeskPage() {
                           <Badge variant="outline" className="mt-1 capitalize text-[10px]">
                             {item.status.replace(/_/g, " ")}
                           </Badge>
+                          {item.pending_collection_request ? (
+                            <Badge variant="default" className="mt-1 block text-[10px]">
+                              Sent to cashier
+                            </Badge>
+                          ) : null}
                         </div>
                       </div>
                     </button>
@@ -417,15 +486,144 @@ export function CashierDeskPage() {
                 ))}
               </ul>
             )}
+              </>
+            )}
+
+            {deskTab === "paid-today" && (
+              <CashierPaymentLedgerList
+                items={paidToday?.results ?? []}
+                isLoading={paidTodayLoading}
+                search={ledgerSearch}
+                onSearchChange={setLedgerSearch}
+                searchPlaceholder="Search today's receipts…"
+                emptyMessage="No payments recorded today."
+                selectedId={selectedPayment?.payment_id}
+                onSelect={setSelectedPayment}
+                onReprint={async (paymentId) => {
+                  try {
+                    const receipt = await fetchReceipt(paymentId).unwrap();
+                    setReceiptHtml(receipt.html);
+                    setReceiptTitle(receipt.receipt_number);
+                  } catch {
+                    toast.error("Could not load receipt");
+                  }
+                }}
+                totalAmount={paidToday?.total_amount}
+              />
+            )}
+
+            {deskTab === "history" && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">From</Label>
+                    <Input
+                      type="date"
+                      value={historyFrom}
+                      onChange={(e) => setHistoryFrom(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">To</Label>
+                    <Input
+                      type="date"
+                      value={historyTo}
+                      onChange={(e) => setHistoryTo(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <CashierPaymentLedgerList
+                  items={paymentHistory?.results ?? []}
+                  isLoading={historyLoading}
+                  search={ledgerSearch}
+                  onSearchChange={setLedgerSearch}
+                  emptyMessage="No payments in this range."
+                  selectedId={selectedPayment?.payment_id}
+                  onSelect={setSelectedPayment}
+                  onReprint={async (paymentId) => {
+                    try {
+                      const receipt = await fetchReceipt(paymentId).unwrap();
+                      setReceiptHtml(receipt.html);
+                      setReceiptTitle(receipt.receipt_number);
+                    } catch {
+                      toast.error("Could not load receipt");
+                    }
+                  }}
+                  showCashier
+                  totalAmount={paymentHistory?.total_amount}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
 
         <Card className="min-h-[420px]">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Bill details</CardTitle>
+            <CardTitle className="text-base">
+              {deskTab === "queue" ? "Bill details" : "Payment detail"}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            {!selected ? (
+            {deskTab !== "queue" ? (
+              !selectedPayment ? (
+                <p className="py-16 text-center text-sm text-muted-foreground">
+                  Select a payment to view details or reprint the receipt.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  <div className="rounded-lg border p-4">
+                    <p className="text-lg font-semibold">
+                      {selectedPayment.patient_name}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedPayment.receipt_number}
+                      {selectedPayment.patient_code
+                        ? ` · ${selectedPayment.patient_code}`
+                        : ""}
+                    </p>
+                    <p className="mt-2 text-sm">
+                      Cashier: {selectedPayment.cashier_name || "—"}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatBillingDateTime(selectedPayment.created_at)}
+                    </p>
+                    <p className="mt-3 text-xl font-semibold text-primary">
+                      {formatBillingCurrency(
+                        selectedPayment.amount,
+                        selectedPayment.currency
+                      )}
+                    </p>
+                    {selectedPayment.account_balance_due != null &&
+                      selectedPayment.account_balance_due > 0 && (
+                        <p className="mt-2 text-sm text-amber-700">
+                          Visit balance remaining:{" "}
+                          {formatBillingCurrency(
+                            selectedPayment.account_balance_due,
+                            selectedPayment.currency
+                          )}
+                        </p>
+                      )}
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        const receipt = await fetchReceipt(
+                          selectedPayment.payment_id
+                        ).unwrap();
+                        setReceiptHtml(receipt.html);
+                        setReceiptTitle(receipt.receipt_number);
+                      } catch {
+                        toast.error("Could not load receipt");
+                      }
+                    }}
+                  >
+                    <Printer className="mr-2 h-4 w-4" />
+                    Reprint receipt
+                  </Button>
+                </div>
+              )
+            ) : !selected ? (
               <p className="py-16 text-center text-sm text-muted-foreground">
                 Select a patient from the queue to review their bill.
               </p>

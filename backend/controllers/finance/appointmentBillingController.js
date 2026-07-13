@@ -74,10 +74,24 @@ const cancelEntry = async (req, res) => {
   }
 };
 
+const sendToCashier = async (req, res) => {
+  try {
+    const data = await service.sendToCashier(
+      req.params.appointmentId,
+      req.user,
+      req.body
+    );
+    return res.status(201).json({ success: true, data });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
 module.exports = {
   getContext,
   listActiveServices,
   createEntry,
   updateEntry,
   cancelEntry,
+  sendToCashier,
 };

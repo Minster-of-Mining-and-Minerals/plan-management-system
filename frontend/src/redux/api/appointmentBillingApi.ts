@@ -68,6 +68,25 @@ export const appointmentBillingApi = baseApi.injectEndpoints({
         { type: "AppointmentBilling", id: appointmentId },
       ],
     }),
+
+    sendAppointmentToCashier: builder.mutation<
+      import("../types/billing").BillingCollectionRequest,
+      { appointmentId: string; note?: string }
+    >({
+      query: ({ appointmentId, note }) => ({
+        url: `/appointment-billing/${appointmentId}/send-to-cashier`,
+        method: "POST",
+        body: note ? { note } : {},
+      }),
+      transformResponse: (r: {
+        data: import("../types/billing").BillingCollectionRequest;
+      }) => r.data,
+      invalidatesTags: (_r, _e, { appointmentId }) => [
+        { type: "AppointmentBilling", id: appointmentId },
+        "CashierQueue",
+        "Notification",
+      ],
+    }),
   }),
 });
 
@@ -77,4 +96,5 @@ export const {
   useCreateAppointmentBillingEntryMutation,
   useUpdateAppointmentBillingEntryMutation,
   useCancelAppointmentBillingEntryMutation,
+  useSendAppointmentToCashierMutation,
 } = appointmentBillingApi;

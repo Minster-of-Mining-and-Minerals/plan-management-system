@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
-import { Bell, CalendarClock, ClipboardList, Inbox, ShieldAlert, CheckCheck } from "lucide-react";
+import { Bell, CalendarClock, ClipboardList, Inbox, ShieldAlert, CheckCheck, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -20,6 +20,7 @@ import {
 const CATEGORY_OPTIONS = [
   { key: "appointments" as const, label: "Appointments", icon: CalendarClock },
   { key: "workflow" as const, label: "Workflow", icon: Inbox },
+  { key: "finance" as const, label: "Finance", icon: Wallet },
   { key: "system" as const, label: "System", icon: ShieldAlert },
   { key: "logs" as const, label: "Logs", icon: ClipboardList },
 ];
@@ -46,7 +47,7 @@ export default function TemplateNotificationDropdown({
 }) {
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState<
-    "appointments" | "workflow" | "system" | "logs"
+    "appointments" | "workflow" | "finance" | "system" | "logs"
   >("appointments");
 
   const { data: notifications = [], isLoading } = useGetNotificationsQuery({

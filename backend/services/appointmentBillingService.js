@@ -12,6 +12,7 @@ const {
   deriveAccountStatus,
   accountIsLockedForCharges,
 } = require("../utils/billingAccountStatus");
+const billingCollectionRequestService = require("./billingCollectionRequestService");
 const {
   BILLING_ENTRY_STATUSES,
   BILLING_DISCOUNT_TYPES,
@@ -229,6 +230,12 @@ async function getBillingContext(appointmentId) {
 
   const activeEntries = entries.filter((e) => e.status === "active");
   const summary = summarizeLines(activeEntries.map((e) => e.get({ plain: true })));
+  const collectionRequests =
+    await billingCollectionRequestService.listForAppointment(appointmentId);
+  const pendingCollectionRequest =
+    await billingCollectionRequestService.getLatestOpenForAccount(
+      account.account_id
+    );
 
   return {
     account: {
@@ -249,6 +256,8 @@ async function getBillingContext(appointmentId) {
       amount_paid: Number(account.amount_paid || 0),
       balance_due: Number(account.balance_due || 0),
     },
+    collection_requests: collectionRequests,
+    pending_collection_request: pendingCollectionRequest,
   };
 }
 
@@ -348,7 +357,7 @@ async function createEntry(appointmentId, payload, actor, auditContext = {}) {
   try {
     const account = await getOrCreateAccount(appointmentId, t);
 
-    if (["paid", "cancelled", "refunded"].includes(account.status)) {
+    if (["cancelled", "refunded"].includes(account.status)) {
       const err = new Error("Billing account is closed for new entries");
       err.status = 400;
       throw err;
@@ -547,4 +556,6 @@ module.exports = {
   updateEntry,
   cancelEntry,
   listActiveServices: listActiveServicesForUser,
+  sendToCashier: (appointmentId, actor, payload) =>
+    billingCollectionRequestService.sendToCashier(appointmentId, actor, payload),
 };

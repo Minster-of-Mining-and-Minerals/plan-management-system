@@ -36,6 +36,13 @@ export type CashierQueueItem = {
   schedule_date?: string | null;
   schedule_time?: string | null;
   assigned_staff_name?: string | null;
+  pending_collection_request?: {
+    request_id: string;
+    requested_at: string;
+    amount_due_at_request: number;
+    status: string;
+    requester_name?: string | null;
+  } | null;
 };
 
 export type CashierQueueResponse = {
@@ -136,6 +143,39 @@ export type CashierReceipt = {
   }>;
   tenders: PaymentTender[];
   html: string;
+};
+
+export type CashierPaymentLedgerItem = {
+  payment_id: string;
+  receipt_number: string;
+  account_id: string;
+  appointment_id: string;
+  patient_id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  reference_note?: string | null;
+  created_at: string;
+  patient_name?: string | null;
+  patient_code?: string | null;
+  cashier_name?: string | null;
+  cashier_user_id?: string;
+  session_id?: string;
+  tenders: PaymentTender[];
+  account_status?: string | null;
+  account_grand_total?: number | null;
+  account_balance_due?: number | null;
+};
+
+export type CashierPaymentLedgerResponse = {
+  total: number;
+  totalPages: number;
+  currentPage: number;
+  limit: number;
+  total_amount: number;
+  by_method?: Record<string, number>;
+  by_cashier?: Record<string, number>;
+  results: CashierPaymentLedgerItem[];
 };
 
 export type BillingSummary = {

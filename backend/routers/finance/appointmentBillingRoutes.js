@@ -47,4 +47,10 @@ router.delete(
   controller.cancelEntry
 );
 
+router.post(
+  "/:appointmentId/send-to-cashier",
+  checkPermission("billing_collection", "send"),
+  controller.sendToCashier
+);
+
 module.exports = router;

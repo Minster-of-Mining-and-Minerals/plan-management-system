@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Plus, Receipt, Trash2 } from "lucide-react";
+import { ChevronDown, Plus, Receipt, Trash2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,7 @@ import {
   useCreateAppointmentBillingEntryMutation,
   useGetAppointmentBillingQuery,
   useListAppointmentBillingServicesQuery,
+  useSendAppointmentToCashierMutation,
 } from "@/redux/api/appointmentBillingApi";
 import type { AppointmentBillingEntry } from "@/redux/types/billing";
 import { BILLING_PERMISSIONS, formatBillingCurrency, formatBillingDateTime } from "./billingUtils";
@@ -156,14 +157,18 @@ export function AppointmentBillingCard({ appointmentId, disabled }: Props) {
   const [createEntry, { isLoading: creating }] =
     useCreateAppointmentBillingEntryMutation();
   const [cancelEntry] = useCancelAppointmentBillingEntryMutation();
+  const [sendToCashier, { isLoading: sendingToCashier }] =
+    useSendAppointmentToCashierMutation();
 
   const activeEntries = (data?.entries ?? []).filter((e) => e.status === "active");
   const summary = data?.summary;
   const currency = data?.account?.currency || "ETB";
   const accountLocked =
-    (data?.account?.amount_paid ?? 0) > 0 ||
-    data?.account?.status === "partially_paid" ||
-    data?.account?.status === "paid";
+    data?.account?.status === "cancelled" ||
+    data?.account?.status === "refunded";
+  const balanceDue = summary?.balance_due ?? data?.account?.balance_due ?? 0;
+  const canSendToCashier =
+    activeEntries.length > 0 && balanceDue > 0 && !accountLocked;
 
   const handleAdd = async () => {
     if (!serviceId) {
@@ -204,6 +209,20 @@ export function AppointmentBillingCard({ appointmentId, disabled }: Props) {
     }
   };
 
+  const handleSendToCashier = async () => {
+    try {
+      await sendToCashier({ appointmentId }).unwrap();
+      toast.success("Patient sent to cashier desk");
+      refetch();
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === "object" && "data" in err
+          ? String((err as { data?: { message?: string } }).data?.message)
+          : "Could not send to cashier";
+      toast.error(message);
+    }
+  };
+
   return (
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
@@ -230,6 +249,23 @@ export function AppointmentBillingCard({ appointmentId, disabled }: Props) {
               <Button type="button" size="sm" onClick={() => setAddOpen(true)}>
                 <Plus className="mr-1.5 h-4 w-4" />
                 Add Billing
+              </Button>
+            </PermissionGuard>
+          )}
+          {!disabled && canSendToCashier && (
+            <PermissionGuard
+              requireAll={[BILLING_PERMISSIONS.COLLECTION_SEND]}
+              fallback={null}
+            >
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={sendingToCashier}
+                onClick={handleSendToCashier}
+              >
+                <Send className="mr-1.5 h-4 w-4" />
+                Send to cashier
               </Button>
             </PermissionGuard>
           )}
@@ -291,6 +327,44 @@ export function AppointmentBillingCard({ appointmentId, disabled }: Props) {
                 </>
               )}
             </div>
+          </div>
+        ) : null}
+
+        {data?.pending_collection_request ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
+            <p className="font-medium text-amber-900">At cashier desk</p>
+            <p className="text-amber-800">
+              Sent{" "}
+              {formatBillingDateTime(data.pending_collection_request.requested_at)}
+              {data.pending_collection_request.requester_name
+                ? ` by ${data.pending_collection_request.requester_name}`
+                : ""}
+              {" · "}
+              {formatBillingCurrency(
+                data.pending_collection_request.amount_due_at_request,
+                currency
+              )}{" "}
+              due at send time
+            </p>
+          </div>
+        ) : null}
+
+        {data?.collection_requests && data.collection_requests.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-sm font-semibold">Collection history</p>
+            <ul className="space-y-1 text-xs text-muted-foreground">
+              {data.collection_requests.slice(0, 5).map((req) => (
+                <li key={req.request_id} className="flex justify-between gap-2">
+                  <span>
+                    {formatBillingDateTime(req.requested_at)}
+                    {req.requester_name ? ` · ${req.requester_name}` : ""}
+                  </span>
+                  <Badge variant="outline" className="capitalize text-[10px]">
+                    {req.status.replace(/_/g, " ")}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
           </div>
         ) : null}
       </CardContent>

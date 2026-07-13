@@ -35,13 +35,7 @@ function accountHasPayments(account) {
 
 function accountIsLockedForCharges(account) {
   const status = account?.status;
-  return (
-    accountHasPayments(account) ||
-    status === "partially_paid" ||
-    status === "paid" ||
-    status === "cancelled" ||
-    status === "refunded"
-  );
+  return status === "cancelled" || status === "refunded";
 }
 
 module.exports = {

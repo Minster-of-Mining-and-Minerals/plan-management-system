@@ -3,7 +3,7 @@ import { baseApi } from "../baseApi";
 export type AppNotification = {
   notification_id: string;
   recipient_id: string;
-  category?: "system" | "logs" | "appointments" | "workflow";
+  category?: "system" | "logs" | "appointments" | "workflow" | "finance";
   title: string;
   message: string;
   related_entity_type?: string | null;
@@ -12,7 +12,7 @@ export type AppNotification = {
   created_at: string;
 };
 
-export type NotificationCategory = "system" | "logs" | "appointments" | "workflow";
+export type NotificationCategory = "system" | "logs" | "appointments" | "workflow" | "finance";
 
 /** Navigate to the screen for an internal notification, if applicable. */
 export function getNotificationHref(notification: AppNotification): string | null {
@@ -25,6 +25,12 @@ export function getNotificationHref(notification: AppNotification): string | nul
   }
   if (notification.category === "workflow") {
     return `/appointments/${id}`;
+  }
+  if (
+    type === "billing_collection" ||
+    notification.category === "finance"
+  ) {
+    return `/finance/cashier?account=${id}`;
   }
   return null;
 }

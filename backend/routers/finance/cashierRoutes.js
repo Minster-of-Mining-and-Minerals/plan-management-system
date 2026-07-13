@@ -44,6 +44,24 @@ router.get(
 );
 
 router.get(
+  "/payments/today",
+  checkPermission("cashier_queue", "view"),
+  controller.listPaymentsToday
+);
+
+router.get(
+  "/payments",
+  checkPermission("cashier_payment", "view"),
+  controller.listPaymentHistory
+);
+
+router.get(
+  "/collections",
+  checkPermission("finance_collections", "view"),
+  controller.listPaymentHistory
+);
+
+router.get(
   "/accounts/:accountId",
   checkPermission("cashier_payment", "view"),
   controller.getAccount

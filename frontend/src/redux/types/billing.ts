@@ -74,6 +74,21 @@ export type AppointmentBillingSummary = {
   balance_due?: number;
 };
 
+export type BillingCollectionRequest = {
+  request_id: string;
+  account_id: string;
+  appointment_id: string;
+  patient_id: string;
+  requested_by: string;
+  requested_at: string;
+  amount_due_at_request: number;
+  status: string;
+  source: string;
+  note?: string | null;
+  collected_at?: string | null;
+  requester_name?: string | null;
+};
+
 export type AppointmentBillingContext = {
   account: {
     account_id: string;
@@ -92,4 +107,6 @@ export type AppointmentBillingContext = {
   };
   entries: AppointmentBillingEntry[];
   summary: AppointmentBillingSummary;
+  collection_requests?: BillingCollectionRequest[];
+  pending_collection_request?: BillingCollectionRequest | null;
 };

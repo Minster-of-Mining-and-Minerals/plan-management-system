@@ -10,6 +10,9 @@ const {
   accountIsLockedForCharges,
 } = require("../utils/billingAccountStatus");
 const { buildReceiptHtml } = require("../utils/cashierReceipt");
+const { renderReceiptFromTemplate } = require("../utils/receiptTemplateRenderer");
+const receiptTemplateService = require("./receiptTemplateService");
+const billingCollectionRequestService = require("./billingCollectionRequestService");
 const {
   PAYABLE_ACCOUNT_STATUSES,
   PAYMENT_METHODS,
@@ -26,6 +29,7 @@ const {
   User,
   PatientProfile,
   PatientSchedule,
+  SystemBranding,
 } = db;
 
 const patientInclude = {
@@ -73,7 +77,7 @@ function formatMoneyFields(obj, fields) {
   return out;
 }
 
-function formatQueueItem(accountRow) {
+function formatQueueItem(accountRow, collectionRequest = null) {
   const plain = accountRow.get ? accountRow.get({ plain: true }) : accountRow;
   return {
     account_id: plain.account_id,
@@ -94,6 +98,7 @@ function formatQueueItem(accountRow) {
       ? `${plain.appointment.schedule.start_time}–${plain.appointment.schedule.end_time}`
       : null,
     assigned_staff_name: plain.appointment?.staff?.full_name || null,
+    pending_collection_request: collectionRequest,
   };
 }
 
@@ -138,7 +143,7 @@ async function listQueue({ search, schedule_date, page = 1, limit = 20 } = {}) {
     order: [["updated_at", "ASC"]],
   });
 
-  if (search?.trim()) {
+    if (search?.trim()) {
     const q = search.trim().toLowerCase();
     rows = rows.filter((row) => {
       const item = formatQueueItem(row);
@@ -154,13 +159,248 @@ async function listQueue({ search, schedule_date, page = 1, limit = 20 } = {}) {
 
   const total = rows.length;
   const offset = (Math.max(Number(page), 1) - 1) * Math.max(Number(limit), 1);
-  const results = rows.slice(offset, offset + limit).map(formatQueueItem);
+  const pageRows = rows.slice(offset, offset + limit);
+
+  const collectionMap = new Map();
+  await Promise.all(
+    pageRows.map(async (row) => {
+      const plain = row.get ? row.get({ plain: true }) : row;
+      const latest = await billingCollectionRequestService.getLatestOpenForAccount(
+        plain.account_id
+      );
+      if (latest) collectionMap.set(plain.account_id, latest);
+    })
+  );
+
+  const results = pageRows.map((row) => {
+    const plain = row.get ? row.get({ plain: true }) : row;
+    return formatQueueItem(row, collectionMap.get(plain.account_id) || null);
+  });
 
   return {
     total,
     totalPages: Math.max(1, Math.ceil(total / limit)),
     currentPage: Number(page),
     limit: Number(limit),
+    results,
+  };
+}
+
+function startOfDay(dateStr) {
+  const d = dateStr ? new Date(`${dateStr}T00:00:00`) : new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function endOfDay(dateStr) {
+  const d = dateStr ? new Date(`${dateStr}T23:59:59.999`) : new Date();
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
+function formatPaymentLedgerItem(paymentRow) {
+  const plain = paymentRow.get ? paymentRow.get({ plain: true }) : paymentRow;
+  return {
+    payment_id: plain.payment_id,
+    receipt_number: plain.receipt_number,
+    account_id: plain.account_id,
+    appointment_id: plain.appointment_id,
+    patient_id: plain.patient_id,
+    amount: Number(plain.amount),
+    currency: plain.currency,
+    status: plain.status,
+    reference_note: plain.reference_note,
+    created_at: plain.created_at,
+    patient_name: plain.patient?.full_name || null,
+    patient_code: plain.patient?.patientProfile?.patient_code || null,
+    cashier_name: plain.receiver?.full_name || null,
+    cashier_user_id: plain.received_by,
+    session_id: plain.session_id,
+    tenders: (plain.tenders || []).map((t) => ({
+      method: t.method,
+      amount: Number(t.amount),
+      reference: t.reference,
+      provider: t.provider,
+    })),
+    account_status: plain.account?.status || null,
+    account_grand_total:
+      plain.account?.grand_total != null
+        ? Number(plain.account.grand_total)
+        : null,
+    account_balance_due:
+      plain.account?.balance_due != null
+        ? Number(plain.account.balance_due)
+        : null,
+  };
+}
+
+async function listPaymentsToday({ search, date, page = 1, limit = 50 } = {}) {
+  const dayStart = startOfDay(date);
+  const dayEnd = endOfDay(date);
+
+  let rows = await CashierPayment.findAll({
+    where: {
+      status: "completed",
+      created_at: { [Op.between]: [dayStart, dayEnd] },
+    },
+    include: [
+      {
+        model: User,
+        as: "patient",
+        attributes: ["user_id", "full_name"],
+        include: [
+          {
+            model: PatientProfile,
+            as: "patientProfile",
+            attributes: ["patient_code"],
+          },
+        ],
+      },
+      {
+        model: User,
+        as: "receiver",
+        attributes: ["user_id", "full_name"],
+      },
+      {
+        model: AppointmentBillingAccount,
+        as: "account",
+        attributes: [
+          "account_id",
+          "status",
+          "grand_total",
+          "balance_due",
+          "amount_paid",
+        ],
+      },
+      { model: PaymentTender, as: "tenders" },
+    ],
+    order: [["created_at", "DESC"]],
+  });
+
+  if (search?.trim()) {
+    const q = search.trim().toLowerCase();
+    rows = rows.filter((row) => {
+      const item = formatPaymentLedgerItem(row);
+      return (
+        item.patient_name?.toLowerCase().includes(q) ||
+        item.patient_code?.toLowerCase().includes(q) ||
+        item.receipt_number?.toLowerCase().includes(q)
+      );
+    });
+  }
+
+  const total = rows.length;
+  const offset = (Math.max(Number(page), 1) - 1) * Math.max(Number(limit), 1);
+  const results = rows.slice(offset, offset + limit).map(formatPaymentLedgerItem);
+  const totalAmount = rows.reduce((sum, row) => sum + Number(row.amount), 0);
+
+  return {
+    total,
+    totalPages: Math.max(1, Math.ceil(total / limit)),
+    currentPage: Number(page),
+    limit: Number(limit),
+    total_amount: roundMoney(totalAmount),
+    results,
+  };
+}
+
+async function listPaymentHistory({
+  search,
+  from_date,
+  to_date,
+  cashier_user_id,
+  page = 1,
+  limit = 50,
+} = {}) {
+  const where = { status: "completed" };
+
+  if (from_date || to_date) {
+    where.created_at = {};
+    if (from_date) where.created_at[Op.gte] = startOfDay(from_date);
+    if (to_date) where.created_at[Op.lte] = endOfDay(to_date);
+  }
+
+  if (cashier_user_id) {
+    where.received_by = cashier_user_id;
+  }
+
+  let rows = await CashierPayment.findAll({
+    where,
+    include: [
+      {
+        model: User,
+        as: "patient",
+        attributes: ["user_id", "full_name"],
+        include: [
+          {
+            model: PatientProfile,
+            as: "patientProfile",
+            attributes: ["patient_code"],
+          },
+        ],
+      },
+      {
+        model: User,
+        as: "receiver",
+        attributes: ["user_id", "full_name"],
+      },
+      {
+        model: AppointmentBillingAccount,
+        as: "account",
+        attributes: [
+          "account_id",
+          "status",
+          "grand_total",
+          "balance_due",
+          "amount_paid",
+        ],
+      },
+      { model: PaymentTender, as: "tenders" },
+    ],
+    order: [["created_at", "DESC"]],
+  });
+
+  if (search?.trim()) {
+    const q = search.trim().toLowerCase();
+    rows = rows.filter((row) => {
+      const item = formatPaymentLedgerItem(row);
+      return (
+        item.patient_name?.toLowerCase().includes(q) ||
+        item.patient_code?.toLowerCase().includes(q) ||
+        item.receipt_number?.toLowerCase().includes(q) ||
+        item.cashier_name?.toLowerCase().includes(q)
+      );
+    });
+  }
+
+  const total = rows.length;
+  const offset = (Math.max(Number(page), 1) - 1) * Math.max(Number(limit), 1);
+  const results = rows.slice(offset, offset + limit).map(formatPaymentLedgerItem);
+  const totalAmount = rows.reduce((sum, row) => sum + Number(row.amount), 0);
+
+  const byMethod = {};
+  for (const row of rows) {
+    for (const tender of row.tenders || []) {
+      byMethod[tender.method] = roundMoney(
+        (byMethod[tender.method] || 0) + Number(tender.amount)
+      );
+    }
+  }
+
+  const byCashier = {};
+  for (const row of rows) {
+    const name = row.receiver?.full_name || "Unknown";
+    byCashier[name] = roundMoney((byCashier[name] || 0) + Number(row.amount));
+  }
+
+  return {
+    total,
+    totalPages: Math.max(1, Math.ceil(total / limit)),
+    currentPage: Number(page),
+    limit: Number(limit),
+    total_amount: roundMoney(totalAmount),
+    by_method: byMethod,
+    by_cashier: byCashier,
     results,
   };
 }
@@ -367,6 +607,11 @@ async function recordPayment(accountId, payload, actor, auditContext = {}) {
 
     await t.commit();
 
+    await billingCollectionRequestService.syncAfterPayment(account.account_id, {
+      balanceDue: Math.max(newBalanceDue, 0),
+      accountStatus: newStatus,
+    });
+
     await logAudit({
       actorUserId: actor.user_id,
       action: "create",
@@ -459,6 +704,11 @@ async function voidPayment(paymentId, actor, auditContext = {}) {
     );
 
     await t.commit();
+
+    await billingCollectionRequestService.syncAfterPayment(account.account_id, {
+      balanceDue: Math.max(newBalanceDue, 0),
+      accountStatus: newStatus,
+    });
 
     await logAudit({
       actorUserId: actor.user_id,
@@ -556,8 +806,28 @@ async function getPaymentReceipt(paymentId) {
 
   return {
     ...receipt,
-    html: buildReceiptHtml(receipt),
+    html: await buildReceiptHtmlForPayment(receipt),
   };
+}
+
+async function getActiveBrandingRecord() {
+  return SystemBranding.findOne({
+    where: { is_active: true },
+    order: [["updated_at", "DESC"]],
+  });
+}
+
+async function buildReceiptHtmlForPayment(receipt) {
+  const template = await receiptTemplateService.getDefaultActive();
+  const brandingRow = await getActiveBrandingRecord();
+  const branding = brandingRow
+    ? { hospital_name: brandingRow.system_name }
+    : {};
+
+  if (template?.html_content) {
+    return renderReceiptFromTemplate(template.html_content, receipt, branding);
+  }
+  return buildReceiptHtml(receipt);
 }
 
 async function getBillingSummariesForAppointments(appointmentIds = []) {
@@ -592,6 +862,8 @@ async function getBillingSummariesForAppointments(appointmentIds = []) {
 
 module.exports = {
   listQueue,
+  listPaymentsToday,
+  listPaymentHistory,
   getAccountDetail,
   recordPayment,
   voidPayment,
