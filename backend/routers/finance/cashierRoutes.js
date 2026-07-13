@@ -74,6 +74,24 @@ router.get(
 );
 
 router.post(
+  "/accounts/:accountId/take",
+  checkPermission("cashier_payment", "create"),
+  controller.takeAccount
+);
+
+router.post(
+  "/accounts/:accountId/release",
+  checkPermission("cashier_payment", "create"),
+  controller.releaseAccount
+);
+
+router.post(
+  "/accounts/:accountId/force-release",
+  checkPermission("finance_collections", "view"),
+  controller.forceReleaseAccount
+);
+
+router.post(
   "/accounts/:accountId/payments",
   checkPermission("cashier_payment", "create"),
   validateRecordPayment,

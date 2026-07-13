@@ -2,6 +2,7 @@
 
 const sessionService = require("../../services/cashierSessionService");
 const paymentService = require("../../services/cashierPaymentService");
+const servingClaimService = require("../../services/cashierServingClaimService");
 
 const handleError = (res, error) => {
   const status = error.status || 500;
@@ -63,7 +64,10 @@ const getSessionSummary = async (req, res) => {
 
 const listQueue = async (req, res) => {
   try {
-    const data = await paymentService.listQueue(req.query);
+    const data = await paymentService.listQueue({
+      ...req.query,
+      viewerUserId: req.user.user_id,
+    });
     return res.status(200).json({ success: true, data });
   } catch (error) {
     return handleError(res, error);
@@ -90,7 +94,48 @@ const listPaymentHistory = async (req, res) => {
 
 const getAccount = async (req, res) => {
   try {
-    const data = await paymentService.getAccountDetail(req.params.accountId);
+    const data = await paymentService.getAccountDetail(
+      req.params.accountId,
+      req.user.user_id
+    );
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+const takeAccount = async (req, res) => {
+  try {
+    const data = await servingClaimService.takeAccount(
+      req.params.accountId,
+      req.user
+    );
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+const releaseAccount = async (req, res) => {
+  try {
+    const data = await servingClaimService.releaseAccount(
+      req.params.accountId,
+      req.user,
+      { force: false }
+    );
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+const forceReleaseAccount = async (req, res) => {
+  try {
+    const data = await servingClaimService.releaseAccount(
+      req.params.accountId,
+      req.user,
+      { force: true }
+    );
     return res.status(200).json({ success: true, data });
   } catch (error) {
     return handleError(res, error);
@@ -142,6 +187,9 @@ module.exports = {
   listPaymentsToday,
   listPaymentHistory,
   getAccount,
+  takeAccount,
+  releaseAccount,
+  forceReleaseAccount,
   recordPayment,
   voidPayment,
   getReceipt,

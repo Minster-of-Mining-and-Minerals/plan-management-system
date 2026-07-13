@@ -14,6 +14,10 @@ const { renderReceiptFromTemplate } = require("../utils/receiptTemplateRenderer"
 const receiptTemplateService = require("./receiptTemplateService");
 const billingCollectionRequestService = require("./billingCollectionRequestService");
 const {
+  formatServingClaim,
+  assertCanCollect,
+} = require("./cashierServingClaimService");
+const {
   PAYABLE_ACCOUNT_STATUSES,
   PAYMENT_METHODS,
   CASHIER_PAYMENT_STATUSES,
@@ -81,7 +85,7 @@ function formatMoneyFields(obj, fields) {
   return out;
 }
 
-function formatQueueItem(accountRow, collectionRequest = null) {
+function formatQueueItem(accountRow, collectionRequest = null, viewerUserId = null) {
   const plain = accountRow.get ? accountRow.get({ plain: true }) : accountRow;
   return {
     account_id: plain.account_id,
@@ -103,6 +107,7 @@ function formatQueueItem(accountRow, collectionRequest = null) {
       : null,
     assigned_staff_name: plain.appointment?.staff?.full_name || null,
     pending_collection_request: collectionRequest,
+    serving_claim: formatServingClaim(plain, viewerUserId),
   };
 }
 
@@ -124,7 +129,13 @@ async function nextReceiptNumber(transaction) {
   return `RCP-${year}-${String(next).padStart(6, "0")}`;
 }
 
-async function listQueue({ search, schedule_date, page = 1, limit = 20 } = {}) {
+async function listQueue({
+  search,
+  schedule_date,
+  page = 1,
+  limit = 20,
+  viewerUserId = null,
+} = {}) {
   // Queue only shows visits that were explicitly sent to cashier
   // and still have an open collection request.
   const where = { status: { [Op.in]: PAYABLE_ACCOUNT_STATUSES } };
@@ -162,6 +173,12 @@ async function listQueue({ search, schedule_date, page = 1, limit = 20 } = {}) {
           "source",
         ],
       },
+      {
+        model: User,
+        as: "servingCashier",
+        attributes: ["user_id", "full_name"],
+        required: false,
+      },
     ],
     order: [["updated_at", "ASC"]],
   });
@@ -169,7 +186,7 @@ async function listQueue({ search, schedule_date, page = 1, limit = 20 } = {}) {
   if (search?.trim()) {
     const q = search.trim().toLowerCase();
     rows = rows.filter((row) => {
-      const item = formatQueueItem(row);
+      const item = formatQueueItem(row, null, viewerUserId);
       return (
         item.patient_name?.toLowerCase().includes(q) ||
         item.patient_code?.toLowerCase().includes(q) ||
@@ -190,7 +207,7 @@ async function listQueue({ search, schedule_date, page = 1, limit = 20 } = {}) {
       const latest = await billingCollectionRequestService.getLatestOpenForAccount(
         plain.account_id
       );
-      return formatQueueItem(row, latest);
+      return formatQueueItem(row, latest, viewerUserId);
     })
   );
 
@@ -422,11 +439,17 @@ async function listPaymentHistory({
   };
 }
 
-async function getAccountDetail(accountId) {
+async function getAccountDetail(accountId, viewerUserId = null) {
   const account = await AppointmentBillingAccount.findByPk(accountId, {
     include: [
       patientInclude,
       appointmentInclude,
+      {
+        model: User,
+        as: "servingCashier",
+        attributes: ["user_id", "full_name"],
+        required: false,
+      },
       {
         model: AppointmentBillingEntry,
         as: "entries",
@@ -452,16 +475,18 @@ async function getAccountDetail(accountId) {
 
   const plain = account.get({ plain: true });
   const summary = summarizeLines(plain.entries || []);
+  const accountFormatted = formatMoneyFields(plain, [
+    "subtotal",
+    "discount_total",
+    "tax_total",
+    "grand_total",
+    "amount_paid",
+    "balance_due",
+  ]);
 
   return {
-    account: formatMoneyFields(plain, [
-      "subtotal",
-      "discount_total",
-      "tax_total",
-      "grand_total",
-      "amount_paid",
-      "balance_due",
-    ]),
+    account: accountFormatted,
+    serving_claim: formatServingClaim(plain, viewerUserId),
     entries: (plain.entries || []).map((entry) =>
       formatMoneyFields(entry, [
         "quantity",
@@ -562,6 +587,8 @@ async function recordPayment(accountId, payload, actor, auditContext = {}) {
       throw err;
     }
 
+    await assertCanCollect(account.account_id, actor.user_id, t);
+
     const balanceDue = roundMoney(Number(account.balance_due));
     if (balanceDue <= 0) {
       const err = new Error("Nothing due on this account");
@@ -630,6 +657,11 @@ async function recordPayment(accountId, payload, actor, auditContext = {}) {
         status: newStatus,
         last_payment_at: now,
         paid_at: newStatus === "paid" ? now : account.paid_at,
+        // Release claim after every successful collect so the visit can
+        // return to the shared queue (partials) or leave it (fully paid).
+        serving_by: null,
+        serving_claimed_at: null,
+        serving_expires_at: null,
       },
       { transaction: t }
     );

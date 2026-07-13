@@ -33,6 +33,14 @@ export type CashierSessionSummary = {
   currency: string;
 };
 
+export type CashierServingClaim = {
+  serving_by: string;
+  serving_by_name?: string | null;
+  serving_claimed_at: string;
+  serving_expires_at: string;
+  is_mine: boolean;
+};
+
 export type CashierQueueItem = {
   account_id: string;
   appointment_id: string;
@@ -57,6 +65,7 @@ export type CashierQueueItem = {
     status: string;
     requester_name?: string | null;
   } | null;
+  serving_claim?: CashierServingClaim | null;
 };
 
 export type CashierQueueResponse = {
@@ -114,6 +123,7 @@ export type CashierAccountDetail = {
       staff?: { full_name?: string };
     };
   };
+  serving_claim?: CashierServingClaim | null;
   entries: Array<{
     entry_id: string;
     service_name: string;

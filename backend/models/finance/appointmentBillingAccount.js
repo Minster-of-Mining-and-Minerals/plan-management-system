@@ -25,6 +25,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "account_id",
         as: "collectionRequests",
       });
+      AppointmentBillingAccount.belongsTo(models.User, {
+        foreignKey: "serving_by",
+        as: "servingCashier",
+      });
     }
   }
 
@@ -79,6 +83,9 @@ module.exports = (sequelize, DataTypes) => {
       },
       paid_at: { type: DataTypes.DATE, allowNull: true },
       last_payment_at: { type: DataTypes.DATE, allowNull: true },
+      serving_by: { type: DataTypes.UUID, allowNull: true },
+      serving_claimed_at: { type: DataTypes.DATE, allowNull: true },
+      serving_expires_at: { type: DataTypes.DATE, allowNull: true },
     },
     {
       sequelize,

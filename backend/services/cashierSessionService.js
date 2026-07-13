@@ -128,6 +128,8 @@ async function getSessionSummary(sessionId) {
 }
 
 async function closeSession(sessionId, userId, payload = {}, auditContext = {}) {
+  const { releaseAllForCashier } = require("./cashierServingClaimService");
+
   const row = await CashierSession.findByPk(sessionId);
   if (!row || row.status !== "open") {
     const err = new Error("Open cashier session not found");
@@ -160,6 +162,9 @@ async function closeSession(sessionId, userId, payload = {}, auditContext = {}) 
     variance,
     close_notes: payload.close_notes?.trim() || null,
   });
+
+  // Free any patients this cashier was still holding when the shift ends.
+  await releaseAllForCashier(userId);
 
   await logAudit({
     actorUserId: userId,

@@ -4,6 +4,7 @@ import type {
   CashierPaymentLedgerResponse,
   CashierQueueResponse,
   CashierReceipt,
+  CashierServingClaim,
   CashierSession,
   CashierSessionSummary,
   PaymentMethod,
@@ -42,6 +43,7 @@ export const cashierApi = baseApi.injectEndpoints({
       transformResponse: (r: { data: CashierSession }) => r.data,
       invalidatesTags: [
         "CashierSession",
+        "CashierQueue",
         "CashierPaymentsToday",
         "CashierPaymentHistory",
         "FinanceCollections",
@@ -70,6 +72,51 @@ export const cashierApi = baseApi.injectEndpoints({
       query: (accountId) => `/finance/cashier/accounts/${accountId}`,
       transformResponse: (r: { data: CashierAccountDetail }) => r.data,
       providesTags: (_r, _e, accountId) => [
+        { type: "CashierAccount", id: accountId },
+      ],
+    }),
+
+    takeCashierAccount: builder.mutation<
+      CashierServingClaim,
+      { accountId: string }
+    >({
+      query: ({ accountId }) => ({
+        url: `/finance/cashier/accounts/${accountId}/take`,
+        method: "POST",
+      }),
+      transformResponse: (r: { data: CashierServingClaim }) => r.data,
+      invalidatesTags: (_r, _e, { accountId }) => [
+        "CashierQueue",
+        { type: "CashierAccount", id: accountId },
+      ],
+    }),
+
+    releaseCashierAccount: builder.mutation<
+      { released: boolean },
+      { accountId: string }
+    >({
+      query: ({ accountId }) => ({
+        url: `/finance/cashier/accounts/${accountId}/release`,
+        method: "POST",
+      }),
+      transformResponse: (r: { data: { released: boolean } }) => r.data,
+      invalidatesTags: (_r, _e, { accountId }) => [
+        "CashierQueue",
+        { type: "CashierAccount", id: accountId },
+      ],
+    }),
+
+    forceReleaseCashierAccount: builder.mutation<
+      { released: boolean },
+      { accountId: string }
+    >({
+      query: ({ accountId }) => ({
+        url: `/finance/cashier/accounts/${accountId}/force-release`,
+        method: "POST",
+      }),
+      transformResponse: (r: { data: { released: boolean } }) => r.data,
+      invalidatesTags: (_r, _e, { accountId }) => [
+        "CashierQueue",
         { type: "CashierAccount", id: accountId },
       ],
     }),
@@ -194,6 +241,9 @@ export const {
   useLazyGetCashierSessionSummaryQuery,
   useGetCashierQueueQuery,
   useGetCashierAccountQuery,
+  useTakeCashierAccountMutation,
+  useReleaseCashierAccountMutation,
+  useForceReleaseCashierAccountMutation,
   useRecordCashierPaymentMutation,
   useVoidCashierPaymentMutation,
   useGetCashierReceiptQuery,

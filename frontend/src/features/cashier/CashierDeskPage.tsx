@@ -49,6 +49,9 @@ import {
   useGetCashierSessionSummaryQuery,
   useGetCurrentCashierSessionQuery,
   useOpenCashierSessionMutation,
+  useTakeCashierAccountMutation,
+  useReleaseCashierAccountMutation,
+  useForceReleaseCashierAccountMutation,
   useRecordCashierPaymentMutation,
   useVoidCashierPaymentMutation,
   useLazyGetCashierReceiptQuery,
@@ -135,12 +138,15 @@ export function CashierDeskPage() {
     useCloseCashierSessionMutation();
 
   const { data: queue, isLoading: queueLoading, refetch: refetchQueue } =
-    useGetCashierQueueQuery({
-      search: search.trim() || undefined,
-      schedule_date: dateFilterEnabled ? scheduleDate : undefined,
-      page: 1,
-      limit: 50,
-    });
+    useGetCashierQueueQuery(
+      {
+        search: search.trim() || undefined,
+        schedule_date: dateFilterEnabled ? scheduleDate : undefined,
+        page: 1,
+        limit: 50,
+      },
+      { pollingInterval: 15000 }
+    );
 
   const { data: paidToday, isLoading: paidTodayLoading } =
     useGetCashierPaymentsTodayQuery(
@@ -174,15 +180,27 @@ export function CashierDeskPage() {
   const { data: accountDetail, isLoading: accountLoading } =
     useGetCashierAccountQuery(selectedAccountId!, {
       skip: !selectedAccountId,
+      pollingInterval: selectedAccountId ? 15000 : 0,
     });
 
   const [recordPayment, { isLoading: paying }] =
     useRecordCashierPaymentMutation();
   const [voidPayment, { isLoading: voiding }] = useVoidCashierPaymentMutation();
+  const [takeAccount, { isLoading: taking }] = useTakeCashierAccountMutation();
+  const [releaseAccount, { isLoading: releasing }] =
+    useReleaseCashierAccountMutation();
+  const [forceReleaseAccount, { isLoading: forceReleasing }] =
+    useForceReleaseCashierAccountMutation();
   const [fetchReceipt] = useLazyGetCashierReceiptQuery();
 
   const balanceDue = accountDetail?.account.balance_due ?? selected?.balance_due ?? 0;
   const currency = accountDetail?.account.currency ?? selected?.currency ?? "ETB";
+  const servingClaim =
+    accountDetail?.serving_claim ?? selected?.serving_claim ?? null;
+  const canCollect =
+    Boolean(session) &&
+    balanceDue > 0 &&
+    Boolean(servingClaim?.is_mine);
 
   const tenderTotal = useMemo(
     () =>
@@ -207,6 +225,16 @@ export function CashierDeskPage() {
       setDeskTab("queue");
     }
   }, [accountFromUrl, queue?.results]);
+
+  useEffect(() => {
+    if (!selected?.account_id || !queue?.results.length) return;
+    const fresh = queue.results.find(
+      (item) => item.account_id === selected.account_id
+    );
+    if (fresh) {
+      setSelected(fresh);
+    }
+  }, [queue?.results, selected?.account_id]);
 
   const handleOpenSession = async () => {
     try {
@@ -248,6 +276,52 @@ export function CashierDeskPage() {
         err && typeof err === "object" && "data" in err
           ? String((err as { data?: { message?: string } }).data?.message)
           : "Could not close session"
+      );
+    }
+  };
+
+  const handleTakePatient = async () => {
+    if (!selectedAccountId) return;
+    try {
+      await takeAccount({ accountId: selectedAccountId }).unwrap();
+      toast.success("Patient taken — you can collect payment now");
+      refetchQueue();
+    } catch (err: unknown) {
+      toast.error(
+        err && typeof err === "object" && "data" in err
+          ? String((err as { data?: { message?: string } }).data?.message)
+          : "Could not take patient"
+      );
+      refetchQueue();
+    }
+  };
+
+  const handleReleasePatient = async () => {
+    if (!selectedAccountId) return;
+    try {
+      await releaseAccount({ accountId: selectedAccountId }).unwrap();
+      toast.success("Patient released back to the queue");
+      refetchQueue();
+    } catch (err: unknown) {
+      toast.error(
+        err && typeof err === "object" && "data" in err
+          ? String((err as { data?: { message?: string } }).data?.message)
+          : "Could not release patient"
+      );
+    }
+  };
+
+  const handleForceReleasePatient = async () => {
+    if (!selectedAccountId) return;
+    try {
+      await forceReleaseAccount({ accountId: selectedAccountId }).unwrap();
+      toast.success("Serving claim force-released");
+      refetchQueue();
+    } catch (err: unknown) {
+      toast.error(
+        err && typeof err === "object" && "data" in err
+          ? String((err as { data?: { message?: string } }).data?.message)
+          : "Could not force-release"
       );
     }
   };
@@ -329,9 +403,9 @@ export function CashierDeskPage() {
               Cashier desk
             </CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
-              Queue = waiting to pay. Paid today / History = already collected.
-              Patients appear in Queue only after clinical staff clicks Send to
-              cashier.
+              Queue = waiting to pay. Take a patient before Collect so two
+              cashiers cannot work the same visit. Paid today / History =
+              already collected.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -518,8 +592,20 @@ export function CashierDeskPage() {
                           <Badge variant="outline" className="mt-1 capitalize text-[10px]">
                             {item.status.replace(/_/g, " ")}
                           </Badge>
+                          {item.serving_claim ? (
+                            <Badge
+                              variant={
+                                item.serving_claim.is_mine ? "default" : "secondary"
+                              }
+                              className="mt-1 block text-[10px]"
+                            >
+                              {item.serving_claim.is_mine
+                                ? "Serving · You"
+                                : `Serving · ${item.serving_claim.serving_by_name || "cashier"}`}
+                            </Badge>
+                          ) : null}
                           {item.pending_collection_request ? (
-                            <Badge variant="default" className="mt-1 block text-[10px]">
+                            <Badge variant="outline" className="mt-1 block text-[10px]">
                               Sent to cashier
                             </Badge>
                           ) : null}
@@ -824,18 +910,82 @@ export function CashierDeskPage() {
                   requireAll={[CASHIER_PERMISSIONS.PAYMENT_CREATE]}
                   fallback={null}
                 >
-                  <Button
-                    className="w-full sm:w-auto"
-                    disabled={!session || balanceDue <= 0}
-                    onClick={() => setPaymentOpen(true)}
-                  >
-                    <Banknote className="mr-1.5 h-4 w-4" />
-                    Collect payment
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {!servingClaim ? (
+                      <Button
+                        className="w-full sm:w-auto"
+                        disabled={!session || balanceDue <= 0 || taking}
+                        onClick={handleTakePatient}
+                      >
+                        {taking ? (
+                          <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                        ) : null}
+                        Take patient
+                      </Button>
+                    ) : servingClaim.is_mine ? (
+                      <>
+                        <Button
+                          className="w-full sm:w-auto"
+                          disabled={!canCollect}
+                          onClick={() => setPaymentOpen(true)}
+                        >
+                          <Banknote className="mr-1.5 h-4 w-4" />
+                          Collect payment
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="w-full sm:w-auto"
+                          disabled={releasing}
+                          onClick={handleReleasePatient}
+                        >
+                          {releasing ? (
+                            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                          ) : null}
+                          Release
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="space-y-2">
+                        <p className="text-sm text-amber-800">
+                          Being served by{" "}
+                          {servingClaim.serving_by_name || "another cashier"}.
+                          Collect is locked until they release or the 10-minute
+                          hold expires.
+                        </p>
+                        <PermissionGuard
+                          requireAll={[CASHIER_PERMISSIONS.COLLECTIONS_VIEW]}
+                          fallback={null}
+                        >
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={forceReleasing}
+                            onClick={handleForceReleasePatient}
+                          >
+                            Force release
+                          </Button>
+                        </PermissionGuard>
+                      </div>
+                    )}
+                  </div>
                 </PermissionGuard>
                 {!session && balanceDue > 0 && (
                   <p className="text-xs text-amber-700">
-                    Open a cashier session before collecting payment.
+                    Open a cashier session before taking a patient.
+                  </p>
+                )}
+                {session && balanceDue > 0 && !servingClaim && (
+                  <p className="text-xs text-muted-foreground">
+                    Take this patient first — then Collect payment unlocks.
+                  </p>
+                )}
+                {servingClaim?.is_mine && (
+                  <p className="text-xs text-muted-foreground">
+                    You are serving this patient
+                    {servingClaim.serving_expires_at
+                      ? ` · hold until ${formatBillingDateTime(servingClaim.serving_expires_at)}`
+                      : ""}
+                    .
                   </p>
                 )}
               </div>
@@ -1144,7 +1294,7 @@ export function CashierDeskPage() {
             <Button variant="outline" onClick={() => setPaymentOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCollectPayment} disabled={paying}>
+            <Button onClick={handleCollectPayment} disabled={paying || !canCollect}>
               Record payment
             </Button>
           </DialogFooter>
