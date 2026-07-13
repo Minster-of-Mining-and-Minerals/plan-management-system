@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
 import { Plus, Pencil, Power, PowerOff } from "lucide-react";
 import { toast } from "sonner";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { TableLayout } from "@/features/template/component/tableList/TableLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -22,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { FilterField, ActionButton } from "@/types/tableLayout";
 import {
   useActivateBillingServiceMutation,
   useCreateBillingServiceMutation,
@@ -31,7 +34,9 @@ import {
 } from "@/redux/api/billingServiceApi";
 import { useGetDepartmentsQuery } from "@/redux/api/departmentApi";
 import type { BillingService } from "@/redux/types/billing";
-import { formatBillingCurrency } from "./billingUtils";
+import { formatBillingCurrency, BILLING_PERMISSIONS } from "./billingUtils";
+import { usePermissions } from "@/hooks/usePermissions";
+import { formatStatus } from "@/utils/statusFormatter";
 
 const EMPTY_FORM = {
   name: "",
@@ -44,17 +49,20 @@ const EMPTY_FORM = {
 };
 
 export function BillingServiceList() {
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
+  const searchParams = useSearchParams();
+  const searchQuery = searchParams.get("search") || "";
+
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
   const [statusFilter, setStatusFilter] = useState("");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<BillingService | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
 
   const { data, isLoading, refetch } = useListBillingServicesQuery({
-    page,
-    limit: 10,
-    search: search || undefined,
+    page: pageIndex + 1,
+    limit: pageSize,
+    search: searchQuery.trim() || undefined,
     status: statusFilter || undefined,
   });
   const { data: departments = [] } = useGetDepartmentsQuery({ page: 1, limit: 100 });
@@ -64,11 +72,62 @@ export function BillingServiceList() {
   const [activateService] = useActivateBillingServiceMutation();
   const [deactivateService] = useDeactivateBillingServiceMutation();
 
+  const { can } = usePermissions();
+  const canCreate = can(BILLING_PERMISSIONS.SERVICE_CREATE);
+  const canUpdate = can(BILLING_PERMISSIONS.SERVICE_UPDATE);
+  const canActivate = can(BILLING_PERMISSIONS.SERVICE_ACTIVATE);
+  const canDeactivate = can(BILLING_PERMISSIONS.SERVICE_DEACTIVATE);
+
+  useEffect(() => {
+    setPageIndex(0);
+  }, [searchQuery, statusFilter]);
+
+  const openCreate = () => {
+    if (!canCreate) return;
+    setEditing(null);
+    setForm(EMPTY_FORM);
+    setOpen(true);
+  };
+
+  const openEdit = useCallback(
+    (service: BillingService) => {
+      if (!canUpdate) return;
+      setEditing(service);
+      setForm({
+        name: service.name,
+        code: service.code || "",
+        department_id: service.department_id || "",
+        unit_price: String(service.unit_price),
+        tax_percent: String(service.tax_percent ?? 0),
+        currency: service.currency,
+        status: service.status,
+      });
+      setOpen(true);
+    },
+    [canUpdate]
+  );
+
   const columns: ColumnDef<BillingService>[] = useMemo(
     () => [
-      { accessorKey: "name", header: "Service" },
-      { accessorKey: "code", header: "Code" },
-      { accessorKey: "department_name", header: "Department" },
+      {
+        accessorKey: "name",
+        header: "Service",
+        cell: ({ row }) => (
+          <span className="font-medium text-primary">{row.original.name}</span>
+        ),
+      },
+      {
+        accessorKey: "code",
+        header: "Code",
+        cell: ({ row }) => (
+          <span className="font-mono text-sm">{row.original.code || "—"}</span>
+        ),
+      },
+      {
+        accessorKey: "department_name",
+        header: "Department",
+        cell: ({ row }) => row.original.department_name || "—",
+      },
       {
         accessorKey: "unit_price",
         header: "Unit price",
@@ -87,33 +146,30 @@ export function BillingServiceList() {
       {
         accessorKey: "status",
         header: "Status",
-        cell: ({ row }) => (
-          <Badge variant={row.original.status === "active" ? "default" : "secondary"}>
-            {row.original.status}
-          </Badge>
-        ),
+        cell: ({ row }) => {
+          const isActive = row.original.status === "active";
+          return (
+            <Badge variant={isActive ? "default" : "secondary"}>
+              {formatStatus(isActive ? "Active" : "Inactive")}
+            </Badge>
+          );
+        },
       },
       {
         id: "actions",
         header: "Actions",
         cell: ({ row }) => (
-          <div className="flex gap-1">
+          <div className="flex items-center gap-1">
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => {
-                setEditing(row.original);
-                setForm({
-                  name: row.original.name,
-                  code: row.original.code || "",
-                  department_id: row.original.department_id || "",
-                  unit_price: String(row.original.unit_price),
-                  tax_percent: String(row.original.tax_percent ?? 0),
-                  currency: row.original.currency,
-                  status: row.original.status,
-                });
-                setOpen(true);
-              }}
+              disabled={!canUpdate}
+              title={
+                canUpdate
+                  ? "Edit service"
+                  : "You do not have permission to edit services"
+              }
+              onClick={() => openEdit(row.original)}
             >
               <Pencil className="h-4 w-4" />
             </Button>
@@ -121,7 +177,14 @@ export function BillingServiceList() {
               <Button
                 variant="ghost"
                 size="icon"
+                disabled={!canDeactivate}
+                title={
+                  canDeactivate
+                    ? "Deactivate service"
+                    : "You do not have permission to deactivate services"
+                }
                 onClick={async () => {
+                  if (!canDeactivate) return;
                   try {
                     await deactivateService(row.original.service_id).unwrap();
                     toast.success("Service deactivated");
@@ -137,7 +200,14 @@ export function BillingServiceList() {
               <Button
                 variant="ghost"
                 size="icon"
+                disabled={!canActivate}
+                title={
+                  canActivate
+                    ? "Activate service"
+                    : "You do not have permission to activate services"
+                }
                 onClick={async () => {
+                  if (!canActivate) return;
                   try {
                     await activateService(row.original.service_id).unwrap();
                     toast.success("Service activated");
@@ -154,16 +224,57 @@ export function BillingServiceList() {
         ),
       },
     ],
-    [activateService, deactivateService, refetch]
+    [
+      activateService,
+      canActivate,
+      canDeactivate,
+      canUpdate,
+      deactivateService,
+      openEdit,
+      refetch,
+    ]
   );
 
-  const openCreate = () => {
-    setEditing(null);
-    setForm(EMPTY_FORM);
-    setOpen(true);
+  const filters: FilterField[] = [
+    {
+      key: "status",
+      label: "Status",
+      type: "multiselect",
+      placeholder: "Select status",
+      value: statusFilter,
+      onChange: setStatusFilter,
+      options: [
+        { label: "Active", value: "active" },
+        { label: "Inactive", value: "inactive" },
+      ],
+    },
+  ];
+
+  const actions: ActionButton[] = [
+    {
+      label: "New service",
+      icon: <Plus className="h-4 w-4" />,
+      variant: "default",
+      permissions: [BILLING_PERMISSIONS.SERVICE_CREATE],
+      onClick: openCreate,
+    },
+  ];
+
+  const handlePagination = (index: number, size: number) => {
+    setPageIndex(index);
+    setPageSize(size);
   };
 
   const handleSubmit = async () => {
+    if (editing && !canUpdate) {
+      toast.error("You do not have permission to update services");
+      return;
+    }
+    if (!editing && !canCreate) {
+      toast.error("You do not have permission to create services");
+      return;
+    }
+
     const taxPercent =
       form.tax_percent.trim() === "" ? 0 : Number(form.tax_percent);
     const body = {
@@ -175,6 +286,7 @@ export function BillingServiceList() {
       currency: form.currency,
       status: form.status,
     };
+
     try {
       if (editing) {
         await updateService({ id: editing.service_id, body }).unwrap();
@@ -195,61 +307,31 @@ export function BillingServiceList() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="min-w-[200px] flex-1">
-          <Label>Search</Label>
-          <Input
-            className="mt-1"
-            value={search}
-            onChange={(e) => {
-              setPage(1);
-              setSearch(e.target.value);
-            }}
-            placeholder="Name or code"
-          />
-        </div>
-        <div className="w-40">
-          <Label>Status</Label>
-          <Select
-            value={statusFilter || "all"}
-            onValueChange={(v) => {
-              setPage(1);
-              setStatusFilter(v === "all" ? "" : v);
-            }}
-          >
-            <SelectTrigger className="mt-1">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <Button onClick={openCreate}>
-          <Plus className="mr-1.5 h-4 w-4" />
-          New service
-        </Button>
-      </div>
-
-      <div className="overflow-hidden rounded-lg border">
+    <>
+      <TableLayout
+        title="Billing service catalog"
+        description="Manage billable services, unit price, optional tax, and department assignment."
+        actions={actions}
+        filters={filters}
+        filterColumnsPerRow={1}
+      >
         <DataTable
           columns={columns}
           data={data?.results ?? []}
           isLoading={isLoading}
           totalPageCount={data?.totalPages ?? 1}
-          handlePagination={(index) => setPage(index + 1)}
-          tablePageSize={10}
-          currentIndex={page - 1}
+          handlePagination={handlePagination}
+          tablePageSize={pageSize}
+          currentIndex={pageIndex}
         />
-      </div>
+      </TableLayout>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editing ? "Edit service" : "New billing service"}</DialogTitle>
+            <DialogTitle>
+              {editing ? "Edit service" : "New billing service"}
+            </DialogTitle>
           </DialogHeader>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2">
@@ -277,7 +359,9 @@ export function BillingServiceList() {
                 step="0.01"
                 className="mt-1"
                 value={form.unit_price}
-                onChange={(e) => setForm((f) => ({ ...f, unit_price: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, unit_price: e.target.value }))
+                }
               />
             </div>
             <div>
@@ -289,7 +373,9 @@ export function BillingServiceList() {
                 step="0.01"
                 className="mt-1"
                 value={form.tax_percent}
-                onChange={(e) => setForm((f) => ({ ...f, tax_percent: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, tax_percent: e.target.value }))
+                }
               />
             </div>
             <div>
@@ -297,7 +383,9 @@ export function BillingServiceList() {
               <Input
                 className="mt-1"
                 value={form.currency}
-                onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, currency: e.target.value }))
+                }
               />
             </div>
             <div className="sm:col-span-2">
@@ -322,13 +410,16 @@ export function BillingServiceList() {
               </Select>
             </div>
             <div className="sm:col-span-2">
-              <Button onClick={handleSubmit}>
+              <Button
+                onClick={handleSubmit}
+                disabled={editing ? !canUpdate : !canCreate}
+              >
                 {editing ? "Save changes" : "Create service"}
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

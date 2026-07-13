@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Plus, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { TableLayout } from "@/features/template/component/tableList/TableLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,13 +16,17 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { ActionButton } from "@/types/tableLayout";
 import { useClientDataTable } from "@/hooks/useClientDataTable";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
   useCreatePrescriptionCategoryMutation,
   useListPrescriptionCategoriesQuery,
   useUpdatePrescriptionCategoryMutation,
 } from "@/redux/api/prescriptionCategoryApi";
 import type { PrescriptionCategory } from "@/redux/types/prescription";
+import { PRESCRIPTION_CONFIG_PERMISSIONS } from "./prescriptionConfigPermissions";
+import { formatStatus } from "@/utils/statusFormatter";
 
 export function PrescriptionCategoryList() {
   const { data = [], isLoading, refetch } = useListPrescriptionCategoriesQuery();
@@ -31,40 +36,9 @@ export function PrescriptionCategoryList() {
   const [editing, setEditing] = useState<PrescriptionCategory | null>(null);
   const [form, setForm] = useState({ name: "", code: "", description: "" });
 
-  const columns: ColumnDef<PrescriptionCategory>[] = [
-    { accessorKey: "name", header: "Name" },
-    { accessorKey: "code", header: "Code" },
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: ({ row }) => (
-        <Badge variant={row.original.status === "active" ? "default" : "secondary"}>
-          {row.original.status}
-        </Badge>
-      ),
-    },
-    {
-      id: "actions",
-      header: "Actions",
-      cell: ({ row }) => (
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => {
-            setEditing(row.original);
-            setForm({
-              name: row.original.name,
-              code: row.original.code,
-              description: row.original.description || "",
-            });
-            setOpen(true);
-          }}
-        >
-          <Pencil className="h-4 w-4" />
-        </Button>
-      ),
-    },
-  ];
+  const { can } = usePermissions();
+  const canCreate = can(PRESCRIPTION_CONFIG_PERMISSIONS.CATEGORY_CREATE);
+  const canUpdate = can(PRESCRIPTION_CONFIG_PERMISSIONS.CATEGORY_UPDATE);
 
   const { paginated, totalPageCount, pageIndex, pageSize, handlePagination } =
     useClientDataTable(data, {
@@ -72,13 +46,98 @@ export function PrescriptionCategoryList() {
       sortFn: (a, b) => a.name.localeCompare(b.name),
     });
 
-  const openCreate = () => {
+  const openCreate = useCallback(() => {
+    if (!canCreate) return;
     setEditing(null);
     setForm({ name: "", code: "", description: "" });
     setOpen(true);
-  };
+  }, [canCreate]);
+
+  const openEdit = useCallback(
+    (category: PrescriptionCategory) => {
+      if (!canUpdate) return;
+      setEditing(category);
+      setForm({
+        name: category.name,
+        code: category.code,
+        description: category.description || "",
+      });
+      setOpen(true);
+    },
+    [canUpdate]
+  );
+
+  const columns: ColumnDef<PrescriptionCategory>[] = useMemo(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Name",
+        cell: ({ row }) => (
+          <span className="font-medium text-primary">{row.original.name}</span>
+        ),
+      },
+      {
+        accessorKey: "code",
+        header: "Code",
+        cell: ({ row }) => (
+          <span className="font-mono text-sm">{row.original.code}</span>
+        ),
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => {
+          const isActive = row.original.status === "active";
+          return (
+            <Badge variant={isActive ? "default" : "secondary"}>
+              {formatStatus(isActive ? "Active" : "Inactive")}
+            </Badge>
+          );
+        },
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => (
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={!canUpdate}
+            title={
+              canUpdate
+                ? "Edit category"
+                : "You do not have permission to edit categories"
+            }
+            onClick={() => openEdit(row.original)}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+        ),
+      },
+    ],
+    [canUpdate, openEdit]
+  );
+
+  const actions: ActionButton[] = [
+    {
+      label: "New category",
+      icon: <Plus className="h-4 w-4" />,
+      variant: "default",
+      permissions: [PRESCRIPTION_CONFIG_PERMISSIONS.CATEGORY_CREATE],
+      onClick: openCreate,
+    },
+  ];
 
   const handleSubmit = async () => {
+    if (editing && !canUpdate) {
+      toast.error("You do not have permission to update categories");
+      return;
+    }
+    if (!editing && !canCreate) {
+      toast.error("You do not have permission to create categories");
+      return;
+    }
+
     try {
       if (editing) {
         await updateCategory({
@@ -98,14 +157,8 @@ export function PrescriptionCategoryList() {
   };
 
   return (
-    <div className="space-y-3">
-      <div className="flex justify-end">
-        <Button size="sm" onClick={openCreate}>
-          <Plus className="mr-1.5 h-4 w-4" />
-          New category
-        </Button>
-      </div>
-      <div className="overflow-hidden rounded-lg border">
+    <>
+      <TableLayout actions={actions}>
         <DataTable
           columns={columns}
           data={paginated}
@@ -115,7 +168,7 @@ export function PrescriptionCategoryList() {
           tablePageSize={pageSize}
           currentIndex={pageIndex}
         />
-      </div>
+      </TableLayout>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
@@ -147,10 +200,12 @@ export function PrescriptionCategoryList() {
                 }
               />
             </div>
-            <Button onClick={handleSubmit}>Save</Button>
+            <Button onClick={handleSubmit} disabled={editing ? !canUpdate : !canCreate}>
+              Save
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

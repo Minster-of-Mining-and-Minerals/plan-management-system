@@ -1,5 +1,7 @@
-import { BillingServiceManagement } from "@/features/billing/BillingServiceManagement";
+"use client";
+
+import { BillingServiceList } from "@/features/billing/BillingServiceList";
 
 export default function BillingServicesPage() {
-  return <BillingServiceManagement />;
+  return <BillingServiceList />;
 }
