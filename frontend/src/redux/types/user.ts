@@ -71,8 +71,10 @@ export interface User {
   roles?: Role[];
   permissionGroups?: PermissionGroup[];
   internalProfile?: InternalUserProfile;
-  /** True when user has PATIENTS:RECEIVE_PATIENT (eligible for diagnosis form assignment). */
+  /** True when user has PATIENTS:RECEIVE_PATIENT (workflow inbox / forward target). */
   can_receive_patient?: boolean;
+  /** True when user has PATIENTS:RECEIVE_APPOINTMENT (scheduling / admitted visits). */
+  can_receive_appointment?: boolean;
 }
 
 export interface CreateUserPayload {

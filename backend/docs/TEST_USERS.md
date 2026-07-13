@@ -28,8 +28,8 @@ Each user has **one permission group only** (no RBAC roles) so they see only the
 
 | Group | Permissions |
 |-------|-------------|
-| PG – Reception | patients (read, create, receive_patient, schedule), workflow (read, submit, forward, return, complete) |
-| PG – Doctor | patients (read, receive_patient), workflow (read, submit, forward, return, prescribe, complete), diagnosis_forms (read), clinical_suggestion (read) |
+| PG – Reception | patients (read, create, schedule), workflow (read, submit, forward, return, complete) |
+| PG – Doctor | patients (read, receive_appointment, receive_patient), workflow (read, submit, forward, return, prescribe, complete), diagnosis_forms (read), clinical_suggestion (read) |
 | PG – Lab | patients (read, receive_patient), workflow (read, submit, forward, return, complete), diagnosis_forms (read) |
 | PG – Cashier | cashier_queue (view), cashier_session (open, close, view), cashier_payment (create, view) |
 

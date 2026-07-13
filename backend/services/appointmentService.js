@@ -229,9 +229,14 @@ async function listAppointmentsForStaffWithAccess(staffId, options = {}) {
   }));
 }
 
+async function userCanReceiveAppointments(userId) {
+  const scheduleService = require("./patientScheduleService");
+  return scheduleService.staffHasReceiveAppointmentPermission(userId);
+}
+
 async function userCanReceivePatients(userId) {
   const scheduleService = require("./patientScheduleService");
-  return scheduleService.staffHasReceivePermission(userId);
+  return scheduleService.staffHasReceivePatientPermission(userId);
 }
 
 module.exports = {
@@ -242,5 +247,6 @@ module.exports = {
   listAppointmentsForStaffWithAccess,
   getAppointmentById,
   getAppointmentForStaff,
+  userCanReceiveAppointments,
   userCanReceivePatients,
 };

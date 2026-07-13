@@ -1,6 +1,7 @@
 import React from "react";
 import { ToggleLeft, ToggleRight } from "lucide-react";
 import { Permission } from "../../types/permission";
+import { formatPermissionAction } from "@/utils/formatPermissionAction";
 
 interface PermissionItemProps {
   permission: Permission;
@@ -24,7 +25,7 @@ export const PermissionItem: React.FC<PermissionItemProps> = ({
     <div className="flex items-center justify-between py-1 px-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
       <div className="flex items-center space-x-3 flex-1">
         <span className="text-sm font-medium text-gray-700 capitalize">
-          {permission.action.replace("_", " ")}
+          {formatPermissionAction(permission.action)}
         </span>
       </div>
 

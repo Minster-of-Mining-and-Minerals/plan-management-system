@@ -3,13 +3,16 @@
 const diagnosisRecordService = require("../../services/diagnosisRecordService");
 const appointmentService = require("../../services/appointmentService");
 
-const ensureReceivePatient = async (req, res, next) => {
+const ensureClinicalStaff = async (req, res, next) => {
   try {
-    const ok = await appointmentService.userCanReceivePatients(req.user.user_id);
-    if (!ok) {
+    const userId = req.user.user_id;
+    const canWork =
+      (await appointmentService.userCanReceiveAppointments(userId)) ||
+      (await appointmentService.userCanReceivePatients(userId));
+    if (!canWork) {
       return res.status(403).json({
         success: false,
-        message: "You do not have permission to receive patients",
+        message: "You do not have permission to access clinical records",
       });
     }
     return next();
@@ -48,7 +51,7 @@ const saveForAppointment = async (req, res) => {
 };
 
 module.exports = {
-  ensureReceivePatient,
+  ensureClinicalStaff,
   getForAppointment,
   saveForAppointment,
 };

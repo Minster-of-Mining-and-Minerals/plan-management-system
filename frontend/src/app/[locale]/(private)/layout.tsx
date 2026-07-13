@@ -22,15 +22,16 @@ export default function PrivateLayout({
   const { data: session, status } = useSession();
   const { permissions, isLoaded } = useAuth();
   const isFirstLogin = session?.user?.is_first_logged_in;
-  const canReceivePatients = hasAnyPermission(permissions, [
+  const canReceiveClinical = hasAnyPermission(permissions, [
+    "PATIENTS:RECEIVE_APPOINTMENT",
     "PATIENTS:RECEIVE_PATIENT",
   ]);
 
   const { data: unreadCount = 0 } = useGetUnreadNotificationCountQuery(
     undefined,
     {
-      skip: !isLoaded || !canReceivePatients,
-      pollingInterval: canReceivePatients ? 30_000 : 0,
+      skip: !isLoaded || !canReceiveClinical,
+      pollingInterval: canReceiveClinical ? 30_000 : 0,
     }
   );
 
@@ -84,9 +85,9 @@ export default function PrivateLayout({
           title={title || "Profile"}
           showSidebar={showSidebar}
           notificationsHref={
-            canReceivePatients ? "/notifications" : undefined
+            canReceiveClinical ? "/notifications" : undefined
           }
-          notificationCount={canReceivePatients ? unreadCount : 0}
+          notificationCount={canReceiveClinical ? unreadCount : 0}
         />
         <div className="p-6">{children}</div>
       </SidebarInset>

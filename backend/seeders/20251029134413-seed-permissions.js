@@ -44,6 +44,7 @@ module.exports = {
       { resource: "patients", action: "delete" },
       { resource: "patients", action: "export" },
       { resource: "patients", action: "receive_patient" },
+      { resource: "patients", action: "receive_appointment" },
       { resource: "patients", action: "schedule" },
 
       // Form field configuration (patient intake forms)

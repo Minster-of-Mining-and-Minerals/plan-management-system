@@ -200,19 +200,19 @@ const OPHTHALMOLOGY_DEMO_STAFF = [
 
 const ROLE_PERMISSION_MATRIX = {
   Doctor: {
-    patients: ["read", "receive_patient"],
+    patients: ["read", "receive_appointment", "receive_patient"],
     workflow: ["read", "submit", "forward", "return", "prescribe", "complete"],
     diagnosis_forms: ["read"],
     clinical_suggestion: ["read"],
   },
   Nurse: {
-    patients: ["read", "receive_patient"],
+    patients: ["read", "receive_appointment", "receive_patient"],
     workflow: ["read", "submit", "forward", "return", "prescribe", "complete"],
     diagnosis_forms: ["read"],
     clinical_suggestion: ["read"],
   },
   Receptionist: {
-    patients: ["read", "receive_patient", "schedule", "create"],
+    patients: ["read", "schedule", "create"],
     workflow: ["read", "submit", "forward", "return", "complete"],
     diagnosis_forms: ["read"],
     clinical_suggestion: ["read"],
@@ -224,7 +224,7 @@ const ROLE_PERMISSION_MATRIX = {
     clinical_suggestion: ["read"],
   },
   Optometrist: {
-    patients: ["read", "receive_patient"],
+    patients: ["read", "receive_appointment", "receive_patient"],
     workflow: ["read", "submit", "forward", "return", "complete"],
     diagnosis_forms: ["read"],
     clinical_suggestion: ["read"],

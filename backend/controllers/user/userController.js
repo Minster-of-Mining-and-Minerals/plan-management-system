@@ -373,8 +373,15 @@ const getUsers = async (req, res) => {
       "patients",
       "receive_patient"
     );
+    const receiveAppointmentUsers = await listUsersWithPermission(
+      "patients",
+      "receive_appointment"
+    );
     const receivePatientIds = new Set(
       receivePatientUsers.map((u) => u.user_id)
+    );
+    const receiveAppointmentIds = new Set(
+      receiveAppointmentUsers.map((u) => u.user_id)
     );
 
     const data = users.map((u) => {
@@ -382,6 +389,7 @@ const getUsers = async (req, res) => {
       return {
         ...plain,
         can_receive_patient: receivePatientIds.has(plain.user_id),
+        can_receive_appointment: receiveAppointmentIds.has(plain.user_id),
       };
     });
 

@@ -4,13 +4,13 @@ const appointmentService = require("../../services/appointmentService");
 
 const listMyAppointments = async (req, res) => {
   try {
-    const canReceive = await appointmentService.userCanReceivePatients(
+    const canReceive = await appointmentService.userCanReceiveAppointments(
       req.user.user_id
     );
     if (!canReceive) {
       return res.status(403).json({
         success: false,
-        message: "You do not have permission to receive patients",
+        message: "You do not have permission to receive appointments",
       });
     }
 
@@ -31,19 +31,23 @@ const listMyAppointments = async (req, res) => {
 
 const getAppointment = async (req, res) => {
   try {
-    const canReceive = await appointmentService.userCanReceivePatients(
-      req.user.user_id
+    const userId = req.user.user_id;
+    const canReceiveAppointment = await appointmentService.userCanReceiveAppointments(
+      userId
     );
-    if (!canReceive) {
+    const canReceiveWorkflow = await appointmentService.userCanReceivePatients(
+      userId
+    );
+    if (!canReceiveAppointment && !canReceiveWorkflow) {
       return res.status(403).json({
         success: false,
-        message: "You do not have permission to receive patients",
+        message: "You do not have permission to access this appointment",
       });
     }
 
     const data = await appointmentService.getAppointmentForStaff(
       req.params.id,
-      req.user.user_id
+      userId
     );
 
     return res.json({ success: true, data });

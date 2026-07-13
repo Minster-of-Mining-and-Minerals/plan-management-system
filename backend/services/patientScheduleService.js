@@ -87,12 +87,21 @@ function getSlotsForDate(dateStr, settings) {
   return generateSlotsForDay(dayCfg, settings.slot_interval_minutes);
 }
 
-async function staffHasReceivePermission(staffId) {
+async function staffHasReceivePatientPermission(staffId) {
   return userHasPermission(staffId, "patients", "receive_patient");
 }
 
+async function staffHasReceiveAppointmentPermission(staffId) {
+  return userHasPermission(staffId, "patients", "receive_appointment");
+}
+
+/** @deprecated Use staffHasReceivePatientPermission or staffHasReceiveAppointmentPermission */
+async function staffHasReceivePermission(staffId) {
+  return staffHasReceivePatientPermission(staffId);
+}
+
 async function getEligibleStaff() {
-  return listUsersWithPermission("patients", "receive_patient", {
+  return listUsersWithPermission("patients", "receive_appointment", {
     extraIncludes: [
       {
         model: db.InternalUserProfile,
@@ -237,9 +246,9 @@ async function createSchedule(payload, actorId) {
     throw err;
   }
 
-  const canReceive = await staffHasReceivePermission(assigned_staff_id);
+  const canReceive = await staffHasReceiveAppointmentPermission(assigned_staff_id);
   if (!canReceive) {
-    const err = new Error("Selected staff cannot receive patients");
+    const err = new Error("Selected staff cannot receive appointments");
     err.status = 400;
     throw err;
   }
@@ -611,4 +620,6 @@ module.exports = {
   buildMatrixMeta,
   shiftSchedules,
   staffHasReceivePermission,
+  staffHasReceivePatientPermission,
+  staffHasReceiveAppointmentPermission,
 };

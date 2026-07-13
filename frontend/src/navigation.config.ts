@@ -133,13 +133,13 @@ export const NAVIGATION: NavItem[] = [
     title: "Appointments",
     url: "/appointments",
     icon: CalendarCheck,
-    anyPermissions: ["PATIENTS:RECEIVE_PATIENT"],
+    anyPermissions: ["PATIENTS:RECEIVE_APPOINTMENT"],
   },
   {
     title: "Workflow Inbox",
     url: "/workflow-inbox",
     icon: Inbox,
-    anyPermissions: ["WORKFLOW:READ", "PATIENTS:RECEIVE_PATIENT"],
+    allPermissions: ["WORKFLOW:READ", "PATIENTS:RECEIVE_PATIENT"],
   },
   {
     title: "Diagnosis",

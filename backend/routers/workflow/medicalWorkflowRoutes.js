@@ -12,7 +12,7 @@ const {
   requireWorkflowAction,
 } = require("../../middlewares/workflowPermissionMiddleware");
 
-router.use(authenticateToken, requireInternalAccount, controller.ensureReceivePatient);
+router.use(authenticateToken, requireInternalAccount);
 
 router.get("/inbox", checkPermission("workflow", "read"), controller.listInbox);
 router.get(

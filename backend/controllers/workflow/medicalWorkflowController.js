@@ -9,7 +9,7 @@ const ensureReceivePatient = async (req, res, next) => {
     if (!ok) {
       return res.status(403).json({
         success: false,
-        message: "You do not have permission to receive patients",
+        message: "You do not have permission to receive workflow patients",
       });
     }
     return next();
@@ -63,6 +63,14 @@ const listTimeline = async (req, res) => {
 
 const listInbox = async (req, res) => {
   try {
+    const ok = await appointmentService.userCanReceivePatients(req.user.user_id);
+    if (!ok) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to receive workflow patients",
+      });
+    }
+
     const { status } = req.query;
     const rows = await medicalWorkflowService.listInbox(req.user.user_id, { status });
     return res.json({ success: true, data: rows });

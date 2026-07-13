@@ -9,7 +9,7 @@ const {
 const { requireInternalAccount } = require("../../middlewares/accountTypeMiddleware");
 const { validateSaveRecord } = require("../../validators/diagnosis/diagnosisFormValidator");
 
-router.use(authenticateToken, requireInternalAccount, controller.ensureReceivePatient);
+router.use(authenticateToken, requireInternalAccount, controller.ensureClinicalStaff);
 
 router.get("/appointment/:appointmentId", controller.getForAppointment);
 router.put(

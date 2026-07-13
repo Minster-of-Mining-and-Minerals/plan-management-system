@@ -45,6 +45,8 @@ async function ensurePermissionGroup(queryInterface, group, now) {
     groupId = group.permission_group_id;
   }
 
+  const desiredPermissionIds = new Set();
+
   for (const [resource, actions] of Object.entries(group.permissions)) {
     for (const action of actions) {
       const permissionId = await findPermissionId(queryInterface, resource, action);
@@ -54,6 +56,8 @@ async function ensurePermissionGroup(queryInterface, group, now) {
         );
         continue;
       }
+
+      desiredPermissionIds.add(permissionId);
 
       const [linked] = await queryInterface.sequelize.query(
         `SELECT permission_group_id FROM permission_group_permissions
@@ -69,6 +73,28 @@ async function ensurePermissionGroup(queryInterface, group, now) {
           created_at: now,
         },
       ]);
+    }
+  }
+
+  const managedResources = Object.keys(group.permissions);
+  if (managedResources.length) {
+    const [currentLinks] = await queryInterface.sequelize.query(
+      `SELECT pgp.permission_id
+       FROM permission_group_permissions pgp
+       JOIN permissions p ON p.permission_id = pgp.permission_id
+       WHERE pgp.permission_group_id = :groupId
+         AND p.resource IN (:resources)`,
+      { replacements: { groupId, resources: managedResources } }
+    );
+
+    for (const link of currentLinks) {
+      if (!desiredPermissionIds.has(link.permission_id)) {
+        await queryInterface.sequelize.query(
+          `DELETE FROM permission_group_permissions
+           WHERE permission_group_id = :groupId AND permission_id = :permissionId`,
+          { replacements: { groupId, permissionId: link.permission_id } }
+        );
+      }
     }
   }
 

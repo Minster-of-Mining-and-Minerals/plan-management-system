@@ -15,6 +15,8 @@ function permissionResolutionIncludes() {
         {
           model: db.RolePermission,
           as: "rolePermissions",
+          where: { is_active: true },
+          required: false,
           include: [
             {
               model: db.Permission,
@@ -59,6 +61,7 @@ function plainUserHasPermission(plainUser, resource, action) {
 
   for (const role of plainUser.roles || []) {
     for (const rp of role.rolePermissions || []) {
+      if (rp.is_active === false) continue;
       if (permissionMatches(rp.permission, resource, action)) {
         return true;
       }

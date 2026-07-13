@@ -11,7 +11,7 @@ const TEST_PERMISSION_GROUPS = [
     name: "PG – Reception",
     description: "Front desk — patient intake, scheduling, and workflow routing.",
     permissions: {
-      patients: ["read", "create", "receive_patient", "schedule"],
+      patients: ["read", "create", "schedule"],
       workflow: ["read", "submit", "forward", "return", "complete"],
     },
   },
@@ -20,7 +20,7 @@ const TEST_PERMISSION_GROUPS = [
     name: "PG – Doctor",
     description: "Clinical physician — workflow, diagnosis, and prescribing.",
     permissions: {
-      patients: ["read", "receive_patient"],
+      patients: ["read", "receive_appointment", "receive_patient"],
       workflow: ["read", "submit", "forward", "return", "prescribe", "complete"],
       diagnosis_forms: ["read"],
       clinical_suggestion: ["read"],

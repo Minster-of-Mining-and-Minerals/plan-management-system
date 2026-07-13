@@ -9,12 +9,15 @@ import { useAuth } from "@/hooks/use-auth";
 const POLL_MS = 30_000;
 
 /**
- * Polls unread notifications for staff with receive_patient permission
+ * Polls unread notifications for clinical staff (appointment or workflow receivers)
  * and shows a toast when new items arrive.
  */
 export function useInternalNotificationAlerts(enabled: boolean) {
   const { permissions } = useAuth();
-  const canReceive = hasAnyPermission(permissions, ["PATIENTS:RECEIVE_PATIENT"]);
+  const canReceive = hasAnyPermission(permissions, [
+    "PATIENTS:RECEIVE_APPOINTMENT",
+    "PATIENTS:RECEIVE_PATIENT",
+  ]);
   const active = enabled && canReceive;
 
   const { data: notifications = [] } = useGetNotificationsQuery(undefined, {

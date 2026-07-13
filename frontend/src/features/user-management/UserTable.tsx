@@ -83,7 +83,8 @@ export default function UserTable({ sideActions }: UserTableProps) {
                     <Button onClick={() => router.push(`/users/list/${row.original.user_id}`)} variant="ghost" size="icon" title="View user">
                         <Eye className="h-4 w-4" />
                     </Button>
-                    {row.original.can_receive_patient && (
+                    {(row.original.can_receive_patient ||
+                      row.original.can_receive_appointment) && (
                         <Button
                             variant="ghost"
                             size="icon"

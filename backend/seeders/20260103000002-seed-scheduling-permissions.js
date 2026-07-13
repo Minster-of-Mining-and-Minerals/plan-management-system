@@ -12,6 +12,14 @@ const STAFF_RECEIVE_ROLE_NAMES = [
   "Receptionist",
 ];
 
+const APPOINTMENT_RECEIVER_ROLE_NAMES = [
+  "Super Admin",
+  "Admin",
+  "Doctor",
+  "Nurse",
+  "Optometrist",
+];
+
 const SCHEDULE_ADMIN_ROLE_NAMES = [
   "Super Admin",
   "Admin",
@@ -48,6 +56,7 @@ module.exports = {
     };
 
     const receiveId = await ensurePerm("patients", "receive_patient");
+    const receiveAppointmentId = await ensurePerm("patients", "receive_appointment");
     const scheduleId = await ensurePerm("patients", "schedule");
 
     const linkRole = async (roleId, permissionId) => {
@@ -74,6 +83,11 @@ module.exports = {
       if (roleIdByName[name]) targetReceive.add(roleIdByName[name]);
     }
 
+    const targetAppointmentReceive = new Set([SUPER_ADMIN_ROLE_ID]);
+    for (const name of APPOINTMENT_RECEIVER_ROLE_NAMES) {
+      if (roleIdByName[name]) targetAppointmentReceive.add(roleIdByName[name]);
+    }
+
     const targetSchedule = new Set([SUPER_ADMIN_ROLE_ID]);
     for (const name of SCHEDULE_ADMIN_ROLE_NAMES) {
       if (roleIdByName[name]) targetSchedule.add(roleIdByName[name]);
@@ -81,6 +95,9 @@ module.exports = {
 
     for (const roleId of targetReceive) {
       await linkRole(roleId, receiveId);
+    }
+    for (const roleId of targetAppointmentReceive) {
+      await linkRole(roleId, receiveAppointmentId);
     }
     for (const roleId of targetSchedule) {
       await linkRole(roleId, scheduleId);

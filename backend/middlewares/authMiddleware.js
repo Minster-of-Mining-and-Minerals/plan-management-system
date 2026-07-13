@@ -45,23 +45,32 @@ const authenticateToken = async (req, res, next) => {
         permissions = ["*:*"];
       } else {
         const rolePermissions = (user.roles || []).flatMap((r) =>
-          (r.rolePermissions || []).map(
-            (rp) =>
-              `${String(rp.permission?.resource || "").toLowerCase()}:${String(
-                rp.permission?.action || ""
-              ).toLowerCase()}`
-          )
+          (r.rolePermissions || [])
+            .filter(
+              (rp) =>
+                rp.is_active !== false &&
+                rp.permission &&
+                rp.permission.is_active !== false
+            )
+            .map(
+              (rp) =>
+                `${String(rp.permission.resource || "").toLowerCase()}:${String(
+                  rp.permission.action || ""
+                ).toLowerCase()}`
+            )
         );
 
         const groupPermissions = (user.permissionGroups || [])
           .filter((g) => g.is_active !== false)
           .flatMap((g) =>
-            (g.permissions || []).map(
-              (p) =>
-                `${String(p.resource || "").toLowerCase()}:${String(
-                  p.action || ""
-                ).toLowerCase()}`
-            )
+            (g.permissions || [])
+              .filter((p) => p.is_active !== false)
+              .map(
+                (p) =>
+                  `${String(p.resource || "").toLowerCase()}:${String(
+                    p.action || ""
+                  ).toLowerCase()}`
+              )
           );
 
         permissions = Array.from(
@@ -112,6 +121,36 @@ const checkPermission = (resource, action) => {
     }
 
     next();
+  };
+};
+
+/** Pass if the user has any of the given resource:action permissions. */
+const checkAnyPermission = (pairs) => {
+  return (req, res, next) => {
+    if (!req.user || !req.user.permissions) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied: No permissions found",
+      });
+    }
+
+    if (req.user.permissions.includes("*:*")) {
+      return next();
+    }
+
+    const required = pairs.map(
+      ([resource, action]) =>
+        `${String(resource).toLowerCase()}:${String(action).toLowerCase()}`
+    );
+
+    if (required.some((p) => req.user.permissions.includes(p))) {
+      return next();
+    }
+
+    return res.status(403).json({
+      success: false,
+      message: `Access denied: Required one of ${required.join(", ")}`,
+    });
   };
 };
 
@@ -166,6 +205,7 @@ const requireAnyRole = (roleNames) => {
 module.exports = {
   authenticateToken,
   checkPermission,
+  checkAnyPermission,
   requireRole,
   requireAnyRole,
 };

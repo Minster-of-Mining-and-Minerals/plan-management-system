@@ -151,11 +151,15 @@ const getMyPermissions = async (req, res) => {
             {
               model: RolePermission,
               as: "rolePermissions",
+              where: { is_active: true },
+              required: false,
               include: [
                 {
                   model: Permission,
                   as: "permission",
                   attributes: ["resource", "action"],
+                  where: { is_active: true },
+                  required: false,
                 },
               ],
             },
@@ -187,16 +191,18 @@ const getMyPermissions = async (req, res) => {
 
     user.roles?.forEach((role) => {
       role.rolePermissions?.forEach((rp) => {
-        if (rp.permission) {
-          permissionsSet.add(
-            `${rp.permission.resource}:${rp.permission.action}`.toUpperCase()
-          );
-        }
+        if (rp.is_active === false || !rp.permission) return;
+        if (rp.permission.is_active === false) return;
+        permissionsSet.add(
+          `${rp.permission.resource}:${rp.permission.action}`.toUpperCase()
+        );
       });
     });
 
     user.permissionGroups?.forEach((group) => {
+      if (group.is_active === false) return;
       group.permissions?.forEach((perm) => {
+        if (perm.is_active === false) return;
         permissionsSet.add(`${perm.resource}:${perm.action}`.toUpperCase());
       });
     });

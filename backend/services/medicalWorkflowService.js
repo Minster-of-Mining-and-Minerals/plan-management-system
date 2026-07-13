@@ -8,7 +8,10 @@ const { validateDiagnosisFormData } = require("./dynamicDiagnosisValidationServi
 const diagnosisFormConfigService = require("./diagnosisFormConfigService");
 const appointmentService = require("./appointmentService");
 const notificationService = require("./notificationService");
-const { listUsersWithPermission } = require("./userPermissionService");
+const {
+  userHasPermission,
+  listUsersWithPermission,
+} = require("./userPermissionService");
 const clinicalSuggestionService = require("./clinicalSuggestionService");
 
 const logIncludes = [
@@ -83,7 +86,11 @@ const appointmentIncludes = [
 ];
 
 async function userCanReceivePatients(userId) {
-  return appointmentService.userCanReceivePatients(userId);
+  return userHasPermission(userId, "patients", "receive_patient");
+}
+
+async function userCanReceiveAppointments(userId) {
+  return userHasPermission(userId, "patients", "receive_appointment");
 }
 
 async function getAppointmentRow(appointmentId) {
@@ -101,7 +108,13 @@ async function getAppointmentRow(appointmentId) {
 
 async function canAccessAppointment(appointmentId, userId) {
   const appointment = await getAppointmentRow(appointmentId);
-  if (appointment.assigned_staff_id === userId) return appointment;
+
+  if (
+    appointment.assigned_staff_id === userId &&
+    (await userCanReceiveAppointments(userId))
+  ) {
+    return appointment;
+  }
 
   const pendingTask = await db.WorkflowTask.findOne({
     where: {
@@ -110,7 +123,9 @@ async function canAccessAppointment(appointmentId, userId) {
       status: "pending",
     },
   });
-  if (pendingTask) return appointment;
+  if (pendingTask && (await userCanReceivePatients(userId))) {
+    return appointment;
+  }
 
   const inHistory = await db.MedicalHistoryLog.findOne({
     where: {
@@ -120,13 +135,18 @@ async function canAccessAppointment(appointmentId, userId) {
   });
   if (inHistory) return appointment;
 
-  if (!(await userCanReceivePatients(userId))) {
-    const err = new Error("You do not have access to this appointment workflow");
-    err.status = 403;
-    throw err;
+  if (appointment.admitted_by === userId) return appointment;
+
+  if (
+    (await userHasPermission(userId, "patients", "schedule")) &&
+    (await userHasPermission(userId, "workflow", "read"))
+  ) {
+    return appointment;
   }
 
-  return appointment;
+  const err = new Error("You do not have access to this appointment workflow");
+  err.status = 403;
+  throw err;
 }
 
 async function resolveFormPayload(staffId, { form_config_id, form_data, partial }) {
@@ -276,6 +296,21 @@ async function submitWorkflowEntry(staffId, payload) {
     const err = new Error("Cannot forward to yourself");
     err.status = 400;
     throw err;
+  }
+
+  if (needsReceiver) {
+    const receiverCanReceive = await userHasPermission(
+      receiver_staff_id,
+      "patients",
+      "receive_patient"
+    );
+    if (!receiverCanReceive) {
+      const err = new Error(
+        "Selected staff cannot receive patients in the workflow"
+      );
+      err.status = 400;
+      throw err;
+    }
   }
 
   const isRoutingAction = action_type === "forward" || action_type === "return";
@@ -428,7 +463,10 @@ async function listTimeline({ appointmentId, patientId, scheduleId, staffId }) {
   if (patientId) where.patient_id = patientId;
 
   if (!resolvedAppointmentId && patientId) {
-    const canReceive = await userCanReceivePatients(staffId);
+    const canReceive =
+      (await userCanReceivePatients(staffId)) ||
+      (await userCanReceiveAppointments(staffId)) ||
+      (await userHasPermission(staffId, "patients", "schedule"));
     if (!canReceive) {
       const err = new Error("Access denied");
       err.status = 403;

@@ -15,6 +15,7 @@ import {
   Building,
 } from "lucide-react";
 import { Permission, PermissionMatrixMap, ResourceGroup } from "../../types/role";
+import { formatPermissionAction } from "@/utils/formatPermissionAction";
 
 interface PermissionMatrixProps {
   loadingPermissions: boolean;
@@ -232,7 +233,7 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
                               </div>
 
                               <span className="text-sm font-medium text-gray-700 capitalize">
-                                {permission.action.replace(/_/g, " ")}
+                                {formatPermissionAction(permission.action)}
                               </span>
                             </label>
                           ))}
