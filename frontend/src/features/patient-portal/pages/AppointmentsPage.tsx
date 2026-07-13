@@ -37,12 +37,17 @@ import { PatientPortalShell } from "../components/PatientPortalShell";
 import { DoctorAvatar } from "../components/DoctorAvatar";
 import { StatusBadge } from "../components/StatusBadge";
 import { DemoBanner } from "../components/DemoBanner";
+import { TimeSlotPicker } from "../components/TimeSlotPicker";
 import { formatDate } from "../data/mockPatientPortalData";
 import {
   formatScheduleTime,
   initialsFromName,
   isUpcomingSchedule,
 } from "../patientPortalUtils";
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 function AppointmentCard({
   schedule,
@@ -144,20 +149,26 @@ export function AppointmentsPage() {
     [schedules, selectedScheduleId]
   );
 
-  const { data: bookAvailability } = useGetPatientPortalAvailabilityQuery(
-    { date: bookDate, staff_id: bookDoctorId },
-    { skip: !bookOpen || !bookDate || !bookDoctorId }
-  );
+  const { data: bookAvailability, isFetching: bookSlotsLoading } =
+    useGetPatientPortalAvailabilityQuery(
+      { date: bookDate, staff_id: bookDoctorId },
+      { skip: !bookOpen || !bookDate || !bookDoctorId }
+    );
 
-  const { data: rescheduleAvailability } = useGetPatientPortalAvailabilityQuery(
-    { date: rescheduleDate, staff_id: selectedSchedule?.doctor?.id },
-    {
-      skip:
-        !rescheduleOpen ||
-        !rescheduleDate ||
-        !selectedSchedule?.doctor?.id,
-    }
-  );
+  const { data: rescheduleAvailability, isFetching: rescheduleSlotsLoading } =
+    useGetPatientPortalAvailabilityQuery(
+      {
+        date: rescheduleDate,
+        staff_id: selectedSchedule?.doctor?.id,
+        exclude_schedule_id: selectedScheduleId ?? undefined,
+      },
+      {
+        skip:
+          !rescheduleOpen ||
+          !rescheduleDate ||
+          !selectedSchedule?.doctor?.id,
+      }
+    );
 
   const upcoming = useMemo(
     () => schedules.filter(isUpcomingSchedule),
@@ -199,7 +210,7 @@ export function AppointmentsPage() {
       await bookSchedule({
         assigned_staff_id: bookDoctorId,
         schedule_date: bookDate,
-        start_time: bookTime.length === 5 ? `${bookTime}:00` : bookTime,
+        start_time: bookTime,
         appointment_type: bookType,
         notes: bookNotes || undefined,
       }).unwrap();
@@ -224,8 +235,7 @@ export function AppointmentsPage() {
       await rescheduleSchedule({
         id: selectedScheduleId,
         schedule_date: rescheduleDate,
-        start_time:
-          rescheduleTime.length === 5 ? `${rescheduleTime}:00` : rescheduleTime,
+        start_time: rescheduleTime,
       }).unwrap();
       toast.success("Appointment rescheduled");
       setRescheduleOpen(false);
@@ -307,7 +317,7 @@ export function AppointmentsPage() {
           if (!open) resetBookForm();
         }}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Book Appointment</DialogTitle>
             <DialogDescription>Select a provider and preferred time slot.</DialogDescription>
@@ -315,7 +325,13 @@ export function AppointmentsPage() {
           <div className="grid gap-4 py-2">
             <div>
               <Label>Doctor</Label>
-              <Select value={bookDoctorId} onValueChange={setBookDoctorId}>
+              <Select
+                value={bookDoctorId}
+                onValueChange={(value) => {
+                  setBookDoctorId(value);
+                  setBookTime("");
+                }}
+              >
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Choose provider" />
                 </SelectTrigger>
@@ -342,35 +358,34 @@ export function AppointmentsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Date</Label>
+              <Input
+                type="date"
+                className="mt-1"
+                min={todayIso()}
+                value={bookDate}
+                onChange={(e) => {
+                  setBookDate(e.target.value);
+                  setBookTime("");
+                }}
+              />
+            </div>
+            {bookDoctorId && bookDate ? (
               <div>
-                <Label>Date</Label>
-                <Input
-                  type="date"
-                  className="mt-1"
-                  value={bookDate}
-                  onChange={(e) => {
-                    setBookDate(e.target.value);
-                    setBookTime("");
-                  }}
+                <Label className="mb-2 block">Available time slots</Label>
+                <TimeSlotPicker
+                  slots={bookAvailability?.slots ?? []}
+                  value={bookTime}
+                  onChange={setBookTime}
+                  isLoading={bookSlotsLoading}
                 />
               </div>
-              <div>
-                <Label>Time</Label>
-                <Select value={bookTime} onValueChange={setBookTime}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select slot" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(bookAvailability?.slots ?? []).map((slot) => (
-                      <SelectItem key={slot} value={slot.slice(0, 5)}>
-                        {formatScheduleTime(slot)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Choose a doctor and date to see available time slots.
+              </p>
+            )}
             <div>
               <Label>Notes (optional)</Label>
               <Input
@@ -393,17 +408,18 @@ export function AppointmentsPage() {
       </Dialog>
 
       <Dialog open={rescheduleOpen} onOpenChange={setRescheduleOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Reschedule Appointment</DialogTitle>
             <DialogDescription>Pick a new date and time for your visit.</DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-3 py-2">
+          <div className="grid gap-4 py-2">
             <div>
               <Label>New date</Label>
               <Input
                 type="date"
                 className="mt-1"
+                min={todayIso()}
                 value={rescheduleDate}
                 onChange={(e) => {
                   setRescheduleDate(e.target.value);
@@ -411,21 +427,17 @@ export function AppointmentsPage() {
                 }}
               />
             </div>
-            <div>
-              <Label>New time</Label>
-              <Select value={rescheduleTime} onValueChange={setRescheduleTime}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Select slot" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(rescheduleAvailability?.slots ?? []).map((slot) => (
-                    <SelectItem key={slot} value={slot.slice(0, 5)}>
-                      {formatScheduleTime(slot)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {rescheduleDate && selectedSchedule?.doctor?.id ? (
+              <div>
+                <Label className="mb-2 block">Available time slots</Label>
+                <TimeSlotPicker
+                  slots={rescheduleAvailability?.slots ?? []}
+                  value={rescheduleTime}
+                  onChange={setRescheduleTime}
+                  isLoading={rescheduleSlotsLoading}
+                />
+              </div>
+            ) : null}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRescheduleOpen(false)}>

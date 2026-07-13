@@ -12,6 +12,12 @@ const {
   updateSchedule,
   getSlotsForDate,
 } = require("./patientScheduleService");
+const { parseTimeToMinutes, minutesToTime } = require("../utils/scheduleSlots");
+
+function normalizeSlotTime(timeStr) {
+  if (!timeStr) return "";
+  return minutesToTime(parseTimeToMinutes(timeStr));
+}
 const {
   getCustomValuesMap,
   enrichPatientResponse,
@@ -134,7 +140,7 @@ async function listEligibleDoctors() {
   });
 }
 
-async function getAvailability({ date, staff_id }) {
+async function getAvailability({ date, staff_id, exclude_schedule_id }) {
   if (!date) {
     const err = new Error("date is required");
     err.status = 400;
@@ -150,10 +156,13 @@ async function getAvailability({ date, staff_id }) {
         assigned_staff_id: staff_id,
         schedule_date: date,
         status: { [Op.notIn]: ["cancelled", "completed"] },
+        ...(exclude_schedule_id
+          ? { schedule_id: { [Op.ne]: exclude_schedule_id } }
+          : {}),
       },
       attributes: ["start_time"],
     });
-    const taken = new Set(booked.map((b) => b.start_time));
+    const taken = new Set(booked.map((b) => normalizeSlotTime(b.start_time)));
     slots = allSlots.filter((s) => !taken.has(s));
   }
 

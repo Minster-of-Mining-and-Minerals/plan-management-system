@@ -93,11 +93,11 @@ export const patientPortalApi = baseApi.injectEndpoints({
 
     getPatientPortalAvailability: builder.query<
       { date: string; staff_id: string | null; slots: string[] },
-      { date: string; staff_id?: string }
+      { date: string; staff_id?: string; exclude_schedule_id?: string }
     >({
-      query: ({ date, staff_id }) => ({
+      query: ({ date, staff_id, exclude_schedule_id }) => ({
         url: "/patient-portal/availability",
-        params: { date, staff_id },
+        params: { date, staff_id, exclude_schedule_id },
       }),
       transformResponse: (r: { data: { date: string; staff_id: string | null; slots: string[] } }) =>
         r.data,

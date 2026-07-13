@@ -1,0 +1,277 @@
+"use strict";
+
+const ADMIN_USER_ID = "00000000-0000-4000-8000-000000000001";
+const TEST_EMAIL_DOMAIN = "@test.novacure";
+const DEMO_PASSWORD = "password";
+
+/** Permission groups — one per profession; users get exactly one group (no roles). */
+const TEST_PERMISSION_GROUPS = [
+  {
+    permission_group_id: "00000000-0000-4000-8000-000000000050",
+    name: "PG – Reception",
+    description: "Front desk — patient intake, scheduling, and workflow routing.",
+    permissions: {
+      patients: ["read", "create", "receive_patient", "schedule"],
+      workflow: ["read", "submit", "forward", "return", "complete"],
+    },
+  },
+  {
+    permission_group_id: "00000000-0000-4000-8000-000000000051",
+    name: "PG – Doctor",
+    description: "Clinical physician — workflow, diagnosis, and prescribing.",
+    permissions: {
+      patients: ["read", "receive_patient"],
+      workflow: ["read", "submit", "forward", "return", "prescribe", "complete"],
+      diagnosis_forms: ["read"],
+      clinical_suggestion: ["read"],
+    },
+  },
+  {
+    permission_group_id: "00000000-0000-4000-8000-000000000052",
+    name: "PG – Lab",
+    description: "Laboratory staff — investigation reports and workflow handoffs.",
+    permissions: {
+      patients: ["read", "receive_patient"],
+      workflow: ["read", "submit", "forward", "return", "complete"],
+      diagnosis_forms: ["read"],
+    },
+  },
+  {
+    permission_group_id: "00000000-0000-4000-8000-000000000053",
+    name: "PG – Cashier",
+    description: "Cashier desk — payment sessions and queue management.",
+    permissions: {
+      cashier_queue: ["view"],
+      cashier_session: ["open", "close", "view"],
+      cashier_payment: ["create", "view"],
+    },
+  },
+];
+
+const INTERNAL_TEST_STAFF = [
+  {
+    user_id: "00000000-0000-4000-8000-000000000100",
+    email: `reception_1${TEST_EMAIL_DOMAIN}`,
+    full_name: "Receptionist One",
+    phone_number: "251911200001",
+    permission_group_id: "00000000-0000-4000-8000-000000000050",
+    department_code: "RECEPTION",
+    title_code: "REC",
+    job_title: "Front Desk Receptionist",
+    employee_id: "TST-REC-001",
+  },
+  {
+    user_id: "00000000-0000-4000-8000-000000000101",
+    email: `reception_2${TEST_EMAIL_DOMAIN}`,
+    full_name: "Receptionist Two",
+    phone_number: "251911200002",
+    permission_group_id: "00000000-0000-4000-8000-000000000050",
+    department_code: "RECEPTION",
+    title_code: "REC",
+    job_title: "Front Desk Receptionist",
+    employee_id: "TST-REC-002",
+  },
+  {
+    user_id: "00000000-0000-4000-8000-000000000110",
+    email: `doctor_1${TEST_EMAIL_DOMAIN}`,
+    full_name: "Dr. Test Doctor One",
+    phone_number: "251911200011",
+    permission_group_id: "00000000-0000-4000-8000-000000000051",
+    department_code: "OPHTHALMOLOGY",
+    title_code: "DR",
+    job_title: "Consultant Physician",
+    employee_id: "TST-DOC-001",
+    diagnosis: {
+      template_title: "Ophthalmology Comprehensive Examination",
+      config_title: "Test Doctor Examination Form",
+    },
+  },
+  {
+    user_id: "00000000-0000-4000-8000-000000000111",
+    email: `doctor_2${TEST_EMAIL_DOMAIN}`,
+    full_name: "Dr. Test Doctor Two",
+    phone_number: "251911200012",
+    permission_group_id: "00000000-0000-4000-8000-000000000051",
+    department_code: "OPHTHALMOLOGY",
+    title_code: "DR",
+    job_title: "Senior Physician",
+    employee_id: "TST-DOC-002",
+  },
+  {
+    user_id: "00000000-0000-4000-8000-000000000112",
+    email: `doctor_3${TEST_EMAIL_DOMAIN}`,
+    full_name: "Dr. Test Doctor Three",
+    phone_number: "251911200013",
+    permission_group_id: "00000000-0000-4000-8000-000000000051",
+    department_code: "OUTPATIENT",
+    title_code: "DR",
+    job_title: "General Physician",
+    employee_id: "TST-DOC-003",
+  },
+  {
+    user_id: "00000000-0000-4000-8000-000000000120",
+    email: `cashier_1${TEST_EMAIL_DOMAIN}`,
+    full_name: "Cashier One",
+    phone_number: "251911200021",
+    permission_group_id: "00000000-0000-4000-8000-000000000053",
+    department_code: "RECEPTION",
+    title_code: "REC",
+    job_title: "Cashier",
+    employee_id: "TST-CSH-001",
+  },
+  {
+    user_id: "00000000-0000-4000-8000-000000000121",
+    email: `cashier_2${TEST_EMAIL_DOMAIN}`,
+    full_name: "Cashier Two",
+    phone_number: "251911200022",
+    permission_group_id: "00000000-0000-4000-8000-000000000053",
+    department_code: "RECEPTION",
+    title_code: "REC",
+    job_title: "Cashier",
+    employee_id: "TST-CSH-002",
+  },
+  {
+    user_id: "00000000-0000-4000-8000-000000000130",
+    email: `lab_1${TEST_EMAIL_DOMAIN}`,
+    full_name: "Lab Professional One",
+    phone_number: "251911200031",
+    permission_group_id: "00000000-0000-4000-8000-000000000052",
+    department_code: "LABORATORY",
+    title_code: "TECH",
+    job_title: "Medical Laboratory Technologist",
+    employee_id: "TST-LAB-001",
+    diagnosis: {
+      template_title: "Ophthalmology Laboratory Report",
+      config_title: "Test Lab Investigation Report",
+    },
+  },
+  {
+    user_id: "00000000-0000-4000-8000-000000000131",
+    email: `lab_2${TEST_EMAIL_DOMAIN}`,
+    full_name: "Lab Professional Two",
+    phone_number: "251911200032",
+    permission_group_id: "00000000-0000-4000-8000-000000000052",
+    department_code: "LABORATORY",
+    title_code: "TECH",
+    job_title: "Medical Laboratory Technologist",
+    employee_id: "TST-LAB-002",
+  },
+];
+
+const TEST_PATIENTS = [
+  {
+    user_id: "00000000-0000-4000-8000-000000000200",
+    email: `patient_1${TEST_EMAIL_DOMAIN}`,
+    full_name: "Test Patient One",
+    phone_number: "251922200001",
+    gender: "Male",
+    date_of_birth: "1990-01-15",
+  },
+  {
+    user_id: "00000000-0000-4000-8000-000000000201",
+    email: `patient_2${TEST_EMAIL_DOMAIN}`,
+    full_name: "Test Patient Two",
+    phone_number: "251922200002",
+    gender: "Female",
+    date_of_birth: "1985-06-20",
+  },
+  {
+    user_id: "00000000-0000-4000-8000-000000000202",
+    email: `patient_3${TEST_EMAIL_DOMAIN}`,
+    full_name: "Test Patient Three",
+    phone_number: "251922200003",
+    gender: "Male",
+    date_of_birth: "1998-11-03",
+  },
+  {
+    user_id: "00000000-0000-4000-8000-000000000203",
+    email: `patient_4${TEST_EMAIL_DOMAIN}`,
+    full_name: "Test Patient Four",
+    phone_number: "251922200004",
+    gender: "Female",
+    date_of_birth: "1975-03-28",
+  },
+  {
+    user_id: "00000000-0000-4000-8000-000000000204",
+    email: `patient_5${TEST_EMAIL_DOMAIN}`,
+    full_name: "Test Patient Five",
+    phone_number: "251922200005",
+    gender: "Male",
+    date_of_birth: "2000-09-10",
+  },
+];
+
+const TEST_PHARMACIES = [
+  {
+    pharmacy_id: "00000000-0000-4000-8000-000000000060",
+    pharmacy_name: "NovaCare Pharmacy Bole",
+    pharmacy_code: "PHARM-BOLE-01",
+    license_number: "LIC-BOLE-001",
+    phone: "251911300001",
+    email: "bole.pharmacy@test.novacure",
+    address: "Bole Road, Addis Ababa",
+    city: "Addis Ababa",
+    region: "Addis Ababa",
+    country: "Ethiopia",
+    contact_person: "Pharmacy Manager Bole",
+  },
+  {
+    pharmacy_id: "00000000-0000-4000-8000-000000000061",
+    pharmacy_name: "NovaCare Pharmacy Kazanchis",
+    pharmacy_code: "PHARM-KZN-01",
+    license_number: "LIC-KZN-001",
+    phone: "251911300002",
+    email: "kazanchis.pharmacy@test.novacure",
+    address: "Kazanchis, Addis Ababa",
+    city: "Addis Ababa",
+    region: "Addis Ababa",
+    country: "Ethiopia",
+    contact_person: "Pharmacy Manager Kazanchis",
+  },
+];
+
+const TEST_PHARMACY_USERS = [
+  {
+    user_id: "00000000-0000-4000-8000-000000000070",
+    email: `pharmacy_admin_1${TEST_EMAIL_DOMAIN}`,
+    full_name: "Pharmacy Admin One",
+    phone_number: "251911300011",
+    pharmacy_id: "00000000-0000-4000-8000-000000000060",
+    portal_role: "admin",
+  },
+  {
+    user_id: "00000000-0000-4000-8000-000000000071",
+    email: `pharmacy_staff_1${TEST_EMAIL_DOMAIN}`,
+    full_name: "Pharmacy Staff One",
+    phone_number: "251911300012",
+    pharmacy_id: "00000000-0000-4000-8000-000000000060",
+    portal_role: "staff",
+  },
+  {
+    user_id: "00000000-0000-4000-8000-000000000072",
+    email: `pharmacy_admin_2${TEST_EMAIL_DOMAIN}`,
+    full_name: "Pharmacy Admin Two",
+    phone_number: "251911300021",
+    pharmacy_id: "00000000-0000-4000-8000-000000000061",
+    portal_role: "admin",
+  },
+  {
+    user_id: "00000000-0000-4000-8000-000000000073",
+    email: `pharmacy_staff_2${TEST_EMAIL_DOMAIN}`,
+    full_name: "Pharmacy Staff Two",
+    phone_number: "251911300022",
+    pharmacy_id: "00000000-0000-4000-8000-000000000061",
+    portal_role: "staff",
+  },
+];
+
+module.exports = {
+  ADMIN_USER_ID,
+  TEST_EMAIL_DOMAIN,
+  DEMO_PASSWORD,
+  TEST_PERMISSION_GROUPS,
+  INTERNAL_TEST_STAFF,
+  TEST_PATIENTS,
+  TEST_PHARMACIES,
+  TEST_PHARMACY_USERS,
+};
