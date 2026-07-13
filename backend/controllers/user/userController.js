@@ -742,11 +742,34 @@ const getUserDisplayNames = async (req, res) => {
 
     const users = await User.findAll({
       where: { user_id: { [Op.in]: uniqueIds } },
-      attributes: ["user_id", "full_name", "email"],
+      attributes: ["user_id", "full_name", "email", "government_structure_id"],
     });
+
+    const structureIndex = await loadGovernmentStructureIndex();
+    let visibleStructureIds;
+    try {
+      visibleStructureIds = resolveUserGovernmentStructureFilter(
+        req,
+        null,
+        structureIndex
+      );
+    } catch (error) {
+      return sendScopeError(res, error);
+    }
+
+    const visibleSet = visibleStructureIds
+      ? new Set(visibleStructureIds)
+      : null;
 
     const data = {};
     for (const user of users) {
+      if (
+        visibleSet &&
+        user.government_structure_id &&
+        !visibleSet.has(user.government_structure_id)
+      ) {
+        continue;
+      }
       data[user.user_id] = {
         full_name: user.full_name,
         email: user.email,

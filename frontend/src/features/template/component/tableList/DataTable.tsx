@@ -38,6 +38,9 @@ interface DataTableBaseProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   isLoading?: boolean;
+  isError?: boolean;
+  errorMessage?: string;
+  onRetry?: () => void;
   /** Change when filters/search change to reset to page 1 */
   resetKey?: string | number;
   defaultPageSize?: number;
@@ -65,6 +68,9 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
     columns,
     data,
     isLoading = false,
+    isError = false,
+    errorMessage = "Failed to load data.",
+    onRetry,
     resetKey,
     defaultPageSize = 10,
     tableClassName,
@@ -130,6 +136,19 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
 
   const { from, to } = getPaginationRange(pageIndex, pageSize, totalRows);
   const rows = table.getPaginationRowModel().rows;
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12 text-center">
+        <p className="text-destructive text-sm font-medium">{errorMessage}</p>
+        {onRetry && (
+          <Button variant="outline" size="sm" onClick={onRetry}>
+            Retry
+          </Button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-auto w-full">

@@ -112,6 +112,14 @@ module.exports = (sequelize, DataTypes) => {
       updatedAt: "updated_at",
       deletedAt: "deleted_at",
       underscored: true,
+      defaultScope: {
+        attributes: { exclude: ["password", "otp", "otp_expiry"] },
+      },
+      scopes: {
+        withCredentials: {
+          attributes: { include: ["password", "otp", "otp_expiry"] },
+        },
+      },
     }
   );
 

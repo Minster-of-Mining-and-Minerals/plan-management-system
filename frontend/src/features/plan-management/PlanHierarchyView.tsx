@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { CreatePlanNodeModal } from "./modals/CreatePlanNodeModal";
 import { actionFeedback } from "@/components/action-feedback";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
     canAddChild,
     getMaxRuleDepth,
@@ -151,7 +151,8 @@ export default function PlanHierarchyView({
     mode?: "draft" | "review";
 }) {
     const router = useRouter();
-    const { data: version, isLoading: isVersionLoading, refetch: refetchVersion } =
+    const searchParams = useSearchParams();
+    const { data: version, isLoading: isVersionLoading, isError: isVersionError, refetch: refetchVersion } =
         useGetPlanVersionByIdQuery(versionId);
     const masterVersionId =
         version?.live_master_version_id ??
@@ -186,8 +187,14 @@ export default function PlanHierarchyView({
     const thresholds = usePerformanceColorThresholds();
     const { can, canAny } = usePermissions();
 
-    const [viewMode, setViewMode] = useState<ViewMode>("card");
-    const [activeTab, setActiveTab] = useState<PlanDetailTab>("hierarchy");
+    const [viewMode, setViewMode] = useState<ViewMode>(() => {
+        const view = searchParams.get("view");
+        return view === "hierarchy" || view === "table" ? view : "card";
+    });
+    const [activeTab, setActiveTab] = useState<PlanDetailTab>(() => {
+        const tab = searchParams.get("tab");
+        return tab === "annual" || tab === "periods" || tab === "review" ? tab : "hierarchy";
+    });
     const [pathIds, setPathIds] = useState<string[]>([]);
     const [isModalOpen, setModalOpen] = useState(false);
     const [finalizeExecutionPeriodOpen, setFinalizeExecutionPeriodOpen] = useState(false);
@@ -298,6 +305,17 @@ export default function PlanHierarchyView({
 
     const planningStructureId = effectiveMasterVersion?.government_structure_id;
     const plansBasePath = isReviewMode ? "/plans/review" : "/plans";
+
+    useEffect(() => {
+        const params = new URLSearchParams(searchParams.toString());
+        if (params.get("tab") === activeTab && params.get("view") === viewMode) {
+            return;
+        }
+        params.set("tab", activeTab);
+        params.set("view", viewMode);
+        router.replace(`${plansBasePath}/${versionId}?${params.toString()}`, { scroll: false });
+    }, [activeTab, viewMode, versionId, plansBasePath, router, searchParams]);
+
     const showRaiseIssue =
         isReviewMode &&
         canRaiseReviewIssue(effectiveMasterVersion) &&
@@ -1117,6 +1135,25 @@ export default function PlanHierarchyView({
             )}
         </>
     );
+
+    if (isVersionError) {
+        return (
+            <div className="p-6">
+                <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed py-16 text-center">
+                    <p className="text-destructive font-medium">Failed to load this plan version.</p>
+                    <p className="text-muted-foreground text-sm">
+                        The plan may not exist or you may not have access.
+                    </p>
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => router.push(plansBasePath)}>
+                            Back to plans
+                        </Button>
+                        <Button onClick={() => refetchVersion()}>Retry</Button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <PlanAchievementScopeProvider

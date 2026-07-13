@@ -2,6 +2,7 @@ const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const http = require("http");
+const jwt = require("jsonwebtoken");
 const { Server } = require("socket.io");
 const path = require("path");
 const bodyParser = require("body-parser");
@@ -179,6 +180,9 @@ warmSystemSettingsCache()
       await mountCollaboration(app);
     } catch (error) {
       console.error("Failed to mount collaboration routes:", error.message);
+      if (process.env.NODE_ENV === "production") {
+        process.exit(1);
+      }
     }
 
     appServer.listen(appPort, appHost, () => {
@@ -194,8 +198,23 @@ const io = new Server(socketServer, {
 
 const onlineUsers = new Map();
 
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+  if (!token) {
+    return next(new Error("Socket authentication required"));
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userId = decoded.user_id;
+    return next();
+  } catch {
+    return next(new Error("Invalid socket token"));
+  }
+});
+
 io.on("connection", (socket) => {
-  const userId = socket.handshake.query.userId;
+  const userId = socket.userId;
 
   if (userId) {
     onlineUsers.set(userId, socket.id);
@@ -203,7 +222,9 @@ io.on("connection", (socket) => {
   }
 
   socket.on("disconnect", () => {
-    onlineUsers.delete(userId);
+    if (userId) {
+      onlineUsers.delete(userId);
+    }
     console.log(`User ${userId} disconnected`);
   });
 });

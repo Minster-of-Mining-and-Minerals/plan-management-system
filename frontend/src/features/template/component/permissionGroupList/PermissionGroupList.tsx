@@ -221,6 +221,9 @@ export default function PermissionGroupList({
         columns={columns}
         data={filteredData}
         isLoading={isLoading}
+        isError={isError}
+        errorMessage="Failed to load permission groups."
+        onRetry={refetch}
         resetKey={`${searchQuery}-${statusFilter}-${structureId}-${config.groupKind}`}
       />
     </TableLayout>

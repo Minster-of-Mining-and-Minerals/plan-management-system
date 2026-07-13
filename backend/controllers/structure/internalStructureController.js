@@ -16,6 +16,18 @@ const {
     alreadyActiveResponse,
     inactiveParentBlocksReactivationResponse,
 } = require("../../utils/structureLifecycleUtils");
+const {
+    assertGovernmentStructureAccessible,
+    assertUserInStructure,
+    resolveUserGovernmentStructureFilter,
+    sendScopeError,
+} = require("../../utils/structureScopeUtils");
+
+async function loadGovernmentStructureIndex() {
+    return GovernmentStructure.findAll({
+        attributes: ["government_structure_id", "parent_id"],
+    });
+}
 
 /**
  * =================== CREATE ===================
@@ -59,6 +71,14 @@ const createInternalStructure = async (req, res) => {
         if (!gov.is_active) {
             await t.rollback();
             return inactiveStructureResponse(res, "Sector");
+        }
+
+        const structureIndex = await loadGovernmentStructureIndex();
+        try {
+            assertGovernmentStructureAccessible(req, government_structure_id, structureIndex);
+        } catch (error) {
+            await t.rollback();
+            return sendScopeError(res, error);
         }
 
         // If creating a root node (parent_id is null), check if one already exists for this gov structure
@@ -135,8 +155,20 @@ const getInternalStructures = async (req, res) => {
             where.is_active = is_active === "true";
         }
 
-        if (government_structure_id) {
-            where.government_structure_id = government_structure_id;
+        const structureIndex = await loadGovernmentStructureIndex();
+        let structureIds;
+        try {
+            structureIds = resolveUserGovernmentStructureFilter(
+                req,
+                government_structure_id,
+                structureIndex
+            );
+        } catch (error) {
+            return sendScopeError(res, error);
+        }
+
+        if (structureIds) {
+            where.government_structure_id = { [Op.in]: structureIds };
         }
 
         if (parent_id) {
@@ -189,6 +221,17 @@ const getInternalStructureById = async (req, res) => {
 
         if (!structure) {
             return res.status(404).json({ message: "Not found" });
+        }
+
+        const structureIndex = await loadGovernmentStructureIndex();
+        try {
+            assertGovernmentStructureAccessible(
+                req,
+                structure.government_structure_id,
+                structureIndex
+            );
+        } catch (error) {
+            return sendScopeError(res, error);
         }
 
         return res.json({ success: true, data: structure });
@@ -396,6 +439,17 @@ const assignUsersToInternalStructure = async (req, res) => {
             return inactiveStructureResponse(res, "Department");
         }
 
+        const structureIndex = await loadGovernmentStructureIndex();
+        try {
+            assertGovernmentStructureAccessible(
+                req,
+                structure.government_structure_id,
+                structureIndex
+            );
+        } catch (error) {
+            return sendScopeError(res, error);
+        }
+
         const users = await User.findAll({
             where: { user_id: user_ids },
         });
@@ -404,6 +458,19 @@ const assignUsersToInternalStructure = async (req, res) => {
             return res.status(400).json({
                 message: "Some users not found",
             });
+        }
+
+        for (const user of users) {
+            try {
+                assertUserInStructure(
+                    user,
+                    structure.government_structure_id,
+                    req,
+                    structureIndex
+                );
+            } catch (error) {
+                return sendScopeError(res, error);
+            }
         }
 
         // Assign by updating FK
@@ -431,6 +498,18 @@ const removeUserFromInternalStructure = async (req, res) => {
 
         if (!user) {
             return res.status(404).json({ message: "User not found" });
+        }
+
+        const structureIndex = await loadGovernmentStructureIndex();
+        try {
+            assertUserInStructure(
+                user,
+                user.government_structure_id,
+                req,
+                structureIndex
+            );
+        } catch (error) {
+            return sendScopeError(res, error);
         }
 
         if (user.internal_structure_id) {

@@ -12,7 +12,7 @@ const login = async (req, res) => {
     const { email, password } = req.body;
     const normalizedEmail = normalizeEmail(email);
 
-    const user = await User.findOne({
+    const user = await User.unscoped().findOne({
       where: {
         email: { [Op.iLike]: normalizedEmail },
       },
@@ -92,7 +92,7 @@ const logout = async (req, res) => {
 // Get current user profile (lean)
 const getMe = async (req, res) => {
   try {
-    const user = await User.findOne({
+    const user = await User.unscoped().findOne({
       where: { user_id: req.user.user_id },
       attributes: [
         "user_id",
@@ -142,7 +142,7 @@ const getMe = async (req, res) => {
 // Get current user's roles and aggregated permissions
 const getMyPermissions = async (req, res) => {
   try {
-    const user = await User.findOne({
+    const user = await User.unscoped().findOne({
       where: { user_id: req.user.user_id },
       include: [
         {

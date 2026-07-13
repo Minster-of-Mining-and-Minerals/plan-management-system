@@ -12,7 +12,7 @@ const {
   updateProfile,
   getUserDisplayNames,
 } = require("../../controllers/user/userController");
-const { authenticateToken } = require("../../middlewares/authMiddleware");
+const { authenticateToken, checkPermission } = require("../../middlewares/authMiddleware");
 const {
   validateUpdateProfile,
 } = require("../../validators/user/userValidator");
@@ -48,13 +48,13 @@ router.use(authenticateToken);
  *       200:
  *         description: List of users
  */
-router.get("/", getUsers);
+router.get("/", checkPermission("USERS", "READ"), getUsers);
 
 router.get("/profile/me", getProfile);
 router.patch("/profile/me", validateUpdateProfile, updateProfile);
-router.post("/display-names", getUserDisplayNames);
+router.post("/display-names", checkPermission("USERS", "READ"), getUserDisplayNames);
 
-router.get("/:id", getUserById);
+router.get("/:id", checkPermission("USERS", "READ"), getUserById);
 
 /**
  * @swagger
@@ -86,7 +86,7 @@ router.get("/:id", getUserById);
  *       201:
  *         description: User created
  */
-router.post("/", createUser);
+router.post("/", checkPermission("USERS", "CREATE"), createUser);
 
 /**
  * @swagger
@@ -123,7 +123,7 @@ router.post("/", createUser);
  *       200:
  *         description: User updated
  */
-router.put("/:id", updateUser);
+router.put("/:id", checkPermission("USERS", "UPDATE"), updateUser);
 
 /**
  * @swagger
@@ -141,7 +141,7 @@ router.put("/:id", updateUser);
  *       200:
  *         description: User deactivated
  */
-router.delete("/:id", deleteUser);
+router.delete("/:id", checkPermission("USERS", "DELETE"), deleteUser);
 
 /**
  * @swagger
@@ -168,7 +168,7 @@ router.delete("/:id", deleteUser);
  *       200:
  *         description: Status updated
  */
-router.patch("/:id/toggle-status", toggleUserActiveStatus);
+router.patch("/:id/toggle-status", checkPermission("USERS", "UPDATE"), toggleUserActiveStatus);
 
 /**
  * @swagger
@@ -186,6 +186,6 @@ router.patch("/:id/toggle-status", toggleUserActiveStatus);
  *       200:
  *         description: Password reset successfully
  */
-router.post("/:id/reset-password", resetUserPassword);
+router.post("/:id/reset-password", checkPermission("USERS", "UPDATE"), resetUserPassword);
 
 module.exports = router;

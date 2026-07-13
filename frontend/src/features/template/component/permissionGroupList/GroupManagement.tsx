@@ -2,6 +2,7 @@
 import { ActionButton } from "@/types/tableLayout";
 import { Building, Building2, Users, UserPlus } from "lucide-react";
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import UsersGroupList from "./UsersGroupList";
 import GovernmentStructuresGroupList from "./GovernmentStructuresGroupList";
 import DepartmentsGroupList from "./DepartmentsGroupList";
@@ -12,6 +13,7 @@ import {
   STANDARD_PERMISSION_GROUP_CONFIG,
 } from "./permissionGroupSectionConfig";
 import { SpecialPermissionGroupGuidance } from "./SpecialPermissionGroupGuidance";
+import { useStructureScope } from "@/hooks/useStructureScope";
 
 interface GroupManagementProps {
   groupId?: string;
@@ -29,10 +31,19 @@ function GroupManagement({
   const isSpecial = config.groupKind === "special";
   const [activeTab, setActiveTab] = useState<GroupTab>("users");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const searchParams = useSearchParams();
+  const { structureId: sessionStructureId } = useStructureScope();
+  const structureId =
+    searchParams.get("government_structure_id") || sessionStructureId || undefined;
 
-  const { data: group, isLoading } = useGetPermissionGroupByIdQuery(groupId as string, {
-    skip: !groupId,
-  });
+  const { data: group, isLoading } = useGetPermissionGroupByIdQuery(
+    groupId && structureId
+      ? { id: groupId as string, government_structure_id: structureId }
+      : (groupId as string),
+    {
+      skip: !groupId,
+    }
+  );
 
   const sideActions: ActionButton[] = [
     {
@@ -85,6 +96,13 @@ function GroupManagement({
       </div>
 
       {isSpecial && <SpecialPermissionGroupGuidance />}
+
+      {!readOnly && (group?.structures?.length ?? 0) === 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Link this group to at least one sector structure before assigning users.
+          Use <strong>Add Member → Sector Structures</strong>.
+        </div>
+      )}
 
       {activeTab === "users" && (
         <UsersGroupList

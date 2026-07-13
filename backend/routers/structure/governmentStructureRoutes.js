@@ -29,23 +29,24 @@ const { getStructureEffectivePermissionsHandler } = require("../../controllers/u
 // ================= CRUD =================
 
 router.post("/", authenticateToken, checkPermission("GOVERNMENT_STRUCTURES", "CREATE"), validateCreateGovernmentStructure, createGovernmentStructure);
-router.get("/", authenticateToken, getGovernmentStructures);
-router.get("/:id/effective-permissions", authenticateToken, getStructureEffectivePermissionsHandler);
-router.get("/:id", authenticateToken, getGovernmentStructureById);
+router.get("/", authenticateToken, checkPermission("GOVERNMENT_STRUCTURES", "READ"), getGovernmentStructures);
+router.get("/:id/effective-permissions", authenticateToken, checkPermission("GOVERNMENT_STRUCTURES", "READ"), getStructureEffectivePermissionsHandler);
+router.get("/:id", authenticateToken, checkPermission("GOVERNMENT_STRUCTURES", "READ"), getGovernmentStructureById);
 router.put("/:id", authenticateToken, checkPermission("GOVERNMENT_STRUCTURES", "UPDATE"), validateUpdateGovernmentStructure, updateGovernmentStructure);
 router.patch("/:id/reactivate", authenticateToken, checkPermission("GOVERNMENT_STRUCTURES", "UPDATE"), reactivateGovernmentStructure);
 router.delete("/:id", authenticateToken, checkPermission("GOVERNMENT_STRUCTURES", "DELETE"), deleteGovernmentStructure);
 
 // ================= USERS =================
 
-router.post("/users/add", authenticateToken, validateAddUsers, addUsersToStructure);
-router.post("/users/remove", authenticateToken, validateRemoveUser, removeUserFromStructure);
+router.post("/users/add", authenticateToken, checkPermission("USERS", "UPDATE"), validateAddUsers, addUsersToStructure);
+router.post("/users/remove", authenticateToken, checkPermission("USERS", "UPDATE"), validateRemoveUser, removeUserFromStructure);
 
 // ================= PERMISSION GROUPS =================
 
 router.post(
     "/permission-groups/add",
     authenticateToken,
+    checkPermission("PERMISSION_GROUPS", "ADD_STRUCTURE"),
     validateAddPermissionGroups,
     addPermissionGroupsToStructure
 );
@@ -53,6 +54,7 @@ router.post(
 router.post(
     "/permission-groups/remove",
     authenticateToken,
+    checkPermission("PERMISSION_GROUPS", "REMOVE_STRUCTURE"),
     validateRemovePermissionGroup,
     removePermissionGroupFromStructure
 );

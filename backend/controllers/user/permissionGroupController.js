@@ -18,6 +18,11 @@ const {
     isSuperAdminActor,
     resolveManageableStructureId,
     sendScopeError,
+    buildVisibleGovernmentStructureIdSet,
+    getActorStructureId,
+    assertUserInStructure,
+    resolveUserGovernmentStructureFilter,
+    assertGovernmentStructureAccessible,
 } = require("../../utils/structureScopeUtils");
 const {
     assertPermissionGroupsFitStructureHierarchy,
@@ -121,6 +126,60 @@ async function assertPermissionGroupAccessible(permissionGroupId, req, structure
     if (!link) {
         const error = new Error(
             "Access denied: permission group is not assigned to this structure."
+        );
+        error.status = 403;
+        throw error;
+    }
+}
+
+async function assertPermissionGroupMutable(permissionGroupId, req) {
+    const structureId =
+        req.body?.government_structure_id || req.query?.government_structure_id;
+
+    if (isSuperAdminActor(req) && !structureId) {
+        return;
+    }
+
+    if (structureId) {
+        await assertPermissionGroupAccessible(permissionGroupId, req, structureId);
+        return;
+    }
+
+    const links = await GovernmentStructurePermissionGroup.findAll({
+        where: { permission_group_id: permissionGroupId },
+        attributes: ["government_structure_id"],
+    });
+
+    if (!links.length) {
+        const error = new Error(
+            "Structure context is required to modify this permission group."
+        );
+        error.status = 403;
+        throw error;
+    }
+
+    const structureIndex = await GovernmentStructure.findAll({
+        attributes: ["government_structure_id", "parent_id"],
+    });
+
+    const actorStructureId = getActorStructureId(req);
+    if (!actorStructureId) {
+        const error = new Error("Your account is not linked to a structure.");
+        error.status = 403;
+        throw error;
+    }
+
+    const visibleIds = buildVisibleGovernmentStructureIdSet(
+        structureIndex,
+        actorStructureId
+    );
+    const canAccess = links.some((link) =>
+        visibleIds.has(link.government_structure_id)
+    );
+
+    if (!canAccess) {
+        const error = new Error(
+            "Access denied: permission group is outside your structure scope."
         );
         error.status = 403;
         throw error;
@@ -430,6 +489,8 @@ const addPermissionsToGroup = async (req, res) => {
 
         assertCanManagePermissionGroup(req.user, group.group_kind, "addPermissions");
 
+        await assertPermissionGroupMutable(permission_group_id, req);
+
         const existingIds = await getPermissionIdsInPermissionGroup(permission_group_id);
         const mergedIds = [...new Set([...existingIds, ...permission_ids])];
 
@@ -467,6 +528,8 @@ const removePermissionFromGroup = async (req, res) => {
         const groupKind = await getPermissionGroupKind(permission_group_id);
         assertCanManagePermissionGroup(req.user, groupKind, "removePermission");
 
+        await assertPermissionGroupMutable(permission_group_id, req);
+
         await PermissionGroupPermission.destroy({
             where: { permission_group_id, permission_id },
         });
@@ -487,6 +550,8 @@ const addUsersToGroup = async (req, res) => {
 
         const groupKind = await getPermissionGroupKind(permission_group_id);
         assertCanManagePermissionGroup(req.user, groupKind, "addUsers");
+
+        await assertPermissionGroupMutable(permission_group_id, req);
 
         const structureLinks = await GovernmentStructurePermissionGroup.findAll({
             where: { permission_group_id },
@@ -553,6 +618,8 @@ const removeUserFromGroup = async (req, res) => {
         const groupKind = await getPermissionGroupKind(permission_group_id);
         assertCanManagePermissionGroup(req.user, groupKind, "removeUser");
 
+        await assertPermissionGroupMutable(permission_group_id, req);
+
         await UserPermissionGroup.destroy({
             where: { permission_group_id, user_id },
         });
@@ -569,6 +636,8 @@ const addStructuresToGroup = async (req, res) => {
 
         const groupKind = await getPermissionGroupKind(permission_group_id);
         assertCanManagePermissionGroup(req.user, groupKind, "addStructures");
+
+        await assertPermissionGroupMutable(permission_group_id, req);
 
         for (const governmentStructureId of government_structure_ids) {
             await assertPermissionGroupFitsStructureHierarchy(
@@ -601,6 +670,8 @@ const removeStructureFromGroup = async (req, res) => {
 
         const groupKind = await getPermissionGroupKind(permission_group_id);
         assertCanManagePermissionGroup(req.user, groupKind, "removeStructure");
+
+        await assertPermissionGroupMutable(permission_group_id, req);
 
         await GovernmentStructurePermissionGroup.destroy({
             where: { permission_group_id, government_structure_id },

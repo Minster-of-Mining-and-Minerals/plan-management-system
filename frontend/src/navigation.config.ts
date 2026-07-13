@@ -43,6 +43,12 @@ export const NAVIGATION: NavItem[] = [
     anyPermissions: ["GOVERNMENT_STRUCTURES:READ"],
   },
   {
+    title: "Departments",
+    url: "/internal-structures",
+    icon: Building2,
+    anyPermissions: ["INTERNAL_STRUCTURES:READ"],
+  },
+  {
     title: "Plan Management",
     url: "/plans",
     icon: ListTree,

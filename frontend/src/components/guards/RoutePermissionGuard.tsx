@@ -10,8 +10,13 @@ import {
   matchRoutePermissionRule,
 } from "@/lib/route-permissions";
 import { useGetSecuritySystemSettingsQuery } from "@/redux/api/systemSettingsApi";
+import { useGetMyPermissionsQuery } from "@/redux/api/authApi";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import { AccessDenied } from "./AccessDenied";
+import { Button } from "@/components/ui/button";
+import { useDispatch } from "react-redux";
+import { setPermissions } from "@/redux/slices/authSlice";
+import { useSession } from "next-auth/react";
 
 interface RoutePermissionGuardProps {
   children: React.ReactNode;
@@ -23,12 +28,36 @@ interface RoutePermissionGuardProps {
  */
 export function RoutePermissionGuard({ children }: RoutePermissionGuardProps) {
   const pathname = usePathname();
-  const { permissions, isLoading } = useAuth();
+  const dispatch = useDispatch();
+  const { status } = useSession();
+  const { permissions, isLoading, bootstrapError } = useAuth();
+  const { refetch: refetchPermissions } = useGetMyPermissionsQuery(undefined, {
+    skip: status !== "authenticated",
+  });
   const { data: securitySettings, isLoading: isSettingsLoading } =
     useGetSecuritySystemSettingsQuery();
 
   if (isLoading || isSettingsLoading) {
     return <Loading01 />;
+  }
+
+  if (bootstrapError) {
+    return (
+      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 p-8 text-center">
+        <p className="text-destructive text-lg font-medium">Could not load your permissions</p>
+        <p className="text-muted-foreground text-sm max-w-md">{bootstrapError}</p>
+        <Button
+          onClick={async () => {
+            const result = await refetchPermissions();
+            if (result.data?.data) {
+              dispatch(setPermissions(result.data.data));
+            }
+          }}
+        >
+          Retry
+        </Button>
+      </div>
+    );
   }
 
   const matchedRule = matchRoutePermissionRule(pathname);

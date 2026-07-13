@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useDispatch, useSelector } from "react-redux";
-import { setUser, setPermissions, clearUserProfile } from "@/redux/slices/authSlice";
+import { setUser, setPermissions, completeAuthBootstrap, clearUserProfile } from "@/redux/slices/authSlice";
 import { useGetMeQuery, useGetMyPermissionsQuery } from "@/redux/api/authApi";
 import { baseApi } from "@/redux/baseApi";
 
@@ -58,7 +58,8 @@ export default function AuthInitializer({
   });
 
   // Step 3: Fetch roles + permissions from /permissions (always refetch while authenticated)
-  const { data: permissionsData } = useGetMyPermissionsQuery(undefined, {
+  const { data: permissionsData, isError: permissionsError, error: permissionsFetchError, refetch: refetchPermissions } =
+    useGetMyPermissionsQuery(undefined, {
     skip: status !== "authenticated" || !session?.accessToken,
     refetchOnMountOrArgChange: true,
     refetchOnFocus: true,
@@ -77,6 +78,20 @@ export default function AuthInitializer({
       dispatch(setPermissions(permissionsData.data));
     }
   }, [permissionsData, dispatch]);
+
+  useEffect(() => {
+    if (status !== "authenticated" || !session?.accessToken) {
+      return;
+    }
+    if (permissionsError) {
+      const message =
+        (permissionsFetchError as { data?: { message?: string } })?.data?.message ||
+        "Failed to load your permissions.";
+      dispatch(completeAuthBootstrap({ error: message }));
+    }
+  }, [status, session?.accessToken, permissionsError, permissionsFetchError, dispatch]);
+
+  // Expose retry for RoutePermissionGuard via window event is overkill; guard uses refetch via store - skip
 
   // Step 5: Clear on logout
   useEffect(() => {

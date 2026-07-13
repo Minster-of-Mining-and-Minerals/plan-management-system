@@ -3,10 +3,44 @@ const router = express.Router();
 
 const upload = require("../../middlewares/uploadMiddleware");
 const {
+  authenticateToken,
+  checkAnyPermission,
+} = require("../../middlewares/authMiddleware");
+const {
   uploadFiles,
   getAllAttachments,
   deleteAttachment,
 } = require("../../controllers/attachment-controller/attachmentController");
+
+router.use(authenticateToken);
+
+router.post(
+  "/",
+  checkAnyPermission([
+    { resource: "issues", action: "create" },
+    { resource: "issues", action: "read_all" },
+  ]),
+  upload.array("files", 10),
+  uploadFiles
+);
+
+router.get(
+  "/",
+  checkAnyPermission([
+    { resource: "issues", action: "read" },
+    { resource: "issues", action: "read_all" },
+  ]),
+  getAllAttachments
+);
+
+router.delete(
+  "/:attachment_id",
+  checkAnyPermission([
+    { resource: "issues", action: "read_all" },
+    { resource: "issues", action: "resolve" },
+  ]),
+  deleteAttachment
+);
 
 /**
  * @swagger
@@ -60,7 +94,6 @@ const {
  *       500:
  *         description: Internal server error
  */
-router.post("/", upload.array("files", 10), uploadFiles);
 
 /**
  * @swagger
@@ -104,7 +137,6 @@ router.post("/", upload.array("files", 10), uploadFiles);
  *       500:
  *         description: Internal server error
  */
-router.get("/", getAllAttachments);
 
 /**
  * @swagger
@@ -150,6 +182,5 @@ router.get("/", getAllAttachments);
  *       500:
  *         description: Internal server error
  */
-router.delete("/:attachment_id", deleteAttachment);
 
 module.exports = router;

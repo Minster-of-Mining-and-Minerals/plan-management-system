@@ -25,8 +25,8 @@ const { authenticateToken, checkPermission } = require("../../middlewares/authMi
  * CRUD
  */
 router.post("/", authenticateToken, checkPermission("INTERNAL_STRUCTURES", "CREATE"), validateCreateInternalStructure, createInternalStructure);
-router.get("/", authenticateToken, getInternalStructures);
-router.get("/:id", authenticateToken, getInternalStructureById);
+router.get("/", authenticateToken, checkPermission("INTERNAL_STRUCTURES", "READ"), getInternalStructures);
+router.get("/:id", authenticateToken, checkPermission("INTERNAL_STRUCTURES", "READ"), getInternalStructureById);
 router.put("/:id", authenticateToken, checkPermission("INTERNAL_STRUCTURES", "UPDATE"), validateUpdateInternalStructure, updateInternalStructure);
 router.patch("/:id/reactivate", authenticateToken, checkPermission("INTERNAL_STRUCTURES", "UPDATE"), reactivateInternalStructure);
 router.delete("/:id", authenticateToken, checkPermission("INTERNAL_STRUCTURES", "DELETE"), deleteInternalStructure);
@@ -34,7 +34,7 @@ router.delete("/:id", authenticateToken, checkPermission("INTERNAL_STRUCTURES", 
 /**
  * USER MANAGEMENT
  */
-router.post("/assign-users", authenticateToken, validateAssignUsers, assignUsersToInternalStructure);
-router.post("/remove-user", authenticateToken, validateRemoveUser, removeUserFromInternalStructure);
+router.post("/assign-users", authenticateToken, checkPermission("INTERNAL_STRUCTURES", "UPDATE"), validateAssignUsers, assignUsersToInternalStructure);
+router.post("/remove-user", authenticateToken, checkPermission("INTERNAL_STRUCTURES", "UPDATE"), validateRemoveUser, removeUserFromInternalStructure);
 
 module.exports = router;

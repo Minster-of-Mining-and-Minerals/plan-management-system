@@ -34,7 +34,7 @@ exports.changePassword = async (req, res) => {
     }
 
     // Fetch user
-    const user = await User.findOne({
+    const user = await User.unscoped().findOne({
       where: { user_id: userId, is_active: true },
       transaction: t,
     });

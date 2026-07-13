@@ -17,7 +17,7 @@ import { RootState } from "@/redux/store";
  */
 export function useAuth() {
   const { data: session, status } = useSession();
-  const { user, roles, permissions, isLoaded } = useSelector(
+  const { user, roles, permissions, isLoaded, bootstrapError } = useSelector(
     (state: RootState) => state.auth
   );
 
@@ -65,6 +65,7 @@ export function useAuth() {
     isAuthenticated,
     isLoading,
     isLoaded,
+    bootstrapError,
 
     // Helper methods
     hasPermission,

@@ -673,6 +673,15 @@ const updatePlanVersion = async (req, res) => {
             });
         }
 
+        const { userCanReadPlanVersion } = require("../../services/planVisibilityService");
+        if (!(await userCanReadPlanVersion(req, id))) {
+            await t.rollback();
+            return res.status(403).json({
+                success: false,
+                message: "Access denied: plan is outside your scope.",
+            });
+        }
+
         const oversightAccess = await validateNotOversightReadOnly(
             req,
             planVersion.plan_version_id

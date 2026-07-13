@@ -199,6 +199,8 @@ export default function UserTable({
   const {
     data: users = [],
     isLoading,
+    isError,
+    refetch,
   } = useGetUsersQuery(
     {
       government_structure_id: effectiveStructureId,
@@ -309,6 +311,9 @@ export default function UserTable({
           columns={columns}
           data={filteredData}
           isLoading={isLoading}
+          isError={isError}
+          errorMessage="Failed to load users."
+          onRetry={refetch}
           resetKey={`${searchQuery}-${statusFilter}-${effectiveStructureId}-${internal_structure_node_id}`}
         />
       </TableLayout>

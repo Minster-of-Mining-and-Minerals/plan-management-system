@@ -20,6 +20,7 @@ interface AuthState {
   /** Flat permission keys as "RESOURCE:ACTION" e.g. "USERS:READ" */
   permissions: string[];
   isLoaded: boolean;
+  bootstrapError: string | null;
 }
 
 const initialState: AuthState = {
@@ -27,6 +28,7 @@ const initialState: AuthState = {
   roles: [],
   permissions: [],
   isLoaded: false,
+  bootstrapError: null,
 };
 
 export const authSlice = createSlice({
@@ -40,15 +42,29 @@ export const authSlice = createSlice({
       state.roles = action.payload.roles;
       state.permissions = action.payload.permissions;
       state.isLoaded = true;
+      state.bootstrapError = null;
+    },
+    completeAuthBootstrap: (
+      state,
+      action: PayloadAction<{ error?: string | null } | undefined>
+    ) => {
+      state.isLoaded = true;
+      state.bootstrapError = action.payload?.error ?? null;
+      if (action.payload?.error) {
+        state.permissions = [];
+        state.roles = [];
+      }
     },
     clearUserProfile: (state) => {
       state.user = null;
       state.roles = [];
       state.permissions = [];
       state.isLoaded = false;
+      state.bootstrapError = null;
     },
   },
 });
 
-export const { setUser, setPermissions, clearUserProfile } = authSlice.actions;
+export const { setUser, setPermissions, completeAuthBootstrap, clearUserProfile } =
+  authSlice.actions;
 export default authSlice.reducer;

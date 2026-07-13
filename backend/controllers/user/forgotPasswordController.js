@@ -6,7 +6,7 @@ const { normalizeEmail } = require("../../utils/emailUtils");
 
 const findActiveUserByEmail = (email) => {
   const normalizedEmail = normalizeEmail(email);
-  return User.findOne({
+  return User.unscoped().findOne({
     where: {
       email: { [Op.iLike]: normalizedEmail },
       is_active: true,
@@ -16,7 +16,7 @@ const findActiveUserByEmail = (email) => {
 
 const findUserByEmailAndOtp = (email, otp) => {
   const normalizedEmail = normalizeEmail(email);
-  return User.findOne({
+  return User.unscoped().findOne({
     where: {
       email: { [Op.iLike]: normalizedEmail },
       otp,

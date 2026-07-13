@@ -4,6 +4,12 @@ const {
   assignRolesToUser,
   removeRoleFromUser,
 } = require("../../controllers/user/userRolesController");
+const {
+  authenticateToken,
+  checkPermission,
+} = require("../../middlewares/authMiddleware");
+
+router.use(authenticateToken);
 
 /**
  * @swagger
@@ -40,7 +46,7 @@ const {
  *       200:
  *         description: Roles assigned successfully
  */
-router.post("/assign", assignRolesToUser);
+router.post("/assign", checkPermission("USERS", "ASSIGN_ROLE"), assignRolesToUser);
 
 /**
  * @swagger
@@ -68,6 +74,6 @@ router.post("/assign", assignRolesToUser);
  *       200:
  *         description: Role removed successfully
  */
-router.post("/remove", removeRoleFromUser);
+router.post("/remove", checkPermission("USERS", "ASSIGN_ROLE"), removeRoleFromUser);
 
 module.exports = router;
