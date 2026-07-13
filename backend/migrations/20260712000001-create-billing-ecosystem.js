@@ -7,6 +7,11 @@ const {
   BILLING_CATEGORY_PERMISSIONS,
   APPOINTMENT_BILLING_PERMISSIONS,
 } = require("../config/billingConstants");
+const {
+  CASHIER_PERMISSIONS,
+  CASHIER_ROLE_NAMES,
+} = require("../config/cashierConstants");
+const { dropTableIfExists } = require("./_helpers/migrationUtils");
 
 const ADMIN_ROLE_NAMES = ["Super Admin", "Admin"];
 const CLINICAL_ROLE_NAMES = [
@@ -159,6 +164,18 @@ module.exports = {
         allowNull: false,
         defaultValue: "ETB",
       },
+      amount_paid: {
+        type: Sequelize.DECIMAL(14, 2),
+        allowNull: false,
+        defaultValue: 0,
+      },
+      balance_due: {
+        type: Sequelize.DECIMAL(14, 2),
+        allowNull: false,
+        defaultValue: 0,
+      },
+      paid_at: { type: Sequelize.DATE, allowNull: true },
+      last_payment_at: { type: Sequelize.DATE, allowNull: true },
       created_at: { type: Sequelize.DATE, allowNull: false, defaultValue: now },
       updated_at: { type: Sequelize.DATE, allowNull: false, defaultValue: now },
     });
@@ -305,6 +322,7 @@ module.exports = {
       ...BILLING_SERVICE_PERMISSIONS,
       ...BILLING_CATEGORY_PERMISSIONS,
       ...APPOINTMENT_BILLING_PERMISSIONS,
+      ...CASHIER_PERMISSIONS,
     ];
 
     const permMap = new Map();
@@ -384,19 +402,199 @@ module.exports = {
         await linkPerm(role.role_id, key);
       }
     }
+
+    const cashierRoles = roles.filter((r) => CASHIER_ROLE_NAMES.includes(r.name));
+    const cashierPermKeys = CASHIER_PERMISSIONS.map((p) => `${p.resource}:${p.action}`);
+    for (const role of cashierRoles) {
+      for (const key of cashierPermKeys) {
+        await linkPerm(role.role_id, key);
+      }
+    }
+
+    if (!tables.includes("cashier_sessions")) {
+      await queryInterface.createTable("cashier_sessions", {
+        session_id: {
+          type: Sequelize.UUID,
+          primaryKey: true,
+          defaultValue: Sequelize.literal("gen_random_uuid()"),
+        },
+        cashier_user_id: {
+          type: Sequelize.UUID,
+          allowNull: false,
+          references: { model: "users", key: "user_id" },
+          onUpdate: "CASCADE",
+          onDelete: "RESTRICT",
+        },
+        status: {
+          type: Sequelize.STRING(32),
+          allowNull: false,
+          defaultValue: "open",
+        },
+        opening_float: {
+          type: Sequelize.DECIMAL(14, 2),
+          allowNull: false,
+          defaultValue: 0,
+        },
+        expected_cash_total: { type: Sequelize.DECIMAL(14, 2), allowNull: true },
+        counted_cash_total: { type: Sequelize.DECIMAL(14, 2), allowNull: true },
+        variance: { type: Sequelize.DECIMAL(14, 2), allowNull: true },
+        close_notes: { type: Sequelize.TEXT, allowNull: true },
+        opened_at: { type: Sequelize.DATE, allowNull: false, defaultValue: now },
+        closed_at: { type: Sequelize.DATE, allowNull: true },
+        created_at: { type: Sequelize.DATE, allowNull: false, defaultValue: now },
+        updated_at: { type: Sequelize.DATE, allowNull: false, defaultValue: now },
+      });
+    }
+
+    if (!tables.includes("cashier_payments")) {
+      await queryInterface.createTable("cashier_payments", {
+        payment_id: {
+          type: Sequelize.UUID,
+          primaryKey: true,
+          defaultValue: Sequelize.literal("gen_random_uuid()"),
+        },
+        account_id: {
+          type: Sequelize.UUID,
+          allowNull: false,
+          references: {
+            model: "appointment_billing_accounts",
+            key: "account_id",
+          },
+          onUpdate: "CASCADE",
+          onDelete: "RESTRICT",
+        },
+        appointment_id: {
+          type: Sequelize.UUID,
+          allowNull: false,
+          references: { model: "staff_appointments", key: "appointment_id" },
+          onUpdate: "CASCADE",
+          onDelete: "CASCADE",
+        },
+        patient_id: {
+          type: Sequelize.UUID,
+          allowNull: false,
+          references: { model: "users", key: "user_id" },
+          onUpdate: "CASCADE",
+          onDelete: "CASCADE",
+        },
+        session_id: {
+          type: Sequelize.UUID,
+          allowNull: false,
+          references: { model: "cashier_sessions", key: "session_id" },
+          onUpdate: "CASCADE",
+          onDelete: "RESTRICT",
+        },
+        receipt_number: {
+          type: Sequelize.STRING(32),
+          allowNull: false,
+          unique: true,
+        },
+        amount: { type: Sequelize.DECIMAL(14, 2), allowNull: false },
+        currency: {
+          type: Sequelize.STRING(8),
+          allowNull: false,
+          defaultValue: "ETB",
+        },
+        status: {
+          type: Sequelize.STRING(32),
+          allowNull: false,
+          defaultValue: "completed",
+        },
+        reference_note: { type: Sequelize.TEXT, allowNull: true },
+        client_reference: { type: Sequelize.UUID, allowNull: true, unique: true },
+        received_by: {
+          type: Sequelize.UUID,
+          allowNull: false,
+          references: { model: "users", key: "user_id" },
+          onUpdate: "CASCADE",
+          onDelete: "RESTRICT",
+        },
+        voided_by: { type: Sequelize.UUID, allowNull: true },
+        void_reason: { type: Sequelize.TEXT, allowNull: true },
+        voided_at: { type: Sequelize.DATE, allowNull: true },
+        created_at: { type: Sequelize.DATE, allowNull: false, defaultValue: now },
+        updated_at: { type: Sequelize.DATE, allowNull: false, defaultValue: now },
+      });
+    }
+
+    if (!tables.includes("payment_tenders")) {
+      await queryInterface.createTable("payment_tenders", {
+        tender_id: {
+          type: Sequelize.UUID,
+          primaryKey: true,
+          defaultValue: Sequelize.literal("gen_random_uuid()"),
+        },
+        payment_id: {
+          type: Sequelize.UUID,
+          allowNull: false,
+          references: { model: "cashier_payments", key: "payment_id" },
+          onUpdate: "CASCADE",
+          onDelete: "CASCADE",
+        },
+        method: { type: Sequelize.STRING(32), allowNull: false },
+        amount: { type: Sequelize.DECIMAL(14, 2), allowNull: false },
+        reference: { type: Sequelize.STRING(128), allowNull: true },
+        provider: { type: Sequelize.STRING(64), allowNull: true },
+        created_at: { type: Sequelize.DATE, allowNull: false, defaultValue: now },
+        updated_at: { type: Sequelize.DATE, allowNull: false, defaultValue: now },
+      });
+    }
+
+    if (!tables.includes("receipt_sequences")) {
+      await queryInterface.createTable("receipt_sequences", {
+        sequence_id: {
+          type: Sequelize.UUID,
+          primaryKey: true,
+          defaultValue: Sequelize.literal("gen_random_uuid()"),
+        },
+        facility_key: {
+          type: Sequelize.STRING(64),
+          allowNull: false,
+          defaultValue: "default",
+        },
+        year: { type: Sequelize.INTEGER, allowNull: false },
+        last_number: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
+        created_at: { type: Sequelize.DATE, allowNull: false, defaultValue: now },
+        updated_at: { type: Sequelize.DATE, allowNull: false, defaultValue: now },
+      });
+      await queryInterface.addIndex("receipt_sequences", ["facility_key", "year"], {
+        unique: true,
+        name: "receipt_sequences_facility_year_unique",
+      });
+    }
+
+    await queryInterface.sequelize.query(
+      `CREATE INDEX IF NOT EXISTS cashier_sessions_cashier_status ON cashier_sessions (cashier_user_id, status)`
+    );
+    await queryInterface.sequelize.query(
+      `CREATE INDEX IF NOT EXISTS cashier_payments_account_id ON cashier_payments (account_id)`
+    );
+    await queryInterface.sequelize.query(
+      `CREATE INDEX IF NOT EXISTS cashier_payments_session_id ON cashier_payments (session_id)`
+    );
+    await queryInterface.sequelize.query(
+      `CREATE INDEX IF NOT EXISTS appointment_billing_accounts_status ON appointment_billing_accounts (status)`
+    );
   },
 
   async down(queryInterface) {
-    await queryInterface.dropTable("appointment_billing_entries");
-    await queryInterface.dropTable("appointment_billing_accounts");
-    await queryInterface.dropTable("billing_services");
-    await queryInterface.dropTable("billing_service_categories");
+    await dropTableIfExists(queryInterface, "payment_tenders");
+    await dropTableIfExists(queryInterface, "cashier_payments");
+    await dropTableIfExists(queryInterface, "cashier_sessions");
+    await dropTableIfExists(queryInterface, "receipt_sequences");
+    await dropTableIfExists(queryInterface, "appointment_billing_entries");
+    await dropTableIfExists(queryInterface, "appointment_billing_accounts");
+    await dropTableIfExists(queryInterface, "billing_services");
+    await dropTableIfExists(queryInterface, "billing_service_categories");
 
     const resources = [
       "billing_service",
       "billing_service_category",
       "appointment_billing",
       "billing",
+      "cashier_session",
+      "cashier_payment",
+      "cashier_queue",
     ];
     const perms = await queryInterface.sequelize.query(
       `SELECT permission_id FROM permissions WHERE resource IN (:resources)`,

@@ -35,6 +35,11 @@ module.exports = {
         allowNull: false,
         defaultValue: true,
       },
+      sort_order: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+      },
       created_by: {
         type: Sequelize.UUID,
         allowNull: true,
@@ -55,8 +60,7 @@ module.exports = {
     await safeAddIndex(
       queryInterface,
       "diagnosis_form_configs",
-      ["assigned_staff_id"],
-      { unique: true, name: "diagnosis_form_configs_staff_unique" }
+      ["assigned_staff_id", "is_active"]
     );
 
     await queryInterface.addColumn("form_field_groups", "diagnosis_config_id", {

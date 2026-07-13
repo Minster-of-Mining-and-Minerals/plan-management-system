@@ -1,9 +1,11 @@
 "use strict";
 
+const { dropTableIfExists, createTableIfNotExists, safeAddIndex } = require("./_helpers/migrationUtils");
+
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable("medical_diagrams", {
+    if (await createTableIfNotExists(queryInterface, "medical_diagrams", {
       diagram_id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.literal("gen_random_uuid()"),
@@ -55,13 +57,13 @@ module.exports = {
         allowNull: false,
         defaultValue: Sequelize.literal("CURRENT_TIMESTAMP"),
       },
-    });
-
-    await queryInterface.addIndex("medical_diagrams", ["status"]);
-    await queryInterface.addIndex("medical_diagrams", ["category"]);
+    })) {
+      await safeAddIndex(queryInterface, "medical_diagrams", ["status"]);
+      await safeAddIndex(queryInterface, "medical_diagrams", ["category"]);
+    }
   },
 
   async down(queryInterface) {
-    await queryInterface.dropTable("medical_diagrams");
+    await dropTableIfExists(queryInterface, "medical_diagrams");
   },
 };

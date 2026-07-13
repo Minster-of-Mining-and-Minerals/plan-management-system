@@ -37,12 +37,20 @@ module.exports = {
         allowNull: false,
         defaultValue: false,
       },
+      category: {
+        type: Sequelize.STRING(32),
+        allowNull: false,
+        defaultValue: "system",
+      },
       ...ts,
     });
 
-    await safeAddIndex(queryInterface, "notifications", ["recipient_id", "is_read"], {
-      name: "notifications_recipient_read_idx",
-    });
+    await safeAddIndex(
+      queryInterface,
+      "notifications",
+      ["recipient_id", "category", "is_read"],
+      { name: "notifications_recipient_category_read_idx" }
+    );
 
     await queryInterface.createTable("staff_appointments", {
       appointment_id: {

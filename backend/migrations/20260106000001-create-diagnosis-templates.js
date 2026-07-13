@@ -5,6 +5,9 @@ const {
   timestampColumns,
   safeAddIndex,
   dropTableIfExists,
+  tableExists,
+  columnExists,
+  createTableIfNotExists,
 } = require("./_helpers/migrationUtils");
 
 const STARTER_TEMPLATES = [
@@ -19,7 +22,7 @@ module.exports = {
   async up(queryInterface, Sequelize) {
     const ts = timestampColumns(Sequelize);
 
-    await queryInterface.createTable("diagnosis_templates", {
+    const created = await createTableIfNotExists(queryInterface, "diagnosis_templates", {
       template_id: {
         type: Sequelize.UUID,
         primaryKey: true,
@@ -52,37 +55,50 @@ module.exports = {
       ...ts,
     });
 
-    await safeAddIndex(queryInterface, "diagnosis_templates", ["status"]);
+    if (created) {
+      await safeAddIndex(queryInterface, "diagnosis_templates", ["status"]);
+    }
 
-    await queryInterface.addColumn("diagnosis_form_configs", "source_template_id", {
+    if (!(await columnExists(queryInterface, "diagnosis_form_configs", "source_template_id"))) {
+      await queryInterface.addColumn("diagnosis_form_configs", "source_template_id", {
       type: Sequelize.UUID,
       allowNull: true,
       references: { model: "diagnosis_templates", key: "template_id" },
       onUpdate: "CASCADE",
       onDelete: "SET NULL",
-    });
+      });
+    }
 
-    await queryInterface.addColumn("form_field_groups", "diagnosis_template_id", {
+    if (!(await columnExists(queryInterface, "form_field_groups", "diagnosis_template_id"))) {
+      await queryInterface.addColumn("form_field_groups", "diagnosis_template_id", {
       type: Sequelize.UUID,
       allowNull: true,
       references: { model: "diagnosis_templates", key: "template_id" },
       onUpdate: "CASCADE",
       onDelete: "CASCADE",
-    });
+      });
+    }
 
-    await queryInterface.addColumn("form_fields", "diagnosis_template_id", {
+    if (!(await columnExists(queryInterface, "form_fields", "diagnosis_template_id"))) {
+      await queryInterface.addColumn("form_fields", "diagnosis_template_id", {
       type: Sequelize.UUID,
       allowNull: true,
       references: { model: "diagnosis_templates", key: "template_id" },
       onUpdate: "CASCADE",
       onDelete: "CASCADE",
-    });
+      });
+    }
 
     await queryInterface.sequelize.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS form_fields_diagnosis_template_field_key_unique
       ON form_fields (model_name, field_key, diagnosis_template_id)
       WHERE diagnosis_template_id IS NOT NULL;
     `);
+
+    const [[{ count }]] = await queryInterface.sequelize.query(
+      `SELECT COUNT(*)::int AS count FROM diagnosis_templates;`
+    );
+    if (Number(count) > 0) return;
 
     const now = new Date();
     for (const t of STARTER_TEMPLATES) {

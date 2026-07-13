@@ -46,6 +46,10 @@ module.exports = {
       type: Sequelize.JSONB,
       allowNull: true,
     });
+    await queryInterface.addColumn("system_branding", "prescription_signature_file", {
+      type: Sequelize.STRING(500),
+      allowNull: true,
+    });
 
     await queryInterface.addColumn("internal_user_profiles", "signature_file", {
       type: Sequelize.STRING(500),
@@ -439,6 +443,7 @@ module.exports = {
       "contact_email",
       "license_info",
       "prescription_config",
+      "prescription_signature_file",
     ];
     for (const col of brandingCols) {
       await queryInterface.removeColumn("system_branding", col);
