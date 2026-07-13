@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, Send } from "lucide-react";
+import { Search, Send, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { AppointmentSidePanelShell } from "../components/AppointmentSidePanelShell";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ import { SuggestionTextarea } from "@/components/clinical-suggestions/Suggestion
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import type { WorkflowReceiver } from "@/redux/api/medicalWorkflowApi";
+
+export const CASHIER_FORWARD_TARGET_ID = "__cashier_desk__";
 
 function userInitials(name: string) {
   return (name || "?")
@@ -29,6 +31,7 @@ type Props = {
   onClose?: () => void;
   onConfirm: (receiverId: string, forwardNote?: string) => void;
   isSubmitting?: boolean;
+  canSendToCashier?: boolean;
 };
 
 export function ForwardPreview({
@@ -38,6 +41,7 @@ export function ForwardPreview({
   onClose,
   onConfirm,
   isSubmitting,
+  canSendToCashier = false,
 }: Props) {
   const [userSearch, setUserSearch] = useState("");
   const [selectedId, setSelectedId] = useState("");
@@ -62,7 +66,13 @@ export function ForwardPreview({
     );
   }, [eligibleReceivers, userSearch]);
 
+  const cashierSelected = selectedId === CASHIER_FORWARD_TARGET_ID;
+
   const handleConfirm = () => {
+    if (cashierSelected) {
+      onConfirm(CASHIER_FORWARD_TARGET_ID, forwardNote.trim() || undefined);
+      return;
+    }
     if (currentUserId && selectedId === currentUserId) {
       toast.error("You cannot forward a patient to yourself");
       return;
@@ -73,11 +83,11 @@ export function ForwardPreview({
 
   return (
     <AppointmentSidePanelShell
-      title="Forward to staff"
+      title="Forward patient"
       subtitle={
         fromStaffName
-          ? `${fromStaffName} → select receiving staff`
-          : "Forward patient data to a specific user"
+          ? `${fromStaffName} → select destination`
+          : "Send to cashier or forward to clinical staff"
       }
       onClose={onClose}
       footer={
@@ -90,17 +100,48 @@ export function ForwardPreview({
             disabled={!selectedId || isSubmitting}
             onClick={handleConfirm}
           >
-            <Send className="mr-1.5 h-4 w-4" />
-            {isSubmitting ? "Forwarding…" : "Confirm forward"}
+            {cashierSelected ? (
+              <Wallet className="mr-1.5 h-4 w-4" />
+            ) : (
+              <Send className="mr-1.5 h-4 w-4" />
+            )}
+            {isSubmitting
+              ? "Sending…"
+              : cashierSelected
+                ? "Send to cashier"
+                : "Confirm forward"}
           </Button>
         </div>
       }
     >
+      {canSendToCashier && (
+        <button
+          type="button"
+          onClick={() => setSelectedId(CASHIER_FORWARD_TARGET_ID)}
+          className={cn(
+            "mb-3 flex w-full gap-3 rounded-xl border p-3 text-left shadow-sm transition-all",
+            cashierSelected
+              ? "border-primary/50 bg-primary/5 ring-1 ring-primary/30"
+              : "border-amber-200 bg-amber-50 hover:border-primary/30"
+          )}
+        >
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Wallet className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold">Cashier desk</p>
+            <p className="text-xs text-muted-foreground">
+              Notify cashiers to collect the outstanding visit balance
+            </p>
+          </div>
+        </button>
+      )}
+
       <div className="relative">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
           className="pl-8"
-          placeholder="Search staff…"
+          placeholder="Search clinical staff…"
           value={userSearch}
           onChange={(e) => setUserSearch(e.target.value)}
         />
@@ -149,16 +190,21 @@ export function ForwardPreview({
       )}
 
       <div className="space-y-2">
-        <Label>Forward note (optional)</Label>
+        <Label>
+          {cashierSelected ? "Note for cashier (optional)" : "Forward note (optional)"}
+        </Label>
         <SuggestionTextarea
           value={forwardNote}
           onChange={setForwardNote}
           category="referral"
-          placeholder="Message for the receiving staff"
+          placeholder={
+            cashierSelected
+              ? "e.g. Patient ready for payment after lab"
+              : "Message for the receiving staff"
+          }
           className="min-h-[4.5rem] resize-none"
         />
       </div>
-
     </AppointmentSidePanelShell>
   );
 }

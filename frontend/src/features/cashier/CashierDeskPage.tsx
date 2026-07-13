@@ -46,6 +46,7 @@ import {
   useGetCashierQueueQuery,
   useGetCashierPaymentsTodayQuery,
   useGetCashierPaymentHistoryQuery,
+  useGetCashierSessionSummaryQuery,
   useGetCurrentCashierSessionQuery,
   useOpenCashierSessionMutation,
   useRecordCashierPaymentMutation,
@@ -112,6 +113,8 @@ export function CashierDeskPage() {
   const [receiptTitle, setReceiptTitle] = useState("");
   const [voidPaymentId, setVoidPaymentId] = useState<string | null>(null);
   const [voidReason, setVoidReason] = useState("");
+  const [voidAmount, setVoidAmount] = useState<number | null>(null);
+  const [voidReceiptNumber, setVoidReceiptNumber] = useState("");
   const [deskTab, setDeskTab] = useState<"queue" | "paid-today" | "history">(
     "queue"
   );
@@ -158,6 +161,11 @@ export function CashierDeskPage() {
       },
       { skip: deskTab !== "history" }
     );
+
+  const { data: sessionSummary, isLoading: summaryLoading } =
+    useGetCashierSessionSummaryQuery(session?.session_id || "", {
+      skip: !closeSessionOpen || !session?.session_id,
+    });
 
   const selectedAccountId = selected?.account_id;
   const { data: accountDetail, isLoading: accountLoading } =
@@ -217,12 +225,17 @@ export function CashierDeskPage() {
   const handleCloseSession = async () => {
     if (!session) return;
     try {
-      await closeSession({
+      const closed = await closeSession({
         sessionId: session.session_id,
         counted_cash_total: Number(countedCash),
         close_notes: closeNotes || undefined,
       }).unwrap();
-      toast.success("Cashier session closed");
+      const variance = closed.variance ?? closed.summary?.session.variance;
+      toast.success(
+        variance != null
+          ? `Session closed · variance ${formatBillingCurrency(variance, currency)}`
+          : "Cashier session closed"
+      );
       setCloseSessionOpen(false);
       setCountedCash("");
       setCloseNotes("");
@@ -291,6 +304,8 @@ export function CashierDeskPage() {
       toast.success("Payment voided");
       setVoidPaymentId(null);
       setVoidReason("");
+      setVoidAmount(null);
+      setVoidReceiptNumber("");
       refetchQueue();
     } catch (err: unknown) {
       toast.error(
@@ -760,7 +775,12 @@ export function CashierDeskPage() {
                               variant="ghost"
                               size="sm"
                               className="text-destructive"
-                              onClick={() => setVoidPaymentId(payment.payment_id)}
+                              onClick={() => {
+                                setVoidPaymentId(payment.payment_id);
+                                setVoidAmount(payment.amount);
+                                setVoidReceiptNumber(payment.receipt_number);
+                                setVoidReason("");
+                              }}
                             >
                               Void
                             </Button>
@@ -825,11 +845,74 @@ export function CashierDeskPage() {
       </Dialog>
 
       <Dialog open={closeSessionOpen} onOpenChange={setCloseSessionOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Close cashier session</DialogTitle>
           </DialogHeader>
           <div className="grid gap-3 py-2">
+            {summaryLoading ? (
+              <div className="flex justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : sessionSummary ? (
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Payments</span>
+                  <span className="font-medium">{sessionSummary.payment_count}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Voids</span>
+                  <span className="font-medium">{sessionSummary.void_count}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Collected</span>
+                  <span className="font-semibold text-primary">
+                    {formatBillingCurrency(
+                      sessionSummary.collected_total,
+                      sessionSummary.currency
+                    )}
+                  </span>
+                </div>
+                {Object.keys(sessionSummary.by_method).length > 0 && (
+                  <div className="border-t pt-2 space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      By method
+                    </p>
+                    {Object.entries(sessionSummary.by_method).map(
+                      ([method, amount]) => (
+                        <div key={method} className="flex justify-between text-xs">
+                          <span>{formatPaymentMethod(method)}</span>
+                          <span>
+                            {formatBillingCurrency(amount, sessionSummary.currency)}
+                          </span>
+                        </div>
+                      )
+                    )}
+                  </div>
+                )}
+                <div className="border-t pt-2 flex justify-between font-medium">
+                  <span>Expected cash in drawer</span>
+                  <span>
+                    {formatBillingCurrency(
+                      sessionSummary.expected_cash_in_drawer,
+                      sessionSummary.currency
+                    )}
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Opening float{" "}
+                  {formatBillingCurrency(
+                    sessionSummary.opening_float,
+                    sessionSummary.currency
+                  )}{" "}
+                  + cash collected{" "}
+                  {formatBillingCurrency(
+                    sessionSummary.cash_collected,
+                    sessionSummary.currency
+                  )}
+                </p>
+              </div>
+            ) : null}
             <div>
               <Label>Counted cash in drawer</Label>
               <Input
@@ -840,6 +923,23 @@ export function CashierDeskPage() {
                 value={countedCash}
                 onChange={(e) => setCountedCash(e.target.value)}
               />
+              {countedCash.trim() !== "" && sessionSummary && (
+                <p
+                  className={`mt-1 text-xs ${
+                    Math.abs(
+                      Number(countedCash) - sessionSummary.expected_cash_in_drawer
+                    ) < 0.01
+                      ? "text-muted-foreground"
+                      : "text-amber-700"
+                  }`}
+                >
+                  Variance:{" "}
+                  {formatBillingCurrency(
+                    Number(countedCash) - sessionSummary.expected_cash_in_drawer,
+                    sessionSummary.currency
+                  )}
+                </p>
+              )}
             </div>
             <div>
               <Label>Notes (optional)</Label>
@@ -996,13 +1096,17 @@ export function CashierDeskPage() {
       </Dialog>
 
       <Dialog open={Boolean(receiptHtml)} onOpenChange={() => setReceiptHtml(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Receipt {receiptTitle}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Payment recorded successfully. Print the receipt for the patient.
-          </p>
+          {receiptHtml ? (
+            <iframe
+              title={`Receipt ${receiptTitle}`}
+              srcDoc={receiptHtml}
+              className="h-[420px] w-full rounded-md border bg-white"
+            />
+          ) : null}
           <DialogFooter>
             <Button variant="outline" onClick={() => setReceiptHtml(null)}>
               Close
@@ -1027,29 +1131,63 @@ export function CashierDeskPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={Boolean(voidPaymentId)} onOpenChange={() => setVoidPaymentId(null)}>
+      <Dialog
+        open={Boolean(voidPaymentId)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setVoidPaymentId(null);
+            setVoidReason("");
+            setVoidAmount(null);
+            setVoidReceiptNumber("");
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Void payment</DialogTitle>
           </DialogHeader>
-          <div>
-            <Label>Reason</Label>
-            <Textarea
-              className="mt-1"
-              value={voidReason}
-              onChange={(e) => setVoidReason(e.target.value)}
-            />
+          <div className="space-y-3">
+            {(voidReceiptNumber || voidAmount != null) && (
+              <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm">
+                <p className="font-medium">{voidReceiptNumber || "Payment"}</p>
+                {voidAmount != null && (
+                  <p className="text-destructive">
+                    {formatBillingCurrency(voidAmount, currency)} will be reversed
+                  </p>
+                )}
+              </div>
+            )}
+            <div>
+              <Label>Supervisor reason (required)</Label>
+              <Textarea
+                className="mt-1"
+                placeholder="Explain why this payment is being voided…"
+                value={voidReason}
+                onChange={(e) => setVoidReason(e.target.value)}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Minimum 5 characters. This is recorded in the audit log.
+              </p>
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setVoidPaymentId(null)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setVoidPaymentId(null);
+                setVoidReason("");
+                setVoidAmount(null);
+                setVoidReceiptNumber("");
+              }}
+            >
               Cancel
             </Button>
             <Button
               variant="destructive"
-              disabled={voidReason.trim().length < 3 || voiding}
+              disabled={voidReason.trim().length < 5 || voiding}
               onClick={handleVoidPayment}
             >
-              Void payment
+              Confirm void
             </Button>
           </DialogFooter>
         </DialogContent>

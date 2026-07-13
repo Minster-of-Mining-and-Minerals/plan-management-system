@@ -21,7 +21,7 @@ import { flattenFormFields } from "@/redux/types/formField";
 import { GlobalWorkflowActions } from "./components/GlobalWorkflowActions";
 import { DiagnosisReportsCard } from "./components/DiagnosisReportsCard";
 import { WorkflowFormCard } from "./components/WorkflowFormCard";
-import { ForwardPreview } from "./panels/ForwardPreview";
+import { ForwardPreview, CASHIER_FORWARD_TARGET_ID } from "./panels/ForwardPreview";
 import { PrescriptionPreview } from "./panels/PrescriptionPreview";
 import { WorkflowHistoryLogPanel } from "./panels/WorkflowHistoryLogPanel";
 import {
@@ -31,6 +31,8 @@ import {
 } from "./workflowFormUtils";
 import { filterDiagnosisReportEntries } from "./workflowTimelineUtils";
 import { AppointmentBillingCard } from "@/features/billing/AppointmentBillingCard";
+import { useSendAppointmentToCashierMutation } from "@/redux/api/appointmentBillingApi";
+import { BILLING_PERMISSIONS } from "@/features/billing/billingUtils";
 import { useGetProfileQuery } from "@/redux/api/userApi";
 import type { PrescriptionRecord } from "@/redux/types/prescription";
 import { toast } from "sonner";
@@ -68,7 +70,10 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
   const { data: receivers = [] } = useGetWorkflowReceiversQuery();
   const [submitEntry, { isLoading: submitting }] =
     useSubmitWorkflowEntryMutation();
+  const [sendToCashier, { isLoading: sendingToCashier }] =
+    useSendAppointmentToCashierMutation();
   const { can } = usePermissions();
+  const canSendToCashier = can(BILLING_PERMISSIONS.COLLECTION_SEND);
 
   const [entryTitle, setEntryTitle] = useState("");
   const [entryTitleError, setEntryTitleError] = useState("");
@@ -394,16 +399,38 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
               currentUserId={profile?.user_id}
               fromStaffName={profile?.full_name || data.appointment.staff?.full_name}
               onClose={closePanels}
-              isSubmitting={submitting}
-              onConfirm={(receiverId, forwardNote) =>
+              isSubmitting={submitting || sendingToCashier}
+              canSendToCashier={canSendToCashier}
+              onConfirm={async (receiverId, forwardNote) => {
+                if (receiverId === CASHIER_FORWARD_TARGET_ID) {
+                  try {
+                    await sendToCashier({
+                      appointmentId,
+                      note: forwardNote,
+                      source: "workflow",
+                    }).unwrap();
+                    toast.success("Patient sent to cashier desk");
+                    closePanels();
+                    refetch();
+                  } catch (err: unknown) {
+                    const message =
+                      err && typeof err === "object" && "data" in err
+                        ? String(
+                            (err as { data?: { message?: string } }).data?.message
+                          )
+                        : "Could not send to cashier";
+                    toast.error(message);
+                  }
+                  return;
+                }
                 runAction("forward", {
                   receiver_staff_id: receiverId,
                   extraNotes: forwardNote,
                   headerTitle: "Forwarded",
                   partial: true,
                   useFormValues: false,
-                })
-              }
+                });
+              }}
             />
           )}
           {globalPanel === "prescribe" && data.appointment?.patient_id && (

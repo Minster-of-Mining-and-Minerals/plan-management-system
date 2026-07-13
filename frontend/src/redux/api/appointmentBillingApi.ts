@@ -71,12 +71,15 @@ export const appointmentBillingApi = baseApi.injectEndpoints({
 
     sendAppointmentToCashier: builder.mutation<
       import("../types/billing").BillingCollectionRequest,
-      { appointmentId: string; note?: string }
+      { appointmentId: string; note?: string; source?: string }
     >({
-      query: ({ appointmentId, note }) => ({
+      query: ({ appointmentId, note, source }) => ({
         url: `/appointment-billing/${appointmentId}/send-to-cashier`,
         method: "POST",
-        body: note ? { note } : {},
+        body: {
+          ...(note ? { note } : {}),
+          ...(source ? { source } : {}),
+        },
       }),
       transformResponse: (r: {
         data: import("../types/billing").BillingCollectionRequest;

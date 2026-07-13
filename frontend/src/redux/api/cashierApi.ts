@@ -5,6 +5,7 @@ import type {
   CashierQueueResponse,
   CashierReceipt,
   CashierSession,
+  CashierSessionSummary,
   PaymentMethod,
 } from "../types/cashier";
 
@@ -39,7 +40,18 @@ export const cashierApi = baseApi.injectEndpoints({
         body,
       }),
       transformResponse: (r: { data: CashierSession }) => r.data,
-      invalidatesTags: ["CashierSession"],
+      invalidatesTags: [
+        "CashierSession",
+        "CashierPaymentsToday",
+        "CashierPaymentHistory",
+        "FinanceCollections",
+      ],
+    }),
+
+    getCashierSessionSummary: builder.query<CashierSessionSummary, string>({
+      query: (sessionId) => `/finance/cashier/sessions/${sessionId}/summary`,
+      transformResponse: (r: { data: CashierSessionSummary }) => r.data,
+      providesTags: ["CashierSession"],
     }),
 
     getCashierQueue: builder.query<
@@ -178,6 +190,8 @@ export const {
   useGetCurrentCashierSessionQuery,
   useOpenCashierSessionMutation,
   useCloseCashierSessionMutation,
+  useGetCashierSessionSummaryQuery,
+  useLazyGetCashierSessionSummaryQuery,
   useGetCashierQueueQuery,
   useGetCashierAccountQuery,
   useRecordCashierPaymentMutation,

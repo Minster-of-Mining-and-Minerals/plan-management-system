@@ -635,8 +635,8 @@ async function recordPayment(accountId, payload, actor, auditContext = {}) {
 
 async function voidPayment(paymentId, actor, auditContext = {}) {
   const reason = auditContext.reason?.trim();
-  if (!reason) {
-    const err = new Error("Void reason is required");
+  if (!reason || reason.length < 5) {
+    const err = new Error("Void reason must be at least 5 characters");
     err.status = 400;
     throw err;
   }

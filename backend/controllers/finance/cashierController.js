@@ -52,6 +52,15 @@ const closeSession = async (req, res) => {
   }
 };
 
+const getSessionSummary = async (req, res) => {
+  try {
+    const data = await sessionService.getSessionSummary(req.params.sessionId);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
 const listQueue = async (req, res) => {
   try {
     const data = await paymentService.listQueue(req.query);
@@ -128,6 +137,7 @@ module.exports = {
   getCurrentSession,
   openSession,
   closeSession,
+  getSessionSummary,
   listQueue,
   listPaymentsToday,
   listPaymentHistory,

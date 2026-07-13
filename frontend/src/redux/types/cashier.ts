@@ -17,6 +17,20 @@ export type CashierSession = {
   opened_at: string;
   closed_at?: string | null;
   cashier_name?: string | null;
+  summary?: CashierSessionSummary;
+};
+
+export type CashierSessionSummary = {
+  session: CashierSession;
+  payment_count: number;
+  void_count: number;
+  collected_total: number;
+  voided_total: number;
+  by_method: Record<string, number>;
+  cash_collected: number;
+  opening_float: number;
+  expected_cash_in_drawer: number;
+  currency: string;
 };
 
 export type CashierQueueItem = {

@@ -38,6 +38,12 @@ router.post(
 );
 
 router.get(
+  "/sessions/:sessionId/summary",
+  checkPermission("cashier_session", "view"),
+  controller.getSessionSummary
+);
+
+router.get(
   "/queue",
   checkPermission("cashier_queue", "view"),
   controller.listQueue
