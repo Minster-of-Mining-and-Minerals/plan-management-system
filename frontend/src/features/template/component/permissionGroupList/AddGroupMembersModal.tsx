@@ -70,7 +70,7 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl bg-white max-h-[80vh] flex flex-col">
+      <DialogContent className="flex max-w-2xl flex-col overflow-hidden bg-white">
         <DialogHeader>
           <DialogTitle className="text-section-accent text-xl font-bold">Add Members to Group</DialogTitle>
         </DialogHeader>

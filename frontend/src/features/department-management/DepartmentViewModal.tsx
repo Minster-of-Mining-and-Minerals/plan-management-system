@@ -4,6 +4,11 @@ import { XIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Department } from "@/redux/types/department";
+import { cn } from "@/lib/utils";
+import {
+  modalOverlayClassName,
+  modalPanelClassName,
+} from "@/lib/modalLayout";
 
 interface DepartmentViewModalProps {
   department: Department | null;
@@ -19,8 +24,8 @@ export function DepartmentViewModal({
   if (!department) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-card w-full max-w-md rounded-lg border p-6 shadow-lg">
+    <div className={modalOverlayClassName}>
+      <div className={cn(modalPanelClassName, "max-w-md")}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Department Details</h2>
           <button type="button" onClick={onClose} aria-label="Close">

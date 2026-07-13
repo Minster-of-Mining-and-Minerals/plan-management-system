@@ -18,6 +18,11 @@ import {
   useCreatePharmacyUserMutation,
   useUpdatePharmacyUserMutation,
 } from "@/redux/api/pharmacyApi";
+import { cn } from "@/lib/utils";
+import {
+  modalOverlayClassName,
+  modalPanelClassName,
+} from "@/lib/modalLayout";
 
 type Props = {
   isOpen: boolean;
@@ -111,8 +116,8 @@ export function PharmacyUserFormModal({
   const saving = creating || updating;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-card w-full max-w-lg rounded-lg border p-6 shadow-lg">
+    <div className={modalOverlayClassName}>
+      <div className={cn(modalPanelClassName, "max-w-lg")}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">
             {isEdit ? "Edit pharmacy user" : "Create pharmacy user"}

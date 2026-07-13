@@ -18,6 +18,11 @@ import {
   hasConfiguredFormFields,
   type DynamicFormValues,
 } from "@/redux/types/formField";
+import { cn } from "@/lib/utils";
+import {
+  modalOverlayClassName,
+  modalPanelClassName,
+} from "@/lib/modalLayout";
 
 interface CreatePatientModalProps {
   isOpen: boolean;
@@ -115,8 +120,8 @@ export const CreatePatientModal: React.FC<CreatePatientModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-card w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg border p-6 shadow-lg">
+    <div className={modalOverlayClassName}>
+      <div className={cn(modalPanelClassName, "max-w-2xl")}>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold">Register Patient</h2>
           <button type="button" onClick={onClose} aria-label="Close">

@@ -10,6 +10,8 @@ import {
   useGetAttachmentsQuery,
 } from "@/redux/api/attachementApi";
 import { getFileUrl, getFileType } from "@/utils/fileUrl";
+import { modalOverlayClassName } from "@/lib/modalLayout";
+import { cn } from "@/lib/utils";
 
 interface FileUploadFieldProps {
   id: string;
@@ -274,8 +276,8 @@ export const FileUploadField: React.FC<FileUploadFieldProps> = ({
       {error && <p className="text-red-500 text-sm">{error}</p>}
 
       {previewFile && showPreview && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] p-4 relative overflow-auto">
+        <div className={cn(modalOverlayClassName, "bg-black/50")}>
+          <div className="relative mx-auto max-h-[min(90dvh,calc(100%-2rem))] w-full max-w-3xl overflow-y-auto rounded-lg bg-white p-4">
             <button
               className="absolute top-2 right-2 p-2 rounded-full hover:bg-gray-200"
               onClick={() => setPreviewFile(null)}

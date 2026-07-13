@@ -19,6 +19,11 @@ import {
 } from "@/redux/api/departmentApi";
 import { useGetUsersQuery } from "@/redux/api/userApi";
 import type { Department } from "@/redux/types/department";
+import { cn } from "@/lib/utils";
+import {
+  modalOverlayClassName,
+  modalPanelClassName,
+} from "@/lib/modalLayout";
 
 interface DepartmentFormModalProps {
   isOpen: boolean;
@@ -98,8 +103,8 @@ export function DepartmentFormModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-card w-full max-w-lg rounded-lg border p-6 shadow-lg">
+    <div className={modalOverlayClassName}>
+      <div className={cn(modalPanelClassName, "max-w-lg")}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">
             {isEdit ? "Edit Department" : "Create Department"}

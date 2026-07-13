@@ -11,6 +11,7 @@ import {
   isAttachmentUuid,
   resolveWorkflowFiles,
 } from "../workflowAttachmentUtils";
+import { modalOverlayClassName } from "@/lib/modalLayout";
 
 type PreviewFile = {
   file_name: string;
@@ -116,8 +117,8 @@ export function MedicalHistoryAttachmentList({
       </div>
 
       {previewFile && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="relative max-h-[90vh] w-full max-w-3xl overflow-auto rounded-lg bg-background p-4 shadow-xl">
+        <div className={modalOverlayClassName}>
+          <div className="relative mx-auto max-h-[min(90dvh,calc(100%-2rem))] w-full max-w-3xl overflow-y-auto rounded-lg bg-background p-4 shadow-xl">
             <button
               type="button"
               className="absolute right-2 top-2 rounded-full p-2 hover:bg-muted"

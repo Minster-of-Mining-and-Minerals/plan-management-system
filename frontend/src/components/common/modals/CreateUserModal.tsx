@@ -10,11 +10,16 @@ import { useCreateUserMutation } from "@/redux/api/userApi";
 import { useGetDepartmentsQuery } from "@/redux/api/departmentApi";
 import { useGetUserTitlesQuery } from "@/redux/api/userTitleApi";
 import { ChevronDown, XIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  modalOverlayClassName,
+  modalPanelClassName,
+} from "@/lib/modalLayout";
 import {
   Select,
   SelectContent,
@@ -124,8 +129,8 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-card w-full max-w-lg rounded-lg border p-6 shadow-lg">
+    <div className={modalOverlayClassName}>
+      <div className={cn(modalPanelClassName, "max-w-lg")}>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold">Create Staff User</h2>
           <button type="button" onClick={onClose} aria-label="Close">

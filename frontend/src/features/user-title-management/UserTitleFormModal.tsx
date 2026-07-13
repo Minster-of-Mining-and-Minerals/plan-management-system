@@ -18,6 +18,11 @@ import {
   useUpdateUserTitleMutation,
 } from "@/redux/api/userTitleApi";
 import type { UserTitle } from "@/redux/types/userTitle";
+import { cn } from "@/lib/utils";
+import {
+  modalOverlayClassName,
+  modalPanelClassName,
+} from "@/lib/modalLayout";
 
 interface UserTitleFormModalProps {
   isOpen: boolean;
@@ -79,8 +84,8 @@ export function UserTitleFormModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-card w-full max-w-md rounded-lg border p-6 shadow-lg">
+    <div className={modalOverlayClassName}>
+      <div className={cn(modalPanelClassName, "max-w-md")}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">
             {isEdit ? "Edit User Title" : "Create User Title"}
