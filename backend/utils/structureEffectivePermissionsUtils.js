@@ -10,10 +10,15 @@ const {
 /**
  * Union of active permissions from all permission groups assigned to a structure.
  */
-async function getStructureEffectivePermissions(governmentStructureId, options = {}) {
+async function getStructureEffectivePermissions(
+  governmentStructureId,
+  options = {}
+) {
   if (!governmentStructureId) {
     return [];
   }
+
+  const excludeGroupId = options.excludePermissionGroupId || null;
 
   return sequelize.query(
     `SELECT DISTINCT p.permission_id, p.resource, p.action, p.permission_tier, p.is_active, p.created_at, p.updated_at
@@ -24,9 +29,10 @@ async function getStructureEffectivePermissions(governmentStructureId, options =
      WHERE gspg.government_structure_id = :structureId
        AND pg.is_active = true
        AND p.is_active = true
+       AND (:excludeGroupId::uuid IS NULL OR gspg.permission_group_id <> :excludeGroupId::uuid)
      ORDER BY p.resource ASC, p.action ASC`,
     {
-      replacements: { structureId: governmentStructureId },
+      replacements: { structureId: governmentStructureId, excludeGroupId },
       type: sequelize.QueryTypes.SELECT,
       transaction: options.transaction,
     }
@@ -59,31 +65,15 @@ async function getParentStructureId(governmentStructureId, options = {}) {
 }
 
 /**
- * Permissions a structure may assign to roles or expose in pickers:
- * own effective permissions intersected with the parent structure's effective permissions.
+ * Permissions a structure may assign to roles, expose in pickers, or place in subset groups.
+ * Sector-local only — no inheritance from parent structures.
  */
 async function getStructureAssignablePermissionIdSet(governmentStructureId, options = {}) {
-  const childIds = await getStructureEffectivePermissionIdSet(governmentStructureId, options);
-  const parentId = await getParentStructureId(governmentStructureId, options);
-
-  if (!parentId) {
-    return childIds;
-  }
-
-  const parentIds = await getStructureEffectivePermissionIdSet(parentId, options);
-  return new Set([...childIds].filter((id) => parentIds.has(id)));
+  return getStructureEffectivePermissionIdSet(governmentStructureId, options);
 }
 
 async function getStructureAssignablePermissions(governmentStructureId, options = {}) {
-  const childPermissions = await getStructureEffectivePermissions(governmentStructureId, options);
-  const parentId = await getParentStructureId(governmentStructureId, options);
-
-  if (!parentId) {
-    return childPermissions;
-  }
-
-  const parentIds = await getStructureEffectivePermissionIdSet(parentId, options);
-  return childPermissions.filter((permission) => parentIds.has(permission.permission_id));
+  return getStructureEffectivePermissions(governmentStructureId, options);
 }
 
 function findUnauthorizedPermissionIds(requestedIds, allowedIdSet) {
@@ -91,66 +81,61 @@ function findUnauthorizedPermissionIds(requestedIds, allowedIdSet) {
   return unique.filter((id) => !allowedIdSet.has(id));
 }
 
-function buildPermissionScopeError(
-  permissionIds,
-  governmentStructureId,
-  childIdSet,
-  parentId,
-  parentIdSet,
-  unauthorized
-) {
-  const notInChild = findUnauthorizedPermissionIds(permissionIds, childIdSet);
-  const notInParent =
-    parentId && parentIdSet
-      ? findUnauthorizedPermissionIds(permissionIds, parentIdSet)
-      : [];
+function buildPermissionScopeError(permissionIds, governmentStructureId, allowedIdSet, unauthorized) {
+  const notEnabled = findUnauthorizedPermissionIds(permissionIds, allowedIdSet);
 
-  let message = "One or more permissions are not available for the selected structure.";
-  if (parentId && notInParent.length > 0) {
-    message =
-      "One or more permissions exceed the parent structure's permission scope.";
-  } else if (notInChild.length > 0) {
-    message = "One or more permissions are not enabled for the selected structure.";
-  }
+  const message =
+    notEnabled.length > 0
+      ? "One or more permissions are not enabled for the selected structure."
+      : "One or more permissions are not available for the selected structure.";
 
   const error = new Error(message);
   error.status = 403;
   error.unauthorizedPermissionIds = unauthorized;
   error.structure_id = governmentStructureId;
-  error.parent_structure_id = parentId;
   return error;
 }
 
+/**
+ * Ensures permission IDs are enabled on the structure (union of its linked groups).
+ * When excludePermissionGroupId is set, that group's current link is omitted so updates
+ * can replace permissions without counting the group being edited.
+ * allowBootstrap permits any IDs when the structure has no enabled permissions yet.
+ */
 async function assertPermissionIdsAllowedForStructure(
   permissionIds,
   governmentStructureId,
   options = {}
 ) {
-  if (!permissionIds?.length) {
+  if (!permissionIds?.length || !governmentStructureId) {
     return;
   }
 
-  const childIdSet = await getStructureEffectivePermissionIdSet(
-    governmentStructureId,
-    options
-  );
-  const parentId = await getParentStructureId(governmentStructureId, options);
-  const parentIdSet = parentId
-    ? await getStructureEffectivePermissionIdSet(parentId, options)
-    : null;
-  const allowed = await getStructureAssignablePermissionIdSet(
-    governmentStructureId,
-    options
-  );
+  const allowed = await getStructureEffectivePermissionIdSet(governmentStructureId, {
+    transaction: options.transaction,
+    excludePermissionGroupId: options.excludePermissionGroupId,
+  });
+
+  if (allowed.size === 0) {
+    if (options.allowBootstrap) {
+      return;
+    }
+
+    const error = new Error(
+      "This structure has no permissions enabled yet. Link an initial permission group or contact a Super Admin."
+    );
+    error.status = 403;
+    error.structure_id = governmentStructureId;
+    throw error;
+  }
+
   const unauthorized = findUnauthorizedPermissionIds(permissionIds, allowed);
 
   if (unauthorized.length > 0) {
     throw buildPermissionScopeError(
       permissionIds,
       governmentStructureId,
-      childIdSet,
-      parentId,
-      parentIdSet,
+      allowed,
       unauthorized
     );
   }
@@ -186,22 +171,15 @@ async function isStructureLinkedToPermissionGroup(
   return Boolean(link);
 }
 
+/**
+ * When linking a permission group to a structure, its permissions must already be
+ * enabled on that structure (subset delegation) unless bootstrapping an empty structure.
+ */
 async function assertPermissionGroupFitsStructureHierarchy(
   permissionGroupId,
   governmentStructureId,
   options = {}
 ) {
-  const parentId = await getParentStructureId(governmentStructureId, options);
-  if (!parentId) {
-    return;
-  }
-
-  if (
-    await isStructureLinkedToPermissionGroup(permissionGroupId, parentId, options)
-  ) {
-    return;
-  }
-
   const groupPermissionIds = await getPermissionIdsInPermissionGroup(
     permissionGroupId,
     options
@@ -210,18 +188,11 @@ async function assertPermissionGroupFitsStructureHierarchy(
     return;
   }
 
-  const parentAllowed = await getStructureEffectivePermissionIdSet(parentId, options);
-  const unauthorized = findUnauthorizedPermissionIds(groupPermissionIds, parentAllowed);
-
-  if (unauthorized.length > 0) {
-    const error = new Error(
-      "Permission group contains permissions that exceed the parent structure's permission scope."
-    );
-    error.status = 403;
-    error.unauthorizedPermissionIds = unauthorized;
-    error.parent_structure_id = parentId;
-    throw error;
-  }
+  await assertPermissionIdsAllowedForStructure(groupPermissionIds, governmentStructureId, {
+    transaction: options.transaction,
+    excludePermissionGroupId: options.excludePermissionGroupId,
+    allowBootstrap: options.allowBootstrap,
+  });
 }
 
 async function assertPermissionGroupsFitStructureHierarchy(
@@ -238,32 +209,11 @@ async function assertPermissionGroupsFitStructureHierarchy(
   }
 }
 
-async function assertPermissionIdsAllowedForParentStructure(
-  permissionIds,
-  governmentStructureId,
-  options = {}
-) {
-  if (!permissionIds?.length) {
-    return;
-  }
-
-  const parentId = await getParentStructureId(governmentStructureId, options);
-  if (!parentId) {
-    return;
-  }
-
-  const parentIdSet = await getStructureEffectivePermissionIdSet(parentId, options);
-  const unauthorized = findUnauthorizedPermissionIds(permissionIds, parentIdSet);
-
-  if (unauthorized.length > 0) {
-    const error = new Error(
-      "One or more permissions exceed the parent structure's permission scope."
-    );
-    error.status = 403;
-    error.unauthorizedPermissionIds = unauthorized;
-    error.parent_structure_id = parentId;
-    throw error;
-  }
+/**
+ * @deprecated Parent-scope checks removed — sectors do not inherit permissions.
+ */
+async function assertPermissionIdsAllowedForParentStructure() {
+  return;
 }
 
 async function assertPermissionIdsFitLinkedStructureHierarchies(
@@ -281,26 +231,12 @@ async function assertPermissionIdsFitLinkedStructureHierarchies(
     transaction: options.transaction,
   });
 
-  const linkedStructureIds = new Set(
-    links.map((link) => link.government_structure_id)
-  );
-
   for (const link of links) {
-    const parentId = await getParentStructureId(link.government_structure_id, options);
-    if (!parentId) {
-      continue;
-    }
-
-    // Parent and child share this group — permissions apply as one bundle.
-    if (linkedStructureIds.has(parentId)) {
-      continue;
-    }
-
-    await assertPermissionIdsAllowedForParentStructure(
-      permissionIds,
-      link.government_structure_id,
-      options
-    );
+    await assertPermissionIdsAllowedForStructure(permissionIds, link.government_structure_id, {
+      transaction: options.transaction,
+      excludePermissionGroupId: permissionGroupId,
+      allowBootstrap: options.allowBootstrap,
+    });
   }
 }
 

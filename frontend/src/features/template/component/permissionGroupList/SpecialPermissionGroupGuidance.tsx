@@ -61,6 +61,11 @@ export function SpecialPermissionGroupGuidance({
               to the plan (read-only oversight).
             </li>
             <li>
+              <strong>Validate approval</strong> — after execution approval, validate
+              achievements so they count toward parent rollup (typically assigned to a
+              planning / monitoring office department).
+            </li>
+            <li>
               <strong>Override parent achievement</strong> and related governance permissions
               apply only through these groups and are enforced on plan actions.
             </li>

@@ -11,6 +11,24 @@ const getPermissions = async (req, res) => {
   try {
     const { government_structure_id: queryStructureId, scope, tier } = req.query;
 
+    const normalizedTier = tier ? normalizePermissionTier(tier) : null;
+    const wantsSpecialTier = normalizedTier === PERMISSION_TIER.SPECIAL;
+
+    // Special governance permissions are global catalog entries. Structure-scoped
+    // pickers hide them when the structure has not inherited every special permission.
+    if (wantsSpecialTier && isSuperAdminActor(req)) {
+      const permissions = await Permission.findAll({
+        where: { is_active: true, permission_tier: PERMISSION_TIER.SPECIAL },
+        order: [["resource", "ASC"], ["action", "ASC"]],
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Special permissions fetched successfully.",
+        data: permissions,
+      });
+    }
+
     let structureId;
     try {
       structureId = resolveManageableStructureId(req, queryStructureId);

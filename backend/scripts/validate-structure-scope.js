@@ -111,7 +111,7 @@ async function validateRoleScopes() {
 }
 
 async function validatePermissionCascading() {
-  console.log("\n== Permission cascading (parent/child) ==");
+  console.log("\n== Sector-local permission scope ==");
 
   const structures = await GovernmentStructure.findAll({
     where: { is_active: true },
@@ -119,50 +119,45 @@ async function validatePermissionCascading() {
     order: [["level", "ASC"], ["name", "ASC"]],
   });
 
-  const withParent = structures.filter((s) => s.parent_id);
-
-  if (withParent.length === 0) {
-    console.log("  SKIP: no child structures in DB");
+  if (structures.length === 0) {
+    console.log("  SKIP: no structures in DB");
     return;
   }
 
-  for (const child of withParent) {
+  for (const structure of structures) {
     const childEffective = await getStructureEffectivePermissionIdSet(
-      child.government_structure_id
+      structure.government_structure_id
     );
     const childAssignable = await getStructureAssignablePermissionIdSet(
-      child.government_structure_id
+      structure.government_structure_id
     );
-    const parentEffective = await getStructureEffectivePermissionIdSet(child.parent_id);
-
-    if (!isSubset(childAssignable, parentEffective)) {
-      fail(
-        `Assignable permissions for "${child.name}" exceed parent scope`,
-        `child=${childAssignable.size} parent=${parentEffective.size}`
-      );
-    } else {
-      pass(`"${child.name}" assignable ⊆ parent effective`);
-    }
 
     if (!isSubset(childAssignable, childEffective)) {
-      fail(`Assignable set invalid for "${child.name}" (not subset of own effective)`);
+      fail(`Assignable permissions for "${structure.name}" exceed own effective set`);
+    } else if (childAssignable.size !== childEffective.size) {
+      fail(
+        `Assignable should equal effective for "${structure.name}"`,
+        `effective=${childEffective.size} assignable=${childAssignable.size}`
+      );
+    } else {
+      pass(`"${structure.name}" assignable equals sector-local effective (${childEffective.size})`);
     }
 
-    // Permission groups linked to child must fit parent hierarchy
     const links = await GovernmentStructurePermissionGroup.findAll({
-      where: { government_structure_id: child.government_structure_id },
+      where: { government_structure_id: structure.government_structure_id },
     });
 
     for (const link of links) {
       try {
         await assertPermissionGroupFitsStructureHierarchy(
           link.permission_group_id,
-          child.government_structure_id
+          structure.government_structure_id,
+          { allowBootstrap: true }
         );
-        pass(`Permission group on "${child.name}" fits parent hierarchy`);
+        pass(`Permission group on "${structure.name}" fits sector-local scope`);
       } catch (error) {
         fail(
-          `Permission group ${link.permission_group_id} on "${child.name}" violates parent scope`,
+          `Permission group ${link.permission_group_id} on "${structure.name}" violates sector scope`,
           error.message
         );
       }
@@ -200,25 +195,39 @@ async function validateRoleVisibilityLogic() {
 async function validateAssertionHelpers() {
   console.log("\n== Assertion helpers (smoke) ==");
 
-  const child = await GovernmentStructure.findOne({
-    where: { parent_id: { [Op.ne]: null }, is_active: true },
+  const structureWithPermissions = await GovernmentStructure.findOne({
+    where: { is_active: true },
   });
 
-  if (!child) {
-    console.log("  SKIP: no child structure for assertion smoke test");
+  if (!structureWithPermissions) {
+    console.log("  SKIP: no structure for assertion smoke test");
     return;
   }
 
-  const assignable = await getStructureAssignablePermissionIdSet(child.government_structure_id);
+  let target = structureWithPermissions;
+  for (const candidate of await GovernmentStructure.findAll({
+    where: { is_active: true },
+    attributes: ["government_structure_id", "name"],
+  })) {
+    const assignable = await getStructureAssignablePermissionIdSet(
+      candidate.government_structure_id
+    );
+    if (assignable.size > 0) {
+      target = candidate;
+      break;
+    }
+  }
+
+  const assignable = await getStructureAssignablePermissionIdSet(target.government_structure_id);
   const sampleIds = [...assignable].slice(0, 2);
 
   if (sampleIds.length === 0) {
-    console.log(`  SKIP: child "${child.name}" has no assignable permissions to test`);
+    console.log(`  SKIP: "${target.name}" has no assignable permissions to test`);
     return;
   }
 
   try {
-    await assertPermissionIdsAllowedForStructure(sampleIds, child.government_structure_id);
+    await assertPermissionIdsAllowedForStructure(sampleIds, target.government_structure_id);
     pass("assertPermissionIdsAllowedForStructure accepts valid assignable ids");
   } catch (error) {
     fail("assertPermissionIdsAllowedForStructure rejected valid ids", error.message);
@@ -235,7 +244,7 @@ async function validateAssertionHelpers() {
     try {
       await assertPermissionIdsAllowedForStructure(
         [bogus.permission_id],
-        child.government_structure_id
+        target.government_structure_id
       );
       fail("assertPermissionIdsAllowedForStructure should reject out-of-scope permission");
     } catch (error) {

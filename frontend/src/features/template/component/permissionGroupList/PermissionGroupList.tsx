@@ -192,7 +192,8 @@ export default function PermissionGroupList({
             label: config.groupKind === "special" ? "New Special Group" : "New Group",
             icon: <Plus className="h-4 w-4" />,
             variant: "default",
-            onClick: () => router.push(`${config.basePath}/new`),
+            onClick: () =>
+              router.push(withStructureQuery(`${config.basePath}/new`, structureId)),
           },
         ];
 

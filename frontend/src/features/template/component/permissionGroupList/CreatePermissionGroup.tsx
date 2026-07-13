@@ -17,7 +17,7 @@ import { FooterActions } from "./FooterActions";
 import { PermissionGroupFormSkeleton } from "./Skeleton";
 import { ErrorState } from "./ErrorState";
 import GroupManagement from "./GroupManagement";
-import { governmentStructureDetailPath } from "@/utils/structureQueryUtils";
+import { governmentStructureDetailPath, withStructureQuery } from "@/utils/structureQueryUtils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useStructureScope } from "@/hooks/useStructureScope";
 import type { GetPermissionsParams } from "@/redux/api/permissionApi";
@@ -61,6 +61,13 @@ export default function CreatePermissionGroup({
 
   const permissionQueryArgs = useMemo((): GetPermissionsParams | undefined => {
     const base: GetPermissionsParams = { tier: permissionTier };
+
+    // Special groups use the global special catalog for super admins so every
+    // governance permission is available regardless of structure URL context.
+    if (config.groupKind === "special" && isSuperAdmin) {
+      return { ...base, scope: "all" };
+    }
+
     if (structureId) {
       return { ...base, government_structure_id: structureId };
     }
@@ -71,7 +78,7 @@ export default function CreatePermissionGroup({
       return { ...base, government_structure_id: sessionStructureId };
     }
     return base;
-  }, [permissionTier, structureId, isSuperAdmin, sessionStructureId]);
+  }, [permissionTier, structureId, isSuperAdmin, sessionStructureId, config.groupKind]);
 
   const { data: permissionsResponse, isLoading: loadingPermissions } =
     useGetPermissionsQuery(permissionQueryArgs);
@@ -304,6 +311,7 @@ export default function CreatePermissionGroup({
           description: description.trim(),
           permission_ids: selectedPermissionIds,
           group_kind: config.groupKind,
+          ...(structureId ? { government_structure_id: structureId } : {}),
         }).unwrap();
 
         actionFeedback.success(
@@ -312,7 +320,9 @@ export default function CreatePermissionGroup({
             : "Permission group created successfully!"
         );
         resetForm();
-        router.push(config.basePath);
+        router.push(
+          structureId ? withStructureQuery(config.basePath, structureId) : config.basePath
+        );
       }
     } catch (error: any) {
       actionFeedback.error(

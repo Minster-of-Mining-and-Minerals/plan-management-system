@@ -518,7 +518,7 @@ async function ensurePlanValidationPermissionGroup(
 ) {
   const permissionId = await ensurePermission(
     queryInterface,
-    { resource: "plan", action: "validate_approval", permission_tier: "standard" },
+    { resource: "plan", action: "validate_approval", permission_tier: "special" },
     now
   );
 

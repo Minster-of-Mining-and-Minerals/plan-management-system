@@ -23,8 +23,16 @@ const {
     assertPermissionGroupsFitStructureHierarchy,
     assertPermissionGroupFitsStructureHierarchy,
     assertPermissionIdsFitLinkedStructureHierarchies,
+    assertPermissionIdsAllowedForStructure,
     getPermissionIdsInPermissionGroup,
 } = require("../../utils/structureEffectivePermissionsUtils");
+
+function structureScopeOptions(req, transaction) {
+    return {
+        transaction,
+        allowBootstrap: isSuperAdminActor(req),
+    };
+}
 const {
     GROUP_KIND,
     normalizeGroupKind,
@@ -125,14 +133,35 @@ async function assertPermissionGroupAccessible(permissionGroupId, req, structure
 const createPermissionGroup = async (req, res) => {
     const t = await PermissionGroup.sequelize.transaction();
     try {
-        const { name, description, permission_ids, group_kind } = req.body;
+        const {
+            name,
+            description,
+            permission_ids,
+            group_kind,
+            government_structure_id: bodyStructureId,
+        } = req.body;
         const normalizedGroupKind = normalizeGroupKind(group_kind);
 
         assertCanManagePermissionGroup(req.user, normalizedGroupKind, "create");
 
+        let structureId;
+        try {
+            structureId = resolveManageableStructureId(req, bodyStructureId);
+        } catch (error) {
+            await t.rollback();
+            return sendScopeError(res, error);
+        }
+
         if (permission_ids?.length) {
             await assertPermissionIdsMatchGroupKind(permission_ids, normalizedGroupKind, {
                 transaction: t,
+            });
+        }
+
+        if (structureId && permission_ids?.length) {
+            await assertPermissionIdsAllowedForStructure(permission_ids, structureId, {
+                transaction: t,
+                allowBootstrap: isSuperAdminActor(req),
             });
         }
 
@@ -151,6 +180,14 @@ const createPermissionGroup = async (req, res) => {
                 created_at: new Date(),
             }));
             await PermissionGroupPermission.bulkCreate(records, { transaction: t });
+        }
+
+        if (structureId) {
+            await GovernmentStructurePermissionGroup.create({
+                id: uuidv4(),
+                government_structure_id: structureId,
+                permission_group_id: group.permission_group_id,
+            }, { transaction: t });
         }
 
         await t.commit();
@@ -314,7 +351,7 @@ const updatePermissionGroup = async (req, res) => {
 
         if (Array.isArray(permission_ids)) {
             await assertPermissionIdsFitLinkedStructureHierarchies(id, permission_ids, {
-                transaction: t,
+                ...structureScopeOptions(req, t),
             });
 
             // Remove existing permissions
@@ -399,7 +436,8 @@ const addPermissionsToGroup = async (req, res) => {
         await assertPermissionIdsMatchGroupKind(mergedIds, group.group_kind);
         await assertPermissionIdsFitLinkedStructureHierarchies(
             permission_group_id,
-            mergedIds
+            mergedIds,
+            structureScopeOptions(req)
         );
 
         const records = permission_ids.map((pid) => ({
@@ -535,7 +573,8 @@ const addStructuresToGroup = async (req, res) => {
         for (const governmentStructureId of government_structure_ids) {
             await assertPermissionGroupFitsStructureHierarchy(
                 permission_group_id,
-                governmentStructureId
+                governmentStructureId,
+                structureScopeOptions(req)
             );
         }
 

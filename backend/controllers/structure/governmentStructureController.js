@@ -26,6 +26,7 @@ const {
     filterGovernmentStructuresToSubtree,
     assertGovernmentStructureAccessible,
     assertGovernmentStructureParentAllowed,
+    isSuperAdminActor,
 } = require("../../utils/structureScopeUtils");
 
 async function loadGovernmentStructureIndex() {
@@ -480,7 +481,8 @@ const addPermissionGroupsToStructure = async (req, res) => {
 
         await assertPermissionGroupsFitStructureHierarchy(
             permission_group_ids,
-            government_structure_id
+            government_structure_id,
+            { allowBootstrap: isSuperAdminActor(req) }
         );
 
         const records = permission_group_ids.map((pid) => ({

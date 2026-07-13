@@ -41,7 +41,7 @@ async function ensurePermission(
       `UPDATE permissions
        SET resource = :resource,
            action = :action,
-           permission_tier = COALESCE(permission_tier, :permission_tier),
+           permission_tier = :permission_tier,
            is_active = :is_active,
            updated_at = :now
        WHERE permission_id = :permissionId`,

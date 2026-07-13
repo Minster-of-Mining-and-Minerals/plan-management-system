@@ -42,6 +42,7 @@ export interface CreatePermissionGroupPayload {
     permission_ids?: string[];
     user_ids?: string[];
     government_structure_ids?: string[];
+    government_structure_id?: string;
 }
 
 /** ---------------------------
