@@ -40,13 +40,13 @@ Creates an audit trail, notifies the desk, and prevents “random unpaid account
 2. Use **Session summary** anytime during the shift (payments, methods, expected cash).
 3. **Close session** after counting drawer cash; review variance. Closing also releases any patients you still hold.
 
-### Multiple cashiers (Take patient)
+### Multiple cashiers (Accept / Release)
 All cashiers share one queue. To stop two people collecting on the same visit:
 
 1. Select the visit in **Queue**.
-2. Click **Take patient** (holds ~10 minutes).
+2. Click **Accept** (holds ~10 minutes).
 3. Collect payment (full or partial). The claim clears after payment.
-4. Or click **Release** if you cannot finish / stepped away.
+4. Or click **Release** to return the patient to the shared queue without paying.
 5. If a claim is abandoned, it expires after 10 minutes, or finance can **Force release**.
 
 While held by someone else, Collect is blocked (HTTP 409).
@@ -54,7 +54,7 @@ While held by someone else, Collect is blocked (HTTP 409).
 ### Partial payments
 - Partial pay is first-class: same visit bill, remaining balance stays in queue.
 - No second invoice per visit — one running account.
-- After a partial, claim is released so any cashier can Take again for the remainder.
+- After a partial, claim is released so any cashier can Accept again for the remainder.
 
 ---
 
@@ -86,7 +86,7 @@ While held by someone else, Collect is blocked (HTTP 409).
 
 ### Cashier
 - [ ] Open session + float  
-- [ ] Work from **Queue** — **Take patient** before Collect  
+- [ ] Work from **Queue** — **Accept** before Collect; **Release** returns to queue  
 - [ ] Use **Paid today** for “already paid?” questions  
 - [ ] Close session with counted cash  
 
@@ -106,7 +106,8 @@ Patient ready to pay?
        No  → Nothing to collect (Paid today / reprint if needed)
        Yes → Was Send to cashier done?
               No  → Clinical must Send to cashier
-              Yes → Cashier Takes patient → Collects (full or partial)
+              Yes → Cashier Accepts → Collects (full or partial)
+                     (or Release to return to queue)
 ```
 
 ---

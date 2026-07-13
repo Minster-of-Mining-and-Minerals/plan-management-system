@@ -5,7 +5,7 @@ const { userHasPermission } = require("./userPermissionService");
 
 const { AppointmentBillingAccount, User } = db;
 
-/** Explicit Take patient hold duration (minutes). */
+/** Explicit Accept hold duration (minutes). */
 const SERVING_CLAIM_TTL_MINUTES = 10;
 
 function claimExpiryDate(from = new Date()) {
@@ -242,7 +242,7 @@ async function assertCanCollect(accountId, actorUserId, transaction) {
         ? `This patient is being served by ${
             plain.servingCashier?.full_name || "another cashier"
           }. Ask them to release, or wait until the claim expires.`
-        : "Take this patient first before collecting payment"
+        : "Accept this patient first before collecting payment"
     );
     err.status = 409;
     throw err;

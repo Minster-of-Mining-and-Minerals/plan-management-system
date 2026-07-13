@@ -280,17 +280,17 @@ export function CashierDeskPage() {
     }
   };
 
-  const handleTakePatient = async () => {
+  const handleAcceptPatient = async () => {
     if (!selectedAccountId) return;
     try {
       await takeAccount({ accountId: selectedAccountId }).unwrap();
-      toast.success("Patient taken — you can collect payment now");
+      toast.success("Accepted — you can collect payment now");
       refetchQueue();
     } catch (err: unknown) {
       toast.error(
         err && typeof err === "object" && "data" in err
           ? String((err as { data?: { message?: string } }).data?.message)
-          : "Could not take patient"
+          : "Could not accept patient"
       );
       refetchQueue();
     }
@@ -300,7 +300,7 @@ export function CashierDeskPage() {
     if (!selectedAccountId) return;
     try {
       await releaseAccount({ accountId: selectedAccountId }).unwrap();
-      toast.success("Patient released back to the queue");
+      toast.success("Released — patient returned to the queue");
       refetchQueue();
     } catch (err: unknown) {
       toast.error(
@@ -403,9 +403,9 @@ export function CashierDeskPage() {
               Cashier desk
             </CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
-              Queue = waiting to pay. Take a patient before Collect so two
-              cashiers cannot work the same visit. Paid today / History =
-              already collected.
+              Queue = waiting to pay. Accept a visit before Collect so two
+              cashiers cannot work the same patient. Release returns them to
+              the queue. Paid today / History = already collected.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -600,8 +600,8 @@ export function CashierDeskPage() {
                               className="mt-1 block text-[10px]"
                             >
                               {item.serving_claim.is_mine
-                                ? "Serving · You"
-                                : `Serving · ${item.serving_claim.serving_by_name || "cashier"}`}
+                                ? "Accepted · You"
+                                : `Accepted · ${item.serving_claim.serving_by_name || "cashier"}`}
                             </Badge>
                           ) : null}
                           {item.pending_collection_request ? (
@@ -915,12 +915,12 @@ export function CashierDeskPage() {
                       <Button
                         className="w-full sm:w-auto"
                         disabled={!session || balanceDue <= 0 || taking}
-                        onClick={handleTakePatient}
+                        onClick={handleAcceptPatient}
                       >
                         {taking ? (
                           <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
                         ) : null}
-                        Take patient
+                        Accept
                       </Button>
                     ) : servingClaim.is_mine ? (
                       <>
@@ -947,9 +947,9 @@ export function CashierDeskPage() {
                     ) : (
                       <div className="space-y-2">
                         <p className="text-sm text-amber-800">
-                          Being served by{" "}
+                          Accepted by{" "}
                           {servingClaim.serving_by_name || "another cashier"}.
-                          Collect is locked until they release or the 10-minute
+                          Collect is locked until they Release or the 10-minute
                           hold expires.
                         </p>
                         <PermissionGuard
@@ -971,21 +971,21 @@ export function CashierDeskPage() {
                 </PermissionGuard>
                 {!session && balanceDue > 0 && (
                   <p className="text-xs text-amber-700">
-                    Open a cashier session before taking a patient.
+                    Open a cashier session before accepting a patient.
                   </p>
                 )}
                 {session && balanceDue > 0 && !servingClaim && (
                   <p className="text-xs text-muted-foreground">
-                    Take this patient first — then Collect payment unlocks.
+                    Accept this visit first — then Collect payment unlocks.
                   </p>
                 )}
                 {servingClaim?.is_mine && (
                   <p className="text-xs text-muted-foreground">
-                    You are serving this patient
+                    Accepted by you
                     {servingClaim.serving_expires_at
                       ? ` · hold until ${formatBillingDateTime(servingClaim.serving_expires_at)}`
                       : ""}
-                    .
+                    . Release returns the patient to the queue.
                   </p>
                 )}
               </div>
