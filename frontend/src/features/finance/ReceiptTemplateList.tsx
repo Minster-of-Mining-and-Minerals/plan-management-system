@@ -149,7 +149,7 @@ export function ReceiptTemplateList() {
   return (
     <TableLayout
       title="Receipt templates"
-      description="Configure printable payment receipt layouts used at the cashier desk."
+      description="Configure printable payment receipt layouts used at the cashier desk. Set one default — cashiers print from that template."
       actions={actions}
     >
       <DataTable

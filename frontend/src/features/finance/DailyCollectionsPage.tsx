@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,13 +11,68 @@ import { TableLayout } from "@/features/template/component/tableList/TableLayout
 import { formatBillingCurrency } from "@/features/billing/billingUtils";
 import { CashierPaymentLedgerList } from "@/features/cashier/CashierPaymentLedgerList";
 import { formatPaymentMethod } from "@/features/cashier/cashierUtils";
-import { useGetFinanceCollectionsQuery } from "@/redux/api/cashierApi";
+import {
+  useGetFinanceCollectionsQuery,
+  useLazyGetCashierReceiptQuery,
+} from "@/redux/api/cashierApi";
 import type { CashierPaymentLedgerItem } from "@/redux/types/cashier";
 import { printCashierReceipt } from "@/features/cashier/cashierReceiptPrint";
-import { useLazyGetCashierReceiptQuery } from "@/redux/api/cashierApi";
+import type { ActionButton } from "@/types/tableLayout";
+import { CASHIER_PERMISSIONS } from "@/features/cashier/cashierUtils";
 
 function formatToday() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function escapeCsv(value: string | number | null | undefined) {
+  const s = value == null ? "" : String(value);
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function downloadCollectionsCsv(
+  rows: CashierPaymentLedgerItem[],
+  fromDate: string,
+  toDate: string
+) {
+  const header = [
+    "receipt_number",
+    "paid_at",
+    "patient_name",
+    "patient_code",
+    "cashier_name",
+    "amount",
+    "currency",
+    "methods",
+    "account_balance_due",
+    "status",
+  ];
+  const lines = [
+    header.join(","),
+    ...rows.map((r) =>
+      [
+        r.receipt_number,
+        r.created_at,
+        r.patient_name,
+        r.patient_code,
+        r.cashier_name,
+        r.amount,
+        r.currency,
+        r.tenders.map((t) => `${t.method}:${t.amount}`).join("|"),
+        r.account_balance_due,
+        r.status,
+      ]
+        .map(escapeCsv)
+        .join(",")
+    ),
+  ];
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `collections_${fromDate}_to_${toDate}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export function DailyCollectionsPage() {
@@ -54,16 +111,35 @@ export function DailyCollectionsPage() {
       const receipt = await fetchReceipt(paymentId).unwrap();
       printCashierReceipt(receipt.html, receipt.receipt_number);
     } catch {
-      // toast handled by UI silence - user sees no print
+      toast.error("Could not load receipt");
     }
   };
+
+  const actions: ActionButton[] = [
+    {
+      label: "Export CSV",
+      icon: <Download className="h-4 w-4" />,
+      variant: "outline",
+      permissions: [CASHIER_PERMISSIONS.COLLECTIONS_VIEW],
+      onClick: () => {
+        const rows = data?.results ?? [];
+        if (!rows.length) {
+          toast.error("No payments to export for this range");
+          return;
+        }
+        downloadCollectionsCsv(rows, fromDate, toDate);
+        toast.success("CSV downloaded");
+      },
+    },
+  ];
 
   return (
     <TableLayout
       title="Daily collections"
-      description="Review payments collected across all cashiers. Filter by date range and export-ready totals."
+      description="Hospital-wide payment ledger across cashiers. Use this for end-of-day reconciliation — not the individual cashier desk."
       showSearch={false}
       filters={[]}
+      actions={actions}
     >
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-1">

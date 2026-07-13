@@ -169,6 +169,16 @@ export function AppointmentBillingCard({ appointmentId, disabled }: Props) {
   const balanceDue = summary?.balance_due ?? data?.account?.balance_due ?? 0;
   const canSendToCashier =
     activeEntries.length > 0 && balanceDue > 0 && !accountLocked;
+  const pendingRequest = data?.pending_collection_request || null;
+  const needsFirstSend = canSendToCashier && !pendingRequest;
+  const needsResend =
+    Boolean(pendingRequest) &&
+    balanceDue > Number(pendingRequest?.amount_due_at_request || 0) + 0.009;
+  const sendButtonLabel = needsResend
+    ? "Send again (balance updated)"
+    : pendingRequest
+      ? "Send to cashier again"
+      : "Send to cashier";
 
   const handleAdd = async () => {
     if (!serviceId) {
@@ -184,7 +194,7 @@ export function AppointmentBillingCard({ appointmentId, disabled }: Props) {
           note: note || undefined,
         },
       }).unwrap();
-      toast.success("Billing entry added");
+      toast.success("Billing entry added — send to cashier when ready to collect");
       setAddOpen(false);
       setServiceId("");
       setQuantity("1");
@@ -232,7 +242,8 @@ export function AppointmentBillingCard({ appointmentId, disabled }: Props) {
             Billing
           </CardTitle>
           <p className="mt-1 text-xs text-muted-foreground">
-            Services billed during this visit. Expand an entry for line details.
+            Add services, then send the patient to cashier so they appear in the
+            payment queue.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -260,12 +271,12 @@ export function AppointmentBillingCard({ appointmentId, disabled }: Props) {
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
+                variant={needsFirstSend || needsResend ? "default" : "outline"}
                 disabled={sendingToCashier}
                 onClick={handleSendToCashier}
               >
                 <Send className="mr-1.5 h-4 w-4" />
-                Send to cashier
+                {sendButtonLabel}
               </Button>
             </PermissionGuard>
           )}
@@ -330,7 +341,34 @@ export function AppointmentBillingCard({ appointmentId, disabled }: Props) {
           </div>
         ) : null}
 
-        {data?.pending_collection_request ? (
+        {needsFirstSend ? (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+            <p className="font-medium">Ready for payment — not at cashier yet</p>
+            <p className="mt-1 text-amber-900">
+              Balance due{" "}
+              {formatBillingCurrency(balanceDue, currency)}. Click{" "}
+              <strong>Send to cashier</strong> so cashiers can collect and the
+              visit appears in their queue.
+            </p>
+          </div>
+        ) : null}
+
+        {needsResend ? (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+            <p className="font-medium">Balance increased since last send</p>
+            <p className="mt-1 text-amber-900">
+              Sent for{" "}
+              {formatBillingCurrency(
+                pendingRequest?.amount_due_at_request || 0,
+                currency
+              )}
+              ; current due is {formatBillingCurrency(balanceDue, currency)}.
+              Send again so cashiers see the updated amount.
+            </p>
+          </div>
+        ) : null}
+
+        {data?.pending_collection_request && !needsResend ? (
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
             <p className="font-medium text-amber-900">At cashier desk</p>
             <p className="text-amber-800">

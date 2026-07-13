@@ -103,6 +103,9 @@ export function CashierDeskPage() {
   const [selected, setSelected] = useState<CashierQueueItem | null>(null);
   const [openSessionOpen, setOpenSessionOpen] = useState(false);
   const [closeSessionOpen, setCloseSessionOpen] = useState(false);
+  const [sessionDialogMode, setSessionDialogMode] = useState<"summary" | "close">(
+    "close"
+  );
   const [openingFloat, setOpeningFloat] = useState("0");
   const [countedCash, setCountedCash] = useState("");
   const [closeNotes, setCloseNotes] = useState("");
@@ -326,7 +329,9 @@ export function CashierDeskPage() {
               Cashier desk
             </CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
-              Collect payments for visit bills. Open a session before taking payment.
+              Queue = waiting to pay. Paid today / History = already collected.
+              Patients appear in Queue only after clinical staff clicks Send to
+              cashier.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -338,6 +343,16 @@ export function CashierDeskPage() {
                 <span className="text-sm text-muted-foreground">
                   Float {formatBillingCurrency(session.opening_float, currency)}
                 </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSessionDialogMode("summary");
+                    setCloseSessionOpen(true);
+                  }}
+                >
+                  Session summary
+                </Button>
                 <PermissionGuard
                   requireAll={[CASHIER_PERMISSIONS.SESSION_CLOSE]}
                   fallback={null}
@@ -345,7 +360,10 @@ export function CashierDeskPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setCloseSessionOpen(true)}
+                    onClick={() => {
+                      setSessionDialogMode("close");
+                      setCloseSessionOpen(true);
+                    }}
                   >
                     Close session
                   </Button>
@@ -364,6 +382,17 @@ export function CashierDeskPage() {
           </div>
         </CardHeader>
       </Card>
+
+      {!session && !sessionLoading ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <p className="font-medium">Open a cashier session before collecting</p>
+          <p className="text-amber-900">
+            Session tracking ties payments to your shift and enables end-of-day
+            cash variance. You can still browse the queue, but Collect payment
+            stays disabled until a session is open.
+          </p>
+        </div>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
         <Card className="h-fit">
@@ -458,8 +487,8 @@ export function CashierDeskPage() {
             ) : !queue?.results.length ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
                 {dateFilterEnabled
-                  ? "No unpaid bills for this day."
-                  : "No unpaid bills in the queue."}
+                  ? "No visits sent to cashier for this day."
+                  : "No visits waiting. Patients appear here after staff click Send to cashier."}
               </p>
             ) : (
               <ul className="max-h-[520px] space-y-2 overflow-y-auto">
@@ -847,7 +876,11 @@ export function CashierDeskPage() {
       <Dialog open={closeSessionOpen} onOpenChange={setCloseSessionOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Close cashier session</DialogTitle>
+            <DialogTitle>
+              {sessionDialogMode === "summary"
+                ? "Session summary"
+                : "Close cashier session"}
+            </DialogTitle>
           </DialogHeader>
           <div className="grid gap-3 py-2">
             {summaryLoading ? (
@@ -913,6 +946,8 @@ export function CashierDeskPage() {
                 </p>
               </div>
             ) : null}
+            {sessionDialogMode === "close" ? (
+              <>
             <div>
               <Label>Counted cash in drawer</Label>
               <Input
@@ -949,17 +984,38 @@ export function CashierDeskPage() {
                 onChange={(e) => setCloseNotes(e.target.value)}
               />
             </div>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Close your session at end of shift after counting cash in the
+                drawer.
+              </p>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCloseSessionOpen(false)}>
-              Cancel
+              {sessionDialogMode === "summary" ? "Done" : "Cancel"}
             </Button>
+            {sessionDialogMode === "close" ? (
             <Button
               onClick={handleCloseSession}
               disabled={closingSession || countedCash.trim() === ""}
             >
               Close session
             </Button>
+            ) : (
+              <PermissionGuard
+                requireAll={[CASHIER_PERMISSIONS.SESSION_CLOSE]}
+                fallback={null}
+              >
+                <Button
+                  variant="outline"
+                  onClick={() => setSessionDialogMode("close")}
+                >
+                  Proceed to close…
+                </Button>
+              </PermissionGuard>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1159,14 +1215,35 @@ export function CashierDeskPage() {
             )}
             <div>
               <Label>Supervisor reason (required)</Label>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {[
+                  "Wrong amount entered",
+                  "Wrong patient / visit",
+                  "Duplicate payment",
+                  "Patient cancelled",
+                  "Method correction",
+                ].map((preset) => (
+                  <Button
+                    key={preset}
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={() => setVoidReason(preset)}
+                  >
+                    {preset}
+                  </Button>
+                ))}
+              </div>
               <Textarea
-                className="mt-1"
+                className="mt-2"
                 placeholder="Explain why this payment is being voided…"
                 value={voidReason}
                 onChange={(e) => setVoidReason(e.target.value)}
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                Minimum 5 characters. This is recorded in the audit log.
+                Minimum 5 characters. Voids are audited — use only when a
+                receipt must be reversed.
               </p>
             </div>
           </div>

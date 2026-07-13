@@ -18,6 +18,9 @@ const {
   PAYMENT_METHODS,
   CASHIER_PAYMENT_STATUSES,
 } = require("../config/cashierConstants");
+const {
+  OPEN_COLLECTION_STATUSES,
+} = require("../config/billingCollectionConstants");
 
 const {
   AppointmentBillingAccount,
@@ -30,6 +33,7 @@ const {
   PatientProfile,
   PatientSchedule,
   SystemBranding,
+  BillingCollectionRequest,
 } = db;
 
 const patientInclude = {
@@ -121,6 +125,8 @@ async function nextReceiptNumber(transaction) {
 }
 
 async function listQueue({ search, schedule_date, page = 1, limit = 20 } = {}) {
+  // Queue only shows visits that were explicitly sent to cashier
+  // and still have an open collection request.
   const where = { status: { [Op.in]: PAYABLE_ACCOUNT_STATUSES } };
 
   const scheduleInclude = {
@@ -139,11 +145,28 @@ async function listQueue({ search, schedule_date, page = 1, limit = 20 } = {}) {
 
   let rows = await AppointmentBillingAccount.findAll({
     where,
-    include: [patientInclude, scheduleInclude],
+    include: [
+      patientInclude,
+      scheduleInclude,
+      {
+        model: BillingCollectionRequest,
+        as: "collectionRequests",
+        required: true,
+        where: { status: { [Op.in]: OPEN_COLLECTION_STATUSES } },
+        attributes: [
+          "request_id",
+          "requested_at",
+          "amount_due_at_request",
+          "status",
+          "requested_by",
+          "source",
+        ],
+      },
+    ],
     order: [["updated_at", "ASC"]],
   });
 
-    if (search?.trim()) {
+  if (search?.trim()) {
     const q = search.trim().toLowerCase();
     rows = rows.filter((row) => {
       const item = formatQueueItem(row);
@@ -161,21 +184,15 @@ async function listQueue({ search, schedule_date, page = 1, limit = 20 } = {}) {
   const offset = (Math.max(Number(page), 1) - 1) * Math.max(Number(limit), 1);
   const pageRows = rows.slice(offset, offset + limit);
 
-  const collectionMap = new Map();
-  await Promise.all(
+  const results = await Promise.all(
     pageRows.map(async (row) => {
       const plain = row.get ? row.get({ plain: true }) : row;
       const latest = await billingCollectionRequestService.getLatestOpenForAccount(
         plain.account_id
       );
-      if (latest) collectionMap.set(plain.account_id, latest);
+      return formatQueueItem(row, latest);
     })
   );
-
-  const results = pageRows.map((row) => {
-    const plain = row.get ? row.get({ plain: true }) : row;
-    return formatQueueItem(row, collectionMap.get(plain.account_id) || null);
-  });
 
   return {
     total,
@@ -529,6 +546,18 @@ async function recordPayment(accountId, payload, actor, auditContext = {}) {
 
     if (!PAYABLE_ACCOUNT_STATUSES.includes(account.status)) {
       const err = new Error("This account is not open for payment");
+      err.status = 400;
+      throw err;
+    }
+
+    const openCollection =
+      await billingCollectionRequestService.getLatestOpenForAccount(
+        account.account_id
+      );
+    if (!openCollection) {
+      const err = new Error(
+        "This visit has not been sent to cashier yet. Ask clinical staff to Send to cashier first."
+      );
       err.status = 400;
       throw err;
     }

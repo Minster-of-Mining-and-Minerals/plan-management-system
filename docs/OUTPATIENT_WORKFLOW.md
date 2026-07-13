@@ -210,13 +210,14 @@ flowchart LR
 | **Where** | Billing card **Send to cashier**, or Workflow **Forward → Cashier desk** |
 | **API** | `POST /api/appointment-billing/:appointmentId/send-to-cashier` |
 
-**What happens**
+**Send to cashier**
 
 1. System validates: active line items exist and **balance due > 0**.
 2. Creates a **`BillingCollectionRequest`** (`pending`) with amount snapshot.
 3. Any previous open request for that visit becomes **`superseded`**.
 4. Account is ensured `pending_payment` if it was still `draft`.
 5. Cashiers with `CASHIER_QUEUE:VIEW` get a **Finance** notification.
+6. Visit **enters the cashier queue only after this step** — unpaid bills without a send do not appear.
 
 **Collection request statuses**
 
@@ -396,6 +397,7 @@ Patient registered
 
 | Doc | Contents |
 |-----|----------|
+| [`CASHIER_SOP.md`](./CASHIER_SOP.md) | Cashier desk policies: send-required queue, sessions, voids, admin CSV |
 | [`FINANCE_MODULE_ARCHITECTURE.md`](./FINANCE_MODULE_ARCHITECTURE.md) | Broader finance roadmap (insurance, deposits, ERP) |
 | [`CLINICAL_DEMO.md`](./CLINICAL_DEMO.md) | Demo seed / clinical walkthrough |
 | [`../backend/docs/TEST_USERS.md`](../backend/docs/TEST_USERS.md) | Test accounts and permission groups |
