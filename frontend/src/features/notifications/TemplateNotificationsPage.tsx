@@ -1,5 +1,4 @@
 "use client";
-
 import { useMemo, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { Bell, CalendarClock, ClipboardList, Inbox, ShieldAlert, CheckCheck, Wallet } from "lucide-react";
@@ -161,4 +160,3 @@ export default function TemplateNotificationsPage() {
     </div>
   );
 }
-

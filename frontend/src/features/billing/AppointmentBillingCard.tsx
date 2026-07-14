@@ -263,7 +263,8 @@ export function AppointmentBillingCard({ appointmentId, disabled }: Props) {
               </Button>
             </PermissionGuard>
           )}
-          {!disabled && canSendToCashier && (
+          {/* Send stays available after workflow completion — only billing lock blocks it. */}
+          {canSendToCashier && (
             <PermissionGuard
               requireAll={[BILLING_PERMISSIONS.COLLECTION_SEND]}
               fallback={null}

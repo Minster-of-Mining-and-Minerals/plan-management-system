@@ -12,7 +12,11 @@ export default {
       async authorize(credentials) {
         if (!credentials) return null;
 
-        const { email, password } = credentials;
+        const email = String(credentials.email || "")
+          .trim()
+          .toLowerCase();
+        const password = String(credentials.password || "");
+        if (!email || !password) return null;
 
         try {
           const res = await fetch(
@@ -28,8 +32,9 @@ export default {
 
           const data = await res.json();
 
-          if (!data?.success) {
-            throw new Error("Invalid credentials");
+          if (!res.ok || !data?.success || !data?.data?.user) {
+            console.error("Authorize failed:", data?.message || res.status);
+            return null;
           }
 
           const user = data.data.user;

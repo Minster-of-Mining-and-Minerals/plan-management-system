@@ -36,6 +36,30 @@ function formatServingClaim(accountPlain, viewerUserId = null) {
   };
 }
 
+async function loadServingCashier(accountPlain) {
+  if (!accountPlain?.serving_by) return accountPlain;
+  if (accountPlain.servingCashier) return accountPlain;
+  const cashier = await User.findByPk(accountPlain.serving_by, {
+    attributes: ["user_id", "full_name"],
+  });
+  return {
+    ...accountPlain,
+    servingCashier: cashier ? cashier.get({ plain: true }) : null,
+  };
+}
+
+/**
+ * Lock the billing account alone — never combine FOR UPDATE with a LEFT JOIN
+ * (Postgres: "FOR UPDATE cannot be applied to the nullable side of an outer join").
+ */
+async function lockAccount(accountId, transaction) {
+  const account = await AppointmentBillingAccount.findByPk(accountId, {
+    transaction,
+    lock: transaction.LOCK.UPDATE,
+  });
+  return account;
+}
+
 async function clearExpiredClaim(account, transaction) {
   if (!account.serving_by) return account;
   const plain = account.get ? account.get({ plain: true }) : account;
@@ -56,18 +80,7 @@ async function clearExpiredClaim(account, transaction) {
 async function takeAccount(accountId, actor) {
   const t = await db.sequelize.transaction();
   try {
-    const account = await AppointmentBillingAccount.findByPk(accountId, {
-      transaction: t,
-      lock: t.LOCK.UPDATE,
-      include: [
-        {
-          model: User,
-          as: "servingCashier",
-          attributes: ["user_id", "full_name"],
-          required: false,
-        },
-      ],
-    });
+    const account = await lockAccount(accountId, t);
 
     if (!account) {
       const err = new Error("Billing account not found");
@@ -76,19 +89,9 @@ async function takeAccount(accountId, actor) {
     }
 
     await clearExpiredClaim(account, t);
-    await account.reload({
-      transaction: t,
-      include: [
-        {
-          model: User,
-          as: "servingCashier",
-          attributes: ["user_id", "full_name"],
-          required: false,
-        },
-      ],
-    });
+    await account.reload({ transaction: t });
 
-    const plain = account.get({ plain: true });
+    let plain = await loadServingCashier(account.get({ plain: true }));
     if (isClaimActive(plain) && plain.serving_by !== actor.user_id) {
       const err = new Error(
         `This patient is being served by ${
@@ -132,10 +135,7 @@ async function takeAccount(accountId, actor) {
 async function releaseAccount(accountId, actor, { force = false } = {}) {
   const t = await db.sequelize.transaction();
   try {
-    const account = await AppointmentBillingAccount.findByPk(accountId, {
-      transaction: t,
-      lock: t.LOCK.UPDATE,
-    });
+    const account = await lockAccount(accountId, t);
 
     if (!account) {
       const err = new Error("Billing account not found");
@@ -202,18 +202,9 @@ async function releaseAllForCashier(cashierUserId, transaction) {
 }
 
 async function assertCanCollect(accountId, actorUserId, transaction) {
-  const account = await AppointmentBillingAccount.findByPk(accountId, {
-    transaction,
-    lock: transaction ? transaction.LOCK.UPDATE : undefined,
-    include: [
-      {
-        model: User,
-        as: "servingCashier",
-        attributes: ["user_id", "full_name"],
-        required: false,
-      },
-    ],
-  });
+  const account = transaction
+    ? await lockAccount(accountId, transaction)
+    : await AppointmentBillingAccount.findByPk(accountId);
 
   if (!account) {
     const err = new Error("Billing account not found");
@@ -222,19 +213,13 @@ async function assertCanCollect(accountId, actorUserId, transaction) {
   }
 
   await clearExpiredClaim(account, transaction);
-  await account.reload({
-    transaction,
-    include: [
-      {
-        model: User,
-        as: "servingCashier",
-        attributes: ["user_id", "full_name"],
-        required: false,
-      },
-    ],
-  });
+  if (transaction) {
+    await account.reload({ transaction });
+  } else {
+    await account.reload();
+  }
 
-  const plain = account.get({ plain: true });
+  const plain = await loadServingCashier(account.get({ plain: true }));
 
   if (!isClaimActive(plain) || plain.serving_by !== actorUserId) {
     const err = new Error(

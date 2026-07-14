@@ -6,19 +6,35 @@ const jwt = require("jsonwebtoken");
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = String(email || "")
+      .trim()
+      .toLowerCase();
 
+    // Case-insensitive exact match (avoids LIKE wildcards on chars like _).
     const user = await User.findOne({
-      where: { email },
+      where: db.sequelize.where(
+        db.sequelize.fn("LOWER", db.sequelize.col("email")),
+        normalizedEmail
+      ),
     });
 
     if (!user)
-      return res.status(401).json({ message: "Invalid email or password" });
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
     if (!user.is_active)
-      return res.status(403).json({ message: "User is inactive" });
+      return res.status(403).json({
+        success: false,
+        message: "User is inactive",
+      });
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch)
-      return res.status(401).json({ message: "Invalid email or password" });
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
 
     const account_type = user.account_type || "INTERNAL";
     const home_route =

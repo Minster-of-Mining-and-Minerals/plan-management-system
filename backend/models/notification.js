@@ -67,7 +67,7 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: "system",
         validate: {
-          isIn: [["system", "logs", "appointments", "workflow"]],
+          isIn: [["system", "logs", "appointments", "workflow", "finance"]],
         },
       },
       related_entity_type: {

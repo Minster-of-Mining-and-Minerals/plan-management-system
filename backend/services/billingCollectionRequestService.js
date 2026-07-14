@@ -84,13 +84,21 @@ async function notifyCashiers({
   const message = `${requesterName || "Staff"} sent ${patientName || "a patient"} to the cashier desk · ${amountLabel} due.`;
 
   for (const cashier of cashiers) {
-    await notificationService.notifyInternalUser(cashier.user_id, {
-      title,
-      message,
-      category: "finance",
-      relatedType: "billing_collection",
-      relatedId: accountId,
-    });
+    try {
+      await notificationService.notifyInternalUser(cashier.user_id, {
+        title,
+        message,
+        category: "finance",
+        relatedType: "billing_collection",
+        relatedId: accountId,
+      });
+    } catch (err) {
+      // Never fail the send-to-cashier handoff because a notification failed.
+      console.error(
+        `Failed to notify cashier ${cashier.user_id} about collection request:`,
+        err.message
+      );
+    }
   }
 }
 

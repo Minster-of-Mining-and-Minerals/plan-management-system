@@ -13,6 +13,8 @@ const TEST_PERMISSION_GROUPS = [
     permissions: {
       patients: ["read", "create", "schedule"],
       workflow: ["read", "submit", "forward", "return", "complete"],
+      appointment_billing: ["view", "create", "update", "delete"],
+      billing_collection: ["send", "view"],
     },
   },
   {
@@ -24,6 +26,9 @@ const TEST_PERMISSION_GROUPS = [
       workflow: ["read", "submit", "forward", "return", "prescribe", "complete"],
       diagnosis_forms: ["read"],
       clinical_suggestion: ["read"],
+      // Diagnosing staff add charges and Send to cashier.
+      appointment_billing: ["view", "create", "update", "delete"],
+      billing_collection: ["send", "view"],
     },
   },
   {
@@ -34,6 +39,8 @@ const TEST_PERMISSION_GROUPS = [
       patients: ["read", "receive_patient"],
       workflow: ["read", "submit", "forward", "return", "complete"],
       diagnosis_forms: ["read"],
+      appointment_billing: ["view", "create", "update", "delete"],
+      billing_collection: ["send", "view"],
     },
   },
   {
@@ -44,6 +51,8 @@ const TEST_PERMISSION_GROUPS = [
       cashier_queue: ["view"],
       cashier_session: ["open", "close", "view"],
       cashier_payment: ["create", "view"],
+      billing_collection: ["view"],
+      appointment_billing: ["view"],
     },
   },
 ];

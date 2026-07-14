@@ -109,7 +109,9 @@ export default function ExternalLogin() {
               <div>
                 <Label className="text-primary">Email</Label>
                 <Input
-                  placeholder="example.xx@gov.et"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="name@gmail.com"
                   value={formData.email}
                   onChange={(e) =>
                     setFormData({ ...formData, email: e.target.value })

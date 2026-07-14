@@ -11,8 +11,27 @@ const CORE_USER_COLUMNS = CORE_PATIENT_COLUMNS;
 
 const CORE_USER_COLUMN_SET = new Set(CORE_USER_COLUMNS);
 
-/** Request keys handled outside FormField (not validated as dynamic). */
-const SYSTEM_USER_PAYLOAD_KEYS = ["role_ids", "custom_fields", "password"];
+/**
+ * Request keys handled outside FormField (not validated as dynamic).
+ * Includes patient_profiles columns + create flags sent by the patient UI.
+ */
+const SYSTEM_USER_PAYLOAD_KEYS = [
+  "role_ids",
+  "custom_fields",
+  "password",
+  "enable_login",
+  // patient_profiles columns (also applied via pickProfileData)
+  "patient_status",
+  "date_of_birth",
+  "gender",
+  "blood_group",
+  "marital_status",
+  "nationality",
+  "preferred_language",
+  "emergency_contacts",
+  "insurance_profile",
+  "medical_history_summary",
+];
 
 const PROTECTED_USER_COLUMNS = new Set([
   "user_id",
