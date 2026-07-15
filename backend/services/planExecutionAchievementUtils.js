@@ -1,6 +1,7 @@
 "use strict";
 
 const { stepRequiresWeight } = require("./planRuleStepUtils");
+const { isAnnualAchievementMode } = require("../utils/planAchievementModeUtils");
 
 const OVERRIDE_PARENT_ACHIEVEMENT_PERMISSION = "plan:override_parent_achievement";
 
@@ -113,6 +114,9 @@ function getRequiredAchievementNodes(nodes, rule) {
   );
 
   return nodes.filter((node) => {
+    if (isAnnualAchievementMode(node)) {
+      return false;
+    }
     if (!isWeightedTargetNode(node, rule)) {
       return false;
     }

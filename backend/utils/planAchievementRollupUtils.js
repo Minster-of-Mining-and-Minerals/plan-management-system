@@ -2,10 +2,13 @@
 
 const {
   resolveAchievementStatus,
+  resolveAnnualAchievementStatus,
   isRollupEligibleAchievementStatus,
   hasRecordedAchievementValue,
+  hasRecordedAnnualAchievementValue,
 } = require("./planAchievementWorkflowUtils");
 const { buildNodeById } = require("../services/planAchievementScopeUtils");
+const { isAnnualAchievementMode } = require("./planAchievementModeUtils");
 
 function masterNodeRequiresApproval(masterNodeId, masterNodes, approverGateNodeIds) {
   if (!masterNodeId || !approverGateNodeIds?.size) {
@@ -49,7 +52,21 @@ function nodeContributesToRollup(node, rollupContext = {}) {
   return isRollupEligibleAchievementStatus(status, { requiresValidation });
 }
 
+function nodeContributesAnnualAchievementToRollup(node, rollupContext = {}) {
+  if (!hasRecordedAnnualAchievementValue(node)) {
+    return false;
+  }
+
+  const requiresValidation = resolveRollupRequiresValidationForNode(node, rollupContext);
+  const status = resolveAnnualAchievementStatus(node);
+  return isRollupEligibleAchievementStatus(status, { requiresValidation });
+}
+
 function isAchievementReadyForPeriodCompletion(node, rollupContext = {}) {
+  if (isAnnualAchievementMode(node)) {
+    return true;
+  }
+
   if (!hasRecordedAchievementValue(node)) {
     return false;
   }
@@ -99,5 +116,6 @@ module.exports = {
   isUnpublishedSectorPublishBoundary,
   childCountsTowardParent,
   nodeContributesToRollup,
+  nodeContributesAnnualAchievementToRollup,
   isAchievementReadyForPeriodCompletion,
 };

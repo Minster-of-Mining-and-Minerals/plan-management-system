@@ -41,6 +41,19 @@ export function resolvePlanAchievementStatus(node: {
   return PLAN_ACHIEVEMENT_STATUS.EMPTY;
 }
 
+export function resolveAnnualPlanAchievementStatus(node: {
+  annual_actual_status?: PlanAchievementStatus | null;
+  annual_actual?: number | null;
+}): PlanAchievementStatus {
+  if (node.annual_actual_status) {
+    return normalizePlanAchievementStatus(node.annual_actual_status);
+  }
+  if (node.annual_actual != null) {
+    return PLAN_ACHIEVEMENT_STATUS.APPROVED;
+  }
+  return PLAN_ACHIEVEMENT_STATUS.EMPTY;
+}
+
 export function planAchievementStatusLabel(status: PlanAchievementStatus): string {
   switch (status) {
     case PLAN_ACHIEVEMENT_STATUS.SUBMITTED:

@@ -86,6 +86,10 @@ const submitAchievementSchema = Joi.object({
     period_actual: Joi.number().min(0).allow(null).required(),
 });
 
+const submitAnnualAchievementSchema = Joi.object({
+    annual_actual: Joi.number().min(0).allow(null).required(),
+});
+
 const rejectAchievementSchema = Joi.object({
     comment: Joi.string().trim().max(2000).allow(null, "").optional(),
 });
@@ -258,6 +262,7 @@ module.exports = {
     validateUpdatePeriodTarget: validate(updatePeriodTargetSchema),
     validateUpdatePeriodActual: validate(updatePeriodActualSchema),
     validateSubmitAchievement: validate(submitAchievementSchema),
+    validateSubmitAnnualAchievement: validate(submitAnnualAchievementSchema),
     validateRejectAchievement: validate(rejectAchievementSchema),
     validateGetPlanVersionsQuery: validate(getPlanVersionsQuerySchema, "query"),
     validateGetPlanExecutionDashboardQuery: validate(

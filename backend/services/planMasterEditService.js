@@ -21,6 +21,7 @@ function pickNodeFields(node) {
         contribution_weight: node.contribution_weight,
         target_unit: node.target_unit,
         target_allocation_mode: node.target_allocation_mode || "divisible",
+        achievement_mode: node.achievement_mode || "period",
         level: node.level,
         order: node.order,
         is_active: node.is_active,

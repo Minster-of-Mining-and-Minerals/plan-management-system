@@ -106,8 +106,9 @@ async function copyNodesWithAssignments(
                 weight_mode: sourceNode.weight_mode,
                 contribution_weight: sourceNode.contribution_weight,
                 target_unit: sourceNode.target_unit,
-                target_allocation_mode: sourceNode.target_allocation_mode || "divisible",
-                level: sourceNode.level,
+        target_allocation_mode: sourceNode.target_allocation_mode || "divisible",
+        achievement_mode: sourceNode.achievement_mode || "period",
+        level: sourceNode.level,
                 // Order is owned by the master draft; derived copies mirror source order.
                 order: sourceNode.order,
                 is_active: sourceNode.is_active,
@@ -1395,6 +1396,7 @@ async function validateExecutionPeriodFinalization(annualVersionId, transaction,
 
     const errors = [];
     const { isLumpTargetAllocation } = require("../utils/planTargetAllocationUtils");
+    const { isAnnualAchievementMode } = require("../utils/planAchievementModeUtils");
 
     for (const annualNode of annualNodes) {
         if (rule && !stepRequiresWeight(rule, annualNode.level)) {
@@ -1418,7 +1420,8 @@ async function validateExecutionPeriodFinalization(annualVersionId, transaction,
             continue;
         }
 
-        const lump = isLumpTargetAllocation(annualNode);
+        const lump =
+          isLumpTargetAllocation(annualNode) || isAnnualAchievementMode(annualNode);
         let allocatedSum = 0;
         let periodsWithTarget = 0;
 
@@ -1451,14 +1454,22 @@ async function validateExecutionPeriodFinalization(annualVersionId, transaction,
         }
 
         if (lump && periodsWithTarget === 0) {
+            if (isAnnualAchievementMode(annualNode)) {
+                // Annual-achievement KPIs do not need period target placement.
+                continue;
+            }
             errors.push(
                 `Lump KPI "${annualNode.title}" must place the full annual target (${annualTarget}) in at least one period`
             );
-        } else if (Math.abs(allocatedSum - annualTarget) > 0.001) {
+        } else if (periodsWithTarget > 0 && Math.abs(allocatedSum - annualTarget) > 0.001) {
             errors.push(
-                lump
-                    ? `Lump KPI "${annualNode.title}": placed period targets (${allocatedSum}) must equal the annual target (${annualTarget})`
+                isLumpTargetAllocation(annualNode) || isAnnualAchievementMode(annualNode)
+                    ? `Lump/annual KPI "${annualNode.title}": placed period targets (${allocatedSum}) must equal the annual target (${annualTarget})`
                     : `Total period targets for "${annualNode.title}" (${allocatedSum}) must equal the annual target (${annualTarget})`
+            );
+        } else if (!lump && Math.abs(allocatedSum - annualTarget) > 0.001) {
+            errors.push(
+                `Total period targets for "${annualNode.title}" (${allocatedSum}) must equal the annual target (${annualTarget})`
             );
         }
     }
@@ -2004,6 +2015,7 @@ async function validatePeriodClassificationTree(periodVersionId, transaction) {
         transaction,
     });
     const { isLumpTargetAllocation } = require("../utils/planTargetAllocationUtils");
+    const { isAnnualAchievementMode } = require("../utils/planAchievementModeUtils");
 
     const errors = [];
 
@@ -2057,7 +2069,10 @@ async function validatePeriodClassificationTree(periodVersionId, transaction) {
         const periodTarget = Number(node.period_target) || 0;
         if (periodTarget <= 0) {
             const lump =
-                isLumpTargetAllocation(node) || isLumpTargetAllocation(annualNode);
+                isLumpTargetAllocation(node) ||
+                isLumpTargetAllocation(annualNode) ||
+                isAnnualAchievementMode(node) ||
+                isAnnualAchievementMode(annualNode);
             if (!lump) {
                 errors.push(
                     `Period target is not set for "${node.title}" in ${periodVersion.period_label}`

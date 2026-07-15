@@ -150,6 +150,16 @@ module.exports = (sequelize, DataTypes) => {
                 defaultValue: "divisible",
             },
 
+            /**
+             * period — achievement is entered per execution period (default).
+             * annual — achievement is entered once for the year on the annual node.
+             */
+            achievement_mode: {
+                type: DataTypes.ENUM("period", "annual"),
+                allowNull: false,
+                defaultValue: "period",
+            },
+
             period_actual: {
                 type: DataTypes.FLOAT,
                 allowNull: true,
@@ -198,6 +208,52 @@ module.exports = (sequelize, DataTypes) => {
             },
 
             period_actual_rejection_comment: {
+                type: DataTypes.TEXT,
+                allowNull: true,
+            },
+
+            annual_actual: {
+                type: DataTypes.FLOAT,
+                allowNull: true,
+            },
+
+            annual_actual_status: {
+                type: DataTypes.ENUM("empty", "submitted", "approved", "validated", "rejected"),
+                allowNull: false,
+                defaultValue: "empty",
+            },
+
+            annual_actual_submitted_at: {
+                type: DataTypes.DATE,
+                allowNull: true,
+            },
+
+            annual_actual_submitted_by: {
+                type: DataTypes.UUID,
+                allowNull: true,
+            },
+
+            annual_actual_approved_at: {
+                type: DataTypes.DATE,
+                allowNull: true,
+            },
+
+            annual_actual_approved_by: {
+                type: DataTypes.UUID,
+                allowNull: true,
+            },
+
+            annual_actual_validated_at: {
+                type: DataTypes.DATE,
+                allowNull: true,
+            },
+
+            annual_actual_validated_by: {
+                type: DataTypes.UUID,
+                allowNull: true,
+            },
+
+            annual_actual_rejection_comment: {
                 type: DataTypes.TEXT,
                 allowNull: true,
             },

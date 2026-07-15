@@ -434,6 +434,98 @@ export const planApi = baseApi.injectEndpoints({
             ],
         }),
 
+        submitAnnualAchievement: builder.mutation<
+            PlanNode,
+            { id: string; annual_actual: number | null }
+        >({
+            query: ({ id, annual_actual }) => ({
+                url: `/plan/nodes/${id}/annual-achievement/submit`,
+                method: "POST",
+                body: { annual_actual },
+            }),
+            transformResponse: (response: { data: PlanNode }) => response.data,
+            invalidatesTags: (_r, _e, { id }) => [
+                { type: "PlanNodes", id },
+                "PlanNodes",
+                "PlanVersions",
+                "PlanExecutionDashboard",
+                "PlanAchievementWorkflowScope",
+                { type: "PlanVersions", id: "LIST" },
+            ],
+        }),
+
+        approveAnnualAchievement: builder.mutation<PlanNode, { id: string }>({
+            query: ({ id }) => ({
+                url: `/plan/nodes/${id}/annual-achievement/approve`,
+                method: "POST",
+            }),
+            transformResponse: (response: { data: PlanNode }) => response.data,
+            invalidatesTags: (_r, _e, { id }) => [
+                { type: "PlanNodes", id },
+                "PlanNodes",
+                "PlanVersions",
+                "PlanExecutionDashboard",
+                "PlanAchievementWorkflowScope",
+                { type: "PlanVersions", id: "LIST" },
+            ],
+        }),
+
+        validateAnnualAchievement: builder.mutation<PlanNode, { id: string }>({
+            query: ({ id }) => ({
+                url: `/plan/nodes/${id}/annual-achievement/validate`,
+                method: "POST",
+            }),
+            transformResponse: (response: { data: PlanNode }) => response.data,
+            invalidatesTags: (_r, _e, { id }) => [
+                { type: "PlanNodes", id },
+                "PlanNodes",
+                "PlanVersions",
+                "PlanExecutionDashboard",
+                "PlanAchievementWorkflowScope",
+                { type: "PlanVersions", id: "LIST" },
+            ],
+        }),
+
+        rejectAnnualAchievement: builder.mutation<
+            PlanNode,
+            { id: string; comment?: string | null }
+        >({
+            query: ({ id, comment }) => ({
+                url: `/plan/nodes/${id}/annual-achievement/reject`,
+                method: "POST",
+                body: { comment },
+            }),
+            transformResponse: (response: { data: PlanNode }) => response.data,
+            invalidatesTags: (_r, _e, { id }) => [
+                { type: "PlanNodes", id },
+                "PlanNodes",
+                "PlanVersions",
+                "PlanExecutionDashboard",
+                "PlanAchievementWorkflowScope",
+                { type: "PlanVersions", id: "LIST" },
+            ],
+        }),
+
+        rejectValidationAnnualAchievement: builder.mutation<
+            PlanNode,
+            { id: string; comment?: string | null }
+        >({
+            query: ({ id, comment }) => ({
+                url: `/plan/nodes/${id}/annual-achievement/validation-reject`,
+                method: "POST",
+                body: { comment },
+            }),
+            transformResponse: (response: { data: PlanNode }) => response.data,
+            invalidatesTags: (_r, _e, { id }) => [
+                { type: "PlanNodes", id },
+                "PlanNodes",
+                "PlanVersions",
+                "PlanExecutionDashboard",
+                "PlanAchievementWorkflowScope",
+                { type: "PlanVersions", id: "LIST" },
+            ],
+        }),
+
         approveAchievement: builder.mutation<PlanNode, { id: string }>({
             query: ({ id }) => ({
                 url: `/plan/nodes/${id}/achievement/approve`,
@@ -835,6 +927,11 @@ export const {
     useUpdatePeriodTargetMutation,
     useUpdatePeriodActualMutation,
     useSubmitAchievementMutation,
+    useSubmitAnnualAchievementMutation,
+    useApproveAnnualAchievementMutation,
+    useRejectAnnualAchievementMutation,
+    useValidateAnnualAchievementMutation,
+    useRejectValidationAnnualAchievementMutation,
     useApproveAchievementMutation,
     useRejectAchievementMutation,
     useValidateAchievementMutation,

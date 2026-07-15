@@ -21,6 +21,9 @@ const {
     normalizeTargetAllocationMode,
 } = require("../../utils/planTargetAllocationUtils");
 const {
+    normalizeAchievementMode,
+} = require("../../utils/planAchievementModeUtils");
+const {
     buildDraftAlignedSortMeta,
     sortHierarchyTree,
     sortFlatPlanNodes,
@@ -951,6 +954,7 @@ const createPlanNode = async (req, res) => {
             level,
             assignment_sharing_mode,
             target_allocation_mode,
+            achievement_mode,
         } = req.body;
 
         // Verify plan version exists and is draft
@@ -1050,6 +1054,7 @@ const createPlanNode = async (req, res) => {
                     contribution_weight > 0 ? contribution_weight : null,
                 target_unit: unitCheck.targetUnit,
                 target_allocation_mode: normalizeTargetAllocationMode(target_allocation_mode),
+                achievement_mode: normalizeAchievementMode(achievement_mode),
                 level: nodeLevel,
                 order: nodeOrder,
                 is_active: true,
@@ -1171,12 +1176,15 @@ const getPlanNodeById = async (req, res) => {
                     plan_node_id: planNode.source_plan_node_id,
                     plan_version_id: planNode.planVersion.parent_plan_version_id,
                 },
-                attributes: ["annual_target", "target_allocation_mode"],
+                attributes: ["annual_target", "target_allocation_mode", "achievement_mode"],
             });
             if (annualNode) {
                 nodeJson.annual_target = annualNode.annual_target;
                 if (annualNode.target_allocation_mode) {
                     nodeJson.target_allocation_mode = annualNode.target_allocation_mode;
+                }
+                if (annualNode.achievement_mode) {
+                    nodeJson.achievement_mode = annualNode.achievement_mode;
                 }
             }
         }
@@ -1328,6 +1336,12 @@ const updatePlanNode = async (req, res) => {
         if (updateFields.target_allocation_mode !== undefined) {
             updateFields.target_allocation_mode = normalizeTargetAllocationMode(
                 updateFields.target_allocation_mode
+            );
+        }
+
+        if (updateFields.achievement_mode !== undefined) {
+            updateFields.achievement_mode = normalizeAchievementMode(
+                updateFields.achievement_mode
             );
         }
 
@@ -1539,6 +1553,13 @@ const getPlanHierarchy = async (req, res) => {
         if (planVersion?.version_kind === "execution_period") {
             const { enrichExecutionHierarchyTree } = require("../../services/planExecutionRollupService");
             const enriched = await enrichExecutionHierarchyTree(
+                hierarchyVersionId,
+                sortedRoots
+            );
+            sortedRoots = enriched.roots ?? sortedRoots;
+        } else if (planVersion?.version_kind === "annual") {
+            const { enrichAnnualHierarchyTree } = require("../../services/planExecutionRollupService");
+            const enriched = await enrichAnnualHierarchyTree(
                 hierarchyVersionId,
                 sortedRoots
             );

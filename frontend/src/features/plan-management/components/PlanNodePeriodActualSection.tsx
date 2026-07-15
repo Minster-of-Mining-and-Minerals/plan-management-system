@@ -131,6 +131,14 @@ export function PlanNodePeriodActualSection({
         sectionRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
     }, [focused, node.plan_node_id]);
 
+    if (node.achievement_mode === "annual") {
+        return (
+            <div className={cn("text-xs text-amber-800", className)} onClick={onClick}>
+                This KPI uses annual achievement — enter it on the annual year view, not in a period.
+            </div>
+        );
+    }
+
     const focusClassName = focused
         ? "ring-2 ring-primary ring-offset-2 shadow-md"
         : undefined;

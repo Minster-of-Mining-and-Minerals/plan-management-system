@@ -366,6 +366,8 @@ export default function PlanHierarchyView({
     );
     const showPeriodTargets = isExecutionPeriod && !processStarted;
     const showPeriodActuals = isExecutionPeriod && processStarted;
+    const showAnnualActuals = isAnnualVersion && processStarted;
+    const canEditAnnualActual = showAnnualActuals;
     const isExecutionSnapshotView = Boolean(version?.execution_snapshot_of_version_id);
     const executionPeriodLocked =
         isExecutionPeriod &&
@@ -1088,7 +1090,9 @@ export default function PlanHierarchyView({
                     showAnnualTargets={showAnnualTargets}
                     showPeriodTargets={showPeriodTargets}
                     showPeriodActuals={showPeriodActuals}
+                    showAnnualActuals={showAnnualActuals}
                     canEditPeriodActual={canEditPeriodActual}
+                    canEditAnnualActual={canEditAnnualActual}
                     useExecutionCompletion={showPeriodActuals}
                     processStarted={processStarted}
                     periodHasRecordedActuals={periodHasRecordedActuals}
@@ -1121,7 +1125,9 @@ export default function PlanHierarchyView({
                     showAnnualTargets={showAnnualTargets}
                     showPeriodTargets={showPeriodTargets}
                     showPeriodActuals={showPeriodActuals}
+                    showAnnualActuals={showAnnualActuals}
                     canEditPeriodActual={canEditPeriodActual}
+                    canEditAnnualActual={canEditAnnualActual}
                     useExecutionCompletion={showPeriodActuals}
                     processStarted={processStarted}
                     periodHasRecordedActuals={periodHasRecordedActuals}
@@ -1161,7 +1167,7 @@ export default function PlanHierarchyView({
     return (
         <PlanAchievementScopeProvider
             versionId={versionId}
-            enabled={Boolean(isExecutionPeriod && processStarted)}
+            enabled={Boolean((isExecutionPeriod || isAnnualVersion) && processStarted)}
         >
         <div className="space-y-6">
             {/* Header */}

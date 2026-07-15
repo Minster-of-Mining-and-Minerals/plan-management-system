@@ -3,7 +3,7 @@
 const { PlanVersion, PlanNode } = require("../models");
 const { resolveMasterVersionId } = require("./planReviewVisibilityService");
 const { resolveExecutionHierarchyVersionId } = require("./planExecutionGateService");
-const { buildMasterNodeIdByPeriodNodeId, buildRollupContextForPeriod } = require("./planAchievementRollupService");
+const { buildMasterNodeIdByPeriodNodeId, buildMasterNodeIdByAnnualNodeId, buildRollupContextForPeriod, buildRollupContextForAnnual } = require("./planAchievementRollupService");
 const {
   loadAchievementScopeContext,
   resolveExecutorLeafMasterNodeIdsForUser,
@@ -39,10 +39,10 @@ async function resolveAchievementWorkflowScopeForVersion(planVersionId, user, tr
     return { success: false, message: "Plan version not found" };
   }
 
-  if (version.version_kind !== "execution_period") {
+  if (version.version_kind !== "execution_period" && version.version_kind !== "annual") {
     return {
       success: false,
-      message: "Achievement workflow scope is only available for execution period versions",
+      message: "Achievement workflow scope is only available for execution period or annual versions",
     };
   }
 
@@ -66,6 +66,106 @@ async function resolveAchievementWorkflowScopeForVersion(planVersionId, user, tr
         sector_publish_branches: [],
         publisher_branch_ids: [],
         assignment_bypass_active: userQualifiesForAchievementAssignmentBypass(user),
+      },
+    };
+  }
+
+  const isAnnual = version.version_kind === "annual" ||
+    (await PlanVersion.findByPk(hierarchyVersionId, {
+      attributes: ["version_kind"],
+      transaction,
+    }))?.version_kind === "annual";
+
+  if (isAnnual) {
+    const [
+      executorMasterLeaves,
+      scopeContext,
+      masterNodeIdByAnnualNodeId,
+      annualNodes,
+      rollupContext,
+    ] = await Promise.all([
+      resolveExecutorLeafMasterNodeIdsForUser(masterVersionId, user, transaction),
+      loadAchievementScopeContext(masterVersionId, transaction),
+      buildMasterNodeIdByAnnualNodeId(hierarchyVersionId, transaction),
+      PlanNode.findAll({
+        where: { plan_version_id: hierarchyVersionId, is_active: true },
+        attributes: ["plan_node_id", "parent_id", "achievement_mode"],
+        transaction,
+      }),
+      buildRollupContextForAnnual(hierarchyVersionId, transaction),
+    ]);
+
+    const annualChildrenByParent = buildChildrenByParent(annualNodes);
+    const { masterNodes } = scopeContext;
+    const masterChildrenByParent = buildChildrenByParent(masterNodes);
+
+    const approverMasterLeaves = new Set();
+    const bypassAssignment = userQualifiesForAchievementAssignmentBypass(user);
+    if (userCanApproveAchievement(user)) {
+      if (bypassAssignment) {
+        for (const leafId of collectAllMasterLeafIds(masterNodes)) {
+          approverMasterLeaves.add(leafId);
+        }
+      } else {
+        for (const masterNode of masterNodes) {
+          if (!isMasterPlanLeaf(masterNode, masterChildrenByParent)) {
+            continue;
+          }
+          if (userCanApproveLeafMasterNode({ user, ...scopeContext }, masterNode.plan_node_id)) {
+            approverMasterLeaves.add(masterNode.plan_node_id);
+          }
+        }
+      }
+    }
+
+    const executor_node_ids = [];
+    const approver_node_ids = [];
+    const validator_node_ids = [];
+    const hasValidationGate = Boolean(rollupContext.hasValidationGate);
+
+    let userIsSectorValidator = false;
+    if (hasValidationGate && userCanValidateAchievement(user)) {
+      const { users: validators } = await loadSectorValidationUsers(masterVersionId, transaction);
+      userIsSectorValidator = validators.some((candidate) => candidate.user_id === user.user_id);
+    }
+
+    for (const annualNode of annualNodes) {
+      if (!isMasterPlanLeaf(annualNode, annualChildrenByParent)) {
+        continue;
+      }
+      if (annualNode.achievement_mode !== "annual") {
+        continue;
+      }
+
+      const masterNodeId = masterNodeIdByAnnualNodeId.get(annualNode.plan_node_id);
+      if (!masterNodeId) {
+        continue;
+      }
+
+      if (executorMasterLeaves.has(masterNodeId)) {
+        executor_node_ids.push(annualNode.plan_node_id);
+      }
+      if (approverMasterLeaves.has(masterNodeId)) {
+        approver_node_ids.push(annualNode.plan_node_id);
+      }
+      if (userIsSectorValidator) {
+        validator_node_ids.push(annualNode.plan_node_id);
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        master_version_id: masterVersionId,
+        plan_version_id: hierarchyVersionId,
+        executor_node_ids,
+        approver_node_ids,
+        validator_node_ids,
+        has_validation_gate: hasValidationGate,
+        has_sector_publish_gate: false,
+        sector_publish_branches: [],
+        publisher_branch_ids: [],
+        assignment_bypass_active: bypassAssignment,
       },
     };
   }

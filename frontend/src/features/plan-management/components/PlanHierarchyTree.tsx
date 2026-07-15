@@ -22,6 +22,7 @@ import { PlanNodeAssignmentSummary } from "./PlanNodeAssignmentSummary";
 import { PlanNodeAnnualTargetSection } from "./PlanNodeAnnualTargetSection";
 import { PlanNodePeriodTargetSection } from "./PlanNodePeriodTargetSection";
 import { PlanNodePeriodActualSection } from "./PlanNodePeriodActualSection";
+import { PlanNodeAnnualActualSection } from "./PlanNodeAnnualActualSection";
 import { PlanNodeActions } from "./PlanNodeActions";
 import { useEffectivePlanningConfiguration } from "@/hooks/useEffectivePlanningConfiguration";
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
@@ -58,7 +59,9 @@ interface NodeItemProps {
     showAnnualTargets?: boolean;
     showPeriodTargets?: boolean;
     showPeriodActuals?: boolean;
+    showAnnualActuals?: boolean;
     canEditPeriodActual?: boolean;
+    canEditAnnualActual?: boolean;
     useExecutionCompletion?: boolean;
     processStarted?: boolean;
     periodHasRecordedActuals?: boolean;
@@ -93,7 +96,9 @@ const NodeItem = ({
     showAnnualTargets = false,
     showPeriodTargets = false,
     showPeriodActuals = false,
+    showAnnualActuals = false,
     canEditPeriodActual = false,
+    canEditAnnualActual = false,
     useExecutionCompletion = false,
     processStarted = false,
     periodHasRecordedActuals = false,
@@ -268,6 +273,15 @@ const NodeItem = ({
                                 variant="compact"
                             />
                         )}
+                        {showAnnualActuals && (
+                            <PlanNodeAnnualActualSection
+                                node={node}
+                                rule={rule}
+                                configuredUnits={configuredUnits}
+                                canEdit={canEditAnnualActual}
+                                variant="compact"
+                            />
+                        )}
                         {!hideAssignments && <PlanNodeAssignmentSummary node={node} />}
                     </div>
                 </div>
@@ -330,7 +344,9 @@ const NodeItem = ({
                             showAnnualTargets={showAnnualTargets}
                             showPeriodTargets={showPeriodTargets}
                             showPeriodActuals={showPeriodActuals}
+                            showAnnualActuals={showAnnualActuals}
                             canEditPeriodActual={canEditPeriodActual}
+                            canEditAnnualActual={canEditAnnualActual}
                             useExecutionCompletion={useExecutionCompletion}
                             processStarted={processStarted}
                             periodHasRecordedActuals={periodHasRecordedActuals}
@@ -369,7 +385,9 @@ interface PlanHierarchyTreeProps {
     showAnnualTargets?: boolean;
     showPeriodTargets?: boolean;
     showPeriodActuals?: boolean;
+    showAnnualActuals?: boolean;
     canEditPeriodActual?: boolean;
+    canEditAnnualActual?: boolean;
     useExecutionCompletion?: boolean;
     processStarted?: boolean;
     periodHasRecordedActuals?: boolean;
@@ -402,7 +420,9 @@ export function PlanHierarchyTree({
     showAnnualTargets = false,
     showPeriodTargets = false,
     showPeriodActuals = false,
+    showAnnualActuals = false,
     canEditPeriodActual = false,
+    canEditAnnualActual = false,
     useExecutionCompletion = false,
     processStarted = false,
     periodHasRecordedActuals = false,
@@ -448,8 +468,10 @@ export function PlanHierarchyTree({
                         hideAssignments={hideAssignments}
                         showAnnualTargets={showAnnualTargets}
                         showPeriodTargets={showPeriodTargets}
-                        showPeriodActuals={showPeriodActuals}
-                        canEditPeriodActual={canEditPeriodActual}
+                            showPeriodActuals={showPeriodActuals}
+                            showAnnualActuals={showAnnualActuals}
+                            canEditPeriodActual={canEditPeriodActual}
+                            canEditAnnualActual={canEditAnnualActual}
                         useExecutionCompletion={useExecutionCompletion}
                         processStarted={processStarted}
                         periodHasRecordedActuals={periodHasRecordedActuals}
@@ -492,7 +514,9 @@ export function PlanHierarchyTree({
                     showAnnualTargets={showAnnualTargets}
                     showPeriodTargets={showPeriodTargets}
                     showPeriodActuals={showPeriodActuals}
+                    showAnnualActuals={showAnnualActuals}
                     canEditPeriodActual={canEditPeriodActual}
+                    canEditAnnualActual={canEditAnnualActual}
                     useExecutionCompletion={useExecutionCompletion}
                     processStarted={processStarted}
                     periodHasRecordedActuals={periodHasRecordedActuals}

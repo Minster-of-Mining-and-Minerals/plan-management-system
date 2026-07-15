@@ -336,6 +336,7 @@ export interface PlanNodeAssignmentContext {
 }
 
 export type TargetAllocationMode = "divisible" | "lump";
+export type AchievementMode = "period" | "annual";
 
 export interface PlanNode {
     plan_node_id: string;
@@ -349,6 +350,7 @@ export interface PlanNode {
     contribution_weight?: number | null;
     target_unit?: string | null;
     target_allocation_mode?: TargetAllocationMode | null;
+    achievement_mode?: AchievementMode | null;
     level: number;
     order: number;
     is_active: boolean;
@@ -367,6 +369,15 @@ export interface PlanNode {
     period_actual_validated_at?: string | null;
     period_actual_validated_by?: string | null;
     period_actual_rejection_comment?: string | null;
+    annual_actual?: number | null;
+    annual_actual_status?: PlanAchievementStatus;
+    annual_actual_submitted_at?: string | null;
+    annual_actual_submitted_by?: string | null;
+    annual_actual_approved_at?: string | null;
+    annual_actual_approved_by?: string | null;
+    annual_actual_validated_at?: string | null;
+    annual_actual_validated_by?: string | null;
+    annual_actual_rejection_comment?: string | null;
     periodActualSubmittedBy?: User;
     periodActualApprovedBy?: User;
     execution_progress_percent?: number | null;
@@ -396,6 +407,7 @@ export interface CreatePlanNodePayload {
     contribution_weight?: number | null;
     target_unit?: string | null;
     target_allocation_mode?: TargetAllocationMode;
+    achievement_mode?: AchievementMode;
     level?: number;
     order?: number;
     assignment_sharing_mode?: AssignmentSharingMode;
@@ -411,6 +423,7 @@ export interface UpdatePlanNodePayload {
     contribution_weight?: number | null;
     target_unit?: string | null;
     target_allocation_mode?: TargetAllocationMode;
+    achievement_mode?: AchievementMode;
     level?: number;
     order?: number;
     is_active?: boolean;

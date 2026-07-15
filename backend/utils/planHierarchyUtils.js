@@ -130,7 +130,7 @@ async function enrichPeriodNodesWithLiveAnnualTargets(planVersion, nodeMap, node
             plan_node_id: sourceIds,
             plan_version_id: planVersion.parent_plan_version_id,
         },
-        attributes: ["plan_node_id", "annual_target", "target_allocation_mode"],
+        attributes: ["plan_node_id", "annual_target", "target_allocation_mode", "achievement_mode"],
     });
 
     const annualBySourceId = new Map(
@@ -139,6 +139,7 @@ async function enrichPeriodNodesWithLiveAnnualTargets(planVersion, nodeMap, node
             {
                 annual_target: node.annual_target,
                 target_allocation_mode: node.target_allocation_mode,
+                achievement_mode: node.achievement_mode,
             },
         ])
     );
@@ -152,6 +153,9 @@ async function enrichPeriodNodesWithLiveAnnualTargets(planVersion, nodeMap, node
             enriched.annual_target = live.annual_target;
             if (live.target_allocation_mode) {
                 enriched.target_allocation_mode = live.target_allocation_mode;
+            }
+            if (live.achievement_mode) {
+                enriched.achievement_mode = live.achievement_mode;
             }
         }
     }

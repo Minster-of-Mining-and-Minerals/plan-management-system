@@ -5,10 +5,12 @@ const { resolvePlanRuleForVersion } = require("./planRuleService");
 const { stepRequiresContributionWeight } = require("./planRuleStepUtils");
 const {
   nodeContributesToRollup,
+  nodeContributesAnnualAchievementToRollup,
   childCountsTowardParent,
 } = require("../utils/planAchievementRollupUtils");
-const { buildRollupContextForPeriod } = require("./planAchievementRollupService");
+const { buildRollupContextForPeriod, buildRollupContextForAnnual } = require("./planAchievementRollupService");
 const { isExecutionSnapshotVersion } = require("./planExecutionSnapshotService");
+const { isAnnualAchievementMode } = require("../utils/planAchievementModeUtils");
 
 const EVALUATION_STATUS = {
   COMPLETED: "completed",
@@ -49,8 +51,13 @@ function hasRecordedActual(node, rollupContext = {}) {
 
 /**
  * Leaf evaluation: target-based achievement with evaluability rules.
+ * Annual-mode KPIs are scored on the annual year node, not per period.
  */
 function evaluateLeafNode(node, rollupContext = {}) {
+  if (isAnnualAchievementMode(node)) {
+    return emptyNodeMetrics();
+  }
+
   const target = Number(node.period_target) || 0;
 
   if (target <= 0) {
@@ -66,6 +73,33 @@ function evaluateLeafNode(node, rollupContext = {}) {
 
   const hasActual = hasRecordedActual(node, rollupContext);
   const actual = hasActual ? Number(node.period_actual) : 0;
+  const percent = hasActual ? roundPercent((actual / target) * 100) : 0;
+
+  let evaluation_status = EVALUATION_STATUS.NOT_STARTED;
+  if (hasActual) {
+    evaluation_status =
+      percent >= 100 ? EVALUATION_STATUS.COMPLETED : EVALUATION_STATUS.IN_PROGRESS;
+  }
+
+  return {
+    execution_progress_percent: percent,
+    is_evaluable: true,
+    evaluation_status,
+    has_contributing_data: hasActual,
+    computed_period_actual: hasActual ? actual : null,
+    computed_period_target: target,
+  };
+}
+
+function evaluateAnnualModeLeafNode(node, rollupContext = {}) {
+  const target = Number(node.annual_target) || 0;
+
+  if (target <= 0) {
+    return emptyNodeMetrics();
+  }
+
+  const hasActual = nodeContributesAnnualAchievementToRollup(node, rollupContext);
+  const actual = hasActual ? Number(node.annual_actual) : 0;
   const percent = hasActual ? roundPercent((actual / target) * 100) : 0;
 
   let evaluation_status = EVALUATION_STATUS.NOT_STARTED;
@@ -323,7 +357,7 @@ async function computePeriodExecutionProgress(periodVersionId, transaction = nul
 }
 
 /**
- * Annual achievement = average across evaluable periods only.
+ * Annual achievement = average of evaluable period %s plus annual-mode leaf %.
  */
 async function computeAnnualExecutionProgress(annualVersionId, transaction = null) {
   const periods = await PlanVersion.findAll({
@@ -334,16 +368,6 @@ async function computeAnnualExecutionProgress(annualVersionId, transaction = nul
     order: [["sequence_index", "ASC"]],
     transaction,
   });
-
-  if (periods.length === 0) {
-    return {
-      execution_progress_percent: null,
-      is_evaluable: false,
-      evaluation_status: EVALUATION_STATUS.NO_EVALUATION,
-      has_contributing_data: false,
-      execution_period_progress: [],
-    };
-  }
 
   const execution_period_progress = [];
   const evaluablePercents = [];
@@ -373,6 +397,37 @@ async function computeAnnualExecutionProgress(annualVersionId, transaction = nul
     });
   }
 
+  const annualNodes = await PlanNode.findAll({
+    where: { plan_version_id: annualVersionId, is_active: true },
+    transaction,
+  });
+  const plainAnnual = annualNodes.map((node) => (node.toJSON ? node.toJSON() : node));
+  const childrenByParent = buildChildrenByParent(plainAnnual);
+  const annualRollupContext = await buildRollupContextForAnnual(annualVersionId, transaction);
+
+  for (const node of plainAnnual) {
+    if (!isAnnualAchievementMode(node)) continue;
+    if (getActiveChildren(node, childrenByParent).length > 0) continue;
+
+    const metrics = evaluateAnnualModeLeafNode(node, annualRollupContext);
+    if (metrics.is_evaluable) {
+      evaluablePercents.push(metrics.execution_progress_percent ?? 0);
+    }
+    if (metrics.has_contributing_data) {
+      anyContributing = true;
+    }
+  }
+
+  if (periods.length === 0 && evaluablePercents.length === 0) {
+    return {
+      execution_progress_percent: null,
+      is_evaluable: false,
+      evaluation_status: EVALUATION_STATUS.NO_EVALUATION,
+      has_contributing_data: false,
+      execution_period_progress: [],
+    };
+  }
+
   const annualMetrics = aggregateEvaluableNodeMetrics(
     evaluablePercents.map((percent) => ({
       execution_progress_percent: percent,
@@ -389,6 +444,50 @@ async function computeAnnualExecutionProgress(annualVersionId, transaction = nul
     has_contributing_data: anyContributing,
     execution_period_progress,
   };
+}
+
+function applyAnnualModeMetricsToHierarchy(nodes, rollupContext) {
+  const childrenByParent = buildChildrenByParent(flattenHierarchyNodes(nodes));
+
+  function walk(list) {
+    for (const node of list) {
+      if (isAnnualAchievementMode(node) && getActiveChildren(node, childrenByParent).length === 0) {
+        const metrics = evaluateAnnualModeLeafNode(node, rollupContext);
+        node.execution_progress_percent = metrics.execution_progress_percent;
+        node.is_evaluable = metrics.is_evaluable;
+        node.evaluation_status = metrics.evaluation_status;
+        node.computed_period_actual = metrics.computed_period_actual;
+        node.computed_period_target = metrics.computed_period_target;
+        node.has_contributing_data = metrics.has_contributing_data;
+      }
+      if (Array.isArray(node.children) && node.children.length > 0) {
+        walk(node.children);
+      }
+    }
+  }
+
+  walk(nodes);
+}
+
+function flattenHierarchyNodes(nodes, acc = []) {
+  for (const node of nodes) {
+    acc.push(node);
+    if (Array.isArray(node.children) && node.children.length > 0) {
+      flattenHierarchyNodes(node.children, acc);
+    }
+  }
+  return acc;
+}
+
+async function enrichAnnualHierarchyTree(planVersionId, roots, transaction = null) {
+  const version = await PlanVersion.findByPk(planVersionId, { transaction });
+  if (!version || version.version_kind !== "annual") {
+    return { roots };
+  }
+
+  const rollupContext = await buildRollupContextForAnnual(planVersionId, transaction);
+  applyAnnualModeMetricsToHierarchy(roots, rollupContext);
+  return { roots };
 }
 
 function applyRollupToHierarchyNodes(nodes, rollupMap) {
@@ -534,5 +633,6 @@ module.exports = {
   computeAnnualExecutionProgress,
   computeMasterExecutionProgress,
   enrichExecutionHierarchyTree,
+  enrichAnnualHierarchyTree,
   applyRollupToHierarchyNodes,
 };

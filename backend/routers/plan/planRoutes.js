@@ -18,6 +18,7 @@ const {
     validateUpdatePeriodTarget,
     validateUpdatePeriodActual,
     validateSubmitAchievement,
+    validateSubmitAnnualAchievement,
     validateRejectAchievement,
 } = require("../../validators/plan/planValidator");
 
@@ -74,6 +75,11 @@ const {
     validateAchievementHandler,
     rejectValidationAchievementHandler,
     rejectAchievementHandler,
+    submitAnnualAchievementHandler,
+    approveAnnualAchievementHandler,
+    validateAnnualAchievementHandler,
+    rejectAnnualAchievementHandler,
+    rejectValidationAnnualAchievementHandler,
     getAchievementWorkflowScope,
     listSectorAggregationPublishStateHandler,
     publishSectorAggregationHandler,
@@ -278,6 +284,39 @@ router.post(
     validateIdParam,
     validateRejectAchievement,
     rejectAchievementHandler
+);
+router.post(
+    "/nodes/:id/annual-achievement/submit",
+    checkPermission("PLAN", "EXECUTE_ACHIEVEMENT"),
+    validateIdParam,
+    validateSubmitAnnualAchievement,
+    submitAnnualAchievementHandler
+);
+router.post(
+    "/nodes/:id/annual-achievement/approve",
+    checkPermission("PLAN", "APPROVE_ACHIEVEMENT"),
+    validateIdParam,
+    approveAnnualAchievementHandler
+);
+router.post(
+    "/nodes/:id/annual-achievement/validate",
+    checkPermission("PLAN", "VALIDATE_APPROVAL"),
+    validateIdParam,
+    validateAnnualAchievementHandler
+);
+router.post(
+    "/nodes/:id/annual-achievement/validation-reject",
+    checkPermission("PLAN", "VALIDATE_APPROVAL"),
+    validateIdParam,
+    validateRejectAchievement,
+    rejectValidationAnnualAchievementHandler
+);
+router.post(
+    "/nodes/:id/annual-achievement/reject",
+    checkPermission("PLAN", "APPROVE_ACHIEVEMENT"),
+    validateIdParam,
+    validateRejectAchievement,
+    rejectAnnualAchievementHandler
 );
 router.patch(
     "/nodes/:id/period-actual",

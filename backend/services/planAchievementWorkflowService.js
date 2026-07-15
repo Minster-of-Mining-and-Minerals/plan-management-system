@@ -192,6 +192,16 @@ async function submitAchievement(planNodeId, periodActual, options = {}) {
       };
     }
 
+    const { isAnnualAchievementMode } = require("../utils/planAchievementModeUtils");
+    if (isAnnualAchievementMode(node)) {
+      await t.rollback();
+      return {
+        success: false,
+        message:
+          "This KPI uses annual achievement. Enter achievement on the annual year view instead of a period.",
+      };
+    }
+
     const periodAccess = await assertPeriodOpenForAchievement(node.plan_version_id, t);
     if (!periodAccess.allowed) {
       await t.rollback();

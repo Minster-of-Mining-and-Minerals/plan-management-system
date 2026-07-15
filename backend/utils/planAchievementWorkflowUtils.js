@@ -89,6 +89,81 @@ function buildEmptyAchievementWorkflowFields() {
   };
 }
 
+function resolveAnnualAchievementStatus(node) {
+  if (!node) return ACHIEVEMENT_STATUS.EMPTY;
+
+  if (node.annual_actual_status) {
+    return normalizeAchievementStatus(node.annual_actual_status);
+  }
+
+  if (node.annual_actual != null && node.annual_actual !== undefined) {
+    return ACHIEVEMENT_STATUS.APPROVED;
+  }
+
+  return ACHIEVEMENT_STATUS.EMPTY;
+}
+
+function hasRecordedAnnualAchievementValue(node) {
+  return node?.annual_actual != null && node.annual_actual !== undefined;
+}
+
+function buildEmptyAnnualAchievementWorkflowFields() {
+  return {
+    annual_actual_status: ACHIEVEMENT_STATUS.EMPTY,
+    annual_actual_submitted_at: null,
+    annual_actual_submitted_by: null,
+    annual_actual_approved_at: null,
+    annual_actual_approved_by: null,
+    annual_actual_validated_at: null,
+    annual_actual_validated_by: null,
+    annual_actual_rejection_comment: null,
+  };
+}
+
+function buildSubmittedAnnualAchievementWorkflowFields(userId, submittedAt = new Date()) {
+  return {
+    annual_actual_status: ACHIEVEMENT_STATUS.SUBMITTED,
+    annual_actual_submitted_at: submittedAt,
+    annual_actual_submitted_by: userId,
+    annual_actual_approved_at: null,
+    annual_actual_approved_by: null,
+    annual_actual_validated_at: null,
+    annual_actual_validated_by: null,
+    annual_actual_rejection_comment: null,
+  };
+}
+
+function buildApprovedAnnualAchievementWorkflowFields(userId, approvedAt = new Date()) {
+  return {
+    annual_actual_status: ACHIEVEMENT_STATUS.APPROVED,
+    annual_actual_approved_at: approvedAt,
+    annual_actual_approved_by: userId,
+    annual_actual_validated_at: null,
+    annual_actual_validated_by: null,
+    annual_actual_rejection_comment: null,
+  };
+}
+
+function buildValidatedAnnualAchievementWorkflowFields(userId, validatedAt = new Date()) {
+  return {
+    annual_actual_status: ACHIEVEMENT_STATUS.VALIDATED,
+    annual_actual_validated_at: validatedAt,
+    annual_actual_validated_by: userId,
+    annual_actual_rejection_comment: null,
+  };
+}
+
+function buildRejectedAnnualAchievementWorkflowFields(comment = null) {
+  return {
+    annual_actual_status: ACHIEVEMENT_STATUS.REJECTED,
+    annual_actual_approved_at: null,
+    annual_actual_approved_by: null,
+    annual_actual_validated_at: null,
+    annual_actual_validated_by: null,
+    annual_actual_rejection_comment: comment || null,
+  };
+}
+
 function buildSubmittedAchievementWorkflowFields(userId, submittedAt = new Date()) {
   return {
     period_actual_status: ACHIEVEMENT_STATUS.SUBMITTED,
@@ -147,4 +222,11 @@ module.exports = {
   buildApprovedAchievementWorkflowFields,
   buildValidatedAchievementWorkflowFields,
   buildRejectedAchievementWorkflowFields,
+  resolveAnnualAchievementStatus,
+  hasRecordedAnnualAchievementValue,
+  buildEmptyAnnualAchievementWorkflowFields,
+  buildSubmittedAnnualAchievementWorkflowFields,
+  buildApprovedAnnualAchievementWorkflowFields,
+  buildValidatedAnnualAchievementWorkflowFields,
+  buildRejectedAnnualAchievementWorkflowFields,
 };

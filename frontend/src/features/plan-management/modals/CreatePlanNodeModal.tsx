@@ -46,7 +46,7 @@ import {
 import { useGetPlanRuleForVersionQuery } from "@/redux/api/planRuleApi";
 import { usePlanVersionPlanningConfiguration } from "@/hooks/usePlanVersionPlanningConfiguration";
 import { TARGET_UNIT_NONE_VALUE } from "@/redux/types/planningConfig";
-import { PlanNode, PlanRuleWeightMode, AssignmentSharingMode, TargetAllocationMode } from "@/redux/types/plan";
+import { PlanNode, PlanRuleWeightMode, AssignmentSharingMode, TargetAllocationMode, AchievementMode } from "@/redux/types/plan";
 import {
     getStepLabel,
     getWeightTarget,
@@ -107,6 +107,7 @@ export function CreatePlanNodeModal({
                 contribution_weight: z.coerce.number().min(0).max(100).default(0),
                 target_unit: z.string().optional().nullable(),
                 target_allocation_mode: z.enum(["divisible", "lump"]).default("divisible"),
+                achievement_mode: z.enum(["period", "annual"]).default("period"),
                 level: z.coerce.number().optional(),
                 assignment_sharing_mode: z.enum(["exclusive", "shared"]).default("exclusive"),
             }),
@@ -127,6 +128,7 @@ export function CreatePlanNodeModal({
             contribution_weight: 0,
             target_unit: null,
             target_allocation_mode: "divisible" as TargetAllocationMode,
+            achievement_mode: "period" as AchievementMode,
             assignment_sharing_mode: "exclusive" as AssignmentSharingMode,
         },
     });
@@ -200,6 +202,8 @@ export function CreatePlanNodeModal({
                 target_unit: node.target_unit,
                 target_allocation_mode:
                     node.target_allocation_mode === "lump" ? "lump" : "divisible",
+                achievement_mode:
+                    node.achievement_mode === "annual" ? "annual" : "period",
                 level: node.level,
                 assignment_sharing_mode: node.assignment_sharing_mode ?? "exclusive",
             });
@@ -214,6 +218,7 @@ export function CreatePlanNodeModal({
                 contribution_weight: 0,
                 target_unit: null,
                 target_allocation_mode: "divisible",
+                achievement_mode: "period",
                 level: nodeLevel,
                 assignment_sharing_mode: parentNode?.assignment_sharing_mode ?? "exclusive",
             });
@@ -283,6 +288,7 @@ export function CreatePlanNodeModal({
                 target_allocation_mode: requiresWeight
                     ? values.target_allocation_mode
                     : "divisible",
+                achievement_mode: requiresWeight ? values.achievement_mode : "period",
                 level: nodeLevel,
                 assignment_sharing_mode: values.assignment_sharing_mode,
             };
@@ -511,6 +517,43 @@ export function CreatePlanNodeModal({
                                             sums to the annual target. Lump lets you place the full
                                             annual target in one (or fewer) periods; unused periods
                                             may stay empty.
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+
+                        {requiresWeight && (
+                            <FormField
+                                control={form.control}
+                                name="achievement_mode"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Achievement evaluation</FormLabel>
+                                        <Select
+                                            onValueChange={field.onChange}
+                                            value={field.value ?? "period"}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select achievement mode" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="period">
+                                                    Per period (default)
+                                                </SelectItem>
+                                                <SelectItem value="annual">
+                                                    Annual (once per year)
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormDescription>
+                                            Period mode records achievement in each execution period.
+                                            Annual mode records one achievement for the year on the
+                                            annual plan view (for one-shot KPIs like &quot;train 1
+                                            person&quot;).
                                         </FormDescription>
                                         <FormMessage />
                                     </FormItem>

@@ -10,6 +10,13 @@ const {
   rejectValidationAchievement,
   rejectAchievement,
 } = require("../../services/planAchievementWorkflowService");
+const {
+  submitAnnualAchievement,
+  approveAnnualAchievement,
+  validateAnnualAchievement,
+  rejectAnnualAchievement,
+  rejectValidationAnnualAchievement,
+} = require("../../services/planAnnualAchievementWorkflowService");
 const { setPeriodActual } = require("../../services/planExecutionActualService");
 const {
   resolveAchievementWorkflowScopeForVersion,
@@ -352,6 +359,139 @@ async function rejectSectorAggregationPublishHandler(req, res) {
   }
 }
 
+async function submitAnnualAchievementHandler(req, res) {
+  try {
+    const { id: nodeId } = req.params;
+    const { annual_actual } = req.body;
+
+    if (!isUuid(nodeId)) {
+      return res.status(400).json({ success: false, message: "Invalid node ID" });
+    }
+
+    const result = await submitAnnualAchievement(nodeId, annual_actual, workflowOptions(req));
+    if (!result.success) {
+      return res.status(result.message?.includes("permission") ? 403 : 400).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Annual achievement submitted",
+      data: result.data,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+async function approveAnnualAchievementHandler(req, res) {
+  try {
+    const { id: nodeId } = req.params;
+    if (!isUuid(nodeId)) {
+      return res.status(400).json({ success: false, message: "Invalid node ID" });
+    }
+
+    const result = await approveAnnualAchievement(nodeId, workflowOptions(req));
+    if (!result.success) {
+      return res.status(result.message?.includes("permission") ? 403 : 400).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Annual achievement approved",
+      data: result.data,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+async function validateAnnualAchievementHandler(req, res) {
+  try {
+    const { id: nodeId } = req.params;
+    if (!isUuid(nodeId)) {
+      return res.status(400).json({ success: false, message: "Invalid node ID" });
+    }
+
+    const result = await validateAnnualAchievement(nodeId, workflowOptions(req));
+    if (!result.success) {
+      return res.status(result.message?.includes("permission") ? 403 : 400).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Annual achievement validated",
+      data: result.data,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+async function rejectAnnualAchievementHandler(req, res) {
+  try {
+    const { id: nodeId } = req.params;
+    const { comment } = req.body || {};
+    if (!isUuid(nodeId)) {
+      return res.status(400).json({ success: false, message: "Invalid node ID" });
+    }
+
+    const result = await rejectAnnualAchievement(nodeId, comment, workflowOptions(req));
+    if (!result.success) {
+      return res.status(result.message?.includes("permission") ? 403 : 400).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Annual achievement rejected",
+      data: result.data,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+async function rejectValidationAnnualAchievementHandler(req, res) {
+  try {
+    const { id: nodeId } = req.params;
+    const { comment } = req.body || {};
+    if (!isUuid(nodeId)) {
+      return res.status(400).json({ success: false, message: "Invalid node ID" });
+    }
+
+    const result = await rejectValidationAnnualAchievement(
+      nodeId,
+      comment,
+      workflowOptions(req)
+    );
+    if (!result.success) {
+      return res.status(result.message?.includes("permission") ? 403 : 400).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Annual achievement validation rejected",
+      data: result.data,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
   updatePeriodTarget,
   submitAchievementHandler,
@@ -359,6 +499,11 @@ module.exports = {
   validateAchievementHandler,
   rejectValidationAchievementHandler,
   rejectAchievementHandler,
+  submitAnnualAchievementHandler,
+  approveAnnualAchievementHandler,
+  validateAnnualAchievementHandler,
+  rejectAnnualAchievementHandler,
+  rejectValidationAnnualAchievementHandler,
   updatePeriodActual,
   getAchievementWorkflowScope,
   listSectorAggregationPublishStateHandler,
