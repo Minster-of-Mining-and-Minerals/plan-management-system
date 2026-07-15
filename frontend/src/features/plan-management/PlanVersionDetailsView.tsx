@@ -200,11 +200,16 @@ export function PlanVersionDetailsView({
     ? version.version_kind !== "master"
       ? "Edit planning settings on the master strategic draft — annual and period versions inherit them."
       : `This master plan is ${version.status}. Configuration can only be edited while in draft status.`
-    : !hasDraftSnapshots
-      ? "This draft still uses live templates. Run snapshot backfill or create a new draft to enable per-draft editing."
-      : null;
+    : null;
 
-  const canEditSnapshots = isMasterDraft && hasDraftSnapshots;
+  const configReadOnlyReason =
+    readOnlyReason ??
+    (!hasDraftSnapshots
+      ? "This draft still uses live planning config. Save the draft rule once (or run snapshot backfill) to isolate config editing."
+      : null);
+
+  const canEditRule = isMasterDraft;
+  const canEditConfig = isMasterDraft && hasDraftSnapshots;
 
   const statusClass =
     STATUS_STYLES[version.status] ?? "bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20";
@@ -389,8 +394,8 @@ export function PlanVersionDetailsView({
                 masterVersionId={masterVersionId}
                 config={labels}
                 isLoading={isConfigLoading}
-                canEdit={canEditSnapshots}
-                readOnlyReason={readOnlyReason}
+                canEdit={canEditConfig}
+                readOnlyReason={configReadOnlyReason}
               />
             </CardContent>
           </Card>
@@ -403,7 +408,7 @@ export function PlanVersionDetailsView({
                 masterVersionId={masterVersionId}
                 rule={rule}
                 isLoading={isRuleLoading}
-                canEdit={canEditSnapshots}
+                canEdit={canEditRule}
                 readOnlyReason={readOnlyReason}
               />
             </CardContent>

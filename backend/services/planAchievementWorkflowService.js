@@ -36,6 +36,11 @@ const {
   emitAchievementValidatedEvent,
   emitAchievementValidationRejectedEvent,
 } = require("./planAchievementNotificationService");
+const {
+  validateAchievementNarration,
+  attachAchievementPerformanceFields,
+  resolvePerformanceScoringPolicyFromRule,
+} = require("../utils/planPerformanceScoringUtils");
 
 async function loadPeriodNode(planNodeId, transaction) {
   return PlanNode.findByPk(planNodeId, {
@@ -171,7 +176,7 @@ async function setPeriodTargetForExecutor(planNodeId, periodTarget, options = {}
 async function submitAchievement(planNodeId, periodActual, options = {}) {
   const t = await sequelize.transaction();
   try {
-    const { user, ipAddress = null } = options;
+    const { user, ipAddress = null, narration = null } = options;
 
     if (!userCanExecuteAchievement(user)) {
       await t.rollback();
@@ -281,11 +286,13 @@ async function submitAchievement(planNodeId, periodActual, options = {}) {
       const previousValues = {
         period_actual: node.period_actual,
         period_actual_status: node.period_actual_status,
+        period_actual_narration: node.period_actual_narration,
       };
 
       await node.update(
         {
           period_actual: null,
+          period_actual_narration: null,
           ...buildEmptyAchievementWorkflowFields(),
         },
         { transaction: t }
@@ -298,7 +305,11 @@ async function submitAchievement(planNodeId, periodActual, options = {}) {
           userId: user.user_id,
           ipAddress,
           previousValues,
-          newValues: buildEmptyAchievementWorkflowFields(),
+          newValues: {
+            period_actual: null,
+            period_actual_narration: null,
+            ...buildEmptyAchievementWorkflowFields(),
+          },
           summary: `Achievement cleared on "${node.title}"`,
         },
         t
@@ -322,17 +333,20 @@ async function submitAchievement(planNodeId, periodActual, options = {}) {
       return { success: false, message: "Achievement must be zero or greater" };
     }
 
-    if (numericActual > periodTarget + 0.001) {
+    const narrationCheck = validateAchievementNarration(
+      periodTarget,
+      numericActual,
+      narration
+    );
+    if (!narrationCheck.valid) {
       await t.rollback();
-      return {
-        success: false,
-        message: `Achievement (${numericActual}) cannot exceed the period target (${periodTarget})`,
-      };
+      return { success: false, message: narrationCheck.message };
     }
 
     const previousValues = {
       period_actual: node.period_actual,
       period_actual_status: node.period_actual_status,
+      period_actual_narration: node.period_actual_narration,
     };
 
     const rollupContext = await buildRollupContextForPeriod(node.plan_version_id, t);
@@ -349,6 +363,7 @@ async function submitAchievement(planNodeId, periodActual, options = {}) {
       {
         period_actual: numericActual,
         period_actual_override: false,
+        period_actual_narration: narrationCheck.narration,
         ...workflowFields,
       },
       { transaction: t }
@@ -363,6 +378,7 @@ async function submitAchievement(planNodeId, periodActual, options = {}) {
         previousValues,
         newValues: {
           period_actual: numericActual,
+          period_actual_narration: narrationCheck.narration,
           ...workflowFields,
         },
         summary: requiresApproval
@@ -405,7 +421,22 @@ async function submitAchievement(planNodeId, periodActual, options = {}) {
       console.error("Achievement submit notification failed:", notifyError);
     }
 
-    return { success: true, data: await PlanNode.findByPk(planNodeId) };
+    const saved = await PlanNode.findByPk(planNodeId, {
+      include: [{ association: "planVersion" }],
+    });
+    const rule = saved?.planVersion
+      ? await resolvePlanRuleForVersion(saved.planVersion)
+      : null;
+    const plain = saved?.toJSON ? saved.toJSON() : saved;
+    return {
+      success: true,
+      data: attachAchievementPerformanceFields(plain, {
+        target: periodTarget,
+        actual: numericActual,
+        policy: resolvePerformanceScoringPolicyFromRule(rule),
+        narration: narrationCheck.narration,
+      }),
+    };
   } catch (error) {
     await t.rollback();
     throw error;

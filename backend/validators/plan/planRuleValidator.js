@@ -15,6 +15,9 @@ const createPlanRuleSchema = Joi.object({
   government_structure_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
   inherit_to_descendants: Joi.boolean().default(false),
   is_active: Joi.boolean().default(true),
+  performance_scoring_policy: Joi.string()
+    .valid("CAP_100", "ALLOW_OVER_ACHIEVEMENT")
+    .default("CAP_100"),
   steps: Joi.array().items(stepSchema).min(1).required(),
 });
 
@@ -23,6 +26,9 @@ const updatePlanRuleSchema = Joi.object({
   government_structure_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
   inherit_to_descendants: Joi.boolean().optional(),
   is_active: Joi.boolean().optional(),
+  performance_scoring_policy: Joi.string()
+    .valid("CAP_100", "ALLOW_OVER_ACHIEVEMENT")
+    .optional(),
   steps: Joi.array().items(stepSchema).min(1).optional(),
 });
 

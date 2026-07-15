@@ -5,13 +5,31 @@ How strategic performance percentages are calculated during execution (after pro
 ## Principles
 
 - **Depth-agnostic:** Works for any configured hierarchy (SF → Goal → KPI, SF → Goal → Objective → KPI, etc.).
-- **Leaf KPI:** `(actual ÷ target) × 100`, rounded 0–100. Missing actual with a target counts as **0%** but remains **evaluable**.
+- **Leaf KPI:** `(actual ÷ target) × 100`, then applied through the plan rule **performance scoring policy** (see below). Missing actual with a target counts as **0%** but remains **evaluable**.
 - **No target in branch:** Node is **not evaluable** and is excluded from parent denominators.
 - **Parent node:** Rollup depends on the plan rule step for the **child level**:
   - **Contribution weight off:** Equal average of evaluable children (unweighted).
   - **Contribution weight on:** Weighted average using each child's `contribution_weight` (siblings should sum to 100%). Only evaluable children participate; weights are renormalized among evaluable siblings.
 - **Period / annual / master:** Equal average of evaluable roots or child periods/years (v1).
 
+## Performance scoring policy
+
+Configured on `plan_rules.performance_scoring_policy` (and copied onto each draft’s owned rule snapshot):
+
+| Policy | Leaf `execution_progress_percent` | Actual value | Variance |
+|--------|-----------------------------------|--------------|----------|
+| `CAP_100` (default) | Capped at 100% | Never changed | Still shows OVER / UNDER / ON_TARGET |
+| `ALLOW_OVER_ACHIEVEMENT` | Can exceed 100% | Never changed | Same informational variance |
+
+Related fields on nodes/hierarchy:
+
+| Field | Meaning |
+|-------|---------|
+| `raw_performance_percentage` | Uncapped `actual ÷ target` |
+| `variance` / `variance_percentage` / `variance_type` | Informational over/under/on-target |
+| `period_actual_narration` / `annual_actual_narration` | Required when actual ≠ target (within ±0.001) |
+
+Draft master plans can edit Cap vs Allow on **Plan details → Rule**; saving auto-forks a snapshot if the draft still used a live template.
 ## Contribution weight vs target weight
 
 | Field | Purpose |

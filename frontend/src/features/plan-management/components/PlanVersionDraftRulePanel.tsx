@@ -19,9 +19,16 @@ import {
   FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useUpdatePlanRuleForVersionMutation } from "@/redux/api/planRuleApi";
-import type { PlanRule, PlanRuleStep } from "@/redux/types/plan";
+import type { PerformanceScoringPolicy, PlanRule, PlanRuleStep } from "@/redux/types/plan";
 import { getDefaultStepColorHex, getPlanStepSurfaceStyles, sortSteps } from "@/utils/planRuleUtils";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import { PLAN_DRAFT_PUBLISH_PERMISSIONS } from "@/utils/planPermissionUtils";
@@ -37,10 +44,23 @@ const stepSchema = z.object({
 const formSchema = z.object({
   name: z.string().min(3).max(255),
   is_active: z.boolean(),
+  performance_scoring_policy: z.enum(["CAP_100", "ALLOW_OVER_ACHIEVEMENT"]),
   steps: z.array(stepSchema).min(1),
 });
 
 type FormValues = z.infer<typeof formSchema>;
+
+function resolveScoringPolicy(
+  policy: PerformanceScoringPolicy | string | null | undefined
+): PerformanceScoringPolicy {
+  return policy === "ALLOW_OVER_ACHIEVEMENT" ? "ALLOW_OVER_ACHIEVEMENT" : "CAP_100";
+}
+
+function scoringPolicyLabel(policy: PerformanceScoringPolicy | string | null | undefined): string {
+  return resolveScoringPolicy(policy) === "ALLOW_OVER_ACHIEVEMENT"
+    ? "Allow over-achievement (>100%)"
+    : "Cap at 100%";
+}
 
 function ruleToFormValues(rule: PlanRule): FormValues {
   const sorted = sortSteps(rule.steps ?? []);
@@ -49,6 +69,7 @@ function ruleToFormValues(rule: PlanRule): FormValues {
   return {
     name: rule.name,
     is_active: rule.is_active,
+    performance_scoring_policy: resolveScoringPolicy(rule.performance_scoring_policy),
     steps: sorted.map((s) => ({
       step_order: s.step_order,
       label: s.label,
@@ -85,6 +106,7 @@ export function PlanVersionDraftRulePanel({
     defaultValues: {
       name: "",
       is_active: true,
+      performance_scoring_policy: "CAP_100",
       steps: [
         {
           step_order: 1,
@@ -148,6 +170,7 @@ export function PlanVersionDraftRulePanel({
         data: {
           name: values.name,
           is_active: values.is_active,
+          performance_scoring_policy: values.performance_scoring_policy,
           steps: values.steps.map((step, index) => ({
             step_order: index + 1,
             label: step.label.trim(),
@@ -157,7 +180,11 @@ export function PlanVersionDraftRulePanel({
           })),
         },
       }).unwrap();
-      actionFeedback.success("Draft plan rule saved");
+      actionFeedback.success(
+        isDraftSnapshot
+          ? "Draft plan rule saved"
+          : "Draft plan rule snapshot created and saved"
+      );
       setIsEditing(false);
     } catch (error: unknown) {
       const err = error as { data?: { message?: string } };
@@ -199,14 +226,18 @@ export function PlanVersionDraftRulePanel({
             <Badge variant={rule.is_active ? "default" : "secondary"}>
               {rule.is_active ? "Active" : "Inactive"}
             </Badge>
+            <Badge variant="outline" className="text-xs">
+              {scoringPolicyLabel(rule.performance_scoring_policy)}
+            </Badge>
           </div>
           <p className="text-sm text-muted-foreground max-w-2xl">
             {sortedSteps.length} hierarchy level{sortedSteps.length === 1 ? "" : "s"} define how
-            nodes are structured and validated in this draft.
+            nodes are structured and validated in this draft. Performance scoring policy controls
+            whether KPI scores can exceed 100% when actual is above target.
           </p>
         </div>
 
-        {canEdit && isDraftSnapshot && !isEditing ? (
+        {canEdit && !isEditing ? (
           <PermissionGuard requireAll={PLAN_DRAFT_PUBLISH_PERMISSIONS}>
             <Button
               variant="outline"
@@ -218,7 +249,7 @@ export function PlanVersionDraftRulePanel({
               className="gap-2"
             >
               <Pencil className="h-4 w-4" />
-              Edit rule
+              {isDraftSnapshot ? "Edit rule" : "Edit rule (create snapshot)"}
             </Button>
           </PermissionGuard>
         ) : null}
@@ -247,6 +278,13 @@ export function PlanVersionDraftRulePanel({
       {readOnlyReason ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           {readOnlyReason}
+        </div>
+      ) : null}
+
+      {!readOnlyReason && canEdit && !isDraftSnapshot ? (
+        <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+          This draft still uses a live template rule. Saving will create an isolated draft snapshot
+          so you can set Cap at 100% or Allow over-achievement without changing the template.
         </div>
       ) : null}
 
@@ -280,6 +318,34 @@ export function PlanVersionDraftRulePanel({
                         <Switch checked={field.value} onCheckedChange={field.onChange} />
                       </FormControl>
                       <FormLabel className="font-normal">Active for this draft</FormLabel>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="performance_scoring_policy"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Performance scoring policy</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select policy" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="CAP_100">Cap at 100% (default)</SelectItem>
+                          <SelectItem value="ALLOW_OVER_ACHIEVEMENT">
+                            Allow over-achievement (&gt;100%)
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Cap keeps scored performance at or below 100% while actual stays unchanged.
+                        Allow over-achievement lets performance exceed 100% when actual is above
+                        target. Applies to this draft&apos;s rule snapshot only.
+                      </FormDescription>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />

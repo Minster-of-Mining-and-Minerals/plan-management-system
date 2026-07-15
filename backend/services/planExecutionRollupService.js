@@ -11,6 +11,10 @@ const {
 const { buildRollupContextForPeriod, buildRollupContextForAnnual } = require("./planAchievementRollupService");
 const { isExecutionSnapshotVersion } = require("./planExecutionSnapshotService");
 const { isAnnualAchievementMode } = require("../utils/planAchievementModeUtils");
+const {
+  computePerformanceMetrics,
+  resolvePerformanceScoringPolicyFromRule,
+} = require("../utils/planPerformanceScoringUtils");
 
 const EVALUATION_STATUS = {
   COMPLETED: "completed",
@@ -19,9 +23,10 @@ const EVALUATION_STATUS = {
   NO_EVALUATION: "no_evaluation",
 };
 
-function roundPercent(value) {
+/** Aggregate parent %: round and floor at 0; do not cap at 100 (leaves already apply policy). */
+function roundAggregatedPercent(value) {
   if (value === null || value === undefined || Number.isNaN(value)) return null;
-  return Math.max(0, Math.min(100, Math.round(value)));
+  return Math.max(0, Math.round(value));
 }
 
 function emptyNodeMetrics() {
@@ -32,6 +37,10 @@ function emptyNodeMetrics() {
     has_contributing_data: false,
     computed_period_actual: null,
     computed_period_target: null,
+    raw_performance_percentage: null,
+    variance: null,
+    variance_percentage: null,
+    variance_type: null,
   };
 }
 
@@ -52,8 +61,9 @@ function hasRecordedActual(node, rollupContext = {}) {
 /**
  * Leaf evaluation: target-based achievement with evaluability rules.
  * Annual-mode KPIs are scored on the annual year node, not per period.
+ * Score uses plan-rule performance_scoring_policy; variance is informational.
  */
-function evaluateLeafNode(node, rollupContext = {}) {
+function evaluateLeafNode(node, rollupContext = {}, rule = null) {
   if (isAnnualAchievementMode(node)) {
     return emptyNodeMetrics();
   }
@@ -61,37 +71,47 @@ function evaluateLeafNode(node, rollupContext = {}) {
   const target = Number(node.period_target) || 0;
 
   if (target <= 0) {
-    return {
-      execution_progress_percent: 0,
-      is_evaluable: false,
-      evaluation_status: EVALUATION_STATUS.NO_EVALUATION,
-      has_contributing_data: false,
-      computed_period_actual: null,
-      computed_period_target: null,
-    };
+    return emptyNodeMetrics();
   }
 
   const hasActual = hasRecordedActual(node, rollupContext);
-  const actual = hasActual ? Number(node.period_actual) : 0;
-  const percent = hasActual ? roundPercent((actual / target) * 100) : 0;
+  const policy = resolvePerformanceScoringPolicyFromRule(rule);
 
-  let evaluation_status = EVALUATION_STATUS.NOT_STARTED;
-  if (hasActual) {
-    evaluation_status =
-      percent >= 100 ? EVALUATION_STATUS.COMPLETED : EVALUATION_STATUS.IN_PROGRESS;
+  if (!hasActual) {
+    return {
+      execution_progress_percent: 0,
+      is_evaluable: true,
+      evaluation_status: EVALUATION_STATUS.NOT_STARTED,
+      has_contributing_data: false,
+      computed_period_actual: null,
+      computed_period_target: target,
+      raw_performance_percentage: null,
+      variance: null,
+      variance_percentage: null,
+      variance_type: null,
+    };
   }
+
+  const actual = Number(node.period_actual);
+  const scored = computePerformanceMetrics(target, actual, policy);
+  const percent = scored.performance_percentage ?? 0;
 
   return {
     execution_progress_percent: percent,
     is_evaluable: true,
-    evaluation_status,
-    has_contributing_data: hasActual,
-    computed_period_actual: hasActual ? actual : null,
+    evaluation_status:
+      percent >= 100 ? EVALUATION_STATUS.COMPLETED : EVALUATION_STATUS.IN_PROGRESS,
+    has_contributing_data: true,
+    computed_period_actual: actual,
     computed_period_target: target,
+    raw_performance_percentage: scored.raw_performance_percentage,
+    variance: scored.variance,
+    variance_percentage: scored.variance_percentage,
+    variance_type: scored.variance_type,
   };
 }
 
-function evaluateAnnualModeLeafNode(node, rollupContext = {}) {
+function evaluateAnnualModeLeafNode(node, rollupContext = {}, rule = null) {
   const target = Number(node.annual_target) || 0;
 
   if (target <= 0) {
@@ -99,22 +119,39 @@ function evaluateAnnualModeLeafNode(node, rollupContext = {}) {
   }
 
   const hasActual = nodeContributesAnnualAchievementToRollup(node, rollupContext);
-  const actual = hasActual ? Number(node.annual_actual) : 0;
-  const percent = hasActual ? roundPercent((actual / target) * 100) : 0;
+  const policy = resolvePerformanceScoringPolicyFromRule(rule);
 
-  let evaluation_status = EVALUATION_STATUS.NOT_STARTED;
-  if (hasActual) {
-    evaluation_status =
-      percent >= 100 ? EVALUATION_STATUS.COMPLETED : EVALUATION_STATUS.IN_PROGRESS;
+  if (!hasActual) {
+    return {
+      execution_progress_percent: 0,
+      is_evaluable: true,
+      evaluation_status: EVALUATION_STATUS.NOT_STARTED,
+      has_contributing_data: false,
+      computed_period_actual: null,
+      computed_period_target: target,
+      raw_performance_percentage: null,
+      variance: null,
+      variance_percentage: null,
+      variance_type: null,
+    };
   }
+
+  const actual = Number(node.annual_actual);
+  const scored = computePerformanceMetrics(target, actual, policy);
+  const percent = scored.performance_percentage ?? 0;
 
   return {
     execution_progress_percent: percent,
     is_evaluable: true,
-    evaluation_status,
-    has_contributing_data: hasActual,
-    computed_period_actual: hasActual ? actual : null,
+    evaluation_status:
+      percent >= 100 ? EVALUATION_STATUS.COMPLETED : EVALUATION_STATUS.IN_PROGRESS,
+    has_contributing_data: true,
+    computed_period_actual: actual,
     computed_period_target: target,
+    raw_performance_percentage: scored.raw_performance_percentage,
+    variance: scored.variance,
+    variance_percentage: scored.variance_percentage,
+    variance_type: scored.variance_type,
   };
 }
 
@@ -140,7 +177,7 @@ function averageChildPercentages(childMetrics) {
     (sum, child) => sum + (child.execution_progress_percent ?? 0),
     0
   );
-  return roundPercent(total / childMetrics.length);
+  return roundAggregatedPercent(total / childMetrics.length);
 }
 
 function weightedChildPercentages(childMetrics, childNodes) {
@@ -168,7 +205,7 @@ function weightedChildPercentages(childMetrics, childNodes) {
     0
   );
 
-  return roundPercent(weightedSum / totalWeight);
+  return roundAggregatedPercent(weightedSum / totalWeight);
 }
 
 function subtreeHasContributingData(node, memo, childrenByParent, rollupContext = {}) {
@@ -211,7 +248,7 @@ function computeNodeRollup(node, childrenByParent, memo, rollupContext = {}, rul
         computeNodeRollup(child, childrenByParent, memo, rollupContext, rule);
       }
     }
-    result = evaluateLeafNode(node, rollupContext);
+    result = evaluateLeafNode(node, rollupContext, rule);
   } else {
     for (const child of children) {
       computeNodeRollup(child, childrenByParent, memo, rollupContext, rule);
@@ -246,6 +283,10 @@ function computeNodeRollup(node, childrenByParent, memo, rollupContext = {}, rul
         ),
         computed_period_actual: null,
         computed_period_target: null,
+        raw_performance_percentage: null,
+        variance: null,
+        variance_percentage: null,
+        variance_type: null,
       };
     }
   }
@@ -404,12 +445,16 @@ async function computeAnnualExecutionProgress(annualVersionId, transaction = nul
   const plainAnnual = annualNodes.map((node) => (node.toJSON ? node.toJSON() : node));
   const childrenByParent = buildChildrenByParent(plainAnnual);
   const annualRollupContext = await buildRollupContextForAnnual(annualVersionId, transaction);
+  const annualVersion = await PlanVersion.findByPk(annualVersionId, { transaction });
+  const annualRule = annualVersion
+    ? await resolvePlanRuleForVersion(annualVersion, transaction)
+    : null;
 
   for (const node of plainAnnual) {
     if (!isAnnualAchievementMode(node)) continue;
     if (getActiveChildren(node, childrenByParent).length > 0) continue;
 
-    const metrics = evaluateAnnualModeLeafNode(node, annualRollupContext);
+    const metrics = evaluateAnnualModeLeafNode(node, annualRollupContext, annualRule);
     if (metrics.is_evaluable) {
       evaluablePercents.push(metrics.execution_progress_percent ?? 0);
     }
@@ -446,19 +491,23 @@ async function computeAnnualExecutionProgress(annualVersionId, transaction = nul
   };
 }
 
-function applyAnnualModeMetricsToHierarchy(nodes, rollupContext) {
+function applyAnnualModeMetricsToHierarchy(nodes, rollupContext, rule = null) {
   const childrenByParent = buildChildrenByParent(flattenHierarchyNodes(nodes));
 
   function walk(list) {
     for (const node of list) {
       if (isAnnualAchievementMode(node) && getActiveChildren(node, childrenByParent).length === 0) {
-        const metrics = evaluateAnnualModeLeafNode(node, rollupContext);
+        const metrics = evaluateAnnualModeLeafNode(node, rollupContext, rule);
         node.execution_progress_percent = metrics.execution_progress_percent;
         node.is_evaluable = metrics.is_evaluable;
         node.evaluation_status = metrics.evaluation_status;
         node.computed_period_actual = metrics.computed_period_actual;
         node.computed_period_target = metrics.computed_period_target;
         node.has_contributing_data = metrics.has_contributing_data;
+        node.raw_performance_percentage = metrics.raw_performance_percentage;
+        node.variance = metrics.variance;
+        node.variance_percentage = metrics.variance_percentage;
+        node.variance_type = metrics.variance_type;
       }
       if (Array.isArray(node.children) && node.children.length > 0) {
         walk(node.children);
@@ -486,7 +535,8 @@ async function enrichAnnualHierarchyTree(planVersionId, roots, transaction = nul
   }
 
   const rollupContext = await buildRollupContextForAnnual(planVersionId, transaction);
-  applyAnnualModeMetricsToHierarchy(roots, rollupContext);
+  const rule = await resolvePlanRuleForVersion(version, transaction);
+  applyAnnualModeMetricsToHierarchy(roots, rollupContext, rule);
   return { roots };
 }
 
@@ -500,6 +550,10 @@ function applyRollupToHierarchyNodes(nodes, rollupMap) {
       node.computed_period_actual = metrics.computed_period_actual;
       node.computed_period_target = metrics.computed_period_target;
       node.has_contributing_data = metrics.has_contributing_data;
+      node.raw_performance_percentage = metrics.raw_performance_percentage ?? null;
+      node.variance = metrics.variance ?? null;
+      node.variance_percentage = metrics.variance_percentage ?? null;
+      node.variance_type = metrics.variance_type ?? null;
     }
     if (Array.isArray(node.children) && node.children.length > 0) {
       applyRollupToHierarchyNodes(node.children, rollupMap);

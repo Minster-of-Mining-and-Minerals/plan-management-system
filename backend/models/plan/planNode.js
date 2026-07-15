@@ -212,6 +212,11 @@ module.exports = (sequelize, DataTypes) => {
                 allowNull: true,
             },
 
+            period_actual_narration: {
+                type: DataTypes.TEXT,
+                allowNull: true,
+            },
+
             annual_actual: {
                 type: DataTypes.FLOAT,
                 allowNull: true,
@@ -254,6 +259,11 @@ module.exports = (sequelize, DataTypes) => {
             },
 
             annual_actual_rejection_comment: {
+                type: DataTypes.TEXT,
+                allowNull: true,
+            },
+
+            annual_actual_narration: {
                 type: DataTypes.TEXT,
                 allowNull: true,
             },

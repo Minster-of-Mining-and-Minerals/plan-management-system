@@ -32,6 +32,7 @@ async function forkPlanRule(sourceRule, planVersionId, transaction = null) {
       inherit_to_descendants: false,
       owned_by_plan_version_id: planVersionId,
       source_plan_rule_id: plain.plan_rule_id,
+      performance_scoring_policy: plain.performance_scoring_policy || "CAP_100",
     },
     { transaction }
   );

@@ -11,6 +11,10 @@ const {
 } = require("../../models");
 const { resolvePlanRuleForVersion } = require("../../services/planRuleService");
 const { normalizeRuleSteps, enrichRuleSteps } = require("../../services/planRuleStepUtils");
+const { attachDraftSnapshotsToPlanVersion } = require("../../services/planVersionSnapshotService");
+const {
+  normalizePerformanceScoringPolicy,
+} = require("../../utils/planPerformanceScoringUtils");
 const { loadGovernmentStructureIndex } = require("../../services/planVisibilityService");
 const {
   isSuperAdminActor,
@@ -138,7 +142,7 @@ const getPlanRuleForVersion = async (req, res) => {
 const updatePlanRuleForVersion = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    const planVersion = await PlanVersion.findByPk(req.params.versionId, { transaction: t });
+    let planVersion = await PlanVersion.findByPk(req.params.versionId, { transaction: t });
     if (!planVersion) {
       await t.rollback();
       return res.status(404).json({ message: "Plan version not found" });
@@ -151,6 +155,9 @@ const updatePlanRuleForVersion = async (req, res) => {
         message: "Only draft master plans can update their plan rule snapshot.",
       });
     }
+
+    // Legacy drafts may still point at a live template — fork an owned snapshot first.
+    planVersion = await attachDraftSnapshotsToPlanVersion(planVersion, t);
 
     if (!planVersion.plan_rule_id) {
       await t.rollback();
@@ -169,12 +176,17 @@ const updatePlanRuleForVersion = async (req, res) => {
       });
     }
 
-    const { name, is_active, steps } = req.body;
+    const { name, is_active, steps, performance_scoring_policy } = req.body;
 
     await rule.update(
       {
         ...(name !== undefined && { name }),
         ...(is_active !== undefined && { is_active }),
+        ...(performance_scoring_policy !== undefined && {
+          performance_scoring_policy: normalizePerformanceScoringPolicy(
+            performance_scoring_policy
+          ),
+        }),
       },
       { transaction: t }
     );
@@ -221,6 +233,7 @@ const createPlanRule = async (req, res) => {
       government_structure_id: bodyStructureId,
       inherit_to_descendants = false,
       is_active,
+      performance_scoring_policy = "CAP_100",
       steps,
     } = req.body;
     const structureIndex = await loadGovernmentStructureIndex();
@@ -281,6 +294,9 @@ const createPlanRule = async (req, res) => {
         government_structure_id: resolvedStructureId,
         inherit_to_descendants: inheritToDescendants,
         is_active: is_active !== false,
+        performance_scoring_policy: normalizePerformanceScoringPolicy(
+          performance_scoring_policy
+        ),
       },
       { transaction: t }
     );
@@ -326,7 +342,7 @@ const updatePlanRule = async (req, res) => {
       return sendScopeError(res, error);
     }
 
-    const { name, government_structure_id: bodyStructureId, inherit_to_descendants, is_active, steps } = req.body;
+    const { name, government_structure_id: bodyStructureId, inherit_to_descendants, is_active, steps, performance_scoring_policy } = req.body;
 
     let nextStructureId = rule.government_structure_id;
     let nextInheritToDescendants = Boolean(rule.inherit_to_descendants);
@@ -394,6 +410,11 @@ const updatePlanRule = async (req, res) => {
             }
           : {}),
         ...(is_active !== undefined && { is_active }),
+        ...(performance_scoring_policy !== undefined && {
+          performance_scoring_policy: normalizePerformanceScoringPolicy(
+            performance_scoring_policy
+          ),
+        }),
       },
       { transaction: t }
     );

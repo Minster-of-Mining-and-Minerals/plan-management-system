@@ -416,12 +416,12 @@ export const planApi = baseApi.injectEndpoints({
 
         submitAchievement: builder.mutation<
             PlanNode,
-            { id: string; period_actual: number | null }
+            { id: string; period_actual: number | null; narration?: string | null }
         >({
-            query: ({ id, period_actual }) => ({
+            query: ({ id, period_actual, narration }) => ({
                 url: `/plan/nodes/${id}/achievement/submit`,
                 method: "POST",
-                body: { period_actual },
+                body: { period_actual, narration },
             }),
             transformResponse: (response: { data: PlanNode }) => response.data,
             invalidatesTags: (_r, _e, { id }) => [
@@ -436,12 +436,12 @@ export const planApi = baseApi.injectEndpoints({
 
         submitAnnualAchievement: builder.mutation<
             PlanNode,
-            { id: string; annual_actual: number | null }
+            { id: string; annual_actual: number | null; narration?: string | null }
         >({
-            query: ({ id, annual_actual }) => ({
+            query: ({ id, annual_actual, narration }) => ({
                 url: `/plan/nodes/${id}/annual-achievement/submit`,
                 method: "POST",
-                body: { annual_actual },
+                body: { annual_actual, narration },
             }),
             transformResponse: (response: { data: PlanNode }) => response.data,
             invalidatesTags: (_r, _e, { id }) => [

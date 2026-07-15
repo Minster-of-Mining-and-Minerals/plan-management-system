@@ -369,6 +369,7 @@ export interface PlanNode {
     period_actual_validated_at?: string | null;
     period_actual_validated_by?: string | null;
     period_actual_rejection_comment?: string | null;
+    period_actual_narration?: string | null;
     annual_actual?: number | null;
     annual_actual_status?: PlanAchievementStatus;
     annual_actual_submitted_at?: string | null;
@@ -378,11 +379,17 @@ export interface PlanNode {
     annual_actual_validated_at?: string | null;
     annual_actual_validated_by?: string | null;
     annual_actual_rejection_comment?: string | null;
+    annual_actual_narration?: string | null;
     periodActualSubmittedBy?: User;
     periodActualApprovedBy?: User;
     execution_progress_percent?: number | null;
     computed_period_actual?: number | null;
     computed_period_target?: number | null;
+    raw_performance_percentage?: number | null;
+    variance?: number | null;
+    variance_percentage?: number | null;
+    variance_type?: PerformanceVarianceType | null;
+    narration?: string | null;
     is_evaluable?: boolean;
     evaluation_status?: ExecutionEvaluationStatus | null;
     has_contributing_data?: boolean;
@@ -471,12 +478,16 @@ export interface PlanRuleStep {
     updated_at: string;
 }
 
+export type PerformanceScoringPolicy = "CAP_100" | "ALLOW_OVER_ACHIEVEMENT";
+export type PerformanceVarianceType = "OVER" | "UNDER" | "ON_TARGET";
+
 export interface PlanRule {
     plan_rule_id: string;
     name: string;
     government_structure_id: string | null;
     inherit_to_descendants?: boolean;
     is_active: boolean;
+    performance_scoring_policy?: PerformanceScoringPolicy;
     owned_by_plan_version_id?: string | null;
     source_plan_rule_id?: string | null;
     created_at: string;
@@ -498,6 +509,7 @@ export interface CreatePlanRulePayload {
     government_structure_id?: string | null;
     inherit_to_descendants?: boolean;
     is_active?: boolean;
+    performance_scoring_policy?: PerformanceScoringPolicy;
     steps: PlanRuleStepInput[];
 }
 
@@ -506,6 +518,7 @@ export interface UpdatePlanRulePayload {
     government_structure_id?: string | null;
     inherit_to_descendants?: boolean;
     is_active?: boolean;
+    performance_scoring_policy?: PerformanceScoringPolicy;
     steps?: PlanRuleStepInput[];
 }
 

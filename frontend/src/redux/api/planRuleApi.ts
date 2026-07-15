@@ -79,6 +79,8 @@ export const planRuleApi = baseApi.injectEndpoints({
             invalidatesTags: (_r, _e, { versionId }) => [
                 { type: "PlanRules", id: `version-${versionId}` },
                 "PlanRules",
+                { type: "PlanVersions", id: versionId },
+                "PlanVersions",
             ],
         }),
 

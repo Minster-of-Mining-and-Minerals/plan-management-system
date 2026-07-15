@@ -41,6 +41,11 @@ const {
   emitAchievementValidationRejectedEvent,
 } = require("./planAchievementNotificationService");
 const { resolveMasterVersionId } = require("./planReviewVisibilityService");
+const {
+  validateAchievementNarration,
+  attachAchievementPerformanceFields,
+  resolvePerformanceScoringPolicyFromRule,
+} = require("../utils/planPerformanceScoringUtils");
 
 async function loadAnnualNode(planNodeId, transaction) {
   return PlanNode.findByPk(planNodeId, {
@@ -93,7 +98,7 @@ function isAnnualWeightedLeaf(node, rule, childrenByParent) {
 async function submitAnnualAchievement(planNodeId, annualActual, options = {}) {
   const t = await sequelize.transaction();
   try {
-    const { user, ipAddress = null } = options;
+    const { user, ipAddress = null, narration = null } = options;
 
     if (!userCanExecuteAchievement(user)) {
       await t.rollback();
@@ -195,11 +200,13 @@ async function submitAnnualAchievement(planNodeId, annualActual, options = {}) {
       const previousValues = {
         annual_actual: node.annual_actual,
         annual_actual_status: node.annual_actual_status,
+        annual_actual_narration: node.annual_actual_narration,
       };
 
       await node.update(
         {
           annual_actual: null,
+          annual_actual_narration: null,
           ...buildEmptyAnnualAchievementWorkflowFields(),
         },
         { transaction: t }
@@ -212,7 +219,11 @@ async function submitAnnualAchievement(planNodeId, annualActual, options = {}) {
           userId: user.user_id,
           ipAddress,
           previousValues,
-          newValues: buildEmptyAnnualAchievementWorkflowFields(),
+          newValues: {
+            annual_actual: null,
+            annual_actual_narration: null,
+            ...buildEmptyAnnualAchievementWorkflowFields(),
+          },
           summary: `Annual achievement cleared on "${node.title}"`,
         },
         t
@@ -236,17 +247,20 @@ async function submitAnnualAchievement(planNodeId, annualActual, options = {}) {
       return { success: false, message: "Achievement must be zero or greater" };
     }
 
-    if (numericActual > annualTarget + 0.001) {
+    const narrationCheck = validateAchievementNarration(
+      annualTarget,
+      numericActual,
+      narration
+    );
+    if (!narrationCheck.valid) {
       await t.rollback();
-      return {
-        success: false,
-        message: `Achievement (${numericActual}) cannot exceed the annual target (${annualTarget})`,
-      };
+      return { success: false, message: narrationCheck.message };
     }
 
     const previousValues = {
       annual_actual: node.annual_actual,
       annual_actual_status: node.annual_actual_status,
+      annual_actual_narration: node.annual_actual_narration,
     };
 
     const rollupContext = await buildRollupContextForAnnual(node.plan_version_id, t);
@@ -262,6 +276,7 @@ async function submitAnnualAchievement(planNodeId, annualActual, options = {}) {
     await node.update(
       {
         annual_actual: numericActual,
+        annual_actual_narration: narrationCheck.narration,
         ...workflowFields,
       },
       { transaction: t }
@@ -278,6 +293,7 @@ async function submitAnnualAchievement(planNodeId, annualActual, options = {}) {
         previousValues,
         newValues: {
           annual_actual: numericActual,
+          annual_actual_narration: narrationCheck.narration,
           ...workflowFields,
         },
         summary: requiresApproval
@@ -320,7 +336,23 @@ async function submitAnnualAchievement(planNodeId, annualActual, options = {}) {
       console.error("Annual achievement submit notification failed:", notifyError);
     }
 
-    return { success: true, data: await PlanNode.findByPk(planNodeId) };
+    const saved = await PlanNode.findByPk(planNodeId, {
+      include: [{ association: "planVersion" }],
+    });
+    const rule = saved?.planVersion
+      ? await resolvePlanRuleForVersion(saved.planVersion)
+      : null;
+    const plain = saved?.toJSON ? saved.toJSON() : saved;
+    return {
+      success: true,
+      data: attachAchievementPerformanceFields(plain, {
+        target: annualTarget,
+        actual: numericActual,
+        policy: resolvePerformanceScoringPolicyFromRule(rule),
+        narration: narrationCheck.narration,
+        useAnnual: true,
+      }),
+    };
   } catch (error) {
     await t.rollback();
     throw error;

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { PlanNode, PlanRule } from "@/redux/types/plan";
 import type { TargetUnit } from "@/redux/types/planningConfig";
 import {
@@ -34,6 +35,18 @@ import {
 import { canSetPeriodTargetOnNode } from "@/utils/planAchievementHierarchyUtils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { usePlanAchievementScope } from "@/hooks/usePlanAchievementScope";
+
+const NARRATION_MAX = 1000;
+const VARIANCE_EPSILON = 0.001;
+
+function formatVarianceTypeLabel(
+    varianceType: PlanNode["variance_type"]
+): string | null {
+    if (varianceType === "OVER") return "Over target";
+    if (varianceType === "UNDER") return "Under target";
+    if (varianceType === "ON_TARGET") return "On target";
+    return null;
+}
 
 interface PlanNodeAnnualActualSectionProps {
     node: PlanNode;
@@ -71,6 +84,7 @@ export function PlanNodeAnnualActualSection({
     const [rejectValidationAnnualAchievement, { isLoading: isValidationRejecting }] =
         useRejectValidationAnnualAchievementMutation();
     const [annualActualInput, setAnnualActualInput] = useState("");
+    const [narrationInput, setNarrationInput] = useState("");
 
     const isSaving =
         isSubmitting || isApproving || isRejecting || isValidating || isValidationRejecting;
@@ -90,7 +104,8 @@ export function PlanNodeAnnualActualSection({
         } else {
             setAnnualActualInput("");
         }
-    }, [node.annual_actual, node.plan_node_id]);
+        setNarrationInput(node.annual_actual_narration ?? "");
+    }, [node.annual_actual, node.annual_actual_narration, node.plan_node_id]);
 
     if (!isAnnualMode || !requiresWeight || annualTarget <= 0 || !isLeaf) {
         return null;
@@ -134,6 +149,17 @@ export function PlanNodeAnnualActualSection({
               )
             : null;
 
+    const draftActual =
+        annualActualInput === "" ? null : Number(annualActualInput);
+    const draftActualValid =
+        draftActual != null && !Number.isNaN(draftActual) && draftActual >= 0;
+    const narrationRequired =
+        canEditValue &&
+        draftActualValid &&
+        Math.abs((draftActual as number) - annualTarget) > VARIANCE_EPSILON;
+    const varianceTypeLabel = formatVarianceTypeLabel(node.variance_type ?? null);
+    const performancePercent = node.execution_progress_percent ?? null;
+
     const handleSubmit = async () => {
         try {
             const val = annualActualInput === "" ? null : Number(annualActualInput);
@@ -141,13 +167,20 @@ export function PlanNodeAnnualActualSection({
                 actionFeedback.error("Achievement must be zero or greater");
                 return;
             }
-            if (val != null && val > annualTarget + 0.001) {
-                actionFeedback.error(`Achievement cannot exceed the annual target (${annualTarget})`);
+            if (
+                val != null &&
+                Math.abs(val - annualTarget) > VARIANCE_EPSILON &&
+                !narrationInput.trim()
+            ) {
+                actionFeedback.error(
+                    "Performance narration is required when actual achievement differs from the target."
+                );
                 return;
             }
             await submitAnnualAchievement({
                 id: node.plan_node_id,
                 annual_actual: val,
+                narration: narrationInput.trim() || null,
             }).unwrap();
             actionFeedback.success(
                 val == null ? "Annual achievement cleared" : "Annual achievement submitted"
@@ -181,40 +214,97 @@ export function PlanNodeAnnualActualSection({
                 >
                     Actual: {actualLabel ?? "Not set"}
                 </Badge>
+                {performancePercent != null && (
+                    <Badge variant="outline" className="text-[10px] py-0 h-4">
+                        {performancePercent}%
+                    </Badge>
+                )}
+                {varianceTypeLabel && (
+                    <Badge
+                        variant="outline"
+                        className={cn(
+                            "text-[10px] py-0 h-4",
+                            node.variance_type === "OVER" &&
+                                "border-emerald-200 text-emerald-800 bg-emerald-50",
+                            node.variance_type === "UNDER" &&
+                                "border-amber-200 text-amber-800 bg-amber-50",
+                            node.variance_type === "ON_TARGET" &&
+                                "border-slate-200 text-slate-700 bg-slate-50"
+                        )}
+                    >
+                        {varianceTypeLabel}
+                        {node.variance != null && node.variance_type !== "ON_TARGET"
+                            ? ` (${node.variance > 0 ? "+" : ""}${node.variance})`
+                            : ""}
+                    </Badge>
+                )}
                 <Badge variant="outline" className="text-[10px] py-0 h-4">
                     {planAchievementStatusLabelForDisplay(status, hasValidationGate)}
                 </Badge>
             </div>
 
-            {canEditValue && (
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                    <div className="flex-1 space-y-1">
-                        <Label htmlFor={`annual_actual_${node.plan_node_id}`} className="text-xs">
-                            Set annual achievement
-                        </Label>
-                        <Input
-                            id={`annual_actual_${node.plan_node_id}`}
-                            type="number"
-                            min={0}
-                            step="any"
-                            value={annualActualInput}
-                            onChange={(e) => setAnnualActualInput(e.target.value)}
-                            placeholder={`Up to ${annualTarget}`}
-                            className={variant === "compact" ? "h-8 text-xs" : ""}
-                        />
-                    </div>
-                    <PermissionGuard requireAll={PLAN_EXECUTE_ACHIEVEMENT_PERMISSIONS}>
-                        <Button
-                            size={variant === "compact" ? "sm" : "default"}
-                            disabled={isSaving}
-                            onClick={() => void handleSubmit()}
-                        >
-                            Submit
-                        </Button>
-                    </PermissionGuard>
-                </div>
+            {!canEditValue && node.annual_actual_narration && (
+                <p className="text-xs text-muted-foreground">{node.annual_actual_narration}</p>
             )}
 
+            {canEditValue && (
+                <div className="space-y-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                        <div className="flex-1 space-y-1">
+                            <Label htmlFor={`annual_actual_${node.plan_node_id}`} className="text-xs">
+                                Set annual achievement
+                            </Label>
+                            <Input
+                                id={`annual_actual_${node.plan_node_id}`}
+                                type="number"
+                                min={0}
+                                step="any"
+                                value={annualActualInput}
+                                onChange={(e) => setAnnualActualInput(e.target.value)}
+                                placeholder={`Target ${annualTarget}`}
+                                className={variant === "compact" ? "h-8 text-xs" : ""}
+                            />
+                        </div>
+                        <PermissionGuard requireAll={PLAN_EXECUTE_ACHIEVEMENT_PERMISSIONS}>
+                            <Button
+                                size={variant === "compact" ? "sm" : "default"}
+                                disabled={isSaving}
+                                onClick={() => void handleSubmit()}
+                            >
+                                Submit
+                            </Button>
+                        </PermissionGuard>
+                    </div>
+                    {(narrationRequired ||
+                        narrationInput.trim().length > 0 ||
+                        draftActualValid) && (
+                        <div className="space-y-1">
+                            <Label
+                                htmlFor={`annual_actual_narration_${node.plan_node_id}`}
+                                className="text-xs"
+                            >
+                                Performance narration
+                                {narrationRequired ? " (required)" : " (optional)"}
+                            </Label>
+                            <Textarea
+                                id={`annual_actual_narration_${node.plan_node_id}`}
+                                value={narrationInput}
+                                maxLength={NARRATION_MAX}
+                                onChange={(e) => setNarrationInput(e.target.value)}
+                                placeholder={
+                                    narrationRequired
+                                        ? "Explain why actual differs from the annual target"
+                                        : "Optional note about this year's achievement"
+                                }
+                                className="min-h-[72px] text-xs"
+                            />
+                            <p className="text-[10px] text-muted-foreground">
+                                {narrationInput.trim().length}/{NARRATION_MAX}
+                            </p>
+                        </div>
+                    )}
+                </div>
+            )}
             {canApproveHere && (
                 <div className="flex flex-wrap gap-2">
                     <PermissionGuard requireAll={PLAN_APPROVE_ACHIEVEMENT_PERMISSIONS}>

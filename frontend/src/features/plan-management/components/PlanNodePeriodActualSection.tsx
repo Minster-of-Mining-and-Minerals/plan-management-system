@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { PlanNode, PlanRule } from "@/redux/types/plan";
 import type { TargetUnit } from "@/redux/types/planningConfig";
 import { useUpdatePeriodActualMutation, useSubmitAchievementMutation, useApproveAchievementMutation, useRejectAchievementMutation, useValidateAchievementMutation, useRejectValidationAchievementMutation } from "@/redux/api/planApi";
@@ -35,6 +36,27 @@ import {
 import { planAchievementExecutorHint } from "@/utils/planAchievementHierarchyUtils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { usePlanAchievementScope } from "@/hooks/usePlanAchievementScope";
+
+const NARRATION_MAX = 1000;
+const VARIANCE_EPSILON = 0.001;
+
+function formatVarianceTypeLabel(
+    varianceType: PlanNode["variance_type"]
+): string | null {
+    if (varianceType === "OVER") return "Over target";
+    if (varianceType === "UNDER") return "Under target";
+    if (varianceType === "ON_TARGET") return "On target";
+    return null;
+}
+
+function scorePercentForDisplay(
+    actual: number,
+    target: number,
+    allowOverAchievement: boolean
+): number {
+    const raw = Math.round((actual / target) * 100);
+    return allowOverAchievement ? raw : Math.min(100, raw);
+}
 
 interface PlanNodePeriodActualSectionProps {
     node: PlanNode;
@@ -68,6 +90,7 @@ export function PlanNodePeriodActualSection({
         useRejectValidationAchievementMutation();
     const [updatePeriodActual, { isLoading: isOverrideSaving }] = useUpdatePeriodActualMutation();
     const [periodActualInput, setPeriodActualInput] = useState("");
+    const [narrationInput, setNarrationInput] = useState("");
     const [pendingOverride, setPendingOverride] = useState(false);
 
     const isSaving = isSubmitting || isApproving || isRejecting || isValidating || isValidationRejecting || isOverrideSaving;
@@ -118,7 +141,8 @@ export function PlanNodePeriodActualSection({
         } else {
             setPeriodActualInput("");
         }
-    }, [node.period_actual, node.plan_node_id]);
+        setNarrationInput(node.period_actual_narration ?? "");
+    }, [node.period_actual, node.period_actual_narration, node.plan_node_id]);
 
     useEffect(() => {
         setPendingOverride(false);
@@ -172,11 +196,28 @@ export function PlanNodePeriodActualSection({
               )
             : null;
 
+    const allowOverAchievement =
+        rule?.performance_scoring_policy === "ALLOW_OVER_ACHIEVEMENT";
+    const draftActual =
+        periodActualInput === "" ? null : Number(periodActualInput);
+    const draftActualValid =
+        draftActual != null && !Number.isNaN(draftActual) && draftActual >= 0;
+    const narrationRequired =
+        canSubmitAchievement &&
+        draftActualValid &&
+        effectiveTarget > 0 &&
+        Math.abs((draftActual as number) - effectiveTarget) > VARIANCE_EPSILON;
+
     const achievementPercent =
         node.execution_progress_percent ??
         (displayActualRaw != null && effectiveTarget > 0
-            ? Math.min(100, Math.round((displayActualRaw / effectiveTarget) * 100))
+            ? scorePercentForDisplay(
+                  displayActualRaw,
+                  effectiveTarget,
+                  allowOverAchievement
+              )
             : null);
+    const varianceTypeLabel = formatVarianceTypeLabel(node.variance_type ?? null);
     const showAchievementPercent =
         achievementPercent != null &&
         (isRollupEntry
@@ -190,13 +231,21 @@ export function PlanNodePeriodActualSection({
                 actionFeedback.error("Achievement must be zero or greater");
                 return;
             }
-            if (val != null && val > periodTarget + 0.001) {
-                actionFeedback.error(`Achievement cannot exceed the period target (${periodTarget})`);
+            if (
+                val != null &&
+                periodTarget > 0 &&
+                Math.abs(val - periodTarget) > VARIANCE_EPSILON &&
+                !narrationInput.trim()
+            ) {
+                actionFeedback.error(
+                    "Performance narration is required when actual achievement differs from the target."
+                );
                 return;
             }
             await submitAchievement({
                 id: node.plan_node_id,
                 period_actual: val,
+                narration: narrationInput.trim() || null,
             }).unwrap();
             actionFeedback.success(
                 val == null ? "Achievement cleared" : "Achievement submitted for approval"
@@ -417,54 +466,84 @@ export function PlanNodePeriodActualSection({
 
     const leafEditor =
         showLeafEditor ? (
-            <div
-                className={cn(
-                    "flex gap-2",
-                    variant === "table"
-                        ? "flex-col sm:flex-row sm:items-end"
-                        : "flex-col sm:flex-row sm:items-end"
-                )}
-                onClick={onClick}
-            >
-                <div className="flex-1 space-y-1 min-w-0">
-                    {variant !== "table" && (
-                        <Label htmlFor={`period_actual_${node.plan_node_id}`} className="text-xs">
-                            Achievement This Period
-                        </Label>
+            <div className="space-y-2" onClick={onClick}>
+                <div
+                    className={cn(
+                        "flex gap-2",
+                        variant === "table"
+                            ? "flex-col sm:flex-row sm:items-end"
+                            : "flex-col sm:flex-row sm:items-end"
                     )}
-                    <Input
-                        id={`period_actual_${node.plan_node_id}`}
-                        type="number"
-                        min={0}
-                        max={periodTarget}
-                        step="any"
-                        value={periodActualInput}
-                        onChange={(e) => setPeriodActualInput(e.target.value)}
-                        placeholder={`Up to ${periodTarget}`}
-                        className={
-                            variant === "compact"
-                                ? "h-8 text-xs"
-                                : variant === "table"
-                                  ? "h-8 text-sm"
-                                  : ""
-                        }
-                    />
+                >
+                    <div className="flex-1 space-y-1 min-w-0">
+                        {variant !== "table" && (
+                            <Label htmlFor={`period_actual_${node.plan_node_id}`} className="text-xs">
+                                Achievement This Period
+                            </Label>
+                        )}
+                        <Input
+                            id={`period_actual_${node.plan_node_id}`}
+                            type="number"
+                            min={0}
+                            step="any"
+                            value={periodActualInput}
+                            onChange={(e) => setPeriodActualInput(e.target.value)}
+                            placeholder={`Target ${periodTarget}`}
+                            className={
+                                variant === "compact"
+                                    ? "h-8 text-xs"
+                                    : variant === "table"
+                                      ? "h-8 text-sm"
+                                      : ""
+                            }
+                        />
+                    </div>
+                    <PermissionGuard requireAll={PLAN_EXECUTE_ACHIEVEMENT_PERMISSIONS}>
+                        <Button
+                            size={variant === "compact" || variant === "table" ? "sm" : "default"}
+                            disabled={isSaving}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                void handleSubmit();
+                            }}
+                            className="shrink-0"
+                        >
+                            {achievementStatus === PLAN_ACHIEVEMENT_STATUS.REJECTED
+                                ? "Resubmit"
+                                : "Submit"}
+                        </Button>
+                    </PermissionGuard>
                 </div>
-                <PermissionGuard requireAll={PLAN_EXECUTE_ACHIEVEMENT_PERMISSIONS}>
-                    <Button
-                        size={variant === "compact" || variant === "table" ? "sm" : "default"}
-                        disabled={isSaving}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            void handleSubmit();
-                        }}
-                        className="shrink-0"
-                    >
-                        {achievementStatus === PLAN_ACHIEVEMENT_STATUS.REJECTED
-                            ? "Resubmit"
-                            : "Submit"}
-                    </Button>
-                </PermissionGuard>
+                {(narrationRequired || narrationInput.trim().length > 0 || draftActualValid) && (
+                    <div className="space-y-1">
+                        <Label
+                            htmlFor={`period_actual_narration_${node.plan_node_id}`}
+                            className="text-xs"
+                        >
+                            Performance narration
+                            {narrationRequired ? " (required)" : " (optional)"}
+                        </Label>
+                        <Textarea
+                            id={`period_actual_narration_${node.plan_node_id}`}
+                            value={narrationInput}
+                            maxLength={NARRATION_MAX}
+                            onChange={(e) => setNarrationInput(e.target.value)}
+                            placeholder={
+                                narrationRequired
+                                    ? "Explain why actual differs from the target"
+                                    : "Optional note about this period's achievement"
+                            }
+                            className={cn(
+                                "min-h-[72px] text-xs",
+                                variant === "compact" && "min-h-[56px]"
+                            )}
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                        <p className="text-[10px] text-muted-foreground">
+                            {narrationInput.trim().length}/{NARRATION_MAX}
+                        </p>
+                    </div>
+                )}
             </div>
         ) : null;
 
@@ -473,10 +552,6 @@ export function PlanNodePeriodActualSection({
             const val = periodActualInput === "" ? null : Number(periodActualInput);
             if (val != null && (Number.isNaN(val) || val < 0)) {
                 actionFeedback.error("Achievement must be zero or greater");
-                return;
-            }
-            if (val != null && val > periodTarget + 0.001) {
-                actionFeedback.error(`Achievement cannot exceed the period target (${periodTarget})`);
                 return;
             }
             await updatePeriodActual({
@@ -577,11 +652,10 @@ export function PlanNodePeriodActualSection({
                         id={`period_actual_${node.plan_node_id}`}
                         type="number"
                         min={0}
-                        max={periodTarget}
                         step="any"
                         value={periodActualInput}
                         onChange={(e) => setPeriodActualInput(e.target.value)}
-                        placeholder={`Up to ${periodTarget}`}
+                        placeholder={`Target ${periodTarget}`}
                         className={
                             variant === "compact"
                                 ? "h-8 text-xs"
@@ -628,6 +702,33 @@ export function PlanNodePeriodActualSection({
                     {achievementPercent}%
                 </Badge>
             )}
+            {varianceTypeLabel && showAchievementPercent && (
+                <Badge
+                    variant="outline"
+                    className={cn(
+                        "text-[10px] py-0 h-4",
+                        node.variance_type === "OVER" &&
+                            "border-emerald-200 text-emerald-800 bg-emerald-50",
+                        node.variance_type === "UNDER" &&
+                            "border-amber-200 text-amber-800 bg-amber-50",
+                        node.variance_type === "ON_TARGET" &&
+                            "border-slate-200 text-slate-700 bg-slate-50"
+                    )}
+                >
+                    {varianceTypeLabel}
+                    {node.variance != null && node.variance_type !== "ON_TARGET"
+                        ? ` (${node.variance > 0 ? "+" : ""}${node.variance})`
+                        : ""}
+                </Badge>
+            )}
+            {!isEditingManual &&
+                !isRollupEntry &&
+                node.period_actual_narration &&
+                variant !== "table" && (
+                    <p className="text-[11px] text-muted-foreground w-full basis-full">
+                        {node.period_actual_narration}
+                    </p>
+                )}
         </>
     );
 
@@ -748,7 +849,15 @@ export function PlanNodePeriodActualSection({
                         {periodActualValue ?? (isRollupEntry ? "—" : "Not recorded")}
                     </p>
                     {achievementPercent != null && showAchievementPercent && (
-                        <p className="text-xs text-violet-700 mt-1">{achievementPercent}% of target</p>
+                        <p className="text-xs text-violet-700 mt-1">
+                            {achievementPercent}% performance
+                            {varianceTypeLabel ? ` · ${varianceTypeLabel}` : ""}
+                        </p>
+                    )}
+                    {node.period_actual_narration && (
+                        <p className="text-xs text-muted-foreground mt-1.5">
+                            {node.period_actual_narration}
+                        </p>
                     )}
                 </div>
             </div>

@@ -64,6 +64,15 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.UUID,
         allowNull: true,
       },
+      /**
+       * CAP_100 — performance % never exceeds 100 (default; matches legacy rollup).
+       * ALLOW_OVER_ACHIEVEMENT — performance % may exceed 100 when actual > target.
+       */
+      performance_scoring_policy: {
+        type: DataTypes.ENUM("CAP_100", "ALLOW_OVER_ACHIEVEMENT"),
+        allowNull: false,
+        defaultValue: "CAP_100",
+      },
     },
     {
       sequelize,

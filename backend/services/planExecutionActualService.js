@@ -263,14 +263,6 @@ async function setPeriodActual(planNodeId, periodActual, options = {}) {
       return { success: false, message: "Achievement must be zero or greater" };
     }
 
-    if (numericActual > periodTarget + 0.001) {
-      await t.rollback();
-      return {
-        success: false,
-        message: `Achievement (${numericActual}) cannot exceed the period target (${periodTarget})`,
-      };
-    }
-
     const updates = { period_actual: numericActual };
     if (entry.mode === "parent_override" && !node.period_actual_override) {
       updates.period_actual_override = true;

@@ -66,6 +66,9 @@ const formSchema = z
         scope_type: z.enum(["system_global", "inherited", "sector"]),
         government_structure_id: z.string().uuid().optional().nullable(),
         is_active: z.boolean(),
+        performance_scoring_policy: z
+            .enum(["CAP_100", "ALLOW_OVER_ACHIEVEMENT"])
+            .default("CAP_100"),
         steps: z.array(stepSchema).min(1),
     })
     .superRefine((values, ctx) => {
@@ -103,6 +106,7 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
             scope_type: allowInherited ? "inherited" : "sector",
             government_structure_id: sessionStructureId ?? null,
             is_active: true,
+            performance_scoring_policy: "CAP_100",
             steps: [{ step_order: 1, label: "Level 1", requires_weight: false, requires_contribution_weight: false, color_hex: getDefaultStepColorHex(1) }],
         },
     });
@@ -129,6 +133,10 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
                 scope_type: resolvePlanRuleScopeType(rule),
                 government_structure_id: rule.government_structure_id,
                 is_active: rule.is_active,
+                performance_scoring_policy:
+                    rule.performance_scoring_policy === "ALLOW_OVER_ACHIEVEMENT"
+                        ? "ALLOW_OVER_ACHIEVEMENT"
+                        : "CAP_100",
                 steps: sorted.map((s) => ({
                     step_order: s.step_order,
                     label: s.label,
@@ -148,6 +156,7 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
                 scope_type: defaultScope,
                 government_structure_id: sessionStructureId ?? null,
                 is_active: true,
+                performance_scoring_policy: "CAP_100",
                 steps: [{ step_order: 1, label: "Level 1", requires_weight: false, requires_contribution_weight: false, color_hex: getDefaultStepColorHex(1) }],
             });
         }
@@ -197,6 +206,7 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
                 name: values.name,
                 ...scopePayload,
                 is_active: values.is_active,
+                performance_scoring_policy: values.performance_scoring_policy,
                 steps: values.steps.map((step, index) => ({
                     step_order: index + 1,
                     label: step.label.trim(),
@@ -330,6 +340,41 @@ export function CreatePlanRuleModal({ isOpen, onClose, rule }: CreatePlanRuleMod
                                         />
                                     </FormControl>
                                     <FormLabel className="font-normal">Active</FormLabel>
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="performance_scoring_policy"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Performance scoring policy</FormLabel>
+                                    <Select
+                                        value={field.value}
+                                        onValueChange={field.onChange}
+                                    >
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select policy" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="CAP_100">
+                                                Cap at 100% (default)
+                                            </SelectItem>
+                                            <SelectItem value="ALLOW_OVER_ACHIEVEMENT">
+                                                Allow over-achievement (&gt;100%)
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <FormDescription>
+                                        Cap at 100% keeps KPI scores from exceeding 100% while
+                                        actual values stay unchanged. Allow over-achievement lets
+                                        scores exceed 100% when actual is above target. Drafts
+                                        snapshot this setting from the rule.
+                                    </FormDescription>
+                                    <FormMessage />
                                 </FormItem>
                             )}
                         />
