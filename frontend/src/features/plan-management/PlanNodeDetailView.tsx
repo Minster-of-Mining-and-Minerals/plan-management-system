@@ -755,6 +755,22 @@ export default function PlanNodeDetailView({
                                                     onChange={(e) => setPeriodTargetInput(e.target.value)}
                                                     placeholder="Enter period allocation"
                                                 />
+                                                {node.target_allocation_mode === "lump" &&
+                                                    (node.annual_target ?? 0) > 0 && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-7 px-0 text-xs"
+                                                            onClick={() =>
+                                                                setPeriodTargetInput(
+                                                                    String(node.annual_target)
+                                                                )
+                                                            }
+                                                        >
+                                                            Use full annual target
+                                                        </Button>
+                                                    )}
                                             </div>
                                             <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
                                                 <Button

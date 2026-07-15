@@ -18,6 +18,9 @@ const {
 const { v4: uuidv4, validate: isUuid } = require("uuid");
 const { Op } = require("sequelize");
 const {
+    normalizeTargetAllocationMode,
+} = require("../../utils/planTargetAllocationUtils");
+const {
     buildDraftAlignedSortMeta,
     sortHierarchyTree,
     sortFlatPlanNodes,
@@ -947,6 +950,7 @@ const createPlanNode = async (req, res) => {
             target_unit,
             level,
             assignment_sharing_mode,
+            target_allocation_mode,
         } = req.body;
 
         // Verify plan version exists and is draft
@@ -1045,6 +1049,7 @@ const createPlanNode = async (req, res) => {
                 contribution_weight:
                     contribution_weight > 0 ? contribution_weight : null,
                 target_unit: unitCheck.targetUnit,
+                target_allocation_mode: normalizeTargetAllocationMode(target_allocation_mode),
                 level: nodeLevel,
                 order: nodeOrder,
                 is_active: true,
@@ -1166,10 +1171,13 @@ const getPlanNodeById = async (req, res) => {
                     plan_node_id: planNode.source_plan_node_id,
                     plan_version_id: planNode.planVersion.parent_plan_version_id,
                 },
-                attributes: ["annual_target"],
+                attributes: ["annual_target", "target_allocation_mode"],
             });
             if (annualNode) {
                 nodeJson.annual_target = annualNode.annual_target;
+                if (annualNode.target_allocation_mode) {
+                    nodeJson.target_allocation_mode = annualNode.target_allocation_mode;
+                }
             }
         }
 
@@ -1316,6 +1324,12 @@ const updatePlanNode = async (req, res) => {
         }
 
         const { order: _ignoredOrder, ...updateFields } = req.body;
+
+        if (updateFields.target_allocation_mode !== undefined) {
+            updateFields.target_allocation_mode = normalizeTargetAllocationMode(
+                updateFields.target_allocation_mode
+            );
+        }
 
         await planNode.update(
             {

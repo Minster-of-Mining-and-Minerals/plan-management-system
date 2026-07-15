@@ -20,6 +20,7 @@ function pickNodeFields(node) {
         weight_mode: node.weight_mode,
         contribution_weight: node.contribution_weight,
         target_unit: node.target_unit,
+        target_allocation_mode: node.target_allocation_mode || "divisible",
         level: node.level,
         order: node.order,
         is_active: node.is_active,

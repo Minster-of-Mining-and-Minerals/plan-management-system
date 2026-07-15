@@ -919,16 +919,17 @@ export default function PlanHierarchyView({
 
             {isReadOnlyHierarchy && isExecutionPeriod && !processStarted && !periodTargetsFinalized && (
                 <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                    Set period targets so totals match this year&apos;s annual targets for each node.
-                    Finalize execution period from the annual plan when all periods for this year are
-                    complete.
+                    Set period targets so totals match this year&apos;s annual targets. Divisible KPIs
+                    need a share in every period; lump KPIs may place the full target in the delivery
+                    period(s). Finalize execution period from the annual plan when this year is ready.
                 </div>
             )}
 
             {isReadOnlyHierarchy && isAnnualVersion && showPeriodDashboard && periodsInitializedGlobally && !periodTargetsFinalized && (
                 <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                    Open each execution period, set period targets so totals match annual targets, then
-                    use Finalize Execution Period for this year.
+                    Open each execution period, set period targets so totals match annual targets
+                    (lump KPIs may use fewer periods), then use Finalize Execution Period for this
+                    year.
                 </div>
             )}
 

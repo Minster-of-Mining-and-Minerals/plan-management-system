@@ -46,7 +46,7 @@ import {
 import { useGetPlanRuleForVersionQuery } from "@/redux/api/planRuleApi";
 import { usePlanVersionPlanningConfiguration } from "@/hooks/usePlanVersionPlanningConfiguration";
 import { TARGET_UNIT_NONE_VALUE } from "@/redux/types/planningConfig";
-import { PlanNode, PlanRuleWeightMode, AssignmentSharingMode } from "@/redux/types/plan";
+import { PlanNode, PlanRuleWeightMode, AssignmentSharingMode, TargetAllocationMode } from "@/redux/types/plan";
 import {
     getStepLabel,
     getWeightTarget,
@@ -106,6 +106,7 @@ export function CreatePlanNodeModal({
                     .nullable(),
                 contribution_weight: z.coerce.number().min(0).max(100).default(0),
                 target_unit: z.string().optional().nullable(),
+                target_allocation_mode: z.enum(["divisible", "lump"]).default("divisible"),
                 level: z.coerce.number().optional(),
                 assignment_sharing_mode: z.enum(["exclusive", "shared"]).default("exclusive"),
             }),
@@ -125,6 +126,7 @@ export function CreatePlanNodeModal({
             weight_mode: null,
             contribution_weight: 0,
             target_unit: null,
+            target_allocation_mode: "divisible" as TargetAllocationMode,
             assignment_sharing_mode: "exclusive" as AssignmentSharingMode,
         },
     });
@@ -196,6 +198,8 @@ export function CreatePlanNodeModal({
                 weight_mode: node.weight_mode,
                 contribution_weight: node.contribution_weight ?? 0,
                 target_unit: node.target_unit,
+                target_allocation_mode:
+                    node.target_allocation_mode === "lump" ? "lump" : "divisible",
                 level: node.level,
                 assignment_sharing_mode: node.assignment_sharing_mode ?? "exclusive",
             });
@@ -209,6 +213,7 @@ export function CreatePlanNodeModal({
                 weight_mode: null,
                 contribution_weight: 0,
                 target_unit: null,
+                target_allocation_mode: "divisible",
                 level: nodeLevel,
                 assignment_sharing_mode: parentNode?.assignment_sharing_mode ?? "exclusive",
             });
@@ -275,6 +280,9 @@ export function CreatePlanNodeModal({
                             ? values.target_unit || null
                             : inheritedTargetUnit
                         : null,
+                target_allocation_mode: requiresWeight
+                    ? values.target_allocation_mode
+                    : "divisible",
                 level: nodeLevel,
                 assignment_sharing_mode: values.assignment_sharing_mode,
             };
@@ -466,6 +474,43 @@ export function CreatePlanNodeModal({
                                                 : ""}
                                             Up to {remainingContribution}% remaining of {contributionTarget}%
                                             {parentNode ? " for this parent" : ""}.
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+
+                        {requiresWeight && (
+                            <FormField
+                                control={form.control}
+                                name="target_allocation_mode"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Period target allocation</FormLabel>
+                                        <Select
+                                            onValueChange={field.onChange}
+                                            value={field.value ?? "divisible"}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select allocation mode" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="divisible">
+                                                    Divisible across periods
+                                                </SelectItem>
+                                                <SelectItem value="lump">
+                                                    Lump (one or few periods)
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormDescription>
+                                            Divisible requires a share in every execution period that
+                                            sums to the annual target. Lump lets you place the full
+                                            annual target in one (or fewer) periods; unused periods
+                                            may stay empty.
                                         </FormDescription>
                                         <FormMessage />
                                     </FormItem>

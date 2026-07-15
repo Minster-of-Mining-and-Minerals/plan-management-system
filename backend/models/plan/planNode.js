@@ -140,6 +140,16 @@ module.exports = (sequelize, DataTypes) => {
                 allowNull: true,
             },
 
+            /**
+             * divisible — every period must carry a share that sums to annual (legacy).
+             * lump — annual may sit in one (or fewer) periods; unused periods may be empty.
+             */
+            target_allocation_mode: {
+                type: DataTypes.ENUM("divisible", "lump"),
+                allowNull: false,
+                defaultValue: "divisible",
+            },
+
             period_actual: {
                 type: DataTypes.FLOAT,
                 allowNull: true,

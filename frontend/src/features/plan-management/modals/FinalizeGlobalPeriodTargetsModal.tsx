@@ -110,9 +110,9 @@ export function FinalizeGlobalPeriodTargetsModal({
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6">
                     <div className="space-y-4 pb-4 text-sm">
                         <p className="text-muted-foreground">
-                            Validates that every weighted node has period targets set across all
-                            years and periods, each greater than zero, and that totals match the
-                            annual target for each node.
+                            Validates weighted leaf period targets across years and periods. Totals
+                            must match each node&apos;s annual target. Divisible KPIs need a share in
+                            every period; lump KPIs may concentrate the annual target in fewer periods.
                         </p>
 
                         {isCheckingReadiness ? (

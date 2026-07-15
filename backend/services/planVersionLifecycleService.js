@@ -106,6 +106,7 @@ async function copyNodesWithAssignments(
                 weight_mode: sourceNode.weight_mode,
                 contribution_weight: sourceNode.contribution_weight,
                 target_unit: sourceNode.target_unit,
+                target_allocation_mode: sourceNode.target_allocation_mode || "divisible",
                 level: sourceNode.level,
                 // Order is owned by the master draft; derived copies mirror source order.
                 order: sourceNode.order,
@@ -1393,7 +1394,7 @@ async function validateExecutionPeriodFinalization(annualVersionId, transaction,
     });
 
     const errors = [];
-    const numPeriods = periods.length;
+    const { isLumpTargetAllocation } = require("../utils/planTargetAllocationUtils");
 
     for (const annualNode of annualNodes) {
         if (rule && !stepRequiresWeight(rule, annualNode.level)) {
@@ -1405,7 +1406,21 @@ async function validateExecutionPeriodFinalization(annualVersionId, transaction,
             continue;
         }
 
+        // Parents are validated via the period classification tree (parent = children sum).
+        // Period allocation rules apply to leaves only — matching where users set period targets.
+        const weightedChildren = annualNodes.filter(
+            (candidate) =>
+                candidate.parent_id === annualNode.plan_node_id &&
+                candidate.is_active !== false &&
+                (!rule || stepRequiresWeight(rule, candidate.level))
+        );
+        if (weightedChildren.length > 0) {
+            continue;
+        }
+
+        const lump = isLumpTargetAllocation(annualNode);
         let allocatedSum = 0;
+        let periodsWithTarget = 0;
 
         for (const period of periods) {
             const periodNode = await PlanNode.findOne({
@@ -1421,20 +1436,29 @@ async function validateExecutionPeriodFinalization(annualVersionId, transaction,
                 continue;
             }
 
-            const periodTarget = Number(periodNode.period_target);
-            if (!periodTarget || periodTarget <= 0) {
-                errors.push(
-                    `Period target is not set for "${annualNode.title}" in ${period.period_label}`
-                );
+            const periodTarget = Number(periodNode.period_target) || 0;
+            if (periodTarget > 0) {
+                allocatedSum += periodTarget;
+                periodsWithTarget += 1;
                 continue;
             }
 
-            allocatedSum += periodTarget;
+            if (!lump) {
+                errors.push(
+                    `Period target is not set for "${annualNode.title}" in ${period.period_label}`
+                );
+            }
         }
 
-        if (Math.abs(allocatedSum - annualTarget) > 0.001) {
+        if (lump && periodsWithTarget === 0) {
             errors.push(
-                `Total period targets for "${annualNode.title}" (${allocatedSum}) must equal the annual target (${annualTarget})`
+                `Lump KPI "${annualNode.title}" must place the full annual target (${annualTarget}) in at least one period`
+            );
+        } else if (Math.abs(allocatedSum - annualTarget) > 0.001) {
+            errors.push(
+                lump
+                    ? `Lump KPI "${annualNode.title}": placed period targets (${allocatedSum}) must equal the annual target (${annualTarget})`
+                    : `Total period targets for "${annualNode.title}" (${allocatedSum}) must equal the annual target (${annualTarget})`
             );
         }
     }
@@ -1979,6 +2003,7 @@ async function validatePeriodClassificationTree(periodVersionId, transaction) {
         where: { plan_version_id: periodVersionId, is_active: true },
         transaction,
     });
+    const { isLumpTargetAllocation } = require("../utils/planTargetAllocationUtils");
 
     const errors = [];
 
@@ -1993,18 +2018,23 @@ async function validatePeriodClassificationTree(periodVersionId, transaction) {
         );
 
         if (weightedChildren.length > 0) {
+            const childSum = weightedChildren.reduce(
+                (sum, child) => sum + (Number(child.period_target) || 0),
+                0
+            );
             const parentTarget = Number(node.period_target) || 0;
+
+            // Parents with no weighted child targets in this period may stay empty (lump).
+            if (childSum <= 0 && parentTarget <= 0) {
+                continue;
+            }
+
             if (parentTarget <= 0) {
                 errors.push(
                     `"${node.title}" in ${periodVersion.period_label} requires a period target before its children can be validated`
                 );
                 continue;
             }
-
-            const childSum = weightedChildren.reduce(
-                (sum, child) => sum + (Number(child.period_target) || 0),
-                0
-            );
 
             if (Math.abs(childSum - parentTarget) > 0.001) {
                 errors.push(
@@ -2026,9 +2056,13 @@ async function validatePeriodClassificationTree(periodVersionId, transaction) {
 
         const periodTarget = Number(node.period_target) || 0;
         if (periodTarget <= 0) {
-            errors.push(
-                `Period target is not set for "${node.title}" in ${periodVersion.period_label}`
-            );
+            const lump =
+                isLumpTargetAllocation(node) || isLumpTargetAllocation(annualNode);
+            if (!lump) {
+                errors.push(
+                    `Period target is not set for "${node.title}" in ${periodVersion.period_label}`
+                );
+            }
         }
     }
 

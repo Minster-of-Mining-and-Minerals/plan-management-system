@@ -111,9 +111,10 @@ export function FinalizeExecutionPeriodsModal({
                         <p className="text-muted-foreground">
                             Validates period targets for{" "}
                             <strong>{annualVersion.planning_year ?? annualVersion.year}</strong> only.
-                            Every weighted node must have period targets set across all periods for this
-                            year, with totals matching that node&apos;s annual target and children
-                            matching parent targets in the classification tree.
+                            Every weighted leaf must allocate period targets that sum to its annual
+                            target for this year. Divisible KPIs need a share in every period; lump
+                            KPIs may place the full target in one (or fewer) periods. Children must
+                            match parent targets in the classification tree.
                         </p>
 
                         {isCheckingReadiness ? (

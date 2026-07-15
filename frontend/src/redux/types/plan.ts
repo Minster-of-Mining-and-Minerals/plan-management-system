@@ -335,6 +335,8 @@ export interface PlanNodeAssignmentContext {
     entries: PlanNodeAssignmentContextEntry[];
 }
 
+export type TargetAllocationMode = "divisible" | "lump";
+
 export interface PlanNode {
     plan_node_id: string;
     plan_version_id: string;
@@ -346,6 +348,7 @@ export interface PlanNode {
     weight_mode: PlanRuleWeightMode | null;
     contribution_weight?: number | null;
     target_unit?: string | null;
+    target_allocation_mode?: TargetAllocationMode | null;
     level: number;
     order: number;
     is_active: boolean;
@@ -392,6 +395,7 @@ export interface CreatePlanNodePayload {
     weight_mode?: PlanRuleWeightMode | null;
     contribution_weight?: number | null;
     target_unit?: string | null;
+    target_allocation_mode?: TargetAllocationMode;
     level?: number;
     order?: number;
     assignment_sharing_mode?: AssignmentSharingMode;
@@ -406,6 +410,7 @@ export interface UpdatePlanNodePayload {
     weight_mode?: PlanRuleWeightMode | null;
     contribution_weight?: number | null;
     target_unit?: string | null;
+    target_allocation_mode?: TargetAllocationMode;
     level?: number;
     order?: number;
     is_active?: boolean;

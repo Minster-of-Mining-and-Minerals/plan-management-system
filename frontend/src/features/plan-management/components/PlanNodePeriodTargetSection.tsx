@@ -68,6 +68,13 @@ export function PlanNodePeriodTargetSection({
         allocation?.annual_target ?? node.annual_target ?? annualTarget ?? 0;
     const hasAnnualTarget = requiresWeight && resolvedAnnualTarget > 0;
 
+    const isLump = node.target_allocation_mode === "lump";
+    const remainingForThisPeriod = allocation?.remaining_for_this_period ?? resolvedAnnualTarget;
+    const fullAnnualForThisPeriod =
+        allocation != null
+            ? Math.max(0, Number(allocation.remaining_for_this_period) || 0)
+            : Math.max(0, Number(resolvedAnnualTarget) || 0);
+
     useEffect(() => {
         if (node.period_target != null) {
             setPeriodTargetInput(String(node.period_target));
@@ -146,12 +153,33 @@ export function PlanNodePeriodTargetSection({
                     value={periodTargetInput}
                     onChange={(e) => setPeriodTargetInput(e.target.value)}
                     placeholder={
-                        allocation
-                            ? `Up to ${allocation.remaining_for_this_period}`
-                            : "Enter period allocation"
+                        isLump
+                            ? `Full annual up to ${fullAnnualForThisPeriod}`
+                            : allocation
+                              ? `Up to ${remainingForThisPeriod}`
+                              : "Enter period allocation"
                     }
                     className={variant === "compact" ? "h-8 text-xs" : variant === "table" ? "h-8 text-sm" : ""}
                 />
+                {isLump && canEditTarget && fullAnnualForThisPeriod > 0 && (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-0 text-xs text-muted-foreground"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setPeriodTargetInput(String(fullAnnualForThisPeriod));
+                        }}
+                    >
+                        Use remaining annual ({formatNodeWeight(
+                            fullAnnualForThisPeriod,
+                            nodeWeightMode,
+                            node.target_unit,
+                            configuredUnits
+                        )})
+                    </Button>
+                )}
             </div>
             <PermissionGuard requireAll={PLAN_EXECUTE_ACHIEVEMENT_PERMISSIONS}>
                 <Button
@@ -167,6 +195,21 @@ export function PlanNodePeriodTargetSection({
                 </Button>
             </PermissionGuard>
         </div>
+    ) : null;
+
+    const lumpHint = isLump ? (
+        <p className="text-xs text-amber-800/90">
+            Lump KPI: place the annual target in the delivery period(s). Other periods may stay empty.
+        </p>
+    ) : null;
+
+    const lumpBadge = isLump ? (
+        <Badge
+            variant="outline"
+            className="text-[10px] py-0 h-4 bg-amber-50 text-amber-800 border-amber-200"
+        >
+            Lump
+        </Badge>
     ) : null;
 
     const readOnlyTargetHint =
@@ -213,7 +256,9 @@ export function PlanNodePeriodTargetSection({
                     >
                         Period Target: {periodTargetValue ?? "Not set"}
                     </Badge>
+                    {lumpBadge}
                 </div>
+                {lumpHint}
                 {allocationSummary}
                 {readOnlyTargetHint}
                 {editor}
@@ -225,14 +270,18 @@ export function PlanNodePeriodTargetSection({
     if (variant === "table") {
         return (
             <div className={cn("space-y-2 min-w-[160px]", className)} onClick={onClick}>
-                <span
-                    className={cn(
-                        "text-sm block",
-                        periodTargetValue ? "text-gray-900 font-medium" : "text-gray-400 italic"
-                    )}
-                >
-                    {periodTargetValue ?? "Not yet defined"}
-                </span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                    <span
+                        className={cn(
+                            "text-sm block",
+                            periodTargetValue ? "text-gray-900 font-medium" : "text-gray-400 italic"
+                        )}
+                    >
+                        {periodTargetValue ?? "Not yet defined"}
+                    </span>
+                    {lumpBadge}
+                </div>
+                {lumpHint}
                 {allocationSummary}
                 {readOnlyTargetHint}
                 {editor}
@@ -249,6 +298,7 @@ export function PlanNodePeriodTargetSection({
             )}
             onClick={onClick}
         >
+            {isLump ? <div className="flex flex-wrap items-center gap-2">{lumpBadge}</div> : null}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="min-w-0">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-blue-700/80">
@@ -278,6 +328,7 @@ export function PlanNodePeriodTargetSection({
                     </p>
                 </div>
             </div>
+            {lumpHint}
             {allocationSummary}
             {readOnlyTargetHint}
             {editor}

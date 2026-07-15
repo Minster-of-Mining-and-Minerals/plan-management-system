@@ -193,7 +193,7 @@ export function ExecutionPeriodsDashboard({
                     <p className="text-sm text-muted-foreground mt-1">
                         {periodTargetsFinalized
                             ? `${formatSubdivisionMode(annual.period_subdivision_mode ?? masterVersion?.period_subdivision_mode)} subdivision — execution period targets finalized for this year.`
-                            : `${formatSubdivisionMode(annual.period_subdivision_mode ?? masterVersion?.period_subdivision_mode)} subdivision — set period targets in each period so totals match this year's annual targets, then finalize execution period.`}
+                            : `${formatSubdivisionMode(annual.period_subdivision_mode ?? masterVersion?.period_subdivision_mode)} subdivision — set period targets (divisible across all periods, or lump into delivery periods) so totals match this year's annual targets, then finalize execution period.`}
                     </p>
                 </div>
                 {/* Finalize button lives on PlanHierarchyView annual tab header */}

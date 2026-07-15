@@ -130,20 +130,29 @@ async function enrichPeriodNodesWithLiveAnnualTargets(planVersion, nodeMap, node
             plan_node_id: sourceIds,
             plan_version_id: planVersion.parent_plan_version_id,
         },
-        attributes: ["plan_node_id", "annual_target"],
+        attributes: ["plan_node_id", "annual_target", "target_allocation_mode"],
     });
 
-    const annualTargetBySourceId = new Map(
-        annualNodes.map((node) => [node.plan_node_id, node.annual_target])
+    const annualBySourceId = new Map(
+        annualNodes.map((node) => [
+            node.plan_node_id,
+            {
+                annual_target: node.annual_target,
+                target_allocation_mode: node.target_allocation_mode,
+            },
+        ])
     );
 
     for (const node of nodes) {
         if (!node.source_plan_node_id) continue;
-        const liveAnnualTarget = annualTargetBySourceId.get(node.source_plan_node_id);
-        if (liveAnnualTarget === undefined) continue;
+        const live = annualBySourceId.get(node.source_plan_node_id);
+        if (!live) continue;
         const enriched = nodeMap.get(node.plan_node_id);
         if (enriched) {
-            enriched.annual_target = liveAnnualTarget;
+            enriched.annual_target = live.annual_target;
+            if (live.target_allocation_mode) {
+                enriched.target_allocation_mode = live.target_allocation_mode;
+            }
         }
     }
 }
