@@ -78,6 +78,14 @@ export function isPendingPlanAchievementValidation(status: PlanAchievementStatus
   return status === PLAN_ACHIEVEMENT_STATUS.APPROVED;
 }
 
+/** Field is editable only on first entry or after rejection (not while pending approval/validation or after validated). */
+export function canEditPlanAchievementValue(status: PlanAchievementStatus): boolean {
+  return (
+    status === PLAN_ACHIEVEMENT_STATUS.EMPTY ||
+    status === PLAN_ACHIEVEMENT_STATUS.REJECTED
+  );
+}
+
 export function isRollupEligiblePlanAchievement(
   status: PlanAchievementStatus,
   options: { requiresValidation?: boolean } = {}

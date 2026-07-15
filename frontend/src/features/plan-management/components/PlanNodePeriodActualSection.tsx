@@ -28,7 +28,7 @@ import {
 import {
     resolvePlanAchievementStatus,
     planAchievementStatusLabelForDisplay,
-    isPendingPlanAchievement,
+    canEditPlanAchievementValue,
     isPendingPlanAchievementValidation,
     PLAN_ACHIEVEMENT_STATUS,
 } from "@/utils/planAchievementWorkflowUtils";
@@ -110,9 +110,7 @@ export function PlanNodePeriodActualSection({
         (isParentOverride || pendingOverride);
     const canEnter = canEnterLeaf || canEnterManual;
     const canSubmitAchievement =
-        canEnter &&
-        !isPendingPlanAchievement(achievementStatus) &&
-        achievementStatus !== PLAN_ACHIEVEMENT_STATUS.APPROVED;
+        canEnter && canEditPlanAchievementValue(achievementStatus);
 
     useEffect(() => {
         if (node.period_actual != null) {

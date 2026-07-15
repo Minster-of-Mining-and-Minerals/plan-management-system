@@ -6,6 +6,7 @@ const {
   normalizeAchievementStatus,
   resolveAchievementStatus,
   canTransitionAchievementStatus,
+  canEditAchievementValue,
   isRollupEligibleAchievementStatus,
   buildSubmittedAchievementWorkflowFields,
   buildApprovedAchievementWorkflowFields,
@@ -44,6 +45,12 @@ function run() {
     canTransitionAchievementStatus(ACHIEVEMENT_STATUS.REJECTED, ACHIEVEMENT_STATUS.SUBMITTED),
     true
   );
+
+  assert.strictEqual(canEditAchievementValue(ACHIEVEMENT_STATUS.EMPTY), true);
+  assert.strictEqual(canEditAchievementValue(ACHIEVEMENT_STATUS.REJECTED), true);
+  assert.strictEqual(canEditAchievementValue(ACHIEVEMENT_STATUS.SUBMITTED), false);
+  assert.strictEqual(canEditAchievementValue(ACHIEVEMENT_STATUS.APPROVED), false);
+  assert.strictEqual(canEditAchievementValue(ACHIEVEMENT_STATUS.VALIDATED), false);
 
   assert.strictEqual(
     isRollupEligibleAchievementStatus(ACHIEVEMENT_STATUS.SUBMITTED),

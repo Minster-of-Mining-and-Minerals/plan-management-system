@@ -67,6 +67,15 @@ function isRollupEligibleAchievementStatus(status, options = {}) {
   return normalized === ACHIEVEMENT_STATUS.APPROVED;
 }
 
+/** Editable only on first entry or after rejection (not while pending approval/validation or after validated). */
+function canEditAchievementValue(status) {
+  const normalized = normalizeAchievementStatus(status);
+  return (
+    normalized === ACHIEVEMENT_STATUS.EMPTY ||
+    normalized === ACHIEVEMENT_STATUS.REJECTED
+  );
+}
+
 function buildEmptyAchievementWorkflowFields() {
   return {
     period_actual_status: ACHIEVEMENT_STATUS.EMPTY,
@@ -132,6 +141,7 @@ module.exports = {
   hasRecordedAchievementValue,
   canTransitionAchievementStatus,
   isRollupEligibleAchievementStatus,
+  canEditAchievementValue,
   buildEmptyAchievementWorkflowFields,
   buildSubmittedAchievementWorkflowFields,
   buildApprovedAchievementWorkflowFields,

@@ -20,6 +20,7 @@ const {
   ACHIEVEMENT_STATUS,
   resolveAchievementStatus,
   canTransitionAchievementStatus,
+  canEditAchievementValue,
   buildEmptyAchievementWorkflowFields,
   buildSubmittedAchievementWorkflowFields,
   buildApprovedAchievementWorkflowFields,
@@ -251,15 +252,22 @@ async function submitAchievement(planNodeId, periodActual, options = {}) {
 
     const currentStatus = resolveAchievementStatus(node);
 
-    if (periodActual === null || periodActual === undefined || periodActual === "") {
-      if (currentStatus === ACHIEVEMENT_STATUS.APPROVED || currentStatus === ACHIEVEMENT_STATUS.VALIDATED) {
-        await t.rollback();
-        return {
-          success: false,
-          message: "Approved or validated achievement cannot be cleared in this period",
-        };
-      }
+    if (!canEditAchievementValue(currentStatus)) {
+      await t.rollback();
+      return {
+        success: false,
+        message:
+          currentStatus === ACHIEVEMENT_STATUS.SUBMITTED
+            ? "Achievement is already pending approval"
+            : currentStatus === ACHIEVEMENT_STATUS.APPROVED
+              ? "Achievement is pending validation and cannot be edited"
+              : currentStatus === ACHIEVEMENT_STATUS.VALIDATED
+                ? "Validated achievement cannot be resubmitted"
+                : "Achievement cannot be edited in its current state",
+      };
+    }
 
+    if (periodActual === null || periodActual === undefined || periodActual === "") {
       const previousValues = {
         period_actual: node.period_actual,
         period_actual_status: node.period_actual_status,
@@ -294,12 +302,7 @@ async function submitAchievement(planNodeId, periodActual, options = {}) {
       await t.rollback();
       return {
         success: false,
-        message:
-          currentStatus === ACHIEVEMENT_STATUS.SUBMITTED
-            ? "Achievement is already pending approval"
-            : currentStatus === ACHIEVEMENT_STATUS.VALIDATED
-              ? "Validated achievement cannot be resubmitted"
-              : "Approved achievement cannot be resubmitted without clearing first",
+        message: "Achievement cannot be submitted from its current state",
       };
     }
 
