@@ -342,6 +342,8 @@ export function ExecutionPeriodsDashboard({
                     const readiness = period.execution_actuals_readiness;
                     const pendingApprovals = readiness?.pending_approval_count ?? 0;
                     const pendingValidations = readiness?.pending_validation_count ?? 0;
+                    const pendingSectorPublishes =
+                        readiness?.pending_sector_publish_count ?? 0;
                     const rejectedCount = readiness?.rejected_count ?? 0;
                     const readinessSummary =
                         readiness && readiness.required_count > 0
@@ -349,10 +351,14 @@ export function ExecutionPeriodsDashboard({
                                 ? `${readiness.approved_count ?? 0}/${readiness.required_count} approved · ${pendingApprovals} pending`
                                 : pendingValidations > 0
                                   ? `${readiness.approved_count ?? 0}/${readiness.required_count} ready · ${pendingValidations} awaiting validation`
+                                  : pendingSectorPublishes > 0
+                                    ? `${readiness.approved_count ?? 0}/${readiness.required_count} ready · ${pendingSectorPublishes} sector package${pendingSectorPublishes === 1 ? "" : "s"} pending finalize`
                                 : rejectedCount > 0
                                   ? `${readiness.approved_count ?? 0}/${readiness.required_count} approved · ${rejectedCount} rejected`
                                   : `${readiness.approved_count ?? readiness.recorded_count ?? 0}/${readiness.required_count} KPIs ready`
-                            : null;
+                            : pendingSectorPublishes > 0
+                              ? `${pendingSectorPublishes} sector package${pendingSectorPublishes === 1 ? "" : "s"} pending finalize`
+                              : null;
                     const executionLocked =
                         processStarted &&
                         period.execution_status === "locked" &&

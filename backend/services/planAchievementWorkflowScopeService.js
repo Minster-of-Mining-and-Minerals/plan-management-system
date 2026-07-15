@@ -11,8 +11,16 @@ const {
 const {
   userCanApproveAchievement,
   userCanValidateAchievement,
+  userCanPublishSectorAggregation,
 } = require("../utils/planAchievementPermissionUtils");
-const { loadSectorValidationUsers } = require("./planAchievementUserService");
+const {
+  loadSectorValidationUsers,
+  loadSectorPublishGates,
+} = require("./planAchievementUserService");
+const {
+  loadPublishRecordsForVersion,
+  PUBLISH_STATUS,
+} = require("./planSectorAggregationPublishService");
 const { userQualifiesForAchievementAssignmentBypass } = require("../utils/planAchievementBypassUtils");
 const {
   buildChildrenByParent,
@@ -54,12 +62,15 @@ async function resolveAchievementWorkflowScopeForVersion(planVersionId, user, tr
         approver_node_ids: [],
         validator_node_ids: [],
         has_validation_gate: false,
+        has_sector_publish_gate: false,
+        sector_publish_branches: [],
+        publisher_branch_ids: [],
         assignment_bypass_active: userQualifiesForAchievementAssignmentBypass(user),
       },
     };
   }
 
-  const [executorMasterLeaves, scopeContext, masterNodeIdByPeriodNodeId, periodNodes, rollupContext] =
+  const [executorMasterLeaves, scopeContext, masterNodeIdByPeriodNodeId, periodNodes, rollupContext, publishGates, publishRecords] =
     await Promise.all([
       resolveExecutorLeafMasterNodeIdsForUser(masterVersionId, user, transaction),
       loadAchievementScopeContext(masterVersionId, transaction),
@@ -70,6 +81,8 @@ async function resolveAchievementWorkflowScopeForVersion(planVersionId, user, tr
         transaction,
       }),
       buildRollupContextForPeriod(planVersionId, transaction),
+      loadSectorPublishGates(masterVersionId, transaction),
+      loadPublishRecordsForVersion(planVersionId, transaction),
     ]);
 
   const periodChildrenByParent = buildChildrenByParent(periodNodes);
@@ -127,6 +140,30 @@ async function resolveAchievementWorkflowScopeForVersion(planVersionId, user, tr
     }
   }
 
+  const sector_publish_branches = (publishGates.branches || []).map((branch) => {
+    const record = publishRecords.get(branch.external_assignment_id);
+    return {
+      external_assignment_id: branch.external_assignment_id,
+      government_structure_id: branch.government_structure_id,
+      plan_node_id: branch.plan_node_id,
+      has_gate: branch.has_gate,
+      publish_status: record?.status || PUBLISH_STATUS.PENDING,
+      published_at: record?.published_at || null,
+    };
+  });
+
+  const publisher_branch_ids = [];
+  if (userCanPublishSectorAggregation(user)) {
+    for (const branch of publishGates.branches || []) {
+      if (
+        branch.has_gate &&
+        (branch.publisher_user_ids || []).includes(user.user_id)
+      ) {
+        publisher_branch_ids.push(branch.external_assignment_id);
+      }
+    }
+  }
+
   return {
     success: true,
     data: {
@@ -136,6 +173,9 @@ async function resolveAchievementWorkflowScopeForVersion(planVersionId, user, tr
       approver_node_ids,
       validator_node_ids,
       has_validation_gate: hasValidationGate,
+      has_sector_publish_gate: Boolean(publishGates.hasSectorPublishGate),
+      sector_publish_branches,
+      publisher_branch_ids,
       assignment_bypass_active: bypassAssignment,
     },
   };

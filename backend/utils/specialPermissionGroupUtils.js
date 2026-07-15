@@ -20,12 +20,14 @@ const PERMISSION_TIER = {
 const VIEW_SECTOR_PLAN_HIERARCHY_KEY = "plan:view_sector_plan_hierarchy";
 const VIEW_FULL_PLAN_HIERARCHY_KEY = "plan:view_full_plan_hierarchy";
 const VALIDATE_APPROVAL_KEY = "plan:validate_approval";
+const PUBLISH_SECTOR_AGGREGATION_KEY = "plan:publish_sector_aggregation";
 
 const SPECIAL_PERMISSION_KEYS = new Set([
   "plans:edit_finalized",
   "plan:override_parent_achievement",
   "plan:bypass_achievement_assignment",
   VALIDATE_APPROVAL_KEY,
+  PUBLISH_SECTOR_AGGREGATION_KEY,
   VIEW_SECTOR_PLAN_HIERARCHY_KEY,
   VIEW_FULL_PLAN_HIERARCHY_KEY,
 ]);
@@ -194,6 +196,7 @@ module.exports = {
   VIEW_SECTOR_PLAN_HIERARCHY_KEY,
   VIEW_FULL_PLAN_HIERARCHY_KEY,
   VALIDATE_APPROVAL_KEY,
+  PUBLISH_SECTOR_AGGREGATION_KEY,
   SPECIAL_PERMISSION_KEYS,
   normalizeGroupKind,
   normalizePermissionTier,

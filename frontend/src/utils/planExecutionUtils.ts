@@ -39,6 +39,9 @@ export interface PlanVersionExecutionOverlay {
         pending_validation_count?: number;
         pending_validation_titles?: string[];
         pending_validation_nodes?: PlanExecutionReadinessNode[];
+        pending_sector_publish_count?: number;
+        pending_sector_publish_titles?: string[];
+        pending_sector_publish_nodes?: PlanExecutionReadinessNode[];
         rejected_count?: number;
         rejected_titles?: string[];
         rejected_nodes?: PlanExecutionReadinessNode[];
@@ -204,6 +207,13 @@ export function buildPeriodCompleteValidationMessage(
         )})`;
     }
 
+    if ((readiness.pending_sector_publish_count ?? 0) > 0) {
+        return `Finalize sector packages for parent aggregation before completing this period (${formatTitlePreview(
+            readiness.pending_sector_publish_nodes?.map((node) => node.label) ??
+                readiness.pending_sector_publish_titles
+        )})`;
+    }
+
     if ((readiness.rejected_count ?? 0) > 0) {
         return `Resubmit rejected achievements before completing this period (${formatTitlePreview(
             readiness.rejected_nodes?.map((node) => node.label) ?? readiness.rejected_titles
@@ -220,7 +230,7 @@ export function buildPeriodCompleteValidationMessage(
 }
 
 export type PeriodCompleteBlockingSection = {
-    key: "approval" | "validation" | "rejected" | "missing";
+    key: "approval" | "validation" | "sector_publish" | "rejected" | "missing";
     title: string;
     description: string;
     nodes: PlanExecutionReadinessNode[];
@@ -257,6 +267,22 @@ export function resolvePeriodCompleteBlockingSections(
                 readiness.pending_validation_nodes ??
                 (readiness.pending_validation_titles ?? []).map((title, index) => ({
                     plan_node_id: `validation-${index}`,
+                    title,
+                    label: title,
+                })),
+        });
+    }
+
+    if ((readiness.pending_sector_publish_count ?? 0) > 0) {
+        sections.push({
+            key: "sector_publish",
+            title: "Pending sector finalize",
+            description:
+                "Publish sector packages so parent structures can aggregate before completing this period.",
+            nodes:
+                readiness.pending_sector_publish_nodes ??
+                (readiness.pending_sector_publish_titles ?? []).map((title, index) => ({
+                    plan_node_id: `sector-publish-${index}`,
                     title,
                     label: title,
                 })),

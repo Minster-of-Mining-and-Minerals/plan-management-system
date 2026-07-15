@@ -71,10 +71,33 @@ function resolveRollupRequiresValidationForNode(node, rollupContext = {}) {
   return Boolean(requiresValidationByMasterNodeId.get(masterNodeId));
 }
 
+/**
+ * Sector seed with publish gate ON and package not yet published.
+ * Parents above this node must ignore its subtree until publish.
+ */
+function isUnpublishedSectorPublishBoundary(periodNodeId, rollupContext = {}) {
+  const { publishBoundaryPeriodNodeIds, publishedBoundaryPeriodNodeIds } = rollupContext;
+  if (!periodNodeId || !publishBoundaryPeriodNodeIds?.has(periodNodeId)) {
+    return false;
+  }
+  return !publishedBoundaryPeriodNodeIds?.has(periodNodeId);
+}
+
+/**
+ * Whether a direct child node's rolled metrics may count toward its parent.
+ * In-sector (below / at seed internal calc) keeps normal eligibility.
+ * Crossing a gated unpublished seed into parent structure is blocked.
+ */
+function childCountsTowardParent(childPeriodNodeId, rollupContext = {}) {
+  return !isUnpublishedSectorPublishBoundary(childPeriodNodeId, rollupContext);
+}
+
 module.exports = {
   masterNodeRequiresApproval,
   resolveRollupRequiresApprovalForNode,
   resolveRollupRequiresValidationForNode,
+  isUnpublishedSectorPublishBoundary,
+  childCountsTowardParent,
   nodeContributesToRollup,
   isAchievementReadyForPeriodCompletion,
 };

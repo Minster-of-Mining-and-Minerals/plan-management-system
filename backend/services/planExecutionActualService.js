@@ -1,6 +1,7 @@
 "use strict";
 
-const { PlanNode, PlanVersion, sequelize } = require("../models");
+const { Op } = require("sequelize");
+const { PlanNode, PlanVersion, GovernmentStructure, sequelize } = require("../models");
 const { resolvePlanRuleForVersion } = require("./planRuleService");
 const { stepRequiresWeight } = require("./planRuleStepUtils");
 const { resolveVersionExecutionAccess } = require("./planExecutionGateService");
@@ -107,6 +108,43 @@ async function computePeriodActualsReadiness(periodVersionId, transaction = null
   const rejectedNodes = rejected.map(mapReadinessNode);
   const missingNodes = missing.map(mapReadinessNode);
 
+  const pendingSectorBranchMeta = (rollupContext.sectorPublishBranches || []).filter(
+    (branch) => branch.has_gate && branch.publish_status !== "published"
+  );
+  const pendingSectorIds = [
+    ...new Set(
+      pendingSectorBranchMeta.map((branch) => branch.government_structure_id).filter(Boolean)
+    ),
+  ];
+  const pendingSectorRows = pendingSectorIds.length
+    ? await GovernmentStructure.findAll({
+        where: { government_structure_id: { [Op.in]: pendingSectorIds } },
+        attributes: ["government_structure_id", "name"],
+        transaction,
+      })
+    : [];
+  const pendingSectorNameById = new Map(
+    pendingSectorRows.map((row) => [row.government_structure_id, row.name])
+  );
+
+  const pendingSectorPublishes = pendingSectorBranchMeta.map((branch) => {
+    const name =
+      pendingSectorNameById.get(branch.government_structure_id) || "Sector";
+    return {
+      external_assignment_id: branch.external_assignment_id,
+      government_structure_id: branch.government_structure_id,
+      plan_node_id: branch.plan_node_id,
+      period_node_id: branch.period_node_id,
+      publish_status: branch.publish_status,
+      title: name,
+      label: `${name} — pending parent finalize`,
+    };
+  });
+
+  const leavesReady =
+    requiredNodes.length === 0 || approvedCount === requiredNodes.length;
+  const publishesReady = pendingSectorPublishes.length === 0;
+
   return {
     required_count: requiredNodes.length,
     recorded_count: recordedCount,
@@ -117,13 +155,16 @@ async function computePeriodActualsReadiness(periodVersionId, transaction = null
     pending_validation_count: pendingValidation.length,
     pending_validation_titles: pendingValidationNodes.map((node) => node.label),
     pending_validation_nodes: pendingValidationNodes,
+    pending_sector_publish_count: pendingSectorPublishes.length,
+    pending_sector_publish_titles: pendingSectorPublishes.map((item) => item.label),
+    pending_sector_publish_nodes: pendingSectorPublishes,
     rejected_count: rejected.length,
     rejected_titles: rejectedNodes.map((node) => node.label),
     rejected_nodes: rejectedNodes,
     missing_count: missing.length,
     missing_titles: missingNodes.map((node) => node.label),
     missing_nodes: missingNodes,
-    ready: requiredNodes.length === 0 || approvedCount === requiredNodes.length,
+    ready: leavesReady && publishesReady,
   };
 }
 

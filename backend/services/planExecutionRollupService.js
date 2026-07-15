@@ -5,6 +5,7 @@ const { resolvePlanRuleForVersion } = require("./planRuleService");
 const { stepRequiresContributionWeight } = require("./planRuleStepUtils");
 const {
   nodeContributesToRollup,
+  childCountsTowardParent,
 } = require("../utils/planAchievementRollupUtils");
 const { buildRollupContextForPeriod } = require("./planAchievementRollupService");
 const { isExecutionSnapshotVersion } = require("./planExecutionSnapshotService");
@@ -136,13 +137,16 @@ function weightedChildPercentages(childMetrics, childNodes) {
   return roundPercent(weightedSum / totalWeight);
 }
 
-function subtreeHasContributingData(node, memo, childrenByParent) {
+function subtreeHasContributingData(node, memo, childrenByParent, rollupContext = {}) {
+  if (!childCountsTowardParent(node.plan_node_id, rollupContext)) {
+    return false;
+  }
   const metrics = memo.get(node.plan_node_id);
   if (metrics?.has_contributing_data) {
     return true;
   }
   return getActiveChildren(node, childrenByParent).some((child) =>
-    subtreeHasContributingData(child, memo, childrenByParent)
+    subtreeHasContributingData(child, memo, childrenByParent, rollupContext)
   );
 }
 
@@ -150,6 +154,7 @@ function subtreeHasContributingData(node, memo, childrenByParent) {
  * Recursive performance rollup — depth-agnostic.
  * Uses weighted child average when the child level requires contribution weight; otherwise equal average.
  * Parent override nodes with a target are evaluated as a single leaf unit.
+ * Sector publish boundaries: parents above a gated unpublished seed ignore that child package.
  */
 function computeNodeRollup(node, childrenByParent, memo, rollupContext = {}, rule = null) {
   if (memo.has(node.plan_node_id)) {
@@ -179,6 +184,9 @@ function computeNodeRollup(node, childrenByParent, memo, rollupContext = {}, rul
     }
 
     const evaluableChildNodes = children.filter((child) => {
+      if (!childCountsTowardParent(child.plan_node_id, rollupContext)) {
+        return false;
+      }
       const metrics = memo.get(child.plan_node_id);
       return metrics?.is_evaluable;
     });
@@ -200,7 +208,7 @@ function computeNodeRollup(node, childrenByParent, memo, rollupContext = {}, rul
         is_evaluable: true,
         evaluation_status: deriveParentEvaluationStatus(evaluableChildren),
         has_contributing_data: children.some((child) =>
-          subtreeHasContributingData(child, memo, childrenByParent)
+          subtreeHasContributingData(child, memo, childrenByParent, rollupContext)
         ),
         computed_period_actual: null,
         computed_period_target: null,

@@ -75,6 +75,9 @@ const {
     rejectValidationAchievementHandler,
     rejectAchievementHandler,
     getAchievementWorkflowScope,
+    listSectorAggregationPublishStateHandler,
+    publishSectorAggregationHandler,
+    rejectSectorAggregationPublishHandler,
 } = require("../../controllers/plan/planAchievementController");
 
 const {
@@ -200,6 +203,25 @@ router.get(
     validateIdParam,
     requirePlanVersionReadAccess(),
     getAchievementWorkflowScope
+);
+router.get(
+    "/versions/:id/sector-aggregation-publishes",
+    planReadAccess,
+    validateIdParam,
+    requirePlanVersionReadAccess(),
+    listSectorAggregationPublishStateHandler
+);
+router.post(
+    "/versions/:id/sector-aggregation-publishes/publish",
+    checkPermission("PLAN", "PUBLISH_SECTOR_AGGREGATION"),
+    validateIdParam,
+    publishSectorAggregationHandler
+);
+router.post(
+    "/versions/:id/sector-aggregation-publishes/reject",
+    checkPermission("PLAN", "PUBLISH_SECTOR_AGGREGATION"),
+    validateIdParam,
+    rejectSectorAggregationPublishHandler
 );
 
 router.get("/versions/:id/publish-for-review-readiness", checkPermission("PLAN", "PUBLISH_FOR_REVIEW"), validateIdParam, getPublishForReviewReadinessHandler);

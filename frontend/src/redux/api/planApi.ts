@@ -541,6 +541,62 @@ export const planApi = baseApi.injectEndpoints({
             providesTags: (_r, _e, id) => [{ type: "PlanAchievementWorkflowScope", id }],
         }),
 
+        getSectorAggregationPublishes: builder.query<
+            {
+                plan_version_id: string;
+                has_sector_publish_gate: boolean;
+                branches: Array<{
+                    external_assignment_id: string;
+                    government_structure_id: string;
+                    government_structure_name: string;
+                    plan_node_id: string;
+                    has_gate: boolean;
+                    status: "pending" | "published" | "rejected";
+                    published_at: string | null;
+                    published_by: string | null;
+                    rejection_comment: string | null;
+                }>;
+            },
+            string
+        >({
+            query: (id) => `/plan/versions/${id}/sector-aggregation-publishes`,
+            transformResponse: (response: { data: any }) => response.data,
+            providesTags: (_r, _e, id) => [
+                { type: "PlanAchievementWorkflowScope", id },
+                { type: "PlanNodes", id },
+            ],
+        }),
+
+        publishSectorAggregation: builder.mutation<
+            unknown,
+            { versionId: string; external_assignment_id: string }
+        >({
+            query: ({ versionId, external_assignment_id }) => ({
+                url: `/plan/versions/${versionId}/sector-aggregation-publishes/publish`,
+                method: "POST",
+                body: { external_assignment_id },
+            }),
+            invalidatesTags: (_r, _e, arg) => [
+                { type: "PlanAchievementWorkflowScope", id: arg.versionId },
+                "PlanNodes",
+            ],
+        }),
+
+        rejectSectorAggregationPublish: builder.mutation<
+            unknown,
+            { versionId: string; external_assignment_id: string; comment?: string }
+        >({
+            query: ({ versionId, external_assignment_id, comment }) => ({
+                url: `/plan/versions/${versionId}/sector-aggregation-publishes/reject`,
+                method: "POST",
+                body: { external_assignment_id, comment },
+            }),
+            invalidatesTags: (_r, _e, arg) => [
+                { type: "PlanAchievementWorkflowScope", id: arg.versionId },
+                "PlanNodes",
+            ],
+        }),
+
         getStartProcessReadiness: builder.query<StartProcessReadiness, string>({
             query: (id) => `/plan/versions/${id}/start-process-readiness`,
             transformResponse: (response: { data: StartProcessReadiness }) => response.data,
@@ -789,6 +845,9 @@ export const {
     useGetStartProcessReadinessQuery,
     useGetExecutionAccessQuery,
     useGetPlanAchievementWorkflowScopeQuery,
+    useGetSectorAggregationPublishesQuery,
+    usePublishSectorAggregationMutation,
+    useRejectSectorAggregationPublishMutation,
     useStartPlanProcessMutation,
     useGetPublishForReviewReadinessQuery,
     usePublishForReviewMutation,

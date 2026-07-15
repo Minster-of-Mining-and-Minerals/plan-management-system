@@ -93,6 +93,9 @@ export interface PlanVersion {
         pending_validation_count?: number;
         pending_validation_titles?: string[];
         pending_validation_nodes?: PlanExecutionReadinessNode[];
+        pending_sector_publish_count?: number;
+        pending_sector_publish_titles?: string[];
+        pending_sector_publish_nodes?: PlanExecutionReadinessNode[];
         rejected_count?: number;
         rejected_titles?: string[];
         rejected_nodes?: PlanExecutionReadinessNode[];
@@ -271,6 +274,19 @@ export interface PlanAchievementWorkflowScope {
     approver_node_ids: string[];
     validator_node_ids: string[];
     has_validation_gate?: boolean;
+    /** True when any external sector branch has a publish-sector-aggregation gate. */
+    has_sector_publish_gate?: boolean;
+    /** External assignment branches and whether each has a publish gate. */
+    sector_publish_branches?: Array<{
+        external_assignment_id: string;
+        government_structure_id: string;
+        plan_node_id: string;
+        has_gate: boolean;
+        publish_status?: "pending" | "published" | "rejected";
+        published_at?: string | null;
+    }>;
+    /** External assignment IDs the current user may finalize/publish. */
+    publisher_branch_ids?: string[];
     /** True when system bypass is on and the current user qualifies (QA / super admin). */
     assignment_bypass_active?: boolean;
 }

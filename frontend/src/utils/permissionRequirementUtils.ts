@@ -31,6 +31,9 @@ const PERMISSION_LABELS: Partial<Record<PermissionKey, string>> = {
     "Bypass plan-tree assignment for achievement execute/approve (QA)",
   "PLAN:EXECUTE_ACHIEVEMENT": "Submit achievement on assigned plan leaf nodes",
   "PLAN:APPROVE_ACHIEVEMENT": "Approve submitted plan achievements in assigned scope",
+  "PLAN:VALIDATE_APPROVAL": "Validate approved period achievements (sector-local)",
+  "PLAN:PUBLISH_SECTOR_AGGREGATION":
+    "Finalize sector achievement package for structure-to-structure aggregation",
   "PLAN:VIEW_SECTOR_PLAN_HIERARCHY": "View sector-assigned plan subtree (read-only)",
   "PLAN:VIEW_FULL_PLAN_HIERARCHY": "View complete plan hierarchy (read-only)",
   "SPECIAL_PERMISSION_GROUPS:READ": "View special permission groups",

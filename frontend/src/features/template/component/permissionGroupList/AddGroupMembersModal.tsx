@@ -87,7 +87,8 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
   const filteredUsers = allUsers.filter((user) => {
     if (existingUserIds.includes(user.user_id)) return false;
     if (linkedStructureIds.length > 1) {
-      return linkedStructureIds.includes(user.government_structure_id);
+      const structureId = user.government_structure_id;
+      return structureId != null && linkedStructureIds.includes(structureId);
     }
     return true;
   });

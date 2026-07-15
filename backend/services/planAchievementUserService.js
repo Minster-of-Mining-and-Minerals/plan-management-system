@@ -13,7 +13,7 @@ const {
 } = require("../models");
 const { loadDepartmentPermissionGroups } = require("../utils/specialPermissionGroupUtils");
 const { collectUserPermissionKeys } = require("../utils/userPermissionsUtils");
-const { userCanApproveAchievement, userCanValidateAchievement } = require("../utils/planAchievementPermissionUtils");
+const { userCanApproveAchievement, userCanValidateAchievement, userCanPublishSectorAggregation } = require("../utils/planAchievementPermissionUtils");
 const { buildVisibleGovernmentStructureIdSet } = require("../utils/structureScopeUtils");
 const {
   userCanApproveLeafMasterNode,
@@ -336,12 +336,150 @@ async function assertUserCanValidateAchievement(user, masterVersionId, transacti
   return { allowed: true };
 }
 
+/**
+ * Structure→structure publish gate: one entry per active external assignment branch.
+ * Gate is ON for a branch when ≥1 user in that sector subtree holds
+ * plan:publish_sector_aggregation.
+ */
+async function loadSectorPublishGates(masterVersionId, transaction = null) {
+  const { externalAssignments } = await loadMasterPlanAssignments(
+    masterVersionId,
+    transaction
+  );
+  const structureIndex = await GovernmentStructure.findAll({
+    attributes: ["government_structure_id", "parent_id"],
+    transaction,
+  });
+
+  const activeBranches = (externalAssignments || []).filter(
+    (assignment) => assignment.is_active !== false && assignment.government_structure_id
+  );
+
+  if (!activeBranches.length) {
+    return {
+      branches: [],
+      hasSectorPublishGate: false,
+      publishersByExternalAssignmentId: new Map(),
+    };
+  }
+
+  const sectorIds = [
+    ...new Set(activeBranches.map((assignment) => assignment.government_structure_id)),
+  ];
+  const candidateSectorIds = new Set();
+  for (const sectorId of sectorIds) {
+    for (const id of buildVisibleGovernmentStructureIdSet(structureIndex, sectorId)) {
+      candidateSectorIds.add(id);
+    }
+  }
+
+  const users = await User.findAll({
+    where: {
+      is_active: true,
+      government_structure_id: { [Op.in]: [...candidateSectorIds] },
+    },
+    attributes: ["user_id"],
+    transaction,
+  });
+
+  const enriched = await loadUsersWithEffectivePermissions(
+    users.map((user) => user.user_id),
+    transaction
+  );
+
+  const publishersByExternalAssignmentId = new Map();
+  const branches = [];
+
+  for (const assignment of activeBranches) {
+    const branchSectorId = assignment.government_structure_id;
+    const branchVisible = buildVisibleGovernmentStructureIdSet(
+      structureIndex,
+      branchSectorId
+    );
+    const publishers = enriched.filter(
+      (user) =>
+        userCanPublishSectorAggregation(user) &&
+        user.government_structure_id &&
+        branchVisible.has(user.government_structure_id)
+    );
+
+    publishersByExternalAssignmentId.set(
+      assignment.external_assignment_id,
+      publishers
+    );
+
+    branches.push({
+      external_assignment_id: assignment.external_assignment_id,
+      government_structure_id: branchSectorId,
+      plan_node_id: assignment.plan_node_id,
+      has_gate: publishers.length > 0,
+      publisher_user_ids: publishers.map((user) => user.user_id),
+    });
+  }
+
+  return {
+    branches,
+    hasSectorPublishGate: branches.some((branch) => branch.has_gate),
+    publishersByExternalAssignmentId,
+  };
+}
+
+async function assertUserCanPublishSectorAggregation(
+  user,
+  masterVersionId,
+  externalAssignmentId,
+  transaction = null
+) {
+  if (!userCanPublishSectorAggregation(user)) {
+    return {
+      allowed: false,
+      message: "Plan publish sector aggregation permission required",
+    };
+  }
+
+  const { branches, publishersByExternalAssignmentId } = await loadSectorPublishGates(
+    masterVersionId,
+    transaction
+  );
+
+  const branch = branches.find(
+    (entry) => entry.external_assignment_id === externalAssignmentId
+  );
+  if (!branch) {
+    return {
+      allowed: false,
+      message: "Sector branch assignment was not found on this plan",
+    };
+  }
+
+  if (!branch.has_gate) {
+    return {
+      allowed: false,
+      message: "No sector publish gate is configured for this sector branch",
+    };
+  }
+
+  const publishers =
+    publishersByExternalAssignmentId.get(externalAssignmentId) || [];
+  if (!publishers.some((candidate) => candidate.user_id === user.user_id)) {
+    return {
+      allowed: false,
+      message:
+        "You must belong to this sector structure with publish sector aggregation permission",
+    };
+  }
+
+  return { allowed: true, branch };
+}
+
 module.exports = {
   loadUsersWithEffectivePermissions,
   collectCandidateApproverUserIds,
   loadSectorApproverUsers,
   loadSectorValidationUsers,
   assertUserCanValidateAchievement,
+  loadSectorPublishGates,
+  assertUserCanPublishSectorAggregation,
   resolveSectorApproverGateMasterNodeIds,
   resolveApproverUsersForLeafMasterNode,
 };

@@ -97,6 +97,7 @@ import { cn } from "@/lib/utils";
 import { PlanAchievementScopeProvider } from "@/hooks/usePlanAchievementScope";
 import { PlanAchievementPendingPanel } from "./components/PlanAchievementPendingPanel";
 import { PlanAchievementPendingValidationPanel } from "./components/PlanAchievementPendingValidationPanel";
+import { PlanSectorPublishPanel } from "./components/PlanSectorPublishPanel";
 import {
     collectPendingAchievementNodes,
     collectPendingValidationNodes,
@@ -900,6 +901,7 @@ export default function PlanHierarchyView({
 
             {isExecutionPeriod && processStarted && (
                 <div className="space-y-3">
+                    <PlanSectorPublishPanel versionId={versionId} />
                     <PlanAchievementPendingPanel
                         pendingNodes={pendingApprovalNodes}
                         hierarchyNumberMap={hierarchyNumberMap}

@@ -5,6 +5,8 @@ const {
   masterNodeRequiresApproval,
   nodeContributesToRollup,
   isAchievementReadyForPeriodCompletion,
+  childCountsTowardParent,
+  isUnpublishedSectorPublishBoundary,
 } = require("../utils/planAchievementRollupUtils");
 const { computeRollupMap } = require("../services/planExecutionRollupService");
 const { ACHIEVEMENT_STATUS } = require("../utils/planAchievementWorkflowUtils");
@@ -65,6 +67,78 @@ function runGateUtilsTests() {
   assert.strictEqual(nodeContributesToRollup(submittedLeaf, openContext), false);
   assert.strictEqual(isAchievementReadyForPeriodCompletion(submittedLeaf, gatedContext), false);
   assert.strictEqual(isAchievementReadyForPeriodCompletion(approvedLeaf, gatedContext), true);
+}
+
+function runSectorPublishBoundaryTests() {
+  const unpublishedContext = {
+    publishBoundaryPeriodNodeIds: new Set(["sector-seed"]),
+    publishedBoundaryPeriodNodeIds: new Set(),
+  };
+  const publishedContext = {
+    publishBoundaryPeriodNodeIds: new Set(["sector-seed"]),
+    publishedBoundaryPeriodNodeIds: new Set(["sector-seed"]),
+  };
+
+  assert.strictEqual(
+    isUnpublishedSectorPublishBoundary("sector-seed", unpublishedContext),
+    true
+  );
+  assert.strictEqual(childCountsTowardParent("sector-seed", unpublishedContext), false);
+  assert.strictEqual(childCountsTowardParent("sector-seed", publishedContext), true);
+  assert.strictEqual(childCountsTowardParent("kpi-a", unpublishedContext), true);
+
+  const nodes = [
+    { plan_node_id: "ministry", parent_id: null, level: 1, order: 0, is_active: true },
+    {
+      plan_node_id: "sector-seed",
+      parent_id: "ministry",
+      level: 2,
+      order: 0,
+      is_active: true,
+    },
+    {
+      plan_node_id: "kpi-a",
+      parent_id: "sector-seed",
+      level: 3,
+      order: 0,
+      period_target: 100,
+      period_actual: 100,
+      period_actual_status: ACHIEVEMENT_STATUS.VALIDATED,
+      is_active: true,
+    },
+  ];
+
+  const approvalOpen = {
+    masterNodeIdByPeriodNodeId: new Map([
+      ["kpi-a", "kpi-a"],
+      ["sector-seed", "sector-seed"],
+      ["ministry", "ministry"],
+    ]),
+    requiresApprovalByMasterNodeId: new Map([
+      ["kpi-a", false],
+      ["sector-seed", false],
+      ["ministry", false],
+    ]),
+    requiresValidationByMasterNodeId: new Map([
+      ["kpi-a", true],
+      ["sector-seed", true],
+      ["ministry", true],
+    ]),
+  };
+
+  const blocked = computeRollupMap(nodes, {
+    ...approvalOpen,
+    ...unpublishedContext,
+  });
+  assert.strictEqual(metrics(blocked, "kpi-a").execution_progress_percent, 100);
+  assert.strictEqual(metrics(blocked, "sector-seed").execution_progress_percent, 100);
+  assert.strictEqual(metrics(blocked, "ministry").is_evaluable, false);
+
+  const released = computeRollupMap(nodes, {
+    ...approvalOpen,
+    ...publishedContext,
+  });
+  assert.strictEqual(metrics(released, "ministry").execution_progress_percent, 100);
 }
 
 function runRollupTests() {
@@ -142,6 +216,7 @@ function runRollupTests() {
 
 function run() {
   runGateUtilsTests();
+  runSectorPublishBoundaryTests();
   runRollupTests();
   console.log("Plan achievement Step 4 rollup checks passed.");
 }

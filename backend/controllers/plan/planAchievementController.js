@@ -14,6 +14,11 @@ const { setPeriodActual } = require("../../services/planExecutionActualService")
 const {
   resolveAchievementWorkflowScopeForVersion,
 } = require("../../services/planAchievementWorkflowScopeService");
+const {
+  publishSectorAggregation,
+  rejectSectorAggregationPublish,
+  listSectorAggregationPublishState,
+} = require("../../services/planSectorAggregationPublishService");
 
 function auditContext(req) {
   return {
@@ -258,6 +263,95 @@ async function getAchievementWorkflowScope(req, res) {
   }
 }
 
+async function listSectorAggregationPublishStateHandler(req, res) {
+  try {
+    const { id: versionId } = req.params;
+    if (!isUuid(versionId)) {
+      return res.status(400).json({ success: false, message: "Invalid version ID" });
+    }
+
+    const result = await listSectorAggregationPublishState(versionId);
+    if (!result.success) {
+      return res.status(400).json({ success: false, message: result.message });
+    }
+
+    return res.json({ success: true, data: result.data });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+async function publishSectorAggregationHandler(req, res) {
+  try {
+    const { id: versionId } = req.params;
+    const { external_assignment_id } = req.body || {};
+
+    if (!isUuid(versionId) || !isUuid(external_assignment_id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid version ID and external_assignment_id are required",
+      });
+    }
+
+    const result = await publishSectorAggregation(
+      versionId,
+      external_assignment_id,
+      workflowOptions(req)
+    );
+    if (!result.success) {
+      return res.status(result.message?.includes("permission") ? 403 : 400).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: result.alreadyPublished
+        ? "Sector aggregation already published"
+        : "Sector aggregation published for parent structures",
+      data: result.data,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+async function rejectSectorAggregationPublishHandler(req, res) {
+  try {
+    const { id: versionId } = req.params;
+    const { external_assignment_id, comment } = req.body || {};
+
+    if (!isUuid(versionId) || !isUuid(external_assignment_id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid version ID and external_assignment_id are required",
+      });
+    }
+
+    const result = await rejectSectorAggregationPublish(
+      versionId,
+      external_assignment_id,
+      comment,
+      workflowOptions(req)
+    );
+    if (!result.success) {
+      return res.status(result.message?.includes("permission") ? 403 : 400).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Sector aggregation publish cleared",
+      data: result.data,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
   updatePeriodTarget,
   submitAchievementHandler,
@@ -267,4 +361,7 @@ module.exports = {
   rejectAchievementHandler,
   updatePeriodActual,
   getAchievementWorkflowScope,
+  listSectorAggregationPublishStateHandler,
+  publishSectorAggregationHandler,
+  rejectSectorAggregationPublishHandler,
 };

@@ -13,7 +13,12 @@ const {
   resolveSectorApproverGateMasterNodeIds,
   loadSectorApproverUsers,
   loadSectorValidationUsers,
+  loadSectorPublishGates,
 } = require("./planAchievementUserService");
+const {
+  loadPublishRecordsForVersion,
+  PUBLISH_STATUS,
+} = require("./planSectorAggregationPublishService");
 
 async function resolveApproverGateMasterNodeIds(masterVersionId, transaction = null) {
   const context = await loadMasterPlanAssignments(masterVersionId, transaction);
@@ -99,17 +104,29 @@ async function buildRollupContextForPeriod(periodVersionId, transaction = null) 
       requiresApprovalByMasterNodeId: new Map(),
       requiresValidationByMasterNodeId: new Map(),
       hasValidationGate: false,
+      hasSectorPublishGate: false,
+      publishBoundaryPeriodNodeIds: new Set(),
+      publishedBoundaryPeriodNodeIds: new Set(),
+      sectorPublishBranches: [],
     };
   }
 
   const { masterNodes } = await loadMasterPlanAssignments(masterVersionId, transaction);
-  const [{ users: sectorApprovers }, { hasValidationGate }, approverGateNodeIds, masterNodeIdByPeriodNodeId] =
-    await Promise.all([
-      loadSectorApproverUsers(masterVersionId, transaction),
-      loadSectorValidationUsers(masterVersionId, transaction),
-      resolveApproverGateMasterNodeIds(masterVersionId, transaction),
-      buildMasterNodeIdByPeriodNodeId(periodVersionId, transaction),
-    ]);
+  const [
+    { users: sectorApprovers },
+    { hasValidationGate },
+    approverGateNodeIds,
+    masterNodeIdByPeriodNodeId,
+    publishGates,
+    publishRecords,
+  ] = await Promise.all([
+    loadSectorApproverUsers(masterVersionId, transaction),
+    loadSectorValidationUsers(masterVersionId, transaction),
+    resolveApproverGateMasterNodeIds(masterVersionId, transaction),
+    buildMasterNodeIdByPeriodNodeId(periodVersionId, transaction),
+    loadSectorPublishGates(masterVersionId, transaction),
+    loadPublishRecordsForVersion(periodVersionId, transaction),
+  ]);
   const hasSectorApprovalOversight = sectorApprovers.length > 0;
 
   const requiresApprovalByMasterNodeId = new Map();
@@ -123,6 +140,40 @@ async function buildRollupContextForPeriod(periodVersionId, transaction = null) 
     requiresValidationByMasterNodeId.set(masterNodeId, hasValidationGate);
   }
 
+  const periodNodeIdByMasterNodeId = new Map();
+  for (const [periodNodeId, masterNodeId] of masterNodeIdByPeriodNodeId.entries()) {
+    periodNodeIdByMasterNodeId.set(masterNodeId, periodNodeId);
+  }
+
+  const publishBoundaryPeriodNodeIds = new Set();
+  const publishedBoundaryPeriodNodeIds = new Set();
+  const sectorPublishBranches = [];
+
+  for (const branch of publishGates.branches || []) {
+    const periodSeedId = periodNodeIdByMasterNodeId.get(branch.plan_node_id);
+    const record = publishRecords.get(branch.external_assignment_id);
+    const status = record?.status || PUBLISH_STATUS.PENDING;
+    const isPublished = status === PUBLISH_STATUS.PUBLISHED;
+
+    sectorPublishBranches.push({
+      external_assignment_id: branch.external_assignment_id,
+      government_structure_id: branch.government_structure_id,
+      plan_node_id: branch.plan_node_id,
+      period_node_id: periodSeedId || null,
+      has_gate: branch.has_gate,
+      publish_status: status,
+    });
+
+    if (!branch.has_gate || !periodSeedId) {
+      continue;
+    }
+
+    publishBoundaryPeriodNodeIds.add(periodSeedId);
+    if (isPublished) {
+      publishedBoundaryPeriodNodeIds.add(periodSeedId);
+    }
+  }
+
   return {
     masterNodes,
     approverGateNodeIds,
@@ -130,6 +181,10 @@ async function buildRollupContextForPeriod(periodVersionId, transaction = null) 
     requiresApprovalByMasterNodeId,
     requiresValidationByMasterNodeId,
     hasValidationGate,
+    hasSectorPublishGate: Boolean(publishGates.hasSectorPublishGate),
+    publishBoundaryPeriodNodeIds,
+    publishedBoundaryPeriodNodeIds,
+    sectorPublishBranches,
   };
 }
 
