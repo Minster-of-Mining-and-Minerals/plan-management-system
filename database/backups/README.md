@@ -2,6 +2,18 @@
 
 PostgreSQL dumps for the Plan Management System (`pms` database by default).
 
+## Migration cutover (clean baseline)
+
+After the 2026-07-16 squash, schema is built from a **single** baseline migration.
+See [docs/MIGRATION_CUTOVER_RUNBOOK.md](../docs/MIGRATION_CUTOVER_RUNBOOK.md).
+
+```bash
+# From backend/
+npm run db:snapshot          # full + schema + data (data excludes SequelizeMeta)
+npm run db:cutover:validate  # throwaway rehearsal
+npm run db:cutover:apply     # DROP/recreate DB_NAME + baseline + restore data
+```
+
 ## Export (create a backup)
 
 From the `backend` folder:
@@ -28,38 +40,10 @@ From the `backend` folder:
 npm run db:import -- database/backups/pms_backup_YYYY-MM-DD_HHMMSS.sql
 ```
 
-Or with an absolute path to the `.sql` file.
-
-**Warning:** Restore uses `--clean` dumps and replaces existing objects in the target database. Use a dev/staging database unless you intend to overwrite production data.
-
-## Restore plan drafts only (from backup)
-
-If you re-seeded migrations but lost plan drafts, restore just plan tables from an export:
-
-```bash
-npm run db:restore-plans
-```
-
-Or with a specific backup file:
-
-```bash
-npm run db:restore-plans -- database/backups/pms_backup_2026-06-16_115430.sql
-```
-
-This keeps users, roles, and org structure intact and reloads `plan_versions`, `plan_nodes`, assignments, planning config, and plan rules from the backup.
-
-## Manual commands (Windows)
-
-```powershell
-$env:PGPASSWORD = "root"
-& "C:\Program Files\PostgreSQL\18\bin\pg_dump.exe" -h localhost -p 5432 -U postgres -d pms --no-owner --no-acl --clean --if-exists -f database/backups/manual_backup.sql
-```
-
-```powershell
-$env:PGPASSWORD = "root"
-& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h localhost -p 5432 -U postgres -d pms -v ON_ERROR_STOP=1 -f database/backups/manual_backup.sql
-```
+**Warning:** Restore uses `--clean` dumps and replaces existing objects in the target database.
 
 ## Git
 
-`*.sql` backup files are ignored by git (they may contain user data and credentials). Keep exports on disk or in secure storage outside the repo.
+`*.sql` backup files are ignored by git. Keep exports on disk or in secure storage.
+
+`database/schema/baseline_schema.sql` **is** committed (schema only, no row data).
