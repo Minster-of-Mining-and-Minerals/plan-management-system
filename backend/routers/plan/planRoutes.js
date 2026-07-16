@@ -104,6 +104,25 @@ const {
 } = require("../../validators/plan/planTargetReallocationValidator");
 
 const {
+    createPlanAmendmentHandler,
+    submitPlanAmendmentHandler,
+    previewPlanAmendmentHandler,
+    approvePlanAmendmentHandler,
+    rejectPlanAmendmentHandler,
+    cancelPlanAmendmentHandler,
+    getPlanAmendmentHandler,
+    listPlanAmendmentsHandler,
+    listPlanAmendmentTypesHandler,
+} = require("../../controllers/plan/planAmendmentController");
+
+const {
+    validateCreatePlanAmendment,
+    validateReviewPlanAmendment,
+    validateRejectPlanAmendment,
+    validateListPlanAmendmentsQuery,
+} = require("../../validators/plan/planAmendmentValidator");
+
+const {
     getPublishForReviewReadinessHandler,
     publishForReviewHandler,
     unlockForCorrectionsHandler,
@@ -161,6 +180,24 @@ const planReadAccess = checkAnyPermission([
 const targetReallocationReadAccess = checkAnyPermission([
     { resource: "PLANS", action: "READ" },
     { resource: "PLAN", action: "REQUEST_TARGET_REALLOCATION" },
+    { resource: "PLAN", action: "APPROVE_TARGET_REALLOCATION" },
+]);
+
+const planAmendmentReadAccess = checkAnyPermission([
+    { resource: "PLANS", action: "READ" },
+    { resource: "PLAN", action: "REQUEST_AMENDMENT" },
+    { resource: "PLAN", action: "APPROVE_AMENDMENT" },
+    { resource: "PLAN", action: "REQUEST_TARGET_REALLOCATION" },
+    { resource: "PLAN", action: "APPROVE_TARGET_REALLOCATION" },
+]);
+
+const planAmendmentRequestAccess = checkAnyPermission([
+    { resource: "PLAN", action: "REQUEST_AMENDMENT" },
+    { resource: "PLAN", action: "REQUEST_TARGET_REALLOCATION" },
+]);
+
+const planAmendmentApproveAccess = checkAnyPermission([
+    { resource: "PLAN", action: "APPROVE_AMENDMENT" },
     { resource: "PLAN", action: "APPROVE_TARGET_REALLOCATION" },
 ]);
 
@@ -291,6 +328,62 @@ router.post(
     checkPermission("PLAN", "REQUEST_TARGET_REALLOCATION"),
     validateIdParam,
     cancelTargetReallocationHandler
+);
+
+router.get(
+    "/plan-amendments/types",
+    planAmendmentReadAccess,
+    listPlanAmendmentTypesHandler
+);
+router.post(
+    "/plan-amendments",
+    planAmendmentRequestAccess,
+    validateCreatePlanAmendment,
+    createPlanAmendmentHandler
+);
+router.get(
+    "/plan-amendments",
+    planAmendmentReadAccess,
+    validateListPlanAmendmentsQuery,
+    listPlanAmendmentsHandler
+);
+router.get(
+    "/plan-amendments/:id",
+    planAmendmentReadAccess,
+    validateIdParam,
+    getPlanAmendmentHandler
+);
+router.get(
+    "/plan-amendments/:id/preview",
+    planAmendmentReadAccess,
+    validateIdParam,
+    previewPlanAmendmentHandler
+);
+router.post(
+    "/plan-amendments/:id/submit",
+    planAmendmentRequestAccess,
+    validateIdParam,
+    submitPlanAmendmentHandler
+);
+router.post(
+    "/plan-amendments/:id/approve",
+    planAmendmentApproveAccess,
+    validateIdParam,
+    validateReviewPlanAmendment,
+    approvePlanAmendmentHandler
+);
+router.post(
+    "/plan-amendments/:id/reject",
+    planAmendmentApproveAccess,
+    validateIdParam,
+    validateRejectPlanAmendment,
+    rejectPlanAmendmentHandler
+);
+router.post(
+    "/plan-amendments/:id/cancel",
+    planAmendmentRequestAccess,
+    validateIdParam,
+    cancelPlanAmendmentHandler
 );
 
 router.get("/versions/:id/publish-for-review-readiness", checkPermission("PLAN", "PUBLISH_FOR_REVIEW"), validateIdParam, getPublishForReviewReadinessHandler);

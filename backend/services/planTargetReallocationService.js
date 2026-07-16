@@ -6,6 +6,8 @@ const {
   PlanVersion,
   PlanNode,
   TargetReallocationRequest,
+  TargetAllocationHistory,
+  PlanAmendment,
   sequelize,
 } = require("../models");
 const { resolveMasterVersionId } = require("./planReviewVisibilityService");
@@ -47,12 +49,62 @@ const {
   resolveOriginalTargetFromBaseline,
   computeReallocationReportingFields,
 } = require("../utils/planTargetReallocationBaselineUtils");
+const { AMENDMENT_TYPE } = require("../utils/planAmendmentTypes");
+const {
+  buildPendingApprovalAmendmentWorkflowFields,
+} = require("../utils/planAmendmentWorkflowUtils");
 const { AUDIT_MODULES, recordSystemAuditLog } = require("./auditLogService");
 const {
   emitTargetReallocationSubmittedEvent,
   emitTargetReallocationApprovedEvent,
   emitTargetReallocationRejectedEvent,
 } = require("./planTargetReallocationNotificationService");
+
+function buildReallocationAmendmentTitle(amount) {
+  return `Target Reallocation (${amount})`;
+}
+
+function mapAmendmentStatusToReallocationStatus(amendmentStatus) {
+  switch (String(amendmentStatus)) {
+    case "pending_approval":
+      return REALLOCATION_STATUS.PENDING;
+    case "approved":
+      return REALLOCATION_STATUS.APPROVED;
+    case "applied":
+      return REALLOCATION_STATUS.APPLIED;
+    case "rejected":
+      return REALLOCATION_STATUS.REJECTED;
+    case "cancelled":
+      return REALLOCATION_STATUS.CANCELLED;
+    default:
+      return REALLOCATION_STATUS.PENDING;
+  }
+}
+
+async function syncTargetReallocationRequestFromAmendment(requestId, transaction = null) {
+  const request = await TargetReallocationRequest.findByPk(requestId, { transaction });
+  if (!request?.plan_amendment_id) {
+    return request;
+  }
+
+  const amendment = await PlanAmendment.findByPk(request.plan_amendment_id, { transaction });
+  if (!amendment) {
+    return request;
+  }
+
+  await request.update(
+    {
+      status: mapAmendmentStatusToReallocationStatus(amendment.status),
+      reviewed_by: amendment.reviewed_by,
+      reviewed_at: amendment.reviewed_at,
+      review_comment: amendment.review_comment,
+      applied_at: amendment.applied_at,
+    },
+    { transaction }
+  );
+
+  return request;
+}
 
 async function loadExecutionPeriodVersion(periodVersionId, transaction) {
   const version = await PlanVersion.findByPk(periodVersionId, { transaction });
@@ -163,6 +215,11 @@ async function resolveReallocationExecutionContext(
     return { success: false, message: REALLOCATION_VALIDATION_MESSAGES.CROSS_KPI };
   }
 
+  if (transaction) {
+    await fromPeriodNode.reload({ transaction, lock: transaction.LOCK.UPDATE });
+    await toPeriodNode.reload({ transaction, lock: transaction.LOCK.UPDATE });
+  }
+
   const fromAccess = await resolveVersionExecutionAccess(
     snapshotFromPeriod.plan_version_id,
     transaction
@@ -226,6 +283,7 @@ function serializeTargetReallocationRequest(request, includes = {}) {
   return {
     id: plain.target_reallocation_request_id,
     target_reallocation_request_id: plain.target_reallocation_request_id,
+    plan_amendment_id: plain.plan_amendment_id ?? null,
     draft_id: plain.master_plan_version_id,
     master_plan_version_id: plain.master_plan_version_id,
     kpi_id: plain.annual_kpi_plan_node_id,
@@ -340,9 +398,36 @@ async function createTargetReallocationRequest(rawPayload, options = {}) {
     }
 
     const requestedAt = new Date();
+    const requestId = uuidv4();
+    const amendmentId = uuidv4();
+    const reason = String(payload.reason).trim();
+
+    await PlanAmendment.create(
+      {
+        plan_amendment_id: amendmentId,
+        master_plan_version_id: context.liveMasterVersionId,
+        title: buildReallocationAmendmentTitle(validation.amount),
+        description: reason,
+        amendment_type: AMENDMENT_TYPE.TARGET_REALLOCATION,
+        effective_date: null,
+        metadata: {
+          kpiId: payload.kpiId,
+          fromPeriodId: payload.fromPeriodId,
+          toPeriodId: payload.toPeriodId,
+          amount: validation.amount,
+          reason,
+          legacy_request_id: requestId,
+          target_reallocation_request_id: requestId,
+        },
+        ...buildPendingApprovalAmendmentWorkflowFields(user.user_id, requestedAt),
+      },
+      { transaction: t }
+    );
+
     const request = await TargetReallocationRequest.create(
       {
-        target_reallocation_request_id: uuidv4(),
+        target_reallocation_request_id: requestId,
+        plan_amendment_id: amendmentId,
         master_plan_version_id: context.liveMasterVersionId,
         execution_snapshot_root_id: context.snapshotRootId,
         annual_plan_version_id: context.fromPeriod.parent_plan_version_id,
@@ -352,7 +437,7 @@ async function createTargetReallocationRequest(rawPayload, options = {}) {
         from_period_plan_node_id: context.fromPeriodNode.plan_node_id,
         to_period_plan_node_id: context.toPeriodNode.plan_node_id,
         amount: validation.amount,
-        reason: String(payload.reason).trim(),
+        reason,
         ...buildPendingReallocationWorkflowFields(user.user_id, requestedAt),
       },
       { transaction: t }
@@ -375,6 +460,26 @@ async function createTargetReallocationRequest(rawPayload, options = {}) {
           reason: request.reason,
           status: request.status,
           movable_target: validation.movableTarget,
+          plan_amendment_id: amendmentId,
+        },
+        changedBy: user.user_id,
+        ipAddress,
+      },
+      t
+    );
+
+    await recordSystemAuditLog(
+      {
+        module: AUDIT_MODULES.PLANS,
+        action: "plan_amendment_submitted",
+        entityId: amendmentId,
+        entityLabel: buildReallocationAmendmentTitle(validation.amount),
+        summary: `Plan amendment submitted for approval: ${buildReallocationAmendmentTitle(validation.amount)}`,
+        previousValues: null,
+        newValues: {
+          amendment_type: AMENDMENT_TYPE.TARGET_REALLOCATION,
+          status: "pending_approval",
+          target_reallocation_request_id: requestId,
         },
         changedBy: user.user_id,
         ipAddress,
@@ -463,15 +568,18 @@ async function loadRequestReviewContext(request, transaction) {
     return { success: false, message: REALLOCATION_VALIDATION_MESSAGES.KPI_NOT_FOUND };
   }
 
+  const lockOptions =
+    transaction != null
+      ? { transaction, lock: transaction.LOCK.UPDATE }
+      : { transaction: null };
+
   const fromPeriodNode = await PlanNode.findByPk(request.from_period_plan_node_id, {
     include: [{ association: "planVersion" }],
-    transaction,
-    lock: transaction.LOCK.UPDATE,
+    ...lockOptions,
   });
   const toPeriodNode = await PlanNode.findByPk(request.to_period_plan_node_id, {
     include: [{ association: "planVersion" }],
-    transaction,
-    lock: transaction.LOCK.UPDATE,
+    ...lockOptions,
   });
 
   if (!fromPeriodNode || !toPeriodNode) {
@@ -697,6 +805,127 @@ async function approveTargetReallocationRequest(requestId, rawPayload = {}, opti
       };
     }
 
+    // Linked amendment: apply via amendment domain handler, sync both rows.
+    if (request.plan_amendment_id) {
+      const amendment = await PlanAmendment.findByPk(request.plan_amendment_id, {
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+      if (!amendment) {
+        await t.rollback();
+        return { success: false, message: "Linked plan amendment was not found" };
+      }
+
+      const {
+        prepareTargetReallocationChange,
+        applyPreparedTargetReallocation,
+      } = require("./planAmendment/targetReallocationDomain");
+      const {
+        resolveNextAmendmentVersion,
+        recordAmendmentHistoryRows,
+      } = require("./planAmendment/planAmendmentEngine");
+      const {
+        buildApprovedAmendmentWorkflowFields,
+        buildAppliedAmendmentWorkflowFields,
+        AMENDMENT_STATUS,
+      } = require("../utils/planAmendmentWorkflowUtils");
+
+      const prepared = await prepareTargetReallocationChange(amendment.metadata, t);
+      if (!prepared.success) {
+        await t.rollback();
+        return prepared;
+      }
+
+      const applyResult = await applyPreparedTargetReallocation(prepared, {
+        user,
+        transaction: t,
+      });
+      if (!applyResult.success) {
+        await t.rollback();
+        return applyResult;
+      }
+
+      const nextVersion = await resolveNextAmendmentVersion(
+        amendment.master_plan_version_id,
+        t
+      );
+      const reviewedAt = new Date();
+      const appliedAt = new Date();
+      const reviewComment = comment ? String(comment).trim() : null;
+
+      await amendment.update(
+        {
+          ...buildApprovedAmendmentWorkflowFields(user.user_id, reviewComment, reviewedAt),
+          ...buildAppliedAmendmentWorkflowFields(nextVersion, appliedAt),
+        },
+        { transaction: t }
+      );
+
+      await recordAmendmentHistoryRows(
+        amendment.plan_amendment_id,
+        applyResult.history || [],
+        user.user_id,
+        t,
+        appliedAt
+      );
+
+      await request.update(
+        {
+          ...buildApprovedReallocationWorkflowFields(user.user_id, reviewComment, reviewedAt),
+          ...buildAppliedReallocationWorkflowFields(appliedAt),
+        },
+        { transaction: t }
+      );
+
+      await recordSystemAuditLog(
+        {
+          module: AUDIT_MODULES.PLANS,
+          action: "plan_amendment_applied",
+          entityId: amendment.plan_amendment_id,
+          entityLabel: amendment.title,
+          summary: `Plan amendment approved and applied (v${nextVersion}): ${amendment.title}`,
+          previousValues: { status: AMENDMENT_STATUS.PENDING_APPROVAL },
+          newValues: {
+            status: AMENDMENT_STATUS.APPLIED,
+            version: nextVersion,
+            target_reallocation_request_id: request.target_reallocation_request_id,
+          },
+          changedBy: user.user_id,
+          ipAddress,
+        },
+        t
+      );
+
+      await t.commit();
+
+      try {
+        await emitTargetReallocationApprovedEvent(
+          {
+            request,
+            kpiTitle: applyResult.data?.kpi_title || reviewContext.liveAnnualKpi.title,
+            recipients: [{ user_id: request.requested_by }],
+            actor: user,
+          },
+          io
+        );
+      } catch (notifyError) {
+        console.error("Target reallocation approve notification failed:", notifyError.message);
+      }
+
+      return {
+        success: true,
+        message: "Target reallocation approved and applied",
+        data: serializeTargetReallocationRequest(request, {
+          from_period_target_before: applyResult.data.from_period_target_before,
+          to_period_target_before: applyResult.data.to_period_target_before,
+          from_period_target_after: applyResult.data.from_period_target_after,
+          to_period_target_after: applyResult.data.to_period_target_after,
+          annual_target: applyResult.data.annual_target,
+          plan_amendment_version: nextVersion,
+        }),
+      };
+    }
+
     const applyResult = await applyApprovedTargetReallocation(request, reviewContext, {
       user,
       ipAddress,
@@ -785,10 +1014,25 @@ async function rejectTargetReallocationRequest(requestId, rawPayload = {}, optio
     }
 
     const previousStatus = request.status;
+    const reviewComment = String(comment).trim();
     await request.update(
-      buildRejectedReallocationWorkflowFields(user.user_id, String(comment).trim()),
+      buildRejectedReallocationWorkflowFields(user.user_id, reviewComment),
       { transaction: t }
     );
+
+    if (request.plan_amendment_id) {
+      const { buildRejectedAmendmentWorkflowFields } = require("../utils/planAmendmentWorkflowUtils");
+      const amendment = await PlanAmendment.findByPk(request.plan_amendment_id, {
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+      if (amendment) {
+        await amendment.update(
+          buildRejectedAmendmentWorkflowFields(user.user_id, reviewComment),
+          { transaction: t }
+        );
+      }
+    }
 
     await recordSystemAuditLog(
       {
@@ -801,6 +1045,7 @@ async function rejectTargetReallocationRequest(requestId, rawPayload = {}, optio
         newValues: {
           status: request.status,
           review_comment: request.review_comment,
+          plan_amendment_id: request.plan_amendment_id,
         },
         changedBy: user.user_id,
         ipAddress,
@@ -860,6 +1105,19 @@ async function cancelTargetReallocationRequest(requestId, options = {}) {
     const previousStatus = request.status;
     await request.update(buildCancelledReallocationWorkflowFields(user.user_id), { transaction: t });
 
+    if (request.plan_amendment_id) {
+      const { buildCancelledAmendmentWorkflowFields } = require("../utils/planAmendmentWorkflowUtils");
+      const amendment = await PlanAmendment.findByPk(request.plan_amendment_id, {
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+      if (amendment) {
+        await amendment.update(buildCancelledAmendmentWorkflowFields(user.user_id), {
+          transaction: t,
+        });
+      }
+    }
+
     const liveAnnualKpi = await PlanNode.findByPk(request.annual_kpi_plan_node_id, { transaction: t });
 
     await recordSystemAuditLog(
@@ -870,7 +1128,10 @@ async function cancelTargetReallocationRequest(requestId, options = {}) {
         entityLabel: liveAnnualKpi?.title || "Target reallocation",
         summary: "Target reallocation request cancelled",
         previousValues: { status: previousStatus },
-        newValues: { status: request.status },
+        newValues: {
+          status: request.status,
+          plan_amendment_id: request.plan_amendment_id,
+        },
         changedBy: user.user_id,
         ipAddress,
       },
@@ -1275,7 +1536,10 @@ async function getPeriodTargetReallocationReporting(planVersionId, rawQuery = {}
 module.exports = {
   resolveReallocationExecutionContext,
   validateReallocationBusinessRules,
+  sumOtherSnapshotPeriodTargets,
   serializeTargetReallocationRequest,
+  syncTargetReallocationRequestFromAmendment,
+  mapAmendmentStatusToReallocationStatus,
   createTargetReallocationRequest,
   loadRequestReviewContext,
   applyApprovedTargetReallocation,

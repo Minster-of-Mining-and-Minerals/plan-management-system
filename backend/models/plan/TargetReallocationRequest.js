@@ -45,6 +45,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "reviewed_by",
         as: "reviewer",
       });
+      TargetReallocationRequest.belongsTo(models.PlanAmendment, {
+        foreignKey: "plan_amendment_id",
+        as: "planAmendment",
+      });
       TargetReallocationRequest.hasMany(models.TargetAllocationHistory, {
         foreignKey: "reference_id",
         as: "allocationHistories",
@@ -58,6 +62,10 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
+      },
+      plan_amendment_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
       },
       master_plan_version_id: {
         type: DataTypes.UUID,
