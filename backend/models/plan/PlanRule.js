@@ -73,6 +73,22 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: "CAP_100",
       },
+      /**
+       * Amendment platform policy (framework consults this instead of hardcoding).
+       * Defaults: completed periods locked, manual redistribution, no emergency,
+       * structural amendments allowed after execution, ownership transfer allowed.
+       */
+      amendment_policy: {
+        type: DataTypes.JSONB,
+        allowNull: false,
+        defaultValue: {
+          completed_periods_editable: false,
+          automatic_redistribution: "manual",
+          allow_emergency_approvals: false,
+          allow_structural_amendments_after_execution: true,
+          allow_ownership_transfer: true,
+        },
+      },
     },
     {
       sequelize,

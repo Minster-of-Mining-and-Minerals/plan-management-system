@@ -107,6 +107,11 @@ const {
     createPlanAmendmentHandler,
     submitPlanAmendmentHandler,
     previewPlanAmendmentHandler,
+    impactPlanAmendmentHandler,
+    listPlanAmendmentActionsHandler,
+    listPlanAmendmentHistoryHandler,
+    reportPlanAmendmentsHandler,
+    createCompensatingAmendmentHandler,
     approvePlanAmendmentHandler,
     rejectPlanAmendmentHandler,
     cancelPlanAmendmentHandler,
@@ -120,6 +125,8 @@ const {
     validateReviewPlanAmendment,
     validateRejectPlanAmendment,
     validateListPlanAmendmentsQuery,
+    validateReportingQuery,
+    validateCompensatingAmendment,
 } = require("../../validators/plan/planAmendmentValidator");
 
 const {
@@ -335,6 +342,12 @@ router.get(
     planAmendmentReadAccess,
     listPlanAmendmentTypesHandler
 );
+router.get(
+    "/plan-amendments/reporting",
+    planAmendmentReadAccess,
+    validateReportingQuery,
+    reportPlanAmendmentsHandler
+);
 router.post(
     "/plan-amendments",
     planAmendmentRequestAccess,
@@ -358,6 +371,24 @@ router.get(
     planAmendmentReadAccess,
     validateIdParam,
     previewPlanAmendmentHandler
+);
+router.get(
+    "/plan-amendments/:id/impact",
+    planAmendmentReadAccess,
+    validateIdParam,
+    impactPlanAmendmentHandler
+);
+router.get(
+    "/plan-amendments/:id/actions",
+    planAmendmentReadAccess,
+    validateIdParam,
+    listPlanAmendmentActionsHandler
+);
+router.get(
+    "/plan-amendments/:id/history",
+    planAmendmentReadAccess,
+    validateIdParam,
+    listPlanAmendmentHistoryHandler
 );
 router.post(
     "/plan-amendments/:id/submit",
@@ -384,6 +415,13 @@ router.post(
     planAmendmentRequestAccess,
     validateIdParam,
     cancelPlanAmendmentHandler
+);
+router.post(
+    "/plan-amendments/:id/compensate",
+    planAmendmentRequestAccess,
+    validateIdParam,
+    validateCompensatingAmendment,
+    createCompensatingAmendmentHandler
 );
 
 router.get("/versions/:id/publish-for-review-readiness", checkPermission("PLAN", "PUBLISH_FOR_REVIEW"), validateIdParam, getPublishForReviewReadinessHandler);

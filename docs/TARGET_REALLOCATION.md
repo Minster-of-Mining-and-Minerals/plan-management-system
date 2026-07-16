@@ -5,7 +5,8 @@ Controlled redistribution of **period targets** after execution has started. The
 > **Framework:** Target Reallocation is implemented as the first plugin of the
 > [Plan Amendment Framework](./PLAN_AMENDMENT_FRAMEWORK.md). Product UI continues to use
 > `/api/plan/target-reallocations*` (facade). That path dual-writes a linked `plan_amendments`
-> row. Prefer the facade for this feature; use `/plan-amendments` for new amendment types.
+> row and a single `plan_amendment_actions` row. Prefer the facade for this feature; use
+> `/plan-amendments` for new amendment types / multi-action packages.
 
 ## Permissions
 
@@ -25,7 +26,9 @@ Scope matches achievement-style rules: sector + plan assignment on the KPI branc
 Statuses are lowercase in the API/DB; UI may show uppercase labels.
 
 On create, a linked `plan_amendments` row is written (`status: pending_approval`,
-`amendment_type: target_reallocation`). Approve/reject/cancel keep both rows in sync.
+`amendment_type: target_reallocation`) plus one `plan_amendment_actions` row
+(`action_type: target_reallocation`, sequence 1). Approve/reject/cancel keep
+amendment, action, and request rows in sync.
 
 ## ID mapping
 

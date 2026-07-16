@@ -23,6 +23,10 @@ const engineSource = fs.readFileSync(
   path.join(root, "services/planAmendment/planAmendmentEngine.js"),
   "utf8"
 );
+const runnerSource = fs.readFileSync(
+  path.join(root, "services/planAmendment/planAmendmentActionRunner.js"),
+  "utf8"
+);
 
 class FakeTestAmendmentHandler extends PlanAmendmentHandler {
   get type() {
@@ -111,15 +115,17 @@ function runFakeHandlerPipelineTests() {
 function runEnginePipelineWiringTests() {
   assert.match(engineSource, /async function previewPlanAmendment\b/);
   assert.match(engineSource, /async function approvePlanAmendment\b/);
-  assert.match(engineSource, /async function resolveNextAmendmentVersion\b/);
-  assert.match(engineSource, /async function recordAmendmentHistoryRows\b/);
+  assert.match(engineSource, /resolveNextAmendmentVersion/);
+  assert.match(engineSource, /recordAmendmentHistoryRows/);
   assert.match(engineSource, /buildApprovedAmendmentWorkflowFields/);
   assert.match(engineSource, /buildAppliedAmendmentWorkflowFields/);
   assert.match(engineSource, /plan_amendment_applied/);
-  assert.match(engineSource, /PlanAmendmentHistory\.create/);
-  assert.match(engineSource, /handler\.validate/);
-  assert.match(engineSource, /handler\.preview/);
-  assert.match(engineSource, /handler\.apply/);
+  assert.match(engineSource, /applyAllActions/);
+  assert.match(engineSource, /previewAllActions/);
+  assert.match(runnerSource, /PlanAmendmentHistory\.create/);
+  assert.match(runnerSource, /handler\.validate/);
+  assert.match(runnerSource, /handler\.preview/);
+  assert.match(runnerSource, /handler\.apply/);
 
   const serialized = serializePlanAmendment({
     plan_amendment_id: "a1",

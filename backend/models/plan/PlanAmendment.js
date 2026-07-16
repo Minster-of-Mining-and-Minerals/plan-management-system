@@ -21,9 +21,21 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "plan_amendment_id",
         as: "histories",
       });
+      PlanAmendment.hasMany(models.PlanAmendmentAction, {
+        foreignKey: "plan_amendment_id",
+        as: "actions",
+      });
       PlanAmendment.hasOne(models.TargetReallocationRequest, {
         foreignKey: "plan_amendment_id",
         as: "targetReallocationRequest",
+      });
+      PlanAmendment.belongsTo(models.PlanAmendment, {
+        foreignKey: "compensates_amendment_id",
+        as: "compensatesAmendment",
+      });
+      PlanAmendment.hasMany(models.PlanAmendment, {
+        foreignKey: "compensates_amendment_id",
+        as: "compensatingAmendments",
       });
     }
   }
@@ -102,8 +114,30 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.DATE,
         allowNull: true,
       },
+      reason: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
+      effective_mode: {
+        type: DataTypes.ENUM("immediate", "next_period", "custom_date"),
+        allowNull: false,
+        defaultValue: "immediate",
+      },
       effective_date: {
         type: DataTypes.DATEONLY,
+        allowNull: true,
+      },
+      expected_version: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
+      is_package: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
+      compensates_amendment_id: {
+        type: DataTypes.UUID,
         allowNull: true,
       },
       version: {

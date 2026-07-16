@@ -55,6 +55,29 @@ class PlaceholderAmendmentHandler extends PlanAmendmentHandler {
       message: `${amendmentTypeLabel(this._type)} is registered but not available yet.`,
     };
   }
+
+  impact() {
+    return {
+      success: false,
+      message: `${amendmentTypeLabel(this._type)} is registered but not available yet.`,
+    };
+  }
+
+  conflictKeys() {
+    return { kpiIds: [], periodIds: [], departmentIds: [], entityKeys: [] };
+  }
+
+  async rollback() {
+    return {
+      success: false,
+      message:
+        "True rollback is not supported. Create a compensating amendment instead.",
+      compensation: {
+        strategy: "compensating_amendment",
+        supported: false,
+      },
+    };
+  }
 }
 
 module.exports = {

@@ -2,7 +2,11 @@
 
 const { v4: uuidv4 } = require("uuid");
 const { Op } = require("sequelize");
-const { PlanAmendment, PlanAmendmentHistory, sequelize } = require("../../models");
+const {
+  PlanAmendment,
+  PlanAmendmentAction,
+  sequelize,
+} = require("../../models");
 const { AMENDMENT_MESSAGES } = require("../../utils/planAmendmentMessages");
 const {
   AMENDMENT_TYPE,
@@ -22,6 +26,14 @@ const {
   buildAppliedAmendmentWorkflowFields,
 } = require("../../utils/planAmendmentWorkflowUtils");
 const {
+  normalizeActionInput,
+  normalizeEffectiveMode,
+  EFFECTIVE_MODE,
+  serializePlanAmendmentAction,
+  ACTION_STATUS,
+  sortActionsBySequence,
+} = require("../../utils/planAmendmentActionUtils");
+const {
   resolveAmendmentHandler,
   ensureDefaultAmendmentHandlers,
 } = require("./planAmendmentRegistry");
@@ -37,8 +49,69 @@ const {
   emitPlanAmendmentApprovedEvent,
   emitPlanAmendmentRejectedEvent,
 } = require("./planAmendmentNotificationService");
+const {
+  resolveActionHandlerOrError,
+  ensureAmendmentActions,
+  createAmendmentActions,
+  validateAllActions,
+  previewAllActions,
+  applyAllActions,
+  recordAmendmentHistoryRows,
+  loadAmendmentActions,
+  buildActionHandlerContext,
+} = require("./planAmendmentActionRunner");
+const {
+  loadAmendmentPolicyForMaster,
+  evaluateAmendmentPolicy,
+} = require("./planAmendmentPolicyService");
+const {
+  resolveEffectiveContext,
+  validateEffectiveDateForCreate,
+} = require("./planAmendmentEffectiveDate");
+const { detectAmendmentConflicts } = require("./planAmendmentConflictService");
+const { aggregateAmendmentImpact } = require("./planAmendmentImpactService");
+const {
+  resolveNextAmendmentVersion,
+  resolveCurrentAmendmentVersion,
+} = require("./planAmendmentVersionUtils");
+const {
+  getPlanAmendmentReporting,
+  getAmendmentHistory,
+  getAmendmentActions,
+} = require("./planAmendmentReportingService");
 
 function normalizeCreateAmendmentPayload(body = {}) {
+  const rawActions = Array.isArray(body.actions) ? body.actions : null;
+  const legacyType = normalizeAmendmentType(
+    body.amendmentType ?? body.amendment_type ?? body.type
+  );
+  const legacyMetadata =
+    body.metadata && typeof body.metadata === "object" && !Array.isArray(body.metadata)
+      ? body.metadata
+      : {};
+
+  let actions = null;
+  if (rawActions && rawActions.length) {
+    actions = rawActions.map((row, index) => normalizeActionInput(row, index));
+  } else if (legacyType) {
+    actions = [
+      normalizeActionInput(
+        {
+          actionType: legacyType,
+          metadata: legacyMetadata,
+          sequence: 1,
+        },
+        0
+      ),
+    ];
+  }
+
+  const reasonRaw = body.reason ?? body.amendmentReason ?? body.amendment_reason ?? null;
+  const description =
+    body.description != null && String(body.description).trim()
+      ? String(body.description).trim()
+      : null;
+
   return {
     draftId:
       body.draftId ??
@@ -47,19 +120,26 @@ function normalizeCreateAmendmentPayload(body = {}) {
       body.master_plan_version_id ??
       null,
     title: body.title != null ? String(body.title).trim() : "",
-    description:
-      body.description != null && String(body.description).trim()
-        ? String(body.description).trim()
-        : null,
-    amendmentType: normalizeAmendmentType(
-      body.amendmentType ?? body.amendment_type ?? body.type
+    description,
+    reason:
+      reasonRaw != null && String(reasonRaw).trim()
+        ? String(reasonRaw).trim()
+        : description,
+    amendmentType: legacyType || (actions?.[0]?.actionType ?? null),
+    metadata: legacyMetadata,
+    actions,
+    effectiveMode: normalizeEffectiveMode(
+      body.effectiveMode ?? body.effective_mode ?? EFFECTIVE_MODE.IMMEDIATE
     ),
-    metadata:
-      body.metadata && typeof body.metadata === "object" && !Array.isArray(body.metadata)
-        ? body.metadata
-        : {},
     effectiveDate: body.effectiveDate ?? body.effective_date ?? null,
-    /** When true (default for facade flows), create as pending_approval */
+    expectedVersion:
+      body.expectedVersion ?? body.expected_version ?? body.baseVersion ?? null,
+    compensatesAmendmentId:
+      body.compensatesAmendmentId ??
+      body.compensates_amendment_id ??
+      body.compensates ??
+      null,
+    emergency: body.emergency === true || body.isEmergency === true,
     submit:
       body.submit === true ||
       body.submitImmediately === true ||
@@ -82,7 +162,9 @@ function serializePlanAmendment(amendment, extras = {}) {
     master_plan_version_id: plain.master_plan_version_id,
     title: plain.title,
     description: plain.description,
+    reason: plain.reason ?? plain.description ?? null,
     amendment_type: plain.amendment_type,
+    is_package: Boolean(plain.is_package),
     status: plain.status,
     requested_by: plain.requested_by,
     requested_at: plain.requested_at,
@@ -91,7 +173,10 @@ function serializePlanAmendment(amendment, extras = {}) {
     review_comment: plain.review_comment,
     applied_at: plain.applied_at,
     cancelled_at: plain.cancelled_at,
+    effective_mode: plain.effective_mode ?? EFFECTIVE_MODE.IMMEDIATE,
     effective_date: plain.effective_date,
+    expected_version: plain.expected_version ?? null,
+    compensates_amendment_id: plain.compensates_amendment_id ?? null,
     version: plain.version,
     metadata: plain.metadata || {},
     created_at: plain.created_at,
@@ -108,37 +193,71 @@ async function loadPlanAmendment(amendmentId, transaction = null, { lock = false
 }
 
 function resolveHandlerOrError(amendmentType) {
-  ensureDefaultAmendmentHandlers();
-  const type = normalizeAmendmentType(amendmentType);
-  if (!type) {
-    return { success: false, message: AMENDMENT_MESSAGES.TYPE_UNKNOWN };
-  }
-
-  const handler = resolveAmendmentHandler(type);
-  if (!handler) {
-    return { success: false, message: AMENDMENT_MESSAGES.HANDLER_MISSING };
-  }
-
-  if (!handler.isAvailable()) {
-    return { success: false, message: AMENDMENT_MESSAGES.TYPE_UNAVAILABLE };
-  }
-
-  return { success: true, type, handler };
+  return resolveActionHandlerOrError(amendmentType);
 }
 
 /**
- * Create a plan amendment as draft or pending_approval.
- * Domain handler.validate is deferred to Step 3/4 (preview/apply).
+ * @deprecated Prefer buildActionHandlerContext. Kept for verify scripts / BC.
+ */
+function buildHandlerContext(amendment, user, transaction = null, options = {}) {
+  return {
+    amendment,
+    action: null,
+    metadata: amendment.metadata || {},
+    user,
+    transaction,
+    policy: options.policy ?? null,
+    effective: options.effective ?? null,
+    options,
+  };
+}
+
+async function preparePackageContext(amendment, user, options = {}) {
+  const actions = await ensureAmendmentActions(amendment, options.transaction ?? null);
+  const policy = await loadAmendmentPolicyForMaster(
+    amendment.master_plan_version_id,
+    options.transaction ?? null
+  );
+  const effectiveResult = resolveEffectiveContext(amendment);
+  if (!effectiveResult.success) {
+    return { success: false, message: effectiveResult.message };
+  }
+
+  const policyCheck = evaluateAmendmentPolicy(
+    policy,
+    actions.map((a) => ({ actionType: a.action_type })),
+    { emergency: options.emergency === true }
+  );
+  if (!policyCheck.valid) {
+    return {
+      success: false,
+      message: policyCheck.message,
+      details: { errors: policyCheck.errors, policy: policyCheck.policy },
+    };
+  }
+
+  return {
+    success: true,
+    actions,
+    policy: policyCheck.policy,
+    effective: effectiveResult.data,
+  };
+}
+
+/**
+ * Create a plan amendment package (one or more actions) as draft or pending_approval.
  */
 async function createPlanAmendment(rawPayload = {}, options = {}) {
   const payload = normalizeCreateAmendmentPayload(rawPayload);
   const { user, ipAddress = null, io = null } = options;
 
-  if (!payload.amendmentType) {
+  if (!payload.actions?.length) {
     const rawType = rawPayload.amendmentType ?? rawPayload.amendment_type ?? rawPayload.type;
     return {
       success: false,
-      message: rawType ? AMENDMENT_MESSAGES.TYPE_UNKNOWN : AMENDMENT_MESSAGES.TYPE_REQUIRED,
+      message: rawType
+        ? AMENDMENT_MESSAGES.TYPE_UNKNOWN
+        : AMENDMENT_MESSAGES.ACTIONS_REQUIRED || AMENDMENT_MESSAGES.TYPE_REQUIRED,
     };
   }
 
@@ -146,9 +265,29 @@ async function createPlanAmendment(rawPayload = {}, options = {}) {
     return { success: false, message: AMENDMENT_MESSAGES.TITLE_REQUIRED };
   }
 
-  const handlerResult = resolveHandlerOrError(payload.amendmentType);
-  if (!handlerResult.success) {
-    return handlerResult;
+  if (payload.effectiveMode == null) {
+    return {
+      success: false,
+      message: "Invalid effective mode. Use immediate, next_period, or custom_date.",
+    };
+  }
+
+  const effectiveCheck = validateEffectiveDateForCreate({
+    effectiveMode: payload.effectiveMode,
+    effectiveDate: payload.effectiveDate,
+  });
+  if (!effectiveCheck.valid) {
+    return { success: false, message: effectiveCheck.message };
+  }
+
+  for (const action of payload.actions) {
+    if (!action.actionType) {
+      return { success: false, message: AMENDMENT_MESSAGES.TYPE_UNKNOWN };
+    }
+    const handlerResult = resolveActionHandlerOrError(action.actionType);
+    if (!handlerResult.success) {
+      return handlerResult;
+    }
   }
 
   const createAsPending = payload.submit && !payload.asDraft;
@@ -162,24 +301,110 @@ async function createPlanAmendment(rawPayload = {}, options = {}) {
     }
 
     const master = scope.master;
+    const policy = await loadAmendmentPolicyForMaster(master.plan_version_id, t);
+    const policyCheck = evaluateAmendmentPolicy(policy, payload.actions, {
+      emergency: payload.emergency,
+    });
+    if (!policyCheck.valid) {
+      await t.rollback();
+      return {
+        success: false,
+        message: policyCheck.message,
+        details: { errors: policyCheck.errors },
+      };
+    }
+
     const now = new Date();
     const workflowFields = createAsPending
       ? buildPendingApprovalAmendmentWorkflowFields(user.user_id, now)
       : buildDraftAmendmentWorkflowFields(user.user_id, now);
 
+    const primaryType = payload.actions[0].actionType;
+    const isPackage = payload.actions.length > 1;
+    const amendmentId = uuidv4();
+
+    // BC: keep first action metadata on amendment.metadata for single-action / facade reads.
+    const packageMetadata =
+      payload.actions.length === 1
+        ? payload.actions[0].metadata
+        : {
+            package: true,
+            action_types: payload.actions.map((a) => a.actionType),
+            ...(payload.metadata || {}),
+          };
+
     const amendment = await PlanAmendment.create(
       {
-        plan_amendment_id: uuidv4(),
+        plan_amendment_id: amendmentId,
         master_plan_version_id: master.plan_version_id,
         title: payload.title,
         description: payload.description,
-        amendment_type: handlerResult.type,
+        reason: payload.reason,
+        amendment_type: primaryType,
+        is_package: isPackage,
+        effective_mode: payload.effectiveMode,
         effective_date: payload.effectiveDate,
-        metadata: payload.metadata,
+        expected_version:
+          payload.expectedVersion != null && payload.expectedVersion !== ""
+            ? Number(payload.expectedVersion)
+            : null,
+        compensates_amendment_id: payload.compensatesAmendmentId,
+        metadata: packageMetadata,
         ...workflowFields,
       },
       { transaction: t }
     );
+
+    const actionsResult = await createAmendmentActions(
+      amendmentId,
+      payload.actions,
+      t
+    );
+    if (!actionsResult.success) {
+      await t.rollback();
+      return actionsResult;
+    }
+
+    const prepared = {
+      actions: actionsResult.data,
+      policy: policyCheck.policy,
+      effective: effectiveCheck.effective,
+    };
+
+    if (createAsPending) {
+      const validation = await validateAllActions(amendment, prepared.actions, user, {
+        transaction: t,
+        policy: prepared.policy,
+        effective: prepared.effective,
+      });
+      if (!validation.valid) {
+        await t.rollback();
+        return {
+          success: false,
+          message: validation.message,
+          details: validation.details,
+        };
+      }
+
+      const conflicts = await detectAmendmentConflicts(
+        amendment,
+        prepared.actions,
+        user,
+        {
+          transaction: t,
+          policy: prepared.policy,
+          effective: prepared.effective,
+        }
+      );
+      if (!conflicts.valid) {
+        await t.rollback();
+        return {
+          success: false,
+          message: conflicts.message,
+          details: conflicts.details,
+        };
+      }
+    }
 
     await recordSystemAuditLog(
       {
@@ -193,7 +418,9 @@ async function createPlanAmendment(rawPayload = {}, options = {}) {
         previousValues: null,
         newValues: {
           amendment_type: amendment.amendment_type,
+          is_package: amendment.is_package,
           status: amendment.status,
+          action_count: prepared.actions.length,
           master_plan_version_id: amendment.master_plan_version_id,
         },
         changedBy: user.user_id,
@@ -223,6 +450,7 @@ async function createPlanAmendment(rawPayload = {}, options = {}) {
         : "Plan amendment draft created",
       data: serializePlanAmendment(amendment, {
         amendment_type_label: amendmentTypeLabel(amendment.amendment_type),
+        actions: prepared.actions.map((row) => serializePlanAmendmentAction(row)),
       }),
     };
   } catch (error) {
@@ -272,10 +500,43 @@ async function submitPlanAmendment(amendmentId, options = {}) {
       return { success: false, message: scope.message };
     }
 
-    const handlerResult = resolveHandlerOrError(amendment.amendment_type);
-    if (!handlerResult.success) {
+    const prepared = await preparePackageContext(amendment, user, { transaction: t });
+    if (!prepared.success) {
       await t.rollback();
-      return handlerResult;
+      return prepared;
+    }
+
+    const validation = await validateAllActions(amendment, prepared.actions, user, {
+      transaction: t,
+      policy: prepared.policy,
+      effective: prepared.effective,
+    });
+    if (!validation.valid) {
+      await t.rollback();
+      return {
+        success: false,
+        message: validation.message,
+        details: validation.details,
+      };
+    }
+
+    const conflicts = await detectAmendmentConflicts(
+      amendment,
+      prepared.actions,
+      user,
+      {
+        transaction: t,
+        policy: prepared.policy,
+        effective: prepared.effective,
+      }
+    );
+    if (!conflicts.valid) {
+      await t.rollback();
+      return {
+        success: false,
+        message: conflicts.message,
+        details: conflicts.details,
+      };
     }
 
     const now = new Date();
@@ -318,7 +579,9 @@ async function submitPlanAmendment(amendmentId, options = {}) {
     return {
       success: true,
       message: "Plan amendment submitted for approval",
-      data: serializePlanAmendment(amendment),
+      data: serializePlanAmendment(amendment, {
+        actions: prepared.actions.map((row) => serializePlanAmendmentAction(row)),
+      }),
     };
   } catch (error) {
     await t.rollback();
@@ -369,6 +632,17 @@ async function rejectPlanAmendment(amendmentId, rawPayload = {}, options = {}) {
     await amendment.update(
       buildRejectedAmendmentWorkflowFields(user.user_id, String(comment).trim()),
       { transaction: t }
+    );
+
+    await PlanAmendmentAction.update(
+      { status: ACTION_STATUS.CANCELLED },
+      {
+        where: {
+          plan_amendment_id: amendment.plan_amendment_id,
+          status: ACTION_STATUS.PENDING,
+        },
+        transaction: t,
+      }
     );
 
     await recordSystemAuditLog(
@@ -451,6 +725,17 @@ async function cancelPlanAmendment(amendmentId, options = {}) {
       transaction: t,
     });
 
+    await PlanAmendmentAction.update(
+      { status: ACTION_STATUS.CANCELLED },
+      {
+        where: {
+          plan_amendment_id: amendment.plan_amendment_id,
+          status: ACTION_STATUS.PENDING,
+        },
+        transaction: t,
+      }
+    );
+
     await recordSystemAuditLog(
       {
         module: AUDIT_MODULES.PLANS,
@@ -484,76 +769,19 @@ async function getPlanAmendmentById(amendmentId) {
   if (!amendment) {
     return { success: false, message: AMENDMENT_MESSAGES.AMENDMENT_NOT_FOUND };
   }
+
+  const actions = await ensureAmendmentActions(amendment);
   return {
     success: true,
     data: serializePlanAmendment(amendment, {
       amendment_type_label: amendmentTypeLabel(amendment.amendment_type),
+      actions: actions.map((row) => serializePlanAmendmentAction(row)),
     }),
   };
 }
 
-function buildHandlerContext(amendment, user, transaction = null, options = {}) {
-  return {
-    amendment,
-    metadata: amendment.metadata || {},
-    user,
-    transaction,
-    options,
-  };
-}
-
-async function resolveNextAmendmentVersion(masterPlanVersionId, transaction = null) {
-  const currentMax = await PlanAmendment.max("version", {
-    where: {
-      master_plan_version_id: masterPlanVersionId,
-      version: { [Op.ne]: null },
-    },
-    transaction,
-  });
-  return (Number(currentMax) || 0) + 1;
-}
-
-async function recordAmendmentHistoryRows(
-  amendmentId,
-  historyRows,
-  changedBy,
-  transaction,
-  changedAt = new Date()
-) {
-  const rows = Array.isArray(historyRows) ? historyRows : [];
-  if (!rows.length) {
-    return [];
-  }
-
-  const created = [];
-  for (const row of rows) {
-    const history = await PlanAmendmentHistory.create(
-      {
-        plan_amendment_history_id: uuidv4(),
-        plan_amendment_id: amendmentId,
-        entity_type: String(row.entity_type),
-        entity_id: row.entity_id,
-        field_name: String(row.field_name),
-        old_value:
-          row.old_value === undefined || row.old_value === null
-            ? null
-            : String(row.old_value),
-        new_value:
-          row.new_value === undefined || row.new_value === null
-            ? null
-            : String(row.new_value),
-        changed_at: changedAt,
-        changed_by: changedBy,
-      },
-      { transaction }
-    );
-    created.push(history);
-  }
-  return created;
-}
-
 /**
- * Read-only preview via the type handler. Does not mutate the plan.
+ * Read-only aggregated preview across all actions. Does not mutate the plan.
  */
 async function previewPlanAmendment(amendmentId, options = {}) {
   const { user } = options;
@@ -574,31 +802,17 @@ async function previewPlanAmendment(amendmentId, options = {}) {
     return { success: false, message: approveScope.message || scope.message };
   }
 
-  const handlerResult = resolveHandlerOrError(amendment.amendment_type);
-  if (!handlerResult.success) {
-    return handlerResult;
+  const prepared = await preparePackageContext(amendment, user);
+  if (!prepared.success) {
+    return prepared;
   }
 
-  const validation = await handlerResult.handler.validate(
-    buildHandlerContext(amendment, user)
-  );
-  if (!validation?.valid) {
-    return {
-      success: false,
-      message: validation?.message || AMENDMENT_MESSAGES.VALIDATION_FAILED,
-      details: validation?.details,
-    };
-  }
-
-  const preview = await handlerResult.handler.preview(
-    buildHandlerContext(amendment, user)
-  );
-  if (!preview?.success) {
-    return {
-      success: false,
-      message: preview?.message || AMENDMENT_MESSAGES.PREVIEW_FAILED,
-      details: preview?.data,
-    };
+  const preview = await previewAllActions(amendment, prepared.actions, user, {
+    policy: prepared.policy,
+    effective: prepared.effective,
+  });
+  if (!preview.success) {
+    return preview;
   }
 
   return {
@@ -606,14 +820,49 @@ async function previewPlanAmendment(amendmentId, options = {}) {
     data: {
       amendment: serializePlanAmendment(amendment, {
         amendment_type_label: amendmentTypeLabel(amendment.amendment_type),
+        actions: prepared.actions.map((row) => serializePlanAmendmentAction(row)),
       }),
-      preview: preview.data ?? null,
+      preview: preview.data,
+      // BC: single-action clients still receive top-level preview of first action
+      legacy_preview:
+        preview.data.actions?.length === 1 ? preview.data.actions[0].preview : null,
     },
   };
 }
 
+async function getPlanAmendmentImpact(amendmentId, options = {}) {
+  const { user } = options;
+  const amendment = await loadPlanAmendment(amendmentId);
+  if (!amendment) {
+    return { success: false, message: AMENDMENT_MESSAGES.AMENDMENT_NOT_FOUND };
+  }
+
+  const scope = await assertUserCanRequestAmendmentOnDraft(
+    user,
+    amendment.master_plan_version_id
+  );
+  const approveScope = scope.allowed
+    ? scope
+    : await assertUserCanApproveAmendmentOnDraft(user, amendment.master_plan_version_id);
+
+  if (!approveScope.allowed) {
+    return { success: false, message: approveScope.message || scope.message };
+  }
+
+  const prepared = await preparePackageContext(amendment, user);
+  if (!prepared.success) {
+    return prepared;
+  }
+
+  return aggregateAmendmentImpact(amendment, prepared.actions, user, {
+    policy: prepared.policy,
+    effective: prepared.effective,
+  });
+}
+
 /**
- * Approve auto-applies in one transaction: validate → apply → history → version → applied.
+ * Approve auto-applies all actions in one transaction.
+ * If any action fails, the entire amendment rolls back (DB transaction).
  */
 async function approvePlanAmendment(amendmentId, rawPayload = {}, options = {}) {
   const comment = rawPayload.comment ?? rawPayload.review_comment ?? null;
@@ -647,31 +896,48 @@ async function approvePlanAmendment(amendmentId, rawPayload = {}, options = {}) 
       return { success: false, message: scope.message };
     }
 
-    const handlerResult = resolveHandlerOrError(amendment.amendment_type);
-    if (!handlerResult.success) {
+    const prepared = await preparePackageContext(amendment, user, {
+      transaction: t,
+      emergency: rawPayload.emergency === true,
+    });
+    if (!prepared.success) {
       await t.rollback();
-      return handlerResult;
+      return prepared;
     }
 
-    const ctx = buildHandlerContext(amendment, user, t, { ipAddress, io });
-    const validation = await handlerResult.handler.validate(ctx);
-    if (!validation?.valid) {
+    const conflicts = await detectAmendmentConflicts(
+      amendment,
+      prepared.actions,
+      user,
+      {
+        transaction: t,
+        policy: prepared.policy,
+        effective: prepared.effective,
+      }
+    );
+    if (!conflicts.valid) {
       await t.rollback();
       return {
         success: false,
-        message: validation?.message || AMENDMENT_MESSAGES.VALIDATION_FAILED,
-        details: validation?.details,
+        message: conflicts.message,
+        details: conflicts.details,
       };
     }
 
-    const applyResult = await handlerResult.handler.apply(ctx);
-    if (!applyResult?.success) {
+    const applyResult = await applyAllActions(
+      amendment,
+      prepared.actions,
+      user,
+      t,
+      {
+        policy: prepared.policy,
+        effective: prepared.effective,
+        options: { ipAddress, io },
+      }
+    );
+    if (!applyResult.success) {
       await t.rollback();
-      return {
-        success: false,
-        message: applyResult?.message || AMENDMENT_MESSAGES.APPLY_FAILED,
-        details: applyResult?.data,
-      };
+      return applyResult;
     }
 
     const nextVersion = await resolveNextAmendmentVersion(
@@ -712,6 +978,7 @@ async function approvePlanAmendment(amendmentId, rawPayload = {}, options = {}) 
         newValues: {
           status: AMENDMENT_STATUS.APPLIED,
           version: nextVersion,
+          action_count: prepared.actions.length,
           review_comment: comment ? String(comment).trim() : null,
         },
         changedBy: user.user_id,
@@ -741,12 +1008,53 @@ async function approvePlanAmendment(amendmentId, rawPayload = {}, options = {}) 
       data: serializePlanAmendment(amendment, {
         amendment_type_label: amendmentTypeLabel(amendment.amendment_type),
         apply: applyResult.data ?? null,
+        actions: prepared.actions.map((row) => serializePlanAmendmentAction(row)),
       }),
     };
   } catch (error) {
     await t.rollback();
     throw error;
   }
+}
+
+/**
+ * Forward-only compensation: create a draft amendment that references an applied one.
+ * Does not reverse SQL or delete history.
+ */
+async function createCompensatingAmendment(originalAmendmentId, rawPayload = {}, options = {}) {
+  const original = await loadPlanAmendment(originalAmendmentId);
+  if (!original) {
+    return { success: false, message: AMENDMENT_MESSAGES.AMENDMENT_NOT_FOUND };
+  }
+  if (original.status !== AMENDMENT_STATUS.APPLIED) {
+    return {
+      success: false,
+      message: "Only applied amendments can be compensated.",
+    };
+  }
+
+  const title =
+    rawPayload.title != null && String(rawPayload.title).trim()
+      ? String(rawPayload.title).trim()
+      : `Compensating amendment for: ${original.title}`;
+
+  return createPlanAmendment(
+    {
+      draftId: original.master_plan_version_id,
+      title,
+      description: rawPayload.description ?? null,
+      reason: rawPayload.reason ?? `Compensation for amendment ${original.plan_amendment_id}`,
+      amendmentType: rawPayload.amendmentType ?? original.amendment_type,
+      actions: rawPayload.actions,
+      metadata: rawPayload.metadata ?? {},
+      effectiveMode: rawPayload.effectiveMode ?? EFFECTIVE_MODE.IMMEDIATE,
+      effectiveDate: rawPayload.effectiveDate ?? null,
+      compensatesAmendmentId: original.plan_amendment_id,
+      asDraft: true,
+      submit: false,
+    },
+    options
+  );
 }
 
 function normalizeListAmendmentsQuery(query = {}) {
@@ -828,8 +1136,16 @@ async function listPlanAmendments(rawQuery = {}) {
         association: "reviewer",
         attributes: ["user_id", "full_name", "email"],
       },
+      {
+        model: PlanAmendmentAction,
+        as: "actions",
+        required: false,
+      },
     ],
-    order: [[sortField, normalized.sortOrder]],
+    order: [
+      [sortField, normalized.sortOrder],
+      [{ model: PlanAmendmentAction, as: "actions" }, "sequence", "ASC"],
+    ],
     limit,
     offset,
     distinct: true,
@@ -842,6 +1158,9 @@ async function listPlanAmendments(rawQuery = {}) {
         amendment_type_label: amendmentTypeLabel(row.amendment_type),
         requester: row.requester || null,
         reviewer: row.reviewer || null,
+        actions: sortActionsBySequence(row.actions || []).map((action) =>
+          serializePlanAmendmentAction(action)
+        ),
       })
     ),
     pagination: {
@@ -861,15 +1180,26 @@ module.exports = {
   loadPlanAmendment,
   resolveHandlerOrError,
   buildHandlerContext,
+  buildActionHandlerContext,
   resolveNextAmendmentVersion,
+  resolveCurrentAmendmentVersion,
   recordAmendmentHistoryRows,
   createPlanAmendment,
   submitPlanAmendment,
   previewPlanAmendment,
+  getPlanAmendmentImpact,
   approvePlanAmendment,
   rejectPlanAmendment,
   cancelPlanAmendment,
   getPlanAmendmentById,
   listPlanAmendments,
+  createCompensatingAmendment,
+  getPlanAmendmentReporting,
+  getAmendmentHistory,
+  getAmendmentActions,
+  loadAmendmentActions,
+  ensureAmendmentActions,
   loadLiveMasterForAmendment,
+  ensureDefaultAmendmentHandlers,
+  resolveAmendmentHandler,
 };

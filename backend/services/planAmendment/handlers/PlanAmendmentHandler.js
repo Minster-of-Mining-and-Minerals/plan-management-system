@@ -3,9 +3,12 @@
 /**
  * @typedef {object} PlanAmendmentHandlerContext
  * @property {object} amendment - PlanAmendment instance or plain object
- * @property {object} metadata - Opaque amendment metadata (handler-owned shape)
+ * @property {object|null} [action] - PlanAmendmentAction instance (preferred)
+ * @property {object} metadata - Opaque action metadata (handler-owned shape)
  * @property {object} user - Acting user
  * @property {object|null} [transaction] - Sequelize transaction when applying
+ * @property {object} [policy] - Resolved amendment policy from Plan Rules
+ * @property {object} [effective] - Resolved effective-date context
  * @property {object} [options] - Extra engine options (io, ipAddress, etc.)
  */
 
@@ -21,6 +24,26 @@
  * @property {boolean} success
  * @property {string} [message]
  * @property {object} [data] - Handler-specific preview payload
+ */
+
+/**
+ * @typedef {object} PlanAmendmentImpactResult
+ * @property {boolean} success
+ * @property {string} [message]
+ * @property {object} [data]
+ * @property {string[]} [data.summary]
+ * @property {string[]} [data.kpiIds]
+ * @property {string[]} [data.departmentIds]
+ * @property {string[]} [data.periodIds]
+ * @property {object[]} [data.changes]
+ */
+
+/**
+ * @typedef {object} PlanAmendmentConflictKeys
+ * @property {string[]} [kpiIds]
+ * @property {string[]} [periodIds]
+ * @property {string[]} [departmentIds]
+ * @property {string[]} [entityKeys] - Opaque keys e.g. "kpi:<id>", "period:<id>"
  */
 
 /**
@@ -41,21 +64,22 @@
  */
 
 /**
- * Contract every amendment type handler must satisfy.
+ * Contract every amendment **action** handler must satisfy.
  * Handlers own metadata validation and domain mutations.
+ * The engine loops actions; one handler per action type.
  *
  * @interface PlanAmendmentHandler
  */
 class PlanAmendmentHandler {
   /**
-   * @returns {string} Canonical amendment type (e.g. target_reallocation)
+   * @returns {string} Canonical action type (e.g. target_reallocation)
    */
   get type() {
     throw new Error("PlanAmendmentHandler.type must be implemented");
   }
 
   /**
-   * Whether this type can be created in the product today.
+   * Whether this action type can be created in the product today.
    * @returns {boolean}
    */
   isAvailable() {
@@ -63,11 +87,11 @@ class PlanAmendmentHandler {
   }
 
   /**
-   * @param {string} amendmentType
+   * @param {string} actionType
    * @returns {boolean}
    */
-  supports(amendmentType) {
-    return String(amendmentType) === this.type;
+  supports(actionType) {
+    return String(actionType) === this.type;
   }
 
   /**
@@ -88,6 +112,41 @@ class PlanAmendmentHandler {
   }
 
   /**
+   * Read-only impact contribution for package-level aggregation. Must not persist.
+   * @param {PlanAmendmentHandlerContext} ctx
+   * @returns {Promise<PlanAmendmentImpactResult>|PlanAmendmentImpactResult}
+   */
+  async impact(ctx) {
+    const preview = await this.preview(ctx);
+    if (!preview?.success) {
+      return {
+        success: false,
+        message: preview?.message || "Impact analysis failed",
+      };
+    }
+    return {
+      success: true,
+      data: {
+        summary: [],
+        kpiIds: [],
+        departmentIds: [],
+        periodIds: [],
+        changes: [],
+        preview: preview.data ?? null,
+      },
+    };
+  }
+
+  /**
+   * Keys used by the conflict detector (overlapping pending amendments).
+   * @param {PlanAmendmentHandlerContext} _ctx
+   * @returns {Promise<PlanAmendmentConflictKeys>|PlanAmendmentConflictKeys}
+   */
+  conflictKeys(_ctx) {
+    return { kpiIds: [], periodIds: [], departmentIds: [], entityKeys: [] };
+  }
+
+  /**
    * Apply domain changes inside the engine transaction.
    * @param {PlanAmendmentHandlerContext} _ctx
    * @returns {Promise<PlanAmendmentApplyResult>|PlanAmendmentApplyResult}
@@ -97,12 +156,21 @@ class PlanAmendmentHandler {
   }
 
   /**
-   * Future: reverse an applied amendment.
+   * True rollback is not supported. Framework is forward-only.
+   * Handlers may describe a compensating amendment suggestion.
    * @param {PlanAmendmentHandlerContext} _ctx
-   * @returns {Promise<{ success: boolean, message?: string }>}
+   * @returns {Promise<{ success: boolean, message?: string, compensation?: object }>}
    */
   async rollback(_ctx) {
-    return { success: false, message: "Rollback is not implemented yet" };
+    return {
+      success: false,
+      message:
+        "True rollback is not supported. Create a compensating amendment instead.",
+      compensation: {
+        strategy: "compensating_amendment",
+        supported: false,
+      },
+    };
   }
 }
 

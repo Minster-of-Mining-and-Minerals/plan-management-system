@@ -6,11 +6,16 @@ const {
   createPlanAmendment,
   submitPlanAmendment,
   previewPlanAmendment,
+  getPlanAmendmentImpact,
   approvePlanAmendment,
   rejectPlanAmendment,
   cancelPlanAmendment,
   getPlanAmendmentById,
   listPlanAmendments,
+  createCompensatingAmendment,
+  getPlanAmendmentReporting,
+  getAmendmentHistory,
+  getAmendmentActions,
 } = require("../../services/planAmendment/planAmendmentEngine");
 const {
   getAmendmentHandlerCatalog,
@@ -41,6 +46,7 @@ async function createPlanAmendmentHandler(req, res) {
       return res.status(permissionFailureStatus(result.message)).json({
         success: false,
         message: result.message,
+        details: result.details,
       });
     }
 
@@ -66,6 +72,7 @@ async function submitPlanAmendmentHandler(req, res) {
       return res.status(permissionFailureStatus(result.message)).json({
         success: false,
         message: result.message,
+        details: result.details,
       });
     }
 
@@ -97,6 +104,127 @@ async function previewPlanAmendmentHandler(req, res) {
 
     return res.json({
       success: true,
+      data: result.data,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+async function impactPlanAmendmentHandler(req, res) {
+  try {
+    const { id } = req.params;
+    if (!isUuid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid amendment ID" });
+    }
+
+    const result = await getPlanAmendmentImpact(id, auditContext(req));
+    if (!result.success) {
+      return res.status(permissionFailureStatus(result.message)).json({
+        success: false,
+        message: result.message,
+        details: result.details,
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: result.data,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+async function listPlanAmendmentActionsHandler(req, res) {
+  try {
+    const { id } = req.params;
+    if (!isUuid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid amendment ID" });
+    }
+
+    const amendment = await getPlanAmendmentById(id);
+    if (!amendment.success) {
+      return res.status(404).json({ success: false, message: amendment.message });
+    }
+
+    const result = await getAmendmentActions(id);
+    return res.json({ success: true, data: result.data });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+async function listPlanAmendmentHistoryHandler(req, res) {
+  try {
+    const { id } = req.params;
+    if (!isUuid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid amendment ID" });
+    }
+
+    const amendment = await getPlanAmendmentById(id);
+    if (!amendment.success) {
+      return res.status(404).json({ success: false, message: amendment.message });
+    }
+
+    const actionId = req.query.actionId ?? req.query.action_id ?? null;
+    if (actionId && !isUuid(actionId)) {
+      return res.status(400).json({ success: false, message: "Invalid action ID" });
+    }
+
+    const result = await getAmendmentHistory(id, { actionId });
+    return res.json({ success: true, data: result.data });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+async function reportPlanAmendmentsHandler(req, res) {
+  try {
+    const draftId =
+      req.validatedQuery?.draftId ??
+      req.query.draftId ??
+      req.query.draft_id ??
+      req.query.master_plan_version_id ??
+      req.query.masterPlanVersionId;
+
+    if (!draftId || !isUuid(draftId)) {
+      return res.status(400).json({
+        success: false,
+        message: "draftId (master plan version) is required",
+      });
+    }
+
+    const result = await getPlanAmendmentReporting(draftId);
+    if (!result.success) {
+      return res.status(400).json({ success: false, message: result.message });
+    }
+
+    return res.json({ success: true, data: result.data });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+async function createCompensatingAmendmentHandler(req, res) {
+  try {
+    const { id } = req.params;
+    if (!isUuid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid amendment ID" });
+    }
+
+    const result = await createCompensatingAmendment(id, req.body, auditContext(req));
+    if (!result.success) {
+      return res.status(permissionFailureStatus(result.message)).json({
+        success: false,
+        message: result.message,
+        details: result.details,
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: result.message,
       data: result.data,
     });
   } catch (error) {
@@ -229,6 +357,11 @@ module.exports = {
   createPlanAmendmentHandler,
   submitPlanAmendmentHandler,
   previewPlanAmendmentHandler,
+  impactPlanAmendmentHandler,
+  listPlanAmendmentActionsHandler,
+  listPlanAmendmentHistoryHandler,
+  reportPlanAmendmentsHandler,
+  createCompensatingAmendmentHandler,
   approvePlanAmendmentHandler,
   rejectPlanAmendmentHandler,
   cancelPlanAmendmentHandler,

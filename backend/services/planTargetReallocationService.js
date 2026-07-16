@@ -8,6 +8,7 @@ const {
   TargetReallocationRequest,
   TargetAllocationHistory,
   PlanAmendment,
+  PlanAmendmentAction,
   sequelize,
 } = require("../models");
 const { resolveMasterVersionId } = require("./planReviewVisibilityService");
@@ -402,24 +403,41 @@ async function createTargetReallocationRequest(rawPayload, options = {}) {
     const amendmentId = uuidv4();
     const reason = String(payload.reason).trim();
 
+    const reallocationMetadata = {
+      kpiId: payload.kpiId,
+      fromPeriodId: payload.fromPeriodId,
+      toPeriodId: payload.toPeriodId,
+      amount: validation.amount,
+      reason,
+      legacy_request_id: requestId,
+      target_reallocation_request_id: requestId,
+    };
+
     await PlanAmendment.create(
       {
         plan_amendment_id: amendmentId,
         master_plan_version_id: context.liveMasterVersionId,
         title: buildReallocationAmendmentTitle(validation.amount),
         description: reason,
+        reason,
         amendment_type: AMENDMENT_TYPE.TARGET_REALLOCATION,
+        is_package: false,
+        effective_mode: "immediate",
         effective_date: null,
-        metadata: {
-          kpiId: payload.kpiId,
-          fromPeriodId: payload.fromPeriodId,
-          toPeriodId: payload.toPeriodId,
-          amount: validation.amount,
-          reason,
-          legacy_request_id: requestId,
-          target_reallocation_request_id: requestId,
-        },
+        metadata: reallocationMetadata,
         ...buildPendingApprovalAmendmentWorkflowFields(user.user_id, requestedAt),
+      },
+      { transaction: t }
+    );
+
+    await PlanAmendmentAction.create(
+      {
+        plan_amendment_action_id: uuidv4(),
+        plan_amendment_id: amendmentId,
+        action_type: AMENDMENT_TYPE.TARGET_REALLOCATION,
+        sequence: 1,
+        status: "pending",
+        metadata: reallocationMetadata,
       },
       { transaction: t }
     );
@@ -861,9 +879,29 @@ async function approveTargetReallocationRequest(requestId, rawPayload = {}, opti
         { transaction: t }
       );
 
+      const linkedAction = await PlanAmendmentAction.findOne({
+        where: { plan_amendment_id: amendment.plan_amendment_id },
+        order: [["sequence", "ASC"]],
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+      if (linkedAction) {
+        await linkedAction.update(
+          {
+            status: "applied",
+            applied_at: appliedAt,
+            error_message: null,
+          },
+          { transaction: t }
+        );
+      }
+
       await recordAmendmentHistoryRows(
         amendment.plan_amendment_id,
-        applyResult.history || [],
+        (applyResult.history || []).map((row) => ({
+          ...row,
+          plan_amendment_action_id: linkedAction?.plan_amendment_action_id ?? null,
+        })),
         user.user_id,
         t,
         appliedAt
@@ -1031,6 +1069,16 @@ async function rejectTargetReallocationRequest(requestId, rawPayload = {}, optio
           buildRejectedAmendmentWorkflowFields(user.user_id, reviewComment),
           { transaction: t }
         );
+        await PlanAmendmentAction.update(
+          { status: "cancelled" },
+          {
+            where: {
+              plan_amendment_id: amendment.plan_amendment_id,
+              status: "pending",
+            },
+            transaction: t,
+          }
+        );
       }
     }
 
@@ -1112,6 +1160,16 @@ async function cancelTargetReallocationRequest(requestId, options = {}) {
         lock: t.LOCK.UPDATE,
       });
       if (amendment) {
+        await PlanAmendmentAction.update(
+          { status: "cancelled" },
+          {
+            where: {
+              plan_amendment_id: amendment.plan_amendment_id,
+              status: "pending",
+            },
+            transaction: t,
+          }
+        );
         await amendment.update(buildCancelledAmendmentWorkflowFields(user.user_id), {
           transaction: t,
         });

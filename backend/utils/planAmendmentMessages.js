@@ -2,6 +2,7 @@
 
 const AMENDMENT_MESSAGES = Object.freeze({
   TYPE_REQUIRED: "Amendment type is required.",
+  ACTIONS_REQUIRED: "At least one amendment action is required.",
   TYPE_UNKNOWN: "Unknown amendment type.",
   TYPE_UNAVAILABLE: "This amendment type is registered but not available yet.",
   HANDLER_MISSING: "No handler is registered for this amendment type.",
@@ -20,6 +21,8 @@ const AMENDMENT_MESSAGES = Object.freeze({
   VALIDATION_FAILED: "Amendment validation failed.",
   APPLY_FAILED: "Amendment apply failed.",
   PREVIEW_FAILED: "Amendment preview failed.",
+  CONFLICT_DETECTED: "Conflicting pending amendment(s) detected.",
+  VERSION_MISMATCH: "Plan version mismatch. Refresh and retry.",
   PERMISSION_REQUEST: "Plan request amendment permission required.",
   PERMISSION_APPROVE: "Plan approve amendment permission required.",
   SCOPE_DENIED: "You do not have assignment scope on this plan to request amendments.",

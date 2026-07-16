@@ -9,6 +9,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "plan_amendment_id",
         as: "amendment",
       });
+      PlanAmendmentHistory.belongsTo(models.PlanAmendmentAction, {
+        foreignKey: "plan_amendment_action_id",
+        as: "action",
+      });
       PlanAmendmentHistory.belongsTo(models.User, {
         foreignKey: "changed_by",
         as: "changedByUser",
@@ -26,6 +30,10 @@ module.exports = (sequelize, DataTypes) => {
       plan_amendment_id: {
         type: DataTypes.UUID,
         allowNull: false,
+      },
+      plan_amendment_action_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
       },
       entity_type: {
         type: DataTypes.STRING(100),

@@ -1,14 +1,14 @@
 # Plan Amendment Framework
 
-Single mechanism for controlled changes to approved plans **after execution has started**.
+Enterprise change-management platform for controlled changes to approved plans **after execution has started**.
 
 ```text
 Effective Plan  =  Original Baseline  +  Applied Amendments (in version order)
 ```
 
-The approved baseline is never silently overwritten. Every post-start change is an amendment with audit history.
+The approved baseline is never silently overwritten. Every post-start change is an amendment package with audit history.
 
-This framework does **not** implement every amendment type. Types plug in via handlers. **Target Reallocation** is the first real implementation.
+**Target Reallocation** is the first production action type. The framework is complete for adding future types without engine redesign.
 
 See also: [TARGET_REALLOCATION.md](./TARGET_REALLOCATION.md)
 
@@ -18,12 +18,34 @@ See also: [TARGET_REALLOCATION.md](./TARGET_REALLOCATION.md)
 
 | Concept | Storage |
 |---------|---------|
-| Amendment envelope | `plan_amendments` |
-| Field-level audit | `plan_amendment_histories` |
-| Type-specific payload | `plan_amendments.metadata` (JSONB) — handlers own the shape |
+| Amendment package (envelope) | `plan_amendments` |
+| Actions inside a package | `plan_amendment_actions` |
+| Field-level audit | `plan_amendment_histories` (+ optional `plan_amendment_action_id`) |
+| Action payload | `plan_amendment_actions.metadata` (JSONB) — handlers own the shape |
+| Business reason | `plan_amendments.reason` — independent of actions |
+| Effective timing | `effective_mode` + `effective_date` |
 | Amendment sequence | `plan_amendments.version` (set on apply, unique per draft) |
+| Policy | `plan_rules.amendment_policy` |
 
 **Baseline** for period targets remains `plan_period_target_baselines` (captured at Start Process). Amendments change the **effective** execution snapshot, not the baseline rows.
+
+### Amendment package model
+
+```text
+Plan Amendment
+  title / reason / effective mode / date
+  ↓ contains one or more
+Plan Amendment Actions (ordered by sequence)
+  ↓ each executed by its handler
+```
+
+Example package:
+
+- Title: `FY2027 Budget Reduction`
+- Reason: `Budget Reduction`
+- Actions: Annual Target Revision → Target Reallocation → Ownership Transfer → KPI Deactivation
+
+One approval, one version, one audit trail, one effective date.
 
 ---
 
@@ -37,19 +59,20 @@ draft → cancelled
 ```
 
 - DB/API values are **lowercase** (`pending_approval`, `applied`, …).
-- **Approve auto-applies** in one transaction (`approved` is transient; response shows `applied`).
-- Target Reallocation facade statuses map: `pending_approval` ↔ `pending`.
+- **Approve auto-applies** all actions in one DB transaction (`approved` is transient; response shows `applied`).
+- If any action fails, the **entire amendment fails** (nothing partially applies).
+- Action statuses: `pending` → `applied` | `failed` | `cancelled`.
 
 ---
 
-## Amendment types
+## Action types (handlers)
 
 | Type | Available |
 |------|-----------|
 | `target_reallocation` | **Yes** |
 | `annual_target_revision` | Registered placeholder |
-| `budget_increase` | Registered placeholder |
-| `budget_reduction` | Registered placeholder |
+| `budget_increase` | Registered placeholder (prefer as **reason**, not action) |
+| `budget_reduction` | Registered placeholder (prefer as **reason**, not action) |
 | `kpi_addition` | Registered placeholder |
 | `kpi_removal` | Registered placeholder |
 | `owner_transfer` | Registered placeholder |
@@ -59,29 +82,40 @@ draft → cancelled
 
 Unavailable types reject create/validate with a clear “not available yet” message.
 
+**Reason ≠ action.** Reasons (budget cut, restructure, emergency) never determine execution. Only registered action handlers do.
+
 ---
 
 ## Plugin architecture
 
 ```text
 PlanAmendmentEngine
-  → resolve handler from registry by amendment_type
-  → validate / preview / apply
-  → write plan_amendment_histories
+  → load actions by sequence (+ dependency check)
+  → consult Plan Rules amendment_policy
+  → resolve effective mode/date
+  → detect conflicts (pending overlap / version mismatch)
+  → for each action:
+        resolve action handler
+        validate / preview / impact / apply
+  → write plan_amendment_histories (amendment + action level)
   → bump version + status
   → framework notifications + system audit
 ```
 
-### Handler contract (`PlanAmendmentHandler`)
+### Handler contract (`PlanAmendmentHandler` — one per **action** type)
 
 | Method | Responsibility |
 |--------|----------------|
 | `supports(type)` | Type match |
-| `isAvailable()` | Product can create this type today |
+| `isAvailable()` | Product can create this action today |
 | `validate(ctx)` | Metadata + domain rules (no writes) |
 | `preview(ctx)` | Proposed outcome (no writes) |
+| `impact(ctx)` | Contribution to package impact (no writes) |
+| `conflictKeys(ctx)` | KPI / period / entity keys for conflict detection |
 | `apply(ctx)` | Mutate domain inside engine transaction; return history rows |
-| `rollback(ctx)` | Stub for future |
+| `rollback(ctx)` | Stub — true rollback unsupported; describe compensating amendment |
+
+Context includes: `amendment`, `action`, `metadata`, `user`, `transaction`, `policy`, `effective`.
 
 Business logic lives **only** in handlers. The engine must not grow type-specific `switch` blocks.
 
@@ -89,10 +123,86 @@ Business logic lives **only** in handlers. The engine must not grow type-specifi
 
 1. Ensure the type exists in `utils/planAmendmentTypes.js` (and DB enum if new).
 2. Set `AMENDMENT_TYPE_AVAILABILITY[type] = true` when ready.
-3. Implement `YourHandler extends PlanAmendmentHandler` under `services/planAmendment/handlers/`.
+3. Implement `YourHandler extends PlanAmendmentHandler` under `services/planAmendment/handlers/` with validate / preview / impact / conflictKeys / apply.
 4. Register it in `planAmendmentRegistry.js` (replace the placeholder).
-5. Add verify coverage for validate / preview / apply math.
+5. Add a UI form and verify coverage.
 6. **Do not** change the engine for type-specific rules.
+
+After this platform work, adding a type requires only: **Action Handler + Validation + UI Form**.
+
+---
+
+## Effective date
+
+| Mode | Meaning |
+|------|---------|
+| `immediate` | Apply on approval |
+| `next_period` | Handlers honor “from next open period” |
+| `custom_date` | Requires `effective_date`; handlers honor the date |
+
+Framework stores mode/date; handlers decide domain application.
+
+---
+
+## Business policy (`plan_rules.amendment_policy`)
+
+| Key | Default |
+|-----|---------|
+| `completed_periods_editable` | `false` |
+| `automatic_redistribution` | `"manual"` |
+| `allow_emergency_approvals` | `false` |
+| `allow_structural_amendments_after_execution` | `true` |
+| `allow_ownership_transfer` | `true` |
+
+The framework consults Plan Rules instead of hardcoding these behaviors.
+
+---
+
+## Conflict detection
+
+Before submit/approve:
+
+- Another pending/draft amendment touching the same KPI / period / entity keys
+- `expected_version` mismatch vs current applied plan version
+
+Conflicting amendments are rejected with structured details. No silent concurrent edits.
+
+---
+
+## Impact analysis
+
+`GET /plan-amendments/:id/impact` aggregates handler impact contributions (read-only):
+
+- KPI / department / period counts
+- Change summaries
+- Next plan version number
+- Per-action impact payloads
+
+Nothing is modified.
+
+---
+
+## Preview
+
+`GET /plan-amendments/:id/preview` aggregates all actions into:
+
+```text
+current → effective → differences (per action)
+```
+
+Nothing is saved. Single-action clients also receive `legacy_preview` for the first action.
+
+---
+
+## Rollback strategy
+
+**True rollback is not supported.**
+
+History is forward-only. To reverse an applied package, create a **compensating amendment**:
+
+`POST /plan-amendments/:id/compensate`
+
+Links via `compensates_amendment_id`. No history deletion. No reverse SQL updates.
 
 ---
 
@@ -100,7 +210,7 @@ Business logic lives **only** in handlers. The engine must not grow type-specifi
 
 | Permission | Allows |
 |------------|--------|
-| `plan:request_amendment` | Create / submit / cancel |
+| `plan:request_amendment` | Create / submit / cancel / compensate |
 | `plan:approve_amendment` | Approve / reject |
 
 **Aliases (still valid):**  
@@ -119,16 +229,53 @@ Base path: `/api/plan`
 | Method | Path |
 |--------|------|
 | `GET` | `/plan-amendments/types` |
+| `GET` | `/plan-amendments/reporting?draftId=` |
 | `POST` | `/plan-amendments` |
 | `GET` | `/plan-amendments` |
 | `GET` | `/plan-amendments/:id` |
 | `GET` | `/plan-amendments/:id/preview` |
+| `GET` | `/plan-amendments/:id/impact` |
+| `GET` | `/plan-amendments/:id/actions` |
+| `GET` | `/plan-amendments/:id/history` |
 | `POST` | `/plan-amendments/:id/submit` |
 | `POST` | `/plan-amendments/:id/approve` |
 | `POST` | `/plan-amendments/:id/reject` |
 | `POST` | `/plan-amendments/:id/cancel` |
+| `POST` | `/plan-amendments/:id/compensate` |
 
-Create body (example):
+Create body (package example):
+
+```json
+{
+  "draftId": "<master_plan_version_id>",
+  "title": "FY2027 Budget Reduction",
+  "reason": "Budget Reduction",
+  "effectiveMode": "next_period",
+  "expectedVersion": 3,
+  "actions": [
+    {
+      "actionType": "annual_target_revision",
+      "sequence": 1,
+      "metadata": { "...": "..." }
+    },
+    {
+      "actionType": "target_reallocation",
+      "sequence": 2,
+      "dependsOnSequence": 1,
+      "metadata": {
+        "kpiId": "...",
+        "fromPeriodId": "...",
+        "toPeriodId": "...",
+        "amount": 10,
+        "reason": "Redistribute after annual cut"
+      }
+    }
+  ],
+  "submit": true
+}
+```
+
+Backward-compatible single-action create (still supported):
 
 ```json
 {
@@ -146,6 +293,15 @@ Create body (example):
 }
 ```
 
+### Reporting payload highlights
+
+`GET /plan-amendments/reporting?draftId=` returns:
+
+- Original baseline
+- Current effective plan / version
+- Applied amendments (package, reason, effective date, action summary)
+- Pending amendments
+
 ### Target Reallocation product facade (UI)
 
 Keep using:
@@ -156,7 +312,7 @@ Keep using:
 | `POST` | `/target-reallocations/:id/approve\|reject\|cancel` |
 | `GET` | `/versions/:id/period-target-reallocation-reporting` |
 
-These dual-write a linked `plan_amendments` row (`target_reallocation_requests.plan_amendment_id`) so clients stay stable while the framework owns the lifecycle.
+These dual-write a linked `plan_amendments` row **and** a single `plan_amendment_actions` row so clients stay stable while the framework owns the lifecycle.
 
 **Guidance:** leave Target Reallocation UI on the facade. New amendment types should use `/plan-amendments` only.
 
@@ -175,32 +331,24 @@ Deep link: `/plans/{masterId}?tab=hierarchy&focus=reallocation` (or `focus=amend
 
 ---
 
-## Target Reallocation metadata
-
-```json
-{
-  "kpiId": "<live annual KPI plan_node_id>",
-  "fromPeriodId": "<live execution period plan_version_id>",
-  "toPeriodId": "<live execution period plan_version_id>",
-  "amount": 10,
-  "reason": "...",
-  "legacy_request_id": "<optional target_reallocation_request_id>"
-}
-```
-
-Apply updates **snapshot** period KPI `period_target` values. Annual target is unchanged. When `legacy_request_id` is set, `target_allocation_histories` are dual-written for reporting compatibility.
-
----
-
 ## File map
 
 ```text
 backend/
   models/plan/PlanAmendment.js
+  models/plan/PlanAmendmentAction.js
   models/plan/PlanAmendmentHistory.js
+  migrations/20260814000001-plan-amendment-platform.js
   services/planAmendment/
     planAmendmentEngine.js
+    planAmendmentActionRunner.js
     planAmendmentRegistry.js
+    planAmendmentPolicyService.js
+    planAmendmentConflictService.js
+    planAmendmentImpactService.js
+    planAmendmentReportingService.js
+    planAmendmentEffectiveDate.js
+    planAmendmentVersionUtils.js
     planAmendmentScopeService.js
     planAmendmentNotificationService.js
     targetReallocationDomain.js
@@ -209,6 +357,7 @@ backend/
       placeholderHandlers.js
       targetReallocationHandler.js
   utils/planAmendmentTypes.js
+  utils/planAmendmentActionUtils.js
   utils/planAmendmentWorkflowUtils.js
   utils/planAmendmentPermissionUtils.js
   utils/planAmendmentMessages.js
@@ -216,10 +365,12 @@ backend/
   validators/plan/planAmendmentValidator.js
 ```
 
-Verify scripts: `scripts/verify-plan-amendment-step1.js` … `step8.js`.
+Verify scripts: `scripts/verify-plan-amendment-step1.js` … `step8.js`, plus `verify-plan-amendment-platform.js`.
 
 ---
 
-## Out of scope (placeholders only)
+## Out of scope (placeholders only — handlers not implemented)
 
-Annual target revision, KPI add/remove, owner transfer, timeline extension, budget increase/reduction, automatic redistribution, cross-year moves.
+Annual target revision, KPI add/remove, owner transfer, timeline extension, strategic cascade, emergency mode UI, automatic redistribution engines.
+
+These require only a new action handler + UI once productized.
