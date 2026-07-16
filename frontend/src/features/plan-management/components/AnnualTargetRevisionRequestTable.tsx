@@ -1,37 +1,25 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { ColumnDef } from "@tanstack/react-table";
+import { Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { actionFeedback } from "@/components/action-feedback";
-import { PermissionGuard } from "@/utils/PermissionGuard";
-import {
-  PLAN_APPROVE_AMENDMENT_PERMISSIONS,
-  PLAN_REQUEST_AMENDMENT_PERMISSIONS,
-} from "@/utils/planPermissionUtils";
-import {
-  useApprovePlanAmendmentMutation,
-  useCancelPlanAmendmentMutation,
-  useGetPlanAmendmentsQuery,
-  useRejectPlanAmendmentMutation,
-} from "@/redux/api/planApi";
+import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { TableLayout } from "@/features/template/component/tableList/TableLayout";
+import type { ActionButton, FilterField } from "@/types/tableLayout";
+import { useGetPlanAmendmentsQuery } from "@/redux/api/planApi";
 import type { PlanAmendment, PlanAmendmentStatus } from "@/redux/types/plan";
-import { useAuth } from "@/hooks/use-auth";
+import { matchesSearchQuery } from "@/utils/tableUtils";
 import { cn } from "@/lib/utils";
 
 type AnnualTargetRevisionRequestTableProps = {
   draftId: string;
   className?: string;
+  sideActions?: ActionButton[];
+  actions?: ActionButton[];
+  onViewRequest: (amendmentId: string) => void;
 };
 
 function formatDateTime(value: string | null | undefined): string {
@@ -78,272 +66,159 @@ function statusBadgeClass(status: PlanAmendmentStatus | string): string {
   }
 }
 
-function isPending(status: string): boolean {
-  return status === "pending_approval";
-}
-
-function ReviewActions({ amendment }: { amendment: PlanAmendment }) {
-  const [comment, setComment] = useState("");
-  const [approve, { isLoading: isApproving }] =
-    useApprovePlanAmendmentMutation();
-  const [reject, { isLoading: isRejecting }] = useRejectPlanAmendmentMutation();
-  const isSaving = isApproving || isRejecting;
-  const id = amendment.plan_amendment_id || amendment.id;
-
-  const handleApprove = async () => {
-    try {
-      await approve({
-        id,
-        comment: comment.trim() || undefined,
-      }).unwrap();
-      actionFeedback.success("Annual target revision approved and applied");
-      setComment("");
-    } catch (error: unknown) {
-      const err = error as { data?: { message?: string } };
-      actionFeedback.error(
-        err.data?.message || "Failed to approve annual target revision"
-      );
-    }
-  };
-
-  const handleReject = async () => {
-    if (!comment.trim()) {
-      actionFeedback.error("Comment is required when rejecting");
-      return;
-    }
-    if (
-      !(await actionFeedback.confirm("Reject this annual target revision?", {
-        destructive: true,
-      }))
-    ) {
-      return;
-    }
-
-    try {
-      await reject({ id, comment: comment.trim() }).unwrap();
-      actionFeedback.success("Annual target revision rejected");
-      setComment("");
-    } catch (error: unknown) {
-      const err = error as { data?: { message?: string } };
-      actionFeedback.error(
-        err.data?.message || "Failed to reject annual target revision"
-      );
-    }
-  };
-
-  return (
-    <PermissionGuard requireAll={PLAN_APPROVE_AMENDMENT_PERMISSIONS}>
-      <div className="mt-2 space-y-2 rounded-md border border-amber-100 bg-white px-3 py-2">
-        <div className="space-y-1">
-          <Label htmlFor={`atr-review-${id}`} className="text-xs">
-            Review comment
-          </Label>
-          <Textarea
-            id={`atr-review-${id}`}
-            value={comment}
-            onChange={(event) => setComment(event.target.value)}
-            rows={2}
-            placeholder="Optional for approve; required for reject"
-            className="text-sm"
-          />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" disabled={isSaving} onClick={handleApprove}>
-            Approve
-          </Button>
-          <Button
-            size="sm"
-            variant="destructive"
-            disabled={isSaving}
-            onClick={handleReject}
-          >
-            Reject
-          </Button>
-        </div>
-      </div>
-    </PermissionGuard>
-  );
-}
-
-function CancelButton({ amendment }: { amendment: PlanAmendment }) {
-  const { user } = useAuth();
-  const [cancel, { isLoading }] = useCancelPlanAmendmentMutation();
-  const id = amendment.plan_amendment_id || amendment.id;
-  const isRequester =
-    user?.user_id && user.user_id === amendment.requested_by;
-
-  if (!isRequester || !isPending(amendment.status)) {
-    return null;
-  }
-
-  const handleCancel = async () => {
-    if (
-      !(await actionFeedback.confirm(
-        "Cancel this pending annual target revision?",
-        { destructive: true }
-      ))
-    ) {
-      return;
-    }
-
-    try {
-      await cancel(id).unwrap();
-      actionFeedback.success("Annual target revision cancelled");
-    } catch (error: unknown) {
-      const err = error as { data?: { message?: string } };
-      actionFeedback.error(
-        err.data?.message || "Failed to cancel annual target revision"
-      );
-    }
-  };
-
-  return (
-    <PermissionGuard requireAll={PLAN_REQUEST_AMENDMENT_PERMISSIONS}>
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={isLoading}
-        onClick={handleCancel}
-        className="mt-2"
-      >
-        Cancel request
-      </Button>
-    </PermissionGuard>
-  );
-}
-
 export function AnnualTargetRevisionRequestTable({
   draftId,
   className,
+  sideActions = [],
+  actions = [],
+  onViewRequest,
 }: AnnualTargetRevisionRequestTableProps) {
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [search, setSearch] = useState("");
+  const searchParams = useSearchParams();
+  const searchQuery = searchParams.get("search") || "";
+  const [statusFilter, setStatusFilter] = useState("");
 
-  const queryParams = useMemo(
-    () => ({
+  const { data, isLoading } = useGetPlanAmendmentsQuery(
+    {
       draftId,
       amendmentType: "annual_target_revision",
-      status: statusFilter === "all" ? undefined : statusFilter,
-      limit: 50,
-    }),
-    [draftId, statusFilter]
-  );
-
-  const { data, isLoading, isFetching } = useGetPlanAmendmentsQuery(
-    queryParams,
+      limit: 100,
+    },
     { skip: !draftId }
   );
 
   const rows = useMemo(() => {
     const list = data?.data ?? [];
-    const term = search.trim().toLowerCase();
-    if (!term) return list;
     return list.filter((row) => {
-      const haystack = [
+      if (statusFilter && row.status !== statusFilter) return false;
+      return matchesSearchQuery(searchQuery, [
         row.title,
         row.reason,
         row.status,
         row.requester?.full_name,
         String(row.metadata?.kpiId ?? ""),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(term);
+        String(
+          row.metadata?.revisedAnnualTarget ??
+            row.metadata?.revised_annual_target ??
+            ""
+        ),
+      ]);
     });
-  }, [data?.data, search]);
+  }, [data?.data, searchQuery, statusFilter]);
+
+  const columns = useMemo<ColumnDef<PlanAmendment>[]>(
+    () => [
+      {
+        accessorKey: "title",
+        header: "Title",
+        cell: ({ row }) => (
+          <span className="font-medium text-primary">{row.original.title}</span>
+        ),
+      },
+      {
+        accessorKey: "reason",
+        header: "Reason",
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">
+            {row.original.reason || "—"}
+          </span>
+        ),
+      },
+      {
+        id: "revised",
+        header: "Revised target",
+        cell: ({ row }) => {
+          const revised =
+            row.original.metadata?.revisedAnnualTarget ??
+            row.original.metadata?.revised_annual_target;
+          return revised != null ? String(revised) : "—";
+        },
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => (
+          <div className="flex flex-wrap items-center gap-1">
+            <Badge
+              variant="outline"
+              className={cn(
+                "text-[10px]",
+                statusBadgeClass(row.original.status)
+              )}
+            >
+              {statusLabel(row.original.status)}
+            </Badge>
+            {row.original.version != null && (
+              <Badge variant="outline" className="text-[10px]">
+                v{row.original.version}
+              </Badge>
+            )}
+          </div>
+        ),
+      },
+      {
+        id: "requested",
+        header: "Requested",
+        cell: ({ row }) => (
+          <div className="text-xs text-muted-foreground">
+            <p>{row.original.requester?.full_name || "Unknown"}</p>
+            <p>{formatDateTime(row.original.requested_at)}</p>
+          </div>
+        ),
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => {
+          const id = row.original.plan_amendment_id || row.original.id;
+          return (
+            <Button
+              variant="ghost"
+              size="icon"
+              title="View"
+              onClick={() => onViewRequest(id)}
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+          );
+        },
+      },
+    ],
+    [onViewRequest]
+  );
+
+  const filters: FilterField[] = [
+    {
+      key: "status",
+      label: "Status",
+      type: "select",
+      placeholder: "All statuses",
+      value: statusFilter,
+      onChange: setStatusFilter,
+      options: [
+        { label: "Pending", value: "pending_approval" },
+        { label: "Applied", value: "applied" },
+        { label: "Rejected", value: "rejected" },
+        { label: "Cancelled", value: "cancelled" },
+        { label: "Draft", value: "draft" },
+      ],
+    },
+  ];
 
   return (
-    <div className={cn("space-y-3", className)}>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="pending_approval">Pending</SelectItem>
-              <SelectItem value="applied">Applied</SelectItem>
-              <SelectItem value="rejected">Rejected</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search title, reason…"
-            className="w-full sm:w-[240px]"
-          />
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {isLoading || isFetching
-            ? "Loading…"
-            : `${rows.length} request${rows.length === 1 ? "" : "s"}`}
-        </p>
-      </div>
-
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading requests…</p>
-      ) : rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No annual target revision requests yet.
-        </p>
-      ) : (
-        <ul className="divide-y rounded-lg border bg-white">
-          {rows.map((row) => {
-            const id = row.plan_amendment_id || row.id;
-            const revised =
-              row.metadata?.revisedAnnualTarget ??
-              row.metadata?.revised_annual_target;
-            return (
-              <li key={id} className="px-4 py-3">
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-medium">{row.title}</p>
-                    <Badge
-                      variant="outline"
-                      className={cn("text-[10px]", statusBadgeClass(row.status))}
-                    >
-                      {statusLabel(row.status)}
-                    </Badge>
-                    {row.version != null && (
-                      <Badge variant="outline" className="text-[10px]">
-                        v{row.version}
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {row.reason || "—"}
-                    {revised != null ? ` · Revised target ${revised}` : ""}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Requested by {row.requester?.full_name || "Unknown"} on{" "}
-                    {formatDateTime(row.requested_at)}
-                  </p>
-                  {(row.reviewer || row.review_comment) && (
-                    <p className="text-xs text-muted-foreground">
-                      Reviewed by {row.reviewer?.full_name || "Unknown"}
-                      {row.reviewed_at
-                        ? ` on ${formatDateTime(row.reviewed_at)}`
-                        : ""}
-                      {row.review_comment ? ` — ${row.review_comment}` : ""}
-                    </p>
-                  )}
-                </div>
-
-                {isPending(row.status) && (
-                  <>
-                    <ReviewActions amendment={row} />
-                    <CancelButton amendment={row} />
-                  </>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
+    <div className={cn("w-full", className)}>
+      <TableLayout
+        sideActions={sideActions}
+        actions={actions}
+        filters={filters}
+        filterColumnsPerRow={1}
+      >
+        <DataTable
+          columns={columns}
+          data={rows}
+          isLoading={isLoading}
+          resetKey={`${searchQuery}-${statusFilter}-${draftId}`}
+        />
+      </TableLayout>
     </div>
   );
 }

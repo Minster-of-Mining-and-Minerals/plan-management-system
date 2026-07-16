@@ -25,6 +25,7 @@ import {
     CalendarDays,
     Clock,
     ShieldCheck,
+    FilePenLine,
 } from "lucide-react";
 import { CreatePlanNodeModal } from "./modals/CreatePlanNodeModal";
 import { actionFeedback } from "@/components/action-feedback";
@@ -52,6 +53,7 @@ import { getExecutionStatusLabel, canEditPeriodActualForVersion, resolvePlanVers
 import { usePermissions } from "@/hooks/usePermissions";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import {
+    PLAN_AMENDMENT_TAB_PERMISSIONS,
     PLAN_FINALIZE_PERMISSIONS,
     PLAN_REVIEW_DASHBOARD_ACCESS_PERMISSIONS,
     PLAN_REVIEW_RAISE_PERMISSIONS,
@@ -99,15 +101,14 @@ import { PeriodTargetReallocationReportingProvider } from "@/hooks/usePeriodTarg
 import { PlanAchievementPendingPanel } from "./components/PlanAchievementPendingPanel";
 import { PlanAchievementPendingValidationPanel } from "./components/PlanAchievementPendingValidationPanel";
 import { PlanSectorPublishPanel } from "./components/PlanSectorPublishPanel";
-import { TargetReallocationSection } from "./components/TargetReallocationSection";
-import { AnnualTargetRevisionSection } from "./components/AnnualTargetRevisionSection";
+import { PlanAmendmentWorkspace } from "./components/PlanAmendmentWorkspace";
 import {
     collectPendingAchievementNodes,
     collectPendingValidationNodes,
 } from "@/utils/planAchievementHierarchyUtils";
 
 type ViewMode = "card" | "hierarchy" | "table";
-type PlanDetailTab = "hierarchy" | "annual" | "periods" | "review";
+type PlanDetailTab = "hierarchy" | "annual" | "periods" | "review" | "amendments";
 
 function getCurrentNodes(
     hierarchy: PlanNodeHierarchy[],
@@ -189,7 +190,7 @@ export default function PlanHierarchyView({
         masterVersion
     );
     const thresholds = usePerformanceColorThresholds();
-    const { can, canAny } = usePermissions();
+    const { can, canAny, isLoading: permissionsLoading } = usePermissions();
 
     const [viewMode, setViewMode] = useState<ViewMode>(() => {
         const view = searchParams.get("view");
@@ -197,7 +198,15 @@ export default function PlanHierarchyView({
     });
     const [activeTab, setActiveTab] = useState<PlanDetailTab>(() => {
         const tab = searchParams.get("tab");
-        return tab === "annual" || tab === "periods" || tab === "review" ? tab : "hierarchy";
+        if (
+            tab === "annual" ||
+            tab === "periods" ||
+            tab === "review" ||
+            tab === "amendments"
+        ) {
+            return tab;
+        }
+        return "hierarchy";
     });
     const [pathIds, setPathIds] = useState<string[]>([]);
     const [isModalOpen, setModalOpen] = useState(false);
@@ -252,6 +261,9 @@ export default function PlanHierarchyView({
         if (willDefaultToNonHierarchyTab) return false;
         if (showAnnualDashboard || showPeriodDashboard) {
             return activeTab === "hierarchy";
+        }
+        if (activeTab === "amendments") {
+            return false;
         }
         return true;
     }, [
@@ -359,6 +371,19 @@ export default function PlanHierarchyView({
               : false
     );
     const processStarted = Boolean(effectiveMasterVersion?.process_started_at);
+    const amendmentAnnualVersionId = isAnnualVersion
+        ? versionId
+        : isExecutionPeriod
+          ? annualParentId ?? null
+          : null;
+    const showAmendmentTab = Boolean(
+        processStarted &&
+            !isReviewMode &&
+            resolvedMasterVersionId &&
+            amendmentAnnualVersionId &&
+            (isAnnualVersion || isExecutionPeriod) &&
+            canAny(PLAN_AMENDMENT_TAB_PERMISSIONS)
+    );
     const pendingApprovalNodes = useMemo(
         () => (isExecutionPeriod && processStarted ? collectPendingAchievementNodes(hierarchy) : []),
         [hierarchy, isExecutionPeriod, processStarted]
@@ -419,7 +444,17 @@ export default function PlanHierarchyView({
             return;
         }
 
-        if (version.version_kind === "master" && version.status === "finalized") {
+        const tabFromUrl = searchParams.get("tab");
+        const focus = searchParams.get("focus");
+        const wantsAmendments =
+            tabFromUrl === "amendments" ||
+            focus === "reallocation" ||
+            focus === "annual-target-revision";
+
+        if (wantsAmendments) {
+            // Prefer amendments when deep-linked; visibility is enforced after processStarted resolves.
+            setActiveTab("amendments");
+        } else if (version.version_kind === "master" && version.status === "finalized") {
             setActiveTab("annual");
         } else if (
             version.version_kind === "annual" &&
@@ -431,7 +466,22 @@ export default function PlanHierarchyView({
         }
 
         appliedDefaultTabForVersion.current = versionId;
-    }, [version, versionId, masterVersion, resolvedMasterVersionId, annualParentId, annualParentVersion, showReviewTab, isReviewMode]);
+    }, [version, versionId, masterVersion, resolvedMasterVersionId, annualParentId, annualParentVersion, showReviewTab, isReviewMode, searchParams]);
+
+    useEffect(() => {
+        if (permissionsLoading) return;
+        if (!showAmendmentTab && activeTab === "amendments") {
+            setActiveTab(
+                showPeriodDashboard ? "periods" : showAnnualDashboard ? "annual" : "hierarchy"
+            );
+        }
+    }, [
+        permissionsLoading,
+        showAmendmentTab,
+        activeTab,
+        showPeriodDashboard,
+        showAnnualDashboard,
+    ]);
 
     const shouldFetchAnnualAllocations =
         shouldFetchHierarchy && isAnnualVersion && !annualTargetsFinalized;
@@ -698,6 +748,18 @@ export default function PlanHierarchyView({
         </div>
     );
 
+    const amendmentTabButton = showAmendmentTab ? (
+        <Button
+            variant={activeTab === "amendments" ? "default" : "ghost"}
+            size="sm"
+            className="gap-2 h-8"
+            onClick={() => setActiveTab("amendments")}
+        >
+            <FilePenLine className="h-4 w-4" />
+            Plan Amendment
+        </Button>
+    ) : null;
+
     const detailTabToggle = showAnnualDashboard ? (
         <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 flex-wrap">
             <Button
@@ -731,7 +793,7 @@ export default function PlanHierarchyView({
             )}
         </div>
     ) : showPeriodDashboard ? (
-        <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1">
+        <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 flex-wrap">
             <Button
                 variant={activeTab === "hierarchy" ? "default" : "ghost"}
                 size="sm"
@@ -750,6 +812,20 @@ export default function PlanHierarchyView({
                 <Clock className="h-4 w-4" />
                 Execution Periods
             </Button>
+            {amendmentTabButton}
+        </div>
+    ) : showAmendmentTab ? (
+        <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 flex-wrap">
+            <Button
+                variant={activeTab === "hierarchy" ? "default" : "ghost"}
+                size="sm"
+                className="gap-2 h-8"
+                onClick={() => setActiveTab("hierarchy")}
+            >
+                <ListTree className="h-4 w-4" />
+                Plan Hierarchy
+            </Button>
+            {amendmentTabButton}
         </div>
     ) : null;
 
@@ -919,32 +995,7 @@ export default function PlanHierarchyView({
                         configuredUnits={planningConfig?.target_units}
                         onNavigateToNode={handleViewDetails}
                     />
-                    {resolvedMasterVersionId && annualParentId && (
-                        <>
-                            <TargetReallocationSection
-                                draftId={resolvedMasterVersionId}
-                                annualVersionId={annualParentId}
-                            />
-                            <AnnualTargetRevisionSection
-                                draftId={resolvedMasterVersionId}
-                                annualVersionId={annualParentId}
-                            />
-                        </>
-                    )}
                 </div>
-            )}
-
-            {isAnnualVersion && processStarted && !isReviewMode && resolvedMasterVersionId && (
-                <>
-                    <TargetReallocationSection
-                        draftId={resolvedMasterVersionId}
-                        annualVersionId={versionId}
-                    />
-                    <AnnualTargetRevisionSection
-                        draftId={resolvedMasterVersionId}
-                        annualVersionId={versionId}
-                    />
-                </>
             )}
 
             {isReadOnlyHierarchy && isExecutionPeriod && !processStarted && !periodTargetsFinalized && (
@@ -1273,7 +1324,8 @@ export default function PlanHierarchyView({
                         versionId={versionId}
                         mode={isReviewMode ? "review" : "draft"}
                     />
-                    {(!showAnnualDashboard && !showPeriodDashboard || activeTab === "hierarchy") &&
+                    {((!showAnnualDashboard && !showPeriodDashboard && !showAmendmentTab) ||
+                        activeTab === "hierarchy") &&
                         hierarchyToolbar}
                 </div>
             </div>
@@ -1351,27 +1403,37 @@ export default function PlanHierarchyView({
                     <div className="p-4 sm:p-6 space-y-6">
                         {activeTab === "periods" ? (
                             version && (
-                                <>
-                                    {processStarted &&
-                                        resolvedMasterVersionId && (
-                                            <>
-                                                <TargetReallocationSection
-                                                    draftId={resolvedMasterVersionId}
-                                                    annualVersionId={versionId}
-                                                />
-                                                <AnnualTargetRevisionSection
-                                                    draftId={resolvedMasterVersionId}
-                                                    annualVersionId={versionId}
-                                                />
-                                            </>
-                                        )}
-                                    <ExecutionPeriodsDashboard
-                                        annualVersion={version}
-                                        masterVersion={masterVersion ?? undefined}
-                                        mode={mode}
-                                    />
-                                </>
+                                <ExecutionPeriodsDashboard
+                                    annualVersion={version}
+                                    masterVersion={masterVersion ?? undefined}
+                                    mode={mode}
+                                />
                             )
+                        ) : activeTab === "amendments" &&
+                          resolvedMasterVersionId &&
+                          amendmentAnnualVersionId ? (
+                            <PlanAmendmentWorkspace
+                                draftId={resolvedMasterVersionId}
+                                annualVersionId={amendmentAnnualVersionId}
+                            />
+                        ) : (
+                            hierarchyBody
+                        )}
+                    </div>
+                </div>
+            ) : showAmendmentTab ? (
+                <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+                    <div className="flex items-center justify-end px-4 py-3 border-b border-gray-100">
+                        {detailTabToggle}
+                    </div>
+                    <div className="p-4 sm:p-6 space-y-6">
+                        {activeTab === "amendments" &&
+                        resolvedMasterVersionId &&
+                        amendmentAnnualVersionId ? (
+                            <PlanAmendmentWorkspace
+                                draftId={resolvedMasterVersionId}
+                                annualVersionId={amendmentAnnualVersionId}
+                            />
                         ) : (
                             hierarchyBody
                         )}

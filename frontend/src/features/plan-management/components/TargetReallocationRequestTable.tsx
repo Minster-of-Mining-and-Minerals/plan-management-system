@@ -1,46 +1,30 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { ColumnDef } from "@tanstack/react-table";
+import { Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { actionFeedback } from "@/components/action-feedback";
-import { PermissionGuard } from "@/utils/PermissionGuard";
-import {
-  PLAN_APPROVE_TARGET_REALLOCATION_PERMISSIONS,
-  PLAN_REQUEST_TARGET_REALLOCATION_PERMISSIONS,
-} from "@/utils/planPermissionUtils";
-import {
-  useApproveTargetReallocationMutation,
-  useCancelTargetReallocationMutation,
-  useGetTargetReallocationsQuery,
-  useRejectTargetReallocationMutation,
-} from "@/redux/api/planApi";
-import type {
-  TargetReallocationRequest,
-  TargetReallocationStatus,
-} from "@/redux/types/plan";
+import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { TableLayout } from "@/features/template/component/tableList/TableLayout";
+import type { ActionButton, FilterField } from "@/types/tableLayout";
+import { useGetTargetReallocationsQuery } from "@/redux/api/planApi";
+import type { TargetReallocationRequest } from "@/redux/types/plan";
 import {
   TARGET_REALLOCATION_STATUS,
-  isPendingTargetReallocation,
   targetReallocationStatusBadgeClass,
   targetReallocationStatusLabel,
 } from "@/utils/planTargetReallocationWorkflowUtils";
-import { useAuth } from "@/hooks/use-auth";
+import { matchesSearchQuery } from "@/utils/tableUtils";
 import { cn } from "@/lib/utils";
 
 type TargetReallocationRequestTableProps = {
   draftId: string;
   className?: string;
+  sideActions?: ActionButton[];
+  actions?: ActionButton[];
+  onViewRequest: (requestId: string) => void;
 };
 
 function formatDateTime(value: string | null | undefined): string {
@@ -52,288 +36,147 @@ function formatDateTime(value: string | null | undefined): string {
   }
 }
 
-function RequestReviewActions({
-  request,
-}: {
-  request: TargetReallocationRequest;
-}) {
-  const [comment, setComment] = useState("");
-  const [approveRequest, { isLoading: isApproving }] =
-    useApproveTargetReallocationMutation();
-  const [rejectRequest, { isLoading: isRejecting }] =
-    useRejectTargetReallocationMutation();
-  const isSaving = isApproving || isRejecting;
-
-  const handleApprove = async () => {
-    try {
-      await approveRequest({
-        id: request.target_reallocation_request_id,
-        comment: comment.trim() || null,
-      }).unwrap();
-      actionFeedback.success("Target reallocation approved and applied");
-      setComment("");
-    } catch (error: unknown) {
-      const err = error as { data?: { message?: string } };
-      actionFeedback.error(
-        err.data?.message || "Failed to approve target reallocation"
-      );
-    }
-  };
-
-  const handleReject = async () => {
-    if (!comment.trim()) {
-      actionFeedback.error("Comment is required when rejecting a request");
-      return;
-    }
-    if (
-      !(await actionFeedback.confirm("Reject this target reallocation request?", {
-        destructive: true,
-      }))
-    ) {
-      return;
-    }
-
-    try {
-      await rejectRequest({
-        id: request.target_reallocation_request_id,
-        comment: comment.trim(),
-      }).unwrap();
-      actionFeedback.success("Target reallocation request rejected");
-      setComment("");
-    } catch (error: unknown) {
-      const err = error as { data?: { message?: string } };
-      actionFeedback.error(
-        err.data?.message || "Failed to reject target reallocation"
-      );
-    }
-  };
-
-  return (
-    <PermissionGuard requireAll={PLAN_APPROVE_TARGET_REALLOCATION_PERMISSIONS}>
-      <div className="mt-2 space-y-2 rounded-md border border-amber-100 bg-white px-3 py-2">
-        <div className="space-y-1">
-          <Label htmlFor={`review-comment-${request.id}`} className="text-xs">
-            Review comment
-          </Label>
-          <Textarea
-            id={`review-comment-${request.id}`}
-            value={comment}
-            onChange={(event) => setComment(event.target.value)}
-            rows={2}
-            placeholder="Optional for approve; required for reject"
-            className="text-sm"
-          />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" disabled={isSaving} onClick={handleApprove}>
-            Approve
-          </Button>
-          <Button
-            size="sm"
-            variant="destructive"
-            disabled={isSaving}
-            onClick={handleReject}
-          >
-            Reject
-          </Button>
-        </div>
-      </div>
-    </PermissionGuard>
-  );
-}
-
-function CancelRequestButton({ request }: { request: TargetReallocationRequest }) {
-  const { user } = useAuth();
-  const [cancelRequest, { isLoading }] = useCancelTargetReallocationMutation();
-  const isRequester = user?.user_id && user.user_id === request.requested_by;
-
-  if (!isRequester || !isPendingTargetReallocation(request.status)) {
-    return null;
-  }
-
-  const handleCancel = async () => {
-    if (
-      !(await actionFeedback.confirm("Cancel this pending target reallocation request?", {
-        destructive: true,
-      }))
-    ) {
-      return;
-    }
-
-    try {
-      await cancelRequest({ id: request.target_reallocation_request_id }).unwrap();
-      actionFeedback.success("Target reallocation request cancelled");
-    } catch (error: unknown) {
-      const err = error as { data?: { message?: string } };
-      actionFeedback.error(
-        err.data?.message || "Failed to cancel target reallocation"
-      );
-    }
-  };
-
-  return (
-    <PermissionGuard requireAll={PLAN_REQUEST_TARGET_REALLOCATION_PERMISSIONS}>
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={isLoading}
-        onClick={handleCancel}
-        className="mt-2"
-      >
-        Cancel request
-      </Button>
-    </PermissionGuard>
-  );
-}
-
 export function TargetReallocationRequestTable({
   draftId,
   className,
+  sideActions = [],
+  actions = [],
+  onViewRequest,
 }: TargetReallocationRequestTableProps) {
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [search, setSearch] = useState("");
+  const searchParams = useSearchParams();
+  const searchQuery = searchParams.get("search") || "";
+  const [statusFilter, setStatusFilter] = useState("");
 
-  const queryParams = useMemo(
-    () => ({
+  const { data, isLoading } = useGetTargetReallocationsQuery(
+    {
       draft_id: draftId,
-      status:
-        statusFilter === "all"
-          ? undefined
-          : (statusFilter as TargetReallocationStatus),
-      limit: 50,
+      limit: 100,
       sort_by: "requested_at",
-      sort_order: "DESC" as const,
-    }),
-    [draftId, statusFilter]
-  );
-
-  const { data, isLoading, isFetching } = useGetTargetReallocationsQuery(
-    queryParams,
+      sort_order: "DESC",
+    },
     { skip: !draftId }
   );
 
-  const requests = useMemo(() => {
-    const rows = data?.data ?? [];
-    const term = search.trim().toLowerCase();
-    if (!term) return rows;
-    return rows.filter((row) => {
-      const haystack = [
+  const rows = useMemo(() => {
+    const list = data?.data ?? [];
+    return list.filter((row) => {
+      if (statusFilter && row.status !== statusFilter) return false;
+      return matchesSearchQuery(searchQuery, [
         row.kpi_title,
         row.from_period_label,
         row.to_period_label,
         row.reason,
         row.requested_by_user?.full_name,
         row.status,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(term);
+      ]);
     });
-  }, [data?.data, search]);
+  }, [data?.data, searchQuery, statusFilter]);
+
+  const columns = useMemo<ColumnDef<TargetReallocationRequest>[]>(
+    () => [
+      {
+        accessorKey: "kpi_title",
+        header: "KPI",
+        cell: ({ row }) => (
+          <span className="font-medium text-primary">
+            {row.original.kpi_title || "KPI"}
+          </span>
+        ),
+      },
+      {
+        id: "move",
+        header: "From → To",
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">
+            {row.original.from_period_label || "Source"} →{" "}
+            {row.original.to_period_label || "Destination"}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "amount",
+        header: "Amount",
+        cell: ({ row }) => (
+          <span className="font-medium">{row.original.amount}</span>
+        ),
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => (
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-[10px]",
+              targetReallocationStatusBadgeClass(row.original.status)
+            )}
+          >
+            {targetReallocationStatusLabel(row.original.status)}
+          </Badge>
+        ),
+      },
+      {
+        id: "requested",
+        header: "Requested",
+        cell: ({ row }) => (
+          <div className="text-xs text-muted-foreground">
+            <p>{row.original.requested_by_user?.full_name || "Unknown"}</p>
+            <p>{formatDateTime(row.original.requested_at)}</p>
+          </div>
+        ),
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => (
+          <Button
+            variant="ghost"
+            size="icon"
+            title="View"
+            onClick={() =>
+              onViewRequest(row.original.target_reallocation_request_id)
+            }
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+        ),
+      },
+    ],
+    [onViewRequest]
+  );
+
+  const filters: FilterField[] = [
+    {
+      key: "status",
+      label: "Status",
+      type: "select",
+      placeholder: "All statuses",
+      value: statusFilter,
+      onChange: setStatusFilter,
+      options: [
+        { label: "Pending", value: TARGET_REALLOCATION_STATUS.PENDING },
+        { label: "Applied", value: TARGET_REALLOCATION_STATUS.APPLIED },
+        { label: "Rejected", value: TARGET_REALLOCATION_STATUS.REJECTED },
+        { label: "Cancelled", value: TARGET_REALLOCATION_STATUS.CANCELLED },
+      ],
+    },
+  ];
 
   return (
-    <div className={cn("space-y-3", className)}>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value={TARGET_REALLOCATION_STATUS.PENDING}>
-                Pending
-              </SelectItem>
-              <SelectItem value={TARGET_REALLOCATION_STATUS.APPLIED}>
-                Applied
-              </SelectItem>
-              <SelectItem value={TARGET_REALLOCATION_STATUS.REJECTED}>
-                Rejected
-              </SelectItem>
-              <SelectItem value={TARGET_REALLOCATION_STATUS.CANCELLED}>
-                Cancelled
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search KPI, period, reason…"
-            className="w-full sm:w-[240px]"
-          />
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {isLoading || isFetching
-            ? "Loading…"
-            : `${requests.length} request${requests.length === 1 ? "" : "s"}`}
-        </p>
-      </div>
-
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading requests…</p>
-      ) : requests.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No target reallocation requests yet.
-        </p>
-      ) : (
-        <ul className="divide-y rounded-lg border bg-white">
-          {requests.map((request) => (
-            <li key={request.target_reallocation_request_id} className="px-4 py-3">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-medium">
-                      {request.kpi_title || "KPI"}
-                    </p>
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "text-[10px]",
-                        targetReallocationStatusBadgeClass(request.status)
-                      )}
-                    >
-                      {targetReallocationStatusLabel(request.status)}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {request.from_period_label || "Source"} →{" "}
-                    {request.to_period_label || "Destination"} · Amount{" "}
-                    <span className="font-medium text-foreground">
-                      {request.amount}
-                    </span>
-                  </p>
-                  <p className="text-xs text-muted-foreground">{request.reason}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Requested by{" "}
-                    {request.requested_by_user?.full_name || "Unknown"} on{" "}
-                    {formatDateTime(request.requested_at)}
-                  </p>
-                  {(request.reviewed_by_user || request.review_comment) && (
-                    <p className="text-xs text-muted-foreground">
-                      Reviewed by{" "}
-                      {request.reviewed_by_user?.full_name || "Unknown"}
-                      {request.reviewed_at
-                        ? ` on ${formatDateTime(request.reviewed_at)}`
-                        : ""}
-                      {request.review_comment
-                        ? ` — ${request.review_comment}`
-                        : ""}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {isPendingTargetReallocation(request.status) && (
-                <>
-                  <RequestReviewActions request={request} />
-                  <CancelRequestButton request={request} />
-                </>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className={cn("w-full", className)}>
+      <TableLayout
+        sideActions={sideActions}
+        actions={actions}
+        filters={filters}
+        filterColumnsPerRow={1}
+      >
+        <DataTable
+          columns={columns}
+          data={rows}
+          isLoading={isLoading}
+          resetKey={`${searchQuery}-${statusFilter}-${draftId}`}
+        />
+      </TableLayout>
     </div>
   );
 }

@@ -840,7 +840,34 @@ export const planApi = baseApi.injectEndpoints({
                 );
                 return { url: "/plan/plan-amendments", params: cleanParams };
             },
+            transformResponse: (response: {
+                data?: PlanAmendment[];
+                pagination?: {
+                    page: number;
+                    limit: number;
+                    total: number;
+                    totalPages: number;
+                };
+            }) => ({
+                data: response.data ?? [],
+                pagination: response.pagination ?? {
+                    page: 1,
+                    limit: 20,
+                    total: 0,
+                    totalPages: 0,
+                },
+            }),
             providesTags: ["PlanAmendments"],
+        }),
+
+        getPlanAmendmentById: builder.query<PlanAmendment, string>({
+            query: (id) => ({ url: `/plan/plan-amendments/${id}` }),
+            transformResponse: (response: { data: PlanAmendment }) =>
+                response.data,
+            providesTags: (_r, _e, id) => [
+                { type: "PlanAmendments", id },
+                "PlanAmendments",
+            ],
         }),
 
         createAnnualTargetRevision: builder.mutation<
@@ -1269,6 +1296,7 @@ export const {
     useCancelTargetReallocationMutation,
     useGetPeriodTargetReallocationReportingQuery,
     useGetPlanAmendmentsQuery,
+    useGetPlanAmendmentByIdQuery,
     useCreateAnnualTargetRevisionMutation,
     useSubmitPlanAmendmentMutation,
     useLazyPreviewPlanAmendmentQuery,
