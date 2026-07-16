@@ -2250,6 +2250,15 @@ async function startPlanProcess(masterVersionId) {
         await lockLivePlanningVersions(masterVersionId, t);
         await initializeExecutionGate(snapshotMaster.plan_version_id, t);
 
+        const {
+            capturePeriodTargetBaselinesForSnapshot,
+        } = require("./planPeriodTargetBaselineService");
+        await capturePeriodTargetBaselinesForSnapshot(
+            masterVersionId,
+            snapshotMaster.plan_version_id,
+            t
+        );
+
         await t.commit();
         return {
             success: true,

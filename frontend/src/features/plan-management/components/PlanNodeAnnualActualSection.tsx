@@ -239,7 +239,9 @@ export function PlanNodeAnnualActualSection({
                     </Badge>
                 )}
                 <Badge variant="outline" className="text-[10px] py-0 h-4">
-                    {planAchievementStatusLabelForDisplay(status, hasValidationGate)}
+                    {planAchievementStatusLabelForDisplay(status, {
+                        hasValidationGate,
+                    })}
                 </Badge>
             </div>
 

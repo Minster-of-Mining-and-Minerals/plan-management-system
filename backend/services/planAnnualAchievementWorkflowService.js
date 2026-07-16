@@ -339,9 +339,6 @@ async function submitAnnualAchievement(planNodeId, annualActual, options = {}) {
     const saved = await PlanNode.findByPk(planNodeId, {
       include: [{ association: "planVersion" }],
     });
-    const rule = saved?.planVersion
-      ? await resolvePlanRuleForVersion(saved.planVersion)
-      : null;
     const plain = saved?.toJSON ? saved.toJSON() : saved;
     return {
       success: true,

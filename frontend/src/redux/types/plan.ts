@@ -237,6 +237,117 @@ export interface PeriodTargetAllocation {
     remaining_overall: number;
 }
 
+export type TargetReallocationStatus =
+    | "pending"
+    | "approved"
+    | "rejected"
+    | "cancelled"
+    | "applied";
+
+export interface TargetReallocationUserSummary {
+    user_id: string;
+    full_name: string;
+    email?: string;
+}
+
+export interface TargetReallocationRequest {
+    id: string;
+    target_reallocation_request_id: string;
+    draft_id: string;
+    master_plan_version_id: string;
+    kpi_id: string;
+    annual_kpi_plan_node_id: string;
+    annual_plan_version_id: string;
+    from_period_id: string;
+    from_period_version_id: string;
+    to_period_id: string;
+    to_period_version_id: string;
+    from_period_plan_node_id: string;
+    to_period_plan_node_id: string;
+    amount: number;
+    reason: string;
+    status: TargetReallocationStatus;
+    requested_by: string;
+    requested_at: string;
+    reviewed_by: string | null;
+    reviewed_at: string | null;
+    review_comment: string | null;
+    applied_at: string | null;
+    created_at: string;
+    updated_at: string;
+    kpi_title?: string | null;
+    from_period_label?: string | null;
+    to_period_label?: string | null;
+    requested_by_user?: TargetReallocationUserSummary | null;
+    reviewed_by_user?: TargetReallocationUserSummary | null;
+    movable_target?: number;
+    projected_from_target?: number;
+    projected_to_target?: number;
+    from_period_target_before?: number;
+    to_period_target_before?: number;
+    from_period_target_after?: number;
+    to_period_target_after?: number;
+    annual_target?: number;
+}
+
+export interface CreateTargetReallocationPayload {
+    draftId?: string;
+    kpiId: string;
+    fromPeriodId: string;
+    toPeriodId: string;
+    amount: number;
+    reason: string;
+}
+
+export interface ListTargetReallocationsParams {
+    draftId?: string;
+    draft_id?: string;
+    master_plan_version_id?: string;
+    kpiId?: string;
+    kpi_id?: string;
+    periodId?: string;
+    period_id?: string;
+    requestorId?: string;
+    status?: TargetReallocationStatus;
+    requestedFrom?: string;
+    requestedTo?: string;
+    page?: number;
+    limit?: number;
+    sort_by?: string;
+    sort_order?: "ASC" | "DESC" | "asc" | "desc";
+}
+
+export interface ListTargetReallocationsResponse {
+    data: TargetReallocationRequest[];
+    pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+    };
+}
+
+export interface PeriodTargetReallocationReportingItem {
+    annual_kpi_plan_node_id: string;
+    kpi_id: string;
+    kpi_title: string | null;
+    period_version_id: string;
+    period_id: string;
+    period_label: string | null;
+    snapshot_period_plan_node_id: string;
+    original_target: number | null;
+    current_target: number | null;
+    reallocated_out: number;
+    reallocated_in: number;
+    net_adjustment: number;
+}
+
+export interface PeriodTargetReallocationReportingResponse {
+    master_plan_version_id: string;
+    has_execution_snapshot: boolean;
+    items: PeriodTargetReallocationReportingItem[];
+}
+
 export interface AnnualTargetAllocation {
     plan_node_id: string;
     source_plan_node_id: string;

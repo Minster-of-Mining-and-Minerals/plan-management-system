@@ -87,6 +87,23 @@ const {
 } = require("../../controllers/plan/planAchievementController");
 
 const {
+    createTargetReallocationHandler,
+    approveTargetReallocationHandler,
+    rejectTargetReallocationHandler,
+    cancelTargetReallocationHandler,
+    listTargetReallocationsHandler,
+    getPeriodTargetReallocationReportingHandler,
+} = require("../../controllers/plan/planTargetReallocationController");
+
+const {
+    validateCreateTargetReallocation,
+    validateReviewTargetReallocation,
+    validateRejectTargetReallocation,
+    validateListTargetReallocationsQuery,
+    validatePeriodTargetReallocationReportingQuery,
+} = require("../../validators/plan/planTargetReallocationValidator");
+
+const {
     getPublishForReviewReadinessHandler,
     publishForReviewHandler,
     unlockForCorrectionsHandler,
@@ -139,6 +156,12 @@ const planStructureMutation = checkAnyPermission([
 const planReadAccess = checkAnyPermission([
     { resource: "PLANS", action: "READ" },
     { resource: "PLAN", action: "VIEW_ASSIGNED_REVIEW" },
+]);
+
+const targetReallocationReadAccess = checkAnyPermission([
+    { resource: "PLANS", action: "READ" },
+    { resource: "PLAN", action: "REQUEST_TARGET_REALLOCATION" },
+    { resource: "PLAN", action: "APPROVE_TARGET_REALLOCATION" },
 ]);
 
 const planRulesListAccess = checkAnyPermission([
@@ -198,6 +221,14 @@ router.get("/versions/:id/execution-period-readiness", planReadAccess, validateI
 router.post("/versions/:id/finalize-execution-periods", checkPermission("PLAN", "FINALIZE"), validateIdParam, finalizeExecutionPeriodTargetsHandler);
 router.post("/versions/:id/complete-period", checkPermission("PLAN", "COMPLETE_PERIOD"), validateIdParam, completeExecutionPeriodVersion);
 router.get("/versions/:id/period-target-allocations", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), listPeriodTargetAllocations);
+router.get(
+    "/versions/:id/period-target-reallocation-reporting",
+    planReadAccess,
+    validateIdParam,
+    requirePlanVersionReadAccess(),
+    validatePeriodTargetReallocationReportingQuery,
+    getPeriodTargetReallocationReportingHandler
+);
 router.get("/versions/:id/global-period-target-readiness", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), getGlobalPeriodTargetFinalizationReadinessHandler);
 router.post("/versions/:id/finalize-global-period-targets", checkPermission("PLAN", "FINALIZE"), validateIdParam, finalizeGlobalPeriodTargetsHandler);
 router.get("/versions/:id/start-process-readiness", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), getStartProcessReadinessHandler);
@@ -228,6 +259,38 @@ router.post(
     checkPermission("PLAN", "PUBLISH_SECTOR_AGGREGATION"),
     validateIdParam,
     rejectSectorAggregationPublishHandler
+);
+router.post(
+    "/target-reallocations",
+    checkPermission("PLAN", "REQUEST_TARGET_REALLOCATION"),
+    validateCreateTargetReallocation,
+    createTargetReallocationHandler
+);
+router.get(
+    "/target-reallocations",
+    targetReallocationReadAccess,
+    validateListTargetReallocationsQuery,
+    listTargetReallocationsHandler
+);
+router.post(
+    "/target-reallocations/:id/approve",
+    checkPermission("PLAN", "APPROVE_TARGET_REALLOCATION"),
+    validateIdParam,
+    validateReviewTargetReallocation,
+    approveTargetReallocationHandler
+);
+router.post(
+    "/target-reallocations/:id/reject",
+    checkPermission("PLAN", "APPROVE_TARGET_REALLOCATION"),
+    validateIdParam,
+    validateRejectTargetReallocation,
+    rejectTargetReallocationHandler
+);
+router.post(
+    "/target-reallocations/:id/cancel",
+    checkPermission("PLAN", "REQUEST_TARGET_REALLOCATION"),
+    validateIdParam,
+    cancelTargetReallocationHandler
 );
 
 router.get("/versions/:id/publish-for-review-readiness", checkPermission("PLAN", "PUBLISH_FOR_REVIEW"), validateIdParam, getPublishForReviewReadinessHandler);

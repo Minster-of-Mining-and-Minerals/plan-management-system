@@ -25,6 +25,11 @@ import {
     GetPlanNodesQueryParams,
     ReorderPlanNodesPayload,
     PlanNodeHierarchy,
+    TargetReallocationRequest,
+    CreateTargetReallocationPayload,
+    ListTargetReallocationsParams,
+    ListTargetReallocationsResponse,
+    PeriodTargetReallocationReportingResponse,
 } from "../types/plan";
 
 export const planApi = baseApi.injectEndpoints({
@@ -689,6 +694,122 @@ export const planApi = baseApi.injectEndpoints({
             ],
         }),
 
+        getTargetReallocations: builder.query<
+            ListTargetReallocationsResponse,
+            ListTargetReallocationsParams | void
+        >({
+            query: (params) => {
+                if (!params) return { url: "/plan/target-reallocations" };
+                const cleanParams = Object.fromEntries(
+                    Object.entries(params).filter(
+                        ([, v]) => v !== "" && v !== null && v !== undefined
+                    )
+                );
+                return Object.keys(cleanParams).length > 0
+                    ? { url: "/plan/target-reallocations", params: cleanParams }
+                    : { url: "/plan/target-reallocations" };
+            },
+            transformResponse: (response: {
+                data: TargetReallocationRequest[];
+                pagination: ListTargetReallocationsResponse["pagination"];
+            }): ListTargetReallocationsResponse => ({
+                data: response.data ?? [],
+                pagination: response.pagination ?? {
+                    page: 1,
+                    limit: 20,
+                    total: 0,
+                    totalPages: 0,
+                },
+            }),
+            providesTags: ["TargetReallocations"],
+        }),
+
+        createTargetReallocation: builder.mutation<
+            TargetReallocationRequest,
+            CreateTargetReallocationPayload
+        >({
+            query: (body) => ({
+                url: "/plan/target-reallocations",
+                method: "POST",
+                body,
+            }),
+            transformResponse: (response: { data: TargetReallocationRequest }) =>
+                response.data,
+            invalidatesTags: [
+                "TargetReallocations",
+                "PeriodTargetReallocationReporting",
+            ],
+        }),
+
+        approveTargetReallocation: builder.mutation<
+            TargetReallocationRequest,
+            { id: string; comment?: string | null }
+        >({
+            query: ({ id, comment }) => ({
+                url: `/plan/target-reallocations/${id}/approve`,
+                method: "POST",
+                body: { comment },
+            }),
+            transformResponse: (response: { data: TargetReallocationRequest }) =>
+                response.data,
+            invalidatesTags: [
+                "TargetReallocations",
+                "PeriodTargetReallocationReporting",
+                "PlanNodes",
+                "PeriodTargetAllocations",
+                "PlanVersions",
+            ],
+        }),
+
+        rejectTargetReallocation: builder.mutation<
+            TargetReallocationRequest,
+            { id: string; comment: string }
+        >({
+            query: ({ id, comment }) => ({
+                url: `/plan/target-reallocations/${id}/reject`,
+                method: "POST",
+                body: { comment },
+            }),
+            transformResponse: (response: { data: TargetReallocationRequest }) =>
+                response.data,
+            invalidatesTags: ["TargetReallocations"],
+        }),
+
+        cancelTargetReallocation: builder.mutation<
+            TargetReallocationRequest,
+            { id: string }
+        >({
+            query: ({ id }) => ({
+                url: `/plan/target-reallocations/${id}/cancel`,
+                method: "POST",
+            }),
+            transformResponse: (response: { data: TargetReallocationRequest }) =>
+                response.data,
+            invalidatesTags: ["TargetReallocations"],
+        }),
+
+        getPeriodTargetReallocationReporting: builder.query<
+            PeriodTargetReallocationReportingResponse,
+            { versionId: string; kpiId?: string }
+        >({
+            query: ({ versionId, kpiId }) => ({
+                url: `/plan/versions/${versionId}/period-target-reallocation-reporting`,
+                params: kpiId ? { kpiId } : undefined,
+            }),
+            transformResponse: (response: {
+                data: PeriodTargetReallocationReportingResponse;
+            }) =>
+                response.data ?? {
+                    master_plan_version_id: "",
+                    has_execution_snapshot: false,
+                    items: [],
+                },
+            providesTags: (_r, _e, { versionId }) => [
+                { type: "PeriodTargetReallocationReporting", id: versionId },
+                "PeriodTargetReallocationReporting",
+            ],
+        }),
+
         getStartProcessReadiness: builder.query<StartProcessReadiness, string>({
             query: (id) => `/plan/versions/${id}/start-process-readiness`,
             transformResponse: (response: { data: StartProcessReadiness }) => response.data,
@@ -945,6 +1066,12 @@ export const {
     useGetSectorAggregationPublishesQuery,
     usePublishSectorAggregationMutation,
     useRejectSectorAggregationPublishMutation,
+    useGetTargetReallocationsQuery,
+    useCreateTargetReallocationMutation,
+    useApproveTargetReallocationMutation,
+    useRejectTargetReallocationMutation,
+    useCancelTargetReallocationMutation,
+    useGetPeriodTargetReallocationReportingQuery,
     useStartPlanProcessMutation,
     useGetPublishForReviewReadinessQuery,
     usePublishForReviewMutation,

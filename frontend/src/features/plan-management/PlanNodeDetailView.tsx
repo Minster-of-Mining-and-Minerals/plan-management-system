@@ -80,6 +80,7 @@ import { formatPlanAssignmentButtonLabel } from "@/utils/planAssignmentUtils";
 import { PlanNodePeriodActualSection } from "./components/PlanNodePeriodActualSection";
 import { canEditPeriodActualForVersion } from "@/utils/planExecutionUtils";
 import { PlanAchievementScopeProvider } from "@/hooks/usePlanAchievementScope";
+import { PeriodTargetReallocationReportingProvider } from "@/hooks/usePeriodTargetReallocationReporting";
 
 interface PlanNodeDetailViewProps {
     versionId: string;
@@ -498,6 +499,10 @@ export default function PlanNodeDetailView({
             versionId={versionId}
             enabled={showPeriodActuals}
         >
+        <PeriodTargetReallocationReportingProvider
+            versionId={versionId}
+            enabled={showPeriodActuals}
+        >
         <div className="space-y-6 px-6 ">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -896,6 +901,7 @@ export default function PlanNodeDetailView({
             </>
             )}
         </div>
+        </PeriodTargetReallocationReportingProvider>
         </PlanAchievementScopeProvider>
     );
 }

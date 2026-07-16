@@ -1,6 +1,14 @@
 const { Notification } = require("../models");
 const { v4: uuidv4 } = require("uuid");
-const { onlineUsers } = require("../app");
+
+function getOnlineUsers() {
+  try {
+    // Lazy require to avoid circular dependency (app → routes → notification → app)
+    return require("../app").onlineUsers;
+  } catch {
+    return null;
+  }
+}
 
 function interpolateTemplate(template, variables = {}) {
   if (!template) return template;
@@ -18,6 +26,7 @@ function interpolateTemplate(template, variables = {}) {
 const sendNotification = async (recipients, payload, io = null) => {
   try {
     const notifications = [];
+    const onlineUsers = getOnlineUsers();
 
     for (const recipient of recipients) {
       const userId = recipient.user_id || recipient.id;

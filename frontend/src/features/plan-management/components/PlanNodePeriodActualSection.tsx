@@ -36,6 +36,7 @@ import {
 import { planAchievementExecutorHint } from "@/utils/planAchievementHierarchyUtils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { usePlanAchievementScope } from "@/hooks/usePlanAchievementScope";
+import { PeriodTargetReallocationIndicator } from "./PeriodTargetReallocationIndicator";
 
 const NARRATION_MAX = 1000;
 const VARIANCE_EPSILON = 0.001;
@@ -760,6 +761,11 @@ export function PlanNodePeriodActualSection({
                     </Badge>
                     {statusBadges}
                 </div>
+                <PeriodTargetReallocationIndicator
+                    node={node}
+                    configuredUnits={configuredUnits}
+                    variant="compact"
+                />
                 {statusNotice}
                 {achievementStatus === PLAN_ACHIEVEMENT_STATUS.REJECTED &&
                     node.period_actual_rejection_comment && (
@@ -792,6 +798,11 @@ export function PlanNodePeriodActualSection({
                 >
                     {periodActualValue ?? (isRollupEntry ? "—" : "Not recorded")}
                 </span>
+                <PeriodTargetReallocationIndicator
+                    node={node}
+                    configuredUnits={configuredUnits}
+                    variant="table"
+                />
                 {statusNotice}
                 {overrideActions}
                 {approvalActions}
@@ -861,6 +872,11 @@ export function PlanNodePeriodActualSection({
                     )}
                 </div>
             </div>
+            <PeriodTargetReallocationIndicator
+                node={node}
+                configuredUnits={configuredUnits}
+                variant="card"
+            />
             {overrideActions}
             {approvalActions}
             {validationActions}

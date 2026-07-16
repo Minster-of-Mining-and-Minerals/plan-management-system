@@ -95,9 +95,11 @@ import { isOversightReadOnlyAccessRole } from "@/utils/planTreeAccessUtils";
 import { PlanVersionSubNav } from "./components/PlanVersionSubNav";
 import { cn } from "@/lib/utils";
 import { PlanAchievementScopeProvider } from "@/hooks/usePlanAchievementScope";
+import { PeriodTargetReallocationReportingProvider } from "@/hooks/usePeriodTargetReallocationReporting";
 import { PlanAchievementPendingPanel } from "./components/PlanAchievementPendingPanel";
 import { PlanAchievementPendingValidationPanel } from "./components/PlanAchievementPendingValidationPanel";
 import { PlanSectorPublishPanel } from "./components/PlanSectorPublishPanel";
+import { TargetReallocationSection } from "./components/TargetReallocationSection";
 import {
     collectPendingAchievementNodes,
     collectPendingValidationNodes,
@@ -916,7 +918,20 @@ export default function PlanHierarchyView({
                         configuredUnits={planningConfig?.target_units}
                         onNavigateToNode={handleViewDetails}
                     />
+                    {resolvedMasterVersionId && annualParentId && (
+                        <TargetReallocationSection
+                            draftId={resolvedMasterVersionId}
+                            annualVersionId={annualParentId}
+                        />
+                    )}
                 </div>
+            )}
+
+            {isAnnualVersion && processStarted && !isReviewMode && resolvedMasterVersionId && (
+                <TargetReallocationSection
+                    draftId={resolvedMasterVersionId}
+                    annualVersionId={versionId}
+                />
             )}
 
             {isReadOnlyHierarchy && isExecutionPeriod && !processStarted && !periodTargetsFinalized && (
@@ -1169,6 +1184,10 @@ export default function PlanHierarchyView({
             versionId={versionId}
             enabled={Boolean((isExecutionPeriod || isAnnualVersion) && processStarted)}
         >
+        <PeriodTargetReallocationReportingProvider
+            versionId={versionId}
+            enabled={Boolean(isExecutionPeriod && processStarted)}
+        >
         <div className="space-y-6">
             {/* Header */}
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -1319,11 +1338,20 @@ export default function PlanHierarchyView({
                     <div className="p-4 sm:p-6 space-y-6">
                         {activeTab === "periods" ? (
                             version && (
-                                <ExecutionPeriodsDashboard
-                                    annualVersion={version}
-                                    masterVersion={masterVersion ?? undefined}
-                                    mode={mode}
-                                />
+                                <>
+                                    {processStarted &&
+                                        resolvedMasterVersionId && (
+                                            <TargetReallocationSection
+                                                draftId={resolvedMasterVersionId}
+                                                annualVersionId={versionId}
+                                            />
+                                        )}
+                                    <ExecutionPeriodsDashboard
+                                        annualVersion={version}
+                                        masterVersion={masterVersion ?? undefined}
+                                        mode={mode}
+                                    />
+                                </>
                             )
                         ) : (
                             hierarchyBody
@@ -1360,6 +1388,7 @@ export default function PlanHierarchyView({
                 />
             )}
         </div>
+        </PeriodTargetReallocationReportingProvider>
         </PlanAchievementScopeProvider>
     );
 }

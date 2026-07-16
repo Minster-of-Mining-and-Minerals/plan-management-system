@@ -1,9 +1,10 @@
 "use strict";
 
-const { PlanNode, sequelize } = require("../models");
+const { PlanNode, PlanVersion, sequelize } = require("../models");
 const { resolvePlanRuleForVersion } = require("./planRuleService");
 const { resolveVersionExecutionAccess } = require("./planExecutionGateService");
 const { validatePeriodTargetAllocation } = require("./planVersionLifecycleService");
+const { resolveMasterVersionId } = require("./planReviewVisibilityService");
 const {
   buildChildrenByParent,
   resolveManualAchievementEntry,
@@ -107,6 +108,22 @@ async function setPeriodTargetForExecutor(planNodeId, periodTarget, options = {}
     if (node.planVersion.version_kind !== "execution_period") {
       await t.rollback();
       return { success: false, message: "Period targets can only be set on execution period versions" };
+    }
+
+    const masterVersionIdForProcess = await resolveMasterVersionId(node.plan_version_id);
+    if (masterVersionIdForProcess) {
+      const liveMaster = await PlanVersion.findByPk(masterVersionIdForProcess, {
+        attributes: ["plan_version_id", "process_started_at"],
+        transaction: t,
+      });
+      if (liveMaster?.process_started_at) {
+        await t.rollback();
+        return {
+          success: false,
+          message:
+            "After execution has started, period targets can only change through Target Reallocation requests.",
+        };
+      }
     }
 
     const { masterVersionId, masterPlanNodeId } = await resolveAchievementScopeForPeriodNode(
@@ -424,9 +441,6 @@ async function submitAchievement(planNodeId, periodActual, options = {}) {
     const saved = await PlanNode.findByPk(planNodeId, {
       include: [{ association: "planVersion" }],
     });
-    const rule = saved?.planVersion
-      ? await resolvePlanRuleForVersion(saved.planVersion)
-      : null;
     const plain = saved?.toJSON ? saved.toJSON() : saved;
     return {
       success: true,
