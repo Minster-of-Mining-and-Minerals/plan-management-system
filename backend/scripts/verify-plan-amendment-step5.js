@@ -17,7 +17,10 @@ const serviceSource = fs.readFileSync(
   "utf8"
 );
 const migrationSource = fs.readFileSync(
-  path.join(root, "migrations/20260813000003-target-reallocation-amendment-link.js"),
+  path.join(
+    root,
+    "migrations/_legacy/pre_squash_20260716/20260813000003-target-reallocation-amendment-link.js"
+  ),
   "utf8"
 );
 const modelSource = fs.readFileSync(

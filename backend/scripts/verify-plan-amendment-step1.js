@@ -167,10 +167,16 @@ function runRegistryTests() {
   }
 
   const available = listAvailableAmendmentTypes();
-  assert.deepStrictEqual(available, [AMENDMENT_TYPE.TARGET_REALLOCATION]);
+  assert.deepStrictEqual(
+    [...available].sort(),
+    [AMENDMENT_TYPE.ANNUAL_TARGET_REVISION, AMENDMENT_TYPE.TARGET_REALLOCATION].sort()
+  );
 
   const targetHandler = resolveAmendmentHandler(AMENDMENT_TYPE.TARGET_REALLOCATION);
   assert.strictEqual(targetHandler.isAvailable(), true);
+
+  const annualHandler = resolveAmendmentHandler(AMENDMENT_TYPE.ANNUAL_TARGET_REVISION);
+  assert.strictEqual(annualHandler.isAvailable(), true);
 
   const budgetHandler = resolveAmendmentHandler(AMENDMENT_TYPE.BUDGET_INCREASE);
   assert.strictEqual(budgetHandler.isAvailable(), false);
@@ -183,7 +189,7 @@ function runRegistryTests() {
   const annualEntry = catalog.find(
     (row) => row.type === AMENDMENT_TYPE.ANNUAL_TARGET_REVISION
   );
-  assert.strictEqual(annualEntry.available, false);
+  assert.strictEqual(annualEntry.available, true);
 
   assert.ok(PlanAmendmentHandler);
 
@@ -193,13 +199,14 @@ function runRegistryTests() {
 }
 
 function runArtifactTests() {
+  const legacyDir = path.join(root, "migrations/_legacy/pre_squash_20260716");
   const migrationTables = path.join(
-    root,
-    "migrations/20260813000001-plan-amendment-tables.js"
+    legacyDir,
+    "20260813000001-plan-amendment-tables.js"
   );
   const migrationPerms = path.join(
-    root,
-    "migrations/20260813000002-plan-amendment-permissions.js"
+    legacyDir,
+    "20260813000002-plan-amendment-permissions.js"
   );
   assert.ok(fs.existsSync(migrationTables));
   assert.ok(fs.existsSync(migrationPerms));

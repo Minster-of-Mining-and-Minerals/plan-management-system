@@ -100,6 +100,7 @@ import { PlanAchievementPendingPanel } from "./components/PlanAchievementPending
 import { PlanAchievementPendingValidationPanel } from "./components/PlanAchievementPendingValidationPanel";
 import { PlanSectorPublishPanel } from "./components/PlanSectorPublishPanel";
 import { TargetReallocationSection } from "./components/TargetReallocationSection";
+import { AnnualTargetRevisionSection } from "./components/AnnualTargetRevisionSection";
 import {
     collectPendingAchievementNodes,
     collectPendingValidationNodes,
@@ -919,19 +920,31 @@ export default function PlanHierarchyView({
                         onNavigateToNode={handleViewDetails}
                     />
                     {resolvedMasterVersionId && annualParentId && (
-                        <TargetReallocationSection
-                            draftId={resolvedMasterVersionId}
-                            annualVersionId={annualParentId}
-                        />
+                        <>
+                            <TargetReallocationSection
+                                draftId={resolvedMasterVersionId}
+                                annualVersionId={annualParentId}
+                            />
+                            <AnnualTargetRevisionSection
+                                draftId={resolvedMasterVersionId}
+                                annualVersionId={annualParentId}
+                            />
+                        </>
                     )}
                 </div>
             )}
 
             {isAnnualVersion && processStarted && !isReviewMode && resolvedMasterVersionId && (
-                <TargetReallocationSection
-                    draftId={resolvedMasterVersionId}
-                    annualVersionId={versionId}
-                />
+                <>
+                    <TargetReallocationSection
+                        draftId={resolvedMasterVersionId}
+                        annualVersionId={versionId}
+                    />
+                    <AnnualTargetRevisionSection
+                        draftId={resolvedMasterVersionId}
+                        annualVersionId={versionId}
+                    />
+                </>
             )}
 
             {isReadOnlyHierarchy && isExecutionPeriod && !processStarted && !periodTargetsFinalized && (
@@ -1341,10 +1354,16 @@ export default function PlanHierarchyView({
                                 <>
                                     {processStarted &&
                                         resolvedMasterVersionId && (
-                                            <TargetReallocationSection
-                                                draftId={resolvedMasterVersionId}
-                                                annualVersionId={versionId}
-                                            />
+                                            <>
+                                                <TargetReallocationSection
+                                                    draftId={resolvedMasterVersionId}
+                                                    annualVersionId={versionId}
+                                                />
+                                                <AnnualTargetRevisionSection
+                                                    draftId={resolvedMasterVersionId}
+                                                    annualVersionId={versionId}
+                                                />
+                                            </>
                                         )}
                                     <ExecutionPeriodsDashboard
                                         annualVersion={version}

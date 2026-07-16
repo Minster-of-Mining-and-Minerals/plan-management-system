@@ -68,7 +68,10 @@ const runnerSource = fs.readFileSync(
   "utf8"
 );
 const migrationSource = fs.readFileSync(
-  path.join(root, "migrations/20260814000001-plan-amendment-platform.js"),
+  path.join(
+    root,
+    "migrations/_legacy/pre_squash_20260716/20260814000001-plan-amendment-platform.js"
+  ),
   "utf8"
 );
 const facadeSource = fs.readFileSync(

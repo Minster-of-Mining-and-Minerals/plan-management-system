@@ -84,6 +84,8 @@ export const baseApi = createApi({
     "PeriodTargetAllocations",
     "TargetReallocations",
     "PeriodTargetReallocationReporting",
+    "PlanAmendments",
+    "AnnualTargetRevisionReporting",
     "PlanAchievementWorkflowScope",
     "PlanRules",
     "AssignmentActions",

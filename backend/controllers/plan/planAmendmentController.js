@@ -21,6 +21,12 @@ const {
   getAmendmentHandlerCatalog,
   listAvailableAmendmentTypes,
 } = require("../../services/planAmendment/planAmendmentRegistry");
+const {
+  getAnnualTargetRevisionReporting,
+} = require("../../services/planAmendment/annualTargetRevisionReportingService");
+const {
+  ANNUAL_TARGET_REVISION_REASONS,
+} = require("../../services/planAmendment/annualTargetRevisionDomain");
 
 function auditContext(req) {
   return {
@@ -346,8 +352,27 @@ async function listPlanAmendmentTypesHandler(_req, res) {
       data: {
         available: listAvailableAmendmentTypes(),
         catalog: getAmendmentHandlerCatalog(),
+        annual_target_revision_reasons: ANNUAL_TARGET_REVISION_REASONS,
       },
     });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+async function getAnnualTargetRevisionReportingHandler(req, res) {
+  try {
+    const { id } = req.params;
+    if (!isUuid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid plan version ID" });
+    }
+
+    const result = await getAnnualTargetRevisionReporting(id, req.query);
+    if (!result.success) {
+      return res.status(400).json({ success: false, message: result.message });
+    }
+
+    return res.json({ success: true, data: result.data });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -368,4 +393,5 @@ module.exports = {
   getPlanAmendmentHandler,
   listPlanAmendmentsHandler,
   listPlanAmendmentTypesHandler,
+  getAnnualTargetRevisionReportingHandler,
 };

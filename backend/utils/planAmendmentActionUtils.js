@@ -25,7 +25,22 @@ const DEFAULT_AMENDMENT_POLICY = Object.freeze({
   allow_emergency_approvals: false,
   allow_structural_amendments_after_execution: true,
   allow_ownership_transfer: true,
+  allow_zero_annual_target: false,
 });
+
+function normalizeRedistributionPolicyValue(value) {
+  const lower = String(value || "manual")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  if (lower === "proportional" || lower === "auto_proportional") {
+    return "proportional";
+  }
+  if (lower === "equal" || lower === "auto_equal") {
+    return "equal";
+  }
+  return "manual";
+}
 
 function normalizeEffectiveMode(mode) {
   if (mode == null || mode === "") return EFFECTIVE_MODE.IMMEDIATE;
@@ -135,10 +150,9 @@ function mergeAmendmentPolicy(raw = {}) {
     completed_periods_editable: Boolean(
       source.completed_periods_editable ?? DEFAULT_AMENDMENT_POLICY.completed_periods_editable
     ),
-    automatic_redistribution:
-      source.automatic_redistribution === "proportional"
-        ? "proportional"
-        : DEFAULT_AMENDMENT_POLICY.automatic_redistribution,
+    automatic_redistribution: normalizeRedistributionPolicyValue(
+      source.automatic_redistribution ?? DEFAULT_AMENDMENT_POLICY.automatic_redistribution
+    ),
     allow_emergency_approvals: Boolean(
       source.allow_emergency_approvals ?? DEFAULT_AMENDMENT_POLICY.allow_emergency_approvals
     ),
@@ -148,6 +162,9 @@ function mergeAmendmentPolicy(raw = {}) {
     ),
     allow_ownership_transfer: Boolean(
       source.allow_ownership_transfer ?? DEFAULT_AMENDMENT_POLICY.allow_ownership_transfer
+    ),
+    allow_zero_annual_target: Boolean(
+      source.allow_zero_annual_target ?? DEFAULT_AMENDMENT_POLICY.allow_zero_annual_target
     ),
   };
 }
@@ -165,4 +182,5 @@ module.exports = {
   validateActionDependencyOrder,
   serializePlanAmendmentAction,
   mergeAmendmentPolicy,
+  normalizeRedistributionPolicyValue,
 };

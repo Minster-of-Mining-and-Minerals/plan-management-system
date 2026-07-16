@@ -327,6 +327,123 @@ export interface ListTargetReallocationsResponse {
     };
 }
 
+export type PlanAmendmentStatus =
+    | "draft"
+    | "pending_approval"
+    | "approved"
+    | "rejected"
+    | "cancelled"
+    | "applied";
+
+export type AnnualTargetRedistributionMode =
+    | "manual"
+    | "proportional"
+    | "equal";
+
+export interface PlanAmendmentAction {
+    id: string;
+    plan_amendment_action_id: string;
+    plan_amendment_id: string;
+    action_type: string;
+    action_type_label?: string;
+    sequence: number;
+    status: string;
+    metadata: Record<string, unknown>;
+    depends_on_sequence?: number | null;
+}
+
+export interface PlanAmendment {
+    id: string;
+    plan_amendment_id: string;
+    draft_id: string;
+    master_plan_version_id: string;
+    title: string;
+    description?: string | null;
+    reason?: string | null;
+    amendment_type: string;
+    amendment_type_label?: string;
+    is_package?: boolean;
+    status: PlanAmendmentStatus;
+    requested_by: string;
+    requested_at: string;
+    reviewed_by?: string | null;
+    reviewed_at?: string | null;
+    review_comment?: string | null;
+    applied_at?: string | null;
+    effective_mode?: string | null;
+    effective_date?: string | null;
+    version?: number | null;
+    metadata?: Record<string, unknown>;
+    actions?: PlanAmendmentAction[];
+    requester?: TargetReallocationUserSummary | null;
+    reviewer?: TargetReallocationUserSummary | null;
+}
+
+export interface CreateAnnualTargetRevisionPayload {
+    draftId: string;
+    title: string;
+    reason: string;
+    reasonCode?: string;
+    description?: string;
+    effectiveMode?: "immediate" | "next_period" | "custom_date";
+    effectiveDate?: string | null;
+    kpiId: string;
+    revisedAnnualTarget: number;
+    redistributionMode: AnnualTargetRedistributionMode;
+    periodAllocations?: Array<{ periodId: string; target: number }>;
+    submit?: boolean;
+}
+
+export interface AnnualTargetRevisionPeriodReporting {
+    period_id: string;
+    period_label: string | null;
+    sequence_index?: number | null;
+    current_target: number;
+    period_actual: number;
+    execution_status: string | null;
+    finalized: boolean;
+}
+
+export interface AnnualTargetRevisionKpiReporting {
+    kpi_id: string;
+    kpi_title: string;
+    original_annual_target: number;
+    current_annual_target: number;
+    difference: number;
+    actual: number;
+    performance_percent: number | null;
+    revised: boolean;
+    unit?: string | null;
+    periods?: AnnualTargetRevisionPeriodReporting[];
+}
+
+export interface AnnualTargetRevisionReportingResponse {
+    draft_id: string;
+    annual_version_id?: string;
+    process_started: boolean;
+    current_amendment_version?: number | null;
+    kpis: AnnualTargetRevisionKpiReporting[];
+    applied_revisions: Array<{
+        plan_amendment_id: string;
+        version: number | null;
+        title: string;
+        reason: string | null;
+        reason_code?: string | null;
+        effective_date?: string | null;
+        applied_at?: string | null;
+        kpi_id?: string | null;
+        revised_annual_target?: number | null;
+    }>;
+    comparison_mode?: {
+        original_label: string;
+        current_label: string;
+        actual_label?: string;
+        revision_label?: string;
+        performance_label?: string;
+        note?: string;
+    };
+}
+
 export interface PeriodTargetReallocationReportingItem {
     annual_kpi_plan_node_id: string;
     kpi_id: string;

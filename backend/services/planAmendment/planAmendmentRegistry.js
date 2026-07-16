@@ -9,6 +9,9 @@ const {
 } = require("../../utils/planAmendmentTypes");
 const { PlaceholderAmendmentHandler } = require("./handlers/placeholderHandlers");
 const { TargetReallocationHandler } = require("./handlers/targetReallocationHandler");
+const {
+  AnnualTargetRevisionHandler,
+} = require("./handlers/annualTargetRevisionHandler");
 
 /** @type {Map<string, import('./handlers/PlanAmendmentHandler').PlanAmendmentHandler>} */
 const handlersByType = new Map();
@@ -87,6 +90,10 @@ function ensureDefaultAmendmentHandlers() {
   }
 
   handlersByType.set(AMENDMENT_TYPE.TARGET_REALLOCATION, new TargetReallocationHandler());
+  handlersByType.set(
+    AMENDMENT_TYPE.ANNUAL_TARGET_REVISION,
+    new AnnualTargetRevisionHandler()
+  );
 
   defaultsRegistered = true;
 }

@@ -30,6 +30,9 @@ import {
     ListTargetReallocationsParams,
     ListTargetReallocationsResponse,
     PeriodTargetReallocationReportingResponse,
+    PlanAmendment,
+    CreateAnnualTargetRevisionPayload,
+    AnnualTargetRevisionReportingResponse,
 } from "../types/plan";
 
 export const planApi = baseApi.injectEndpoints({
@@ -810,6 +813,199 @@ export const planApi = baseApi.injectEndpoints({
             ],
         }),
 
+        getPlanAmendments: builder.query<
+            {
+                data: PlanAmendment[];
+                pagination: {
+                    page: number;
+                    limit: number;
+                    total: number;
+                    totalPages: number;
+                };
+            },
+            {
+                draftId?: string;
+                amendmentType?: string;
+                status?: string;
+                page?: number;
+                limit?: number;
+            } | void
+        >({
+            query: (params) => {
+                if (!params) return { url: "/plan/plan-amendments" };
+                const cleanParams = Object.fromEntries(
+                    Object.entries(params).filter(
+                        ([, v]) => v != null && v !== ""
+                    )
+                );
+                return { url: "/plan/plan-amendments", params: cleanParams };
+            },
+            providesTags: ["PlanAmendments"],
+        }),
+
+        createAnnualTargetRevision: builder.mutation<
+            PlanAmendment,
+            CreateAnnualTargetRevisionPayload
+        >({
+            query: (payload) => ({
+                url: "/plan/plan-amendments",
+                method: "POST",
+                body: {
+                    draftId: payload.draftId,
+                    title: payload.title,
+                    reason: payload.reason,
+                    description: payload.description,
+                    effectiveMode: payload.effectiveMode ?? "immediate",
+                    effectiveDate: payload.effectiveDate ?? null,
+                    amendmentType: "annual_target_revision",
+                    submit: payload.submit !== false,
+                    metadata: {
+                        kpiId: payload.kpiId,
+                        revisedAnnualTarget: payload.revisedAnnualTarget,
+                        redistributionMode: payload.redistributionMode,
+                        periodAllocations: payload.periodAllocations ?? [],
+                        reason: payload.reason,
+                        reasonCode: payload.reasonCode,
+                        description: payload.description,
+                    },
+                },
+            }),
+            transformResponse: (response: { data: PlanAmendment }) =>
+                response.data,
+            invalidatesTags: [
+                "PlanAmendments",
+                "AnnualTargetRevisionReporting",
+                "PlanNodes",
+            ],
+        }),
+
+        submitPlanAmendment: builder.mutation<PlanAmendment, string>({
+            query: (id) => ({
+                url: `/plan/plan-amendments/${id}/submit`,
+                method: "POST",
+            }),
+            transformResponse: (response: { data: PlanAmendment }) =>
+                response.data,
+            invalidatesTags: ["PlanAmendments"],
+        }),
+
+        previewPlanAmendment: builder.query<
+            {
+                amendment: PlanAmendment;
+                preview: unknown;
+                legacy_preview?: unknown;
+            },
+            string
+        >({
+            query: (id) => ({ url: `/plan/plan-amendments/${id}/preview` }),
+            transformResponse: (response: {
+                data: {
+                    amendment: PlanAmendment;
+                    preview: unknown;
+                    legacy_preview?: unknown;
+                };
+            }) => response.data,
+        }),
+
+        approvePlanAmendment: builder.mutation<
+            PlanAmendment,
+            { id: string; comment?: string }
+        >({
+            query: ({ id, comment }) => ({
+                url: `/plan/plan-amendments/${id}/approve`,
+                method: "POST",
+                body: comment ? { comment } : {},
+            }),
+            transformResponse: (response: { data: PlanAmendment }) =>
+                response.data,
+            invalidatesTags: [
+                "PlanAmendments",
+                "AnnualTargetRevisionReporting",
+                "PlanNodes",
+                "PeriodTargetAllocations",
+                "AnnualTargetAllocations",
+            ],
+        }),
+
+        rejectPlanAmendment: builder.mutation<
+            PlanAmendment,
+            { id: string; comment: string }
+        >({
+            query: ({ id, comment }) => ({
+                url: `/plan/plan-amendments/${id}/reject`,
+                method: "POST",
+                body: { comment },
+            }),
+            transformResponse: (response: { data: PlanAmendment }) =>
+                response.data,
+            invalidatesTags: ["PlanAmendments"],
+        }),
+
+        cancelPlanAmendment: builder.mutation<PlanAmendment, string>({
+            query: (id) => ({
+                url: `/plan/plan-amendments/${id}/cancel`,
+                method: "POST",
+            }),
+            transformResponse: (response: { data: PlanAmendment }) =>
+                response.data,
+            invalidatesTags: ["PlanAmendments"],
+        }),
+
+        getAnnualTargetRevisionReporting: builder.query<
+            AnnualTargetRevisionReportingResponse,
+            { versionId: string; kpiId?: string }
+        >({
+            query: ({ versionId, kpiId }) => ({
+                url: `/plan/versions/${versionId}/annual-target-revision-reporting`,
+                params: kpiId ? { kpiId } : undefined,
+            }),
+            transformResponse: (response: {
+                data: AnnualTargetRevisionReportingResponse;
+            }) =>
+                response.data ?? {
+                    draft_id: "",
+                    process_started: false,
+                    kpis: [],
+                    applied_revisions: [],
+                },
+            providesTags: (_r, _e, { versionId }) => [
+                { type: "AnnualTargetRevisionReporting", id: versionId },
+                "AnnualTargetRevisionReporting",
+            ],
+        }),
+
+        getPlanAmendmentTypes: builder.query<
+            {
+                available: string[];
+                catalog: Array<{
+                    type: string;
+                    label: string;
+                    available: boolean;
+                }>;
+                annual_target_revision_reasons: Array<{
+                    code: string;
+                    label: string;
+                }>;
+            },
+            void
+        >({
+            query: () => ({ url: "/plan/plan-amendments/types" }),
+            transformResponse: (response: {
+                data: {
+                    available: string[];
+                    catalog: Array<{
+                        type: string;
+                        label: string;
+                        available: boolean;
+                    }>;
+                    annual_target_revision_reasons: Array<{
+                        code: string;
+                        label: string;
+                    }>;
+                };
+            }) => response.data,
+        }),
+
         getStartProcessReadiness: builder.query<StartProcessReadiness, string>({
             query: (id) => `/plan/versions/${id}/start-process-readiness`,
             transformResponse: (response: { data: StartProcessReadiness }) => response.data,
@@ -1072,6 +1268,15 @@ export const {
     useRejectTargetReallocationMutation,
     useCancelTargetReallocationMutation,
     useGetPeriodTargetReallocationReportingQuery,
+    useGetPlanAmendmentsQuery,
+    useCreateAnnualTargetRevisionMutation,
+    useSubmitPlanAmendmentMutation,
+    useLazyPreviewPlanAmendmentQuery,
+    useApprovePlanAmendmentMutation,
+    useRejectPlanAmendmentMutation,
+    useCancelPlanAmendmentMutation,
+    useGetAnnualTargetRevisionReportingQuery,
+    useGetPlanAmendmentTypesQuery,
     useStartPlanProcessMutation,
     useGetPublishForReviewReadinessQuery,
     usePublishForReviewMutation,

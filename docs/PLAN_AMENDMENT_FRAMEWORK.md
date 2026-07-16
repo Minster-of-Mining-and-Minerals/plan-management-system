@@ -70,7 +70,7 @@ draft → cancelled
 | Type | Available |
 |------|-----------|
 | `target_reallocation` | **Yes** |
-| `annual_target_revision` | Registered placeholder |
+| `annual_target_revision` | **Yes** |
 | `budget_increase` | Registered placeholder (prefer as **reason**, not action) |
 | `budget_reduction` | Registered placeholder (prefer as **reason**, not action) |
 | `kpi_addition` | Registered placeholder |
@@ -83,6 +83,19 @@ draft → cancelled
 Unavailable types reject create/validate with a clear “not available yet” message.
 
 **Reason ≠ action.** Reasons (budget cut, restructure, emergency) never determine execution. Only registered action handlers do.
+
+### Annual Target Revision (available)
+
+Revises the **effective** (execution snapshot) annual target and redistributes **open** period targets only. Completed/finalized periods never change. The live annual `annual_target` remains the **original baseline** for historical and comparison reporting.
+
+| Concern | Behavior |
+|---------|----------|
+| Redistribution | `manual` · `proportional` (`AUTO_PROPORTIONAL`) · `equal` (`AUTO_EQUAL`) |
+| Achievement floor | Revised annual cannot be below recorded achievement |
+| Performance | Uses **current effective** annual target (not original baseline) |
+| Reporting | `GET /api/plan/versions/:id/annual-target-revision-reporting` — original vs current, difference, reason, version, comparison mode |
+| Conflict keys | `kpi:`, `annual_target:`, `structural:kpi:` (blocks concurrent structural amendments on the same KPI) |
+| Reasons | Configurable catalog from types API (`annual_target_revision_reasons`) — not hardcoded business logic |
 
 ---
 

@@ -39,6 +39,9 @@ const {
 const { PlanAmendmentHandler } = require("../services/planAmendment/handlers/PlanAmendmentHandler");
 const { TargetReallocationHandler } = require("../services/planAmendment/handlers/targetReallocationHandler");
 const {
+  AnnualTargetRevisionHandler,
+} = require("../services/planAmendment/handlers/annualTargetRevisionHandler");
+const {
   normalizeTargetReallocationMetadata,
   buildTargetReallocationPreviewData,
   buildAmendmentHistoryRows,
@@ -85,10 +88,12 @@ function testHandlerRegistration() {
   clearAmendmentHandlers();
   registerDefaultAmendmentHandlers();
 
-  assert.strictEqual(listAvailableAmendmentTypes().length, 1);
-  assert.strictEqual(
-    listAvailableAmendmentTypes()[0],
-    AMENDMENT_TYPE.TARGET_REALLOCATION
+  assert.strictEqual(listAvailableAmendmentTypes().length, 2);
+  assert.ok(
+    listAvailableAmendmentTypes().includes(AMENDMENT_TYPE.TARGET_REALLOCATION)
+  );
+  assert.ok(
+    listAvailableAmendmentTypes().includes(AMENDMENT_TYPE.ANNUAL_TARGET_REVISION)
   );
 
   const catalog = getAmendmentHandlerCatalog();
@@ -98,6 +103,11 @@ function testHandlerRegistration() {
     if (row.type === AMENDMENT_TYPE.TARGET_REALLOCATION) {
       assert.strictEqual(row.available, true);
       assert.ok(resolveAmendmentHandler(row.type) instanceof TargetReallocationHandler);
+    } else if (row.type === AMENDMENT_TYPE.ANNUAL_TARGET_REVISION) {
+      assert.strictEqual(row.available, true);
+      assert.ok(
+        resolveAmendmentHandler(row.type) instanceof AnnualTargetRevisionHandler
+      );
     } else {
       assert.strictEqual(row.available, false);
       assert.strictEqual(isAmendmentTypeMarkedAvailable(row.type), false);
