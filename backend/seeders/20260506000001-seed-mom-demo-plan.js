@@ -188,9 +188,18 @@ async function seedPlanningConfiguration(queryInterface, now) {
     }
   );
 
+  const defaultTargetUnits = [
+    { id: "person", label: "Person", symbol: "persons" },
+    { id: "km", label: "Kilometer", symbol: "km" },
+    { id: "birr", label: "Birr", symbol: "ETB" },
+    { id: "ton", label: "Ton", symbol: "t" },
+    { id: "unit", label: "Unit", symbol: "units" },
+  ];
+
+  // bulkInsert/bulkUpdate bypass model JSON casting — stringify explicitly.
   const configPayload = {
     breakdown_mode: "quarterly",
-    custom_periods: [],
+    custom_periods: JSON.stringify([]),
     updated_at: now,
   };
 
@@ -214,15 +223,9 @@ async function seedPlanningConfiguration(queryInterface, now) {
         duration_label: "Duration",
         start_year_label: "Start Date",
         end_year_label: "End Date",
-        target_units: [
-          { id: "person", label: "Person", symbol: "persons" },
-          { id: "km", label: "Kilometer", symbol: "km" },
-          { id: "birr", label: "Birr", symbol: "ETB" },
-          { id: "ton", label: "Ton", symbol: "t" },
-          { id: "unit", label: "Unit", symbol: "units" },
-        ],
+        target_units: JSON.stringify(defaultTargetUnits),
         breakdown_mode: "quarterly",
-        custom_periods: [],
+        custom_periods: JSON.stringify([]),
         created_at: now,
         updated_at: now,
       },
