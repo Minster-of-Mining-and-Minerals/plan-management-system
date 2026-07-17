@@ -11,6 +11,10 @@ RUN npm ci
 
 COPY backend/ ./
 
+# Baseline migration reads ../../database/schema/baseline_schema.sql
+# (from /app/migrations → /database/schema/...)
+COPY database/schema /database/schema
+
 # Collaboration module (mounted in-process via collaborationIntegration.js)
 COPY collaboration-service/ /collaboration-service/
 
