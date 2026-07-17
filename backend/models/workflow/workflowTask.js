@@ -45,6 +45,19 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: "pending",
       },
+      task_type: {
+        type: DataTypes.STRING(32),
+        allowNull: false,
+        defaultValue: "CONSULTATION",
+      },
+      resource_type: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+      },
+      resource_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
     },
     {
       sequelize,

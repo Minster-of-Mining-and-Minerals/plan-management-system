@@ -59,6 +59,19 @@ module.exports = (sequelize, DataTypes) => {
       notes: { type: DataTypes.TEXT, allowNull: true },
       status: { type: DataTypes.STRING(32), allowNull: false },
       parent_log_id: { type: DataTypes.UUID, allowNull: true },
+      task_type: {
+        type: DataTypes.STRING(32),
+        allowNull: false,
+        defaultValue: "CONSULTATION",
+      },
+      resource_type: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+      },
+      resource_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
     },
     {
       sequelize,

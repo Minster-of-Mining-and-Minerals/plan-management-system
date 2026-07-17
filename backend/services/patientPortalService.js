@@ -4,6 +4,7 @@ const { Op } = require("sequelize");
 const db = require("../models");
 const notificationService = require("./notificationService");
 const prescriptionService = require("./prescriptionService");
+const timelineEventService = require("./timelineEventService");
 const {
   getSettings,
   getEligibleStaff,
@@ -235,45 +236,29 @@ async function listMyPrescriptions(patientId) {
 }
 
 async function listMedicalHistory(patientId) {
-  const logs = await db.MedicalHistoryLog.findAll({
-    where: { patient_id: patientId },
-    include: [
-      {
-        model: db.User,
-        as: "sender",
-        attributes: ["user_id", "full_name"],
-      },
-      {
-        model: db.StaffAppointment,
-        as: "appointment",
-        attributes: ["appointment_id", "workflow_status"],
-        required: false,
-      },
-    ],
-    order: [["created_at", "DESC"]],
-    limit: 100,
-  });
-
-  const actionToType = {
-    submit: "visit",
-    forward: "visit",
-    return: "visit",
-    prescribe: "treatment",
-    complete: "visit",
-  };
-
-  return logs.map((log) => {
-    const plain = log.get({ plain: true });
+  const events = await timelineEventService.listForPatient(patientId, { isPatientPortal: true });
+  return events.map((e) => {
+    let type = "visit";
+    const eType = String(e.event_type).toLowerCase();
+    if (eType.includes("prescription") || eType.includes("medication") || eType.includes("treatment")) {
+      type = "treatment";
+    } else if (eType.includes("allergy")) {
+      type = "allergy";
+    } else if (eType.includes("vitals") || eType.includes("nursing")) {
+      type = "condition";
+    } else if (eType.includes("diagnosis")) {
+      type = "diagnosis";
+    }
     return {
-      id: plain.log_id,
-      date: plain.created_at,
-      title: plain.header_title,
-      type: actionToType[plain.action_type] || "visit",
-      action_type: plain.action_type,
-      status: plain.status,
-      provider: plain.sender?.full_name || null,
-      summary: plain.notes || null,
-      appointment_id: plain.appointment_id,
+      id: e.event_id,
+      date: e.event_date,
+      title: e.title,
+      type,
+      action_type: e.metadata?.action_type || "emit",
+      status: e.metadata?.status || "final",
+      provider: e.actor?.full_name || null,
+      summary: e.description || null,
+      appointment_id: e.appointment_id || undefined,
     };
   });
 }
