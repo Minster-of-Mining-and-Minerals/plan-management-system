@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
+import { toast } from "sonner";
+import { Download } from "lucide-react";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
 import { Input } from "@/components/ui/input";
@@ -12,6 +14,7 @@ import {
   useGetAuditLogsQuery,
   type AuditLogRow,
 } from "@/redux/api/auditLogApi";
+import { getAuthToken } from "@/lib/authToken";
 import type { FilterField } from "@/types/tableLayout";
 
 function formatToday() {
@@ -28,6 +31,7 @@ export function AuditExplorerPage() {
   const [action, setAction] = useState("");
   const [fromDate, setFromDate] = useState(formatToday());
   const [toDate, setToDate] = useState(formatToday());
+  const [exporting, setExporting] = useState(false);
 
   const { data, isLoading } = useGetAuditLogsQuery({
     page: pageIndex + 1,
@@ -42,6 +46,38 @@ export function AuditExplorerPage() {
   useEffect(() => {
     setPageIndex(0);
   }, [searchQuery, resourceType, action, fromDate, toDate]);
+
+  const exportCsv = async () => {
+    setExporting(true);
+    try {
+      const apiBase = (process.env.NEXT_PUBLIC_BASE_URL || "").replace(/\/$/, "");
+      const params = new URLSearchParams();
+      if (searchQuery.trim()) params.set("search", searchQuery.trim());
+      if (resourceType.trim()) params.set("resource_type", resourceType.trim());
+      if (action.trim()) params.set("action", action.trim());
+      if (fromDate) params.set("from_date", fromDate);
+      if (toDate) params.set("to_date", toDate);
+      const token = getAuthToken();
+      const res = await fetch(`${apiBase}/audit-logs/export?${params}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) {
+        throw new Error("Export failed");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `audit-logs-${formatToday()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Audit CSV downloaded");
+    } catch {
+      toast.error("Could not export audit logs");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const columns: ColumnDef<AuditLogRow>[] = [
     {
@@ -131,6 +167,17 @@ export function AuditExplorerPage() {
       description="Searchable trail of security and clinical/finance mutations."
       filters={filters}
       filterColumnsPerRow={2}
+      actions={[
+        {
+          label: exporting ? "Exporting…" : "Export CSV",
+          icon: <Download className="h-4 w-4" />,
+          onClick: exportCsv,
+          disabled: exporting,
+          variant: "outline",
+          size: "sm",
+          permissions: ["AUDIT_LOG:VIEW"],
+        },
+      ]}
     >
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-1">

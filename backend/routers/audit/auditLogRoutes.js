@@ -2,7 +2,10 @@
 
 const express = require("express");
 const router = express.Router();
-const { listAuditLogs } = require("../../controllers/audit/auditLogController");
+const {
+  listAuditLogs,
+  exportAuditLogs,
+} = require("../../controllers/audit/auditLogController");
 const {
   authenticateToken,
   checkPermission,
@@ -12,5 +15,6 @@ const { requireInternalAccount } = require("../../middlewares/accountTypeMiddlew
 router.use(authenticateToken, requireInternalAccount);
 
 router.get("/", checkPermission("audit_log", "view"), listAuditLogs);
+router.get("/export", checkPermission("audit_log", "view"), exportAuditLogs);
 
 module.exports = router;

@@ -25,12 +25,16 @@
 
 ## Attachments
 
-- Upload/list/delete require authentication.
+- Upload requires authentication **and** upload eligibility (`attachments:create` or clinical/portal roles).
+- List/download/delete enforce **permission + ownership** via `attachmentAccessService` (uploader, patient self, appointment access, pharmacy forward, or `attachments:manage`).
+- Unauthorized download/delete returns **404** (does not confirm existence).
+- Optional linkage: `resource_type`, `resource_id`, `patient_id` (set on upload or backfilled from workflow/pharmacy).
 - Files under `/uploads/attachments` are not publicly served; use `GET /api/attachments/:id/file` (Bearer or `?token=`).
 
 ## Production secrets
 
 - `JWT_SECRET` must be ≥32 characters when `NODE_ENV=production` (fail-fast).
-- Docker Compose requires `JWT_SECRET`, `AUTH_SECRET`, `NEXTAUTH_SECRET`.
+- Production also rejects weak `DB_PASSWORD` defaults (`root`, `postgres`, `password`, …).
+- Docker Compose requires `JWT_SECRET`, `AUTH_SECRET`, `NEXTAUTH_SECRET`, and `POSTGRES_PASSWORD`.
 
-See also: `docs/DEPLOYMENT.md`, `docs/AUDIT.md`, `docs/PRODUCTION_CHECKLIST.md`.
+See also: `docs/DEPLOYMENT.md`, `docs/AUDIT.md`, `docs/ARCHITECTURE.md`, `docs/PRODUCTION_CHECKLIST.md`.

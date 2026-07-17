@@ -4,11 +4,10 @@ const { Model } = require("sequelize");
 module.exports = (sequelize, DataTypes) => {
   class Attachment extends Model {
     static associate(models) {
-      // Junction: Attachment ↔ Complaint
-      // Attachment.hasMany(models.ComplaintAttachment, {
-      //   foreignKey: "attachment_id",
-      //   as: "complaintAttachments",
-      // });
+      Attachment.belongsTo(models.User, {
+        foreignKey: "uploaded_by",
+        as: "uploader",
+      });
     }
   }
 
@@ -31,6 +30,18 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.UUID,
         allowNull: true,
       },
+      resource_type: {
+        type: DataTypes.STRING(64),
+        allowNull: true,
+      },
+      resource_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      patient_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
       created_at: {
         type: DataTypes.DATE,
         defaultValue: DataTypes.NOW,
@@ -42,7 +53,7 @@ module.exports = (sequelize, DataTypes) => {
       tableName: "attachments",
       timestamps: false,
       underscored: true,
-    },
+    }
   );
 
   return Attachment;

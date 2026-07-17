@@ -12,6 +12,8 @@
     "dev": "nodemon app.js",
     "test": "jest --runInBand --forceExit",
     "test:smoke": "jest --runInBand --forceExit --testPathPattern=tests/smoke",
+    "test:security": "jest --runInBand --forceExit --testPathPattern=tests/security",
+    "test:ci": "jest --runInBand --forceExit --testPathPattern=\"tests[/\\\\](smoke|security)\"",
     "migrate": "sequelize-cli db:migrate",
     "migrate:undo": "sequelize-cli db:migrate:undo",
     "migrate:undo:all": "sequelize-cli db:migrate:undo:all",

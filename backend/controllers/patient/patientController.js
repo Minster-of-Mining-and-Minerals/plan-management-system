@@ -18,7 +18,7 @@ const {
 } = require("../../services/patientFieldValueService");
 const { getFormFieldsByModel } = require("../../services/formFieldService");
 const { PATIENT_MODEL_NAME } = require("../../config/userFormConstants");
-const { logAudit } = require("../../services/auditService");
+const { logAudit, auditContextFromReq } = require("../../services/auditService");
 const { generateRandomPassword } = require("../../utils/password");
 
 const PROFILE_ATTRS = [
@@ -105,8 +105,14 @@ const createPatient = async (req, res) => {
       action: "create",
       resourceType: "patient",
       resourceId: userId,
-      details: { patient_code: patientCode },
-      ipAddress: req.ip,
+      details: {
+        ...auditContextFromReq(req, {
+          module: "patients",
+          outcome: "success",
+          patient_code: patientCode,
+        }).details,
+      },
+      ipAddress: req.ip || req.headers?.["x-forwarded-for"] || null,
     });
 
     return res.status(201).json({

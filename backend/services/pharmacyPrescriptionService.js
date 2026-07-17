@@ -286,6 +286,18 @@ async function appendForwardFiles(t, forwardId, attachmentIds, userId) {
     );
     added.push(row);
   }
+  try {
+    const {
+      linkAttachmentsToResource,
+      RESOURCE_TYPES,
+    } = require("./attachmentAccessService");
+    await linkAttachmentsToResource(uniqueIds, {
+      resourceType: RESOURCE_TYPES.PHARMACY_FORWARD,
+      resourceId: forwardId,
+    });
+  } catch {
+    // best-effort ownership link
+  }
   return added;
 }
 

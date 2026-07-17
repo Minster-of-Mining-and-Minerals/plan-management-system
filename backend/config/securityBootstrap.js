@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * Align JWT env aliases and fail fast on unsafe production secrets.
+ * Align JWT env aliases and fail fast on unsafe production secrets / DB defaults.
  * Call once after dotenv.config().
  */
 function bootstrapSecurityEnv() {
@@ -23,6 +23,22 @@ function bootstrapSecurityEnv() {
     if (weakSecrets.has(jwtSecret) || jwtSecret.length < 32) {
       console.error(
         "FATAL: JWT_SECRET must be set to a strong value (≥32 chars) when NODE_ENV=production."
+      );
+      process.exit(1);
+    }
+
+    const dbPassword = process.env.DB_PASSWORD || "";
+    const weakDbPasswords = new Set(["", "root", "postgres", "password", "admin"]);
+    if (weakDbPasswords.has(dbPassword)) {
+      console.error(
+        "FATAL: DB_PASSWORD is missing or uses an unsafe default in production. Set a strong password."
+      );
+      process.exit(1);
+    }
+
+    if (!process.env.DB_HOST && !process.env.DATABASE_URL) {
+      console.error(
+        "FATAL: DB_HOST or DATABASE_URL must be set when NODE_ENV=production."
       );
       process.exit(1);
     }

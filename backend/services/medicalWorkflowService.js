@@ -352,6 +352,20 @@ async function submitWorkflowEntry(staffId, payload) {
       { transaction: t }
     );
 
+    try {
+      const {
+        linkAttachmentsToResource,
+        RESOURCE_TYPES,
+      } = require("./attachmentAccessService");
+      await linkAttachmentsToResource(attachment_ids, {
+        resourceType: RESOURCE_TYPES.APPOINTMENT,
+        resourceId: appointment.appointment_id,
+        patientId: appointment.patient_id,
+      });
+    } catch {
+      // Non-fatal: linkage is best-effort for ownership
+    }
+
     await closePendingTasksForStaff(appointment.appointment_id, staffId, t);
 
     if (needsReceiver) {

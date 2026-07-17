@@ -22,11 +22,15 @@ Use before go-live. Pair with `docs/DEPLOYMENT.md` and `docs/SECURITY.md`.
 
 - [ ] Unauthenticated `GET /api/roles` → 401
 - [ ] Unauthenticated attachment upload → 401
+- [ ] Attachment download/delete for another user's file → 404 (no existence leak)
 - [ ] `/uploads/attachments/*` blocked
+- [ ] `POSTGRES_PASSWORD` / `DB_PASSWORD` not `root` (compose + API fail-fast)
 - [ ] First-login user cannot hit clinical APIs until password change
 - [ ] Password change requires ≥12 characters
 - [ ] Collections CSV export works for finance role
-- [ ] Audit explorer visible only with `AUDIT_LOG:VIEW`
+- [ ] Audit explorer + CSV export visible only with `AUDIT_LOG:VIEW`
+- [ ] Admin dashboard KPIs from `/api/dashboard/stats` only (no mock fallbacks)
+- [ ] `npm run test:smoke` and `npm run test:security` pass
 
 ## Ops
 

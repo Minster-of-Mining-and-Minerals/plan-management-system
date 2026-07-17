@@ -46,7 +46,7 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
       - run: npx sequelize-cli db:migrate
-      - run: npm run test:smoke
+      - run: npm run test:ci
 
   frontend-lint:
     runs-on: ubuntu-latest

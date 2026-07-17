@@ -173,6 +173,25 @@ const createUser = async (req, res) => {
     const userJson = user.toJSON();
     delete userJson.password;
 
+    await logAudit({
+      actorUserId: req.user?.user_id,
+      action: "user_create",
+      resourceType: "user",
+      resourceId: user.user_id,
+      details: {
+        ...auditContextFromReq(req, {
+          module: "users",
+          outcome: "success",
+          next: {
+            email: user.email,
+            account_type: user.account_type,
+            role_ids: role_ids || [],
+          },
+        }).details,
+      },
+      ipAddress: req.ip,
+    });
+
     return res.status(201).json({
       success: true,
       message: "User created successfully",
@@ -305,6 +324,25 @@ const updateUser = async (req, res) => {
     }
 
     await t.commit();
+
+    await logAudit({
+      actorUserId: req.user?.user_id,
+      action: "user_update",
+      resourceType: "user",
+      resourceId: user_id,
+      details: {
+        ...auditContextFromReq(req, {
+          module: "users",
+          outcome: "success",
+          next: {
+            full_name: user.full_name,
+            email: user.email,
+            role_ids: role_ids || undefined,
+          },
+        }).details,
+      },
+      ipAddress: req.ip,
+    });
 
     return res.status(200).json({
       success: true,
@@ -550,6 +588,22 @@ const deleteUser = async (req, res) => {
       { transaction: t }
     );
     await t.commit();
+
+    await logAudit({
+      actorUserId: req.user?.user_id,
+      action: "user_deactivate",
+      resourceType: "user",
+      resourceId: id,
+      details: {
+        ...auditContextFromReq(req, {
+          module: "users",
+          outcome: "success",
+          previous: { is_active: true, email: user.email },
+          next: { is_active: false },
+        }).details,
+      },
+      ipAddress: req.ip,
+    });
 
     return res.status(200).json({
       success: true,

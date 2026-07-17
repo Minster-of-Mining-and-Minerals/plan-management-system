@@ -4,15 +4,15 @@ services:
     container_name: novacure-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: root
-      POSTGRES_DB: novadb
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD before starting postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-novadb}
     ports:
       - "5432:5432"
     volumes:
       - novacure_pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d novadb"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -29,17 +29,22 @@ services:
     environment:
       NODE_ENV: production
       PORT: 4000
+      TZ: ${TZ:-Africa/Addis_Ababa}
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USERNAME: postgres
-      DB_PASSWORD: root
-      DB_NAME: novadb
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD before starting api}
+      DB_NAME: ${POSTGRES_DB:-novadb}
       DB_DIALECT: postgres
-      FRONTEND_URL: http://localhost:3000
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       APP_NAME: NovaCure Platform
       # Required in production (≥32 chars). Set in shell or .env beside compose.
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET (≥32 chars) before starting api}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-12h}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
     ports:
       - "4000:4000"
     volumes:

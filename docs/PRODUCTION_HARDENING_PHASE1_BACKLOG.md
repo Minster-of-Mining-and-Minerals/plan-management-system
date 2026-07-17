@@ -1,6 +1,6 @@
 # NovaCure — Phase 1 Production Hardening Backlog
 
-**Status:** Waves A–D implemented July 2026 (security locks, operability, compliance trail, polish).  
+**Status:** Phase 1 closeout July 2026 — Waves A–D plus attachment IDOR fix, security regression suite, audit export, live dashboard, production secret externalization.  
 **Order:** Implement top-to-bottom. Do not skip Critical items.  
 **Constraint:** No new clinical modules; preserve existing workflows and API compatibility.
 
