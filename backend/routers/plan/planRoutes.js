@@ -119,6 +119,7 @@ const {
     listPlanAmendmentsHandler,
     listPlanAmendmentTypesHandler,
     getAnnualTargetRevisionReportingHandler,
+    getKpiAdditionReportingHandler,
 } = require("../../controllers/plan/planAmendmentController");
 
 const {
@@ -280,6 +281,13 @@ router.get(
     validateIdParam,
     requirePlanVersionReadAccess(),
     getAnnualTargetRevisionReportingHandler
+);
+router.get(
+    "/versions/:id/kpi-addition-reporting",
+    planReadAccess,
+    validateIdParam,
+    requirePlanVersionReadAccess(),
+    getKpiAdditionReportingHandler
 );
 router.get("/versions/:id/global-period-target-readiness", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), getGlobalPeriodTargetFinalizationReadinessHandler);
 router.post("/versions/:id/finalize-global-period-targets", checkPermission("PLAN", "FINALIZE"), validateIdParam, finalizeGlobalPeriodTargetsHandler);

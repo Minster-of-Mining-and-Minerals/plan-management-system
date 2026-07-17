@@ -42,6 +42,9 @@ const {
   AnnualTargetRevisionHandler,
 } = require("../services/planAmendment/handlers/annualTargetRevisionHandler");
 const {
+  KpiAdditionHandler,
+} = require("../services/planAmendment/handlers/kpiAdditionHandler");
+const {
   normalizeTargetReallocationMetadata,
   buildTargetReallocationPreviewData,
   buildAmendmentHistoryRows,
@@ -88,12 +91,15 @@ function testHandlerRegistration() {
   clearAmendmentHandlers();
   registerDefaultAmendmentHandlers();
 
-  assert.strictEqual(listAvailableAmendmentTypes().length, 2);
+  assert.strictEqual(listAvailableAmendmentTypes().length, 3);
   assert.ok(
     listAvailableAmendmentTypes().includes(AMENDMENT_TYPE.TARGET_REALLOCATION)
   );
   assert.ok(
     listAvailableAmendmentTypes().includes(AMENDMENT_TYPE.ANNUAL_TARGET_REVISION)
+  );
+  assert.ok(
+    listAvailableAmendmentTypes().includes(AMENDMENT_TYPE.KPI_ADDITION)
   );
 
   const catalog = getAmendmentHandlerCatalog();
@@ -108,6 +114,9 @@ function testHandlerRegistration() {
       assert.ok(
         resolveAmendmentHandler(row.type) instanceof AnnualTargetRevisionHandler
       );
+    } else if (row.type === AMENDMENT_TYPE.KPI_ADDITION) {
+      assert.strictEqual(row.available, true);
+      assert.ok(resolveAmendmentHandler(row.type) instanceof KpiAdditionHandler);
     } else {
       assert.strictEqual(row.available, false);
       assert.strictEqual(isAmendmentTypeMarkedAvailable(row.type), false);

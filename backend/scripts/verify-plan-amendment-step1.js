@@ -169,7 +169,11 @@ function runRegistryTests() {
   const available = listAvailableAmendmentTypes();
   assert.deepStrictEqual(
     [...available].sort(),
-    [AMENDMENT_TYPE.ANNUAL_TARGET_REVISION, AMENDMENT_TYPE.TARGET_REALLOCATION].sort()
+    [
+      AMENDMENT_TYPE.ANNUAL_TARGET_REVISION,
+      AMENDMENT_TYPE.KPI_ADDITION,
+      AMENDMENT_TYPE.TARGET_REALLOCATION,
+    ].sort()
   );
 
   const targetHandler = resolveAmendmentHandler(AMENDMENT_TYPE.TARGET_REALLOCATION);
@@ -177,6 +181,9 @@ function runRegistryTests() {
 
   const annualHandler = resolveAmendmentHandler(AMENDMENT_TYPE.ANNUAL_TARGET_REVISION);
   assert.strictEqual(annualHandler.isAvailable(), true);
+
+  const kpiAdditionHandler = resolveAmendmentHandler(AMENDMENT_TYPE.KPI_ADDITION);
+  assert.strictEqual(kpiAdditionHandler.isAvailable(), true);
 
   const budgetHandler = resolveAmendmentHandler(AMENDMENT_TYPE.BUDGET_INCREASE);
   assert.strictEqual(budgetHandler.isAvailable(), false);
@@ -190,6 +197,10 @@ function runRegistryTests() {
     (row) => row.type === AMENDMENT_TYPE.ANNUAL_TARGET_REVISION
   );
   assert.strictEqual(annualEntry.available, true);
+  const kpiAdditionEntry = catalog.find(
+    (row) => row.type === AMENDMENT_TYPE.KPI_ADDITION
+  );
+  assert.strictEqual(kpiAdditionEntry.available, true);
 
   assert.ok(PlanAmendmentHandler);
 

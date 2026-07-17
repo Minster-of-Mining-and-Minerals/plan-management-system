@@ -25,6 +25,9 @@ const {
   getAnnualTargetRevisionReporting,
 } = require("../../services/planAmendment/annualTargetRevisionReportingService");
 const {
+  getKpiAdditionReporting,
+} = require("../../services/planAmendment/kpiAdditionReportingService");
+const {
   ANNUAL_TARGET_REVISION_REASONS,
 } = require("../../services/planAmendment/annualTargetRevisionDomain");
 
@@ -378,6 +381,24 @@ async function getAnnualTargetRevisionReportingHandler(req, res) {
   }
 }
 
+async function getKpiAdditionReportingHandler(req, res) {
+  try {
+    const { id } = req.params;
+    if (!isUuid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid plan version ID" });
+    }
+
+    const result = await getKpiAdditionReporting(id, req.query);
+    if (!result.success) {
+      return res.status(400).json({ success: false, message: result.message });
+    }
+
+    return res.json({ success: true, data: result.data });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
   createPlanAmendmentHandler,
   submitPlanAmendmentHandler,
@@ -394,4 +415,5 @@ module.exports = {
   listPlanAmendmentsHandler,
   listPlanAmendmentTypesHandler,
   getAnnualTargetRevisionReportingHandler,
+  getKpiAdditionReportingHandler,
 };

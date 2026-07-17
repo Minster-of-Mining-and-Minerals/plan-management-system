@@ -449,7 +449,8 @@ export default function PlanHierarchyView({
         const wantsAmendments =
             tabFromUrl === "amendments" ||
             focus === "reallocation" ||
-            focus === "annual-target-revision";
+            focus === "annual-target-revision" ||
+            focus === "kpi-addition";
 
         if (wantsAmendments) {
             // Prefer amendments when deep-linked; visibility is enforced after processStarted resolves.

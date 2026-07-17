@@ -12,6 +12,7 @@ const { TargetReallocationHandler } = require("./handlers/targetReallocationHand
 const {
   AnnualTargetRevisionHandler,
 } = require("./handlers/annualTargetRevisionHandler");
+const { KpiAdditionHandler } = require("./handlers/kpiAdditionHandler");
 
 /** @type {Map<string, import('./handlers/PlanAmendmentHandler').PlanAmendmentHandler>} */
 const handlersByType = new Map();
@@ -94,6 +95,7 @@ function ensureDefaultAmendmentHandlers() {
     AMENDMENT_TYPE.ANNUAL_TARGET_REVISION,
     new AnnualTargetRevisionHandler()
   );
+  handlersByType.set(AMENDMENT_TYPE.KPI_ADDITION, new KpiAdditionHandler());
 
   defaultsRegistered = true;
 }

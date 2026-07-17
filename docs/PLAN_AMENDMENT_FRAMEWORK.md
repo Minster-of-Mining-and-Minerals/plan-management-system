@@ -73,7 +73,7 @@ draft → cancelled
 | `annual_target_revision` | **Yes** |
 | `budget_increase` | Registered placeholder (prefer as **reason**, not action) |
 | `budget_reduction` | Registered placeholder (prefer as **reason**, not action) |
-| `kpi_addition` | Registered placeholder |
+| `kpi_addition` | **Yes** |
 | `kpi_removal` | Registered placeholder |
 | `owner_transfer` | Registered placeholder |
 | `timeline_extension` | Registered placeholder |
@@ -96,6 +96,18 @@ Revises the **effective** (execution snapshot) annual target and redistributes *
 | Reporting | `GET /api/plan/versions/:id/annual-target-revision-reporting` — original vs current, difference, reason, version, comparison mode |
 | Conflict keys | `kpi:`, `annual_target:`, `structural:kpi:` (blocks concurrent structural amendments on the same KPI) |
 | Reasons | Configurable catalog from types API (`annual_target_revision_reasons`) — not hardcoded business logic |
+
+### KPI Addition (available)
+
+Adds a **new KPI** to the live master plan tree and mirrors it into the active execution snapshot after process start. Open period targets are allocated from the start period forward; completed/finalized periods remain unchanged. Sibling KPI weights may be redistributed when the parent weight budget is exceeded.
+
+| Concern | Behavior |
+|---------|----------|
+| Weight redistribution | `manual` · `proportional` (`AUTO_PROPORTIONAL`) · `equal` (`AUTO_EQUAL`) |
+| Period allocation | Open periods from start to end must sum exactly to the annual target |
+| Finalized periods | Completed execution periods cannot receive non-zero targets |
+| Reporting | `GET /api/plan/versions/:id/kpi-addition-reporting` — added KPIs, reason, version, parent, targets, comparison mode |
+| Conflict keys | `structural:parent:`, `kpi_name:` (blocks duplicate titles under the same parent) |
 
 ---
 

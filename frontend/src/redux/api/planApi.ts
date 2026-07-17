@@ -33,6 +33,8 @@ import {
     PlanAmendment,
     CreateAnnualTargetRevisionPayload,
     AnnualTargetRevisionReportingResponse,
+    CreateKpiAdditionPayload,
+    KpiAdditionReportingResponse,
 } from "../types/plan";
 
 export const planApi = baseApi.injectEndpoints({
@@ -906,6 +908,57 @@ export const planApi = baseApi.injectEndpoints({
             ],
         }),
 
+        createKpiAddition: builder.mutation<
+            PlanAmendment,
+            CreateKpiAdditionPayload
+        >({
+            query: (payload) => ({
+                url: "/plan/plan-amendments",
+                method: "POST",
+                body: {
+                    draftId: payload.draftId,
+                    title: payload.title,
+                    reason: payload.reason,
+                    description: payload.description,
+                    effectiveMode: payload.effectiveMode ?? "immediate",
+                    effectiveDate: payload.effectiveDate ?? null,
+                    amendmentType: "kpi_addition",
+                    submit: payload.submit !== false,
+                    metadata: {
+                        parentId: payload.parentId,
+                        annualVersionId: payload.annualVersionId,
+                        title: payload.kpiTitle,
+                        description: payload.kpiDescription,
+                        weight: payload.weight,
+                        contributionWeight: payload.contributionWeight ?? null,
+                        annualTarget: payload.annualTarget,
+                        startPeriodId: payload.startPeriodId,
+                        endPeriodId: payload.endPeriodId ?? null,
+                        periodAllocations: payload.periodAllocations,
+                        weightRedistributionMode: payload.weightRedistributionMode,
+                        siblingWeightAdjustments:
+                            payload.siblingWeightAdjustments ?? [],
+                        ownerUserId: payload.ownerUserId,
+                        governmentStructureId: payload.governmentStructureId,
+                        internalStructureId: payload.internalStructureId ?? null,
+                        reason: payload.reason,
+                        reasonCode: payload.reasonCode,
+                        effectiveDate: payload.effectiveDate,
+                        targetAllocationMode:
+                            payload.targetAllocationMode ?? "divisible",
+                        achievementMode: payload.achievementMode ?? "period",
+                    },
+                },
+            }),
+            transformResponse: (response: { data: PlanAmendment }) =>
+                response.data,
+            invalidatesTags: [
+                "PlanAmendments",
+                "KpiAdditionReporting",
+                "PlanNodes",
+            ],
+        }),
+
         submitPlanAmendment: builder.mutation<PlanAmendment, string>({
             query: (id) => ({
                 url: `/plan/plan-amendments/${id}/submit`,
@@ -948,6 +1001,7 @@ export const planApi = baseApi.injectEndpoints({
             invalidatesTags: [
                 "PlanAmendments",
                 "AnnualTargetRevisionReporting",
+                "KpiAdditionReporting",
                 "PlanNodes",
                 "PeriodTargetAllocations",
                 "AnnualTargetAllocations",
@@ -998,6 +1052,27 @@ export const planApi = baseApi.injectEndpoints({
             providesTags: (_r, _e, { versionId }) => [
                 { type: "AnnualTargetRevisionReporting", id: versionId },
                 "AnnualTargetRevisionReporting",
+            ],
+        }),
+
+        getKpiAdditionReporting: builder.query<
+            KpiAdditionReportingResponse,
+            { versionId: string }
+        >({
+            query: ({ versionId }) => ({
+                url: `/plan/versions/${versionId}/kpi-addition-reporting`,
+            }),
+            transformResponse: (response: {
+                data: KpiAdditionReportingResponse;
+            }) =>
+                response.data ?? {
+                    draft_id: "",
+                    process_started: false,
+                    added_kpis: [],
+                },
+            providesTags: (_r, _e, { versionId }) => [
+                { type: "KpiAdditionReporting", id: versionId },
+                "KpiAdditionReporting",
             ],
         }),
 
@@ -1298,12 +1373,14 @@ export const {
     useGetPlanAmendmentsQuery,
     useGetPlanAmendmentByIdQuery,
     useCreateAnnualTargetRevisionMutation,
+    useCreateKpiAdditionMutation,
     useSubmitPlanAmendmentMutation,
     useLazyPreviewPlanAmendmentQuery,
     useApprovePlanAmendmentMutation,
     useRejectPlanAmendmentMutation,
     useCancelPlanAmendmentMutation,
     useGetAnnualTargetRevisionReportingQuery,
+    useGetKpiAdditionReportingQuery,
     useGetPlanAmendmentTypesQuery,
     useStartPlanProcessMutation,
     useGetPublishForReviewReadinessQuery,

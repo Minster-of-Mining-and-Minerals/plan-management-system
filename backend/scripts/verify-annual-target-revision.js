@@ -294,7 +294,8 @@ function testHandlerRegistrationAndConflictKeys() {
   const available = listAvailableAmendmentTypes();
   assert.ok(available.includes(AMENDMENT_TYPE.TARGET_REALLOCATION));
   assert.ok(available.includes(AMENDMENT_TYPE.ANNUAL_TARGET_REVISION));
-  assert.strictEqual(available.length, 2);
+  assert.ok(available.includes(AMENDMENT_TYPE.KPI_ADDITION));
+  assert.strictEqual(available.length, 3);
 
   const handler = resolveAmendmentHandler(AMENDMENT_TYPE.ANNUAL_TARGET_REVISION);
   assert.ok(handler instanceof AnnualTargetRevisionHandler);

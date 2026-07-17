@@ -550,6 +550,8 @@ async function syncAllDerivedNodesFromMaster(masterVersionId, transaction) {
 }
 
 module.exports = {
+    pickNodeFields,
+    syncMasterNodeToDerivedCopies,
     propagateMasterPlanNodeCreate,
     propagateMasterPlanNodeUpdate,
     propagateMasterPlanNodeDelete,

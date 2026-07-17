@@ -444,6 +444,66 @@ export interface AnnualTargetRevisionReportingResponse {
     };
 }
 
+export type KpiAdditionWeightMode = "manual" | "proportional" | "equal";
+
+export interface CreateKpiAdditionPayload {
+    draftId: string;
+    title: string;
+    reason: string;
+    reasonCode?: string;
+    description?: string;
+    effectiveMode?: "immediate" | "custom_date";
+    effectiveDate?: string | null;
+    parentId: string;
+    annualVersionId: string;
+    kpiTitle: string;
+    kpiDescription?: string;
+    weight: number;
+    contributionWeight?: number | null;
+    annualTarget: number;
+    startPeriodId: string;
+    endPeriodId?: string | null;
+    periodAllocations: Array<{ periodId: string; target: number }>;
+    weightRedistributionMode: KpiAdditionWeightMode;
+    siblingWeightAdjustments?: Array<{
+        kpiId: string;
+        weight: number;
+        contributionWeight?: number | null;
+    }>;
+    ownerUserId: string;
+    governmentStructureId: string;
+    internalStructureId?: string | null;
+    targetAllocationMode?: string;
+    achievementMode?: string;
+    submit?: boolean;
+}
+
+export interface KpiAdditionReportingResponse {
+    draft_id: string;
+    process_started: boolean;
+    current_amendment_version?: number | null;
+    added_kpis: Array<{
+        plan_amendment_id: string;
+        version: number | null;
+        title: string | null;
+        reason: string | null;
+        reason_code?: string | null;
+        effective_date?: string | null;
+        applied_at?: string | null;
+        parent_id?: string | null;
+        annual_target?: number | null;
+        weight?: number | null;
+        added_by?: string | null;
+        status: string;
+        master_kpi_id?: string | null;
+    }>;
+    comparison_mode?: {
+        baseline_label: string;
+        effective_label: string;
+        note?: string;
+    };
+}
+
 export interface PeriodTargetReallocationReportingItem {
     annual_kpi_plan_node_id: string;
     kpi_id: string;
