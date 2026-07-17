@@ -1,6 +1,6 @@
 "use strict";
 
-const { safeAddIndex, safeRemoveIndex } = require("../_helpers/migrationUtils");
+const { safeAddIndex, safeRemoveIndex } = require("./_helpers/migrationUtils");
 
 /** Cashier payment list / today / history query support. */
 module.exports = {

@@ -2,6 +2,18 @@
 
 const { AuditLog } = require("../models");
 const { v4: uuidv4 } = require("uuid");
+const logger = require("../utils/logger");
+
+function auditContextFromReq(req, extra = {}) {
+  return {
+    actorUserId: req?.user?.user_id || null,
+    ipAddress: req?.ip || req?.headers?.["x-forwarded-for"] || null,
+    details: {
+      userAgent: req?.get?.("user-agent") || req?.headers?.["user-agent"] || null,
+      ...extra,
+    },
+  };
+}
 
 async function logAudit({
   actorUserId,
@@ -10,6 +22,7 @@ async function logAudit({
   resourceId,
   details,
   ipAddress,
+  throwOnError = false,
 }) {
   try {
     await AuditLog.create({
@@ -22,8 +35,9 @@ async function logAudit({
       ip_address: ipAddress || null,
     });
   } catch (err) {
-    console.error("Audit log failed:", err.message);
+    logger.error({ err: err.message, action, resourceType }, "audit_log_failed");
+    if (throwOnError) throw err;
   }
 }
 
-module.exports = { logAudit };
+module.exports = { logAudit, auditContextFromReq };

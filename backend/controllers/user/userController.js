@@ -14,6 +14,7 @@ const { PLATFORM_NAME } = require("../../config/platformBranding");
 const { ACCOUNT_TYPES } = require("../../config/accountTypes");
 const { InternalUserProfile, Department, UserTitle } = require("../../models");
 const { listUsersWithPermission } = require("../../services/userPermissionService");
+const { logAudit, auditContextFromReq } = require("../../services/auditService");
 
 async function resolveTitleId(body, transaction) {
   const title_id = body.title_id || null;
@@ -644,13 +645,24 @@ const resetUserPassword = async (req, res) => {
     await user.update(
       {
         password: hashedPassword,
-        is_first_logged_in: false,
+        is_first_logged_in: true,
+        token_version: Number(user.token_version || 0) + 1,
         updated_at: new Date(),
       },
       { transaction: t }
     );
 
     await t.commit();
+
+    const ctx = auditContextFromReq(req, { target_email: user.email });
+    await logAudit({
+      actorUserId: req.user?.user_id,
+      action: "password_reset_admin",
+      resourceType: "user",
+      resourceId: user.user_id,
+      details: ctx.details,
+      ipAddress: ctx.ipAddress,
+    });
 
     // Send email notification
     await sendEmail(

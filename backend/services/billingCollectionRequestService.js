@@ -5,6 +5,7 @@ const db = require("../models");
 const notificationService = require("./notificationService");
 const { listUsersWithPermission } = require("./userPermissionService");
 const { roundMoney } = require("../utils/billingPricing");
+const { logAudit } = require("./auditService");
 const {
   OPEN_COLLECTION_STATUSES,
   COLLECTION_REQUEST_SOURCES,
@@ -193,6 +194,19 @@ async function sendToCashier(appointmentId, actor, payload = {}) {
       balanceDue,
       currency: account.currency,
       requesterName: requester?.full_name,
+    });
+
+    await logAudit({
+      actorUserId: actor?.user_id,
+      action: "send",
+      resourceType: "billing_collection_request",
+      resourceId: request.request_id,
+      details: {
+        appointment_id: appointmentId,
+        account_id: account.account_id,
+        amount_due: balanceDue,
+        source,
+      },
     });
 
     const created = await BillingCollectionRequest.findByPk(request.request_id, {

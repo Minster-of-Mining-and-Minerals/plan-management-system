@@ -5,6 +5,22 @@ const {
   SUPER_ADMIN_ROLE,
 } = require("../services/userPermissionService");
 
+const FIRST_LOGIN_ALLOWLIST = [
+  { method: "PUT", path: "/api/change-password" },
+  { method: "POST", path: "/api/auth/logout" },
+  { method: "GET", path: "/api/auth/me" },
+  { method: "GET", path: "/api/auth/permissions" },
+  { method: "GET", path: "/api/branding/active" },
+];
+
+function isFirstLoginAllowed(req) {
+  const method = String(req.method || "").toUpperCase();
+  const path = String(req.originalUrl || req.url || "").split("?")[0];
+  return FIRST_LOGIN_ALLOWLIST.some(
+    (rule) => rule.method === method && path === rule.path
+  );
+}
+
 const extractAccessToken = (req) => {
   const authHeader = req.headers["authorization"];
   const bearer = authHeader && authHeader.split(" ")[1];
@@ -39,6 +55,27 @@ const authenticateToken = async (req, res, next) => {
       return res.status(403).json({
         success: false,
         message: "User not found or inactive",
+      });
+    }
+
+    const tokenVersion = Number(user.token_version || 0);
+    const claimedVersion =
+      decoded.token_version === undefined || decoded.token_version === null
+        ? 0
+        : Number(decoded.token_version);
+    if (claimedVersion !== tokenVersion) {
+      return res.status(401).json({
+        success: false,
+        message: "Session revoked. Please sign in again.",
+        code: "TOKEN_REVOKED",
+      });
+    }
+
+    if (user.is_first_logged_in === true && !isFirstLoginAllowed(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Password change required before continuing",
+        code: "PASSWORD_CHANGE_REQUIRED",
       });
     }
 
@@ -96,6 +133,8 @@ const authenticateToken = async (req, res, next) => {
       account_type,
       roles,
       permissions,
+      is_first_logged_in: user.is_first_logged_in,
+      token_version: tokenVersion,
     };
 
     next();

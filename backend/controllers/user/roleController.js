@@ -4,6 +4,7 @@ const { v4: uuidv4 } = require("uuid");
 const { Op } = require("sequelize");
 const { Sequelize } = require("sequelize");
 const { enrichRoleWithStrength } = require("../../utils/roleStrength");
+const { logAudit, auditContextFromReq } = require("../../services/auditService");
 
 const roleInclude = [
   {
@@ -98,6 +99,16 @@ const createRole = async (req, res) => {
     const createdRole = await Role.findOne({
       where: { role_id: role.role_id },
       include: roleInclude,
+    });
+
+    const ctx = auditContextFromReq(req, { name: role.name });
+    await logAudit({
+      actorUserId: req.user?.user_id,
+      action: "create",
+      resourceType: "role",
+      resourceId: role.role_id,
+      details: ctx.details,
+      ipAddress: ctx.ipAddress,
     });
 
     return res.status(201).json({
@@ -346,6 +357,16 @@ const deleteRole = async (req, res) => {
     );
 
     await t.commit();
+
+    const ctx = auditContextFromReq(req, { name: role.name });
+    await logAudit({
+      actorUserId: req.user?.user_id,
+      action: "delete",
+      resourceType: "role",
+      resourceId: id,
+      details: ctx.details,
+      ipAddress: ctx.ipAddress,
+    });
 
     return res.status(200).json({
       success: true,

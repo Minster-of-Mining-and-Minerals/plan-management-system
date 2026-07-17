@@ -4,6 +4,8 @@ const { User } = require("../../models");
 const { sendEmail } = require("../../utils/sendEmail");
 const { Op } = require("sequelize");
 const { PLATFORM_NAME } = require("../../config/platformBranding");
+const { validateNewPassword } = require("../../utils/passwordPolicy");
+const { logAudit } = require("../../services/auditService");
 
 /**
  * Request OTP for password reset
@@ -26,16 +28,15 @@ const requestOTP = async (req, res) => {
       });
     }
 
-    // Generate 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+    // CSPRNG 6-digit OTP
+    const otp = String(crypto.randomInt(100000, 1000000));
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
     await user.update({
       otp,
       otp_expiry: otpExpiry,
     });
 
-    // Send email
     const subject = `Password Reset OTP - ${process.env.APP_NAME || PLATFORM_NAME}`;
     const text = `Your OTP for password reset is: ${otp}. It will expire in 10 minutes.`;
 
@@ -90,9 +91,15 @@ const verifyOTP = async (req, res) => {
 const resetPassword = async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
+    const ipAddress = req.ip || req.headers["x-forwarded-for"] || null;
 
     if (!email || !otp || !newPassword) {
       return res.status(400).json({ success: false, message: "Email, OTP, and new password are required" });
+    }
+
+    const policy = validateNewPassword(newPassword);
+    if (!policy.ok) {
+      return res.status(400).json({ success: false, message: policy.message });
     }
 
     const user = await User.findOne({
@@ -107,7 +114,6 @@ const resetPassword = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid or expired OTP" });
     }
 
-    // Hash new password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
@@ -117,6 +123,16 @@ const resetPassword = async (req, res) => {
       otp_expiry: null,
       is_first_logged_in: false,
       password_changed_at: new Date(),
+      token_version: Number(user.token_version || 0) + 1,
+    });
+
+    await logAudit({
+      actorUserId: user.user_id,
+      action: "password_reset",
+      resourceType: "user",
+      resourceId: user.user_id,
+      details: { email: user.email, method: "otp" },
+      ipAddress,
     });
 
     return res.status(200).json({

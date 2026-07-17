@@ -3,6 +3,7 @@
 const sessionService = require("../../services/cashierSessionService");
 const paymentService = require("../../services/cashierPaymentService");
 const servingClaimService = require("../../services/cashierServingClaimService");
+const { logAudit, auditContextFromReq } = require("../../services/auditService");
 
 const handleError = (res, error) => {
   const status = error.status || 500;
@@ -92,6 +93,21 @@ const listPaymentHistory = async (req, res) => {
   }
 };
 
+const exportCollections = async (req, res) => {
+  try {
+    const { csv, count } = await paymentService.exportCollectionsCsv(req.query);
+    const fromDate = req.query.from_date || "all";
+    const toDate = req.query.to_date || "all";
+    const filename = `collections_${fromDate}_to_${toDate}.csv`;
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("X-Export-Row-Count", String(count));
+    return res.status(200).send(csv);
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
 const getAccount = async (req, res) => {
   try {
     const data = await paymentService.getAccountDetail(
@@ -172,6 +188,18 @@ const voidPayment = async (req, res) => {
 const getReceipt = async (req, res) => {
   try {
     const data = await paymentService.getPaymentReceipt(req.params.paymentId);
+    const ctx = auditContextFromReq(req, {
+      payment_id: req.params.paymentId,
+      receipt_number: data?.receipt_number || data?.payment?.receipt_number,
+    });
+    await logAudit({
+      actorUserId: req.user?.user_id,
+      action: "reprint",
+      resourceType: "cashier_payment",
+      resourceId: req.params.paymentId,
+      details: ctx.details,
+      ipAddress: ctx.ipAddress,
+    });
     return res.status(200).json({ success: true, data });
   } catch (error) {
     return handleError(res, error);
@@ -186,6 +214,7 @@ module.exports = {
   listQueue,
   listPaymentsToday,
   listPaymentHistory,
+  exportCollections,
   getAccount,
   takeAccount,
   releaseAccount,

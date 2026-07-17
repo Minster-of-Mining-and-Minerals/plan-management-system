@@ -248,6 +248,7 @@ app.use("/api/billing-service-categories", billingServiceCategoryRoutes);
 app.use("/api/appointment-billing", appointmentBillingRoutes);
 app.use("/api/finance/cashier", cashierRoutes);
 app.use("/api/finance/receipt-templates", receiptTemplateRoutes);
+app.use("/api/audit-logs", require("./routers/audit/auditLogRoutes"));
 
 
 

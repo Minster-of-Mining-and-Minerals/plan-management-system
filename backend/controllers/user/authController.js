@@ -2,6 +2,7 @@ const db = require("../../models");
 const { User, Role, RolePermission, Permission, PermissionGroup } = db;
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const { logAudit, auditContextFromReq } = require("../../services/auditService");
 
 const login = async (req, res) => {
   try {
@@ -9,6 +10,8 @@ const login = async (req, res) => {
     const normalizedEmail = String(email || "")
       .trim()
       .toLowerCase();
+    const ipAddress = req.ip || req.headers["x-forwarded-for"] || null;
+    const userAgent = req.get("user-agent") || null;
 
     // Case-insensitive exact match (avoids LIKE wildcards on chars like _).
     const user = await User.findOne({
@@ -18,23 +21,49 @@ const login = async (req, res) => {
       ),
     });
 
-    if (!user)
+    if (!user) {
+      await logAudit({
+        actorUserId: null,
+        action: "login_failed",
+        resourceType: "auth",
+        details: { email: normalizedEmail, reason: "user_not_found", userAgent },
+        ipAddress,
+      });
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
       });
-    if (!user.is_active)
+    }
+    if (!user.is_active) {
+      await logAudit({
+        actorUserId: user.user_id,
+        action: "login_failed",
+        resourceType: "auth",
+        resourceId: user.user_id,
+        details: { email: normalizedEmail, reason: "inactive", userAgent },
+        ipAddress,
+      });
       return res.status(403).json({
         success: false,
         message: "User is inactive",
       });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch)
+    if (!isMatch) {
+      await logAudit({
+        actorUserId: user.user_id,
+        action: "login_failed",
+        resourceType: "auth",
+        resourceId: user.user_id,
+        details: { email: normalizedEmail, reason: "bad_password", userAgent },
+        ipAddress,
+      });
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
       });
+    }
 
     const account_type = user.account_type || "INTERNAL";
     const home_route =
@@ -44,12 +73,15 @@ const login = async (req, res) => {
           ? "/pharmacy/dashboard"
           : "/profile";
 
+    const tokenVersion = Number(user.token_version || 0);
+
     const token = jwt.sign(
       {
         user_id: user.user_id,
         email: user.email,
         is_first_logged_in: user.is_first_logged_in,
         account_type,
+        token_version: tokenVersion,
       },
       process.env.JWT_SECRET,
       {
@@ -64,6 +96,15 @@ const login = async (req, res) => {
       { last_login_at: new Date() },
       { where: { user_id: user.user_id } }
     );
+
+    await logAudit({
+      actorUserId: user.user_id,
+      action: "login_success",
+      resourceType: "auth",
+      resourceId: user.user_id,
+      details: { email: user.email, account_type, userAgent },
+      ipAddress,
+    });
 
     return res.status(200).json({
       success: true,
@@ -92,7 +133,22 @@ const login = async (req, res) => {
 
 const logout = async (req, res) => {
   try {
-    res.status(200).json({ message: "Logout successful" });
+    if (req.user?.user_id) {
+      const ctx = auditContextFromReq(req);
+      await logAudit({
+        actorUserId: req.user.user_id,
+        action: "logout",
+        resourceType: "auth",
+        resourceId: req.user.user_id,
+        details: ctx.details,
+        ipAddress: ctx.ipAddress,
+      });
+      // Optional soft revoke for this session family
+      await User.increment("token_version", {
+        where: { user_id: req.user.user_id },
+      });
+    }
+    res.status(200).json({ success: true, message: "Logout successful" });
   } catch (error) {
     res
       .status(500)

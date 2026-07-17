@@ -10,6 +10,7 @@ const {
 
 const { v4: uuidv4 } = require("uuid");
 const { enrichPermissionGroupWithStrength } = require("../../utils/roleStrength");
+const { logAudit, auditContextFromReq } = require("../../services/auditService");
 
 const permissionInclude = {
     model: Permission,
@@ -60,6 +61,16 @@ const createPermissionGroup = async (req, res) => {
 
         const totalPermissions = await getTotalActivePermissions();
         const createdGroup = await fetchGroupWithRelations(group.permission_group_id);
+
+        const ctx = auditContextFromReq(req, { name });
+        await logAudit({
+            actorUserId: req.user?.user_id,
+            action: "create",
+            resourceType: "permission_group",
+            resourceId: group.permission_group_id,
+            details: ctx.details,
+            ipAddress: ctx.ipAddress,
+        });
 
         return res.status(201).json({
             message: "Permission group created",

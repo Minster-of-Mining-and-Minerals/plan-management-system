@@ -82,6 +82,15 @@ router.get("/permissions", authenticateToken, authController.getMyPermissions);
  *       200:
  *         description: Logout successful
  */
-router.post("/logout", authController.logout);
+router.post("/logout", (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const bearer = authHeader && authHeader.split(" ")[1];
+  const queryToken =
+    typeof req.query?.token === "string" ? req.query.token.trim() : "";
+  if (!bearer && !queryToken) {
+    return authController.logout(req, res);
+  }
+  return authenticateToken(req, res, () => authController.logout(req, res));
+});
 
 module.exports = router;

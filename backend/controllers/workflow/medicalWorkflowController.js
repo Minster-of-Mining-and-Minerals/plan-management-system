@@ -2,6 +2,7 @@
 
 const medicalWorkflowService = require("../../services/medicalWorkflowService");
 const appointmentService = require("../../services/appointmentService");
+const { logAudit, auditContextFromReq } = require("../../services/auditService");
 
 const ensureReceivePatient = async (req, res, next) => {
   try {
@@ -36,6 +37,19 @@ const submitEntry = async (req, res) => {
       req.user.user_id,
       req.body
     );
+    const ctx = auditContextFromReq(req, {
+      appointment_id: req.body?.appointment_id,
+      action_type: req.body?.action_type,
+      header_title: req.body?.header_title,
+    });
+    await logAudit({
+      actorUserId: req.user.user_id,
+      action: req.body?.action_type || "submit",
+      resourceType: "workflow",
+      resourceId: req.body?.appointment_id || null,
+      details: ctx.details,
+      ipAddress: ctx.ipAddress,
+    });
     return res.json({ success: true, data: log });
   } catch (e) {
     return res.status(e.status || 500).json({

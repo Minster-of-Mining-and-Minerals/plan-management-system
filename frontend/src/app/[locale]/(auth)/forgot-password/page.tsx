@@ -29,8 +29,8 @@ const otpSchema = z.object({
 });
 
 const resetSchema = z.object({
-  newPassword: z.string().min(8, "Password must be at least 8 characters"),
-  confirmPassword: z.string().min(8, "Confirm password must be at least 8 characters"),
+  newPassword: z.string().min(12, "Password must be at least 12 characters"),
+  confirmPassword: z.string().min(12, "Confirm password must be at least 12 characters"),
 }).refine((data) => data.newPassword === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],

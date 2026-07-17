@@ -1,6 +1,6 @@
 # NovaCure — Phase 1 Production Hardening Backlog
 
-**Status:** Wave A (C1–C5, H1–H4) + Wave B (C6, H8–H10, H9, H13–H14) implemented July 2026. Waves C–D still pending.  
+**Status:** Waves A–C implemented July 2026 (security locks, operability, compliance trail). Wave D still pending.  
 **Order:** Implement top-to-bottom. Do not skip Critical items.  
 **Constraint:** No new clinical modules; preserve existing workflows and API compatibility.
 

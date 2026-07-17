@@ -92,6 +92,7 @@ export const baseApi = createApi({
     "CashierPaymentHistory",
     "FinanceCollections",
     "ReceiptTemplate",
+    "AuditLog",
   ],
   endpoints: () => ({}),
 });

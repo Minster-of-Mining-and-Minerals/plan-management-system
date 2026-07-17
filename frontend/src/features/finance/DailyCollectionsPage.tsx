@@ -19,58 +19,38 @@ import type { CashierPaymentLedgerItem } from "@/redux/types/cashier";
 import { printCashierReceipt } from "@/features/cashier/cashierReceiptPrint";
 import type { ActionButton } from "@/types/tableLayout";
 import { CASHIER_PERMISSIONS } from "@/features/cashier/cashierUtils";
+import { getAuthToken } from "@/lib/authToken";
 
 function formatToday() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function escapeCsv(value: string | number | null | undefined) {
-  const s = value == null ? "" : String(value);
-  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-  return s;
-}
-
-function downloadCollectionsCsv(
-  rows: CashierPaymentLedgerItem[],
-  fromDate: string,
-  toDate: string
-) {
-  const header = [
-    "receipt_number",
-    "paid_at",
-    "patient_name",
-    "patient_code",
-    "cashier_name",
-    "amount",
-    "currency",
-    "methods",
-    "account_balance_due",
-    "status",
-  ];
-  const lines = [
-    header.join(","),
-    ...rows.map((r) =>
-      [
-        r.receipt_number,
-        r.created_at,
-        r.patient_name,
-        r.patient_code,
-        r.cashier_name,
-        r.amount,
-        r.currency,
-        r.tenders.map((t) => `${t.method}:${t.amount}`).join("|"),
-        r.account_balance_due,
-        r.status,
-      ]
-        .map(escapeCsv)
-        .join(",")
-    ),
-  ];
-  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+async function downloadCollectionsExport(params: {
+  from_date: string;
+  to_date: string;
+  search?: string;
+}) {
+  const base = (process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:4000/api").replace(
+    /\/$/,
+    ""
+  );
+  const qs = new URLSearchParams();
+  if (params.from_date) qs.set("from_date", params.from_date);
+  if (params.to_date) qs.set("to_date", params.to_date);
+  if (params.search) qs.set("search", params.search);
+  const token = getAuthToken();
+  const res = await fetch(`${base}/finance/cashier/collections/export?${qs}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.message || "Export failed");
+  }
+  const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `collections_${fromDate}_to_${toDate}.csv`;
+  a.download = `collections_${params.from_date}_to_${params.to_date}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -121,14 +101,17 @@ export function DailyCollectionsPage() {
       icon: <Download className="h-4 w-4" />,
       variant: "outline",
       permissions: [CASHIER_PERMISSIONS.COLLECTIONS_VIEW],
-      onClick: () => {
-        const rows = data?.results ?? [];
-        if (!rows.length) {
-          toast.error("No payments to export for this range");
-          return;
+      onClick: async () => {
+        try {
+          await downloadCollectionsExport({
+            from_date: fromDate,
+            to_date: toDate,
+            search: search.trim() || undefined,
+          });
+          toast.success("CSV downloaded");
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Export failed");
         }
-        downloadCollectionsCsv(rows, fromDate, toDate);
-        toast.success("CSV downloaded");
       },
     },
   ];

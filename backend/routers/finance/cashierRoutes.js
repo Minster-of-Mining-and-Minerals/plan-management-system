@@ -62,6 +62,12 @@ router.get(
 );
 
 router.get(
+  "/collections/export",
+  checkPermission("finance_collections", "view"),
+  controller.exportCollections
+);
+
+router.get(
   "/collections",
   checkPermission("finance_collections", "view"),
   controller.listPaymentHistory

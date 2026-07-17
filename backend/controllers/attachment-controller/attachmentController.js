@@ -3,6 +3,7 @@
 const { Attachment } = require("../../models");
 const path = require("path");
 const fs = require("fs");
+const { logAudit, auditContextFromReq } = require("../../services/auditService");
 
 function attachmentDownloadPath(attachmentId) {
   return `/api/attachments/${attachmentId}/file`;
@@ -61,6 +62,19 @@ const uploadFiles = async (req, res) => {
       const record = await Attachment.create(recordData);
       uploadedFiles.push(toClientAttachment(record));
     }
+
+    const ctx = auditContextFromReq(req, {
+      count: uploadedFiles.length,
+      file_names: uploadedFiles.map((f) => f.file_name),
+    });
+    await logAudit({
+      actorUserId: req.user?.user_id,
+      action: "upload",
+      resourceType: "attachment",
+      resourceId: uploadedFiles[0]?.attachment_id || null,
+      details: ctx.details,
+      ipAddress: ctx.ipAddress,
+    });
 
     return res.status(201).json({
       success: true,
@@ -131,6 +145,16 @@ const deleteAttachment = async (req, res) => {
     }
 
     await file.destroy();
+
+    const ctx = auditContextFromReq(req, { file_name: file.file_name });
+    await logAudit({
+      actorUserId: req.user?.user_id,
+      action: "delete",
+      resourceType: "attachment",
+      resourceId: attachment_id,
+      details: ctx.details,
+      ipAddress: ctx.ipAddress,
+    });
 
     return res.status(200).json({
       success: true,

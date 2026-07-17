@@ -34,6 +34,7 @@ const internalPortalPrefixes = [
   "/clinical-suggestions",
   "/user-titles",
   "/medical-certificates",
+  "/admin",
 ];
 
 function hasSessionToken(req: NextRequest): boolean {

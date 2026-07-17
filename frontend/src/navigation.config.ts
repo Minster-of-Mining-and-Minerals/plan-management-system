@@ -19,6 +19,7 @@ import {
   Store,
   Receipt,
   Wallet,
+  ScrollText,
 } from "lucide-react";
 
 export type NavItem = {
@@ -233,5 +234,11 @@ export const NAVIGATION: NavItem[] = [
     url: "/branding",
     icon: Palette,
     allPermissions: ["BRANDING:READ"],
+  },
+  {
+    title: "Audit Log",
+    url: "/admin/audit-logs",
+    icon: ScrollText,
+    allPermissions: ["AUDIT_LOG:VIEW"],
   },
 ];

@@ -1,5 +1,7 @@
 const bcrypt = require("bcrypt");
 const { User } = require("../../models");
+const { validateNewPassword } = require("../../utils/passwordPolicy");
+const { logAudit, auditContextFromReq } = require("../../services/auditService");
 
 exports.changePassword = async (req, res) => {
   const t = await User.sequelize.transaction();
@@ -8,7 +10,6 @@ exports.changePassword = async (req, res) => {
     const { current_password, new_password, confirm_password, confirm_change } =
       req.body;
 
-    
     if (!current_password || !new_password || !confirm_password) {
       return res.status(400).json({
         success: false,
@@ -16,7 +17,6 @@ exports.changePassword = async (req, res) => {
       });
     }
 
-    // Require explicit confirmation
     if (confirm_change !== true) {
       return res.status(400).json({
         success: false,
@@ -25,7 +25,6 @@ exports.changePassword = async (req, res) => {
       });
     }
 
-    // Check if new and confirm password match
     if (new_password !== confirm_password) {
       return res.status(400).json({
         success: false,
@@ -33,7 +32,11 @@ exports.changePassword = async (req, res) => {
       });
     }
 
-    // Fetch user
+    const policy = validateNewPassword(new_password);
+    if (!policy.ok) {
+      return res.status(400).json({ success: false, message: policy.message });
+    }
+
     const user = await User.findOne({
       where: { user_id: userId, is_active: true },
       transaction: t,
@@ -45,7 +48,6 @@ exports.changePassword = async (req, res) => {
         .json({ success: false, message: "User not found" });
     }
 
-    // Verify current password
     const isMatch = await bcrypt.compare(current_password, user.password);
     if (!isMatch) {
       await t.rollback();
@@ -54,16 +56,13 @@ exports.changePassword = async (req, res) => {
         .json({ success: false, message: "Incorrect current password" });
     }
 
-    // Prevent using same password
     const isSame = await bcrypt.compare(new_password, user.password);
     if (isSame) {
       await t.rollback();
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "New password cannot be same as old password",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "New password cannot be same as old password",
+      });
     }
 
     const hashedPassword = await bcrypt.hash(new_password, 10);
@@ -72,15 +71,28 @@ exports.changePassword = async (req, res) => {
         password: hashedPassword,
         password_changed_at: new Date(),
         is_first_logged_in: false,
+        token_version: Number(user.token_version || 0) + 1,
         updated_at: new Date(),
       },
       { transaction: t }
     );
 
     await t.commit();
+
+    const ctx = auditContextFromReq(req);
+    await logAudit({
+      actorUserId: userId,
+      action: "password_change",
+      resourceType: "user",
+      resourceId: userId,
+      details: ctx.details,
+      ipAddress: ctx.ipAddress,
+    });
+
     return res.status(200).json({
       success: true,
-      message: "Password changed successfully",
+      message: "Password changed successfully. Please sign in again.",
+      require_relogin: true,
     });
   } catch (error) {
     if (!t.finished) await t.rollback();

@@ -970,10 +970,118 @@ async function getBillingSummariesForAppointments(appointmentIds = []) {
   );
 }
 
+async function exportCollectionsCsv({
+  search,
+  from_date,
+  to_date,
+  cashier_user_id,
+} = {}) {
+  const where = { status: "completed" };
+
+  if (from_date || to_date) {
+    where.created_at = {};
+    if (from_date) where.created_at[Op.gte] = startOfDay(from_date);
+    if (to_date) where.created_at[Op.lte] = endOfDay(to_date);
+  }
+  if (cashier_user_id) where.received_by = cashier_user_id;
+
+  const findOpts = {
+    where,
+    include: [
+      {
+        model: User,
+        as: "patient",
+        attributes: ["user_id", "full_name"],
+        include: [
+          {
+            model: PatientProfile,
+            as: "patientProfile",
+            attributes: ["patient_code"],
+          },
+        ],
+      },
+      {
+        model: User,
+        as: "receiver",
+        attributes: ["user_id", "full_name"],
+      },
+      {
+        model: AppointmentBillingAccount,
+        as: "account",
+        attributes: ["account_id", "status", "grand_total", "balance_due", "amount_paid"],
+      },
+      { model: PaymentTender, as: "tenders" },
+    ],
+    order: [["created_at", "DESC"]],
+  };
+
+  if (search?.trim()) {
+    const q = `%${search.trim()}%`;
+    findOpts.where = {
+      ...where,
+      [Op.or]: [
+        { receipt_number: { [Op.iLike]: q } },
+        { "$patient.full_name$": { [Op.iLike]: q } },
+        { "$patient.patientProfile.patient_code$": { [Op.iLike]: q } },
+        { "$receiver.full_name$": { [Op.iLike]: q } },
+      ],
+    };
+    findOpts.subQuery = false;
+  }
+
+  const rows = await CashierPayment.findAll(findOpts);
+  const items = rows.map(formatPaymentLedgerItem);
+
+  const escape = (value) => {
+    const s = value == null ? "" : String(value);
+    if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  };
+
+  const header = [
+    "receipt_number",
+    "paid_at",
+    "patient_name",
+    "patient_code",
+    "cashier_name",
+    "amount",
+    "currency",
+    "methods",
+    "account_balance_due",
+    "status",
+  ];
+
+  const lines = [
+    header.join(","),
+    ...items.map((r) =>
+      [
+        r.receipt_number,
+        r.created_at,
+        r.patient_name,
+        r.patient_code,
+        r.cashier_name,
+        r.amount,
+        r.currency,
+        (r.tenders || []).map((t) => `${t.method}:${t.amount}`).join("|"),
+        r.account_balance_due,
+        r.status,
+      ]
+        .map(escape)
+        .join(",")
+    ),
+  ];
+
+  return {
+    csv: lines.join("\n"),
+    count: items.length,
+  };
+}
+
 module.exports = {
   listQueue,
   listPaymentsToday,
   listPaymentHistory,
+  exportCollectionsCsv,
   getAccountDetail,
   recordPayment,
   voidPayment,
