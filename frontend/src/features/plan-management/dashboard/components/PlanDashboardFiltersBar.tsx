@@ -81,6 +81,7 @@ export function PlanDashboardFiltersBar({ state }: PlanDashboardFiltersProps) {
             options={structureOptions}
             onChange={(v) => updateFilter("structureId", v)}
             onPrimary
+            className="w-auto min-w-[140px]"
           />
           <FilterDropdown
             label="Department"
@@ -88,6 +89,7 @@ export function PlanDashboardFiltersBar({ state }: PlanDashboardFiltersProps) {
             options={departmentOpts}
             onChange={(v) => updateFilter("departmentId", v)}
             onPrimary
+            className="w-auto min-w-[140px]"
           />
           <FilterDropdown
             label="User"
@@ -95,6 +97,7 @@ export function PlanDashboardFiltersBar({ state }: PlanDashboardFiltersProps) {
             options={userOpts}
             onChange={(v) => updateFilter("userId", v)}
             onPrimary
+            className="w-auto min-w-[140px]"
           />
           <FilterDropdown
             label="Plan Type"
@@ -106,6 +109,7 @@ export function PlanDashboardFiltersBar({ state }: PlanDashboardFiltersProps) {
             ]}
             onChange={(v) => updateFilter("sharingMode", v as typeof filters.sharingMode)}
             onPrimary
+            className="w-auto min-w-[140px]"
           />
           <FilterDropdown
             label="Status"
@@ -118,6 +122,7 @@ export function PlanDashboardFiltersBar({ state }: PlanDashboardFiltersProps) {
             ]}
             onChange={(v) => updateFilter("status", v as typeof filters.status)}
             onPrimary
+            className="w-auto min-w-[140px]"
           />
           <FilterDropdown
             label="Priority"
@@ -130,6 +135,7 @@ export function PlanDashboardFiltersBar({ state }: PlanDashboardFiltersProps) {
             ]}
             onChange={(v) => updateFilter("priority", v as typeof filters.priority)}
             onPrimary
+            className="w-auto min-w-[140px]"
           />
           <div className="min-w-[130px] space-y-1.5">
             <label className={dateLabelClass}>Date From</label>
