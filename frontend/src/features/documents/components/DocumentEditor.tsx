@@ -22,7 +22,11 @@ interface DocumentEditorProps {
 
 type OnlyOfficeConfig = ComponentProps<typeof OnlyOfficeEditor>["config"];
 
-function formatOnlyofficeError(errorCode: number, errorDescription: string, documentServerUrl: string) {
+function formatOnlyofficeError(
+  errorCode: number,
+  errorDescription: string,
+  documentServerUrl: string
+) {
   switch (errorCode) {
     case -1:
       return `ONLYOFFICE failed to load: ${errorDescription}`;
@@ -51,15 +55,14 @@ export function DocumentEditor({
   const documentServerUrl = resolveOnlyofficeUrl(session.documentServerUrl);
 
   const config = useMemo((): OnlyOfficeConfig => {
-    if (session.config.token) {
-      return { token: session.config.token as string };
-    }
-
     const editorConfig = (session.config.editorConfig || {}) as Record<string, unknown>;
     const customization = (editorConfig.customization || {}) as Record<string, unknown>;
 
-    return {
+    // Always include absolute documentServerUrl inside config — some DocsAPI
+    // builds ignore the React prop and fall back to the current page origin.
+    const baseConfig = {
       ...session.config,
+      documentServerUrl,
       height: "100%",
       width: "100%",
       editorConfig: {
@@ -69,8 +72,17 @@ export function DocumentEditor({
           forcesave: customization.forcesave ?? true,
         },
       },
-    } as OnlyOfficeConfig;
-  }, [session.config]);
+    };
+
+    if (session.config.token) {
+      return {
+        ...baseConfig,
+        token: session.config.token as string,
+      } as unknown as OnlyOfficeConfig;
+    }
+
+    return baseConfig as unknown as OnlyOfficeConfig;
+  }, [session.config, documentServerUrl]);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +91,15 @@ export function DocumentEditor({
       setIsCheckingOnlyoffice(true);
       setIsOnlyofficeReady(false);
       setError(null);
+
+      if (!/^https?:\/\//i.test(documentServerUrl)) {
+        setError(
+          `Invalid ONLYOFFICE URL "${documentServerUrl}". Expected an absolute http(s) URL (e.g. http://10.0.71.213:8081).`
+        );
+        setIsOnlyofficeReady(false);
+        setIsCheckingOnlyoffice(false);
+        return;
+      }
 
       const health = await checkOnlyofficeHealth(documentServerUrl);
       if (cancelled) return;
@@ -156,15 +177,18 @@ export function DocumentEditor({
         <div className="h-full w-full">
           {isCheckingOnlyoffice ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-              Checking ONLYOFFICE connection...
+              Checking ONLYOFFICE at {documentServerUrl}…
             </div>
           ) : isOnlyofficeReady ? (
             <OnlyOfficeEditor
+              key={`${editorId}:${documentServerUrl}`}
               id={editorId}
               documentServerUrl={documentServerUrl}
               config={config}
               onLoadComponentError={(errorCode, errorDescription) => {
-                setError(formatOnlyofficeError(errorCode, errorDescription, documentServerUrl));
+                setError(
+                  formatOnlyofficeError(errorCode, errorDescription, documentServerUrl)
+                );
               }}
             />
           ) : (

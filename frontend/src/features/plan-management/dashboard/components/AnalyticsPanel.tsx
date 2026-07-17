@@ -82,7 +82,7 @@ export function AnalyticsPanel({
         </div>
         {headerAction}
       </div>
-      <div className="p-5">{children}</div>
+      <div className="min-w-0 p-5">{children}</div>
     </section>
   );
 }

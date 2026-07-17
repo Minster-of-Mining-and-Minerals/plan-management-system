@@ -8,7 +8,10 @@ const {
 
 const PLAN_API_URL = process.env.PLAN_API_URL || "http://localhost:4000/api";
 
-const LOCKED_PLAN_STATUSES = new Set(["finalized", "locked", "completed"]);
+/** Plan statuses that mean the plan tree/structure is frozen. */
+const STRUCTURE_LOCKED_STATUSES = new Set(["finalized", "locked"]);
+/** Fully finished plans — documents become read-only. */
+const COMPLETED_PLAN_STATUSES = new Set(["completed"]);
 
 const DENY_ALL_ACCESS = {
   canRead: false,
@@ -113,9 +116,15 @@ async function resolvePlanVersionAccess({
     hasPermission(permissions, "PLANS:UPDATE") ||
     hasPermission(permissions, "PLANS:EDIT_FINALIZED");
   const canManage = hasPermission(permissions, "DOCUMENTS:MANAGE");
+  const canCreateOrUpdateDocuments =
+    canManage ||
+    hasPermission(permissions, "DOCUMENTS:CREATE") ||
+    hasPermission(permissions, "DOCUMENTS:UPDATE");
 
-  const planLocked =
-    Boolean(planVersion.is_locked) || LOCKED_PLAN_STATUSES.has(planVersion.status);
+  const structureLocked =
+    Boolean(planVersion.is_locked) ||
+    STRUCTURE_LOCKED_STATUSES.has(planVersion.status);
+  const planCompleted = COMPLETED_PLAN_STATUSES.has(planVersion.status);
 
   if (documentStatus === "finalized") {
     return {
@@ -129,7 +138,8 @@ async function resolvePlanVersionAccess({
     };
   }
 
-  if (planLocked) {
+  // Fully completed plans: documents are read-only.
+  if (planCompleted) {
     return {
       canRead: true,
       canEdit: false,
@@ -137,18 +147,27 @@ async function resolvePlanVersionAccess({
       canFinalize: false,
       canUnfinalize: false,
       mode: "view",
-      reason: "plan_locked",
+      reason: "plan_completed",
     };
   }
 
+  // IMPORTANT: `finalized` / `is_locked` only freezes the plan tree structure.
+  // Plan documents must still be creatable/editable during execution.
+  const canEditDocuments = canUpdatePlan || canCreateOrUpdateDocuments;
+
   return {
     canRead: true,
-    canEdit: canUpdatePlan,
-    canDelete: canUpdatePlan,
-    canFinalize: canUpdatePlan,
+    canEdit: canEditDocuments,
+    canDelete: canUpdatePlan || canManage,
+    canFinalize: canEditDocuments,
     canUnfinalize: false,
-    mode: canUpdatePlan ? "edit" : "view",
-    reason: canUpdatePlan ? "plan_update" : "plan_read_only",
+    mode: canEditDocuments ? "edit" : "view",
+    reason: canEditDocuments
+      ? structureLocked
+        ? "plan_structure_locked_docs_allowed"
+        : "plan_update"
+      : "plan_read_only",
+    structureLocked,
   };
 }
 
@@ -204,12 +223,11 @@ async function resolveCreateAccess({ ownerType, ownerId, accessToken, user = nul
       user,
     });
 
-    // Plan docs: allow plan editors, or document creators who can read an unlocked plan.
     const canCreateOnPlan =
       planAccess.canEdit ||
       (canCreateDocuments &&
         planAccess.canRead &&
-        planAccess.reason !== "plan_locked" &&
+        planAccess.reason !== "plan_completed" &&
         planAccess.reason !== "plan_not_accessible" &&
         planAccess.reason !== "access_denied");
 

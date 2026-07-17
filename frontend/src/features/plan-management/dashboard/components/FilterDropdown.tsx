@@ -5,7 +5,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -36,8 +35,11 @@ export function FilterDropdown({
   disabled,
   onPrimary = false,
 }: FilterDropdownProps) {
+  const selectedLabel =
+    options.find((opt) => opt.value === value)?.label ?? placeholder;
+
   return (
-    <div className={cn("min-w-0 space-y-1.5", className)}>
+    <div className={cn("min-w-0 w-full space-y-1.5", className)}>
       <Label
         className={cn(
           "text-xs",
@@ -49,18 +51,23 @@ export function FilterDropdown({
       <Select value={value} onValueChange={onChange} disabled={disabled}>
         <SelectTrigger
           className={cn(
-            "h-9 w-full min-w-0",
+            "h-9 w-full min-w-0 max-w-full overflow-hidden whitespace-nowrap",
+            "[&>span:first-child]:min-w-0 [&>span:first-child]:flex-1 [&>span:first-child]:truncate",
             onPrimary
               ? "border-primary-foreground/20 bg-primary-foreground/95 text-foreground"
               : "bg-white"
           )}
         >
-          <SelectValue placeholder={placeholder} />
+          <span className="block min-w-0 flex-1 truncate text-left" title={selectedLabel}>
+            {selectedLabel}
+          </span>
         </SelectTrigger>
         <SelectContent className="max-h-[min(18rem,50vh)] max-w-[min(100vw-2rem,28rem)]">
           {options.map((opt) => (
             <SelectItem key={opt.value} value={opt.value} className="max-w-full">
-              <span className="block truncate">{opt.label}</span>
+              <span className="block truncate" title={opt.label}>
+                {opt.label}
+              </span>
             </SelectItem>
           ))}
         </SelectContent>

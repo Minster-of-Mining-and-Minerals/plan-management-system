@@ -37,7 +37,39 @@ export function buildOnlyofficeStartupMessage(documentServerUrl: string): string
 }
 
 /**
- * Probe ONLYOFFICE the same way the editor loads DocsAPI (script tag, no CORS).
+ * Clear any DocsAPI left on the page so @onlyoffice/document-editor-react
+ * reloads api.js from the absolute documentServerUrl.
+ *
+ * If DocsAPI is already present (e.g. from a previous probe that removed the
+ * script tag), DocEditor resolves editor assets against the Next.js origin
+ * (e.g. :3000/en/documents/...) instead of ONLYOFFICE (:8081).
+ */
+function clearPreloadedDocsApi(script?: HTMLScriptElement | null) {
+  if (typeof window === "undefined") return;
+
+  try {
+    const editor = window as Window & {
+      DocsAPI?: unknown;
+      DocEditor?: unknown;
+    };
+    delete editor.DocsAPI;
+    delete editor.DocEditor;
+  } catch {
+    const editor = window as Window & {
+      DocsAPI?: unknown;
+      DocEditor?: unknown;
+    };
+    editor.DocsAPI = undefined;
+    editor.DocEditor = undefined;
+  }
+
+  script?.remove();
+  document.getElementById("onlyoffice-api-script")?.remove();
+}
+
+/**
+ * Probe ONLYOFFICE the same way the editor loads DocsAPI (script tag, no CORS),
+ * then wipe DocsAPI so the React component owns the real load with the correct URL.
  */
 export function checkOnlyofficeHealth(
   documentServerUrl: string,
@@ -55,7 +87,8 @@ export function checkOnlyofficeHealth(
       if (settled) return;
       settled = true;
       window.clearTimeout(timeout);
-      script.remove();
+      // Always clear — leave a clean slate for DocumentEditor.
+      clearPreloadedDocsApi(script);
       resolve(result);
     };
 

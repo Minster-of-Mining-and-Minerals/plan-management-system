@@ -102,7 +102,21 @@ function buildVersionEditorConfig(document, version, user, versionNumber) {
 }
 
 function getDocumentServerUrl() {
-  return (process.env.ONLYOFFICE_URL || "http://localhost:8080").replace(/\/$/, "");
+  const raw = (
+    process.env.ONLYOFFICE_URL ||
+    process.env.NEXT_PUBLIC_ONLYOFFICE_URL ||
+    "http://localhost:8080"
+  ).trim();
+
+  const normalized = raw.replace(/\/$/, "");
+  if (!/^https?:\/\//i.test(normalized)) {
+    console.warn(
+      `[onlyoffice] ONLYOFFICE_URL must be an absolute URL. Got "${raw}". Falling back to http://localhost:8080`
+    );
+    return "http://localhost:8080";
+  }
+
+  return normalized;
 }
 
 module.exports = {

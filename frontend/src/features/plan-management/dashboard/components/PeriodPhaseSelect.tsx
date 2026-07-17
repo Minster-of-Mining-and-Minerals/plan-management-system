@@ -68,7 +68,7 @@ export function PeriodPhaseSelect({
         onValueChange={onChange}
         disabled={disabled || periods.length === 0}
       >
-        <SelectTrigger className="h-9 w-full min-w-0 bg-white">
+        <SelectTrigger className="h-9 w-full min-w-0 max-w-full overflow-hidden bg-white [&>span]:min-w-0 [&>span]:truncate">
           <SelectValue placeholder="Select period" />
         </SelectTrigger>
         <SelectContent className="max-h-[min(18rem,50vh)]">
