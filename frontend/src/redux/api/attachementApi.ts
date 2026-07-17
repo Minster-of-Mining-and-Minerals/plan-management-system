@@ -4,9 +4,11 @@ import { baseApi } from "../baseApi";
 export interface Attachment {
   attachment_id: string;
   file_name: string;
-  file_path: string;
-  uploaded_by: string;
-  created_at: string;
+  /** @deprecated Prefer download_url / authenticated file endpoint */
+  file_path?: string;
+  download_url?: string;
+  uploaded_by?: string;
+  created_at?: string;
 }
 
 export interface UploadFilesDto {

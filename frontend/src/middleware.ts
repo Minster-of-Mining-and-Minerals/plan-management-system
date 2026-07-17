@@ -27,6 +27,13 @@ const internalPortalPrefixes = [
   "/departments",
   "/workflow-inbox",
   "/diagnosis-forms",
+  "/billing",
+  "/finance",
+  "/notifications",
+  "/medical-diagrams",
+  "/clinical-suggestions",
+  "/user-titles",
+  "/medical-certificates",
 ];
 
 function hasSessionToken(req: NextRequest): boolean {

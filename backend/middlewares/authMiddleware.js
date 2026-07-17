@@ -5,9 +5,19 @@ const {
   SUPER_ADMIN_ROLE,
 } = require("../services/userPermissionService");
 
-const authenticateToken = async (req, res, next) => {
+const extractAccessToken = (req) => {
   const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1]; // Bearer <token>
+  const bearer = authHeader && authHeader.split(" ")[1];
+  if (bearer) return bearer;
+  // Allow ?token= for authenticated <img>/<a> downloads only when present
+  if (typeof req.query?.token === "string" && req.query.token.trim()) {
+    return req.query.token.trim();
+  }
+  return null;
+};
+
+const authenticateToken = async (req, res, next) => {
+  const token = extractAccessToken(req);
 
   if (!token) {
     return res.status(401).json({

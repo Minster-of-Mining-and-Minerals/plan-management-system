@@ -102,9 +102,8 @@ const createUser = async (req, res) => {
       }
     }
 
-    // ====== Generate password ======
-    // const password = generateRandomPassword();
-    const password = "password";
+    // ====== Generate one-time password (shown once to creator + emailed) ======
+    const password = generateRandomPassword(12);
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // ====== Create User ======
@@ -170,10 +169,14 @@ const createUser = async (req, res) => {
     `
     );
 
+    const userJson = user.toJSON();
+    delete userJson.password;
+
     return res.status(201).json({
       success: true,
       message: "User created successfully",
-      data: user,
+      data: userJson,
+      temporary_password: password,
     });
   } catch (error) {
     if (!t.finished) await t.rollback();
@@ -626,6 +629,7 @@ const resetUserPassword = async (req, res) => {
       success: true,
       message:
         "Password reset successfully. The new password has been sent via email.",
+      temporary_password: newPassword,
     });
   } catch (error) {
     await t.rollback();

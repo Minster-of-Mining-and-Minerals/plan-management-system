@@ -1,4 +1,5 @@
 import { PLATFORM_LOGO_URL } from "@/config/platformBranding";
+import { getAuthToken } from "@/lib/authToken";
 
 export const getFileUrl = (filePath: string) => {
   const normalized = filePath.replace(/\\/g, "/");
@@ -7,6 +8,44 @@ export const getFileUrl = (filePath: string) => {
   const apiBase = process.env.NEXT_PUBLIC_FILE_URL || "http://localhost:4000";
 
   return `${apiBase}/${normalized.replace(/^\//, "")}`;
+};
+
+/**
+ * Authenticated attachment download URL (Bearer via ?token= for img/href).
+ * Prefer this over raw /uploads/attachments paths.
+ */
+export const getAttachmentFileUrl = (attachmentId: string) => {
+  const apiBase =
+    process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:4000/api";
+  const base = `${apiBase.replace(/\/$/, "")}/attachments/${attachmentId}/file`;
+  const token = typeof window !== "undefined" ? getAuthToken() : null;
+  if (!token) return base;
+  return `${base}?token=${encodeURIComponent(token)}`;
+};
+
+/** Resolve preview URL from upload API payload or stored ref. */
+export const getAttachmentPreviewUrl = (attachment: {
+  attachment_id?: string;
+  download_url?: string;
+  file_path?: string;
+}) => {
+  if (attachment.attachment_id) {
+    return getAttachmentFileUrl(attachment.attachment_id);
+  }
+  if (attachment.download_url) {
+    const apiHost = (
+      process.env.NEXT_PUBLIC_FILE_URL || "http://localhost:4000"
+    ).replace(/\/$/, "");
+    const path = attachment.download_url.startsWith("http")
+      ? attachment.download_url
+      : `${apiHost}${attachment.download_url}`;
+    const token = typeof window !== "undefined" ? getAuthToken() : null;
+    if (!token) return path;
+    const sep = path.includes("?") ? "&" : "?";
+    return `${path}${sep}token=${encodeURIComponent(token)}`;
+  }
+  if (attachment.file_path) return getFileUrl(attachment.file_path);
+  return null;
 };
 
 /** URL for branding logos (default public path vs uploaded attachment). */

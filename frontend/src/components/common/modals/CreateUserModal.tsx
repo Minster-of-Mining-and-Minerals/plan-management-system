@@ -107,7 +107,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
     }
 
     try {
-      await createUser({
+      const created = await createUser({
         full_name: fullName.trim(),
         email: email.trim(),
         phone_number: phone.trim() || undefined,
@@ -115,7 +115,14 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
         department_id: departmentId,
         title_id: titleId || undefined,
       }).unwrap();
-      toast.success("Staff user created");
+      if (created.temporary_password) {
+        toast.success(
+          `Staff user created. Temporary password: ${created.temporary_password}`,
+          { duration: 20000 }
+        );
+      } else {
+        toast.success("Staff user created");
+      }
       onClose();
     } catch (err: unknown) {
       const message =

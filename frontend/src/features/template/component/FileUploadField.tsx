@@ -9,7 +9,7 @@ import {
   useDeleteAttachmentMutation,
   useGetAttachmentsQuery,
 } from "@/redux/api/attachementApi";
-import { getFileUrl, getFileType } from "@/utils/fileUrl";
+import { getAttachmentPreviewUrl, getFileType } from "@/utils/fileUrl";
 import { modalOverlayClassName } from "@/lib/modalLayout";
 import { cn } from "@/lib/utils";
 
@@ -91,7 +91,7 @@ export const FileUploadField: React.FC<FileUploadFieldProps> = ({
           attachment_id: a!.attachment_id,
           file_name: a!.file_name,
           file_path: a!.file_path,
-          previewUrl: getFileUrl(a!.file_path),
+          previewUrl: getAttachmentPreviewUrl(a!),
         }));
       setFiles(mapped);
       return;
@@ -109,7 +109,7 @@ export const FileUploadField: React.FC<FileUploadFieldProps> = ({
   }, [attachmentsResponse, value, valueFormat]);
 
   const emitChange = (
-    uploadedList: { attachment_id: string; file_path?: string }[]
+    uploadedList: { attachment_id: string; file_path?: string; download_url?: string }[]
   ) => {
     if (valueFormat === "attachmentIds") {
       const ids = uploadedList.map((f) => f.attachment_id);
@@ -117,7 +117,7 @@ export const FileUploadField: React.FC<FileUploadFieldProps> = ({
       return;
     }
     const urls = uploadedList
-      .map((f) => (f.file_path ? getFileUrl(f.file_path) : ""))
+      .map((f) => getAttachmentPreviewUrl(f) || "")
       .filter(Boolean);
     onChange(multiple ? urls : urls[0] || "");
   };
@@ -135,7 +135,8 @@ export const FileUploadField: React.FC<FileUploadFieldProps> = ({
             attachment_id: uploaded.attachment_id,
             file_name: uploaded.file_name,
             file_path: uploaded.file_path,
-            previewUrl: getFileUrl(uploaded.file_path),
+            download_url: uploaded.download_url,
+            previewUrl: getAttachmentPreviewUrl(uploaded),
           };
         }
       } catch {
@@ -148,6 +149,7 @@ export const FileUploadField: React.FC<FileUploadFieldProps> = ({
       attachment_id: string;
       file_name: string;
       file_path?: string;
+      download_url?: string;
       previewUrl?: string | null;
     }[];
 

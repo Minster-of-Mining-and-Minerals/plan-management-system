@@ -7,7 +7,6 @@ import { XIcon } from "lucide-react";
 import { useGetUserFormConfigQuery } from "@/redux/api/formFieldApi";
 import { useCreatePatientMutation } from "@/redux/api/patientApi";
 import { useUploadAttachmentsMutation } from "@/redux/api/attachementApi";
-import { getFileUrl } from "@/utils/fileUrl";
 import { MultiStepUserForm } from "@/components/dynamic-form/MultiStepUserForm";
 import {
   validateAllFormSteps,
@@ -97,7 +96,9 @@ export const CreatePatientModal: React.FC<CreatePatientModalProps> = ({
         if (!file) continue;
         const uploaded = await uploadFiles({ files: [file] }).unwrap();
         const attachment = uploaded.attachments?.[0];
-        const url = attachment ? getFileUrl(attachment.file_path) : undefined;
+        const url = attachment?.attachment_id
+          ? attachment.attachment_id
+          : undefined;
         if (url) {
           if (!payload.custom_fields) payload.custom_fields = {};
           (payload.custom_fields as Record<string, unknown>)[field.field_key] =

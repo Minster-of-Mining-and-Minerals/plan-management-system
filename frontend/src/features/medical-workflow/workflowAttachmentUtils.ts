@@ -1,7 +1,7 @@
 import { flattenFormFields } from "@/redux/types/formField";
 import type { UserFormConfigGrouped } from "@/redux/types/formField";
 import type { Attachment } from "@/redux/api/attachementApi";
-import { getFileUrl } from "@/utils/fileUrl";
+import { getAttachmentFileUrl, getFileUrl } from "@/utils/fileUrl";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -31,6 +31,7 @@ export function fileNameFromRef(ref: string) {
 export function previewUrlFromRef(ref: string) {
   const v = ref.trim();
   if (/^https?:\/\//i.test(v)) return v;
+  if (isAttachmentUuid(v)) return getAttachmentFileUrl(v);
   if (v.includes("uploads/") || v.startsWith("uploads")) {
     return getFileUrl(v.replace(/^\/+/, ""));
   }
@@ -91,7 +92,7 @@ export function resolveWorkflowFiles(
         resolved.push({
           key,
           file_name: record.file_name,
-          previewUrl: getFileUrl(record.file_path),
+          previewUrl: getAttachmentFileUrl(record.attachment_id),
         });
       }
       continue;

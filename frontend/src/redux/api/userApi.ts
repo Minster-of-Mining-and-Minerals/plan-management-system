@@ -48,13 +48,19 @@ export const userApi = baseApi.injectEndpoints({
     /** ---------------------------
      * CREATE USER
      * --------------------------- */
-    createUser: builder.mutation<User, CreateUserPayload>({
+    createUser: builder.mutation<
+      { user: User; temporary_password?: string },
+      CreateUserPayload
+    >({
       query: (body) => ({
         url: "/users",
         method: "POST",
         body,
       }),
-      transformResponse: (response: any): User => response.data,
+      transformResponse: (response: any) => ({
+        user: response.data,
+        temporary_password: response.temporary_password,
+      }),
       invalidatesTags: ["User"],
     }),
 

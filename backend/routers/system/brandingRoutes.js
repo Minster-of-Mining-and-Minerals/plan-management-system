@@ -1,3 +1,5 @@
+"use strict";
+
 const express = require("express");
 const router = express.Router();
 
@@ -16,14 +18,27 @@ const {
   activateBranding,
 } = require("../../controllers/system/brandingController");
 
-// Public — used by login page and public site
+const {
+  authenticateToken,
+  checkPermission,
+} = require("../../middlewares/authMiddleware");
+const { requireInternalAccount } = require("../../middlewares/accountTypeMiddleware");
+
+// Public — login page / marketing site
 router.get("/active", getActiveBranding);
 
-router.post("/", validateCreateBranding, createBranding);
-router.get("/", getBrandingList);
-router.get("/:id", getBrandingById);
-router.put("/:id", validateUpdateBranding, updateBranding);
-router.patch("/:id/activate", activateBranding);
-router.delete("/:id", deleteBranding);
+router.use(authenticateToken, requireInternalAccount);
+
+router.post("/", checkPermission("branding", "create"), validateCreateBranding, createBranding);
+router.get("/", checkPermission("branding", "read"), getBrandingList);
+router.get("/:id", checkPermission("branding", "read"), getBrandingById);
+router.put(
+  "/:id",
+  checkPermission("branding", "update"),
+  validateUpdateBranding,
+  updateBranding
+);
+router.patch("/:id/activate", checkPermission("branding", "update"), activateBranding);
+router.delete("/:id", checkPermission("branding", "delete"), deleteBranding);
 
 module.exports = router;

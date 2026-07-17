@@ -1,84 +1,31 @@
+"use strict";
+
 const express = require("express");
 const router = express.Router();
 const permissionController = require("../../controllers/user/permissionController");
+const {
+  authenticateToken,
+  checkPermission,
+} = require("../../middlewares/authMiddleware");
+const { requireInternalAccount } = require("../../middlewares/accountTypeMiddleware");
 
-/**
- * @swagger
- * tags:
- *   name: Permissions
- *   description: Permission management
- */
+router.use(authenticateToken, requireInternalAccount);
 
-/**
- * @swagger
- * /permissions:
- *   get:
- *     summary: Get all permissions
- *     tags: [Permissions]
- *     responses:
- *       200:
- *         description: List of permissions
- */
-router.get("/", permissionController.getPermissions);
-
-/**
- * @swagger
- * /permissions/activate/{permission_id}:
- *   put:
- *     summary: Activate a permission
- *     tags: [Permissions]
- *     parameters:
- *       - in: path
- *         name: permission_id
- *         required: true
- *         schema:
- *           type: string
- *         description: Permission ID to activate
- *     responses:
- *       200:
- *         description: Permission activated
- */
-router.put("/activate/:permission_id", permissionController.activatePermission);
-
-/**
- * @swagger
- * /permissions/deactivate/{permission_id}:
- *   put:
- *     summary: Deactivate a permission
- *     tags: [Permissions]
- *     parameters:
- *       - in: path
- *         name: permission_id
- *         required: true
- *         schema:
- *           type: string
- *         description: Permission ID to deactivate
- *     responses:
- *       200:
- *         description: Permission deactivated
- */
+router.get("/", checkPermission("permissions", "read"), permissionController.getPermissions);
+router.put(
+  "/activate/:permission_id",
+  checkPermission("permissions", "update"),
+  permissionController.activatePermission
+);
 router.put(
   "/deactivate/:permission_id",
+  checkPermission("permissions", "update"),
   permissionController.deactivatePermission
 );
-
-/**
- * @swagger
- * /permissions/toggle/{permission_id}:
- *   put:
- *     summary: Toggle permission status
- *     tags: [Permissions]
- *     parameters:
- *       - in: path
- *         name: permission_id
- *         required: true
- *         schema:
- *           type: string
- *         description: Permission ID to toggle
- *     responses:
- *       200:
- *         description: Permission status toggled
- */
-router.put("/toggle/:permission_id", permissionController.togglePermission);
+router.put(
+  "/toggle/:permission_id",
+  checkPermission("permissions", "update"),
+  permissionController.togglePermission
+);
 
 module.exports = router;

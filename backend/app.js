@@ -1,10 +1,14 @@
 const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
+const helmet = require("helmet");
 const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
 dotenv.config({ path: path.join(__dirname, ".env") });
+
+const { bootstrapSecurityEnv } = require("./config/securityBootstrap");
+bootstrapSecurityEnv();
 
 const { PLATFORM_NAME } = require("./config/platformBranding");
 
@@ -87,7 +91,14 @@ app.use(
 
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// ===========Serve static files (PDFs, uploads)=====================
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: false,
+  })
+);
+
+// ===========Serve static files (PDFs, non-PHI public assets)=====================
 app.use(
   express.static(path.join(__dirname, "public"), {
     setHeaders: (res, filePath) => {
@@ -101,16 +112,40 @@ app.use(
   })
 );
 
-app.use(
-  "/uploads",
-  express.static(path.join(__dirname, "uploads"), {
-    setHeaders: (res, filePath) => {
-      res.set("Access-Control-Allow-Origin", "*");
-      res.set("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS");
-      res.set("Access-Control-Allow-Headers", "Content-Type");
-    },
-  })
-);
+const serveUploadsStatic = process.env.SERVE_UPLOADS_STATIC !== "false";
+
+if (serveUploadsStatic) {
+  // Block PHI attachment files; use GET /api/attachments/:id/file instead.
+  app.use("/uploads", (req, res, next) => {
+    const normalized = String(req.path || "").replace(/\\/g, "/");
+    if (
+      normalized === "/attachments" ||
+      normalized.startsWith("/attachments/")
+    ) {
+      return res.status(401).json({
+        success: false,
+        message:
+          "Attachment files require authentication. Use GET /api/attachments/:id/file",
+      });
+    }
+    return next();
+  });
+
+  app.use(
+    "/uploads",
+    express.static(path.join(__dirname, "uploads"), {
+      setHeaders: (res) => {
+        res.set("Access-Control-Allow-Origin", "*");
+        res.set("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS");
+        res.set("Access-Control-Allow-Headers", "Content-Type");
+      },
+    })
+  );
+} else {
+  console.log(
+    "Static /uploads disabled (SERVE_UPLOADS_STATIC=false). Serve files via authenticated APIs."
+  );
+}
 
 // ================== CORS Configuration ==================
 const allowedOrigins = [
@@ -145,10 +180,16 @@ sequelize
   .catch((err) => console.error(" Database connection error:", err));
 
 // ================== Swagger Setup ==================
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+if (!isProduction || process.env.ENABLE_SWAGGER === "true") {
+  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+}
 
 // ================== API Routes go here ==================
 
+const {
+  authLoginLimiter,
+  passwordResetLimiter,
+} = require("./middlewares/rateLimitMiddleware");
 
 // User Management Routes
 app.use("/api/users", userRoute);
@@ -176,8 +217,9 @@ app.use("/api/form-fields", formFieldRoutes);
 app.use("/api/form-field-groups", formFieldGroupRoutes);
 app.use("/api/roles", roleRoute);
 app.use("/api/user-roles", userRoleRoute);
+app.use("/api/auth/login", authLoginLimiter);
 app.use("/api/auth", authRoute);
-app.use("/api/auth/forgot-password", forgotPasswordRoutes);
+app.use("/api/auth/forgot-password", passwordResetLimiter, forgotPasswordRoutes);
 app.use("/api/change-password", changePasswordRoutes);
 app.use("/api/permissions", permissionRoute);
 app.use("/api/permission-groups", permissionGroupRoute);
