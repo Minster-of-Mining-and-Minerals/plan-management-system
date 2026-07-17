@@ -104,9 +104,8 @@ export function SearchableEntityPicker({
         onOpenAutoFocus={(event) => {
           // Keep focus on search input without scrolling the page.
           event.preventDefault();
-          const container = event.currentTarget;
-          if (!container) return;
-          const target = container.querySelector<HTMLInputElement>(
+          const container = event.currentTarget as HTMLElement | null;
+          const target = container?.querySelector<HTMLInputElement>(
             "input[data-searchable-entity-search]"
           );
           target?.focus();
