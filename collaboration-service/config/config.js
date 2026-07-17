@@ -3,13 +3,24 @@ const path = require("path");
 const collaborationEnvPath = path.join(__dirname, "../.env");
 const backendEnvPath = path.join(__dirname, "../../backend/.env");
 
-require("dotenv").config({ path: collaborationEnvPath });
+function loadDotenv(dotenvPath, options) {
+  try {
+    // Optional: Docker already injects env; local/dev may use dotenv from node_modules.
+    require("dotenv").config({ path: dotenvPath, ...options });
+  } catch (error) {
+    if (error.code !== "MODULE_NOT_FOUND") {
+      throw error;
+    }
+  }
+}
+
+loadDotenv(collaborationEnvPath);
 if (
   !process.env.COLLABORATION_DB_PASSWORD &&
   !process.env.DB_PASSWORD &&
   !process.env.COLLABORATION_DATABASE_URL
 ) {
-  require("dotenv").config({ path: backendEnvPath, override: false });
+  loadDotenv(backendEnvPath, { override: false });
 }
 
 const pool = {

@@ -12,6 +12,8 @@ if [ "${RUN_COLLABORATION_MIGRATIONS:-true}" = "true" ]; then
   echo "Running collaboration database migrations..."
   (
     cd /collaboration-service
+    # Collab code lives outside /app; resolve deps from the backend image install.
+    export NODE_PATH="/app/node_modules${NODE_PATH:+:$NODE_PATH}"
     COLLABORATION_DB_HOST="${COLLABORATION_DB_HOST:-$DB_HOST}" \
     COLLABORATION_DB_PORT="${COLLABORATION_DB_PORT:-$DB_PORT}" \
     COLLABORATION_DB_USERNAME="${COLLABORATION_DB_USERNAME:-$DB_USERNAME}" \
