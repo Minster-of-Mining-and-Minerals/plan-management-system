@@ -5,6 +5,10 @@ import { ListTree } from "lucide-react";
 import type { PlanDashboardFiltersState } from "../hooks/usePlanDashboardFilters";
 import { TreeNodeRow } from "../components/TreeNodeRow";
 import { FilterDropdown } from "../components/FilterDropdown";
+import {
+  PeriodPhaseBadge,
+  PeriodPhaseSelect,
+} from "../components/PeriodPhaseSelect";
 import type { DashboardPlanRow } from "../types";
 import { AnalyticsPanel, DashboardSectionHeader } from "../components/AnalyticsPanel";
 import { useDashboardAppearance } from "../hooks/useDashboardAppearance";
@@ -29,6 +33,12 @@ export function ProgressTab({ state }: ProgressTabProps) {
       ? filters.masterPlanVersionId
       : data.progressMeta.focus_master_plan_version_id;
 
+  const availablePeriods = data.progressMeta.available_periods ?? [];
+  const selectedPeriodId =
+    filters.periodVersionId !== "auto"
+      ? filters.periodVersionId
+      : data.progressMeta.period_version_id ?? "";
+
   const planOptions = [
     { value: "auto", label: "Auto (first in execution)" },
     ...executionPlanOptions.map((plan) => ({
@@ -43,7 +53,7 @@ export function ProgressTab({ state }: ProgressTabProps) {
     <div className="space-y-6">
       <DashboardSectionHeader
         title="Plan Progress"
-        description="Live hierarchy from the focused open execution period with rolled-up achievement."
+        description="Live hierarchy for the selected execution period with rolled-up achievement. Defaults to the active period; switch to past or upcoming periods anytime."
         badge={data.progressMeta.period_label ?? "No period"}
       />
 
@@ -55,7 +65,7 @@ export function ProgressTab({ state }: ProgressTabProps) {
           tone="primary"
           className="lg:col-span-2"
         >
-          <div className="flex flex-col sm:flex-row sm:items-end gap-4 justify-between">
+          <div className="flex flex-col gap-4">
             <div>
               <p className="text-lg font-semibold" style={{ color: textPrimary }}>
                 {focusPlan?.draft_name ?? "No plan selected"}
@@ -68,22 +78,37 @@ export function ProgressTab({ state }: ProgressTabProps) {
                 </p>
               )}
             </div>
-            <div className="min-w-[240px]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FilterDropdown
                 label="Focus Plan"
                 value={filters.masterPlanVersionId}
                 options={planOptions}
                 onChange={(value) => updateFilter("masterPlanVersionId", value)}
               />
+              <PeriodPhaseSelect
+                label="Execution period"
+                value={selectedPeriodId}
+                periods={availablePeriods}
+                onChange={(value) => updateFilter("periodVersionId", value)}
+                disabled={availablePeriods.length === 0}
+              />
             </div>
           </div>
         </AnalyticsPanel>
 
         {data.progressMeta.period_label && (
-          <AnalyticsPanel title="Active Period" variant="accent" tone="info">
-            <p className="text-2xl font-bold" style={{ color: textPrimary }}>
-              {data.progressMeta.period_label}
-            </p>
+          <AnalyticsPanel title="Selected Period" variant="accent" tone="info">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-2xl font-bold" style={{ color: textPrimary }}>
+                {data.progressMeta.period_label}
+              </p>
+              <PeriodPhaseBadge phase={data.progressMeta.period_phase} />
+            </div>
+            {data.progressMeta.planning_year != null && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Planning year {data.progressMeta.planning_year}
+              </p>
+            )}
             {focusId && (
               <Link
                 href={`/plans/${focusId}`}
@@ -108,8 +133,8 @@ export function ProgressTab({ state }: ProgressTabProps) {
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
-            No execution hierarchy available. Start process on a plan and record achievements in
-            the open period.
+            No execution hierarchy available for this period. Start process on a plan and
+            record achievements, or pick another period.
           </p>
         )}
       </AnalyticsPanel>

@@ -90,6 +90,7 @@ export const planApi = baseApi.injectEndpoints({
             {
                 government_structure_id?: string;
                 master_plan_version_id?: string;
+                period_version_id?: string;
                 status?: string;
                 sharing_mode?: string;
                 search?: string;

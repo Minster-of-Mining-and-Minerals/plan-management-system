@@ -101,6 +101,17 @@ export interface DashboardSharingPlan {
   structure_name?: string | null;
 }
 
+export type DashboardPeriodPhase = "active" | "past" | "upcoming";
+
+export interface DashboardAvailablePeriod {
+  plan_version_id: string;
+  period_label: string | null;
+  planning_year: number | null;
+  sequence_index: number | null;
+  execution_status: string | null;
+  phase: DashboardPeriodPhase;
+}
+
 export interface PlanExecutionDashboardResponse {
   kpi: DashboardKpiSummary;
   plans: DashboardPlanRow[];
@@ -119,6 +130,9 @@ export interface PlanExecutionDashboardResponse {
   progress_tree: {
     period_label: string | null;
     planning_year: number | null;
+    period_version_id: string | null;
+    period_phase: DashboardPeriodPhase | null;
+    available_periods: DashboardAvailablePeriod[];
     nodes: DashboardProgressNode[];
   };
   focus_master_plan_version_id: string | null;
@@ -135,6 +149,8 @@ export interface DashboardFilters {
   dateFrom: string;
   dateTo: string;
   masterPlanVersionId: string;
+  /** "auto" = backend picks active (open) period */
+  periodVersionId: string;
 }
 
 export const DEFAULT_DASHBOARD_FILTERS: DashboardFilters = {
@@ -147,6 +163,7 @@ export const DEFAULT_DASHBOARD_FILTERS: DashboardFilters = {
   dateFrom: "",
   dateTo: "",
   masterPlanVersionId: "auto",
+  periodVersionId: "auto",
 };
 
 export interface PlanDashboardData {
@@ -159,6 +176,9 @@ export interface PlanDashboardData {
   progressMeta: {
     period_label: string | null;
     planning_year: number | null;
+    period_version_id: string | null;
+    period_phase: DashboardPeriodPhase | null;
+    available_periods: DashboardAvailablePeriod[];
     focus_master_plan_version_id: string | null;
   };
   annualTimeline: PlanExecutionDashboardResponse["annual_timeline"];

@@ -19,6 +19,8 @@ export function usePlanDashboardFilters() {
       filters.masterPlanVersionId !== "auto"
         ? filters.masterPlanVersionId
         : undefined;
+    const periodVersionId =
+      filters.periodVersionId !== "auto" ? filters.periodVersionId : undefined;
 
     return {
       government_structure_id:
@@ -28,6 +30,7 @@ export function usePlanDashboardFilters() {
       date_from: filters.dateFrom || undefined,
       date_to: filters.dateTo || undefined,
       master_plan_version_id: masterPlanVersionId,
+      period_version_id: periodVersionId,
     };
   }, [filters]);
 
@@ -59,6 +62,9 @@ export function usePlanDashboardFilters() {
         progressMeta: {
           period_label: null,
           planning_year: null,
+          period_version_id: null,
+          period_phase: null,
+          available_periods: [],
           focus_master_plan_version_id: null,
         },
         annualTimeline: [],
@@ -80,6 +86,9 @@ export function usePlanDashboardFilters() {
       progressMeta: {
         period_label: apiData.progress_tree.period_label,
         planning_year: apiData.progress_tree.planning_year,
+        period_version_id: apiData.progress_tree.period_version_id ?? null,
+        period_phase: apiData.progress_tree.period_phase ?? null,
+        available_periods: apiData.progress_tree.available_periods ?? [],
         focus_master_plan_version_id: apiData.focus_master_plan_version_id,
       },
       annualTimeline: apiData.annual_timeline,
@@ -151,6 +160,10 @@ export function usePlanDashboardFilters() {
       }
       if (key === "departmentId") {
         next.userId = "all";
+      }
+      // Changing focus plan resets period so backend can pick the active one again.
+      if (key === "masterPlanVersionId") {
+        next.periodVersionId = "auto";
       }
       return next;
     });

@@ -70,16 +70,26 @@ async function enrichMasterPlanRow(master) {
   };
 }
 
-async function resolveFocusPeriodForMaster(liveMasterId) {
+async function resolveSnapshotMaster(liveMasterId) {
   const master = await PlanVersion.findByPk(liveMasterId);
   if (!master?.active_execution_snapshot_id) {
     return null;
   }
 
   const versionMap = await buildLiveToSnapshotVersionMap(master.active_execution_snapshot_id);
-  const snapshotMaster = versionMap.get(liveMasterId);
+  return versionMap.get(liveMasterId) ?? null;
+}
+
+function classifyPeriodPhase(executionStatus) {
+  if (executionStatus === "open") return "active";
+  if (executionStatus === "completed") return "past";
+  return "upcoming";
+}
+
+async function listPeriodsForMaster(liveMasterId) {
+  const snapshotMaster = await resolveSnapshotMaster(liveMasterId);
   if (!snapshotMaster) {
-    return null;
+    return [];
   }
 
   const annuals = await PlanVersion.findAll({
@@ -90,27 +100,57 @@ async function resolveFocusPeriodForMaster(liveMasterId) {
     order: [["sequence_index", "ASC"]],
   });
 
-  const openAnnual =
-    annuals.find((annual) => annual.execution_status === "open") ?? annuals[annuals.length - 1];
+  const periods = [];
+  for (const annual of annuals) {
+    const annualPeriods = await PlanVersion.findAll({
+      where: {
+        parent_plan_version_id: annual.plan_version_id,
+        version_kind: "execution_period",
+      },
+      order: [["sequence_index", "ASC"]],
+    });
 
-  if (!openAnnual) {
+    for (const period of annualPeriods) {
+      const plain = period.toJSON ? period.toJSON() : period;
+      periods.push({
+        plan_version_id: plain.plan_version_id,
+        period_label: plain.period_label,
+        planning_year: annual.planning_year ?? annual.year ?? null,
+        sequence_index: plain.sequence_index ?? null,
+        execution_status: plain.execution_status ?? null,
+        phase: classifyPeriodPhase(plain.execution_status),
+      });
+    }
+  }
+
+  return periods;
+}
+
+function pickDefaultPeriod(periods) {
+  if (!periods.length) return null;
+  return (
+    periods.find((period) => period.phase === "active") ??
+    [...periods].reverse().find((period) => period.phase === "past") ??
+    periods[0]
+  );
+}
+
+async function resolveFocusPeriodForMaster(liveMasterId, requestedPeriodId = null) {
+  const periods = await listPeriodsForMaster(liveMasterId);
+  if (!periods.length) {
     return null;
   }
 
-  const periods = await PlanVersion.findAll({
-    where: {
-      parent_plan_version_id: openAnnual.plan_version_id,
-      version_kind: "execution_period",
-    },
-    order: [["sequence_index", "ASC"]],
-  });
+  const selectedMeta =
+    (requestedPeriodId &&
+      periods.find((period) => period.plan_version_id === requestedPeriodId)) ||
+    pickDefaultPeriod(periods);
 
-  return (
-    periods.find((period) => period.execution_status === "open") ??
-    periods.find((period) => period.execution_status === "completed") ??
-    periods[0] ??
-    null
-  );
+  if (!selectedMeta) {
+    return null;
+  }
+
+  return PlanVersion.findByPk(selectedMeta.plan_version_id);
 }
 
 function mapNodeToDashboardTree(node, rollupMap, childrenByParent) {
@@ -139,10 +179,37 @@ function mapNodeToDashboardTree(node, rollupMap, childrenByParent) {
   };
 }
 
-async function buildProgressTreeForMaster(liveMasterId) {
-  const period = await resolveFocusPeriodForMaster(liveMasterId);
-  if (!period) {
-    return { period_label: null, planning_year: null, nodes: [] };
+async function buildProgressTreeForMaster(liveMasterId, requestedPeriodId = null) {
+  const availablePeriods = await listPeriodsForMaster(liveMasterId);
+  if (!availablePeriods.length) {
+    return {
+      period_label: null,
+      planning_year: null,
+      period_version_id: null,
+      period_phase: null,
+      available_periods: [],
+      nodes: [],
+    };
+  }
+
+  const selectedMeta =
+    (requestedPeriodId &&
+      availablePeriods.find((period) => period.plan_version_id === requestedPeriodId)) ||
+    pickDefaultPeriod(availablePeriods);
+
+  const period = selectedMeta
+    ? await PlanVersion.findByPk(selectedMeta.plan_version_id)
+    : null;
+
+  if (!period || !selectedMeta) {
+    return {
+      period_label: null,
+      planning_year: null,
+      period_version_id: null,
+      period_phase: null,
+      available_periods: availablePeriods,
+      nodes: [],
+    };
   }
 
   const annual = await PlanVersion.findByPk(period.parent_plan_version_id);
@@ -169,7 +236,10 @@ async function buildProgressTreeForMaster(liveMasterId) {
 
   return {
     period_label: period.period_label,
-    planning_year: annual?.planning_year ?? annual?.year ?? null,
+    planning_year: annual?.planning_year ?? annual?.year ?? selectedMeta.planning_year,
+    period_version_id: period.plan_version_id,
+    period_phase: selectedMeta.phase,
+    available_periods: availablePeriods,
     nodes: roots,
   };
 }
@@ -438,8 +508,15 @@ async function getPlanExecutionDashboard(req, query = {}) {
       : planRows.find((plan) => plan.process_started_at)?.plan_version_id ?? null;
 
   const progressTree = focusMasterId
-    ? await buildProgressTreeForMaster(focusMasterId)
-    : { period_label: null, planning_year: null, nodes: [] };
+    ? await buildProgressTreeForMaster(focusMasterId, query.period_version_id || null)
+    : {
+        period_label: null,
+        planning_year: null,
+        period_version_id: null,
+        period_phase: null,
+        available_periods: [],
+        nodes: [],
+      };
 
   return {
     kpi,
@@ -472,7 +549,14 @@ function emptyDashboard() {
     users: [],
     annual_timeline: [],
     sharing: { shared: [], exclusive: [] },
-    progress_tree: { period_label: null, planning_year: null, nodes: [] },
+    progress_tree: {
+      period_label: null,
+      planning_year: null,
+      period_version_id: null,
+      period_phase: null,
+      available_periods: [],
+      nodes: [],
+    },
     focus_master_plan_version_id: null,
     generated_at: new Date().toISOString(),
   };
