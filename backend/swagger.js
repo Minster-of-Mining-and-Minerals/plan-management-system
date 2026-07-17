@@ -11,7 +11,7 @@ const options = {
     },
     servers: [
       {
-        url: "http://localhost:4000",
+        url: process.env.BASE_URL || process.env.BACKEND_PUBLIC_URL || "http://localhost:4000",
       },
     ],
     components: {

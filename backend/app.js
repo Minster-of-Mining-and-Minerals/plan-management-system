@@ -97,10 +97,20 @@ const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:3001",
   "http://localhost:4000",
+  "http://10.0.71.213:3000",
+  "http://10.0.71.213:4000",
   process.env.FRONTEND_URL,
-];
+  process.env.APP_URL,
+].filter(Boolean);
 const corsOptions = {
-  origin: true, // Allow all origins for development
+  origin: (origin, callback) => {
+    // Allow non-browser / same-origin requests (no Origin header)
+    if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== "production") {
+      callback(null, true);
+      return;
+    }
+    callback(null, allowedOrigins.includes(origin));
+  },
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: true,
   optionsSuccessStatus: 204,
