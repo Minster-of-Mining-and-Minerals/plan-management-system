@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ListTree } from "lucide-react";
+import { ListTree, Loader2 } from "lucide-react";
 import type { PlanDashboardFiltersState } from "../hooks/usePlanDashboardFilters";
 import { TreeNodeRow } from "../components/TreeNodeRow";
 import { FilterDropdown } from "../components/FilterDropdown";
@@ -28,6 +28,8 @@ function formatPlanLabel(plan: DashboardPlanRow) {
 export function ProgressTab({ state }: ProgressTabProps) {
   const { data, executionPlanOptions, filters, updateFilter } = state;
   const { textPrimary, color } = useDashboardAppearance();
+  const isRefreshing = data.isFetching || data.isLoading;
+
   const focusId =
     filters.masterPlanVersionId !== "auto"
       ? filters.masterPlanVersionId
@@ -57,17 +59,21 @@ export function ProgressTab({ state }: ProgressTabProps) {
         badge={data.progressMeta.period_label ?? "No period"}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <AnalyticsPanel
           title="Focus Plan"
           icon={ListTree}
           variant="gradient"
           tone="primary"
-          className="lg:col-span-2"
+          className="min-w-0 lg:col-span-2"
         >
-          <div className="flex flex-col gap-4">
-            <div>
-              <p className="text-lg font-semibold" style={{ color: textPrimary }}>
+          <div className="flex min-w-0 flex-col gap-4">
+            <div className="min-w-0">
+              <p
+                className="truncate text-lg font-semibold"
+                style={{ color: textPrimary }}
+                title={focusPlan?.draft_name ?? undefined}
+              >
                 {focusPlan?.draft_name ?? "No plan selected"}
               </p>
               {data.progressMeta.planning_year != null && (
@@ -78,19 +84,21 @@ export function ProgressTab({ state }: ProgressTabProps) {
                 </p>
               )}
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
               <FilterDropdown
                 label="Focus Plan"
                 value={filters.masterPlanVersionId}
                 options={planOptions}
                 onChange={(value) => updateFilter("masterPlanVersionId", value)}
+                className="min-w-0 w-full"
               />
               <PeriodPhaseSelect
                 label="Execution period"
                 value={selectedPeriodId}
                 periods={availablePeriods}
                 onChange={(value) => updateFilter("periodVersionId", value)}
-                disabled={availablePeriods.length === 0}
+                disabled={availablePeriods.length === 0 || isRefreshing}
+                className="min-w-0 w-full"
               />
             </div>
           </div>
@@ -105,14 +113,14 @@ export function ProgressTab({ state }: ProgressTabProps) {
               <PeriodPhaseBadge phase={data.progressMeta.period_phase} />
             </div>
             {data.progressMeta.planning_year != null && (
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="mt-1 text-sm text-muted-foreground">
                 Planning year {data.progressMeta.planning_year}
               </p>
             )}
             {focusId && (
               <Link
                 href={`/plans/${focusId}`}
-                className="text-sm underline mt-2 inline-block"
+                className="mt-2 inline-block text-sm underline"
                 style={{ color: color("primary") }}
               >
                 Open plan hierarchy
@@ -123,8 +131,11 @@ export function ProgressTab({ state }: ProgressTabProps) {
       </div>
 
       <AnalyticsPanel title="Execution Hierarchy" variant="inset" tone="secondary">
-        {data.isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading hierarchy…</p>
+        {isRefreshing ? (
+          <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading hierarchy for the selected plan and period…
+          </div>
         ) : data.planTree.length > 0 ? (
           <div className="space-y-1">
             {data.planTree.map((node) => (

@@ -181,7 +181,8 @@ async function createDocument({
   });
 
   if (!createAccess.canCreate) {
-    throw forbidden("Not allowed to create documents in this context");
+    const reason = createAccess.reason ? ` (${createAccess.reason})` : "";
+    throw forbidden(`Not allowed to create documents in this context${reason}`);
   }
 
   const fileType = uploadedFile

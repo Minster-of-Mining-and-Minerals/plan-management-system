@@ -37,7 +37,7 @@ export function FilterDropdown({
   onPrimary = false,
 }: FilterDropdownProps) {
   return (
-    <div className={cn("space-y-1.5 min-w-[140px]", className)}>
+    <div className={cn("min-w-0 space-y-1.5", className)}>
       <Label
         className={cn(
           "text-xs",
@@ -49,7 +49,7 @@ export function FilterDropdown({
       <Select value={value} onValueChange={onChange} disabled={disabled}>
         <SelectTrigger
           className={cn(
-            "h-9",
+            "h-9 w-full min-w-0",
             onPrimary
               ? "border-primary-foreground/20 bg-primary-foreground/95 text-foreground"
               : "bg-white"
@@ -57,10 +57,10 @@ export function FilterDropdown({
         >
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="max-h-[min(18rem,50vh)] max-w-[min(100vw-2rem,28rem)]">
           {options.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>
-              {opt.label}
+            <SelectItem key={opt.value} value={opt.value} className="max-w-full">
+              <span className="block truncate">{opt.label}</span>
             </SelectItem>
           ))}
         </SelectContent>

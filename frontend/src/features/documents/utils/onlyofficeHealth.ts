@@ -1,11 +1,30 @@
 const DEFAULT_ONLYOFFICE_URL = "http://localhost:8080";
 
+function isAbsoluteHttpUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value.trim());
+}
+
+/**
+ * Prefer the API-provided Document Server URL (deployment-accurate),
+ * then the build-time public env, then local default.
+ * Always return an absolute URL so the editor never resolves against the Next.js app origin.
+ */
 export function resolveOnlyofficeUrl(documentServerUrl?: string | null): string {
-  return (
-    process.env.NEXT_PUBLIC_ONLYOFFICE_URL ||
-    documentServerUrl ||
-    DEFAULT_ONLYOFFICE_URL
-  ).replace(/\/$/, "");
+  const candidates = [
+    documentServerUrl,
+    process.env.NEXT_PUBLIC_ONLYOFFICE_URL,
+    DEFAULT_ONLYOFFICE_URL,
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const normalized = String(candidate).trim().replace(/\/$/, "");
+    if (isAbsoluteHttpUrl(normalized)) {
+      return normalized;
+    }
+  }
+
+  return DEFAULT_ONLYOFFICE_URL;
 }
 
 export function buildOnlyofficeStartupMessage(documentServerUrl: string): string {

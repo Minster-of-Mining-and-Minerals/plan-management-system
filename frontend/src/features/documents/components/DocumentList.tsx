@@ -83,12 +83,22 @@ export default function DocumentList({
 
   const canCreate =
     ownerType === "plan_version"
-      ? canAny([PLAN_PERMISSIONS.UPDATE, "PLANS:EDIT_FINALIZED"])
+      ? canAny([
+          PLAN_PERMISSIONS.UPDATE,
+          "PLANS:EDIT_FINALIZED",
+          "DOCUMENTS:CREATE",
+          "DOCUMENTS:MANAGE",
+        ])
       : canAny(["DOCUMENTS:CREATE", "DOCUMENTS:MANAGE"]);
 
   const createPermissions =
     ownerType === "plan_version"
-      ? [PLAN_PERMISSIONS.UPDATE, "PLANS:EDIT_FINALIZED"]
+      ? [
+          PLAN_PERMISSIONS.UPDATE,
+          "PLANS:EDIT_FINALIZED",
+          "DOCUMENTS:CREATE",
+          "DOCUMENTS:MANAGE",
+        ]
       : ["DOCUMENTS:CREATE", "DOCUMENTS:MANAGE"];
 
   const handleViewModeChange = (mode: DocumentViewMode) => {

@@ -192,6 +192,8 @@ async function resolveDocumentAccess({
 async function resolveCreateAccess({ ownerType, ownerId, accessToken, user = null }) {
   const { permissions } = await getUserPermissions(accessToken, user);
   const canManage = hasPermission(permissions, "DOCUMENTS:MANAGE");
+  const canCreateDocuments =
+    canManage || hasPermission(permissions, "DOCUMENTS:CREATE");
 
   if (ownerType === "plan_version" && ownerId) {
     const planAccess = await resolvePlanVersionAccess({
@@ -201,11 +203,25 @@ async function resolveCreateAccess({ ownerType, ownerId, accessToken, user = nul
       permissions,
       user,
     });
-    return { canCreate: planAccess.canEdit };
+
+    // Plan docs: allow plan editors, or document creators who can read an unlocked plan.
+    const canCreateOnPlan =
+      planAccess.canEdit ||
+      (canCreateDocuments &&
+        planAccess.canRead &&
+        planAccess.reason !== "plan_locked" &&
+        planAccess.reason !== "plan_not_accessible" &&
+        planAccess.reason !== "access_denied");
+
+    return {
+      canCreate: Boolean(canCreateOnPlan),
+      reason: planAccess.reason,
+    };
   }
 
   return {
-    canCreate: canManage || hasPermission(permissions, "DOCUMENTS:CREATE"),
+    canCreate: canCreateDocuments,
+    reason: canCreateDocuments ? "document_create" : "access_denied",
   };
 }
 

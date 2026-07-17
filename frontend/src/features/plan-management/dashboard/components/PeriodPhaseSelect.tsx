@@ -61,14 +61,14 @@ export function PeriodPhaseSelect({
   className,
 }: PeriodPhaseSelectProps) {
   return (
-    <div className={cn("space-y-1.5 min-w-[200px]", className)}>
+    <div className={cn("min-w-0 space-y-1.5", className)}>
       <Label className="text-xs text-muted-foreground">{label}</Label>
       <Select
         value={value || undefined}
         onValueChange={onChange}
         disabled={disabled || periods.length === 0}
       >
-        <SelectTrigger className="h-9 w-full bg-white">
+        <SelectTrigger className="h-9 w-full min-w-0 bg-white">
           <SelectValue placeholder="Select period" />
         </SelectTrigger>
         <SelectContent className="max-h-[min(18rem,50vh)]">
