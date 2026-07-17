@@ -77,6 +77,7 @@ draft → cancelled
 | `kpi_removal` | Registered placeholder |
 | `owner_transfer` | Registered placeholder |
 | `timeline_extension` | Registered placeholder |
+| `execution_window_reopening` | **Yes** |
 | `plan_correction` | Registered placeholder |
 | `custom` | Registered placeholder |
 
@@ -96,6 +97,21 @@ Revises the **effective** (execution snapshot) annual target and redistributes *
 | Reporting | `GET /api/plan/versions/:id/annual-target-revision-reporting` — original vs current, difference, reason, version, comparison mode |
 | Conflict keys | `kpi:`, `annual_target:`, `structural:kpi:` (blocks concurrent structural amendments on the same KPI) |
 | Reasons | Configurable catalog from types API (`annual_target_revision_reasons`) — not hardcoded business logic |
+
+### Execution Window Reopening (available)
+
+Creates **time-bounded execution overrides** so closed (`completed`) execution periods can accept actual edits without changing `PlanVersion.execution_status`. Overrides auto-expire when `now > reopen_end`.
+
+| Concern | Behavior |
+|---------|----------|
+| Scope | One or more live execution periods under an annual plan |
+| Status overlay | Period stays `completed`; gate grants `can_edit_actuals: true` while override is active |
+| Duration | `reopen_end > reopen_start`; max days from `amendment_policy.max_reopen_duration_days` (default 30) |
+| Permissions | `plan:request_execution_reopening` · `plan:approve_execution_reopening` |
+| Reporting | `GET /api/plan/versions/:id/execution-window-reopening-reporting` |
+| Conflict keys | `execution_window:period:{id}` per selected period |
+| Reasons | Catalog from types API (`execution_window_reopening_reasons`) |
+| Storage | `plan_execution_window_overrides` rows linked to applied amendment |
 
 ### Node Addition (available)
 

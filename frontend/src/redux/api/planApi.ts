@@ -35,6 +35,8 @@ import {
     AnnualTargetRevisionReportingResponse,
     CreateKpiAdditionPayload,
     KpiAdditionReportingResponse,
+    CreateExecutionWindowReopeningPayload,
+    ExecutionWindowReopeningReportingResponse,
 } from "../types/plan";
 
 export const planApi = baseApi.injectEndpoints({
@@ -959,6 +961,44 @@ export const planApi = baseApi.injectEndpoints({
             ],
         }),
 
+        createExecutionWindowReopening: builder.mutation<
+            PlanAmendment,
+            CreateExecutionWindowReopeningPayload
+        >({
+            query: (payload) => ({
+                url: "/plan/plan-amendments",
+                method: "POST",
+                body: {
+                    draftId: payload.draftId,
+                    title: payload.title,
+                    reason: payload.reason,
+                    description: payload.description,
+                    effectiveMode: payload.effectiveMode ?? "immediate",
+                    effectiveDate: payload.effectiveDate ?? null,
+                    amendmentType: "execution_window_reopening",
+                    submit: payload.submit !== false,
+                    metadata: {
+                        annualVersionId: payload.annualVersionId,
+                        periodVersionIds: payload.periodVersionIds,
+                        reopenStart: payload.reopenStart,
+                        reopenEnd: payload.reopenEnd,
+                        reason: payload.reason,
+                        reasonCode: payload.reasonCode,
+                        description: payload.description,
+                        kpiPlanNodeId: payload.kpiPlanNodeId ?? null,
+                        goalPlanNodeId: payload.goalPlanNodeId ?? null,
+                        governmentStructureId: payload.governmentStructureId ?? null,
+                    },
+                },
+            }),
+            transformResponse: (response: { data: PlanAmendment }) =>
+                response.data,
+            invalidatesTags: [
+                "PlanAmendments",
+                "ExecutionWindowReopeningReporting",
+            ],
+        }),
+
         submitPlanAmendment: builder.mutation<PlanAmendment, string>({
             query: (id) => ({
                 url: `/plan/plan-amendments/${id}/submit`,
@@ -1002,6 +1042,7 @@ export const planApi = baseApi.injectEndpoints({
                 "PlanAmendments",
                 "AnnualTargetRevisionReporting",
                 "KpiAdditionReporting",
+                "ExecutionWindowReopeningReporting",
                 "PlanNodes",
                 "PeriodTargetAllocations",
                 "AnnualTargetAllocations",
@@ -1076,6 +1117,28 @@ export const planApi = baseApi.injectEndpoints({
             ],
         }),
 
+        getExecutionWindowReopeningReporting: builder.query<
+            ExecutionWindowReopeningReportingResponse,
+            { versionId: string }
+        >({
+            query: ({ versionId }) => ({
+                url: `/plan/versions/${versionId}/execution-window-reopening-reporting`,
+            }),
+            transformResponse: (response: {
+                data: ExecutionWindowReopeningReportingResponse;
+            }) =>
+                response.data ?? {
+                    draft_id: "",
+                    process_started: false,
+                    periods: [],
+                    applied_reopenings: [],
+                },
+            providesTags: (_r, _e, { versionId }) => [
+                { type: "ExecutionWindowReopeningReporting", id: versionId },
+                "ExecutionWindowReopeningReporting",
+            ],
+        }),
+
         getPlanAmendmentTypes: builder.query<
             {
                 available: string[];
@@ -1085,6 +1148,10 @@ export const planApi = baseApi.injectEndpoints({
                     available: boolean;
                 }>;
                 annual_target_revision_reasons: Array<{
+                    code: string;
+                    label: string;
+                }>;
+                execution_window_reopening_reasons: Array<{
                     code: string;
                     label: string;
                 }>;
@@ -1101,6 +1168,10 @@ export const planApi = baseApi.injectEndpoints({
                         available: boolean;
                     }>;
                     annual_target_revision_reasons: Array<{
+                        code: string;
+                        label: string;
+                    }>;
+                    execution_window_reopening_reasons: Array<{
                         code: string;
                         label: string;
                     }>;
@@ -1374,6 +1445,7 @@ export const {
     useGetPlanAmendmentByIdQuery,
     useCreateAnnualTargetRevisionMutation,
     useCreateKpiAdditionMutation,
+    useCreateExecutionWindowReopeningMutation,
     useSubmitPlanAmendmentMutation,
     useLazyPreviewPlanAmendmentQuery,
     useApprovePlanAmendmentMutation,
@@ -1381,6 +1453,7 @@ export const {
     useCancelPlanAmendmentMutation,
     useGetAnnualTargetRevisionReportingQuery,
     useGetKpiAdditionReportingQuery,
+    useGetExecutionWindowReopeningReportingQuery,
     useGetPlanAmendmentTypesQuery,
     useStartPlanProcessMutation,
     useGetPublishForReviewReadinessQuery,

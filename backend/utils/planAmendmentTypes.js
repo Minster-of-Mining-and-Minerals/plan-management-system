@@ -14,6 +14,7 @@ const AMENDMENT_TYPE = Object.freeze({
   KPI_REMOVAL: "kpi_removal",
   OWNER_TRANSFER: "owner_transfer",
   TIMELINE_EXTENSION: "timeline_extension",
+  EXECUTION_WINDOW_REOPENING: "execution_window_reopening",
   PLAN_CORRECTION: "plan_correction",
   CUSTOM: "custom",
 });
@@ -34,6 +35,7 @@ const AMENDMENT_TYPE_AVAILABILITY = Object.freeze({
   [AMENDMENT_TYPE.KPI_REMOVAL]: false,
   [AMENDMENT_TYPE.OWNER_TRANSFER]: false,
   [AMENDMENT_TYPE.TIMELINE_EXTENSION]: false,
+  [AMENDMENT_TYPE.EXECUTION_WINDOW_REOPENING]: true,
   [AMENDMENT_TYPE.PLAN_CORRECTION]: false,
   [AMENDMENT_TYPE.CUSTOM]: false,
 });
@@ -90,6 +92,8 @@ function amendmentTypeLabel(type) {
       return "Owner Transfer";
     case AMENDMENT_TYPE.TIMELINE_EXTENSION:
       return "Timeline Extension";
+    case AMENDMENT_TYPE.EXECUTION_WINDOW_REOPENING:
+      return "Execution Window Reopening";
     case AMENDMENT_TYPE.PLAN_CORRECTION:
       return "Plan Correction";
     case AMENDMENT_TYPE.CUSTOM:

@@ -11,8 +11,12 @@ const PLAN_AMENDMENT_EVENTS = {
 };
 
 function buildPlanAmendmentLink(masterPlanVersionId, amendmentType = null) {
-  const focus =
-    amendmentType === "target_reallocation" ? "reallocation" : "amendment";
+  let focus = "amendment";
+  if (amendmentType === "target_reallocation") {
+    focus = "reallocation";
+  } else if (amendmentType === "execution_window_reopening") {
+    focus = "execution-window-reopening";
+  }
   return `/plans/${masterPlanVersionId}?tab=hierarchy&focus=${focus}`;
 }
 

@@ -26,6 +26,8 @@ const DEFAULT_AMENDMENT_POLICY = Object.freeze({
   allow_structural_amendments_after_execution: true,
   allow_ownership_transfer: true,
   allow_zero_annual_target: false,
+  allow_execution_window_reopening: true,
+  max_reopen_duration_days: 30,
 });
 
 function normalizeRedistributionPolicyValue(value) {
@@ -166,6 +168,13 @@ function mergeAmendmentPolicy(raw = {}) {
     allow_zero_annual_target: Boolean(
       source.allow_zero_annual_target ?? DEFAULT_AMENDMENT_POLICY.allow_zero_annual_target
     ),
+    allow_execution_window_reopening: Boolean(
+      source.allow_execution_window_reopening ??
+        DEFAULT_AMENDMENT_POLICY.allow_execution_window_reopening
+    ),
+    max_reopen_duration_days: Number.isFinite(Number(source.max_reopen_duration_days))
+      ? Math.max(1, Math.floor(Number(source.max_reopen_duration_days)))
+      : DEFAULT_AMENDMENT_POLICY.max_reopen_duration_days,
   };
 }
 

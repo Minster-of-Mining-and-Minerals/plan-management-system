@@ -37,6 +37,7 @@ module.exports = (sequelize, DataTypes) => {
           "kpi_removal",
           "owner_transfer",
           "timeline_extension",
+          "execution_window_reopening",
           "plan_correction",
           "custom"
         ),

@@ -45,6 +45,9 @@ const {
   KpiAdditionHandler,
 } = require("../services/planAmendment/handlers/kpiAdditionHandler");
 const {
+  ExecutionWindowReopeningHandler,
+} = require("../services/planAmendment/handlers/executionWindowReopeningHandler");
+const {
   normalizeTargetReallocationMetadata,
   buildTargetReallocationPreviewData,
   buildAmendmentHistoryRows,
@@ -91,7 +94,7 @@ function testHandlerRegistration() {
   clearAmendmentHandlers();
   registerDefaultAmendmentHandlers();
 
-  assert.strictEqual(listAvailableAmendmentTypes().length, 3);
+  assert.strictEqual(listAvailableAmendmentTypes().length, 4);
   assert.ok(
     listAvailableAmendmentTypes().includes(AMENDMENT_TYPE.TARGET_REALLOCATION)
   );
@@ -100,6 +103,9 @@ function testHandlerRegistration() {
   );
   assert.ok(
     listAvailableAmendmentTypes().includes(AMENDMENT_TYPE.KPI_ADDITION)
+  );
+  assert.ok(
+    listAvailableAmendmentTypes().includes(AMENDMENT_TYPE.EXECUTION_WINDOW_REOPENING)
   );
 
   const catalog = getAmendmentHandlerCatalog();
@@ -117,6 +123,11 @@ function testHandlerRegistration() {
     } else if (row.type === AMENDMENT_TYPE.KPI_ADDITION) {
       assert.strictEqual(row.available, true);
       assert.ok(resolveAmendmentHandler(row.type) instanceof KpiAdditionHandler);
+    } else if (row.type === AMENDMENT_TYPE.EXECUTION_WINDOW_REOPENING) {
+      assert.strictEqual(row.available, true);
+      assert.ok(
+        resolveAmendmentHandler(row.type) instanceof ExecutionWindowReopeningHandler
+      );
     } else {
       assert.strictEqual(row.available, false);
       assert.strictEqual(isAmendmentTypeMarkedAvailable(row.type), false);

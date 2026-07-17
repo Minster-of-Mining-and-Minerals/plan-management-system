@@ -13,6 +13,9 @@ const {
   AnnualTargetRevisionHandler,
 } = require("./handlers/annualTargetRevisionHandler");
 const { KpiAdditionHandler } = require("./handlers/kpiAdditionHandler");
+const {
+  ExecutionWindowReopeningHandler,
+} = require("./handlers/executionWindowReopeningHandler");
 
 /** @type {Map<string, import('./handlers/PlanAmendmentHandler').PlanAmendmentHandler>} */
 const handlersByType = new Map();
@@ -96,6 +99,10 @@ function ensureDefaultAmendmentHandlers() {
     new AnnualTargetRevisionHandler()
   );
   handlersByType.set(AMENDMENT_TYPE.KPI_ADDITION, new KpiAdditionHandler());
+  handlersByType.set(
+    AMENDMENT_TYPE.EXECUTION_WINDOW_REOPENING,
+    new ExecutionWindowReopeningHandler()
+  );
 
   defaultsRegistered = true;
 }

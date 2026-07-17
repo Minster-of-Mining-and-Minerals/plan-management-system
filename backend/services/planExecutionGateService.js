@@ -158,12 +158,17 @@ async function resolveVersionExecutionAccess(planVersionId, transaction = null) 
   }
 
   if (isExecutionSnapshotVersion(version)) {
+    const snapshotPeriodId = version.plan_version_id;
     return {
       found: true,
       is_execution_snapshot: true,
       live_plan_version_id: version.execution_snapshot_of_version_id,
-      snapshot_plan_version_id: version.plan_version_id,
-      access: executionAccessFromStatus(version.execution_status),
+      snapshot_plan_version_id: snapshotPeriodId,
+      access: await mergeExecutionOverrideAccess(
+        executionAccessFromStatus(version.execution_status),
+        snapshotPeriodId,
+        transaction
+      ),
     };
   }
 
@@ -239,8 +244,28 @@ async function resolveVersionExecutionAccess(planVersionId, transaction = null) 
     is_execution_snapshot: false,
     live_plan_version_id: version.plan_version_id,
     snapshot_plan_version_id: snapshotVersion.plan_version_id,
-    access: executionAccessFromStatus(snapshotVersion.execution_status),
+    access: await mergeExecutionOverrideAccess(
+      executionAccessFromStatus(snapshotVersion.execution_status),
+      snapshotVersion.plan_version_id,
+      transaction
+    ),
   };
+}
+
+async function getActiveOverrideAccessPatch(snapshotPeriodVersionId, transaction = null) {
+  const {
+    getActiveOverrideAccessPatch: getPatch,
+  } = require("./planAmendment/executionWindowReopeningDomain");
+  return getPatch(snapshotPeriodVersionId, transaction);
+}
+
+async function mergeExecutionOverrideAccess(access, snapshotPeriodVersionId, transaction = null) {
+  if (!access || !snapshotPeriodVersionId) return access;
+  if (access.execution_status !== "completed") return access;
+
+  // Active override may set execution_reopening, can_edit_actuals, override_expires_at
+  const patch = await getActiveOverrideAccessPatch(snapshotPeriodVersionId, transaction);
+  return patch ? { ...access, ...patch } : access;
 }
 
 function attachExecutionOverlay(liveVersion, snapshotVersion) {
@@ -883,4 +908,6 @@ module.exports = {
   enrichSnapshotVersionExecutionFields,
   attachLiveExecutionOverlay,
   resolveExecutionHierarchyVersionId,
+  getActiveOverrideAccessPatch,
+  mergeExecutionOverrideAccess,
 };

@@ -509,6 +509,72 @@ export interface KpiAdditionReportingResponse {
     };
 }
 
+export interface CreateExecutionWindowReopeningPayload {
+    draftId: string;
+    title: string;
+    reason: string;
+    reasonCode?: string;
+    description?: string;
+    effectiveMode?: "immediate" | "custom_date";
+    effectiveDate?: string | null;
+    annualVersionId: string;
+    periodVersionIds: string[];
+    reopenStart: string;
+    reopenEnd: string;
+    kpiPlanNodeId?: string;
+    goalPlanNodeId?: string;
+    governmentStructureId?: string;
+    submit?: boolean;
+}
+
+export interface ExecutionWindowReopeningPeriodReporting {
+    period_id: string;
+    snapshot_period_id?: string;
+    period_label: string | null;
+    sequence_index?: number | null;
+    execution_status: string | null;
+    finalized: boolean;
+    can_edit_actuals?: boolean;
+    execution_reopening?: boolean;
+    active_override?: {
+        plan_execution_window_override_id?: string;
+        plan_amendment_id?: string;
+        reopen_start: string;
+        reopen_end: string;
+        status: string;
+    } | null;
+}
+
+export interface ExecutionWindowReopeningAppliedReopening {
+    plan_amendment_id: string;
+    version: number | null;
+    title: string;
+    reason: string | null;
+    reason_code?: string | null;
+    applied_at?: string | null;
+    reopen_start?: string | null;
+    reopen_end?: string | null;
+    period_ids?: string[];
+    overrides?: Array<{
+        plan_execution_window_override_id: string;
+        live_period_version_id: string;
+        snapshot_period_version_id: string;
+        status: string;
+        reopen_start: string;
+        reopen_end: string;
+        expired_at?: string | null;
+    }>;
+}
+
+export interface ExecutionWindowReopeningReportingResponse {
+    draft_id: string;
+    annual_version_id?: string;
+    process_started: boolean;
+    periods: ExecutionWindowReopeningPeriodReporting[];
+    applied_reopenings?: ExecutionWindowReopeningAppliedReopening[];
+    override_statuses?: string[];
+}
+
 export interface PeriodTargetReallocationReportingItem {
     annual_kpi_plan_node_id: string;
     kpi_id: string;

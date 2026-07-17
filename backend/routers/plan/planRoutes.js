@@ -120,6 +120,7 @@ const {
     listPlanAmendmentTypesHandler,
     getAnnualTargetRevisionReportingHandler,
     getKpiAdditionReportingHandler,
+    getExecutionWindowReopeningReportingHandler,
 } = require("../../controllers/plan/planAmendmentController");
 
 const {
@@ -198,16 +199,20 @@ const planAmendmentReadAccess = checkAnyPermission([
     { resource: "PLAN", action: "APPROVE_AMENDMENT" },
     { resource: "PLAN", action: "REQUEST_TARGET_REALLOCATION" },
     { resource: "PLAN", action: "APPROVE_TARGET_REALLOCATION" },
+    { resource: "PLAN", action: "REQUEST_EXECUTION_REOPENING" },
+    { resource: "PLAN", action: "APPROVE_EXECUTION_REOPENING" },
 ]);
 
 const planAmendmentRequestAccess = checkAnyPermission([
     { resource: "PLAN", action: "REQUEST_AMENDMENT" },
     { resource: "PLAN", action: "REQUEST_TARGET_REALLOCATION" },
+    { resource: "PLAN", action: "REQUEST_EXECUTION_REOPENING" },
 ]);
 
 const planAmendmentApproveAccess = checkAnyPermission([
     { resource: "PLAN", action: "APPROVE_AMENDMENT" },
     { resource: "PLAN", action: "APPROVE_TARGET_REALLOCATION" },
+    { resource: "PLAN", action: "APPROVE_EXECUTION_REOPENING" },
 ]);
 
 const planRulesListAccess = checkAnyPermission([
@@ -288,6 +293,13 @@ router.get(
     validateIdParam,
     requirePlanVersionReadAccess(),
     getKpiAdditionReportingHandler
+);
+router.get(
+    "/versions/:id/execution-window-reopening-reporting",
+    planReadAccess,
+    validateIdParam,
+    requirePlanVersionReadAccess(),
+    getExecutionWindowReopeningReportingHandler
 );
 router.get("/versions/:id/global-period-target-readiness", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), getGlobalPeriodTargetFinalizationReadinessHandler);
 router.post("/versions/:id/finalize-global-period-targets", checkPermission("PLAN", "FINALIZE"), validateIdParam, finalizeGlobalPeriodTargetsHandler);

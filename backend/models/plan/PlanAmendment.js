@@ -29,6 +29,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "plan_amendment_id",
         as: "targetReallocationRequest",
       });
+      PlanAmendment.hasMany(models.PlanExecutionWindowOverride, {
+        foreignKey: "plan_amendment_id",
+        as: "executionWindowOverrides",
+      });
       PlanAmendment.belongsTo(models.PlanAmendment, {
         foreignKey: "compensates_amendment_id",
         as: "compensatesAmendment",
@@ -69,6 +73,7 @@ module.exports = (sequelize, DataTypes) => {
           "kpi_removal",
           "owner_transfer",
           "timeline_extension",
+          "execution_window_reopening",
           "plan_correction",
           "custom"
         ),

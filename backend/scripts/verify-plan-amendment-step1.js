@@ -45,7 +45,7 @@ const { PlanAmendmentHandler } = require("../services/planAmendment/handlers/Pla
 const root = path.join(__dirname, "..");
 
 function runTypeTests() {
-  assert.strictEqual(AMENDMENT_TYPE_VALUES.length, 11);
+  assert.strictEqual(AMENDMENT_TYPE_VALUES.length, 12);
   assert.strictEqual(
     normalizeAmendmentType("TARGET_REALLOCATION"),
     AMENDMENT_TYPE.TARGET_REALLOCATION
@@ -64,6 +64,7 @@ function runTypeTests() {
   assert.strictEqual(isAmendmentTypeMarkedAvailable("node_addition"), false);
   assert.strictEqual(isAmendmentTypeMarkedAvailable("kpi_addition"), true);
   assert.strictEqual(isAmendmentTypeMarkedAvailable("target_reallocation"), true);
+  assert.strictEqual(isAmendmentTypeMarkedAvailable("execution_window_reopening"), true);
   assert.strictEqual(isAmendmentTypeMarkedAvailable("budget_increase"), false);
   assert.strictEqual(amendmentTypeLabel("target_reallocation"), "Target Reallocation");
 
@@ -178,6 +179,7 @@ function runRegistryTests() {
     [...available].sort(),
     [
       AMENDMENT_TYPE.ANNUAL_TARGET_REVISION,
+      AMENDMENT_TYPE.EXECUTION_WINDOW_REOPENING,
       AMENDMENT_TYPE.KPI_ADDITION,
       AMENDMENT_TYPE.TARGET_REALLOCATION,
     ].sort()
@@ -192,12 +194,15 @@ function runRegistryTests() {
   const kpiAdditionHandler = resolveAmendmentHandler(AMENDMENT_TYPE.KPI_ADDITION);
   assert.strictEqual(kpiAdditionHandler.isAvailable(), true);
 
+  const ewrHandler = resolveAmendmentHandler(AMENDMENT_TYPE.EXECUTION_WINDOW_REOPENING);
+  assert.strictEqual(ewrHandler.isAvailable(), true);
+
   const budgetHandler = resolveAmendmentHandler(AMENDMENT_TYPE.BUDGET_INCREASE);
   assert.strictEqual(budgetHandler.isAvailable(), false);
   assert.match(budgetHandler.validate().message, /not available/i);
 
   const catalog = getAmendmentHandlerCatalog();
-  assert.strictEqual(catalog.length, 11);
+  assert.strictEqual(catalog.length, 12);
   const targetEntry = catalog.find((row) => row.type === AMENDMENT_TYPE.TARGET_REALLOCATION);
   assert.strictEqual(targetEntry.available, true);
   const annualEntry = catalog.find(

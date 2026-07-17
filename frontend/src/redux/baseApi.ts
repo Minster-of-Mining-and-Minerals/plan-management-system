@@ -87,6 +87,7 @@ export const baseApi = createApi({
     "PlanAmendments",
     "AnnualTargetRevisionReporting",
     "KpiAdditionReporting",
+    "ExecutionWindowReopeningReporting",
     "PlanAchievementWorkflowScope",
     "PlanRules",
     "AssignmentActions",

@@ -292,7 +292,7 @@ function testHandlerRegistrationAndConflictKeys() {
   assert.ok(available.includes(AMENDMENT_TYPE.TARGET_REALLOCATION));
   assert.ok(available.includes(AMENDMENT_TYPE.ANNUAL_TARGET_REVISION));
   assert.ok(available.includes(AMENDMENT_TYPE.KPI_ADDITION));
-  assert.strictEqual(available.length, 3);
+  assert.strictEqual(available.length, 4);
 
   const handler = resolveAmendmentHandler(AMENDMENT_TYPE.KPI_ADDITION);
   assert.ok(handler instanceof KpiAdditionHandler);

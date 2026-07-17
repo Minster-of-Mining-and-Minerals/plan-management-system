@@ -187,6 +187,14 @@ warmSystemSettingsCache()
 
     appServer.listen(appPort, appHost, () => {
       console.log(` App server running at http://${appHost}:${appPort}`);
+      try {
+        const {
+          startExecutionWindowOverrideExpiryJob,
+        } = require("./jobs/executionWindowOverrideExpiryJob");
+        startExecutionWindowOverrideExpiryJob();
+      } catch (error) {
+        console.error("Failed to start execution window override expiry job:", error.message);
+      }
     });
   });
 

@@ -451,7 +451,8 @@ export default function PlanHierarchyView({
             focus === "reallocation" ||
             focus === "annual-target-revision" ||
             focus === "kpi-addition" ||
-            focus === "node-addition";
+            focus === "node-addition" ||
+            focus === "execution-window-reopening";
 
         if (wantsAmendments) {
             // Prefer amendments when deep-linked; visibility is enforced after processStarted resolves.
