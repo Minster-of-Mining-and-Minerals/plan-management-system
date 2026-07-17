@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableEntityPicker } from "@/components/ui/searchable-entity-picker";
 import { actionFeedback } from "@/components/action-feedback";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import { PLAN_REQUEST_AMENDMENT_PERMISSIONS } from "@/utils/planPermissionUtils";
@@ -320,18 +321,18 @@ export function AnnualTargetRevisionForm({
 
           <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="atr-kpi">{targetNodeLabel}</Label>
-            <Select value={kpiId} onValueChange={setKpiId}>
-              <SelectTrigger id="atr-kpi" className="w-full">
-                <SelectValue placeholder={`Select ${targetNodeLabel}`} />
-              </SelectTrigger>
-              <SelectContent>
-                {kpis.map((kpi) => (
-                  <SelectItem key={kpi.kpi_id} value={kpi.kpi_id}>
-                    {kpi.kpi_title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableEntityPicker
+              id="atr-kpi"
+              value={kpiId}
+              onValueChange={setKpiId}
+              placeholder={`Select ${targetNodeLabel}`}
+              searchPlaceholder={`Search ${targetNodeLabel.toLowerCase()}…`}
+              emptyMessage={`No ${targetNodeLabel.toLowerCase()} matches`}
+              options={kpis.map((kpi) => ({
+                value: kpi.kpi_id,
+                label: kpi.kpi_title,
+              }))}
+            />
           </div>
 
           <div className="space-y-1.5">

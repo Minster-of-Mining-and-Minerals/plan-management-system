@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableEntityPicker } from "@/components/ui/searchable-entity-picker";
 import { actionFeedback } from "@/components/action-feedback";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import { PLAN_REQUEST_TARGET_REALLOCATION_PERMISSIONS } from "@/utils/planPermissionUtils";
@@ -120,18 +121,18 @@ export function TargetReallocationRequestForm({
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="reallocation-kpi">{targetNodeLabel}</Label>
-            <Select value={kpiId} onValueChange={setKpiId}>
-              <SelectTrigger id="reallocation-kpi" className="w-full">
-                <SelectValue placeholder={`Select ${targetNodeLabel}`} />
-              </SelectTrigger>
-              <SelectContent>
-                {kpiOptions.map((kpi) => (
-                  <SelectItem key={kpi.id} value={kpi.id}>
-                    {kpi.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableEntityPicker
+              id="reallocation-kpi"
+              value={kpiId}
+              onValueChange={setKpiId}
+              placeholder={`Select ${targetNodeLabel}`}
+              searchPlaceholder={`Search ${targetNodeLabel.toLowerCase()}…`}
+              emptyMessage={`No ${targetNodeLabel.toLowerCase()} matches`}
+              options={kpiOptions.map((kpi) => ({
+                value: kpi.id,
+                label: kpi.title,
+              }))}
+            />
           </div>
 
           <div className="space-y-1.5">

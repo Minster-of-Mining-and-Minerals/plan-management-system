@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableEntityPicker } from "@/components/ui/searchable-entity-picker";
 import { actionFeedback } from "@/components/action-feedback";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import { PLAN_REQUEST_AMENDMENT_PERMISSIONS } from "@/utils/planPermissionUtils";
@@ -602,25 +603,23 @@ export function KpiAdditionForm({
 
           <div className="space-y-1.5">
             <Label htmlFor="kpi-parent">Parent</Label>
-            <Select
-              value={parentId || undefined}
+            <SearchableEntityPicker
+              id="kpi-parent"
+              value={parentId}
               onValueChange={(value) => {
                 setParentId(value);
                 setPreview(null);
                 setDraftAmendmentId(null);
               }}
-            >
-              <SelectTrigger id="kpi-parent" className="w-full">
-                <SelectValue placeholder="Select parent" />
-              </SelectTrigger>
-              <SelectContent>
-                {parentOptions.map((parent) => (
-                  <SelectItem key={parent.id} value={parent.id}>
-                    {parent.title} ({parent.type})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="Select parent"
+              searchPlaceholder="Search parent nodes…"
+              emptyMessage="No parent nodes match"
+              options={parentOptions.map((parent) => ({
+                value: parent.id,
+                label: parent.title,
+                description: parent.type,
+              }))}
+            />
           </div>
 
           {parentId && childLevel != null && (
@@ -775,40 +774,39 @@ export function KpiAdditionForm({
 
               <div className="space-y-1.5">
                 <Label htmlFor="kpi-owner">Owner</Label>
-                <Select value={ownerUserId || undefined} onValueChange={setOwnerUserId}>
-                  <SelectTrigger id="kpi-owner" className="w-full">
-                    <SelectValue placeholder="Select owner" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {users.map((user) => (
-                      <SelectItem key={user.user_id} value={user.user_id}>
-                        {user.full_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableEntityPicker
+                  id="kpi-owner"
+                  value={ownerUserId}
+                  onValueChange={setOwnerUserId}
+                  placeholder="Select owner"
+                  searchPlaceholder="Search owners…"
+                  emptyMessage="No owners match"
+                  options={users.map((user) => ({
+                    value: user.user_id,
+                    label: user.full_name || user.email || user.user_id,
+                    description: user.email,
+                  }))}
+                />
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="kpi-gov-structure">Department / sector</Label>
-                <Select
-                  value={governmentStructureId || undefined}
+                <SearchableEntityPicker
+                  id="kpi-gov-structure"
+                  value={governmentStructureId}
                   onValueChange={setGovernmentStructureId}
-                >
-                  <SelectTrigger id="kpi-gov-structure" className="w-full">
-                    <SelectValue placeholder="Select structure" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {govStructures.map((structure) => (
-                      <SelectItem
-                        key={structure.government_structure_id}
-                        value={structure.government_structure_id}
-                      >
-                        {structure.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Select structure"
+                  searchPlaceholder="Search structures…"
+                  emptyMessage="No structures match"
+                  options={govStructures.map((structure) => ({
+                    value: structure.government_structure_id,
+                    label: structure.name,
+                    description:
+                      structure.level != null
+                        ? `Level ${structure.level}`
+                        : undefined,
+                  }))}
+                />
               </div>
             </>
           )}
