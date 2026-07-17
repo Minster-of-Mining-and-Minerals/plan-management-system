@@ -11,6 +11,8 @@ const { bootstrapSecurityEnv } = require("./config/securityBootstrap");
 bootstrapSecurityEnv();
 
 const { PLATFORM_NAME } = require("./config/platformBranding");
+const logger = require("./utils/logger");
+const { requestIdMiddleware } = require("./middlewares/requestIdMiddleware");
 
 const { swaggerUi, swaggerSpec } = require("./swagger");
 
@@ -70,6 +72,8 @@ const healthRoutes = require("./routers/healthRoutes");
 
 const app = express();
 const appServer = http.createServer(app);
+
+app.use(requestIdMiddleware);
 
 app.use(
   express.json({
@@ -176,8 +180,10 @@ const { sequelize } = require("./models");
 
 sequelize
   .authenticate()
-  .then(() => console.log(" Database connected successfully"))
-  .catch((err) => console.error(" Database connection error:", err));
+  .then(() => logger.info("database_connected"))
+  .catch((err) =>
+    logger.error({ err: err.message }, "database_connection_error")
+  );
 
 // ================== Swagger Setup ==================
 if (!isProduction || process.env.ENABLE_SWAGGER === "true") {
@@ -258,17 +264,23 @@ app.get("/", (req, res) => {
 
 // ================== Error Handler ==================
 app.use((err, req, res, next) => {
-  console.error("Error:", err.message);
-  res.status(err.status || 500).json({
+  logger.error(
+    {
+      requestId: req.id,
+      err: err.message,
+      status: err.status || 500,
+      path: req.path,
+    },
+    "request_error"
+  );
+  const status = err.status || 500;
+  const expose =
+    err.expose || status < 500 || process.env.NODE_ENV !== "production";
+  res.status(status).json({
     success: false,
-    message: err.message || "Internal Server Error",
+    message: expose ? err.message || "Internal Server Error" : "Internal Server Error",
+    request_id: req.id,
   });
-});
-
-// ================== Start App Server ==================
-const appPort = process.env.PORT || 4000;
-appServer.listen(appPort, () => {
-  console.log(` App server running at http://localhost:${appPort}`);
 });
 
 // ================== Socket.IO Setup ==================
@@ -284,24 +296,70 @@ io.on("connection", (socket) => {
 
   if (userId) {
     onlineUsers.set(userId, socket.id);
-    console.log(` User ${userId} connected: ${socket.id}`);
+    logger.info({ userId, socketId: socket.id }, "socket_connected");
   }
 
   socket.on("disconnect", () => {
     onlineUsers.delete(userId);
-    console.log(`User ${userId} disconnected`);
+    logger.info({ userId }, "socket_disconnected");
   });
 });
 
-const socketPort = process.env.SOCKET_PORT || 5000;
-socketServer.listen(socketPort, () => {
-  console.log(`Socket.IO server running at http://localhost:${socketPort}`);
-});
-
-// Make Socket.IO accessible globally
 app.set("socketio", io);
 
-module.exports = { appServer, io, onlineUsers };
+let isShuttingDown = false;
 
-// Expose the server using
-// cloudflared tunnel --url http://localhost:4000
+async function gracefulShutdown(signal) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  logger.info({ signal }, "shutdown_start");
+
+  const forceTimer = setTimeout(() => {
+    logger.error("shutdown_forced");
+    process.exit(1);
+  }, 15000);
+  forceTimer.unref?.();
+
+  await Promise.allSettled([
+    new Promise((resolve) => appServer.close(resolve)),
+    new Promise((resolve) => {
+      try {
+        io.close(() => resolve());
+      } catch {
+        resolve();
+      }
+    }),
+    new Promise((resolve) => socketServer.close(resolve)),
+  ]);
+
+  try {
+    await sequelize.close();
+  } catch (err) {
+    logger.error({ err: err.message }, "sequelize_close_error");
+  }
+
+  clearTimeout(forceTimer);
+  logger.info("shutdown_complete");
+  process.exit(0);
+}
+
+function startServers() {
+  const appPort = process.env.PORT || 4000;
+  appServer.listen(appPort, () => {
+    logger.info({ port: appPort }, "http_listening");
+  });
+
+  const socketPort = process.env.SOCKET_PORT || 5000;
+  socketServer.listen(socketPort, () => {
+    logger.info({ port: socketPort }, "socket_listening");
+  });
+
+  process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+  process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+}
+
+if (require.main === module) {
+  startServers();
+}
+
+module.exports = { app, appServer, io, onlineUsers, startServers, gracefulShutdown };

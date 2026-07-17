@@ -72,9 +72,11 @@ function LoadBar({ value }: { value: number }) {
 }
 
 export function AdminDashboardPage() {
-  const { data: patients = [] } = useGetPatientsQuery();
+  const { data: patientsData } = useGetPatientsQuery();
   const { data: departments = [] } = useGetDepartmentsQuery({ status: "active" });
-  const { data: staff = [] } = useGetUsersQuery({ is_active: true });
+  const { data: staffData } = useGetUsersQuery({ is_active: true });
+  const patients = patientsData?.patients ?? [];
+  const staff = staffData?.users ?? [];
 
   const totalPatients = patients.length || HOSPITAL_KPI_DEFAULTS.totalPatients;
   const activeDepartments = departments.length || HOSPITAL_KPI_DEFAULTS.activeDepartments;

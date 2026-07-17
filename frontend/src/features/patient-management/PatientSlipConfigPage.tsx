@@ -238,9 +238,10 @@ export default function PatientSlipConfigPage() {
   const [previewPatientId, setPreviewPatientId] = useState<string>("");
   const [patientSearch, setPatientSearch] = useState("");
 
-  const { data: patients = [], isLoading: patientsLoading } = useGetPatientsQuery(
+  const { data: patientsData, isLoading: patientsLoading } = useGetPatientsQuery(
     patientSearch.trim() ? { search: patientSearch.trim() } : undefined
   );
+  const patients = patientsData?.patients ?? [];
 
   const { data: previewPatientById } = useGetPatientByIdQuery(previewPatientId, {
     skip: !previewPatientId,

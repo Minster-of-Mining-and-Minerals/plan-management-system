@@ -12,7 +12,15 @@ export const userApi = baseApi.injectEndpoints({
      * GET ALL USERS
      * --------------------------- */
     getUsers: builder.query<
-      User[],
+      {
+        users: User[];
+        pagination?: {
+          total: number;
+          totalPages: number;
+          currentPage: number;
+          limit: number;
+        };
+      },
       {
         is_active?: boolean;
         search?: string;
@@ -23,7 +31,10 @@ export const userApi = baseApi.injectEndpoints({
     >({
       query: (params) =>
         params ? { url: "/users", params } : { url: "/users" },
-      transformResponse: (response: any): User[] => response.data ?? [],
+      transformResponse: (response: any) => ({
+        users: response.data ?? [],
+        pagination: response.pagination,
+      }),
       providesTags: ["User"],
     }),
 

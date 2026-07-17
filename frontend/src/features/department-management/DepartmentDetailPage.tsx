@@ -73,15 +73,17 @@ export default function DepartmentDetailPage() {
   } = useGetDepartmentByIdQuery(departmentId);
 
   const {
-    data: deptUsers = [],
+    data: deptUsersData,
     isLoading: usersLoading,
     refetch: refetchUsers,
   } = useGetUsersQuery({ department_id: departmentId });
+  const deptUsers = deptUsersData?.users ?? [];
 
-  const { data: allActiveUsers = [] } = useGetUsersQuery(
+  const { data: allActiveUsersData } = useGetUsersQuery(
     { is_active: true },
     { skip: deptLoading }
   );
+  const allActiveUsers = allActiveUsersData?.users ?? [];
 
   const [updateDepartment, { isLoading: isUpdating }] =
     useUpdateDepartmentMutation();

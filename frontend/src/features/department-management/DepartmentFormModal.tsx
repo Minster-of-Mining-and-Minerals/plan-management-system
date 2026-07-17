@@ -44,7 +44,8 @@ export function DepartmentFormModal({
   const [status, setStatus] = useState<"active" | "inactive">("active");
   const [headSearch, setHeadSearch] = useState("");
 
-  const { data: users = [] } = useGetUsersQuery({ is_active: true });
+  const { data: usersData } = useGetUsersQuery({ is_active: true });
+  const users = usersData?.users ?? [];
   const [createDepartment, { isLoading: creating }] = useCreateDepartmentMutation();
   const [updateDepartment, { isLoading: updating }] = useUpdateDepartmentMutation();
 

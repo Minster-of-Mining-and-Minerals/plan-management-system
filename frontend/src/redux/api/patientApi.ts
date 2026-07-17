@@ -29,13 +29,37 @@ export type PatientRecord = {
 export const patientApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getPatients: builder.query<
-      PatientRecord[],
-      { search?: string; patient_status?: string; is_active?: boolean } | void
+      {
+        patients: PatientRecord[];
+        pagination?: {
+          total: number;
+          totalPages: number;
+          currentPage: number;
+          limit: number;
+        };
+      },
+      {
+        search?: string;
+        patient_status?: string;
+        is_active?: boolean;
+        page?: number;
+        limit?: number;
+      } | void
     >({
       query: (params) =>
         params ? { url: "/patients", params } : { url: "/patients" },
-      transformResponse: (response: { data: PatientRecord[] }) =>
-        response.data ?? [],
+      transformResponse: (response: {
+        data: PatientRecord[];
+        pagination?: {
+          total: number;
+          totalPages: number;
+          currentPage: number;
+          limit: number;
+        };
+      }) => ({
+        patients: response.data ?? [],
+        pagination: response.pagination,
+      }),
       providesTags: ["Patient"],
     }),
 

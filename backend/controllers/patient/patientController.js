@@ -184,6 +184,13 @@ const updatePatient = async (req, res) => {
 const getPatients = async (req, res) => {
   try {
     const { search, patient_status, is_active } = req.query;
+    const {
+      getPagination,
+      getPagingData,
+      parsePageLimit,
+      wantsPagination,
+    } = require("../../utils/pagination");
+
     const userWhere = { account_type: ACCOUNT_TYPES.PATIENT };
     if (is_active !== undefined) userWhere.is_active = is_active === "true";
 
@@ -200,32 +207,72 @@ const getPatients = async (req, res) => {
       ];
     }
 
-    const patients = await User.findAll({
-      where: userWhere,
-      include: [
-        {
-          model: PatientProfile,
-          as: "patientProfile",
-          where: Object.keys(profileWhere).length ? profileWhere : undefined,
-          required: Object.keys(profileWhere).length > 0,
-        },
-      ],
-      subQuery: false,
-      order: [["created_at", "DESC"]],
-      attributes: { exclude: ["password", "otp", "otp_expiry"] },
-    });
+    const include = [
+      {
+        model: PatientProfile,
+        as: "patientProfile",
+        where: Object.keys(profileWhere).length ? profileWhere : undefined,
+        required: Object.keys(profileWhere).length > 0,
+      },
+    ];
 
-    const data = patients.map((u) => {
+    const mapPatient = (u) => {
       const plain = u.toJSON ? u.toJSON() : u;
       return {
         ...plain,
         profile: plain.patientProfile ?? plain.profile,
       };
+    };
+
+    const paginate = wantsPagination(req.query);
+    if (paginate) {
+      const { page, limit } = parsePageLimit(req.query, {
+        page: 1,
+        limit: 20,
+        maxLimit: 100,
+      });
+      const { limit: take, offset } = getPagination(page, limit);
+      const result = await User.findAndCountAll({
+        where: userWhere,
+        include,
+        subQuery: false,
+        distinct: true,
+        order: [["created_at", "DESC"]],
+        attributes: { exclude: ["password", "otp", "otp_expiry"] },
+        limit: take,
+        offset,
+      });
+      const paging = getPagingData(
+        {
+          count: Array.isArray(result.count) ? result.count.length : result.count,
+          rows: result.rows,
+        },
+        page,
+        limit
+      );
+      return res.status(200).json({
+        success: true,
+        data: paging.results.map(mapPatient),
+        pagination: {
+          total: paging.total,
+          totalPages: paging.totalPages,
+          currentPage: paging.currentPage,
+          limit: paging.limit,
+        },
+      });
+    }
+
+    const patients = await User.findAll({
+      where: userWhere,
+      include,
+      subQuery: false,
+      order: [["created_at", "DESC"]],
+      attributes: { exclude: ["password", "otp", "otp_expiry"] },
     });
 
     return res.status(200).json({
       success: true,
-      data,
+      data: patients.map(mapPatient),
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });

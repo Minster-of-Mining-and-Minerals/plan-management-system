@@ -7,7 +7,9 @@ RUN npm ci --omit=dev
 
 COPY . .
 
+RUN chmod +x docker-entrypoint.sh
+
 ENV NODE_ENV=production
 EXPOSE 4000 5000
 
-CMD ["npm", "start"]
+ENTRYPOINT ["./docker-entrypoint.sh"]

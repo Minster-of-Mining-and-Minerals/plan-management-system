@@ -71,8 +71,24 @@ const listInbox = async (req, res) => {
       });
     }
 
-    const { status } = req.query;
-    const rows = await medicalWorkflowService.listInbox(req.user.user_id, { status });
+    const { status, page, limit } = req.query;
+    const rows = await medicalWorkflowService.listInbox(req.user.user_id, {
+      status,
+      page,
+      limit,
+    });
+    if (rows?.paginated) {
+      return res.json({
+        success: true,
+        data: rows.results,
+        pagination: {
+          total: rows.total,
+          totalPages: rows.totalPages,
+          currentPage: rows.currentPage,
+          limit: rows.limit,
+        },
+      });
+    }
     return res.json({ success: true, data: rows });
   } catch (e) {
     return res.status(e.status || 500).json({ success: false, message: e.message });

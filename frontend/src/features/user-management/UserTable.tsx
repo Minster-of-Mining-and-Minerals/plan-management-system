@@ -30,6 +30,8 @@ export default function UserTable({ sideActions }: UserTableProps) {
     // Pagination states
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(10);
+    const [statusFilter, setStatusFilter] = useState("");
+    const [isModalOpen, setModalOpen] = useState(false);
 
 
     const columns: ColumnDef<User>[] = [
@@ -102,36 +104,34 @@ export default function UserTable({ sideActions }: UserTableProps) {
     ];
 
     const {
-        data: response,
+        data,
         isLoading,
         isError,
         refetch,
     } = useGetUsersQuery({
         page: pageIndex + 1,
         limit: pageSize,
-        search: searchQuery,
+        search: searchQuery || undefined,
+        is_active:
+            statusFilter === "active"
+                ? true
+                : statusFilter === "inactive"
+                    ? false
+                    : undefined,
     });
 
-    const allUsers = response ?? [];
-    const totalPages = Math.max(1, Math.ceil(allUsers.length / pageSize));
-    const users = allUsers.slice(
-        pageIndex * pageSize,
-        pageIndex * pageSize + pageSize
-    );
+    const users = data?.users ?? [];
+    const totalPages = data?.pagination?.totalPages ?? 1;
     const [exportUsers, { isLoading: exportLoading }] = useExportUsersMutation();
     // Reset page index when search changes
     useEffect(() => {
         setPageIndex(0);
-    }, [searchQuery]);
+    }, [searchQuery, statusFilter]);
 
-    const [isModalOpen, setModalOpen] = useState(false);
     const handlePagination = (index: number, size: number) => {
         setPageIndex(index);
         setPageSize(size);
     };
-
-    // Filters
-    const [statusFilter, setStatusFilter] = useState("");
 
     const filters: FilterField[] = [
         {
@@ -183,13 +183,6 @@ export default function UserTable({ sideActions }: UserTableProps) {
         },
     ];
 
-    // Apply filters locally
-    const filteredData = users.filter((role) => {
-        if (statusFilter === "active") return role.is_active === true;
-        if (statusFilter === "inactive") return role.is_active === false;
-        return true;
-    });
-
     return (
         <>
             <TableLayout
@@ -200,7 +193,8 @@ export default function UserTable({ sideActions }: UserTableProps) {
             >
                 <DataTable
                     columns={columns}
-                    data={filteredData}
+                    data={users}
+                    isLoading={isLoading}
                     totalPageCount={totalPages}
                     handlePagination={handlePagination}
                     tablePageSize={pageSize}

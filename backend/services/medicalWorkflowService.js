@@ -676,30 +676,65 @@ async function getWorkflowContext(appointmentId, staffId) {
   };
 }
 
-async function listInbox(staffId, { status = "pending" } = {}) {
+async function listInbox(staffId, { status = "pending", page, limit } = {}) {
   const where = { assignee_staff_id: staffId };
   if (status && status !== "all") where.status = status;
 
+  const {
+    getPagination,
+    getPagingData,
+    parsePageLimit,
+    wantsPagination,
+  } = require("../utils/pagination");
+
+  const include = [
+    {
+      model: db.StaffAppointment,
+      as: "appointment",
+      include: appointmentIncludes,
+    },
+    {
+      model: db.User,
+      as: "assignedBy",
+      attributes: ["user_id", "full_name"],
+    },
+    {
+      model: db.MedicalHistoryLog,
+      as: "medicalLog",
+      attributes: ["log_id", "header_title", "action_type", "created_at"],
+      required: false,
+    },
+  ];
+
+  if (wantsPagination({ page, limit })) {
+    const parsed = parsePageLimit({ page, limit }, { page: 1, limit: 20, maxLimit: 100 });
+    const { limit: take, offset } = getPagination(parsed.page, parsed.limit);
+    const result = await db.WorkflowTask.findAndCountAll({
+      where,
+      include,
+      order: [["created_at", "DESC"]],
+      distinct: true,
+      limit: take,
+      offset,
+    });
+    const paging = getPagingData(
+      {
+        count: Array.isArray(result.count) ? result.count.length : result.count,
+        rows: result.rows,
+      },
+      parsed.page,
+      parsed.limit
+    );
+    return {
+      paginated: true,
+      ...paging,
+      results: paging.results.map((r) => r.get({ plain: true })),
+    };
+  }
+
   const rows = await db.WorkflowTask.findAll({
     where,
-    include: [
-      {
-        model: db.StaffAppointment,
-        as: "appointment",
-        include: appointmentIncludes,
-      },
-      {
-        model: db.User,
-        as: "assignedBy",
-        attributes: ["user_id", "full_name"],
-      },
-      {
-        model: db.MedicalHistoryLog,
-        as: "medicalLog",
-        attributes: ["log_id", "header_title", "action_type", "created_at"],
-        required: false,
-      },
-    ],
+    include,
     order: [["created_at", "DESC"]],
   });
 

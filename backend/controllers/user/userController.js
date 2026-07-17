@@ -321,21 +321,25 @@ const updateUser = async (req, res) => {
 const getUsers = async (req, res) => {
   try {
     const {
-      // institute_id,
       is_active,
-      search, // optional: for name/email search
+      search,
       department_id,
     } = req.query;
+    const {
+      getPagination,
+      getPagingData,
+      parsePageLimit,
+      wantsPagination,
+    } = require("../../utils/pagination");
 
-    // ====== Build filters dynamically ======
     const whereClause = { account_type: ACCOUNT_TYPES.INTERNAL };
 
     if (is_active !== undefined) whereClause.is_active = is_active === "true";
     if (search) {
       whereClause[Op.or] = [
-        { full_name: { [Op.like]: `%${search}%` } },
-        { email: { [Op.like]: `%${search}%` } },
-        { phone_number: { [Op.like]: `%${search}%` } },
+        { full_name: { [Op.iLike]: `%${search}%` } },
+        { email: { [Op.iLike]: `%${search}%` } },
+        { phone_number: { [Op.iLike]: `%${search}%` } },
       ];
     }
 
@@ -365,13 +369,6 @@ const getUsers = async (req, res) => {
       profileInclude.where = { department_id };
     }
 
-    // ====== Fetch users with associations ======
-    const users = await User.findAll({
-      where: whereClause,
-      include: [profileInclude],
-      order: [["created_at", "DESC"]],
-    });
-
     const receivePatientUsers = await listUsersWithPermission(
       "patients",
       "receive_patient"
@@ -387,19 +384,62 @@ const getUsers = async (req, res) => {
       receiveAppointmentUsers.map((u) => u.user_id)
     );
 
-    const data = users.map((u) => {
+    const enrich = (u) => {
       const plain = u.get({ plain: true });
       return {
         ...plain,
         can_receive_patient: receivePatientIds.has(plain.user_id),
         can_receive_appointment: receiveAppointmentIds.has(plain.user_id),
       };
+    };
+
+    const paginate = wantsPagination(req.query);
+    if (paginate) {
+      const { page, limit } = parsePageLimit(req.query, {
+        page: 1,
+        limit: 20,
+        maxLimit: 100,
+      });
+      const { limit: take, offset } = getPagination(page, limit);
+      const result = await User.findAndCountAll({
+        where: whereClause,
+        include: [profileInclude],
+        order: [["created_at", "DESC"]],
+        distinct: true,
+        limit: take,
+        offset,
+      });
+      const paging = getPagingData(
+        {
+          count: Array.isArray(result.count) ? result.count.length : result.count,
+          rows: result.rows,
+        },
+        page,
+        limit
+      );
+      return res.status(200).json({
+        success: true,
+        message: "Users fetched successfully.",
+        data: paging.results.map(enrich),
+        pagination: {
+          total: paging.total,
+          totalPages: paging.totalPages,
+          currentPage: paging.currentPage,
+          limit: paging.limit,
+        },
+      });
+    }
+
+    const users = await User.findAll({
+      where: whereClause,
+      include: [profileInclude],
+      order: [["created_at", "DESC"]],
     });
 
     return res.status(200).json({
       success: true,
       message: "Users fetched successfully.",
-      data,
+      data: users.map(enrich),
     });
   } catch (error) {
     console.error("Error fetching users:", error);

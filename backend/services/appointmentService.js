@@ -160,8 +160,23 @@ function filterAppointmentsBySearch(rows, search) {
 
 async function listAppointmentsForStaff(
   staffId,
-  { search, status, sort = "admitted_at", order = "DESC", schedule_date } = {}
+  {
+    search,
+    status,
+    sort = "admitted_at",
+    order = "DESC",
+    schedule_date,
+    page,
+    limit,
+  } = {}
 ) {
+  const {
+    getPagination,
+    getPagingData,
+    parsePageLimit,
+    wantsPagination,
+  } = require("../utils/pagination");
+
   const statusWhere = status
     ? { status }
     : { status: { [Op.ne]: "cancelled" } };
@@ -173,15 +188,52 @@ async function listAppointmentsForStaff(
     return inc;
   });
 
-  // Appointments list is reception-admitted visits assigned to this staff only.
-  // Forwards from other clinicians appear in the workflow inbox, not here.
-  const rows = await db.StaffAppointment.findAll({
-    where: { assigned_staff_id: staffId, ...statusWhere },
+  const where = { assigned_staff_id: staffId, ...statusWhere };
+  const findOpts = {
+    where,
     include: includes,
     order: [[sort, order]],
-  });
+    distinct: true,
+  };
 
-  return filterAppointmentsBySearch(rows, search);
+  if (search?.trim()) {
+    const q = `%${search.trim()}%`;
+    findOpts.where = {
+      ...where,
+      [Op.or]: [
+        { "$patient.full_name$": { [Op.iLike]: q } },
+        { "$patient.email$": { [Op.iLike]: q } },
+        { "$patient.phone_number$": { [Op.iLike]: q } },
+        { "$patient.patientProfile.patient_code$": { [Op.iLike]: q } },
+      ],
+    };
+    findOpts.subQuery = false;
+  }
+
+  // Appointments list is reception-admitted visits assigned to this staff only.
+  if (wantsPagination({ page, limit })) {
+    const parsed = parsePageLimit(
+      { page, limit },
+      { page: 1, limit: 20, maxLimit: 100 }
+    );
+    const { limit: take, offset } = getPagination(parsed.page, parsed.limit);
+    const result = await db.StaffAppointment.findAndCountAll({
+      ...findOpts,
+      limit: take,
+      offset,
+    });
+    const paging = getPagingData(
+      {
+        count: Array.isArray(result.count) ? result.count.length : result.count,
+        rows: result.rows,
+      },
+      parsed.page,
+      parsed.limit
+    );
+    return { paginated: true, ...paging };
+  }
+
+  return db.StaffAppointment.findAll(findOpts);
 }
 
 async function getAppointmentById(appointmentId, { staffId } = {}) {
@@ -211,8 +263,10 @@ async function getAppointmentForStaff(appointmentId, staffId) {
 }
 
 async function listAppointmentsForStaffWithAccess(staffId, options = {}) {
-  const rows = await listAppointmentsForStaff(staffId, options);
+  const listed = await listAppointmentsForStaff(staffId, options);
   const pendingForwardIds = await getPendingForwardAppointmentIds(staffId);
+
+  const rows = listed.paginated ? listed.results : listed;
   const withAccess = rows.map((row) =>
     attachWorkflowAccess(row.get({ plain: true }), staffId, pendingForwardIds)
   );
@@ -223,10 +277,23 @@ async function listAppointmentsForStaffWithAccess(staffId, options = {}) {
   } = require("./cashierPaymentService");
   const billingMap = await getBillingSummariesForAppointments(appointmentIds);
 
-  return withAccess.map((row) => ({
+  const enriched = withAccess.map((row) => ({
     ...row,
     billing_summary: billingMap.get(row.appointment_id) || null,
   }));
+
+  if (listed.paginated) {
+    return {
+      paginated: true,
+      total: listed.total,
+      totalPages: listed.totalPages,
+      currentPage: listed.currentPage,
+      limit: listed.limit,
+      results: enriched,
+    };
+  }
+
+  return enriched;
 }
 
 async function userCanReceiveAppointments(userId) {

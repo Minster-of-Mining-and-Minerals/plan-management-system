@@ -154,25 +154,29 @@ async function listQueue({
     ],
   };
 
-  let rows = await AppointmentBillingAccount.findAll({
+  const collectionInclude = {
+    model: BillingCollectionRequest,
+    as: "collectionRequests",
+    required: true,
+    where: { status: { [Op.in]: OPEN_COLLECTION_STATUSES } },
+    attributes: [
+      "request_id",
+      "requested_at",
+      "amount_due_at_request",
+      "status",
+      "requested_by",
+      "source",
+    ],
+    separate: true,
+    order: [["requested_at", "DESC"]],
+  };
+
+  const findOpts = {
     where,
     include: [
       patientInclude,
       scheduleInclude,
-      {
-        model: BillingCollectionRequest,
-        as: "collectionRequests",
-        required: true,
-        where: { status: { [Op.in]: OPEN_COLLECTION_STATUSES } },
-        attributes: [
-          "request_id",
-          "requested_at",
-          "amount_due_at_request",
-          "status",
-          "requested_by",
-          "source",
-        ],
-      },
+      collectionInclude,
       {
         model: User,
         as: "servingCashier",
@@ -181,41 +185,48 @@ async function listQueue({
       },
     ],
     order: [["updated_at", "ASC"]],
-  });
+    distinct: true,
+  };
 
   if (search?.trim()) {
-    const q = search.trim().toLowerCase();
-    rows = rows.filter((row) => {
-      const item = formatQueueItem(row, null, viewerUserId);
-      return (
-        item.patient_name?.toLowerCase().includes(q) ||
-        item.patient_code?.toLowerCase().includes(q) ||
-        item.phone_number?.toLowerCase().includes(q) ||
-        item.appointment_id?.toLowerCase().includes(q) ||
-        item.account_id?.toLowerCase().includes(q)
-      );
-    });
+    const q = `%${search.trim()}%`;
+    findOpts.where = {
+      ...where,
+      [Op.or]: [
+        { account_id: { [Op.iLike]: q } },
+        { appointment_id: { [Op.iLike]: q } },
+        { "$patient.full_name$": { [Op.iLike]: q } },
+        { "$patient.phone_number$": { [Op.iLike]: q } },
+        { "$patient.patientProfile.patient_code$": { [Op.iLike]: q } },
+      ],
+    };
+    findOpts.subQuery = false;
   }
 
-  const total = rows.length;
-  const offset = (Math.max(Number(page), 1) - 1) * Math.max(Number(limit), 1);
-  const pageRows = rows.slice(offset, offset + limit);
+  const pageNum = Math.max(Number(page) || 1, 1);
+  const limitNum = Math.min(Math.max(Number(limit) || 20, 1), 100);
+  const offset = (pageNum - 1) * limitNum;
 
-  const results = await Promise.all(
-    pageRows.map(async (row) => {
-      const plain = row.get ? row.get({ plain: true }) : row;
-      const latest = await billingCollectionRequestService.getLatestOpenForAccount(
-        plain.account_id
-      );
-      return formatQueueItem(row, latest, viewerUserId);
-    })
-  );
+  const { count, rows } = await AppointmentBillingAccount.findAndCountAll({
+    ...findOpts,
+    limit: limitNum,
+    offset,
+  });
+
+  const total = Array.isArray(count) ? count.length : count;
+
+  const results = rows.map((row) => {
+    const plain = row.get ? row.get({ plain: true }) : row;
+    const latest =
+      (plain.collectionRequests && plain.collectionRequests[0]) || null;
+    return formatQueueItem(row, latest, viewerUserId);
+  });
 
   return {
     total,
-    totalPages: Math.max(1, Math.ceil(total / limit)),
-    currentPage: Number(page),
-    limit: Number(limit),
+    totalPages: Math.max(1, Math.ceil(total / limitNum) || 1),
+    currentPage: pageNum,
+    limit: limitNum,
     results,
   };
 }
@@ -271,70 +282,85 @@ function formatPaymentLedgerItem(paymentRow) {
 async function listPaymentsToday({ search, date, page = 1, limit = 50 } = {}) {
   const dayStart = startOfDay(date);
   const dayEnd = endOfDay(date);
+  const pageNum = Math.max(Number(page) || 1, 1);
+  const limitNum = Math.min(Math.max(Number(limit) || 50, 1), 100);
+  const offset = (pageNum - 1) * limitNum;
 
-  let rows = await CashierPayment.findAll({
-    where: {
-      status: "completed",
-      created_at: { [Op.between]: [dayStart, dayEnd] },
+  const where = {
+    status: "completed",
+    created_at: { [Op.between]: [dayStart, dayEnd] },
+  };
+
+  const include = [
+    {
+      model: User,
+      as: "patient",
+      attributes: ["user_id", "full_name"],
+      include: [
+        {
+          model: PatientProfile,
+          as: "patientProfile",
+          attributes: ["patient_code"],
+        },
+      ],
     },
-    include: [
-      {
-        model: User,
-        as: "patient",
-        attributes: ["user_id", "full_name"],
-        include: [
-          {
-            model: PatientProfile,
-            as: "patientProfile",
-            attributes: ["patient_code"],
-          },
-        ],
-      },
-      {
-        model: User,
-        as: "receiver",
-        attributes: ["user_id", "full_name"],
-      },
-      {
-        model: AppointmentBillingAccount,
-        as: "account",
-        attributes: [
-          "account_id",
-          "status",
-          "grand_total",
-          "balance_due",
-          "amount_paid",
-        ],
-      },
-      { model: PaymentTender, as: "tenders" },
-    ],
+    {
+      model: User,
+      as: "receiver",
+      attributes: ["user_id", "full_name"],
+    },
+    {
+      model: AppointmentBillingAccount,
+      as: "account",
+      attributes: [
+        "account_id",
+        "status",
+        "grand_total",
+        "balance_due",
+        "amount_paid",
+      ],
+    },
+    { model: PaymentTender, as: "tenders" },
+  ];
+
+  const findOpts = {
+    where,
+    include,
     order: [["created_at", "DESC"]],
-  });
+    distinct: true,
+  };
 
   if (search?.trim()) {
-    const q = search.trim().toLowerCase();
-    rows = rows.filter((row) => {
-      const item = formatPaymentLedgerItem(row);
-      return (
-        item.patient_name?.toLowerCase().includes(q) ||
-        item.patient_code?.toLowerCase().includes(q) ||
-        item.receipt_number?.toLowerCase().includes(q)
-      );
-    });
+    const q = `%${search.trim()}%`;
+    findOpts.where = {
+      ...where,
+      [Op.or]: [
+        { receipt_number: { [Op.iLike]: q } },
+        { "$patient.full_name$": { [Op.iLike]: q } },
+        { "$patient.patientProfile.patient_code$": { [Op.iLike]: q } },
+      ],
+    };
+    findOpts.subQuery = false;
   }
 
-  const total = rows.length;
-  const offset = (Math.max(Number(page), 1) - 1) * Math.max(Number(limit), 1);
-  const results = rows.slice(offset, offset + limit).map(formatPaymentLedgerItem);
-  const totalAmount = rows.reduce((sum, row) => sum + Number(row.amount), 0);
+  const [{ count, rows }, totalAmount] = await Promise.all([
+    CashierPayment.findAndCountAll({
+      ...findOpts,
+      limit: limitNum,
+      offset,
+    }),
+    CashierPayment.sum("amount", { where: findOpts.where }),
+  ]);
+
+  const total = Array.isArray(count) ? count.length : count;
 
   return {
     total,
-    totalPages: Math.max(1, Math.ceil(total / limit)),
-    currentPage: Number(page),
-    limit: Number(limit),
-    total_amount: roundMoney(totalAmount),
-    results,
+    totalPages: Math.max(1, Math.ceil(total / limitNum) || 1),
+    currentPage: pageNum,
+    limit: limitNum,
+    total_amount: roundMoney(Number(totalAmount) || 0),
+    results: rows.map(formatPaymentLedgerItem),
   };
 }
 
@@ -358,62 +384,91 @@ async function listPaymentHistory({
     where.received_by = cashier_user_id;
   }
 
-  let rows = await CashierPayment.findAll({
+  const pageNum = Math.max(Number(page) || 1, 1);
+  const limitNum = Math.min(Math.max(Number(limit) || 50, 1), 100);
+  const offset = (pageNum - 1) * limitNum;
+
+  const include = [
+    {
+      model: User,
+      as: "patient",
+      attributes: ["user_id", "full_name"],
+      include: [
+        {
+          model: PatientProfile,
+          as: "patientProfile",
+          attributes: ["patient_code"],
+        },
+      ],
+    },
+    {
+      model: User,
+      as: "receiver",
+      attributes: ["user_id", "full_name"],
+    },
+    {
+      model: AppointmentBillingAccount,
+      as: "account",
+      attributes: [
+        "account_id",
+        "status",
+        "grand_total",
+        "balance_due",
+        "amount_paid",
+      ],
+    },
+    { model: PaymentTender, as: "tenders" },
+  ];
+
+  const findOpts = {
     where,
+    include,
+    order: [["created_at", "DESC"]],
+    distinct: true,
+  };
+
+  if (search?.trim()) {
+    const q = `%${search.trim()}%`;
+    findOpts.where = {
+      ...where,
+      [Op.or]: [
+        { receipt_number: { [Op.iLike]: q } },
+        { "$patient.full_name$": { [Op.iLike]: q } },
+        { "$patient.patientProfile.patient_code$": { [Op.iLike]: q } },
+        { "$receiver.full_name$": { [Op.iLike]: q } },
+      ],
+    };
+    findOpts.subQuery = false;
+  }
+
+  const { count, rows } = await CashierPayment.findAndCountAll({
+    ...findOpts,
+    limit: limitNum,
+    offset,
+  });
+  const total = Array.isArray(count) ? count.length : count;
+
+  // Aggregates over the full filtered set (not just the page)
+  const aggregateRows = await CashierPayment.findAll({
+    where: findOpts.where,
     include: [
-      {
-        model: User,
-        as: "patient",
-        attributes: ["user_id", "full_name"],
-        include: [
-          {
-            model: PatientProfile,
-            as: "patientProfile",
-            attributes: ["patient_code"],
-          },
-        ],
-      },
       {
         model: User,
         as: "receiver",
         attributes: ["user_id", "full_name"],
       },
-      {
-        model: AppointmentBillingAccount,
-        as: "account",
-        attributes: [
-          "account_id",
-          "status",
-          "grand_total",
-          "balance_due",
-          "amount_paid",
-        ],
-      },
-      { model: PaymentTender, as: "tenders" },
+      { model: PaymentTender, as: "tenders", attributes: ["method", "amount"] },
     ],
-    order: [["created_at", "DESC"]],
+    attributes: ["payment_id", "amount", "received_by"],
   });
 
-  if (search?.trim()) {
-    const q = search.trim().toLowerCase();
-    rows = rows.filter((row) => {
-      const item = formatPaymentLedgerItem(row);
-      return (
-        item.patient_name?.toLowerCase().includes(q) ||
-        item.patient_code?.toLowerCase().includes(q) ||
-        item.receipt_number?.toLowerCase().includes(q) ||
-        item.cashier_name?.toLowerCase().includes(q)
-      );
-    });
-  }
-
-  const total = rows.length;
-  const offset = (Math.max(Number(page), 1) - 1) * Math.max(Number(limit), 1);
-  const results = rows.slice(offset, offset + limit).map(formatPaymentLedgerItem);
-  const totalAmount = rows.reduce((sum, row) => sum + Number(row.amount), 0);
-
+  let totalAmount = 0;
   const byMethod = {};
-  for (const row of rows) {
+  const byCashier = {};
+  for (const row of aggregateRows) {
+    totalAmount += Number(row.amount) || 0;
+    const name = row.receiver?.full_name || "Unknown";
+    byCashier[name] = roundMoney((byCashier[name] || 0) + Number(row.amount));
     for (const tender of row.tenders || []) {
       byMethod[tender.method] = roundMoney(
         (byMethod[tender.method] || 0) + Number(tender.amount)
@@ -421,21 +476,15 @@ async function listPaymentHistory({
     }
   }
 
-  const byCashier = {};
-  for (const row of rows) {
-    const name = row.receiver?.full_name || "Unknown";
-    byCashier[name] = roundMoney((byCashier[name] || 0) + Number(row.amount));
-  }
-
   return {
     total,
-    totalPages: Math.max(1, Math.ceil(total / limit)),
-    currentPage: Number(page),
-    limit: Number(limit),
+    totalPages: Math.max(1, Math.ceil(total / limitNum) || 1),
+    currentPage: pageNum,
+    limit: limitNum,
     total_amount: roundMoney(totalAmount),
     by_method: byMethod,
     by_cashier: byCashier,
-    results,
+    results: rows.map(formatPaymentLedgerItem),
   };
 }
 

@@ -42,9 +42,20 @@ export default function PatientTable({ sideActions }: PatientTableProps) {
   const [statusFilter, setStatusFilter] = useState("");
   const [isModalOpen, setModalOpen] = useState(false);
 
-  const { data: patients = [], isLoading, refetch } = useGetPatientsQuery(
-    searchQuery ? { search: searchQuery } : undefined
-  );
+  const { data, isLoading, refetch } = useGetPatientsQuery({
+    search: searchQuery || undefined,
+    page: pageIndex + 1,
+    limit: pageSize,
+    is_active:
+      statusFilter === "active"
+        ? true
+        : statusFilter === "inactive"
+          ? false
+          : undefined,
+  });
+
+  const patients = data?.patients ?? [];
+  const totalPages = data?.pagination?.totalPages ?? 1;
 
   useEffect(() => {
     setPageIndex(0);
@@ -141,18 +152,6 @@ export default function PatientTable({ sideActions }: PatientTableProps) {
     },
   ];
 
-  const filteredAll = patients.filter((patient) => {
-    if (statusFilter === "active") return patient.is_active !== false;
-    if (statusFilter === "inactive") return patient.is_active === false;
-    return true;
-  });
-
-  const totalPages = Math.max(1, Math.ceil(filteredAll.length / pageSize));
-  const paginated = filteredAll.slice(
-    pageIndex * pageSize,
-    pageIndex * pageSize + pageSize
-  );
-
   const handlePagination = (index: number, size: number) => {
     setPageIndex(index);
     setPageSize(size);
@@ -194,7 +193,7 @@ export default function PatientTable({ sideActions }: PatientTableProps) {
       >
         <DataTable
           columns={columns}
-          data={paginated}
+          data={patients}
           isLoading={isLoading}
           totalPageCount={totalPages}
           handlePagination={handlePagination}

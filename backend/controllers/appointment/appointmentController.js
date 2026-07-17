@@ -14,11 +14,24 @@ const listMyAppointments = async (req, res) => {
       });
     }
 
-    const { search, status, sort, order, schedule_date } = req.query;
+    const { search, status, sort, order, schedule_date, page, limit } = req.query;
     const rows = await appointmentService.listAppointmentsForStaffWithAccess(
       req.user.user_id,
-      { search, status, sort, order, schedule_date }
+      { search, status, sort, order, schedule_date, page, limit }
     );
+
+    if (rows?.paginated) {
+      return res.json({
+        success: true,
+        data: rows.results,
+        pagination: {
+          total: rows.total,
+          totalPages: rows.totalPages,
+          currentPage: rows.currentPage,
+          limit: rows.limit,
+        },
+      });
+    }
 
     return res.json({
       success: true,

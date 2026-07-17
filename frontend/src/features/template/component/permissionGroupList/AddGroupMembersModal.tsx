@@ -33,9 +33,10 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
   const [userSearch, setUserSearch] = useState("");
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
 
-  const { data: allUsers = [], isLoading: loadingUsers } = useGetUsersQuery({
+  const { data: usersData, isLoading: loadingUsers } = useGetUsersQuery({
     search: userSearch,
   });
+  const allUsers = usersData?.users ?? [];
 
   const [addUsers, { isLoading: isAddingUsers }] = useAddUsersToGroupMutation();
 
