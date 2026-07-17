@@ -124,6 +124,8 @@ const PERMISSIONS = [
   { resource: "plan", action: "raise_review_issue" },
   { resource: "plan", action: "view_own_review_issues" },
   { resource: "plan", action: "view_review_dashboard" },
+  { resource: "plan", action: "request_execution_reopening" },
+  { resource: "plan", action: "approve_execution_reopening" },
   { resource: "documents", action: "read" },
   { resource: "documents", action: "create" },
   { resource: "documents", action: "update" },

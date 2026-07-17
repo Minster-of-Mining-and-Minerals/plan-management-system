@@ -34,6 +34,14 @@ async function addEnumValue(queryInterface, enumName, value) {
   `);
 }
 
+async function tableExists(queryInterface, tableName) {
+  const [row] = await queryInterface.sequelize.query(
+    `SELECT to_regclass('public.${tableName}') IS NOT NULL AS exists`,
+    { type: QueryTypes.SELECT }
+  );
+  return Boolean(row?.exists);
+}
+
 async function ensurePermission(queryInterface, perm, now) {
   try {
     await queryInterface.bulkInsert(
@@ -86,6 +94,17 @@ async function ensurePermission(queryInterface, perm, now) {
 async function grantSuperAdmin(queryInterface, permissionId, now) {
   if (!permissionId) return;
 
+  const roles = await queryInterface.sequelize.query(
+    `SELECT role_id FROM roles WHERE role_id = :roleId LIMIT 1`,
+    {
+      replacements: { roleId: SUPER_ADMIN_ROLE_ID },
+      type: QueryTypes.SELECT,
+    }
+  );
+
+  // Fresh installs seed roles after migrations; skip grant until then.
+  if (roles.length === 0) return;
+
   const existing = await queryInterface.sequelize.query(
     `SELECT role_permission_id FROM role_permissions
      WHERE role_id = :roleId AND permission_id = :permId LIMIT 1`,
@@ -123,129 +142,131 @@ module.exports = {
       "execution_window_reopening"
     );
 
-    await queryInterface.createTable("plan_execution_window_overrides", {
-      plan_execution_window_override_id: {
-        type: Sequelize.UUID,
-        allowNull: false,
-        primaryKey: true,
-      },
-      plan_amendment_id: {
-        type: Sequelize.UUID,
-        allowNull: false,
-        references: { model: "plan_amendments", key: "plan_amendment_id" },
-        onUpdate: "CASCADE",
-        onDelete: "CASCADE",
-      },
-      plan_amendment_action_id: {
-        type: Sequelize.UUID,
-        allowNull: true,
-        references: {
-          model: "plan_amendment_actions",
-          key: "plan_amendment_action_id",
+    if (!(await tableExists(queryInterface, "plan_execution_window_overrides"))) {
+      await queryInterface.createTable("plan_execution_window_overrides", {
+        plan_execution_window_override_id: {
+          type: Sequelize.UUID,
+          allowNull: false,
+          primaryKey: true,
         },
-        onUpdate: "CASCADE",
-        onDelete: "SET NULL",
-      },
-      master_plan_version_id: {
-        type: Sequelize.UUID,
-        allowNull: false,
-        references: { model: "plan_versions", key: "plan_version_id" },
-        onUpdate: "CASCADE",
-        onDelete: "CASCADE",
-      },
-      live_period_version_id: {
-        type: Sequelize.UUID,
-        allowNull: false,
-        references: { model: "plan_versions", key: "plan_version_id" },
-        onUpdate: "CASCADE",
-        onDelete: "CASCADE",
-      },
-      snapshot_period_version_id: {
-        type: Sequelize.UUID,
-        allowNull: false,
-        references: { model: "plan_versions", key: "plan_version_id" },
-        onUpdate: "CASCADE",
-        onDelete: "CASCADE",
-      },
-      previous_execution_status: {
-        type: Sequelize.STRING(32),
-        allowNull: true,
-      },
-      reopen_start: {
-        type: Sequelize.DATE,
-        allowNull: false,
-      },
-      reopen_end: {
-        type: Sequelize.DATE,
-        allowNull: false,
-      },
-      status: {
-        type: Sequelize.STRING(32),
-        allowNull: false,
-        defaultValue: "active",
-      },
-      reason: {
-        type: Sequelize.TEXT,
-        allowNull: true,
-      },
-      kpi_plan_node_id: {
-        type: Sequelize.UUID,
-        allowNull: true,
-        references: { model: "plan_nodes", key: "plan_node_id" },
-        onUpdate: "CASCADE",
-        onDelete: "SET NULL",
-      },
-      goal_plan_node_id: {
-        type: Sequelize.UUID,
-        allowNull: true,
-        references: { model: "plan_nodes", key: "plan_node_id" },
-        onUpdate: "CASCADE",
-        onDelete: "SET NULL",
-      },
-      government_structure_id: {
-        type: Sequelize.UUID,
-        allowNull: true,
-        references: { model: "government_structures", key: "government_structure_id" },
-        onUpdate: "CASCADE",
-        onDelete: "SET NULL",
-      },
-      created_by: {
-        type: Sequelize.UUID,
-        allowNull: true,
-        references: { model: "users", key: "user_id" },
-        onUpdate: "CASCADE",
-        onDelete: "SET NULL",
-      },
-      expired_at: {
-        type: Sequelize.DATE,
-        allowNull: true,
-      },
-      revoked_at: {
-        type: Sequelize.DATE,
-        allowNull: true,
-      },
-      created_at: {
-        type: Sequelize.DATE,
-        allowNull: false,
-      },
-      updated_at: {
-        type: Sequelize.DATE,
-        allowNull: false,
-      },
-    });
+        plan_amendment_id: {
+          type: Sequelize.UUID,
+          allowNull: false,
+          references: { model: "plan_amendments", key: "plan_amendment_id" },
+          onUpdate: "CASCADE",
+          onDelete: "CASCADE",
+        },
+        plan_amendment_action_id: {
+          type: Sequelize.UUID,
+          allowNull: true,
+          references: {
+            model: "plan_amendment_actions",
+            key: "plan_amendment_action_id",
+          },
+          onUpdate: "CASCADE",
+          onDelete: "SET NULL",
+        },
+        master_plan_version_id: {
+          type: Sequelize.UUID,
+          allowNull: false,
+          references: { model: "plan_versions", key: "plan_version_id" },
+          onUpdate: "CASCADE",
+          onDelete: "CASCADE",
+        },
+        live_period_version_id: {
+          type: Sequelize.UUID,
+          allowNull: false,
+          references: { model: "plan_versions", key: "plan_version_id" },
+          onUpdate: "CASCADE",
+          onDelete: "CASCADE",
+        },
+        snapshot_period_version_id: {
+          type: Sequelize.UUID,
+          allowNull: false,
+          references: { model: "plan_versions", key: "plan_version_id" },
+          onUpdate: "CASCADE",
+          onDelete: "CASCADE",
+        },
+        previous_execution_status: {
+          type: Sequelize.STRING(32),
+          allowNull: true,
+        },
+        reopen_start: {
+          type: Sequelize.DATE,
+          allowNull: false,
+        },
+        reopen_end: {
+          type: Sequelize.DATE,
+          allowNull: false,
+        },
+        status: {
+          type: Sequelize.STRING(32),
+          allowNull: false,
+          defaultValue: "active",
+        },
+        reason: {
+          type: Sequelize.TEXT,
+          allowNull: true,
+        },
+        kpi_plan_node_id: {
+          type: Sequelize.UUID,
+          allowNull: true,
+          references: { model: "plan_nodes", key: "plan_node_id" },
+          onUpdate: "CASCADE",
+          onDelete: "SET NULL",
+        },
+        goal_plan_node_id: {
+          type: Sequelize.UUID,
+          allowNull: true,
+          references: { model: "plan_nodes", key: "plan_node_id" },
+          onUpdate: "CASCADE",
+          onDelete: "SET NULL",
+        },
+        government_structure_id: {
+          type: Sequelize.UUID,
+          allowNull: true,
+          references: {
+            model: "government_structures",
+            key: "government_structure_id",
+          },
+          onUpdate: "CASCADE",
+          onDelete: "SET NULL",
+        },
+        created_by: {
+          type: Sequelize.UUID,
+          allowNull: true,
+          references: { model: "users", key: "user_id" },
+          onUpdate: "CASCADE",
+          onDelete: "SET NULL",
+        },
+        expired_at: {
+          type: Sequelize.DATE,
+          allowNull: true,
+        },
+        revoked_at: {
+          type: Sequelize.DATE,
+          allowNull: true,
+        },
+        created_at: {
+          type: Sequelize.DATE,
+          allowNull: false,
+        },
+        updated_at: {
+          type: Sequelize.DATE,
+          allowNull: false,
+        },
+      });
+    }
 
-    await queryInterface.addIndex("plan_execution_window_overrides", {
-      fields: ["snapshot_period_version_id", "status"],
-      name: "plan_execution_window_overrides_snapshot_status_idx",
-    });
-    await queryInterface.addIndex("plan_execution_window_overrides", {
-      fields: ["reopen_end"],
-      name: "plan_execution_window_overrides_reopen_end_idx",
-    });
-    await queryInterface.addIndex("plan_execution_window_overrides", {
-      fields: ["plan_amendment_id"],
-      name: "plan_execution_window_overrides_amendment_idx",
-    });
+    // Idempotent: prior failed runs may have left indexes after DDL commit.
+    await queryInterface.sequelize.query(`
+      CREATE INDEX IF NOT EXISTS plan_execution_window_overrides_snapshot_status_idx
+        ON plan_execution_window_overrides (snapshot_period_version_id, status);
+      CREATE INDEX IF NOT EXISTS plan_execution_window_overrides_reopen_end_idx
+        ON plan_execution_window_overrides (reopen_end);
+      CREATE INDEX IF NOT EXISTS plan_execution_window_overrides_amendment_idx
+        ON plan_execution_window_overrides (plan_amendment_id);
+    `);
 
     const now = new Date();
     for (const perm of NEW_PERMISSIONS) {
@@ -257,7 +278,10 @@ module.exports = {
   async down(queryInterface) {
     await queryInterface.dropTable("plan_execution_window_overrides");
 
-    const actions = ["request_execution_reopening", "approve_execution_reopening"];
+    const actions = [
+      "request_execution_reopening",
+      "approve_execution_reopening",
+    ];
     for (const action of actions) {
       await queryInterface.sequelize.query(
         `DELETE FROM role_permissions
