@@ -19,11 +19,18 @@ const NEW_PERMISSIONS = [
 ];
 
 async function addEnumValue(queryInterface, enumName, value) {
+  // Requires baseline schema first (enum types created there).
   await queryInterface.sequelize.query(`
-    DO $$ BEGIN
-      ALTER TYPE "${enumName}" ADD VALUE IF NOT EXISTS '${value}';
-    EXCEPTION WHEN duplicate_object THEN NULL;
-    END $$;
+    DO $$
+    BEGIN
+      IF to_regtype('public.${enumName}') IS NULL THEN
+        RAISE EXCEPTION 'Enum type public.${enumName} does not exist — apply baseline migration first';
+      END IF;
+      ALTER TYPE public.${enumName} ADD VALUE IF NOT EXISTS '${value}';
+    EXCEPTION
+      WHEN duplicate_object THEN NULL;
+    END
+    $$;
   `);
 }
 
