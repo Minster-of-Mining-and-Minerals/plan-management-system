@@ -12,6 +12,10 @@ const {
 const { normalizeTargetValue } = require("../../utils/planTargetReallocationValidationUtils");
 const { AMENDMENT_TYPE } = require("../../utils/planAmendmentTypes");
 const { AMENDMENT_STATUS } = require("../../utils/planAmendmentWorkflowUtils");
+const {
+  loadRuleForPlanVersion,
+  amendableTargetQueryFilter,
+} = require("./planAmendmentRuleUtils");
 
 /**
  * Reporting: original (live) vs current effective (snapshot) annual targets,
@@ -97,10 +101,13 @@ async function getAnnualTargetRevisionReporting(planVersionId, rawQuery = {}, tr
     };
   }
 
+  const rule = await loadRuleForPlanVersion(liveAnnualVersionId, transaction);
+  const targetFilter = amendableTargetQueryFilter(rule);
+
   const liveAnnualKpis = await PlanNode.findAll({
     where: {
       plan_version_id: liveAnnualVersionId,
-      type: "kpi",
+      ...targetFilter,
       is_active: true,
     },
     transaction,
@@ -155,7 +162,7 @@ async function getAnnualTargetRevisionReporting(planVersionId, rawQuery = {}, tr
         where: {
           plan_version_id: snapshotPeriod.plan_version_id,
           source_plan_node_id: snapshotAnnualKpi.plan_node_id,
-          type: "kpi",
+          ...targetFilter,
           is_active: true,
         },
         transaction,

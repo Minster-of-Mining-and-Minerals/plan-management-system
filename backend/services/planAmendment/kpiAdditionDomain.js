@@ -1,8 +1,8 @@
 "use strict";
 
 /**
- * KPI Addition amendment domain — validation, weight/period planning, preview, apply.
- * Creates a new KPI on the live master tree and mirrors it into the active execution snapshot.
+ * Node Addition amendment domain (kpi_addition type) — validation, weight/period planning, preview, apply.
+ * Creates a new hierarchy node on the live master tree and mirrors it into the active execution snapshot.
  */
 
 const { v4: uuidv4 } = require("uuid");
@@ -36,24 +36,37 @@ const { normalizeTargetAllocationMode } = require("../../utils/planTargetAllocat
 const { normalizeAchievementMode } = require("../../utils/planAchievementModeUtils");
 const { AMENDMENT_TYPE } = require("../../utils/planAmendmentTypes");
 const {
+  loadRuleForPlanVersion,
+  getChildLevelForParent,
+  canAddChildUnder,
+  isAmendableTargetNode,
+} = require("./planAmendmentRuleUtils");
+const {
+  levelToNodeType,
+  stepRequiresWeight,
+  stepRequiresContributionWeight,
+  getStepLabel,
+} = require("../planRuleStepUtils");
+const {
   mergeAmendmentPolicy,
   DEFAULT_AMENDMENT_POLICY,
 } = require("../../utils/planAmendmentActionUtils");
 
 const KPI_ADDITION_MESSAGES = Object.freeze({
-  PARENT_REQUIRED: "Parent goal or KPI is required.",
+  PARENT_REQUIRED: "Parent is required for this hierarchy level.",
   PARENT_NOT_FOUND: "Parent node was not found.",
   INVALID_PARENT: "Parent must be a live master plan node.",
+  CANNOT_ADD_CHILD: "Cannot add a child node under the selected parent.",
   ANNUAL_VERSION_REQUIRED: "Annual plan version is required.",
   ANNUAL_VERSION_NOT_FOUND: "Annual plan version was not found.",
   ANNUAL_NOT_UNDER_MASTER: "Annual version must belong to the selected master plan.",
-  PROCESS_NOT_STARTED: "KPI addition is only available after execution has started.",
-  TITLE_REQUIRED: "KPI title is required.",
-  DUPLICATE_TITLE: "A KPI with this title already exists under the same parent.",
+  PROCESS_NOT_STARTED: "Node addition is only available after execution has started.",
+  TITLE_REQUIRED: "Node title is required.",
+  DUPLICATE_TITLE: "A node with this title already exists under the same parent.",
   ANNUAL_TARGET_REQUIRED: "Annual target is required.",
   ANNUAL_TARGET_NEGATIVE: "Annual target cannot be negative.",
   ZERO_NOT_ALLOWED: "Zero annual target is not allowed by plan amendment policy.",
-  OWNER_REQUIRED: "KPI owner is required.",
+  OWNER_REQUIRED: "Node owner is required.",
   OWNER_NOT_FOUND: "Owner user was not found.",
   GOVERNMENT_STRUCTURE_REQUIRED: "Department / sector is required.",
   GOVERNMENT_STRUCTURE_NOT_FOUND: "Government structure was not found.",
@@ -76,12 +89,21 @@ const KPI_ADDITION_MESSAGES = Object.freeze({
     "Remaining open period targets must sum exactly to the annual target.",
   WEIGHT_MODE_INVALID: "Weight redistribution mode must be manual, proportional, or equal.",
   MANUAL_WEIGHTS_REQUIRED:
-    "Manual weight redistribution requires an adjustment for every sibling KPI.",
+    "Manual weight redistribution requires an adjustment for every sibling.",
   MANUAL_WEIGHT_UNKNOWN:
-    "Manual weight adjustments include unknown sibling KPI ids.",
+    "Manual weight adjustments include unknown sibling node ids.",
   WEIGHT_EXCEEDS_PARENT:
-    "Combined sibling weights plus the new KPI exceed the parent weight limit.",
-  RULE_VIOLATION: "New KPI violates plan structure rules.",
+    "Combined sibling weights plus the new node exceed the parent weight limit.",
+  RULE_VIOLATION: "New node violates plan structure rules.",
+});
+
+const EMPTY_PERIOD_PLAN = Object.freeze({
+  valid: true,
+  rows: [],
+  openCount: 0,
+  startPeriodId: null,
+  endPeriodId: null,
+  allocations: [],
 });
 
 const WEIGHT_MODE = Object.freeze({
@@ -235,25 +257,23 @@ async function findSnapshotNodeBySource(snapshotVersionId, sourcePlanNodeId, tra
  * Resolve live parent, annual year, execution periods, siblings, and snapshot anchors.
  */
 async function resolveKpiAdditionContext(metadata, transaction = null) {
-  if (!metadata.parentId) {
-    return { success: false, message: KPI_ADDITION_MESSAGES.PARENT_REQUIRED };
-  }
+  const hasParent = Boolean(metadata.parentId);
 
-  const liveParent = await PlanNode.findByPk(metadata.parentId, {
-    include: [{ association: "planVersion" }],
-    transaction,
-  });
-  if (!liveParent) {
-    return { success: false, message: KPI_ADDITION_MESSAGES.PARENT_NOT_FOUND };
-  }
-  if (!isLiveMasterVersion(liveParent.planVersion)) {
-    return { success: false, message: KPI_ADDITION_MESSAGES.INVALID_PARENT };
-  }
+  let liveParent = null;
+  let liveMasterVersionId = null;
 
-  const liveMasterVersionId = liveParent.plan_version_id;
-  const liveMaster = await PlanVersion.findByPk(liveMasterVersionId, { transaction });
-  if (!liveMaster?.process_started_at || !liveMaster.active_execution_snapshot_id) {
-    return { success: false, message: KPI_ADDITION_MESSAGES.PROCESS_NOT_STARTED };
+  if (hasParent) {
+    liveParent = await PlanNode.findByPk(metadata.parentId, {
+      include: [{ association: "planVersion" }],
+      transaction,
+    });
+    if (!liveParent) {
+      return { success: false, message: KPI_ADDITION_MESSAGES.PARENT_NOT_FOUND };
+    }
+    if (!isLiveMasterVersion(liveParent.planVersion)) {
+      return { success: false, message: KPI_ADDITION_MESSAGES.INVALID_PARENT };
+    }
+    liveMasterVersionId = liveParent.plan_version_id;
   }
 
   if (!metadata.annualVersionId) {
@@ -268,10 +288,37 @@ async function resolveKpiAdditionContext(metadata, transaction = null) {
   }
   if (
     liveAnnualVersion.version_kind !== "annual" ||
-    liveAnnualVersion.parent_plan_version_id !== liveMasterVersionId ||
     liveAnnualVersion.execution_snapshot_of_version_id
   ) {
     return { success: false, message: KPI_ADDITION_MESSAGES.ANNUAL_NOT_UNDER_MASTER };
+  }
+
+  if (!liveMasterVersionId) {
+    liveMasterVersionId = liveAnnualVersion.parent_plan_version_id;
+  }
+  if (liveAnnualVersion.parent_plan_version_id !== liveMasterVersionId) {
+    return { success: false, message: KPI_ADDITION_MESSAGES.ANNUAL_NOT_UNDER_MASTER };
+  }
+
+  const rule = await loadRuleForPlanVersion(liveMasterVersionId, transaction);
+
+  if (!hasParent && !canAddChildUnder(rule, null)) {
+    return { success: false, message: KPI_ADDITION_MESSAGES.PARENT_REQUIRED };
+  }
+  if (hasParent && !canAddChildUnder(rule, liveParent)) {
+    return { success: false, message: KPI_ADDITION_MESSAGES.CANNOT_ADD_CHILD };
+  }
+
+  const childLevel = getChildLevelForParent(liveParent);
+  const childType = levelToNodeType(childLevel);
+  const needsTargetAllocation = isAmendableTargetNode(
+    { level: childLevel, type: childType },
+    rule
+  );
+
+  const liveMaster = await PlanVersion.findByPk(liveMasterVersionId, { transaction });
+  if (!liveMaster?.process_started_at || !liveMaster.active_execution_snapshot_id) {
+    return { success: false, message: KPI_ADDITION_MESSAGES.PROCESS_NOT_STARTED };
   }
 
   const snapshotRootId = liveMaster.active_execution_snapshot_id;
@@ -281,13 +328,16 @@ async function resolveKpiAdditionContext(metadata, transaction = null) {
     return { success: false, message: KPI_ADDITION_MESSAGES.ANNUAL_VERSION_NOT_FOUND };
   }
 
-  const snapshotParent = await findSnapshotNodeBySource(
-    snapshotRootId,
-    liveParent.plan_node_id,
-    transaction
-  );
-  if (!snapshotParent) {
-    return { success: false, message: KPI_ADDITION_MESSAGES.PARENT_NOT_FOUND };
+  let snapshotParent = null;
+  if (liveParent) {
+    snapshotParent = await findSnapshotNodeBySource(
+      snapshotRootId,
+      liveParent.plan_node_id,
+      transaction
+    );
+    if (!snapshotParent) {
+      return { success: false, message: KPI_ADDITION_MESSAGES.PARENT_NOT_FOUND };
+    }
   }
 
   const livePeriodVersions = await PlanVersion.findAll({
@@ -327,13 +377,15 @@ async function resolveKpiAdditionContext(metadata, transaction = null) {
 
   periods.sort((a, b) => (a.sequenceIndex ?? 0) - (b.sequenceIndex ?? 0));
 
+  const siblingWhere = {
+    plan_version_id: liveMasterVersionId,
+    parent_id: liveParent ? liveParent.plan_node_id : null,
+    level: childLevel,
+    is_active: true,
+  };
+
   const siblingNodes = await PlanNode.findAll({
-    where: {
-      plan_version_id: liveMasterVersionId,
-      parent_id: liveParent.plan_node_id,
-      type: "kpi",
-      is_active: true,
-    },
+    where: siblingWhere,
     order: [
       ["order", "ASC"],
       ["created_at", "ASC"],
@@ -369,6 +421,11 @@ async function resolveKpiAdditionContext(metadata, transaction = null) {
   return {
     success: true,
     data: {
+      rule,
+      childLevel,
+      childType,
+      childStepLabel: getStepLabel(rule, childLevel),
+      needsTargetAllocation,
       liveMaster,
       liveMasterVersionId,
       liveParent,
@@ -522,6 +579,7 @@ function buildPeriodAllocations(metadata, periods, annualTarget) {
     openCount: openInWindow.length,
     openSum: roundTarget(openSum),
     rows,
+    allocations: rows,
   };
 }
 
@@ -735,43 +793,13 @@ async function prepareKpiAdditionChange(rawMetadata, options = {}) {
   if (!metadata.reason) {
     return { success: false, message: KPI_ADDITION_MESSAGES.REASON_REQUIRED };
   }
-  if (!metadata.ownerUserId) {
-    return { success: false, message: KPI_ADDITION_MESSAGES.OWNER_REQUIRED };
-  }
-  if (!metadata.governmentStructureId) {
-    return {
-      success: false,
-      message: KPI_ADDITION_MESSAGES.GOVERNMENT_STRUCTURE_REQUIRED,
-    };
-  }
-  if (!metadata.startPeriodId) {
-    return { success: false, message: KPI_ADDITION_MESSAGES.START_PERIOD_REQUIRED };
-  }
-
-  const annualTarget = Number(metadata.annualTarget);
-  if (!Number.isFinite(annualTarget)) {
-    return { success: false, message: KPI_ADDITION_MESSAGES.ANNUAL_TARGET_REQUIRED };
-  }
-  if (annualTarget < 0) {
-    return { success: false, message: KPI_ADDITION_MESSAGES.ANNUAL_TARGET_NEGATIVE };
-  }
-  if (annualTarget === 0 && !policy.allow_zero_annual_target) {
-    return { success: false, message: KPI_ADDITION_MESSAGES.ZERO_NOT_ALLOWED };
-  }
-
-  const weightMode = normalizeWeightMode(
-    metadata.weightRedistributionMode,
-    policy.automatic_redistribution
-  );
-  if (!weightMode) {
-    return { success: false, message: KPI_ADDITION_MESSAGES.WEIGHT_MODE_INVALID };
-  }
 
   const contextResult = await resolveKpiAdditionContext(metadata, transaction);
   if (!contextResult.success) {
     return contextResult;
   }
   const context = contextResult.data;
+  const { needsTargetAllocation, childLevel, childType, rule } = context;
 
   if (metadata.effectiveDate) {
     const effective = parseEffectiveDate(metadata.effectiveDate);
@@ -787,33 +815,75 @@ async function prepareKpiAdditionChange(rawMetadata, options = {}) {
     }
   }
 
+  const duplicateWhere = {
+    plan_version_id: context.liveMasterVersionId,
+    parent_id: context.liveParent ? context.liveParent.plan_node_id : null,
+    is_active: true,
+    title: { [Op.iLike]: metadata.title },
+  };
   const duplicate = await PlanNode.findOne({
-    where: {
-      plan_version_id: context.liveMasterVersionId,
-      parent_id: context.liveParent.plan_node_id,
-      is_active: true,
-      title: { [Op.iLike]: metadata.title },
-    },
+    where: duplicateWhere,
     transaction,
   });
   if (duplicate) {
     return { success: false, message: KPI_ADDITION_MESSAGES.DUPLICATE_TITLE };
   }
 
-  const owner = await User.findByPk(metadata.ownerUserId, { transaction });
-  if (!owner) {
-    return { success: false, message: KPI_ADDITION_MESSAGES.OWNER_NOT_FOUND };
-  }
+  let annualTarget = null;
+  let periodPlan = EMPTY_PERIOD_PLAN;
+  let owner = null;
+  let governmentStructure = null;
 
-  const governmentStructure = await GovernmentStructure.findByPk(
-    metadata.governmentStructureId,
-    { transaction }
-  );
-  if (!governmentStructure) {
-    return {
-      success: false,
-      message: KPI_ADDITION_MESSAGES.GOVERNMENT_STRUCTURE_NOT_FOUND,
-    };
+  if (needsTargetAllocation) {
+    if (!metadata.ownerUserId) {
+      return { success: false, message: KPI_ADDITION_MESSAGES.OWNER_REQUIRED };
+    }
+    if (!metadata.governmentStructureId) {
+      return {
+        success: false,
+        message: KPI_ADDITION_MESSAGES.GOVERNMENT_STRUCTURE_REQUIRED,
+      };
+    }
+    if (!metadata.startPeriodId) {
+      return { success: false, message: KPI_ADDITION_MESSAGES.START_PERIOD_REQUIRED };
+    }
+
+    annualTarget = Number(metadata.annualTarget);
+    if (!Number.isFinite(annualTarget)) {
+      return { success: false, message: KPI_ADDITION_MESSAGES.ANNUAL_TARGET_REQUIRED };
+    }
+    if (annualTarget < 0) {
+      return { success: false, message: KPI_ADDITION_MESSAGES.ANNUAL_TARGET_NEGATIVE };
+    }
+    if (annualTarget === 0 && !policy.allow_zero_annual_target) {
+      return { success: false, message: KPI_ADDITION_MESSAGES.ZERO_NOT_ALLOWED };
+    }
+
+    owner = await User.findByPk(metadata.ownerUserId, { transaction });
+    if (!owner) {
+      return { success: false, message: KPI_ADDITION_MESSAGES.OWNER_NOT_FOUND };
+    }
+
+    governmentStructure = await GovernmentStructure.findByPk(
+      metadata.governmentStructureId,
+      { transaction }
+    );
+    if (!governmentStructure) {
+      return {
+        success: false,
+        message: KPI_ADDITION_MESSAGES.GOVERNMENT_STRUCTURE_NOT_FOUND,
+      };
+    }
+
+    const builtPeriodPlan = buildPeriodAllocations(
+      metadata,
+      context.periods,
+      roundTarget(annualTarget)
+    );
+    if (!builtPeriodPlan.valid) {
+      return { success: false, message: builtPeriodPlan.message };
+    }
+    periodPlan = builtPeriodPlan;
   }
 
   if (metadata.internalStructureId) {
@@ -829,43 +899,71 @@ async function prepareKpiAdditionChange(rawMetadata, options = {}) {
     }
   }
 
-  const periodPlan = buildPeriodAllocations(
-    metadata,
-    context.periods,
-    roundTarget(annualTarget)
-  );
-  if (!periodPlan.valid) {
-    return { success: false, message: periodPlan.message };
+  const appliesWeight = stepRequiresWeight(rule, childLevel);
+  const appliesContribution = stepRequiresContributionWeight(rule, childLevel);
+
+  let weightMode = null;
+  let weightPlan = {
+    valid: true,
+    mode: null,
+    adjustments: [],
+    newWeight: 0,
+    newContributionWeight: 0,
+  };
+
+  if (appliesWeight) {
+    weightMode = normalizeWeightMode(
+      metadata.weightRedistributionMode,
+      policy.automatic_redistribution
+    );
+    if (!weightMode) {
+      return { success: false, message: KPI_ADDITION_MESSAGES.WEIGHT_MODE_INVALID };
+    }
+
+    const newWeight = Number(metadata.weight) || 0;
+    const newContributionWeight = appliesContribution
+      ? Number(metadata.contributionWeight) || 0
+      : 0;
+    const parentWeight =
+      context.liveParent?.weight != null
+        ? normalizeTargetValue(context.liveParent.weight)
+        : null;
+
+    if (
+      context.siblings.length === 0 &&
+      newWeight === 0 &&
+      newContributionWeight === 0
+    ) {
+      weightPlan = {
+        valid: true,
+        mode: weightMode,
+        adjustments: [],
+        newWeight: 0,
+        newContributionWeight: 0,
+      };
+    } else {
+      weightPlan = buildSiblingWeightPlan({
+        siblings: context.siblings,
+        newWeight,
+        newContributionWeight,
+        parentWeight,
+        mode: weightMode,
+        manualAdjustments: metadata.siblingWeightAdjustments,
+      });
+      if (!weightPlan.valid) {
+        return { success: false, message: weightPlan.message };
+      }
+    }
   }
 
-  const newWeight = Number(metadata.weight) || 0;
-  const newContributionWeight = Number(metadata.contributionWeight) || 0;
-  const parentWeight =
-    context.liveParent.weight != null
-      ? normalizeTargetValue(context.liveParent.weight)
-      : null;
-
-  const weightPlan = buildSiblingWeightPlan({
-    siblings: context.siblings,
-    newWeight,
-    newContributionWeight,
-    parentWeight,
-    mode: weightMode,
-    manualAdjustments: metadata.siblingWeightAdjustments,
-  });
-  if (!weightPlan.valid) {
-    return { success: false, message: weightPlan.message };
-  }
-
-  const nodeLevel = (context.liveParent.level ?? 0) + 1;
   const ruleCheck = await validatePlanNodeAgainstRule({
     planVersionId: context.liveMasterVersionId,
-    parentId: context.liveParent.plan_node_id,
-    type: "kpi",
+    parentId: context.liveParent?.plan_node_id ?? null,
+    type: childType,
     weight: weightPlan.newWeight,
-    weightMode: context.liveParent.weight_mode || null,
+    weightMode: context.liveParent?.weight_mode || null,
     contributionWeight: weightPlan.newContributionWeight,
-    level: nodeLevel,
+    level: childLevel,
     transaction,
   });
   if (!ruleCheck.valid) {
@@ -879,12 +977,18 @@ async function prepareKpiAdditionChange(rawMetadata, options = {}) {
     success: true,
     metadata: {
       ...metadata,
+      childLevel,
+      childType,
+      childStepLabel: context.childStepLabel,
+      needsTargetAllocation,
       weightRedistributionMode: weightMode,
-      annualTarget: roundTarget(annualTarget),
-      targetAllocationMode: normalizeTargetAllocationMode(
-        metadata.targetAllocationMode
-      ),
-      achievementMode: normalizeAchievementMode(metadata.achievementMode),
+      annualTarget: needsTargetAllocation ? roundTarget(annualTarget) : null,
+      targetAllocationMode: needsTargetAllocation
+        ? normalizeTargetAllocationMode(metadata.targetAllocationMode)
+        : null,
+      achievementMode: needsTargetAllocation
+        ? normalizeAchievementMode(metadata.achievementMode)
+        : null,
       weight: weightPlan.newWeight,
       contributionWeight:
         weightPlan.newContributionWeight > 0
@@ -896,7 +1000,8 @@ async function prepareKpiAdditionChange(rawMetadata, options = {}) {
     periodPlan,
     weightPlan,
     ruleCheck,
-    nodeLevel,
+    nodeLevel: childLevel,
+    needsTargetAllocation,
     owner,
     governmentStructure,
   };
@@ -904,11 +1009,12 @@ async function prepareKpiAdditionChange(rawMetadata, options = {}) {
 
 function buildKpiAdditionPreviewData(prepared) {
   const { metadata, context, periodPlan, weightPlan, ruleCheck } = prepared;
+  const parentTitle = context.liveParent?.title ?? "(root)";
 
   return {
     amendment_type: AMENDMENT_TYPE.KPI_ADDITION,
-    parent_id: context.liveParent.plan_node_id,
-    parent_title: context.liveParent.title,
+    parent_id: context.liveParent?.plan_node_id ?? null,
+    parent_title: parentTitle,
     annual_version_id: context.liveAnnualVersion.plan_version_id,
     new_kpi: {
       title: metadata.title,
@@ -922,8 +1028,9 @@ function buildKpiAdditionPreviewData(prepared) {
       owner_user_id: metadata.ownerUserId,
       government_structure_id: metadata.governmentStructureId,
       internal_structure_id: metadata.internalStructureId,
-      node_type: ruleCheck.nodeType || "kpi",
+      node_type: ruleCheck.nodeType || metadata.childType || "kpi",
       level: prepared.nodeLevel,
+      step_label: metadata.childStepLabel,
     },
     reason: metadata.reason,
     reason_code: metadata.reasonCode,
@@ -948,15 +1055,19 @@ function buildKpiAdditionPreviewData(prepared) {
     summary: {
       open_period_count: periodPlan.openCount,
       sibling_adjustments: weightPlan.adjustments.length,
-      rollup_note:
-        "The new KPI will participate in goal, department, and organization rollups after apply.",
+      needs_target_allocation: prepared.needsTargetAllocation,
+      rollup_note: prepared.needsTargetAllocation
+        ? "The new node will participate in goal, department, and organization rollups after apply."
+        : "Structural node addition — no target allocation required.",
     },
   };
 }
 
 function buildKpiAdditionImpactData(prepared) {
   const preview = buildKpiAdditionPreviewData(prepared);
-  const { metadata, context, periodPlan, weightPlan } = prepared;
+  const { metadata, context, periodPlan, weightPlan, needsTargetAllocation } = prepared;
+  const parentTitle = context.liveParent?.title ?? "(root)";
+  const nodeLabel = metadata.childStepLabel || "node";
 
   const changedSiblings = weightPlan.adjustments.filter(
     (row) =>
@@ -964,14 +1075,22 @@ function buildKpiAdditionImpactData(prepared) {
       !nearlyEqual(row.oldContributionWeight, row.newContributionWeight)
   );
 
+  const summaryLines = [
+    `Add ${nodeLabel} "${metadata.title}" under ${parentTitle}`,
+  ];
+  if (needsTargetAllocation) {
+    summaryLines.push(
+      `Annual target ${metadata.annualTarget} across ${periodPlan.openCount} open period(s)`
+    );
+  }
+  summaryLines.push(
+    changedSiblings.length
+      ? `${changedSiblings.length} sibling weight(s) adjusted`
+      : "No sibling weight changes"
+  );
+
   return {
-    summary: [
-      `Add KPI "${metadata.title}" under ${context.liveParent.title}`,
-      `Annual target ${metadata.annualTarget} across ${periodPlan.openCount} open period(s)`,
-      changedSiblings.length
-        ? `${changedSiblings.length} sibling KPI weight(s) adjusted`
-        : "No sibling weight changes",
-    ],
+    summary: summaryLines,
     kpiIds: context.siblings.map((row) => String(row.kpiId)),
     departmentIds: metadata.governmentStructureId
       ? [String(metadata.governmentStructureId)]
@@ -981,10 +1100,12 @@ function buildKpiAdditionImpactData(prepared) {
       .map((row) => String(row.livePeriodId)),
     changes: [
       {
-        field: "kpi_create",
+        field: needsTargetAllocation ? "kpi_create" : "node_create",
         entity_id: null,
-        parent_id: context.liveParent.plan_node_id,
+        parent_id: context.liveParent?.plan_node_id ?? null,
         title: metadata.title,
+        node_type: metadata.childType,
+        level: metadata.childLevel,
         annual_target: metadata.annualTarget,
       },
       ...weightPlan.adjustments
@@ -1022,10 +1143,10 @@ function buildKpiAdditionImpactData(prepared) {
           new: row.target,
         })),
     ],
-    affected_parent: context.liveParent.title,
-    affected_goal_id: context.liveParent.plan_node_id,
+    affected_parent: parentTitle,
+    affected_goal_id: context.liveParent?.plan_node_id ?? null,
     affected_departments: metadata.governmentStructureId ? 1 : 0,
-    affected_rollups: true,
+    affected_rollups: needsTargetAllocation,
     execution_start_period_id: periodPlan.startPeriodId,
     remaining_target_total: metadata.annualTarget,
     preview,
@@ -1045,7 +1166,7 @@ function buildKpiAdditionHistoryRows(prepared, createdIds = {}) {
     });
   }
 
-  if (createdIds.snapshotAnnualKpiId) {
+  if (prepared.needsTargetAllocation && createdIds.snapshotAnnualKpiId) {
     rows.push({
       entity_type: "plan_node",
       entity_id: createdIds.snapshotAnnualKpiId,
@@ -1095,14 +1216,22 @@ function buildKpiAdditionHistoryRows(prepared, createdIds = {}) {
 }
 
 async function applyPreparedKpiAddition(prepared, options = {}) {
-  const { user, transaction = null } = options;
-  const { metadata, context, periodPlan, weightPlan, ruleCheck, nodeLevel } =
-    prepared;
+  const {
+    metadata,
+    context,
+    periodPlan,
+    weightPlan,
+    ruleCheck,
+    nodeLevel,
+    needsTargetAllocation,
+  } = prepared;
 
-  if (!user?.user_id) {
-    return { success: false, message: "Acting user is required to apply KPI addition." };
+  if (!options.user?.user_id) {
+    return { success: false, message: "Acting user is required to apply node addition." };
   }
+  const { user, transaction = null } = options;
 
+  const childType = ruleCheck.nodeType || metadata.childType || "kpi";
   const snapshotSiblingIds = {};
 
   for (const adjustment of weightPlan.adjustments) {
@@ -1138,9 +1267,10 @@ async function applyPreparedKpiAddition(prepared, options = {}) {
     }
   }
 
+  const parentId = context.liveParent?.plan_node_id ?? null;
   const nodeOrder = await getNextSiblingOrder(
     context.liveMasterVersionId,
-    context.liveParent.plan_node_id,
+    parentId,
     transaction
   );
 
@@ -1148,8 +1278,8 @@ async function applyPreparedKpiAddition(prepared, options = {}) {
     {
       plan_node_id: uuidv4(),
       plan_version_id: context.liveMasterVersionId,
-      parent_id: context.liveParent.plan_node_id,
-      type: ruleCheck.nodeType || "kpi",
+      parent_id: parentId,
+      type: childType,
       title: metadata.title,
       description: metadata.description,
       weight: metadata.weight || 0,
@@ -1171,69 +1301,74 @@ async function applyPreparedKpiAddition(prepared, options = {}) {
 
   await propagateMasterPlanNodeCreate(liveMasterKpi, transaction);
 
-  const liveAnnualKpi = await PlanNode.findOne({
-    where: {
-      plan_version_id: context.liveAnnualVersion.plan_version_id,
-      source_plan_node_id: liveMasterKpi.plan_node_id,
-      type: "kpi",
-      is_active: true,
-    },
-    transaction,
-  });
-  if (!liveAnnualKpi) {
-    return { success: false, message: "Live annual KPI copy was not created." };
-  }
-
-  await liveAnnualKpi.update(
-    { annual_target: metadata.annualTarget },
-    { transaction }
-  );
-
+  let liveAnnualKpi = null;
   const livePeriodNodeIds = {};
-  for (const row of periodPlan.rows) {
-    const livePeriodVersion = await PlanVersion.findByPk(row.livePeriodId, {
-      transaction,
-    });
-    if (!livePeriodVersion) continue;
 
-    const livePeriodKpi = await PlanNode.findOne({
+  if (needsTargetAllocation) {
+    liveAnnualKpi = await PlanNode.findOne({
       where: {
-        plan_version_id: livePeriodVersion.plan_version_id,
-        source_plan_node_id: liveAnnualKpi.plan_node_id,
-        type: "kpi",
+        plan_version_id: context.liveAnnualVersion.plan_version_id,
+        source_plan_node_id: liveMasterKpi.plan_node_id,
         is_active: true,
       },
       transaction,
     });
-    if (!livePeriodKpi) continue;
+    if (!liveAnnualKpi) {
+      return { success: false, message: "Live annual node copy was not created." };
+    }
 
-    livePeriodNodeIds[row.livePeriodId] = livePeriodKpi.plan_node_id;
+    await liveAnnualKpi.update(
+      { annual_target: metadata.annualTarget },
+      { transaction }
+    );
 
-    if (!row.finalized) {
-      await livePeriodKpi.update(
-        { period_target: row.target > 0 ? row.target : null },
-        { transaction }
-      );
+    for (const row of periodPlan.rows) {
+      const livePeriodVersion = await PlanVersion.findByPk(row.livePeriodId, {
+        transaction,
+      });
+      if (!livePeriodVersion) continue;
+
+      const livePeriodKpi = await PlanNode.findOne({
+        where: {
+          plan_version_id: livePeriodVersion.plan_version_id,
+          source_plan_node_id: liveAnnualKpi.plan_node_id,
+          is_active: true,
+        },
+        transaction,
+      });
+      if (!livePeriodKpi) continue;
+
+      livePeriodNodeIds[row.livePeriodId] = livePeriodKpi.plan_node_id;
+
+      if (!row.finalized) {
+        await livePeriodKpi.update(
+          { period_target: row.target > 0 ? row.target : null },
+          { transaction }
+        );
+      }
     }
   }
 
-  const externalAssignment = await ExternalAssignment.create(
-    {
-      external_assignment_id: uuidv4(),
-      plan_node_id: liveMasterKpi.plan_node_id,
-      government_structure_id: metadata.governmentStructureId,
-      is_visible: true,
-      requires_report: true,
-      is_active: true,
-    },
-    { transaction }
-  );
-  await syncPlanNodeAssignmentContext(liveMasterKpi.plan_node_id, transaction);
-  await propagateExternalAssignmentCreate(
-    liveMasterKpi.plan_node_id,
-    externalAssignment,
-    transaction
-  );
+  let externalAssignment = null;
+  if (metadata.governmentStructureId) {
+    externalAssignment = await ExternalAssignment.create(
+      {
+        external_assignment_id: uuidv4(),
+        plan_node_id: liveMasterKpi.plan_node_id,
+        government_structure_id: metadata.governmentStructureId,
+        is_visible: true,
+        requires_report: true,
+        is_active: true,
+      },
+      { transaction }
+    );
+    await syncPlanNodeAssignmentContext(liveMasterKpi.plan_node_id, transaction);
+    await propagateExternalAssignmentCreate(
+      liveMasterKpi.plan_node_id,
+      externalAssignment,
+      transaction
+    );
+  }
 
   let internalAssignment = null;
   if (metadata.ownerUserId && metadata.internalStructureId) {
@@ -1258,7 +1393,7 @@ async function applyPreparedKpiAddition(prepared, options = {}) {
     {
       plan_node_id: uuidv4(),
       plan_version_id: context.snapshotRootId,
-      parent_id: context.snapshotParent.plan_node_id,
+      parent_id: context.snapshotParent?.plan_node_id ?? null,
       source_plan_node_id: liveMasterKpi.plan_node_id,
       ...pickNodeFields(liveMasterKpi),
       annual_target: null,
@@ -1267,68 +1402,122 @@ async function applyPreparedKpiAddition(prepared, options = {}) {
     { transaction }
   );
 
-  const snapshotAnnualParent = await findSnapshotNodeBySource(
-    context.snapshotAnnualVersionId,
-    context.snapshotParent.plan_node_id,
-    transaction
-  );
-  if (!snapshotAnnualParent) {
-    return { success: false, message: "Snapshot annual parent was not found." };
-  }
-
-  const snapshotAnnualKpi = await PlanNode.create(
-    {
-      plan_node_id: uuidv4(),
-      plan_version_id: context.snapshotAnnualVersionId,
-      parent_id: snapshotAnnualParent.plan_node_id,
-      source_plan_node_id: snapshotMasterKpi.plan_node_id,
-      ...pickNodeFields(liveMasterKpi),
-      annual_target: metadata.annualTarget,
-      period_target: null,
-    },
-    { transaction }
-  );
-
+  let snapshotAnnualKpi = null;
   const snapshotPeriodNodeIds = {};
-  for (const row of periodPlan.rows) {
-    if (!row.snapshotPeriodId) continue;
 
-    const snapshotPeriodParent = await findSnapshotNodeBySource(
-      row.snapshotPeriodId,
-      snapshotAnnualKpi.parent_id,
+  if (needsTargetAllocation) {
+    const snapshotAnnualParent = await findSnapshotNodeBySource(
+      context.snapshotAnnualVersionId,
+      context.snapshotParent?.plan_node_id ?? null,
       transaction
     );
-    if (!snapshotPeriodParent) continue;
+    if (!snapshotAnnualParent) {
+      return { success: false, message: "Snapshot annual parent was not found." };
+    }
 
-    const snapshotPeriodKpi = await PlanNode.create(
+    snapshotAnnualKpi = await PlanNode.create(
       {
         plan_node_id: uuidv4(),
-        plan_version_id: row.snapshotPeriodId,
-        parent_id: snapshotPeriodParent.plan_node_id,
-        source_plan_node_id: snapshotAnnualKpi.plan_node_id,
+        plan_version_id: context.snapshotAnnualVersionId,
+        parent_id: snapshotAnnualParent.plan_node_id,
+        source_plan_node_id: snapshotMasterKpi.plan_node_id,
         ...pickNodeFields(liveMasterKpi),
-        annual_target: null,
-        period_target:
-          row.inWindow && !row.finalized && row.target > 0 ? row.target : null,
+        annual_target: metadata.annualTarget,
+        period_target: null,
       },
       { transaction }
     );
 
-    snapshotPeriodNodeIds[row.livePeriodId] = snapshotPeriodKpi.plan_node_id;
+    for (const row of periodPlan.rows) {
+      if (!row.snapshotPeriodId) continue;
+
+      const snapshotPeriodParent = await findSnapshotNodeBySource(
+        row.snapshotPeriodId,
+        snapshotAnnualKpi.parent_id,
+        transaction
+      );
+      if (!snapshotPeriodParent) continue;
+
+      const snapshotPeriodKpi = await PlanNode.create(
+        {
+          plan_node_id: uuidv4(),
+          plan_version_id: row.snapshotPeriodId,
+          parent_id: snapshotPeriodParent.plan_node_id,
+          source_plan_node_id: snapshotAnnualKpi.plan_node_id,
+          ...pickNodeFields(liveMasterKpi),
+          annual_target: null,
+          period_target:
+            row.inWindow && !row.finalized && row.target > 0 ? row.target : null,
+        },
+        { transaction }
+      );
+
+      snapshotPeriodNodeIds[row.livePeriodId] = snapshotPeriodKpi.plan_node_id;
+    }
+  } else {
+    let snapshotAnnualParent = null;
+    if (context.snapshotParent) {
+      snapshotAnnualParent = await findSnapshotNodeBySource(
+        context.snapshotAnnualVersionId,
+        context.snapshotParent.plan_node_id,
+        transaction
+      );
+    }
+
+    snapshotAnnualKpi = await PlanNode.create(
+      {
+        plan_node_id: uuidv4(),
+        plan_version_id: context.snapshotAnnualVersionId,
+        parent_id: snapshotAnnualParent?.plan_node_id ?? null,
+        source_plan_node_id: snapshotMasterKpi.plan_node_id,
+        ...pickNodeFields(liveMasterKpi),
+        annual_target: null,
+        period_target: null,
+      },
+      { transaction }
+    );
+
+    for (const row of context.periods) {
+      if (!row.snapshotPeriodId) continue;
+
+      const snapshotPeriodParent = await findSnapshotNodeBySource(
+        row.snapshotPeriodId,
+        snapshotAnnualKpi.parent_id,
+        transaction
+      );
+      if (!snapshotPeriodParent) continue;
+
+      const snapshotPeriodNode = await PlanNode.create(
+        {
+          plan_node_id: uuidv4(),
+          plan_version_id: row.snapshotPeriodId,
+          parent_id: snapshotPeriodParent.plan_node_id,
+          source_plan_node_id: snapshotAnnualKpi.plan_node_id,
+          ...pickNodeFields(liveMasterKpi),
+          annual_target: null,
+          period_target: null,
+        },
+        { transaction }
+      );
+
+      snapshotPeriodNodeIds[row.livePeriodId] = snapshotPeriodNode.plan_node_id;
+    }
   }
 
-  await ExternalAssignment.create(
-    {
-      external_assignment_id: uuidv4(),
-      plan_node_id: snapshotMasterKpi.plan_node_id,
-      government_structure_id: metadata.governmentStructureId,
-      is_visible: externalAssignment.is_visible,
-      requires_report: externalAssignment.requires_report,
-      is_active: true,
-    },
-    { transaction }
-  );
-  await syncPlanNodeAssignmentContext(snapshotMasterKpi.plan_node_id, transaction);
+  if (metadata.governmentStructureId && externalAssignment) {
+    await ExternalAssignment.create(
+      {
+        external_assignment_id: uuidv4(),
+        plan_node_id: snapshotMasterKpi.plan_node_id,
+        government_structure_id: metadata.governmentStructureId,
+        is_visible: externalAssignment.is_visible,
+        requires_report: externalAssignment.requires_report,
+        is_active: true,
+      },
+      { transaction }
+    );
+    await syncPlanNodeAssignmentContext(snapshotMasterKpi.plan_node_id, transaction);
+  }
 
   if (metadata.ownerUserId && metadata.internalStructureId) {
     await InternalAssignment.create(
@@ -1345,9 +1534,9 @@ async function applyPreparedKpiAddition(prepared, options = {}) {
 
   const createdIds = {
     liveMasterKpiId: liveMasterKpi.plan_node_id,
-    liveAnnualKpiId: liveAnnualKpi.plan_node_id,
+    liveAnnualKpiId: liveAnnualKpi?.plan_node_id ?? null,
     snapshotMasterKpiId: snapshotMasterKpi.plan_node_id,
-    snapshotAnnualKpiId: snapshotAnnualKpi.plan_node_id,
+    snapshotAnnualKpiId: snapshotAnnualKpi?.plan_node_id ?? null,
     snapshotSiblingIds,
     snapshotPeriodNodeIds,
     livePeriodNodeIds,
@@ -1358,17 +1547,19 @@ async function applyPreparedKpiAddition(prepared, options = {}) {
     history: buildKpiAdditionHistoryRows(prepared, createdIds),
     data: {
       title: metadata.title,
-      parent_id: context.liveParent.plan_node_id,
+      parent_id: parentId,
+      node_type: childType,
+      level: nodeLevel,
       annual_version_id: context.liveAnnualVersion.plan_version_id,
       live_master_kpi_id: liveMasterKpi.plan_node_id,
-      live_annual_kpi_id: liveAnnualKpi.plan_node_id,
+      live_annual_kpi_id: liveAnnualKpi?.plan_node_id ?? null,
       snapshot_master_kpi_id: snapshotMasterKpi.plan_node_id,
-      snapshot_annual_kpi_id: snapshotAnnualKpi.plan_node_id,
+      snapshot_annual_kpi_id: snapshotAnnualKpi?.plan_node_id ?? null,
       annual_target: metadata.annualTarget,
       weight: metadata.weight,
       contribution_weight: metadata.contributionWeight,
-      owner_user_id: metadata.ownerUserId,
-      government_structure_id: metadata.governmentStructureId,
+      owner_user_id: metadata.ownerUserId ?? null,
+      government_structure_id: metadata.governmentStructureId ?? null,
       start_period_id: periodPlan.startPeriodId,
       end_period_id: periodPlan.endPeriodId,
       effective_date: metadata.effectiveDate,
@@ -1377,7 +1568,7 @@ async function applyPreparedKpiAddition(prepared, options = {}) {
       period_allocations: periodPlan.rows.filter(
         (row) => row.inWindow && !row.finalized
       ),
-      external_assignment_id: externalAssignment.external_assignment_id,
+      external_assignment_id: externalAssignment?.external_assignment_id ?? null,
       internal_assignment_id: internalAssignment?.internal_assignment_id ?? null,
       applied_by: user.user_id,
     },

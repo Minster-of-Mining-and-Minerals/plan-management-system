@@ -11,7 +11,7 @@ const REALLOCATION_VALIDATION_MESSAGES = Object.freeze({
   PROCESS_NOT_STARTED: "Target reallocation is only available after execution has started.",
   KPI_NOT_FOUND: "KPI was not found for this plan.",
   PERIOD_NOT_FOUND: "Execution period was not found.",
-  INVALID_KPI: "Target reallocation applies to KPI nodes only.",
+  INVALID_KPI: "Selected node cannot receive target reallocation.",
   PERMISSION_REQUIRED: "Plan request target reallocation permission required.",
   APPROVE_PERMISSION_REQUIRED: "Plan approve target reallocation permission required.",
   SCOPE_DENIED:

@@ -45,7 +45,7 @@ const { PlanAmendmentHandler } = require("../services/planAmendment/handlers/Pla
 const root = path.join(__dirname, "..");
 
 function runTypeTests() {
-  assert.strictEqual(AMENDMENT_TYPE_VALUES.length, 10);
+  assert.strictEqual(AMENDMENT_TYPE_VALUES.length, 11);
   assert.strictEqual(
     normalizeAmendmentType("TARGET_REALLOCATION"),
     AMENDMENT_TYPE.TARGET_REALLOCATION
@@ -56,6 +56,13 @@ function runTypeTests() {
   );
   assert.strictEqual(normalizeAmendmentType("nope"), null);
   assert.strictEqual(isKnownAmendmentType("kpi_addition"), true);
+  assert.strictEqual(
+    normalizeAmendmentType("node_addition"),
+    AMENDMENT_TYPE.KPI_ADDITION
+  );
+  assert.strictEqual(isKnownAmendmentType("node_addition"), true);
+  assert.strictEqual(isAmendmentTypeMarkedAvailable("node_addition"), false);
+  assert.strictEqual(isAmendmentTypeMarkedAvailable("kpi_addition"), true);
   assert.strictEqual(isAmendmentTypeMarkedAvailable("target_reallocation"), true);
   assert.strictEqual(isAmendmentTypeMarkedAvailable("budget_increase"), false);
   assert.strictEqual(amendmentTypeLabel("target_reallocation"), "Target Reallocation");
@@ -190,7 +197,7 @@ function runRegistryTests() {
   assert.match(budgetHandler.validate().message, /not available/i);
 
   const catalog = getAmendmentHandlerCatalog();
-  assert.strictEqual(catalog.length, 10);
+  assert.strictEqual(catalog.length, 11);
   const targetEntry = catalog.find((row) => row.type === AMENDMENT_TYPE.TARGET_REALLOCATION);
   assert.strictEqual(targetEntry.available, true);
   const annualEntry = catalog.find(

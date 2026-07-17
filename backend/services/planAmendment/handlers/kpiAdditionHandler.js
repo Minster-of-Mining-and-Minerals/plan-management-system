@@ -11,8 +11,8 @@ const {
 } = require("../kpiAdditionDomain");
 
 /**
- * KPI Addition action plugin.
- * Adds a new KPI to live + execution snapshot after process start.
+ * Node Addition action plugin (kpi_addition type).
+ * Adds a new hierarchy node to live + execution snapshot after process start.
  */
 class KpiAdditionHandler extends PlanAmendmentHandler {
   get type() {
@@ -24,9 +24,12 @@ class KpiAdditionHandler extends PlanAmendmentHandler {
   }
 
   supports(amendmentType) {
+    const normalized = String(amendmentType);
     return (
-      String(amendmentType) === this.type ||
-      String(amendmentType) === "KPI_ADDITION"
+      normalized === this.type ||
+      normalized === AMENDMENT_TYPE.NODE_ADDITION ||
+      normalized === "KPI_ADDITION" ||
+      normalized === "NODE_ADDITION"
     );
   }
 
@@ -60,9 +63,13 @@ class KpiAdditionHandler extends PlanAmendmentHandler {
       details: {
         title: prepared.metadata.title,
         parent_id: prepared.metadata.parentId,
+        node_type: prepared.metadata.childType,
+        level: prepared.metadata.childLevel,
+        needs_target_allocation: prepared.needsTargetAllocation,
         annual_target: prepared.metadata.annualTarget,
         weight: prepared.metadata.weight,
-        open_periods: prepared.periodPlan.allocations.filter((r) => r.inWindow)
+        open_periods: (prepared.periodPlan?.rows ?? prepared.periodPlan?.allocations ?? [])
+          .filter((r) => r.inWindow)
           .length,
         sibling_weight_changes: prepared.weightPlan.adjustments.length,
       },
@@ -112,9 +119,11 @@ class KpiAdditionHandler extends PlanAmendmentHandler {
     if (parentId) {
       entityKeys.push(`structural:parent:${parentId}`);
       entityKeys.push(`kpi_addition:parent:${parentId}`);
+      entityKeys.push(`node_addition:parent:${parentId}`);
     }
     if (parentId && titleKey) {
       entityKeys.push(`kpi_name:${parentId}:${titleKey}`);
+      entityKeys.push(`node_name:${parentId}:${titleKey}`);
     }
 
     return {
@@ -143,7 +152,7 @@ class KpiAdditionHandler extends PlanAmendmentHandler {
     if (!ctx.user?.user_id) {
       return {
         success: false,
-        message: "Acting user is required to apply KPI addition",
+        message: "Acting user is required to apply node addition",
       };
     }
 

@@ -20,6 +20,12 @@ import {
 } from "@/redux/api/planApi";
 import type { PlanNodeHierarchy, PlanVersion } from "@/redux/types/plan";
 import { flattenPlanHierarchy } from "@/utils/planAchievementHierarchyUtils";
+import {
+  getAmendableTargetLabel,
+  isAmendableTargetNode,
+} from "@/utils/planRuleUtils";
+import { useGetPlanRuleForVersionQuery } from "@/redux/api/planRuleApi";
+import type { PlanRule } from "@/redux/types/plan";
 import { TargetReallocationRequestForm } from "./TargetReallocationRequestForm";
 
 type TargetReallocationRequestModalProps = {
@@ -45,19 +51,20 @@ function toLivePeriodOptions(periods: PlanVersion[]): PlanVersion[] {
 }
 
 function collectAnnualKpiOptions(
-  nodes: PlanNodeHierarchy[]
+  nodes: PlanNodeHierarchy[],
+  rule?: PlanRule | null
 ): Array<{ id: string; title: string }> {
   const flat = flattenPlanHierarchy(nodes);
   const options: Array<{ id: string; title: string }> = [];
   const seen = new Set<string>();
 
   for (const node of flat) {
-    if (node.type !== "kpi" || node.is_active === false) continue;
+    if (node.is_active === false || !isAmendableTargetNode(node, rule)) continue;
     if (!node.plan_node_id || seen.has(node.plan_node_id)) continue;
     seen.add(node.plan_node_id);
     options.push({
       id: node.plan_node_id,
-      title: node.title || "Untitled KPI",
+      title: node.title || "Untitled target",
     });
   }
 
@@ -96,17 +103,23 @@ export function TargetReallocationRequestModal({
       skip: !open || !liveAnnualVersionId,
     });
 
+  const { data: rule, isLoading: isRuleLoading } = useGetPlanRuleForVersionQuery(
+    liveAnnualVersionId,
+    { skip: !open || !liveAnnualVersionId }
+  );
+
   const periods = useMemo(
     () => toLivePeriodOptions(periodsResponse?.executionPeriods ?? []),
     [periodsResponse?.executionPeriods]
   );
 
   const kpiOptions = useMemo(
-    () => collectAnnualKpiOptions(liveAnnualHierarchy ?? []),
-    [liveAnnualHierarchy]
+    () => collectAnnualKpiOptions(liveAnnualHierarchy ?? [], rule),
+    [liveAnnualHierarchy, rule]
   );
 
-  const isLoading = isPeriodsLoading || isHierarchyLoading;
+  const targetNodeLabel = getAmendableTargetLabel(rule);
+  const isLoading = isPeriodsLoading || isHierarchyLoading || isRuleLoading;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -131,6 +144,7 @@ export function TargetReallocationRequestModal({
               draftId={liveDraftId}
               periods={periods}
               kpiOptions={kpiOptions}
+              targetNodeLabel={targetNodeLabel}
               onSubmitted={() => onOpenChange(false)}
             />
           )}

@@ -60,14 +60,14 @@ export function KpiAdditionRequestModal({
         <DialogHeader className="shrink-0 px-6 pt-6 pb-4 pr-12">
           <DialogTitle className="flex items-center gap-2">
             <PlusCircle className="h-4 w-4" />
-            Add KPI Addition
+            Add Node
           </DialogTitle>
         </DialogHeader>
         <div className={cn(DIALOG_SCROLLABLE_BODY, "px-6 pb-6 space-y-3")}>
           <p className="text-sm text-muted-foreground">
-            Add a new KPI to the live master plan after execution has started.
-            Period targets are allocated across open periods from the start
-            period through the end of the year (or selected end period).
+            Add a new node at any allowed hierarchy level to the live master plan
+            after execution has started. Target fields appear when adding at the
+            amendable target step.
           </p>
           {open ? (
             <KpiAdditionForm

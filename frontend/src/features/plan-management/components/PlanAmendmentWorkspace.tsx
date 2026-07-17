@@ -78,7 +78,10 @@ export function PlanAmendmentWorkspace({
       return "annual_target_revision";
     }
     if (
-      (focus === "kpi-addition" || amendmentType === "kpi_addition") &&
+      (focus === "kpi-addition" ||
+        focus === "node-addition" ||
+        amendmentType === "kpi_addition" ||
+        amendmentType === "node_addition") &&
       canSeeKpiAddition
     ) {
       return "kpi_addition";
@@ -104,7 +107,10 @@ export function PlanAmendmentWorkspace({
       setSubTab("target_reallocation");
     } else if (focus === "annual-target-revision" && canSeeAnnualRevision) {
       setSubTab("annual_target_revision");
-    } else if (focus === "kpi-addition" && canSeeKpiAddition) {
+    } else if (
+      (focus === "kpi-addition" || focus === "node-addition") &&
+      canSeeKpiAddition
+    ) {
       setSubTab("kpi_addition");
     }
   }, [
@@ -155,7 +161,7 @@ export function PlanAmendmentWorkspace({
     }
     if (canSeeKpiAddition) {
       tabs.push({
-        label: "KPI Addition",
+        label: "Node Addition",
         icon: <PlusCircle className="h-4 w-4" />,
         variant: subTab === "kpi_addition" ? "default" : "outline",
         size: "default",
@@ -192,7 +198,7 @@ export function PlanAmendmentWorkspace({
     }
     if (subTab === "kpi_addition" && canRequestKpiAddition) {
       list.push({
-        label: "Add KPI Addition",
+        label: "Add Node",
         icon: <Plus className="h-4 w-4" />,
         variant: "default",
         onClick: () => setKpiAdditionModalOpen(true),
@@ -255,7 +261,7 @@ export function PlanAmendmentWorkspace({
         <h2 className="text-xl font-bold text-primary">Plan Amendment</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Request and review target reallocations, annual target revisions, and
-          KPI additions after execution has started.
+          node additions after execution has started.
         </p>
       </div>
 

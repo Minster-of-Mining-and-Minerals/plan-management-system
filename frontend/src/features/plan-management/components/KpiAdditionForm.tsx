@@ -31,9 +31,20 @@ import type {
   KpiAdditionWeightMode,
   PlanNode,
   PlanNodeHierarchy,
+  PlanRule,
   PlanVersion,
 } from "@/redux/types/plan";
 import { flattenPlanHierarchy } from "@/utils/planAchievementHierarchyUtils";
+import { useGetPlanRuleForVersionQuery } from "@/redux/api/planRuleApi";
+import {
+  canAddChild,
+  getStepLabel,
+  isAmendableTargetNode,
+  stepRequiresContributionWeight,
+  stepRequiresWeight,
+} from "@/utils/planRuleUtils";
+
+const ROOT_PARENT_VALUE = "__root__";
 
 const EMPTY_PLAN_NODES: PlanNode[] = [];
 const EMPTY_PERIODS: PlanVersion[] = [];
@@ -103,25 +114,41 @@ function isPeriodFinalized(period: PlanVersion): boolean {
 }
 
 function collectParentOptions(
-  nodes: PlanNodeHierarchy[]
-): Array<{ id: string; title: string; type: string }> {
+  nodes: PlanNodeHierarchy[],
+  rule: PlanRule | null | undefined
+): Array<{ id: string; title: string; type: string; level: number }> {
   const flat = flattenPlanHierarchy(nodes);
-  const options: Array<{ id: string; title: string; type: string }> = [];
-  const seen = new Set<string>();
+  const options: Array<{ id: string; title: string; type: string; level: number }> =
+    [];
 
+  if (canAddChild(rule, null)) {
+    options.push({
+      id: ROOT_PARENT_VALUE,
+      title: "(Root level)",
+      type: "root",
+      level: 0,
+    });
+  }
+
+  const seen = new Set<string>();
   for (const node of flat) {
-    if (node.type !== "goal" && node.type !== "strategic") continue;
     if (node.is_active === false) continue;
     if (!node.plan_node_id || seen.has(node.plan_node_id)) continue;
+    if (!canAddChild(rule, node)) continue;
     seen.add(node.plan_node_id);
     options.push({
       id: node.plan_node_id,
       title: node.title || "Untitled",
       type: node.type,
+      level: node.level ?? 0,
     });
   }
 
   return options.sort((a, b) => a.title.localeCompare(b.title));
+}
+
+function resolveParentId(parentId: string): string | null {
+  return parentId === ROOT_PARENT_VALUE ? null : parentId || null;
 }
 
 function roundTarget(value: number): number {
@@ -176,17 +203,62 @@ export function KpiAdditionForm({
   const { data: hierarchy, isLoading: isHierarchyLoading } =
     useGetPlanHierarchyQuery(draftId, { skip: !draftId });
 
+  const { data: rule, isLoading: isRuleLoading } =
+    useGetPlanRuleForVersionQuery(draftId, { skip: !draftId });
+
   const { data: periodsResponse, isLoading: isPeriodsLoading } =
     useGetExecutionPeriodsQuery(annualVersionId, { skip: !annualVersionId });
+
+  const parentOptions = useMemo(
+    () => collectParentOptions(hierarchy ?? [], rule),
+    [hierarchy, rule]
+  );
+
+  const selectedParent = useMemo(() => {
+    if (!parentId) return null;
+    if (parentId === ROOT_PARENT_VALUE) return null;
+    return flattenPlanHierarchy(hierarchy ?? []).find(
+      (node) => node.plan_node_id === parentId
+    );
+  }, [hierarchy, parentId]);
+
+  const childLevel = useMemo(() => {
+    if (!parentId) return null;
+    return selectedParent ? (selectedParent.level ?? 0) + 1 : 1;
+  }, [parentId, selectedParent]);
+
+  const childStepLabel = useMemo(() => {
+    if (childLevel == null) return "Node";
+    return getStepLabel(rule, childLevel);
+  }, [rule, childLevel]);
+
+  const needsTargetAllocation = useMemo(() => {
+    if (childLevel == null) return false;
+    return isAmendableTargetNode({ level: childLevel }, rule);
+  }, [childLevel, rule]);
+
+  const showWeightFields =
+    childLevel != null && stepRequiresWeight(rule, childLevel);
+  const showContributionFields =
+    childLevel != null && stepRequiresContributionWeight(rule, childLevel);
+
+  const resolvedParentId = parentId ? resolveParentId(parentId) : null;
 
   const { data: siblingNodesData } = useGetPlanNodesQuery(
     {
       plan_version_id: draftId,
-      parent_id: parentId,
-      type: "kpi",
+      parent_id: resolvedParentId,
+      level: childLevel ?? undefined,
       is_active: true,
     },
-    { skip: !draftId || !parentId || weightMode !== "manual" }
+    {
+      skip:
+        !draftId ||
+        !parentId ||
+        childLevel == null ||
+        weightMode !== "manual" ||
+        !showWeightFields,
+    }
   );
   const siblingNodes = siblingNodesData ?? EMPTY_PLAN_NODES;
 
@@ -203,11 +275,6 @@ export function KpiAdditionForm({
     useSubmitPlanAmendmentMutation();
   const [fetchPreview, { isFetching: isPreviewLoading }] =
     useLazyPreviewPlanAmendmentQuery();
-
-  const parentOptions = useMemo(
-    () => collectParentOptions(hierarchy ?? []),
-    [hierarchy]
-  );
 
   const periods = useMemo(
     () =>
@@ -320,7 +387,8 @@ export function KpiAdditionForm({
   }, [annualTarget, openPeriodIdsKey]);
 
   const isSaving = isCreating || isSubmitting || isPreviewLoading;
-  const isLoading = isReportingLoading || isHierarchyLoading || isPeriodsLoading;
+  const isLoading =
+    isReportingLoading || isHierarchyLoading || isRuleLoading || isPeriodsLoading;
 
   const buildPayload = (submit: boolean) => {
     const numericWeight = Number(weight);
@@ -328,7 +396,8 @@ export function KpiAdditionForm({
       contributionWeight.trim() === ""
         ? null
         : Number(contributionWeight);
-    const numericAnnualTarget = Number(annualTarget);
+    const numericAnnualTarget =
+      annualTarget.trim() === "" ? null : Number(annualTarget);
 
     return {
       draftId,
@@ -339,68 +408,77 @@ export function KpiAdditionForm({
         ? "custom_date"
         : "immediate") as "immediate" | "custom_date",
       effectiveDate: effectiveDate || null,
-      parentId,
+      parentId: resolvedParentId,
       annualVersionId,
       kpiTitle: kpiTitle.trim(),
       kpiDescription: kpiDescription.trim() || undefined,
-      weight: numericWeight,
-      contributionWeight: numericContribution,
-      annualTarget: numericAnnualTarget,
-      startPeriodId,
-      endPeriodId: endPeriodId || null,
-      periodAllocations: openPeriodsInRange.map((period) => ({
-        periodId: period.plan_version_id,
-        target: Number(periodTargets[period.plan_version_id] ?? 0),
-      })),
-      weightRedistributionMode: weightMode,
+      weight: showWeightFields && Number.isFinite(numericWeight) ? numericWeight : 0,
+      contributionWeight: showContributionFields ? numericContribution : null,
+      annualTarget: needsTargetAllocation ? numericAnnualTarget : null,
+      startPeriodId: needsTargetAllocation ? startPeriodId : null,
+      endPeriodId: needsTargetAllocation ? endPeriodId || null : null,
+      periodAllocations: needsTargetAllocation
+        ? openPeriodsInRange.map((period) => ({
+            periodId: period.plan_version_id,
+            target: Number(periodTargets[period.plan_version_id] ?? 0),
+          }))
+        : [],
+      weightRedistributionMode: showWeightFields ? weightMode : undefined,
       siblingWeightAdjustments:
-        weightMode === "manual"
+        showWeightFields && weightMode === "manual"
           ? siblingNodes.map((sibling) => ({
               kpiId: sibling.plan_node_id,
               weight: Number(siblingWeights[sibling.plan_node_id] ?? 0),
               contributionWeight: sibling.contribution_weight ?? null,
             }))
           : [],
-      ownerUserId,
-      governmentStructureId,
-      targetAllocationMode: "divisible",
-      achievementMode: "period",
+      ownerUserId: needsTargetAllocation ? ownerUserId : null,
+      governmentStructureId: needsTargetAllocation ? governmentStructureId : null,
+      targetAllocationMode: needsTargetAllocation ? "divisible" : undefined,
+      achievementMode: needsTargetAllocation ? "period" : undefined,
       submit,
     };
   };
 
   const validateForm = (): string | null => {
     if (!requestTitle.trim() && !kpiTitle.trim()) {
-      return "Request title or KPI title is required";
+      return "Request title or node title is required";
     }
     if (!reason.trim()) return "Reason is required";
-    if (!parentId) return "Select a parent goal or strategic objective";
-    if (!kpiTitle.trim()) return "KPI title is required";
-    const numericWeight = Number(weight);
-    if (!Number.isFinite(numericWeight) || numericWeight < 0) {
-      return "Weight must be a non-negative number";
-    }
-    const numericAnnualTarget = Number(annualTarget);
-    if (!Number.isFinite(numericAnnualTarget) || numericAnnualTarget <= 0) {
-      return "Annual target must be a positive number";
-    }
-    if (!startPeriodId) return "Start period is required";
-    if (openPeriodsInRange.length === 0) {
-      return "No open periods in the selected range";
-    }
-    for (const period of openPeriodsInRange) {
-      const value = Number(periodTargets[period.plan_version_id]);
-      if (!Number.isFinite(value) || value < 0) {
-        return `Enter a valid non-negative target for ${period.period_label || "open period"}`;
+    if (!parentId) return "Select a parent node";
+    if (!kpiTitle.trim()) return "Node title is required";
+
+    if (showWeightFields) {
+      const numericWeight = Number(weight);
+      if (!Number.isFinite(numericWeight) || numericWeight < 0) {
+        return "Weight must be a non-negative number";
       }
     }
-    if (!ownerUserId) return "Select an owner";
-    if (!governmentStructureId) return "Select a department / sector";
-    if (weightMode === "manual") {
+
+    if (needsTargetAllocation) {
+      const numericAnnualTarget = Number(annualTarget);
+      if (!Number.isFinite(numericAnnualTarget) || numericAnnualTarget <= 0) {
+        return "Annual target must be a positive number";
+      }
+      if (!startPeriodId) return "Start period is required";
+      if (openPeriodsInRange.length === 0) {
+        return "No open periods in the selected range";
+      }
+      for (const period of openPeriodsInRange) {
+        const value = Number(periodTargets[period.plan_version_id]);
+        if (!Number.isFinite(value) || value < 0) {
+          return `Enter a valid non-negative target for ${period.period_label || "open period"}`;
+        }
+      }
+      if (!ownerUserId) return "Select an owner";
+      if (!governmentStructureId) return "Select a department / sector";
+    }
+
+    if (showWeightFields && weightMode === "manual") {
       for (const sibling of siblingNodes) {
         const value = Number(siblingWeights[sibling.plan_node_id]);
         if (!Number.isFinite(value) || value < 0) {
-          return `Enter a valid weight for sibling KPI "${sibling.title || "Untitled"}"`;
+          return `Enter a valid weight for sibling "${sibling.title || "Untitled"}"`;
         }
       }
     }
@@ -448,7 +526,7 @@ export function KpiAdditionForm({
       } else {
         await createKpiAddition(buildPayload(true)).unwrap();
       }
-      actionFeedback.success("KPI addition submitted for approval");
+      actionFeedback.success("Node addition submitted for approval");
       setRequestTitle("");
       setReason("");
       setEffectiveDate("");
@@ -471,7 +549,7 @@ export function KpiAdditionForm({
       onSubmitted?.();
     } catch (error: unknown) {
       const err = error as { data?: { message?: string } };
-      actionFeedback.error(err.data?.message || "Failed to submit KPI addition");
+      actionFeedback.error(err.data?.message || "Failed to submit node addition");
     }
   };
 
@@ -482,7 +560,7 @@ export function KpiAdditionForm({
   if (!reporting?.process_started) {
     return (
       <p className="text-xs text-muted-foreground">
-        KPI addition requires execution to have started.
+        Node addition requires execution to have started.
       </p>
     );
   }
@@ -497,7 +575,7 @@ export function KpiAdditionForm({
               id="kpi-req-title"
               value={requestTitle}
               onChange={(event) => setRequestTitle(event.target.value)}
-              placeholder="e.g. Add Q3 outreach KPI"
+              placeholder={`e.g. Add ${childStepLabel.toLowerCase()}`}
             />
           </div>
 
@@ -508,7 +586,7 @@ export function KpiAdditionForm({
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               rows={2}
-              placeholder="Why is this KPI being added?"
+              placeholder="Why is this node being added?"
             />
           </div>
 
@@ -545,177 +623,198 @@ export function KpiAdditionForm({
             </Select>
           </div>
 
+          {parentId && childLevel != null && (
+            <div className="space-y-1.5 sm:col-span-2">
+              <p className="text-xs text-muted-foreground">
+                Adding {childStepLabel} (level {childLevel})
+                {needsTargetAllocation
+                  ? " — target allocation required"
+                  : " — structural only"}
+              </p>
+            </div>
+          )}
+
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="kpi-title">KPI title</Label>
+            <Label htmlFor="kpi-title">Node title</Label>
             <Input
               id="kpi-title"
               value={kpiTitle}
               onChange={(event) => setKpiTitle(event.target.value)}
-              placeholder="e.g. Community outreach events held"
+              placeholder={`e.g. New ${childStepLabel.toLowerCase()}`}
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="kpi-weight">Weight</Label>
-            <Input
-              id="kpi-weight"
-              type="number"
-              step="any"
-              min={0}
-              value={weight}
-              onChange={(event) => {
-                setWeight(event.target.value);
-                setPreview(null);
-                setDraftAmendmentId(null);
-              }}
-              placeholder="e.g. 10"
-            />
-          </div>
+          {showWeightFields && (
+            <>
+              <div className="space-y-1.5">
+                <Label htmlFor="kpi-weight">Weight</Label>
+                <Input
+                  id="kpi-weight"
+                  type="number"
+                  step="any"
+                  min={0}
+                  value={weight}
+                  onChange={(event) => {
+                    setWeight(event.target.value);
+                    setPreview(null);
+                    setDraftAmendmentId(null);
+                  }}
+                  placeholder="e.g. 10"
+                />
+              </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="kpi-contribution-weight">
-              Contribution weight (optional)
-            </Label>
-            <Input
-              id="kpi-contribution-weight"
-              type="number"
-              step="any"
-              min={0}
-              value={contributionWeight}
-              onChange={(event) => setContributionWeight(event.target.value)}
-              placeholder="Optional"
-            />
-          </div>
+              {showContributionFields && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="kpi-contribution-weight">
+                    Contribution weight (optional)
+                  </Label>
+                  <Input
+                    id="kpi-contribution-weight"
+                    type="number"
+                    step="any"
+                    min={0}
+                    value={contributionWeight}
+                    onChange={(event) => setContributionWeight(event.target.value)}
+                    placeholder="Optional"
+                  />
+                </div>
+              )}
 
-          <div className="space-y-1.5">
-            <Label htmlFor="kpi-annual-target">Annual target</Label>
-            <Input
-              id="kpi-annual-target"
-              type="number"
-              step="any"
-              min={0}
-              value={annualTarget}
-              onChange={(event) => setAnnualTarget(event.target.value)}
-              placeholder="e.g. 100"
-            />
-          </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="kpi-weight-mode">Weight redistribution mode</Label>
+                <Select
+                  value={weightMode}
+                  onValueChange={(value) => {
+                    setWeightMode(value as KpiAdditionWeightMode);
+                    setPreview(null);
+                    setDraftAmendmentId(null);
+                  }}
+                >
+                  <SelectTrigger id="kpi-weight-mode" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="proportional">Auto proportional</SelectItem>
+                    <SelectItem value="equal">Auto equal</SelectItem>
+                    <SelectItem value="manual">Manual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
 
-          <div className="space-y-1.5">
-            <Label htmlFor="kpi-weight-mode">Weight redistribution mode</Label>
-            <Select
-              value={weightMode}
-              onValueChange={(value) => {
-                setWeightMode(value as KpiAdditionWeightMode);
-                setPreview(null);
-                setDraftAmendmentId(null);
-              }}
-            >
-              <SelectTrigger id="kpi-weight-mode" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="proportional">Auto proportional</SelectItem>
-                <SelectItem value="equal">Auto equal</SelectItem>
-                <SelectItem value="manual">Manual</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {needsTargetAllocation && (
+            <>
+              <div className="space-y-1.5">
+                <Label htmlFor="kpi-annual-target">Annual target</Label>
+                <Input
+                  id="kpi-annual-target"
+                  type="number"
+                  step="any"
+                  min={0}
+                  value={annualTarget}
+                  onChange={(event) => setAnnualTarget(event.target.value)}
+                  placeholder="e.g. 100"
+                />
+              </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="kpi-start-period">Start period</Label>
-            <Select
-              value={startPeriodId || undefined}
-              onValueChange={(value) => {
-                setStartPeriodId(value);
-                setPreview(null);
-                setDraftAmendmentId(null);
-              }}
-            >
-              <SelectTrigger id="kpi-start-period" className="w-full">
-                <SelectValue placeholder="Select start period" />
-              </SelectTrigger>
-              <SelectContent>
-                {sortedPeriods
-                  .filter((period) => !isPeriodFinalized(period))
-                  .map((period) => (
-                    <SelectItem
-                      key={period.plan_version_id}
-                      value={period.plan_version_id}
-                    >
-                      {period.period_label || "Period"}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="kpi-start-period">Start period</Label>
+                <Select
+                  value={startPeriodId || undefined}
+                  onValueChange={(value) => {
+                    setStartPeriodId(value);
+                    setPreview(null);
+                    setDraftAmendmentId(null);
+                  }}
+                >
+                  <SelectTrigger id="kpi-start-period" className="w-full">
+                    <SelectValue placeholder="Select start period" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sortedPeriods
+                      .filter((period) => !isPeriodFinalized(period))
+                      .map((period) => (
+                        <SelectItem
+                          key={period.plan_version_id}
+                          value={period.plan_version_id}
+                        >
+                          {period.period_label || "Period"}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="kpi-end-period">End period (optional)</Label>
-            <Select
-              value={endPeriodId || "__none__"}
-              onValueChange={(value) => {
-                setEndPeriodId(value === "__none__" ? "" : value);
-                setPreview(null);
-                setDraftAmendmentId(null);
-              }}
-            >
-              <SelectTrigger id="kpi-end-period" className="w-full">
-                <SelectValue placeholder="Through year end" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">Through year end</SelectItem>
-                {sortedPeriods.map((period) => (
-                  <SelectItem
-                    key={period.plan_version_id}
-                    value={period.plan_version_id}
-                  >
-                    {period.period_label || "Period"}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="kpi-end-period">End period (optional)</Label>
+                <Select
+                  value={endPeriodId || "__none__"}
+                  onValueChange={(value) => {
+                    setEndPeriodId(value === "__none__" ? "" : value);
+                    setPreview(null);
+                    setDraftAmendmentId(null);
+                  }}
+                >
+                  <SelectTrigger id="kpi-end-period" className="w-full">
+                    <SelectValue placeholder="Through year end" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Through year end</SelectItem>
+                    {sortedPeriods.map((period) => (
+                      <SelectItem
+                        key={period.plan_version_id}
+                        value={period.plan_version_id}
+                      >
+                        {period.period_label || "Period"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="kpi-owner">Owner</Label>
-            <Select value={ownerUserId || undefined} onValueChange={setOwnerUserId}>
-              <SelectTrigger id="kpi-owner" className="w-full">
-                <SelectValue placeholder="Select owner" />
-              </SelectTrigger>
-              <SelectContent>
-                {users.map((user) => (
-                  <SelectItem key={user.user_id} value={user.user_id}>
-                    {user.full_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="kpi-owner">Owner</Label>
+                <Select value={ownerUserId || undefined} onValueChange={setOwnerUserId}>
+                  <SelectTrigger id="kpi-owner" className="w-full">
+                    <SelectValue placeholder="Select owner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {users.map((user) => (
+                      <SelectItem key={user.user_id} value={user.user_id}>
+                        {user.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="kpi-gov-structure">Department / sector</Label>
-            <Select
-              value={governmentStructureId || undefined}
-              onValueChange={setGovernmentStructureId}
-            >
-              <SelectTrigger id="kpi-gov-structure" className="w-full">
-                <SelectValue placeholder="Select structure" />
-              </SelectTrigger>
-              <SelectContent>
-                {govStructures.map((structure) => (
-                  <SelectItem
-                    key={structure.government_structure_id}
-                    value={structure.government_structure_id}
-                  >
-                    {structure.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="kpi-gov-structure">Department / sector</Label>
+                <Select
+                  value={governmentStructureId || undefined}
+                  onValueChange={setGovernmentStructureId}
+                >
+                  <SelectTrigger id="kpi-gov-structure" className="w-full">
+                    <SelectValue placeholder="Select structure" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {govStructures.map((structure) => (
+                      <SelectItem
+                        key={structure.government_structure_id}
+                        value={structure.government_structure_id}
+                      >
+                        {structure.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
         </div>
 
-        {openPeriodsInRange.length > 0 && (
+        {needsTargetAllocation && openPeriodsInRange.length > 0 && (
           <div className="space-y-2 rounded-md border border-amber-100 bg-white/70 p-3">
             <p className="text-xs font-medium text-amber-950">
               Period target allocation
@@ -750,10 +849,10 @@ export function KpiAdditionForm({
           </div>
         )}
 
-        {weightMode === "manual" && siblingNodes.length > 0 && (
+        {showWeightFields && weightMode === "manual" && siblingNodes.length > 0 && (
           <div className="space-y-2 rounded-md border border-sky-100 bg-white/70 p-3">
             <p className="text-xs font-medium text-sky-950">
-              Sibling KPI weights
+              Sibling {childStepLabel.toLowerCase()} weights
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
               {siblingNodes.map((sibling) => (
@@ -762,7 +861,7 @@ export function KpiAdditionForm({
                     htmlFor={`kpi-sibling-${sibling.plan_node_id}`}
                     className="text-xs"
                   >
-                    {sibling.title || "Untitled KPI"}
+                    {sibling.title || `Untitled ${childStepLabel}`}
                   </Label>
                   <Input
                     id={`kpi-sibling-${sibling.plan_node_id}`}
@@ -786,13 +885,13 @@ export function KpiAdditionForm({
         )}
 
         <div className="space-y-1.5">
-          <Label htmlFor="kpi-description">KPI description (optional)</Label>
+          <Label htmlFor="kpi-description">Node description (optional)</Label>
           <Textarea
             id="kpi-description"
             value={kpiDescription}
             onChange={(event) => setKpiDescription(event.target.value)}
             rows={2}
-            placeholder="Optional KPI detail"
+            placeholder="Optional node detail"
           />
         </div>
 
@@ -819,7 +918,7 @@ export function KpiAdditionForm({
             )}
             {preview.new_kpi?.title && (
               <p>
-                New KPI:{" "}
+                New node:{" "}
                 <span className="font-medium">{preview.new_kpi.title}</span>
                 {preview.new_kpi.annual_target != null
                   ? ` · Annual target ${preview.new_kpi.annual_target}`

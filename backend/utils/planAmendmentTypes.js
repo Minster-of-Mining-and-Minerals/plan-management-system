@@ -10,6 +10,7 @@ const AMENDMENT_TYPE = Object.freeze({
   BUDGET_INCREASE: "budget_increase",
   BUDGET_REDUCTION: "budget_reduction",
   KPI_ADDITION: "kpi_addition",
+  NODE_ADDITION: "node_addition",
   KPI_REMOVAL: "kpi_removal",
   OWNER_TRANSFER: "owner_transfer",
   TIMELINE_EXTENSION: "timeline_extension",
@@ -29,6 +30,7 @@ const AMENDMENT_TYPE_AVAILABILITY = Object.freeze({
   [AMENDMENT_TYPE.BUDGET_INCREASE]: false,
   [AMENDMENT_TYPE.BUDGET_REDUCTION]: false,
   [AMENDMENT_TYPE.KPI_ADDITION]: true,
+  [AMENDMENT_TYPE.NODE_ADDITION]: false,
   [AMENDMENT_TYPE.KPI_REMOVAL]: false,
   [AMENDMENT_TYPE.OWNER_TRANSFER]: false,
   [AMENDMENT_TYPE.TIMELINE_EXTENSION]: false,
@@ -40,10 +42,16 @@ function normalizeAmendmentType(type) {
   if (type == null || type === "") return null;
   const raw = String(type).trim();
   const asKey = raw.toUpperCase().replace(/[\s-]+/g, "_");
+  if (asKey === "NODE_ADDITION") {
+    return AMENDMENT_TYPE.KPI_ADDITION;
+  }
   if (AMENDMENT_TYPE[asKey]) {
     return AMENDMENT_TYPE[asKey];
   }
   const lower = raw.toLowerCase();
+  if (lower === AMENDMENT_TYPE.NODE_ADDITION) {
+    return AMENDMENT_TYPE.KPI_ADDITION;
+  }
   return AMENDMENT_TYPE_VALUES.includes(lower) ? lower : null;
 }
 
@@ -52,6 +60,11 @@ function isKnownAmendmentType(type) {
 }
 
 function isAmendmentTypeMarkedAvailable(type) {
+  if (type == null || type === "") return false;
+  const lower = String(type).trim().toLowerCase();
+  if (Object.prototype.hasOwnProperty.call(AMENDMENT_TYPE_AVAILABILITY, lower)) {
+    return Boolean(AMENDMENT_TYPE_AVAILABILITY[lower]);
+  }
   const normalized = normalizeAmendmentType(type);
   if (!normalized) return false;
   return Boolean(AMENDMENT_TYPE_AVAILABILITY[normalized]);
@@ -69,7 +82,8 @@ function amendmentTypeLabel(type) {
     case AMENDMENT_TYPE.BUDGET_REDUCTION:
       return "Budget Reduction";
     case AMENDMENT_TYPE.KPI_ADDITION:
-      return "KPI Addition";
+    case AMENDMENT_TYPE.NODE_ADDITION:
+      return "Node Addition";
     case AMENDMENT_TYPE.KPI_REMOVAL:
       return "KPI Removal";
     case AMENDMENT_TYPE.OWNER_TRANSFER:

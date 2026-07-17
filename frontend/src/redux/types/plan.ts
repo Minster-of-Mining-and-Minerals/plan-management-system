@@ -446,6 +446,7 @@ export interface AnnualTargetRevisionReportingResponse {
 
 export type KpiAdditionWeightMode = "manual" | "proportional" | "equal";
 
+/** Node Addition (stored as kpi_addition) — create amendment payload */
 export interface CreateKpiAdditionPayload {
     draftId: string;
     title: string;
@@ -454,27 +455,31 @@ export interface CreateKpiAdditionPayload {
     description?: string;
     effectiveMode?: "immediate" | "custom_date";
     effectiveDate?: string | null;
-    parentId: string;
+    /** Parent node id, or null for root level-1 when rule allows */
+    parentId: string | null;
     annualVersionId: string;
+    /** Node title (legacy field name kpiTitle) */
     kpiTitle: string;
     kpiDescription?: string;
-    weight: number;
+    weight?: number;
     contributionWeight?: number | null;
-    annualTarget: number;
-    startPeriodId: string;
+    annualTarget?: number | null;
+    startPeriodId?: string | null;
     endPeriodId?: string | null;
-    periodAllocations: Array<{ periodId: string; target: number }>;
-    weightRedistributionMode: KpiAdditionWeightMode;
+    periodAllocations?: Array<{ periodId: string; target: number }>;
+    weightRedistributionMode?: KpiAdditionWeightMode;
     siblingWeightAdjustments?: Array<{
         kpiId: string;
         weight: number;
         contributionWeight?: number | null;
     }>;
-    ownerUserId: string;
-    governmentStructureId: string;
+    ownerUserId?: string | null;
+    governmentStructureId?: string | null;
     internalStructureId?: string | null;
     targetAllocationMode?: string;
     achievementMode?: string;
+    /** Defaults to kpi_addition; node_addition is normalized server-side */
+    amendmentType?: "kpi_addition" | "node_addition";
     submit?: boolean;
 }
 

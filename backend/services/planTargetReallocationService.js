@@ -52,6 +52,11 @@ const {
 } = require("../utils/planTargetReallocationBaselineUtils");
 const { AMENDMENT_TYPE } = require("../utils/planAmendmentTypes");
 const {
+  loadRuleForPlanVersion,
+  isAmendableTargetNode,
+  amendableTargetQueryFilter,
+} = require("./planAmendment/planAmendmentRuleUtils");
+const {
   buildPendingApprovalAmendmentWorkflowFields,
 } = require("../utils/planAmendmentWorkflowUtils");
 const { AUDIT_MODULES, recordSystemAuditLog } = require("./auditLogService");
@@ -131,7 +136,8 @@ async function resolveReallocationExecutionContext(
     return { success: false, message: REALLOCATION_VALIDATION_MESSAGES.KPI_NOT_FOUND };
   }
 
-  if (liveAnnualKpi.type !== "kpi") {
+  const rule = await loadRuleForPlanVersion(liveAnnualKpi.plan_version_id, transaction);
+  if (!isAmendableTargetNode(liveAnnualKpi, rule)) {
     return { success: false, message: REALLOCATION_VALIDATION_MESSAGES.INVALID_KPI };
   }
 
@@ -1506,6 +1512,11 @@ async function getPeriodTargetReallocationReporting(planVersionId, rawQuery = {}
   });
   const periodMetaById = new Map(livePeriodMeta.map((period) => [period.plan_version_id, period]));
 
+  const rule = annualPlanVersionId
+    ? await loadRuleForPlanVersion(annualPlanVersionId, transaction)
+    : null;
+  const targetFilter = amendableTargetQueryFilter(rule);
+
   const items = [];
 
   for (const livePeriodVersionId of livePeriodVersionIds) {
@@ -1514,7 +1525,7 @@ async function getPeriodTargetReallocationReporting(planVersionId, rawQuery = {}
 
     const nodeWhere = {
       plan_version_id: snapshotPeriod.plan_version_id,
-      type: "kpi",
+      ...targetFilter,
       is_active: true,
     };
 
@@ -1537,7 +1548,7 @@ async function getPeriodTargetReallocationReporting(planVersionId, rawQuery = {}
       const liveAnnualKpi = await PlanNode.findOne({
         where: {
           source_plan_node_id: liveMasterKpiId,
-          type: "kpi",
+          ...targetFilter,
           is_active: true,
           plan_version_id: periodMetaById.get(livePeriodVersionId)?.parent_plan_version_id,
         },

@@ -26,11 +26,16 @@ const {
   DEFAULT_AMENDMENT_POLICY,
 } = require("../../utils/planAmendmentActionUtils");
 const { assertCompletedPeriodsPolicy } = require("./planAmendmentPolicyService");
+const {
+  loadRuleForPlanVersion,
+  isAmendableTargetNode,
+  amendableTargetQueryFilter,
+} = require("./planAmendmentRuleUtils");
 
 const ATR_MESSAGES = Object.freeze({
   KPI_REQUIRED: "KPI is required.",
   KPI_NOT_FOUND: "KPI was not found.",
-  INVALID_KPI: "Annual target revision requires an annual KPI node.",
+  INVALID_KPI: "Annual target revision requires an amendable target node.",
   REVISED_REQUIRED: "Revised annual target is required.",
   REVISED_NEGATIVE: "Annual target cannot be negative.",
   ZERO_NOT_ALLOWED: "Zero annual target is not allowed by plan amendment policy.",
@@ -173,7 +178,9 @@ async function resolveAnnualTargetRevisionContext(kpiId, transaction = null) {
   if (!liveAnnualKpi) {
     return { success: false, message: ATR_MESSAGES.KPI_NOT_FOUND };
   }
-  if (liveAnnualKpi.type !== "kpi") {
+
+  const rule = await loadRuleForPlanVersion(liveAnnualKpi.plan_version_id, transaction);
+  if (!isAmendableTargetNode(liveAnnualKpi, rule)) {
     return { success: false, message: ATR_MESSAGES.INVALID_KPI };
   }
   if (liveAnnualKpi.planVersion?.version_kind !== "annual") {
@@ -247,7 +254,7 @@ async function resolveAnnualTargetRevisionContext(kpiId, transaction = null) {
       where: {
         plan_version_id: snapshotPeriod.plan_version_id,
         source_plan_node_id: snapshotAnnualKpi.plan_node_id,
-        type: "kpi",
+        ...amendableTargetQueryFilter(rule),
         is_active: true,
       },
       include: [{ association: "planVersion" }],

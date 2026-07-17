@@ -137,6 +137,31 @@ export function canAddChild(
     return childLevel <= getMaxRuleDepth(rule);
 }
 
+export function getAmendableTargetLevel(rule?: PlanRule | null): number | null {
+    if (!rule?.steps?.length) return null;
+    const weightLevel = getWeightStartLevel(rule);
+    if (weightLevel != null) return weightLevel;
+    if (getStepForLevel(rule, 3)) return 3;
+    return null;
+}
+
+export function getAmendableTargetLabel(rule?: PlanRule | null): string {
+    const level = getAmendableTargetLevel(rule);
+    if (level == null) return "Target node";
+    return getStepLabel(rule, level);
+}
+
+export function isAmendableTargetNode(
+    node: { level?: number; type?: string },
+    rule?: PlanRule | null
+): boolean {
+    const level = getAmendableTargetLevel(rule);
+    if (level != null && node.level != null) {
+        return node.level === level;
+    }
+    return node.type === "kpi";
+}
+
 export function formatNodeWeight(
     weight: number,
     weightMode?: PlanRuleWeightMode | null,

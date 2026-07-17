@@ -101,10 +101,19 @@ export function KpiAdditionRequestDetail({
     Boolean(user?.user_id) && user?.user_id === amendment?.requested_by;
   const isSaving = isApproving || isRejecting;
 
-  const kpiTitle =
+  const nodeTitle =
     amendment?.metadata?.title ??
     amendment?.metadata?.kpiTitle ??
     amendment?.metadata?.kpi_title;
+  const nodeType =
+    amendment?.metadata?.childType ??
+    amendment?.metadata?.child_type ??
+    amendment?.metadata?.nodeType;
+  const nodeLevel =
+    amendment?.metadata?.childLevel ?? amendment?.metadata?.child_level;
+  const childStepLabel =
+    amendment?.metadata?.childStepLabel ??
+    amendment?.metadata?.child_step_label;
   const annualTarget =
     amendment?.metadata?.annualTarget ??
     amendment?.metadata?.annual_target;
@@ -129,11 +138,11 @@ export function KpiAdditionRequestDetail({
         id: amendmentId,
         comment: comment.trim() || undefined,
       }).unwrap();
-      actionFeedback.success("KPI addition approved and applied");
+      actionFeedback.success("Node addition approved and applied");
       closePanel();
     } catch (error: unknown) {
       const err = error as { data?: { message?: string } };
-      actionFeedback.error(err.data?.message || "Failed to approve KPI addition");
+      actionFeedback.error(err.data?.message || "Failed to approve node addition");
     }
   };
 
@@ -144,17 +153,17 @@ export function KpiAdditionRequestDetail({
     }
     try {
       await reject({ id: amendmentId, comment: comment.trim() }).unwrap();
-      actionFeedback.success("KPI addition rejected");
+      actionFeedback.success("Node addition rejected");
       closePanel();
     } catch (error: unknown) {
       const err = error as { data?: { message?: string } };
-      actionFeedback.error(err.data?.message || "Failed to reject KPI addition");
+      actionFeedback.error(err.data?.message || "Failed to reject node addition");
     }
   };
 
   const handleCancel = async () => {
     if (
-      !(await actionFeedback.confirm("Cancel this pending KPI addition?", {
+      !(await actionFeedback.confirm("Cancel this pending node addition?", {
         destructive: true,
       }))
     ) {
@@ -162,11 +171,11 @@ export function KpiAdditionRequestDetail({
     }
     try {
       await cancel(amendmentId).unwrap();
-      actionFeedback.success("KPI addition cancelled");
+      actionFeedback.success("Node addition cancelled");
       onBack();
     } catch (error: unknown) {
       const err = error as { data?: { message?: string } };
-      actionFeedback.error(err.data?.message || "Failed to cancel KPI addition");
+      actionFeedback.error(err.data?.message || "Failed to cancel node addition");
     }
   };
 
@@ -216,7 +225,8 @@ export function KpiAdditionRequestDetail({
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {amendment.reason || "—"}
-              {kpiTitle ? ` · KPI: ${kpiTitle}` : ""}
+              {nodeTitle ? ` · Node: ${nodeTitle}` : ""}
+              {childStepLabel ? ` (${childStepLabel})` : ""}
               {annualTarget != null ? ` · Annual target ${annualTarget}` : ""}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -238,7 +248,15 @@ export function KpiAdditionRequestDetail({
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <DetailField label="KPI title" value={kpiTitle ? String(kpiTitle) : "—"} />
+          <DetailField label="Node title" value={nodeTitle ? String(nodeTitle) : "—"} />
+          <DetailField
+            label="Node type / level"
+            value={
+              nodeType || nodeLevel != null
+                ? `${nodeType ?? "—"}${nodeLevel != null ? ` (level ${nodeLevel})` : ""}`
+                : "—"
+            }
+          />
           <DetailField
             label="Parent"
             value={parentId ? String(parentId) : "—"}
@@ -310,12 +328,12 @@ export function KpiAdditionRequestDetail({
                   [
                     {
                       key: "approve" as const,
-                      label: "Approve KPI addition",
-                      desc: "Apply the new KPI. Comment is optional.",
+                      label: "Approve node addition",
+                      desc: "Apply the new node. Comment is optional.",
                     },
                     {
                       key: "reject" as const,
-                      label: "Reject KPI addition",
+                      label: "Reject node addition",
                       desc: "Reject with a required comment.",
                     },
                   ] as const
@@ -360,7 +378,7 @@ export function KpiAdditionRequestDetail({
       <AnimatePresence>
         {selectedAction === "approve" ? (
           <AmendmentSidePanelShell
-            title="Approve KPI addition"
+            title="Approve node addition"
             subtitle="Optionally add a review comment"
             onClose={closePanel}
           >
@@ -385,7 +403,7 @@ export function KpiAdditionRequestDetail({
         ) : null}
         {selectedAction === "reject" ? (
           <AmendmentSidePanelShell
-            title="Reject KPI addition"
+            title="Reject node addition"
             subtitle="Provide a reason for rejection"
             onClose={closePanel}
           >
@@ -395,7 +413,7 @@ export function KpiAdditionRequestDetail({
                 className={cn(panelTextareaClass, "min-h-28")}
                 value={comment}
                 onChange={(event) => setComment(event.target.value)}
-                placeholder="Explain why this KPI addition is being rejected"
+                placeholder="Explain why this node addition is being rejected"
               />
             </div>
             <div className="mt-2 flex justify-end gap-3 pb-4">

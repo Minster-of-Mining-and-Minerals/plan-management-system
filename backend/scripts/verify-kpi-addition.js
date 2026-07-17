@@ -22,7 +22,7 @@ const {
 const {
   KpiAdditionHandler,
 } = require("../services/planAmendment/handlers/kpiAdditionHandler");
-const { AMENDMENT_TYPE } = require("../utils/planAmendmentTypes");
+const { AMENDMENT_TYPE, normalizeAmendmentType } = require("../utils/planAmendmentTypes");
 const {
   clearAmendmentHandlers,
   registerDefaultAmendmentHandlers,
@@ -112,6 +112,7 @@ function samplePrepared(overrides = {}) {
     weightPlan,
     ruleCheck: { nodeType: "kpi" },
     nodeLevel: 2,
+    needsTargetAllocation: true,
     ...overrides,
   };
 }
@@ -273,9 +274,13 @@ function testPreviewImpact() {
 
   const impact = buildKpiAdditionImpactData(prepared);
   assert.ok(Array.isArray(impact.summary));
-  assert.ok(impact.summary.some((line) => /Add KPI/i.test(line)));
+  assert.ok(impact.summary.some((line) => /Add /i.test(line)));
   assert.strictEqual(impact.affected_rollups, true);
-  assert.ok(impact.changes.some((c) => c.field === "kpi_create"));
+  assert.ok(
+    impact.changes.some(
+      (c) => c.field === "kpi_create" || c.field === "node_create"
+    )
+  );
   assert.strictEqual(impact.preview.amendment_type, AMENDMENT_TYPE.KPI_ADDITION);
 }
 
@@ -292,6 +297,11 @@ function testHandlerRegistrationAndConflictKeys() {
   const handler = resolveAmendmentHandler(AMENDMENT_TYPE.KPI_ADDITION);
   assert.ok(handler instanceof KpiAdditionHandler);
   assert.strictEqual(handler.isAvailable(), true);
+  assert.strictEqual(handler.supports(AMENDMENT_TYPE.NODE_ADDITION), true);
+  assert.strictEqual(handler.supports("node_addition"), true);
+
+  const normalizedHandler = resolveAmendmentHandler("node_addition");
+  assert.ok(normalizedHandler instanceof KpiAdditionHandler);
 
   const catalog = getAmendmentHandlerCatalog();
   const entry = catalog.find((row) => row.type === AMENDMENT_TYPE.KPI_ADDITION);
@@ -307,8 +317,24 @@ function testHandlerRegistrationAndConflictKeys() {
     },
   });
   assert.ok(keys.entityKeys.some((key) => key.startsWith("structural:parent:")));
-  assert.ok(keys.entityKeys.some((key) => key.startsWith("kpi_name:")));
+  assert.ok(keys.entityKeys.some((key) => key.startsWith("node_addition:parent:")));
+  assert.ok(
+    keys.entityKeys.some(
+      (key) => key.startsWith("kpi_name:") || key.startsWith("node_name:")
+    )
+  );
   assert.deepStrictEqual(keys.departmentIds, ["dept-1"]);
+}
+
+function testNodeAdditionAlias() {
+  assert.strictEqual(
+    normalizeAmendmentType("node_addition"),
+    AMENDMENT_TYPE.KPI_ADDITION
+  );
+  assert.strictEqual(
+    normalizeAmendmentType("NODE_ADDITION"),
+    AMENDMENT_TYPE.KPI_ADDITION
+  );
 }
 
 function testReportingArtifacts() {
@@ -331,7 +357,7 @@ function testReportingArtifacts() {
     path.join(root, "../docs/PLAN_AMENDMENT_FRAMEWORK.md"),
     "utf8"
   );
-  assert.match(docs, /kpi_addition/);
+  assert.match(docs, /Node Addition|kpi_addition/);
 }
 
 function testEngineUntouched() {
@@ -348,10 +374,11 @@ function run() {
   testBuildPeriodAllocations();
   testBuildSiblingWeightPlan();
   testPreviewImpact();
+  testNodeAdditionAlias();
   testHandlerRegistrationAndConflictKeys();
   testReportingArtifacts();
   testEngineUntouched();
-  console.log("KPI Addition checks passed.");
+  console.log("Node Addition (kpi_addition) checks passed.");
 }
 
 run();

@@ -28,6 +28,7 @@ type TargetReallocationRequestFormProps = {
   draftId: string;
   periods: PlanVersion[];
   kpiOptions: TargetReallocationKpiOption[];
+  targetNodeLabel?: string;
   onSubmitted?: () => void;
 };
 
@@ -35,6 +36,7 @@ export function TargetReallocationRequestForm({
   draftId,
   periods,
   kpiOptions,
+  targetNodeLabel = "KPI",
   onSubmitted,
 }: TargetReallocationRequestFormProps) {
   const [kpiId, setKpiId] = useState("");
@@ -65,7 +67,9 @@ export function TargetReallocationRequestForm({
 
     const numericAmount = Number(amount);
     if (!kpiId || !fromPeriodId || !toPeriodId) {
-      actionFeedback.error("Select KPI, source period, and destination period");
+      actionFeedback.error(
+        `Select ${targetNodeLabel}, source period, and destination period`
+      );
       return;
     }
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
@@ -104,8 +108,8 @@ export function TargetReallocationRequestForm({
   if (kpiOptions.length === 0 || sortedPeriods.length < 2) {
     return (
       <p className="text-xs text-muted-foreground">
-        At least one KPI and two execution periods are required to request a
-        target reallocation.
+        At least one {targetNodeLabel} and two execution periods are required to
+        request a target reallocation.
       </p>
     );
   }
@@ -115,10 +119,10 @@ export function TargetReallocationRequestForm({
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="reallocation-kpi">KPI</Label>
+            <Label htmlFor="reallocation-kpi">{targetNodeLabel}</Label>
             <Select value={kpiId} onValueChange={setKpiId}>
               <SelectTrigger id="reallocation-kpi" className="w-full">
-                <SelectValue placeholder="Select KPI" />
+                <SelectValue placeholder={`Select ${targetNodeLabel}`} />
               </SelectTrigger>
               <SelectContent>
                 {kpiOptions.map((kpi) => (

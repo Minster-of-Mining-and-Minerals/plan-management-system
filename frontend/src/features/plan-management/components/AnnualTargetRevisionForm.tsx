@@ -27,6 +27,8 @@ import type {
   AnnualTargetRedistributionMode,
   AnnualTargetRevisionKpiReporting,
 } from "@/redux/types/plan";
+import { useGetPlanRuleForVersionQuery } from "@/redux/api/planRuleApi";
+import { getAmendableTargetLabel } from "@/utils/planRuleUtils";
 
 type AnnualTargetRevisionFormProps = {
   draftId: string;
@@ -90,6 +92,10 @@ export function AnnualTargetRevisionForm({
   const [draftAmendmentId, setDraftAmendmentId] = useState<string | null>(null);
 
   const { data: typesData } = useGetPlanAmendmentTypesQuery();
+  const { data: rule } = useGetPlanRuleForVersionQuery(annualVersionId, {
+    skip: !annualVersionId,
+  });
+  const targetNodeLabel = getAmendableTargetLabel(rule);
   const { data: reporting, isLoading: isReportingLoading } =
     useGetAnnualTargetRevisionReportingQuery(
       { versionId: annualVersionId },
@@ -169,7 +175,7 @@ export function AnnualTargetRevisionForm({
   const validateForm = (): string | null => {
     if (!title.trim()) return "Title is required";
     if (!reasonCode && !reasonLabel.trim()) return "Reason is required";
-    if (!kpiId) return "Select a KPI";
+    if (!kpiId) return `Select a ${targetNodeLabel}`;
     const numericRevised = Number(revisedTarget);
     if (!Number.isFinite(numericRevised)) {
       return "Revised annual target must be a number";
@@ -249,14 +255,18 @@ export function AnnualTargetRevisionForm({
   };
 
   if (isReportingLoading) {
-    return <p className="text-xs text-muted-foreground">Loading KPI targets…</p>;
+    return (
+      <p className="text-xs text-muted-foreground">
+        Loading {targetNodeLabel.toLowerCase()} targets…
+      </p>
+    );
   }
 
   if (!reporting?.process_started || kpis.length === 0) {
     return (
       <p className="text-xs text-muted-foreground">
-        Annual target revision requires a started process and at least one
-        annual KPI.
+        Annual target revision requires a started process and at least one annual{" "}
+        {targetNodeLabel.toLowerCase()}.
       </p>
     );
   }
@@ -309,10 +319,10 @@ export function AnnualTargetRevisionForm({
           </div>
 
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="atr-kpi">KPI</Label>
+            <Label htmlFor="atr-kpi">{targetNodeLabel}</Label>
             <Select value={kpiId} onValueChange={setKpiId}>
               <SelectTrigger id="atr-kpi" className="w-full">
-                <SelectValue placeholder="Select KPI" />
+                <SelectValue placeholder={`Select ${targetNodeLabel}`} />
               </SelectTrigger>
               <SelectContent>
                 {kpis.map((kpi) => (
