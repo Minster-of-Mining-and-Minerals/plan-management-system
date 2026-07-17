@@ -20,6 +20,9 @@ function cleanSchemaSql(sql) {
   out = out.replace(/^\\restrict .*$/gm, "");
   out = out.replace(/^\\unrestrict .*$/gm, "");
 
+  // PG 16 compatibility (Docker historically used postgres:16)
+  out = out.replace(/^SET transaction_timeout = .*?;\r?\n/gm, "");
+
   // Remove SequelizeMeta table + PK constraint blocks
   out = out.replace(
     /--\n-- Name: SequelizeMeta; Type: TABLE;[\s\S]*?CREATE TABLE public\."SequelizeMeta" \([\s\S]*?\);\n\n/g,
