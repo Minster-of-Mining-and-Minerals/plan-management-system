@@ -8,14 +8,11 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { FileUploadField } from "@/components/common/FileUploadField";
 import { useGetUserByIdQuery, useUpdateUserMutation } from "@/redux/api/userApi";
-import { getAttachmentFileUrl, getFileUrl } from "@/utils/fileUrl";
+import { getFileUrl } from "@/utils/fileUrl";
 
 type Props = {
   userId: string;
 };
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function UserSignatureSettings({ userId }: Props) {
   const { data: user, refetch } = useGetUserByIdQuery(userId);
@@ -29,11 +26,7 @@ export function UserSignatureSettings({ userId }: Props) {
     setSignatureEnabled(Boolean(profile?.signature_enabled && profile?.signature_file));
   }, [user]);
 
-  const previewUrl = signatureFile
-    ? UUID_RE.test(signatureFile.trim())
-      ? getAttachmentFileUrl(signatureFile.trim())
-      : getFileUrl(signatureFile)
-    : null;
+  const previewUrl = signatureFile ? getFileUrl(signatureFile) : null;
 
   const save = async (overrides?: {
     signature_file?: string | null;

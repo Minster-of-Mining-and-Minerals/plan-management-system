@@ -1,6 +1,7 @@
 "use strict";
 const { v4: uuidv4 } = require("uuid");
 const bcrypt = require("bcrypt");
+const { assertDemoSeedAllowed } = require("../utils/assertDemoSeedAllowed");
 
 const ADMIN_USER_ID = "00000000-0000-4000-8000-000000000001";
 const SUPER_ADMIN_ROLE_ID = "00000000-0000-4000-8000-000000000002";
@@ -17,6 +18,7 @@ async function countById(queryInterface, table, idColumn, id) {
 
 module.exports = {
   async up(queryInterface, Sequelize) {
+    assertDemoSeedAllowed("demo-users");
     const now = new Date();
     const passwordHash = await bcrypt.hash("password", 10);
 

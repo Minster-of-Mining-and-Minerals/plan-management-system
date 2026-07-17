@@ -8,6 +8,12 @@ const {
   legacyFieldsFromTheme,
 } = require("../../config/brandingThemeDefaults");
 const { PLATFORM_LOGO_URL } = require("../../config/platformBranding");
+const { createTtlCache } = require("../../utils/ttlCache");
+const { sendError } = require("../../utils/httpError");
+
+const activeBrandingCache = createTtlCache({ ttlMs: 60_000 });
+
+const invalidateActiveBrandingCache = () => activeBrandingCache.clear();
 
 const formatBranding = (record) => {
   const plain = record?.toJSON ? record.toJSON() : record;
@@ -122,6 +128,8 @@ const createBranding = async (req, res) => {
 
     await t.commit();
 
+    invalidateActiveBrandingCache();
+
     return res.status(201).json({
       success: true,
       message: "Branding created successfully",
@@ -129,11 +137,7 @@ const createBranding = async (req, res) => {
     });
   } catch (error) {
     if (!t.finished) await t.rollback();
-    return res.status(500).json({
-      success: false,
-      message: "Error creating branding",
-      error: error.message,
-    });
+    return sendError(res, error, req);
   }
 };
 
@@ -157,38 +161,31 @@ const getBrandingList = async (req, res) => {
       data: records.map(formatBranding),
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Error fetching branding records",
-      error: error.message,
-    });
+    return sendError(res, error, req);
   }
 };
 
 const getActiveBranding = async (_req, res) => {
   try {
+    const cached = activeBrandingCache.get();
+    if (cached !== null) {
+      return res.status(200).json({ success: true, data: cached });
+    }
+
     const active = await SystemBranding.findOne({
       where: { is_active: true },
       order: [["updated_at", "DESC"]],
     });
 
-    if (!active) {
-      return res.status(200).json({
-        success: true,
-        data: null,
-      });
-    }
+    const data = active ? formatBranding(active) : null;
+    activeBrandingCache.set(data);
 
     return res.status(200).json({
       success: true,
-      data: formatBranding(active),
+      data,
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Error fetching active branding",
-      error: error.message,
-    });
+    return sendError(res, error, req);
   }
 };
 
@@ -209,11 +206,7 @@ const getBrandingById = async (req, res) => {
       data: formatBranding(branding),
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Error fetching branding",
-      error: error.message,
-    });
+    return sendError(res, error, req);
   }
 };
 
@@ -248,6 +241,8 @@ const updateBranding = async (req, res) => {
     await branding.update(updateData, { transaction: t });
     await t.commit();
 
+    invalidateActiveBrandingCache();
+
     return res.status(200).json({
       success: true,
       message: "Branding updated successfully",
@@ -255,11 +250,7 @@ const updateBranding = async (req, res) => {
     });
   } catch (error) {
     if (!t.finished) await t.rollback();
-    return res.status(500).json({
-      success: false,
-      message: "Error updating branding",
-      error: error.message,
-    });
+    return sendError(res, error, req);
   }
 };
 
@@ -284,16 +275,14 @@ const deleteBranding = async (req, res) => {
 
     await branding.destroy();
 
+    invalidateActiveBrandingCache();
+
     return res.status(200).json({
       success: true,
       message: "Branding deleted successfully",
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Error deleting branding",
-      error: error.message,
-    });
+    return sendError(res, error, req);
   }
 };
 
@@ -315,6 +304,8 @@ const activateBranding = async (req, res) => {
     await branding.update({ is_active: true, updated_at: new Date() }, { transaction: t });
     await t.commit();
 
+    invalidateActiveBrandingCache();
+
     return res.status(200).json({
       success: true,
       message: "Branding activated successfully",
@@ -322,11 +313,7 @@ const activateBranding = async (req, res) => {
     });
   } catch (error) {
     if (!t.finished) await t.rollback();
-    return res.status(500).json({
-      success: false,
-      message: "Error activating branding",
-      error: error.message,
-    });
+    return sendError(res, error, req);
   }
 };
 

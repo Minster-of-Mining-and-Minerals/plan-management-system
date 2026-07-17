@@ -2,6 +2,7 @@ const bcrypt = require("bcrypt");
 const { User } = require("../../models");
 const { validateNewPassword } = require("../../utils/passwordPolicy");
 const { logAudit, auditContextFromReq } = require("../../services/auditService");
+const { sendError } = require("../../utils/httpError");
 
 exports.changePassword = async (req, res) => {
   const t = await User.sequelize.transaction();
@@ -96,11 +97,6 @@ exports.changePassword = async (req, res) => {
     });
   } catch (error) {
     if (!t.finished) await t.rollback();
-    console.error("Change password error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Error changing password",
-      error: error.message,
-    });
+    return sendError(res, error, req);
   }
 };

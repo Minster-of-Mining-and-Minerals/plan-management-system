@@ -5,7 +5,7 @@
 | Service | Role | Default ports |
 |---------|------|----------------|
 | `postgres` | PostgreSQL 16 | 5432 |
-| `api` | Express API + Socket.IO (separate port) | 4000 (HTTP), 5000 (Socket.IO) |
+| `api` | Express API + Socket.IO (same HTTP server) | 4000 |
 | `web` | Next.js frontend | 3000 |
 | `nginx` | Reverse proxy (optional) | 80 |
 
@@ -71,7 +71,9 @@ docker compose exec -T postgres pg_dump -U postgres -d novadb > novacure.sql
 
 ## Socket.IO
 
-Realtime uses a **separate** HTTP server on `SOCKET_PORT` (default 5000). Nginx must proxy both `/` → web/api and the Socket.IO path/port. See `nginx/` and Wave D (M8) for same-origin Socket.IO attachment.
+Realtime is attached to the **same** HTTP server as the REST API (`PORT`, default 4000), path `/socket.io`. Clients must send a JWT via `auth.token`, `Authorization: Bearer`, or `?token=`.
+
+Nginx proxies `/socket.io/` to `novacure_api` with WebSocket headers (`nginx/snippets/app-locations.conf`). No separate Socket.IO port is required.
 
 ## Graceful shutdown
 

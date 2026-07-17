@@ -265,43 +265,60 @@ app.get("/", (req, res) => {
 
 // ================== Error Handler ==================
 app.use((err, req, res, next) => {
-  logger.error(
-    {
-      requestId: req.id,
-      err: err.message,
-      status: err.status || 500,
-      path: req.path,
-    },
-    "request_error"
-  );
-  const status = err.status || 500;
-  const expose =
-    err.expose || status < 500 || process.env.NODE_ENV !== "production";
-  res.status(status).json({
-    success: false,
-    message: expose ? err.message || "Internal Server Error" : "Internal Server Error",
-    request_id: req.id,
-  });
+  const { sendError } = require("./utils/httpError");
+  return sendError(res, err, req);
 });
 
-// ================== Socket.IO Setup ==================
-const socketServer = http.createServer();
-const io = new Server(socketServer, {
+// ================== Socket.IO (same HTTP server — M8) ==================
+const jwt = require("jsonwebtoken");
+const io = new Server(appServer, {
   cors: corsOptions,
+  path: "/socket.io",
 });
 
 const onlineUsers = new Map();
 
-io.on("connection", (socket) => {
-  const userId = socket.handshake.query.userId;
+io.use((socket, next) => {
+  try {
+    const authHeader = socket.handshake.headers?.authorization;
+    const bearer =
+      typeof authHeader === "string" && authHeader.startsWith("Bearer ")
+        ? authHeader.slice(7)
+        : null;
+    const token =
+      socket.handshake.auth?.token ||
+      bearer ||
+      (typeof socket.handshake.query?.token === "string"
+        ? socket.handshake.query.token
+        : null);
 
+    if (!token) {
+      return next(new Error("Authentication required"));
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (!decoded?.user_id) {
+      return next(new Error("Invalid token"));
+    }
+    socket.data.userId = decoded.user_id;
+    socket.data.tokenVersion = Number(decoded.token_version || 0);
+    return next();
+  } catch (err) {
+    return next(new Error("Invalid or expired token"));
+  }
+});
+
+io.on("connection", (socket) => {
+  const userId = socket.data.userId;
   if (userId) {
     onlineUsers.set(userId, socket.id);
     logger.info({ userId, socketId: socket.id }, "socket_connected");
   }
 
   socket.on("disconnect", () => {
-    onlineUsers.delete(userId);
+    if (userId && onlineUsers.get(userId) === socket.id) {
+      onlineUsers.delete(userId);
+    }
     logger.info({ userId }, "socket_disconnected");
   });
 });
@@ -330,7 +347,6 @@ async function gracefulShutdown(signal) {
         resolve();
       }
     }),
-    new Promise((resolve) => socketServer.close(resolve)),
   ]);
 
   try {
@@ -347,12 +363,7 @@ async function gracefulShutdown(signal) {
 function startServers() {
   const appPort = process.env.PORT || 4000;
   appServer.listen(appPort, () => {
-    logger.info({ port: appPort }, "http_listening");
-  });
-
-  const socketPort = process.env.SOCKET_PORT || 5000;
-  socketServer.listen(socketPort, () => {
-    logger.info({ port: socketPort }, "socket_listening");
+    logger.info({ port: appPort }, "http_and_socket_listening");
   });
 
   process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));

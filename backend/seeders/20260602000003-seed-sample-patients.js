@@ -4,6 +4,8 @@ const { v4: uuidv4 } = require("uuid");
 const bcrypt = require("bcrypt");
 const { ensurePatientFormCatalog } = require("../services/patientFormSeedService");
 const { assignPatientCodes } = require("../services/qrBarcodeService");
+const { assertDemoSeedAllowed } = require("../utils/assertDemoSeedAllowed");
+const { assertDemoSeedAllowed } = require("../utils/assertDemoSeedAllowed");
 
 const ADMIN_USER_ID = "00000000-0000-4000-8000-000000000001";
 const DEMO_EMAIL_DOMAIN = "@patient.demo.novacure";
@@ -298,6 +300,7 @@ async function generatePatientCode(queryInterface, transaction) {
 
 module.exports = {
   async up(queryInterface) {
+    assertDemoSeedAllowed("sample-patients");
     await ensurePatientFormCatalog();
 
     const now = new Date();

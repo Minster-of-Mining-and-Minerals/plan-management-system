@@ -13,6 +13,8 @@ const {
   TEST_PHARMACIES,
   TEST_PHARMACY_USERS,
 } = require("../config/professionalTestUsersConstants");
+const { assertDemoSeedAllowed } = require("../utils/assertDemoSeedAllowed");
+const { assertDemoSeedAllowed } = require("../utils/assertDemoSeedAllowed");
 
 async function findPermissionId(queryInterface, resource, action) {
   const [rows] = await queryInterface.sequelize.query(
@@ -182,6 +184,7 @@ async function generatePatientCode(queryInterface) {
 
 module.exports = {
   async up(queryInterface) {
+    assertDemoSeedAllowed("professional-test-users");
     const now = new Date();
     const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
 

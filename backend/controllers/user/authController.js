@@ -3,6 +3,7 @@ const { User, Role, RolePermission, Permission, PermissionGroup } = db;
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { logAudit, auditContextFromReq } = require("../../services/auditService");
+const { sendError } = require("../../utils/httpError");
 
 const login = async (req, res) => {
   try {
@@ -124,10 +125,7 @@ const login = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error(error);
-    res
-      .status(500)
-      .json({ message: "Internal server error", error: error.message });
+    return sendError(res, error, req);
   }
 };
 
@@ -150,9 +148,7 @@ const logout = async (req, res) => {
     }
     res.status(200).json({ success: true, message: "Logout successful" });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Internal server error", error: error.message });
+    return sendError(res, error, req);
   }
 };
 
@@ -201,10 +197,7 @@ const getMe = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error(error);
-    res
-      .status(500)
-      .json({ message: "Internal server error", error: error.message });
+    return sendError(res, error, req);
   }
 };
 
@@ -292,10 +285,7 @@ const getMyPermissions = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error(error);
-    res
-      .status(500)
-      .json({ message: "Internal server error", error: error.message });
+    return sendError(res, error, req);
   }
 };
 

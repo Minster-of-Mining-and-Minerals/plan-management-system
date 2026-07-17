@@ -11,6 +11,7 @@ const {
   OPHTHALMOLOGY_DEMO_STAFF,
   ROLE_PERMISSION_MATRIX,
 } = require("../config/clinicalDemoSeedConstants");
+const { assertDemoSeedAllowed } = require("../utils/assertDemoSeedAllowed");
 
 const DEMO_PASSWORD = "password";
 
@@ -105,6 +106,7 @@ async function ensureDiagnosisConfig(
 
 module.exports = {
   async up(queryInterface) {
+    assertDemoSeedAllowed("ophthalmology-clinical-departments-users");
     const now = new Date();
     const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
 

@@ -1,14 +1,9 @@
 "use strict";
 
 const service = require("../../services/appointmentBillingService");
+const { sendError } = require("../../utils/httpError");
 
-const handleError = (res, error) => {
-  const status = error.status || 500;
-  return res.status(status).json({
-    success: false,
-    message: error.message || "Internal server error",
-  });
-};
+const handleError = (res, error, req) => sendError(res, error, req);
 
 const auditCtx = (req) => ({
   ipAddress: req.ip,
@@ -17,10 +12,13 @@ const auditCtx = (req) => ({
 
 const getContext = async (req, res) => {
   try {
-    const data = await service.getBillingContext(req.params.appointmentId);
+    const data = await service.getBillingContext(
+      req.params.appointmentId,
+      req.user
+    );
     return res.status(200).json({ success: true, data });
   } catch (error) {
-    return handleError(res, error);
+    return handleError(res, error, req);
   }
 };
 
@@ -29,7 +27,7 @@ const listActiveServices = async (req, res) => {
     const data = await service.listActiveServices(req.user, req.query);
     return res.status(200).json({ success: true, data });
   } catch (error) {
-    return handleError(res, error);
+    return handleError(res, error, req);
   }
 };
 
@@ -43,7 +41,7 @@ const createEntry = async (req, res) => {
     );
     return res.status(201).json({ success: true, data });
   } catch (error) {
-    return handleError(res, error);
+    return handleError(res, error, req);
   }
 };
 
@@ -57,7 +55,7 @@ const updateEntry = async (req, res) => {
     );
     return res.status(200).json({ success: true, data });
   } catch (error) {
-    return handleError(res, error);
+    return handleError(res, error, req);
   }
 };
 
@@ -70,7 +68,7 @@ const cancelEntry = async (req, res) => {
     );
     return res.status(200).json({ success: true, data });
   } catch (error) {
-    return handleError(res, error);
+    return handleError(res, error, req);
   }
 };
 
@@ -83,7 +81,7 @@ const sendToCashier = async (req, res) => {
     );
     return res.status(201).json({ success: true, data });
   } catch (error) {
-    return handleError(res, error);
+    return handleError(res, error, req);
   }
 };
 

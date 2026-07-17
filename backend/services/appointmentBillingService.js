@@ -19,6 +19,9 @@ const {
   BILLING_ACCOUNT_STATUSES,
   DEFAULT_CURRENCY,
 } = require("../config/billingConstants");
+const {
+  userHasPermission: userHasDbPermission,
+} = require("./userPermissionService");
 
 const {
   AppointmentBillingAccount,
@@ -30,6 +33,47 @@ const {
   User,
   InternalUserProfile,
 } = db;
+
+/** Cashiers / finance can open any visit bill without clinical ownership. */
+async function userHasBillingBypass(userId) {
+  if (!userId) return false;
+  const checks = [
+    ["appointment_billing", "manage"],
+    ["cashier_queue", "view"],
+    ["cashier_payment", "view"],
+    ["cashier_payment", "create"],
+    ["finance_collections", "view"],
+  ];
+  for (const [resource, action] of checks) {
+    if (await userHasDbPermission(userId, resource, action)) return true;
+  }
+  return false;
+}
+
+async function assertBillingAccess(appointmentId, user) {
+  const userId = user?.user_id || user;
+  if (!userId) {
+    const err = new Error("Authentication required for billing access");
+    err.status = 401;
+    throw err;
+  }
+  if (await userHasBillingBypass(userId)) {
+    return getAppointmentOrThrow(appointmentId);
+  }
+  const { canAccessAppointment } = require("./medicalWorkflowService");
+  try {
+    return await canAccessAppointment(appointmentId, userId);
+  } catch (error) {
+    if (error.status === 403) {
+      const err = new Error(
+        "You do not have access to billing for this appointment"
+      );
+      err.status = 403;
+      throw err;
+    }
+    throw error;
+  }
+}
 
 const creatorInclude = {
   model: User,
@@ -219,7 +263,10 @@ async function listActiveServicesForUser(user, query = {}) {
   });
 }
 
-async function getBillingContext(appointmentId) {
+async function getBillingContext(appointmentId, actor = null) {
+  if (actor) {
+    await assertBillingAccess(appointmentId, actor);
+  }
   const account = await getOrCreateAccount(appointmentId);
   const entries = await AppointmentBillingEntry.findAll({
     where: { appointment_id: appointmentId },
@@ -262,6 +309,7 @@ async function getBillingContext(appointmentId) {
 }
 
 async function createEntry(appointmentId, payload, actor, auditContext = {}) {
+  await assertBillingAccess(appointmentId, actor);
   const user = actor;
   const service = await BillingService.findByPk(payload.service_id, {
     include: [
@@ -435,6 +483,8 @@ async function updateEntry(entryId, payload, actor, auditContext = {}) {
     throw err;
   }
 
+  await assertBillingAccess(entry.appointment_id, actor);
+
   const previous = entry.get({ plain: true });
   const patch = { updated_by: actor.user_id };
 
@@ -518,6 +568,8 @@ async function cancelEntry(entryId, actor, auditContext = {}) {
     throw err;
   }
 
+  await assertBillingAccess(entry.appointment_id, actor);
+
   const previous = entry.get({ plain: true });
   const t = await db.sequelize.transaction();
   try {
@@ -556,6 +608,13 @@ module.exports = {
   updateEntry,
   cancelEntry,
   listActiveServices: listActiveServicesForUser,
-  sendToCashier: (appointmentId, actor, payload) =>
-    billingCollectionRequestService.sendToCashier(appointmentId, actor, payload),
+  assertBillingAccess,
+  sendToCashier: async (appointmentId, actor, payload) => {
+    await assertBillingAccess(appointmentId, actor);
+    return billingCollectionRequestService.sendToCashier(
+      appointmentId,
+      actor,
+      payload
+    );
+  },
 };

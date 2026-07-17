@@ -1,14 +1,25 @@
 import { PLATFORM_LOGO_URL } from "@/config/platformBranding";
 import { getAuthToken } from "@/lib/authToken";
 
-export const getFileUrl = (filePath: string) => {
-  const normalized = filePath.replace(/\\/g, "/");
-  if (/^https?:\/\//i.test(normalized)) return normalized;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-  const apiBase = process.env.NEXT_PUBLIC_FILE_URL || "http://localhost:4000";
+function extractAttachmentId(pathOrId: string): string | null {
+  const normalized = pathOrId.replace(/\\/g, "/").replace(/^\//, "").trim();
+  if (!normalized) return null;
+  if (UUID_RE.test(normalized)) return normalized;
 
-  return `${apiBase}/${normalized.replace(/^\//, "")}`;
-};
+  const attachmentMatch = normalized.match(
+    /(?:^|\/)(?:uploads\/)?attachments\/([0-9a-f-]{36})(?:\/|$|\.)/i
+  );
+  if (attachmentMatch?.[1] && UUID_RE.test(attachmentMatch[1])) {
+    return attachmentMatch[1];
+  }
+
+  const basename = normalized.split("/").pop()?.split("?")[0] || "";
+  if (UUID_RE.test(basename)) return basename;
+  return null;
+}
 
 /**
  * Authenticated attachment download URL (Bearer via ?token= for img/href).
@@ -21,6 +32,21 @@ export const getAttachmentFileUrl = (attachmentId: string) => {
   const token = typeof window !== "undefined" ? getAuthToken() : null;
   if (!token) return base;
   return `${base}?token=${encodeURIComponent(token)}`;
+};
+
+/**
+ * Resolve a stored file path or attachment id to a browser-usable URL.
+ * Attachment UUIDs / uploads/attachments/* go through the authenticated API.
+ */
+export const getFileUrl = (filePath: string) => {
+  const normalized = filePath.replace(/\\/g, "/");
+  if (/^https?:\/\//i.test(normalized)) return normalized;
+
+  const attachmentId = extractAttachmentId(normalized);
+  if (attachmentId) return getAttachmentFileUrl(attachmentId);
+
+  const apiBase = process.env.NEXT_PUBLIC_FILE_URL || "http://localhost:4000";
+  return `${apiBase}/${normalized.replace(/^\//, "")}`;
 };
 
 /** Resolve preview URL from upload API payload or stored ref. */
@@ -39,6 +65,8 @@ export const getAttachmentPreviewUrl = (attachment: {
     const path = attachment.download_url.startsWith("http")
       ? attachment.download_url
       : `${apiHost}${attachment.download_url}`;
+    const asAttachment = extractAttachmentId(path);
+    if (asAttachment) return getAttachmentFileUrl(asAttachment);
     const token = typeof window !== "undefined" ? getAuthToken() : null;
     if (!token) return path;
     const sep = path.includes("?") ? "&" : "?";
@@ -55,6 +83,8 @@ export const getBrandingAssetUrl = (filePath: string) => {
   if (trimmed.startsWith("uploads/") || trimmed.includes("/uploads/")) {
     return getFileUrl(trimmed);
   }
+  const attachmentId = extractAttachmentId(trimmed);
+  if (attachmentId) return getAttachmentFileUrl(attachmentId);
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 };
 

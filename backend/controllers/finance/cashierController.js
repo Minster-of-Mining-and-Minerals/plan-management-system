@@ -4,14 +4,9 @@ const sessionService = require("../../services/cashierSessionService");
 const paymentService = require("../../services/cashierPaymentService");
 const servingClaimService = require("../../services/cashierServingClaimService");
 const { logAudit, auditContextFromReq } = require("../../services/auditService");
+const { sendError } = require("../../utils/httpError");
 
-const handleError = (res, error) => {
-  const status = error.status || 500;
-  return res.status(status).json({
-    success: false,
-    message: error.message || "Internal server error",
-  });
-};
+const handleError = (res, error, req) => sendError(res, error, req);
 
 const auditCtx = (req) => ({
   ipAddress: req.ip,
@@ -23,7 +18,7 @@ const getCurrentSession = async (req, res) => {
     const data = await sessionService.getOpenSessionForUser(req.user.user_id);
     return res.status(200).json({ success: true, data });
   } catch (error) {
-    return handleError(res, error);
+    return handleError(res, error, req);
   }
 };
 
@@ -36,7 +31,7 @@ const openSession = async (req, res) => {
     );
     return res.status(201).json({ success: true, data });
   } catch (error) {
-    return handleError(res, error);
+    return handleError(res, error, req);
   }
 };
 
@@ -50,7 +45,7 @@ const closeSession = async (req, res) => {
     );
     return res.status(200).json({ success: true, data });
   } catch (error) {
-    return handleError(res, error);
+    return handleError(res, error, req);
   }
 };
 
@@ -59,7 +54,7 @@ const getSessionSummary = async (req, res) => {
     const data = await sessionService.getSessionSummary(req.params.sessionId);
     return res.status(200).json({ success: true, data });
   } catch (error) {
-    return handleError(res, error);
+    return handleError(res, error, req);
   }
 };
 
@@ -71,7 +66,7 @@ const listQueue = async (req, res) => {
     });
     return res.status(200).json({ success: true, data });
   } catch (error) {
-    return handleError(res, error);
+    return handleError(res, error, req);
   }
 };
 
@@ -80,7 +75,7 @@ const listPaymentsToday = async (req, res) => {
     const data = await paymentService.listPaymentsToday(req.query);
     return res.status(200).json({ success: true, data });
   } catch (error) {
-    return handleError(res, error);
+    return handleError(res, error, req);
   }
 };
 
@@ -89,7 +84,7 @@ const listPaymentHistory = async (req, res) => {
     const data = await paymentService.listPaymentHistory(req.query);
     return res.status(200).json({ success: true, data });
   } catch (error) {
-    return handleError(res, error);
+    return handleError(res, error, req);
   }
 };
 
@@ -104,7 +99,7 @@ const exportCollections = async (req, res) => {
     res.setHeader("X-Export-Row-Count", String(count));
     return res.status(200).send(csv);
   } catch (error) {
-    return handleError(res, error);
+    return handleError(res, error, req);
   }
 };
 
@@ -116,7 +111,7 @@ const getAccount = async (req, res) => {
     );
     return res.status(200).json({ success: true, data });
   } catch (error) {
-    return handleError(res, error);
+    return handleError(res, error, req);
   }
 };
 
@@ -128,7 +123,7 @@ const takeAccount = async (req, res) => {
     );
     return res.status(200).json({ success: true, data });
   } catch (error) {
-    return handleError(res, error);
+    return handleError(res, error, req);
   }
 };
 
@@ -141,7 +136,7 @@ const releaseAccount = async (req, res) => {
     );
     return res.status(200).json({ success: true, data });
   } catch (error) {
-    return handleError(res, error);
+    return handleError(res, error, req);
   }
 };
 
@@ -154,7 +149,7 @@ const forceReleaseAccount = async (req, res) => {
     );
     return res.status(200).json({ success: true, data });
   } catch (error) {
-    return handleError(res, error);
+    return handleError(res, error, req);
   }
 };
 
@@ -168,7 +163,7 @@ const recordPayment = async (req, res) => {
     );
     return res.status(201).json({ success: true, data });
   } catch (error) {
-    return handleError(res, error);
+    return handleError(res, error, req);
   }
 };
 
@@ -181,7 +176,7 @@ const voidPayment = async (req, res) => {
     );
     return res.status(200).json({ success: true, data });
   } catch (error) {
-    return handleError(res, error);
+    return handleError(res, error, req);
   }
 };
 
@@ -202,7 +197,7 @@ const getReceipt = async (req, res) => {
     });
     return res.status(200).json({ success: true, data });
   } catch (error) {
-    return handleError(res, error);
+    return handleError(res, error, req);
   }
 };
 
