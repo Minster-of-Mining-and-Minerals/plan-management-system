@@ -39,6 +39,7 @@ import {
 } from "@/redux/api/appointmentBillingApi";
 import type { AppointmentBillingEntry } from "@/redux/types/billing";
 import { BILLING_PERMISSIONS, formatBillingCurrency, formatBillingDateTime } from "./billingUtils";
+import { useAuth } from "@/hooks/use-auth";
 
 type Props = {
   appointmentId: string;
@@ -50,6 +51,8 @@ type BillingEntryRowProps = {
   currency: string;
   disabled?: boolean;
   accountLocked?: boolean;
+  accountPaid?: boolean;
+  currentUserId?: string | null;
   defaultOpen?: boolean;
   onRemove: (entryId: string) => void;
 };
@@ -59,6 +62,8 @@ function BillingEntryRow({
   currency,
   disabled,
   accountLocked,
+  accountPaid,
+  currentUserId,
   defaultOpen = false,
   onRemove,
 }: BillingEntryRowProps) {
@@ -119,7 +124,18 @@ function BillingEntryRow({
                     {Number(entry.tax_percent) === 0 ? " (0%)" : ""}
                   </p>
                 </div>
-                {!disabled && !accountLocked && (
+                {/* Remove is only available when:
+                    1. Not disabled / account not in a locked state
+                    2. The account has NOT been paid (amount_paid == 0, status draft/pending)
+                    3. The current user is the creator of this entry
+                    4. The user has the BILLING:APPOINTMENT_DELETE permission
+                */}
+                {!disabled &&
+                  !accountLocked &&
+                  !accountPaid &&
+                  currentUserId &&
+                  (entry.added_by_user_id === currentUserId ||
+                    entry.created_by === currentUserId) && (
                   <PermissionGuard
                     requireAll={[BILLING_PERMISSIONS.APPOINTMENT_DELETE]}
                     fallback={null}
@@ -145,6 +161,8 @@ function BillingEntryRow({
 }
 
 export function AppointmentBillingCard({ appointmentId, disabled }: Props) {
+  const { user } = useAuth();
+  const currentUserId = user?.user_id ?? null;
   const [addOpen, setAddOpen] = useState(false);
   const [serviceId, setServiceId] = useState("");
   const [quantity, setQuantity] = useState("1");
@@ -166,6 +184,12 @@ export function AppointmentBillingCard({ appointmentId, disabled }: Props) {
   const accountLocked =
     data?.account?.status === "cancelled" ||
     data?.account?.status === "refunded";
+  // An entry cannot be removed once any payment has been recorded.
+  // This covers: paid, partially_paid, pending_payment statuses.
+  const accountPaid =
+    (data?.account?.amount_paid ?? 0) > 0 ||
+    (data?.account?.status !== undefined &&
+      !["draft", "pending"].includes(data.account.status));
   const balanceDue = summary?.balance_due ?? data?.account?.balance_due ?? 0;
   const canSendToCashier =
     activeEntries.length > 0 && balanceDue > 0 && !accountLocked;
@@ -300,6 +324,8 @@ export function AppointmentBillingCard({ appointmentId, disabled }: Props) {
                 currency={currency}
                 disabled={disabled}
                 accountLocked={accountLocked}
+                accountPaid={accountPaid}
+                currentUserId={currentUserId}
                 defaultOpen={index === 0}
                 onRemove={handleRemove}
               />

@@ -137,16 +137,35 @@ export function CashierDeskPage() {
   const [closeSession, { isLoading: closingSession }] =
     useCloseCashierSessionMutation();
 
-  const { data: queue, isLoading: queueLoading, refetch: refetchQueue } =
+  // Fetch without schedule_date — we filter client-side by admitted_at so
+  // the date picker reflects when the patient was forwarded to the cashier
+  // desk, not the scheduled slot date from registration.
+  const { data: rawQueue, isLoading: queueLoading, refetch: refetchQueue } =
     useGetCashierQueueQuery(
       {
         search: search.trim() || undefined,
-        schedule_date: dateFilterEnabled ? scheduleDate : undefined,
         page: 1,
-        limit: 50,
+        limit: 100,
       },
       { pollingInterval: 15000 }
     );
+
+  // Filter client-side by the date the billing was sent to the cashier desk
+  // (pending_collection_request.requested_at), not the admission date.
+  const queue = rawQueue
+    ? {
+        ...rawQueue,
+        results: dateFilterEnabled
+          ? rawQueue.results.filter(
+              (item) =>
+                item.pending_collection_request?.requested_at &&
+                new Date(item.pending_collection_request.requested_at)
+                  .toISOString()
+                  .slice(0, 10) === scheduleDate
+            )
+          : rawQueue.results,
+      }
+    : rawQueue;
 
   const { data: paidToday, isLoading: paidTodayLoading } =
     useGetCashierPaymentsTodayQuery(
@@ -509,7 +528,7 @@ export function CashierDeskPage() {
                     disabled={!dateFilterEnabled}
                     onChange={(e) => setScheduleDate(e.target.value)}
                     className="w-[11rem] pl-9"
-                    aria-label="Pick visit date"
+                    aria-label="Pick sent-to-cashier date"
                   />
                 </div>
                 <Button
@@ -532,7 +551,7 @@ export function CashierDeskPage() {
                   htmlFor="cashier-date-filter"
                   className="text-sm font-normal cursor-pointer"
                 >
-                  Filter by date
+                  Filter by sent date
                 </Label>
               </div>
               {!dateFilterEnabled && (
@@ -547,7 +566,7 @@ export function CashierDeskPage() {
                 className="pl-9"
                 placeholder={
                   dateFilterEnabled
-                    ? "Search this day (name, patient ID, phone)…"
+                    ? "Search sent today (name, patient ID, phone)…"
                     : "Search all (name, patient ID, phone)…"
                 }
                 value={search}

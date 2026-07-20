@@ -61,6 +61,9 @@ export type AppointmentBillingEntry = {
   has_price_override?: boolean;
   override_reason?: string | null;
   added_by_name?: string | null;
+  added_by_user_id?: string | null;
+  /** Raw DB field — same as added_by_user_id, returned via ...plain spread */
+  created_by?: string | null;
   added_by_department?: string | null;
   created_at: string;
 };

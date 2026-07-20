@@ -57,17 +57,28 @@ export function StaffAppointmentsTable() {
   const apiSortField =
     sortField === "patient_name" ? "admitted_at" : sortField;
 
-  const { data: appointments = [], isLoading } = useGetMyAppointmentsQuery({
+  // Fetch without date filter — we filter client-side by admitted_at so the
+  // date picker reflects when the patient was actually admitted, not the
+  // scheduled slot date from registration.
+  const { data: allAppointments = [], isLoading } = useGetMyAppointmentsQuery({
     search: search.trim() || undefined,
     status: statusFilter || undefined,
     sort: apiSortField,
     order: sortOrder,
-    schedule_date: dateFilterEnabled ? selectedDate : undefined,
   });
+
+  // Client-side filter by admitted_at date
+  const appointments = dateFilterEnabled
+    ? allAppointments.filter(
+        (a) =>
+          a.admitted_at &&
+          new Date(a.admitted_at).toISOString().slice(0, 10) === selectedDate
+      )
+    : allAppointments;
 
   useEffect(() => {
     setPageIndex(0);
-  }, [search, statusFilter, sortField, sortOrder, selectedDate, dateFilterEnabled]);
+  }, [search, statusFilter, sortField, sortOrder, selectedDate, dateFilterEnabled, allAppointments]);
 
   const columns: ColumnDef<StaffAppointment>[] = useMemo(
     () => [
@@ -241,7 +252,7 @@ export function StaffAppointmentsTable() {
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
                 className="w-[11rem] pl-9"
-                aria-label="Pick appointment date"
+                aria-label="Pick admitted date"
               />
             </div>
             <Button
@@ -263,7 +274,7 @@ export function StaffAppointmentsTable() {
               htmlFor="appointment-date-filter"
               className="text-sm font-normal cursor-pointer"
             >
-              Filter by date
+              Filter by admitted date
             </Label>
           </div>
           {!dateFilterEnabled && (
@@ -279,7 +290,7 @@ export function StaffAppointmentsTable() {
             <Input
               placeholder={
                 dateFilterEnabled
-                  ? "Search this day (name, patient ID, phone)…"
+                  ? "Search admitted today (name, patient ID, phone)…"
                   : "Search all (name, patient ID, phone)…"
               }
               value={search}

@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { ColumnDef } from "@tanstack/react-table";
-import { Eye, Search } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Eye, Search } from "lucide-react";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -39,6 +41,16 @@ const TASK_STATUS_VARIANT: Record<
   cancelled: "outline",
 };
 
+function formatToday() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function addDays(dateStr: string, days: number) {
+  const d = new Date(`${dateStr}T12:00:00`);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 type Props = {
   status: string;
   onStatusChange: (status: string) => void;
@@ -49,16 +61,29 @@ export function WorkflowInboxTable({ status, onStatusChange }: Props) {
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState("");
+  const [selectedDate, setSelectedDate] = useState(formatToday);
+  const [dateFilterEnabled, setDateFilterEnabled] = useState(true);
   const { data: tasks = [], isLoading } = useGetWorkflowInboxQuery({ status });
 
   useEffect(() => {
     setPageIndex(0);
-  }, [search, status]);
+  }, [search, status, selectedDate, dateFilterEnabled]);
 
   const filtered = useMemo(() => {
+    let rows = tasks;
+
+    // Filter by forwarded-at date (task.created_at = when the task was forwarded)
+    if (dateFilterEnabled) {
+      rows = rows.filter(
+        (task) =>
+          task.created_at &&
+          new Date(task.created_at).toISOString().slice(0, 10) === selectedDate
+      );
+    }
+
     const q = search.trim().toLowerCase();
-    if (!q) return tasks;
-    return tasks.filter((task) => {
+    if (!q) return rows;
+    return rows.filter((task) => {
       const patient = task.appointment?.patient;
       const name = patient?.full_name?.toLowerCase() || "";
       const code = patient?.patientProfile?.patient_code?.toLowerCase() || "";
@@ -71,7 +96,7 @@ export function WorkflowInboxTable({ status, onStatusChange }: Props) {
         from.includes(q)
       );
     });
-  }, [tasks, search]);
+  }, [tasks, search, selectedDate, dateFilterEnabled]);
 
   const sorted = useMemo(
     () =>
@@ -143,7 +168,7 @@ export function WorkflowInboxTable({ status, onStatusChange }: Props) {
       },
       {
         accessorKey: "created_at",
-        header: "Received",
+        header: "Forwarded at",
         cell: ({ row }) => (
           <span className="text-sm">{formatWhen(row.original.created_at)}</span>
         ),
@@ -185,6 +210,57 @@ export function WorkflowInboxTable({ status, onStatusChange }: Props) {
     <div className="w-full rounded-lg border bg-white p-6 shadow">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
+          {/* Forwarded-at date filter */}
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Previous day"
+              disabled={!dateFilterEnabled}
+              onClick={() => setSelectedDate((d) => addDays(d, -1))}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="relative">
+              <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="date"
+                value={selectedDate}
+                disabled={!dateFilterEnabled}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-[11rem] pl-9"
+                aria-label="Pick forwarded date"
+              />
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Next day"
+              disabled={!dateFilterEnabled}
+              onClick={() => setSelectedDate((d) => addDays(d, 1))}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="flex items-center gap-2 border-l pl-2 ml-1">
+            <Switch
+              id="workflow-date-filter"
+              checked={dateFilterEnabled}
+              onCheckedChange={setDateFilterEnabled}
+            />
+            <Label
+              htmlFor="workflow-date-filter"
+              className="text-sm font-normal cursor-pointer"
+            >
+              Filter by forwarded date
+            </Label>
+          </div>
+          {!dateFilterEnabled && (
+            <span className="text-xs text-muted-foreground">Showing all dates</span>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-muted-foreground">Status</span>
           <Select value={status} onValueChange={onStatusChange}>
             <SelectTrigger className="w-[180px]">
@@ -198,14 +274,20 @@ export function WorkflowInboxTable({ status, onStatusChange }: Props) {
             </SelectContent>
           </Select>
         </div>
+      </div>
 
+      <div className="mb-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search name, patient ID, subject, sender…"
+            placeholder={
+              dateFilterEnabled
+                ? "Search forwarded today (name, patient ID, subject, sender)…"
+                : "Search all (name, patient ID, subject, sender)…"
+            }
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 sm:w-72"
+            className="w-full pl-9"
           />
         </div>
       </div>
