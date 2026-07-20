@@ -51,7 +51,7 @@ type BillingEntryRowProps = {
   currency: string;
   disabled?: boolean;
   accountLocked?: boolean;
-  accountPaid?: boolean;
+  paymentStatus: "paid" | "partially_paid" | "pending";
   currentUserId?: string | null;
   defaultOpen?: boolean;
   onRemove: (entryId: string) => void;
@@ -62,7 +62,7 @@ function BillingEntryRow({
   currency,
   disabled,
   accountLocked,
-  accountPaid,
+  paymentStatus,
   currentUserId,
   defaultOpen = false,
   onRemove,
@@ -90,7 +90,12 @@ function BillingEntryRow({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="font-semibold text-foreground">{entry.service_name}</p>
+                    <p className="font-semibold text-foreground flex items-center gap-2">
+                      {entry.service_name}
+                      {paymentStatus === "paid" && <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 text-[10px] h-5">Paid</Badge>}
+                      {paymentStatus === "pending" && <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 text-[10px] h-5">Pending</Badge>}
+                      {paymentStatus === "partially_paid" && <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 text-[10px] h-5">Partially Paid</Badge>}
+                    </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {formatBillingDateTime(entry.created_at)}
                       {entry.added_by_name ? ` · ${entry.added_by_name}` : ""}
@@ -132,7 +137,7 @@ function BillingEntryRow({
                 */}
                 {!disabled &&
                   !accountLocked &&
-                  !accountPaid &&
+                  paymentStatus === "pending" &&
                   currentUserId &&
                   (entry.added_by_user_id === currentUserId ||
                     entry.created_by === currentUserId) && (
@@ -179,6 +184,25 @@ export function AppointmentBillingCard({ appointmentId, disabled }: Props) {
     useSendAppointmentToCashierMutation();
 
   const activeEntries = (data?.entries ?? []).filter((e) => e.status === "active");
+
+  let currentPaid = Number(data?.account?.amount_paid || 0);
+  const entriesWithPayment = activeEntries.map((entry) => {
+    let paymentStatus: "paid" | "partially_paid" | "pending" = "pending";
+    const lineTotal = Number(entry.line_total || 0);
+    if (currentPaid >= lineTotal && lineTotal > 0) {
+      paymentStatus = "paid";
+      currentPaid -= lineTotal;
+    } else if (currentPaid > 0) {
+      paymentStatus = "partially_paid";
+      currentPaid = 0;
+    } else if (lineTotal === 0) {
+      paymentStatus = "paid";
+    } else {
+      paymentStatus = "pending";
+    }
+    return { entry, paymentStatus };
+  });
+
   const summary = data?.summary;
   const currency = data?.account?.currency || "ETB";
   const accountLocked =
@@ -186,10 +210,6 @@ export function AppointmentBillingCard({ appointmentId, disabled }: Props) {
     data?.account?.status === "refunded";
   // An entry cannot be removed once any payment has been recorded.
   // This covers: paid, partially_paid, pending_payment statuses.
-  const accountPaid =
-    (data?.account?.amount_paid ?? 0) > 0 ||
-    (data?.account?.status !== undefined &&
-      !["draft", "pending"].includes(data.account.status));
   const balanceDue = summary?.balance_due ?? data?.account?.balance_due ?? 0;
   const canSendToCashier =
     activeEntries.length > 0 && balanceDue > 0 && !accountLocked;
@@ -311,20 +331,20 @@ export function AppointmentBillingCard({ appointmentId, disabled }: Props) {
       <CardContent className="space-y-4">
         {isLoading ? (
           <Loading01 />
-        ) : activeEntries.length === 0 ? (
+        ) : entriesWithPayment.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No billing entries yet. Services added during this visit will appear here.
           </p>
         ) : (
           <ul className="space-y-3">
-            {activeEntries.map((entry, index) => (
+            {entriesWithPayment.map(({ entry, paymentStatus }, index) => (
               <BillingEntryRow
                 key={entry.entry_id}
                 entry={entry}
                 currency={currency}
                 disabled={disabled}
                 accountLocked={accountLocked}
-                accountPaid={accountPaid}
+                paymentStatus={paymentStatus}
                 currentUserId={currentUserId}
                 defaultOpen={index === 0}
                 onRemove={handleRemove}
