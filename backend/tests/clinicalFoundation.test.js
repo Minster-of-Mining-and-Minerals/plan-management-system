@@ -166,4 +166,62 @@ describe("Clinical Platform Foundation Integration Tests", () => {
       });
     });
   });
+  describe("Clinical Document Platform (Phase 2.2)", () => {
+    let docId;
+
+    it("should handle complex lifecycle transitions correctly", async () => {
+      const docData = {
+        patient_id: patientId,
+        document_type: "REFERRAL",
+        title: "Dermatology Referral",
+        form_data: { reason: "Suspicious mole" },
+        status: "draft",
+      };
+
+      const doc = await clinicalDocumentService.createDocument(docData, staffId);
+      docId = doc.document_id;
+      expect(doc.status).toBe("draft");
+
+      // Draft -> Submitted
+      const submitted = await clinicalDocumentService.transitionStatus(docId, "submitted", staffId);
+      expect(submitted.status).toBe("submitted");
+
+      // Submitted -> Reviewed
+      const reviewed = await clinicalDocumentService.transitionStatus(docId, "reviewed", staffId);
+      expect(reviewed.status).toBe("reviewed");
+      expect(reviewed.reviewer_id).toBe(staffId);
+
+      // Reviewed -> Approved
+      const approved = await clinicalDocumentService.transitionStatus(docId, "approved", staffId);
+      expect(approved.status).toBe("approved");
+      expect(approved.approver_id).toBe(staffId);
+    });
+
+    it("should handle digital signatures in JSONB structure", async () => {
+      const signedDoc = await clinicalDocumentService.signDocument(
+        docId,
+        { role: "author", signature_value: "Dr. Testing Author" },
+        staffId
+      );
+
+      expect(signedDoc.signatures).toBeDefined();
+      expect(signedDoc.signatures.author).toBeDefined();
+      expect(signedDoc.signatures.author.signature_value).toBe("Dr. Testing Author");
+      expect(signedDoc.signatures.author.user_id).toBe(staffId);
+      expect(signedDoc.signatures.author.signed_at).toBeDefined();
+
+      // Sign as approver
+      const fullySigned = await clinicalDocumentService.signDocument(
+        docId,
+        { role: "approver", signature_value: "data:image/png;base64,mock..." },
+        staffId
+      );
+
+      expect(fullySigned.signatures.approver).toBeDefined();
+      expect(fullySigned.signatures.approver.signature_value).toContain("data:image");
+
+      // Cleanup
+      await db.ClinicalDocument.destroy({ where: { document_id: docId } });
+    });
+  });
 });

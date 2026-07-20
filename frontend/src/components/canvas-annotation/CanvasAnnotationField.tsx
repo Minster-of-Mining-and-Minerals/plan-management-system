@@ -119,7 +119,14 @@ export function CanvasAnnotationField({
         const storedPath = await uploadCanvasPreviewDataUrl(
           preview,
           fieldKey,
-          async (arg) => uploadAttachments(arg).unwrap()
+          async (arg) => {
+            const res = await uploadAttachments(arg).unwrap();
+            return {
+              attachments: res.attachments?.map((a: any) => ({
+                file_path: a.file_path || "",
+              })),
+            };
+          }
         );
         onChange(fieldKey, {
           ...next,

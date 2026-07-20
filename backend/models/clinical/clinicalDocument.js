@@ -25,6 +25,14 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "updated_by",
         as: "updater",
       });
+      ClinicalDocument.belongsTo(models.User, {
+        foreignKey: "reviewer_id",
+        as: "reviewer",
+      });
+      ClinicalDocument.belongsTo(models.User, {
+        foreignKey: "approver_id",
+        as: "approver",
+      });
       ClinicalDocument.belongsTo(models.ClinicalDocument, {
         foreignKey: "parent_document_id",
         as: "parentDocument",
@@ -86,10 +94,28 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.UUID,
         allowNull: true,
       },
+      reviewer_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      approver_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
       attachment_ids: {
         type: DataTypes.JSONB,
         allowNull: false,
         defaultValue: [],
+      },
+      signatures: {
+        type: DataTypes.JSONB,
+        allowNull: false,
+        defaultValue: {},
+      },
+      metadata: {
+        type: DataTypes.JSONB,
+        allowNull: false,
+        defaultValue: {},
       },
     },
     {
