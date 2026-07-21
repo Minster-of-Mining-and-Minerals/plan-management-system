@@ -108,6 +108,35 @@ export type SubmitWorkflowPayload = {
   partial?: boolean;
 };
 
+// ── Encounter Validation Engine Types ────────────────────────────────────────
+
+export type ValidationIssue = {
+  code: string;
+  title: string;
+  description: string;
+  severity: "CRITICAL" | "WARNING" | "INFO";
+  resolutionHint?: string;
+};
+
+export type ValidationResult = {
+  canComplete: boolean;
+  blockingIssues: ValidationIssue[];
+  warnings: ValidationIssue[];
+  recommendations: ValidationIssue[];
+  validationSummary: {
+    totalRulesEvaluated: number;
+    contextData: Record<string, boolean | number>;
+  };
+};
+
+export type ExecuteCompletionPayload = {
+  appointmentId: string;
+  overrideReason?: string;
+  overriddenWarnings?: ValidationIssue[];
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const medicalWorkflowApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getWorkflowContext: builder.query<WorkflowContext, string>({
@@ -163,6 +192,31 @@ export const medicalWorkflowApi = baseApi.injectEndpoints({
       query: () => "/workflow/receivers",
       transformResponse: (r: { data: WorkflowReceiver[] }) => r.data,
     }),
+
+    // Encounter Validation Engine
+    validateEncounterCompletion: builder.query<ValidationResult, string>({
+      query: (appointmentId) =>
+        `/workflow/appointment/${appointmentId}/validate-completion`,
+      transformResponse: (r: { data: ValidationResult }) => r.data,
+    }),
+
+    executeEncounterCompletion: builder.mutation<
+      MedicalHistoryLog,
+      ExecuteCompletionPayload
+    >({
+      query: ({ appointmentId, ...body }) => ({
+        url: `/workflow/appointment/${appointmentId}/execute-completion`,
+        method: "POST",
+        body,
+      }),
+      transformResponse: (r: { data: MedicalHistoryLog }) => r.data,
+      invalidatesTags: (_r, _e, { appointmentId }) => [
+        { type: "MedicalWorkflow", id: appointmentId },
+        { type: "MedicalWorkflow", id: "INBOX" },
+        { type: "MedicalWorkflow" },
+        "Notification",
+      ],
+    }),
   }),
 });
 
@@ -173,4 +227,6 @@ export const {
   useGetScheduleMedicalTimelineQuery,
   useGetWorkflowInboxQuery,
   useGetWorkflowReceiversQuery,
+  useLazyValidateEncounterCompletionQuery,
+  useExecuteEncounterCompletionMutation,
 } = medicalWorkflowApi;

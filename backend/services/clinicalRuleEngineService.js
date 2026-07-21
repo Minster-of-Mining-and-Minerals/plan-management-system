@@ -179,6 +179,63 @@ class ClinicalRuleEngineService {
             });
           }
         }
+
+        // Encounter Completion specific rules
+        if (triggerEvent === "ENCOUNTER_COMPLETE") {
+          if (rule.name === "Active Task Blocking" && contextData.has_pending_tasks) {
+            alerts.push({
+              rule_id: rule.rule_id,
+              rule_name: rule.name,
+              severity: rule.severity || "CRITICAL",
+              message: `Cannot complete encounter: There are incomplete workflow tasks assigned.`,
+              resolutionHint: "Resolve or cancel all pending workflow tasks first."
+            });
+          }
+
+          if (rule.name === "Pending Orders Warning") {
+            const hasPendingLab = contextData.has_pending_lab;
+            const hasPendingPharmacy = contextData.has_pending_pharmacy;
+            
+            if (hasPendingLab) {
+              alerts.push({
+                rule_id: rule.rule_id,
+                rule_name: rule.name,
+                severity: rule.severity || "WARNING",
+                message: `Patient has pending laboratory orders.`,
+                resolutionHint: "Ensure patient visits the lab before leaving."
+              });
+            }
+            if (hasPendingPharmacy) {
+              alerts.push({
+                rule_id: rule.rule_id,
+                rule_name: rule.name,
+                severity: rule.severity || "WARNING",
+                message: `Patient has unfulfilled pharmacy prescriptions.`,
+                resolutionHint: "Ensure patient collects medications before leaving."
+              });
+            }
+          }
+
+          if (rule.name === "Unpaid Balance Warning" && contextData.has_unpaid_balance) {
+            alerts.push({
+              rule_id: rule.rule_id,
+              rule_name: rule.name,
+              severity: rule.severity || "WARNING",
+              message: `Patient has an unpaid balance.`,
+              resolutionHint: "Direct patient to cashier."
+            });
+          }
+          
+          if (rule.name === "Missing Diagnosis" && !contextData.has_diagnosis) {
+            alerts.push({
+              rule_id: rule.rule_id,
+              rule_name: rule.name,
+              severity: rule.severity || "WARNING",
+              message: `No diagnosis recorded for this encounter.`,
+              resolutionHint: "Consider adding a diagnosis before completion."
+            });
+          }
+        }
       } catch (err) {
         console.error(`Error executing rule ${rule.name}:`, err.message);
       }
@@ -235,6 +292,42 @@ class ClinicalRuleEngineService {
         conditions: { check: "vitals_threshold" },
         severity: "WARNING",
         action: { display_alert: true },
+        is_enabled: true,
+      },
+      {
+        rule_id: uuidv4(),
+        name: "Active Task Blocking",
+        trigger_event: "ENCOUNTER_COMPLETE",
+        conditions: { check: "pending_tasks" },
+        severity: "CRITICAL", // Blocking
+        action: { block_completion: true },
+        is_enabled: true,
+      },
+      {
+        rule_id: uuidv4(),
+        name: "Pending Orders Warning",
+        trigger_event: "ENCOUNTER_COMPLETE",
+        conditions: { check: "pending_orders" },
+        severity: "WARNING",
+        action: { display_warning: true },
+        is_enabled: true,
+      },
+      {
+        rule_id: uuidv4(),
+        name: "Unpaid Balance Warning",
+        trigger_event: "ENCOUNTER_COMPLETE",
+        conditions: { check: "unpaid_balance" },
+        severity: "WARNING",
+        action: { display_warning: true },
+        is_enabled: true,
+      },
+      {
+        rule_id: uuidv4(),
+        name: "Missing Diagnosis",
+        trigger_event: "ENCOUNTER_COMPLETE",
+        conditions: { check: "has_diagnosis" },
+        severity: "WARNING",
+        action: { display_warning: true },
         is_enabled: true,
       },
     ];

@@ -10,7 +10,11 @@ import {
   useGetWorkflowContextQuery,
   useSubmitWorkflowEntryMutation,
   useGetWorkflowReceiversQuery,
+  useLazyValidateEncounterCompletionQuery,
+  useExecuteEncounterCompletionMutation,
   type WorkflowActionType,
+  type ValidationResult,
+  type ValidationIssue,
 } from "@/redux/api/medicalWorkflowApi";
 import type {
   DynamicFormValues,
@@ -21,6 +25,7 @@ import { flattenFormFields } from "@/redux/types/formField";
 import { GlobalWorkflowActions } from "./components/GlobalWorkflowActions";
 import { DiagnosisReportsCard } from "./components/DiagnosisReportsCard";
 import { WorkflowFormCard } from "./components/WorkflowFormCard";
+import { EncounterValidationDialog } from "./components/EncounterValidationDialog";
 import { ForwardPreview, CASHIER_FORWARD_TARGET_ID } from "./panels/ForwardPreview";
 import { PrescriptionPreview } from "./panels/PrescriptionPreview";
 import { WorkflowHistoryLogPanel } from "./panels/WorkflowHistoryLogPanel";
@@ -44,6 +49,12 @@ import {
 } from "@/components/canvas-annotation/canvasAnnotationUtils";
 
 type GlobalPanel = "forward" | "prescribe" | "history" | null;
+
+type ValidationDialogState =
+  | { phase: "loading" }
+  | { phase: "results"; result: ValidationResult }
+  | { phase: "override"; result: ValidationResult }
+  | { phase: "completing" };
 
 type Props = {
   appointmentId: string;
@@ -72,8 +83,16 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
     useSubmitWorkflowEntryMutation();
   const [sendToCashier, { isLoading: sendingToCashier }] =
     useSendAppointmentToCashierMutation();
+  const [triggerValidation] = useLazyValidateEncounterCompletionQuery();
+  const [executeCompletion] = useExecuteEncounterCompletionMutation();
   const { can } = usePermissions();
   const canSendToCashier = can(BILLING_PERMISSIONS.COLLECTION_SEND);
+
+  // Validation dialog state
+  const [validationDialogOpen, setValidationDialogOpen] = useState(false);
+  const [validationDialogState, setValidationDialogState] = useState<ValidationDialogState>({ phase: "loading" });
+  const [overrideReason, setOverrideReason] = useState("");
+  const [overriddenWarnings, setOverriddenWarnings] = useState<ValidationIssue[]>([]);
 
   const [entryTitle, setEntryTitle] = useState("");
   const [entryTitleError, setEntryTitleError] = useState("");
@@ -293,19 +312,79 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
     });
   };
 
-  const handleGlobalComplete = () => {
-    if (
-      !window.confirm(
-        "Mark this appointment workflow as complete? This cannot be undone from the UI."
-      )
-    ) {
+  // ── Validation Engine ─────────────────────────────────────────────────────
+
+  const handleGlobalComplete = async () => {
+    if (!can(WORKFLOW_PERMISSIONS.COMPLETE)) {
+      toast.error("You do not have permission to complete this encounter");
       return;
     }
-    runAction("complete", {
-      partial: true,
-      headerTitle: "Workflow completed",
-      useFormValues: false,
-    });
+    // Open dialog in loading state
+    setOverrideReason("");
+    setOverriddenWarnings([]);
+    setValidationDialogState({ phase: "loading" });
+    setValidationDialogOpen(true);
+
+    try {
+      const result = await triggerValidation(appointmentId, false).unwrap();
+      setValidationDialogState({ phase: "results", result });
+    } catch (e: unknown) {
+      setValidationDialogOpen(false);
+      const msg =
+        e && typeof e === "object" && "data" in e
+          ? String((e as { data?: { message?: string } }).data?.message)
+          : "Validation failed";
+      toast.error(msg);
+    }
+  };
+
+  const handleProceedAnyway = () => {
+    if (validationDialogState.phase !== "results") return;
+    setOverriddenWarnings(validationDialogState.result.warnings);
+    setValidationDialogState({ phase: "override", result: validationDialogState.result });
+  };
+
+  const handleConfirmCompletion = async () => {
+    const isOverride = validationDialogState.phase === "override";
+    const currentResult =
+      validationDialogState.phase === "results" || validationDialogState.phase === "override"
+        ? validationDialogState.result
+        : null;
+
+    if (isOverride && !overrideReason.trim()) {
+      toast.error("An override reason is required");
+      return;
+    }
+
+    setValidationDialogState({ phase: "completing" });
+
+    try {
+      await executeCompletion({
+        appointmentId,
+        overrideReason: isOverride ? overrideReason.trim() : undefined,
+        overriddenWarnings: isOverride ? overriddenWarnings : undefined,
+      }).unwrap();
+
+      toast.success(
+        isOverride
+          ? "Encounter completed with override recorded"
+          : "Encounter completed successfully"
+      );
+      setValidationDialogOpen(false);
+      refetch();
+    } catch (e: unknown) {
+      const msg =
+        e && typeof e === "object" && "data" in e
+          ? String((e as { data?: { message?: string } }).data?.message)
+          : "Completion failed";
+      toast.error(msg);
+      // Go back to results if there's a new result, otherwise close
+      if (currentResult) {
+        setValidationDialogState({ phase: "results", result: currentResult });
+      } else {
+        setValidationDialogOpen(false);
+      }
+    }
   };
 
   if (isLoading) return <Loading01 />;
@@ -332,6 +411,16 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
         onPrescribe={() => setGlobalPanel("prescribe")}
         onComplete={handleGlobalComplete}
         onOpenHistory={() => setGlobalPanel("history")}
+      />
+
+      <EncounterValidationDialog
+        open={validationDialogOpen}
+        onClose={() => setValidationDialogOpen(false)}
+        state={validationDialogState}
+        overrideReason={overrideReason}
+        onOverrideReasonChange={setOverrideReason}
+        onProceedAnyway={handleProceedAnyway}
+        onConfirmCompletion={handleConfirmCompletion}
       />
 
       <div

@@ -3,6 +3,7 @@
 const medicalWorkflowService = require("../../services/medicalWorkflowService");
 const appointmentService = require("../../services/appointmentService");
 const { logAudit, auditContextFromReq } = require("../../services/auditService");
+const encounterCompletionService = require("../../services/encounterCompletionService");
 
 const ensureReceivePatient = async (req, res, next) => {
   try {
@@ -120,6 +121,55 @@ const listReceivers = async (req, res) => {
   }
 };
 
+const validateCompletion = async (req, res) => {
+  try {
+    const { appointmentId } = req.params;
+    const result = await encounterCompletionService.validateCompletion(
+      appointmentId,
+      req.user.user_id
+    );
+    return res.json({ success: true, data: result });
+  } catch (e) {
+    return res.status(e.status || 500).json({ success: false, message: e.message });
+  }
+};
+
+const executeCompletion = async (req, res) => {
+  try {
+    const { appointmentId } = req.params;
+    const { overrideReason, overriddenWarnings } = req.body;
+
+    const log = await encounterCompletionService.executeCompletion(
+      appointmentId,
+      req.user.user_id,
+      { overrideReason, overriddenWarnings }
+    );
+
+    const ctx = auditContextFromReq(req, {
+      appointment_id: appointmentId,
+      action_type: "complete",
+      override_reason: overrideReason || null,
+      overridden_warnings: overriddenWarnings || [],
+    });
+    await logAudit({
+      actorUserId: req.user.user_id,
+      action: "complete",
+      resourceType: "workflow",
+      resourceId: appointmentId,
+      details: ctx.details,
+      ipAddress: ctx.ipAddress,
+    });
+
+    return res.json({ success: true, data: log });
+  } catch (e) {
+    return res.status(e.status || 500).json({
+      success: false,
+      message: e.message,
+      errors: e.details,
+    });
+  }
+};
+
 module.exports = {
   ensureReceivePatient,
   getContext,
@@ -127,4 +177,6 @@ module.exports = {
   listTimeline,
   listInbox,
   listReceivers,
+  validateCompletion,
+  executeCompletion,
 };

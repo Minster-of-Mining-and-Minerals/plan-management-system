@@ -28,4 +28,16 @@ router.get(
 );
 router.post("/submit", requireWorkflowAction, controller.submitEntry);
 
+// Encounter Validation Engine endpoints
+router.get(
+  "/appointment/:appointmentId/validate-completion",
+  checkPermission("workflow", "complete"),
+  controller.validateCompletion
+);
+router.post(
+  "/appointment/:appointmentId/execute-completion",
+  checkPermission("workflow", "complete"),
+  controller.executeCompletion
+);
+
 module.exports = router;
