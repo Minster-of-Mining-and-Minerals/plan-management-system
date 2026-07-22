@@ -14,12 +14,13 @@ class EncounterCompletionService {
    * Validate whether an appointment is ready for completion.
    * @param {string} appointmentId
    * @param {string} userId
+   * @param {object} [options] - { followUpRequired: boolean }
    * @returns {Promise<object>} Validation result with warnings, blocking issues, and overall readiness
    */
-  async validateCompletion(appointmentId, userId) {
+  async validateCompletion(appointmentId, userId, options = {}) {
     const appointment = await this._getAppointment(appointmentId);
 
-    const contextData = await this._buildValidationContext(appointment, userId);
+    const contextData = await this._buildValidationContext(appointment, userId, options);
 
     // Evaluate clinical rules for ENCOUNTER_COMPLETE trigger
     const alerts = await clinicalRuleEngineService.evaluateRules(
@@ -153,7 +154,7 @@ class EncounterCompletionService {
   /**
    * Build context data for clinical rule evaluation.
    */
-  async _buildValidationContext(appointment, userId) {
+  async _buildValidationContext(appointment, userId, options = {}) {
     const appointmentId = appointment.appointment_id;
 
     // Check for pending workflow tasks
@@ -203,6 +204,18 @@ class EncounterCompletionService {
       // Non-fatal if billing service is not available
     }
 
+    // Check if follow-up record exists for this encounter
+    let hasFollowUpRecord = false;
+    try {
+      const encounterFollowUpService = require("./encounterFollowUpService");
+      const followUp = await encounterFollowUpService.findFollowUpForAppointment(appointmentId);
+      hasFollowUpRecord = !!followUp;
+    } catch {
+      // Non-fatal if follow-up service is not available
+    }
+
+    const followUpRequired = options.followUpRequired === true;
+
     return {
       patient_id: appointment.patient_id,
       appointment_id: appointmentId,
@@ -211,6 +224,8 @@ class EncounterCompletionService {
       has_pending_pharmacy: unfulfilledPrescriptions > 0,
       has_unpaid_balance: hasUnpaidBalance,
       has_diagnosis: diagnosisLogs > 0,
+      follow_up_required: followUpRequired,
+      has_follow_up_record: hasFollowUpRecord,
     };
   }
 }

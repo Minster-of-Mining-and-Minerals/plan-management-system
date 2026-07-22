@@ -124,9 +124,11 @@ const listReceivers = async (req, res) => {
 const validateCompletion = async (req, res) => {
   try {
     const { appointmentId } = req.params;
+    const followUpRequired = req.query.followUpRequired === "true";
     const result = await encounterCompletionService.validateCompletion(
       appointmentId,
-      req.user.user_id
+      req.user.user_id,
+      { followUpRequired }
     );
     return res.json({ success: true, data: result });
   } catch (e) {

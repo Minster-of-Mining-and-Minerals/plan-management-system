@@ -235,6 +235,16 @@ class ClinicalRuleEngineService {
               resolutionHint: "Consider adding a diagnosis before completion."
             });
           }
+
+          if (rule.name === "Missing Follow-up Recommendation" && contextData.follow_up_required && !contextData.has_follow_up_record) {
+            alerts.push({
+              rule_id: rule.rule_id,
+              rule_name: rule.name,
+              severity: rule.severity || "WARNING",
+              message: `Follow-up is marked as required but no follow-up recommendation exists.`,
+              resolutionHint: "Create a follow-up recommendation or override this warning."
+            });
+          }
         }
       } catch (err) {
         console.error(`Error executing rule ${rule.name}:`, err.message);
@@ -326,6 +336,15 @@ class ClinicalRuleEngineService {
         name: "Missing Diagnosis",
         trigger_event: "ENCOUNTER_COMPLETE",
         conditions: { check: "has_diagnosis" },
+        severity: "WARNING",
+        action: { display_warning: true },
+        is_enabled: true,
+      },
+      {
+        rule_id: uuidv4(),
+        name: "Missing Follow-up Recommendation",
+        trigger_event: "ENCOUNTER_COMPLETE",
+        conditions: { check: "follow_up_required_and_missing" },
         severity: "WARNING",
         action: { display_warning: true },
         is_enabled: true,
