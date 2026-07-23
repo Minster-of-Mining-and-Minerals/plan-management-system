@@ -1,7 +1,7 @@
 "use strict";
 
 const db = require("../models");
-const { EncounterFollowUp, EncounterFollowUpAttempt, StaffAppointment, PatientSchedule, User, MedicalHistoryLog, Prescription } = db;
+const { EncounterFollowUp, EncounterFollowUpAttempt, EncounterFollowUpOutcome, StaffAppointment, PatientSchedule, User, MedicalHistoryLog, Prescription } = db;
 
 /**
  * FollowUpContinuityService

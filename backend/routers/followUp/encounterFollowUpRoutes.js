@@ -201,4 +201,58 @@ router.get(
   controller.listPatientFollowUps
 );
 
+// ============ Phase 2.4.4 - Follow-up Outcome & Chain ============
+
+const outcomeController = require("../../controllers/followUp/followUpOutcomeController");
+const {
+  validateCreateOutcome,
+  validateUpdateOutcome,
+  validateCreateNextFollowUp,
+} = require("../../validators/followUp/followUpOutcomeValidator");
+
+// Get outcome for a follow-up
+router.get(
+  "/:id/outcome",
+  checkPermission("followup", "view"),
+  outcomeController.getOutcome
+);
+
+// Create outcome for a follow-up
+router.post(
+  "/:id/outcome",
+  checkPermission("followup", "outcome:create"),
+  validateCreateOutcome,
+  outcomeController.createOutcome
+);
+
+// Update outcome for a follow-up
+router.put(
+  "/:id/outcome/:outcomeId",
+  checkPermission("followup", "outcome:update"),
+  validateUpdateOutcome,
+  outcomeController.updateOutcome
+);
+
+// Create next follow-up in chain
+router.post(
+  "/:id/create-next",
+  checkPermission("followup", "continue"),
+  validateCreateNextFollowUp,
+  outcomeController.createNextFollowUp
+);
+
+// Get follow-up chain
+router.get(
+  "/:id/chain",
+  checkPermission("followup", "view"),
+  outcomeController.getFollowUpChain
+);
+
+// Analytics endpoint
+router.get(
+  "/analytics/outcomes",
+  checkPermission("followup", "view"),
+  outcomeController.getAnalytics
+);
+
 module.exports = router;

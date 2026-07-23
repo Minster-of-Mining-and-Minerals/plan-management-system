@@ -245,6 +245,17 @@ class ClinicalRuleEngineService {
               resolutionHint: "Create a follow-up recommendation or override this warning."
             });
           }
+
+          // Phase 2.4.4 - Follow-up Outcome Required
+          if (rule.name === "Follow-up Outcome Required" && contextData.is_follow_up && !contextData.has_follow_up_outcome) {
+            alerts.push({
+              rule_id: rule.rule_id,
+              rule_name: rule.name,
+              severity: rule.severity || "WARNING",
+              message: `This is a follow-up encounter but the clinical outcome has not been recorded.`,
+              resolutionHint: "Record the follow-up outcome before completing the encounter."
+            });
+          }
         }
       } catch (err) {
         console.error(`Error executing rule ${rule.name}:`, err.message);

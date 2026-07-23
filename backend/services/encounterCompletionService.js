@@ -214,6 +214,22 @@ class EncounterCompletionService {
       // Non-fatal if follow-up service is not available
     }
 
+    // Phase 2.4.4 - Check if this is a follow-up encounter and if outcome exists
+    let isFollowUp = false;
+    let hasFollowUpOutcome = false;
+    try {
+      const followUpContinuityService = require("./followUpContinuityService");
+      const continuity = await followUpContinuityService.getFollowUpContext(appointmentId);
+      isFollowUp = continuity.is_follow_up === true;
+      if (isFollowUp && continuity.follow_up_id) {
+        const followUpOutcomeService = require("./followUpOutcomeService");
+        const outcome = await followUpOutcomeService.getOutcome(continuity.follow_up_id);
+        hasFollowUpOutcome = !!outcome;
+      }
+    } catch {
+      // Non-fatal
+    }
+
     const followUpRequired = options.followUpRequired === true;
 
     return {
@@ -226,6 +242,9 @@ class EncounterCompletionService {
       has_diagnosis: diagnosisLogs > 0,
       follow_up_required: followUpRequired,
       has_follow_up_record: hasFollowUpRecord,
+      // Phase 2.4.4 - Follow-up outcome context
+      is_follow_up: isFollowUp,
+      has_follow_up_outcome: hasFollowUpOutcome,
     };
   }
 }

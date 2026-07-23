@@ -168,6 +168,105 @@ export type FollowUpCounts = {
   MISSED: number;
 };
 
+// ── Phase 2.4.4 - Follow-up Outcome Types ────────────────────────────────────
+
+export type FollowUpOutcomeStatus =
+  | "RESOLVED"
+  | "IMPROVED"
+  | "STABLE"
+  | "WORSENED"
+  | "REFERRED"
+  | "LOST_TO_FOLLOW_UP"
+  | "PATIENT_DECLINED"
+  | "OTHER";
+
+export type FollowUpOutcome = {
+  follow_up_outcome_id: string;
+  follow_up_id: string;
+  encounter_id: string;
+  outcome_status: FollowUpOutcomeStatus;
+  treatment_response?: string | null;
+  resolution_notes?: string | null;
+  requires_additional_follow_up: boolean;
+  recorded_by: string;
+  recorder?: { user_id: string; full_name: string };
+  encounter?: {
+    appointment_id: string;
+    workflow_status: string;
+    workflow_completed_at?: string | null;
+  };
+  recorded_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type FollowUpChainItem = {
+  follow_up_id: string;
+  status: string;
+  reason: string;
+  priority: string;
+  recommended_date: string;
+  target_date?: string | null;
+  clinical_instructions?: string | null;
+  parent_follow_up_id?: string | null;
+  appointment_id?: string | null;
+  completed_encounter_id?: string | null;
+  outcome: {
+    outcome_status: FollowUpOutcomeStatus;
+    treatment_response?: string | null;
+    resolution_notes?: string | null;
+    requires_additional_follow_up: boolean;
+    recorded_at: string;
+  } | null;
+};
+
+export type CreateOutcomePayload = {
+  encounter_id: string;
+  outcome_status: FollowUpOutcomeStatus;
+  treatment_response?: string;
+  resolution_notes?: string;
+  requires_additional_follow_up?: boolean;
+};
+
+export type UpdateOutcomePayload = {
+  outcome_status?: FollowUpOutcomeStatus;
+  treatment_response?: string;
+  resolution_notes?: string;
+  requires_additional_follow_up?: boolean;
+};
+
+export type CreateNextFollowUpPayload = {
+  patient_id?: string;
+  appointment_id: string;
+  assigned_department_id?: string;
+  assigned_user_id?: string;
+  reason: string;
+  clinical_instructions?: string;
+  priority?: string;
+  recommended_date?: string;
+  target_date?: string;
+};
+
+export type OutcomeAnalytics = {
+  distribution: Record<string, number>;
+  resolution_rate: number;
+  worsened_rate: number;
+  referral_rate: number;
+  lost_follow_up_rate: number;
+  average_resolution_time_days: number | null;
+  average_chain_length: number;
+  per_provider: Array<{
+    user_id: string;
+    full_name: string;
+    count: number;
+  }>;
+  per_specialty: Array<{
+    department_id: string | null;
+    department_name: string;
+    count: number;
+  }>;
+};
+
 // ── API Slice ─────────────────────────────────────────────────────────────────
 
 export const followUpApi = baseApi.injectEndpoints({
@@ -428,6 +527,82 @@ export const followUpApi = baseApi.injectEndpoints({
       transformResponse: (r: { data: FollowUpCounts }) => r.data,
       providesTags: [{ type: "FollowUp", id: "COUNTS" }],
     }),
+
+    // ── Phase 2.4.4 - Follow-up Outcome & Chain ─────────────────────────────
+
+    getFollowUpOutcome: builder.query<FollowUpOutcome | null, string>({
+      query: (followUpId) => `/follow-ups/${followUpId}/outcome`,
+      transformResponse: (r: { data: FollowUpOutcome | null }) => r.data,
+      providesTags: (_r, _e, followUpId) => [
+        { type: "FollowUp", id: `outcome-${followUpId}` },
+      ],
+    }),
+
+    createFollowUpOutcome: builder.mutation<
+      FollowUpOutcome,
+      { followUpId: string; data: CreateOutcomePayload }
+    >({
+      query: ({ followUpId, data }) => ({
+        url: `/follow-ups/${followUpId}/outcome`,
+        method: "POST",
+        body: data,
+      }),
+      transformResponse: (r: { data: FollowUpOutcome }) => r.data,
+      invalidatesTags: (_r, _e, { followUpId }) => [
+        { type: "FollowUp", id: `outcome-${followUpId}` },
+        { type: "FollowUp", id: followUpId },
+      ],
+    }),
+
+    updateFollowUpOutcome: builder.mutation<
+      FollowUpOutcome,
+      {
+        followUpId: string;
+        outcomeId: string;
+        data: UpdateOutcomePayload;
+      }
+    >({
+      query: ({ followUpId, outcomeId, data }) => ({
+        url: `/follow-ups/${followUpId}/outcome/${outcomeId}`,
+        method: "PUT",
+        body: data,
+      }),
+      transformResponse: (r: { data: FollowUpOutcome }) => r.data,
+      invalidatesTags: (_r, _e, { followUpId }) => [
+        { type: "FollowUp", id: `outcome-${followUpId}` },
+        { type: "FollowUp", id: followUpId },
+      ],
+    }),
+
+    createNextFollowUp: builder.mutation<
+      unknown,
+      { followUpId: string; data: CreateNextFollowUpPayload }
+    >({
+      query: ({ followUpId, data }) => ({
+        url: `/follow-ups/${followUpId}/create-next`,
+        method: "POST",
+        body: data,
+      }),
+      transformResponse: (r: { data: unknown }) => r.data,
+      invalidatesTags: (_r, _e, { followUpId }) => [
+        { type: "FollowUp", id: followUpId },
+        { type: "FollowUp", id: `chain-${followUpId}` },
+      ],
+    }),
+
+    getFollowUpChain: builder.query<FollowUpChainItem[], string>({
+      query: (followUpId) => `/follow-ups/${followUpId}/chain`,
+      transformResponse: (r: { data: FollowUpChainItem[] }) => r.data,
+      providesTags: (_r, _e, followUpId) => [
+        { type: "FollowUp", id: `chain-${followUpId}` },
+      ],
+    }),
+
+    getFollowUpOutcomeAnalytics: builder.query<OutcomeAnalytics, void>({
+      query: () => "/follow-ups/analytics/outcomes",
+      transformResponse: (r: { data: OutcomeAnalytics }) => r.data,
+      providesTags: [{ type: "FollowUp", id: "ANALYTICS" }],
+    }),
   }),
 });
 
@@ -454,4 +629,11 @@ export const {
   useFindFollowUpByScheduleQuery,
   useAutoCompleteFollowUpMutation,
   useGetFollowUpCountsQuery,
+  // Phase 2.4.4 - Follow-up Outcome & Chain
+  useGetFollowUpOutcomeQuery,
+  useCreateFollowUpOutcomeMutation,
+  useUpdateFollowUpOutcomeMutation,
+  useCreateNextFollowUpMutation,
+  useGetFollowUpChainQuery,
+  useGetFollowUpOutcomeAnalyticsQuery,
 } = followUpApi;

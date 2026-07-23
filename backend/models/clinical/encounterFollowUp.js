@@ -41,6 +41,20 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "updated_by",
         as: "updatedByUser",
       });
+      // Phase 2.4.4 - Follow-up Chain: self-referencing parent
+      EncounterFollowUp.belongsTo(models.EncounterFollowUp, {
+        foreignKey: "parent_follow_up_id",
+        as: "parentFollowUp",
+      });
+      EncounterFollowUp.hasMany(models.EncounterFollowUp, {
+        foreignKey: "parent_follow_up_id",
+        as: "childFollowUps",
+      });
+      // Phase 2.4.4 - Follow-up Outcome
+      EncounterFollowUp.hasOne(models.EncounterFollowUpOutcome, {
+        foreignKey: "follow_up_id",
+        as: "outcome",
+      });
     }
   }
 
