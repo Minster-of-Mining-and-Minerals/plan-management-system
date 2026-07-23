@@ -10,6 +10,7 @@
 # Logs
 logs/
 *.log
+nul
 
 # OS files
 /backend/.DS_Store

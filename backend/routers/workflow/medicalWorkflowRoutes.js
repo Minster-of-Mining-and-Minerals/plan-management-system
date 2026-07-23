@@ -40,4 +40,11 @@ router.post(
   controller.executeCompletion
 );
 
+// Phase 2.4.3 - Follow-up Continuity Context
+router.get(
+  "/:appointmentId/follow-up-context",
+  checkPermission("workflow", "read"),
+  controller.getFollowUpContext
+);
+
 module.exports = router;

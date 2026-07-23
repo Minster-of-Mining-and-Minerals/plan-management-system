@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Send, Pill, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Send, Pill, CheckCircle2, CalendarPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PermissionGuard } from "@/components/common/PermissionGuard";
 import { TimelineOpener } from "./TimelineOpener";
@@ -14,6 +14,7 @@ type Props = {
   onPrescribe: () => void;
   onComplete: () => void;
   onOpenHistory: () => void;
+  onScheduleFollowUp?: () => void;
 };
 
 export function GlobalWorkflowActions({
@@ -24,6 +25,7 @@ export function GlobalWorkflowActions({
   onPrescribe,
   onComplete,
   onOpenHistory,
+  onScheduleFollowUp,
 }: Props) {
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -56,6 +58,19 @@ export function GlobalWorkflowActions({
           Prescription
         </Button>
       </PermissionGuard>
+
+      {onScheduleFollowUp && (
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          disabled={disabled}
+          onClick={onScheduleFollowUp}
+        >
+          <CalendarPlus className="mr-1.5 h-4 w-4" />
+          Schedule Follow-up
+        </Button>
+      )}
 
       <PermissionGuard requireAll={[WORKFLOW_PERMISSIONS.COMPLETE]} fallback={null}>
         <Button

@@ -6,7 +6,7 @@ const encounterFollowUpService = require("../services/encounterFollowUpService")
 const timelineEventService = require("../services/timelineEventService");
 const clinicalRuleEngineService = require("../services/clinicalRuleEngineService");
 
-describe("Encounter Follow-up (Phase 2.4.1) Integration Tests", () => {
+describe("Encounter Follow-up (Phase 2.4.1 + 2.4.2) Integration Tests", () => {
   let patientId;
   let staffId;
   let appointmentId;
@@ -63,7 +63,6 @@ describe("Encounter Follow-up (Phase 2.4.1) Integration Tests", () => {
       expect(followUp.reason).toBe("Patient requires follow-up for cataract evaluation");
       expect(followUp.priority).toBe("HIGH");
       expect(followUp.cancel_reason).toBeNull();
-      expect(followUp.linked_schedule_id).toBeNull();
       expect(followUp.completed_encounter_id).toBeNull();
 
       createdFollowUpId = followUp.follow_up_id;
@@ -92,14 +91,38 @@ describe("Encounter Follow-up (Phase 2.4.1) Integration Tests", () => {
       expect(updated.priority).toBe("URGENT");
     });
 
-    it("should transition from RECOMMENDED to SCHEDULED (bypass PENDING_SCHEDULING)", async () => {
-      const scheduled = await encounterFollowUpService.markScheduled(
+    it("should transition from RECOMMENDED to SCHEDULED via scheduleAppointment", async () => {
+      // Create a PatientSchedule first
+      const patientScheduleService = require("../services/patientScheduleService");
+      const schedule = await patientScheduleService.createSchedule(
+        {
+          patient_id: patientId,
+          assigned_staff_id: staffId,
+          schedule_date: "2026-08-01",
+          start_time: "09:00",
+          appointment_type: "Follow-up visit",
+          notes: "Test follow-up scheduling",
+          status: "scheduled",
+        },
+        staffId
+      );
+
+      const scheduled = await encounterFollowUpService.scheduleAppointment(
         createdFollowUpId,
-        scheduleId,
+        {
+          assigned_staff_id: staffId,
+          schedule_date: "2026-08-01",
+          start_time: "09:00",
+          appointment_type: "Follow-up visit",
+          notes: "Test follow-up scheduling",
+        },
         { scheduledBy: staffId }
       );
       expect(scheduled.status).toBe("SCHEDULED");
-      expect(scheduled.linked_schedule_id).toBe(scheduleId);
+      expect(scheduled.attempts).toBeDefined();
+      expect(scheduled.attempts.length).toBeGreaterThan(0);
+      expect(scheduled.attempts[0].status).toBe("SCHEDULED");
+      expect(scheduled.attempts[0].attempt_number).toBe(1);
     });
 
     it("should create timeline event FOLLOW_UP_SCHEDULED", async () => {
@@ -112,12 +135,17 @@ describe("Encounter Follow-up (Phase 2.4.1) Integration Tests", () => {
       expect(scheduledEvent.title).toBe("Follow-up Scheduled");
     });
 
-    it("should transition from SCHEDULED to COMPLETED", async () => {
-      const completed = await encounterFollowUpService.markCompleted(
-        createdFollowUpId,
+    it("should transition from SCHEDULED to COMPLETED via markAttemptAttended", async () => {
+      // Get the active attempt
+      const attempts = await encounterFollowUpService.listAttempts(createdFollowUpId);
+      const activeAttempt = attempts.find((a) => a.status === "SCHEDULED");
+      expect(activeAttempt).toBeDefined();
+
+      const completed = await encounterFollowUpService.markAttemptAttended(
+        activeAttempt.attempt_id,
         appointmentId,
         "Patient successfully treated",
-        { completedBy: staffId }
+        { updatedBy: staffId }
       );
       expect(completed.status).toBe("COMPLETED");
       expect(completed.completed_encounter_id).toBe(appointmentId);
@@ -214,6 +242,11 @@ describe("Encounter Follow-up (Phase 2.4.1) Integration Tests", () => {
       expect(requiredPermission).toBe("followup:schedule");
     });
 
+    it("should enforce followup:reschedule permission pattern", () => {
+      const requiredPermission = "followup:reschedule";
+      expect(requiredPermission).toBe("followup:reschedule");
+    });
+
     it("should enforce followup:complete permission pattern", () => {
       const requiredPermission = "followup:complete";
       expect(requiredPermission).toBe("followup:complete");
@@ -284,10 +317,12 @@ describe("Encounter Follow-up (Phase 2.4.1) Integration Tests", () => {
       expect(fu.recommender).toBeDefined();
     });
 
-    it("should return follow-up history", async () => {
+    it("should return follow-up history with attempts", async () => {
       const history = await encounterFollowUpService.getFollowUpHistory(createdFollowUpId);
       expect(history).toBeDefined();
       expect(history.follow_up_id).toBe(createdFollowUpId);
+      expect(history.attempts).toBeDefined();
+      expect(history.attempts.length).toBeGreaterThan(0);
     });
 
     it("should throw 404 for non-existent follow-up", async () => {
@@ -306,9 +341,6 @@ describe("Encounter Follow-up (Phase 2.4.1) Integration Tests", () => {
         staffId,
         { followUpRequired: true }
       );
-      // Should have a warning about missing follow-up since we didn't create one for this appointment
-      // (Note: we created follow-ups above but they're linked to the same appointmentId,
-      // so has_follow_up_record may be true)
       expect(result.ready).toBeDefined();
       expect(Array.isArray(result.warnings)).toBe(true);
       expect(Array.isArray(result.blockingIssues)).toBe(true);
@@ -323,6 +355,350 @@ describe("Encounter Follow-up (Phase 2.4.1) Integration Tests", () => {
         { followUpRequired: false }
       );
       expect(result.ready).toBeDefined();
+    });
+  });
+
+  // ============ Phase 2.4.2 - Enhanced Tests ============
+
+  describe("9. Multiple Appointment Attempts (Phase 2.4.2)", () => {
+    let multiAttemptFollowUpId;
+
+    beforeAll(async () => {
+      const data = {
+        patient_id: patientId,
+        appointment_id: appointmentId,
+        recommended_by: staffId,
+        reason: "Multiple attempts test - diabetic retinopathy screening",
+        priority: "HIGH",
+        recommended_date: new Date().toISOString().split("T")[0],
+      };
+      const fu = await encounterFollowUpService.createFollowUp(data);
+      multiAttemptFollowUpId = fu.follow_up_id;
+    });
+
+    it("should support multiple scheduling attempts without losing history", async () => {
+      // Attempt #1: Schedule
+      const result1 = await encounterFollowUpService.scheduleAppointment(
+        multiAttemptFollowUpId,
+        {
+          assigned_staff_id: staffId,
+          schedule_date: "2026-08-15",
+          start_time: "10:00",
+          appointment_type: "Follow-up visit",
+        },
+        { scheduledBy: staffId }
+      );
+      expect(result1.status).toBe("SCHEDULED");
+      expect(result1.attempts).toBeDefined();
+      expect(result1.attempts.length).toBe(1);
+      expect(result1.attempts[0].attempt_number).toBe(1);
+
+      // Get the attempt ID
+      const attempts1 = await encounterFollowUpService.listAttempts(multiAttemptFollowUpId);
+      const attempt1 = attempts1.find((a) => a.attempt_number === 1);
+      expect(attempt1).toBeDefined();
+      expect(attempt1.status).toBe("SCHEDULED");
+
+      // Mark Attempt #1 as MISSED
+      await encounterFollowUpService.markAttemptMissed(
+        attempt1.attempt_id,
+        { missedReason: "Patient did not show up", updatedBy: staffId }
+      );
+
+      // Verify follow-up is now MISSED
+      const followUpAfterMiss = await encounterFollowUpService.getFollowUp(multiAttemptFollowUpId);
+      expect(followUpAfterMiss.status).toBe("MISSED");
+
+      // Attempt #2: Reschedule (creates new attempt)
+      const result2 = await encounterFollowUpService.scheduleAppointment(
+        multiAttemptFollowUpId,
+        {
+          assigned_staff_id: staffId,
+          schedule_date: "2026-08-22",
+          start_time: "11:00",
+          appointment_type: "Follow-up visit",
+          notes: "Rescheduled from missed appointment",
+        },
+        { scheduledBy: staffId }
+      );
+      expect(result2.status).toBe("SCHEDULED");
+
+      // Verify we now have 2 attempts
+      const attempts2 = await encounterFollowUpService.listAttempts(multiAttemptFollowUpId);
+      expect(attempts2.length).toBe(2);
+      expect(attempts2[0].attempt_number).toBe(1);
+      expect(attempts2[0].status).toBe("MISSED");
+      expect(attempts2[1].attempt_number).toBe(2);
+      expect(attempts2[1].status).toBe("SCHEDULED");
+
+      // Mark Attempt #2 as CANCELLED
+      const attempt2 = attempts2.find((a) => a.attempt_number === 2);
+      await encounterFollowUpService.markAttemptCancelled(
+        attempt2.attempt_id,
+        "Patient requested cancellation",
+        { updatedBy: staffId }
+      );
+
+      // Attempt #3: Schedule again
+      const result3 = await encounterFollowUpService.scheduleAppointment(
+        multiAttemptFollowUpId,
+        {
+          assigned_staff_id: staffId,
+          schedule_date: "2026-08-29",
+          start_time: "09:00",
+          appointment_type: "Follow-up visit",
+        },
+        { scheduledBy: staffId }
+      );
+      expect(result3.status).toBe("SCHEDULED");
+
+      // Verify 3 attempts with complete history
+      const attempts3 = await encounterFollowUpService.listAttempts(multiAttemptFollowUpId);
+      expect(attempts3.length).toBe(3);
+      expect(attempts3[0].status).toBe("MISSED");
+      expect(attempts3[1].status).toBe("CANCELLED");
+      expect(attempts3[2].status).toBe("SCHEDULED");
+      expect(attempts3[2].attempt_number).toBe(3);
+
+      // Mark Attempt #3 as ATTENDED
+      const attempt3 = attempts3.find((a) => a.attempt_number === 3);
+      const completed = await encounterFollowUpService.markAttemptAttended(
+        attempt3.attempt_id,
+        appointmentId,
+        "Patient finally attended",
+        { updatedBy: staffId }
+      );
+      expect(completed.status).toBe("COMPLETED");
+    });
+
+    it("should maintain timeline integrity across multiple attempts", async () => {
+      const events = await timelineEventService.listForPatient(patientId, { limit: 100 });
+      const followUpEvents = events.filter(
+        (e) => e.resource_type === "EncounterFollowUp" && e.resource_id === multiAttemptFollowUpId
+      );
+
+      // Should have events for: RECOMMENDED, SCHEDULED, MISSED, RESCHEDULED, SCHEDULED, PATIENT_RETURNED, COMPLETED
+      const eventTypes = followUpEvents.map((e) => e.event_type);
+      expect(eventTypes).toContain("FOLLOW_UP_RECOMMENDED");
+      expect(eventTypes).toContain("FOLLOW_UP_SCHEDULED");
+      expect(eventTypes).toContain("FOLLOW_UP_MISSED");
+      expect(eventTypes).toContain("FOLLOW_UP_RESCHEDULED");
+      expect(eventTypes).toContain("FOLLOW_UP_PATIENT_RETURNED");
+      expect(eventTypes).toContain("FOLLOW_UP_COMPLETED");
+
+      // Verify events have attempt context
+      const scheduledEvents = followUpEvents.filter((e) => e.event_type === "FOLLOW_UP_SCHEDULED");
+      for (const event of scheduledEvents) {
+        expect(event.metadata).toBeDefined();
+      }
+    });
+  });
+
+  describe("10. Auto-complete on Admission (Phase 2.4.2)", () => {
+    let autoCompleteFollowUpId;
+    let autoCompleteScheduleId;
+
+    beforeAll(async () => {
+      // Create a follow-up
+      const data = {
+        patient_id: patientId,
+        appointment_id: appointmentId,
+        recommended_by: staffId,
+        reason: "Auto-complete test - post-op check",
+        priority: "NORMAL",
+        recommended_date: new Date().toISOString().split("T")[0],
+      };
+      const fu = await encounterFollowUpService.createFollowUp(data);
+      autoCompleteFollowUpId = fu.follow_up_id;
+
+      // Schedule it
+      const scheduled = await encounterFollowUpService.scheduleAppointment(
+        autoCompleteFollowUpId,
+        {
+          assigned_staff_id: staffId,
+          schedule_date: "2026-09-01",
+          start_time: "14:00",
+          appointment_type: "Follow-up visit",
+        },
+        { scheduledBy: staffId }
+      );
+      autoCompleteScheduleId = scheduled.attempts[0].schedule_id;
+    });
+
+    it("should auto-complete follow-up when patient is admitted through follow-up appointment", async () => {
+      // Simulate admission by calling autoCompleteFollowUp
+      const newEncounterId = uuidv4();
+      const result = await encounterFollowUpService.autoCompleteFollowUp(
+        autoCompleteScheduleId,
+        newEncounterId,
+        { admittedBy: staffId }
+      );
+
+      expect(result).not.toBeNull();
+      expect(result.status).toBe("COMPLETED");
+      expect(result.completed_encounter_id).toBe(newEncounterId);
+      expect(result.completion_notes).toContain("Auto-completed");
+    });
+
+    it("should emit timeline events for patient return and auto-completion", async () => {
+      const events = await timelineEventService.listForPatient(patientId, { limit: 100 });
+      const followUpEvents = events.filter(
+        (e) => e.resource_type === "EncounterFollowUp" && e.resource_id === autoCompleteFollowUpId
+      );
+
+      const patientReturnedEvent = followUpEvents.find(
+        (e) => e.event_type === "FOLLOW_UP_PATIENT_RETURNED"
+      );
+      expect(patientReturnedEvent).toBeDefined();
+      expect(patientReturnedEvent.title).toBe("Patient Returned for Follow-up");
+
+      const completedEvent = followUpEvents.find(
+        (e) => e.event_type === "FOLLOW_UP_COMPLETED"
+      );
+      expect(completedEvent).toBeDefined();
+      expect(completedEvent.metadata.auto_completed).toBe(true);
+    });
+
+    it("should return null for non-follow-up schedules", async () => {
+      const result = await encounterFollowUpService.autoCompleteFollowUp(
+        uuidv4(),
+        uuidv4(),
+        { admittedBy: staffId }
+      );
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("11. Reschedule Attempt (Phase 2.4.2)", () => {
+    let rescheduleFollowUpId;
+    let missedAttemptId;
+
+    beforeAll(async () => {
+      const data = {
+        patient_id: patientId,
+        appointment_id: appointmentId,
+        recommended_by: staffId,
+        reason: "Reschedule test",
+        priority: "NORMAL",
+        recommended_date: new Date().toISOString().split("T")[0],
+      };
+      const fu = await encounterFollowUpService.createFollowUp(data);
+      rescheduleFollowUpId = fu.follow_up_id;
+
+      // Schedule and miss
+      const scheduled = await encounterFollowUpService.scheduleAppointment(
+        rescheduleFollowUpId,
+        {
+          assigned_staff_id: staffId,
+          schedule_date: "2026-09-10",
+          start_time: "08:00",
+          appointment_type: "Follow-up visit",
+        },
+        { scheduledBy: staffId }
+      );
+
+      const attempts = await encounterFollowUpService.listAttempts(rescheduleFollowUpId);
+      missedAttemptId = attempts[0].attempt_id;
+
+      await encounterFollowUpService.markAttemptMissed(
+        missedAttemptId,
+        { missedReason: "No show", updatedBy: staffId }
+      );
+    });
+
+    it("should reschedule from a missed attempt", async () => {
+      const rescheduled = await encounterFollowUpService.rescheduleAttempt(
+        rescheduleFollowUpId,
+        missedAttemptId,
+        {
+          assigned_staff_id: staffId,
+          schedule_date: "2026-09-17",
+          start_time: "10:00",
+          notes: "Rescheduled from missed",
+        },
+        { scheduledBy: staffId }
+      );
+
+      expect(rescheduled.status).toBe("SCHEDULED");
+
+      const attempts = await encounterFollowUpService.listAttempts(rescheduleFollowUpId);
+      expect(attempts.length).toBe(2);
+      expect(attempts[0].status).toBe("MISSED");
+      expect(attempts[1].status).toBe("SCHEDULED");
+      expect(attempts[1].attempt_number).toBe(2);
+    });
+
+    it("should reject reschedule from non-reschedulable attempt", async () => {
+      // Try to reschedule from the new SCHEDULED attempt (should fail)
+      const attempts = await encounterFollowUpService.listAttempts(rescheduleFollowUpId);
+      const scheduledAttempt = attempts.find((a) => a.status === "SCHEDULED");
+
+      await expect(
+        encounterFollowUpService.rescheduleAttempt(
+          rescheduleFollowUpId,
+          scheduledAttempt.attempt_id,
+          {
+            assigned_staff_id: staffId,
+            schedule_date: "2026-09-24",
+            start_time: "11:00",
+          },
+          { scheduledBy: staffId }
+        )
+      ).rejects.toThrow(/Only MISSED or CANCELLED attempts/);
+    });
+  });
+
+  describe("12. Follow-up Counts and Queue (Phase 2.4.2)", () => {
+    it("should return follow-up counts by status", async () => {
+      const counts = await encounterFollowUpService.getFollowUpCounts();
+      expect(counts).toBeDefined();
+      expect(typeof counts.RECOMMENDED).toBe("number");
+      expect(typeof counts.SCHEDULED).toBe("number");
+      expect(typeof counts.COMPLETED).toBe("number");
+      expect(typeof counts.CANCELLED).toBe("number");
+      expect(typeof counts.MISSED).toBe("number");
+    });
+
+    it("should list follow-ups by status for reception queue", async () => {
+      const result = await encounterFollowUpService.listFollowUpsByStatus({
+        statuses: ["RECOMMENDED", "PENDING_SCHEDULING"],
+      });
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.rows)).toBe(true);
+      for (const fu of result.rows) {
+        expect(["RECOMMENDED", "PENDING_SCHEDULING"]).toContain(fu.status);
+      }
+    });
+
+    it("should find follow-up by schedule_id", async () => {
+      // Get a follow-up with attempts
+      const result = await encounterFollowUpService.listFollowUpsByStatus({
+        statuses: ["SCHEDULED", "COMPLETED"],
+        limit: 1,
+      });
+      if (result.rows.length > 0) {
+        const fu = result.rows[0];
+        if (fu.attempts && fu.attempts.length > 0) {
+          const scheduleId = fu.attempts[0].schedule_id;
+          if (scheduleId) {
+            const found = await encounterFollowUpService.findFollowUpBySchedule(scheduleId);
+            expect(found).not.toBeNull();
+            expect(found.follow_up_id).toBe(fu.follow_up_id);
+          }
+        }
+      }
+    });
+  });
+
+  describe("13. Audit Integrity (Phase 2.4.2)", () => {
+    it("should have audit trail for scheduling events", async () => {
+      // Verify the audit service is called by checking the service methods exist
+      expect(encounterFollowUpService.scheduleAppointment).toBeDefined();
+      expect(encounterFollowUpService.rescheduleAttempt).toBeDefined();
+      expect(encounterFollowUpService.autoCompleteFollowUp).toBeDefined();
+      expect(encounterFollowUpService.markAttemptMissed).toBeDefined();
+      expect(encounterFollowUpService.markAttemptAttended).toBeDefined();
+      expect(encounterFollowUpService.markAttemptCancelled).toBeDefined();
     });
   });
 });

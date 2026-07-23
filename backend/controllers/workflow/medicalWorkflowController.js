@@ -4,6 +4,8 @@ const medicalWorkflowService = require("../../services/medicalWorkflowService");
 const appointmentService = require("../../services/appointmentService");
 const { logAudit, auditContextFromReq } = require("../../services/auditService");
 const encounterCompletionService = require("../../services/encounterCompletionService");
+const followUpContinuityService = require("../../services/followUpContinuityService");
+const timelineEventService = require("../../services/timelineEventService");
 
 const ensureReceivePatient = async (req, res, next) => {
   try {
@@ -172,6 +174,74 @@ const executeCompletion = async (req, res) => {
   }
 };
 
+// ============ Phase 2.4.3 - Follow-up Continuity Context ============
+
+/**
+ * Get follow-up clinical context for a follow-up encounter.
+ * GET /api/workflow/:appointmentId/follow-up-context
+ * Permission: workflow:read (via canAccessAppointment)
+ */
+const getFollowUpContext = async (req, res) => {
+  try {
+    const { appointmentId } = req.params;
+
+    // Verify access to this appointment using existing auth
+    await medicalWorkflowService.canAccessAppointment(appointmentId, req.user.user_id);
+
+    const context = await followUpContinuityService.getFollowUpContext(appointmentId);
+
+    // Emit timeline event for follow-up encounters
+    if (context.is_follow_up) {
+      try {
+        // Use the appointment data we already have from canAccessAppointment
+        const appointment = await medicalWorkflowService.canAccessAppointment(appointmentId, req.user.user_id);
+        await timelineEventService.emit({
+          patient_id: appointment.patient_id,
+          appointment_id: appointmentId,
+          event_type: "FOLLOW_UP_CONTEXT_OPENED",
+          title: "Follow-up Context Viewed",
+          description: `Clinician viewed follow-up context for encounter originating from ${context.origin_encounter_id}`,
+          event_date: new Date(),
+          actor_id: req.user.user_id,
+          resource_type: "EncounterFollowUp",
+          resource_id: context.follow_up_id,
+          metadata: {
+            follow_up_id: context.follow_up_id,
+            origin_encounter_id: context.origin_encounter_id,
+            reason: context.reason,
+            attempt_number: context.attempt_number,
+          },
+        });
+      } catch (eventErr) {
+        // Non-fatal: timeline event emission failure should not block response
+        console.error("Failed to emit FOLLOW_UP_CONTEXT_OPENED:", eventErr.message);
+      }
+    }
+
+    // Audit
+    const ctx = auditContextFromReq(req, {
+      appointment_id: appointmentId,
+      follow_up_id: context.follow_up_id,
+      is_follow_up: context.is_follow_up,
+    });
+    await logAudit({
+      actorUserId: req.user.user_id,
+      action: "follow_up_context_viewed",
+      resourceType: "workflow",
+      resourceId: appointmentId,
+      details: ctx.details,
+      ipAddress: ctx.ipAddress,
+    }).catch(() => {});
+
+    return res.json({ success: true, data: context });
+  } catch (e) {
+    return res.status(e.status || 500).json({
+      success: false,
+      message: e.message,
+    });
+  }
+};
+
 module.exports = {
   ensureReceivePatient,
   getContext,
@@ -181,4 +251,5 @@ module.exports = {
   listReceivers,
   validateCompletion,
   executeCompletion,
+  getFollowUpContext,
 };

@@ -58,6 +58,7 @@ const createAttemptSchema = Joi.object({
 
 const updateAttemptSchema = Joi.object({
   cancel_reason: Joi.string().trim().max(2000).allow("", null).optional(),
+  missed_reason: Joi.string().trim().max(2000).allow("", null).optional(),
 });
 
 const completeSchema = Joi.object({
@@ -69,8 +70,45 @@ const listQuerySchema = Joi.object({
   status: Joi.string()
     .valid(...statuses)
     .optional(),
+  statuses: Joi.string().optional(), // Comma-separated list of statuses
+  assigned_department_id: Joi.string().uuid().optional(),
+  assigned_user_id: Joi.string().uuid().optional(),
+  patient_id: Joi.string().uuid().optional(),
   limit: Joi.number().integer().min(1).max(100).optional(),
   offset: Joi.number().integer().min(0).optional(),
+});
+
+// ============ Phase 2.4.2 Validation Schemas ============
+
+/**
+ * Schedule appointment schema for reception workflow.
+ * Creates PatientSchedule + EncounterFollowUpAttempt in one operation.
+ */
+const scheduleAppointmentSchema = Joi.object({
+  assigned_staff_id: Joi.string().uuid().required(),
+  schedule_date: Joi.date().iso().required(),
+  start_time: Joi.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).required(),
+  appointment_type: Joi.string().trim().max(128).optional(),
+  notes: Joi.string().trim().max(2000).allow("", null).optional(),
+});
+
+/**
+ * Reschedule attempt schema for missed/cancelled follow-ups.
+ */
+const rescheduleAttemptSchema = Joi.object({
+  assigned_staff_id: Joi.string().uuid().required(),
+  schedule_date: Joi.date().iso().required(),
+  start_time: Joi.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).required(),
+  appointment_type: Joi.string().trim().max(128).optional(),
+  notes: Joi.string().trim().max(2000).allow("", null).optional(),
+});
+
+/**
+ * Auto-complete schema for admission integration.
+ */
+const autoCompleteSchema = Joi.object({
+  schedule_id: Joi.string().uuid().required(),
+  new_encounter_id: Joi.string().uuid().required(),
 });
 
 const validate = (schema) => (req, res, next) => {
@@ -111,4 +149,8 @@ module.exports = {
   validateUpdateAttempt: validate(updateAttemptSchema),
   validateCompleteFollowUp: validate(completeSchema),
   validateListFollowUps: validateQuery(listQuerySchema),
+  // Phase 2.4.2
+  validateScheduleAppointment: validate(scheduleAppointmentSchema),
+  validateRescheduleAttempt: validate(rescheduleAttemptSchema),
+  validateAutoComplete: validate(autoCompleteSchema),
 };

@@ -43,6 +43,7 @@ import type { PrescriptionRecord } from "@/redux/types/prescription";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermissions";
 import { WORKFLOW_PERMISSIONS } from "./workflowPermissions";
+import { ScheduleFollowUpButton } from "./components/ScheduleFollowUpButton";
 import {
   formDataHasPendingCanvasPreviews,
   sanitizeFormDataCanvasFields,

@@ -17,6 +17,14 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "scheduled_by",
         as: "scheduler",
       });
+      EncounterFollowUpAttempt.belongsTo(models.User, {
+        foreignKey: "created_by",
+        as: "createdByUser",
+      });
+      EncounterFollowUpAttempt.belongsTo(models.User, {
+        foreignKey: "updated_by",
+        as: "updatedByUser",
+      });
     }
   }
 
@@ -36,6 +44,12 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         comment: "The PatientSchedule record for this attempt",
       },
+      attempt_number: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 1,
+        comment: "Sequential attempt number for this follow-up",
+      },
       status: {
         type: DataTypes.ENUM("SCHEDULED", "MISSED", "CANCELLED", "ATTENDED"),
         allowNull: false,
@@ -45,9 +59,29 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.DATEONLY,
         allowNull: true,
       },
+      scheduled_at: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: "Timestamp when the attempt was scheduled",
+      },
+      attended_at: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: "Timestamp when the patient attended",
+      },
+      cancelled_at: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: "Timestamp when the attempt was cancelled",
+      },
       cancel_reason: {
         type: DataTypes.TEXT,
         allowNull: true,
+      },
+      missed_reason: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        comment: "Reason for missed appointment",
       },
       notes: {
         type: DataTypes.TEXT,
@@ -56,6 +90,19 @@ module.exports = (sequelize, DataTypes) => {
       scheduled_by: {
         type: DataTypes.UUID,
         allowNull: true,
+      },
+      created_by: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      updated_by: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      metadata: {
+        type: DataTypes.JSONB,
+        allowNull: false,
+        defaultValue: {},
       },
     },
     {

@@ -92,6 +92,21 @@ async function syncFromScheduleAdmission(scheduleRow, admittedByUserId) {
     });
   }
 
+  // Auto-complete follow-up if this admission is for a follow-up appointment
+  try {
+    const encounterFollowUpService = require("./encounterFollowUpService");
+    await encounterFollowUpService.autoCompleteFollowUp(
+      scheduleRow.schedule_id,
+      appointment.appointment_id,
+      { admittedBy: admittedByUserId }
+    );
+  } catch (err) {
+    // Non-fatal: if no follow-up is linked, this is a normal appointment
+    if (err.status && err.status !== 404) {
+      console.error("Failed to auto-complete follow-up on admission:", err.message);
+    }
+  }
+
   return appointment;
 }
 

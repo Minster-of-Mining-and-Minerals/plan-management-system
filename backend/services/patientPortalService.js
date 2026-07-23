@@ -263,12 +263,59 @@ async function listMedicalHistory(patientId) {
   });
 }
 
+async function getPendingFollowUps(patientId) {
+  try {
+    const encounterFollowUpService = require("./encounterFollowUpService");
+    const result = await encounterFollowUpService.listPatientFollowUps(patientId, {
+      status: "RECOMMENDED",
+      limit: 10,
+    });
+    return result.rows.map((fu) => ({
+      follow_up_id: fu.follow_up_id,
+      reason: fu.reason,
+      clinical_instructions: fu.clinical_instructions,
+      priority: fu.priority,
+      recommended_date: fu.recommended_date,
+      target_date: fu.target_date,
+      status: fu.status,
+      status_label: _getStatusLabel(fu.status),
+      recommended_by: fu.recommender?.full_name || null,
+      assigned_department: fu.assignedDepartment?.name || null,
+      current_attempt: fu.attempts?.length > 0 ? fu.attempts[fu.attempts.length - 1] : null,
+      appointment: fu.attempts?.length > 0 && fu.attempts[fu.attempts.length - 1]?.schedule
+        ? {
+            schedule_date: fu.attempts[fu.attempts.length - 1].schedule.schedule_date,
+            start_time: fu.attempts[fu.attempts.length - 1].schedule.start_time,
+            doctor_name: fu.attempts[fu.attempts.length - 1].schedule.staff?.full_name || null,
+          }
+        : null,
+      awaiting_scheduling: fu.status === "RECOMMENDED" || fu.status === "PENDING_SCHEDULING",
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function _getStatusLabel(status) {
+  const labels = {
+    RECOMMENDED: "Awaiting Scheduling",
+    PENDING_SCHEDULING: "Pending Scheduling",
+    SCHEDULED: "Scheduled",
+    COMPLETED: "Completed",
+    CANCELLED: "Cancelled",
+    EXPIRED: "Expired",
+    MISSED: "Missed",
+  };
+  return labels[status] || status;
+}
+
 async function getDashboard(patientId) {
   const today = formatDateOnly();
   const schedules = await listMySchedules(patientId, { from: today });
   const upcoming = schedules.filter((s) => UPCOMING_STATUSES.includes(s.status));
   const prescriptions = await listMyPrescriptions(patientId);
   const unread = await notificationService.unreadCount(patientId);
+  const pendingFollowUps = await getPendingFollowUps(patientId);
 
   const activeRx = prescriptions.filter(
     (p) => p.status === "active" || p.status === "finalized"
@@ -281,6 +328,8 @@ async function getDashboard(patientId) {
     unread_notifications_count: unread,
     recent_prescriptions: prescriptions.slice(0, 3),
     upcoming_appointments: upcoming.slice(0, 5),
+    pending_follow_ups: pendingFollowUps,
+    pending_follow_ups_count: pendingFollowUps.length,
   };
 }
 

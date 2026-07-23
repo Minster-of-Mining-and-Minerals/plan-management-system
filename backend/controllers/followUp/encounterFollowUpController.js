@@ -90,12 +90,12 @@ const createAttempt = async (req, res) => {
 const markAttemptMissed = async (req, res) => {
   try {
     const { attemptId } = req.params;
-    const { cancel_reason } = req.body;
+    const { missed_reason } = req.body;
     const result = await encounterFollowUpService.markAttemptMissed(
       attemptId,
       {
         req,
-        cancelReason: cancel_reason,
+        missedReason: missed_reason,
         updatedBy: req.user.user_id,
       }
     );
@@ -150,6 +150,133 @@ const listAttempts = async (req, res) => {
     const { id } = req.params;
     const attempts = await encounterFollowUpService.listAttempts(id);
     return res.json({ success: true, data: attempts });
+  } catch (e) {
+    return res.status(e.status || 500).json({
+      success: false,
+      message: e.message,
+    });
+  }
+};
+
+// ============ Phase 2.4.2 - Scheduling Workflow ============
+
+/**
+ * Schedule a follow-up appointment (creates PatientSchedule + EncounterFollowUpAttempt).
+ * POST /api/follow-ups/:id/schedule-appointment
+ */
+const scheduleAppointment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const scheduleData = req.body;
+    const result = await encounterFollowUpService.scheduleAppointment(
+      id,
+      scheduleData,
+      { req, scheduledBy: req.user.user_id }
+    );
+    return res.json({ success: true, data: result });
+  } catch (e) {
+    return res.status(e.status || 500).json({
+      success: false,
+      message: e.message,
+    });
+  }
+};
+
+/**
+ * Reschedule a missed/cancelled attempt.
+ * POST /api/follow-ups/:id/reschedule/:previousAttemptId
+ */
+const rescheduleAttempt = async (req, res) => {
+  try {
+    const { id, previousAttemptId } = req.params;
+    const scheduleData = req.body;
+    const result = await encounterFollowUpService.rescheduleAttempt(
+      id,
+      previousAttemptId,
+      scheduleData,
+      { req, scheduledBy: req.user.user_id }
+    );
+    return res.json({ success: true, data: result });
+  } catch (e) {
+    return res.status(e.status || 500).json({
+      success: false,
+      message: e.message,
+    });
+  }
+};
+
+/**
+ * List follow-ups by status (reception queue).
+ * GET /api/follow-ups/queue?status=PENDING_SCHEDULING
+ */
+const listFollowUpsByStatus = async (req, res) => {
+  try {
+    const { status, statuses, assigned_department_id, assigned_user_id, patient_id, limit, offset } = req.query;
+    const filters = {};
+    if (status) filters.status = status;
+    if (statuses) filters.statuses = Array.isArray(statuses) ? statuses : statuses.split(",");
+    if (assigned_department_id) filters.assigned_department_id = assigned_department_id;
+    if (assigned_user_id) filters.assigned_user_id = assigned_user_id;
+    if (patient_id) filters.patient_id = patient_id;
+    if (limit) filters.limit = parseInt(limit, 10);
+    if (offset) filters.offset = parseInt(offset, 10);
+
+    const result = await encounterFollowUpService.listFollowUpsByStatus(filters);
+    return res.json({ success: true, data: result.rows, count: result.count });
+  } catch (e) {
+    return res.status(e.status || 500).json({
+      success: false,
+      message: e.message,
+    });
+  }
+};
+
+/**
+ * Find a follow-up by schedule_id.
+ * GET /api/follow-ups/by-schedule/:scheduleId
+ */
+const findFollowUpBySchedule = async (req, res) => {
+  try {
+    const { scheduleId } = req.params;
+    const followUp = await encounterFollowUpService.findFollowUpBySchedule(scheduleId);
+    return res.json({ success: true, data: followUp });
+  } catch (e) {
+    return res.status(e.status || 500).json({
+      success: false,
+      message: e.message,
+    });
+  }
+};
+
+/**
+ * Auto-complete a follow-up (called on patient admission).
+ * POST /api/follow-ups/auto-complete
+ */
+const autoCompleteFollowUp = async (req, res) => {
+  try {
+    const { schedule_id, new_encounter_id } = req.body;
+    const result = await encounterFollowUpService.autoCompleteFollowUp(
+      schedule_id,
+      new_encounter_id,
+      { req, admittedBy: req.user.user_id }
+    );
+    return res.json({ success: true, data: result });
+  } catch (e) {
+    return res.status(e.status || 500).json({
+      success: false,
+      message: e.message,
+    });
+  }
+};
+
+/**
+ * Get follow-up counts by status.
+ * GET /api/follow-ups/counts
+ */
+const getFollowUpCounts = async (req, res) => {
+  try {
+    const counts = await encounterFollowUpService.getFollowUpCounts();
+    return res.json({ success: true, data: counts });
   } catch (e) {
     return res.status(e.status || 500).json({
       success: false,
@@ -259,4 +386,11 @@ module.exports = {
   markAttemptAttended,
   markAttemptCancelled,
   listAttempts,
+  // Phase 2.4.2 - Scheduling Workflow
+  scheduleAppointment,
+  rescheduleAttempt,
+  listFollowUpsByStatus,
+  findFollowUpBySchedule,
+  autoCompleteFollowUp,
+  getFollowUpCounts,
 };
