@@ -186,15 +186,15 @@ const getFollowUpContext = async (req, res) => {
     const { appointmentId } = req.params;
 
     // Verify access to this appointment using existing auth
-    await medicalWorkflowService.canAccessAppointment(appointmentId, req.user.user_id);
+    // This also returns the appointment data we need
+    const appointment = await medicalWorkflowService.canAccessAppointment(appointmentId, req.user.user_id);
 
     const context = await followUpContinuityService.getFollowUpContext(appointmentId);
 
     // Emit timeline event for follow-up encounters
     if (context.is_follow_up) {
       try {
-        // Use the appointment data we already have from canAccessAppointment
-        const appointment = await medicalWorkflowService.canAccessAppointment(appointmentId, req.user.user_id);
+        // Use the already loaded appointment data
         await timelineEventService.emit({
           patient_id: appointment.patient_id,
           appointment_id: appointmentId,

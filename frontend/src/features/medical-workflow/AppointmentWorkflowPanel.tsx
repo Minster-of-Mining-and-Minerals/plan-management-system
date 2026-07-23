@@ -48,6 +48,11 @@ import {
   formDataHasPendingCanvasPreviews,
   sanitizeFormDataCanvasFields,
 } from "@/components/canvas-annotation/canvasAnnotationUtils";
+import {
+  useGetFollowUpContextQuery,
+  type FollowUpContext,
+} from "@/redux/api/medicalWorkflowApi";
+import { FollowUpClinicalHandover } from "./components/FollowUpClinicalHandover";
 
 type GlobalPanel = "forward" | "prescribe" | "history" | null;
 
@@ -78,7 +83,22 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
   const router = useRouter();
   const { data, isLoading, isError, refetch } =
     useGetWorkflowContextQuery(appointmentId);
+  
+  // ── Phase 2.4.3 - Follow-up Continuity Context ─────────────────────────
+  const {
+    data: followUpContext,
+    isLoading: followUpLoading,
+  } = useGetFollowUpContextQuery(appointmentId);
+  const [showClinicalHandover, setShowClinicalHandover] = useState(true);
+  // ─────────────────────────────────────────────────────────────────────────
+  
   const { data: profile } = useGetProfileQuery();
+  
+  const handleViewFollowUpHistory = useCallback(() => {
+    if (followUpContext?.follow_up_id) {
+      router.push(`/follow-ups/${followUpContext.follow_up_id}`);
+    }
+  }, [followUpContext?.follow_up_id, router]);
   const { data: receivers = [] } = useGetWorkflowReceiversQuery();
   const [submitEntry, { isLoading: submitting }] =
     useSubmitWorkflowEntryMutation();
@@ -423,6 +443,18 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
         onProceedAnyway={handleProceedAnyway}
         onConfirmCompletion={handleConfirmCompletion}
       />
+
+      {/* ── Phase 2.4.3 - Follow-up Clinical Handover ────────────────────── */}
+      {!followUpLoading &&
+        followUpContext?.is_follow_up === true &&
+        showClinicalHandover && (
+          <FollowUpClinicalHandover
+            context={followUpContext}
+            onDismiss={() => setShowClinicalHandover(false)}
+            onViewFollowUpHistory={handleViewFollowUpHistory}
+          />
+        )}
+      {/* ─────────────────────────────────────────────────────────────────── */}
 
       <div
         className={cn(

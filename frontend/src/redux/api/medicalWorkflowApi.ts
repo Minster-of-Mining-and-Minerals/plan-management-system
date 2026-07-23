@@ -135,6 +135,67 @@ export type ExecuteCompletionPayload = {
   overriddenWarnings?: ValidationIssue[];
 };
 
+// ── Phase 2.4.3 - Follow-up Continuity Context Types ────────────────────────
+
+export type FollowUpContextProvider = {
+  user_id: string;
+  full_name: string;
+};
+
+export type FollowUpContextDiagnosis = {
+  log_id: string;
+  header_title: string;
+  created_at: string;
+  provider_name: string;
+  form_summary: string | null;
+};
+
+export type FollowUpContextPrescription = {
+  prescription_id: string;
+  template_name: string | null;
+  category_name: string | null;
+  items_summary: string | null;
+  prescriber_name: string | null;
+  issued_at: string;
+  header_title: string | null;
+};
+
+export type FollowUpContextNote = {
+  log_id: string;
+  header_title: string;
+  notes: string;
+  created_at: string;
+  provider_name: string;
+};
+
+export type FollowUpContextTimelineSummary = {
+  total_logs: number;
+  action_types: string[];
+  last_action: string | null;
+  last_action_at: string | null;
+};
+
+export type FollowUpContext = {
+  is_follow_up: boolean;
+  follow_up_id?: string;
+  origin_encounter_id?: string;
+  current_encounter_id?: string;
+  previous_provider?: FollowUpContextProvider | null;
+  recommended_by?: FollowUpContextProvider | null;
+  recommendation_date?: string;
+  reason?: string;
+  clinical_instructions?: string | null;
+  expected_review_date?: string | null;
+  priority?: "LOW" | "NORMAL" | "HIGH" | "URGENT";
+  previous_diagnosis?: FollowUpContextDiagnosis[];
+  previous_prescriptions?: FollowUpContextPrescription[];
+  previous_notes?: FollowUpContextNote[];
+  previous_timeline_summary?: FollowUpContextTimelineSummary;
+  follow_up_status?: string;
+  attempt_number?: number;
+  attempt_status?: string;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const medicalWorkflowApi = baseApi.injectEndpoints({
@@ -217,6 +278,17 @@ export const medicalWorkflowApi = baseApi.injectEndpoints({
         "Notification",
       ],
     }),
+
+    // ── Phase 2.4.3 - Follow-up Continuity Context ──────────────────────────
+
+    getFollowUpContext: builder.query<FollowUpContext, string>({
+      query: (appointmentId) =>
+        `/workflow/${appointmentId}/follow-up-context`,
+      transformResponse: (r: { data: FollowUpContext }) => r.data,
+      providesTags: (_r, _e, appointmentId) => [
+        { type: "MedicalWorkflow", id: `followup-${appointmentId}` },
+      ],
+    }),
   }),
 });
 
@@ -229,4 +301,5 @@ export const {
   useGetWorkflowReceiversQuery,
   useLazyValidateEncounterCompletionQuery,
   useExecuteEncounterCompletionMutation,
+  useGetFollowUpContextQuery,
 } = medicalWorkflowApi;
