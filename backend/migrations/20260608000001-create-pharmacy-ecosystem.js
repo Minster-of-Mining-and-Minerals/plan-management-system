@@ -4,28 +4,19 @@ const {
   timestampColumns,
   safeAddIndex,
   dropTableIfExists,
+  createTableIfNotExists,
 } = require("./_helpers/migrationUtils");
 
-const PHARMACY_PERMISSIONS = [
-  { resource: "pharmacy", action: "create" },
-  { resource: "pharmacy", action: "update" },
-  { resource: "pharmacy", action: "delete" },
-  { resource: "pharmacy", action: "view" },
-  { resource: "pharmacy", action: "manage" },
-  { resource: "pharmacy", action: "user_manage" },
-  { resource: "pharmacy_prescription", action: "send" },
-  { resource: "pharmacy_prescription", action: "view" },
-];
-
+/** Baseline 15 — Pharmacy Ecosystem */
 module.exports = {
   async up(queryInterface, Sequelize) {
     const ts = timestampColumns(Sequelize);
 
     await queryInterface.sequelize.query(
       `ALTER TYPE "enum_users_account_type" ADD VALUE IF NOT EXISTS 'PHARMACY';`
-    );
+    ).catch(() => {});
 
-    await queryInterface.createTable("pharmacies", {
+    await createTableIfNotExists(queryInterface, "pharmacies", {
       pharmacy_id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
@@ -53,7 +44,7 @@ module.exports = {
       ...ts,
     });
 
-    await queryInterface.createTable("pharmacy_user_profiles", {
+    await createTableIfNotExists(queryInterface, "pharmacy_user_profiles", {
       pharmacy_user_profile_id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
@@ -90,7 +81,7 @@ module.exports = {
       ...ts,
     });
 
-    await queryInterface.createTable("pharmacy_prescriptions", {
+    await createTableIfNotExists(queryInterface, "pharmacy_prescriptions", {
       pharmacy_prescription_id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
@@ -134,7 +125,7 @@ module.exports = {
       ...ts,
     });
 
-    await queryInterface.createTable("pharmacy_prescription_items", {
+    await createTableIfNotExists(queryInterface, "pharmacy_prescription_items", {
       pharmacy_prescription_item_id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
@@ -173,7 +164,7 @@ module.exports = {
       ...ts,
     });
 
-    await queryInterface.createTable("pharmacy_prescription_versions", {
+    await createTableIfNotExists(queryInterface, "pharmacy_prescription_versions", {
       pharmacy_prescription_version_id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
@@ -203,7 +194,7 @@ module.exports = {
       },
     });
 
-    await queryInterface.createTable("prescription_fulfillments", {
+    await createTableIfNotExists(queryInterface, "prescription_fulfillments", {
       fulfillment_id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
@@ -245,50 +236,6 @@ module.exports = {
       ["pharmacy_id", "original_prescription_id"],
       { unique: true, name: "pharmacy_prescriptions_pharmacy_original_unique" }
     );
-
-    const [permissions] = await queryInterface.sequelize.query(
-      `SELECT permission_id, resource, action FROM permissions`
-    );
-    const permMap = new Map(
-      permissions.map((p) => [`${p.resource}:${p.action}`, p.permission_id])
-    );
-
-    for (const { resource, action } of PHARMACY_PERMISSIONS) {
-      const key = `${resource}:${action}`;
-      if (!permMap.has(key)) {
-        const [rows] = await queryInterface.sequelize.query(
-          `INSERT INTO permissions (permission_id, resource, action, is_active, created_at, updated_at)
-           VALUES (gen_random_uuid(), :resource, :action, true, NOW(), NOW())
-           RETURNING permission_id`,
-          { replacements: { resource, action } }
-        );
-        if (rows?.[0]?.permission_id) {
-          permMap.set(key, rows[0].permission_id);
-        }
-      }
-    }
-
-    const [roles] = await queryInterface.sequelize.query(
-      `SELECT role_id, name FROM roles WHERE name IN ('Super Admin', 'Admin')`
-    );
-    const pharmacyPermIds = [];
-    for (const { resource, action } of PHARMACY_PERMISSIONS) {
-      const id = permMap.get(`${resource}:${action}`);
-      if (id) pharmacyPermIds.push(id);
-    }
-
-    for (const role of roles) {
-      for (const permissionId of pharmacyPermIds) {
-        await queryInterface.sequelize.query(
-          `INSERT INTO role_permissions (role_permission_id, role_id, permission_id, is_active, created_at, updated_at)
-           SELECT gen_random_uuid(), :roleId, :permissionId, true, NOW(), NOW()
-           WHERE NOT EXISTS (
-             SELECT 1 FROM role_permissions WHERE role_id = :roleId AND permission_id = :permissionId
-           )`,
-          { replacements: { roleId: role.role_id, permissionId } }
-        );
-      }
-    }
   },
 
   async down(queryInterface) {
@@ -298,12 +245,5 @@ module.exports = {
     await dropTableIfExists(queryInterface, "pharmacy_prescriptions");
     await dropTableIfExists(queryInterface, "pharmacy_user_profiles");
     await dropTableIfExists(queryInterface, "pharmacies");
-
-    for (const { resource, action } of PHARMACY_PERMISSIONS) {
-      await queryInterface.sequelize.query(
-        `DELETE FROM permissions WHERE resource = :resource AND action = :action`,
-        { replacements: { resource, action } }
-      );
-    }
   },
 };

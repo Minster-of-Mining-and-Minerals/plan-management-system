@@ -14,7 +14,6 @@ const {
   TEST_PHARMACY_USERS,
 } = require("../config/professionalTestUsersConstants");
 const { assertDemoSeedAllowed } = require("../utils/assertDemoSeedAllowed");
-const { assertDemoSeedAllowed } = require("../utils/assertDemoSeedAllowed");
 
 async function findPermissionId(queryInterface, resource, action) {
   const [rows] = await queryInterface.sequelize.query(

@@ -47,6 +47,12 @@ module.exports = {
       },
       job_title: { type: Sequelize.STRING(128), allowNull: true },
       employee_id: { type: Sequelize.STRING(64), allowNull: true },
+      signature_file: { type: Sequelize.STRING(500), allowNull: true },
+      signature_enabled: {
+        type: Sequelize.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
       metadata: {
         type: Sequelize.JSONB,
         allowNull: true,

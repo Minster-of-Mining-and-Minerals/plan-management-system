@@ -284,17 +284,44 @@ module.exports = {
       }
     );
 
-    const [categories] = await queryInterface.sequelize.query(
+    let [categories] = await queryInterface.sequelize.query(
       `SELECT category_id, code FROM prescription_categories WHERE status = 'active'`
     );
-    const categoryByCode = Object.fromEntries(categories.map((c) => [c.code, c.category_id]));
 
     if (!categories.length) {
-      console.warn(
-        "[seed-prescription-demo] No prescription categories found — run migrations first."
+      const defaultCategories = [
+        { code: "drug", name: "Medication / Drug", description: "Standard pharmaceutical drugs and medications", sort_order: 1 },
+        { code: "glasses", name: "Glasses & Vision", description: "Ophthalmic and spectacle prescriptions", sort_order: 2 },
+        { code: "imaging", name: "Radiology & Imaging", description: "X-Rays, CT, MRI, and Ultrasound requisitions", sort_order: 3 },
+        { code: "procedure", name: "Medical Procedures", description: "Clinical procedures and minor surgeries", sort_order: 4 },
+        { code: "injection", name: "Injections & IV", description: "Injectable medications and infusions", sort_order: 5 },
+        { code: "physiotherapy", name: "Physiotherapy", description: "Rehabilitation and physical therapy", sort_order: 6 },
+        { code: "referral", name: "Specialist Referral", description: "Specialist consultations and referrals", sort_order: 7 },
+        { code: "diet", name: "Diet & Nutrition", description: "Medical nutrition therapy and meal plans", sort_order: 8 },
+        { code: "equipment", name: "Medical Equipment", description: "Durable medical equipment and devices", sort_order: 9 },
+      ];
+
+      for (const cat of defaultCategories) {
+        await queryInterface.bulkInsert("prescription_categories", [
+          {
+            category_id: uuidv4(),
+            name: cat.name,
+            code: cat.code,
+            description: cat.description,
+            sort_order: cat.sort_order,
+            status: "active",
+            created_at: now,
+            updated_at: now,
+          },
+        ]);
+      }
+
+      [categories] = await queryInterface.sequelize.query(
+        `SELECT category_id, code FROM prescription_categories WHERE status = 'active'`
       );
-      return;
     }
+
+    const categoryByCode = Object.fromEntries(categories.map((c) => [c.code, c.category_id]));
 
     for (const def of TEMPLATE_DEFINITIONS) {
       const categoryId = categoryByCode[def.category];

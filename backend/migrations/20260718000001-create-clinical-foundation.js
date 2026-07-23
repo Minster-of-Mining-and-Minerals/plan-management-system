@@ -3,17 +3,16 @@
 const {
   timestampColumns,
   createTableIfNotExists,
-  safeAddColumn,
-  safeRemoveColumn,
   dropTableIfExists,
   safeAddIndex,
 } = require("./_helpers/migrationUtils");
 
+/** Baseline 21 — Clinical Foundation (Timeline Events, Rules, Documents, Allergies) */
 module.exports = {
   async up(queryInterface, Sequelize) {
     const ts = timestampColumns(Sequelize);
 
-    // 1. Create timeline_events table
+    // 1. timeline_events
     await createTableIfNotExists(queryInterface, "timeline_events", {
       event_id: {
         type: Sequelize.UUID,
@@ -79,7 +78,7 @@ module.exports = {
     await safeAddIndex(queryInterface, "timeline_events", ["event_type"]);
     await safeAddIndex(queryInterface, "timeline_events", ["event_date"]);
 
-    // 2. Create clinical_rules table
+    // 2. clinical_rules
     await createTableIfNotExists(queryInterface, "clinical_rules", {
       rule_id: {
         type: Sequelize.UUID,
@@ -118,7 +117,7 @@ module.exports = {
       ...ts,
     });
 
-    // 3. Create clinical_documents table
+    // 3. clinical_documents
     await createTableIfNotExists(queryInterface, "clinical_documents", {
       document_id: {
         type: Sequelize.UUID,
@@ -190,6 +189,30 @@ module.exports = {
         onUpdate: "CASCADE",
         onDelete: "SET NULL",
       },
+      reviewer_id: {
+        type: Sequelize.UUID,
+        allowNull: true,
+        references: { model: "users", key: "user_id" },
+        onUpdate: "CASCADE",
+        onDelete: "SET NULL",
+      },
+      approver_id: {
+        type: Sequelize.UUID,
+        allowNull: true,
+        references: { model: "users", key: "user_id" },
+        onUpdate: "CASCADE",
+        onDelete: "SET NULL",
+      },
+      signatures: {
+        type: Sequelize.JSONB,
+        allowNull: false,
+        defaultValue: {},
+      },
+      metadata: {
+        type: Sequelize.JSONB,
+        allowNull: false,
+        defaultValue: {},
+      },
       attachment_ids: {
         type: Sequelize.JSONB,
         allowNull: false,
@@ -201,47 +224,51 @@ module.exports = {
     await safeAddIndex(queryInterface, "clinical_documents", ["patient_id"]);
     await safeAddIndex(queryInterface, "clinical_documents", ["appointment_id"]);
     await safeAddIndex(queryInterface, "clinical_documents", ["document_type"]);
+    await safeAddIndex(queryInterface, "clinical_documents", ["reviewer_id"]);
+    await safeAddIndex(queryInterface, "clinical_documents", ["approver_id"]);
 
-    // 4. Add columns to workflow_tasks
-    await safeAddColumn(queryInterface, "workflow_tasks", "task_type", {
-      type: Sequelize.STRING(32),
-      allowNull: false,
-      defaultValue: "CONSULTATION",
-    });
-    await safeAddColumn(queryInterface, "workflow_tasks", "resource_type", {
-      type: Sequelize.STRING(50),
-      allowNull: true,
-    });
-    await safeAddColumn(queryInterface, "workflow_tasks", "resource_id", {
-      type: Sequelize.UUID,
-      allowNull: true,
+    // 4. patient_allergies
+    await createTableIfNotExists(queryInterface, "patient_allergies", {
+      allergy_id: {
+        type: Sequelize.UUID,
+        primaryKey: true,
+        allowNull: false,
+      },
+      patient_id: {
+        type: Sequelize.UUID,
+        allowNull: false,
+        references: { model: "users", key: "user_id" },
+        onUpdate: "CASCADE",
+        onDelete: "CASCADE",
+      },
+      allergen: {
+        type: Sequelize.STRING(150),
+        allowNull: false,
+      },
+      severity: {
+        type: Sequelize.STRING(20),
+        allowNull: false,
+        defaultValue: "MEDIUM",
+      },
+      reaction: {
+        type: Sequelize.TEXT,
+        allowNull: true,
+      },
+      created_by: {
+        type: Sequelize.UUID,
+        allowNull: true,
+        references: { model: "users", key: "user_id" },
+        onUpdate: "CASCADE",
+        onDelete: "SET NULL",
+      },
+      ...ts,
     });
 
-    // 5. Add columns to medical_history_logs
-    await safeAddColumn(queryInterface, "medical_history_logs", "task_type", {
-      type: Sequelize.STRING(32),
-      allowNull: false,
-      defaultValue: "CONSULTATION",
-    });
-    await safeAddColumn(queryInterface, "medical_history_logs", "resource_type", {
-      type: Sequelize.STRING(50),
-      allowNull: true,
-    });
-    await safeAddColumn(queryInterface, "medical_history_logs", "resource_id", {
-      type: Sequelize.UUID,
-      allowNull: true,
-    });
+    await safeAddIndex(queryInterface, "patient_allergies", ["patient_id"]);
   },
 
-  async down(queryInterface, Sequelize) {
-    await safeRemoveColumn(queryInterface, "medical_history_logs", "resource_id");
-    await safeRemoveColumn(queryInterface, "medical_history_logs", "resource_type");
-    await safeRemoveColumn(queryInterface, "medical_history_logs", "task_type");
-
-    await safeRemoveColumn(queryInterface, "workflow_tasks", "resource_id");
-    await safeRemoveColumn(queryInterface, "workflow_tasks", "resource_type");
-    await safeRemoveColumn(queryInterface, "workflow_tasks", "task_type");
-
+  async down(queryInterface) {
+    await dropTableIfExists(queryInterface, "patient_allergies");
     await dropTableIfExists(queryInterface, "clinical_documents");
     await dropTableIfExists(queryInterface, "clinical_rules");
     await dropTableIfExists(queryInterface, "timeline_events");

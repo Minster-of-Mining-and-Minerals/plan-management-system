@@ -1,7 +1,7 @@
 "use strict";
 
 const { v4: uuidv4 } = require("uuid");
-const { tableExists } = require("./_helpers/migrationUtils");
+const { tableExists } = require("../migrations/_helpers/migrationUtils");
 const {
   OPHTHALMOLOGY_LAB_TEMPLATE_TITLE,
   OPHTHALMOLOGY_LAB_TEMPLATE_DESCRIPTION,
@@ -107,6 +107,6 @@ module.exports = {
   },
 
   async down() {
-    // Non-destructive — template may be referenced by staff configs.
+    // Non-destructive
   },
 };

@@ -1,12 +1,18 @@
 "use strict";
 
-const { timestampColumns, safeAddIndex, dropTableIfExists } = require("./_helpers/migrationUtils");
+const {
+  timestampColumns,
+  safeAddIndex,
+  dropTableIfExists,
+  createTableIfNotExists,
+} = require("./_helpers/migrationUtils");
 
+/** Baseline 16 — Prescription Pharmacy Forwards Ecosystem */
 module.exports = {
   async up(queryInterface, Sequelize) {
     const ts = timestampColumns(Sequelize);
 
-    await queryInterface.createTable("prescription_pharmacy_forwards", {
+    await createTableIfNotExists(queryInterface, "prescription_pharmacy_forwards", {
       forward_id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
@@ -58,24 +64,87 @@ module.exports = {
       ...ts,
     });
 
-    await safeAddIndex(queryInterface, "prescription_pharmacy_forwards", [
-      "schedule_id",
-    ]);
-    await safeAddIndex(queryInterface, "prescription_pharmacy_forwards", [
-      "prescription_id",
-    ]);
-    await safeAddIndex(queryInterface, "prescription_pharmacy_forwards", [
-      "pharmacy_id",
-    ]);
+    await safeAddIndex(queryInterface, "prescription_pharmacy_forwards", ["schedule_id"]);
+    await safeAddIndex(queryInterface, "prescription_pharmacy_forwards", ["prescription_id"]);
+    await safeAddIndex(queryInterface, "prescription_pharmacy_forwards", ["pharmacy_id"]);
     await safeAddIndex(
       queryInterface,
       "prescription_pharmacy_forwards",
-      ["schedule_id", "prescription_id", "pharmacy_id"],
-      { unique: true, name: "prescription_pharmacy_forwards_unique" }
+      ["prescription_id"],
+      { unique: true, name: "prescription_pharmacy_forwards_rx_unique" }
+    );
+
+    await createTableIfNotExists(queryInterface, "prescription_pharmacy_forward_audits", {
+      audit_id: {
+        type: Sequelize.UUID,
+        defaultValue: Sequelize.UUIDV4,
+        primaryKey: true,
+        allowNull: false,
+      },
+      forward_id: {
+        type: Sequelize.UUID,
+        allowNull: false,
+        references: {
+          model: "prescription_pharmacy_forwards",
+          key: "forward_id",
+        },
+        onUpdate: "CASCADE",
+        onDelete: "CASCADE",
+      },
+      action: { type: Sequelize.STRING(48), allowNull: false },
+      changed_by: { type: Sequelize.UUID, allowNull: false },
+      changed_at: { type: Sequelize.DATE, allowNull: false },
+      previous_values: { type: Sequelize.JSONB, allowNull: true },
+      new_values: { type: Sequelize.JSONB, allowNull: true },
+      ...ts,
+    });
+
+    await safeAddIndex(
+      queryInterface,
+      "prescription_pharmacy_forward_audits",
+      ["forward_id"]
+    );
+
+    await createTableIfNotExists(queryInterface, "prescription_pharmacy_forward_files", {
+      forward_file_id: {
+        type: Sequelize.UUID,
+        defaultValue: Sequelize.UUIDV4,
+        primaryKey: true,
+        allowNull: false,
+      },
+      forward_id: {
+        type: Sequelize.UUID,
+        allowNull: false,
+        references: {
+          model: "prescription_pharmacy_forwards",
+          key: "forward_id",
+        },
+        onUpdate: "CASCADE",
+        onDelete: "CASCADE",
+      },
+      attachment_id: {
+        type: Sequelize.UUID,
+        allowNull: false,
+        references: { model: "attachments", key: "attachment_id" },
+        onUpdate: "CASCADE",
+        onDelete: "CASCADE",
+      },
+      added_by: { type: Sequelize.UUID, allowNull: false },
+      added_at: { type: Sequelize.DATE, allowNull: false },
+      ...ts,
+    });
+
+    await safeAddIndex(
+      queryInterface,
+      "prescription_pharmacy_forward_files",
+      ["forward_id", "attachment_id"],
+      { unique: true, name: "prescription_pharmacy_forward_files_unique" }
     );
   },
 
   async down(queryInterface) {
+    await dropTableIfExists(queryInterface, "prescription_pharmacy_forward_files");
+    await dropTableIfExists(queryInterface, "prescription_pharmacy_forward_audits");
     await dropTableIfExists(queryInterface, "prescription_pharmacy_forwards");
   },
 };

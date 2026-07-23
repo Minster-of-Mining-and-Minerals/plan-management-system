@@ -37,6 +37,11 @@ module.exports = {
         allowNull: false,
         defaultValue: "INTERNAL",
       },
+      token_version: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+      },
       is_first_logged_in: {
         type: Sequelize.BOOLEAN,
         defaultValue: true,

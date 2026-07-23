@@ -1,7 +1,7 @@
 "use strict";
 
 const { v4: uuidv4 } = require("uuid");
-const { tableExists } = require("./_helpers/migrationUtils");
+const { tableExists } = require("../migrations/_helpers/migrationUtils");
 const {
   OPHTHALMOLOGY_TEMPLATE_TITLE,
   OPHTHALMOLOGY_TEMPLATE_DESCRIPTION,

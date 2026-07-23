@@ -5,7 +5,6 @@ const bcrypt = require("bcrypt");
 const { ensurePatientFormCatalog } = require("../services/patientFormSeedService");
 const { assignPatientCodes } = require("../services/qrBarcodeService");
 const { assertDemoSeedAllowed } = require("../utils/assertDemoSeedAllowed");
-const { assertDemoSeedAllowed } = require("../utils/assertDemoSeedAllowed");
 
 const ADMIN_USER_ID = "00000000-0000-4000-8000-000000000001";
 const DEMO_EMAIL_DOMAIN = "@patient.demo.novacure";

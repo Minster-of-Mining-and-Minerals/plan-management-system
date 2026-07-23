@@ -4,18 +4,17 @@ const {
   timestampColumns,
   safeAddIndex,
   dropTableIfExists,
-  dropEnumIfExists,
+  createTableIfNotExists,
 } = require("./_helpers/migrationUtils");
 
 /**
- * Baseline 06 — Patient form configuration (final shape, no User-model pivot).
- * Replaces: 20260527000001, 20260528000001, 20260529000001–00002
+ * Baseline 07 — Form Field System.
  */
 module.exports = {
   async up(queryInterface, Sequelize) {
     const ts = timestampColumns(Sequelize);
 
-    await queryInterface.createTable("form_field_groups", {
+    await createTableIfNotExists(queryInterface, "form_field_groups", {
       group_id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
@@ -40,6 +39,20 @@ module.exports = {
         allowNull: false,
         defaultValue: false,
       },
+      diagnosis_config_id: {
+        type: Sequelize.UUID,
+        allowNull: true,
+        references: { model: "diagnosis_form_configs", key: "config_id" },
+        onUpdate: "CASCADE",
+        onDelete: "CASCADE",
+      },
+      diagnosis_template_id: {
+        type: Sequelize.UUID,
+        allowNull: true,
+        references: { model: "diagnosis_templates", key: "template_id" },
+        onUpdate: "CASCADE",
+        onDelete: "CASCADE",
+      },
       ...ts,
     });
 
@@ -49,7 +62,7 @@ module.exports = {
       "sort_order",
     ]);
 
-    await queryInterface.createTable("form_fields", {
+    await createTableIfNotExists(queryInterface, "form_fields", {
       field_id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
@@ -60,19 +73,11 @@ module.exports = {
       field_key: { type: Sequelize.STRING(64), allowNull: false },
       label: { type: Sequelize.STRING(255), allowNull: false },
       field_type: {
-        type: Sequelize.ENUM(
-          "input",
-          "textarea",
-          "select",
-          "file",
-          "checkbox",
-          "date",
-          "number"
-        ),
+        type: Sequelize.STRING(32),
         allowNull: false,
       },
       storage_type: {
-        type: Sequelize.ENUM("core", "custom"),
+        type: Sequelize.STRING(32),
         allowNull: false,
         defaultValue: "custom",
       },
@@ -87,6 +92,20 @@ module.exports = {
         references: { model: "form_field_groups", key: "group_id" },
         onUpdate: "CASCADE",
         onDelete: "RESTRICT",
+      },
+      diagnosis_config_id: {
+        type: Sequelize.UUID,
+        allowNull: true,
+        references: { model: "diagnosis_form_configs", key: "config_id" },
+        onUpdate: "CASCADE",
+        onDelete: "CASCADE",
+      },
+      diagnosis_template_id: {
+        type: Sequelize.UUID,
+        allowNull: true,
+        references: { model: "diagnosis_templates", key: "template_id" },
+        onUpdate: "CASCADE",
+        onDelete: "CASCADE",
       },
       is_required: {
         type: Sequelize.BOOLEAN,
@@ -113,22 +132,32 @@ module.exports = {
 
     await safeAddIndex(queryInterface, "form_fields", ["model_name"]);
     await safeAddIndex(queryInterface, "form_fields", ["group_id"]);
-    await safeAddIndex(queryInterface, "form_fields", ["model_name", "field_key"], {
-      unique: true,
-      name: "form_fields_model_name_field_key_unique",
-    });
     await safeAddIndex(
       queryInterface,
       "form_fields",
       ["model_name", "category"],
       { name: "form_fields_model_name_category" }
     );
+
+    await queryInterface.sequelize.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS form_fields_patient_field_key_unique
+      ON form_fields (model_name, field_key)
+      WHERE diagnosis_config_id IS NULL AND diagnosis_template_id IS NULL;
+    `);
+    await queryInterface.sequelize.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS form_fields_diagnosis_field_key_unique
+      ON form_fields (model_name, field_key, diagnosis_config_id)
+      WHERE diagnosis_config_id IS NOT NULL;
+    `);
+    await queryInterface.sequelize.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS form_fields_diagnosis_template_field_key_unique
+      ON form_fields (model_name, field_key, diagnosis_template_id)
+      WHERE diagnosis_template_id IS NOT NULL;
+    `);
   },
 
   async down(queryInterface) {
     await dropTableIfExists(queryInterface, "form_fields");
-    await dropEnumIfExists(queryInterface, "enum_form_fields_field_type");
-    await dropEnumIfExists(queryInterface, "enum_form_fields_storage_type");
     await dropTableIfExists(queryInterface, "form_field_groups");
   },
 };

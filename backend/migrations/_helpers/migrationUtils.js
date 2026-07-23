@@ -124,22 +124,29 @@ async function runSql(queryInterface, sql) {
  * Reverse dependency order for rollback (children before parents).
  */
 const TABLE_DROP_ORDER = [
+  "encounter_follow_up_outcomes",
+  "encounter_follow_up_attempts",
+  "encounter_follow_ups",
+  "patient_allergies",
+  "clinical_documents",
+  "clinical_rules",
+  "timeline_events",
   "payment_tenders",
   "cashier_payments",
   "cashier_sessions",
+  "billing_collection_requests",
   "receipt_sequences",
   "receipt_templates",
-  "billing_collection_requests",
   "appointment_billing_entries",
   "appointment_billing_accounts",
   "billing_services",
   "billing_service_categories",
   "user_suggestion_usage",
   "clinical_suggestions",
-  "medical_certificates",
-  "medical_certificate_templates",
   "medical_diagrams",
   "medical_diagram_categories",
+  "medical_certificates",
+  "medical_certificate_templates",
   "prescription_pharmacy_forward_files",
   "prescription_pharmacy_forward_audits",
   "prescription_pharmacy_forwards",
@@ -158,20 +165,20 @@ const TABLE_DROP_ORDER = [
   "workflow_tasks",
   "medical_history_logs",
   "diagnosis_records",
+  "form_fields",
+  "form_field_groups",
   "diagnosis_form_configs",
   "diagnosis_templates",
   "staff_appointments",
   "notifications",
   "patient_schedules",
   "schedule_settings",
-  "patient_field_values",
-  "patient_profiles",
-  "internal_user_profiles",
   "attachments",
   "audit_logs",
   "system_branding",
-  "form_fields",
-  "form_field_groups",
+  "patient_field_values",
+  "patient_profiles",
+  "internal_user_profiles",
   "user_titles",
   "departments",
   "user_permission_groups",
@@ -184,12 +191,36 @@ const TABLE_DROP_ORDER = [
   "users",
 ];
 
+async function constraintExists(queryInterface, tableName, constraintName) {
+  try {
+    const [results] = await queryInterface.sequelize.query(
+      `SELECT constraint_name
+       FROM information_schema.table_constraints
+       WHERE table_name = :tableName AND constraint_name = :constraintName`,
+      {
+        replacements: { tableName, constraintName },
+      }
+    );
+    return results.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+async function safeDropConstraint(queryInterface, tableName, constraintName) {
+  if (!(await tableExists(queryInterface, tableName))) return;
+  if (await constraintExists(queryInterface, tableName, constraintName)) {
+    await queryInterface.removeConstraint(tableName, constraintName).catch(() => {});
+  }
+}
+
 module.exports = {
   timestampColumns,
   softDeleteColumn,
   tableExists,
   columnExists,
   indexExists,
+  constraintExists,
   safeAddIndex,
   safeRemoveIndex,
   safeAddColumn,
@@ -198,6 +229,8 @@ module.exports = {
   dropTableIfExists,
   dropTablesInOrder,
   dropEnumIfExists,
+  safeDropConstraint,
   runSql,
   TABLE_DROP_ORDER,
 };
+

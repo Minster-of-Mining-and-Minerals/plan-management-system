@@ -4,17 +4,17 @@ const {
   timestampColumns,
   safeAddIndex,
   dropTableIfExists,
+  createTableIfNotExists,
 } = require("./_helpers/migrationUtils");
 
 /**
- * Baseline 07 — Branding (final column names) + audit logs.
- * Replaces: 20260501000012, 00014, 00015, 20260525000001–00004, 20260601000006 (schema half)
+ * Baseline 08 — Branding & audit logs.
  */
 module.exports = {
   async up(queryInterface, Sequelize) {
     const ts = timestampColumns(Sequelize);
 
-    await queryInterface.createTable("system_branding", {
+    await createTableIfNotExists(queryInterface, "system_branding", {
       branding_id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
@@ -56,6 +56,16 @@ module.exports = {
       },
       theme_json: { type: Sequelize.JSONB, allowNull: true },
       slip_config: { type: Sequelize.JSONB, allowNull: true },
+      organization_address: { type: Sequelize.STRING(500), allowNull: true },
+      organization_city: { type: Sequelize.STRING(120), allowNull: true },
+      organization_region: { type: Sequelize.STRING(120), allowNull: true },
+      organization_country: { type: Sequelize.STRING(120), allowNull: true },
+      organization_branch: { type: Sequelize.STRING(255), allowNull: true },
+      contact_phone: { type: Sequelize.STRING(64), allowNull: true },
+      contact_email: { type: Sequelize.STRING(255), allowNull: true },
+      license_info: { type: Sequelize.STRING(500), allowNull: true },
+      prescription_config: { type: Sequelize.JSONB, allowNull: true },
+      prescription_signature_file: { type: Sequelize.STRING(500), allowNull: true },
       is_active: {
         type: Sequelize.BOOLEAN,
         allowNull: false,
@@ -64,7 +74,7 @@ module.exports = {
       ...ts,
     });
 
-    await queryInterface.createTable("audit_logs", {
+    await createTableIfNotExists(queryInterface, "audit_logs", {
       audit_id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,

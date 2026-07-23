@@ -82,7 +82,7 @@ async function ensureOphthalmologyLabStaffConfig(queryInterface, now) {
             assigned_staff_id: LAB_STAFF_ID,
             title: configTitle,
             description: "Ophthalmology laboratory investigation report",
-            status: "active",
+            is_active: true,
             created_by: ADMIN_USER_ID,
             updated_by: ADMIN_USER_ID,
             created_at: now,

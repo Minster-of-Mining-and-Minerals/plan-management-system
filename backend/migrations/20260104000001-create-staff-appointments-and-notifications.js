@@ -97,6 +97,15 @@ module.exports = {
         defaultValue: "admitted",
       },
       notes: { type: Sequelize.TEXT, allowNull: true },
+      workflow_status: {
+        type: Sequelize.STRING(32),
+        allowNull: false,
+        defaultValue: "active",
+      },
+      workflow_completed_at: {
+        type: Sequelize.DATE,
+        allowNull: true,
+      },
       ...ts,
     });
 
