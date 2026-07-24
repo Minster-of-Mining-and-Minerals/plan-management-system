@@ -63,6 +63,7 @@ import { FollowUpClinicalHandover } from "./components/FollowUpClinicalHandover"
 import { FollowUpOutcomeCard } from "./components/FollowUpOutcomeCard";
 import { FollowUpOutcomeDialog } from "./components/FollowUpOutcomeDialog";
 import { FollowUpChainTimeline } from "./components/FollowUpChainTimeline";
+import { ClinicalOrderPanel } from "./components/ClinicalOrderPanel";
 
 type GlobalPanel = "forward" | "prescribe" | "history" | null;
 
@@ -540,6 +541,13 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
           />
         </div>
       )}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+
+      {/* ── Phase 2.5 - Clinical Orders Platform ─────────────────────────── */}
+      <ClinicalOrderPanel
+        appointmentId={appointmentId}
+        patientId={data.appointment.patient_id}
+      />
       {/* ─────────────────────────────────────────────────────────────────── */}
 
       <div

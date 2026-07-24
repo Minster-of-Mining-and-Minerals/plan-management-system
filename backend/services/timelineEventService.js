@@ -204,6 +204,46 @@ class TimelineEventService {
         });
       }
 
+      // 4. Backfill clinical orders
+      if (db.ClinicalOrder) {
+        try {
+          const orders = await db.ClinicalOrder.findAll({
+            where: { patient_id: patientId },
+            order: [["created_at", "ASC"]],
+            transaction: t,
+          });
+          for (const order of orders) {
+            await TimelineEvent.findOrCreate({
+              where: {
+                patient_id: patientId,
+                resource_type: "ClinicalOrder",
+                resource_id: order.order_id,
+              },
+              defaults: {
+                event_id: uuidv4(),
+                patient_id: patientId,
+                appointment_id: order.appointment_id,
+                event_type: "CLINICAL_ORDER",
+                title: `Clinical Order: ${order.title}`,
+                description: `Type: ${order.order_type} | Priority: ${order.priority} | Status: ${order.status}`,
+                event_date: order.created_at || new Date(),
+                actor_id: order.ordered_by,
+                resource_type: "ClinicalOrder",
+                resource_id: order.order_id,
+                metadata: {
+                  status: order.status,
+                  order_type: order.order_type,
+                  priority: order.priority,
+                },
+              },
+              transaction: t,
+            });
+          }
+        } catch {
+          // Table may not exist in un-migrated test DB schema
+        }
+      }
+
       await t.commit();
     } catch (e) {
       await t.rollback();
