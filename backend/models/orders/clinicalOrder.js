@@ -29,6 +29,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "order_id",
         as: "result",
       });
+      ClinicalOrder.hasMany(models.ClinicalOrderStatusHistory, {
+        foreignKey: "order_id",
+        as: "statusHistory",
+      });
     }
   }
 
@@ -61,6 +65,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       title: { type: DataTypes.STRING(255), allowNull: false },
       clinical_reason: { type: DataTypes.TEXT, allowNull: true },
+      cancellation_reason: { type: DataTypes.TEXT, allowNull: true },
       order_items: { type: DataTypes.JSONB, allowNull: true, defaultValue: [] },
       notes: { type: DataTypes.TEXT, allowNull: true },
     },

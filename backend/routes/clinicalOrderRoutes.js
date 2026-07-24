@@ -59,4 +59,16 @@ router.post(
   clinicalOrderController.recordResult.bind(clinicalOrderController)
 );
 
+router.patch(
+  "/:id/cancel",
+  checkPermission("orders", "cancel"),
+  clinicalOrderController.cancelOrder.bind(clinicalOrderController)
+);
+
+router.post(
+  "/:id/result/amend",
+  checkPermission("orders", "amend"),
+  clinicalOrderController.amendResult.bind(clinicalOrderController)
+);
+
 module.exports = router;

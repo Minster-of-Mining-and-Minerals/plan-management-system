@@ -3,9 +3,48 @@
 const { Op } = require("sequelize");
 const { v4: uuidv4 } = require("uuid");
 const db = require("../models");
+const auditService = require("./auditService");
 const notificationService = require("./notificationService");
 
 class ClinicalOrderService {
+  /**
+   * Helper to record immutable status transition history.
+   */
+  async recordStatusHistory(orderId, previousStatus, newStatus, staffId, reason = null) {
+    if (db.ClinicalOrderStatusHistory) {
+      await db.ClinicalOrderStatusHistory.create({
+        history_id: uuidv4(),
+        order_id: orderId,
+        previous_status: previousStatus || null,
+        new_status: newStatus,
+        changed_by: staffId,
+        reason: reason || null,
+      });
+    }
+  }
+
+  /**
+   * Helper to log audit events into NovaCure audit architecture.
+   */
+  async logAudit(action, order, staffId, details = {}) {
+    if (auditService && typeof auditService.logAudit === "function") {
+      await auditService.logAudit({
+        actorUserId: staffId,
+        action,
+        resourceType: "ClinicalOrder",
+        resourceId: order.order_id,
+        details: {
+          patient_id: order.patient_id,
+          appointment_id: order.appointment_id,
+          order_type: order.order_type,
+          title: order.title,
+          status: order.status,
+          ...details,
+        },
+      });
+    }
+  }
+
   /**
    * Create a new clinical order for an encounter.
    */
@@ -61,6 +100,12 @@ class ClinicalOrderService {
       notes: notes || null,
     });
 
+    // Record status transition history (NULL -> SUBMITTED)
+    await this.recordStatusHistory(order.order_id, null, "SUBMITTED", staffId, "Order placed");
+
+    // Record Audit Event
+    await this.logAudit("ORDER_CREATED", order, staffId);
+
     // Create a workflow history log for timeline tracing
     await db.MedicalHistoryLog.create({
       log_id: uuidv4(),
@@ -77,46 +122,81 @@ class ClinicalOrderService {
   }
 
   /**
-   * Fetch a single clinical order by ID.
+   * Fetch a single clinical order by ID with associations and history.
    */
   async getOrder(orderId) {
+    const includeOptions = [
+      {
+        model: db.User,
+        as: "patient",
+        attributes: ["user_id", "full_name", "email"],
+      },
+      {
+        model: db.User,
+        as: "orderedByUser",
+        attributes: ["user_id", "full_name"],
+      },
+      {
+        model: db.User,
+        as: "assignedStaff",
+        attributes: ["user_id", "full_name"],
+        required: false,
+      },
+      {
+        model: db.Department,
+        as: "department",
+        attributes: ["department_id", "name"],
+        required: false,
+      },
+    ];
+
+    if (db.ClinicalOrderStatusHistory) {
+      includeOptions.push({
+        model: db.ClinicalOrderStatusHistory,
+        as: "statusHistory",
+        required: false,
+        include: [
+          {
+            model: db.User,
+            as: "changedByUser",
+            attributes: ["user_id", "full_name"],
+          },
+        ],
+      });
+    }
+
+    const resultInclude = [
+      {
+        model: db.User,
+        as: "recordedByUser",
+        attributes: ["user_id", "full_name"],
+      },
+    ];
+
+    if (db.ClinicalOrderResultHistory) {
+      resultInclude.push({
+        model: db.ClinicalOrderResultHistory,
+        as: "amendmentHistory",
+        required: false,
+        include: [
+          {
+            model: db.User,
+            as: "changedByUser",
+            attributes: ["user_id", "full_name"],
+          },
+        ],
+      });
+    }
+
+    includeOptions.push({
+      model: db.ClinicalOrderResult,
+      as: "result",
+      required: false,
+      include: resultInclude,
+    });
+
     const order = await db.ClinicalOrder.findByPk(orderId, {
-      include: [
-        {
-          model: db.User,
-          as: "patient",
-          attributes: ["user_id", "full_name", "email"],
-        },
-        {
-          model: db.User,
-          as: "orderedByUser",
-          attributes: ["user_id", "full_name"],
-        },
-        {
-          model: db.User,
-          as: "assignedStaff",
-          attributes: ["user_id", "full_name"],
-          required: false,
-        },
-        {
-          model: db.Department,
-          as: "department",
-          attributes: ["department_id", "name"],
-          required: false,
-        },
-        {
-          model: db.ClinicalOrderResult,
-          as: "result",
-          required: false,
-          include: [
-            {
-              model: db.User,
-              as: "recordedByUser",
-              attributes: ["user_id", "full_name"],
-            },
-          ],
-        },
-      ],
+      include: includeOptions,
     });
 
     if (!order) {
@@ -236,10 +316,15 @@ class ClinicalOrderService {
       throw err;
     }
 
+    const oldStatus = order.status;
+
     await order.update({
       assigned_staff_id: staffId,
       status: "ACCEPTED",
     });
+
+    await this.recordStatusHistory(orderId, oldStatus, "ACCEPTED", staffId, "Order claimed by staff");
+    await this.logAudit("ORDER_ACCEPTED", order, staffId);
 
     return this.getOrder(orderId);
   }
@@ -247,7 +332,7 @@ class ClinicalOrderService {
   /**
    * Update order status.
    */
-  async updateOrderStatus(orderId, status, staffId) {
+  async updateOrderStatus(orderId, status, staffId, reason = null) {
     const order = await db.ClinicalOrder.findByPk(orderId);
     if (!order) {
       const err = new Error("Clinical order not found");
@@ -255,9 +340,78 @@ class ClinicalOrderService {
       throw err;
     }
 
+    const oldStatus = order.status;
+
     await order.update({
       status,
       assigned_staff_id: staffId || order.assigned_staff_id,
+    });
+
+    await this.recordStatusHistory(orderId, oldStatus, status, staffId, reason);
+    const auditAction = status === "IN_PROGRESS" ? "ORDER_STARTED" : `ORDER_${status}`;
+    await this.logAudit(auditAction, order, staffId, { reason });
+
+    return this.getOrder(orderId);
+  }
+
+  /**
+   * Cancel an order with a mandatory cancellation reason.
+   */
+  async cancelOrder(orderId, cancellationReason, staffId) {
+    const order = await db.ClinicalOrder.findByPk(orderId);
+    if (!order) {
+      const err = new Error("Clinical order not found");
+      err.status = 404;
+      throw err;
+    }
+
+    if (order.status === "COMPLETED") {
+      const err = new Error("Cannot cancel a completed clinical order");
+      err.status = 400;
+      throw err;
+    }
+
+    if (order.status === "CANCELLED") {
+      const err = new Error("Order is already cancelled");
+      err.status = 400;
+      throw err;
+    }
+
+    if (!cancellationReason?.trim()) {
+      const err = new Error("cancellation_reason is required when cancelling an order");
+      err.status = 400;
+      throw err;
+    }
+
+    const oldStatus = order.status;
+
+    await order.update({
+      status: "CANCELLED",
+      cancellation_reason: cancellationReason.trim(),
+    });
+
+    await this.recordStatusHistory(
+      orderId,
+      oldStatus,
+      "CANCELLED",
+      staffId,
+      cancellationReason.trim()
+    );
+
+    await this.logAudit("ORDER_CANCELLED", order, staffId, {
+      cancellation_reason: cancellationReason.trim(),
+    });
+
+    // Medical history log for timeline
+    await db.MedicalHistoryLog.create({
+      log_id: uuidv4(),
+      patient_id: order.patient_id,
+      appointment_id: order.appointment_id,
+      sender_staff_id: staffId,
+      action_type: "update",
+      header_title: `Order Cancelled: ${order.title}`,
+      notes: `Reason: ${cancellationReason.trim()}`,
+      status: "cancelled",
     });
 
     return this.getOrder(orderId);
@@ -274,6 +428,7 @@ class ClinicalOrderService {
       throw err;
     }
 
+    const oldStatus = order.status;
     const { result_summary, result_data = {}, verification_status = "FINAL" } = payload;
 
     const [result, created] = await db.ClinicalOrderResult.findOrCreate({
@@ -301,6 +456,11 @@ class ClinicalOrderService {
 
     await order.update({ status: "COMPLETED" });
 
+    await this.recordStatusHistory(orderId, oldStatus, "COMPLETED", staffId, "Order resulted");
+    await this.logAudit(created ? "RESULT_CREATED" : "RESULT_VERIFIED", order, staffId, {
+      verification_status,
+    });
+
     // Log to MedicalHistoryLog for timeline integration
     await db.MedicalHistoryLog.create({
       log_id: uuidv4(),
@@ -311,6 +471,79 @@ class ClinicalOrderService {
       header_title: `Order Result: ${order.title}`,
       notes: result_summary || null,
       status: "submitted",
+    });
+
+    return this.getOrder(orderId);
+  }
+
+  /**
+   * Amend an existing clinical order result with history tracking.
+   */
+  async amendResult(orderId, payload, staffId) {
+    const order = await db.ClinicalOrder.findByPk(orderId);
+    if (!order) {
+      const err = new Error("Clinical order not found");
+      err.status = 404;
+      throw err;
+    }
+
+    const result = await db.ClinicalOrderResult.findOne({
+      where: { order_id: orderId },
+    });
+
+    if (!result) {
+      const err = new Error("No result exists for this order to amend");
+      err.status = 404;
+      throw err;
+    }
+
+    const { result_summary, result_data = {}, reason, verification_status = "FINAL" } = payload;
+
+    if (!reason?.trim()) {
+      const err = new Error("Amendment reason is required");
+      err.status = 400;
+      throw err;
+    }
+
+    // Save amendment history record
+    if (db.ClinicalOrderResultHistory) {
+      await db.ClinicalOrderResultHistory.create({
+        history_id: uuidv4(),
+        result_id: result.result_id,
+        previous_summary: result.result_summary,
+        previous_data: result.result_data,
+        new_summary: result_summary || result.result_summary,
+        new_data: result_data,
+        changed_by: staffId,
+        reason: reason.trim(),
+      });
+    }
+
+    // Update result
+    await result.update({
+      recorded_by: staffId,
+      verified_by: staffId,
+      verification_status,
+      result_summary: result_summary || result.result_summary,
+      result_data: result_data || result.result_data,
+      verified_at: new Date(),
+    });
+
+    await this.logAudit("RESULT_AMENDED", order, staffId, {
+      reason: reason.trim(),
+      verification_status,
+    });
+
+    // Medical history log for timeline
+    await db.MedicalHistoryLog.create({
+      log_id: uuidv4(),
+      patient_id: order.patient_id,
+      appointment_id: order.appointment_id,
+      sender_staff_id: staffId,
+      action_type: "update",
+      header_title: `Order Result Amended: ${order.title}`,
+      notes: `Reason: ${reason.trim()} | Summary: ${result_summary || result.result_summary}`,
+      status: "amended",
     });
 
     return this.getOrder(orderId);

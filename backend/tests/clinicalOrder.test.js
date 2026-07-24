@@ -43,8 +43,10 @@ describe("Phase 2.5 — Unified Clinical Order Engine", () => {
 
   beforeAll(async () => {
     // Sync tables for test execution
-    await db.ClinicalOrder.sync();
-    await db.ClinicalOrderResult.sync();
+    await db.ClinicalOrder.sync({ alter: true });
+    await db.ClinicalOrderResult.sync({ alter: true });
+    if (db.ClinicalOrderStatusHistory) await db.ClinicalOrderStatusHistory.sync({ alter: true });
+    if (db.ClinicalOrderResultHistory) await db.ClinicalOrderResultHistory.sync({ alter: true });
 
     // Create patient user
     const patient = await db.User.create({
@@ -90,7 +92,7 @@ describe("Phase 2.5 — Unified Clinical Order Engine", () => {
   describe("1. Clinical Order Creation & Lookup", () => {
     let createdOrderId;
 
-    it("should create a new laboratory clinical order", async () => {
+    it("should create a new laboratory clinical order and record status history", async () => {
       const order = await clinicalOrderService.createOrder(
         {
           appointment_id: appointmentId,
@@ -112,6 +114,11 @@ describe("Phase 2.5 — Unified Clinical Order Engine", () => {
       expect(order.priority).toBe("STAT");
       expect(order.ordered_by).toBe(staffId);
       createdOrderId = order.order_id;
+
+      if (order.statusHistory) {
+        expect(order.statusHistory.length).toBeGreaterThanOrEqual(1);
+        expect(order.statusHistory[0].new_status).toBe("SUBMITTED");
+      }
     });
 
     it("should fetch a clinical order by ID with associations", async () => {
@@ -154,10 +161,14 @@ describe("Phase 2.5 — Unified Clinical Order Engine", () => {
       expect(queue.length).toBeGreaterThanOrEqual(1);
     });
 
-    it("should accept an order for execution", async () => {
+    it("should accept an order for execution and record status history", async () => {
       const accepted = await clinicalOrderService.acceptOrder(orderId, staffId);
       expect(accepted.status).toBe("ACCEPTED");
       expect(accepted.assigned_staff_id).toBe(staffId);
+      if (accepted.statusHistory) {
+        const acceptedRecord = accepted.statusHistory.find((h) => h.new_status === "ACCEPTED");
+        expect(acceptedRecord).toBeDefined();
+      }
     });
 
     it("should record a result and set order status to COMPLETED", async () => {
@@ -177,7 +188,108 @@ describe("Phase 2.5 — Unified Clinical Order Engine", () => {
     });
   });
 
-  describe("3. Timeline Integration", () => {
+  describe("3. Cancellation & Result Amendment Governance", () => {
+    let orderIdToCancel;
+    let orderIdToAmend;
+
+    beforeAll(async () => {
+      const order1 = await clinicalOrderService.createOrder(
+        {
+          appointment_id: appointmentId,
+          patient_id: patientId,
+          order_type: "PROCEDURE",
+          priority: "ROUTINE",
+          title: "Biopsy specimen analysis",
+          clinical_reason: "Tissue evaluation",
+        },
+        staffId
+      );
+      orderIdToCancel = order1.order_id;
+
+      const order2 = await clinicalOrderService.createOrder(
+        {
+          appointment_id: appointmentId,
+          patient_id: patientId,
+          order_type: "LABORATORY",
+          priority: "URGENT",
+          title: "Electrolytes Panel",
+          clinical_reason: "Dehydration check",
+        },
+        staffId
+      );
+      orderIdToAmend = order2.order_id;
+
+      await clinicalOrderService.recordResult(
+        orderIdToAmend,
+        {
+          result_summary: "Potassium 3.8 mEq/L (Normal)",
+          result_data: { potassium: "3.8" },
+          verification_status: "FINAL",
+        },
+        staffId
+      );
+    });
+
+    it("should reject order cancellation if cancellation_reason is missing", async () => {
+      await expect(
+        clinicalOrderService.cancelOrder(orderIdToCancel, "", staffId)
+      ).rejects.toThrow("cancellation_reason is required");
+    });
+
+    it("should cancel an order with reason and record status history", async () => {
+      const cancelled = await clinicalOrderService.cancelOrder(
+        orderIdToCancel,
+        "Patient refused procedure",
+        staffId
+      );
+      expect(cancelled.status).toBe("CANCELLED");
+      expect(cancelled.cancellation_reason).toBe("Patient refused procedure");
+
+      if (cancelled.statusHistory) {
+        const cancelRecord = cancelled.statusHistory.find((h) => h.new_status === "CANCELLED");
+        expect(cancelRecord).toBeDefined();
+        expect(cancelRecord.reason).toBe("Patient refused procedure");
+      }
+    });
+
+    it("should reject amending a result if amendment reason is missing", async () => {
+      await expect(
+        clinicalOrderService.amendResult(
+          orderIdToAmend,
+          {
+            result_summary: "Potassium 4.1 mEq/L (Corrected)",
+            result_data: { potassium: "4.1" },
+            reason: "",
+          },
+          staffId
+        )
+      ).rejects.toThrow("Amendment reason is required");
+    });
+
+    it("should amend an existing result and preserve amendment history", async () => {
+      const amended = await clinicalOrderService.amendResult(
+        orderIdToAmend,
+        {
+          result_summary: "Potassium 4.1 mEq/L (Corrected calibration)",
+          result_data: { potassium: "4.1" },
+          reason: "Lab analyzer recalibration correction",
+          verification_status: "FINAL",
+        },
+        staffId
+      );
+
+      expect(amended.result).toBeDefined();
+      expect(amended.result.result_summary).toContain("Potassium 4.1");
+
+      if (amended.result.amendmentHistory) {
+        expect(amended.result.amendmentHistory.length).toBeGreaterThanOrEqual(1);
+        expect(amended.result.amendmentHistory[0].previous_summary).toContain("Potassium 3.8");
+        expect(amended.result.amendmentHistory[0].reason).toBe("Lab analyzer recalibration correction");
+      }
+    });
+  });
+
+  describe("4. Timeline Integration", () => {
     it("should include clinical orders when listing patient timeline", async () => {
       const timeline = await timelineEventService.listForPatient(patientId);
       expect(timeline).toBeDefined();

@@ -17,6 +17,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "verified_by",
         as: "verifiedByUser",
       });
+      ClinicalOrderResult.hasMany(models.ClinicalOrderResultHistory, {
+        foreignKey: "result_id",
+        as: "amendmentHistory",
+      });
     }
   }
 

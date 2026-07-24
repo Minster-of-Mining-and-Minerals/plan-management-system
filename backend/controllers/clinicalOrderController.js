@@ -108,6 +108,37 @@ class ClinicalOrderController {
       next(err);
     }
   }
+
+  async cancelOrder(req, res, next) {
+    try {
+      const staffId = req.user.user_id;
+      const { cancellation_reason } = req.body;
+      const order = await clinicalOrderService.cancelOrder(
+        req.params.id,
+        cancellation_reason,
+        staffId
+      );
+      return res.json({
+        success: true,
+        data: order,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async amendResult(req, res, next) {
+    try {
+      const staffId = req.user.user_id;
+      const order = await clinicalOrderService.amendResult(req.params.id, req.body, staffId);
+      return res.json({
+        success: true,
+        data: order,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = new ClinicalOrderController();

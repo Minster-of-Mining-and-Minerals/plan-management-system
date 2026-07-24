@@ -225,7 +225,7 @@ class TimelineEventService {
                 appointment_id: order.appointment_id,
                 event_type: "CLINICAL_ORDER",
                 title: `Clinical Order: ${order.title}`,
-                description: `Type: ${order.order_type} | Priority: ${order.priority} | Status: ${order.status}`,
+                description: `Type: ${order.order_type} | Priority: ${order.priority} | Status: ${order.status}${order.cancellation_reason ? ` | Reason: ${order.cancellation_reason}` : ""}`,
                 event_date: order.created_at || new Date(),
                 actor_id: order.ordered_by,
                 resource_type: "ClinicalOrder",
