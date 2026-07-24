@@ -98,6 +98,7 @@ export const baseApi = createApi({
     "WorkflowTask",
     "FollowUp",
     "ClinicalOrder",
+    "Laboratory",
   ],
   endpoints: () => ({}),
 });

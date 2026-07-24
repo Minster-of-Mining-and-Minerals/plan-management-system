@@ -64,6 +64,7 @@ import { FollowUpOutcomeCard } from "./components/FollowUpOutcomeCard";
 import { FollowUpOutcomeDialog } from "./components/FollowUpOutcomeDialog";
 import { FollowUpChainTimeline } from "./components/FollowUpChainTimeline";
 import { ClinicalOrderPanel } from "./components/ClinicalOrderPanel";
+import { LaboratoryOrderPanel } from "./components/LaboratoryOrderPanel";
 
 type GlobalPanel = "forward" | "prescribe" | "history" | null;
 
@@ -548,6 +549,10 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
         appointmentId={appointmentId}
         patientId={data.appointment.patient_id}
       />
+      {/* ─────────────────────────────────────────────────────────────────── */}
+
+      {/* ── Phase 2.6.1 - Laboratory Domain Foundation ───────────────────── */}
+      <LaboratoryOrderPanel appointmentId={appointmentId} />
       {/* ─────────────────────────────────────────────────────────────────── */}
 
       <div

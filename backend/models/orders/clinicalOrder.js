@@ -33,6 +33,14 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "order_id",
         as: "statusHistory",
       });
+      ClinicalOrder.hasMany(models.LaboratoryOrderItem, {
+        foreignKey: "order_id",
+        as: "labItems",
+      });
+      ClinicalOrder.hasMany(models.LaboratorySpecimen, {
+        foreignKey: "order_id",
+        as: "specimens",
+      });
     }
   }
 
@@ -62,6 +70,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING(32),
         allowNull: false,
         defaultValue: "SUBMITTED",
+      },
+      laboratory_status: {
+        type: DataTypes.STRING(64),
+        allowNull: true,
+        defaultValue: "WAITING_FOR_COLLECTION",
       },
       title: { type: DataTypes.STRING(255), allowNull: false },
       clinical_reason: { type: DataTypes.TEXT, allowNull: true },

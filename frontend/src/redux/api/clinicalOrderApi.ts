@@ -37,6 +37,8 @@ export type ClinicalOrder = {
   status: OrderStatus;
   title: string;
   clinical_reason?: string | null;
+  cancellation_reason?: string | null;
+  laboratory_status?: string | null;
   order_items?: ClinicalOrderItem[];
   notes?: string | null;
   created_at: string;

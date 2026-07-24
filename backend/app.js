@@ -56,6 +56,7 @@ const pharmacyPortalRoutes = require("./routers/pharmacy/pharmacyPortalRoutes");
 const patientPortalRoutes = require("./routers/patient/patientPortalRoutes");
 const encounterFollowUpRoutes = require("./routers/followUp/encounterFollowUpRoutes");
 const clinicalOrderRoutes = require("./routes/clinicalOrderRoutes");
+const laboratoryRoutes = require("./routes/laboratoryRoutes");
 
 // System Branding Routes
 const brandingRoutes = require("./routers/system/brandingRoutes");
@@ -263,6 +264,9 @@ app.use("/api/follow-ups", encounterFollowUpRoutes);
 
 // Clinical Order Routes
 app.use("/api/orders", clinicalOrderRoutes);
+
+// Laboratory Domain Routes
+app.use("/api/laboratory", laboratoryRoutes);
 
 // ================== Api Attachment Routes =====================
 app.use("/api/attachments", attachmentRoute);
