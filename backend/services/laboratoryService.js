@@ -4,6 +4,7 @@ const { v4: uuidv4 } = require("uuid");
 const db = require("../models");
 const auditService = require("./auditService");
 const clinicalOrderService = require("./clinicalOrderService");
+const laboratoryQueueService = require("./laboratoryQueueService");
 
 class LaboratoryService {
   /**
@@ -167,6 +168,8 @@ class LaboratoryService {
       specimen_type,
     });
 
+    await laboratoryQueueService.transitionQueueStage(orderId, specimen.specimen_id, "COLLECTION", staffId);
+
     return specimen.get({ plain: true });
   }
 
@@ -221,6 +224,8 @@ class LaboratoryService {
       specimen_type: specimen.specimen_type,
     });
 
+    await laboratoryQueueService.transitionQueueStage(specimen.order_id, specimenId, "RECEPTION", staffId);
+
     if (order) {
       await db.MedicalHistoryLog.create({
         log_id: uuidv4(),
@@ -269,6 +274,8 @@ class LaboratoryService {
       order_id: specimen.order_id,
     });
 
+    await laboratoryQueueService.transitionQueueStage(specimen.order_id, specimenId, "PROCESSING", staffId);
+
     return specimen.get({ plain: true });
   }
 
@@ -309,6 +316,8 @@ class LaboratoryService {
     await this.logAudit("SPECIMEN_ACCEPTED", specimenId, staffId, {
       order_id: specimen.order_id,
     });
+
+    await laboratoryQueueService.transitionQueueStage(specimen.order_id, specimenId, "PROCESSING", staffId);
 
     return specimen.get({ plain: true });
   }
@@ -526,6 +535,8 @@ class LaboratoryService {
     await this.logAudit("LAB_RESULT_SUBMITTED", orderId, staffId, {
       verification_status: payload.verification_status || "FINAL",
     });
+
+    await laboratoryQueueService.transitionQueueStage(orderId, null, "VERIFICATION", staffId);
 
     return clinicalOrderService.getOrder(orderId);
   }

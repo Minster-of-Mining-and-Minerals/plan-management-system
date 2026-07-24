@@ -41,6 +41,7 @@ import {
   type SampleType,
 } from "@/redux/api/laboratoryApi";
 import { SpecimenLifecyclePanel } from "./SpecimenLifecyclePanel";
+import { LaboratoryWorklistPanel } from "./LaboratoryWorklistPanel";
 
 type Props = {
   appointmentId: string;
@@ -107,7 +108,9 @@ export function LaboratoryOrderPanel({ appointmentId }: Props) {
   }
 
   return (
-    <Card className="my-4 border-l-4 border-l-purple-500">
+    <div className="space-y-4">
+      <LaboratoryWorklistPanel />
+      <Card className="my-4 border-l-4 border-l-purple-500">
       <CardHeader className="py-4 flex flex-row items-center justify-between">
         <div className="flex items-center gap-2">
           <FlaskConical className="h-5 w-5 text-purple-500" />
@@ -220,5 +223,6 @@ export function LaboratoryOrderPanel({ appointmentId }: Props) {
         </DialogContent>
       </Dialog>
     </Card>
+    </div>
   );
 }

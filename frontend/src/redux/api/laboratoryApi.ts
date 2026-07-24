@@ -19,6 +19,41 @@ export type SpecimenStatus =
   | "RECOLLECTION_REQUIRED"
   | "CANCELLED";
 
+export type QueueType = "COLLECTION" | "RECEPTION" | "PROCESSING" | "RESULT_ENTRY" | "VERIFICATION";
+export type QueueStatus = "WAITING" | "CLAIMED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+export type QueuePriority = "STAT" | "URGENT" | "ROUTINE";
+
+export type LaboratoryWorkQueueItem = {
+  id: string;
+  order_id: string;
+  specimen_id?: string | null;
+  queue_type: QueueType;
+  status: QueueStatus;
+  priority: QueuePriority;
+  assigned_staff_id?: string | null;
+  department_id?: string | null;
+  entered_at: string;
+  claimed_at?: string | null;
+  completed_at?: string | null;
+  created_at: string;
+  order?: {
+    order_id: string;
+    title: string;
+    priority: QueuePriority;
+    patient?: { user_id: string; full_name: string };
+    orderedByUser?: { user_id: string; full_name: string };
+  };
+  specimen?: {
+    specimen_id: string;
+    specimen_type: SampleType;
+    collection_status: SpecimenStatus;
+  };
+  assignedStaff?: {
+    user_id: string;
+    full_name: string;
+  };
+};
+
 export type LaboratoryTestCatalog = {
   test_catalog_id: string;
   code: string;
@@ -100,6 +135,57 @@ export type CreateSpecimenPayload = {
 
 export const laboratoryApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
+    getWorkQueue: builder.query<LaboratoryWorkQueueItem[], { queue_type?: QueueType; status?: QueueStatus } | void>({
+      query: (params) => ({
+        url: "/laboratory/workqueue",
+        params: params || undefined,
+      }),
+      transformResponse: (r: { data: LaboratoryWorkQueueItem[] }) => r.data,
+      providesTags: [{ type: "Laboratory", id: "WORKQUEUE" }],
+    }),
+
+    getMyWorklist: builder.query<LaboratoryWorkQueueItem[], void>({
+      query: () => "/laboratory/workqueue/my",
+      transformResponse: (r: { data: LaboratoryWorkQueueItem[] }) => r.data,
+      providesTags: [{ type: "Laboratory", id: "MY_WORKLIST" }],
+    }),
+
+    claimQueueItem: builder.mutation<LaboratoryWorkQueueItem, string>({
+      query: (id) => ({
+        url: `/laboratory/workqueue/${id}/claim`,
+        method: "PATCH",
+      }),
+      transformResponse: (r: { data: LaboratoryWorkQueueItem }) => r.data,
+      invalidatesTags: [
+        { type: "Laboratory", id: "WORKQUEUE" },
+        { type: "Laboratory", id: "MY_WORKLIST" },
+      ],
+    }),
+
+    startQueueItem: builder.mutation<LaboratoryWorkQueueItem, string>({
+      query: (id) => ({
+        url: `/laboratory/workqueue/${id}/start`,
+        method: "PATCH",
+      }),
+      transformResponse: (r: { data: LaboratoryWorkQueueItem }) => r.data,
+      invalidatesTags: [
+        { type: "Laboratory", id: "WORKQUEUE" },
+        { type: "Laboratory", id: "MY_WORKLIST" },
+      ],
+    }),
+
+    completeQueueItem: builder.mutation<LaboratoryWorkQueueItem, string>({
+      query: (id) => ({
+        url: `/laboratory/workqueue/${id}/complete`,
+        method: "PATCH",
+      }),
+      transformResponse: (r: { data: LaboratoryWorkQueueItem }) => r.data,
+      invalidatesTags: [
+        { type: "Laboratory", id: "WORKQUEUE" },
+        { type: "Laboratory", id: "MY_WORKLIST" },
+      ],
+    }),
+
     listTestCatalog: builder.query<LaboratoryTestCatalog[], string | void>({
       query: (category) => ({
         url: "/laboratory/tests",
@@ -145,7 +231,10 @@ export const laboratoryApi = baseApi.injectEndpoints({
         body: payload,
       }),
       transformResponse: (r: { data: LaboratorySpecimen }) => r.data,
-      invalidatesTags: (_r, _e, { orderId }) => [{ type: "Laboratory", id: `order-${orderId}` }],
+      invalidatesTags: (_r, _e, { orderId }) => [
+        { type: "Laboratory", id: `order-${orderId}` },
+        { type: "Laboratory", id: "WORKQUEUE" },
+      ],
     }),
 
     collectSpecimen: builder.mutation<
@@ -158,7 +247,10 @@ export const laboratoryApi = baseApi.injectEndpoints({
         body: { notes, site },
       }),
       transformResponse: (r: { data: LaboratorySpecimen }) => r.data,
-      invalidatesTags: [{ type: "Laboratory", id: "LIST" }],
+      invalidatesTags: [
+        { type: "Laboratory", id: "LIST" },
+        { type: "Laboratory", id: "WORKQUEUE" },
+      ],
     }),
 
     receiveSpecimen: builder.mutation<LaboratorySpecimen, string>({
@@ -167,7 +259,10 @@ export const laboratoryApi = baseApi.injectEndpoints({
         method: "POST",
       }),
       transformResponse: (r: { data: LaboratorySpecimen }) => r.data,
-      invalidatesTags: [{ type: "Laboratory", id: "LIST" }],
+      invalidatesTags: [
+        { type: "Laboratory", id: "LIST" },
+        { type: "Laboratory", id: "WORKQUEUE" },
+      ],
     }),
 
     acceptSpecimen: builder.mutation<LaboratorySpecimen, string>({
@@ -176,7 +271,10 @@ export const laboratoryApi = baseApi.injectEndpoints({
         method: "POST",
       }),
       transformResponse: (r: { data: LaboratorySpecimen }) => r.data,
-      invalidatesTags: [{ type: "Laboratory", id: "LIST" }],
+      invalidatesTags: [
+        { type: "Laboratory", id: "LIST" },
+        { type: "Laboratory", id: "WORKQUEUE" },
+      ],
     }),
 
     rejectSpecimen: builder.mutation<LaboratorySpecimen, { specimenId: string; reason: string }>({
@@ -186,7 +284,10 @@ export const laboratoryApi = baseApi.injectEndpoints({
         body: { reason },
       }),
       transformResponse: (r: { data: LaboratorySpecimen }) => r.data,
-      invalidatesTags: [{ type: "Laboratory", id: "LIST" }],
+      invalidatesTags: [
+        { type: "Laboratory", id: "LIST" },
+        { type: "Laboratory", id: "WORKQUEUE" },
+      ],
     }),
 
     createRecollection: builder.mutation<LaboratorySpecimen, { specimenId: string; notes?: string }>({
@@ -196,7 +297,10 @@ export const laboratoryApi = baseApi.injectEndpoints({
         body: { notes },
       }),
       transformResponse: (r: { data: LaboratorySpecimen }) => r.data,
-      invalidatesTags: [{ type: "Laboratory", id: "LIST" }],
+      invalidatesTags: [
+        { type: "Laboratory", id: "LIST" },
+        { type: "Laboratory", id: "WORKQUEUE" },
+      ],
     }),
 
     getSpecimenHistory: builder.query<LaboratorySpecimen, string>({
@@ -221,6 +325,11 @@ export const laboratoryApi = baseApi.injectEndpoints({
 });
 
 export const {
+  useGetWorkQueueQuery,
+  useGetMyWorklistQuery,
+  useClaimQueueItemMutation,
+  useStartQueueItemMutation,
+  useCompleteQueueItemMutation,
   useListTestCatalogQuery,
   useCreateTestCatalogMutation,
   useAddTestItemsMutation,

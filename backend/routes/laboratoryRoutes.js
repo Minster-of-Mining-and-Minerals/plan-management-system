@@ -3,6 +3,7 @@
 const express = require("express");
 const router = express.Router();
 const laboratoryController = require("../controllers/laboratoryController");
+const laboratoryQueueController = require("../controllers/laboratoryQueueController");
 const {
   authenticateToken,
   checkPermission,
@@ -11,6 +12,38 @@ const { requireInternalAccount } = require("../middlewares/accountTypeMiddleware
 
 router.use(authenticateToken, requireInternalAccount);
 
+// ================= Work Queue Routes =================
+router.get(
+  "/workqueue",
+  checkPermission("laboratory", "view_queue"),
+  laboratoryQueueController.getWorkQueue.bind(laboratoryQueueController)
+);
+
+router.get(
+  "/workqueue/my",
+  checkPermission("laboratory", "view_queue"),
+  laboratoryQueueController.getMyWorklist.bind(laboratoryQueueController)
+);
+
+router.patch(
+  "/workqueue/:id/claim",
+  checkPermission("laboratory", "claim_work"),
+  laboratoryQueueController.claimQueueItem.bind(laboratoryQueueController)
+);
+
+router.patch(
+  "/workqueue/:id/start",
+  checkPermission("laboratory", "start_work"),
+  laboratoryQueueController.startQueueItem.bind(laboratoryQueueController)
+);
+
+router.patch(
+  "/workqueue/:id/complete",
+  checkPermission("laboratory", "complete_work"),
+  laboratoryQueueController.completeQueueItem.bind(laboratoryQueueController)
+);
+
+// ================= Domain Foundation & Specimen Routes =================
 router.post(
   "/tests",
   checkPermission("laboratory", "process"),
