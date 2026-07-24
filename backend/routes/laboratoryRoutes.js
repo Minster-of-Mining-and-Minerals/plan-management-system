@@ -41,6 +41,36 @@ router.patch(
   laboratoryController.collectSpecimen.bind(laboratoryController)
 );
 
+router.post(
+  "/specimens/:id/receive",
+  checkPermission("laboratory", "receive_specimen"),
+  laboratoryController.receiveSpecimen.bind(laboratoryController)
+);
+
+router.post(
+  "/specimens/:id/accept",
+  checkPermission("laboratory", "process"),
+  laboratoryController.acceptSpecimen.bind(laboratoryController)
+);
+
+router.patch(
+  "/specimens/:id/reject",
+  checkPermission("laboratory", "reject_specimen"),
+  laboratoryController.rejectSpecimen.bind(laboratoryController)
+);
+
+router.post(
+  "/specimens/:id/recollect",
+  checkPermission("laboratory", "create_recollection"),
+  laboratoryController.createRecollectionRequest.bind(laboratoryController)
+);
+
+router.get(
+  "/specimens/:id/history",
+  checkPermission("laboratory", "view"),
+  laboratoryController.getSpecimenHistory.bind(laboratoryController)
+);
+
 router.patch(
   "/orders/:orderId/status",
   checkPermission("laboratory", "process"),

@@ -6,7 +6,7 @@ const clinicalOrderService = require("../services/clinicalOrderService");
 const laboratoryService = require("../services/laboratoryService");
 const timelineEventService = require("../services/timelineEventService");
 
-describe("Phase 2.6.1 — Laboratory Domain Foundation Engine", () => {
+describe("Phase 2.6.1 & 2.6.2 — Laboratory Domain & Specimen Lifecycle Engine", () => {
   let patientId;
   let staffId;
   let appointmentId;
@@ -49,6 +49,8 @@ describe("Phase 2.6.1 — Laboratory Domain Foundation Engine", () => {
     if (db.LaboratoryTestCatalog) await db.LaboratoryTestCatalog.sync({ alter: true });
     if (db.LaboratoryOrderItem) await db.LaboratoryOrderItem.sync({ alter: true });
     if (db.LaboratorySpecimen) await db.LaboratorySpecimen.sync({ alter: true });
+    if (db.LaboratorySpecimenStatusHistory) await db.LaboratorySpecimenStatusHistory.sync({ alter: true });
+    if (db.LaboratorySpecimenCollection) await db.LaboratorySpecimenCollection.sync({ alter: true });
 
     // Create patient user
     const patient = await db.User.create({
@@ -220,7 +222,92 @@ describe("Phase 2.6.1 — Laboratory Domain Foundation Engine", () => {
     });
   });
 
-  describe("3. Timeline Event Integration", () => {
+  describe("3. Specimen Lifecycle Enhancement (Phase 2.6.2)", () => {
+    let orderId;
+    let rejectedSpecimenId;
+    let newSpecimenId;
+
+    beforeAll(async () => {
+      const order = await clinicalOrderService.createOrder(
+        {
+          appointment_id: appointmentId,
+          patient_id: patientId,
+          order_type: "LABORATORY",
+          priority: "ROUTINE",
+          title: "Urinalysis Panel",
+          clinical_reason: "Routine checkup",
+        },
+        staffId
+      );
+      orderId = order.order_id;
+    });
+
+    it("should process specimen from PENDING -> COLLECTED -> RECEIVED -> ACCEPTED", async () => {
+      const specimen = await laboratoryService.createSpecimen(
+        orderId,
+        { specimen_type: "URINE" },
+        staffId
+      );
+      expect(specimen.collection_status).toBe("PENDING_COLLECTION");
+
+      const collected = await laboratoryService.collectSpecimen(specimen.specimen_id, staffId, "Midstream urine");
+      expect(collected.collection_status).toBe("COLLECTED");
+
+      const received = await laboratoryService.receiveSpecimen(specimen.specimen_id, staffId);
+      expect(received.collection_status).toBe("RECEIVED");
+
+      const accepted = await laboratoryService.acceptSpecimen(specimen.specimen_id, staffId);
+      expect(accepted.collection_status).toBe("ACCEPTED");
+    });
+
+    it("should reject a specimen with mandatory rejection reason", async () => {
+      const specimen = await laboratoryService.createSpecimen(
+        orderId,
+        { specimen_type: "BLOOD" },
+        staffId
+      );
+      await laboratoryService.collectSpecimen(specimen.specimen_id, staffId);
+      await laboratoryService.receiveSpecimen(specimen.specimen_id, staffId);
+
+      await expect(
+        laboratoryService.rejectSpecimen(specimen.specimen_id, "", staffId)
+      ).rejects.toThrow("Rejection reason is required");
+
+      const rejected = await laboratoryService.rejectSpecimen(
+        specimen.specimen_id,
+        "Hemolyzed blood sample",
+        staffId
+      );
+      expect(rejected.collection_status).toBe("REJECTED");
+      rejectedSpecimenId = specimen.specimen_id;
+    });
+
+    it("should create a recollection request linking replacement specimen to parent", async () => {
+      const replacement = await laboratoryService.createRecollectionRequest(
+        rejectedSpecimenId,
+        staffId,
+        "Draw new blood sample without hemolysis"
+      );
+
+      expect(replacement).toBeDefined();
+      expect(replacement.parent_specimen_id).toBe(rejectedSpecimenId);
+      expect(replacement.collection_status).toBe("PENDING_COLLECTION");
+      newSpecimenId = replacement.specimen_id;
+
+      const parentSpecimen = await laboratoryService.getSpecimenHistory(rejectedSpecimenId);
+      expect(parentSpecimen.collection_status).toBe("RECOLLECTION_REQUIRED");
+      expect(parentSpecimen.statusHistory).toBeDefined();
+    });
+
+    it("should fetch complete specimen history with collections and status history", async () => {
+      const history = await laboratoryService.getSpecimenHistory(newSpecimenId);
+      expect(history).toBeDefined();
+      expect(history.specimen_id).toBe(newSpecimenId);
+      expect(history.parent_specimen_id).toBe(rejectedSpecimenId);
+    });
+  });
+
+  describe("4. Timeline Integration", () => {
     it("should synthesize LAB_ORDER_CREATED timeline event", async () => {
       const timeline = await timelineEventService.listForPatient(patientId);
       expect(timeline).toBeDefined();

@@ -40,6 +40,7 @@ import {
   useListTestCatalogQuery,
   type SampleType,
 } from "@/redux/api/laboratoryApi";
+import { SpecimenLifecyclePanel } from "./SpecimenLifecyclePanel";
 
 type Props = {
   appointmentId: string;

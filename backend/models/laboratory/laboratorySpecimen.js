@@ -13,6 +13,18 @@ module.exports = (sequelize) => {
         foreignKey: "collected_by",
         as: "collector",
       });
+      LaboratorySpecimen.belongsTo(models.LaboratorySpecimen, {
+        foreignKey: "parent_specimen_id",
+        as: "parentSpecimen",
+      });
+      LaboratorySpecimen.hasMany(models.LaboratorySpecimenStatusHistory, {
+        foreignKey: "specimen_id",
+        as: "statusHistory",
+      });
+      LaboratorySpecimen.hasMany(models.LaboratorySpecimenCollection, {
+        foreignKey: "specimen_id",
+        as: "collections",
+      });
     }
   }
 
@@ -27,6 +39,10 @@ module.exports = (sequelize) => {
       order_id: {
         type: DataTypes.UUID,
         allowNull: false,
+      },
+      parent_specimen_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
       },
       specimen_type: {
         type: DataTypes.STRING(64),

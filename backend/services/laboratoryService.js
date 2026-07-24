@@ -22,6 +22,22 @@ class LaboratoryService {
   }
 
   /**
+   * Record immutable specimen status transition history.
+   */
+  async recordSpecimenStatusHistory(specimenId, previousStatus, newStatus, staffId, reason = null) {
+    if (db.LaboratorySpecimenStatusHistory) {
+      await db.LaboratorySpecimenStatusHistory.create({
+        specimen_status_history_id: uuidv4(),
+        specimen_id: specimenId,
+        previous_status: previousStatus || null,
+        new_status: newStatus,
+        changed_by: staffId,
+        reason: reason || null,
+      });
+    }
+  }
+
+  /**
    * Create a new laboratory test catalog entry.
    */
   async createTestCatalog(payload, staffId) {
@@ -127,17 +143,26 @@ class LaboratoryService {
       throw err;
     }
 
-    const { specimen_type = "BLOOD", notes } = payload || {};
+    const { specimen_type = "BLOOD", notes, parent_specimen_id } = payload || {};
 
     const specimen = await db.LaboratorySpecimen.create({
       specimen_id: uuidv4(),
       order_id: orderId,
+      parent_specimen_id: parent_specimen_id || null,
       specimen_type,
       collection_status: "PENDING_COLLECTION",
       notes: notes || null,
     });
 
-    await this.logAudit("LAB_SPECIMEN_CREATED", specimen.specimen_id, staffId, {
+    await this.recordSpecimenStatusHistory(
+      specimen.specimen_id,
+      null,
+      "PENDING_COLLECTION",
+      staffId,
+      "Specimen request initialized"
+    );
+
+    await this.logAudit("SPECIMEN_CREATED", specimen.specimen_id, staffId, {
       order_id: orderId,
       specimen_type,
     });
@@ -146,15 +171,17 @@ class LaboratoryService {
   }
 
   /**
-   * Collect a specimen.
+   * Collect a specimen and log collection details.
    */
-  async collectSpecimen(specimenId, staffId, notes = null) {
+  async collectSpecimen(specimenId, staffId, notes = null, site = null) {
     const specimen = await db.LaboratorySpecimen.findByPk(specimenId);
     if (!specimen) {
       const err = new Error("Laboratory specimen not found");
       err.status = 404;
       throw err;
     }
+
+    const oldStatus = specimen.collection_status;
 
     await specimen.update({
       collection_status: "COLLECTED",
@@ -163,17 +190,30 @@ class LaboratoryService {
       notes: notes || specimen.notes,
     });
 
+    // Record collection detail record
+    if (db.LaboratorySpecimenCollection) {
+      await db.LaboratorySpecimenCollection.create({
+        collection_id: uuidv4(),
+        specimen_id: specimenId,
+        collected_by: staffId,
+        collection_time: new Date(),
+        collection_site: site || null,
+        collector_notes: notes || null,
+      });
+    }
+
+    await this.recordSpecimenStatusHistory(
+      specimenId,
+      oldStatus,
+      "COLLECTED",
+      staffId,
+      "Specimen collected"
+    );
+
     // Update parent order laboratory status to SPECIMEN_COLLECTED
     const order = await db.ClinicalOrder.findByPk(specimen.order_id);
     if (order) {
       await order.update({ laboratory_status: "SPECIMEN_COLLECTED" });
-      await clinicalOrderService.recordStatusHistory(
-        order.order_id,
-        order.status,
-        order.status,
-        staffId,
-        `Specimen collected: ${specimen.specimen_type}`
-      );
     }
 
     await this.logAudit("SPECIMEN_COLLECTED", specimenId, staffId, {
@@ -181,7 +221,6 @@ class LaboratoryService {
       specimen_type: specimen.specimen_type,
     });
 
-    // Append to timeline via MedicalHistoryLog
     if (order) {
       await db.MedicalHistoryLog.create({
         log_id: uuidv4(),
@@ -193,6 +232,245 @@ class LaboratoryService {
         notes: notes || `Specimen collected for order ${order.title}`,
         status: "collected",
       });
+    }
+
+    return specimen.get({ plain: true });
+  }
+
+  /**
+   * Receive a specimen into the laboratory.
+   */
+  async receiveSpecimen(specimenId, staffId) {
+    const specimen = await db.LaboratorySpecimen.findByPk(specimenId);
+    if (!specimen) {
+      const err = new Error("Laboratory specimen not found");
+      err.status = 404;
+      throw err;
+    }
+
+    if (specimen.collection_status !== "COLLECTED") {
+      const err = new Error(`Cannot receive specimen in status ${specimen.collection_status}`);
+      err.status = 400;
+      throw err;
+    }
+
+    const oldStatus = specimen.collection_status;
+
+    await specimen.update({ collection_status: "RECEIVED" });
+    await this.recordSpecimenStatusHistory(
+      specimenId,
+      oldStatus,
+      "RECEIVED",
+      staffId,
+      "Specimen received by laboratory"
+    );
+
+    await this.logAudit("SPECIMEN_RECEIVED", specimenId, staffId, {
+      order_id: specimen.order_id,
+    });
+
+    return specimen.get({ plain: true });
+  }
+
+  /**
+   * Accept a received specimen into processing.
+   */
+  async acceptSpecimen(specimenId, staffId) {
+    const specimen = await db.LaboratorySpecimen.findByPk(specimenId);
+    if (!specimen) {
+      const err = new Error("Laboratory specimen not found");
+      err.status = 404;
+      throw err;
+    }
+
+    if (specimen.collection_status !== "RECEIVED" && specimen.collection_status !== "COLLECTED") {
+      const err = new Error(`Cannot accept specimen in status ${specimen.collection_status}`);
+      err.status = 400;
+      throw err;
+    }
+
+    const oldStatus = specimen.collection_status;
+
+    await specimen.update({ collection_status: "ACCEPTED" });
+    await this.recordSpecimenStatusHistory(
+      specimenId,
+      oldStatus,
+      "ACCEPTED",
+      staffId,
+      "Specimen accepted for testing"
+    );
+
+    // Update order lab status to PROCESSING
+    const order = await db.ClinicalOrder.findByPk(specimen.order_id);
+    if (order) {
+      await order.update({ laboratory_status: "PROCESSING" });
+    }
+
+    await this.logAudit("SPECIMEN_ACCEPTED", specimenId, staffId, {
+      order_id: specimen.order_id,
+    });
+
+    return specimen.get({ plain: true });
+  }
+
+  /**
+   * Reject a specimen with mandatory reason.
+   */
+  async rejectSpecimen(specimenId, reason, staffId) {
+    const specimen = await db.LaboratorySpecimen.findByPk(specimenId);
+    if (!specimen) {
+      const err = new Error("Laboratory specimen not found");
+      err.status = 404;
+      throw err;
+    }
+
+    if (!reason?.trim()) {
+      const err = new Error("Rejection reason is required");
+      err.status = 400;
+      throw err;
+    }
+
+    if (specimen.collection_status === "REJECTED" || specimen.collection_status === "CANCELLED") {
+      const err = new Error(`Specimen is already in status ${specimen.collection_status}`);
+      err.status = 400;
+      throw err;
+    }
+
+    const oldStatus = specimen.collection_status;
+
+    await specimen.update({ collection_status: "REJECTED" });
+    await this.recordSpecimenStatusHistory(
+      specimenId,
+      oldStatus,
+      "REJECTED",
+      staffId,
+      reason.trim()
+    );
+
+    await this.logAudit("SPECIMEN_REJECTED", specimenId, staffId, {
+      order_id: specimen.order_id,
+      reason: reason.trim(),
+    });
+
+    const order = await db.ClinicalOrder.findByPk(specimen.order_id);
+    if (order) {
+      await db.MedicalHistoryLog.create({
+        log_id: uuidv4(),
+        patient_id: order.patient_id,
+        appointment_id: order.appointment_id,
+        sender_staff_id: staffId,
+        action_type: "update",
+        header_title: `Specimen Rejected: ${specimen.specimen_type}`,
+        notes: `Reason: ${reason.trim()}`,
+        status: "rejected",
+      });
+    }
+
+    return specimen.get({ plain: true });
+  }
+
+  /**
+   * Create a recollection request for a rejected specimen.
+   */
+  async createRecollectionRequest(specimenId, staffId, notes = null) {
+    const specimen = await db.LaboratorySpecimen.findByPk(specimenId);
+    if (!specimen) {
+      const err = new Error("Laboratory specimen not found");
+      err.status = 404;
+      throw err;
+    }
+
+    if (specimen.collection_status !== "REJECTED") {
+      const err = new Error("Recollection can only be created for rejected specimens");
+      err.status = 400;
+      throw err;
+    }
+
+    // Update status to RECOLLECTION_REQUIRED
+    await specimen.update({ collection_status: "RECOLLECTION_REQUIRED" });
+    await this.recordSpecimenStatusHistory(
+      specimenId,
+      "REJECTED",
+      "RECOLLECTION_REQUIRED",
+      staffId,
+      "Recollection requested"
+    );
+
+    // Create replacement specimen linked via parent_specimen_id
+    const newSpecimen = await db.LaboratorySpecimen.create({
+      specimen_id: uuidv4(),
+      order_id: specimen.order_id,
+      parent_specimen_id: specimen.specimen_id,
+      specimen_type: specimen.specimen_type,
+      collection_status: "PENDING_COLLECTION",
+      notes: notes || `Recollection replacement for specimen ${specimen.specimen_id}`,
+    });
+
+    await this.recordSpecimenStatusHistory(
+      newSpecimen.specimen_id,
+      null,
+      "PENDING_COLLECTION",
+      staffId,
+      `Replacement specimen created for rejected parent ${specimen.specimen_id}`
+    );
+
+    await this.logAudit("SPECIMEN_RECOLLECTION_CREATED", newSpecimen.specimen_id, staffId, {
+      parent_specimen_id: specimen.specimen_id,
+      order_id: specimen.order_id,
+    });
+
+    // Reset parent order lab status to WAITING_FOR_COLLECTION
+    const order = await db.ClinicalOrder.findByPk(specimen.order_id);
+    if (order) {
+      await order.update({ laboratory_status: "WAITING_FOR_COLLECTION" });
+    }
+
+    return newSpecimen.get({ plain: true });
+  }
+
+  /**
+   * Get specimen history including status transitions and collection attempts.
+   */
+  async getSpecimenHistory(specimenId) {
+    const includeOptions = [];
+    if (db.LaboratorySpecimenStatusHistory) {
+      includeOptions.push({
+        model: db.LaboratorySpecimenStatusHistory,
+        as: "statusHistory",
+        required: false,
+        include: [
+          {
+            model: db.User,
+            as: "changedByUser",
+            attributes: ["user_id", "full_name"],
+          },
+        ],
+      });
+    }
+
+    if (db.LaboratorySpecimenCollection) {
+      includeOptions.push({
+        model: db.LaboratorySpecimenCollection,
+        as: "collections",
+        required: false,
+        include: [
+          {
+            model: db.User,
+            as: "collector",
+            attributes: ["user_id", "full_name"],
+          },
+        ],
+      });
+    }
+
+    const specimen = await db.LaboratorySpecimen.findByPk(specimenId, {
+      include: includeOptions,
+    });
+
+    if (!specimen) {
+      const err = new Error("Laboratory specimen not found");
+      err.status = 404;
+      throw err;
     }
 
     return specimen.get({ plain: true });
@@ -238,10 +516,8 @@ class LaboratoryService {
       throw err;
     }
 
-    // Call clinicalOrderService.recordResult
     const updatedOrder = await clinicalOrderService.recordResult(orderId, payload, staffId);
 
-    // Set lab status to COMPLETED
     await db.ClinicalOrder.update(
       { laboratory_status: "COMPLETED" },
       { where: { order_id: orderId } }

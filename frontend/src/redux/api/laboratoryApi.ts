@@ -9,7 +9,15 @@ export type LaboratoryCategory =
   | "OTHER";
 
 export type SampleType = "BLOOD" | "URINE" | "CSF" | "STOOL" | "SWAB" | "TISSUE";
-export type SpecimenStatus = "PENDING_COLLECTION" | "COLLECTED" | "REJECTED" | "CANCELLED";
+
+export type SpecimenStatus =
+  | "PENDING_COLLECTION"
+  | "COLLECTED"
+  | "RECEIVED"
+  | "ACCEPTED"
+  | "REJECTED"
+  | "RECOLLECTION_REQUIRED"
+  | "CANCELLED";
 
 export type LaboratoryTestCatalog = {
   test_catalog_id: string;
@@ -33,15 +41,41 @@ export type LaboratoryOrderItem = {
   created_at: string;
 };
 
+export type SpecimenStatusHistoryRecord = {
+  specimen_status_history_id: string;
+  specimen_id: string;
+  previous_status?: string | null;
+  new_status: string;
+  changed_by: string;
+  reason?: string | null;
+  created_at: string;
+  changedByUser?: { user_id: string; full_name: string };
+};
+
+export type SpecimenCollectionRecord = {
+  collection_id: string;
+  specimen_id: string;
+  collected_by: string;
+  collection_time: string;
+  collection_site?: string | null;
+  collector_notes?: string | null;
+  created_at: string;
+  collector?: { user_id: string; full_name: string };
+};
+
 export type LaboratorySpecimen = {
   specimen_id: string;
   order_id: string;
+  parent_specimen_id?: string | null;
   specimen_type: SampleType;
   collection_status: SpecimenStatus;
   collected_by?: string | null;
   collected_at?: string | null;
   notes?: string | null;
   created_at: string;
+  statusHistory?: SpecimenStatusHistoryRecord[];
+  collections?: SpecimenCollectionRecord[];
+  parentSpecimen?: LaboratorySpecimen;
 };
 
 export type CreateTestCatalogPayload = {
@@ -116,15 +150,59 @@ export const laboratoryApi = baseApi.injectEndpoints({
 
     collectSpecimen: builder.mutation<
       LaboratorySpecimen,
-      { specimenId: string; notes?: string }
+      { specimenId: string; notes?: string; site?: string }
     >({
-      query: ({ specimenId, notes }) => ({
+      query: ({ specimenId, notes, site }) => ({
         url: `/laboratory/specimens/${specimenId}/collect`,
         method: "PATCH",
+        body: { notes, site },
+      }),
+      transformResponse: (r: { data: LaboratorySpecimen }) => r.data,
+      invalidatesTags: [{ type: "Laboratory", id: "LIST" }],
+    }),
+
+    receiveSpecimen: builder.mutation<LaboratorySpecimen, string>({
+      query: (specimenId) => ({
+        url: `/laboratory/specimens/${specimenId}/receive`,
+        method: "POST",
+      }),
+      transformResponse: (r: { data: LaboratorySpecimen }) => r.data,
+      invalidatesTags: [{ type: "Laboratory", id: "LIST" }],
+    }),
+
+    acceptSpecimen: builder.mutation<LaboratorySpecimen, string>({
+      query: (specimenId) => ({
+        url: `/laboratory/specimens/${specimenId}/accept`,
+        method: "POST",
+      }),
+      transformResponse: (r: { data: LaboratorySpecimen }) => r.data,
+      invalidatesTags: [{ type: "Laboratory", id: "LIST" }],
+    }),
+
+    rejectSpecimen: builder.mutation<LaboratorySpecimen, { specimenId: string; reason: string }>({
+      query: ({ specimenId, reason }) => ({
+        url: `/laboratory/specimens/${specimenId}/reject`,
+        method: "PATCH",
+        body: { reason },
+      }),
+      transformResponse: (r: { data: LaboratorySpecimen }) => r.data,
+      invalidatesTags: [{ type: "Laboratory", id: "LIST" }],
+    }),
+
+    createRecollection: builder.mutation<LaboratorySpecimen, { specimenId: string; notes?: string }>({
+      query: ({ specimenId, notes }) => ({
+        url: `/laboratory/specimens/${specimenId}/recollect`,
+        method: "POST",
         body: { notes },
       }),
       transformResponse: (r: { data: LaboratorySpecimen }) => r.data,
       invalidatesTags: [{ type: "Laboratory", id: "LIST" }],
+    }),
+
+    getSpecimenHistory: builder.query<LaboratorySpecimen, string>({
+      query: (specimenId) => `/laboratory/specimens/${specimenId}/history`,
+      transformResponse: (r: { data: LaboratorySpecimen }) => r.data,
+      providesTags: (_r, _e, id) => [{ type: "Laboratory", id: `specimen-${id}` }],
     }),
 
     updateLaboratoryStatus: builder.mutation<
@@ -148,5 +226,10 @@ export const {
   useAddTestItemsMutation,
   useCreateSpecimenMutation,
   useCollectSpecimenMutation,
+  useReceiveSpecimenMutation,
+  useAcceptSpecimenMutation,
+  useRejectSpecimenMutation,
+  useCreateRecollectionMutation,
+  useGetSpecimenHistoryQuery,
   useUpdateLaboratoryStatusMutation,
 } = laboratoryApi;

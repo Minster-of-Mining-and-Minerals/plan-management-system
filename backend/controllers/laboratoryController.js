@@ -62,11 +62,82 @@ class LaboratoryController {
     try {
       const staffId = req.user.user_id;
       const specimenId = req.params.id;
-      const { notes } = req.body || {};
-      const specimen = await laboratoryService.collectSpecimen(specimenId, staffId, notes);
+      const { notes, site } = req.body || {};
+      const specimen = await laboratoryService.collectSpecimen(specimenId, staffId, notes, site);
       return res.json({
         success: true,
         data: specimen,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async receiveSpecimen(req, res, next) {
+    try {
+      const staffId = req.user.user_id;
+      const specimenId = req.params.id;
+      const specimen = await laboratoryService.receiveSpecimen(specimenId, staffId);
+      return res.json({
+        success: true,
+        data: specimen,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async acceptSpecimen(req, res, next) {
+    try {
+      const staffId = req.user.user_id;
+      const specimenId = req.params.id;
+      const specimen = await laboratoryService.acceptSpecimen(specimenId, staffId);
+      return res.json({
+        success: true,
+        data: specimen,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async rejectSpecimen(req, res, next) {
+    try {
+      const staffId = req.user.user_id;
+      const specimenId = req.params.id;
+      const { reason } = req.body || {};
+      const specimen = await laboratoryService.rejectSpecimen(specimenId, reason, staffId);
+      return res.json({
+        success: true,
+        data: specimen,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async createRecollectionRequest(req, res, next) {
+    try {
+      const staffId = req.user.user_id;
+      const specimenId = req.params.id;
+      const { notes } = req.body || {};
+      const newSpecimen = await laboratoryService.createRecollectionRequest(specimenId, staffId, notes);
+      return res.status(201).json({
+        success: true,
+        data: newSpecimen,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getSpecimenHistory(req, res, next) {
+    try {
+      const specimenId = req.params.id;
+      const history = await laboratoryService.getSpecimenHistory(specimenId);
+      return res.json({
+        success: true,
+        data: history,
       });
     } catch (err) {
       next(err);
