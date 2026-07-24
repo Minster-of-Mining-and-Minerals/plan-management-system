@@ -26,80 +26,81 @@ describe("Follow-up Continuity Service (Phase 2.4.3)", () => {
   let originalScheduleId;
   let followUpId;
 
+  async function createTestAppointment(pId, sId, overrides = {}) {
+    const schedId = overrides.schedule_id || uuidv4();
+    const todayStr = new Date().toISOString().split("T")[0];
+
+    await db.PatientSchedule.create({
+      schedule_id: schedId,
+      patient_id: pId,
+      assigned_staff_id: sId,
+      schedule_date: overrides.schedule_date || todayStr,
+      start_time: overrides.start_time || "07:30",
+      end_time: "17:00",
+      status: overrides.status || "admitted",
+      appointment_type: "Test Continuity",
+      created_by: sId,
+      updated_by: sId,
+    });
+
+    return await db.StaffAppointment.create({
+      appointment_id: overrides.appointment_id || uuidv4(),
+      schedule_id: schedId,
+      patient_id: pId,
+      assigned_staff_id: sId,
+      admitted_by: sId,
+      admitted_at: new Date(),
+      status: overrides.status || "admitted",
+      notes: overrides.notes || null,
+    });
+  }
+
   beforeAll(async () => {
     // Fetch a real patient from the DB
     const user = await db.User.findOne({ where: { account_type: "PATIENT" } });
     patientId = user ? user.user_id : uuidv4();
 
-    // Fetch a real internal staff user
-    const staff = await db.User.findOne({ where: { account_type: "INTERNAL" } });
-    staffId = staff ? staff.user_id : uuidv4();
+    // Create a fresh isolated internal staff user for this test run
+    const staff = await db.User.create({
+      user_id: uuidv4(),
+      full_name: "Isolated ContinuityDoctor",
+      email: `test_doctor_continuity_${uuidv4()}@novacure.com`,
+      password: "hash_password_123",
+      account_type: "INTERNAL",
+      is_active: true,
+    });
+    staffId = staff.user_id;
 
-    // Create a real schedule and appointment for the "original" encounter
-    try {
-      const schedule = await patientScheduleService.createSchedule(
-        {
-          patient_id: patientId,
-          assigned_staff_id: staffId,
-          schedule_date: "2026-07-01",
-          start_time: "09:00",
-          appointment_type: "Initial consultation",
-          notes: "Original encounter for follow-up test",
-          status: "admitted",
-        },
-        staffId
-      );
-      originalScheduleId = schedule.schedule_id;
+    // Grant Super Admin role so receive_appointment permission is true
+    const [superAdminRole] = await db.Role.findOrCreate({
+      where: { name: "Super Admin" },
+      defaults: {
+        role_id: "00000000-0000-4000-8000-000000000002",
+        name: "Super Admin",
+        code: "SUPER_ADMIN",
+      },
+    });
 
-      // Check if an appointment was auto-created from admission
-      const StaffAppointment = db.StaffAppointment;
-      const appt = await StaffAppointment.findOne({
-        where: { schedule_id: originalScheduleId },
-      });
-      if (appt) {
-        originalAppointmentId = appt.appointment_id;
-      } else {
-        // Manually create one
-        const newAppt = await StaffAppointment.create({
-          appointment_id: uuidv4(),
-          schedule_id: originalScheduleId,
-          patient_id: patientId,
-          assigned_staff_id: staffId,
-          admitted_by: staffId,
-          admitted_at: new Date(),
-          status: "admitted",
-          notes: "Original encounter for follow-up test",
-        });
-        originalAppointmentId = newAppt.appointment_id;
-      }
-    } catch (e) {
-      // If schedule creation fails, create minimal entities
-      const StaffAppointment = db.StaffAppointment;
-      const appt = await StaffAppointment.create({
-        appointment_id: uuidv4(),
-        patient_id: patientId,
-        assigned_staff_id: staffId,
-        admitted_by: staffId,
-        admitted_at: new Date(),
-        status: "admitted",
-        notes: "Original encounter for follow-up test",
-      });
-      originalAppointmentId = appt.appointment_id;
-      originalScheduleId = null;
-    }
+    await db.UserRoles.findOrCreate({
+      where: { user_id: staffId, role_id: superAdminRole.role_id },
+      defaults: {
+        user_role_id: uuidv4(),
+        user_id: staffId,
+        role_id: superAdminRole.role_id,
+      },
+    });
+
+    const origAppt = await createTestAppointment(patientId, staffId, {
+      notes: "Original encounter for follow-up test",
+    });
+    originalAppointmentId = origAppt.appointment_id;
+    originalScheduleId = origAppt.schedule_id;
   });
 
   describe("1. Non-follow-up Encounters", () => {
     it("should return is_follow_up=false for a regular appointment", async () => {
       // Create a fresh appointment that has no follow-up link
-      const freshAppt = await db.StaffAppointment.create({
-        appointment_id: uuidv4(),
-        patient_id: patientId,
-        assigned_staff_id: staffId,
-        admitted_by: staffId,
-        admitted_at: new Date(),
-        status: "admitted",
-      });
+      const freshAppt = await createTestAppointment(patientId, staffId);
 
       const result = await followUpContinuityService.getFollowUpContext(
         freshAppt.appointment_id
@@ -138,7 +139,7 @@ describe("Follow-up Continuity Service (Phase 2.4.3)", () => {
         followUpId,
         {
           assigned_staff_id: staffId,
-          schedule_date: "2026-08-01",
+          schedule_date: "2026-08-24",
           start_time: "10:00",
           appointment_type: "Follow-up visit",
         },
@@ -263,14 +264,7 @@ describe("Follow-up Continuity Service (Phase 2.4.3)", () => {
   describe("4. Non-follow-up Encounters Unaffected", () => {
     it("should NOT return is_follow_up=true for regular encounters", async () => {
       // Create a completely new, unlinked appointment
-      const freshAppt = await db.StaffAppointment.create({
-        appointment_id: uuidv4(),
-        patient_id: patientId,
-        assigned_staff_id: staffId,
-        admitted_by: staffId,
-        admitted_at: new Date(),
-        status: "admitted",
-      });
+      const freshAppt = await createTestAppointment(patientId, staffId);
 
       const result = await followUpContinuityService.getFollowUpContext(
         freshAppt.appointment_id
@@ -281,14 +275,7 @@ describe("Follow-up Continuity Service (Phase 2.4.3)", () => {
     });
 
     it("should not leak follow-up data for normal appointments", async () => {
-      const freshAppt = await db.StaffAppointment.create({
-        appointment_id: uuidv4(),
-        patient_id: patientId,
-        assigned_staff_id: staffId,
-        admitted_by: staffId,
-        admitted_at: new Date(),
-        status: "admitted",
-      });
+      const freshAppt = await createTestAppointment(patientId, staffId);
 
       const result = await followUpContinuityService.getFollowUpContext(
         freshAppt.appointment_id

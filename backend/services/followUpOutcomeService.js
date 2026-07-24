@@ -293,18 +293,20 @@ class FollowUpOutcomeService {
     const newFollowUp = await encounterFollowUpService.createFollowUp(followUpData, { req });
 
     // Link as child of parent
-    await newFollowUp.update({ parent_follow_up_id: parentFollowUpId });
-
-    const plain = newFollowUp.get({ plain: true });
+    await EncounterFollowUp.update(
+      { parent_follow_up_id: parentFollowUpId },
+      { where: { follow_up_id: newFollowUp.follow_up_id } }
+    );
+    newFollowUp.parent_follow_up_id = parentFollowUpId;
 
     // Emit chain created timeline event on parent
     await this._emitTimelineEvent(parent, TIMELINE_EVENTS.CHAIN_CREATED, {
-      child_follow_up_id: plain.follow_up_id,
-      child_reason: plain.reason,
+      child_follow_up_id: newFollowUp.follow_up_id,
+      child_reason: newFollowUp.reason,
     });
 
     // Emit chain created timeline event on child
-    await this._emitTimelineEvent(plain, TIMELINE_EVENTS.CHAIN_CREATED, {
+    await this._emitTimelineEvent(newFollowUp, TIMELINE_EVENTS.CHAIN_CREATED, {
       parent_follow_up_id: parentFollowUpId,
       parent_reason: parent.reason,
     });
@@ -329,15 +331,15 @@ class FollowUpOutcomeService {
         resourceType: "EncounterFollowUp",
         resourceId: parentFollowUpId,
         module: "follow-up",
-        next: { child_follow_up_id: plain.follow_up_id },
+        next: { child_follow_up_id: newFollowUp.follow_up_id },
         extra: {
           parent_follow_up_id: parentFollowUpId,
-          child_follow_up_id: plain.follow_up_id,
+          child_follow_up_id: newFollowUp.follow_up_id,
         },
       });
     }
 
-    return this._formatResponse(plain);
+    return this._formatResponse(newFollowUp);
   }
 
   /**

@@ -69,6 +69,9 @@ class TimelineEventService {
       // We can inspect metadata -> status inside JSONB or event type
     }
 
+    // Sync historical appointments & medical logs into timeline_events idempotently
+    await this.backfillTimeline(patientId);
+
     const events = await TimelineEvent.findAll({
       where: whereClause,
       include: [
@@ -91,33 +94,6 @@ class TimelineEventService {
     });
 
     let results = events.map((e) => e.get({ plain: true }));
-
-    // Backwards compatibility fallback: if timeline_events is empty for this patient,
-    // let's dynamically import and populate from existing medical history logs and appointments
-    if (results.length === 0) {
-      await this.backfillTimeline(patientId);
-      const reQuery = await TimelineEvent.findAll({
-        where: whereClause,
-        include: [
-          {
-            model: User,
-            as: "actor",
-            attributes: ["user_id", "full_name", "email"],
-            required: false,
-          },
-          {
-            model: StaffAppointment,
-            as: "appointment",
-            attributes: ["appointment_id", "workflow_status"],
-            required: false,
-          },
-        ],
-        order: [["event_date", "DESC"]],
-        limit,
-        offset,
-      });
-      results = reQuery.map((e) => e.get({ plain: true }));
-    }
 
     // Filter out draft if isPatientPortal
     if (isPatientPortal) {

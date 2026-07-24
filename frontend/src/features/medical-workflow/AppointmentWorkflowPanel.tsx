@@ -6,6 +6,7 @@ import { useRouter } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   useGetWorkflowContextQuery,
   useSubmitWorkflowEntryMutation,
@@ -52,7 +53,16 @@ import {
   useGetFollowUpContextQuery,
   type FollowUpContext,
 } from "@/redux/api/medicalWorkflowApi";
+import {
+  useGetFollowUpOutcomeQuery,
+  useCreateFollowUpOutcomeMutation,
+  useGetFollowUpChainQuery,
+  type CreateOutcomePayload,
+} from "@/redux/api/followUpApi";
 import { FollowUpClinicalHandover } from "./components/FollowUpClinicalHandover";
+import { FollowUpOutcomeCard } from "./components/FollowUpOutcomeCard";
+import { FollowUpOutcomeDialog } from "./components/FollowUpOutcomeDialog";
+import { FollowUpChainTimeline } from "./components/FollowUpChainTimeline";
 
 type GlobalPanel = "forward" | "prescribe" | "history" | null;
 
@@ -121,6 +131,41 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showWorkflowForm, setShowWorkflowForm] = useState(false);
   const [globalPanel, setGlobalPanel] = useState<GlobalPanel>(null);
+
+  // Phase 2.4.4 - Outcome & Chain
+  const followUpId = followUpContext?.follow_up_id;
+  const isFollowUpEncounter =
+    !followUpLoading &&
+    followUpContext?.is_follow_up === true &&
+    Boolean(followUpId);
+
+  const { data: outcomeData } = useGetFollowUpOutcomeQuery(followUpId!, {
+    skip: !isFollowUpEncounter,
+  });
+
+  const { data: chainData } = useGetFollowUpChainQuery(followUpId!, {
+    skip: !isFollowUpEncounter,
+  });
+
+  const [createOutcome] = useCreateFollowUpOutcomeMutation();
+  const [outcomeDialogOpen, setOutcomeDialogOpen] = useState(false);
+
+  const handleRecordOutcomeSubmit = async (payload: CreateOutcomePayload) => {
+    if (!followUpId) return;
+    try {
+      await createOutcome({
+        followUpId,
+        data: {
+          ...payload,
+          encounter_id: appointmentId,
+        },
+      }).unwrap();
+      toast.success("Follow-up outcome recorded successfully");
+      setOutcomeDialogOpen(false);
+    } catch (err: any) {
+      toast.error(err?.data?.message || "Failed to record outcome");
+    }
+  };
 
   const formOptions = useMemo(
     () => data?.formOptions ?? (data?.formConfig && data?.form ? [{ config: data.formConfig, form: data.form }] : []),
@@ -454,6 +499,47 @@ export function AppointmentWorkflowPanel({ appointmentId }: Props) {
             onViewFollowUpHistory={handleViewFollowUpHistory}
           />
         )}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+
+      {/* ── Phase 2.4.4 - Follow-up Outcome & Resolution Chain ──────────── */}
+      {isFollowUpEncounter && (
+        <div className="space-y-4 my-4">
+          {outcomeData ? (
+            <FollowUpOutcomeCard
+              outcome={outcomeData}
+              onRecordOutcome={() => setOutcomeDialogOpen(true)}
+            />
+          ) : (
+            <Card className="border-l-4 border-l-amber-500">
+              <CardContent className="py-4 flex items-center justify-between">
+                <div>
+                  <h4 className="font-semibold text-sm">Follow-up Resolution Outcome Required</h4>
+                  <p className="text-xs text-muted-foreground">
+                    This is a follow-up encounter. Please record clinical resolution status before completion.
+                  </p>
+                </div>
+                <Button size="sm" onClick={() => setOutcomeDialogOpen(true)}>
+                  Record Outcome
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {chainData && chainData.length > 0 && (
+            <FollowUpChainTimeline
+              chain={chainData}
+              currentFollowUpId={followUpId}
+            />
+          )}
+
+          <FollowUpOutcomeDialog
+            open={outcomeDialogOpen}
+            onClose={() => setOutcomeDialogOpen(false)}
+            encounterId={appointmentId}
+            onSubmit={handleRecordOutcomeSubmit}
+          />
+        </div>
+      )}
       {/* ─────────────────────────────────────────────────────────────────── */}
 
       <div

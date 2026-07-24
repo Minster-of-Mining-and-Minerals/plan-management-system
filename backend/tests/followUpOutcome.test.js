@@ -17,6 +17,35 @@ describe("Follow-up Clinical Resolution Engine (Phase 2.4.4)", () => {
   let followUpId;
   let encounterId;
 
+  async function createTestAppointment(pId, sId, overrides = {}) {
+    const schedId = overrides.schedule_id || uuidv4();
+    const todayStr = new Date().toISOString().split("T")[0];
+
+    await db.PatientSchedule.create({
+      schedule_id: schedId,
+      patient_id: pId,
+      assigned_staff_id: sId,
+      schedule_date: overrides.schedule_date || todayStr,
+      start_time: overrides.start_time || "07:30",
+      end_time: "17:00",
+      status: overrides.status || "admitted",
+      appointment_type: "Test Follow-up",
+      created_by: sId,
+      updated_by: sId,
+    });
+
+    return await db.StaffAppointment.create({
+      appointment_id: overrides.appointment_id || uuidv4(),
+      schedule_id: schedId,
+      patient_id: pId,
+      assigned_staff_id: sId,
+      admitted_by: sId,
+      admitted_at: new Date(),
+      status: overrides.status || "admitted",
+      notes: overrides.notes || null,
+    });
+  }
+
   beforeAll(async () => {
     const user = await db.User.findOne({ where: { account_type: "PATIENT" } });
     patientId = user ? user.user_id : uuidv4();
@@ -24,14 +53,7 @@ describe("Follow-up Clinical Resolution Engine (Phase 2.4.4)", () => {
     staffId = staff ? staff.user_id : uuidv4();
 
     // Create a base appointment
-    const appt = await db.StaffAppointment.create({
-      appointment_id: uuidv4(),
-      patient_id: patientId,
-      assigned_staff_id: staffId,
-      admitted_by: staffId,
-      admitted_at: new Date(),
-      status: "admitted",
-    });
+    const appt = await createTestAppointment(patientId, staffId);
     appointmentId = appt.appointment_id;
   });
 
@@ -50,14 +72,7 @@ describe("Follow-up Clinical Resolution Engine (Phase 2.4.4)", () => {
       expect(followUpId).toBeDefined();
 
       // Create another appointment that will be the follow-up encounter
-      const encounter = await db.StaffAppointment.create({
-        appointment_id: uuidv4(),
-        patient_id: patientId,
-        assigned_staff_id: staffId,
-        admitted_by: staffId,
-        admitted_at: new Date(),
-        status: "admitted",
-      });
+      const encounter = await createTestAppointment(patientId, staffId);
       encounterId = encounter.appointment_id;
 
       // Create outcome
@@ -105,14 +120,7 @@ describe("Follow-up Clinical Resolution Engine (Phase 2.4.4)", () => {
           recommended_date: new Date().toISOString().split("T")[0],
         });
 
-        const enc = await db.StaffAppointment.create({
-          appointment_id: uuidv4(),
-          patient_id: patientId,
-          assigned_staff_id: staffId,
-          admitted_by: staffId,
-          admitted_at: new Date(),
-          status: "admitted",
-        });
+        const enc = await createTestAppointment(patientId, staffId);
 
         const outcome = await followUpOutcomeService.createOutcome({
           follow_up_id: fu.follow_up_id,
@@ -279,14 +287,7 @@ describe("Follow-up Clinical Resolution Engine (Phase 2.4.4)", () => {
     });
 
     it("should return false for non-follow-up encounters", async () => {
-      const freshAppt = await db.StaffAppointment.create({
-        appointment_id: uuidv4(),
-        patient_id: patientId,
-        assigned_staff_id: staffId,
-        admitted_by: staffId,
-        admitted_at: new Date(),
-        status: "admitted",
-      });
+      const freshAppt = await createTestAppointment(patientId, staffId);
 
       const validation = await followUpOutcomeService.validateOutcome(freshAppt.appointment_id);
       expect(validation.requiresOutcome).toBe(false);
@@ -337,14 +338,7 @@ describe("Follow-up Clinical Resolution Engine (Phase 2.4.4)", () => {
     });
 
     it("should not affect non-follow-up encounters", async () => {
-      const freshAppt = await db.StaffAppointment.create({
-        appointment_id: uuidv4(),
-        patient_id: patientId,
-        assigned_staff_id: staffId,
-        admitted_by: staffId,
-        admitted_at: new Date(),
-        status: "admitted",
-      });
+      const freshAppt = await createTestAppointment(patientId, staffId);
 
       const continuity = await followUpContinuityService.getFollowUpContext(freshAppt.appointment_id);
       expect(continuity.is_follow_up).toBe(false);

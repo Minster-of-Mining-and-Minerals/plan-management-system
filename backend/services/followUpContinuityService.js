@@ -32,8 +32,7 @@ class FollowUpContinuityService {
     }
 
     // Step 2: Find the follow-up attempt linked to this schedule
-    // The schedule may have been created by reception for a follow-up
-    const attempt = await EncounterFollowUpAttempt.findOne({
+    let attempt = await EncounterFollowUpAttempt.findOne({
       where: { schedule_id: currentEncounter.schedule_id },
       include: [
         {
@@ -45,11 +44,28 @@ class FollowUpContinuityService {
       paranoid: false,
     });
 
-    if (!attempt || !attempt.followUp) {
-      return { is_follow_up: false };
+    let followUp = attempt?.followUp;
+
+    if (!followUp) {
+      // Fallback 1: check if an EncounterFollowUp was completed with this encounter_id
+      followUp = await EncounterFollowUp.findOne({
+        where: { completed_encounter_id: appointmentId },
+      });
     }
 
-    const followUp = attempt.followUp;
+    if (!followUp) {
+      // Fallback 2: check if an EncounterFollowUpOutcome links to this encounter_id
+      const outcome = await EncounterFollowUpOutcome.findOne({
+        where: { encounter_id: appointmentId },
+      });
+      if (outcome) {
+        followUp = await EncounterFollowUp.findByPk(outcome.follow_up_id);
+      }
+    }
+
+    if (!followUp) {
+      return { is_follow_up: false };
+    }
 
     // Step 3: Load the original encounter data
     const originalEncounterId = followUp.appointment_id;
@@ -209,8 +225,8 @@ class FollowUpContinuityService {
         last_action_at: lastLog?.created_at || null,
       },
       follow_up_status: followUp.status,
-      attempt_number: attempt.attempt_number,
-      attempt_status: attempt.status,
+      attempt_number: attempt?.attempt_number || 1,
+      attempt_status: attempt?.status || followUp.status,
     };
   }
 
