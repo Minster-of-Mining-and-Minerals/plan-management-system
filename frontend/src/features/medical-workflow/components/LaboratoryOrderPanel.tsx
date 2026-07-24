@@ -42,6 +42,7 @@ import {
 } from "@/redux/api/laboratoryApi";
 import { SpecimenLifecyclePanel } from "./SpecimenLifecyclePanel";
 import { LaboratoryWorklistPanel } from "./LaboratoryWorklistPanel";
+import { LaboratoryObservationPanel } from "./LaboratoryObservationPanel";
 
 type Props = {
   appointmentId: string;
@@ -171,6 +172,13 @@ export function LaboratoryOrderPanel({ appointmentId }: Props) {
                 <Plus className="h-3.5 w-3.5 mr-1" /> Add Specimen Request
               </Button>
             </div>
+
+            {order.result?.result_id && (
+              <LaboratoryObservationPanel
+                resultId={order.result.result_id}
+                orderId={order.order_id}
+              />
+            )}
           </div>
         ))}
       </CardContent>

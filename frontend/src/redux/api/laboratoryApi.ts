@@ -23,6 +23,43 @@ export type QueueType = "COLLECTION" | "RECEPTION" | "PROCESSING" | "RESULT_ENTR
 export type QueueStatus = "WAITING" | "CLAIMED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 export type QueuePriority = "STAT" | "URGENT" | "ROUTINE";
 
+export type AbnormalFlag = "NORMAL" | "LOW" | "HIGH" | "CRITICAL_LOW" | "CRITICAL_HIGH";
+export type ObservationStatus = "PRELIMINARY" | "FINAL" | "AMENDED";
+
+export type ObservationHistoryRecord = {
+  id: string;
+  observation_id: string;
+  previous_value: string;
+  previous_unit?: string | null;
+  previous_flag: AbnormalFlag;
+  changed_by: string;
+  change_reason: string;
+  created_at: string;
+  changedByUser?: { user_id: string; full_name: string };
+};
+
+export type LaboratoryObservation = {
+  id: string;
+  result_id: string;
+  order_id: string;
+  test_catalog_id?: string | null;
+  observation_code: string;
+  observation_name: string;
+  value: string;
+  numeric_value?: number | null;
+  unit?: string | null;
+  reference_range?: { low?: number; high?: number; critical_low?: number; critical_high?: number } | null;
+  abnormal_flag: AbnormalFlag;
+  status: ObservationStatus;
+  observed_by: string;
+  verified_by?: string | null;
+  observed_at: string;
+  created_at: string;
+  observedByUser?: { user_id: string; full_name: string };
+  verifiedByUser?: { user_id: string; full_name: string };
+  amendments?: ObservationHistoryRecord[];
+};
+
 export type LaboratoryWorkQueueItem = {
   id: string;
   order_id: string;
@@ -113,28 +150,95 @@ export type LaboratorySpecimen = {
   parentSpecimen?: LaboratorySpecimen;
 };
 
+// Payload types for Laboratory Test Catalog operations
 export type CreateTestCatalogPayload = {
   code: string;
   name: string;
   description?: string;
-  category?: LaboratoryCategory;
-  sample_type?: SampleType;
+  category: LaboratoryCategory;
+  sample_type: SampleType;
   unit?: string;
   reference_range?: Record<string, any>;
   billing_service_id?: string;
+  is_active?: boolean;
 };
 
 export type AddTestItemsPayload = {
-  items: { test_catalog_id?: string; test_name: string }[];
+  items: {
+    test_catalog_id: string;
+    test_name: string;
+  }[];
 };
 
-export type CreateSpecimenPayload = {
-  specimen_type: SampleType;
-  notes?: string;
+export type CreateObservationPayload = {
+  order_id: string;
+  observation_code: string;
+  observation_name: string;
+  value: string;
+  numeric_value?: number;
+  unit?: string;
+  reference_range?: { low?: number; high?: number; critical_low?: number; critical_high?: number };
+};
+
+export type AmendObservationPayload = {
+  value?: string;
+  numeric_value?: number;
+  unit?: string;
+  change_reason: string;
 };
 
 export const laboratoryApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
+    getObservations: builder.query<LaboratoryObservation[], string>({
+      query: (resultId) => `/laboratory/results/${resultId}/observations`,
+      transformResponse: (r: { data: LaboratoryObservation[] }) => r.data,
+      providesTags: (_r, _e, resultId) => [{ type: "Laboratory", id: `obs-${resultId}` }],
+    }),
+
+    getCriticalResults: builder.query<LaboratoryObservation[], void>({
+      query: () => "/laboratory/critical-results",
+      transformResponse: (r: { data: LaboratoryObservation[] }) => r.data,
+      providesTags: [{ type: "Laboratory", id: "CRITICALS" }],
+    }),
+
+    createObservation: builder.mutation<
+      LaboratoryObservation,
+      { resultId: string; payload: CreateObservationPayload }
+    >({
+      query: ({ resultId, payload }) => ({
+        url: `/laboratory/results/${resultId}/observations`,
+        method: "POST",
+        body: payload,
+      }),
+      transformResponse: (r: { data: LaboratoryObservation }) => r.data,
+      invalidatesTags: (_r, _e, { resultId }) => [
+        { type: "Laboratory", id: `obs-${resultId}` },
+        { type: "Laboratory", id: "CRITICALS" },
+      ],
+    }),
+
+    verifyObservation: builder.mutation<LaboratoryObservation, { observationId: string; resultId: string }>({
+      query: ({ observationId }) => ({
+        url: `/laboratory/observations/${observationId}/verify`,
+        method: "PATCH",
+      }),
+      transformResponse: (r: { data: LaboratoryObservation }) => r.data,
+      invalidatesTags: (_r, _e, { resultId }) => [{ type: "Laboratory", id: `obs-${resultId}` }],
+    }),
+
+    amendObservation: builder.mutation<
+      LaboratoryObservation,
+      { observationId: string; resultId: string; payload: AmendObservationPayload }
+    >({
+      query: ({ observationId, payload }) => ({
+        url: `/laboratory/observations/${observationId}/amend`,
+        method: "PATCH",
+        body: payload,
+      }),
+      transformResponse: (r: { data: LaboratoryObservation }) => r.data,
+      invalidatesTags: (_r, _e, { resultId }) => [{ type: "Laboratory", id: `obs-${resultId}` }],
+    }),
+
     getWorkQueue: builder.query<LaboratoryWorkQueueItem[], { queue_type?: QueueType; status?: QueueStatus } | void>({
       query: (params) => ({
         url: "/laboratory/workqueue",
@@ -325,6 +429,11 @@ export const laboratoryApi = baseApi.injectEndpoints({
 });
 
 export const {
+  useGetObservationsQuery,
+  useGetCriticalResultsQuery,
+  useCreateObservationMutation,
+  useVerifyObservationMutation,
+  useAmendObservationMutation,
   useGetWorkQueueQuery,
   useGetMyWorklistQuery,
   useClaimQueueItemMutation,

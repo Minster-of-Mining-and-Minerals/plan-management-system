@@ -4,6 +4,7 @@ const express = require("express");
 const router = express.Router();
 const laboratoryController = require("../controllers/laboratoryController");
 const laboratoryQueueController = require("../controllers/laboratoryQueueController");
+const laboratoryObservationController = require("../controllers/laboratoryObservationController");
 const {
   authenticateToken,
   checkPermission,
@@ -41,6 +42,37 @@ router.patch(
   "/workqueue/:id/complete",
   checkPermission("laboratory", "complete_work"),
   laboratoryQueueController.completeQueueItem.bind(laboratoryQueueController)
+);
+
+// ================= Structured Observation Routes =================
+router.get(
+  "/critical-results",
+  checkPermission("laboratory", "view_critical_result"),
+  laboratoryObservationController.getCriticalResults.bind(laboratoryObservationController)
+);
+
+router.post(
+  "/results/:resultId/observations",
+  checkPermission("laboratory", "create_observation"),
+  laboratoryObservationController.createObservation.bind(laboratoryObservationController)
+);
+
+router.get(
+  "/results/:resultId/observations",
+  checkPermission("laboratory", "view_observation"),
+  laboratoryObservationController.getResultObservations.bind(laboratoryObservationController)
+);
+
+router.patch(
+  "/observations/:id/verify",
+  checkPermission("laboratory", "verify_observation"),
+  laboratoryObservationController.verifyObservation.bind(laboratoryObservationController)
+);
+
+router.patch(
+  "/observations/:id/amend",
+  checkPermission("laboratory", "amend_observation"),
+  laboratoryObservationController.amendObservation.bind(laboratoryObservationController)
 );
 
 // ================= Domain Foundation & Specimen Routes =================
