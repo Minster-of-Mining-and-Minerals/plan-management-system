@@ -170,6 +170,13 @@ export type AddTestItemsPayload = {
   }[];
 };
 
+export type CreateSpecimenPayload = {
+  specimen_type: SampleType;
+  collection_status?: SpecimenStatus;
+  parent_specimen_id?: string;
+  notes?: string;
+};
+
 export type CreateObservationPayload = {
   order_id: string;
   observation_code: string;
