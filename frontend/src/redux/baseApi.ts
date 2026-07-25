@@ -99,6 +99,7 @@ export const baseApi = createApi({
     "FollowUp",
     "ClinicalOrder",
     "Laboratory",
+    "Radiology",
   ],
   endpoints: () => ({}),
 });

@@ -25,6 +25,12 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "result_id",
         as: "observations",
       });
+      if (models.RadiologyReport) {
+        ClinicalOrderResult.hasOne(models.RadiologyReport, {
+          foreignKey: "result_id",
+          as: "radiologyReport",
+        });
+      }
     }
   }
 
