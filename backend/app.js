@@ -298,6 +298,7 @@ app.use("/api/care-management", require("./routers/careManagement/careManagement
 
 // Enterprise Clinical Operations Center Routes
 app.use("/api/operations", require("./routes/clinicalOperationsRoutes"));
+app.use("/api/operations/capacity", require("./routes/clinicalCapacityRoutes"));
 
 // ================== Api Attachment Routes =====================
 app.use("/api/attachments", attachmentRoute);
