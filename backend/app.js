@@ -284,6 +284,9 @@ app.use("/api/pharmacy/hardening", require("./routers/pharmacy/pharmacyHardening
 // Pharmacy Enterprise Final Hardening Routes
 app.use("/api/pharmacy/enterprise", require("./routers/pharmacy/pharmacyEnterpriseRoutes"));
 
+// Unified Cross-Domain Clinical Order Harmonization Routes
+app.use("/api/clinical-orders/unified", require("./routers/clinicalOrder/unifiedClinicalOrderRoutes"));
+
 // ================== Api Attachment Routes =====================
 app.use("/api/attachments", attachmentRoute);
 
