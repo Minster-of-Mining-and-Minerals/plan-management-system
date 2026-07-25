@@ -272,6 +272,9 @@ app.use("/api/laboratory", laboratoryRoutes);
 // Radiology Domain Routes
 app.use("/api/radiology", radiologyRoutes);
 
+// Medication Safety Engine Routes
+app.use("/api/medication-safety", require("./routers/medication/medicationSafetyRoutes"));
+
 // ================== Api Attachment Routes =====================
 app.use("/api/attachments", attachmentRoute);
 

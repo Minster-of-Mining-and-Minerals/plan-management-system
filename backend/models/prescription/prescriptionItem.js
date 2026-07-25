@@ -9,6 +9,12 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "prescription_id",
         as: "prescription",
       });
+      if (models.MedicationCatalog) {
+        PrescriptionItem.belongsTo(models.MedicationCatalog, {
+          foreignKey: "medication_catalog_id",
+          as: "medicationCatalog",
+        });
+      }
     }
   }
 
@@ -20,6 +26,7 @@ module.exports = (sequelize, DataTypes) => {
         primaryKey: true,
       },
       prescription_id: { type: DataTypes.UUID, allowNull: false },
+      medication_catalog_id: { type: DataTypes.UUID, allowNull: true },
       item_name: { type: DataTypes.STRING(255), allowNull: false },
       strength: { type: DataTypes.STRING(120), allowNull: true },
       route: { type: DataTypes.STRING(120), allowNull: true },
