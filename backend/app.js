@@ -278,6 +278,9 @@ app.use("/api/medication-safety", require("./routers/medication/medicationSafety
 // Pharmacy Inventory & Controlled Drug Routes
 app.use("/api/pharmacy/inventory", require("./routers/pharmacy/pharmacyInventoryRoutes"));
 
+// Pharmacy Hardening & Multi-Branch Routes
+app.use("/api/pharmacy/hardening", require("./routers/pharmacy/pharmacyHardeningRoutes"));
+
 // ================== Api Attachment Routes =====================
 app.use("/api/attachments", attachmentRoute);
 
