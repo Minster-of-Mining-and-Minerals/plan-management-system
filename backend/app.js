@@ -281,6 +281,9 @@ app.use("/api/pharmacy/inventory", require("./routers/pharmacy/pharmacyInventory
 // Pharmacy Hardening & Multi-Branch Routes
 app.use("/api/pharmacy/hardening", require("./routers/pharmacy/pharmacyHardeningRoutes"));
 
+// Pharmacy Enterprise Final Hardening Routes
+app.use("/api/pharmacy/enterprise", require("./routers/pharmacy/pharmacyEnterpriseRoutes"));
+
 // ================== Api Attachment Routes =====================
 app.use("/api/attachments", attachmentRoute);
 

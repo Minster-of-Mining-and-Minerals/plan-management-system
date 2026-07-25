@@ -181,6 +181,7 @@ describe("Phase 2.8.4 — Pharmacy Production Hardening & Advanced Operations", 
   describe("2. Barcode Medication Safety Verification", () => {
     it("should verify scanned barcode identifier against active batch", async () => {
       const verification = await pharmacyBarcodeService.verifyMedicationBarcode({
+        batch_id: sourceBatchId,
         barcode_identifier: testBarcode,
         patient_id: patientId,
       });

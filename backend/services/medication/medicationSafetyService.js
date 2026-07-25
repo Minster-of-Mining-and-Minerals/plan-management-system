@@ -56,11 +56,46 @@ class MedicationSafetyService {
     const duplicateAlerts = await duplicateTherapyService.checkDuplicateTherapy(patient_id, items);
     const doseAlerts = await doseSafetyService.checkDoseSafety(patient_id, items);
 
+    // Advanced Clinical Decision Support: Pregnancy & Renal Safety Checks
+    const pregnancyAlerts = [];
+    const renalAlerts = [];
+
+    const PREGNANCY_CONTRAINDICATED_DRUGS = ["lisinopril", "warfarin", "methotrexate", "enalapril", "losartan", "ace inhibitor"];
+    const RENAL_ADJUSTMENT_DRUGS = ["metformin", "gentamicin", "vancomycin", "ciprofloxacin"];
+
+    for (const item of items) {
+      const name = (item.item_name || item.generic_name || "").toLowerCase();
+
+      // Pregnancy check
+      if (item.is_pregnant || item.patient_is_pregnant) {
+        if (PREGNANCY_CONTRAINDICATED_DRUGS.some((drug) => name.includes(drug))) {
+          pregnancyAlerts.push({
+            type: "PREGNANCY_CONTRAINDICATION",
+            severity: "CONTRAINDICATED",
+            message: `⛔ PREGNANCY CONTRAINDICATION: '${item.item_name || name}' is strictly contraindicated during pregnancy due to fetal toxicity risk.`,
+          });
+        }
+      }
+
+      // Renal dosage adjustment check
+      if (item.egfr !== undefined && Number(item.egfr) < 30) {
+        if (RENAL_ADJUSTMENT_DRUGS.some((drug) => name.includes(drug))) {
+          renalAlerts.push({
+            type: "RENAL_DOSE_ADJUSTMENT",
+            severity: "SEVERE",
+            message: `⚠️ RENAL DOSE ADJUSTMENT REQUIRED: Patient eGFR is ${item.egfr} mL/min. Reduced dosage or extended dosing interval required for '${item.item_name || name}'.`,
+          });
+        }
+      }
+    }
+
     const allAlerts = [
       ...allergyAlerts,
       ...interactionAlerts,
       ...duplicateAlerts,
       ...doseAlerts,
+      ...pregnancyAlerts,
+      ...renalAlerts,
     ];
 
     let maxRank = 0;
