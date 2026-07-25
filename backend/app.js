@@ -299,6 +299,12 @@ app.use("/api/care-management", require("./routers/careManagement/careManagement
 // Dynamic Clinical Workflow & ClinicalOrder Harmonization Routes
 app.use("/api/clinical-workflows", require("./routes/clinicalWorkflowRoutes"));
 
+// Dynamic Clinical Order Definition & Configuration-Driven Engine Routes
+app.use("/api/clinical-order-definitions", require("./routes/clinicalOrderDefinitionRoutes"));
+
+// Clinical Configuration Governance & Runtime Protection Routes
+app.use("/api/clinical-governance", require("./routes/clinicalConfigurationGovernanceRoutes"));
+
 // Enterprise Clinical Operations Center, Orchestration & Predictive Routes
 app.use("/api/operations", require("./routes/clinicalOperationsRoutes"));
 app.use("/api/operations/capacity", require("./routes/clinicalCapacityRoutes"));

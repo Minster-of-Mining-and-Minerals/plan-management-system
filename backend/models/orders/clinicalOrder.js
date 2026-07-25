@@ -96,6 +96,12 @@ module.exports = (sequelize, DataTypes) => {
       clinical_intent_json: { type: DataTypes.JSONB, allowNull: true },
       execution_form_config_id: { type: DataTypes.UUID, allowNull: true },
       result_form_config_id: { type: DataTypes.UUID, allowNull: true },
+      order_definition_id: { type: DataTypes.STRING(128), allowNull: true },
+      workflow_instance_id: { type: DataTypes.STRING(128), allowNull: true },
+      intent_payload_json: { type: DataTypes.JSONB, allowNull: true },
+      execution_payload_json: { type: DataTypes.JSONB, allowNull: true },
+      result_payload_json: { type: DataTypes.JSONB, allowNull: true },
+      configuration_snapshot_json: { type: DataTypes.JSONB, allowNull: true },
     },
     {
       sequelize,

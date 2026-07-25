@@ -27,6 +27,7 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
       },
+      tenant_id: { type: DataTypes.STRING(64), allowNull: false, defaultValue: "DEFAULT_HOSPITAL" },
       name: { type: DataTypes.STRING(128), allowNull: false },
       code: { type: DataTypes.STRING(64), allowNull: false, unique: true },
       category: { type: DataTypes.STRING(64), allowNull: false, defaultValue: "DIAGNOSTIC" },
