@@ -275,6 +275,9 @@ app.use("/api/radiology", radiologyRoutes);
 // Medication Safety Engine Routes
 app.use("/api/medication-safety", require("./routers/medication/medicationSafetyRoutes"));
 
+// Pharmacy Inventory & Controlled Drug Routes
+app.use("/api/pharmacy/inventory", require("./routers/pharmacy/pharmacyInventoryRoutes"));
+
 // ================== Api Attachment Routes =====================
 app.use("/api/attachments", attachmentRoute);
 
