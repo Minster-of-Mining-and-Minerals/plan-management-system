@@ -91,6 +91,11 @@ module.exports = (sequelize, DataTypes) => {
       cancellation_reason: { type: DataTypes.TEXT, allowNull: true },
       order_items: { type: DataTypes.JSONB, allowNull: true, defaultValue: [] },
       notes: { type: DataTypes.TEXT, allowNull: true },
+      activity_definition_id: { type: DataTypes.STRING(128), allowNull: true },
+      source_form_config_id: { type: DataTypes.UUID, allowNull: true },
+      clinical_intent_json: { type: DataTypes.JSONB, allowNull: true },
+      execution_form_config_id: { type: DataTypes.UUID, allowNull: true },
+      result_form_config_id: { type: DataTypes.UUID, allowNull: true },
     },
     {
       sequelize,

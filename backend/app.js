@@ -296,6 +296,9 @@ app.use("/api/clinical-intelligence", require("./routers/clinicalIntelligence/cl
 // Clinical Care Plan, Goal Management & Patient Outcome Tracking Routes
 app.use("/api/care-management", require("./routers/careManagement/careManagementRoutes"));
 
+// Dynamic Clinical Workflow & ClinicalOrder Harmonization Routes
+app.use("/api/clinical-workflows", require("./routes/clinicalWorkflowRoutes"));
+
 // Enterprise Clinical Operations Center, Orchestration & Predictive Routes
 app.use("/api/operations", require("./routes/clinicalOperationsRoutes"));
 app.use("/api/operations/capacity", require("./routes/clinicalCapacityRoutes"));
