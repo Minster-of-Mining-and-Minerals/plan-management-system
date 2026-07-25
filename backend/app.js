@@ -287,6 +287,9 @@ app.use("/api/pharmacy/enterprise", require("./routers/pharmacy/pharmacyEnterpri
 // Unified Cross-Domain Clinical Order Harmonization Routes
 app.use("/api/clinical-orders/unified", require("./routers/clinicalOrder/unifiedClinicalOrderRoutes"));
 
+// Clinical Data Integrity, Audit & Compliance Routes
+app.use("/api/clinical-integrity", require("./routers/clinicalIntegrity/clinicalIntegrityRoutes"));
+
 // ================== Api Attachment Routes =====================
 app.use("/api/attachments", attachmentRoute);
 
