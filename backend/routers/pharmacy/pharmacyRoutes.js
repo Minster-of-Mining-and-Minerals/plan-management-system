@@ -33,7 +33,52 @@ const {
   listHospitalPharmacyPrescriptions,
 } = require("../../controllers/pharmacy/pharmacyController");
 
+const pharmacyClinicalController = require("../../controllers/pharmacy/pharmacyClinicalController");
+
 router.use(authenticateToken, requireInternalAccount);
+
+// ================= Pharmacy Clinical Integration Routes =================
+router.post(
+  "/clinical-orders",
+  checkPermission("pharmacy", "send"),
+  pharmacyClinicalController.createPharmacyOrder.bind(pharmacyClinicalController)
+);
+
+router.post(
+  "/clinical-orders/:orderId/forward",
+  checkPermission("pharmacy", "send"),
+  pharmacyClinicalController.forwardToPharmacy.bind(pharmacyClinicalController)
+);
+
+router.get(
+  "/clinical-orders/:orderId/status",
+  checkPermission("pharmacy", "clinical_view"),
+  pharmacyClinicalController.getPharmacyOrderStatus.bind(pharmacyClinicalController)
+);
+
+router.get(
+  "/clinical-orders/:orderId/result",
+  checkPermission("pharmacy", "clinical_view"),
+  pharmacyClinicalController.getPharmacyClinicalResult.bind(pharmacyClinicalController)
+);
+
+router.get(
+  "/patients/:patientId/pharmacy-history",
+  checkPermission("pharmacy", "view_history"),
+  pharmacyClinicalController.getPatientPharmacyHistory.bind(pharmacyClinicalController)
+);
+
+router.get(
+  "/prescriptions/:prescriptionId/version-history",
+  checkPermission("pharmacy", "clinical_view"),
+  pharmacyClinicalController.getPrescriptionVersionHistory.bind(pharmacyClinicalController)
+);
+
+router.post(
+  "/clinical-orders/:orderId/request-doctor-approval",
+  checkPermission("pharmacy", "manage_status"),
+  pharmacyClinicalController.requestDoctorApproval.bind(pharmacyClinicalController)
+);
 
 router.get("/active", checkPermission("pharmacy", "view"), listActivePharmacies);
 router.post(

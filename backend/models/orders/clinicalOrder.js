@@ -41,6 +41,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "order_id",
         as: "specimens",
       });
+      ClinicalOrder.belongsTo(models.Prescription, {
+        foreignKey: "prescription_id",
+        as: "prescription",
+      });
     }
   }
 
@@ -56,6 +60,7 @@ module.exports = (sequelize, DataTypes) => {
       ordered_by: { type: DataTypes.UUID, allowNull: false },
       assigned_department_id: { type: DataTypes.UUID, allowNull: true },
       assigned_staff_id: { type: DataTypes.UUID, allowNull: true },
+      prescription_id: { type: DataTypes.UUID, allowNull: true },
       order_type: {
         type: DataTypes.STRING(32),
         allowNull: false,
@@ -75,6 +80,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING(64),
         allowNull: true,
         defaultValue: "WAITING_FOR_COLLECTION",
+      },
+      pharmacy_status: {
+        type: DataTypes.STRING(64),
+        allowNull: true,
+        defaultValue: "PENDING_FORWARD",
       },
       title: { type: DataTypes.STRING(255), allowNull: false },
       clinical_reason: { type: DataTypes.TEXT, allowNull: true },

@@ -1079,6 +1079,22 @@ async function updatePharmacyPrescriptionWorkflow(
 
     await t.commit();
 
+    // Synchronize status with EMR Clinical Order & Timeline
+    if (payload.pharmacy_status) {
+      try {
+        const pharmacyClinicalIntegrationService = require("./pharmacyClinicalIntegrationService");
+        for (const pharmacyRx of pharmacyRows) {
+          await pharmacyClinicalIntegrationService.syncPharmacyStatus(
+            pharmacyRx.pharmacy_prescription_id,
+            payload.pharmacy_status,
+            actorUserId
+          );
+        }
+      } catch (syncErr) {
+        console.error("Failed to sync pharmacy status to EMR clinical order:", syncErr.message);
+      }
+    }
+
     const primary = pharmacyRows.find(
       (r) => r.pharmacy_prescription_id === pharmacyPrescriptionId
     );
