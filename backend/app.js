@@ -293,6 +293,9 @@ app.use("/api/clinical-integrity", require("./routers/clinicalIntegrity/clinical
 // Clinical Intelligence, Decision Support & Patient Context Routes
 app.use("/api/clinical-intelligence", require("./routers/clinicalIntelligence/clinicalIntelligenceRoutes"));
 
+// Clinical Care Plan, Goal Management & Patient Outcome Tracking Routes
+app.use("/api/care-management", require("./routers/careManagement/careManagementRoutes"));
+
 // ================== Api Attachment Routes =====================
 app.use("/api/attachments", attachmentRoute);
 
