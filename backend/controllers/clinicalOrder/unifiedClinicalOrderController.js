@@ -58,6 +58,33 @@ class UnifiedClinicalOrderController {
       next(err);
     }
   }
+
+  async getOperationsAnalytics(req, res, next) {
+    try {
+      const clinicalOperationsAnalyticsService = require("../../services/clinicalOrder/clinicalOperationsAnalyticsService");
+      const analytics = await clinicalOperationsAnalyticsService.getClinicalOperationsAnalytics();
+      return res.json({
+        success: true,
+        data: analytics,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async validateTransitionGuard(req, res, next) {
+    try {
+      const clinicalOrderTransitionGuard = require("../../services/clinicalOrder/clinicalOrderTransitionGuard");
+      const { fromStage, toStage } = req.body;
+      const validation = clinicalOrderTransitionGuard.validateTransition(fromStage, toStage);
+      return res.json({
+        success: true,
+        data: validation,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = new UnifiedClinicalOrderController();

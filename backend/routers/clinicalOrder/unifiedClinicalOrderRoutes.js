@@ -28,4 +28,14 @@ router.post(
   unifiedClinicalOrderController.processBillingIntegrity.bind(unifiedClinicalOrderController)
 );
 
+router.get(
+  "/analytics/operations",
+  unifiedClinicalOrderController.getOperationsAnalytics.bind(unifiedClinicalOrderController)
+);
+
+router.post(
+  "/transition-guard/validate",
+  unifiedClinicalOrderController.validateTransitionGuard.bind(unifiedClinicalOrderController)
+);
+
 module.exports = router;
