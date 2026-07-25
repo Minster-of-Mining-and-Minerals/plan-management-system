@@ -296,6 +296,9 @@ app.use("/api/clinical-intelligence", require("./routers/clinicalIntelligence/cl
 // Clinical Care Plan, Goal Management & Patient Outcome Tracking Routes
 app.use("/api/care-management", require("./routers/careManagement/careManagementRoutes"));
 
+// Enterprise Clinical Operations Center Routes
+app.use("/api/operations", require("./routes/clinicalOperationsRoutes"));
+
 // ================== Api Attachment Routes =====================
 app.use("/api/attachments", attachmentRoute);
 
