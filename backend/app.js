@@ -296,10 +296,11 @@ app.use("/api/clinical-intelligence", require("./routers/clinicalIntelligence/cl
 // Clinical Care Plan, Goal Management & Patient Outcome Tracking Routes
 app.use("/api/care-management", require("./routers/careManagement/careManagementRoutes"));
 
-// Enterprise Clinical Operations Center & Orchestration Routes
+// Enterprise Clinical Operations Center, Orchestration & Predictive Routes
 app.use("/api/operations", require("./routes/clinicalOperationsRoutes"));
 app.use("/api/operations/capacity", require("./routes/clinicalCapacityRoutes"));
 app.use("/api/operations/incidents", require("./routes/clinicalIncidentRoutes"));
+app.use("/api/operations/predictive", require("./routes/predictiveOperationsRoutes"));
 
 // ================== Api Attachment Routes =====================
 app.use("/api/attachments", attachmentRoute);

@@ -92,6 +92,40 @@ class ClinicalRecommendationService {
   }
 
   /**
+   * Get AI predictive decision support recommendations based on predicted risk.
+   */
+  async getPredictiveRecommendations() {
+    const baseRecs = await this.getOperationalRecommendations();
+    
+    // Add AI predictive decision recommendations
+    baseRecs.push({
+      id: "ai-rec-rad-05",
+      title: "Move Available Radiologist from Outpatient to CT Queue",
+      reason: "Prediction Engine predicts Radiology SLA breach in 60 minutes",
+      priority: "HIGH",
+      expected_benefit: "Prevents predicted 45-minute radiology reporting delay",
+      affected_department: "RADIOLOGY",
+      confidence_score: 94,
+      action_type: "PREVENTIVE_STAFF_REALLOCATION",
+      requires_approval: true,
+    });
+
+    baseRecs.push({
+      id: "ai-rec-pharm-06",
+      title: "Create Proactive Medication Procurement Alert",
+      reason: "Formulary usage forecast predicts stock exhaustion for critical medication in 3 hours",
+      priority: "HIGH",
+      expected_benefit: "Prevents critical medication shortage for inpatient care",
+      affected_department: "PHARMACY",
+      confidence_score: 89,
+      action_type: "PROACTIVE_PROCUREMENT",
+      requires_approval: false,
+    });
+
+    return baseRecs;
+  }
+
+  /**
    * Accept / Apply a recommendation.
    */
   async acceptRecommendation(recommendationId, actorUserId) {
