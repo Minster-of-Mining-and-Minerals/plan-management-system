@@ -7,6 +7,7 @@ import {
 } from "@reduxjs/toolkit/query/react";
 import { signOut } from "next-auth/react";
 import { clearAuthToken, getAuthToken } from "@/lib/authToken";
+import { performLogout } from "@/utils/logout";
 
 const rawBaseQuery = fetchBaseQuery({
   baseUrl: `${process.env.NEXT_PUBLIC_BASE_URL}`,
@@ -27,6 +28,37 @@ const rawBaseQuery = fetchBaseQuery({
   },
 });
 
+function isTokenAuthError(result: any): boolean {
+  if (!result) return false;
+  const status = result.error?.status;
+  if (status === 401) return true;
+
+  const errMsg =
+    (result.error?.data as any)?.message ||
+    (result.error?.data as any)?.error ||
+    (result.data as any)?.message ||
+    "";
+
+  if (typeof errMsg === "string") {
+    const lower = errMsg.toLowerCase();
+    if (
+      lower.includes("invalid or expired token") ||
+      lower.includes("access token required") ||
+      lower.includes("session revoked") ||
+      lower.includes("jwt expired") ||
+      lower.includes("invalid token") ||
+      lower.includes("token_revoked")
+    ) {
+      return true;
+    }
+    if (status === 403 && lower.includes("token")) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 const baseQueryWithReauth: BaseQueryFn<
   string | FetchArgs,
   unknown,
@@ -34,12 +66,8 @@ const baseQueryWithReauth: BaseQueryFn<
 > = async (args, api, extraOptions) => {
   const result = await rawBaseQuery(args, api, extraOptions);
 
-  if (result.error?.status === 401 && typeof window !== "undefined") {
-    const hadToken = Boolean(getAuthToken());
-    clearAuthToken();
-    if (hadToken) {
-      await signOut({ callbackUrl: "/login", redirect: true });
-    }
+  if (isTokenAuthError(result) && typeof window !== "undefined") {
+    performLogout("/login");
   }
 
   return result;

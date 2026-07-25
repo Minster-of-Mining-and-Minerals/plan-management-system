@@ -8,6 +8,8 @@ import { useGetMeQuery, useGetMyPermissionsQuery } from "@/redux/api/authApi";
 import { RootState } from "@/redux/store";
 import { clearAuthToken, setSessionAuthToken } from "@/lib/authToken";
 
+import { performLogout } from "@/utils/logout";
+
 /**
  * AuthInitializer
  *
@@ -40,14 +42,21 @@ export default function AuthInitializer({
   }, [session?.accessToken, status]);
 
   // Step 2: Fetch user profile from /me
-  const { data: meData } = useGetMeQuery(undefined, {
+  const { data: meData, error: meError } = useGetMeQuery(undefined, {
     skip: status !== "authenticated" || !session?.accessToken,
   });
 
   // Step 3: Fetch roles + permissions from /permissions
-  const { data: permissionsData } = useGetMyPermissionsQuery(undefined, {
+  const { data: permissionsData, error: permissionsError } = useGetMyPermissionsQuery(undefined, {
     skip: status !== "authenticated" || !session?.accessToken || isLoaded,
   });
+
+  // Handle auth errors during initial fetch
+  useEffect(() => {
+    if (meError || permissionsError) {
+      performLogout("/login");
+    }
+  }, [meError, permissionsError]);
 
   // Step 4: Populate Redux when data responds
   useEffect(() => {

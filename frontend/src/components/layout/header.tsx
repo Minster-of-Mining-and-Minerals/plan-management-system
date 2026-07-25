@@ -20,12 +20,12 @@ export function Header({
   notificationsHref,
   notificationCount = 0,
 }: HeaderProps) {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
 
   const userData = {
-    name: user?.full_name || "Guest",
-    email: user?.email || "",
-    avatar: user?.profile_image || undefined,
+    name: user?.full_name || session?.user?.name || "User",
+    email: user?.email || session?.user?.email || "",
+    avatar: user?.profile_image || session?.user?.image || undefined,
   };
 
   return (
