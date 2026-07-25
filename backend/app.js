@@ -290,6 +290,9 @@ app.use("/api/clinical-orders/unified", require("./routers/clinicalOrder/unified
 // Clinical Data Integrity, Audit & Compliance Routes
 app.use("/api/clinical-integrity", require("./routers/clinicalIntegrity/clinicalIntegrityRoutes"));
 
+// Clinical Intelligence, Decision Support & Patient Context Routes
+app.use("/api/clinical-intelligence", require("./routers/clinicalIntelligence/clinicalIntelligenceRoutes"));
+
 // ================== Api Attachment Routes =====================
 app.use("/api/attachments", attachmentRoute);
 
