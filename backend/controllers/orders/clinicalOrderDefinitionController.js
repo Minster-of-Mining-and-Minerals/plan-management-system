@@ -42,6 +42,17 @@ class ClinicalOrderDefinitionController {
       next(err);
     }
   }
+
+  async publishOrderDefinition(req, res, next) {
+    try {
+      const userId = req.user?.user_id || req.user?.id;
+      const { id } = req.params;
+      const data = await clinicalOrderDefinitionService.publishOrderDefinition(id, userId);
+      return res.status(200).json({ success: true, data });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = new ClinicalOrderDefinitionController();

@@ -34,7 +34,13 @@ class RuntimeOrderGenerationService {
     }
 
     // 1. Fetch Composite Order Definition
-    const def = await clinicalOrderDefinitionService.findByCodeOrId(definition_code || definition_id || "DEF_CBC_TEST");
+    const targetId = definition_code || definition_id || "DEF_CBC_TEST";
+    const def = await clinicalOrderDefinitionService.findByCodeOrId(targetId);
+    if (!def) {
+      const err = new Error(`Clinical Order Definition '${targetId}' not found.`);
+      err.status = 404;
+      throw err;
+    }
 
     if (def.status && def.status !== "PUBLISHED") {
       const err = new Error(`Cannot instantiate order: Configuration status is '${def.status}'. Only 'PUBLISHED' configurations are active.`);

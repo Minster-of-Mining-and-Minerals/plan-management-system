@@ -69,6 +69,13 @@ export const clinicalOrderDefinitionApi = baseApi.injectEndpoints({
       query: () => "/clinical-order-definitions/designer-options",
       providesTags: ["ClinicalOrder"],
     }),
+    publishOrderDefinition: builder.mutation<ClinicalOrderDefinition, string>({
+      query: (id) => ({
+        url: `/clinical-order-definitions/definitions/${id}/publish`,
+        method: "PUT",
+      }),
+      invalidatesTags: ["ClinicalOrder"],
+    }),
   }),
 });
 
@@ -77,4 +84,5 @@ export const {
   useCreateOrderDefinitionMutation,
   useInstantiateRuntimeOrderMutation,
   useGetDesignerConfigOptionsQuery,
+  usePublishOrderDefinitionMutation,
 } = clinicalOrderDefinitionApi;

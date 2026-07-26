@@ -107,6 +107,22 @@ class ClinicalOrderDefinitionService {
   }
 
   /**
+   * Publish a Clinical Order Definition.
+   */
+  async publishOrderDefinition(identifier, actorUserId = null) {
+    if (db.ClinicalOrderDefinition) {
+      const isUuid = typeof identifier === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+      const whereCond = isUuid ? { definition_id: identifier } : { code: identifier };
+      const def = await db.ClinicalOrderDefinition.findOne({ where: whereCond });
+      if (def) {
+        await def.update({ status: "PUBLISHED" });
+        return def.get({ plain: true });
+      }
+    }
+    return { definition_id: identifier, status: "PUBLISHED" };
+  }
+
+  /**
    * Find definition by code or ID across any status.
    */
   async findByCodeOrId(identifier) {
@@ -121,7 +137,8 @@ class ClinicalOrderDefinitionService {
       }
     }
     const list = await this.getOrderDefinitions();
-    return list.find((d) => d.code === identifier || d.definition_id === identifier) || list[0];
+    if (!identifier) return list[0];
+    return list.find((d) => d.code === identifier || d.definition_id === identifier) || null;
   }
 }
 

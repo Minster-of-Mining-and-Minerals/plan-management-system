@@ -35,4 +35,10 @@ router.get(
   clinicalOrderDefinitionController.getDesignerConfigOptions
 );
 
+router.put(
+  "/definitions/:id/publish",
+  checkPermission("orders", "order_definition:manage"),
+  clinicalOrderDefinitionController.publishOrderDefinition
+);
+
 module.exports = router;
