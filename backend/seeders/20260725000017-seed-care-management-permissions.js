@@ -4,29 +4,38 @@ const { v4: uuidv4 } = require("uuid");
 
 module.exports = {
   up: async (queryInterface) => {
-    const permissions = [
-      { id: uuidv4(), module: "clinical", action: "careplan_view", description: "View patient clinical care plans", created_at: new Date(), updated_at: new Date() },
-      { id: uuidv4(), module: "clinical", action: "careplan_manage", description: "Create and manage clinical care plans", created_at: new Date(), updated_at: new Date() },
-      { id: uuidv4(), module: "clinical", action: "goal_manage", description: "Add, update, and track clinical goals", created_at: new Date(), updated_at: new Date() },
-      { id: uuidv4(), module: "clinical", action: "task_assign", description: "Assign and manage clinical tasks", created_at: new Date(), updated_at: new Date() },
-      { id: uuidv4(), module: "clinical", action: "outcome_record", description: "Record and track patient clinical outcomes", created_at: new Date(), updated_at: new Date() },
-      { id: uuidv4(), module: "clinical", action: "careteam_manage", description: "Manage care team members for a care plan", created_at: new Date(), updated_at: new Date() },
+    const actions = [
+      "careplan_view",
+      "careplan_manage",
+      "goal_manage",
+      "task_assign",
+      "outcome_record",
+      "careteam_manage",
     ];
 
-    for (const perm of permissions) {
+    const now = new Date();
+    for (const action of actions) {
       const [existing] = await queryInterface.sequelize.query(
-        `SELECT id FROM permissions WHERE module = '${perm.module}' AND action = '${perm.action}';`
+        `SELECT permission_id FROM permissions WHERE resource = 'clinical' AND action = '${action}';`
       );
       if (!existing || existing.length === 0) {
-        await queryInterface.bulkInsert("permissions", [perm]);
+        await queryInterface.bulkInsert("permissions", [
+          {
+            permission_id: uuidv4(),
+            resource: "clinical",
+            action,
+            is_active: true,
+            created_at: now,
+            updated_at: now,
+          },
+        ]);
       }
     }
   },
 
   down: async (queryInterface) => {
-    await queryInterface.bulkDelete("permissions", {
-      module: "clinical",
-      action: ["careplan_view", "careplan_manage", "goal_manage", "task_assign", "outcome_record", "careteam_manage"],
-    });
+    await queryInterface.sequelize.query(
+      `DELETE FROM permissions WHERE resource = 'clinical' AND action IN ('careplan_view', 'careplan_manage', 'goal_manage', 'task_assign', 'outcome_record', 'careteam_manage');`
+    );
   },
 };

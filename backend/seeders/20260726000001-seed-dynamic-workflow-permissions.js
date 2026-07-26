@@ -4,33 +4,37 @@ const { v4: uuidv4 } = require("uuid");
 
 module.exports = {
   up: async (queryInterface) => {
-    const permissions = [
-      { id: uuidv4(), module: "workflow", action: "workflow:activity_view", description: "View clinical activity definitions and form mappings", created_at: new Date(), updated_at: new Date() },
-      { id: uuidv4(), module: "workflow", action: "workflow:activity_manage", description: "Create and configure dynamic clinical activity definitions", created_at: new Date(), updated_at: new Date() },
-      { id: uuidv4(), module: "workflow", action: "workflow:definition_manage", description: "Create and configure dynamic clinical workflow definitions", created_at: new Date(), updated_at: new Date() },
-      { id: uuidv4(), module: "workflow", action: "workflow:intent_execute", description: "Submit dynamic forms and trigger clinical intent generation", created_at: new Date(), updated_at: new Date() },
-      { id: uuidv4(), module: "workflow", action: "workflow:renderer_view", description: "Access dynamic clinical form rendering engine", created_at: new Date(), updated_at: new Date() },
+    const actions = [
+      "workflow:activity_view",
+      "workflow:activity_manage",
+      "workflow:definition_manage",
+      "workflow:intent_execute",
+      "workflow:renderer_view",
     ];
 
-    for (const perm of permissions) {
+    const now = new Date();
+    for (const action of actions) {
       const [existing] = await queryInterface.sequelize.query(
-        `SELECT id FROM permissions WHERE action = '${perm.action}';`
+        `SELECT permission_id FROM permissions WHERE resource = 'workflow' AND action = '${action}';`
       );
       if (!existing || existing.length === 0) {
-        await queryInterface.bulkInsert("permissions", [perm]);
+        await queryInterface.bulkInsert("permissions", [
+          {
+            permission_id: uuidv4(),
+            resource: "workflow",
+            action,
+            is_active: true,
+            created_at: now,
+            updated_at: now,
+          },
+        ]);
       }
     }
   },
 
   down: async (queryInterface) => {
-    await queryInterface.bulkDelete("permissions", {
-      action: [
-        "workflow:activity_view",
-        "workflow:activity_manage",
-        "workflow:definition_manage",
-        "workflow:intent_execute",
-        "workflow:renderer_view",
-      ],
-    });
+    await queryInterface.sequelize.query(
+      `DELETE FROM permissions WHERE resource = 'workflow' AND action IN ('workflow:activity_view', 'workflow:activity_manage', 'workflow:definition_manage', 'workflow:intent_execute', 'workflow:renderer_view');`
+    );
   },
 };

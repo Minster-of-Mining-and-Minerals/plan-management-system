@@ -77,6 +77,7 @@ module.exports = {
         if (!junction.length) {
           await queryInterface.bulkInsert("role_permissions", [
             {
+              role_permission_id: uuidv4(),
               role_id: role.role_id,
               permission_id: perm.permission_id,
               created_at: now,

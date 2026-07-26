@@ -5,62 +5,36 @@ const { v4: uuidv4 } = require("uuid");
 module.exports = {
   up: async (queryInterface) => {
     const permissions = [
-      {
-        id: uuidv4(),
-        module: "clinical",
-        action: "audit_view",
-        description: "View standardized clinical audit trail events across domains",
-        created_at: new Date(),
-        updated_at: new Date(),
-      },
-      {
-        id: uuidv4(),
-        module: "clinical",
-        action: "audit_export",
-        description: "Export compliance audit reports for regulatory compliance",
-        created_at: new Date(),
-        updated_at: new Date(),
-      },
-      {
-        id: uuidv4(),
-        module: "clinical",
-        action: "amend_request",
-        description: "Request clinical record amendments for results or reports",
-        created_at: new Date(),
-        updated_at: new Date(),
-      },
-      {
-        id: uuidv4(),
-        module: "clinical",
-        action: "amend_approve",
-        description: "Approve or reject clinical record amendment requests",
-        created_at: new Date(),
-        updated_at: new Date(),
-      },
-      {
-        id: uuidv4(),
-        module: "clinical",
-        action: "version_history_view",
-        description: "Inspect immutable historical version snapshots of clinical records",
-        created_at: new Date(),
-        updated_at: new Date(),
-      },
+      { action: "audit_view" },
+      { action: "audit_export" },
+      { action: "amend_request" },
+      { action: "amend_approve" },
+      { action: "version_history_view" },
     ];
 
+    const now = new Date();
     for (const perm of permissions) {
       const [existing] = await queryInterface.sequelize.query(
-        `SELECT id FROM permissions WHERE module = '${perm.module}' AND action = '${perm.action}';`
+        `SELECT permission_id FROM permissions WHERE resource = 'clinical' AND action = '${perm.action}';`
       );
       if (!existing || existing.length === 0) {
-        await queryInterface.bulkInsert("permissions", [perm]);
+        await queryInterface.bulkInsert("permissions", [
+          {
+            permission_id: uuidv4(),
+            resource: "clinical",
+            action: perm.action,
+            is_active: true,
+            created_at: now,
+            updated_at: now,
+          },
+        ]);
       }
     }
   },
 
   down: async (queryInterface) => {
-    await queryInterface.bulkDelete("permissions", {
-      module: "clinical",
-      action: ["audit_view", "audit_export", "amend_request", "amend_approve", "version_history_view"],
-    });
+    await queryInterface.sequelize.query(
+      `DELETE FROM permissions WHERE resource = 'clinical' AND action IN ('audit_view', 'audit_export', 'amend_request', 'amend_approve', 'version_history_view');`
+    );
   },
 };

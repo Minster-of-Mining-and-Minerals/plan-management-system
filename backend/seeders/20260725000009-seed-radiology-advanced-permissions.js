@@ -17,23 +17,23 @@ module.exports = {
   async up(queryInterface) {
     const transaction = await queryInterface.sequelize.transaction();
     try {
-      let [groupRow] = await queryInterface.sequelize.query(
-        `SELECT group_id FROM permission_groups WHERE name = 'Radiology' LIMIT 1;`,
+      let [radGroup] = await queryInterface.sequelize.query(
+        `SELECT permission_group_id FROM permission_groups WHERE name = 'Radiology' LIMIT 1;`,
         { transaction }
       );
 
       let groupId;
-      if (groupRow && groupRow.length > 0) {
-        groupId = groupRow[0].group_id;
+      if (radGroup && radGroup.length > 0) {
+        groupId = radGroup[0].permission_group_id;
       } else {
         groupId = uuidv4();
         await queryInterface.bulkInsert(
           "permission_groups",
           [
             {
-              group_id: groupId,
+              permission_group_id: groupId,
               name: "Radiology",
-              description: "Permissions for radiology imaging and diagnostic reporting workflows",
+              description: "Permissions for managing enterprise radiology operations",
               created_at: new Date(),
               updated_at: new Date(),
             },
@@ -58,11 +58,9 @@ module.exports = {
             [
               {
                 permission_id: permId,
-                group_id: groupId,
-                name: `radiology:${p.action}`,
                 resource: "radiology",
                 action: p.action,
-                description: p.description,
+                is_active: true,
                 created_at: new Date(),
                 updated_at: new Date(),
               },

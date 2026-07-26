@@ -14,20 +14,20 @@ module.exports = {
     try {
       // Find or create PermissionGroup for orders
       let [orderGroup] = await queryInterface.sequelize.query(
-        `SELECT group_id FROM permission_groups WHERE name = 'Clinical Orders' LIMIT 1;`,
+        `SELECT permission_group_id FROM permission_groups WHERE name = 'Clinical Orders' LIMIT 1;`,
         { transaction }
       );
 
       let groupId;
       if (orderGroup && orderGroup.length > 0) {
-        groupId = orderGroup[0].group_id;
+        groupId = orderGroup[0].permission_group_id;
       } else {
         groupId = uuidv4();
         await queryInterface.bulkInsert(
           "permission_groups",
           [
             {
-              group_id: groupId,
+              permission_group_id: groupId,
               name: "Clinical Orders",
               description: "Permissions for managing unified clinical orders",
               created_at: new Date(),
@@ -55,11 +55,9 @@ module.exports = {
             [
               {
                 permission_id: permId,
-                group_id: groupId,
-                name: `orders:${p.action}`,
                 resource: "orders",
                 action: p.action,
-                description: p.description,
+                is_active: true,
                 created_at: new Date(),
                 updated_at: new Date(),
               },

@@ -14,23 +14,23 @@ module.exports = {
   async up(queryInterface) {
     const transaction = await queryInterface.sequelize.transaction();
     try {
-      let [groupRow] = await queryInterface.sequelize.query(
-        `SELECT group_id FROM permission_groups WHERE name = 'Pharmacy' LIMIT 1;`,
+      let [pharmGroup] = await queryInterface.sequelize.query(
+        `SELECT permission_group_id FROM permission_groups WHERE name = 'Pharmacy' LIMIT 1;`,
         { transaction }
       );
 
       let groupId;
-      if (groupRow && groupRow.length > 0) {
-        groupId = groupRow[0].group_id;
+      if (pharmGroup && pharmGroup.length > 0) {
+        groupId = pharmGroup[0].permission_group_id;
       } else {
         groupId = uuidv4();
         await queryInterface.bulkInsert(
           "permission_groups",
           [
             {
-              group_id: groupId,
+              permission_group_id: groupId,
               name: "Pharmacy",
-              description: "Permissions for pharmacy clinical integration and portal dispensing workflows",
+              description: "Permissions for managing enterprise pharmacy operations",
               created_at: new Date(),
               updated_at: new Date(),
             },
@@ -55,11 +55,9 @@ module.exports = {
             [
               {
                 permission_id: permId,
-                group_id: groupId,
-                name: `pharmacy:${p.action}`,
                 resource: "pharmacy",
                 action: p.action,
-                description: p.description,
+                is_active: true,
                 created_at: new Date(),
                 updated_at: new Date(),
               },
