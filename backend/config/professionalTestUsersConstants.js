@@ -1,7 +1,7 @@
 "use strict";
 
 const ADMIN_USER_ID = "00000000-0000-4000-8000-000000000001";
-const TEST_EMAIL_DOMAIN = "@test.novacure";
+const TEST_EMAIL_DOMAIN = "@novacure.com";
 const DEMO_PASSWORD = "password";
 
 /** Permission groups — one per profession; users get exactly one group (no roles). */
@@ -217,7 +217,7 @@ const TEST_PHARMACIES = [
     pharmacy_code: "PHARM-BOLE-01",
     license_number: "LIC-BOLE-001",
     phone: "251911300001",
-    email: "bole.pharmacy@test.novacure",
+    email: "bole.pharmacy@novacure.com",
     address: "Bole Road, Addis Ababa",
     city: "Addis Ababa",
     region: "Addis Ababa",
@@ -230,7 +230,7 @@ const TEST_PHARMACIES = [
     pharmacy_code: "PHARM-KZN-01",
     license_number: "LIC-KZN-001",
     phone: "251911300002",
-    email: "kazanchis.pharmacy@test.novacure",
+    email: "kazanchis.pharmacy@novacure.com",
     address: "Kazanchis, Addis Ababa",
     city: "Addis Ababa",
     region: "Addis Ababa",

@@ -51,8 +51,9 @@ export default async function LocaleLayout({ children, params }: Props) {
     <html
       lang={locale}
       className={`${GeistSans.variable} ${GeistMono.variable}`}
+      suppressHydrationWarning
     >
-      <body className={`${GeistSans.className} antialiased text-primary`}>
+      <body className={`${GeistSans.className} antialiased text-primary`} suppressHydrationWarning>
         <NextTopLoader showSpinner={false} />
 
         <SessionProvider>

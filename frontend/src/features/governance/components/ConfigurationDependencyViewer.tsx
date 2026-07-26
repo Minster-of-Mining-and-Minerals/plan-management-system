@@ -14,6 +14,11 @@ interface ConfigurationDependencyViewerProps {
 
 export function ConfigurationDependencyViewer({ entityCode = "CBC_TEST" }: ConfigurationDependencyViewerProps) {
   const { data } = useGetDependencyTreeQuery({ entity_code: entityCode });
+  const hierarchy: DependencyNode[] = Array.isArray(data?.hierarchy)
+    ? data.hierarchy
+    : Array.isArray(data)
+    ? (data as any)
+    : [];
 
   return (
     <Card className="border shadow-sm">
@@ -28,11 +33,11 @@ export function ConfigurationDependencyViewer({ entityCode = "CBC_TEST" }: Confi
       </CardHeader>
 
       <CardContent className="p-3 text-xs space-y-2">
-        {(data?.hierarchy || []).map((node: DependencyNode, idx: number) => (
+        {hierarchy.map((node: DependencyNode, idx: number) => (
           <div key={idx} className="flex items-center gap-2 p-1.5 border rounded bg-slate-50/50 text-[10px]">
             <GitCommit className="h-3 w-3 text-indigo-600" />
             <span className="font-semibold">{node.type}</span>: {node.name}
-            {idx < (data?.hierarchy.length || 0) - 1 && <ArrowRight className="h-3 w-3 text-muted-foreground ml-auto" />}
+            {idx < hierarchy.length - 1 && <ArrowRight className="h-3 w-3 text-muted-foreground ml-auto" />}
           </div>
         ))}
       </CardContent>

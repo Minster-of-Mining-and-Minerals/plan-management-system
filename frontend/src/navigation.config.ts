@@ -241,4 +241,16 @@ export const NAVIGATION: NavItem[] = [
     icon: ScrollText,
     allPermissions: ["AUDIT_LOG:VIEW"],
   },
+  {
+    title: "Clinical Configuration",
+    url: "/admin/clinical-configuration",
+    icon: Settings2,
+    anyPermissions: [
+      "USERS:READ",
+      "ROLES:READ",
+      "BRANDING:READ",
+      "AUDIT_LOG:VIEW",
+      "DIAGNOSIS_FORMS:READ",
+    ],
+  },
 ];

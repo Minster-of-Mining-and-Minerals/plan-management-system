@@ -123,9 +123,19 @@ async function ensureDiagnosisConfig(
   queryInterface,
   { staffId, templateTitle, configTitle, actorId, now }
 ) {
+  let tableInfo = {};
+  try {
+    tableInfo = await queryInterface.describeTable("diagnosis_form_configs");
+  } catch (e) {
+    // Fallback
+  }
+
+  const queryCond = tableInfo.assigned_staff_id
+    ? `WHERE assigned_staff_id = :staffId AND title = :configTitle LIMIT 1`
+    : `WHERE title = :configTitle LIMIT 1`;
+
   const [existing] = await queryInterface.sequelize.query(
-    `SELECT config_id FROM diagnosis_form_configs
-     WHERE assigned_staff_id = :staffId AND title = :configTitle LIMIT 1`,
+    `SELECT config_id FROM diagnosis_form_configs ${queryCond}`,
     { replacements: { staffId, configTitle } }
   );
   if (existing.length) return existing[0].config_id;
@@ -142,21 +152,26 @@ async function ensureDiagnosisConfig(
   }
 
   const configId = uuidv4();
-  await queryInterface.bulkInsert("diagnosis_form_configs", [
-    {
-      config_id: configId,
-      assigned_staff_id: staffId,
-      title: configTitle,
-      description: `Test user workflow form — ${configTitle}`,
-      source_template_id: templates[0].template_id,
-      is_active: true,
-      sort_order: 1,
-      created_by: actorId,
-      updated_by: actorId,
-      created_at: now,
-      updated_at: now,
-    },
-  ]);
+  const row = {
+    config_id: configId,
+    title: configTitle,
+    description: `Test user workflow form — ${configTitle}`,
+    is_active: true,
+    sort_order: 1,
+    created_by: actorId,
+    updated_by: actorId,
+    created_at: now,
+    updated_at: now,
+  };
+
+  if (tableInfo.assigned_staff_id) {
+    row.assigned_staff_id = staffId;
+  }
+  if (tableInfo.source_template_id) {
+    row.source_template_id = templates[0].template_id;
+  }
+
+  await queryInterface.bulkInsert("diagnosis_form_configs", [row]);
 
   await copyStructure({
     sourceTemplateId: templates[0].template_id,
@@ -269,8 +284,8 @@ module.exports = {
     // —— Patients ——
     for (const patient of TEST_PATIENTS) {
       const [existing] = await queryInterface.sequelize.query(
-        `SELECT user_id FROM users WHERE email = :email LIMIT 1`,
-        { replacements: { email: patient.email } }
+        `SELECT user_id FROM users WHERE user_id = :userId OR email = :email LIMIT 1`,
+        { replacements: { userId: patient.user_id, email: patient.email } }
       );
       if (existing.length) continue;
 
@@ -351,8 +366,8 @@ module.exports = {
     // —— Pharmacy portal users ——
     for (const phUser of TEST_PHARMACY_USERS) {
       const [existingUser] = await queryInterface.sequelize.query(
-        `SELECT user_id FROM users WHERE email = :email LIMIT 1`,
-        { replacements: { email: phUser.email } }
+        `SELECT user_id FROM users WHERE user_id = :userId OR email = :email LIMIT 1`,
+        { replacements: { userId: phUser.user_id, email: phUser.email } }
       );
 
       let userId = existingUser[0]?.user_id;

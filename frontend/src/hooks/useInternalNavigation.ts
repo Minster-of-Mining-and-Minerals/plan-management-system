@@ -18,7 +18,11 @@ function buildPharmacyNavItem(
   base: NavItem,
   pharmacies: { pharmacy_id: string; pharmacy_name: string; status: string }[]
 ): NavItem {
-  const pharmacyChildren: NavItem[] = [...pharmacies]
+  const uniquePharmacies = Array.from(
+    new Map(pharmacies.map((p) => [p.pharmacy_id, p])).values()
+  );
+
+  const pharmacyChildren: NavItem[] = [...uniquePharmacies]
     .sort((a, b) => a.pharmacy_name.localeCompare(b.pharmacy_name))
     .map((pharmacy) => ({
       title: pharmacy.pharmacy_name,

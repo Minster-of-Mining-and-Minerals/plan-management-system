@@ -12,9 +12,15 @@ import {
 } from "@/redux/api/clinicalConfigurationGovernanceApi";
 
 export function ClinicalConfigurationCenter() {
-  const { data: logs = [], isLoading } = useGetGovernanceLogsQuery();
+  const { data: logsData, isLoading } = useGetGovernanceLogsQuery();
   const [transitionStatus] = useTransitionLifecycleStatusMutation();
   const [actionMsg, setActionMsg] = useState<string | null>(null);
+
+  const logs: GovernanceLog[] = Array.isArray(logsData)
+    ? logsData
+    : Array.isArray((logsData as any)?.logs)
+    ? (logsData as any).logs
+    : [];
 
   const handlePublish = async (code: string) => {
     try {
