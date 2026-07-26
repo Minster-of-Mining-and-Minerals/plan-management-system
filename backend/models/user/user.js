@@ -59,6 +59,22 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "user_id",
         as: "pharmacyProfile",
       });
+
+      if (models.UserFacilityAssignment) {
+        User.hasMany(models.UserFacilityAssignment, {
+          foreignKey: "user_id",
+          as: "facilityAssignments",
+          constraints: false,
+        });
+      }
+
+      if (models.PatientFacilityRecord) {
+        User.hasMany(models.PatientFacilityRecord, {
+          foreignKey: "patient_id",
+          as: "patientFacilityRecords",
+          constraints: false,
+        });
+      }
     }
   }
 

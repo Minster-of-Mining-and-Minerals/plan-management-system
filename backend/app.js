@@ -65,6 +65,8 @@ const brandingRoutes = require("./routers/system/brandingRoutes");
 // Organization Routes
 const departmentRoutes = require("./routers/organization/departmentRoutes");
 const userTitleRoutes = require("./routers/organization/userTitleRoutes");
+const tenantRoutes = require("./routes/tenantRoutes");
+const tenantContextMiddleware = require("./middlewares/tenantContextMiddleware");
 const billingServiceRoutes = require("./routers/finance/billingServiceRoutes");
 const billingServiceCategoryRoutes = require("./routers/finance/billingServiceCategoryRoutes");
 const appointmentBillingRoutes = require("./routers/finance/appointmentBillingRoutes");
@@ -240,6 +242,11 @@ app.use("/api/change-password", changePasswordRoutes);
 app.use("/api/permissions", permissionRoute);
 app.use("/api/permission-groups", permissionGroupRoute);
 
+
+app.use(tenantContextMiddleware);
+app.use("/api/organization", tenantRoutes);
+app.use("/api/tenants", tenantRoutes);
+app.use("/api/facilities", tenantRoutes);
 
 app.use("/api/dashboard", dashboardRoutes);
 

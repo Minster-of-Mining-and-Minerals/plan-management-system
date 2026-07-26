@@ -12,12 +12,34 @@ describe("Clinical Platform Foundation Integration Tests", () => {
   let formConfigId;
 
   beforeAll(async () => {
-    // Fetch a user from the DB to act as the patient and staff
+    // Sync models
+    await db.User.sync({ alter: true });
+    await db.Role.sync({ alter: true });
+
+    // Ensure Super Admin role exists
+    let superAdminRole = await db.Role.findOne({ where: { name: "Super Admin" } });
+    if (!superAdminRole) {
+      superAdminRole = await db.Role.create({
+        role_id: uuidv4(),
+        name: "Super Admin",
+        description: "Super Administrator",
+        is_active: true,
+      });
+    }
+
+    const staff = await db.User.create({
+      user_id: uuidv4(),
+      full_name: "Clinical Foundation Admin",
+      email: `cf_admin_${uuidv4()}@novacure.com`,
+      password: "password_123",
+      account_type: "INTERNAL",
+      is_active: true,
+    });
+    staffId = staff.user_id;
+    await staff.addRole(superAdminRole);
+
     const user = await db.User.findOne({ where: { account_type: "PATIENT" } });
     patientId = user ? user.user_id : uuidv4();
-
-    const staff = await db.User.findOne({ where: { account_type: "INTERNAL" } });
-    staffId = staff ? staff.user_id : uuidv4();
 
     const formConfig = await db.DiagnosisFormConfig.findOne();
     formConfigId = formConfig ? formConfig.config_id : null;

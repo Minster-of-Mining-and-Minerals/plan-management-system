@@ -21,6 +21,27 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "department_id",
         as: "staffProfiles",
       });
+      if (models.Facility) {
+        Department.belongsTo(models.Facility, {
+          foreignKey: "facility_id",
+          as: "facility",
+          constraints: false,
+        });
+      }
+      if (models.OrganizationTenant) {
+        Department.belongsTo(models.OrganizationTenant, {
+          foreignKey: "tenant_id",
+          as: "tenant",
+          constraints: false,
+        });
+      }
+      if (models.Unit) {
+        Department.hasMany(models.Unit, {
+          foreignKey: "department_id",
+          as: "units",
+          constraints: false,
+        });
+      }
     }
   }
 
@@ -30,6 +51,15 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
+      },
+      facility_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      tenant_id: {
+        type: DataTypes.STRING(64),
+        allowNull: false,
+        defaultValue: "DEFAULT_HOSPITAL",
       },
       name: {
         type: DataTypes.STRING(150),

@@ -55,6 +55,15 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
       },
+      tenant_id: {
+        type: DataTypes.STRING(64),
+        allowNull: false,
+        defaultValue: "DEFAULT_HOSPITAL",
+      },
+      facility_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
       appointment_id: { type: DataTypes.UUID, allowNull: false },
       patient_id: { type: DataTypes.UUID, allowNull: false },
       ordered_by: { type: DataTypes.UUID, allowNull: false },
