@@ -8,14 +8,17 @@ module.exports = (sequelize, DataTypes) => {
       DiagnosisFormConfig.belongsTo(models.User, {
         foreignKey: "assigned_staff_id",
         as: "staff",
+        constraints: false,
       });
       DiagnosisFormConfig.belongsTo(models.User, {
         foreignKey: "created_by",
         as: "creator",
+        constraints: false,
       });
       DiagnosisFormConfig.belongsTo(models.DiagnosisTemplate, {
         foreignKey: "source_template_id",
         as: "sourceTemplate",
+        constraints: false,
       });
       DiagnosisFormConfig.hasMany(models.FormFieldGroup, {
         foreignKey: "diagnosis_config_id",
@@ -35,7 +38,7 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
       },
-      assigned_staff_id: { type: DataTypes.UUID, allowNull: false },
+      assigned_staff_id: { type: DataTypes.UUID, allowNull: true },
       title: {
         type: DataTypes.STRING(255),
         allowNull: false,

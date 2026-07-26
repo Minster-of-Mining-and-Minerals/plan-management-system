@@ -7,11 +7,10 @@ const clinicalConfigurationGovernanceService = require("../workflow/clinicalConf
 const unifiedClinicalSLAEngine = require("../clinicalOrder/unifiedClinicalSLAEngine");
 const timelineEventService = require("../timelineEventService");
 const auditService = require("../auditService");
-const notificationService = require("../notificationService");
 
 class RuntimeOrderGenerationService {
   /**
-   * Instantiate a runtime ClinicalOrder from an Order Definition.
+   * Instantiate a runtime ClinicalOrder from a Unified Order Definition.
    */
   async instantiateRuntimeOrder(payload, actorUserId = null) {
     const {
@@ -21,6 +20,7 @@ class RuntimeOrderGenerationService {
       patient_id,
       ordered_by,
       tenant_id = "DEFAULT_HOSPITAL",
+      facility_id = null,
       intent_data = {},
       priority = null,
       notes = null,
@@ -33,13 +33,21 @@ class RuntimeOrderGenerationService {
       throw err;
     }
 
-    // 1. Fetch Order Definition
+    // 1. Fetch Composite Order Definition
     const def = await clinicalOrderDefinitionService.findByCodeOrId(definition_code || definition_id || "DEF_CBC_TEST");
 
-    // Governance Protection Check
-    await clinicalConfigurationGovernanceService.validateRuntimeGeneration(def.definition_id || def.code, tenant_id);
+    if (def.status && def.status !== "PUBLISHED") {
+      const err = new Error(`Cannot instantiate order: Configuration status is '${def.status}'. Only 'PUBLISHED' configurations are active.`);
+      err.status = 403;
+      throw err;
+    }
 
-    // 2. Create Immutable Version Snapshot
+    // Governance Protection Check
+    if (clinicalConfigurationGovernanceService && typeof clinicalConfigurationGovernanceService.validateRuntimeGeneration === "function") {
+      await clinicalConfigurationGovernanceService.validateRuntimeGeneration(def.definition_id || def.code, tenant_id);
+    }
+
+    // 2. Create Immutable Composite Version Snapshot
     const snapshot = {
       definition_version: def.version || "1.0.0",
       definition_snapshot: {
@@ -52,10 +60,13 @@ class RuntimeOrderGenerationService {
         request_form_config_id: def.request_form_config_id || null,
         execution_form_config_id: def.execution_form_config_id || null,
         result_form_config_id: def.result_form_config_id || null,
+        verification_form_config_id: def.verification_form_config_id || null,
       },
-      workflow_snapshot: {
-        workflow_definition_id: def.workflow_definition_id || null,
-      },
+      queue_snapshot: def.queue_config_json || {},
+      sla_snapshot: def.sla_config_json || {},
+      billing_snapshot: def.billing_configuration || { is_billable: false },
+      automation_snapshot: def.automation_rules_json || {},
+      decision_support_snapshot: def.decision_support_rules_json || {},
       created_at: new Date().toISOString(),
     };
 
@@ -71,6 +82,8 @@ class RuntimeOrderGenerationService {
     // 4. Create Generic ClinicalOrder Instance
     const order = await db.ClinicalOrder.create({
       order_id: uuidv4(),
+      tenant_id,
+      facility_id,
       appointment_id,
       patient_id,
       ordered_by: effectiveOrderedBy,
@@ -88,18 +101,24 @@ class RuntimeOrderGenerationService {
 
     // 5. Audit Logging
     if (actorUserId || effectiveOrderedBy) {
-      await auditService.logAudit({
-        actorUserId: actorUserId || effectiveOrderedBy,
-        action: "order_definition:instantiate",
-        resourceType: "CLINICAL_ORDER",
-        resourceId: order.order_id,
-        details: { definition_code: def.code, version: def.version },
-      });
+      try {
+        await auditService.logAudit({
+          actorUserId: actorUserId || effectiveOrderedBy,
+          action: "order_definition:instantiate",
+          resourceType: "CLINICAL_ORDER",
+          resourceId: order.order_id,
+          details: { definition_code: def.code, version: def.version },
+        });
+      } catch (e) {
+        // Fallback
+      }
     }
 
     // 6. SLA Engine Registration
     try {
-      await unifiedClinicalSLAEngine.registerOrderSLA(order.order_id, def.department_id, orderPriority, 60);
+      if (unifiedClinicalSLAEngine && typeof unifiedClinicalSLAEngine.registerOrderSLA === "function") {
+        await unifiedClinicalSLAEngine.registerOrderSLA(order.order_id, def.department_id, orderPriority, 60);
+      }
     } catch (e) {
       // Fallback
     }
@@ -109,8 +128,8 @@ class RuntimeOrderGenerationService {
       try {
         await timelineEventService.emit({
           event_type: "RUNTIME_ORDER_INSTANTIATED",
-          title: `Configuration Order Created: ${order.title}`,
-          notes: `Instantiated from definition ${def.code} v${def.version}`,
+          title: `Order Created: ${order.title}`,
+          notes: `Instantiated from composite definition ${def.code} v${def.version}`,
           domain: def.department_id,
           patient_id,
         });

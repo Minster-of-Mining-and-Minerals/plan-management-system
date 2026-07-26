@@ -41,8 +41,17 @@ describe("Clinical Platform Foundation Integration Tests", () => {
     const user = await db.User.findOne({ where: { account_type: "PATIENT" } });
     patientId = user ? user.user_id : uuidv4();
 
-    const formConfig = await db.DiagnosisFormConfig.findOne();
-    formConfigId = formConfig ? formConfig.config_id : null;
+    await db.DiagnosisFormConfig.sync({ alter: true });
+    let formConfig = await db.DiagnosisFormConfig.findOne();
+    if (!formConfig) {
+      formConfig = await db.DiagnosisFormConfig.create({
+        config_id: uuidv4(),
+        assigned_staff_id: staffId,
+        title: "SOAP Test Form",
+        is_active: true,
+      });
+    }
+    formConfigId = formConfig.config_id;
   });
 
   describe("Timeline Event Engine", () => {
