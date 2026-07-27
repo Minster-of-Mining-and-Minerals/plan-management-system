@@ -69,6 +69,7 @@ module.exports = (sequelize, DataTypes) => {
       required_permissions_json: { type: DataTypes.JSONB, allowNull: false, defaultValue: [] },
       status: { type: DataTypes.STRING(32), allowNull: false, defaultValue: "PUBLISHED" },
       version: { type: DataTypes.STRING(16), allowNull: false, defaultValue: "1.0.0" },
+      closure_policy: { type: DataTypes.STRING(16), allowNull: false, defaultValue: "STRICT" },
     },
     {
       sequelize,

@@ -21,6 +21,7 @@ import {
   useGetWorkflowInboxQuery,
   type WorkflowTask,
 } from "@/redux/api/medicalWorkflowApi";
+import { useListEncounterOrdersQuery } from "@/redux/api/clinicalOrderApi";
 
 function formatWhen(iso: string) {
   return new Date(iso).toLocaleString("en-US", {
@@ -49,6 +50,31 @@ function addDays(dateStr: string, days: number) {
   const d = new Date(`${dateStr}T12:00:00`);
   d.setDate(d.getDate() + days);
   return d.toISOString().slice(0, 10);
+}
+
+function EncounterOrdersBadge({ appointmentId }: { appointmentId: string }) {
+  const { data: orders = [] } = useListEncounterOrdersQuery(appointmentId, {
+    skip: !appointmentId,
+  });
+  const activeOrders = Array.isArray(orders) ? orders : (orders as any)?.data || [];
+  const pendingCount = activeOrders.filter(
+    (o: any) => o.status !== "COMPLETED" && o.status !== "CANCELLED"
+  ).length;
+
+  if (activeOrders.length === 0) return <span className="text-muted-foreground text-xs">—</span>;
+
+  return (
+    <Badge
+      variant="outline"
+      className={`text-[10px] font-medium ${
+        pendingCount > 0
+          ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300"
+          : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
+      }`}
+    >
+      {pendingCount > 0 ? `${pendingCount} Orders Pending` : `${activeOrders.length} Completed`}
+    </Badge>
+  );
 }
 
 type Props = {
@@ -171,6 +197,13 @@ export function WorkflowInboxTable({ status, onStatusChange }: Props) {
         header: "Forwarded at",
         cell: ({ row }) => (
           <span className="text-sm">{formatWhen(row.original.created_at)}</span>
+        ),
+      },
+      {
+        id: "clinical_orders",
+        header: "Clinical Orders",
+        cell: ({ row }) => (
+          <EncounterOrdersBadge appointmentId={row.original.appointment_id} />
         ),
       },
       {

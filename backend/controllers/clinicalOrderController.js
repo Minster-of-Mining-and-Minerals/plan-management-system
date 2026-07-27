@@ -139,6 +139,24 @@ class ClinicalOrderController {
       next(err);
     }
   }
+
+  async autoAssignQueueOrder(req, res, next) {
+    try {
+      const staffId = req.user?.user_id || req.user?.id;
+      const { department_id } = req.body || {};
+      const order = await clinicalOrderService.autoAssignQueueOrder(
+        req.params.id,
+        department_id,
+        staffId
+      );
+      return res.json({
+        success: true,
+        data: order,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = new ClinicalOrderController();

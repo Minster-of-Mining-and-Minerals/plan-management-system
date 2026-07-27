@@ -152,6 +152,75 @@ class RuntimeOrderGenerationService {
       order,
     };
   }
+
+  /**
+   * Auto-instantiate clinical orders triggered by dynamic form submissions.
+   */
+  async instantiateOrdersFromFormSubmission(appointmentId, formConfigId, formData, staffId) {
+    if (!appointmentId || !formData) return [];
+
+    const appt = await db.StaffAppointment.findByPk(appointmentId, {
+      attributes: ["appointment_id", "patient_id"],
+    });
+
+    if (!appt) return [];
+
+    const allDefs = await db.ClinicalOrderDefinition.findAll({
+      where: { status: "PUBLISHED" },
+      attributes: ["definition_id", "code", "name", "department_id", "category"],
+    });
+
+    const triggeredCodes = new Set();
+
+    for (const def of allDefs) {
+      const code = def.code;
+      if (
+        formData[code] === true ||
+        formData[code] === "true" ||
+        formData[code] === "YES" ||
+        formData.order_code === code ||
+        formData.trigger_order_code === code ||
+        (Array.isArray(formData.selected_orders) && formData.selected_orders.includes(code)) ||
+        (Array.isArray(formData.clinical_orders) && formData.clinical_orders.includes(code))
+      ) {
+        triggeredCodes.add(code);
+      }
+    }
+
+    const createdOrders = [];
+
+    for (const code of triggeredCodes) {
+      try {
+        const existing = await db.ClinicalOrder.findOne({
+          where: {
+            appointment_id: appointmentId,
+            order_definition_id: code,
+            status: { [db.Sequelize.Op.notIn]: ["CANCELLED"] },
+          },
+        });
+
+        if (!existing) {
+          const result = await this.instantiateRuntimeOrder(
+            {
+              definition_code: code,
+              appointment_id: appointmentId,
+              patient_id: appt.patient_id,
+              ordered_by: staffId,
+              intent_data: { originating_form_config_id: formConfigId, form_payload: formData },
+            },
+            staffId
+          );
+          if (result?.order) {
+            createdOrders.push(result.order);
+          }
+        }
+      } catch (err) {
+        console.error(`[Auto-Order Placement] Failed to instantiate order '${code}':`, err.message);
+      }
+    }
+
+    return createdOrders;
+  }
 }
 
 module.exports = new RuntimeOrderGenerationService();

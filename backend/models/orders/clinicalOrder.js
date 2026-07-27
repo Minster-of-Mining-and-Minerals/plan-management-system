@@ -111,6 +111,8 @@ module.exports = (sequelize, DataTypes) => {
       execution_payload_json: { type: DataTypes.JSONB, allowNull: true },
       result_payload_json: { type: DataTypes.JSONB, allowNull: true },
       configuration_snapshot_json: { type: DataTypes.JSONB, allowNull: true },
+      intent_data: { type: DataTypes.JSONB, allowNull: true },
+      originating_form_config_id: { type: DataTypes.UUID, allowNull: true },
     },
     {
       sequelize,

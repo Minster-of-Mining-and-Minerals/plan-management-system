@@ -230,12 +230,25 @@ class EncounterCompletionService {
       // Non-fatal
     }
 
+    // Check for pending clinical orders (ClinicalOrder architecture)
+    let pendingClinicalOrders = 0;
+    if (db.ClinicalOrder) {
+      pendingClinicalOrders = await db.ClinicalOrder.count({
+        where: {
+          appointment_id: appointmentId,
+          status: { [db.Sequelize.Op.in]: ["SUBMITTED", "IN_PROGRESS", "ACCEPTED", "PERFORMED"] },
+        },
+      });
+    }
+
     const followUpRequired = options.followUpRequired === true;
 
     return {
       patient_id: appointment.patient_id,
       appointment_id: appointmentId,
-      has_pending_tasks: pendingTasks > 0,
+      has_pending_tasks: pendingTasks > 0 || pendingClinicalOrders > 0,
+      has_pending_clinical_orders: pendingClinicalOrders > 0,
+      pending_clinical_orders_count: pendingClinicalOrders,
       has_pending_lab: pendingLabOrders > 0,
       has_pending_pharmacy: unfulfilledPrescriptions > 0,
       has_unpaid_balance: hasUnpaidBalance,

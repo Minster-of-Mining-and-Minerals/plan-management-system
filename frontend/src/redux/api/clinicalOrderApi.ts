@@ -130,6 +130,19 @@ export const clinicalOrderApi = baseApi.injectEndpoints({
       ],
     }),
 
+    autoAssignClinicalOrder: builder.mutation<ClinicalOrder, { orderId: string; departmentId?: string }>({
+      query: ({ orderId, departmentId }) => ({
+        url: `/orders/${orderId}/auto-assign`,
+        method: "PATCH",
+        body: { department_id: departmentId },
+      }),
+      transformResponse: (r: { data: ClinicalOrder }) => r.data,
+      invalidatesTags: (_r, _e, { orderId }) => [
+        { type: "ClinicalOrder", id: orderId },
+        { type: "ClinicalOrder", id: "DEPT_QUEUE" },
+      ],
+    }),
+
     recordOrderResult: builder.mutation<
       ClinicalOrder,
       { orderId: string; payload: RecordOrderResultPayload }
@@ -154,5 +167,6 @@ export const {
   useListEncounterOrdersQuery,
   useListDepartmentQueueQuery,
   useAcceptClinicalOrderMutation,
+  useAutoAssignClinicalOrderMutation,
   useRecordOrderResultMutation,
 } = clinicalOrderApi;

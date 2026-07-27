@@ -48,6 +48,12 @@ router.patch(
 );
 
 router.patch(
+  "/:id/auto-assign",
+  checkPermission("orders", "accept"),
+  clinicalOrderController.autoAssignQueueOrder.bind(clinicalOrderController)
+);
+
+router.patch(
   "/:id/status",
   checkPermission("orders", "execute"),
   clinicalOrderController.updateOrderStatus.bind(clinicalOrderController)

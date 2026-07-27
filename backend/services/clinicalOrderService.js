@@ -59,6 +59,8 @@ class ClinicalOrderService {
       order_items = [],
       notes,
       assigned_department_id,
+      intent_data,
+      originating_form_config_id,
     } = payload;
 
     if (!appointment_id) {
@@ -98,6 +100,8 @@ class ClinicalOrderService {
       clinical_reason: clinical_reason || null,
       order_items: Array.isArray(order_items) ? order_items : [],
       notes: notes || null,
+      intent_data: intent_data || null,
+      originating_form_config_id: originating_form_config_id || null,
     });
 
     // Record status transition history (NULL -> SUBMITTED)
@@ -285,18 +289,94 @@ class ClinicalOrderService {
           attributes: ["user_id", "full_name"],
         },
         {
+          model: db.User,
+          as: "assignedStaff",
+          attributes: ["user_id", "full_name"],
+        },
+        {
           model: db.ClinicalOrderResult,
           as: "result",
           required: false,
         },
       ],
       order: [
-        ["priority", "DESC"],
+        [db.Sequelize.literal(`CASE WHEN priority = 'STAT' THEN 1 WHEN priority = 'URGENT' THEN 2 ELSE 3 END`), "ASC"],
         ["created_at", "ASC"],
       ],
     });
 
     return rows.map((r) => r.get({ plain: true }));
+  }
+
+  /**
+   * Auto-assign order to the least-loaded technician in the department.
+   */
+  async autoAssignQueueOrder(orderId, departmentId = null, actorUserId = null) {
+    const order = await db.ClinicalOrder.findByPk(orderId);
+    if (!order) {
+      const err = new Error("Clinical order not found");
+      err.status = 404;
+      throw err;
+    }
+
+    const targetDeptId = departmentId || order.assigned_department_id;
+    if (!targetDeptId) {
+      const err = new Error("Order has no assigned department for load balancing");
+      err.status = 400;
+      throw err;
+    }
+
+    const staffProfiles = await db.InternalUserProfile.findAll({
+      where: { department_id: targetDeptId },
+      attributes: ["user_id"],
+    });
+
+    const staffUserIds = staffProfiles.map((p) => p.user_id);
+    if (staffUserIds.length === 0) {
+      const err = new Error(`No staff members found assigned to department '${targetDeptId}'`);
+      err.status = 404;
+      throw err;
+    }
+
+    const activeCounts = await db.ClinicalOrder.findAll({
+      where: {
+        assigned_staff_id: { [db.Sequelize.Op.in]: staffUserIds },
+        status: { [db.Sequelize.Op.in]: ["ACCEPTED", "IN_PROGRESS"] },
+      },
+      attributes: ["assigned_staff_id", [db.Sequelize.fn("COUNT", db.Sequelize.col("order_id")), "active_count"]],
+      group: ["assigned_staff_id"],
+      raw: true,
+    });
+
+    const countMap = new Map();
+    staffUserIds.forEach((id) => countMap.set(id, 0));
+    activeCounts.forEach((row) => countMap.set(row.assigned_staff_id, Number(row.active_count || 0)));
+
+    let minStaffId = staffUserIds[0];
+    let minCount = countMap.get(minStaffId) || 0;
+
+    for (const id of staffUserIds) {
+      const count = countMap.get(id) || 0;
+      if (count < minCount) {
+        minCount = count;
+        minStaffId = id;
+      }
+    }
+
+    const oldStatus = order.status;
+    await order.update({
+      assigned_staff_id: minStaffId,
+      assigned_department_id: targetDeptId,
+      status: "ACCEPTED",
+    });
+
+    await this.recordStatusHistory(orderId, oldStatus, "ACCEPTED", actorUserId || minStaffId, "Auto-assigned by load balancing engine");
+    await this.logAudit("ORDER_AUTO_ASSIGNED", order, actorUserId || minStaffId, {
+      assigned_to: minStaffId,
+      active_load: minCount,
+    });
+
+    return this.getOrder(orderId);
   }
 
   /**
@@ -460,6 +540,27 @@ class ClinicalOrderService {
     await this.logAudit(created ? "RESULT_CREATED" : "RESULT_VERIFIED", order, staffId, {
       verification_status,
     });
+
+    // Notify originating physician and current encounter owner
+    try {
+      const recipients = new Set();
+      if (order.ordered_by) recipients.add(order.ordered_by);
+      if (order.appointment_id && db.StaffAppointment) {
+        const appt = await db.StaffAppointment.findByPk(order.appointment_id, { attributes: ["current_assigned_user_id"] });
+        if (appt?.current_assigned_user_id) recipients.add(appt.current_assigned_user_id);
+      }
+      for (const recipientId of recipients) {
+        await notificationService.notifyInternalUser(recipientId, {
+          title: `Clinical Order Completed: ${order.title}`,
+          message: `Result submitted for order '${order.title}' (${order.order_type}). Summary: ${result_summary || 'Final result recorded.'}`,
+          category: "workflow",
+          relatedType: "clinical_order",
+          relatedId: order.order_id,
+        });
+      }
+    } catch (notifErr) {
+      console.error("Failed to send order result notifications:", notifErr);
+    }
 
     // Log to MedicalHistoryLog for timeline integration
     await db.MedicalHistoryLog.create({
