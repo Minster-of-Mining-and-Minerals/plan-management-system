@@ -9,7 +9,8 @@ import {
 } from "@/redux/api/clinicalOrderDefinitionApi";
 
 export function OrderDefinitionManager() {
-  const { data: definitions = [], isLoading } = useGetOrderDefinitionsQuery();
+  const { data: rawDefinitions = [], isLoading } = useGetOrderDefinitionsQuery();
+  const definitions = Array.isArray(rawDefinitions) ? rawDefinitions : (rawDefinitions as any)?.data || [];
 
   return (
     <Card className="border shadow-sm">

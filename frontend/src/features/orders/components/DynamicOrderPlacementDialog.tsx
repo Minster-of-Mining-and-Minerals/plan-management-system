@@ -36,10 +36,11 @@ export function DynamicOrderPlacementDialog({
   const [formValues, setFormValues] = useState<Record<string, any>>({});
   const [msg, setMsg] = useState<string | null>(null);
 
-  const { data: definitions = [] } = useGetOrderDefinitionsQuery();
+  const { data: rawDefinitions = [] } = useGetOrderDefinitionsQuery();
+  const definitions = Array.isArray(rawDefinitions) ? rawDefinitions : (rawDefinitions as any)?.data || [];
   const [instantiateOrder, { isLoading }] = useInstantiateRuntimeOrderMutation();
 
-  const selectedDef = definitions.find((d) => d.code === selectedDefCode || d.definition_id === selectedDefCode);
+  const selectedDef = definitions.find((d: ClinicalOrderDefinition) => d.code === selectedDefCode || d.definition_id === selectedDefCode);
   const requestFormConfigId = selectedDef?.request_form_config_id;
 
   const { data: requestFormConfig } = useGetDiagnosisFormConfigQuery(requestFormConfigId!, {
@@ -106,7 +107,7 @@ export function DynamicOrderPlacementDialog({
                 <SelectValue placeholder="Search published clinical order definitions..." />
               </SelectTrigger>
               <SelectContent>
-                {definitions.map((def) => (
+                {definitions.map((def: ClinicalOrderDefinition) => (
                   <SelectItem key={def.code} value={def.code}>
                     <div className="flex items-center justify-between w-full gap-2">
                       <span className="font-semibold">{def.name}</span>
@@ -122,36 +123,39 @@ export function DynamicOrderPlacementDialog({
             <div className="p-2.5 border rounded-lg bg-slate-50/50 space-y-2">
               <div className="flex items-center justify-between text-[11px]">
                 <span className="font-bold text-slate-800">{selectedDef.name}</span>
-                <Badge variant="outline" className="text-[9px] font-mono">{selectedDef.category}</Badge>
+                <Badge variant="outline" className="text-[9px]">{selectedDef.category}</Badge>
               </div>
-              <p className="text-[10px] text-muted-foreground">{selectedDef.description || "Dynamic composite order definition."}</p>
-
-              <div className="grid grid-cols-2 gap-2 pt-2 border-t text-[11px]">
-                <div className="space-y-1">
-                  <Label className="text-[10px]">Order Priority</Label>
-                  <Select value={priority} onValueChange={setPriority}>
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ROUTINE">Routine</SelectItem>
-                      <SelectItem value="URGENT">Urgent</SelectItem>
-                      <SelectItem value="STAT">STAT (Immediate)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px]">Clinical Indications / Notes</Label>
-                  <Textarea
-                    placeholder="Clinical reason..."
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    className="h-8 text-xs min-h-[32px]"
-                  />
-                </div>
+              <div className="grid grid-cols-2 gap-2 text-[10px] text-muted-foreground">
+                <div>Code: <span className="font-mono text-indigo-600">{selectedDef.code}</span></div>
+                <div>Department: {selectedDef.department_id}</div>
               </div>
             </div>
           )}
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label className="text-[11px]">Priority</Label>
+              <Select value={priority} onValueChange={setPriority}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ROUTINE">Routine</SelectItem>
+                  <SelectItem value="URGENT">Urgent</SelectItem>
+                  <SelectItem value="STAT">STAT / Emergency</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[11px]">Clinical Request Notes</Label>
+              <Textarea
+                placeholder="Clinical indications or specific instructions..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="h-8 text-xs min-h-[32px]"
+              />
+            </div>
+          </div>
 
           {/* Dynamic Request Form Rendering */}
           {requestFormConfig && (
@@ -164,7 +168,7 @@ export function DynamicOrderPlacementDialog({
                 <DiagnosisFormRenderer
                   configId={requestFormConfig.config_id}
                   values={formValues}
-                  onChange={(newVals) => setFormValues(newVals)}
+                  onChange={(newVals: Record<string, any>) => setFormValues(newVals)}
                 />
               </div>
             </div>

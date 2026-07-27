@@ -16,15 +16,18 @@ import {
   usePublishOrderDefinitionMutation,
   type ClinicalOrderDefinition,
 } from "@/redux/api/clinicalOrderDefinitionApi";
-import { useListDiagnosisFormConfigsQuery } from "@/redux/api/diagnosisFormApi";
+import { useListDiagnosisFormConfigsQuery, type DiagnosisFormConfig } from "@/redux/api/diagnosisFormApi";
 
 export function UnifiedConfigurationCenter() {
   const [activeTab, setActiveTab] = useState("definitions");
   const [isOpen, setIsOpen] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  const { data: orderDefs = [], isLoading } = useGetOrderDefinitionsQuery();
-  const { data: formConfigs = [] } = useListDiagnosisFormConfigsQuery();
+  const { data: rawOrderDefs = [], isLoading } = useGetOrderDefinitionsQuery();
+  const { data: rawFormConfigs = [] } = useListDiagnosisFormConfigsQuery();
+
+  const orderDefs = Array.isArray(rawOrderDefs) ? rawOrderDefs : (rawOrderDefs as any)?.data || [];
+  const formConfigs = Array.isArray(rawFormConfigs) ? rawFormConfigs : (rawFormConfigs as any)?.data || [];
   const [createOrderDefinition, { isLoading: isCreating }] = useCreateOrderDefinitionMutation();
   const [publishOrderDefinition] = usePublishOrderDefinitionMutation();
 
@@ -165,7 +168,7 @@ export function UnifiedConfigurationCenter() {
                         <SelectValue placeholder="Select Dynamic Request Form Template..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {formConfigs.map((fc) => (
+                        {formConfigs.map((fc: DiagnosisFormConfig) => (
                           <SelectItem key={fc.config_id} value={fc.config_id}>
                             {fc.title}
                           </SelectItem>
@@ -184,7 +187,7 @@ export function UnifiedConfigurationCenter() {
                         <SelectValue placeholder="Select Dynamic Result Entry Form Template..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {formConfigs.map((fc) => (
+                        {formConfigs.map((fc: DiagnosisFormConfig) => (
                           <SelectItem key={fc.config_id} value={fc.config_id}>
                             {fc.title}
                           </SelectItem>
@@ -301,7 +304,7 @@ export function UnifiedConfigurationCenter() {
 
           <TabsContent value="form-templates" className="space-y-2 mt-0">
             <div className="grid grid-cols-2 gap-2">
-              {formConfigs.map((fc) => (
+              {formConfigs.map((fc: DiagnosisFormConfig) => (
                 <div key={fc.config_id} className="p-2.5 border rounded bg-slate-50/50 space-y-1 text-[11px]">
                   <div className="font-semibold text-slate-800 dark:text-slate-200">{fc.title}</div>
                   <div className="text-[10px] text-muted-foreground font-mono">ID: {fc.config_id}</div>

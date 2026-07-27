@@ -91,7 +91,7 @@ export function DynamicOrderResultEntryModal({
                 <DiagnosisFormRenderer
                   configId={resultFormConfig.config_id}
                   values={resultValues}
-                  onChange={(newVals) => setResultValues(newVals)}
+                  onChange={(newVals: Record<string, any>) => setResultValues(newVals)}
                 />
               </div>
             </div>

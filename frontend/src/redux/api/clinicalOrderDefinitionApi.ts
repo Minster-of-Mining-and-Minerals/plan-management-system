@@ -8,7 +8,7 @@ export type ClinicalOrderDefinition = {
   description?: string;
   category: string;
   department_id: string;
-  activity_type: string;
+  activity_type?: string;
   workflow_definition_id?: string | null;
   request_form_config_id?: string | null;
   execution_form_config_id?: string | null;
@@ -20,6 +20,8 @@ export type ClinicalOrderDefinition = {
   required_permissions_json?: string[];
   status?: string;
   version?: string;
+  sla_config_json?: Record<string, any>;
+  billing_configuration?: Record<string, any>;
 };
 
 export type RuntimeOrderInstantiation = {
@@ -47,6 +49,8 @@ export const clinicalOrderDefinitionApi = baseApi.injectEndpoints({
         url: "/clinical-order-definitions/definitions",
         params: arg || {},
       }),
+      transformResponse: (r: { data: ClinicalOrderDefinition[] } | ClinicalOrderDefinition[]) =>
+        Array.isArray(r) ? r : r?.data ?? [],
       providesTags: ["ClinicalOrder"],
     }),
     createOrderDefinition: builder.mutation<ClinicalOrderDefinition, Partial<ClinicalOrderDefinition>>({
@@ -55,6 +59,8 @@ export const clinicalOrderDefinitionApi = baseApi.injectEndpoints({
         method: "POST",
         body,
       }),
+      transformResponse: (r: { data: ClinicalOrderDefinition } | ClinicalOrderDefinition) =>
+        "data" in r && r.data ? r.data : (r as ClinicalOrderDefinition),
       invalidatesTags: ["ClinicalOrder"],
     }),
     instantiateRuntimeOrder: builder.mutation<any, RuntimeOrderInstantiation>({
@@ -63,10 +69,14 @@ export const clinicalOrderDefinitionApi = baseApi.injectEndpoints({
         method: "POST",
         body,
       }),
+      transformResponse: (r: { data: any } | any) =>
+        "data" in r && r.data ? r.data : r,
       invalidatesTags: ["ClinicalOrder"],
     }),
     getDesignerConfigOptions: builder.query<DesignerConfigOptions, void>({
       query: () => "/clinical-order-definitions/designer-options",
+      transformResponse: (r: { data: DesignerConfigOptions } | DesignerConfigOptions) =>
+        "data" in r && r.data ? r.data : (r as DesignerConfigOptions),
       providesTags: ["ClinicalOrder"],
     }),
     publishOrderDefinition: builder.mutation<ClinicalOrderDefinition, string>({
@@ -74,6 +84,8 @@ export const clinicalOrderDefinitionApi = baseApi.injectEndpoints({
         url: `/clinical-order-definitions/definitions/${id}/publish`,
         method: "PUT",
       }),
+      transformResponse: (r: { data: ClinicalOrderDefinition } | ClinicalOrderDefinition) =>
+        "data" in r && r.data ? r.data : (r as ClinicalOrderDefinition),
       invalidatesTags: ["ClinicalOrder"],
     }),
   }),
