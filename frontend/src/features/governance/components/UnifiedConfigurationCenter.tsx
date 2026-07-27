@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   Plus,
@@ -13,6 +14,9 @@ import {
   SlidersHorizontal,
   Pencil,
   Eye,
+  Search,
+  Check,
+  ChevronDown,
 } from "lucide-react";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
@@ -24,16 +28,10 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import type { ActionButton } from "@/types/tableLayout";
 import {
   useGetOrderDefinitionsQuery,
@@ -52,7 +50,140 @@ import {
   useCreateBillingServiceCategoryMutation,
 } from "@/redux/api/billingServiceApi";
 
+/**
+ * Searchable Inline Picker Component
+ * Replaces standard overlays with clean inline search & select lists matching system design tokens
+ */
+function SearchablePicker({
+  label,
+  searchPlaceholder,
+  items,
+  selectedId,
+  onSelect,
+  emptyText = "No matching items found.",
+}: {
+  label: string;
+  searchPlaceholder: string;
+  items: Array<{ id: string; title: string; subtitle?: string; badge?: string }>;
+  selectedId: string;
+  onSelect: (id: string) => void;
+  emptyText?: string;
+}) {
+  const [search, setSearch] = useState("");
+  const [expanded, setExpanded] = useState(false);
+
+  const selectedItem = items.find((i) => i.id === selectedId);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return items;
+    const q = search.toLowerCase();
+    return items.filter(
+      (i) =>
+        i.title.toLowerCase().includes(q) ||
+        (i.subtitle && i.subtitle.toLowerCase().includes(q)) ||
+        (i.badge && i.badge.toLowerCase().includes(q))
+    );
+  }, [items, search]);
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs font-semibold text-slate-700">{label}</Label>
+        {selectedItem && (
+          <span className="text-[11px] font-bold text-section-accent truncate max-w-[220px]">
+            Selected: {selectedItem.title}
+          </span>
+        )}
+      </div>
+
+      <div className="border border-gray-300 rounded-lg bg-white overflow-hidden shadow-sm">
+        {/* Active Header Trigger */}
+        <div
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center justify-between p-2.5 cursor-pointer hover:bg-slate-50 transition-colors"
+        >
+          <div className="flex items-center space-x-2 truncate">
+            {selectedItem ? (
+              <>
+                <span className="font-semibold text-sm text-slate-900 truncate">{selectedItem.title}</span>
+                {selectedItem.badge && (
+                  <Badge variant="secondary" className="text-[10px] shrink-0 font-mono">
+                    {selectedItem.badge}
+                  </Badge>
+                )}
+              </>
+            ) : (
+              <span className="text-sm text-gray-400">Click to search and select...</span>
+            )}
+          </div>
+          <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${expanded ? "rotate-180" : ""}`} />
+        </div>
+
+        {/* Expandable Searchable List Box */}
+        {expanded && (
+          <div className="p-2 border-t bg-slate-50 space-y-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+              <Input
+                placeholder={searchPlaceholder}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8 h-9 text-xs bg-white border-gray-300 focus:ring-section-accent focus:border-section-accent"
+                autoFocus
+              />
+            </div>
+
+            <div className="max-h-36 overflow-y-auto space-y-1 pr-1">
+              {filtered.length === 0 ? (
+                <div className="py-3 text-center text-xs text-gray-400">{emptyText}</div>
+              ) : (
+                filtered.map((item) => {
+                  const isSelected = item.id === selectedId;
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => {
+                        onSelect(item.id);
+                        setExpanded(false);
+                      }}
+                      className={`flex items-center justify-between p-2.5 rounded-lg border text-xs cursor-pointer transition-colors ${
+                        isSelected
+                          ? "bg-primary/10 border-primary text-primary font-semibold"
+                          : "bg-white border-gray-200 hover:bg-slate-50 text-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2 truncate">
+                        <div
+                          className={`h-4 w-4 rounded-full border flex items-center justify-center shrink-0 ${
+                            isSelected ? "bg-primary border-primary text-primary-foreground" : "border-gray-300"
+                          }`}
+                        >
+                          {isSelected && <Check className="h-3 w-3 stroke-[3]" />}
+                        </div>
+                        <span className="truncate font-medium">{item.title}</span>
+                        {item.subtitle && <span className="text-[10px] text-gray-400 truncate">({item.subtitle})</span>}
+                      </div>
+                      {item.badge && (
+                        <Badge variant="outline" className="text-[9px] shrink-0">
+                          {item.badge}
+                        </Badge>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function UnifiedConfigurationCenter() {
+  const searchParams = useSearchParams();
+  const searchQuery = searchParams.get("search") || "";
+
   const [activeTab, setActiveTab] = useState("definitions");
   const [isOpen, setIsOpen] = useState(false);
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
@@ -60,6 +191,7 @@ export function UnifiedConfigurationCenter() {
   const [editingDef, setEditingDef] = useState<ClinicalOrderDefinition | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
+  // Pagination states matching UserTable / TableLayout pattern
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
 
@@ -79,11 +211,71 @@ export function UnifiedConfigurationCenter() {
   const [publishOrderDefinition] = usePublishOrderDefinitionMutation();
   const [createCategory, { isLoading: isCreatingCat }] = useCreateBillingServiceCategoryMutation();
 
+  // Reset pagination index when search query or active tab changes
+  useEffect(() => {
+    setPageIndex(0);
+  }, [searchQuery, activeTab]);
+
+  const handlePagination = (index: number, size: number) => {
+    setPageIndex(index);
+    setPageSize(size);
+  };
+
+  // Order Definitions filtering and pagination
+  const filteredOrderDefs = useMemo(() => {
+    if (!searchQuery.trim()) return orderDefs;
+    const q = searchQuery.toLowerCase();
+    return orderDefs.filter((def: ClinicalOrderDefinition) =>
+      def.name.toLowerCase().includes(q) ||
+      def.code.toLowerCase().includes(q) ||
+      (def.category && def.category.toLowerCase().includes(q)) ||
+      (def.department_id && def.department_id.toLowerCase().includes(q))
+    );
+  }, [orderDefs, searchQuery]);
+
+  const orderDefsPageCount = Math.max(1, Math.ceil(filteredOrderDefs.length / pageSize));
+  const paginatedOrderDefs = useMemo(() => {
+    const start = pageIndex * pageSize;
+    return filteredOrderDefs.slice(start, start + pageSize);
+  }, [filteredOrderDefs, pageIndex, pageSize]);
+
+  // Categories filtering and pagination
+  const filteredCategories = useMemo(() => {
+    if (!searchQuery.trim()) return categories;
+    const q = searchQuery.toLowerCase();
+    return categories.filter((c: any) =>
+      (c.name && c.name.toLowerCase().includes(q)) ||
+      (c.code && c.code.toLowerCase().includes(q))
+    );
+  }, [categories, searchQuery]);
+
+  const categoriesPageCount = Math.max(1, Math.ceil(filteredCategories.length / pageSize));
+  const paginatedCategories = useMemo(() => {
+    const start = pageIndex * pageSize;
+    return filteredCategories.slice(start, start + pageSize);
+  }, [filteredCategories, pageIndex, pageSize]);
+
+  // Form Templates filtering and pagination
+  const filteredFormConfigs = useMemo(() => {
+    if (!searchQuery.trim()) return formConfigs;
+    const q = searchQuery.toLowerCase();
+    return formConfigs.filter((fc: DiagnosisFormConfig) =>
+      fc.title.toLowerCase().includes(q) ||
+      fc.config_id.toLowerCase().includes(q)
+    );
+  }, [formConfigs, searchQuery]);
+
+  const formConfigsPageCount = Math.max(1, Math.ceil(filteredFormConfigs.length / pageSize));
+  const paginatedFormConfigs = useMemo(() => {
+    const start = pageIndex * pageSize;
+    return filteredFormConfigs.slice(start, start + pageSize);
+  }, [filteredFormConfigs, pageIndex, pageSize]);
+
   const [formData, setFormData] = useState({
     code: "",
     name: "",
     category: "DIAGNOSTIC",
-    department_id: "",
+    department_id: "LABORATORY",
     request_form_config_id: "",
     result_form_config_id: "",
     sla_minutes: 60,
@@ -97,13 +289,67 @@ export function UnifiedConfigurationCenter() {
     description: "",
   });
 
-  const handleBillingServiceSelect = (serviceId: string) => {
+  // SearchablePicker Item Collections
+  const categoryItems = useMemo(() => {
+    if (categories.length === 0) {
+      return [
+        { id: "DIAGNOSTIC", title: "Diagnostic", badge: "DIAG" },
+        { id: "RADIOLOGY", title: "Radiology", badge: "RAD" },
+        { id: "THERAPEUTIC", title: "Therapeutic", badge: "THER" },
+        { id: "LABORATORY", title: "Laboratory", badge: "LAB" },
+        { id: "OPHTHALMOLOGY", title: "Ophthalmology", badge: "OPHTH" },
+        { id: "PHYSIOTHERAPY", title: "Physiotherapy", badge: "PHYS" },
+      ];
+    }
+    return categories.map((c: any) => {
+      const code = (c.code || c.name).toUpperCase();
+      return {
+        id: code,
+        title: c.name || c.category_name,
+        badge: code,
+      };
+    });
+  }, [categories]);
+
+  const departmentItems = useMemo(() => {
+    if (departments.length === 0) {
+      return [{ id: "LABORATORY", title: "Laboratory", badge: "DEPT" }];
+    }
+    return departments.map((d: any) => ({
+      id: d.department_id || d.code || d.name,
+      title: d.name || d.department_name,
+      badge: d.code || d.department_code || "DEPT",
+    }));
+  }, [departments]);
+
+  const formConfigItems = useMemo(() => {
+    return formConfigs.map((fc: DiagnosisFormConfig) => ({
+      id: fc.config_id,
+      title: fc.title,
+      badge: "FORM",
+    }));
+  }, [formConfigs]);
+
+  const billingServiceItems = useMemo(() => {
+    return billingServices.map((bs: any) => {
+      const fee = bs.unit_price || bs.price || bs.default_price || bs.fee || 0;
+      return {
+        id: bs.service_id || bs.id,
+        title: bs.name || bs.service_name,
+        subtitle: bs.code || "SERVICE",
+        badge: `$${fee}`,
+      };
+    });
+  }, [billingServices]);
+
+  const handleSelectBillingService = (serviceId: string) => {
     const selected = billingServices.find((s: any) => (s.service_id || s.id) === serviceId);
     if (selected) {
+      const fee = Number(selected.unit_price || selected.price || selected.default_price || selected.fee || 50);
       setFormData((f) => ({
         ...f,
         billing_service_id: serviceId,
-        default_fee: Number(selected.unit_price || selected.price || selected.default_price || selected.fee || 50),
+        default_fee: fee,
       }));
     } else {
       setFormData((f) => ({ ...f, billing_service_id: serviceId }));
@@ -116,9 +362,9 @@ export function UnifiedConfigurationCenter() {
       code: "",
       name: "",
       category: "DIAGNOSTIC",
-      department_id: "",
-      request_form_config_id: "",
-      result_form_config_id: "",
+      department_id: departments[0]?.department_id || "LABORATORY",
+      request_form_config_id: formConfigs[0]?.config_id || "",
+      result_form_config_id: formConfigs[0]?.config_id || "",
       sla_minutes: 60,
       billing_service_id: "",
       default_fee: 50,
@@ -135,7 +381,7 @@ export function UnifiedConfigurationCenter() {
       code: def.code,
       name: def.name,
       category: def.category || "DIAGNOSTIC",
-      department_id: def.department_id || "",
+      department_id: def.department_id || "LABORATORY",
       request_form_config_id: def.request_form_config_id || "",
       result_form_config_id: def.result_form_config_id || "",
       sla_minutes: slaConf.target_minutes || 60,
@@ -223,7 +469,7 @@ export function UnifiedConfigurationCenter() {
         cell: ({ row }) => (
           <div>
             <div className="font-semibold text-primary">{row.original.name}</div>
-            <code className="text-[10px] text-indigo-600 font-mono">{row.original.code}</code>
+            <code className="text-[10px] text-section-accent font-mono">{row.original.code}</code>
           </div>
         ),
       },
@@ -249,26 +495,38 @@ export function UnifiedConfigurationCenter() {
       {
         accessorKey: "request_form_config_id",
         header: "Request Form",
-        cell: ({ row }) => (
-          <div className="flex items-center gap-1 text-[10px]">
-            <FileText className="h-3 w-3 text-indigo-500 shrink-0" />
-            <span className="truncate max-w-[120px]">
-              {(row.original as any).requestFormConfig?.title || row.original.request_form_config_id || "Standard Intake"}
-            </span>
-          </div>
-        ),
+        cell: ({ row }) => {
+          const reqFormTitle =
+            formConfigs.find((fc: DiagnosisFormConfig) => fc.config_id === row.original.request_form_config_id)?.title ||
+            (row.original as any).requestFormConfig?.title ||
+            "Standard Intake Form";
+          return (
+            <div className="flex items-center gap-1 text-[10px]">
+              <FileText className="h-3 w-3 text-section-accent shrink-0" />
+              <span className="font-medium text-slate-800 truncate max-w-[130px]" title={reqFormTitle}>
+                {reqFormTitle}
+              </span>
+            </div>
+          );
+        },
       },
       {
         accessorKey: "result_form_config_id",
         header: "Result Form",
-        cell: ({ row }) => (
-          <div className="flex items-center gap-1 text-[10px]">
-            <FileText className="h-3 w-3 text-purple-500 shrink-0" />
-            <span className="truncate max-w-[120px]">
-              {(row.original as any).resultFormConfig?.title || row.original.result_form_config_id || "Result Entry"}
-            </span>
-          </div>
-        ),
+        cell: ({ row }) => {
+          const resFormTitle =
+            formConfigs.find((fc: DiagnosisFormConfig) => fc.config_id === row.original.result_form_config_id)?.title ||
+            (row.original as any).resultFormConfig?.title ||
+            "Standard Result Entry";
+          return (
+            <div className="flex items-center gap-1 text-[10px]">
+              <FileText className="h-3 w-3 text-purple-600 shrink-0" />
+              <span className="font-medium text-slate-800 truncate max-w-[130px]" title={resFormTitle}>
+                {resFormTitle}
+              </span>
+            </div>
+          );
+        },
       },
       {
         id: "sla",
@@ -318,7 +576,7 @@ export function UnifiedConfigurationCenter() {
               size="icon"
               title="View definition details"
               onClick={() => setViewingDef(row.original)}
-              className="h-7 w-7 text-slate-600 hover:text-indigo-600"
+              className="h-7 w-7 text-slate-600 hover:text-section-accent"
             >
               <Eye className="h-4 w-4" />
             </Button>
@@ -327,7 +585,7 @@ export function UnifiedConfigurationCenter() {
               size="icon"
               title="Edit definition"
               onClick={() => openEditModal(row.original)}
-              className="h-7 w-7 text-slate-600 hover:text-indigo-600"
+              className="h-7 w-7 text-slate-600 hover:text-section-accent"
             >
               <Pencil className="h-4 w-4" />
             </Button>
@@ -345,7 +603,7 @@ export function UnifiedConfigurationCenter() {
         ),
       },
     ],
-    []
+    [formConfigs]
   );
 
   // TanStack Columns for Categories
@@ -355,7 +613,7 @@ export function UnifiedConfigurationCenter() {
         accessorKey: "code",
         header: "Category Code",
         cell: ({ row }) => (
-          <span className="font-mono text-indigo-600 font-semibold">{row.original.code || "GENERAL"}</span>
+          <span className="font-mono text-section-accent font-semibold">{row.original.code || "GENERAL"}</span>
         ),
       },
       {
@@ -429,11 +687,6 @@ export function UnifiedConfigurationCenter() {
     },
   ];
 
-  const handlePagination = (index: number, size: number) => {
-    setPageIndex(index);
-    setPageSize(size);
-  };
-
   return (
     <>
       <TableLayout
@@ -443,24 +696,24 @@ export function UnifiedConfigurationCenter() {
         filterColumnsPerRow={1}
       >
         {msg && (
-          <div className="p-2.5 mb-3 border rounded-lg bg-indigo-50 text-indigo-700 text-xs font-medium">
+          <div className="p-2.5 mb-3 border rounded-lg bg-emerald-50 text-emerald-800 text-xs font-medium border-emerald-200">
             {msg}
           </div>
         )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid grid-cols-3 h-9 text-xs mb-3">
-            <TabsTrigger value="definitions" className="py-1">Order Definitions ({orderDefs.length})</TabsTrigger>
-            <TabsTrigger value="categories" className="py-1">Configured Categories ({categories.length})</TabsTrigger>
-            <TabsTrigger value="form-templates" className="py-1">Form Templates ({formConfigs.length})</TabsTrigger>
+            <TabsTrigger value="definitions" className="py-1">Order Definitions ({filteredOrderDefs.length})</TabsTrigger>
+            <TabsTrigger value="categories" className="py-1">Configured Categories ({filteredCategories.length})</TabsTrigger>
+            <TabsTrigger value="form-templates" className="py-1">Form Templates ({filteredFormConfigs.length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="definitions" className="mt-0">
             <DataTable
               columns={definitionColumns}
-              data={orderDefs}
+              data={paginatedOrderDefs}
               isLoading={isLoading}
-              totalPageCount={1}
+              totalPageCount={orderDefsPageCount}
               handlePagination={handlePagination}
               tablePageSize={pageSize}
               currentIndex={pageIndex}
@@ -470,9 +723,9 @@ export function UnifiedConfigurationCenter() {
           <TabsContent value="categories" className="mt-0">
             <DataTable
               columns={categoryColumns}
-              data={categories}
+              data={paginatedCategories}
               isLoading={isLoading}
-              totalPageCount={1}
+              totalPageCount={categoriesPageCount}
               handlePagination={handlePagination}
               tablePageSize={pageSize}
               currentIndex={pageIndex}
@@ -482,9 +735,9 @@ export function UnifiedConfigurationCenter() {
           <TabsContent value="form-templates" className="mt-0">
             <DataTable
               columns={templateColumns}
-              data={formConfigs}
+              data={paginatedFormConfigs}
               isLoading={isLoading}
-              totalPageCount={1}
+              totalPageCount={formConfigsPageCount}
               handlePagination={handlePagination}
               tablePageSize={pageSize}
               currentIndex={pageIndex}
@@ -495,266 +748,225 @@ export function UnifiedConfigurationCenter() {
 
       {/* View Definition Modal */}
       <Dialog open={Boolean(viewingDef)} onOpenChange={() => setViewingDef(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-sm font-bold flex items-center gap-2">
-              <Eye className="h-4 w-4 text-indigo-600" />
+        <DialogContent className="flex max-w-lg flex-col overflow-hidden bg-white max-h-[85vh] sm:max-h-[90vh]">
+          <DialogHeader className="pb-3 border-b">
+            <DialogTitle className="text-section-accent text-xl font-bold flex items-center gap-2">
+              <Eye className="h-5 w-5 text-section-accent" />
               Order Definition Details
             </DialogTitle>
           </DialogHeader>
           {viewingDef && (
-            <div className="space-y-3 text-xs pt-2">
+            <div className="flex-1 overflow-y-auto space-y-4 py-4 pr-1 min-h-0 text-sm">
               <div className="p-3 border rounded-lg bg-slate-50 space-y-1">
-                <div className="font-bold text-sm text-slate-900">{viewingDef.name}</div>
-                <div className="font-mono text-indigo-600 font-semibold">Code: {viewingDef.code}</div>
+                <div className="font-bold text-base text-slate-900">{viewingDef.name}</div>
+                <div className="font-mono text-section-accent font-semibold">Code: {viewingDef.code}</div>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-slate-700">
-                <div>Category: <span className="font-semibold">{viewingDef.category}</span></div>
-                <div>Department: <span className="font-semibold">{viewingDef.department_id}</span></div>
-                <div>SLA Target: <span className="font-semibold">{(viewingDef as any).sla_config_json?.target_minutes || 60} minutes</span></div>
-                <div>Catalog Fee: <span className="font-semibold">${(viewingDef as any).billing_configuration?.default_fee || "45.00"}</span></div>
+              <div className="grid grid-cols-2 gap-3 text-slate-700">
+                <div>Category: <span className="font-semibold block text-slate-900">{viewingDef.category}</span></div>
+                <div>Department: <span className="font-semibold block text-slate-900">{viewingDef.department_id}</span></div>
+                <div>
+                  Intake Request Form:{" "}
+                  <span className="font-semibold block text-slate-900">
+                    {formConfigs.find((fc: DiagnosisFormConfig) => fc.config_id === viewingDef.request_form_config_id)?.title || "Standard Intake Form"}
+                  </span>
+                </div>
+                <div>
+                  Result Entry Form:{" "}
+                  <span className="font-semibold block text-slate-900">
+                    {formConfigs.find((fc: DiagnosisFormConfig) => fc.config_id === viewingDef.result_form_config_id)?.title || "Standard Result Form"}
+                  </span>
+                </div>
+                <div>SLA Target: <span className="font-semibold block text-slate-900">{(viewingDef as any).sla_config_json?.target_minutes || 60} minutes</span></div>
+                <div>Catalog Fee: <span className="font-semibold block text-slate-900">${(viewingDef as any).billing_configuration?.default_fee || "45.00"}</span></div>
               </div>
-              <div className="p-2 border rounded text-muted-foreground text-[11px]">
+              <div className="p-2.5 border rounded-lg text-muted-foreground text-xs bg-slate-50">
                 Status: <Badge variant="outline" className="ml-1">{viewingDef.status}</Badge> • Version: {viewingDef.version || "1.0.0"}
               </div>
             </div>
           )}
+          <DialogFooter className="pt-3 border-t mt-auto">
+            <Button variant="outline" onClick={() => setViewingDef(null)}>
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Category Creation Modal */}
       <Dialog open={isCategoryOpen} onOpenChange={setIsCategoryOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-sm font-bold flex items-center gap-2">
-              <SlidersHorizontal className="h-4 w-4 text-indigo-600" />
+        <DialogContent className="flex max-w-lg flex-col overflow-hidden bg-white max-h-[85vh] sm:max-h-[90vh]">
+          <DialogHeader className="pb-3 border-b">
+            <DialogTitle className="text-section-accent text-xl font-bold flex items-center gap-2">
+              <SlidersHorizontal className="h-5 w-5 text-section-accent" />
               Configure Clinical Order Category
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleCreateCategory} className="space-y-3 text-xs pt-2">
-            <div className="space-y-1">
-              <Label className="text-[11px]">Category Name</Label>
-              <Input
-                placeholder="e.g. Ophthalmology Diagnostics"
-                value={categoryFormData.name}
-                onChange={(e) => setCategoryFormData({ ...categoryFormData, name: e.target.value })}
-                required
-                className="h-8 text-xs"
-              />
+          <form onSubmit={handleCreateCategory} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            <div className="flex-1 overflow-y-auto space-y-4 py-4 pr-1">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">Category Name</Label>
+                <Input
+                  placeholder="e.g. Ophthalmology Diagnostics"
+                  value={categoryFormData.name}
+                  onChange={(e) => setCategoryFormData({ ...categoryFormData, name: e.target.value })}
+                  required
+                  className="h-10 text-sm border-gray-300 rounded-lg bg-white text-gray-900 shadow-sm focus:ring-2 focus:ring-section-accent"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">Category Code</Label>
+                <Input
+                  placeholder="e.g. OPHTHALMOLOGY_DIAGNOSTICS"
+                  value={categoryFormData.code}
+                  onChange={(e) => setCategoryFormData({ ...categoryFormData, code: e.target.value })}
+                  className="h-10 text-sm font-mono border-gray-300 rounded-lg bg-white text-gray-900 shadow-sm focus:ring-2 focus:ring-section-accent"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">Description</Label>
+                <Input
+                  placeholder="Optional description..."
+                  value={categoryFormData.description}
+                  onChange={(e) => setCategoryFormData({ ...categoryFormData, description: e.target.value })}
+                  className="h-10 text-sm border-gray-300 rounded-lg bg-white text-gray-900 shadow-sm focus:ring-2 focus:ring-section-accent"
+                />
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-[11px]">Category Code</Label>
-              <Input
-                placeholder="e.g. OPHTHALMOLOGY_DIAGNOSTICS"
-                value={categoryFormData.code}
-                onChange={(e) => setCategoryFormData({ ...categoryFormData, code: e.target.value })}
-                className="h-8 text-xs font-mono"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[11px]">Description</Label>
-              <Input
-                placeholder="Optional description..."
-                value={categoryFormData.description}
-                onChange={(e) => setCategoryFormData({ ...categoryFormData, description: e.target.value })}
-                className="h-8 text-xs"
-              />
-            </div>
-            <Button type="submit" disabled={isCreatingCat} className="w-full h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white">
-              {isCreatingCat ? "Saving..." : "Save Configured Category"}
-            </Button>
+            <DialogFooter className="pt-3 border-t mt-auto gap-2">
+              <Button type="button" variant="outline" onClick={() => setIsCategoryOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isCreatingCat} className="h-10 text-sm font-semibold bg-section-accent hover:bg-section-accent/90 text-white rounded-lg shadow-sm">
+                {isCreatingCat ? "Saving..." : "Save Configured Category"}
+              </Button>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
       {/* Order Definition Create/Edit Modal */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-sm font-bold flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-indigo-600" />
+        <DialogContent className="flex max-w-2xl flex-col overflow-hidden bg-white max-h-[85vh] sm:max-h-[90vh]">
+          <DialogHeader className="pb-3 border-b">
+            <DialogTitle className="text-section-accent text-xl font-bold flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-section-accent" />
               {editingDef ? "Edit Order Definition" : "Configure Dynamic Clinical Order Definition"}
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleCreateOrUpdate} className="space-y-3 text-xs pt-2">
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label className="text-[11px]">Order Code</Label>
-                <Input
-                  placeholder="e.g. DEF_CBC_ADVANCED"
-                  value={formData.code}
-                  disabled={Boolean(editingDef)}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                  required
-                  className="h-8 text-xs font-mono"
-                />
+          <form onSubmit={handleCreateOrUpdate} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            <div className="flex-1 overflow-y-auto space-y-4 py-4 pr-1 min-h-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">Order Code</Label>
+                  <Input
+                    placeholder="e.g. DEF_CBC_ADVANCED"
+                    value={formData.code}
+                    disabled={Boolean(editingDef)}
+                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                    required
+                    className="h-10 text-sm font-mono border-gray-300 rounded-lg bg-white text-gray-900 shadow-sm focus:ring-2 focus:ring-section-accent"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">Order Name</Label>
+                  <Input
+                    placeholder="e.g. Full Hematology CBC Order"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                    className="h-10 text-sm border-gray-300 rounded-lg bg-white text-gray-900 shadow-sm focus:ring-2 focus:ring-section-accent"
+                  />
+                </div>
               </div>
-              <div className="space-y-1">
-                <Label className="text-[11px]">Order Name</Label>
-                <Input
-                  placeholder="e.g. Full Hematology CBC Order"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                  className="h-8 text-xs"
-                />
+
+              {/* SEARCHABLE CATEGORY PICKER */}
+              <SearchablePicker
+                label="Configured Category"
+                searchPlaceholder="Search categories..."
+                items={categoryItems}
+                selectedId={formData.category}
+                onSelect={(id) => setFormData((f) => ({ ...f, category: id }))}
+              />
+
+              {/* SEARCHABLE DEPARTMENT PICKER */}
+              <SearchablePicker
+                label="Target Department (From Database)"
+                searchPlaceholder="Search database departments..."
+                items={departmentItems}
+                selectedId={formData.department_id}
+                onSelect={(id) => setFormData((f) => ({ ...f, department_id: id }))}
+              />
+
+              {/* SEARCHABLE INTAKE REQUEST FORM PICKER (Displays Form Name) */}
+              <SearchablePicker
+                label="Linked Intake Request Form"
+                searchPlaceholder="Search dynamic intake forms by name..."
+                items={formConfigItems}
+                selectedId={formData.request_form_config_id}
+                onSelect={(id) => setFormData((f) => ({ ...f, request_form_config_id: id }))}
+                emptyText="No dynamic intake forms found."
+              />
+
+              {/* SEARCHABLE RESULT ENTRY FORM PICKER (Displays Form Name) */}
+              <SearchablePicker
+                label="Linked Result Entry Form"
+                searchPlaceholder="Search dynamic result entry forms by name..."
+                items={formConfigItems}
+                selectedId={formData.result_form_config_id}
+                onSelect={(id) => setFormData((f) => ({ ...f, result_form_config_id: id }))}
+                emptyText="No dynamic result entry forms found."
+              />
+
+              {/* SEARCHABLE BILLING SERVICE CATALOG FEE PICKER */}
+              <SearchablePicker
+                label="Linked Billing Service Fee (Billing Catalog)"
+                searchPlaceholder="Search billing services by name or code..."
+                items={billingServiceItems}
+                selectedId={formData.billing_service_id}
+                onSelect={handleSelectBillingService}
+                emptyText="No billing catalog services found."
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">Turnaround SLA (Minutes)</Label>
+                  <Input
+                    type="number"
+                    value={formData.sla_minutes}
+                    onChange={(e) => setFormData({ ...formData, sla_minutes: Number(e.target.value) })}
+                    className="h-10 text-sm border-gray-300 rounded-lg bg-white text-gray-900 shadow-sm focus:ring-2 focus:ring-section-accent"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">Catalog Fee ($)</Label>
+                  <Input
+                    type="number"
+                    value={formData.default_fee}
+                    disabled={Boolean(formData.billing_service_id)}
+                    onChange={(e) => setFormData({ ...formData, default_fee: Number(e.target.value) })}
+                    className="h-10 text-sm font-semibold border-gray-300 rounded-lg bg-slate-50 text-gray-900 shadow-sm focus:ring-2 focus:ring-section-accent"
+                  />
+                  {formData.billing_service_id && (
+                    <p className="text-xs text-emerald-600 font-medium pt-0.5">
+                      ✓ Fee auto-populated from linked Service Fee Catalog.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label className="text-[11px]">Configured Category</Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(val) => setFormData({ ...formData, category: val })}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.length > 0 ? (
-                      categories.map((cat: any) => (
-                        <SelectItem key={cat.category_id || cat.code || cat.name} value={(cat.code || cat.name).toUpperCase()}>
-                          {cat.name || cat.category_name}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <>
-                        <SelectItem value="DIAGNOSTIC">Diagnostic</SelectItem>
-                        <SelectItem value="RADIOLOGY">Radiology</SelectItem>
-                        <SelectItem value="THERAPEUTIC">Therapeutic</SelectItem>
-                        <SelectItem value="LABORATORY">Laboratory</SelectItem>
-                        <SelectItem value="OPHTHALMOLOGY">Ophthalmology</SelectItem>
-                        <SelectItem value="PHYSIOTHERAPY">Physiotherapy</SelectItem>
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-[11px]">Target Department (From Database)</Label>
-                <Select
-                  value={formData.department_id}
-                  onValueChange={(val) => setFormData({ ...formData, department_id: val })}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Select Department..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {departments.length === 0 ? (
-                      <SelectItem value="LABORATORY">Laboratory (Default)</SelectItem>
-                    ) : (
-                      departments.map((dept: any) => {
-                        const value = dept.department_id || dept.code || dept.name;
-                        const label = `${dept.name || dept.department_name} (${dept.code || dept.department_code || "DEPT"})`;
-                        return (
-                          <SelectItem key={value} value={value}>
-                            {label}
-                          </SelectItem>
-                        );
-                      })
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label className="text-[11px]">Linked Intake Request Form</Label>
-                <Select
-                  value={formData.request_form_config_id}
-                  onValueChange={(val) => setFormData({ ...formData, request_form_config_id: val })}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Select Dynamic Request Form..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {formConfigs.map((fc: DiagnosisFormConfig) => (
-                      <SelectItem key={fc.config_id} value={fc.config_id}>
-                        {fc.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-[11px]">Linked Result Entry Form</Label>
-                <Select
-                  value={formData.result_form_config_id}
-                  onValueChange={(val) => setFormData({ ...formData, result_form_config_id: val })}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Select Dynamic Result Entry Form..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {formConfigs.map((fc: DiagnosisFormConfig) => (
-                      <SelectItem key={fc.config_id} value={fc.config_id}>
-                        {fc.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-[11px]">Linked Billing Service Fee (Billing Catalog)</Label>
-              <Select
-                value={formData.billing_service_id}
-                onValueChange={handleBillingServiceSelect}
+            <DialogFooter className="pt-3 border-t mt-auto gap-2">
+              <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isCreating}
+                className="h-10 text-sm font-semibold bg-section-accent hover:bg-section-accent/90 text-white rounded-lg shadow-sm"
               >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue placeholder="Select Billing Service Catalog Fee..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {billingServices.map((bs: any) => {
-                    const bsId = bs.service_id || bs.id;
-                    const fee = bs.unit_price || bs.price || bs.default_price || bs.fee || 0;
-                    return (
-                      <SelectItem key={bsId} value={bsId}>
-                        {bs.name || bs.service_name} — ${fee} ({bs.code || "SERVICE"})
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label className="text-[11px]">Turnaround SLA (Minutes)</Label>
-                <Input
-                  type="number"
-                  value={formData.sla_minutes}
-                  onChange={(e) => setFormData({ ...formData, sla_minutes: Number(e.target.value) })}
-                  className="h-8 text-xs"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-[11px]">Catalog Fee ($)</Label>
-                <Input
-                  type="number"
-                  value={formData.default_fee}
-                  disabled={Boolean(formData.billing_service_id)}
-                  onChange={(e) => setFormData({ ...formData, default_fee: Number(e.target.value) })}
-                  className="h-8 text-xs bg-slate-50 font-semibold"
-                />
-                {formData.billing_service_id && (
-                  <p className="text-[10px] text-emerald-600 font-medium pt-0.5">
-                    ✓ Fee auto-populated from linked Service Fee Catalog.
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <Button
-              type="submit"
-              disabled={isCreating}
-              className="w-full h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
-            >
-              {isCreating ? "Saving..." : editingDef ? "Save Changes" : "Create & Publish Order Definition"}
-            </Button>
+                {isCreating ? "Saving..." : editingDef ? "Save Changes" : "Create & Publish Order Definition"}
+              </Button>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
