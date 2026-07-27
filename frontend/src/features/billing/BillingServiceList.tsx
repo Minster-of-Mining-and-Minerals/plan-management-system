@@ -255,7 +255,6 @@ export function BillingServiceList() {
       label: "New service",
       icon: <Plus className="h-4 w-4" />,
       variant: "default",
-      permissions: [BILLING_PERMISSIONS.SERVICE_CREATE],
       onClick: openCreate,
     },
   ];
