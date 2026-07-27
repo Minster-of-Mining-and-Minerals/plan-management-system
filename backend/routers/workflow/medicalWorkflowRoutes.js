@@ -27,6 +27,7 @@ router.get(
   controller.getContext
 );
 router.post("/submit", requireWorkflowAction, controller.submitEntry);
+router.post("/transfer-ownership", checkPermission("workflow", "forward"), controller.transferOwnership);
 
 // Encounter Validation Engine endpoints
 router.get(

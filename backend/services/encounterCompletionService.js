@@ -28,16 +28,74 @@ class EncounterCompletionService {
       contextData
     );
 
-    const blockingIssues = alerts.filter((a) => a.severity === "CRITICAL");
-    const warnings = alerts.filter((a) => a.severity !== "CRITICAL");
+    // Check for explicit diagnosis record
+    const hasDiagnosisRecord = db.DiagnosisRecord
+      ? await db.DiagnosisRecord.count({ where: { appointment_id: appointmentId } })
+      : 0;
+
+    const tier1_blocking = alerts.filter(
+      (a) => a.severity === "CRITICAL" || a.rule_code === "MISSING_DIAGNOSIS"
+    );
+
+    if (!contextData.has_diagnosis && hasDiagnosisRecord === 0) {
+      const missingDiagAlready = tier1_blocking.some((a) => a.rule_code === "MISSING_DIAGNOSIS");
+      if (!missingDiagAlready) {
+        tier1_blocking.push({
+          rule_code: "MISSING_DIAGNOSIS",
+          severity: "CRITICAL",
+          message: "Encounter requires a documented final or preliminary diagnosis.",
+          tier: 1,
+        });
+      }
+    }
+
+    const tier2_warning = alerts.filter(
+      (a) => a.severity === "HIGH" || a.severity === "MEDIUM" || a.severity === "WARNING"
+    );
+
+    if (contextData.has_unpaid_balance) {
+      if (!tier2_warning.some((a) => a.rule_code === "UNPAID_BALANCE")) {
+        tier2_warning.push({
+          rule_code: "UNPAID_BALANCE",
+          severity: "HIGH",
+          message: "Appointment billing account has an outstanding balance due.",
+          tier: 2,
+        });
+      }
+    }
+
+    if (contextData.has_pending_clinical_orders) {
+      if (!tier2_warning.some((a) => a.rule_code === "PENDING_ORDERS")) {
+        tier2_warning.push({
+          rule_code: "PENDING_ORDERS",
+          severity: "MEDIUM",
+          message: `Encounter has ${contextData.pending_clinical_orders_count} pending clinical orders.`,
+          tier: 2,
+        });
+      }
+    }
+
+    const tier3_informational = alerts.filter((a) => a.severity === "LOW" || a.severity === "INFO");
+    if (contextData.follow_up_required && !contextData.has_follow_up_record) {
+      tier3_informational.push({
+        rule_code: "FOLLOW_UP_RECOMMENDED",
+        severity: "INFO",
+        message: "Follow-up visit recommended for patient care continuity.",
+        tier: 3,
+      });
+    }
 
     return {
-      ready: blockingIssues.length === 0,
-      blockingIssues,
-      warnings,
+      ready: tier1_blocking.length === 0,
+      tier1_blocking,
+      tier2_warning,
+      tier3_informational,
+      blockingIssues: tier1_blocking,
+      warnings: tier2_warning,
       summary: {
-        totalWarnings: warnings.length,
-        totalBlocking: blockingIssues.length,
+        totalBlocking: tier1_blocking.length,
+        totalWarnings: tier2_warning.length,
+        totalInformational: tier3_informational.length,
       },
     };
   }

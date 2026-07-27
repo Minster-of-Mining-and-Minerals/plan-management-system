@@ -29,6 +29,14 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "appointment_id",
         as: "workflowTasks",
       });
+      StaffAppointment.belongsTo(models.PatientLocation, {
+        foreignKey: "current_location_id",
+        as: "currentLocation",
+      });
+      StaffAppointment.belongsTo(models.ClinicalCarePlan, {
+        foreignKey: "care_plan_id",
+        as: "carePlan",
+      });
     }
   }
 
@@ -42,6 +50,8 @@ module.exports = (sequelize, DataTypes) => {
       schedule_id: { type: DataTypes.UUID, allowNull: false, unique: true },
       patient_id: { type: DataTypes.UUID, allowNull: false },
       assigned_staff_id: { type: DataTypes.UUID, allowNull: false },
+      current_location_id: { type: DataTypes.UUID, allowNull: true },
+      care_plan_id: { type: DataTypes.UUID, allowNull: true },
       admitted_by: { type: DataTypes.UUID, allowNull: true },
       admitted_at: { type: DataTypes.DATE, allowNull: false },
       status: {

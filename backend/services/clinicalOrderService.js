@@ -59,6 +59,8 @@ class ClinicalOrderService {
       order_items = [],
       notes,
       assigned_department_id,
+      execution_queue_id,
+      clinical_intent_json,
       intent_data,
       originating_form_config_id,
     } = payload;
@@ -87,20 +89,30 @@ class ClinicalOrderService {
 
     const resolvedPatientId = patient_id || appointment.patient_id;
 
+    let resolvedQueueId = execution_queue_id || null;
+    if (!resolvedQueueId && assigned_department_id && db.ExecutionQueue) {
+      const queue = await db.ExecutionQueue.findOne({
+        where: { department_id: assigned_department_id, is_active: true },
+      });
+      if (queue) resolvedQueueId = queue.queue_id;
+    }
+
     const order = await db.ClinicalOrder.create({
       order_id: uuidv4(),
       appointment_id,
       patient_id: resolvedPatientId,
       ordered_by: staffId,
       assigned_department_id: assigned_department_id || null,
+      execution_queue_id: resolvedQueueId,
       order_type,
       priority,
       status: "SUBMITTED",
       title: title.trim(),
       clinical_reason: clinical_reason || null,
+      clinical_intent_json: clinical_intent_json || intent_data || null,
       order_items: Array.isArray(order_items) ? order_items : [],
       notes: notes || null,
-      intent_data: intent_data || null,
+      intent_data: intent_data || clinical_intent_json || null,
       originating_form_config_id: originating_form_config_id || null,
     });
 

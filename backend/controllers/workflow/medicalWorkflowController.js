@@ -242,10 +242,42 @@ const getFollowUpContext = async (req, res) => {
   }
 };
 
+const transferOwnership = async (req, res) => {
+  try {
+    const { appointment_id, new_owner_staff_id, notes } = req.body;
+    if (!appointment_id || !new_owner_staff_id) {
+      return res.status(400).json({ success: false, message: "appointment_id and new_owner_staff_id are required" });
+    }
+    const log = await medicalWorkflowService.transferEncounterOwnership(
+      appointment_id,
+      new_owner_staff_id,
+      req.user.user_id,
+      notes
+    );
+    const ctx = auditContextFromReq(req, {
+      appointment_id,
+      new_owner_staff_id,
+      notes,
+    });
+    await logAudit({
+      actorUserId: req.user.user_id,
+      action: "transfer_ownership",
+      resourceType: "workflow",
+      resourceId: appointment_id,
+      details: ctx.details,
+      ipAddress: ctx.ipAddress,
+    }).catch(() => {});
+    return res.json({ success: true, data: log });
+  } catch (e) {
+    return res.status(e.status || 500).json({ success: false, message: e.message });
+  }
+};
+
 module.exports = {
   ensureReceivePatient,
   getContext,
   submitEntry,
+  transferOwnership,
   listTimeline,
   listInbox,
   listReceivers,

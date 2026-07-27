@@ -216,6 +216,8 @@ async function createWorkflowTask(
     assigneeStaffId,
     assignedByStaffId,
     medicalLogId,
+    assignmentType = "OPERATIONAL",
+    executionQueueId = null,
   },
   transaction
 ) {
@@ -227,6 +229,8 @@ async function createWorkflowTask(
       assignee_staff_id: assigneeStaffId,
       assigned_by_staff_id: assignedByStaffId,
       medical_log_id: medicalLogId,
+      execution_queue_id: executionQueueId || null,
+      assignment_type: assignmentType || "OPERATIONAL",
       status: "pending",
     },
     { transaction }
@@ -774,8 +778,72 @@ async function listEligibleReceivers(excludeStaffId = null) {
     .map((u) => u.get({ plain: true }));
 }
 
+async function transferEncounterOwnership(appointmentId, newOwnerStaffId, staffId, notes = null) {
+  const appointment = await getAppointmentRow(appointmentId);
+
+  const receiverCanReceive =
+    (await userHasPermission(newOwnerStaffId, "patients", "receive_appointment")) ||
+    (await userHasPermission(newOwnerStaffId, "patients", "receive_patient"));
+
+  if (!receiverCanReceive) {
+    const err = new Error("Selected staff member cannot hold primary encounter ownership");
+    err.status = 400;
+    throw err;
+  }
+
+  const t = await db.sequelize.transaction();
+
+  try {
+    await appointment.update(
+      { assigned_staff_id: newOwnerStaffId },
+      { transaction: t }
+    );
+
+    const log = await db.MedicalHistoryLog.create(
+      {
+        log_id: uuidv4(),
+        patient_id: appointment.patient_id,
+        appointment_id: appointment.appointment_id,
+        sender_staff_id: staffId,
+        receiver_staff_id: newOwnerStaffId,
+        action_type: "transfer_ownership",
+        header_title: "Primary Encounter Ownership Transferred",
+        notes: notes || "Primary clinician ownership updated",
+        status: "transferred",
+      },
+      { transaction: t }
+    );
+
+    await closePendingTasksForStaff(appointment.appointment_id, staffId, t);
+
+    await createWorkflowTask(
+      {
+        appointmentId: appointment.appointment_id,
+        patientId: appointment.patient_id,
+        assigneeStaffId: newOwnerStaffId,
+        assignedByStaffId: staffId,
+        medicalLogId: log.log_id,
+        assignmentType: "OWNERSHIP_TRANSFER",
+      },
+      t
+    );
+
+    await t.commit();
+
+    const full = await db.MedicalHistoryLog.findByPk(log.log_id, {
+      include: logIncludes,
+    });
+
+    return full.get({ plain: true });
+  } catch (e) {
+    if (!t.finished) await t.rollback();
+    throw e;
+  }
+}
+
 module.exports = {
   submitWorkflowEntry,
+  transferEncounterOwnership,
   listTimeline,
   getWorkflowContext,
   listInbox,

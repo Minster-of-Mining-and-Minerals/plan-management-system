@@ -21,6 +21,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "assigned_department_id",
         as: "department",
       });
+      ClinicalOrder.belongsTo(models.ExecutionQueue, {
+        foreignKey: "execution_queue_id",
+        as: "executionQueue",
+      });
       ClinicalOrder.belongsTo(models.User, {
         foreignKey: "assigned_staff_id",
         as: "assignedStaff",
@@ -68,6 +72,7 @@ module.exports = (sequelize, DataTypes) => {
       patient_id: { type: DataTypes.UUID, allowNull: false },
       ordered_by: { type: DataTypes.UUID, allowNull: false },
       assigned_department_id: { type: DataTypes.UUID, allowNull: true },
+      execution_queue_id: { type: DataTypes.UUID, allowNull: true },
       assigned_staff_id: { type: DataTypes.UUID, allowNull: true },
       prescription_id: { type: DataTypes.UUID, allowNull: true },
       order_type: {

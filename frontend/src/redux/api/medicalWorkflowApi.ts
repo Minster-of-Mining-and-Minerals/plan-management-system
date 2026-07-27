@@ -289,6 +289,77 @@ export const medicalWorkflowApi = baseApi.injectEndpoints({
         { type: "MedicalWorkflow", id: `followup-${appointmentId}` },
       ],
     }),
+
+    transferEncounterOwnership: builder.mutation<
+      MedicalHistoryLog,
+      { appointment_id: string; new_owner_staff_id: string; notes?: string }
+    >({
+      query: (body) => ({
+        url: "/workflow/transfer-ownership",
+        method: "POST",
+        body,
+      }),
+      transformResponse: (r: { data: MedicalHistoryLog }) => r.data,
+      invalidatesTags: (_r, _e, { appointment_id }) => [
+        { type: "MedicalWorkflow", id: appointment_id },
+        { type: "MedicalWorkflow", id: "INBOX" },
+      ],
+    }),
+
+    claimExecutionTask: builder.mutation<WorkflowTask, string>({
+      query: (taskId) => ({
+        url: `/execution-queues/tasks/${taskId}/claim`,
+        method: "POST",
+      }),
+      transformResponse: (r: { data: WorkflowTask }) => r.data,
+      invalidatesTags: [{ type: "MedicalWorkflow", id: "INBOX" }],
+    }),
+
+    releaseExecutionTask: builder.mutation<WorkflowTask, { taskId: string; reason?: string }>({
+      query: ({ taskId, reason }) => ({
+        url: `/execution-queues/tasks/${taskId}/release`,
+        method: "POST",
+        body: { reason },
+      }),
+      transformResponse: (r: { data: WorkflowTask }) => r.data,
+      invalidatesTags: [{ type: "MedicalWorkflow", id: "INBOX" }],
+    }),
+
+    getExecutionQueues: builder.query<any[], void>({
+      query: () => "/execution-queues/queues",
+      transformResponse: (r: { data: any[] }) => r.data,
+    }),
+
+    getCarePlan: builder.query<any, string>({
+      query: (appointmentId) => `/care-plans/appointment/${appointmentId}`,
+      transformResponse: (r: { data: any }) => r.data,
+      providesTags: (_r, _e, appointmentId) => [{ type: "MedicalWorkflow", id: `careplan-${appointmentId}` }],
+    }),
+
+    upsertCarePlan: builder.mutation<any, { appointmentId: string; payload: any }>({
+      query: ({ appointmentId, payload }) => ({
+        url: `/care-plans/appointment/${appointmentId}`,
+        method: "POST",
+        body: payload,
+      }),
+      transformResponse: (r: { data: any }) => r.data,
+      invalidatesTags: (_r, _e, { appointmentId }) => [{ type: "MedicalWorkflow", id: `careplan-${appointmentId}` }],
+    }),
+
+    getPatientLocations: builder.query<any[], void>({
+      query: () => "/patient-locations/locations",
+      transformResponse: (r: { data: any[] }) => r.data,
+    }),
+
+    assignPatientLocation: builder.mutation<any, any>({
+      query: (body) => ({
+        url: "/patient-locations/assign",
+        method: "POST",
+        body,
+      }),
+      transformResponse: (r: { data: any }) => r.data,
+      invalidatesTags: (_r, _e, body) => [{ type: "MedicalWorkflow", id: body.appointment_id }],
+    }),
   }),
 });
 
@@ -302,4 +373,12 @@ export const {
   useLazyValidateEncounterCompletionQuery,
   useExecuteEncounterCompletionMutation,
   useGetFollowUpContextQuery,
+  useTransferEncounterOwnershipMutation,
+  useClaimExecutionTaskMutation,
+  useReleaseExecutionTaskMutation,
+  useGetExecutionQueuesQuery,
+  useGetCarePlanQuery,
+  useUpsertCarePlanMutation,
+  useGetPatientLocationsQuery,
+  useAssignPatientLocationMutation,
 } = medicalWorkflowApi;
