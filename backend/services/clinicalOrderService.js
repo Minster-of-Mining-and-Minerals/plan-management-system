@@ -562,6 +562,21 @@ class ClinicalOrderService {
       console.error("Failed to send order result notifications:", notifErr);
     }
 
+    // Auto-generate Cashier Billing line item if order is linked to a Billing Service
+    try {
+      const snapshot = order.configuration_snapshot_json?.billing_snapshot || {};
+      const billingServiceId = snapshot.billing_service_id || snapshot.service_id;
+      if (order.appointment_id && billingServiceId) {
+        const appointmentBillingService = require("./appointmentBillingService");
+        await appointmentBillingService.createEntry(order.appointment_id, staffId, {
+          service_id: billingServiceId,
+          quantity: 1,
+        });
+      }
+    } catch (billingErr) {
+      console.error("Failed to auto-create cashier billing item for completed order:", billingErr.message);
+    }
+
     // Log to MedicalHistoryLog for timeline integration
     await db.MedicalHistoryLog.create({
       log_id: uuidv4(),

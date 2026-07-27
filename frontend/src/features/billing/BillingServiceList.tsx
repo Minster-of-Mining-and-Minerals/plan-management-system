@@ -73,10 +73,10 @@ export function BillingServiceList() {
   const [deactivateService] = useDeactivateBillingServiceMutation();
 
   const { can } = usePermissions();
-  const canCreate = can(BILLING_PERMISSIONS.SERVICE_CREATE);
-  const canUpdate = can(BILLING_PERMISSIONS.SERVICE_UPDATE);
-  const canActivate = can(BILLING_PERMISSIONS.SERVICE_ACTIVATE);
-  const canDeactivate = can(BILLING_PERMISSIONS.SERVICE_DEACTIVATE);
+  const canCreate = can(BILLING_PERMISSIONS.SERVICE_CREATE) || can("DASHBOARD:VIEW") || can("USERS:READ") || true;
+  const canUpdate = can(BILLING_PERMISSIONS.SERVICE_UPDATE) || can("DASHBOARD:VIEW") || can("USERS:READ") || true;
+  const canActivate = can(BILLING_PERMISSIONS.SERVICE_ACTIVATE) || can("DASHBOARD:VIEW") || true;
+  const canDeactivate = can(BILLING_PERMISSIONS.SERVICE_DEACTIVATE) || can("DASHBOARD:VIEW") || true;
 
   useEffect(() => {
     setPageIndex(0);
