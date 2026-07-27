@@ -5,13 +5,13 @@ import {
   Layers,
   FileText,
   Clock,
-  DollarSign,
   Plus,
   CheckCircle2,
   Building2,
-  Tag,
   Receipt,
   Sparkles,
+  Search,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -47,18 +47,21 @@ import { useGetDepartmentsQuery } from "@/redux/api/departmentApi";
 import {
   useListActiveBillingServicesQuery,
   useListBillingServiceCategoriesQuery,
+  useCreateBillingServiceCategoryMutation,
 } from "@/redux/api/billingServiceApi";
 
 export function UnifiedConfigurationCenter() {
   const [activeTab, setActiveTab] = useState("definitions");
   const [isOpen, setIsOpen] = useState(false);
+  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
 
-  const { data: rawOrderDefs = [], isLoading } = useGetOrderDefinitionsQuery();
+  const { data: rawOrderDefs = [], isLoading, refetch: refetchDefs } = useGetOrderDefinitionsQuery();
   const { data: rawFormConfigs = [] } = useListDiagnosisFormConfigsQuery();
   const { data: rawDepartments = [] } = useGetDepartmentsQuery();
   const { data: rawBillingServices = [] } = useListActiveBillingServicesQuery();
-  const { data: rawCategories = [] } = useListBillingServiceCategoriesQuery();
+  const { data: rawCategories = [], refetch: refetchCategories } = useListBillingServiceCategoriesQuery();
 
   const orderDefs = Array.isArray(rawOrderDefs) ? rawOrderDefs : (rawOrderDefs as any)?.data || [];
   const formConfigs = Array.isArray(rawFormConfigs) ? rawFormConfigs : (rawFormConfigs as any)?.data || [];
@@ -68,6 +71,7 @@ export function UnifiedConfigurationCenter() {
 
   const [createOrderDefinition, { isLoading: isCreating }] = useCreateOrderDefinitionMutation();
   const [publishOrderDefinition] = usePublishOrderDefinitionMutation();
+  const [createCategory, { isLoading: isCreatingCat }] = useCreateBillingServiceCategoryMutation();
 
   const [formData, setFormData] = useState({
     code: "",
@@ -79,6 +83,12 @@ export function UnifiedConfigurationCenter() {
     sla_minutes: 60,
     billing_service_id: "",
     default_fee: 50,
+  });
+
+  const [categoryFormData, setCategoryFormData] = useState({
+    name: "",
+    code: "",
+    description: "",
   });
 
   const handleBillingServiceSelect = (serviceId: string) => {
@@ -121,9 +131,29 @@ export function UnifiedConfigurationCenter() {
 
       setMsg(`Order definition '${created.name}' created and published!`);
       setIsOpen(false);
+      refetchDefs();
       setTimeout(() => setMsg(null), 3000);
     } catch (err: any) {
       setMsg(`Failed to create order definition: ${err?.data?.message || err?.message}`);
+    }
+  };
+
+  const handleCreateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await createCategory({
+        name: categoryFormData.name.trim(),
+        code: categoryFormData.code.toUpperCase().trim() || categoryFormData.name.toUpperCase().replace(/\s+/g, "_"),
+        description: categoryFormData.description.trim() || undefined,
+      }).unwrap();
+
+      setMsg(`Order Category '${categoryFormData.name}' configured successfully!`);
+      setIsCategoryOpen(false);
+      setCategoryFormData({ name: "", code: "", description: "" });
+      refetchCategories();
+      setTimeout(() => setMsg(null), 3000);
+    } catch (err: any) {
+      setMsg(`Failed to configure category: ${err?.data?.message || err?.message}`);
     }
   };
 
@@ -131,11 +161,23 @@ export function UnifiedConfigurationCenter() {
     try {
       await publishOrderDefinition(idOrCode).unwrap();
       setMsg(`Order definition published successfully!`);
+      refetchDefs();
       setTimeout(() => setMsg(null), 3000);
     } catch (err: any) {
       setMsg(`Publish failed: ${err?.message}`);
     }
   };
+
+  const filteredOrderDefs = orderDefs.filter((def: ClinicalOrderDefinition) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      def.name.toLowerCase().includes(q) ||
+      def.code.toLowerCase().includes(q) ||
+      (def.category && def.category.toLowerCase().includes(q)) ||
+      (def.department_id && def.department_id.toLowerCase().includes(q))
+    );
+  });
 
   return (
     <Card className="border shadow-sm">
@@ -144,13 +186,66 @@ export function UnifiedConfigurationCenter() {
           <div className="flex items-center gap-2">
             <Layers className="h-4 w-4 text-indigo-600" />
             <CardTitle className="text-sm font-semibold">
-              Unified Clinical Order Configuration Center
+              Unified Clinical Configuration & Category Governance
             </CardTitle>
           </div>
           <div className="flex items-center gap-2">
             <Badge className="text-[9px] bg-indigo-600 text-white">
               Dynamic Configurable
             </Badge>
+
+            {/* Category Modal */}
+            <Dialog open={isCategoryOpen} onOpenChange={setIsCategoryOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline" className="h-7 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50 gap-1">
+                  <Plus className="h-3.5 w-3.5" />
+                  Configure Category
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[450px]">
+                <DialogHeader>
+                  <DialogTitle className="text-sm font-bold flex items-center gap-2">
+                    <SlidersHorizontal className="h-4 w-4 text-indigo-600" />
+                    Configure Clinical Order Category
+                  </DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleCreateCategory} className="space-y-3 text-xs pt-2">
+                  <div className="space-y-1">
+                    <Label className="text-[11px]">Category Name</Label>
+                    <Input
+                      placeholder="e.g. Ophthalmology Diagnostics"
+                      value={categoryFormData.name}
+                      onChange={(e) => setCategoryFormData({ ...categoryFormData, name: e.target.value })}
+                      required
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px]">Category Code</Label>
+                    <Input
+                      placeholder="e.g. OPHTHALMOLOGY_DIAGNOSTICS"
+                      value={categoryFormData.code}
+                      onChange={(e) => setCategoryFormData({ ...categoryFormData, code: e.target.value })}
+                      className="h-8 text-xs font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px]">Description</Label>
+                    <Input
+                      placeholder="Optional description..."
+                      value={categoryFormData.description}
+                      onChange={(e) => setCategoryFormData({ ...categoryFormData, description: e.target.value })}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <Button type="submit" disabled={isCreatingCat} className="w-full h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white">
+                    {isCreatingCat ? "Saving..." : "Save Configured Category"}
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+
+            {/* Order Definition Modal */}
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700 text-white gap-1">
@@ -191,7 +286,7 @@ export function UnifiedConfigurationCenter() {
 
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
-                      <Label className="text-[11px]">Category</Label>
+                      <Label className="text-[11px]">Configured Category</Label>
                       <Select
                         value={formData.category}
                         onValueChange={(val) => setFormData({ ...formData, category: val })}
@@ -351,18 +446,32 @@ export function UnifiedConfigurationCenter() {
           </div>
         )}
 
+        <div className="flex items-center justify-between gap-2">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search definitions, categories, codes..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 h-8 text-xs"
+            />
+          </div>
+        </div>
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid grid-cols-3 h-8 text-[11px] mb-3">
-            <TabsTrigger value="definitions" className="py-1">Order Definitions ({orderDefs.length})</TabsTrigger>
-            <TabsTrigger value="form-templates" className="py-1">Dynamic Form Templates ({formConfigs.length})</TabsTrigger>
-            <TabsTrigger value="governance" className="py-1">Governance & Versioning</TabsTrigger>
+          <TabsList className="grid grid-cols-4 h-8 text-[11px] mb-3">
+            <TabsTrigger value="definitions" className="py-1">Order Definitions ({filteredOrderDefs.length})</TabsTrigger>
+            <TabsTrigger value="categories" className="py-1">Configured Categories ({categories.length})</TabsTrigger>
+            <TabsTrigger value="form-templates" className="py-1">Form Templates ({formConfigs.length})</TabsTrigger>
+            <TabsTrigger value="governance" className="py-1">Governance</TabsTrigger>
           </TabsList>
 
+          {/* TABULAR ORDER DEFINITIONS VIEW */}
           <TabsContent value="definitions" className="space-y-2 mt-0">
             {isLoading ? (
               <div className="p-4 text-center text-muted-foreground animate-pulse">Loading order definitions...</div>
-            ) : orderDefs.length === 0 ? (
-              <div className="p-4 text-center text-muted-foreground">No order definitions created yet. Click 'New Order Definition' to begin.</div>
+            ) : filteredOrderDefs.length === 0 ? (
+              <div className="p-4 text-center text-muted-foreground">No matching order definitions found.</div>
             ) : (
               <div className="overflow-x-auto border rounded-lg">
                 <table className="w-full text-left border-collapse text-[11px]">
@@ -380,7 +489,7 @@ export function UnifiedConfigurationCenter() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {orderDefs.map((def: ClinicalOrderDefinition) => {
+                    {filteredOrderDefs.map((def: ClinicalOrderDefinition) => {
                       const billingConf = (def as any).billing_configuration || {};
                       const slaConf = (def as any).sla_config_json || {};
 
@@ -458,20 +567,76 @@ export function UnifiedConfigurationCenter() {
             )}
           </TabsContent>
 
+          {/* TABULAR CONFIGURABLE CATEGORIES VIEW */}
+          <TabsContent value="categories" className="space-y-2 mt-0">
+            <div className="overflow-x-auto border rounded-lg">
+              <table className="w-full text-left border-collapse text-[11px]">
+                <thead>
+                  <tr className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-b">
+                    <th className="p-2.5 font-semibold">Category Code</th>
+                    <th className="p-2.5 font-semibold">Category Name</th>
+                    <th className="p-2.5 font-semibold">Description</th>
+                    <th className="p-2.5 font-semibold text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {categories.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="p-4 text-center text-muted-foreground">
+                        No categories configured. Click 'Configure Category' to create one.
+                      </td>
+                    </tr>
+                  ) : (
+                    categories.map((cat: any) => (
+                      <tr key={cat.category_id || cat.code} className="hover:bg-slate-50/50">
+                        <td className="p-2.5 font-mono text-indigo-600 font-semibold">{cat.code || "GENERAL"}</td>
+                        <td className="p-2.5 font-medium">{cat.name}</td>
+                        <td className="p-2.5 text-muted-foreground">{cat.description || "Configured Clinical Order Category"}</td>
+                        <td className="p-2.5 text-right">
+                          <Badge className="bg-emerald-600 text-white text-[9px]">ACTIVE</Badge>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </TabsContent>
+
+          {/* TABULAR DYNAMIC FORM TEMPLATES VIEW */}
           <TabsContent value="form-templates" className="space-y-2 mt-0">
-            <div className="grid grid-cols-2 gap-2">
-              {formConfigs.map((fc: DiagnosisFormConfig) => (
-                <div key={fc.config_id} className="p-2.5 border rounded bg-slate-50/50 space-y-1 text-[11px]">
-                  <div className="font-semibold text-slate-800 dark:text-slate-200">{fc.title}</div>
-                  <div className="text-[10px] text-muted-foreground font-mono">ID: {fc.config_id}</div>
-                </div>
-              ))}
+            <div className="overflow-x-auto border rounded-lg">
+              <table className="w-full text-left border-collapse text-[11px]">
+                <thead>
+                  <tr className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-b">
+                    <th className="p-2.5 font-semibold">Form Title</th>
+                    <th className="p-2.5 font-semibold">Form Config ID</th>
+                    <th className="p-2.5 font-semibold">Status</th>
+                    <th className="p-2.5 font-semibold text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {formConfigs.map((fc: DiagnosisFormConfig) => (
+                    <tr key={fc.config_id} className="hover:bg-slate-50/50">
+                      <td className="p-2.5 font-semibold text-slate-900 dark:text-slate-100">{fc.title}</td>
+                      <td className="p-2.5 font-mono text-[10px] text-muted-foreground">{fc.config_id}</td>
+                      <td className="p-2.5">
+                        <Badge variant="outline" className="text-[9px]">ACTIVE TEMPLATE</Badge>
+                      </td>
+                      <td className="p-2.5 text-right">
+                        <Badge variant="secondary" className="text-[9px]">LINKED</Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </TabsContent>
 
           <TabsContent value="governance" className="space-y-2 mt-0">
-            <div className="p-3 border rounded text-center text-muted-foreground">
-              Lifecycle Governance, Immutable Version Snapshots, and Multi-Tenant Isolation Protection.
+            <div className="p-4 border rounded-lg bg-white dark:bg-slate-950 text-center text-muted-foreground space-y-1">
+              <div className="font-semibold text-slate-800 dark:text-slate-200 text-xs">Multi-Tenant Governance & Immutable Snapshots</div>
+              <p className="text-[11px]">Orders retain immutable version snapshots upon creation, protecting clinical history against configuration updates.</p>
             </div>
           </TabsContent>
         </Tabs>
