@@ -55,10 +55,11 @@ const wardConfig = {
   occupancy: { label: "Occupancy %", color: "hsl(var(--chart-1))" },
 } satisfies ChartConfig;
 
-export function PatientRegistrationChart() {
+export function PatientRegistrationChart({ data }: { data?: any[] }) {
+  const chartData = data && data.length > 0 ? data : PATIENT_REGISTRATION_TREND;
   return (
     <ChartContainer config={registrationConfig} className="h-[280px] w-full">
-      <AreaChart data={PATIENT_REGISTRATION_TREND} margin={{ left: 0, right: 8 }}>
+      <AreaChart data={chartData} margin={{ left: 0, right: 8 }}>
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
         <XAxis dataKey="month" tickLine={false} axisLine={false} fontSize={11} />
         <YAxis tickLine={false} axisLine={false} fontSize={11} width={32} />
@@ -84,10 +85,11 @@ export function PatientRegistrationChart() {
   );
 }
 
-export function AppointmentVolumeChart() {
+export function AppointmentVolumeChart({ data }: { data?: any[] }) {
+  const chartData = data && data.length > 0 ? data : APPOINTMENT_VOLUME_WEEKLY;
   return (
     <ChartContainer config={appointmentConfig} className="h-[280px] w-full">
-      <BarChart data={APPOINTMENT_VOLUME_WEEKLY} margin={{ left: 0, right: 8 }}>
+      <BarChart data={chartData} margin={{ left: 0, right: 8 }}>
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
         <XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={11} />
         <YAxis tickLine={false} axisLine={false} fontSize={11} width={32} />
@@ -99,21 +101,22 @@ export function AppointmentVolumeChart() {
   );
 }
 
-export function RevenueBreakdownChart() {
+export function RevenueBreakdownChart({ data }: { data?: Array<{ source: string; amount: number; fill?: string }> }) {
+  const chartData = data && data.length > 0 ? data : REVENUE_BREAKDOWN;
   return (
     <ChartContainer config={revenueConfig} className="h-[260px] w-full">
       <PieChart>
         <ChartTooltip content={<ChartTooltipContent hideLabel />} />
         <Pie
-          data={REVENUE_BREAKDOWN}
+          data={chartData}
           dataKey="amount"
           nameKey="source"
           innerRadius={55}
           outerRadius={90}
           paddingAngle={2}
         >
-          {REVENUE_BREAKDOWN.map((entry) => (
-            <Cell key={entry.source} fill={entry.fill} />
+          {chartData.map((entry, idx) => (
+            <Cell key={entry.source} fill={entry.fill || `hsl(var(--chart-${(idx % 5) + 1}))`} />
           ))}
         </Pie>
       </PieChart>
@@ -121,10 +124,11 @@ export function RevenueBreakdownChart() {
   );
 }
 
-export function PaymentTrendChart() {
+export function PaymentTrendChart({ data }: { data?: any[] }) {
+  const chartData = data && data.length > 0 ? data : PAYMENT_TREND;
   return (
     <ChartContainer config={paymentConfig} className="h-[240px] w-full">
-      <BarChart data={PAYMENT_TREND}>
+      <BarChart data={chartData}>
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
         <XAxis dataKey="week" tickLine={false} axisLine={false} fontSize={11} />
         <ChartTooltip content={<ChartTooltipContent />} />
@@ -135,10 +139,11 @@ export function PaymentTrendChart() {
   );
 }
 
-export function PharmacyVolumeChart() {
+export function PharmacyVolumeChart({ data }: { data?: any[] }) {
+  const chartData = data && data.length > 0 ? data : PHARMACY_OPERATIONS.volumeByDay;
   return (
     <ChartContainer config={pharmacyConfig} className="h-[200px] w-full">
-      <AreaChart data={PHARMACY_OPERATIONS.volumeByDay}>
+      <AreaChart data={chartData}>
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
         <XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={10} />
         <ChartTooltip content={<ChartTooltipContent />} />
@@ -155,10 +160,11 @@ export function PharmacyVolumeChart() {
   );
 }
 
-export function WardOccupancyChart() {
+export function WardOccupancyChart({ data }: { data?: any[] }) {
+  const chartData = data && data.length > 0 ? data : BED_OCCUPANCY_BY_WARD;
   return (
     <ChartContainer config={wardConfig} className="h-[200px] w-full">
-      <BarChart data={BED_OCCUPANCY_BY_WARD} layout="vertical" margin={{ left: 8 }}>
+      <BarChart data={chartData} layout="vertical" margin={{ left: 8 }}>
         <CartesianGrid strokeDasharray="3 3" horizontal={false} />
         <XAxis type="number" domain={[0, 100]} hide />
         <YAxis

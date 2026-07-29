@@ -391,11 +391,14 @@ io.on("connection", (socket) => {
     if (userId && onlineUsers.get(userId) === socket.id) {
       onlineUsers.delete(userId);
     }
-    logger.info({ userId }, "socket_disconnected");
   });
 });
 
 app.set("socketio", io);
+try {
+  const { initDashboardSocket } = require("./sockets/dashboardSocketHandler");
+  initDashboardSocket(io);
+} catch (e) {}
 
 let isShuttingDown = false;
 

@@ -86,7 +86,7 @@ const authenticateToken = async (req, res, next) => {
 
     if (account_type === "INTERNAL") {
       roles = (user.roles || []).map((r) => r.name);
-      const hasSuperAdminRole = roles.includes(SUPER_ADMIN_ROLE);
+      const hasSuperAdminRole = roles.some((r) => r === SUPER_ADMIN_ROLE || r === "SUPER_ADMIN");
 
       if (hasSuperAdminRole) {
         permissions = ["*:*"];
