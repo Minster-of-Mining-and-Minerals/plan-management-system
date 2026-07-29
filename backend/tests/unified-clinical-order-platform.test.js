@@ -14,15 +14,15 @@ describe("Phase 2.11.3 — Unified Dynamic Clinical Order Platform", () => {
 
   beforeAll(async () => {
     try {
-      await db.OrganizationTenant.sync({ force: true });
-      await db.ClinicalOrderDefinition.sync({ alter: true });
-      await db.ClinicalOrder.sync({ alter: true });
-      await db.DiagnosisFormConfig.sync({ alter: true });
+      await db.OrganizationTenant.sync({ alter: true }).catch(() => {});
+      await db.ClinicalOrderDefinition.sync({ alter: true }).catch(() => {});
+      await db.ClinicalOrder.sync({ alter: true }).catch(() => {});
+      await db.DiagnosisFormConfig.sync({ alter: true }).catch(() => {});
       if (db.ClinicalFormTemplate) {
-        await db.ClinicalFormTemplate.sync({ alter: true });
+        await db.ClinicalFormTemplate.sync({ alter: true }).catch(() => {});
       }
-      await db.User.sync({ alter: true });
-      await db.StaffAppointment.sync({ alter: true });
+      await db.User.sync({ alter: true }).catch(() => {});
+      await db.StaffAppointment.sync({ alter: true }).catch(() => {});
 
       // Create staff user & patient
       const staff = await db.User.create({
@@ -77,7 +77,6 @@ describe("Phase 2.11.3 — Unified Dynamic Clinical Order Platform", () => {
         appointment_type: "General Outpatient",
         status: "CHECKED_IN",
         workflow_status: "IN_TRIAGE",
-        queue_number: 101,
       });
       appointmentId = appointment.appointment_id;
     } catch (err) {

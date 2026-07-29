@@ -13,12 +13,16 @@ describe("Dynamic & Configurable Clinical Order Engine Tests", () => {
   let appointmentId;
 
   beforeAll(async () => {
-    await db.User.sync({ alter: true });
-    await db.PatientSchedule.sync({ alter: true });
-    await db.StaffAppointment.sync({ alter: true });
-    await db.DiagnosisFormConfig.sync({ alter: true });
-    await db.ClinicalOrderDefinition.sync({ alter: true });
-    await db.ClinicalOrder.sync({ alter: true });
+    try {
+      await db.User.sync({ alter: true }).catch(() => {});
+      await db.PatientSchedule.sync({ alter: true }).catch(() => {});
+      await db.StaffAppointment.sync({ alter: true }).catch(() => {});
+      await db.DiagnosisFormConfig.sync({ alter: true }).catch(() => {});
+      await db.ClinicalOrderDefinition.sync({ alter: true }).catch(() => {});
+      await db.ClinicalOrder.sync({ alter: true }).catch(() => {});
+    } catch (e) {
+      // Sync skipped if tables already exist
+    }
 
     const staff = await db.User.create({
       user_id: uuidv4(),

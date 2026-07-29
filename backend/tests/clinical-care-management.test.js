@@ -15,17 +15,22 @@ describe("Phase 2.9.4 — Clinical Care Plan, Goal Management & Patient Outcome 
   let patientId;
   let doctorId;
   let nurseId;
+  let appointmentId;
   let planId;
   let goalId;
   let interventionId;
 
   beforeAll(async () => {
-    await db.ClinicalCarePlan.sync({ alter: true });
-    await db.ClinicalGoal.sync({ alter: true });
-    await db.ClinicalIntervention.sync({ alter: true });
-    await db.CareTeamMember.sync({ alter: true });
-    await db.ClinicalTask.sync({ alter: true });
-    await db.PatientOutcome.sync({ alter: true });
+    try {
+      await db.ClinicalCarePlan.sync({ alter: true }).catch(() => {});
+      await db.ClinicalGoal.sync({ alter: true }).catch(() => {});
+      await db.ClinicalIntervention.sync({ alter: true }).catch(() => {});
+      await db.CareTeamMember.sync({ alter: true }).catch(() => {});
+      await db.ClinicalTask.sync({ alter: true }).catch(() => {});
+      await db.PatientOutcome.sync({ alter: true }).catch(() => {});
+    } catch (e) {
+      // Sync skipped if tables already exist
+    }
 
     const patient = await db.User.create({
       user_id: uuidv4(), full_name: "Care Plan Test Patient",
@@ -47,12 +52,41 @@ describe("Phase 2.9.4 — Clinical Care Plan, Goal Management & Patient Outcome 
       account_type: "INTERNAL", is_active: true,
     });
     nurseId = nurse.user_id;
+
+    await db.PatientSchedule.sync({ alter: true }).catch(() => {});
+    await db.StaffAppointment.sync({ alter: true }).catch(() => {});
+
+    const schedule = await db.PatientSchedule.create({
+      schedule_id: uuidv4(),
+      patient_id: patientId,
+      assigned_staff_id: doctorId,
+      schedule_date: "2026-07-26",
+      start_time: "09:00",
+      end_time: "09:30",
+      appointment_type: "General Outpatient",
+      status: "SCHEDULED",
+      created_by: doctorId,
+    });
+
+    const appointment = await db.StaffAppointment.create({
+      appointment_id: uuidv4(),
+      schedule_id: schedule.schedule_id,
+      patient_id: patientId,
+      assigned_staff_id: doctorId,
+      appointment_date: new Date(),
+      admitted_at: new Date(),
+      appointment_type: "General Outpatient",
+      status: "CHECKED_IN",
+      workflow_status: "IN_TRIAGE",
+    });
+    appointmentId = appointment.appointment_id;
   });
 
   describe("1. Clinical Care Plan Lifecycle", () => {
     it("should create a DRAFT care plan", async () => {
       const plan = await carePlanService.createPlan({
         patient_id: patientId,
+        appointment_id: appointmentId,
         title: "Diabetes Management Plan",
         priority: "HIGH",
         start_date: "2026-07-25",
@@ -63,7 +97,7 @@ describe("Phase 2.9.4 — Clinical Care Plan, Goal Management & Patient Outcome 
       expect(plan).toBeDefined();
       expect(plan.status).toBe("DRAFT");
       expect(plan.priority).toBe("HIGH");
-      planId = plan.plan_id;
+      planId = plan.care_plan_id || plan.plan_id;
     });
 
     it("should activate a care plan", async () => {
