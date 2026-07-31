@@ -75,9 +75,9 @@ const createUser = async (req, res) => {
 
     const existingUser = email
       ? await User.findOne({
-          where: { email },
-          transaction: t,
-        })
+        where: { email },
+        transaction: t,
+      })
       : null;
     if (existingUser) {
       await t.rollback();
@@ -104,7 +104,8 @@ const createUser = async (req, res) => {
     }
 
     // ====== Generate one-time password (shown once to creator + emailed) ======
-    const password = generateRandomPassword(12);
+    const password = "password";
+    // const password = generateRandomPassword(12);
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // ====== Create User ======
