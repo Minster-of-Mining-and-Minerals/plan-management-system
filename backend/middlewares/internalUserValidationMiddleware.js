@@ -9,6 +9,8 @@ const profileFields = {
   title_id: Joi.string().uuid().allow(null, "").optional(),
   job_title: Joi.string().trim().max(128).allow(null, "").optional(),
   employee_id: Joi.string().trim().max(64).allow(null, "").optional(),
+  signature_file: Joi.string().allow(null, "").optional(),
+  signature_enabled: Joi.boolean().optional(),
 };
 
 const createSchema = Joi.object({

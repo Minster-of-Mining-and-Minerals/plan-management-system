@@ -7,7 +7,6 @@ import * as z from "zod";
 import {
     useGetUserByIdQuery,
 } from "@/redux/api/userApi";
-import { useGetRolesQuery } from "@/redux/api/roleApi";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
 import { ColumnDef } from "@tanstack/react-table";
@@ -65,8 +64,6 @@ const ProfilePage = () => {
 
 
     const { data: user, isLoading, isError } = useGetUserByIdQuery(userId);
-
-    const { data: allRoles = [] } = useGetRolesQuery({ is_active: true });
 
     const form = useForm<UserFormValues>({
         resolver: zodResolver(userFormSchema),

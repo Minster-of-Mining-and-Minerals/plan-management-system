@@ -25,12 +25,33 @@ const { requireInternalAccount } = require("../../middlewares/accountTypeMiddlew
 
 router.use(authenticateToken, requireInternalAccount);
 
+const allowSelfRead = (req, res, next) => {
+  if (req.user && req.user.user_id === req.params.id) {
+    return next();
+  }
+  return checkPermission("users", "read")(req, res, next);
+};
+
+const allowSelfSignatureUpdate = (req, res, next) => {
+  if (req.user && req.user.user_id === req.params.id) {
+    const hasUpdatePerm = req.user.permissions?.includes("users:update") || req.user.permissions?.includes("*:*");
+    if (!hasUpdatePerm) {
+      req.body = {
+        signature_file: req.body.signature_file,
+        signature_enabled: req.body.signature_enabled,
+      };
+    }
+    return next();
+  }
+  return checkPermission("users", "update")(req, res, next);
+};
+
 router.get("/profile/me", getProfile);
 
 router.get("/", checkPermission("users", "read"), getUsers);
-router.get("/:id", checkPermission("users", "read"), getUserById);
+router.get("/:id", allowSelfRead, getUserById);
 router.post("/", checkPermission("users", "create"), validateCreateInternalUser, createUser);
-router.put("/:id", checkPermission("users", "update"), validateUpdateInternalUser, updateUser);
+router.put("/:id", allowSelfSignatureUpdate, validateUpdateInternalUser, updateUser);
 router.delete("/:id", checkPermission("users", "delete"), deleteUser);
 router.patch(
   "/:id/toggle-status",

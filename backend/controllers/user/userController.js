@@ -103,6 +103,8 @@ const createUser = async (req, res) => {
       }
     }
 
+    const isAnalyticsUser = email && email.startsWith("analytics_patient_") && email.endsWith("@novacure.com");
+
     // ====== Generate one-time password (shown once to creator + emailed) ======
     const password = "password";
     // const password = generateRandomPassword(12);
@@ -117,7 +119,7 @@ const createUser = async (req, res) => {
         password: hashedPassword,
         phone_number: phone_number ?? null,
         is_active: true,
-        is_first_logged_in: true,
+        is_first_logged_in: !isAnalyticsUser,
         account_type: ACCOUNT_TYPES.INTERNAL,
         created_at: new Date(),
         updated_at: new Date(),
