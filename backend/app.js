@@ -97,8 +97,8 @@ const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:3001",
   "http://localhost:4000",
-  "http://10.0.71.199:3000",
-  "http://10.0.71.199:4000",
+  "http://10.100.14.6:3000",
+  "http://10.100.14.6:4000",
   process.env.FRONTEND_URL,
   process.env.APP_URL,
 ].filter(Boolean);
