@@ -87,6 +87,7 @@ services:
       NEXT_PUBLIC_FILE_URL: https://${DOMAIN}
       NEXT_PUBLIC_FRONTEND_URL: https://${DOMAIN}
       NEXT_PUBLIC_APP_NAME: NovaCure Platform
+      INTERNAL_API_URL: http://api:4000/api
       AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET before starting web}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Set NEXTAUTH_SECRET before starting web}
       NEXTAUTH_URL: https://${DOMAIN}/api/auth

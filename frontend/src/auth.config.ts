@@ -19,8 +19,9 @@ export default {
         if (!email || !password) return null;
 
         try {
+          const baseUrl = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_BASE_URL;
           const res = await fetch(
-            `${process.env.NEXT_PUBLIC_BASE_URL}/auth/login`,
+            `${baseUrl}/auth/login`,
             {
               method: "POST",
               headers: {
