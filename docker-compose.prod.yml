@@ -45,6 +45,7 @@ services:
       SMTP_PORT: ${SMTP_PORT:-}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-#Admin2026}
     ports:
       # Expose for internal debugging if necessary, otherwise remove.
       # Usually not exposed in production unless specifically required.
