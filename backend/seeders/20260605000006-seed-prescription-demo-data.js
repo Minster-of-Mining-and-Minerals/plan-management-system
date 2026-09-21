@@ -6,18 +6,18 @@ const { DEFAULT_PRESCRIPTION_DOCUMENT_HTML } = require("../config/defaultPrescri
 const DEFAULT_BRANDING_ID = "00000000-0000-4000-8000-000000000005";
 const ADMIN_USER_ID = "00000000-0000-4000-8000-000000000001";
 
-const LAVISTA_BRANDING = {
-  system_name: "LaVista General Hospital",
-  system_name_am: "ላቪስታ ጠቅላላ ሆስፒታል",
-  tagline: "Excellence in Patient Care — LaVista",
-  organization_address: "LaVista Tower, Bole Road, 3rd Floor",
+const NOVACURE_BRANDING = {
+  system_name: "NovaCure General Hospital",
+  system_name_am: "ኖቫኩር አጠቃላይ ሆስፒታል",
+  tagline: "Excellence in Patient Care — NovaCure",
+  organization_address: "NovaCure Tower, Bole Road, 3rd Floor",
   organization_city: "Addis Ababa",
   organization_region: "Addis Ababa",
   organization_country: "Ethiopia",
-  organization_branch: "LaVista Medical Center — Main Campus",
-  contact_phone: "+251 11 123 4567",
-  contact_email: "prescriptions@lavista.et",
-  license_info: "MOH License #LAV-2024-001 · LaVista Health Group",
+  organization_branch: "NovaCure Medical Center — Main Campus",
+  contact_phone: "+251 91 123 4567 | +251 11 123 4567",
+  contact_email: "prescriptions@novacure.et",
+  license_info: "MOH License #NOV-2024-001 · NovaCure Health Group",
 };
 
 const TEMPLATE_DEFINITIONS = [
@@ -254,7 +254,7 @@ module.exports = {
     const now = new Date();
 
     const brandingUpdate = {
-      ...LAVISTA_BRANDING,
+      ...NOVACURE_BRANDING,
       updated_at: now,
     };
 

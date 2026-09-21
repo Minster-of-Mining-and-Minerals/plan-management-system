@@ -9,7 +9,7 @@ const { v4: uuidv4, validate: isUuid } = require("uuid");
 const { Op } = require("sequelize");
 const bcrypt = require("bcrypt");
 const { generateRandomPassword } = require("../../utils/password");
-const { sendEmail } = require("../../utils/sendEmail");
+const mailerService = require("../../services/mailerService");
 const { PLATFORM_NAME } = require("../../config/platformBranding");
 const { ACCOUNT_TYPES } = require("../../config/accountTypes");
 const { InternalUserProfile, Department, UserTitle } = require("../../models");
@@ -161,17 +161,7 @@ const createUser = async (req, res) => {
     await t.commit();
 
     // ====== Send welcome email ======
-    await sendEmail(
-      email,
-      `Welcome to ${process.env.APP_NAME || PLATFORM_NAME}!`,
-      `
-      Dear ${full_name || email || "User"},
-      Your account has been successfully created.
-      Email: ${email}
-      Temporary Password: ${password}
-      Please change your password after first login.
-    `
-    );
+    await mailerService.sendWelcomeEmail(email, full_name, password);
 
     const userJson = user.toJSON();
     delete userJson.password;
@@ -722,17 +712,7 @@ const resetUserPassword = async (req, res) => {
     });
 
     // Send email notification
-    await sendEmail(
-      user.email,
-      `Password Reset - ${process.env.APP_NAME || PLATFORM_NAME}`,
-      `
-      Dear ${user.full_name},
-      Your password has been reset successfully.
-      Email: ${user.email}
-      New Temporary Password: ${newPassword}
-      Please change your password after logging in.
-      `
-    );
+    await mailerService.sendPasswordResetConfirmation(user.email, user.full_name, newPassword);
 
     return res.status(200).json({
       success: true,

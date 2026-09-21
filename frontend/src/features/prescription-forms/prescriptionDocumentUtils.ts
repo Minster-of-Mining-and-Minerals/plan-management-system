@@ -29,14 +29,14 @@ export const DEFAULT_DOCUMENT_TEMPLATE_HTML = `<div class="rx-document">
 </div>`;
 
 const SAMPLE_VALUES: Record<string, string> = {
-  hospital_name: "LaVista General Hospital",
+  hospital_name: "NovaCure General Hospital",
   hospital_logo_block: `<img src="${PLATFORM_LOGO_URL}" alt="Hospital logo" class="rx-logo" />`,
   hospital_location:
-    "LaVista Tower, Bole Road, 3rd Floor, Addis Ababa, Ethiopia — LaVista Medical Center",
+    "NovaCure Tower, Bole Road, 3rd Floor, Addis Ababa, Ethiopia — NovaCure Medical Center",
   contact_phone: "+251 11 123 4567",
-  contact_email: "prescriptions@lavista.et",
+  contact_email: "prescriptions@novacure.et",
   license_info_block:
-    '<p class="rx-license">MOH License #LAV-2024-001 · LaVista Health Group</p>',
+    '<p class="rx-license">MOH License #NOV-2024-001 · NovaCure Health Group</p>',
   patient_name: "Jane Doe",
   patient_id: "PT-1024",
   patient_age: "34",

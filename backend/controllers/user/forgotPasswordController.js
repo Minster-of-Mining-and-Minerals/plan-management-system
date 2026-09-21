@@ -1,7 +1,7 @@
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const { User } = require("../../models");
-const { sendEmail } = require("../../utils/sendEmail");
+const mailerService = require("../../services/mailerService");
 const { Op } = require("sequelize");
 const { PLATFORM_NAME } = require("../../config/platformBranding");
 const { validateNewPassword } = require("../../utils/passwordPolicy");
@@ -37,10 +37,7 @@ const requestOTP = async (req, res) => {
       otp_expiry: otpExpiry,
     });
 
-    const subject = `Password Reset OTP - ${process.env.APP_NAME || PLATFORM_NAME}`;
-    const text = `Your OTP for password reset is: ${otp}. It will expire in 10 minutes.`;
-
-    await sendEmail(email, subject, text);
+    await mailerService.sendPasswordResetOTP(email, otp);
 
     return res.status(200).json({
       success: true,

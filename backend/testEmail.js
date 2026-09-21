@@ -1,15 +1,15 @@
 require("dotenv").config();
-const { sendEmail } = require("./utils/sendEmail");
+const mailerService = require("./services/mailerService");
 
 (async () => {
   try {
     console.log("🔍 Testing email configuration...");
 
-    await sendEmail(
-      process.env.EMAIL_USER, 
-      "✅ Email Configuration Test",
-      "This is a test email from NovaCure Platform."
-    );
+    await mailerService.sendMail({
+      to: process.env.EMAIL_USER, 
+      subject: "✅ Email Configuration Test",
+      text: "This is a test email from NovaCure Platform."
+    });
 
     console.log("✅ Email sent successfully!");
   } catch (error) {
