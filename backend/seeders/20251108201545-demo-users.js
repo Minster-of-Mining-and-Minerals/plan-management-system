@@ -18,9 +18,9 @@ async function countById(queryInterface, table, idColumn, id) {
 
 module.exports = {
   async up(queryInterface, Sequelize) {
-    if (!assertDemoSeedAllowed("demo-users")) return;
     const now = new Date();
-    const passwordHash = await bcrypt.hash("password", 10);
+    const isProduction = process.env.NODE_ENV === "production";
+    const passwordHash = await bcrypt.hash(isProduction ? (process.env.ADMIN_PASSWORD || "password") : "password", 10);
 
     const adminExists =
       (await countById(queryInterface, "users", "user_id", ADMIN_USER_ID)) > 0;
