@@ -1,0 +1,148 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: novacure-postgres-prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD before starting postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-novadb}
+      TZ: UTC
+    volumes:
+      - novacure_pg_data_prod:/var/lib/postgresql/data
+    networks:
+      - novacure_prod_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: novacure-api-prod
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      TZ: ${TZ:-Africa/Addis_Ababa}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD before starting api}
+      DB_NAME: ${POSTGRES_DB:-novadb}
+      DB_DIALECT: postgres
+      FRONTEND_URL: https://${DOMAIN}
+      APP_NAME: NovaCure Platform
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET (>=32 chars) before starting api}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-12h}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+    ports:
+      # Expose for internal debugging if necessary, otherwise remove.
+      # Usually not exposed in production unless specifically required.
+      - "127.0.0.1:4000:4000"
+    entrypoint: /bin/sh -c "npx sequelize-cli db:migrate && npx sequelize-cli db:seed:all && node app.js"
+    volumes:
+      - ./backend/uploads:/app/uploads
+    networks:
+      - novacure_prod_network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_BASE_URL: https://${DOMAIN}/api
+        NEXT_PUBLIC_FILE_URL: https://${DOMAIN}
+        NEXT_PUBLIC_FRONTEND_URL: https://${DOMAIN}
+        NEXT_PUBLIC_APP_NAME: NovaCure Platform
+    container_name: novacure-web-prod
+    restart: always
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      NEXT_PUBLIC_BASE_URL: https://${DOMAIN}/api
+      NEXT_PUBLIC_FILE_URL: https://${DOMAIN}
+      NEXT_PUBLIC_FRONTEND_URL: https://${DOMAIN}
+      NEXT_PUBLIC_APP_NAME: NovaCure Platform
+      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET before starting web}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Set NEXTAUTH_SECRET before starting web}
+      NEXTAUTH_URL: https://${DOMAIN}/api/auth
+    networks:
+      - novacure_prod_network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: novacure-nginx-prod
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN}
+    command: /bin/sh /etc/nginx/templates/start.sh
+    volumes:
+      - ./nginx:/etc/nginx/templates
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/snippets:/etc/nginx/snippets
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    depends_on:
+      - web
+      - api
+    networks:
+      - novacure_prod_network
+
+  certbot:
+    image: certbot/certbot
+    container_name: novacure-certbot
+    environment:
+      - CERTBOT_DOMAIN=${DOMAIN}
+      - CERTBOT_EMAIL=${CERTBOT_EMAIL}
+    volumes:
+      - ./nginx:/etc/nginx/templates
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: /bin/sh /etc/nginx/templates/certbot-entrypoint.sh
+    networks:
+      - novacure_prod_network
+
+volumes:
+  novacure_pg_data_prod:
+
+networks:
+  novacure_prod_network:
+    driver: bridge
