@@ -299,7 +299,7 @@ async function generatePatientCode(queryInterface, transaction) {
 
 module.exports = {
   async up(queryInterface) {
-    assertDemoSeedAllowed("sample-patients");
+    if (!assertDemoSeedAllowed("sample-patients")) return;
     await ensurePatientFormCatalog();
 
     const now = new Date();

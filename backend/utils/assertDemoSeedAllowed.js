@@ -5,10 +5,10 @@
  */
 function assertDemoSeedAllowed(seedName = "demo seed") {
   if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      `Refusing to run ${seedName} while NODE_ENV=production (demo passwords are not allowed).`
-    );
+    console.log(`Skipping ${seedName} in production environment.`);
+    return false;
   }
+  return true;
 }
 
 module.exports = { assertDemoSeedAllowed };

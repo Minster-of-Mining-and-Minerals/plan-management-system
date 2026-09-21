@@ -121,7 +121,7 @@ async function ensureDiagnosisConfig(
 
 module.exports = {
   async up(queryInterface) {
-    assertDemoSeedAllowed("ophthalmology-clinical-departments-users");
+    if (!assertDemoSeedAllowed("ophthalmology-clinical-departments-users")) return;
     const now = new Date();
     const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
 

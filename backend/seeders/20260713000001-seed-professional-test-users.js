@@ -198,7 +198,7 @@ async function generatePatientCode(queryInterface) {
 
 module.exports = {
   async up(queryInterface) {
-    assertDemoSeedAllowed("professional-test-users");
+    if (!assertDemoSeedAllowed("professional-test-users")) return;
     const now = new Date();
     const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
 

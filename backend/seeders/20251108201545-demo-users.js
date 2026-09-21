@@ -18,7 +18,7 @@ async function countById(queryInterface, table, idColumn, id) {
 
 module.exports = {
   async up(queryInterface, Sequelize) {
-    assertDemoSeedAllowed("demo-users");
+    if (!assertDemoSeedAllowed("demo-users")) return;
     const now = new Date();
     const passwordHash = await bcrypt.hash("password", 10);
 
