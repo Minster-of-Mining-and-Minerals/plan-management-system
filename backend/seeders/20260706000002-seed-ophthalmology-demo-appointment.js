@@ -3,6 +3,7 @@
 const { v4: uuidv4 } = require("uuid");
 const db = require("../models");
 const { copyStructure, clearTargetStructure } = require("../services/diagnosisStructureCopy");
+const { assertDemoSeedAllowed } = require("../utils/assertDemoSeedAllowed");
 const {
   ADMIN_USER_ID,
   DEMO_SCHEDULE_ID,
@@ -274,6 +275,7 @@ async function ensureDemoWorkflow(queryInterface, now, patientId, appointmentId)
 
 module.exports = {
   async up(queryInterface) {
+    if (!assertDemoSeedAllowed("ophthalmology-demo-appointment")) return;
     const now = new Date();
 
     await ensureOphthalmologyLabStaffConfig(queryInterface, now);
