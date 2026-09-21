@@ -19,7 +19,7 @@ class MailerService {
       service: process.env.EMAIL_SERVICE || "gmail",
       host: process.env.EMAIL_HOST || "smtp.gmail.com",
       port: process.env.EMAIL_PORT ? parseInt(process.env.EMAIL_PORT) : 465,
-      secure: process.env.EMAIL_SECURE === "true" || true, 
+      secure: process.env.EMAIL_SECURE === "true" || true,
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
@@ -37,7 +37,7 @@ class MailerService {
 
     try {
       const appName = process.env.APP_NAME || PLATFORM_NAME;
-      const fromEmail = process.env.EMAIL_USER || "noreply@novacure.et";
+      const fromEmail = process.env.EMAIL_USER || "cliniclavista@gmail.com";
       const fromHeader = process.env.EMAIL_FROM || `"${appName}" <${fromEmail}>`;
 
       const mailOptions = {
