@@ -113,9 +113,10 @@ services:
       - "443:443"
     environment:
       - DOMAIN=${DOMAIN}
-    command: /bin/sh /etc/nginx/templates/start.sh
+    command: /bin/sh /start.sh
     volumes:
-      - ./nginx:/etc/nginx/templates
+      - ./nginx/start.sh:/start.sh
+      - ./nginx/templates:/etc/nginx/templates
       - ./nginx/conf.d:/etc/nginx/conf.d
       - ./nginx/snippets:/etc/nginx/snippets
       - ./certbot/conf:/etc/letsencrypt
@@ -133,10 +134,10 @@ services:
       - CERTBOT_DOMAIN=${DOMAIN}
       - CERTBOT_EMAIL=${CERTBOT_EMAIL}
     volumes:
-      - ./nginx:/etc/nginx/templates
+      - ./nginx/certbot-entrypoint.sh:/certbot-entrypoint.sh
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
-    entrypoint: /bin/sh /etc/nginx/templates/certbot-entrypoint.sh
+    entrypoint: /bin/sh /certbot-entrypoint.sh
     networks:
       - novacure_prod_network
 
