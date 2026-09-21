@@ -116,6 +116,8 @@ services:
     command: /bin/sh /start.sh
     volumes:
       - ./nginx/start.sh:/start.sh
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/.htpasswd:/etc/nginx/templates/.htpasswd
       - ./nginx/templates:/etc/nginx/templates
       - ./nginx/conf.d:/etc/nginx/conf.d
       - ./nginx/snippets:/etc/nginx/snippets
