@@ -201,9 +201,6 @@ export const NAVIGATION: NavItem[] = [
       "BILLING_SERVICE:VIEW",
       "BILLING_SERVICE:CREATE",
       "BILLING_SERVICE:UPDATE",
-      "DASHBOARD:VIEW",
-      "USERS:READ",
-      "PATIENTS:READ",
     ],
   },
   {
@@ -214,10 +211,8 @@ export const NAVIGATION: NavItem[] = [
       "CASHIER_QUEUE:VIEW",
       "CASHIER_PAYMENT:CREATE",
       "CASHIER_SESSION:OPEN",
-      "DASHBOARD:VIEW",
       "FINANCE_COLLECTIONS:VIEW",
       "BILLING_SERVICE:VIEW",
-      "USERS:READ",
     ],
   },
   {
@@ -226,8 +221,6 @@ export const NAVIGATION: NavItem[] = [
     icon: Receipt,
     anyPermissions: [
       "FINANCE_COLLECTIONS:VIEW",
-      "DASHBOARD:VIEW",
-      "USERS:READ",
     ],
   },
   {
@@ -238,8 +231,6 @@ export const NAVIGATION: NavItem[] = [
       "RECEIPT_TEMPLATE:VIEW",
       "RECEIPT_TEMPLATE:CREATE",
       "RECEIPT_TEMPLATE:UPDATE",
-      "DASHBOARD:VIEW",
-      "USERS:READ",
     ],
   },
   {
