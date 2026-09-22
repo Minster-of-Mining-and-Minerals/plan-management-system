@@ -4,7 +4,16 @@ const { Model } = require("sequelize");
 
 module.exports = (sequelize, DataTypes) => {
   class ClinicalWorkflowDefinition extends Model {
-    static associate(models) {}
+    static associate(models) {
+      ClinicalWorkflowDefinition.hasMany(models.WorkflowStepDefinition, {
+        foreignKey: "workflow_id",
+        as: "stepDefinitions",
+      });
+      ClinicalWorkflowDefinition.hasMany(models.WorkflowInstance, {
+        foreignKey: "workflow_id",
+        as: "instances",
+      });
+    }
   }
 
   ClinicalWorkflowDefinition.init(

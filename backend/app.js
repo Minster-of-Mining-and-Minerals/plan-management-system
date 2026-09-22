@@ -40,6 +40,8 @@ const diagnosisRecordRoutes = require("./routers/diagnosis/diagnosisRecordRoutes
 const medicalDiagramRoutes = require("./routers/diagnosis/medicalDiagramRoutes");
 const medicalDiagramCategoryRoutes = require("./routers/diagnosis/medicalDiagramCategoryRoutes");
 const medicalWorkflowRoutes = require("./routers/workflow/medicalWorkflowRoutes");
+const workflowBuilderRoutes = require("./routers/workflow/workflowBuilderRoutes");
+const workflowExecutionRoutes = require("./routers/workflow/workflowExecutionRoutes");
 const executionQueueRoutes = require("./routers/workflow/executionQueueRoutes");
 const patientLocationRoutes = require("./routers/clinical/patientLocationRoutes");
 const carePlanRoutes = require("./routers/careManagement/carePlanRoutes");
@@ -220,6 +222,8 @@ app.use("/api/diagnosis-records", diagnosisRecordRoutes);
 app.use("/api/medical-diagrams", medicalDiagramRoutes);
 app.use("/api/medical-diagram-categories", medicalDiagramCategoryRoutes);
 app.use("/api/workflow", medicalWorkflowRoutes);
+app.use("/api/workflow-builder", workflowBuilderRoutes);
+app.use("/api/appointments/:appointment_id/workflow", workflowExecutionRoutes);
 app.use("/api/execution-queues", executionQueueRoutes);
 app.use("/api/patient-locations", patientLocationRoutes);
 app.use("/api/care-plans", carePlanRoutes);

@@ -83,6 +83,73 @@ export const clinicalWorkflowApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["ClinicalOrder"],
     }),
+    getBuilderWorkflowDefinitions: builder.query<any[], void>({
+      query: () => "/workflow-builder",
+      providesTags: ["ClinicalOrder"],
+    }),
+    getBuilderWorkflowById: builder.query<any, string>({
+      query: (id) => `/workflow-builder/${id}`,
+      providesTags: ["ClinicalOrder"],
+    }),
+    createBuilderWorkflow: builder.mutation<any, any>({
+      query: (body) => ({
+        url: "/workflow-builder",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["ClinicalOrder"],
+    }),
+    addBuilderWorkflowStep: builder.mutation<any, { workflow_id: string; step_data: any }>({
+      query: ({ workflow_id, step_data }) => ({
+        url: `/workflow-builder/${workflow_id}/steps`,
+        method: "POST",
+        body: step_data,
+      }),
+      invalidatesTags: ["ClinicalOrder"],
+    }),
+    reorderBuilderSteps: builder.mutation<any, { workflow_id: string; stepIds: string[] }>({
+      query: ({ workflow_id, stepIds }) => ({
+        url: `/workflow-builder/${workflow_id}/reorder`,
+        method: "PUT",
+        body: { stepIds },
+      }),
+      invalidatesTags: ["ClinicalOrder"],
+    }),
+    deleteBuilderStep: builder.mutation<any, { workflow_id: string; step_id: string }>({
+      query: ({ workflow_id, step_id }) => ({
+        url: `/workflow-builder/${workflow_id}/steps/${step_id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["ClinicalOrder"],
+    }),
+    startWorkflowExecution: builder.mutation<any, { appointment_id: string; workflow_id: string }>({
+      query: (body) => ({
+        url: `/appointments/${body.appointment_id}/workflow/start`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["ClinicalOrder"],
+    }),
+    getWorkflowExecutionState: builder.query<any, string>({
+      query: (appointment_id) => `/appointments/${appointment_id}/workflow`,
+      providesTags: ["ClinicalOrder"],
+    }),
+    completeWorkflowExecutionStep: builder.mutation<any, { appointment_id: string; step_instance_id: string; form_data?: any; form_config_id?: string; notes?: string }>({
+      query: ({ appointment_id, step_instance_id, ...body }) => ({
+        url: `/appointments/${appointment_id}/workflow/steps/${step_instance_id}/complete`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["ClinicalOrder"],
+    }),
+    forwardWorkflowExecutionStep: builder.mutation<any, { appointment_id: string; step_instance_id: string; to_staff_id: string; notes?: string }>({
+      query: ({ appointment_id, step_instance_id, ...body }) => ({
+        url: `/appointments/${appointment_id}/workflow/steps/${step_instance_id}/forward`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["ClinicalOrder"],
+    }),
   }),
 });
 
@@ -92,4 +159,14 @@ export const {
   useSubmitClinicalIntentMutation,
   useGetWorkflowDefinitionsQuery,
   useExecuteOrderStepMutation,
+  useGetBuilderWorkflowDefinitionsQuery,
+  useGetBuilderWorkflowByIdQuery,
+  useCreateBuilderWorkflowMutation,
+  useAddBuilderWorkflowStepMutation,
+  useReorderBuilderStepsMutation,
+  useDeleteBuilderStepMutation,
+  useStartWorkflowExecutionMutation,
+  useGetWorkflowExecutionStateQuery,
+  useCompleteWorkflowExecutionStepMutation,
+  useForwardWorkflowExecutionStepMutation,
 } = clinicalWorkflowApi;
