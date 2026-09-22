@@ -161,7 +161,11 @@ const createUser = async (req, res) => {
     await t.commit();
 
     // ====== Send welcome email ======
-    await mailerService.sendWelcomeEmail(email, full_name, password);
+    try {
+      await mailerService.sendWelcomeEmail(email, full_name, password);
+    } catch (emailError) {
+      console.error("Non-fatal: Failed to send welcome email:", emailError.message);
+    }
 
     const userJson = user.toJSON();
     delete userJson.password;
@@ -712,7 +716,11 @@ const resetUserPassword = async (req, res) => {
     });
 
     // Send email notification
-    await mailerService.sendPasswordResetConfirmation(user.email, user.full_name, newPassword);
+    try {
+      await mailerService.sendPasswordResetConfirmation(user.email, user.full_name, newPassword);
+    } catch (emailError) {
+      console.error("Non-fatal: Failed to send password reset email:", emailError.message);
+    }
 
     return res.status(200).json({
       success: true,
