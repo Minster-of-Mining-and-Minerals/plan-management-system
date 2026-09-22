@@ -87,8 +87,39 @@ module.exports = {
 
 
 
+      // Workflow
+      { resource: "workflow", action: "read" },
 
+      // Clinical Suggestions
+      { resource: "clinical_suggestion", action: "manage" },
+      { resource: "clinical_suggestion", action: "create" },
+      { resource: "clinical_suggestion", action: "update" },
 
+      // Prescriptions
+      { resource: "prescription_template", action: "view" },
+      { resource: "prescription_template", action: "manage" },
+      { resource: "prescription_category", action: "view" },
+
+      // Pharmacy
+      { resource: "pharmacy", action: "view" },
+      { resource: "pharmacy", action: "manage" },
+      { resource: "pharmacy", action: "create" },
+      { resource: "pharmacy", action: "user_manage" },
+
+      // Billing & Finance
+      { resource: "billing_service", action: "view" },
+      { resource: "billing_service", action: "create" },
+      { resource: "billing_service", action: "update" },
+      { resource: "cashier_queue", action: "view" },
+      { resource: "cashier_payment", action: "create" },
+      { resource: "cashier_session", action: "open" },
+      { resource: "finance_collections", action: "view" },
+      { resource: "receipt_template", action: "view" },
+      { resource: "receipt_template", action: "create" },
+      { resource: "receipt_template", action: "update" },
+
+      // Audit Log
+      { resource: "audit_log", action: "view" },
     ];
 
     for (const perm of permissions) {
