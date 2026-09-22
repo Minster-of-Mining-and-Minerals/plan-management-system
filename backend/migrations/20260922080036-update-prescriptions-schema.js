@@ -109,7 +109,7 @@ module.exports = {
       );
 
       // Remove obsolete columns if they exist
-      const tableDescription = await queryInterface.describeTable("prescriptions");
+      const tableDescription = await queryInterface.describeTable("prescriptions", { transaction });
 
       if (tableDescription.prescription_number) {
         await queryInterface.removeColumn("prescriptions", "prescription_number", { transaction });
