@@ -21,7 +21,7 @@ if [ ! -f "$CERT_PATH" ]; then
 
     # Wait for nginx to be available on port 80
     echo "[certbot] Waiting for Nginx to be ready on port 80..."
-    until wget -q -O /dev/null "http://nginx/health" 2>/dev/null; do
+    until wget -q -O /dev/null "http://plan-nginx/health" 2>/dev/null; do
         echo "[certbot] Nginx not ready yet. Retrying in 3 seconds..."
         sleep 3
     done
