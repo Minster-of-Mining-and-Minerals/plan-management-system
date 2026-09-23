@@ -584,7 +584,7 @@ async function computeMasterExecutionProgress(masterVersionId, transaction = nul
 
   const snapshotRootId = isExecutionSnapshotVersion(version)
     ? version.plan_version_id
-    : version.active_execution_snapshot_id;
+    : version.active_execution_snapshot_id || version.plan_version_id;
 
   if (!snapshotRootId) {
     return emptyMasterProgress();

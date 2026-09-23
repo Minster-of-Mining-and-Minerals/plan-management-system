@@ -43,13 +43,11 @@ async function enrichMasterPlanRow(master) {
   let has_contributing_data = false;
   let active_planning_year = null;
 
-  if (plain.process_started_at) {
-    const progress = await computeMasterExecutionProgress(plain.plan_version_id);
-    execution_progress_percent = progress.execution_progress_percent;
-    execution_annual_progress = progress.execution_annual_progress ?? [];
-    has_contributing_data = progress.has_contributing_data;
-    active_planning_year = progress.active_planning_year ?? null;
-  }
+  const progress = await computeMasterExecutionProgress(plain.plan_version_id);
+  execution_progress_percent = progress.execution_progress_percent;
+  execution_annual_progress = progress.execution_annual_progress ?? [];
+  has_contributing_data = progress.has_contributing_data;
+  active_planning_year = progress.active_planning_year ?? null;
 
   return {
     plan_version_id: plain.plan_version_id,
@@ -73,11 +71,11 @@ async function enrichMasterPlanRow(master) {
 async function resolveSnapshotMaster(liveMasterId) {
   const master = await PlanVersion.findByPk(liveMasterId);
   if (!master?.active_execution_snapshot_id) {
-    return null;
+    return master;
   }
 
   const versionMap = await buildLiveToSnapshotVersionMap(master.active_execution_snapshot_id);
-  return versionMap.get(liveMasterId) ?? null;
+  return versionMap.get(liveMasterId) ?? master;
 }
 
 function classifyPeriodPhase(executionStatus) {
@@ -505,7 +503,7 @@ async function getPlanExecutionDashboard(req, query = {}) {
     query.master_plan_version_id &&
     planRows.some((plan) => plan.plan_version_id === query.master_plan_version_id)
       ? query.master_plan_version_id
-      : planRows.find((plan) => plan.process_started_at)?.plan_version_id ?? null;
+      : planRows.find((plan) => plan.process_started_at)?.plan_version_id ?? planRows[0]?.plan_version_id ?? null;
 
   const progressTree = focusMasterId
     ? await buildProgressTreeForMaster(focusMasterId, query.period_version_id || null)

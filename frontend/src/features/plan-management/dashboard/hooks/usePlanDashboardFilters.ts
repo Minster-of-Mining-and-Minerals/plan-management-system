@@ -144,7 +144,7 @@ export function usePlanDashboardFilters() {
   }, [data.users, filters.structureId, filters.departmentId]);
 
   const executionPlanOptions = useMemo(
-    () => data.plans.filter((plan) => plan.process_started_at),
+    () => data.plans,
     [data.plans]
   );
 

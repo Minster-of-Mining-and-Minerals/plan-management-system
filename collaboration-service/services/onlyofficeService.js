@@ -26,6 +26,11 @@ function buildEditorConfig(document, user, mode) {
       key: document.document_key,
       title: document.title,
       url: `${publicBaseUrl}/api/v1/documents/${document.document_id}/file?token=${fileToken}`,
+      permissions: {
+        edit: mode === "edit",
+        download: true,
+        print: true
+      }
     },
     documentType: onlyofficeDocumentType(document.file_type),
     editorConfig: {
