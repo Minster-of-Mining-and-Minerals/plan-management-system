@@ -47,11 +47,6 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-#Admin2026}
-    ports:
-      # Expose for internal debugging if necessary, otherwise remove.
-      # Usually not exposed in production unless specifically required.
-      - "127.0.0.1:4000:4000"
-
     volumes:
       - ./backend/uploads:/app/uploads
     networks:
