@@ -6,7 +6,7 @@ const controller = require("../../controllers/workflowBuilderController");
 const authMiddleware = require("../../middlewares/authMiddleware");
 
 // Ideally we'd add RBAC middlewares here
-router.use(authMiddleware.verifyToken);
+router.use(authMiddleware.authenticateToken);
 
 router.get("/", controller.getWorkflows);
 router.post("/", controller.createWorkflow);

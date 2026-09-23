@@ -5,7 +5,7 @@ const router = express.Router({ mergeParams: true }); // Important if we nest it
 const controller = require("../../controllers/workflowExecutionController");
 const authMiddleware = require("../../middlewares/authMiddleware");
 
-router.use(authMiddleware.verifyToken);
+router.use(authMiddleware.authenticateToken);
 
 router.post("/start", controller.startWorkflow);
 router.get("/", controller.getWorkflowState);
