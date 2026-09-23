@@ -82,6 +82,8 @@ services:
       plan-backend:
         condition: service_healthy
     environment:
+      HOSTNAME: "0.0.0.0"
+      PORT: "3000"
       NEXT_PUBLIC_BASE_URL: https://plan.system.com.et/api
       NEXT_PUBLIC_FILE_URL: https://plan.system.com.et
       NEXT_PUBLIC_FRONTEND_URL: https://plan.system.com.et
