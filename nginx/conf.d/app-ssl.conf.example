@@ -3,14 +3,14 @@
 
 server {
     listen 80;
-    server_name novacure.example.com localhost;
+    server_name plan.system.com.et localhost;
 
     return 301 https://$host$request_uri;
 }
 
 server {
     listen 443 ssl http2;
-    server_name novacure.example.com localhost;
+    server_name plan.system.com.et localhost;
 
     include /etc/nginx/snippets/ssl.conf;
     include /etc/nginx/snippets/security-headers.conf;

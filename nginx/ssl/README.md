@@ -22,14 +22,14 @@ Place certificate files in this directory:
 ## Obtain certificates (Let's Encrypt example)
 
 ```bash
-certbot certonly --standalone -d novacure.example.com
-cp /etc/letsencrypt/live/novacure.example.com/fullchain.pem .
-cp /etc/letsencrypt/live/novacure.example.com/privkey.pem .
+certbot certonly --standalone -d plan.system.com.et
+cp /etc/letsencrypt/live/plan.system.com.et/fullchain.pem .
+cp /etc/letsencrypt/live/plan.system.com.et/privkey.pem .
 ```
 
 Update frontend/API env for HTTPS:
 
-- `NEXT_PUBLIC_BASE_URL=https://novacure.example.com/api`
-- `NEXT_PUBLIC_FILE_URL=https://novacure.example.com`
-- `NEXT_PUBLIC_FRONTEND_URL=https://novacure.example.com`
-- `FRONTEND_URL=https://novacure.example.com`
+- `NEXT_PUBLIC_BASE_URL=https://plan.system.com.et/api`
+- `NEXT_PUBLIC_FILE_URL=https://plan.system.com.et`
+- `NEXT_PUBLIC_FRONTEND_URL=https://plan.system.com.et`
+- `FRONTEND_URL=https://plan.system.com.et`
