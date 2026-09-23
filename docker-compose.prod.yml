@@ -29,6 +29,7 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
+      NODE_OPTIONS: '--dns-result-order=ipv4first'
       PORT: 4000
       TZ: ${TZ:-Africa/Addis_Ababa}
       DB_HOST: plan-postgres
@@ -50,7 +51,7 @@ services:
       # Expose for internal debugging if necessary, otherwise remove.
       # Usually not exposed in production unless specifically required.
       - "127.0.0.1:4000:4000"
-    entrypoint: /bin/sh -c "npx sequelize-cli db:migrate && npx sequelize-cli db:seed:all && node app.js"
+
     volumes:
       - ./backend/uploads:/app/uploads
     networks:
