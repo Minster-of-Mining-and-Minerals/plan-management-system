@@ -163,6 +163,10 @@ app.use("/api/notifications", notificationRoutes);
 // ================== Api Attachment Routes =====================
 app.use("/api/attachments", attachmentRoute);
 
+// ================== Health Check Route ========================
+const healthRoutes = require("./routers/healthRoutes");
+app.use("/api", healthRoutes);
+
 // ================== Root Endpoint ==================
 app.get("/", (req, res) => {
   res.json({ message: "Welcome to Issue Tracking System API 🚀" });
