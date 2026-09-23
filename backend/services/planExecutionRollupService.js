@@ -69,12 +69,27 @@ function evaluateLeafNode(node, rollupContext = {}, rule = null) {
   }
 
   const target = Number(node.period_target) || 0;
+  const hasActual = hasRecordedActual(node, rollupContext);
 
-  if (target <= 0) {
+  if (target <= 0 && !hasActual) {
     return emptyNodeMetrics();
   }
 
-  const hasActual = hasRecordedActual(node, rollupContext);
+  if (target <= 0 && hasActual) {
+    const actual = Number(node.period_actual);
+    return {
+      execution_progress_percent: 100, // No target but has actual, consider 100% achieved for that node
+      is_evaluable: true,
+      evaluation_status: EVALUATION_STATUS.COMPLETED,
+      has_contributing_data: true,
+      computed_period_actual: actual,
+      computed_period_target: target,
+      raw_performance_percentage: null,
+      variance: null,
+      variance_percentage: null,
+      variance_type: null,
+    };
+  }
   const policy = resolvePerformanceScoringPolicyFromRule(rule);
 
   if (!hasActual) {
@@ -113,12 +128,27 @@ function evaluateLeafNode(node, rollupContext = {}, rule = null) {
 
 function evaluateAnnualModeLeafNode(node, rollupContext = {}, rule = null) {
   const target = Number(node.annual_target) || 0;
+  const hasActual = nodeContributesAnnualAchievementToRollup(node, rollupContext);
 
-  if (target <= 0) {
+  if (target <= 0 && !hasActual) {
     return emptyNodeMetrics();
   }
 
-  const hasActual = nodeContributesAnnualAchievementToRollup(node, rollupContext);
+  if (target <= 0 && hasActual) {
+    const actual = Number(node.annual_actual);
+    return {
+      execution_progress_percent: 100, // No target but has actual, consider 100% achieved
+      is_evaluable: true,
+      evaluation_status: EVALUATION_STATUS.COMPLETED,
+      has_contributing_data: true,
+      computed_period_actual: actual,
+      computed_period_target: target,
+      raw_performance_percentage: null,
+      variance: null,
+      variance_percentage: null,
+      variance_type: null,
+    };
+  }
   const policy = resolvePerformanceScoringPolicyFromRule(rule);
 
   if (!hasActual) {
