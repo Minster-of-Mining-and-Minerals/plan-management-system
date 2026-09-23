@@ -14,16 +14,13 @@ require("dotenv").config({ path: require("path").resolve(__dirname, "../.env") }
 const { Sequelize } = require("sequelize");
 const config = require("../config/config.js")[process.env.NODE_ENV || "development"];
 
-const BASELINE_MIGRATIONS = [
-  "20260101000001-create-permissions-and-rbac.js",
-  "20260101000002-create-users.js",
-  "20260101000003-create-user-rbac-junctions.js",
-  "20260101000004-create-departments-and-user-titles.js",
-  "20260101000005-create-user-profiles.js",
-  "20260101000006-create-form-field-system.js",
-  "20260101000007-create-system-branding-and-audit-logs.js",
-  "20260101000008-create-attachments.js",
-];
+const fs = require("fs");
+const path = require("path");
+
+const migrationsDir = path.resolve(__dirname, "../migrations");
+const BASELINE_MIGRATIONS = fs.readdirSync(migrationsDir)
+  .filter(file => file.endsWith(".js") && !file.startsWith("_"))
+  .sort();
 
 async function main() {
   const sequelize = new Sequelize(
