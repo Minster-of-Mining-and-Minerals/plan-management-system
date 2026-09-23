@@ -2,6 +2,8 @@
 set -e
 
 if [ "${RUN_DB_MIGRATIONS:-true}" = "true" ]; then
+  echo "[entrypoint] Marking baseline migrations..."
+  npm run db:baseline:mark || true
   echo "[entrypoint] Running database migrations..."
   npx sequelize-cli db:migrate
 else
