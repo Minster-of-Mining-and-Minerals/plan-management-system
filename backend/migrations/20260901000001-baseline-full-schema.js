@@ -22,9 +22,8 @@ const SCHEMA_PATH = path.join(
 
 function loadSchemaSql() {
   if (!fs.existsSync(SCHEMA_PATH)) {
-    throw new Error(
-      `Baseline schema not found at ${SCHEMA_PATH}. Run: node scripts/db-snapshot.js schema && node scripts/clean-baseline-schema.js`
-    );
+    console.warn(`Baseline schema not found at ${SCHEMA_PATH}. Skipping baseline migration.`);
+    return "";
   }
   let sql = fs.readFileSync(SCHEMA_PATH, "utf8");
   // PG 16 (and Sequelize error mapping): strip PG 17+ dump settings.
@@ -36,6 +35,7 @@ function loadSchemaSql() {
 module.exports = {
   async up(queryInterface) {
     const sql = loadSchemaSql();
+    if (!sql) return;
     // Execute as one script so CREATE TYPE / TABLE / CONSTRAINT order is preserved.
     // Avoid Sequelize wrapping quirks by using the dialect connection directly.
     const sequelize = queryInterface.sequelize;
