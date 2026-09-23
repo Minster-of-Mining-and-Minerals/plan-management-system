@@ -1,7 +1,7 @@
 services:
-  postgres:
+  plan-postgres:
     image: postgres:16-alpine
-    container_name: novacure-postgres-prod
+    container_name: plan-postgres
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -9,37 +9,37 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-novadb}
       TZ: UTC
     volumes:
-      - novacure_pg_data_prod:/var/lib/postgresql/data
+      - plan_pg_data:/var/lib/postgresql/data
     networks:
-      - novacure_prod_network
+      - plan_network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 10
 
-  api:
+  plan-backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: novacure-api-prod
+    container_name: plan-backend
     restart: always
     depends_on:
-      postgres:
+      plan-postgres:
         condition: service_healthy
     environment:
       NODE_ENV: production
       PORT: 4000
       TZ: ${TZ:-Africa/Addis_Ababa}
-      DB_HOST: postgres
+      DB_HOST: plan-postgres
       DB_PORT: 5432
       DB_USERNAME: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD before starting api}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD before starting plan-backend}
       DB_NAME: ${POSTGRES_DB:-novadb}
       DB_DIALECT: postgres
       FRONTEND_URL: https://${DOMAIN}
       APP_NAME: NovaCure Platform
-      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET (>=32 chars) before starting api}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET (>=32 chars) before starting plan-backend}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-12h}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-}
@@ -54,7 +54,7 @@ services:
     volumes:
       - ./backend/uploads:/app/uploads
     networks:
-      - novacure_prod_network
+      - plan_network
     healthcheck:
       test:
         [
@@ -68,7 +68,7 @@ services:
       retries: 5
       start_period: 30s
 
-  web:
+  plan-frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -77,24 +77,24 @@ services:
         NEXT_PUBLIC_FILE_URL: https://${DOMAIN}
         NEXT_PUBLIC_FRONTEND_URL: https://${DOMAIN}
         NEXT_PUBLIC_APP_NAME: NovaCure Platform
-    container_name: novacure-web-prod
+    container_name: plan-frontend
     restart: always
     depends_on:
-      api:
+      plan-backend:
         condition: service_healthy
     environment:
       NEXT_PUBLIC_BASE_URL: https://${DOMAIN}/api
       NEXT_PUBLIC_FILE_URL: https://${DOMAIN}
       NEXT_PUBLIC_FRONTEND_URL: https://${DOMAIN}
       NEXT_PUBLIC_APP_NAME: NovaCure Platform
-      INTERNAL_API_URL: http://api:4000/api
-      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET before starting web}
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Set NEXTAUTH_SECRET before starting web}
+      INTERNAL_API_URL: http://plan-backend:4000/api
+      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET before starting plan-frontend}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Set NEXTAUTH_SECRET before starting plan-frontend}
       NEXTAUTH_URL: https://${DOMAIN}/api/auth
       NEXTAUTH_URL_INTERNAL: http://127.0.0.1:3000/api/auth
       AUTH_TRUST_HOST: "true"
     networks:
-      - novacure_prod_network
+      - plan_network
     healthcheck:
       test:
         [
@@ -108,9 +108,9 @@ services:
       retries: 5
       start_period: 45s
 
-  nginx:
+  plan-nginx:
     image: nginx:1.27-alpine
-    container_name: novacure-nginx-prod
+    container_name: plan-nginx
     restart: always
     ports:
       - "80:80"
@@ -128,28 +128,28 @@ services:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
     depends_on:
-      - web
-      - api
+      - plan-frontend
+      - plan-backend
     networks:
-      - novacure_prod_network
+      - plan_network
 
-  certbot:
+  plan-certbot:
     image: certbot/certbot
-    container_name: novacure-certbot
+    container_name: plan-certbot
     environment:
-      - CERTBOT_DOMAIN=${DOMAIN}
-      - CERTBOT_EMAIL=${CERTBOT_EMAIL}
+      - CERTBOT_DOMAIN=${DOMAIN:-plan.system.com.et}
+      - CERTBOT_EMAIL=${CERTBOT_EMAIL:-momsystemsupport@gmail.com}
     volumes:
       - ./nginx/certbot-entrypoint.sh:/certbot-entrypoint.sh
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
     entrypoint: /bin/sh /certbot-entrypoint.sh
     networks:
-      - novacure_prod_network
+      - plan_network
 
 volumes:
-  novacure_pg_data_prod:
+  plan_pg_data:
 
 networks:
-  novacure_prod_network:
+  plan_network:
     driver: bridge

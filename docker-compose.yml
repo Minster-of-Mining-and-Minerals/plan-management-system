@@ -1,7 +1,7 @@
 services:
-  postgres:
+  plan-postgres:
     image: postgres:16-alpine
-    container_name: novacure-postgres
+    container_name: plan-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -10,7 +10,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - novacure_pg_data:/var/lib/postgresql/data
+      - plan_pg_data:/var/lib/postgresql/data
       - ./database/01-restore-db.sh:/docker-entrypoint-initdb.d/01-restore-db.sh:ro
       - ./database.zip:/tmp/database.zip:ro
     healthcheck:
@@ -19,32 +19,32 @@ services:
       timeout: 5s
       retries: 10
 
-  api:
+  plan-backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: novacure-api
+    container_name: plan-backend
     restart: unless-stopped
     depends_on:
-      postgres:
+      plan-postgres:
         condition: service_healthy
     environment:
       NODE_ENV: production
       PORT: 4000
       TZ: ${TZ:-Africa/Addis_Ababa}
-      DB_HOST: postgres
+      DB_HOST: plan-postgres
       DB_PORT: 5432
       DB_USERNAME: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD before starting api}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD before starting plan-backend}
       DB_NAME: ${POSTGRES_DB:-novadb}
       DB_DIALECT: postgres
-      RUN_DB_MIGRATIONS: "false"
+      RUN_DB_MIGRATIONS: "true"
       RUN_COLLABORATION_MIGRATIONS: "false"
-      RUN_DB_SEEDERS: "false"
+      RUN_DB_SEEDERS: "true"
       FRONTEND_URL: ${FRONTEND_URL:-https://plan.system.com.et}
       APP_NAME: NovaCure Platform
       # Required in production (≥32 chars). Set in shell or .env beside compose.
-      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET (≥32 chars) before starting api}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET (≥32 chars) before starting plan-backend}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-12h}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-}
@@ -67,7 +67,7 @@ services:
       retries: 5
       start_period: 30s
 
-  web:
+  plan-frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -76,18 +76,18 @@ services:
         NEXT_PUBLIC_FILE_URL: https://plan.system.com.et
         NEXT_PUBLIC_FRONTEND_URL: https://plan.system.com.et
         NEXT_PUBLIC_APP_NAME: NovaCure Platform
-    container_name: novacure-web
+    container_name: plan-frontend
     restart: unless-stopped
     depends_on:
-      api:
+      plan-backend:
         condition: service_healthy
     environment:
       NEXT_PUBLIC_BASE_URL: https://plan.system.com.et/api
       NEXT_PUBLIC_FILE_URL: https://plan.system.com.et
       NEXT_PUBLIC_FRONTEND_URL: https://plan.system.com.et
       NEXT_PUBLIC_APP_NAME: NovaCure Platform
-      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET before starting web}
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Set NEXTAUTH_SECRET before starting web}
+      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET before starting plan-frontend}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Set NEXTAUTH_SECRET before starting plan-frontend}
     ports:
       - "3000:3000"
     healthcheck:
@@ -103,14 +103,14 @@ services:
       retries: 5
       start_period: 45s
 
-  nginx:
+  plan-nginx:
     image: nginx:1.27-alpine
-    container_name: novacure-nginx
+    container_name: plan-nginx
     restart: unless-stopped
     depends_on:
-      api:
+      plan-backend:
         condition: service_healthy
-      web:
+      plan-frontend:
         condition: service_healthy
     ports:
       - "80:80"
@@ -127,4 +127,4 @@ services:
       start_period: 10s
 
 volumes:
-  novacure_pg_data:
+  plan_pg_data:
