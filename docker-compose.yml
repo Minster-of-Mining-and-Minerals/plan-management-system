@@ -40,7 +40,7 @@ services:
       DB_DIALECT: postgres
       RUN_DB_MIGRATIONS: "true"
       RUN_COLLABORATION_MIGRATIONS: "false"
-      RUN_DB_SEEDERS: "true"
+      RUN_DB_SEEDERS: "false"
       FRONTEND_URL: ${FRONTEND_URL:-https://plan.system.com.et}
       APP_NAME: NovaCure Platform
       # Required in production (≥32 chars). Set in shell or .env beside compose.
