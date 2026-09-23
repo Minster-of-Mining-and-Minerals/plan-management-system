@@ -24,21 +24,21 @@ const changePasswordRoutes = require("./routers/user/passwordChangeRoutes");
 const forgotPasswordRoutes = require("./routers/user/forgotPasswordRoutes");
 
 // Structure Routes
-const governmentStructureRoutes = require("./routers/structure/governmentStructureRoutes");
-const internalStructureRoutes = require("./routers/structure/internalStructureRoutes");
+
+
 
 // Plan Management Routes
-const planRoutes = require("./routers/plan/planRoutes");
-const planAssignmentRoutes = require("./routers/plan/planAssignmentRoutes");
-const performanceColorThresholdRoutes = require("./routers/config/performanceColorThresholdRoutes");
-const brandingRoutes = require("./routers/config/brandingRoutes");
-const systemSettingsRoutes = require("./routers/config/systemSettingsRoutes");
-const systemAuditLogRoutes = require("./routers/config/systemAuditLogRoutes");
-const noteRoutes = require("./routers/config/noteRoutes");
+// const planRoutes = require("./routers/plan/planRoutes");
+// const planAssignmentRoutes = require("./routers/plan/planAssignmentRoutes");
+// const performanceColorThresholdRoutes = require("./routers/config/performanceColorThresholdRoutes");
+// const brandingRoutes = require("./routers/config/brandingRoutes");
+// const systemSettingsRoutes = require("./routers/config/systemSettingsRoutes");
+// const systemAuditLogRoutes = require("./routers/config/systemAuditLogRoutes");
+// const noteRoutes = require("./routers/config/noteRoutes");
 const notificationRoutes = require("./routers/notification/notificationRoutes");
-const issueRoutes = require("./routers/issue/issueRoutes");
-const issueCategoryRoutes = require("./routers/issue/issueCategoryRoutes");
-const formConfigContainerRoutes = require("./routers/issue/formConfigContainerRoutes");
+// const issueRoutes = require("./routers/issue/issueRoutes");
+// const issueCategoryRoutes = require("./routers/issue/issueCategoryRoutes");
+// const formConfigContainerRoutes = require("./routers/issue/formConfigContainerRoutes");
 
 // ================== Attachment Routes ==========================
 const attachmentRoute = require("./routers/attachment-routes/attachmentRoute");
@@ -144,21 +144,21 @@ app.use("/api/permission-groups", permissionGroupRoute);
 
 
 // Structure Routes
-app.use("/api/government-structures", governmentStructureRoutes);
-app.use("/api/internal-structures", internalStructureRoutes);
+
+
 
 // Plan Management Routes
-app.use("/api/plan", planRoutes);
-app.use("/api/plan-assignments", planAssignmentRoutes);
-app.use("/api/performance-color-thresholds", performanceColorThresholdRoutes);
-app.use("/api/branding", brandingRoutes);
-app.use("/api/system-settings", systemSettingsRoutes);
-app.use("/api/system-audit-logs", systemAuditLogRoutes);
-app.use("/api/notes", noteRoutes);
+// app.use("/api/plan", planRoutes);
+// app.use("/api/plan-assignments", planAssignmentRoutes);
+// app.use("/api/performance-color-thresholds", performanceColorThresholdRoutes);
+// app.use("/api/branding", brandingRoutes);
+// app.use("/api/system-settings", systemSettingsRoutes);
+// app.use("/api/system-audit-logs", systemAuditLogRoutes);
+// app.use("/api/notes", noteRoutes);
 app.use("/api/notifications", notificationRoutes);
-app.use("/api/issues", issueRoutes);
-app.use("/api/issue-categories", issueCategoryRoutes);
-app.use("/api/form-config-containers", formConfigContainerRoutes);
+// app.use("/api/issues", issueRoutes);
+// app.use("/api/issue-categories", issueCategoryRoutes);
+// app.use("/api/form-config-containers", formConfigContainerRoutes);
 
 // ================== Api Attachment Routes =====================
 app.use("/api/attachments", attachmentRoute);
@@ -178,7 +178,8 @@ app.use((err, req, res, next) => {
 });
 
 // ================== Start App Server ==================
-const { warmSystemSettingsCache } = require("./services/systemSettingsService");
+// const { warmSystemSettingsCache } = require("./services/systemSettingsService");
+const warmSystemSettingsCache = async () => {};
 
 const appPort = process.env.PORT || 4000;
 const appHost = process.env.HOST || "0.0.0.0";
