@@ -247,6 +247,10 @@ async function buildAssignmentAchievementMetrics(focusContexts) {
             departmentBuckets.set(deptId, createAggregateBucket());
           }
           departmentBuckets.get(deptId).userIds.add(userId);
+          
+          if (!assignment.internal_structure_id) {
+            applyContribution(departmentBuckets.get(deptId), contribution, meta);
+          }
         }
       }
     }
