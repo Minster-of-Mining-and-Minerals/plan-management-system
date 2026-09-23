@@ -38,6 +38,9 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD before starting api}
       DB_NAME: ${POSTGRES_DB:-novadb}
       DB_DIALECT: postgres
+      RUN_DB_MIGRATIONS: "false"
+      RUN_COLLABORATION_MIGRATIONS: "false"
+      RUN_DB_SEEDERS: "false"
       FRONTEND_URL: ${FRONTEND_URL:-https://plan.system.com.et}
       APP_NAME: NovaCure Platform
       # Required in production (≥32 chars). Set in shell or .env beside compose.
