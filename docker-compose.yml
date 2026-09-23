@@ -49,10 +49,12 @@ services:
     container_name: mom-onlyoffice
     restart: unless-stopped
     environment:
-      JWT_ENABLED: ${ONLYOFFICE_JWT_ENABLED:-false}
+      JWT_ENABLED: ${ONLYOFFICE_JWT_ENABLED:-true}
       JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:-onlyoffice-jwt-secret}
       ALLOW_PRIVATE_IP_ADDRESS: "true"
       ALLOW_META_IP_ADDRESS: "true"
+    extra_hosts:
+      - "${APP_DOMAIN:-plan.system.com.et}:host-gateway"
     volumes:
       - onlyoffice_data:/var/www/onlyoffice/Data
       - onlyoffice_logs:/var/log/onlyoffice
@@ -106,7 +108,7 @@ services:
       COLLABORATION_DB_NAME: ${COLLABORATION_DB_NAME:-collaboration_service}
       COLLABORATION_PUBLIC_URL: ${COLLABORATION_PUBLIC_URL:-http://backend:4000}
       ONLYOFFICE_URL: ${ONLYOFFICE_URL:-http://localhost/onlyoffice}
-      ONLYOFFICE_JWT_ENABLED: ${ONLYOFFICE_JWT_ENABLED:-false}
+      ONLYOFFICE_JWT_ENABLED: ${ONLYOFFICE_JWT_ENABLED:-true}
       ONLYOFFICE_JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:-onlyoffice-jwt-secret}
       FILE_TOKEN_SECRET: ${FILE_TOKEN_SECRET:-collaboration-file-token-secret}
       FILE_TOKEN_TTL_SECONDS: ${FILE_TOKEN_TTL_SECONDS:-3600}

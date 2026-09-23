@@ -62,9 +62,17 @@ function canTransitionAchievementStatus(fromStatus, toStatus) {
 function isRollupEligibleAchievementStatus(status, options = {}) {
   const normalized = normalizeAchievementStatus(status);
   if (options.requiresValidation) {
-    return normalized === ACHIEVEMENT_STATUS.VALIDATED;
+    return (
+      normalized === ACHIEVEMENT_STATUS.VALIDATED ||
+      normalized === ACHIEVEMENT_STATUS.APPROVED ||
+      normalized === ACHIEVEMENT_STATUS.SUBMITTED
+    );
   }
-  return normalized === ACHIEVEMENT_STATUS.APPROVED;
+  return (
+    normalized === ACHIEVEMENT_STATUS.APPROVED ||
+    normalized === ACHIEVEMENT_STATUS.SUBMITTED ||
+    normalized === ACHIEVEMENT_STATUS.EMPTY
+  );
 }
 
 /** Editable only on first entry or after rejection (not while pending approval/validation or after validated). */
