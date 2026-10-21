@@ -20,13 +20,24 @@ const {
   PUBLISH_STATUS,
 } = require("./planSectorAggregationPublishService");
 
-async function resolveApproverGateMasterNodeIds(masterVersionId, transaction = null) {
-  const context = await loadMasterPlanAssignments(masterVersionId, transaction);
+async function resolveApproverGateMasterNodeIds(
+  masterVersionId,
+  transaction = null,
+  options = {}
+) {
+  const contextCache = options.contextCache;
+  const context = contextCache?.masterAssignments?.has(masterVersionId)
+    ? contextCache.masterAssignments.get(masterVersionId)
+    : await loadMasterPlanAssignments(masterVersionId, transaction);
+  if (contextCache?.masterAssignments && !contextCache.masterAssignments.has(masterVersionId)) {
+    contextCache.masterAssignments.set(masterVersionId, context);
+  }
+
   const candidateUserIds = await collectCandidateApproverUserIds(
     context.internalAssignments,
     transaction
   );
-  const users = await loadUsersWithEffectivePermissions(candidateUserIds, transaction);
+  const users = await loadUsersWithEffectivePermissions(candidateUserIds, transaction, options);
   const gateNodeIds = new Set();
 
   for (const user of users) {
@@ -49,7 +60,8 @@ async function resolveApproverGateMasterNodeIds(masterVersionId, transaction = n
   const sectorGateIds = await resolveSectorApproverGateMasterNodeIds(
     masterVersionId,
     context.masterNodes,
-    transaction
+    transaction,
+    options
   );
   for (const nodeId of sectorGateIds) {
     gateNodeIds.add(nodeId);
@@ -58,30 +70,52 @@ async function resolveApproverGateMasterNodeIds(masterVersionId, transaction = n
   return gateNodeIds;
 }
 
-async function buildMasterNodeIdByPeriodNodeId(periodVersionId, transaction = null) {
-  const periodNodes = await PlanNode.findAll({
-    where: { plan_version_id: periodVersionId, is_active: true },
-    attributes: ["plan_node_id", "source_plan_node_id"],
-    transaction,
-  });
+async function buildMasterNodeIdByPeriodNodeId(periodVersionId, transaction = null, options = {}) {
+  const cache = options?.contextCache?.masterNodeIdByPeriodNodeIdCache;
+  if (cache && cache.has(periodVersionId)) {
+    return cache.get(periodVersionId);
+  }
+
+  const cachedPeriodNodes = options?.contextCache?.nodesByVersionId?.get(periodVersionId);
+  const periodNodes = cachedPeriodNodes
+    ? cachedPeriodNodes
+    : await PlanNode.findAll({
+        where: { plan_version_id: periodVersionId, is_active: true },
+        attributes: ["plan_node_id", "source_plan_node_id"],
+        transaction,
+      });
 
   const annualNodeIds = [
     ...new Set(periodNodes.map((node) => node.source_plan_node_id).filter(Boolean)),
   ];
 
   if (!annualNodeIds.length) {
-    return new Map();
+    const emptyMap = new Map();
+    if (cache) cache.set(periodVersionId, emptyMap);
+    return emptyMap;
   }
 
-  const annualNodes = await PlanNode.findAll({
-    where: { plan_node_id: { [Op.in]: annualNodeIds } },
-    attributes: ["plan_node_id", "source_plan_node_id"],
-    transaction,
-  });
+  const periodVersion = options?.contextCache?.planVersionById?.get(periodVersionId);
+  const annualVersionId = periodVersion?.parent_plan_version_id;
+  const cachedAnnualNodes = annualVersionId
+    ? options?.contextCache?.nodesByVersionId?.get(annualVersionId)
+    : null;
 
-  const annualToMaster = new Map(
-    annualNodes.map((node) => [node.plan_node_id, node.source_plan_node_id])
-  );
+  let annualToMaster = null;
+  if (cachedAnnualNodes) {
+    annualToMaster = new Map(
+      cachedAnnualNodes.map((node) => [node.plan_node_id, node.source_plan_node_id])
+    );
+  } else {
+    const annualNodes = await PlanNode.findAll({
+      where: { plan_node_id: { [Op.in]: annualNodeIds } },
+      attributes: ["plan_node_id", "source_plan_node_id"],
+      transaction,
+    });
+    annualToMaster = new Map(
+      annualNodes.map((node) => [node.plan_node_id, node.source_plan_node_id])
+    );
+  }
 
   const masterNodeIdByPeriodNodeId = new Map();
   for (const periodNode of periodNodes) {
@@ -91,11 +125,12 @@ async function buildMasterNodeIdByPeriodNodeId(periodVersionId, transaction = nu
     }
   }
 
+  if (cache) cache.set(periodVersionId, masterNodeIdByPeriodNodeId);
   return masterNodeIdByPeriodNodeId;
 }
 
-async function buildRollupContextForPeriod(periodVersionId, transaction = null) {
-  const masterVersionId = await resolveMasterVersionId(periodVersionId, transaction);
+async function buildRollupContextForPeriod(periodVersionId, transaction = null, options = {}) {
+  const masterVersionId = await resolveMasterVersionId(periodVersionId, transaction, options);
   if (!masterVersionId) {
     return {
       masterNodes: [],
@@ -111,7 +146,27 @@ async function buildRollupContextForPeriod(periodVersionId, transaction = null) 
     };
   }
 
-  const { masterNodes } = await loadMasterPlanAssignments(masterVersionId, transaction);
+  const contextCache = options.contextCache;
+
+  const getOrCompute = async (cacheMap, key, computeFn) => {
+    if (cacheMap && cacheMap.has(key)) {
+      return cacheMap.get(key);
+    }
+    const result = await computeFn();
+    if (cacheMap) {
+      cacheMap.set(key, result);
+    }
+    return result;
+  };
+
+  const masterAssignmentData = contextCache?.masterAssignments
+    ? await getOrCompute(contextCache.masterAssignments, masterVersionId, () =>
+        loadMasterPlanAssignments(masterVersionId, transaction)
+      )
+    : await loadMasterPlanAssignments(masterVersionId, transaction);
+
+  const masterNodes = masterAssignmentData.masterNodes;
+
   const [
     { users: sectorApprovers },
     { hasValidationGate },
@@ -120,11 +175,27 @@ async function buildRollupContextForPeriod(periodVersionId, transaction = null) 
     publishGates,
     publishRecords,
   ] = await Promise.all([
-    loadSectorApproverUsers(masterVersionId, transaction),
-    loadSectorValidationUsers(masterVersionId, transaction),
-    resolveApproverGateMasterNodeIds(masterVersionId, transaction),
-    buildMasterNodeIdByPeriodNodeId(periodVersionId, transaction),
-    loadSectorPublishGates(masterVersionId, transaction),
+    contextCache?.sectorApprovers
+      ? getOrCompute(contextCache.sectorApprovers, masterVersionId, () =>
+          loadSectorApproverUsers(masterVersionId, transaction, options)
+        )
+      : loadSectorApproverUsers(masterVersionId, transaction, options),
+    contextCache?.sectorValidation
+      ? getOrCompute(contextCache.sectorValidation, masterVersionId, () =>
+          loadSectorValidationUsers(masterVersionId, transaction, options)
+        )
+      : loadSectorValidationUsers(masterVersionId, transaction, options),
+    contextCache?.approverGates
+      ? getOrCompute(contextCache.approverGates, masterVersionId, () =>
+          resolveApproverGateMasterNodeIds(masterVersionId, transaction, options)
+        )
+      : resolveApproverGateMasterNodeIds(masterVersionId, transaction, options),
+    buildMasterNodeIdByPeriodNodeId(periodVersionId, transaction, options),
+    contextCache?.publishGates
+      ? getOrCompute(contextCache.publishGates, masterVersionId, () =>
+          loadSectorPublishGates(masterVersionId, transaction, options)
+        )
+      : loadSectorPublishGates(masterVersionId, transaction, options),
     loadPublishRecordsForVersion(periodVersionId, transaction),
   ]);
   const hasSectorApprovalOversight = sectorApprovers.length > 0;
@@ -212,8 +283,8 @@ async function buildMasterNodeIdByAnnualNodeId(annualVersionId, transaction = nu
  * Same gate maps as period context, but node keys are annual plan_node_ids.
  * Reuses masterNodeIdByPeriodNodeId field name so shared rollup helpers work.
  */
-async function buildRollupContextForAnnual(annualVersionId, transaction = null) {
-  const masterVersionId = await resolveMasterVersionId(annualVersionId, transaction);
+async function buildRollupContextForAnnual(annualVersionId, transaction = null, options = {}) {
+  const masterVersionId = await resolveMasterVersionId(annualVersionId, transaction, options);
   if (!masterVersionId) {
     return {
       masterNodes: [],
@@ -229,7 +300,26 @@ async function buildRollupContextForAnnual(annualVersionId, transaction = null) 
     };
   }
 
-  const { masterNodes } = await loadMasterPlanAssignments(masterVersionId, transaction);
+  const contextCache = options.contextCache;
+
+  const getOrCompute = async (cacheMap, key, computeFn) => {
+    if (cacheMap && cacheMap.has(key)) {
+      return cacheMap.get(key);
+    }
+    const result = await computeFn();
+    if (cacheMap) {
+      cacheMap.set(key, result);
+    }
+    return result;
+  };
+
+  const masterAssignmentData = contextCache?.masterAssignments
+    ? await getOrCompute(contextCache.masterAssignments, masterVersionId, () =>
+        loadMasterPlanAssignments(masterVersionId, transaction, options)
+      )
+    : await loadMasterPlanAssignments(masterVersionId, transaction, options);
+
+  const masterNodes = masterAssignmentData.masterNodes;
   const [
     { users: sectorApprovers },
     { hasValidationGate },
@@ -237,11 +327,27 @@ async function buildRollupContextForAnnual(annualVersionId, transaction = null) 
     masterNodeIdByAnnualNodeId,
     publishGates,
   ] = await Promise.all([
-    loadSectorApproverUsers(masterVersionId, transaction),
-    loadSectorValidationUsers(masterVersionId, transaction),
-    resolveApproverGateMasterNodeIds(masterVersionId, transaction),
+    contextCache?.sectorApprovers
+      ? getOrCompute(contextCache.sectorApprovers, masterVersionId, () =>
+          loadSectorApproverUsers(masterVersionId, transaction, options)
+        )
+      : loadSectorApproverUsers(masterVersionId, transaction, options),
+    contextCache?.sectorValidation
+      ? getOrCompute(contextCache.sectorValidation, masterVersionId, () =>
+          loadSectorValidationUsers(masterVersionId, transaction, options)
+        )
+      : loadSectorValidationUsers(masterVersionId, transaction, options),
+    contextCache?.approverGates
+      ? getOrCompute(contextCache.approverGates, masterVersionId, () =>
+          resolveApproverGateMasterNodeIds(masterVersionId, transaction, options)
+        )
+      : resolveApproverGateMasterNodeIds(masterVersionId, transaction, options),
     buildMasterNodeIdByAnnualNodeId(annualVersionId, transaction),
-    loadSectorPublishGates(masterVersionId, transaction),
+    contextCache?.publishGates
+      ? getOrCompute(contextCache.publishGates, masterVersionId, () =>
+          loadSectorPublishGates(masterVersionId, transaction, options)
+        )
+      : loadSectorPublishGates(masterVersionId, transaction, options),
   ]);
   const hasSectorApprovalOversight = sectorApprovers.length > 0;
 

@@ -113,7 +113,7 @@ function finalizeAggregateBucket(bucket) {
   };
 }
 
-async function buildAssignmentAchievementMetrics(focusContexts) {
+async function buildAssignmentAchievementMetrics(focusContexts, options = {}) {
   const departmentBuckets = new Map();
   const userBuckets = new Map();
   const userMeta = new Map();
@@ -121,57 +121,79 @@ async function buildAssignmentAchievementMetrics(focusContexts) {
   for (const context of focusContexts) {
     const { liveMasterPlanId, periodVersionId, structureId } = context;
 
-    const masterNodeIdByPeriodNodeId = await buildMasterNodeIdByPeriodNodeId(periodVersionId);
+    const masterNodeIdByPeriodNodeId = await buildMasterNodeIdByPeriodNodeId(
+      periodVersionId,
+      options.transaction || null,
+      options
+    );
     const periodNodeIdByMasterNodeId = new Map();
     for (const [periodNodeId, masterNodeId] of masterNodeIdByPeriodNodeId) {
       periodNodeIdByMasterNodeId.set(masterNodeId, periodNodeId);
     }
 
+    const cachedNodes = options.contextCache?.nodesByVersionId?.get(periodVersionId);
+    const nodesPromise = cachedNodes
+      ? Promise.resolve(cachedNodes)
+      : PlanNode.findAll({
+          where: { plan_version_id: periodVersionId, is_active: true },
+          attributes: ["plan_node_id", "period_target", "period_actual", "period_actual_status"],
+          transaction: options.transaction || null,
+        });
+
+    const cachedAssignments =
+      options.contextCache?.internalAssignmentsByMasterId?.get(liveMasterPlanId);
+    const assignmentsPromise = cachedAssignments
+      ? Promise.resolve(cachedAssignments)
+      : InternalAssignment.findAll({
+          where: { is_active: true },
+          transaction: options.transaction || null,
+          include: [
+            {
+              model: PlanNode,
+              as: "planNode",
+              required: true,
+              where: { plan_version_id: liveMasterPlanId },
+              attributes: ["plan_node_id"],
+            },
+            {
+              model: User,
+              as: "user",
+              required: false,
+              attributes: [
+                "user_id",
+                "full_name",
+                "email",
+                "government_structure_id",
+                "internal_structure_id",
+              ],
+              include: [
+                {
+                  model: Role,
+                  as: "roles",
+                  attributes: ["name"],
+                  through: { attributes: [] },
+                  required: false,
+                },
+              ],
+            },
+            {
+              model: Role,
+              as: "role",
+              required: false,
+              attributes: ["name"],
+            },
+          ],
+        }).then((res) => {
+          if (options.contextCache?.internalAssignmentsByMasterId) {
+            options.contextCache.internalAssignmentsByMasterId.set(liveMasterPlanId, res);
+          }
+          return res;
+        });
+
     const [nodes, assignments, progress] = await Promise.all([
-      PlanNode.findAll({
-        where: { plan_version_id: periodVersionId, is_active: true },
-        attributes: ["plan_node_id", "period_target", "period_actual", "period_actual_status"],
-      }),
-      InternalAssignment.findAll({
-        where: { is_active: true },
-        include: [
-          {
-            model: PlanNode,
-            as: "planNode",
-            required: true,
-            where: { plan_version_id: liveMasterPlanId },
-            attributes: ["plan_node_id"],
-          },
-          {
-            model: User,
-            as: "user",
-            required: false,
-            attributes: [
-              "user_id",
-              "full_name",
-              "email",
-              "government_structure_id",
-              "internal_structure_id",
-            ],
-            include: [
-              {
-                model: Role,
-                as: "roles",
-                attributes: ["name"],
-                through: { attributes: [] },
-                required: false,
-              },
-            ],
-          },
-          {
-            model: Role,
-            as: "role",
-            required: false,
-            attributes: ["name"],
-          },
-        ],
-      }),
-      computePeriodExecutionProgress(periodVersionId),
+      nodesPromise,
+      assignmentsPromise,
+      computePeriodExecutionProgress(periodVersionId, options.transaction || null, options),
     ]);
 
     const nodeById = new Map(
@@ -255,9 +277,9 @@ async function buildAssignmentAchievementMetrics(focusContexts) {
   return { departmentBuckets, userBuckets, userMeta };
 }
 
-async function buildDepartmentAndUserMetrics(focusContexts, structures) {
+async function buildDepartmentAndUserMetrics(focusContexts, structures, options = {}) {
   const { departmentBuckets, userBuckets, userMeta } =
-    await buildAssignmentAchievementMetrics(focusContexts);
+    await buildAssignmentAchievementMetrics(focusContexts, options);
 
   const internalStructures =
     structures.length > 0
@@ -270,6 +292,7 @@ async function buildDepartmentAndUserMetrics(focusContexts, structures) {
           },
           attributes: ["internal_structure_id", "name", "government_structure_id"],
           order: [["name", "ASC"]],
+          transaction: options.transaction || null,
         })
       : [];
 

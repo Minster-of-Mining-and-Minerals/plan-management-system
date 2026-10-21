@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
 import { ColumnDef } from "@tanstack/react-table";
@@ -42,6 +42,7 @@ import { CreatePlanVersionModal } from "./modals/CreatePlanVersionModal";
 import { FinalizePlanDraftModal } from "./modals/FinalizePlanDraftModal";
 import { DuplicatePlanDraftModal } from "./modals/DuplicatePlanDraftModal";
 import { PlanDocumentCountBadge } from "@/features/documents/components/PlanDocumentCountBadge";
+import { useGetDocumentCountsQuery } from "@/redux/api/collaborationApi";
 import {
   matchesMultiValueFilter,
   matchesSearchQuery,
@@ -107,7 +108,31 @@ export default function PlanVersionTable() {
         }
     };
 
-    const columns: ColumnDef<PlanVersion>[] = [
+    const {
+        data: response,
+        isLoading,
+    } = useGetPlanVersionsQuery({
+        search: searchQuery,
+        version_kind: "master",
+        view: "summary",
+    });
+
+    const versions = response || [];
+    const displayedVersionIds = useMemo(
+        () => versions.map((v) => v.plan_version_id),
+        [versions]
+    );
+
+    const { data: documentCounts } = useGetDocumentCountsQuery(
+        {
+            ownerApp: "plan-management",
+            ownerType: "plan_version",
+            ownerIds: displayedVersionIds,
+        },
+        { skip: !displayedVersionIds.length }
+    );
+
+    const columns: ColumnDef<PlanVersion>[] = useMemo(() => [
         {
             accessorKey: "draft_name",
             header: "Draft Name",
@@ -198,7 +223,10 @@ export default function PlanVersionTable() {
                 cellClassName: "whitespace-nowrap text-center",
             },
             cell: ({ row }) => (
-                <PlanDocumentCountBadge planVersionId={row.original.plan_version_id} />
+                <PlanDocumentCountBadge
+                    planVersionId={row.original.plan_version_id}
+                    count={documentCounts?.[row.original.plan_version_id]}
+                />
             ),
         },
         {
@@ -397,18 +425,14 @@ export default function PlanVersionTable() {
                 );
             },
         },
-    ];
-
-    const {
-        data: response,
-        isLoading,
-    } = useGetPlanVersionsQuery({
-        search: searchQuery,
-        version_kind: "master",
-        view: "summary",
-    });
-
-    const versions = response || [];
+    ], [
+        config.planning_period_label,
+        config.duration_label,
+        can,
+        draftLabel,
+        thresholds,
+        documentCounts,
+    ]);
 
     const handleDelete = async (id: string) => {
         if (await actionFeedback.confirm(`Are you sure you want to delete this ${draftLabel.toLowerCase()}?`, { destructive: true })) {

@@ -432,6 +432,15 @@ async function enrichMasterVersionsWithExecutionProgress(
 ) {
   const { summary = false } = options;
   const { computeMasterExecutionProgress } = require("./planExecutionRollupService");
+  const contextCache = options.contextCache || {
+    departmentGroupCache: new Map(),
+    masterAssignments: new Map(),
+    sectorApprovers: new Map(),
+    sectorValidation: new Map(),
+    approverGates: new Map(),
+    publishGates: new Map(),
+  };
+  const scopedOptions = { ...options, contextCache };
   const enriched = [];
 
   for (const version of versions) {
@@ -443,7 +452,11 @@ async function enrichMasterVersionsWithExecutionProgress(
       continue;
     }
 
-    const progress = await computeMasterExecutionProgress(plain.plan_version_id, transaction);
+    const progress = await computeMasterExecutionProgress(
+      plain.plan_version_id,
+      transaction,
+      scopedOptions
+    );
     const executionFields = {
       execution_progress_percent: progress.execution_progress_percent,
       execution_is_evaluable: progress.is_evaluable,

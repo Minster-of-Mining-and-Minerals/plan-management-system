@@ -36,7 +36,7 @@ function performanceLevel(percent) {
   return "at-risk";
 }
 
-async function enrichMasterPlanRow(master) {
+async function enrichMasterPlanRow(master, options = {}) {
   const plain = master.toJSON ? master.toJSON() : { ...master };
   let execution_progress_percent = null;
   let execution_annual_progress = [];
@@ -44,7 +44,11 @@ async function enrichMasterPlanRow(master) {
   let active_planning_year = null;
 
   if (plain.process_started_at) {
-    const progress = await computeMasterExecutionProgress(plain.plan_version_id);
+    const progress = await computeMasterExecutionProgress(
+      plain.plan_version_id,
+      options.transaction || null,
+      options
+    );
     execution_progress_percent = progress.execution_progress_percent;
     execution_annual_progress = progress.execution_annual_progress ?? [];
     has_contributing_data = progress.has_contributing_data;
@@ -70,14 +74,27 @@ async function enrichMasterPlanRow(master) {
   };
 }
 
-async function resolveSnapshotMaster(liveMasterId) {
-  const master = await PlanVersion.findByPk(liveMasterId);
+async function resolveSnapshotMaster(liveMasterId, options = {}) {
+  const cache = options.contextCache?.snapshotMasterCache;
+  if (cache && cache.has(liveMasterId)) {
+    return cache.get(liveMasterId);
+  }
+
+  const master =
+    options.contextCache?.masterById?.get(liveMasterId) ||
+    (await PlanVersion.findByPk(liveMasterId, { transaction: options.transaction || null }));
   if (!master?.active_execution_snapshot_id) {
+    if (cache) cache.set(liveMasterId, null);
     return null;
   }
 
-  const versionMap = await buildLiveToSnapshotVersionMap(master.active_execution_snapshot_id);
-  return versionMap.get(liveMasterId) ?? null;
+  const versionMap = await buildLiveToSnapshotVersionMap(
+    master.active_execution_snapshot_id,
+    options.transaction || null
+  );
+  const result = versionMap.get(liveMasterId) ?? null;
+  if (cache) cache.set(liveMasterId, result);
+  return result;
 }
 
 function classifyPeriodPhase(executionStatus) {
@@ -86,9 +103,15 @@ function classifyPeriodPhase(executionStatus) {
   return "upcoming";
 }
 
-async function listPeriodsForMaster(liveMasterId) {
-  const snapshotMaster = await resolveSnapshotMaster(liveMasterId);
+async function listPeriodsForMaster(liveMasterId, options = {}) {
+  const cache = options.contextCache?.masterPeriodsCache;
+  if (cache && cache.has(liveMasterId)) {
+    return cache.get(liveMasterId);
+  }
+
+  const snapshotMaster = await resolveSnapshotMaster(liveMasterId, options);
   if (!snapshotMaster) {
+    if (cache) cache.set(liveMasterId, []);
     return [];
   }
 
@@ -98,20 +121,39 @@ async function listPeriodsForMaster(liveMasterId) {
       version_kind: "annual",
     },
     order: [["sequence_index", "ASC"]],
+    transaction: options.transaction || null,
   });
+
+  const annualIds = annuals.map((a) => a.plan_version_id);
+  const allPeriods = annualIds.length
+    ? await PlanVersion.findAll({
+        where: {
+          parent_plan_version_id: { [Op.in]: annualIds },
+          version_kind: "execution_period",
+        },
+        order: [["sequence_index", "ASC"]],
+        transaction: options.transaction || null,
+      })
+    : [];
+
+  if (options.contextCache?.planVersionById) {
+    for (const a of annuals) options.contextCache.planVersionById.set(a.plan_version_id, a);
+    for (const p of allPeriods) options.contextCache.planVersionById.set(p.plan_version_id, p);
+  }
+
+  const periodsByAnnual = new Map();
+  for (const p of allPeriods) {
+    const plain = p.toJSON ? p.toJSON() : p;
+    const list = periodsByAnnual.get(plain.parent_plan_version_id) ?? [];
+    list.push(plain);
+    periodsByAnnual.set(plain.parent_plan_version_id, list);
+  }
 
   const periods = [];
   for (const annual of annuals) {
-    const annualPeriods = await PlanVersion.findAll({
-      where: {
-        parent_plan_version_id: annual.plan_version_id,
-        version_kind: "execution_period",
-      },
-      order: [["sequence_index", "ASC"]],
-    });
-
-    for (const period of annualPeriods) {
-      const plain = period.toJSON ? period.toJSON() : period;
+    const annualPeriods = (periodsByAnnual.get(annual.plan_version_id) ?? [])
+      .sort((a, b) => (a.sequence_index ?? 0) - (b.sequence_index ?? 0));
+    for (const plain of annualPeriods) {
       periods.push({
         plan_version_id: plain.plan_version_id,
         period_label: plain.period_label,
@@ -123,6 +165,7 @@ async function listPeriodsForMaster(liveMasterId) {
     }
   }
 
+  if (cache) cache.set(liveMasterId, periods);
   return periods;
 }
 
@@ -135,8 +178,8 @@ function pickDefaultPeriod(periods) {
   );
 }
 
-async function resolveFocusPeriodForMaster(liveMasterId, requestedPeriodId = null) {
-  const periods = await listPeriodsForMaster(liveMasterId);
+async function resolveFocusPeriodForMaster(liveMasterId, requestedPeriodId = null, options = {}) {
+  const periods = await listPeriodsForMaster(liveMasterId, options);
   if (!periods.length) {
     return null;
   }
@@ -150,7 +193,13 @@ async function resolveFocusPeriodForMaster(liveMasterId, requestedPeriodId = nul
     return null;
   }
 
-  return PlanVersion.findByPk(selectedMeta.plan_version_id);
+  if (options.contextCache?.planVersionById?.has(selectedMeta.plan_version_id)) {
+    return options.contextCache.planVersionById.get(selectedMeta.plan_version_id);
+  }
+
+  return PlanVersion.findByPk(selectedMeta.plan_version_id, {
+    transaction: options.transaction || null,
+  });
 }
 
 function mapNodeToDashboardTree(node, rollupMap, childrenByParent) {
@@ -179,8 +228,8 @@ function mapNodeToDashboardTree(node, rollupMap, childrenByParent) {
   };
 }
 
-async function buildProgressTreeForMaster(liveMasterId, requestedPeriodId = null) {
-  const availablePeriods = await listPeriodsForMaster(liveMasterId);
+async function buildProgressTreeForMaster(liveMasterId, requestedPeriodId = null, options = {}) {
+  const availablePeriods = await listPeriodsForMaster(liveMasterId, options);
   if (!availablePeriods.length) {
     return {
       period_label: null,
@@ -198,7 +247,10 @@ async function buildProgressTreeForMaster(liveMasterId, requestedPeriodId = null
     pickDefaultPeriod(availablePeriods);
 
   const period = selectedMeta
-    ? await PlanVersion.findByPk(selectedMeta.plan_version_id)
+    ? (options.contextCache?.planVersionById?.get(selectedMeta.plan_version_id) ||
+       await PlanVersion.findByPk(selectedMeta.plan_version_id, {
+         transaction: options.transaction || null,
+       }))
     : null;
 
   if (!period || !selectedMeta) {
@@ -212,14 +264,24 @@ async function buildProgressTreeForMaster(liveMasterId, requestedPeriodId = null
     };
   }
 
-  const annual = await PlanVersion.findByPk(period.parent_plan_version_id);
+  const annual = period.parent_plan_version_id
+    ? (options.contextCache?.planVersionById?.get(period.parent_plan_version_id) ||
+       await PlanVersion.findByPk(period.parent_plan_version_id, {
+         transaction: options.transaction || null,
+       }))
+    : null;
   const nodes = await PlanNode.findAll({
     where: { plan_version_id: period.plan_version_id, is_active: true },
     order: [["level", "ASC"], ["order", "ASC"]],
+    transaction: options.transaction || null,
   });
 
   const plainNodes = nodes.map((node) => (node.toJSON ? node.toJSON() : node));
-  const { rollup_by_node_id } = await computePeriodExecutionProgress(period.plan_version_id);
+  const { rollup_by_node_id } = await computePeriodExecutionProgress(
+    period.plan_version_id,
+    options.transaction || null,
+    options
+  );
 
   const childrenByParent = new Map();
   for (const node of plainNodes) {
@@ -244,8 +306,8 @@ async function buildProgressTreeForMaster(liveMasterId, requestedPeriodId = null
   };
 }
 
-async function buildSharingPlans(planRows, masterIds) {
-  const roots = await PlanNode.findAll({
+async function buildSharingPlans(planRows, masterIds, preloadedRoots = null) {
+  const roots = preloadedRoots || await PlanNode.findAll({
     where: {
       plan_version_id: { [Op.in]: masterIds },
       parent_id: null,
@@ -373,12 +435,12 @@ async function buildStructureMetrics(planRows) {
   });
 }
 
-async function collectFocusPeriodContexts(planRows) {
+async function collectFocusPeriodContexts(planRows, options = {}) {
   const contexts = [];
 
   for (const plan of planRows) {
     if (!plan.process_started_at) continue;
-    const period = await resolveFocusPeriodForMaster(plan.plan_version_id);
+    const period = await resolveFocusPeriodForMaster(plan.plan_version_id, null, options);
     if (!period) continue;
     contexts.push({
       liveMasterPlanId: plan.plan_version_id,
@@ -390,10 +452,106 @@ async function collectFocusPeriodContexts(planRows) {
   return contexts;
 }
 
+function emptyProgressTree() {
+  return {
+    period_label: null,
+    planning_year: null,
+    period_version_id: null,
+    period_phase: null,
+    available_periods: [],
+    nodes: [],
+  };
+}
+
 async function getPlanExecutionDashboard(req, query = {}) {
-  const accessibleMasterIds = await resolveAccessibleMasterPlanIds(req);
+  const contextCache = {
+    departmentGroupCache: new Map(),
+    masterAssignments: new Map(),
+    sectorApprovers: new Map(),
+    sectorValidation: new Map(),
+    approverGates: new Map(),
+    publishGates: new Map(),
+    periodRollupCache: new Map(),
+    masterPeriodsCache: new Map(),
+    planVersionById: new Map(),
+    snapshotMasterCache: new Map(),
+    planRuleCache: new Map(),
+    masterVersionIdCache: new Map(),
+    masterNodesCache: new Map(),
+    masterNodeIdByPeriodNodeIdCache: new Map(),
+    masterById: new Map(),
+    nodesByVersionId: new Map(),
+    periodsByAnnualId: new Map(),
+    internalAssignmentsByMasterId: new Map(),
+  };
+  const options = { contextCache };
+
+  const accessibleMasterIds = await resolveAccessibleMasterPlanIds(req, null, options);
   if (accessibleMasterIds !== null && accessibleMasterIds.length === 0) {
+    if (query.section === "progress_tree") {
+      return {
+        progress_tree: emptyProgressTree(),
+        focus_master_plan_version_id: null,
+        generated_at: new Date().toISOString(),
+      };
+    }
+    if (query.section === "department_user") {
+      return {
+        structures: [],
+        departments: [],
+        users: [],
+        generated_at: new Date().toISOString(),
+      };
+    }
     return emptyDashboard();
+  }
+
+  // Progressive section: Progress Tree standalone request
+  if (query.section === "progress_tree") {
+    let focusMasterId = null;
+    if (query.master_plan_version_id) {
+      if (accessibleMasterIds !== null && !accessibleMasterIds.includes(query.master_plan_version_id)) {
+        return {
+          progress_tree: emptyProgressTree(),
+          focus_master_plan_version_id: null,
+          generated_at: new Date().toISOString(),
+        };
+      }
+      const master = await PlanVersion.findByPk(query.master_plan_version_id);
+      if (master && master.version_kind === "master") {
+        focusMasterId = master.plan_version_id;
+      }
+    }
+
+    if (!focusMasterId) {
+      const where = {
+        version_kind: "master",
+        process_started_at: { [Op.ne]: null },
+        review_snapshot_of_version_id: null,
+        execution_snapshot_of_version_id: null,
+      };
+      if (accessibleMasterIds !== null) {
+        where.plan_version_id = { [Op.in]: accessibleMasterIds };
+      }
+      if (query.government_structure_id) {
+        where.government_structure_id = query.government_structure_id;
+      }
+      const first = await PlanVersion.findOne({
+        where,
+        order: [["start_year", "DESC"], ["version_number", "DESC"]],
+      });
+      focusMasterId = first?.plan_version_id ?? null;
+    }
+
+    const progressTree = focusMasterId
+      ? await buildProgressTreeForMaster(focusMasterId, query.period_version_id || null, options)
+      : emptyProgressTree();
+
+    return {
+      progress_tree: progressTree,
+      focus_master_plan_version_id: focusMasterId,
+      generated_at: new Date().toISOString(),
+    };
   }
 
   const where = {
@@ -436,9 +594,14 @@ async function getPlanExecutionDashboard(req, query = {}) {
     order: [["start_year", "DESC"], ["version_number", "DESC"]],
   });
 
+  for (const m of masters) {
+    contextCache.masterById.set(m.plan_version_id, m);
+    contextCache.planVersionById.set(m.plan_version_id, m);
+  }
+
   let planRows = [];
   for (const master of masters) {
-    planRows.push(await enrichMasterPlanRow(master));
+    planRows.push(await enrichMasterPlanRow(master, options));
   }
 
   if (query.status === "delayed") {
@@ -474,7 +637,8 @@ async function getPlanExecutionDashboard(req, query = {}) {
       parent_id: null,
       is_active: true,
     },
-    attributes: ["assignment_sharing_mode"],
+    attributes: ["plan_node_id", "title", "assignment_sharing_mode", "plan_version_id"],
+    order: [["order", "ASC"]],
   });
 
   const kpi = {
@@ -496,10 +660,8 @@ async function getPlanExecutionDashboard(req, query = {}) {
   };
 
   const structures = await buildStructureMetrics(planRows);
-  const focusContexts = await collectFocusPeriodContexts(planRows);
-  const { departments, users } = await buildDepartmentAndUserMetrics(focusContexts, structures);
   const annualTimeline = buildAnnualTimeline(planRows);
-  const sharing = await buildSharingPlans(planRows, masterIds);
+  const sharing = await buildSharingPlans(planRows, masterIds, sharingRoots);
 
   const focusMasterId =
     query.master_plan_version_id &&
@@ -507,16 +669,38 @@ async function getPlanExecutionDashboard(req, query = {}) {
       ? query.master_plan_version_id
       : planRows.find((plan) => plan.process_started_at)?.plan_version_id ?? null;
 
+  // Progressive section: Overview / Summary request
+  if (query.section === "overview" || query.section === "summary") {
+    return {
+      kpi,
+      plans: planRows,
+      structures,
+      departments: [],
+      users: [],
+      annual_timeline: annualTimeline,
+      sharing,
+      progress_tree: emptyProgressTree(),
+      focus_master_plan_version_id: focusMasterId,
+      generated_at: new Date().toISOString(),
+    };
+  }
+
+  const focusContexts = await collectFocusPeriodContexts(planRows, options);
+  const { departments, users } = await buildDepartmentAndUserMetrics(focusContexts, structures, options);
+
+  // Progressive section: Department and User metrics request
+  if (query.section === "department_user") {
+    return {
+      structures,
+      departments,
+      users,
+      generated_at: new Date().toISOString(),
+    };
+  }
+
   const progressTree = focusMasterId
-    ? await buildProgressTreeForMaster(focusMasterId, query.period_version_id || null)
-    : {
-        period_label: null,
-        planning_year: null,
-        period_version_id: null,
-        period_phase: null,
-        available_periods: [],
-        nodes: [],
-      };
+    ? await buildProgressTreeForMaster(focusMasterId, query.period_version_id || null, options)
+    : emptyProgressTree();
 
   return {
     kpi,

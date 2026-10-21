@@ -128,7 +128,15 @@ export function PlanNodeCardGrid({
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
             {sortedNodes.map((node, index) => {
-                const hasChildren = node.children && node.children.length > 0;
+                const childCount =
+                    typeof node.child_count === "number"
+                        ? node.child_count
+                        : (node.children?.length ?? 0);
+                const hasChildren = Boolean(
+                    childCount > 0 ||
+                    node.has_children ||
+                    (node.children && node.children.length > 0)
+                );
                 const levelLabel = getStepLabel(rule, node.level);
                 const nodeWeightMode = node.weight_mode;
                 const completion = completionMap.get(node.plan_node_id) ?? hiddenProgressAppearance();
@@ -338,8 +346,8 @@ export function PlanNodeCardGrid({
                                         {hasChildren ? (
                                             <span className="inline-flex items-center gap-1.5 text-xs font-medium text-primary">
                                                 <Layers className="h-3.5 w-3.5" />
-                                                {node.children.length} item
-                                                {node.children.length !== 1 ? "s" : ""}
+                                                {childCount} item
+                                                {childCount !== 1 ? "s" : ""}
                                             </span>
                                         ) : (
                                             <span className="text-xs text-gray-400">No sub-items</span>

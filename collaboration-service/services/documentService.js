@@ -413,17 +413,46 @@ async function countDocumentsByOwners({
 }) {
   const uniqueIds = [...new Set(ownerIds.filter(Boolean))];
   const counts = {};
+  for (const id of uniqueIds) {
+    counts[id] = 0;
+  }
 
-  for (const ownerId of uniqueIds) {
-    const documents = await listDocuments({
-      ownerApp,
-      ownerType,
-      ownerId,
+  if (uniqueIds.length === 0) {
+    return counts;
+  }
+
+  const where = {
+    owner_id: { [Op.in]: uniqueIds },
+  };
+  if (ownerApp) where.owner_app = ownerApp;
+  if (ownerType) where.owner_type = ownerType;
+
+  const documents = await Document.findAll({
+    where,
+    attributes: ["document_id", "owner_id", "owner_type", "status", "created_by"],
+  });
+
+  if (documents.length === 0) {
+    return counts;
+  }
+
+  const grantRoles = await documentGrantService.resolveGrantRolesForUser(
+    documents.map((d) => d.document_id),
+    userId,
+    user
+  );
+
+  for (const document of documents) {
+    const access = await resolveAccessForDocument(
+      document,
       userId,
       accessToken,
       user,
-    });
-    counts[ownerId] = documents.length;
+      grantRoles.get(document.document_id) || null
+    );
+    if (access.canRead && counts[document.owner_id] !== undefined) {
+      counts[document.owner_id]++;
+    }
   }
 
   return counts;

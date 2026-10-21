@@ -106,13 +106,21 @@ async function assertGroupIsSpecial(permissionGroup, options = {}) {
   return group;
 }
 
-async function loadDepartmentPermissionGroups(internalStructureId, options = {}) {
-  if (!internalStructureId) {
-    return [];
+const { Op } = require("sequelize");
+
+async function loadDepartmentPermissionGroupsBatch(internalStructureIds, options = {}) {
+  const uniqueIds = [...new Set((internalStructureIds || []).filter(Boolean))];
+  const resultMap = new Map();
+  for (const id of uniqueIds) {
+    resultMap.set(id, []);
+  }
+
+  if (uniqueIds.length === 0) {
+    return resultMap;
   }
 
   const links = await InternalStructurePermissionGroup.findAll({
-    where: { internal_structure_id: internalStructureId },
+    where: { internal_structure_id: { [Op.in]: uniqueIds } },
     include: [
       {
         model: PermissionGroup,
@@ -132,7 +140,37 @@ async function loadDepartmentPermissionGroups(internalStructureId, options = {})
     transaction: options.transaction,
   });
 
-  return links.map((link) => link.permissionGroup).filter(Boolean);
+  for (const link of links) {
+    if (link.permissionGroup && resultMap.has(link.internal_structure_id)) {
+      resultMap.get(link.internal_structure_id).push(link.permissionGroup);
+    }
+  }
+
+  return resultMap;
+}
+
+async function loadDepartmentPermissionGroups(internalStructureId, options = {}) {
+  if (!internalStructureId) {
+    return [];
+  }
+
+  const cache = options.cache || options.departmentGroupCache;
+  if (cache && cache.has(internalStructureId)) {
+    const cached = cache.get(internalStructureId) || [];
+    return cached.map((g) => (g && typeof g.toJSON === "function" ? g.toJSON() : { ...g }));
+  }
+
+  const batchMap = await loadDepartmentPermissionGroupsBatch(
+    [internalStructureId],
+    options
+  );
+  const groups = batchMap.get(internalStructureId) || [];
+
+  if (cache) {
+    cache.set(internalStructureId, groups);
+  }
+
+  return groups.map((g) => (g && typeof g.toJSON === "function" ? g.toJSON() : { ...g }));
 }
 
 async function assertInternalStructuresFitPermissionGroup(
@@ -205,5 +243,6 @@ module.exports = {
   assertPermissionIdsMatchGroupKind,
   assertGroupIsSpecial,
   loadDepartmentPermissionGroups,
+  loadDepartmentPermissionGroupsBatch,
   assertInternalStructuresFitPermissionGroup,
 };

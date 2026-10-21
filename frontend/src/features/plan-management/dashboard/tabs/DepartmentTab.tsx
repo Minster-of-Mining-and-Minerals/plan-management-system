@@ -1,6 +1,7 @@
 "use client";
 
-import { Building2, Users } from "lucide-react";
+import { Building2, Loader2, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { PlanDashboardFiltersState } from "../hooks/usePlanDashboardFilters";
 import { StatusBadge, PerformanceBadge } from "../components/StatusBadge";
 import { AnalyticsPanel, DashboardSectionHeader } from "../components/AnalyticsPanel";
@@ -15,6 +16,29 @@ interface DepartmentTabProps {
 
 export function DepartmentTab({ state }: DepartmentTabProps) {
   const { performanceColor, textPrimary } = useDashboardAppearance();
+
+  if (state.data.deptUserLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[300px] gap-3 text-sm text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        Loading department analytics…
+      </div>
+    );
+  }
+
+  if (state.data.deptUserError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[300px] gap-3 text-sm text-destructive">
+        <p>{state.data.deptUserError}</p>
+        {state.refetchDeptUser && (
+          <Button variant="outline" size="sm" onClick={() => state.refetchDeptUser?.()}>
+            Retry
+          </Button>
+        )}
+      </div>
+    );
+  }
+
   const grouped = state.data.structures
     .filter(
       (s) =>

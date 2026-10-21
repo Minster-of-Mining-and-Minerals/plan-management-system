@@ -128,6 +128,7 @@ export const planAssignmentApi = baseApi.injectEndpoints({
                 { type: "InternalAssignments", id: plan_node_id },
                 { type: "PlanAssignmentOptions", id: plan_node_id },
                 "PlanNodes",
+                "PlanExecutionDashboard",
             ],
         }),
 
@@ -140,6 +141,7 @@ export const planAssignmentApi = baseApi.injectEndpoints({
                 { type: "InternalAssignments", id: nodeId },
                 { type: "PlanAssignmentOptions", id: nodeId },
                 "PlanNodes",
+                "PlanExecutionDashboard",
             ],
         }),
 

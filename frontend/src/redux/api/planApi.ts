@@ -96,6 +96,7 @@ export const planApi = baseApi.injectEndpoints({
                 search?: string;
                 date_from?: string;
                 date_to?: string;
+                section?: string;
             } | void
         >({
             query: (params) => {
@@ -113,6 +114,84 @@ export const planApi = baseApi.injectEndpoints({
                 data: import("@/features/plan-management/dashboard/types").PlanExecutionDashboardResponse;
             }) => response.data,
             providesTags: ["PlanExecutionDashboard"],
+            keepUnusedDataFor: 120,
+        }),
+
+        getPlanExecutionDashboardOverview: builder.query<
+            import("@/features/plan-management/dashboard/types").PlanExecutionDashboardOverviewResponse,
+            {
+                government_structure_id?: string;
+                status?: string;
+                sharing_mode?: string;
+                search?: string;
+                date_from?: string;
+                date_to?: string;
+            } | void
+        >({
+            query: (params) => {
+                const combined = { ...(params || {}), section: "overview" };
+                const cleanParams = Object.fromEntries(
+                    Object.entries(combined).filter(
+                        ([, value]) => value !== "" && value != null && value !== "all" && value !== "auto"
+                    )
+                );
+                return { url: "/plan/execution-dashboard", params: cleanParams };
+            },
+            transformResponse: (response: {
+                data: import("@/features/plan-management/dashboard/types").PlanExecutionDashboardOverviewResponse;
+            }) => response.data,
+            providesTags: ["PlanExecutionDashboard"],
+            keepUnusedDataFor: 120,
+        }),
+
+        getPlanExecutionDashboardProgressTree: builder.query<
+            import("@/features/plan-management/dashboard/types").PlanExecutionDashboardProgressTreeResponse,
+            {
+                master_plan_version_id?: string;
+                period_version_id?: string;
+                government_structure_id?: string;
+            } | void
+        >({
+            query: (params) => {
+                const combined = { ...(params || {}), section: "progress_tree" };
+                const cleanParams = Object.fromEntries(
+                    Object.entries(combined).filter(
+                        ([, value]) => value !== "" && value != null && value !== "all" && value !== "auto"
+                    )
+                );
+                return { url: "/plan/execution-dashboard", params: cleanParams };
+            },
+            transformResponse: (response: {
+                data: import("@/features/plan-management/dashboard/types").PlanExecutionDashboardProgressTreeResponse;
+            }) => response.data,
+            providesTags: ["PlanExecutionDashboard"],
+            keepUnusedDataFor: 120,
+        }),
+
+        getPlanExecutionDashboardDepartmentUser: builder.query<
+            import("@/features/plan-management/dashboard/types").PlanExecutionDashboardDepartmentUserResponse,
+            {
+                government_structure_id?: string;
+                status?: string;
+                sharing_mode?: string;
+                date_from?: string;
+                date_to?: string;
+            } | void
+        >({
+            query: (params) => {
+                const combined = { ...(params || {}), section: "department_user" };
+                const cleanParams = Object.fromEntries(
+                    Object.entries(combined).filter(
+                        ([, value]) => value !== "" && value != null && value !== "all" && value !== "auto"
+                    )
+                );
+                return { url: "/plan/execution-dashboard", params: cleanParams };
+            },
+            transformResponse: (response: {
+                data: import("@/features/plan-management/dashboard/types").PlanExecutionDashboardDepartmentUserResponse;
+            }) => response.data,
+            providesTags: ["PlanExecutionDashboard"],
+            keepUnusedDataFor: 120,
         }),
 
         /** ---------------------------
@@ -1392,6 +1471,9 @@ export const {
     // Plan Versions
     useGetPlanVersionsQuery,
     useGetPlanExecutionDashboardQuery,
+    useGetPlanExecutionDashboardOverviewQuery,
+    useGetPlanExecutionDashboardProgressTreeQuery,
+    useGetPlanExecutionDashboardDepartmentUserQuery,
     useGetPlanVersionsForReviewQuery,
     useGetPlanVersionByIdQuery,
     useCreatePlanVersionMutation,

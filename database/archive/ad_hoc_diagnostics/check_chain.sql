@@ -1,0 +1,1 @@
+SELECT COUNT(*) FROM plan_nodes p JOIN plan_nodes a ON p.source_plan_node_id = a.plan_node_id JOIN plan_nodes m ON a.source_plan_node_id = m.plan_node_id JOIN plan_versions v ON p.plan_version_id = v.plan_version_id WHERE v.version_kind = 'execution_period';

@@ -6,22 +6,28 @@ import { cn } from "@/lib/utils";
 
 interface PlanDocumentCountBadgeProps {
   planVersionId: string;
+  count?: number;
   className?: string;
   hideWhenZero?: boolean;
 }
 
 export function PlanDocumentCountBadge({
   planVersionId,
+  count: countProp,
   className,
   hideWhenZero = false,
 }: PlanDocumentCountBadgeProps) {
-  const { data: documents } = useGetDocumentsQuery({
-    ownerApp: "plan-management",
-    ownerType: "plan_version",
-    ownerId: planVersionId,
-  });
+  const hasProvidedCount = countProp !== undefined;
+  const { data: documents } = useGetDocumentsQuery(
+    {
+      ownerApp: "plan-management",
+      ownerType: "plan_version",
+      ownerId: planVersionId,
+    },
+    { skip: hasProvidedCount }
+  );
 
-  const count = documents?.length ?? 0;
+  const count = hasProvidedCount ? countProp : (documents?.length ?? 0);
   if (hideWhenZero && count === 0) {
     return null;
   }

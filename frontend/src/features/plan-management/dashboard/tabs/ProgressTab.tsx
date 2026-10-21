@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ListTree, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { PlanDashboardFiltersState } from "../hooks/usePlanDashboardFilters";
 import { TreeNodeRow } from "../components/TreeNodeRow";
 import { FilterDropdown } from "../components/FilterDropdown";
@@ -28,7 +29,11 @@ function formatPlanLabel(plan: DashboardPlanRow) {
 export function ProgressTab({ state }: ProgressTabProps) {
   const { data, executionPlanOptions, filters, updateFilter } = state;
   const { textPrimary, color } = useDashboardAppearance();
-  const isRefreshing = data.isFetching || data.isLoading;
+  const isRefreshing =
+    data.isFetching ||
+    data.isLoading ||
+    Boolean(data.progressLoading) ||
+    Boolean(data.progressFetching);
 
   const focusId =
     filters.masterPlanVersionId !== "auto"
@@ -131,7 +136,20 @@ export function ProgressTab({ state }: ProgressTabProps) {
       </div>
 
       <AnalyticsPanel title="Execution Hierarchy" variant="inset" tone="secondary">
-        {isRefreshing ? (
+        {data.progressError ? (
+          <div className="flex flex-col items-center justify-center py-8 gap-3 text-sm text-destructive">
+            <p>{data.progressError}</p>
+            {state.refetchProgressTree && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => state.refetchProgressTree?.()}
+              >
+                Retry
+              </Button>
+            )}
+          </div>
+        ) : isRefreshing ? (
           <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading hierarchy for the selected plan and period…

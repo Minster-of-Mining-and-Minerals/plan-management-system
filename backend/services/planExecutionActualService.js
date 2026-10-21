@@ -22,6 +22,7 @@ const {
   buildHierarchyNumberMapFromFlatNodes,
   formatReadinessNodeRef,
 } = require("../utils/planHierarchyUtils");
+const { invalidateCompletedPeriodCache } = require("./planExecutionRollupService");
 
 async function loadPeriodAchievementContext(periodVersionId, transaction = null) {
   const version = await PlanVersion.findByPk(periodVersionId, { transaction });
@@ -254,6 +255,7 @@ async function setPeriodActual(planNodeId, periodActual, options = {}) {
       }
       await node.update(updates, { transaction: t });
       await t.commit();
+      invalidateCompletedPeriodCache(node.plan_version_id);
       return { success: true, data: await PlanNode.findByPk(planNodeId) };
     }
 
@@ -271,6 +273,7 @@ async function setPeriodActual(planNodeId, periodActual, options = {}) {
     await node.update(updates, { transaction: t });
 
     await t.commit();
+    invalidateCompletedPeriodCache(node.plan_version_id);
     return { success: true, data: await PlanNode.findByPk(planNodeId) };
   } catch (error) {
     await t.rollback();

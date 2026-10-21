@@ -42,6 +42,7 @@ const {
   attachAchievementPerformanceFields,
   resolvePerformanceScoringPolicyFromRule,
 } = require("../utils/planPerformanceScoringUtils");
+const { invalidateCompletedPeriodCache } = require("./planExecutionRollupService");
 
 async function loadPeriodNode(planNodeId, transaction) {
   return PlanNode.findByPk(planNodeId, {
@@ -333,6 +334,7 @@ async function submitAchievement(planNodeId, periodActual, options = {}) {
       );
 
       await t.commit();
+      invalidateCompletedPeriodCache(node.plan_version_id);
       return { success: true, data: await PlanNode.findByPk(planNodeId) };
     }
 
@@ -406,6 +408,7 @@ async function submitAchievement(planNodeId, periodActual, options = {}) {
     );
 
     await t.commit();
+    invalidateCompletedPeriodCache(node.plan_version_id);
 
     try {
       if (requiresApproval && masterVersionId) {
@@ -535,6 +538,7 @@ async function approveAchievement(planNodeId, options = {}) {
     );
 
     await t.commit();
+    invalidateCompletedPeriodCache(node.plan_version_id);
 
     try {
       const rollupContext = await buildRollupContextForPeriod(node.plan_version_id);
@@ -654,6 +658,7 @@ async function validateAchievement(planNodeId, options = {}) {
     );
 
     await t.commit();
+    invalidateCompletedPeriodCache(node.plan_version_id);
 
     try {
       const recipients = [];
@@ -753,6 +758,7 @@ async function rejectValidationAchievement(planNodeId, comment, options = {}) {
     );
 
     await t.commit();
+    invalidateCompletedPeriodCache(node.plan_version_id);
 
     try {
       if (node.period_actual_submitted_by) {
@@ -853,6 +859,7 @@ async function rejectAchievement(planNodeId, comment, options = {}) {
     );
 
     await t.commit();
+    invalidateCompletedPeriodCache(node.plan_version_id);
 
     try {
       if (node.period_actual_submitted_by) {

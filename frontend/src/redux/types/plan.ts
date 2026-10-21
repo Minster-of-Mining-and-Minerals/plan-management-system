@@ -667,6 +667,8 @@ export interface GetPlanVersionsQueryParams {
     search?: string;
     /** Lite list payload for tables and dropdowns (default: full). */
     view?: "summary" | "full";
+    include_progress?: boolean;
+    enrich_execution?: boolean;
 }
 
 /**
@@ -758,6 +760,8 @@ export interface PlanNode {
     planVersion?: PlanVersion;
     parent?: PlanNode;
     children?: PlanNode[];
+    child_count?: number;
+    has_children?: boolean;
     externalAssignments?: ExternalAssignment[];
     internalAssignments?: InternalAssignment[];
 }

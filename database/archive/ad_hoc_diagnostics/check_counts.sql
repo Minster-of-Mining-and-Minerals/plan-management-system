@@ -1,0 +1,1 @@
+SELECT COUNT(*) as annuals FROM plan_versions WHERE version_kind = 'annual'; SELECT COUNT(*) as periods FROM plan_versions WHERE version_kind = 'execution_period'; SELECT COUNT(*) as actuals FROM plan_nodes WHERE period_actual IS NOT NULL OR annual_actual IS NOT NULL;

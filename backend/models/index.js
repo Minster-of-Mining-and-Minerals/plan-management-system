@@ -15,10 +15,10 @@ const poolConfig = {
   dialect: "postgres",
   logging: false,
   pool: {
-    max: 10,
-    min: 0,
-    acquire: 30000,
-    idle: 10000,
+    max: parseInt(process.env.DB_POOL_MAX, 10) || 10,
+    min: parseInt(process.env.DB_POOL_MIN, 10) || 0,
+    acquire: parseInt(process.env.DB_POOL_ACQUIRE, 10) || 30000,
+    idle: parseInt(process.env.DB_POOL_IDLE, 10) || 10000,
   },
 };
 

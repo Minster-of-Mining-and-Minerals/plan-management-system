@@ -468,6 +468,16 @@ async function applyPreparedExecutionWindowReopening(prepared, options = {}) {
     createdOverrides.push(override);
   }
 
+  try {
+    const { invalidateCompletedPeriodCache } = require("../planExecutionRollupService");
+    for (const row of prepared.periods) {
+      if (row.livePeriodId) invalidateCompletedPeriodCache(row.livePeriodId);
+      if (row.snapshotPeriodId) invalidateCompletedPeriodCache(row.snapshotPeriodId);
+    }
+  } catch (err) {
+    // Non-fatal if rollup service not loaded in unit mock context
+  }
+
   return {
     success: true,
     history: buildExecutionWindowReopeningHistoryRows(prepared, createdOverrides),
@@ -501,6 +511,15 @@ async function expireDueExecutionWindowOverrides(transaction = null) {
       transaction,
     }
   );
+
+  if (count > 0) {
+    try {
+      const { invalidateCompletedPeriodCache } = require("../planExecutionRollupService");
+      invalidateCompletedPeriodCache();
+    } catch (err) {
+      // Non-fatal
+    }
+  }
 
   return count;
 }

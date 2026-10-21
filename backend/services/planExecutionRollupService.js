@@ -1,5 +1,4 @@
-"use strict";
-
+const { Op } = require("sequelize");
 const { PlanNode, PlanVersion } = require("../models");
 const { resolvePlanRuleForVersion } = require("./planRuleService");
 const { stepRequiresContributionWeight } = require("./planRuleStepUtils");
@@ -371,8 +370,26 @@ function computeVersionProgressFromRoots(nodes, rollupContext = {}, rule = null)
   };
 }
 
-async function computePeriodExecutionProgress(periodVersionId, transaction = null) {
-  const version = await PlanVersion.findByPk(periodVersionId, { transaction });
+const completedPeriodCache = new Map();
+const COMPLETED_PERIOD_TTL_MS = 15 * 60 * 1000;
+
+async function computePeriodExecutionProgress(periodVersionId, transaction = null, options = {}) {
+  const cache = options.contextCache?.periodRollupCache;
+  if (cache && cache.has(periodVersionId)) {
+    return cache.get(periodVersionId);
+  }
+
+  if (!transaction) {
+    const closedCached = completedPeriodCache.get(periodVersionId);
+    if (closedCached && Date.now() - closedCached.cachedAt < COMPLETED_PERIOD_TTL_MS) {
+      if (cache) cache.set(periodVersionId, closedCached.result);
+      return closedCached.result;
+    }
+  }
+
+  const version =
+    options.contextCache?.planVersionById?.get(periodVersionId) ||
+    (await PlanVersion.findByPk(periodVersionId, { transaction }));
   if (!version || version.version_kind !== "execution_period") {
     return {
       execution_progress_percent: null,
@@ -385,37 +402,96 @@ async function computePeriodExecutionProgress(periodVersionId, transaction = nul
     };
   }
 
-  const rule = await resolvePlanRuleForVersion(version, transaction);
-  const nodes = await PlanNode.findAll({
-    where: { plan_version_id: periodVersionId, is_active: true },
-    transaction,
-  });
+  const rule = await resolvePlanRuleForVersion(version, transaction, options);
+  const nodes =
+    options.contextCache?.nodesByVersionId?.get(periodVersionId) ||
+    (await PlanNode.findAll({
+      where: { plan_version_id: periodVersionId, is_active: true },
+      transaction,
+    }));
 
   const plainNodes = nodes.map((node) => (node.toJSON ? node.toJSON() : node));
-  const rollupContext = await buildRollupContextForPeriod(periodVersionId, transaction);
+  const rollupContext = await buildRollupContextForPeriod(periodVersionId, transaction, options);
 
-  return computeVersionProgressFromRoots(plainNodes, rollupContext, rule);
+  const result = computeVersionProgressFromRoots(plainNodes, rollupContext, rule);
+  if (cache) {
+    cache.set(periodVersionId, result);
+  }
+
+  const isFrozen =
+    version.execution_status === "locked" ||
+    version.execution_status === "completed" ||
+    version.is_locked === true ||
+    version.execution_snapshot_of_version_id != null;
+
+  if (!transaction && isFrozen) {
+    if (completedPeriodCache.size > 1000) {
+      const firstKey = completedPeriodCache.keys().next().value;
+      completedPeriodCache.delete(firstKey);
+    }
+    completedPeriodCache.set(periodVersionId, {
+      result,
+      cachedAt: Date.now(),
+    });
+  }
+
+  return result;
 }
 
 /**
  * Annual achievement = average of evaluable period %s plus annual-mode leaf %.
  */
-async function computeAnnualExecutionProgress(annualVersionId, transaction = null) {
-  const periods = await PlanVersion.findAll({
-    where: {
-      parent_plan_version_id: annualVersionId,
-      version_kind: "execution_period",
-    },
-    order: [["sequence_index", "ASC"]],
-    transaction,
-  });
+async function computeAnnualExecutionProgress(annualVersionId, transaction = null, options = {}) {
+  const periods =
+    options.contextCache?.periodsByAnnualId?.get(annualVersionId) ||
+    (await PlanVersion.findAll({
+      where: {
+        parent_plan_version_id: annualVersionId,
+        version_kind: "execution_period",
+      },
+      order: [["sequence_index", "ASC"]],
+      transaction,
+    }));
+
+  if (options.contextCache?.planVersionById) {
+    for (const period of periods) {
+      options.contextCache.planVersionById.set(period.plan_version_id, period);
+    }
+  }
+
+  // Pre-fetch all nodes for this annual and all its periods in 1 single bulk query
+  const nodesCache = options.contextCache?.nodesByVersionId;
+  if (nodesCache) {
+    const allVersionIds = [annualVersionId, ...periods.map((p) => p.plan_version_id)];
+    const missingIds = allVersionIds.filter((id) => !nodesCache.has(id));
+    if (missingIds.length > 0) {
+      const batchNodes = await PlanNode.findAll({
+        where: {
+          plan_version_id: { [Op.in]: missingIds },
+          is_active: true,
+        },
+        transaction,
+      });
+      for (const id of missingIds) {
+        if (!nodesCache.has(id)) nodesCache.set(id, []);
+      }
+      for (const node of batchNodes) {
+        const list = nodesCache.get(node.plan_version_id);
+        if (list) list.push(node);
+      }
+    }
+  }
 
   const execution_period_progress = [];
   const evaluablePercents = [];
   let anyContributing = false;
 
   for (const period of periods) {
-    const progress = await computePeriodExecutionProgress(period.plan_version_id, transaction);
+    const progress = await computePeriodExecutionProgress(
+      period.plan_version_id,
+      transaction,
+      options
+    );
 
     if (progress.has_contributing_data) {
       anyContributing = true;
@@ -438,16 +514,20 @@ async function computeAnnualExecutionProgress(annualVersionId, transaction = nul
     });
   }
 
-  const annualNodes = await PlanNode.findAll({
-    where: { plan_version_id: annualVersionId, is_active: true },
-    transaction,
-  });
+  const annualNodes =
+    options.contextCache?.nodesByVersionId?.get(annualVersionId) ||
+    (await PlanNode.findAll({
+      where: { plan_version_id: annualVersionId, is_active: true },
+      transaction,
+    }));
   const plainAnnual = annualNodes.map((node) => (node.toJSON ? node.toJSON() : node));
   const childrenByParent = buildChildrenByParent(plainAnnual);
-  const annualRollupContext = await buildRollupContextForAnnual(annualVersionId, transaction);
-  const annualVersion = await PlanVersion.findByPk(annualVersionId, { transaction });
+  const annualRollupContext = await buildRollupContextForAnnual(annualVersionId, transaction, options);
+  const annualVersion =
+    options.contextCache?.planVersionById?.get(annualVersionId) ||
+    (await PlanVersion.findByPk(annualVersionId, { transaction }));
   const annualRule = annualVersion
-    ? await resolvePlanRuleForVersion(annualVersion, transaction)
+    ? await resolvePlanRuleForVersion(annualVersion, transaction, options)
     : null;
 
   for (const node of plainAnnual) {
@@ -576,8 +656,10 @@ function emptyMasterProgress() {
 /**
  * Master achievement = average across evaluable annual years only.
  */
-async function computeMasterExecutionProgress(masterVersionId, transaction = null) {
-  const version = await PlanVersion.findByPk(masterVersionId, { transaction });
+async function computeMasterExecutionProgress(masterVersionId, transaction = null, options = {}) {
+  const version =
+    options.contextCache?.planVersionById?.get(masterVersionId) ||
+    (await PlanVersion.findByPk(masterVersionId, { transaction }));
   if (!version || version.version_kind !== "master") {
     return emptyMasterProgress();
   }
@@ -590,6 +672,27 @@ async function computeMasterExecutionProgress(masterVersionId, transaction = nul
     return emptyMasterProgress();
   }
 
+  const contextCache = options.contextCache || {
+    departmentGroupCache: new Map(),
+    masterAssignments: new Map(),
+    sectorApprovers: new Map(),
+    sectorValidation: new Map(),
+    approverGates: new Map(),
+    publishGates: new Map(),
+    periodRollupCache: new Map(),
+  };
+  if (!contextCache.periodRollupCache) {
+    contextCache.periodRollupCache = new Map();
+  }
+  const scopedOptions = { ...options, contextCache };
+
+  if (scopedOptions.contextCache?.planVersionById && !scopedOptions.contextCache.planVersionById.has(snapshotRootId)) {
+    const snapshotMaster = await PlanVersion.findByPk(snapshotRootId, { transaction });
+    if (snapshotMaster) {
+      scopedOptions.contextCache.planVersionById.set(snapshotRootId, snapshotMaster);
+    }
+  }
+
   const annuals = await PlanVersion.findAll({
     where: {
       parent_plan_version_id: snapshotRootId,
@@ -598,6 +701,69 @@ async function computeMasterExecutionProgress(masterVersionId, transaction = nul
     order: [["sequence_index", "ASC"]],
     transaction,
   });
+
+  if (scopedOptions.contextCache?.planVersionById) {
+    for (const annual of annuals) {
+      scopedOptions.contextCache.planVersionById.set(annual.plan_version_id, annual);
+    }
+  }
+
+  const annualIds = annuals.map((a) => a.plan_version_id);
+  let allPeriods = [];
+  if (annualIds.length > 0) {
+    allPeriods = await PlanVersion.findAll({
+      where: {
+        parent_plan_version_id: { [Op.in]: annualIds },
+        version_kind: "execution_period",
+      },
+      order: [["sequence_index", "ASC"]],
+      transaction,
+    });
+  }
+
+  if (scopedOptions.contextCache) {
+    if (!scopedOptions.contextCache.periodsByAnnualId) {
+      scopedOptions.contextCache.periodsByAnnualId = new Map();
+    }
+    for (const aId of annualIds) {
+      if (!scopedOptions.contextCache.periodsByAnnualId.has(aId)) {
+        scopedOptions.contextCache.periodsByAnnualId.set(aId, []);
+      }
+    }
+    for (const p of allPeriods) {
+      if (scopedOptions.contextCache.planVersionById) {
+        scopedOptions.contextCache.planVersionById.set(p.plan_version_id, p);
+      }
+      const list = scopedOptions.contextCache.periodsByAnnualId.get(p.parent_plan_version_id);
+      if (list) list.push(p);
+    }
+
+    const nodesCache = scopedOptions.contextCache.nodesByVersionId;
+    if (nodesCache) {
+      const allVersionIds = [
+        snapshotRootId,
+        ...annualIds,
+        ...allPeriods.map((p) => p.plan_version_id),
+      ];
+      const missingIds = allVersionIds.filter((id) => !nodesCache.has(id));
+      if (missingIds.length > 0) {
+        const batchNodes = await PlanNode.findAll({
+          where: {
+            plan_version_id: { [Op.in]: missingIds },
+            is_active: true,
+          },
+          transaction,
+        });
+        for (const id of missingIds) {
+          if (!nodesCache.has(id)) nodesCache.set(id, []);
+        }
+        for (const node of batchNodes) {
+          const list = nodesCache.get(node.plan_version_id);
+          if (list) list.push(node);
+        }
+      }
+    }
+  }
 
   if (annuals.length === 0) {
     return emptyMasterProgress();
@@ -608,7 +774,11 @@ async function computeMasterExecutionProgress(masterVersionId, transaction = nul
   let anyContributing = false;
 
   for (const annual of annuals) {
-    const progress = await computeAnnualExecutionProgress(annual.plan_version_id, transaction);
+    const progress = await computeAnnualExecutionProgress(
+      annual.plan_version_id,
+      transaction,
+      scopedOptions
+    );
 
     if (progress.has_contributing_data) {
       anyContributing = true;
@@ -679,6 +849,14 @@ async function enrichExecutionHierarchyTree(planVersionId, roots, transaction = 
   };
 }
 
+function invalidateCompletedPeriodCache(periodVersionId = null) {
+  if (periodVersionId) {
+    completedPeriodCache.delete(periodVersionId);
+  } else {
+    completedPeriodCache.clear();
+  }
+}
+
 module.exports = {
   EVALUATION_STATUS,
   computeRollupMap,
@@ -689,4 +867,5 @@ module.exports = {
   enrichExecutionHierarchyTree,
   enrichAnnualHierarchyTree,
   applyRollupToHierarchyNodes,
+  invalidateCompletedPeriodCache,
 };

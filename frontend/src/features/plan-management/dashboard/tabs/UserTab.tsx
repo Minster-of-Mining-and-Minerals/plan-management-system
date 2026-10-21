@@ -5,7 +5,8 @@ import { DashboardSectionHeader } from "../components/AnalyticsPanel";
 import { RankedLeaderboard } from "../components/RankedLeaderboard";
 import { UserPerformanceTable } from "../components/UserPerformanceTable";
 import { AnalyticsPanel } from "../components/AnalyticsPanel";
-import { Users, Target, ClipboardCheck } from "lucide-react";
+import { Users, Target, ClipboardCheck, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useDashboardAppearance } from "../hooks/useDashboardAppearance";
 
 interface UserTabProps {
@@ -14,6 +15,29 @@ interface UserTabProps {
 
 export function UserTab({ state }: UserTabProps) {
   const { textPrimary } = useDashboardAppearance();
+
+  if (state.data.deptUserLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[300px] gap-3 text-sm text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        Loading assignee performance metrics…
+      </div>
+    );
+  }
+
+  if (state.data.deptUserError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[300px] gap-3 text-sm text-destructive">
+        <p>{state.data.deptUserError}</p>
+        {state.refetchDeptUser && (
+          <Button variant="outline" size="sm" onClick={() => state.refetchDeptUser?.()}>
+            Retry
+          </Button>
+        )}
+      </div>
+    );
+  }
+
   const users = state.filteredUsers;
   const reportingUsers = users.filter((u) => u.has_progress);
   const totalAssigned = users.reduce((sum, u) => sum + u.assignedNodeCount, 0);

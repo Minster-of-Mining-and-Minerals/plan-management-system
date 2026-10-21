@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect, useLayoutEffect, useRef } from "react";
 import {
     useGetPlanHierarchyQuery,
+    useGetPlanNodesQuery,
     useDeletePlanNodeMutation,
     useGetPlanVersionByIdQuery,
     useGetAnnualTargetAllocationsQuery,
@@ -277,44 +278,105 @@ export default function PlanHierarchyView({
         activeTab,
     ]);
 
+    const shouldFetchFullHierarchy = shouldFetchHierarchy && viewMode !== "card";
+    const shouldFetchCardNodes = shouldFetchHierarchy && viewMode === "card";
+
     const { data: rule } = useGetPlanRuleForVersionQuery(versionId, {
         skip: !shouldFetchHierarchy,
     });
     const {
         data: hierarchy = [],
         isLoading: isHierarchyLoading,
-        refetch,
-    } = useGetPlanHierarchyQuery(versionId, { skip: !shouldFetchHierarchy });
+        refetch: refetchHierarchy,
+    } = useGetPlanHierarchyQuery(versionId, { skip: !shouldFetchFullHierarchy });
+
+    const currentParentId = pathIds.length > 0 ? pathIds[pathIds.length - 1] : "root";
+    const {
+        data: cardLevelNodes = [],
+        isLoading: isCardLevelLoading,
+        refetch: refetchCardNodes,
+    } = useGetPlanNodesQuery(
+        {
+            plan_version_id: versionId,
+            parent_id: currentParentId,
+            is_active: true,
+        },
+        { skip: !shouldFetchCardNodes }
+    );
+
+    const refetch = () => {
+        if (viewMode === "card" && hierarchy.length === 0) {
+            refetchCardNodes();
+        } else {
+            refetchHierarchy();
+        }
+    };
+
+    const [cardBreadcrumbTrail, setCardBreadcrumbTrail] = useState<
+        Array<{ plan_node_id: string; title: string; level: number; number?: string }>
+    >([]);
+
     const [deleteNode] = useDeletePlanNodeMutation();
     const [updateNode, { isLoading: isDistributingContribution }] = useUpdatePlanNodeMutation();
     const [reorderNodes, { isLoading: isReordering }] = useReorderPlanNodesMutation();
 
     const maxDepth = getMaxRuleDepth(rule);
     const rootLabel = getStepLabel(rule, 1);
-    const breadcrumbPath = useMemo(
-        () => resolveBreadcrumbPath(hierarchy, pathIds),
-        [hierarchy, pathIds]
-    );
+    const breadcrumbPath = useMemo(() => {
+        if (hierarchy.length > 0) {
+            return resolveBreadcrumbPath(hierarchy, pathIds);
+        }
+        return cardBreadcrumbTrail as PlanNodeHierarchy[];
+    }, [hierarchy, pathIds, cardBreadcrumbTrail]);
 
     useEffect(() => {
-        setPathIds((prev) => {
-            const next = resolveBreadcrumbPath(hierarchy, prev).map((n) => n.plan_node_id);
-            if (next.length === prev.length && next.every((id, index) => id === prev[index])) {
-                return prev;
-            }
-            return next;
-        });
+        if (hierarchy.length > 0) {
+            setPathIds((prev) => {
+                const next = resolveBreadcrumbPath(hierarchy, prev).map((n) => n.plan_node_id);
+                if (next.length === prev.length && next.every((id, index) => id === prev[index])) {
+                    return prev;
+                }
+                return next;
+            });
+        }
     }, [hierarchy]);
 
     const currentParent = breadcrumbPath.length > 0 ? breadcrumbPath[breadcrumbPath.length - 1] : null;
-    const currentNodes = useMemo(
-        () => getCurrentNodes(hierarchy, pathIds),
-        [hierarchy, pathIds]
-    );
-    const hierarchyNumberMap = useMemo(
-        () => buildHierarchyNumberMap(hierarchy),
-        [hierarchy]
-    );
+    const currentNodes = useMemo(() => {
+        if (viewMode === "card") {
+            if (hierarchy.length > 0) {
+                return getCurrentNodes(hierarchy, pathIds);
+            }
+            return cardLevelNodes as PlanNodeHierarchy[];
+        }
+        return getCurrentNodes(hierarchy, pathIds);
+    }, [viewMode, hierarchy, pathIds, cardLevelNodes]);
+
+    const cardHierarchyNumberMap = useMemo(() => {
+        const map = new Map<string, string>();
+        for (const item of cardBreadcrumbTrail) {
+            if (item.number) {
+                map.set(item.plan_node_id, item.number);
+            }
+        }
+        const parentNumber =
+            cardBreadcrumbTrail.length > 0
+                ? cardBreadcrumbTrail[cardBreadcrumbTrail.length - 1].number
+                : null;
+        cardLevelNodes.forEach((node, index) => {
+            const num = parentNumber ? `${parentNumber}.${index + 1}` : `${index + 1}`;
+            map.set(node.plan_node_id, num);
+        });
+        return map;
+    }, [cardBreadcrumbTrail, cardLevelNodes]);
+
+    const hierarchyNumberMap = useMemo(() => {
+        if (hierarchy.length > 0) {
+            return buildHierarchyNumberMap(hierarchy);
+        }
+        return cardHierarchyNumberMap;
+    }, [hierarchy, cardHierarchyNumberMap]);
+
     const currentLevel = currentParent ? currentParent.level + 1 : 1;
     const currentLevelLabel = getStepLabel(rule, currentLevel);
     const childLabel = currentLevelLabel;
@@ -627,8 +689,23 @@ export default function PlanHierarchyView({
         }
     };
 
-    const handleDrillDown = (node: PlanNodeHierarchy) => {
-        if (node.children?.length) {
+    const handleDrillDown = (node: PlanNodeHierarchy | PlanNode) => {
+        const hasChildren = Boolean(
+            node.children?.length ||
+            node.has_children ||
+            (typeof node.child_count === "number" && node.child_count > 0)
+        );
+        if (hasChildren) {
+            const num = hierarchyNumberMap.get(node.plan_node_id);
+            setCardBreadcrumbTrail((prev) => [
+                ...prev,
+                {
+                    plan_node_id: node.plan_node_id,
+                    title: node.title,
+                    level: node.level,
+                    number: num,
+                },
+            ]);
             setPathIds((prev) => [...prev, node.plan_node_id]);
         }
     };
@@ -636,8 +713,10 @@ export default function PlanHierarchyView({
     const handleBreadcrumbClick = (index: number) => {
         if (index < 0) {
             setPathIds([]);
+            setCardBreadcrumbTrail([]);
         } else {
             setPathIds((prev) => prev.slice(0, index + 1));
+            setCardBreadcrumbTrail((prev) => prev.slice(0, index + 1));
         }
     };
 
@@ -832,7 +911,12 @@ export default function PlanHierarchyView({
         </div>
     ) : null;
 
-    const hierarchyBody = isHierarchyLoading ? (
+    const isNodeDataLoading =
+        viewMode === "card" && hierarchy.length === 0
+            ? isCardLevelLoading
+            : isHierarchyLoading;
+
+    const hierarchyBody = isNodeDataLoading ? (
         <PlanDetailLoadingPanel variant="hierarchy" />
     ) : (
         <>
@@ -840,7 +924,11 @@ export default function PlanHierarchyView({
                 <PlanTreeAccessBanner
                     treeAccessMode={treeAccessMode}
                     accessRole={planAccessRole}
-                    hierarchyEmpty={hierarchy.length === 0}
+                    hierarchyEmpty={
+                        viewMode === "card" && hierarchy.length === 0
+                            ? cardLevelNodes.length === 0 && pathIds.length === 0
+                            : hierarchy.length === 0
+                    }
                 />
             )}
 

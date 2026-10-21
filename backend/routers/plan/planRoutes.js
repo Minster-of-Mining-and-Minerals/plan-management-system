@@ -22,7 +22,12 @@ const {
     validateRejectAchievement,
 } = require("../../validators/plan/planValidator");
 
-const { getExecutionDashboard } = require("../../controllers/plan/planDashboardController");
+const {
+    getExecutionDashboard,
+    getExecutionDashboardSummary,
+    getExecutionDashboardProgressTree,
+    getExecutionDashboardDepartmentUser,
+} = require("../../controllers/plan/planDashboardController");
 
 const {
     createPlanVersion,
@@ -234,6 +239,24 @@ router.post(
     duplicatePlanDraftHandler
 );
 router.get("/versions", checkPermission("PLANS", "READ"), validateGetPlanVersionsQuery, getPlanVersions);
+router.get(
+    "/execution-dashboard/summary",
+    checkPermission("PLANS", "READ"),
+    validateGetPlanExecutionDashboardQuery,
+    getExecutionDashboardSummary
+);
+router.get(
+    "/execution-dashboard/progress-tree",
+    checkPermission("PLANS", "READ"),
+    validateGetPlanExecutionDashboardQuery,
+    getExecutionDashboardProgressTree
+);
+router.get(
+    "/execution-dashboard/department-user",
+    checkPermission("PLANS", "READ"),
+    validateGetPlanExecutionDashboardQuery,
+    getExecutionDashboardDepartmentUser
+);
 router.get(
     "/execution-dashboard",
     checkPermission("PLANS", "READ"),

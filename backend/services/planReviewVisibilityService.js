@@ -89,35 +89,53 @@ function internalAssignmentMatchesUser(
   return false;
 }
 
-async function resolveMasterVersionId(planVersionId) {
-  const version = await PlanVersion.findByPk(planVersionId);
+async function resolveMasterVersionId(planVersionId, transaction = null, options = {}) {
+  const cache = options?.contextCache?.masterVersionIdCache;
+  if (cache && cache.has(planVersionId)) {
+    return cache.get(planVersionId);
+  }
+
+  const pvCache = options?.contextCache?.planVersionById;
+  const version = pvCache?.get(planVersionId) || (await PlanVersion.findByPk(planVersionId, { transaction }));
   if (!version) return null;
 
   if (version.version_kind === "master") {
-    return version.execution_snapshot_of_version_id || version.plan_version_id;
+    const res = version.execution_snapshot_of_version_id || version.plan_version_id;
+    if (cache) cache.set(planVersionId, res);
+    return res;
   }
 
   let masterId = null;
   if (version.version_kind === "annual") {
     masterId = version.parent_plan_version_id;
   } else if (version.version_kind === "execution_period") {
-    const annual = await PlanVersion.findByPk(version.parent_plan_version_id);
+    const annual = pvCache?.get(version.parent_plan_version_id) || (await PlanVersion.findByPk(version.parent_plan_version_id, { transaction }));
     masterId = annual?.parent_plan_version_id ?? null;
   }
 
   if (!masterId) return null;
 
-  const master = await PlanVersion.findByPk(masterId);
+  const master = pvCache?.get(masterId) || (await PlanVersion.findByPk(masterId, { transaction }));
   if (!master) return null;
 
-  return master.execution_snapshot_of_version_id || master.plan_version_id;
+  const result = master.execution_snapshot_of_version_id || master.plan_version_id;
+  if (cache) cache.set(planVersionId, result);
+  return result;
 }
 
-async function getMasterNodes(masterVersionId, transaction = null) {
-  return PlanNode.findAll({
+async function getMasterNodes(masterVersionId, transaction = null, options = {}) {
+  const cache = options?.contextCache?.masterNodesCache;
+  if (cache && cache.has(masterVersionId)) {
+    return cache.get(masterVersionId);
+  }
+
+  const nodes = await PlanNode.findAll({
     where: { plan_version_id: masterVersionId, is_active: true },
     transaction,
   });
+
+  if (cache) cache.set(masterVersionId, nodes);
+  return nodes;
 }
 
 async function getAssignedMasterNodeIds(masterVersionId, userId, transaction = null) {

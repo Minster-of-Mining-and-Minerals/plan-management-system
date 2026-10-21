@@ -97,7 +97,7 @@ async function userHasOwnerPlanAccess(req, planVersionId, structureIndex = null)
   return visibleSet.has(master.government_structure_id);
 }
 
-async function getParticipatingMasterPlanIds(user, transaction = null) {
+async function getParticipatingMasterPlanIds(user, transaction = null, options = {}) {
   if (!user?.government_structure_id) return [];
 
   const externalAssignments = await ExternalAssignment.findAll({
@@ -119,10 +119,19 @@ async function getParticipatingMasterPlanIds(user, transaction = null) {
   });
 
   const masterIds = new Set();
-  for (const assignment of externalAssignments) {
+  const uniqueVersionIds = [
+    ...new Set(
+      externalAssignments
+        .map((assignment) => assignment.planNode?.plan_version_id)
+        .filter(Boolean)
+    ),
+  ];
+
+  for (const versionId of uniqueVersionIds) {
     const masterId = await resolveMasterVersionId(
-      assignment.planNode.plan_version_id,
-      transaction
+      versionId,
+      transaction,
+      options
     );
     if (masterId) masterIds.add(masterId);
   }
@@ -133,16 +142,17 @@ async function getParticipatingMasterPlanIds(user, transaction = null) {
 async function userSectorHasExternalAssignmentOnMaster(
   user,
   masterVersionId,
-  transaction = null
+  transaction = null,
+  options = {}
 ) {
   if (!user?.government_structure_id) return false;
-  const participatingMasterIds = await getParticipatingMasterPlanIds(user, transaction);
+  const participatingMasterIds = await getParticipatingMasterPlanIds(user, transaction, options);
   return participatingMasterIds.includes(masterVersionId);
 }
 
-async function getAssignmentLinkedMasterPlanIds(user, transaction = null) {
+async function getAssignmentLinkedMasterPlanIds(user, transaction = null, options = {}) {
   const masterIds = new Set(
-    await getParticipatingMasterPlanIds(user, transaction)
+    await getParticipatingMasterPlanIds(user, transaction, options)
   );
 
   if (!user?.user_id) {
@@ -171,10 +181,19 @@ async function getAssignmentLinkedMasterPlanIds(user, transaction = null) {
     transaction,
   });
 
-  for (const assignment of internalAssignments) {
+  const uniqueInternalVersionIds = [
+    ...new Set(
+      internalAssignments
+        .map((assignment) => assignment.planNode?.plan_version_id)
+        .filter(Boolean)
+    ),
+  ];
+
+  for (const versionId of uniqueInternalVersionIds) {
     const masterId = await resolveMasterVersionId(
-      assignment.planNode.plan_version_id,
-      transaction
+      versionId,
+      transaction,
+      options
     );
     if (masterId) masterIds.add(masterId);
   }
@@ -182,16 +201,16 @@ async function getAssignmentLinkedMasterPlanIds(user, transaction = null) {
   return [...masterIds];
 }
 
-async function userHasAssignmentLinkedPlanAccess(user, masterVersionId, transaction = null) {
-  const linkedMasterIds = await getAssignmentLinkedMasterPlanIds(user, transaction);
+async function userHasAssignmentLinkedPlanAccess(user, masterVersionId, transaction = null, options = {}) {
+  const linkedMasterIds = await getAssignmentLinkedMasterPlanIds(user, transaction, options);
   return linkedMasterIds.includes(masterVersionId);
 }
 
-async function resolveAccessibleMasterPlanIds(req, transaction = null) {
+async function resolveAccessibleMasterPlanIds(req, transaction = null, options = {}) {
   if (isSuperAdminActor(req)) return null;
   if (!req.user) return [];
 
-  return getAssignmentLinkedMasterPlanIds(req.user, transaction);
+  return getAssignmentLinkedMasterPlanIds(req.user, transaction, options);
 }
 
 async function userCanAccessDraftPlan(req, planVersionId) {

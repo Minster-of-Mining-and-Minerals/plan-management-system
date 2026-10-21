@@ -11,7 +11,10 @@ const {
   GovernmentStructure,
   InternalStructure,
 } = require("../models");
-const { loadDepartmentPermissionGroups } = require("../utils/specialPermissionGroupUtils");
+const {
+  loadDepartmentPermissionGroups,
+  loadDepartmentPermissionGroupsBatch,
+} = require("../utils/specialPermissionGroupUtils");
 const { collectUserPermissionKeys } = require("../utils/userPermissionsUtils");
 const { userCanApproveAchievement, userCanValidateAchievement, userCanPublishSectorAggregation } = require("../utils/planAchievementPermissionUtils");
 const { buildVisibleGovernmentStructureIdSet } = require("../utils/structureScopeUtils");
@@ -22,7 +25,11 @@ const {
 } = require("./planAchievementScopeUtils");
 const { loadMasterPlanAssignments } = require("./planTreeVisibilityUtils");
 
-async function loadUsersWithEffectivePermissions(userIds, transaction = null) {
+async function loadUsersWithEffectivePermissions(
+  userIds,
+  transaction = null,
+  options = {}
+) {
   const uniqueIds = [...new Set((userIds ?? []).filter(Boolean))];
   if (!uniqueIds.length) {
     return [];
@@ -70,12 +77,50 @@ async function loadUsersWithEffectivePermissions(userIds, transaction = null) {
     transaction,
   });
 
+  const departmentCache =
+    options.departmentGroupCache ||
+    options.cache ||
+    options.contextCache?.departmentGroupCache;
+
+  const departmentIds = [
+    ...new Set(users.map((u) => u.internal_structure_id).filter(Boolean)),
+  ];
+
+  const missingDepartmentIds = departmentCache
+    ? departmentIds.filter((id) => !departmentCache.has(id))
+    : departmentIds;
+
+  let localDepartmentMap = new Map();
+  if (missingDepartmentIds.length > 0) {
+    localDepartmentMap = await loadDepartmentPermissionGroupsBatch(
+      missingDepartmentIds,
+      { transaction }
+    );
+    if (departmentCache) {
+      for (const [id, groups] of localDepartmentMap.entries()) {
+        departmentCache.set(id, groups);
+      }
+    }
+  }
+
   const enriched = [];
   for (const user of users) {
-    const plain = user.toJSON ? user.toJSON() : user;
-    plain.departmentPermissionGroups = await loadDepartmentPermissionGroups(
-      plain.internal_structure_id,
-      { transaction }
+    const plain = user.toJSON ? user.toJSON() : { ...user };
+    let groups = [];
+    if (plain.internal_structure_id) {
+      if (departmentCache && departmentCache.has(plain.internal_structure_id)) {
+        groups = departmentCache.get(plain.internal_structure_id) || [];
+      } else if (localDepartmentMap.has(plain.internal_structure_id)) {
+        groups = localDepartmentMap.get(plain.internal_structure_id) || [];
+      } else {
+        groups = await loadDepartmentPermissionGroups(
+          plain.internal_structure_id,
+          { transaction, cache: departmentCache }
+        );
+      }
+    }
+    plain.departmentPermissionGroups = groups.map((g) =>
+      g && typeof g.toJSON === "function" ? g.toJSON() : { ...g }
     );
     plain.permissions = collectUserPermissionKeys(plain);
     enriched.push(plain);
@@ -133,7 +178,11 @@ async function loadPlanSectorContext(masterVersionId, transaction = null) {
   return { planSectorId, structureIndex };
 }
 
-async function loadSectorApproverUsers(masterVersionId, transaction = null) {
+async function loadSectorApproverUsers(
+  masterVersionId,
+  transaction = null,
+  options = {}
+) {
   const { planSectorId, structureIndex } = await loadPlanSectorContext(
     masterVersionId,
     transaction
@@ -159,7 +208,8 @@ async function loadSectorApproverUsers(masterVersionId, transaction = null) {
 
   const enriched = await loadUsersWithEffectivePermissions(
     users.map((user) => user.user_id),
-    transaction
+    transaction,
+    options
   );
 
   return {
@@ -176,9 +226,10 @@ async function loadSectorApproverUsers(masterVersionId, transaction = null) {
 async function resolveSectorApproverGateMasterNodeIds(
   masterVersionId,
   masterNodes,
-  transaction = null
+  transaction = null,
+  options = {}
 ) {
-  const { users } = await loadSectorApproverUsers(masterVersionId, transaction);
+  const { users } = await loadSectorApproverUsers(masterVersionId, transaction, options);
   if (!users.length) {
     return new Set();
   }
@@ -244,7 +295,11 @@ async function loadSectorDepartmentIds(planSectorId, transaction = null) {
   return departments.map((row) => row.internal_structure_id);
 }
 
-async function loadSectorValidationUsers(masterVersionId, transaction = null) {
+async function loadSectorValidationUsers(
+  masterVersionId,
+  transaction = null,
+  options = {}
+) {
   const { planSectorId, structureIndex } = await loadPlanSectorContext(
     masterVersionId,
     transaction
@@ -279,7 +334,8 @@ async function loadSectorValidationUsers(masterVersionId, transaction = null) {
 
   const enriched = await loadUsersWithEffectivePermissions(
     departmentUsers.map((user) => user.user_id),
-    transaction
+    transaction,
+    options
   );
 
   const validators = enriched.filter(
@@ -341,7 +397,11 @@ async function assertUserCanValidateAchievement(user, masterVersionId, transacti
  * Gate is ON for a branch when ≥1 user in that sector subtree holds
  * plan:publish_sector_aggregation.
  */
-async function loadSectorPublishGates(masterVersionId, transaction = null) {
+async function loadSectorPublishGates(
+  masterVersionId,
+  transaction = null,
+  options = {}
+) {
   const { externalAssignments } = await loadMasterPlanAssignments(
     masterVersionId,
     transaction
@@ -384,7 +444,8 @@ async function loadSectorPublishGates(masterVersionId, transaction = null) {
 
   const enriched = await loadUsersWithEffectivePermissions(
     users.map((user) => user.user_id),
-    transaction
+    transaction,
+    options
   );
 
   const publishersByExternalAssignmentId = new Map();

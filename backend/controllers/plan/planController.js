@@ -414,6 +414,29 @@ const getPlanVersions = async (req, res) => {
             versions.map((version) => version.plan_version_id)
         );
 
+        const shouldEnrichExecution =
+            !isSummaryView ||
+            req.query.enrich_execution === "true" ||
+            req.query.enrich_execution === true ||
+            req.query.include_progress === "true" ||
+            req.query.include_progress === true;
+
+        if (!shouldEnrichExecution) {
+            return res.json({
+                success: true,
+                data: versions.map((version) => {
+                    const plain =
+                        typeof version.get === "function"
+                            ? version.get({ plain: true })
+                            : { ...version };
+                    return {
+                        ...plain,
+                        access_role: accessRoles.get(plain.plan_version_id) || "participant",
+                    };
+                }),
+            });
+        }
+
         const withExecutionProgress = await enrichMasterVersionsWithExecutionProgress(
             versions,
             null,
@@ -1085,36 +1108,140 @@ const getPlanNodes = async (req, res) => {
     try {
         const { plan_version_id, type, parent_id, level, is_active } = req.query;
 
+        const hierarchyVersionId = plan_version_id
+            ? await resolveExecutionHierarchyVersionId(plan_version_id)
+            : null;
+
         const where = {};
-        if (plan_version_id) where.plan_version_id = plan_version_id;
+        if (hierarchyVersionId || plan_version_id) {
+            where.plan_version_id = hierarchyVersionId || plan_version_id;
+        }
         if (type) where.type = type;
-        if (parent_id !== undefined) where.parent_id = parent_id || null;
-        if (level) where.level = parseInt(level);
-        if (is_active !== undefined) where.is_active = is_active === "true";
+        if (parent_id !== undefined) {
+            where.parent_id = (parent_id === "root" || !parent_id) ? null : parent_id;
+        }
+        if (level) where.level = parseInt(level, 10);
+        if (is_active !== undefined) {
+            where.is_active = is_active === "true" || is_active === true;
+        }
 
         const nodes = await PlanNode.findAll({
             where,
-            include: [
-                {
-                    model: PlanVersion,
-                    as: "planVersion",
-                },
-                {
-                    model: PlanNode,
-                    as: "parent",
-                },
-                {
-                    model: PlanNode,
-                    as: "children",
-                },
-            ],
             order: [["order", "ASC"], ["created_at", "ASC"]],
         });
 
-        let data = nodes.map((node) => node.toJSON());
+        const nodeIds = nodes.map((node) => node.plan_node_id);
+
+        const [externalAssignments, internalAssignments, childCounts] = await Promise.all([
+            nodeIds.length
+                ? ExternalAssignment.findAll({
+                      where: {
+                          plan_node_id: { [Op.in]: nodeIds },
+                          is_active: true,
+                      },
+                      include: [
+                          {
+                              model: GovernmentStructure,
+                              as: "governmentStructure",
+                              attributes: ["government_structure_id", "name"],
+                          },
+                      ],
+                      attributes: [
+                          "external_assignment_id",
+                          "plan_node_id",
+                          "government_structure_id",
+                          "is_active",
+                      ],
+                  })
+                : [],
+            nodeIds.length
+                ? InternalAssignment.findAll({
+                      where: {
+                          plan_node_id: { [Op.in]: nodeIds },
+                          is_active: true,
+                      },
+                      include: [
+                          {
+                              model: InternalStructure,
+                              as: "internalStructure",
+                              attributes: ["internal_structure_id", "name"],
+                          },
+                          {
+                              model: User,
+                              as: "user",
+                              attributes: ["user_id", "full_name"],
+                          },
+                          {
+                              model: Role,
+                              as: "role",
+                              attributes: ["role_id", "name"],
+                          },
+                          {
+                              model: PermissionGroup,
+                              as: "permissionGroup",
+                              attributes: ["permission_group_id", "name"],
+                          },
+                      ],
+                      attributes: [
+                          "internal_assignment_id",
+                          "plan_node_id",
+                          "internal_structure_id",
+                          "user_id",
+                          "role_id",
+                          "permission_group_id",
+                          "is_active",
+                      ],
+                  })
+                : [],
+            nodeIds.length
+                ? PlanNode.findAll({
+                      attributes: [
+                          "parent_id",
+                          [sequelize.fn("COUNT", sequelize.col("plan_node_id")), "child_count"],
+                      ],
+                      where: {
+                          plan_version_id: hierarchyVersionId || where.plan_version_id,
+                          parent_id: { [Op.in]: nodeIds },
+                          is_active: true,
+                      },
+                      group: ["parent_id"],
+                      raw: true,
+                  })
+                : [],
+        ]);
+
+        const externalByNode = new Map();
+        for (const assignment of externalAssignments) {
+            const list = externalByNode.get(assignment.plan_node_id) ?? [];
+            list.push(assignment.toJSON());
+            externalByNode.set(assignment.plan_node_id, list);
+        }
+
+        const internalByNode = new Map();
+        for (const assignment of internalAssignments) {
+            const list = internalByNode.get(assignment.plan_node_id) ?? [];
+            list.push(assignment.toJSON());
+            internalByNode.set(assignment.plan_node_id, list);
+        }
+
+        const childCountByParent = new Map();
+        for (const row of childCounts) {
+            childCountByParent.set(row.parent_id, parseInt(row.child_count, 10));
+        }
+
+        let data = nodes.map((node) => {
+            const json = node.toJSON();
+            const childCount = childCountByParent.get(node.plan_node_id) ?? 0;
+            json.children = [];
+            json.child_count = childCount;
+            json.has_children = childCount > 0;
+            json.externalAssignments = externalByNode.get(node.plan_node_id) ?? [];
+            json.internalAssignments = internalByNode.get(node.plan_node_id) ?? [];
+            return json;
+        });
 
         if (plan_version_id) {
-            const planVersion = await PlanVersion.findByPk(plan_version_id, {
+            const planVersion = await PlanVersion.findByPk(hierarchyVersionId || plan_version_id, {
                 attributes: ["plan_version_id", "version_kind", "parent_plan_version_id"],
             });
             const visibleNodeIds = await getVisibleNodeIdsForVersion(req, plan_version_id);
@@ -1123,6 +1250,29 @@ const getPlanNodes = async (req, res) => {
             if (planVersion && planVersion.version_kind !== "master") {
                 const sortMetaByNodeId = await buildDraftAlignedSortMeta(planVersion, nodes);
                 data = sortFlatPlanNodes(planVersion, data, sortMetaByNodeId);
+            }
+
+            if (planVersion?.version_kind === "execution_period" && planVersion.parent_plan_version_id) {
+                const sourceIds = data.map((d) => d.source_plan_node_id).filter(Boolean);
+                if (sourceIds.length > 0) {
+                    const annualNodes = await PlanNode.findAll({
+                        where: {
+                            plan_node_id: sourceIds,
+                            plan_version_id: planVersion.parent_plan_version_id,
+                        },
+                        attributes: ["plan_node_id", "annual_target", "target_allocation_mode", "achievement_mode"],
+                        raw: true,
+                    });
+                    const annualBySourceId = new Map(annualNodes.map((a) => [a.plan_node_id, a]));
+                    for (const item of data) {
+                        if (item.source_plan_node_id && annualBySourceId.has(item.source_plan_node_id)) {
+                            const annual = annualBySourceId.get(item.source_plan_node_id);
+                            item.annual_target = annual.annual_target;
+                            if (annual.target_allocation_mode) item.target_allocation_mode = annual.target_allocation_mode;
+                            if (annual.achievement_mode) item.achievement_mode = annual.achievement_mode;
+                        }
+                    }
+                }
             }
         }
 
@@ -1157,6 +1307,10 @@ const getPlanNodeById = async (req, res) => {
                 {
                     model: PlanNode,
                     as: "children",
+                    where: { is_active: true },
+                    required: false,
+                    separate: true,
+                    order: [["order", "ASC"], ["created_at", "ASC"]],
                 },
             ],
         });

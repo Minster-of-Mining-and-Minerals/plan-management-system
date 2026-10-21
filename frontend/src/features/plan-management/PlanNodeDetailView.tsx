@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
     useGetPlanNodeByIdQuery,
     useGetPlanVersionByIdQuery,
-    useGetPlanNodesQuery,
     useGetAnnualTargetAllocationsQuery,
     useUpdateAnnualTargetMutation,
     useUpdatePeriodTargetMutation,
@@ -126,9 +125,9 @@ export default function PlanNodeDetailView({
     const [annualTargetInput, setAnnualTargetInput] = useState("");
     const [periodTargetInput, setPeriodTargetInput] = useState("");
     const { data: node, isLoading: isNodeLoading } = useGetPlanNodeByIdQuery(nodeId);
-    const { data: childNodes = [] } = useGetPlanNodesQuery(
-        { plan_version_id: versionId, parent_id: nodeId, is_active: true },
-        { skip: !nodeId || !versionId }
+    const childNodes = useMemo(
+        () => (node?.children ?? []).filter((child: any) => child.is_active !== false),
+        [node?.children]
     );
     const { data: internalAssignments = [], isLoading: isInternalLoading } =
         useGetInternalAssignmentsByNodeQuery({ nodeId, includeInactive: showHistory });

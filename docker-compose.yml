@@ -82,6 +82,11 @@ services:
       DB_USERNAME: ${DB_USERNAME:-plan_user}
       DB_PASSWORD: ${DB_PASSWORD:-plan_password}
       DB_NAME: ${DB_NAME:-plan_management}
+      DB_POOL_MAX: ${DB_POOL_MAX:-20}
+      DB_POOL_MIN: ${DB_POOL_MIN:-2}
+      DB_POOL_ACQUIRE: ${DB_POOL_ACQUIRE:-30000}
+      DB_POOL_IDLE: ${DB_POOL_IDLE:-10000}
+      ENABLE_DASHBOARD_METRICS: ${ENABLE_DASHBOARD_METRICS:-true}
       PORT: 4000
       HOST: 0.0.0.0
       SOCKET_PORT: 5000

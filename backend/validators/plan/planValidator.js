@@ -1,5 +1,7 @@
 const Joi = require("joi");
 const { optionalUuid, sanitizeOptionalIds } = require("../helpers/joiFieldHelpers");
+const { TARGET_ALLOCATION_MODE } = require("../../utils/planTargetAllocationUtils");
+const { ACHIEVEMENT_MODE } = require("../../utils/planAchievementModeUtils");
 
 /**
  * ================= PLAN VERSION VALIDATORS =================
@@ -104,6 +106,8 @@ const getPlanVersionsQuerySchema = Joi.object({
     parent_plan_version_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).optional(),
     search: Joi.string().trim().allow("").optional(),
     view: Joi.string().valid("summary", "full").optional(),
+    include_progress: Joi.boolean().optional(),
+    enrich_execution: Joi.boolean().optional(),
 });
 
 const getPlanExecutionDashboardQuerySchema = Joi.object({
@@ -115,6 +119,7 @@ const getPlanExecutionDashboardQuerySchema = Joi.object({
     search: Joi.string().trim().allow("").optional(),
     date_from: Joi.string().isoDate().optional(),
     date_to: Joi.string().isoDate().optional(),
+    section: Joi.string().valid("overview", "summary", "progress_tree", "department_user", "full").optional(),
 });
 
 /**
@@ -150,6 +155,18 @@ const createPlanNodeSchema = Joi.object({
 
     target_unit: Joi.string().trim().max(50).allow(null).optional(),
 
+    target_allocation_mode: Joi.string()
+        .valid(...Object.values(TARGET_ALLOCATION_MODE))
+        .default(TARGET_ALLOCATION_MODE.DIVISIBLE)
+        .allow(null, "")
+        .optional(),
+
+    achievement_mode: Joi.string()
+        .valid(...Object.values(ACHIEVEMENT_MODE))
+        .default(ACHIEVEMENT_MODE.PERIOD)
+        .allow(null, "")
+        .optional(),
+
     level: Joi.number().integer().min(1).optional(),
 
     assignment_sharing_mode: Joi.string().valid("exclusive", "shared").default("exclusive").optional(),
@@ -164,6 +181,14 @@ const updatePlanNodeSchema = Joi.object({
     weight_mode: Joi.string().valid("number", "percentage", "frequency").allow(null).optional(),
     contribution_weight: Joi.number().min(0).max(100).allow(null).optional(),
     target_unit: Joi.string().trim().max(50).allow(null).optional(),
+    target_allocation_mode: Joi.string()
+        .valid(...Object.values(TARGET_ALLOCATION_MODE))
+        .allow(null, "")
+        .optional(),
+    achievement_mode: Joi.string()
+        .valid(...Object.values(ACHIEVEMENT_MODE))
+        .allow(null, "")
+        .optional(),
     level: Joi.number().integer().min(1).optional(),
     order: Joi.forbidden().messages({
         "any.unknown": "Use the reorder endpoint to change node order on the draft master plan",
@@ -177,7 +202,10 @@ const getPlanNodesQuerySchema = Joi.object({
         "any.required": "plan_version_id is required",
     }),
     type: Joi.string().valid("strategic", "goal", "kpi", "task").optional(),
-    parent_id: optionalUuid("parent_id"),
+    parent_id: Joi.alternatives().try(
+        Joi.string().valid("root"),
+        optionalUuid("parent_id")
+    ).optional(),
     level: Joi.number().integer().min(1).optional(),
     is_active: Joi.boolean().optional(),
 });

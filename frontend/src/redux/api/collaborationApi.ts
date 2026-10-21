@@ -164,6 +164,7 @@ export const collaborationApi = createApi({
       }),
       transformResponse: (response: { success: boolean; data: Record<string, number> }) =>
         response.data,
+      providesTags: [{ type: "CollaborationDocuments", id: "LIST" }],
     }),
     restoreDocumentVersion: builder.mutation<
       CollaborationDocument,

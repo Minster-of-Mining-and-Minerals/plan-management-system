@@ -139,6 +139,28 @@ export interface PlanExecutionDashboardResponse {
   generated_at: string;
 }
 
+export type PlanExecutionDashboardOverviewResponse = PlanExecutionDashboardResponse;
+
+export interface PlanExecutionDashboardProgressTreeResponse {
+  progress_tree: {
+    period_label: string | null;
+    planning_year: number | null;
+    period_version_id: string | null;
+    period_phase: DashboardPeriodPhase | null;
+    available_periods: DashboardAvailablePeriod[];
+    nodes: DashboardProgressNode[];
+  };
+  focus_master_plan_version_id: string | null;
+  generated_at: string;
+}
+
+export interface PlanExecutionDashboardDepartmentUserResponse {
+  structures: DashboardStructure[];
+  departments: DashboardDepartment[];
+  users: DashboardUser[];
+  generated_at: string;
+}
+
 export interface DashboardFilters {
   structureId: string;
   departmentId: string;
@@ -187,6 +209,12 @@ export interface PlanDashboardData {
   isLoading: boolean;
   error: string | null;
   isFetching: boolean;
+  progressLoading?: boolean;
+  progressFetching?: boolean;
+  progressError?: string | null;
+  deptUserLoading?: boolean;
+  deptUserFetching?: boolean;
+  deptUserError?: string | null;
 }
 
 /** @deprecated Use DashboardStructure */

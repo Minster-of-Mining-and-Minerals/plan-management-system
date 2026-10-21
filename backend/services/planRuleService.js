@@ -54,7 +54,15 @@ async function findInheritedPlanRule(structureId, structureIndex, transaction) {
   return null;
 }
 
-async function resolvePlanRuleForVersion(planVersion, transaction) {
+async function resolvePlanRuleForVersion(planVersion, transaction = null, options = {}) {
+  const masterVersion = await resolveMasterPlanVersionForConfig(planVersion, transaction, options);
+  const effectivePlanRuleId = masterVersion?.plan_rule_id ?? planVersion.plan_rule_id;
+
+  const cache = options?.contextCache?.planRuleCache;
+  if (cache && effectivePlanRuleId && cache.has(effectivePlanRuleId)) {
+    return cache.get(effectivePlanRuleId);
+  }
+
   const include = [
     {
       model: PlanRuleStep,
@@ -63,9 +71,6 @@ async function resolvePlanRuleForVersion(planVersion, transaction) {
       order: [["step_order", "ASC"]],
     },
   ];
-
-  const masterVersion = await resolveMasterPlanVersionForConfig(planVersion, transaction);
-  const effectivePlanRuleId = masterVersion?.plan_rule_id ?? planVersion.plan_rule_id;
 
   let rule = null;
 
@@ -108,6 +113,10 @@ async function resolvePlanRuleForVersion(planVersion, transaction) {
       order: [["created_at", "DESC"]],
       transaction,
     });
+  }
+
+  if (cache && effectivePlanRuleId && rule) {
+    cache.set(effectivePlanRuleId, rule);
   }
 
   return rule;

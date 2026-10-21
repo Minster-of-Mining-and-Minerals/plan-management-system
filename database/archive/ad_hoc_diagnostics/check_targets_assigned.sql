@@ -1,0 +1,1 @@
+SELECT count(*) FROM plan_nodes p JOIN plan_nodes a ON p.source_plan_node_id = a.plan_node_id JOIN plan_nodes m ON a.source_plan_node_id = m.plan_node_id JOIN internal_assignments ia ON ia.plan_node_id = m.plan_node_id WHERE p.period_target > 0;
