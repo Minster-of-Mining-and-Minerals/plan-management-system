@@ -122,7 +122,22 @@ const authenticateToken = async (req, res, next) => {
 // Permission middleware
 const checkPermission = (resource, action) => {
   return (req, res, next) => {
-    if (!req.user || !req.user.permissions) {
+    if (!req.user) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied: User not authenticated",
+      });
+    }
+
+    // Super Admin role possesses all permissions
+    if (
+      Array.isArray(req.user.roles) &&
+      req.user.roles.some((r) => String(r).toLowerCase() === "super admin")
+    ) {
+      return next();
+    }
+
+    if (!req.user.permissions) {
       return res.status(403).json({
         success: false,
         message: "Access denied: No permissions found",
@@ -152,7 +167,22 @@ const checkPermission = (resource, action) => {
 /** Pass if the user has at least one of the given resource/action pairs. */
 const checkAnyPermission = (checks) => {
   return (req, res, next) => {
-    if (!req.user || !req.user.permissions) {
+    if (!req.user) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied: User not authenticated",
+      });
+    }
+
+    // Super Admin role possesses all permissions
+    if (
+      Array.isArray(req.user.roles) &&
+      req.user.roles.some((r) => String(r).toLowerCase() === "super admin")
+    ) {
+      return next();
+    }
+
+    if (!req.user.permissions) {
       return res.status(403).json({
         success: false,
         message: "Access denied: No permissions found",

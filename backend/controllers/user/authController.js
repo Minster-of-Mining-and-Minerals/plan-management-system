@@ -217,10 +217,30 @@ const getMyPermissions = async (req, res) => {
 
     const permissionsSet = new Set(collectUserPermissionKeysUpper(user));
 
+    const isSuperAdmin = user.roles?.some(
+      (r) => String(r.name).toLowerCase() === "super admin"
+    );
+
+    let allPermissionKeys = Array.from(permissionsSet);
+    if (isSuperAdmin) {
+      const allSystemPerms = await Permission.findAll({
+        attributes: ["resource", "action"],
+      });
+      const fullSet = new Set(allPermissionKeys);
+      for (const p of allSystemPerms) {
+        if (p.resource && p.action) {
+          fullSet.add(
+            `${String(p.resource).trim()}:${String(p.action).trim()}`.toUpperCase()
+          );
+        }
+      }
+      allPermissionKeys = Array.from(fullSet);
+    }
+
     return res.status(200).json({
       success: true,
       data: {
-        permissions: Array.from(permissionsSet),
+        permissions: allPermissionKeys,
         roles: user.roles?.map((r) => r.name) || [],
       },
     });

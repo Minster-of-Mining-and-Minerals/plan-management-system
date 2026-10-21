@@ -30,7 +30,7 @@ export function RoutePermissionGuard({ children }: RoutePermissionGuardProps) {
   const pathname = usePathname();
   const dispatch = useDispatch();
   const { status } = useSession();
-  const { permissions, isLoading, bootstrapError } = useAuth();
+  const { permissions, roles, isLoading, bootstrapError } = useAuth();
   const { refetch: refetchPermissions } = useGetMyPermissionsQuery(undefined, {
     skip: status !== "authenticated",
   });
@@ -60,11 +60,12 @@ export function RoutePermissionGuard({ children }: RoutePermissionGuardProps) {
     );
   }
 
+  const isSuperAdmin = roles?.some((r) => String(r).toLowerCase() === "super admin");
   const matchedRule = matchRoutePermissionRule(pathname);
   const rule = matchRoutePermission(pathname);
   const permissionKeys = normalizeToPermissionKeys(permissions);
 
-  if (rule === null || !canAccessRoute(permissionKeys, rule)) {
+  if (!isSuperAdmin && (rule === null || !canAccessRoute(permissionKeys, rule))) {
     const fallbackPath = getDefaultFallbackRoute(permissionKeys);
     return (
       <AccessDenied
