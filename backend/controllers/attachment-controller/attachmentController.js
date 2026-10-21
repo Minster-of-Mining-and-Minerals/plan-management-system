@@ -28,10 +28,12 @@ const uploadFiles = async (req, res) => {
       fs.copyFileSync(file.path, newPath);
       fs.unlinkSync(file.path);
 
+      const normalizedPath = newPath.replace(/\\/g, "/");
+
       // Build the record data
       const recordData = {
         file_name: file.filename,
-        file_path: newPath,
+        file_path: normalizedPath,
         created_at: new Date(),
       };
 

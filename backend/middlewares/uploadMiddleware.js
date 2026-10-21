@@ -14,6 +14,9 @@ const allowedTypes = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "image/jpeg",
   "image/png",
+  "image/webp",
+  "image/svg+xml",
+  "image/gif",
 ];
 
 const tempUploadDir = path.join(__dirname, "../public/uploads/temp");

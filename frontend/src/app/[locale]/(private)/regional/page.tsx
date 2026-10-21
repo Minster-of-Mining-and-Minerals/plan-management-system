@@ -1,10 +1,5 @@
-import { RegionalWorkspace } from "@/features/regional-management/RegionalWorkspace";
-
-export const metadata = {
-  title: "Regional Workspace | Plan Management System",
-  description: "Independent Regional Strategic Planning and Execution Workspace.",
-};
+import { redirect } from "next/navigation";
 
 export default function RegionalWorkspacePage() {
-  return <RegionalWorkspace />;
+  redirect("/admin/regions");
 }

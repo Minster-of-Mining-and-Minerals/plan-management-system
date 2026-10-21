@@ -19,6 +19,14 @@ router.post(
   checkAnyPermission([
     { resource: "issues", action: "create" },
     { resource: "issues", action: "read_all" },
+    { resource: "regions", action: "create" },
+    { resource: "regions", action: "update" },
+    { resource: "regions", action: "manage" },
+    { resource: "regional_branding", action: "update" },
+    { resource: "regional_branding", action: "read" },
+    { resource: "government_structures", action: "create" },
+    { resource: "government_structures", action: "update" },
+    { resource: "branding_settings", action: "update" },
   ]),
   upload.array("files", 10),
   uploadFiles

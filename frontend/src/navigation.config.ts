@@ -45,12 +45,6 @@ export const NAVIGATION: NavItem[] = [
     anyPermissions: ["REGIONS:READ", "REGIONS:MANAGE"],
   },
   {
-    title: "Regional Workspace",
-    url: "/regional",
-    icon: MapPin,
-    anyPermissions: ["REGIONAL_STRUCTURES:READ"],
-  },
-  {
     title: "Sector Structures",
     url: "/government-structures",
     icon: Building2,

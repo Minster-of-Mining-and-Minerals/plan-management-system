@@ -77,10 +77,9 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/internal-structures/[id]", anyPermissions: ["INTERNAL_STRUCTURES:READ"] },
   { pattern: "/internal-structures", anyPermissions: ["INTERNAL_STRUCTURES:READ"] },
 
-  // Regional Administration & Workspace
+  // Regional Administration
   { pattern: "/admin/regions/[id]", anyPermissions: ["REGIONS:READ", "REGIONS:MANAGE", "REGIONS:UPDATE"] },
   { pattern: "/admin/regions", anyPermissions: ["REGIONS:READ", "REGIONS:MANAGE"] },
-  { pattern: "/regional", anyPermissions: ["REGIONAL_STRUCTURES:READ", "REGIONS:READ"] },
 
   // Issues
   { pattern: "/issues/form-config", allPermissions: ["FORM_CONFIG_CONTAINERS:READ"] },
@@ -169,7 +168,6 @@ export function getDefaultFallbackRoute(
     { path: "/government-structures", rule: { anyPermissions: ["GOVERNMENT_STRUCTURES:READ"] } },
     { path: "/internal-structures", rule: { anyPermissions: ["INTERNAL_STRUCTURES:READ"] } },
     { path: "/admin/regions", rule: { anyPermissions: ["REGIONS:READ", "REGIONS:MANAGE"] } },
-    { path: "/regional", rule: { anyPermissions: ["REGIONAL_STRUCTURES:READ"] } },
     { path: "/users/list", rule: { allPermissions: ["USERS:READ"] } },
     { path: "/notifications", rule: {} },
   ];

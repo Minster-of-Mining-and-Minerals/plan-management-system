@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Link, usePathname } from "@/i18n/navigation";
+import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import Image from "next/image";
 import { ChevronRight } from "lucide-react";
 
@@ -9,10 +9,12 @@ import { NAVIGATION } from "@/navigation.config";
 import { canAccessItem } from "@/lib/can-access";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
+import { useGetRegionsQuery } from "@/redux/api/regionApi";
 import { GovernmentStructure } from "@/redux/types/governmentStructure";
 import { buildSectorTree } from "@/utils/buildSectorTree";
 import { useGovernmentStructureListParams } from "@/hooks/useGovernmentStructureListParams";
 import { NavStructures } from "./nav-structures";
+import { NavRegions } from "./nav-regions";
 import { useSession } from "next-auth/react";
 import { useBranding } from "@/providers/BrandingProvider";
 import {
@@ -64,6 +66,7 @@ export function AppSidebar() {
   const { branding, logoPrimaryUrl } = useBranding();
   const { permissions: userPermissions } = usePermissions();
   const pathname = usePathname();
+  const router = useRouter();
 
   const isAuthReady =
     status === "authenticated" && Boolean(session?.accessToken);
@@ -105,6 +108,15 @@ export function AppSidebar() {
   }, [structuresData]);
   const structureTree = buildSectorTree(structuresData || []);
 
+  const canAccessRegions = visibleNav.some((item) => item.url === "/admin/regions");
+  const { data: regionsData } = useGetRegionsQuery(
+    { is_active: true },
+    {
+      skip: !isAuthReady || !canAccessRegions,
+      refetchOnMountOrArgChange: true,
+    }
+  );
+
   return (
     <Sidebar collapsible="icon" variant="floating" className="hide-scrollbar">
       {/* ---------- HEADER ---------- */}
@@ -144,7 +156,8 @@ export function AppSidebar() {
               {visibleNav.map((item) => {
                 const hasConfigChildren = item.children && item.children.length > 0;
                 const isGovStructures = item.url === "/government-structures";
-                const hasDynamicChildren = isGovStructures;
+                const isRegions = item.url === "/admin/regions";
+                const hasDynamicChildren = isGovStructures || isRegions;
                 const childUrls = item.children?.map((child) => child.url) ?? [];
 
                 if (hasConfigChildren || hasDynamicChildren) {
@@ -190,6 +203,7 @@ export function AppSidebar() {
                           >
                             <Link
                               href={item.url}
+                              onClick={() => router.push(item.url)}
                               className="flex-1 flex items-center gap-4 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:items-center"
                             >
                               <item.icon className="group-data-[collapsible=icon]:size-5 shrink-0" />
@@ -227,13 +241,18 @@ export function AppSidebar() {
                                 </SidebarMenuSubItem>
                               ))}
                             </SidebarMenuSub>
-                          ) : (
+                          ) : isGovStructures ? (
                             <NavStructures
                               structures={structureTree}
                               structuresById={structuresById}
                               basePath={item.url}
                             />
-                          )}
+                          ) : isRegions ? (
+                            <NavRegions
+                              regions={regionsData || []}
+                              basePath={item.url}
+                            />
+                          ) : null}
                         </CollapsibleContent>
                       </SidebarMenuItem>
                     </Collapsible>

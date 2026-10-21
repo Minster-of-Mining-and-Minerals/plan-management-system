@@ -22,8 +22,9 @@ export function buildSectorTree(nodes: any[]): any[] {
   // Create a map for quick lookup by ID
   const nodeMap = new Map<string, any>();
 
-  // Determine the ID field (handle government_structure_id, internal_structure_id, etc.)
+  // Determine the ID field (handle regional_structure_id, government_structure_id, internal_structure_id, etc.)
   const getId = (node: any) => 
+    node.regional_structure_id ||
     node.internal_structure_id || 
     node.government_structure_id || 
     node.sector_node_id || 

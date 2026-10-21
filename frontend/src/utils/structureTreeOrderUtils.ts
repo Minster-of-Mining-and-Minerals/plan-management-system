@@ -4,6 +4,7 @@ type StructureNode = {
   parent_id?: string | null;
   name?: string;
   level?: number;
+  regional_structure_id?: string;
   government_structure_id?: string;
   internal_structure_id?: string;
   sector_node_id?: string;
@@ -12,6 +13,7 @@ type StructureNode = {
 
 export function getStructureNodeId(node: StructureNode): string {
   return (
+    node.regional_structure_id ||
     node.internal_structure_id ||
     node.sector_node_id ||
     node.government_structure_id ||

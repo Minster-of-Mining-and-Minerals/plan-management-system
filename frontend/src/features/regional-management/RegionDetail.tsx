@@ -1,10 +1,13 @@
 "use strict";
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
+import { useSearchParams } from "next/navigation";
+import { ColumnDef } from "@tanstack/react-table";
 import {
-  ArrowLeft,
+  Globe,
   Building2,
   Users,
   Palette,
@@ -12,18 +15,18 @@ import {
   Trash2,
   Edit,
   Save,
-  Globe,
-  CheckCircle2,
-  XCircle,
-  KeyRound,
-  Shield,
   Layers,
+  ArrowLeft,
+  ShieldAlert,
+  Loader2,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { TableLayout } from "@/features/template/component/tableList/TableLayout";
 import {
   Dialog,
   DialogContent,
@@ -48,14 +51,49 @@ import {
 } from "@/redux/api/userApi";
 import { useGetRolesQuery } from "@/redux/api/roleApi";
 import { actionFeedback } from "@/components/action-feedback";
+import { LogoUploadField } from "@/components/common/LogoUploadField";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useAuth } from "@/hooks/use-auth";
+import { getFileUrl } from "@/utils/fileUrl";
+import { cn } from "@/lib/utils";
+import { matchesActiveInactiveFilter } from "@/utils/tableUtils";
+import { sortStructuresByTreeDepth } from "@/utils/structureTreeOrderUtils";
+import RegionalStructureHierarchy from "./RegionalStructureHierarchy";
 import type { RegionalStructure } from "@/redux/types/region";
+import type { FilterField, ActionButton } from "@/types/tableLayout";
+
+type TabType = "departments" | "users" | "branding";
 
 export function RegionDetail({ regionId }: { regionId: string }) {
+  const searchParams = useSearchParams();
+  const searchQuery = searchParams.get("search") || "";
+  const [toggleHierarchyView, setToggleHierarchyView] = useState(false);
+  const [deptStatusFilter, setDeptStatusFilter] = useState("");
+
+  const { can } = usePermissions();
+  const { roles: userRoles } = useAuth();
+  const isSuperAdmin = userRoles?.some((r) => String(r).toLowerCase() === "super admin");
+
+  // Permission gates
+  const canAddDept = can("REGIONAL_STRUCTURES:CREATE") || can("REGIONAL_STRUCTURES:MANAGE") || isSuperAdmin;
+  const canUpdateDept = can("REGIONAL_STRUCTURES:UPDATE") || can("REGIONAL_STRUCTURES:MANAGE") || isSuperAdmin;
+  const canDeleteDept = can("REGIONAL_STRUCTURES:DELETE") || can("REGIONAL_STRUCTURES:MANAGE") || isSuperAdmin;
+
+  const canViewBranding = can("REGIONAL_BRANDING:READ") || can("REGIONAL_BRANDING:UPDATE") || isSuperAdmin;
+  const canUpdateBranding = can("REGIONAL_BRANDING:UPDATE") || can("REGIONAL_BRANDING:MANAGE") || isSuperAdmin;
+
+  const canAddUser = can("USERS:CREATE") || isSuperAdmin;
+  const canUpdateUser = can("USERS:UPDATE") || isSuperAdmin;
+
+  // Active Tab state
+  const [activeTab, setActiveTab] = useState<TabType>("departments");
+
+  // Queries
   const { data: region, isLoading: isRegionLoading, refetch: refetchRegion } = useGetRegionByIdQuery(regionId);
   const { data: structures = [], isLoading: isStructuresLoading, refetch: refetchStructures } =
     useGetRegionalStructuresQuery({ region_id: regionId });
   const { data: brandingData, isLoading: isBrandingLoading, refetch: refetchBranding } =
-    useGetRegionalBrandingQuery(regionId);
+    useGetRegionalBrandingQuery(regionId, { skip: !canViewBranding });
   const { data: users = [], isLoading: isUsersLoading, refetch: refetchUsers } = useGetUsersQuery({
     region_id: regionId,
   });
@@ -63,7 +101,7 @@ export function RegionDetail({ regionId }: { regionId: string }) {
 
   // Mutations
   const [createStructure, { isLoading: isCreatingStructure }] = useCreateRegionalStructureMutation();
-  const [updateStructure] = useUpdateRegionalStructureMutation();
+  const [updateStructure, { isLoading: isUpdatingStructure }] = useUpdateRegionalStructureMutation();
   const [deleteStructure] = useDeleteRegionalStructureMutation();
   const [updateBranding, { isLoading: isUpdatingBranding }] = useUpdateRegionalBrandingMutation();
   const [createUser, { isLoading: isCreatingUser }] = useCreateUserMutation();
@@ -75,6 +113,7 @@ export function RegionDetail({ regionId }: { regionId: string }) {
   const [editingDept, setEditingDept] = useState<RegionalStructure | null>(null);
   const [deptName, setDeptName] = useState("");
   const [deptParentId, setDeptParentId] = useState<string>("");
+  const [isParentLocked, setIsParentLocked] = useState(false);
 
   // User Modal State
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -91,6 +130,7 @@ export function RegionDetail({ regionId }: { regionId: string }) {
   const [primaryColor, setPrimaryColor] = useState("#0C4A6E");
   const [secondaryColor, setSecondaryColor] = useState("#64748B");
   const [accentColor, setAccentColor] = useState("#CA8A04");
+  const [logoPrimaryPath, setLogoPrimaryPath] = useState<string | null>(null);
   const [brandingInitialized, setBrandingInitialized] = useState(false);
 
   // Sync branding form when loaded
@@ -101,19 +141,22 @@ export function RegionDetail({ regionId }: { regionId: string }) {
     setPrimaryColor(brandingData.primary_color || "#0C4A6E");
     setSecondaryColor(brandingData.secondary_color || "#64748B");
     setAccentColor(brandingData.accent_color || "#CA8A04");
+    setLogoPrimaryPath(brandingData.logo_primary_path || region?.logo_path || null);
     setBrandingInitialized(true);
   }
 
   // Department handlers
-  const handleOpenDeptModal = (dept?: RegionalStructure) => {
+  const handleOpenDeptModal = (dept?: RegionalStructure, parentId?: string, lockParent?: boolean) => {
     if (dept) {
       setEditingDept(dept);
       setDeptName(dept.name);
       setDeptParentId(dept.parent_id || "");
+      setIsParentLocked(false);
     } else {
       setEditingDept(null);
       setDeptName("");
-      setDeptParentId("");
+      setDeptParentId(parentId || "");
+      setIsParentLocked(Boolean(parentId) || Boolean(lockParent));
     }
     setIsDeptModalOpen(true);
   };
@@ -232,9 +275,10 @@ export function RegionDetail({ regionId }: { regionId: string }) {
           primary_color: primaryColor,
           secondary_color: secondaryColor,
           accent_color: accentColor,
+          logo_primary_path: logoPrimaryPath || null,
         },
       }).unwrap();
-      actionFeedback.success("Regional branding updated successfully.");
+      actionFeedback.success("Regional branding and logo configuration saved.");
       refetchBranding();
       refetchRegion();
     } catch (err: any) {
@@ -243,168 +287,364 @@ export function RegionDetail({ regionId }: { regionId: string }) {
   };
 
   if (isRegionLoading) {
-    return <div className="p-8 text-center text-muted-foreground">Loading regional details...</div>;
+    return (
+      <div className="flex h-64 items-center justify-center text-muted-foreground gap-2">
+        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+        <span>Loading regional details...</span>
+      </div>
+    );
   }
 
   if (!region) {
     return (
-      <div className="p-8 text-center">
+      <div className="p-8 text-center space-y-4">
         <h2 className="text-xl font-bold text-destructive">Region Not Found</h2>
-        <Button asChild variant="outline" className="mt-4">
+        <p className="text-sm text-muted-foreground">The requested regional authority could not be found or has been removed.</p>
+        <Button asChild variant="outline">
           <Link href="/admin/regions">Back to Regions</Link>
         </Button>
       </div>
     );
   }
 
+  const effectiveLogoUrl = (logoPrimaryPath || region.logo_path)
+    ? getFileUrl(logoPrimaryPath || region.logo_path || "")
+    : null;
+
+  const sideActionTabs = [
+    {
+      id: "departments" as const,
+      label: "Departments",
+      count: structures.length,
+      icon: <Layers className="h-4 w-4" />,
+    },
+    {
+      id: "users" as const,
+      label: "Users",
+      count: users.length,
+      icon: <Users className="h-4 w-4" />,
+    },
+    {
+      id: "branding" as const,
+      label: "UI & Configuration",
+      icon: <Palette className="h-4 w-4" />,
+    },
+  ];
+
   return (
     <div className="space-y-6">
-      {/* Back button and Region Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <Link
-            href="/admin/regions"
-            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-2 transition-colors"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back to Regional Directory
-          </Link>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              <Globe className="h-6 w-6 text-primary" />
-              {region.name}
-            </h1>
-            <span className="font-mono text-xs font-bold px-2.5 py-0.5 rounded bg-primary/10 text-primary">
-              {region.code}
-            </span>
-            <ActiveStatusBadge isActive={region.is_active} />
+      {/* ===================== HEADER ===================== */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card p-6 rounded-lg border shadow-sm">
+        <div className="flex items-center space-x-4">
+          {effectiveLogoUrl ? (
+            <div className="relative h-16 w-16 rounded-full border-2 border-primary/20 bg-muted/40 p-1 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+              <Image
+                src={effectiveLogoUrl}
+                alt={region.name}
+                width={60}
+                height={60}
+                className="max-h-14 w-auto object-contain"
+                unoptimized
+              />
+            </div>
+          ) : (
+            <div className="h-16 w-16 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center shrink-0">
+              <Globe className="h-8 w-8 text-primary" />
+            </div>
+          )}
+
+          <div className="space-y-1">
+            {/* Breadcrumb */}
+            <nav className="flex items-center space-x-1 text-xs text-muted-foreground">
+              <Link
+                href="/admin/regions"
+                className="hover:text-primary transition-colors flex items-center gap-1"
+              >
+                <ArrowLeft className="h-3 w-3" />
+                Regions
+              </Link>
+              <span className="text-gray-300">/</span>
+              <span className="text-foreground font-medium">{region.name}</span>
+            </nav>
+
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">{region.name}</h1>
+              <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-primary/10 text-primary">
+                {region.code}
+              </span>
+              <ActiveStatusBadge isActive={region.is_active} />
+            </div>
+
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+              Regional Bureau Authority • Independent Organizational Domain
+            </p>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            {region.description || "Independent regional planning authority with isolated organizational scope."}
-          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2 shrink-0">
+          <Button variant="outline" asChild>
+            <Link href="/admin/regions" className="flex items-center gap-2">
+              <Globe className="h-4 w-4" />
+              All Regions
+            </Link>
+          </Button>
         </div>
       </div>
 
-      {/* Main Tabs */}
-      <Tabs defaultValue="departments" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 max-w-md bg-muted/60 p-1">
-          <TabsTrigger value="departments" className="flex items-center gap-2 text-xs">
-            <Building2 className="h-4 w-4" />
-            Departments ({structures.length})
-          </TabsTrigger>
-          <TabsTrigger value="users" className="flex items-center gap-2 text-xs">
-            <Users className="h-4 w-4" />
-            Users ({users.length})
-          </TabsTrigger>
-          <TabsTrigger value="branding" className="flex items-center gap-2 text-xs">
-            <Palette className="h-4 w-4" />
-            Branding & Theme
-          </TabsTrigger>
-        </TabsList>
-
-        {/* ===================== TAB 1: DEPARTMENTS ===================== */}
-        <TabsContent value="departments" className="space-y-4 pt-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Regional Departments</h2>
-              <p className="text-xs text-muted-foreground">
-                Organizational hierarchy confined exclusively within {region.name}.
-              </p>
-            </div>
-            <Button onClick={() => handleOpenDeptModal()} size="sm" className="gap-1.5">
-              <Plus className="h-4 w-4" />
-              Add Department
+      {/* ===================== TAB ACTIONS (STRUCTURE-STYLE) ===================== */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-border/60 pb-3">
+        {sideActionTabs.map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <Button
+              key={tab.id}
+              type="button"
+              variant={isActive ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveTab(tab.id)}
+              className="flex items-center gap-2 transition-all"
+            >
+              {tab.icon}
+              <span>{tab.label}</span>
+              {tab.count !== undefined && (
+                <span
+                  className={cn(
+                    "ml-1 px-1.5 py-0.2 rounded-full text-xs font-semibold",
+                    isActive
+                      ? "bg-primary-foreground/20 text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {tab.count}
+                </span>
+              )}
             </Button>
+          );
+        })}
+      </div>
+
+      {/* ===================== TAB 1: DEPARTMENTS ===================== */}
+      {activeTab === "departments" && (() => {
+        const handleExportDepartments = () => {
+          const headers = ["Department Name", "Level", "Parent Department", "Staff Count", "Status"];
+          const rows = filteredDeptData.map((d) => [
+            `"${(d.name || "").replace(/"/g, '""')}"`,
+            d.level || 1,
+            `"${(d.parent?.name || "Root Level").replace(/"/g, '""')}"`,
+            d.users_count || 0,
+            d.is_active ? "Active" : "Inactive",
+          ]);
+          const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
+          const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${region.code}-departments-${new Date().toISOString().slice(0, 10)}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          actionFeedback.success("Departments list exported successfully.");
+        };
+
+        const deptColumns: ColumnDef<RegionalStructure>[] = [
+          {
+            accessorKey: "name",
+            header: "Department Name",
+            cell: ({ row }) => (
+              <span className="font-medium text-primary flex items-center gap-2">
+                <Layers className="h-4 w-4 text-primary shrink-0" />
+                {row.getValue("name")}
+              </span>
+            ),
+          },
+          {
+            accessorKey: "level",
+            header: "Level",
+            cell: ({ row }) => <div>Level {row.getValue("level")}</div>,
+          },
+          {
+            accessorKey: "parent",
+            header: "Parent Department",
+            cell: ({ row }) => (
+              <div className="text-gray-500 italic">
+                {row.original.parent?.name || "Root Level"}
+              </div>
+            ),
+          },
+          {
+            accessorKey: "users_count",
+            header: "Assigned Staff",
+            cell: ({ row }) => (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Users className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                <span className="font-medium text-foreground">{row.original.users_count || 0}</span>
+                <span>Staff</span>
+              </div>
+            ),
+          },
+          {
+            accessorKey: "is_active",
+            header: "Status",
+            cell: ({ row }) => <ActiveStatusBadge isActive={row.original.is_active} />,
+          },
+          {
+            id: "actions",
+            header: "Actions",
+            cell: ({ row }) => {
+              const dept = row.original;
+              return (
+                <div className="flex items-center gap-1">
+                  {canUpdateDept && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleOpenDeptModal(dept)}
+                      className="h-8 w-8"
+                      title="Edit Department"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {dept.is_active && canAddDept && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleOpenDeptModal(undefined, dept.regional_structure_id, true)}
+                      className="h-8 w-8 text-primary"
+                      title="Add Child Department"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {canDeleteDept && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteDepartment(dept)}
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      title="Delete Department"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              );
+            },
+          },
+        ];
+
+        const deptFilters: FilterField[] = [
+          {
+            key: "status",
+            label: "Status",
+            type: "multiselect",
+            placeholder: "Select status",
+            value: deptStatusFilter,
+            onChange: setDeptStatusFilter,
+            options: [
+              { label: "Active", value: "active" },
+              { label: "Inactive", value: "inactive" },
+            ],
+          },
+        ];
+
+        const deptActions: ActionButton[] = [
+          {
+            label: "Export",
+            icon: <Download className="h-4 w-4" />,
+            variant: "outline",
+            onClick: handleExportDepartments,
+          },
+          ...(canAddDept
+            ? [
+                {
+                  label: "Add Department",
+                  icon: <Plus className="h-4 w-4" />,
+                  variant: "default" as const,
+                  onClick: () => handleOpenDeptModal(),
+                },
+              ]
+            : []),
+        ];
+
+        const filteredDeptData = sortStructuresByTreeDepth(
+          structures.filter((item) => {
+            const matchesStatus = matchesActiveInactiveFilter(deptStatusFilter, item.is_active);
+            const matchesSearch =
+              !searchQuery ||
+              item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              (item.parent?.name && item.parent.name.toLowerCase().includes(searchQuery.toLowerCase()));
+            return matchesStatus && matchesSearch;
+          })
+        );
+
+        return (
+          <div className="space-y-4">
+            <TableLayout
+              title="Regional Departments"
+              description={`Organizational departments and hierarchy confined strictly within ${region.name}`}
+              actions={deptActions}
+              filters={deptFilters}
+              filterColumnsPerRow={1}
+              showSearch={true}
+              showToggleHierarchyNode={true}
+              toggleHierarchyNode={toggleHierarchyView}
+              setToggleHierarchyNode={setToggleHierarchyView}
+            >
+              {!toggleHierarchyView ? (
+                <DataTable
+                  columns={deptColumns}
+                  data={filteredDeptData}
+                  isLoading={isStructuresLoading}
+                  resetKey={`${searchQuery}-${deptStatusFilter}-${toggleHierarchyView}`}
+                />
+              ) : (
+                <RegionalStructureHierarchy
+                  data={filteredDeptData}
+                  isLoading={isStructuresLoading}
+                  regionName={region.name}
+                  onAddChild={(parentId) => handleOpenDeptModal(undefined, parentId, true)}
+                  onEdit={(dept) => handleOpenDeptModal(dept)}
+                  canAddChild={canAddDept}
+                  canUpdate={canUpdateDept}
+                />
+              )}
+            </TableLayout>
           </div>
+        );
+      })()}
 
-          {structures.length === 0 ? (
-            <Card className="border border-dashed p-8 text-center">
-              <Building2 className="h-10 w-10 text-muted-foreground mx-auto mb-2 opacity-40" />
-              <p className="text-sm text-muted-foreground mb-3">No departments created yet for this region.</p>
-              <Button onClick={() => handleOpenDeptModal()} variant="outline" size="sm">
-                <Plus className="h-4 w-4 mr-1" /> Add First Department
-              </Button>
-            </Card>
-          ) : (
-            <div className="border rounded-lg overflow-hidden bg-card shadow-sm">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 border-b text-xs text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-semibold">Department Name</th>
-                    <th className="px-4 py-3 text-left font-semibold">Level</th>
-                    <th className="px-4 py-3 text-left font-semibold">Parent Department</th>
-                    <th className="px-4 py-3 text-center font-semibold">Assigned Staff</th>
-                    <th className="px-4 py-3 text-center font-semibold">Status</th>
-                    <th className="px-4 py-3 text-right font-semibold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/60">
-                  {structures.map((struct) => (
-                    <tr key={struct.regional_structure_id} className="hover:bg-muted/20">
-                      <td className="px-4 py-3 font-medium text-foreground flex items-center gap-2">
-                        <Layers className="h-4 w-4 text-primary" />
-                        {struct.name}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        Level {struct.level}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {struct.parent?.name || <span className="italic text-muted-foreground/60">Root Level</span>}
-                      </td>
-                      <td className="px-4 py-3 text-center font-medium">
-                        {struct.users_count || 0}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <ActiveStatusBadge isActive={struct.is_active} />
-                      </td>
-                      <td className="px-4 py-3 text-right space-x-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleOpenDeptModal(struct)}
-                          className="h-8 w-8"
-                        >
-                          <Edit className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteDepartment(struct)}
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </TabsContent>
-
-        {/* ===================== TAB 2: REGIONAL USERS ===================== */}
-        <TabsContent value="users" className="space-y-4 pt-4">
-          <div className="flex items-center justify-between">
+      {/* ===================== TAB 2: USERS ===================== */}
+      {activeTab === "users" && (
+        <div className="space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-foreground">Regional Accounts</h2>
+              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <Users className="h-5 w-5 text-blue-600" />
+                Regional User Accounts ({users.length})
+              </h2>
               <p className="text-xs text-muted-foreground">
                 Staff accounts strictly isolated to {region.name}.
               </p>
             </div>
-            <Button onClick={() => setIsUserModalOpen(true)} size="sm" className="gap-1.5">
-              <Plus className="h-4 w-4" />
-              Create Regional Account
-            </Button>
+            {canAddUser && (
+              <Button onClick={() => setIsUserModalOpen(true)} size="sm" className="gap-1.5">
+                <Plus className="h-4 w-4" />
+                Create Regional Account
+              </Button>
+            )}
           </div>
 
           {users.length === 0 ? (
-            <Card className="border border-dashed p-8 text-center">
+            <Card className="border border-dashed p-8 text-center bg-card">
               <Users className="h-10 w-10 text-muted-foreground mx-auto mb-2 opacity-40" />
               <p className="text-sm text-muted-foreground mb-3">No regional accounts created for this region yet.</p>
-              <Button onClick={() => setIsUserModalOpen(true)} variant="outline" size="sm">
-                <Plus className="h-4 w-4 mr-1" /> Create First Account
-              </Button>
+              {canAddUser && (
+                <Button onClick={() => setIsUserModalOpen(true)} variant="outline" size="sm">
+                  <Plus className="h-4 w-4 mr-1" /> Create First Account
+                </Button>
+              )}
             </Card>
           ) : (
             <div className="border rounded-lg overflow-hidden bg-card shadow-sm">
@@ -434,22 +674,26 @@ export function RegionDetail({ regionId }: { regionId: string }) {
                         <ActiveStatusBadge isActive={u.is_active} />
                       </td>
                       <td className="px-4 py-3 text-right space-x-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleToggleUser(u)}
-                          className="h-8 text-xs"
-                        >
-                          {u.is_active ? "Deactivate" : "Activate"}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleResetUserPassword(u)}
-                          className="h-8 text-xs"
-                        >
-                          Reset Pwd
-                        </Button>
+                        {canUpdateUser && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleToggleUser(u)}
+                              className="h-8 text-xs"
+                            >
+                              {u.is_active ? "Deactivate" : "Activate"}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleResetUserPassword(u)}
+                              className="h-8 text-xs"
+                            >
+                              Reset Pwd
+                            </Button>
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -457,240 +701,358 @@ export function RegionDetail({ regionId }: { regionId: string }) {
               </table>
             </div>
           )}
-        </TabsContent>
+        </div>
+      )}
 
-        {/* ===================== TAB 3: BRANDING & THEME ===================== */}
-        <TabsContent value="branding" className="space-y-6 pt-4">
-          <div className="grid gap-6 lg:grid-cols-3">
-            {/* Branding Settings Form */}
-            <div className="lg:col-span-2 space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base font-semibold">System Identity & Appearance</CardTitle>
-                  <CardDescription className="text-xs">
-                    Configure independent system name, taglines, and theme colors for {region.name}.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleSaveBranding} className="space-y-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
+      {/* ===================== TAB 3: UI CONFIGURATION & BRANDING ===================== */}
+      {activeTab === "branding" && (
+        <div className="space-y-6">
+          {!canViewBranding ? (
+            <Card className="border border-destructive/20 p-8 text-center bg-destructive/5">
+              <ShieldAlert className="h-10 w-10 text-destructive mx-auto mb-2" />
+              <h3 className="font-semibold text-foreground">Permission Required</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                You do not have permission to view or configure regional branding settings.
+              </p>
+            </Card>
+          ) : (
+            <div className="grid gap-6 lg:grid-cols-3">
+              {/* Branding Settings Form */}
+              <div className="lg:col-span-2 space-y-4">
+                <Card className="border shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <Palette className="h-5 w-5 text-primary" />
+                      System Identity & UI Configuration
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Configure custom branding, official regional authority logo, and theme colors for {region.name}.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleSaveBranding} className="space-y-5">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-foreground">Full System Name</label>
+                          <Input
+                            value={systemFullName}
+                            onChange={(e) => setSystemFullName(e.target.value)}
+                            placeholder="e.g. Oromia Mining Bureau PMS"
+                            disabled={!canUpdateBranding}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-foreground">Short Name / Initials</label>
+                          <Input
+                            value={systemShortName}
+                            onChange={(e) => setSystemShortName(e.target.value)}
+                            placeholder="e.g. OR PMS"
+                            disabled={!canUpdateBranding}
+                            required
+                          />
+                        </div>
+                      </div>
+
                       <div className="space-y-1.5">
-                        <label className="text-xs font-semibold">Full System Name</label>
+                        <label className="text-xs font-semibold text-foreground">System Tagline</label>
                         <Input
-                          value={systemFullName}
-                          onChange={(e) => setSystemFullName(e.target.value)}
-                          placeholder="e.g. Oromia Mining Bureau PMS"
-                          required
+                          value={systemTagline}
+                          onChange={(e) => setSystemTagline(e.target.value)}
+                          placeholder="e.g. Regional Strategic Planning and Execution"
+                          disabled={!canUpdateBranding}
                         />
                       </div>
+
+                      {/* File Upload for Regional Logo */}
                       <div className="space-y-1.5">
-                        <label className="text-xs font-semibold">Short Name</label>
-                        <Input
-                          value={systemShortName}
-                          onChange={(e) => setSystemShortName(e.target.value)}
-                          placeholder="e.g. OR PMS"
-                          required
+                        <LogoUploadField
+                          label="Official Regional Authority Logo"
+                          value={logoPrimaryPath}
+                          onChange={(val) => setLogoPrimaryPath(val)}
+                          disabled={!canUpdateBranding}
+                          successMessage="Regional logo uploaded successfully"
+                          errorMessage="Failed to upload regional logo"
                         />
+                        <p className="text-[11px] text-muted-foreground">
+                          Upload PNG, JPG, WEBP, or SVG logo for {region.name}. This logo represents the regional bureau across headers and reports.
+                        </p>
                       </div>
-                    </div>
 
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold">System Tagline</label>
-                      <Input
-                        value={systemTagline}
-                        onChange={(e) => setSystemTagline(e.target.value)}
-                        placeholder="e.g. Regional Strategic Planning and Execution"
-                      />
-                    </div>
+                      {/* Color Palette Controls */}
+                      <div className="grid gap-4 sm:grid-cols-3 pt-2">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-foreground">Primary Color</label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={primaryColor}
+                              onChange={(e) => setPrimaryColor(e.target.value)}
+                              disabled={!canUpdateBranding}
+                              className="h-9 w-12 rounded cursor-pointer border"
+                            />
+                            <Input
+                              value={primaryColor}
+                              onChange={(e) => setPrimaryColor(e.target.value)}
+                              disabled={!canUpdateBranding}
+                              className="font-mono text-xs uppercase"
+                            />
+                          </div>
+                        </div>
 
-                    <div className="grid gap-4 sm:grid-cols-3 pt-2">
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-semibold">Primary Color</label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={primaryColor}
-                            onChange={(e) => setPrimaryColor(e.target.value)}
-                            className="h-9 w-12 rounded cursor-pointer border"
-                          />
-                          <Input
-                            value={primaryColor}
-                            onChange={(e) => setPrimaryColor(e.target.value)}
-                            className="font-mono text-xs uppercase"
-                          />
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-foreground">Secondary Color</label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={secondaryColor}
+                              onChange={(e) => setSecondaryColor(e.target.value)}
+                              disabled={!canUpdateBranding}
+                              className="h-9 w-12 rounded cursor-pointer border"
+                            />
+                            <Input
+                              value={secondaryColor}
+                              onChange={(e) => setSecondaryColor(e.target.value)}
+                              disabled={!canUpdateBranding}
+                              className="font-mono text-xs uppercase"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-foreground">Accent Color</label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={accentColor}
+                              onChange={(e) => setAccentColor(e.target.value)}
+                              disabled={!canUpdateBranding}
+                              className="h-9 w-12 rounded cursor-pointer border"
+                            />
+                            <Input
+                              value={accentColor}
+                              onChange={(e) => setAccentColor(e.target.value)}
+                              disabled={!canUpdateBranding}
+                              className="font-mono text-xs uppercase"
+                            />
+                          </div>
                         </div>
                       </div>
 
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-semibold">Secondary Color</label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={secondaryColor}
-                            onChange={(e) => setSecondaryColor(e.target.value)}
-                            className="h-9 w-12 rounded cursor-pointer border"
-                          />
-                          <Input
-                            value={secondaryColor}
-                            onChange={(e) => setSecondaryColor(e.target.value)}
-                            className="font-mono text-xs uppercase"
-                          />
+                      {canUpdateBranding && (
+                        <div className="pt-4 flex justify-end">
+                          <Button type="submit" disabled={isUpdatingBranding} className="gap-2">
+                            {isUpdatingBranding ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Save className="h-4 w-4" />
+                            )}
+                            {isUpdatingBranding ? "Saving Settings..." : "Save UI Configuration"}
+                          </Button>
                         </div>
-                      </div>
+                      )}
+                    </form>
+                  </CardContent>
+                </Card>
+              </div>
 
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-semibold">Accent Color</label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={accentColor}
-                            onChange={(e) => setAccentColor(e.target.value)}
-                            className="h-9 w-12 rounded cursor-pointer border"
-                          />
-                          <Input
-                            value={accentColor}
-                            onChange={(e) => setAccentColor(e.target.value)}
-                            className="font-mono text-xs uppercase"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="pt-4 flex justify-end">
-                      <Button type="submit" disabled={isUpdatingBranding} className="gap-2">
-                        <Save className="h-4 w-4" />
-                        {isUpdatingBranding ? "Saving Settings..." : "Save Regional Branding"}
-                      </Button>
-                    </div>
-                  </form>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Live Theme Preview */}
-            <div className="space-y-4">
-              <Card className="overflow-hidden border shadow-sm">
-                <CardHeader className="bg-muted/40 pb-3">
-                  <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Live Brand Preview
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 space-y-4">
-                  {/* Mock Navbar */}
-                  <div
-                    style={{ backgroundColor: primaryColor }}
-                    className="p-3 rounded-md text-white flex items-center justify-between shadow-sm"
-                  >
-                    <div className="font-bold text-xs truncate">
-                      {systemShortName || `${region.code} PMS`}
-                    </div>
-                    <span
-                      style={{ backgroundColor: accentColor }}
-                      className="text-[10px] px-2 py-0.5 rounded text-white font-medium"
+              {/* Live Theme Preview */}
+              <div className="space-y-4">
+                <Card className="overflow-hidden border shadow-sm">
+                  <CardHeader className="bg-muted/40 pb-3">
+                    <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                      <Palette className="h-4 w-4 text-primary" />
+                      Live Brand Preview
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 space-y-4">
+                    {/* Simulated Header Banner */}
+                    <div
+                      style={{ backgroundColor: primaryColor }}
+                      className="p-3 rounded-md text-white flex items-center justify-between shadow-sm"
                     >
-                      Region
-                    </span>
-                  </div>
+                      <div className="flex items-center gap-2 min-w-0">
+                        {logoPrimaryPath ? (
+                          <div className="h-7 w-7 rounded bg-white/20 p-0.5 shrink-0 overflow-hidden flex items-center justify-center">
+                            <Image
+                              src={getFileUrl(logoPrimaryPath)}
+                              alt="Logo preview"
+                              width={24}
+                              height={24}
+                              className="max-h-6 w-auto object-contain"
+                              unoptimized
+                            />
+                          </div>
+                        ) : (
+                          <Globe className="h-5 w-5 shrink-0 opacity-80" />
+                        )}
+                        <span className="font-bold text-xs truncate">
+                          {systemShortName || `${region.code} PMS`}
+                        </span>
+                      </div>
+                      <span
+                        style={{ backgroundColor: accentColor }}
+                        className="text-[10px] px-2 py-0.5 rounded text-white font-medium shrink-0"
+                      >
+                        {region.code} Region
+                      </span>
+                    </div>
 
-                  {/* Mock Card */}
-                  <div className="p-3 border rounded-md space-y-2 bg-background">
-                    <div className="font-semibold text-xs text-foreground">
-                      {systemFullName || `${region.name} Mining Bureau`}
+                    {/* Simulated Bureau Card */}
+                    <div className="p-3 border rounded-md space-y-2 bg-background">
+                      <div className="font-semibold text-xs text-foreground">
+                        {systemFullName || `${region.name} Mining Bureau`}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground line-clamp-1">
+                        {systemTagline || "Regional Strategic Planning and Execution"}
+                      </div>
+                      <div className="pt-2 flex items-center gap-2">
+                        <button
+                          type="button"
+                          style={{ backgroundColor: primaryColor }}
+                          className="px-2.5 py-1 text-[11px] text-white rounded font-medium shadow-xs"
+                        >
+                          Primary Action
+                        </button>
+                        <button
+                          type="button"
+                          style={{ borderColor: secondaryColor, color: secondaryColor }}
+                          className="px-2.5 py-1 text-[11px] border rounded font-medium"
+                        >
+                          Secondary
+                        </button>
+                      </div>
                     </div>
-                    <div className="text-[11px] text-muted-foreground line-clamp-1">
-                      {systemTagline || "Regional Strategic Planning"}
+
+                    {/* Color Swatches */}
+                    <div className="space-y-1.5 pt-1">
+                      <div className="text-[11px] font-semibold text-muted-foreground">Active Palette</div>
+                      <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
+                        <div className="p-2 rounded border" style={{ backgroundColor: primaryColor, color: "#fff" }}>
+                          <span className="font-mono">{primaryColor}</span>
+                          <div className="text-[9px] opacity-80">Primary</div>
+                        </div>
+                        <div className="p-2 rounded border" style={{ backgroundColor: secondaryColor, color: "#fff" }}>
+                          <span className="font-mono">{secondaryColor}</span>
+                          <div className="text-[9px] opacity-80">Secondary</div>
+                        </div>
+                        <div className="p-2 rounded border" style={{ backgroundColor: accentColor, color: "#fff" }}>
+                          <span className="font-mono">{accentColor}</span>
+                          <div className="text-[9px] opacity-80">Accent</div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="pt-2 flex gap-2">
-                      <button
-                        type="button"
-                        style={{ backgroundColor: primaryColor }}
-                        className="text-white text-xs px-3 py-1 rounded font-medium"
-                      >
-                        Action
-                      </button>
-                      <button
-                        type="button"
-                        style={{ borderColor: secondaryColor, color: secondaryColor }}
-                        className="border text-xs px-3 py-1 rounded font-medium"
-                      >
-                        Secondary
-                      </button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
-          </div>
-        </TabsContent>
-      </Tabs>
+          )}
+        </div>
+      )}
 
-      {/* Add / Edit Department Modal */}
+      {/* ===================== DEPARTMENT MODAL ===================== */}
       <Dialog open={isDeptModalOpen} onOpenChange={setIsDeptModalOpen}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {editingDept ? "Edit Department" : "Add Regional Department"}
-            </DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSaveDepartment} className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold">
-                Department Name <span className="text-destructive">*</span>
-              </label>
-              <Input
-                placeholder="e.g. Mineral Licensing & Exploration Directorate"
-                value={deptName}
-                onChange={(e) => setDeptName(e.target.value)}
-                required
-              />
-            </div>
+          {(() => {
+            const lockedParentDept = structures.find((s) => s.regional_structure_id === deptParentId);
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle>
+                    {editingDept
+                      ? `Edit Department: ${editingDept.name}`
+                      : isParentLocked && lockedParentDept
+                      ? `Add Child Department under "${lockedParentDept.name}"`
+                      : `Add Department to ${region.name}`}
+                  </DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleSaveDepartment} className="space-y-4 py-2">
+                  {isParentLocked && lockedParentDept && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground">Parent Department</label>
+                      <div className="flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2 text-xs">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Layers className="h-3.5 w-3.5 text-primary shrink-0" />
+                          <span className="font-semibold text-foreground truncate">{lockedParentDept.name}</span>
+                        </div>
+                        <span className="text-[11px] font-medium text-muted-foreground shrink-0">
+                          Level {lockedParentDept.level}
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold">Parent Department (Optional)</label>
-              <select
-                value={deptParentId}
-                onChange={(e) => setDeptParentId(e.target.value)}
-                className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="">No Parent (Root Department)</option>
-                {structures
-                  .filter((s) => s.regional_structure_id !== editingDept?.regional_structure_id)
-                  .map((s) => (
-                    <option key={s.regional_structure_id} value={s.regional_structure_id}>
-                      {s.name} (Level {s.level})
-                    </option>
-                  ))}
-              </select>
-              <p className="text-[11px] text-muted-foreground">
-                Parent departments are strictly restricted to the same region.
-              </p>
-            </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">
+                      Department Name <span className="text-destructive">*</span>
+                    </label>
+                    <Input
+                      placeholder="e.g. Mineral Licensing & Inspection Directorate"
+                      value={deptName}
+                      onChange={(e) => setDeptName(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  {!isParentLocked && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-foreground">Parent Department (Optional)</label>
+                      <select
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        value={deptParentId}
+                        onChange={(e) => setDeptParentId(e.target.value)}
+                      >
+                        <option value="">Root Level (No Parent Department)</option>
+                        {structures
+                          .filter((s) => !editingDept || s.regional_structure_id !== editingDept.regional_structure_id)
+                          .map((s) => (
+                            <option key={s.regional_structure_id} value={s.regional_structure_id}>
+                              {"— ".repeat((s.level || 1) - 1)} {s.name} (Level {s.level})
+                            </option>
+                          ))}
+                      </select>
+                      <p className="text-[11px] text-muted-foreground">
+                        Select a parent department inside {region.name} to establish a multi-level hierarchy.
+                      </p>
+                    </div>
+                  )}
 
             <DialogFooter className="pt-4">
-              <Button type="button" variant="outline" onClick={() => setIsDeptModalOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsDeptModalOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isCreatingStructure}>
-                {editingDept ? "Update Department" : "Create Department"}
+              <Button type="submit" disabled={isCreatingStructure || isUpdatingStructure}>
+                {isCreatingStructure || isUpdatingStructure
+                  ? "Saving..."
+                  : editingDept
+                  ? "Update Department"
+                  : "Create Department"}
               </Button>
             </DialogFooter>
           </form>
-        </DialogContent>
-      </Dialog>
+        </>
+      );
+    })()}
+  </DialogContent>
+</Dialog>
 
-      {/* Add Regional User Modal */}
+      {/* ===================== USER MODAL ===================== */}
       <Dialog open={isUserModalOpen} onOpenChange={setIsUserModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Create Regional Account</DialogTitle>
+            <DialogTitle>Create Regional Account for {region.name}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleCreateRegionalUser} className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold">
+              <label className="text-xs font-semibold text-foreground">
                 Full Name <span className="text-destructive">*</span>
               </label>
               <Input
-                placeholder="e.g. Abebe Bikila"
+                placeholder="e.g. Almaz Tadesse"
                 value={userName}
                 onChange={(e) => setUserName(e.target.value)}
                 required
@@ -698,12 +1060,12 @@ export function RegionDetail({ regionId }: { regionId: string }) {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold">
+              <label className="text-xs font-semibold text-foreground">
                 Email Address <span className="text-destructive">*</span>
               </label>
               <Input
                 type="email"
-                placeholder="e.g. abebe@oromia-mines.gov.et"
+                placeholder="e.g. almaz@oromia-mining.gov.et"
                 value={userEmail}
                 onChange={(e) => setUserEmail(e.target.value)}
                 required
@@ -711,7 +1073,7 @@ export function RegionDetail({ regionId }: { regionId: string }) {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold">Phone Number</label>
+              <label className="text-xs font-semibold text-foreground">Phone Number</label>
               <Input
                 placeholder="e.g. +251 91 123 4567"
                 value={userPhone}
@@ -720,45 +1082,47 @@ export function RegionDetail({ regionId }: { regionId: string }) {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold">Assigned Regional Department</label>
+              <label className="text-xs font-semibold text-foreground">Assigned Department</label>
               <select
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={userDeptId}
                 onChange={(e) => setUserDeptId(e.target.value)}
-                className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               >
-                <option value="">Bureau Wide (No Specific Department)</option>
+                <option value="">Bureau Wide (Unassigned to specific department)</option>
                 {structures.map((s) => (
                   <option key={s.regional_structure_id} value={s.regional_structure_id}>
-                    {s.name}
+                    {s.name} (Level {s.level})
                   </option>
                 ))}
               </select>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold">Role</label>
+              <label className="text-xs font-semibold text-foreground">Role</label>
               <select
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={userRoleId}
                 onChange={(e) => setUserRoleId(e.target.value)}
-                className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               >
-                <option value="">Standard User</option>
-                {roles
-                  .filter((r: any) => r.scope !== "private")
-                  .map((r: any) => (
-                    <option key={r.role_id} value={r.role_id}>
-                      {r.name}
-                    </option>
-                  ))}
+                <option value="">Select a Role</option>
+                {roles.map((r: any) => (
+                  <option key={r.role_id} value={r.role_id}>
+                    {r.name}
+                  </option>
+                ))}
               </select>
             </div>
 
             <DialogFooter className="pt-4">
-              <Button type="button" variant="outline" onClick={() => setIsUserModalOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsUserModalOpen(false)}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={isCreatingUser}>
-                {isCreatingUser ? "Creating..." : "Create Regional Account"}
+                {isCreatingUser ? "Creating Account..." : "Create Account"}
               </Button>
             </DialogFooter>
           </form>

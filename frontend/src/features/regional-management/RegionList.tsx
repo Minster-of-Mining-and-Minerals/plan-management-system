@@ -1,25 +1,28 @@
 "use strict";
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useMemo, useState } from "react";
+import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ColumnDef } from "@tanstack/react-table";
 import {
   Globe,
-  Plus,
-  Search,
   Building2,
   Users,
-  MoreVertical,
+  Eye,
   Edit,
   Trash2,
   CheckCircle2,
   XCircle,
-  ExternalLink,
+  Plus,
+  Download,
 } from "lucide-react";
+import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { TableLayout } from "@/features/template/component/tableList/TableLayout";
+import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
+import { matchesActiveInactiveFilter } from "@/utils/tableUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
 import {
   Dialog,
   DialogContent,
@@ -28,12 +31,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   useGetRegionsQuery,
   useCreateRegionMutation,
   useUpdateRegionMutation,
@@ -41,12 +38,20 @@ import {
   useDeleteRegionMutation,
 } from "@/redux/api/regionApi";
 import { actionFeedback } from "@/components/action-feedback";
+import { LogoUploadField } from "@/components/common/LogoUploadField";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useAuth } from "@/hooks/use-auth";
+import { getFileUrl } from "@/utils/fileUrl";
 import type { Region } from "@/redux/types/region";
+import type { FilterField, ActionButton } from "@/types/tableLayout";
 
 export function RegionList() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const searchQuery = searchParams.get("search") || "";
+
+  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRegion, setEditingRegion] = useState<Region | null>(null);
 
   // Form states
@@ -55,30 +60,21 @@ export function RegionList() {
   const [description, setDescription] = useState("");
   const [logoPath, setLogoPath] = useState("");
 
+  const { can } = usePermissions();
+  const { roles } = useAuth();
+  const isSuperAdmin = roles?.some((r) => String(r).toLowerCase() === "super admin");
+  const canCreate = can("REGIONS:CREATE") || can("REGIONS:MANAGE") || isSuperAdmin;
+  const canUpdate = can("REGIONS:UPDATE") || can("REGIONS:MANAGE") || isSuperAdmin;
+  const canDelete = can("REGIONS:DELETE") || can("REGIONS:MANAGE") || isSuperAdmin;
+
   const { data: regions = [], isLoading, refetch } = useGetRegionsQuery({
-    search: searchTerm || undefined,
+    search: searchQuery || undefined,
   });
 
   const [createRegion, { isLoading: isCreating }] = useCreateRegionMutation();
   const [updateRegion, { isLoading: isUpdating }] = useUpdateRegionMutation();
   const [toggleStatus] = useToggleRegionStatusMutation();
   const [deleteRegion] = useDeleteRegionMutation();
-
-  const filteredRegions = regions.filter((r) => {
-    if (statusFilter === "active") return r.is_active;
-    if (statusFilter === "inactive") return !r.is_active;
-    return true;
-  });
-
-  const totalActive = regions.filter((r) => r.is_active).length;
-  const totalDepartments = regions.reduce(
-    (sum, r) => sum + (r.structures_count || 0),
-    0
-  );
-  const totalUsers = regions.reduce(
-    (sum, r) => sum + (r.active_users_count || 0),
-    0
-  );
 
   const resetForm = () => {
     setName("");
@@ -90,7 +86,7 @@ export function RegionList() {
 
   const openCreateModal = () => {
     resetForm();
-    setIsCreateOpen(true);
+    setIsModalOpen(true);
   };
 
   const openEditModal = (region: Region) => {
@@ -99,7 +95,7 @@ export function RegionList() {
     setCode(region.code);
     setDescription(region.description || "");
     setLogoPath(region.logo_path || "");
-    setIsCreateOpen(true);
+    setIsModalOpen(true);
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -130,7 +126,7 @@ export function RegionList() {
         }).unwrap();
         actionFeedback.success(`Region '${name}' registered successfully.`);
       }
-      setIsCreateOpen(false);
+      setIsModalOpen(false);
       resetForm();
       refetch();
     } catch (err: any) {
@@ -144,9 +140,7 @@ export function RegionList() {
         id: region.region_id,
         is_active: !region.is_active,
       }).unwrap();
-      actionFeedback.success(
-        `Region '${region.name}' ${region.is_active ? "deactivated" : "activated"}.`
-      );
+      actionFeedback.success(`Region '${region.name}' status updated.`);
       refetch();
     } catch (err: any) {
       actionFeedback.error(err?.data?.message || "Failed to update region status.");
@@ -161,216 +155,251 @@ export function RegionList() {
     ) {
       return;
     }
-
     try {
       await deleteRegion(region.region_id).unwrap();
-      actionFeedback.success(`Region '${region.name}' deleted successfully.`);
+      actionFeedback.success(`Region '${region.name}' deleted.`);
       refetch();
     } catch (err: any) {
       actionFeedback.error(err?.data?.message || "Failed to delete region.");
     }
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Header and Stats */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <Globe className="h-6 w-6 text-primary" />
-            Regional Administration
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Register and manage autonomous regional authorities, organizational departments, and branding.
-          </p>
-        </div>
-        <Button onClick={openCreateModal} className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Register Region
-        </Button>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="border border-border/60 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Registered Regions
-            </CardTitle>
+  const columns: ColumnDef<Region>[] = [
+    {
+      id: "logo",
+      header: "",
+      cell: ({ row }) => {
+        const logoUrl = row.original.logo_path ? getFileUrl(row.original.logo_path) : null;
+        return logoUrl ? (
+          <div className="relative h-8 w-8 rounded-full border border-primary/20 bg-muted/40 p-0.5 flex items-center justify-center overflow-hidden shrink-0">
+            <Image
+              src={logoUrl}
+              alt={row.original.name}
+              width={28}
+              height={28}
+              className="max-h-7 w-auto object-contain"
+              unoptimized
+            />
+          </div>
+        ) : (
+          <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
             <Globe className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{regions.length}</div>
-            <p className="text-xs text-muted-foreground">
-              {totalActive} active regions configured
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border border-border/60 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Regional Departments
-            </CardTitle>
-            <Building2 className="h-4 w-4 text-emerald-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalDepartments}</div>
-            <p className="text-xs text-muted-foreground">
-              Isolated regional organizational units
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border border-border/60 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Regional Accounts
-            </CardTitle>
-            <Users className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalUsers}</div>
-            <p className="text-xs text-muted-foreground">
-              Active regional domain accounts
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-card p-4 rounded-lg border border-border/60 shadow-sm">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search regions by name or code..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
-          />
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "name",
+      header: "Region Name",
+      cell: ({ row }) => (
+        <span
+          className="font-medium text-primary hover:underline cursor-pointer"
+          onClick={() => router.push(`/admin/regions/${row.original.region_id}`)}
+        >
+          {row.getValue("name")}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "code",
+      header: "Code",
+      cell: ({ row }) => (
+        <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-primary/10 text-primary uppercase">
+          {row.getValue("code")}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "structures_count",
+      header: "Departments",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
+          <span className="font-medium text-foreground">{row.original.structures_count || 0}</span>
+          <span>Depts</span>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground font-medium">Status:</span>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="h-9 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="all">All Statuses</option>
-            <option value="active">Active Only</option>
-            <option value="inactive">Inactive Only</option>
-          </select>
+      ),
+    },
+    {
+      accessorKey: "active_users_count",
+      header: "Active Accounts",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Users className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+          <span className="font-medium text-foreground">{row.original.active_users_count || 0}</span>
+          <span>Staff</span>
         </div>
-      </div>
-
-      {/* Regions Grid / Table */}
-      {isLoading ? (
-        <div className="flex items-center justify-center p-12 text-muted-foreground">
-          Loading regional directory...
+      ),
+    },
+    {
+      accessorKey: "description",
+      header: "Description",
+      cell: ({ row }) => (
+        <div className="text-xs text-muted-foreground line-clamp-1 max-w-xs">
+          {row.original.description || <span className="italic opacity-60">N/A</span>}
         </div>
-      ) : filteredRegions.length === 0 ? (
-        <Card className="border border-dashed p-12 text-center">
-          <Globe className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-40" />
-          <h3 className="text-lg font-semibold text-foreground">No Regions Found</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            {searchTerm
-              ? "No regions match your search criteria."
-              : "No regions have been registered yet."}
-          </p>
-          <Button onClick={openCreateModal} variant="outline" size="sm">
-            <Plus className="h-4 w-4 mr-1" /> Register First Region
-          </Button>
-        </Card>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredRegions.map((region) => (
-            <Card
-              key={region.region_id}
-              className={`border transition-all hover:shadow-md ${
-                region.is_active ? "border-border/80" : "border-destructive/30 bg-muted/20"
-              }`}
+      ),
+    },
+    {
+      accessorKey: "is_active",
+      header: "Status",
+      cell: ({ row }) => <ActiveStatusBadge isActive={row.original.is_active} />,
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => {
+        const region = row.original;
+        return (
+          <div className="flex items-center gap-1">
+            <Button
+              onClick={() => router.push(`/admin/regions/${region.region_id}`)}
+              variant="ghost"
+              size="icon"
+              title="Manage Region & Departments"
+              className="h-8 w-8"
             >
-              <CardHeader className="flex flex-row items-start justify-between pb-2">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-primary/10 text-primary">
-                      {region.code}
-                    </span>
-                    <ActiveStatusBadge isActive={region.is_active} />
-                  </div>
-                  <CardTitle className="text-lg font-bold text-foreground">
-                    {region.name}
-                  </CardTitle>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem asChild>
-                      <Link href={`/admin/regions/${region.region_id}`}>
-                        <ExternalLink className="h-4 w-4 mr-2" /> View Details & Setup
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => openEditModal(region)}>
-                      <Edit className="h-4 w-4 mr-2" /> Edit Region
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleToggleActive(region)}>
-                      {region.is_active ? (
-                        <>
-                          <XCircle className="h-4 w-4 mr-2 text-amber-600" />
-                          Deactivate
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-600" />
-                          Activate
-                        </>
-                      )}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleDelete(region)}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" /> Delete Region
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </CardHeader>
+              <Eye className="h-4 w-4" />
+            </Button>
+            {canUpdate && (
+              <>
+                <Button
+                  onClick={() => openEditModal(region)}
+                  variant="ghost"
+                  size="icon"
+                  title="Edit Region"
+                  className="h-8 w-8"
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button
+                  onClick={() => handleToggleActive(region)}
+                  variant="ghost"
+                  size="icon"
+                  title={region.is_active ? "Deactivate Region" : "Activate Region"}
+                  className="h-8 w-8"
+                >
+                  {region.is_active ? (
+                    <XCircle className="h-4 w-4 text-amber-600" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  )}
+                </Button>
+              </>
+            )}
+            {canDelete && (
+              <Button
+                onClick={() => handleDelete(region)}
+                variant="ghost"
+                size="icon"
+                title="Delete Region"
+                className="h-8 w-8 text-destructive hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        );
+      },
+    },
+  ];
 
-              <CardContent className="space-y-4 pt-2">
-                <p className="text-xs text-muted-foreground line-clamp-2 min-h-[2.5rem]">
-                  {region.description || "No description provided for this region."}
-                </p>
+  const filters: FilterField[] = [
+    {
+      key: "status",
+      label: "Status",
+      type: "multiselect",
+      placeholder: "Select status",
+      value: statusFilter,
+      onChange: setStatusFilter,
+      options: [
+        { label: "Active", value: "active" },
+        { label: "Inactive", value: "inactive" },
+      ],
+    },
+  ];
 
-                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/50 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1.5">
-                    <Building2 className="h-3.5 w-3.5 text-primary" />
-                    <span>{region.structures_count || 0} Departments</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Users className="h-3.5 w-3.5 text-blue-600" />
-                    <span>{region.active_users_count || 0} Active Users</span>
-                  </div>
-                </div>
+  const handleExport = () => {
+    const headers = [
+      "Region Name",
+      "Code",
+      "Status",
+      "Departments Count",
+      "Active Accounts",
+      "Description",
+    ];
+    const rows = filteredData.map((r) => [
+      `"${(r.name || "").replace(/"/g, '""')}"`,
+      `"${(r.code || "").replace(/"/g, '""')}"`,
+      r.is_active ? "Active" : "Inactive",
+      r.structures_count || 0,
+      r.active_users_count || 0,
+      `"${(r.description || "").replace(/"/g, '""')}"`,
+    ]);
+    const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `regions-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    actionFeedback.success("Regions list exported successfully.");
+  };
 
-                <div className="pt-2">
-                  <Button asChild variant="outline" size="sm" className="w-full">
-                    <Link href={`/admin/regions/${region.region_id}`}>
-                      Manage Region & Departments →
-                    </Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+  const actions: ActionButton[] = [
+    {
+      label: "Export",
+      icon: <Download className="h-4 w-4" />,
+      variant: "outline",
+      onClick: handleExport,
+    },
+    ...(canCreate
+      ? [
+          {
+            label: "Add Region",
+            icon: <Plus className="h-4 w-4" />,
+            variant: "default" as const,
+            onClick: openCreateModal,
+          },
+        ]
+      : []),
+  ];
+
+  const filteredData = useMemo(() => {
+    return regions.filter((item) => {
+      const matchesStatus = matchesActiveInactiveFilter(statusFilter, item.is_active);
+      const matchesSearch =
+        !searchQuery ||
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
+      return matchesStatus && matchesSearch;
+    });
+  }, [regions, statusFilter, searchQuery]);
+
+  return (
+    <>
+      <TableLayout
+        title="Regions"
+        description="Manage autonomous regional authorities, departments, and system branding"
+        actions={actions}
+        filters={filters}
+        filterColumnsPerRow={1}
+        showSearch={true}
+      >
+        <DataTable
+          columns={columns}
+          data={filteredData}
+          isLoading={isLoading}
+          resetKey={`${searchQuery}-${statusFilter}`}
+        />
+      </TableLayout>
 
       {/* Registration & Edit Modal */}
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
@@ -402,7 +431,7 @@ export function RegionList() {
                 required
               />
               <p className="text-[11px] text-muted-foreground">
-                Unique, stable code used for identifying regional scope and domain isolation.
+                Unique, stable code used for regional identification and account scoping.
               </p>
             </div>
 
@@ -415,20 +444,19 @@ export function RegionList() {
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Logo URL / Path</label>
-              <Input
-                placeholder="e.g. /logos/oromia-logo.png"
-                value={logoPath}
-                onChange={(e) => setLogoPath(e.target.value)}
-              />
-            </div>
+            <LogoUploadField
+              label="Regional Logo"
+              value={logoPath || null}
+              onChange={(val) => setLogoPath(val || "")}
+              successMessage="Regional logo uploaded"
+              errorMessage="Failed to upload regional logo"
+            />
 
             <DialogFooter className="pt-4">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setIsCreateOpen(false)}
+                onClick={() => setIsModalOpen(false)}
               >
                 Cancel
               </Button>
@@ -443,6 +471,6 @@ export function RegionList() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
