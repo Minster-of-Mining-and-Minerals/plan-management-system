@@ -127,14 +127,24 @@
 }
 
 /* Hide scrollbar for all browsers */
-.hide-scrollbar {
+.hide-scrollbar,
+[data-sidebar="content"],
+[data-slot="sidebar-content"],
+[data-slot="sidebar-inner"],
+[data-sidebar="sidebar"],
+[data-slot="sidebar-container"] {
   -ms-overflow-style: none;
   /* IE and Edge */
   scrollbar-width: none;
   /* Firefox */
 }
 
-.hide-scrollbar::-webkit-scrollbar {
+.hide-scrollbar::-webkit-scrollbar,
+[data-sidebar="content"]::-webkit-scrollbar,
+[data-slot="sidebar-content"]::-webkit-scrollbar,
+[data-slot="sidebar-inner"]::-webkit-scrollbar,
+[data-sidebar="sidebar"]::-webkit-scrollbar,
+[data-slot="sidebar-container"]::-webkit-scrollbar {
   display: none;
   /* Chrome, Safari, Opera */
 }

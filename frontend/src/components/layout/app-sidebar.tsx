@@ -106,7 +106,7 @@ export function AppSidebar() {
   const structureTree = buildSectorTree(structuresData || []);
 
   return (
-    <Sidebar collapsible="icon" variant="floating">
+    <Sidebar collapsible="icon" variant="floating" className="hide-scrollbar">
       {/* ---------- HEADER ---------- */}
       <SidebarHeader className="py-10">
         <SidebarMenu>
@@ -136,7 +136,7 @@ export function AppSidebar() {
       </SidebarHeader>
 
       {/* ---------- CONTENT ---------- */}
-      <SidebarContent>
+      <SidebarContent className="hide-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         <SidebarGroup className="px-5 group-data-[collapsible=icon]:px-0">
           <SidebarGroupContent>
             <SidebarMenu className="gap-2 group-data-[collapsible=icon]:items-center">
