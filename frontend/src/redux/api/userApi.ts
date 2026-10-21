@@ -17,6 +17,8 @@ export const userApi = baseApi.injectEndpoints({
       { 
         government_structure_id?: string; 
         internal_structure_id?: string; 
+        region_id?: string;
+        domain?: string;
         is_active?: boolean; 
         search?: string;
         page?: number;

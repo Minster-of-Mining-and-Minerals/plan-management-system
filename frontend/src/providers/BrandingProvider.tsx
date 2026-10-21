@@ -15,6 +15,7 @@ import {
   resolveBrandingAssetUrl,
 } from "@/lib/branding/applyBrandingTheme";
 import { useGetPublicBrandingQuery } from "@/redux/api/brandingApi";
+import { useGetRegionalBrandingQuery } from "@/redux/api/regionApi";
 import type { BrandingSettings } from "@/redux/types/branding";
 
 type BrandingContextValue = {
@@ -25,6 +26,7 @@ type BrandingContextValue = {
   faviconUrl: string;
   isUsingDefault: boolean;
   resolvedFromStructureId: string | null;
+  regionId?: string | null;
 };
 
 const BrandingContext = createContext<BrandingContextValue>({
@@ -35,6 +37,7 @@ const BrandingContext = createContext<BrandingContextValue>({
   faviconUrl: DEFAULT_BRANDING.favicon_path ?? "",
   isUsingDefault: true,
   resolvedFromStructureId: null,
+  regionId: null,
 });
 
 function resolveSessionStructureId(
@@ -50,9 +53,11 @@ function resolveSessionStructureId(
 export function BrandingProvider({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
 
+  const regionId = session?.user?.region_id || null;
+
   const structureId = useMemo(
-    () => resolveSessionStructureId(session?.user?.government_structure),
-    [session?.user?.government_structure]
+    () => (!regionId ? resolveSessionStructureId(session?.user?.government_structure) : undefined),
+    [regionId, session?.user?.government_structure]
   );
 
   const queryArg = useMemo(
@@ -60,30 +65,48 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     [structureId]
   );
 
-  const { data, isLoading, isFetching } = useGetPublicBrandingQuery(queryArg, {
-    skip: status === "loading",
-    refetchOnMountOrArgChange: true,
-  });
+  // Federal / global branding query (skipped if regional account)
+  const { data: federalData, isLoading: federalLoading, isFetching: federalFetching } = useGetPublicBrandingQuery(
+    queryArg,
+    {
+      skip: status === "loading" || Boolean(regionId),
+      refetchOnMountOrArgChange: true,
+    }
+  );
 
-  const branding = data ?? DEFAULT_BRANDING;
+  // Regional branding query (active only when user belongs to a region)
+  const { data: regionalData, isLoading: regionalLoading, isFetching: regionalFetching } = useGetRegionalBrandingQuery(
+    regionId as string,
+    {
+      skip: status === "loading" || !regionId,
+      refetchOnMountOrArgChange: true,
+    }
+  );
+
+  const effectiveData = regionId ? regionalData : federalData;
+  const branding = (effectiveData as unknown as BrandingSettings) ?? DEFAULT_BRANDING;
+  const isDataLoading = regionId
+    ? regionalLoading || regionalFetching
+    : federalLoading || federalFetching;
 
   useEffect(() => {
-    if (!data) return;
-    applyBrandingTheme(data, data.css_variables);
-    applyBrandingDocumentMeta(data);
-  }, [data]);
+    if (!effectiveData) return;
+    applyBrandingTheme(effectiveData as unknown as BrandingSettings, effectiveData.css_variables);
+    applyBrandingDocumentMeta(effectiveData as unknown as BrandingSettings);
+  }, [effectiveData]);
 
   const value = useMemo<BrandingContextValue>(
     () => ({
       branding,
-      isLoading: isLoading || isFetching || status === "loading",
+      isLoading: isDataLoading || status === "loading",
       logoPrimaryUrl: resolveBrandingAssetUrl(branding.logo_primary_path),
       logoSecondaryUrl: resolveBrandingAssetUrl(branding.logo_secondary_path),
       faviconUrl: resolveBrandingAssetUrl(branding.favicon_path),
-      isUsingDefault: data?.is_using_default ?? !structureId,
-      resolvedFromStructureId: data?.resolved_from_structure_id ?? null,
+      isUsingDefault: effectiveData?.is_using_default ?? !structureId,
+      resolvedFromStructureId: federalData?.resolved_from_structure_id ?? null,
+      regionId,
     }),
-    [branding, data, isLoading, isFetching, status, structureId]
+    [branding, effectiveData, federalData, isDataLoading, regionId, status, structureId]
   );
 
   return (

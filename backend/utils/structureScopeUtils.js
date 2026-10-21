@@ -468,8 +468,91 @@ function assertPlanRuleDeletable(rule, req, structureIndex) {
   assertPlanRuleModifiable(rule, req, structureIndex);
 }
 
+function isRegionalActor(req) {
+  return Boolean(req.user?.region_id);
+}
+
+function isFederalActor(req) {
+  return Boolean(req.user?.government_structure_id);
+}
+
+function getUserDomain(user) {
+  if (
+    Array.isArray(user?.roles) &&
+    user.roles.some((name) => String(name).toLowerCase() === "super admin")
+  ) {
+    return "super_admin";
+  }
+  if (user?.region_id) {
+    return "regional";
+  }
+  if (user?.government_structure_id) {
+    return "federal";
+  }
+  return "unassigned";
+}
+
+function assertRegionAccessible(req, regionId) {
+  if (!regionId) {
+    const error = new Error("Region ID is required.");
+    error.status = 400;
+    throw error;
+  }
+
+  if (isSuperAdminActor(req)) {
+    return;
+  }
+
+  if (isRegionalActor(req)) {
+    if (req.user.region_id !== regionId) {
+      const error = new Error("Access denied: you do not have permission to access another region.");
+      error.status = 403;
+      throw error;
+    }
+    return;
+  }
+
+  const error = new Error("Access denied: federal users cannot access regional operational resources.");
+  error.status = 403;
+  throw error;
+}
+
+function assertFederalAccessible(req) {
+  if (isSuperAdminActor(req)) {
+    return;
+  }
+
+  if (isRegionalActor(req)) {
+    const error = new Error("Access denied: regional users cannot access federal organizational resources.");
+    error.status = 403;
+    throw error;
+  }
+}
+
+function assertUserManageable(targetUser, req, structureIndex) {
+  if (!targetUser) {
+    const error = new Error("User not found.");
+    error.status = 404;
+    throw error;
+  }
+
+  if (targetUser.region_id) {
+    assertRegionAccessible(req, targetUser.region_id);
+    return;
+  }
+
+  assertFederalAccessible(req);
+  assertUserInStructure(targetUser, targetUser.government_structure_id, req, structureIndex);
+}
+
 module.exports = {
   isSuperAdminActor,
+  isRegionalActor,
+  isFederalActor,
+  getUserDomain,
+  assertRegionAccessible,
+  assertFederalAccessible,
+  assertUserManageable,
   getActorStructureId,
   resolveManageableStructureId,
   buildRoleVisibilityWhere,

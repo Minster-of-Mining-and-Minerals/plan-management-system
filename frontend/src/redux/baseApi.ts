@@ -109,6 +109,9 @@ export const baseApi = createApi({
     "IssueDashboard",
     "IssueHistory",
     "Notes",
+    "Regions",
+    "RegionalStructures",
+    "RegionalBranding",
   ],
   endpoints: () => ({}),
 });

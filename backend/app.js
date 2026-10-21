@@ -26,6 +26,9 @@ const forgotPasswordRoutes = require("./routers/user/forgotPasswordRoutes");
 // Structure Routes
 const governmentStructureRoutes = require("./routers/structure/governmentStructureRoutes");
 const internalStructureRoutes = require("./routers/structure/internalStructureRoutes");
+const regionRoutes = require("./routers/structure/regionRoutes");
+const regionalStructureRoutes = require("./routers/structure/regionalStructureRoutes");
+const regionalBrandingRoutes = require("./routers/config/regionalBrandingRoutes");
 
 // Plan Management Routes
 const planRoutes = require("./routers/plan/planRoutes");
@@ -145,6 +148,9 @@ app.use("/api/permission-groups", permissionGroupRoute);
 // Structure Routes
 app.use("/api/government-structures", governmentStructureRoutes);
 app.use("/api/internal-structures", internalStructureRoutes);
+app.use("/api/regions", regionRoutes);
+app.use("/api/regional-structures", regionalStructureRoutes);
+app.use("/api/regional-branding", regionalBrandingRoutes);
 
 // Plan Management Routes
 app.use("/api/plan", planRoutes);

@@ -5,6 +5,8 @@ const {
   sequelize,
   GovernmentStructure,
   InternalStructure,
+  Region,
+  RegionalStructure,
   PermissionGroup,
 } = require("../../models");
 const { v4: uuidv4, validate: isUuid } = require("uuid");
@@ -20,10 +22,14 @@ const {
 } = require("../../services/auditLogService");
 const {
   isSuperAdminActor,
+  isRegionalActor,
   resolveManageableStructureId,
   resolveUserGovernmentStructureFilter,
   assertRoleAssignable,
   assertUserInStructure,
+  assertUserManageable,
+  assertRegionAccessible,
+  assertFederalAccessible,
   sendScopeError,
 } = require("../../utils/structureScopeUtils");
 
@@ -69,6 +75,14 @@ const userDetailIncludes = [
     as: "internalStructure",
   },
   {
+    model: Region,
+    as: "region",
+  },
+  {
+    model: RegionalStructure,
+    as: "regionalStructure",
+  },
+  {
     model: PermissionGroup,
     as: "permissionGroups",
     through: { attributes: [] },
@@ -79,8 +93,189 @@ const userDetailIncludes = [
 const createUser = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    const { full_name, role_ids, phone_number, government_structure_id, internal_structure_id } = req.body;
+    const {
+      full_name,
+      role_ids,
+      phone_number,
+      government_structure_id,
+      internal_structure_id,
+      region_id,
+      regional_structure_id,
+    } = req.body;
     const email = normalizeEmail(req.body.email);
+
+    const hasFederal = Boolean(government_structure_id || internal_structure_id);
+    const hasRegional = Boolean(region_id || regional_structure_id);
+
+    // Enforce mutual exclusivity of domain assignments
+    if (hasFederal && hasRegional) {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "An account cannot be assigned to both federal and regional domains simultaneously.",
+      });
+    }
+
+    // Regional account creation path
+    if (hasRegional || req.user?.is_regional) {
+      let targetRegionId = region_id;
+      if (req.user?.is_regional) {
+        if (region_id && region_id !== req.user.region_id) {
+          await t.rollback();
+          return res.status(403).json({
+            success: false,
+            message: "Regional users cannot create accounts for other regions.",
+          });
+        }
+        targetRegionId = req.user.region_id;
+      } else if (!isSuperAdminActor(req)) {
+        await t.rollback();
+        return res.status(403).json({
+          success: false,
+          message: "Federal accounts cannot create regional accounts.",
+        });
+      }
+
+      if (!targetRegionId) {
+        await t.rollback();
+        return res.status(400).json({
+          success: false,
+          message: "region_id is required for regional accounts.",
+        });
+      }
+
+      const targetRegion = await Region.findByPk(targetRegionId, { transaction: t });
+      if (!targetRegion) {
+        await t.rollback();
+        return res.status(400).json({
+          success: false,
+          message: "Target region not found.",
+        });
+      }
+      if (!targetRegion.is_active) {
+        await t.rollback();
+        return res.status(400).json({
+          success: false,
+          message: "Cannot create accounts in a deactivated region.",
+        });
+      }
+
+      if (regional_structure_id) {
+        const regStruct = await RegionalStructure.findByPk(regional_structure_id, { transaction: t });
+        if (!regStruct) {
+          await t.rollback();
+          return res.status(400).json({
+            success: false,
+            message: "Target regional department not found.",
+          });
+        }
+        if (regStruct.region_id !== targetRegionId) {
+          await t.rollback();
+          return res.status(400).json({
+            success: false,
+            message: "Regional department must belong to the user's assigned region.",
+          });
+        }
+        if (!regStruct.is_active) {
+          await t.rollback();
+          return res.status(400).json({
+            success: false,
+            message: "Cannot assign user to an inactive regional department.",
+          });
+        }
+      }
+
+      const existingUser = await User.findOne({
+        where: { email: { [Op.iLike]: email } },
+        transaction: t,
+      });
+      if (existingUser) {
+        await t.rollback();
+        return res.status(400).json({ success: false, message: "User already exists." });
+      }
+
+      const password = generateRandomPassword();
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const user = await User.create(
+        {
+          user_id: uuidv4(),
+          full_name,
+          email,
+          password: hashedPassword,
+          phone_number,
+          is_first_logged_in: true,
+          is_active: true,
+          government_structure_id: null,
+          internal_structure_id: null,
+          region_id: targetRegionId,
+          regional_structure_id: regional_structure_id || null,
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
+        { transaction: t }
+      );
+
+      if (role_ids && Array.isArray(role_ids) && role_ids.length > 0) {
+        const roleAssignments = role_ids.map((rid) => ({
+          user_role_id: uuidv4(),
+          user_id: user.user_id,
+          role_id: rid,
+          assigned_by: req.user?.user_id || null,
+          assigned_at: new Date(),
+          is_active: true,
+        }));
+        await UserRoles.bulkCreate(roleAssignments, { transaction: t });
+      }
+
+      await recordSystemAuditLog(
+        {
+          module: AUDIT_MODULES.USERS,
+          action: "create",
+          entityId: user.user_id,
+          entityLabel: user.full_name,
+          newValues: {
+            user_id: user.user_id,
+            full_name: user.full_name,
+            email: user.email,
+            phone_number: user.phone_number,
+            region_id: user.region_id,
+            regional_structure_id: user.regional_structure_id,
+            is_active: user.is_active,
+          },
+          changedBy: req.user.user_id,
+          ipAddress: getClientIp(req),
+        },
+        t
+      );
+
+      await t.commit();
+
+      await sendEmail(
+        email,
+        `Welcome to ${process.env.APP_NAME}!`,
+        `Dear ${full_name},\nYour regional account for ${targetRegion.name} has been created.\nEmail: ${email}\nTemporary Password: ${password}\nPlease change your password after first login.`
+      );
+
+      const createdWithIncludes = await User.findByPk(user.user_id, {
+        include: userDetailIncludes,
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Regional user created successfully.",
+        data: createdWithIncludes || user,
+      });
+    }
+
+    // Federal account creation path:
+    if (req.user?.is_regional) {
+      await t.rollback();
+      return res.status(403).json({
+        success: false,
+        message: "Regional users cannot create federal accounts.",
+      });
+    }
 
     let structureId;
     try {
@@ -140,6 +335,8 @@ const createUser = async (req, res) => {
         is_active: true,
         government_structure_id: resolvedStructureId,
         internal_structure_id,
+        region_id: null,
+        regional_structure_id: null,
         created_at: new Date(),
         updated_at: new Date(),
       },
@@ -210,8 +407,6 @@ const createUser = async (req, res) => {
 
 // =============== Update user ===============
 const updateUser = async (req, res) => {
-  // console.log("update user reached")
-
   const t = await sequelize.transaction();
   try {
     const { id: user_id } = req.params;
@@ -223,13 +418,14 @@ const updateUser = async (req, res) => {
       role_ids,
       government_structure_id,
       internal_structure_id,
+      region_id,
+      regional_structure_id,
       profile_image,
     } = req.body;
     const email = req.body.email != null ? normalizeEmail(req.body.email) : undefined;
 
     // ====== Find user ======
     const user = await User.findByPk(user_id, { transaction: t });
-    console.log("user: ", user, "user_idL ", user_id, req.params);
     if (!user) {
       await t.rollback();
       return res.status(404).json({
@@ -240,26 +436,86 @@ const updateUser = async (req, res) => {
 
     try {
       const structureIndex = await loadGovernmentStructureIndex();
-      assertUserInStructure(user, user.government_structure_id, req, structureIndex);
+      assertUserManageable(user, req, structureIndex);
     } catch (error) {
       await t.rollback();
       return sendScopeError(res, error);
     }
 
     let targetStructureId = user.government_structure_id;
-    if (government_structure_id !== undefined) {
-      try {
-        const structureIndex = await loadGovernmentStructureIndex();
-        targetStructureId = resolveManageableStructureId(
-          req,
-          government_structure_id,
-          structureIndex
-        );
-      } catch (error) {
+    let targetInternalStructureId = user.internal_structure_id;
+    let targetRegionalStructureId = user.regional_structure_id;
+
+    // Strict account-domain boundary check:
+    if (user.region_id) {
+      // User is in Regional domain
+      if (government_structure_id || internal_structure_id) {
         await t.rollback();
-        return sendScopeError(res, error);
+        return res.status(400).json({
+          success: false,
+          message: "Cannot assign federal structures to a regional account. Accounts cannot cross domains.",
+        });
+      }
+
+      if (region_id && region_id !== user.region_id) {
+        await t.rollback();
+        return res.status(400).json({
+          success: false,
+          message: "Cannot transfer a user across regions. Accounts must remain strictly within their assigned region.",
+        });
+      }
+
+      if (regional_structure_id !== undefined) {
+        if (regional_structure_id) {
+          const regStruct = await RegionalStructure.findByPk(regional_structure_id, { transaction: t });
+          if (!regStruct || regStruct.region_id !== user.region_id) {
+            await t.rollback();
+            return res.status(400).json({
+              success: false,
+              message: "Target regional department does not exist or belongs to another region.",
+            });
+          }
+          if (!regStruct.is_active) {
+            await t.rollback();
+            return res.status(400).json({
+              success: false,
+              message: "Cannot assign user to an inactive regional department.",
+            });
+          }
+          targetRegionalStructureId = regional_structure_id;
+        } else {
+          targetRegionalStructureId = null;
+        }
+      }
+    } else {
+      // User is in Federal domain
+      if (region_id || regional_structure_id) {
+        await t.rollback();
+        return res.status(400).json({
+          success: false,
+          message: "Cannot assign a region or regional department to a federal account. Accounts cannot cross domains.",
+        });
+      }
+
+      if (government_structure_id !== undefined) {
+        try {
+          const structureIndex = await loadGovernmentStructureIndex();
+          targetStructureId = resolveManageableStructureId(
+            req,
+            government_structure_id,
+            structureIndex
+          );
+        } catch (error) {
+          await t.rollback();
+          return sendScopeError(res, error);
+        }
+      }
+
+      if (internal_structure_id !== undefined) {
+        targetInternalStructureId = internal_structure_id;
       }
     }
+
     const previousValues = {
       user_id: user.user_id,
       full_name: user.full_name,
@@ -269,6 +525,8 @@ const updateUser = async (req, res) => {
       is_first_logged_in: user.is_first_logged_in,
       government_structure_id: user.government_structure_id,
       internal_structure_id: user.internal_structure_id,
+      region_id: user.region_id,
+      regional_structure_id: user.regional_structure_id,
     };
 
     // ====== Check for email duplication ======
@@ -289,7 +547,6 @@ const updateUser = async (req, res) => {
       }
     }
 
-
     // ====== Update user ======
     await user.update(
       {
@@ -299,8 +556,9 @@ const updateUser = async (req, res) => {
         is_active: is_active ?? user.is_active,
         is_first_logged_in:
           is_first_logged_in !== undefined ? is_first_logged_in : user.is_first_logged_in,
-        government_structure_id: targetStructureId ?? user.government_structure_id,
-        internal_structure_id: internal_structure_id ?? user.internal_structure_id,
+        government_structure_id: targetStructureId,
+        internal_structure_id: targetInternalStructureId,
+        regional_structure_id: targetRegionalStructureId,
         profile_image: profile_image !== undefined ? profile_image : user.profile_image,
         updated_at: new Date(),
       },
@@ -309,11 +567,13 @@ const updateUser = async (req, res) => {
 
     // ====== Update roles if provided ======
     if (role_ids && Array.isArray(role_ids)) {
-      try {
-        await validateRoleAssignments(role_ids, targetStructureId, req, t);
-      } catch (error) {
-        await t.rollback();
-        return sendScopeError(res, error);
+      if (!user.region_id) {
+        try {
+          await validateRoleAssignments(role_ids, targetStructureId, req, t);
+        } catch (error) {
+          await t.rollback();
+          return sendScopeError(res, error);
+        }
       }
 
       await UserRoles.destroy({
@@ -348,6 +608,8 @@ const updateUser = async (req, res) => {
           is_first_logged_in: user.is_first_logged_in,
           government_structure_id: user.government_structure_id,
           internal_structure_id: user.internal_structure_id,
+          region_id: user.region_id,
+          regional_structure_id: user.regional_structure_id,
           role_ids: role_ids ?? undefined,
         },
         changedBy: req.user.user_id,
@@ -358,10 +620,14 @@ const updateUser = async (req, res) => {
 
     await t.commit();
 
+    const updatedWithIncludes = await User.findByPk(user.user_id, {
+      include: userDetailIncludes,
+    });
+
     return res.status(200).json({
       success: true,
       message: "User updated successfully.",
-      data: user,
+      data: updatedWithIncludes || user,
     });
   } catch (error) {
     if (!t.finished) await t.rollback();
@@ -378,40 +644,71 @@ const getUsers = async (req, res) => {
       search,
       government_structure_id,
       internal_structure_id,
+      region_id,
+      domain,
     } = req.query;
 
     const whereClause = {};
 
     if (is_active !== undefined) whereClause.is_active = is_active === "true";
-    if (internal_structure_id) whereClause.internal_structure_id = internal_structure_id;
 
-    const structureIndex = await loadGovernmentStructureIndex();
-    let structureIds;
-    try {
-      structureIds = resolveUserGovernmentStructureFilter(
-        req,
-        government_structure_id,
-        structureIndex
-      );
-    } catch (error) {
-      return sendScopeError(res, error);
-    }
+    // Domain and region filtering
+    if (req.user?.is_regional) {
+      // Regional users are strictly isolated to their assigned region
+      whereClause.region_id = req.user.region_id;
+      if (internal_structure_id) {
+        whereClause.regional_structure_id = internal_structure_id;
+      }
+    } else {
+      // Federal / Super Admin caller
+      if (isSuperAdminActor(req)) {
+        if (region_id) {
+          whereClause.region_id = region_id;
+        } else if (domain === "regional") {
+          whereClause.region_id = { [Op.ne]: null };
+        } else if (domain === "federal") {
+          whereClause.region_id = null;
+        }
+      } else {
+        // Ordinary federal user can ONLY see federal users
+        whereClause.region_id = null;
+      }
 
-    if (structureIds) {
-      whereClause.government_structure_id = { [Op.in]: structureIds };
+      if (internal_structure_id && !whereClause.region_id) {
+        whereClause.internal_structure_id = internal_structure_id;
+      }
+
+      if (!whereClause.region_id) {
+        const structureIndex = await loadGovernmentStructureIndex();
+        let structureIds;
+        try {
+          structureIds = resolveUserGovernmentStructureFilter(
+            req,
+            government_structure_id,
+            structureIndex
+          );
+        } catch (error) {
+          return sendScopeError(res, error);
+        }
+
+        if (structureIds) {
+          whereClause.government_structure_id = { [Op.in]: structureIds };
+        }
+      }
     }
 
     if (search) {
       whereClause[Op.or] = [
-        { full_name: { [Op.like]: `%${search}%` } },
-        { email: { [Op.like]: `%${search}%` } },
-        { phone_number: { [Op.like]: `%${search}%` } },
+        { full_name: { [Op.iLike]: `%${search}%` } },
+        { email: { [Op.iLike]: `%${search}%` } },
+        { phone_number: { [Op.iLike]: `%${search}%` } },
       ];
     }
 
     // ====== Fetch users with associations ======
     const users = await User.findAll({
       where: whereClause,
+      include: userDetailIncludes,
       order: [["created_at", "DESC"]],
     });
 
@@ -434,8 +731,6 @@ const getUserById = async (req, res) => {
   try {
     const { id: user_id } = req.params;
 
-    console.log("user_id: ", user_id);
-
     // ====== Find user with relations ======
     const user = await User.findByPk(user_id, {
       include: userDetailIncludes,
@@ -450,7 +745,7 @@ const getUserById = async (req, res) => {
 
     try {
       const structureIndex = await loadGovernmentStructureIndex();
-      assertUserInStructure(user, user.government_structure_id, req, structureIndex);
+      assertUserManageable(user, req, structureIndex);
     } catch (error) {
       return sendScopeError(res, error);
     }
@@ -494,7 +789,7 @@ const deleteUser = async (req, res) => {
 
     try {
       const structureIndex = await loadGovernmentStructureIndex();
-      assertUserInStructure(user, user.government_structure_id, req, structureIndex);
+      assertUserManageable(user, req, structureIndex);
     } catch (error) {
       await t.rollback();
       return sendScopeError(res, error);
@@ -553,7 +848,7 @@ const toggleUserActiveStatus = async (req, res) => {
 
     try {
       const structureIndex = await loadGovernmentStructureIndex();
-      assertUserInStructure(user, user.government_structure_id, req, structureIndex);
+      assertUserManageable(user, req, structureIndex);
     } catch (error) {
       await t.rollback();
       return sendScopeError(res, error);
@@ -604,7 +899,7 @@ const resetUserPassword = async (req, res) => {
 
     try {
       const structureIndex = await loadGovernmentStructureIndex();
-      assertUserInStructure(user, user.government_structure_id, req, structureIndex);
+      assertUserManageable(user, req, structureIndex);
     } catch (error) {
       await t.rollback();
       return sendScopeError(res, error);

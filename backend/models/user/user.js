@@ -29,6 +29,16 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "internal_structure_id",
         as: "internalStructure",
       });
+
+      User.belongsTo(models.Region, {
+        foreignKey: "region_id",
+        as: "region",
+      });
+
+      User.belongsTo(models.RegionalStructure, {
+        foreignKey: "regional_structure_id",
+        as: "regionalStructure",
+      });
     }
   }
 
@@ -83,6 +93,14 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
       },
       internal_structure_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      region_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      regional_structure_id: {
         type: DataTypes.UUID,
         allowNull: true,
       },

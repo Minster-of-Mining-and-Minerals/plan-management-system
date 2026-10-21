@@ -1,5 +1,5 @@
 const db = require("../../models");
-const { User, Role, RolePermission, Permission, PermissionGroup, GovernmentStructure, InternalStructure } = db;
+const { User, Role, RolePermission, Permission, PermissionGroup, GovernmentStructure, InternalStructure, Region, RegionalStructure } = db;
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { normalizeEmail } = require("../../utils/emailUtils");
@@ -19,6 +19,8 @@ const login = async (req, res) => {
       include: [
         { model: GovernmentStructure, as: "governmentStructure" },
         { model: InternalStructure, as: "internalStructure" },
+        { model: Region, as: "region" },
+        { model: RegionalStructure, as: "regionalStructure" },
       ],
     });
 
@@ -29,6 +31,16 @@ const login = async (req, res) => {
         success: false,
         message: "User is inactive",
       });
+    }
+
+    // Regional account domain check: if user belongs to a region, region must be active
+    if (user.region_id) {
+      if (!user.region || !user.region.is_active) {
+        return res.status(403).json({
+          success: false,
+          message: "Assigned region is inactive or deleted. Access denied.",
+        });
+      }
     }
 
     // Compare password
@@ -65,6 +77,11 @@ const login = async (req, res) => {
           phone_number: user.phone_number,
           profile_image: user.profile_image,
           is_first_logged_in: user.is_first_logged_in,
+          domain: user.region_id ? "regional" : "federal",
+          region_id: user.region_id || null,
+          regional_structure_id: user.regional_structure_id || null,
+          region: user.region || null,
+          regional_structure: user.regionalStructure || null,
           government_structure: user.governmentStructure ? user.governmentStructure : [],
           internal_structure: user.internalStructure ? user.internalStructure : [],
         },
@@ -103,10 +120,14 @@ const getMe = async (req, res) => {
         "is_first_logged_in",
         "government_structure_id",
         "internal_structure_id",
+        "region_id",
+        "regional_structure_id",
       ],
       include: [
         { model: GovernmentStructure, as: "governmentStructure" },
         { model: InternalStructure, as: "internalStructure" },
+        { model: Region, as: "region" },
+        { model: RegionalStructure, as: "regionalStructure" },
       ],
     });
 
@@ -126,6 +147,11 @@ const getMe = async (req, res) => {
           phone_number: user.phone_number,
           profile_image: user.profile_image,
           is_first_logged_in: user.is_first_logged_in,
+          domain: user.region_id ? "regional" : "federal",
+          region_id: user.region_id || null,
+          regional_structure_id: user.regional_structure_id || null,
+          region: user.region || null,
+          regional_structure: user.regionalStructure || null,
           government_structure: user.governmentStructure ? user.governmentStructure : [],
           internal_structure: user.internalStructure ? user.internalStructure : [],
         },

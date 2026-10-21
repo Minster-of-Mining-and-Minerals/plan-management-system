@@ -17,6 +17,8 @@ import {
   ClipboardCheck,
   FileText,
   Files,
+  Globe,
+  MapPin,
 } from "lucide-react";
 
 export type NavItem = {
@@ -35,6 +37,18 @@ export const NAVIGATION: NavItem[] = [
     url: "/dashboard",
     icon: LayoutDashboard,
     anyPermissions: ["DASHBOARD:VIEW"],
+  },
+  {
+    title: "Regions",
+    url: "/admin/regions",
+    icon: Globe,
+    anyPermissions: ["REGIONS:READ", "REGIONS:MANAGE"],
+  },
+  {
+    title: "Regional Workspace",
+    url: "/regional",
+    icon: MapPin,
+    anyPermissions: ["REGIONAL_STRUCTURES:READ"],
   },
   {
     title: "Sector Structures",

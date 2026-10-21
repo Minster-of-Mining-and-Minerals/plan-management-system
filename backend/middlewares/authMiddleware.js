@@ -20,10 +20,18 @@ const authenticateToken = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Fetch user with roles, role permissions, and permission groups
+    // Fetch user with roles, role permissions, permission groups, and regional associations
     const user = await db.User.findByPk(decoded.user_id, {
       attributes: { exclude: ["password"] },
       include: [
+        {
+          model: db.Region,
+          as: "region",
+        },
+        {
+          model: db.RegionalStructure,
+          as: "regionalStructure",
+        },
         {
           model: db.Role,
           as: "roles",
@@ -65,6 +73,16 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
+    // Strict account isolation: reject access if regional user's assigned region is inactive or missing
+    if (user.region_id) {
+      if (!user.region || !user.region.is_active) {
+        return res.status(403).json({
+          success: false,
+          message: "Assigned region is inactive or deleted. Access denied.",
+        });
+      }
+    }
+
     user.departmentPermissionGroups = await loadDepartmentPermissionGroups(
       user.internal_structure_id
     );
@@ -72,12 +90,21 @@ const authenticateToken = async (req, res, next) => {
     const roles = user.roles.map((r) => r.name);
     const permissions = collectUserPermissionKeys(user);
 
+    const isRegional = !!user.region_id;
+    const isFederal = !isRegional;
+    const domain = isRegional ? "regional" : "federal";
+
     req.user = {
       user_id: user.user_id,
       email: user.email,
       full_name: user.full_name,
+      domain,
+      is_regional: isRegional,
+      is_federal: isFederal,
       government_structure_id: user.government_structure_id,
       internal_structure_id: user.internal_structure_id,
+      region_id: user.region_id,
+      regional_structure_id: user.regional_structure_id,
       roles,
       permissions,
     };

@@ -56,6 +56,18 @@ export interface User {
     internal_structure_id: string;
     name: string;
   };
+  domain?: string;
+  region_id?: string | null;
+  regional_structure_id?: string | null;
+  region?: {
+    region_id: string;
+    name: string;
+    code: string;
+  };
+  regionalStructure?: {
+    regional_structure_id: string;
+    name: string;
+  };
 }
 
 // Payloads
@@ -66,6 +78,8 @@ export interface CreateUserPayload {
   role_ids?: string[];
   government_structure_id?: string;
   internal_structure_id?: string;
+  region_id?: string;
+  regional_structure_id?: string;
 }
 
 export interface UpdateUserPayload {
@@ -75,6 +89,8 @@ export interface UpdateUserPayload {
   role_ids?: string[];
   government_structure_id?: string;
   internal_structure_id?: string;
+  region_id?: string;
+  regional_structure_id?: string;
   is_active?: boolean;
   is_first_logged_in?: boolean;
   profile_image?: string | null;

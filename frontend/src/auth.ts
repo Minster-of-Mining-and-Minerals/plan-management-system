@@ -23,6 +23,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           id: user.id,
           accessToken: user.accessToken,
           is_first_logged_in: user.is_first_logged_in,
+          domain: user.domain,
+          region_id: user.region_id,
+          regional_structure_id: user.regional_structure_id,
+          region: user.region,
+          regional_structure: user.regional_structure,
           government_structure: user.government_structure,
           internal_structure: user.internal_structure,
         };
@@ -41,6 +46,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           ...session.user,
           id: token.id as string,
           is_first_logged_in: token.is_first_logged_in,
+          domain: token.domain,
+          region_id: token.region_id,
+          regional_structure_id: token.regional_structure_id,
+          region: token.region,
+          regional_structure: token.regional_structure,
           government_structure: token.government_structure,
           internal_structure: token.internal_structure,
         },
@@ -55,6 +65,11 @@ declare module "next-auth" {
     accessToken?: string;
     id: string;
     is_first_logged_in?: boolean;
+    domain?: string;
+    region_id?: string | null;
+    regional_structure_id?: string | null;
+    region?: any;
+    regional_structure?: any;
     government_structure?: any;
     internal_structure?: any;
   }
@@ -67,6 +82,11 @@ declare module "next-auth" {
       email?: string | null;
       image?: string | null;
       is_first_logged_in?: boolean;
+      domain?: string;
+      region_id?: string | null;
+      regional_structure_id?: string | null;
+      region?: any;
+      regional_structure?: any;
       government_structure?: any;
       internal_structure?: any;
     };
@@ -78,6 +98,11 @@ declare module "next-auth/jwt" {
     id?: string;
     accessToken?: string;
     is_first_logged_in?: boolean;
+    domain?: string;
+    region_id?: string | null;
+    regional_structure_id?: string | null;
+    region?: any;
+    regional_structure?: any;
     government_structure?: any;
     internal_structure?: any;
   }

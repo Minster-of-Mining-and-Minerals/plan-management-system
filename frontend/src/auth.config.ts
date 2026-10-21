@@ -64,6 +64,11 @@ export default {
             email: user.email,
             name: user.full_name,
             is_first_logged_in: user.is_first_logged_in,
+            domain: user.domain || (user.region_id ? "regional" : "federal"),
+            region_id: user.region_id || null,
+            regional_structure_id: user.regional_structure_id || null,
+            region: user.region || null,
+            regional_structure: user.regional_structure || null,
             government_structure: user.government_structure,
             internal_structure: user.internal_structure,
           };
