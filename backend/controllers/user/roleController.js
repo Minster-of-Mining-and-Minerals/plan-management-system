@@ -15,17 +15,50 @@ const {
   sendScopeError,
 } = require("../../utils/structureScopeUtils");
 
-async function assertValidPermissionIds(permissionIds, transaction) {
+async function assertValidPermissionIds(permissionIds, transaction, { allowRegional = false } = {}) {
   if (!permissionIds?.length) return;
 
   const uniqueIds = [...new Set(permissionIds)];
+  const where = {
+    permission_id: uniqueIds,
+    is_active: true,
+  };
+  if (!allowRegional) {
+    where[Op.and] = [
+      { resource: { [Op.notLike]: "regional_%" } },
+      { resource: { [Op.ne]: "regions" } },
+    ];
+  }
   const found = await Permission.findAll({
-    where: { permission_id: uniqueIds, is_active: true },
+    where,
     transaction,
   });
 
   if (found.length !== uniqueIds.length) {
     const error = new Error("One or more permissions are invalid or inactive.");
+    error.status = 400;
+    throw error;
+  }
+}
+
+async function assertValidRegionalPermissionIds(permissionIds, transaction) {
+  if (!permissionIds?.length) return;
+
+  const uniqueIds = [...new Set(permissionIds)];
+  const found = await Permission.findAll({
+    where: {
+      permission_id: uniqueIds,
+      is_active: true,
+      [Op.or]: [
+        { resource: { [Op.like]: "regional_%" } },
+        { resource: "regions" },
+      ],
+    },
+    transaction,
+  });
+
+  if (found.length !== uniqueIds.length) {
+    const error = new Error("Regional roles can only be assigned regional permissions.");
     error.status = 400;
     throw error;
   }
@@ -44,7 +77,7 @@ function parsePermissionIds(permission_ids) {
   return Array.isArray(permissionIds) ? permissionIds : [];
 }
 
-async function assertUniqueRoleName(name, government_structure_id, scope, transaction, excludeRoleId) {
+async function assertUniqueRoleName(name, government_structure_id, scope, transaction, excludeRoleId, region_id = null) {
   const where = {
     name,
     scope,
@@ -54,6 +87,9 @@ async function assertUniqueRoleName(name, government_structure_id, scope, transa
 
   if (scope === ROLE_SCOPE.STRUCTURE) {
     where.government_structure_id = government_structure_id;
+  } else if (scope === ROLE_SCOPE.REGIONAL || scope === "regional") {
+    where.government_structure_id = null;
+    where.region_id = region_id || null;
   } else {
     where.government_structure_id = null;
   }
@@ -69,9 +105,78 @@ async function assertUniqueRoleName(name, government_structure_id, scope, transa
 const createRole = async (req, res) => {
   const t = await Role.sequelize.transaction();
   try {
-    const { name, description, permission_ids, government_structure_id: bodyStructureId } =
+    const { name, description, permission_ids, government_structure_id: bodyStructureId, scope: bodyScope } =
       req.body;
     const permissionIds = parsePermissionIds(permission_ids);
+
+    const isRegionalActor = Boolean(req.user?.is_regional || bodyScope === ROLE_SCOPE.REGIONAL || bodyScope === "regional");
+    if (isRegionalActor) {
+      const regionId = req.user?.is_regional ? req.user.region_id : (req.body.region_id || null);
+      if (req.user?.is_regional && !regionId) {
+        await t.rollback();
+        return res.status(400).json({
+          success: false,
+          message: "Regional administrator must have a valid region_id.",
+        });
+      }
+
+      await assertUniqueRoleName(name, null, ROLE_SCOPE.REGIONAL, t, null, regionId);
+      await assertValidRegionalPermissionIds(permissionIds, t);
+
+      const role = await Role.create(
+        {
+          role_id: uuidv4(),
+          name,
+          description,
+          scope: ROLE_SCOPE.REGIONAL,
+          region_id: regionId,
+          government_structure_id: null,
+          is_active: true,
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
+        { transaction: t }
+      );
+
+      if (permissionIds.length > 0) {
+        const rolePermissions = permissionIds.map((pid) => ({
+          role_permission_id: uuidv4(),
+          role_id: role.role_id,
+          permission_id: pid,
+          is_active: true,
+          created_at: new Date(),
+          updated_at: new Date(),
+        }));
+        await RolePermission.bulkCreate(rolePermissions, { transaction: t });
+      }
+
+      await t.commit();
+
+      const createdRole = await Role.findOne({
+        where: { role_id: role.role_id },
+        include: [
+          {
+            model: RolePermission,
+            as: "rolePermissions",
+            required: false,
+            where: { is_active: true },
+            include: [
+              {
+                model: Permission,
+                as: "permission",
+                attributes: ["permission_id", "resource", "action"],
+              },
+            ],
+          },
+        ],
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Regional role created successfully",
+        data: createdRole,
+      });
+    }
 
     let structureId;
     try {
@@ -162,24 +267,39 @@ const createRole = async (req, res) => {
 
 const getRoles = async (req, res) => {
   try {
-    const { is_active, government_structure_id: queryStructureId } = req.query;
+    const { is_active, government_structure_id: queryStructureId, scope } = req.query;
     const whereClause = {};
 
     if (is_active !== undefined) {
       whereClause.is_active = is_active === "true";
     }
 
-    let structureId;
-    try {
-      structureId = resolveManageableStructureId(req, queryStructureId);
-    } catch (error) {
-      return sendScopeError(res, error);
-    }
+    if (scope === "regional" || scope === ROLE_SCOPE.REGIONAL || req.user?.is_regional) {
+      whereClause.scope = ROLE_SCOPE.REGIONAL;
+      if (req.user?.is_regional) {
+        whereClause[Op.or] = [
+          { region_id: req.user.region_id },
+          { region_id: null },
+        ];
+      } else if (req.query.region_id) {
+        whereClause[Op.or] = [
+          { region_id: req.query.region_id },
+          { region_id: null },
+        ];
+      }
+    } else {
+      let structureId;
+      try {
+        structureId = resolveManageableStructureId(req, queryStructureId);
+      } catch (error) {
+        return sendScopeError(res, error);
+      }
 
-    try {
-      Object.assign(whereClause, buildRoleVisibilityWhere(req, structureId));
-    } catch (error) {
-      return sendScopeError(res, error);
+      try {
+        Object.assign(whereClause, buildRoleVisibilityWhere(req, structureId));
+      } catch (error) {
+        return sendScopeError(res, error);
+      }
     }
 
     const roles = await Role.findAll({
@@ -222,11 +342,15 @@ const getRoleById = async (req, res) => {
     const { id } = req.params;
     const { government_structure_id: queryStructureId } = req.query;
 
-    let structureId;
-    try {
-      structureId = resolveManageableStructureId(req, queryStructureId);
-    } catch (error) {
-      return sendScopeError(res, error);
+    let structureId = null;
+    if (!req.user?.is_regional) {
+      try {
+        structureId = resolveManageableStructureId(req, queryStructureId);
+      } catch (error) {
+        if (!isSuperAdminActor(req)) {
+          return sendScopeError(res, error);
+        }
+      }
     }
 
     const role = await Role.findOne({
@@ -282,12 +406,16 @@ const updateRole = async (req, res) => {
     const { name, description, permission_ids, government_structure_id: queryStructureId } =
       req.body;
 
-    let structureId;
-    try {
-      structureId = resolveManageableStructureId(req, queryStructureId);
-    } catch (error) {
-      await t.rollback();
-      return sendScopeError(res, error);
+    let structureId = null;
+    if (!req.user?.is_regional) {
+      try {
+        structureId = resolveManageableStructureId(req, queryStructureId);
+      } catch (error) {
+        if (!isSuperAdminActor(req)) {
+          await t.rollback();
+          return sendScopeError(res, error);
+        }
+      }
     }
 
     const role = await Role.findOne({
@@ -323,7 +451,8 @@ const updateRole = async (req, res) => {
         role.government_structure_id,
         role.scope,
         t,
-        id
+        id,
+        role.region_id
       );
     }
 
@@ -345,6 +474,8 @@ const updateRole = async (req, res) => {
           role.government_structure_id,
           { transaction: t }
         );
+      } else if (role.scope === ROLE_SCOPE.REGIONAL || role.scope === "regional") {
+        await assertValidRegionalPermissionIds(permissionIds, t);
       } else {
         await assertValidPermissionIds(permissionIds, t);
       }
@@ -407,12 +538,16 @@ const deleteRole = async (req, res) => {
     const { id } = req.params;
     const { government_structure_id: queryStructureId } = req.query;
 
-    let structureId;
-    try {
-      structureId = resolveManageableStructureId(req, queryStructureId);
-    } catch (error) {
-      await t.rollback();
-      return sendScopeError(res, error);
+    let structureId = null;
+    if (!req.user?.is_regional) {
+      try {
+        structureId = resolveManageableStructureId(req, queryStructureId);
+      } catch (error) {
+        if (!isSuperAdminActor(req)) {
+          await t.rollback();
+          return sendScopeError(res, error);
+        }
+      }
     }
 
     const role = await Role.findOne({

@@ -24,17 +24,51 @@ router.get("/public", async (req, res) => {
   }
 });
 
+const { isSuperAdminActor } = require("../../utils/structureScopeUtils");
+
+// Authorization middleware: regional users can access their assigned region; federal users require REGIONS:READ
+const authorizeRegionRead = (req, res, next) => {
+  if (isSuperAdminActor(req)) {
+    return next();
+  }
+
+  if (req.user?.is_regional) {
+    if (req.user.region_id && req.user.region_id === req.params.id) {
+      return next();
+    }
+    return res.status(403).json({
+      success: false,
+      message: "Access denied. Cannot access a different region's details.",
+    });
+  }
+
+  return checkPermission("REGIONS", "READ")(req, res, next);
+};
+
+// Authorization middleware: regional users can list regions (scoped to own region by controller); federal users require REGIONS:READ
+const authorizeRegionList = (req, res, next) => {
+  if (isSuperAdminActor(req)) {
+    return next();
+  }
+
+  if (req.user?.is_regional) {
+    return next();
+  }
+
+  return checkPermission("REGIONS", "READ")(req, res, next);
+};
+
 router.use(authenticateToken);
 
 router.get(
   "/",
-  checkPermission("REGIONS", "READ"),
+  authorizeRegionList,
   regionController.listRegions
 );
 
 router.get(
   "/:id",
-  checkPermission("REGIONS", "READ"),
+  authorizeRegionRead,
   regionController.getRegionById
 );
 

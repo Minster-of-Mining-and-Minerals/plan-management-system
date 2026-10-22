@@ -34,16 +34,26 @@ export default function PrivateLayout({
   }, [status]);
 
   useEffect(() => {
-    if (status === "authenticated" && isFirstLogin && !isChangePasswordPage) {
-      router.push(AUTH_ROUTES.changePassword);
+    if (status === "authenticated") {
+      if (session?.user?.region_id) {
+        router.replace(`/regions/${session.user.region_id}`);
+        return;
+      }
+      if (isFirstLogin && !isChangePasswordPage) {
+        router.push(AUTH_ROUTES.changePassword);
+      }
     }
-  }, [status, isFirstLogin, isChangePasswordPage, router]);
+  }, [status, session?.user?.region_id, isFirstLogin, isChangePasswordPage, router]);
 
   if (
     status === "loading" ||
     status === "unauthenticated" ||
     isAuthLoading
   ) {
+    return <Loading01 />;
+  }
+
+  if (session?.user?.region_id) {
     return <Loading01 />;
   }
 

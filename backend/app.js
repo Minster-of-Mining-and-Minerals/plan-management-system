@@ -29,6 +29,7 @@ const internalStructureRoutes = require("./routers/structure/internalStructureRo
 const regionRoutes = require("./routers/structure/regionRoutes");
 const regionalStructureRoutes = require("./routers/structure/regionalStructureRoutes");
 const regionalBrandingRoutes = require("./routers/config/regionalBrandingRoutes");
+const regionalOperationalRoutes = require("./routers/structure/regionalOperationalRoutes");
 
 // Plan Management Routes
 const planRoutes = require("./routers/plan/planRoutes");
@@ -151,6 +152,7 @@ app.use("/api/internal-structures", internalStructureRoutes);
 app.use("/api/regions", regionRoutes);
 app.use("/api/regional-structures", regionalStructureRoutes);
 app.use("/api/regional-branding", regionalBrandingRoutes);
+app.use("/api/regional", regionalOperationalRoutes);
 
 // Plan Management Routes
 app.use("/api/plan", planRoutes);

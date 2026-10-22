@@ -4,7 +4,7 @@ import { User } from "./user";
 import { GovernmentStructure } from "./governmentStructure";
 import { InternalStructure } from "./internalStructure";
 
-export type PermissionGroupKind = "standard" | "special";
+export type PermissionGroupKind = "standard" | "special" | "regional";
 
 export interface Permission {
     permission_id: string;
@@ -21,6 +21,7 @@ export interface PermissionGroup {
 
     is_active: boolean;
     group_kind?: PermissionGroupKind;
+    region_id?: string;
 
     created_at?: string;
     updated_at?: string;
@@ -43,6 +44,7 @@ export interface CreatePermissionGroupPayload {
     user_ids?: string[];
     government_structure_ids?: string[];
     government_structure_id?: string;
+    region_id?: string | null;
 }
 
 /** ---------------------------
@@ -55,6 +57,7 @@ export interface UpdatePermissionGroupPayload {
     group_kind?: PermissionGroupKind;
     permission_ids?: string[];
     government_structure_id?: string;
+    region_id?: string | null;
 }
 
 /** ---------------------------
@@ -104,4 +107,5 @@ export interface GetPermissionGroupsParams {
     government_structure_id?: string;
     search?: string;
     group_kind?: PermissionGroupKind;
+    region_id?: string;
 }

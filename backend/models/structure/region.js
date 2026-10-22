@@ -24,6 +24,20 @@ module.exports = (sequelize, DataTypes) => {
         as: "branding",
         onDelete: "CASCADE",
       });
+
+      // 🛡️ A region has many regional roles
+      Region.hasMany(models.Role, {
+        foreignKey: "region_id",
+        as: "roles",
+        onDelete: "CASCADE",
+      });
+
+      // 🔑 A region has many regional permission groups
+      Region.hasMany(models.PermissionGroup, {
+        foreignKey: "region_id",
+        as: "permissionGroups",
+        onDelete: "CASCADE",
+      });
     }
   }
 

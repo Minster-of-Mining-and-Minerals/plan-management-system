@@ -114,6 +114,38 @@ function assertRoleAccessible(role, req, structureId) {
     return;
   }
 
+  if (role.scope === ROLE_SCOPE.REGIONAL) {
+    if (isSuperAdminActor(req)) {
+      return;
+    }
+    if (isRegionalActor(req)) {
+      if (role.region_id && req.user.region_id && role.region_id !== req.user.region_id) {
+        const error = new Error("Access denied: role belongs to another region.");
+        error.status = 403;
+        throw error;
+      }
+      return;
+    }
+    const perms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
+    const hasRegionalManage =
+      perms.includes("regional_roles:read") ||
+      perms.includes("regional_roles:manage") ||
+      perms.includes("regional_users:read") ||
+      perms.includes("regional_users:manage") ||
+      perms.includes("regions:read") ||
+      perms.includes("regions:manage") ||
+      perms.includes("roles:read") ||
+      perms.includes("roles:manage") ||
+      perms.includes("users:read") ||
+      perms.includes("users:manage");
+    if (!hasRegionalManage) {
+      const error = new Error("Access denied: regional roles are restricted to regional administrators.");
+      error.status = 403;
+      throw error;
+    }
+    return;
+  }
+
   if (!structureId) {
     const error = new Error("Structure context is required.");
     error.status = 400;
@@ -125,6 +157,62 @@ function assertRoleAccessible(role, req, structureId) {
     role.government_structure_id !== structureId
   ) {
     const error = new Error("Access denied: role belongs to another structure.");
+    error.status = 403;
+    throw error;
+  }
+}
+
+function assertRegionalRoleAssignable(role, req) {
+  if (!role) {
+    const error = new Error("Role not found.");
+    error.status = 404;
+    throw error;
+  }
+
+  if (role.scope !== ROLE_SCOPE.REGIONAL && !STRUCTURE_ASSIGNABLE_GLOBAL_ROLE_IDS.has(role.role_id)) {
+    if (role.name && role.name.toLowerCase().startsWith("regional")) {
+      role.scope = ROLE_SCOPE.REGIONAL;
+      role.save().catch((err) => console.error("Failed to auto-heal role scope:", err));
+    } else {
+      const error = new Error("Access denied: only regional-scoped roles can be assigned to regional accounts.");
+      error.status = 403;
+      throw error;
+    }
+  }
+
+  if (isSuperAdminActor(req)) {
+    return;
+  }
+
+  const perms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
+
+  if (isRegionalActor(req)) {
+    const hasRoleAssign =
+      perms.includes("regional_users:assign_role") ||
+      perms.includes("regional_users:create") ||
+      perms.includes("regional_users:update") ||
+      perms.includes("regional_users:manage") ||
+      perms.includes("roles:manage");
+    if (!hasRoleAssign) {
+      const error = new Error("Access denied: missing regional user role assignment permission.");
+      error.status = 403;
+      throw error;
+    }
+    return;
+  }
+
+  const hasFederalRegionalPerm =
+    perms.includes("regional_users:assign_role") ||
+    perms.includes("regional_users:create") ||
+    perms.includes("regional_users:update") ||
+    perms.includes("regional_users:manage") ||
+    perms.includes("users:manage") ||
+    perms.includes("users:update") ||
+    perms.includes("users:create") ||
+    perms.includes("users:assign_role") ||
+    perms.includes("regions:manage");
+  if (!hasFederalRegionalPerm) {
+    const error = new Error("Access denied: federal account lacks regional user management permission.");
     error.status = 403;
     throw error;
   }
@@ -154,6 +242,40 @@ function assertRoleModifiable(role, req) {
     return;
   }
 
+  if (role.scope === ROLE_SCOPE.REGIONAL) {
+    if (isSuperAdminActor(req)) {
+      return;
+    }
+    if (isRegionalActor(req)) {
+      if (!role.region_id) {
+        const error = new Error("System regional template roles cannot be modified.");
+        error.status = 403;
+        throw error;
+      }
+      if (role.region_id !== req.user.region_id) {
+        const error = new Error("Access denied: role belongs to another region.");
+        error.status = 403;
+        throw error;
+      }
+      return;
+    }
+    const perms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
+    if (
+      perms.includes("regional_roles:update") ||
+      perms.includes("regional_roles:manage") ||
+      perms.includes("regional_users:manage") ||
+      perms.includes("regional_users:update") ||
+      perms.includes("roles:update") ||
+      perms.includes("roles:manage") ||
+      perms.includes("regions:manage")
+    ) {
+      return;
+    }
+    const error = new Error("Access denied: missing permission to modify regional roles.");
+    error.status = 403;
+    throw error;
+  }
+
   const error = new Error("Unsupported role scope.");
   error.status = 400;
   throw error;
@@ -166,10 +288,23 @@ function assertRoleDeletable(role, req) {
     throw error;
   }
 
-  if (role.scope !== ROLE_SCOPE.STRUCTURE) {
-    const error = new Error("Only structure-scoped roles can be deleted.");
+  if (role.scope !== ROLE_SCOPE.STRUCTURE && role.scope !== ROLE_SCOPE.REGIONAL) {
+    const error = new Error("Only structure-scoped or regional-scoped roles can be deleted.");
     error.status = 403;
     throw error;
+  }
+
+  if (role.scope === ROLE_SCOPE.REGIONAL) {
+    if (!role.region_id && !isSuperAdminActor(req)) {
+      const error = new Error("System regional template roles cannot be deleted.");
+      error.status = 403;
+      throw error;
+    }
+    if (role.region_id && isRegionalActor(req) && role.region_id !== req.user?.region_id) {
+      const error = new Error("Access denied: role belongs to another region.");
+      error.status = 403;
+      throw error;
+    }
   }
 }
 
@@ -492,7 +627,7 @@ function getUserDomain(user) {
   return "unassigned";
 }
 
-function assertRegionAccessible(req, regionId) {
+function assertRegionAccessible(req, regionId, requiredAction = "read") {
   if (!regionId) {
     const error = new Error("Region ID is required.");
     error.status = 400;
@@ -512,9 +647,72 @@ function assertRegionAccessible(req, regionId) {
     return;
   }
 
-  const error = new Error("Access denied: federal users cannot access regional operational resources.");
-  error.status = 403;
-  throw error;
+  // Federal actor acting under explicit regional-management permissions
+  const actionLower = String(requiredAction).toLowerCase();
+  const perms = req.user?.permissions || [];
+  const hasExplicitRegionalPerm =
+    perms.includes(`regions:${actionLower}`) ||
+    perms.includes("regions:manage") ||
+    perms.includes(`regional_structures:${actionLower}`) ||
+    perms.includes("regional_structures:manage") ||
+    perms.includes(`regional_branding:${actionLower}`) ||
+    perms.includes("regional_branding:manage") ||
+    perms.includes(`regional_users:${actionLower}`) ||
+    perms.includes("regional_users:manage");
+
+  if (!hasExplicitRegionalPerm) {
+    const error = new Error("Access denied: federal account lacks regional management permission.");
+    error.status = 403;
+    throw error;
+  }
+}
+
+function assertRegionalUserManageable(targetUser, req, action = "read") {
+  if (!targetUser) {
+    const error = new Error("User not found.");
+    error.status = 404;
+    throw error;
+  }
+
+  if (isSuperAdminActor(req)) {
+    return;
+  }
+
+  const actionLower = String(action).toLowerCase();
+  const perms = req.user?.permissions || [];
+
+  if (isRegionalActor(req)) {
+    if (targetUser.region_id !== req.user.region_id) {
+      const error = new Error("Access denied: you do not have permission to access another region.");
+      error.status = 403;
+      throw error;
+    }
+
+    const hasRegionalUserPerm =
+      perms.includes(`regional_users:${actionLower}`) ||
+      perms.includes("regional_users:manage");
+
+    if (!hasRegionalUserPerm) {
+      const error = new Error(`Access denied: missing regional user ${actionLower} permission.`);
+      error.status = 403;
+      throw error;
+    }
+    return;
+  }
+
+  // Federal actor managing regional accounts
+  const hasFederalRegionalUserPerm =
+    perms.includes(`regional_users:${actionLower}`) ||
+    perms.includes("regional_users:manage") ||
+    perms.includes(`users:${actionLower}`) ||
+    perms.includes("users:manage") ||
+    perms.includes("regions:manage");
+
+  if (!hasFederalRegionalUserPerm) {
+    const error = new Error("Access denied: federal account lacks regional user management permission.");
+    error.status = 403;
+    throw error;
+  }
 }
 
 function assertFederalAccessible(req) {
@@ -529,7 +727,7 @@ function assertFederalAccessible(req) {
   }
 }
 
-function assertUserManageable(targetUser, req, structureIndex) {
+function assertUserManageable(targetUser, req, structureIndex, action = "update") {
   if (!targetUser) {
     const error = new Error("User not found.");
     error.status = 404;
@@ -537,7 +735,7 @@ function assertUserManageable(targetUser, req, structureIndex) {
   }
 
   if (targetUser.region_id) {
-    assertRegionAccessible(req, targetUser.region_id);
+    assertRegionalUserManageable(targetUser, req, action);
     return;
   }
 
@@ -551,8 +749,10 @@ module.exports = {
   isFederalActor,
   getUserDomain,
   assertRegionAccessible,
+  assertRegionalUserManageable,
   assertFederalAccessible,
   assertUserManageable,
+  assertRegionalRoleAssignable,
   getActorStructureId,
   resolveManageableStructureId,
   buildRoleVisibilityWhere,

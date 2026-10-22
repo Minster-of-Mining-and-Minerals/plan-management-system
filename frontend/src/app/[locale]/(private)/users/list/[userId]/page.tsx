@@ -14,6 +14,10 @@ import {
 import { useGetRolesQuery } from "@/redux/api/roleApi";
 import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
 import { useGetInternalStructuresQuery } from "@/redux/api/internalStructureApi";
+import {
+  useGetRegionalStructuresQuery,
+  useGetRegionalRolesQuery,
+} from "@/redux/api/regionApi";
 import { 
   Mail, 
   Phone, 
@@ -30,6 +34,7 @@ import {
   X,
   UserCheck,
   KeyRound,
+  MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -62,12 +67,16 @@ const userFormSchema = z.object({
   is_active: z.boolean(),
   government_structure_id: z.string().optional().nullable(),
   internal_structure_id: z.string().optional().nullable(),
+  regional_structure_id: z.string().optional().nullable(),
   role_ids: z.array(z.string()).min(1, "At least one role must be assigned"),
   profile_image: z.string().nullable().optional(),
   is_first_logged_in: z.boolean(),
 });
 
 type UserFormValues = z.infer<typeof userFormSchema>;
+
+const EMPTY_ROLES: any[] = [];
+const EMPTY_STRUCTURES: any[] = [];
 
 const UserViewPage = () => {
   const params = useParams();
@@ -85,8 +94,21 @@ const UserViewPage = () => {
   const [resetUserPassword, { isLoading: isResettingPassword }] = useResetUserPasswordMutation();
 
   const [isEditing, setIsEditing] = useState(false);
+  const isRegionalUser = Boolean(user?.region_id || user?.regional_structure_id);
 
-  const { data: govStructures = [] } = useGetGovernmentStructuresQuery({ is_active: true });
+  const { data: govStructures = EMPTY_STRUCTURES } = useGetGovernmentStructuresQuery(
+    { is_active: true },
+    { skip: isRegionalUser }
+  );
+
+  const { data: regionalStructures = EMPTY_STRUCTURES } = useGetRegionalStructuresQuery(
+    { region_id: user?.region_id || "" },
+    { skip: !isRegionalUser || !user?.region_id }
+  );
+
+  const { data: regionalRoles = EMPTY_ROLES } = useGetRegionalRolesQuery(undefined, {
+    skip: !isRegionalUser,
+  });
   
   const form = useForm<UserFormValues>({
     resolver: createFormResolver<UserFormValues>(userFormSchema),
@@ -97,6 +119,7 @@ const UserViewPage = () => {
       is_active: true,
       government_structure_id: "",
       internal_structure_id: "",
+      regional_structure_id: "",
       role_ids: [],
       profile_image: null,
       is_first_logged_in: true,
@@ -108,52 +131,92 @@ const UserViewPage = () => {
   const effectiveStructureId =
     selectedGovId || user?.government_structure_id || sessionStructureId || undefined;
 
-  const { data: allRoles = [] } = useGetRolesQuery(
+  const { data: allRoles = EMPTY_ROLES } = useGetRolesQuery(
     effectiveStructureId
       ? { is_active: true, government_structure_id: effectiveStructureId }
       : isSuperAdmin
         ? { is_active: true }
         : undefined,
-    { skip: !isSuperAdmin && !effectiveStructureId }
+    { skip: isRegionalUser || (!isSuperAdmin && !effectiveStructureId) }
   );
 
-  const { data: internalStructures = [] } = useGetInternalStructuresQuery(
+  const { data: internalStructures = EMPTY_STRUCTURES } = useGetInternalStructuresQuery(
     { government_structure_id: selectedGovId || undefined, is_active: true },
-    { skip: !selectedGovId }
+    { skip: isRegionalUser || !selectedGovId }
   );
 
   useEffect(() => {
     if (user) {
       form.reset({
-        full_name: user.full_name,
-        email: user.email,
+        full_name: user.full_name || "",
+        email: user.email || "",
         phone_number: user.phone_number || "",
         is_active: user.is_active,
         government_structure_id: user.government_structure_id || "",
         internal_structure_id: user.internal_structure_id || "",
+        regional_structure_id: user.regional_structure_id || "",
         role_ids: user.roles?.map((r) => r.role_id) || [],
         profile_image: user.profile_image || null,
         is_first_logged_in: user.is_first_logged_in,
       });
     }
-  }, [user, form]);
+  }, [user?.user_id]);
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    if (user) {
+      form.reset({
+        full_name: user.full_name || "",
+        email: user.email || "",
+        phone_number: user.phone_number || "",
+        is_active: user.is_active,
+        government_structure_id: user.government_structure_id || "",
+        internal_structure_id: user.internal_structure_id || "",
+        regional_structure_id: user.regional_structure_id || "",
+        role_ids: user.roles?.map((r) => r.role_id) || [],
+        profile_image: user.profile_image || null,
+        is_first_logged_in: user.is_first_logged_in,
+      });
+    }
+  };
 
   const handleSave = async (values: UserFormValues) => {
     try {
-      await updateUser({
-        id: userId,
-        data: {
-          full_name: values.full_name,
-          email: values.email,
-          phone_number: values.phone_number || undefined,
-          role_ids: values.role_ids,
-          government_structure_id: values.government_structure_id || undefined,
-          internal_structure_id: values.internal_structure_id || undefined,
-          is_active: values.is_active,
-          profile_image: values.profile_image ?? null,
-          is_first_logged_in: values.is_first_logged_in,
-        },
-      }).unwrap();
+      if (isRegionalUser) {
+        const validRegionalRoleIds = new Set(regionalRoles.map((r) => r.role_id));
+        const cleanRoleIds = validRegionalRoleIds.size > 0
+          ? values.role_ids.filter((id) => validRegionalRoleIds.has(id))
+          : values.role_ids;
+
+        await updateUser({
+          id: userId,
+          data: {
+            full_name: values.full_name,
+            email: values.email,
+            phone_number: values.phone_number || undefined,
+            role_ids: cleanRoleIds,
+            regional_structure_id: values.regional_structure_id ? values.regional_structure_id : null,
+            is_active: values.is_active,
+            profile_image: values.profile_image ?? null,
+            is_first_logged_in: values.is_first_logged_in,
+          },
+        }).unwrap();
+      } else {
+        await updateUser({
+          id: userId,
+          data: {
+            full_name: values.full_name,
+            email: values.email,
+            phone_number: values.phone_number || undefined,
+            role_ids: values.role_ids,
+            government_structure_id: values.government_structure_id || undefined,
+            internal_structure_id: values.internal_structure_id || undefined,
+            is_active: values.is_active,
+            profile_image: values.profile_image ?? null,
+            is_first_logged_in: values.is_first_logged_in,
+          },
+        }).unwrap();
+      }
       actionFeedback.success("User updated successfully");
       setIsEditing(false);
     } catch (error: any) {
@@ -251,7 +314,7 @@ const UserViewPage = () => {
         <div className="flex items-center gap-2">
           {isEditing ? (
             <>
-              <Button variant="outline" size="sm" onClick={() => setIsEditing(false)} disabled={isUpdating}>
+              <Button variant="outline" size="sm" onClick={handleCancelEdit} disabled={isUpdating}>
                 <X className="mr-2 h-4 w-4" /> Cancel
               </Button>
               <Button size="sm" onClick={form.handleSubmit(handleSave)} disabled={isUpdating}>
@@ -430,96 +493,163 @@ const UserViewPage = () => {
             </CardContent>
           </Card>
 
-          {/* Structure Details */}
+          {/* Structure / Regional Details */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2 text-primary">
-                <Building2 className="h-5 w-5" /> Sector & Department
+                {isRegionalUser ? (
+                  <>
+                    <MapPin className="h-5 w-5 text-indigo-500" /> Regional Administration
+                  </>
+                ) : (
+                  <>
+                    <Building2 className="h-5 w-5" /> Sector & Department
+                  </>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-                  Sector Structure
-                </p>
-                {isEditing ? (
-                  <div className="space-y-2">
-                    <Controller
-                      control={form.control}
-                      name="government_structure_id"
-                      render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value || ""}>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select sector structure" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {govStructures.map((s) => (
-                              <SelectItem key={s.government_structure_id} value={s.government_structure_id!}>
-                                {s.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                    {form.formState.errors.government_structure_id && (
-                      <p className="text-xs text-red-500">{form.formState.errors.government_structure_id.message}</p>
+              {isRegionalUser ? (
+                <>
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                      Assigned Region
+                    </p>
+                    <div className="flex items-center gap-2 p-3 bg-indigo-50/50 dark:bg-indigo-950/20 rounded-lg border border-indigo-100 dark:border-indigo-900/40">
+                      <MapPin className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                      <span className="text-sm font-semibold text-indigo-950 dark:text-indigo-200">
+                        {user.region?.name || "Regional Workspace Domain"}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                      Regional Department
+                    </p>
+                    {isEditing ? (
+                      <div className="space-y-2">
+                        <Controller
+                          control={form.control}
+                          name="regional_structure_id"
+                          render={({ field }) => (
+                            <Select
+                              onValueChange={(val) => field.onChange(val === "__none__" ? "" : val)}
+                              value={field.value || "__none__"}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select regional department" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none__">— Unassigned —</SelectItem>
+                                {regionalStructures.map((s) => (
+                                  <SelectItem
+                                    key={s.regional_structure_id}
+                                    value={s.regional_structure_id}
+                                  >
+                                    {s.name} (Level {s.level})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg border">
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">
+                          {user.regionalStructure?.name || "— Unassigned —"}
+                        </span>
+                      </div>
                     )}
                   </div>
-                ) : (
-                  <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg border">
-                    <SectorLogo
-                      name={user.governmentStructure?.name || "Sector"}
-                      logoPath={user.governmentStructure?.logo_path}
-                      size="sm"
-                    />
-                    <span className="text-sm font-medium">
-                      {user.governmentStructure?.name || "No sector structure assigned"}
-                    </span>
-                  </div>
-                )}
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-                  Department
-                </p>
-                {isEditing ? (
-                  <div className="space-y-2">
-                    <Controller
-                      control={form.control}
-                      name="internal_structure_id"
-                      render={({ field }) => (
-                        <Select 
-                          onValueChange={field.onChange} 
-                          value={field.value || ""} 
-                          disabled={!selectedGovId}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder={selectedGovId ? "Select department" : "Select sector structure first"} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {internalStructures.map((s) => (
-                              <SelectItem key={s.internal_structure_id} value={s.internal_structure_id!}>
-                                {s.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                    {form.formState.errors.internal_structure_id && (
-                      <p className="text-xs text-red-500">{form.formState.errors.internal_structure_id.message}</p>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                      Sector Structure
+                    </p>
+                    {isEditing ? (
+                      <div className="space-y-2">
+                        <Controller
+                          control={form.control}
+                          name="government_structure_id"
+                          render={({ field }) => (
+                            <Select onValueChange={field.onChange} value={field.value || ""}>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select sector structure" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {govStructures.map((s) => (
+                                  <SelectItem key={s.government_structure_id} value={s.government_structure_id!}>
+                                    {s.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                        {form.formState.errors.government_structure_id && (
+                          <p className="text-xs text-red-500">{form.formState.errors.government_structure_id.message}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg border">
+                        <SectorLogo
+                          name={user.governmentStructure?.name || "Sector"}
+                          logoPath={user.governmentStructure?.logo_path}
+                          size="sm"
+                        />
+                        <span className="text-sm font-medium">
+                          {user.governmentStructure?.name || "No sector structure assigned"}
+                        </span>
+                      </div>
                     )}
                   </div>
-                ) : (
-                  <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg border">
-                    <GitBranch className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-medium">
-                      {user.internalStructure?.name || "No department assigned"}
-                    </span>
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                      Department
+                    </p>
+                    {isEditing ? (
+                      <div className="space-y-2">
+                        <Controller
+                          control={form.control}
+                          name="internal_structure_id"
+                          render={({ field }) => (
+                            <Select 
+                              onValueChange={field.onChange} 
+                              value={field.value || ""} 
+                              disabled={!selectedGovId}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder={selectedGovId ? "Select department" : "Select sector structure first"} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {internalStructures.map((s) => (
+                                  <SelectItem key={s.internal_structure_id} value={s.internal_structure_id!}>
+                                    {s.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                        {form.formState.errors.internal_structure_id && (
+                          <p className="text-xs text-red-500">{form.formState.errors.internal_structure_id.message}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg border">
+                        <GitBranch className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium">
+                          {user.internalStructure?.name || "No department assigned"}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -537,7 +667,7 @@ const UserViewPage = () => {
               {isEditing ? (
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {allRoles.map((role) => (
+                    {(isRegionalUser ? regionalRoles : allRoles).map((role) => (
                       <div key={role.role_id} className="flex items-center space-x-2 border p-2 rounded-md hover:bg-muted/50 cursor-pointer">
                         <input
                           type="checkbox"

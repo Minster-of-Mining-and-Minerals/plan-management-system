@@ -29,7 +29,7 @@ interface RoutePermissionGuardProps {
 export function RoutePermissionGuard({ children }: RoutePermissionGuardProps) {
   const pathname = usePathname();
   const dispatch = useDispatch();
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const { permissions, roles, isLoading, bootstrapError } = useAuth();
   const { refetch: refetchPermissions } = useGetMyPermissionsQuery(undefined, {
     skip: status !== "authenticated",
@@ -66,7 +66,8 @@ export function RoutePermissionGuard({ children }: RoutePermissionGuardProps) {
   const permissionKeys = normalizeToPermissionKeys(permissions);
 
   if (!isSuperAdmin && (rule === null || !canAccessRoute(permissionKeys, rule))) {
-    const fallbackPath = getDefaultFallbackRoute(permissionKeys);
+    const isRegional = Boolean(session?.user?.region_id);
+    const fallbackPath = getDefaultFallbackRoute(permissionKeys, isRegional, session?.user?.region_id);
     return (
       <AccessDenied
         attemptedPath={pathname}

@@ -15,6 +15,8 @@ import {
 import { SpecialPermissionGroupGuidance } from "./SpecialPermissionGroupGuidance";
 import { useStructureScope } from "@/hooks/useStructureScope";
 
+import { useSession } from "next-auth/react";
+
 interface GroupManagementProps {
   groupId?: string;
   readOnly?: boolean;
@@ -28,7 +30,9 @@ function GroupManagement({
   readOnly = false,
   config = STANDARD_PERMISSION_GROUP_CONFIG,
 }: GroupManagementProps) {
+  const { data: session } = useSession();
   const isSpecial = config.groupKind === "special";
+  const isRegional = config.groupKind === "regional";
   const [activeTab, setActiveTab] = useState<GroupTab>("users");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const searchParams = useSearchParams();
@@ -37,7 +41,7 @@ function GroupManagement({
     searchParams.get("government_structure_id") || sessionStructureId || undefined;
 
   const { data: group, isLoading } = useGetPermissionGroupByIdQuery(
-    groupId && structureId
+    groupId && structureId && !isRegional
       ? { id: groupId as string, government_structure_id: structureId }
       : (groupId as string),
     {
@@ -53,13 +57,17 @@ function GroupManagement({
       size: "default",
       onClick: () => setActiveTab("users"),
     },
-    {
-      label: "Sector Structures",
-      icon: <Building className="h-4 w-4" />,
-      variant: activeTab === "government_structures" ? "default" : "outline",
-      size: "default",
-      onClick: () => setActiveTab("government_structures"),
-    },
+    ...(!isRegional
+      ? [
+          {
+            label: "Sector Structures",
+            icon: <Building className="h-4 w-4" />,
+            variant: (activeTab === "government_structures" ? "default" : "outline") as "default" | "outline",
+            size: "default" as const,
+            onClick: () => setActiveTab("government_structures"),
+          },
+        ]
+      : []),
     ...(isSpecial
       ? [
           {
@@ -97,7 +105,7 @@ function GroupManagement({
 
       {isSpecial && <SpecialPermissionGroupGuidance />}
 
-      {!readOnly && (group?.structures?.length ?? 0) === 0 && (
+      {!isRegional && !readOnly && (group?.structures?.length ?? 0) === 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           Link this group to at least one sector structure before assigning users.
           Use <strong>Add Member → Sector Structures</strong>.
@@ -143,6 +151,8 @@ function GroupManagement({
         }
         isSpecialGroup={isSpecial}
         linkedStructureIds={group?.structures?.map((s) => s.government_structure_id) || []}
+        isRegionalGroup={isRegional}
+        regionId={session?.user?.region_id || (group as any)?.region_id}
       />
     </div>
   );

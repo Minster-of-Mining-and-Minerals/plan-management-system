@@ -13,6 +13,8 @@ import {
 import { useStructureScope } from "@/hooks/useStructureScope";
 import { useSearchParams } from "next/navigation";
 import { withStructureQuery } from "@/utils/structureQueryUtils";
+import { MapPin } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { CreateRoleHeader } from "./Header";
 import { BasicInfo } from "./BasicInfo";
 import { PermissionMatrix as PermissionMatrixComponent } from "./PermissionMatrix";
@@ -20,9 +22,18 @@ import { FooterActions } from "./FooterActions";
 import { RoleFormSkeleton } from "./Skeleton";
 import { ErrorState } from "./ErrorState";
 
-export default function CreateRole({ roleId }: { roleId?: string }) {
+export default function CreateRole({
+  roleId,
+  backPath,
+  forceRegional = false,
+}: {
+  roleId?: string;
+  backPath?: string;
+  forceRegional?: boolean;
+}) {
   const { id: paramId } = useParams<{ id?: string }>();
   const router = useRouter();
+  const { data: session } = useSession();
   const id = roleId || paramId;
   const isEditMode = Boolean(id && id !== "create" && id !== "new");
 
@@ -48,16 +59,24 @@ export default function CreateRole({ roleId }: { roleId?: string }) {
     refetch: refetchRole,
   } = useGetRoleByIdQuery(id!, { skip: !isEditMode });
 
+  const scopeParam = searchParams.get("scope");
+  const isRegionalRole =
+    forceRegional ||
+    roleResponse?.scope === "regional" ||
+    scopeParam === "regional";
+
   const editingSystemRole =
     isEditMode &&
     (roleResponse?.scope === "global" || roleResponse?.scope === "private");
 
   const permissionQueryArgs =
-    isSuperAdmin && (!structureId || editingSystemRole)
-      ? { scope: "all" as const, tier: "standard" as const }
-      : structureId
-        ? { government_structure_id: structureId, tier: "standard" as const }
-        : undefined;
+    isRegionalRole
+      ? { scope: "regional" as const }
+      : isSuperAdmin && (!structureId || editingSystemRole)
+        ? { scope: "system" as const, tier: "standard" as const }
+        : structureId
+          ? { government_structure_id: structureId, tier: "standard" as const }
+          : undefined;
 
   const { data: permissionsResponse, isLoading: loadingPermissions } =
     useGetPermissionsQuery(permissionQueryArgs, {
@@ -69,12 +88,21 @@ export default function CreateRole({ roleId }: { roleId?: string }) {
 
   const isLoading = isCreating || isUpdating;
 
-  // Group permissions by resource
+  // Group permissions by resource with strict regional / system separation
   const resourceGroups = useMemo((): ResourceGroup[] => {
     if (!permissionsResponse) return [];
 
-    const activePermissions = permissionsResponse.filter(
-      (p: Permission) => p.is_active === true
+    const isRegionalResource = (resource: string) => {
+      const r = (resource || "").toLowerCase();
+      return r.startsWith("regional_") || r === "regions";
+    };
+
+    const activePermissions = (permissionsResponse || []).filter(
+      (p: Permission) => {
+        if (p.is_active !== true) return false;
+        const isRegional = isRegionalResource(p.resource);
+        return isRegionalRole ? isRegional : !isRegional;
+      }
     );
 
     const grouped = activePermissions.reduce(
@@ -94,7 +122,7 @@ export default function CreateRole({ roleId }: { roleId?: string }) {
       permissions: permissions as Permission[],
       selected: false,
     }));
-  }, [permissionsResponse]);
+  }, [permissionsResponse, isRegionalRole]);
 
   // Initialize permission matrix
   useEffect(() => {
@@ -280,7 +308,7 @@ export default function CreateRole({ roleId }: { roleId?: string }) {
       return;
     }
 
-    if (!isEditMode && !structureId) {
+    if (!isEditMode && !structureId && !isRegionalRole) {
       actionFeedback.error("Select a structure before creating a role.");
       return;
     }
@@ -297,18 +325,27 @@ export default function CreateRole({ roleId }: { roleId?: string }) {
         }).unwrap();
 
         actionFeedback.success("Role updated successfully!");
-        router.push(rolesListPath);
+        router.push(
+          backPath || (isRegionalRole ? "/users/roles?tab=regional" : rolesListPath)
+        );
       } else {
         await createRole({
           name: name.trim(),
           description: description.trim(),
           permission_ids: selectedPermissionIds,
-          government_structure_id: structureId,
+          ...(isRegionalRole
+            ? {
+                scope: "regional" as any,
+                region_id: session?.user?.region_id,
+              }
+            : { government_structure_id: structureId }),
         }).unwrap();
 
         actionFeedback.success("Role created successfully!");
         resetForm();
-        router.push(rolesListPath);
+        router.push(
+          backPath || (isRegionalRole ? "/users/roles?tab=regional" : rolesListPath)
+        );
       }
     } catch (error: any) {
       actionFeedback.error(
@@ -343,6 +380,20 @@ export default function CreateRole({ roleId }: { roleId?: string }) {
 
         <form onSubmit={handleSubmit} className="flex flex-col">
           <div className="flex-1 overflow-y-auto py-5 space-y-6">
+            {isRegionalRole && (
+              <div className="flex items-start gap-3 rounded-lg border border-indigo-200 bg-indigo-50/70 dark:bg-indigo-950/30 dark:border-indigo-900/50 p-4 text-xs text-indigo-900 dark:text-indigo-200">
+                <MapPin className="h-4 w-4 shrink-0 mt-0.5 text-indigo-600 dark:text-indigo-400" />
+                <div>
+                  <p className="font-semibold text-indigo-950 dark:text-indigo-100">
+                    Regional Role Scope
+                  </p>
+                  <p className="mt-0.5 text-indigo-800/90 dark:text-indigo-300/80">
+                    This role is strictly restricted to Regional Security Permissions. System and federal governance permissions are decoupled and excluded from assignment.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Basic Information */}
             <BasicInfo
               name={name}
@@ -378,6 +429,7 @@ export default function CreateRole({ roleId }: { roleId?: string }) {
             name={name}
             selectedPermissionsCount={getSelectedPermissionsCount()}
             onSubmit={() => handleSubmit}
+            onCancel={backPath ? () => router.push(backPath) : undefined}
           />
         </form>
       </div>

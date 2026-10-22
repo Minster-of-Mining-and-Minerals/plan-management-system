@@ -34,6 +34,8 @@ interface AddGroupMembersModalProps {
   existingDepartmentIds?: string[];
   isSpecialGroup?: boolean;
   linkedStructureIds?: string[];
+  isRegionalGroup?: boolean;
+  regionId?: string;
 }
 
 export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
@@ -45,6 +47,8 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
   existingDepartmentIds = [],
   isSpecialGroup = false,
   linkedStructureIds = [],
+  isRegionalGroup = false,
+  regionId,
 }) => {
   const [activeTab, setActiveTab] = useState("users");
   const [userSearch, setUserSearch] = useState("");
@@ -56,9 +60,14 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
 
   const singleLinkedStructureId =
     linkedStructureIds.length === 1 ? linkedStructureIds[0] : undefined;
-  const canPickUsers = linkedStructureIds.length > 0;
+  const canPickUsers = isRegionalGroup || linkedStructureIds.length > 0;
 
-  const userQueryParams = canPickUsers
+  const userQueryParams = isRegionalGroup
+    ? {
+        search: userSearch || undefined,
+        ...(regionId ? { region_id: regionId } : {}),
+      }
+    : canPickUsers
     ? {
         search: userSearch || undefined,
         ...(singleLinkedStructureId
@@ -86,6 +95,9 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
 
   const filteredUsers = allUsers.filter((user) => {
     if (existingUserIds.includes(user.user_id)) return false;
+    if (isRegionalGroup && regionId) {
+      return user.region_id === regionId;
+    }
     if (linkedStructureIds.length > 1) {
       const structureId = user.government_structure_id;
       return structureId != null && linkedStructureIds.includes(structureId);
@@ -180,23 +192,25 @@ export const AddGroupMembersModal: React.FC<AddGroupMembersModalProps> = ({
     onClose();
   };
 
-  const tabs = [
-    { value: "users", label: "Users", icon: <Users className="h-4 w-4" /> },
-    {
-      value: "structures",
-      label: "Sector Structures",
-      icon: <Building className="h-4 w-4" />,
-    },
-    ...(isSpecialGroup
-      ? [
-          {
-            value: "departments",
-            label: "Departments",
-            icon: <Building2 className="h-4 w-4" />,
-          },
-        ]
-      : []),
-  ];
+  const tabs = isRegionalGroup
+    ? [{ value: "users", label: "Users", icon: <Users className="h-4 w-4" /> }]
+    : [
+        { value: "users", label: "Users", icon: <Users className="h-4 w-4" /> },
+        {
+          value: "structures",
+          label: "Sector Structures",
+          icon: <Building className="h-4 w-4" />,
+        },
+        ...(isSpecialGroup
+          ? [
+              {
+                value: "departments",
+                label: "Departments",
+                icon: <Building2 className="h-4 w-4" />,
+              },
+            ]
+          : []),
+      ];
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>

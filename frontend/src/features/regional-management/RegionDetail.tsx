@@ -1,10 +1,10 @@
 "use strict";
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
 import {
   Globe,
@@ -20,7 +20,24 @@ import {
   ShieldAlert,
   Loader2,
   Download,
+  KeyRound,
+  Shield,
+  Eye,
+  Power,
+  RotateCcw,
+  Mail,
+  Search,
+  LayoutDashboard,
+  Users2,
+  Paintbrush,
+  MapPin,
+  Info,
 } from "lucide-react";
+import { PermissionStats as StatsComponent } from "@/features/template/component/permissionList/Stats";
+import { ResourceGroup as ResourceGroupComponent } from "@/features/template/component/permissionList/ResourceGroup";
+import { EmptyState } from "@/features/template/component/permissionList/EmptyState";
+import { PermissionSkeleton } from "@/features/template/component/permissionList/Skeleton";
+import type { Permission, ResourceGroup as ResourceGroupType, ResourceIcons } from "@/features/template/types/permission";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -42,16 +59,23 @@ import {
   useDeleteRegionalStructureMutation,
   useGetRegionalBrandingQuery,
   useUpdateRegionalBrandingMutation,
+  useGetRegionalRolesQuery,
 } from "@/redux/api/regionApi";
 import {
   useGetUsersQuery,
   useCreateUserMutation,
+  useUpdateUserMutation,
   useToggleUserStatusMutation,
   useResetUserPasswordMutation,
 } from "@/redux/api/userApi";
-import { useGetRolesQuery } from "@/redux/api/roleApi";
+import {
+  useGetPermissionsQuery,
+  useTogglePermissionMutation,
+} from "@/redux/api/permissionApi";
+import RegionalRoleList from "@/features/template/component/roleList/RegionalRoleList";
 import { actionFeedback } from "@/components/action-feedback";
 import { LogoUploadField } from "@/components/common/LogoUploadField";
+import { UserAvatar } from "@/components/common/UserAvatar";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuth } from "@/hooks/use-auth";
 import { getFileUrl } from "@/utils/fileUrl";
@@ -62,13 +86,32 @@ import RegionalStructureHierarchy from "./RegionalStructureHierarchy";
 import type { RegionalStructure } from "@/redux/types/region";
 import type { FilterField, ActionButton } from "@/types/tableLayout";
 
-type TabType = "departments" | "users" | "branding";
+type TabType = "departments" | "users" | "roles" | "permissions" | "branding";
 
 export function RegionDetail({ regionId }: { regionId: string }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get("search") || "";
+  const tabParam = searchParams.get("tab") as TabType | null;
+
+  const [activeTab, setActiveTabState] = useState<TabType>(
+    tabParam && ["departments", "users", "roles", "permissions", "branding"].includes(tabParam)
+      ? tabParam
+      : "departments"
+  );
+
+  const setActiveTab = (tab: TabType) => {
+    setActiveTabState(tab);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", tab);
+    router.replace(`?${params.toString()}`, { scroll: false });
+  };
+
   const [toggleHierarchyView, setToggleHierarchyView] = useState(false);
   const [deptStatusFilter, setDeptStatusFilter] = useState("");
+  const [userStatusFilter, setUserStatusFilter] = useState("");
+  const [userDeptFilter, setUserDeptFilter] = useState("");
+  const [permSearchQuery, setPermSearchQuery] = useState("");
 
   const { can } = usePermissions();
   const { roles: userRoles } = useAuth();
@@ -82,11 +125,8 @@ export function RegionDetail({ regionId }: { regionId: string }) {
   const canViewBranding = can("REGIONAL_BRANDING:READ") || can("REGIONAL_BRANDING:UPDATE") || isSuperAdmin;
   const canUpdateBranding = can("REGIONAL_BRANDING:UPDATE") || can("REGIONAL_BRANDING:MANAGE") || isSuperAdmin;
 
-  const canAddUser = can("USERS:CREATE") || isSuperAdmin;
-  const canUpdateUser = can("USERS:UPDATE") || isSuperAdmin;
-
-  // Active Tab state
-  const [activeTab, setActiveTab] = useState<TabType>("departments");
+  const canAddUser = can("REGIONAL_USERS:CREATE") || can("REGIONAL_USERS:MANAGE") || isSuperAdmin;
+  const canUpdateUser = can("REGIONAL_USERS:UPDATE") || can("REGIONAL_USERS:MANAGE") || isSuperAdmin;
 
   // Queries
   const { data: region, isLoading: isRegionLoading, refetch: refetchRegion } = useGetRegionByIdQuery(regionId);
@@ -97,7 +137,9 @@ export function RegionDetail({ regionId }: { regionId: string }) {
   const { data: users = [], isLoading: isUsersLoading, refetch: refetchUsers } = useGetUsersQuery({
     region_id: regionId,
   });
-  const { data: roles = [] } = useGetRolesQuery();
+  const { data: roles = [] } = useGetRegionalRolesQuery();
+  const { data: allPermissionsData, isLoading: isPermissionsLoading, refetch: refetchPermissions } =
+    useGetPermissionsQuery();
 
   // Mutations
   const [createStructure, { isLoading: isCreatingStructure }] = useCreateRegionalStructureMutation();
@@ -105,8 +147,10 @@ export function RegionDetail({ regionId }: { regionId: string }) {
   const [deleteStructure] = useDeleteRegionalStructureMutation();
   const [updateBranding, { isLoading: isUpdatingBranding }] = useUpdateRegionalBrandingMutation();
   const [createUser, { isLoading: isCreatingUser }] = useCreateUserMutation();
+  const [updateUser, { isLoading: isUpdatingUser }] = useUpdateUserMutation();
   const [toggleUserStatus] = useToggleUserStatusMutation();
   const [resetPassword] = useResetUserPasswordMutation();
+  const [togglePermissionMutation, { isLoading: isTogglingPermission }] = useTogglePermissionMutation();
 
   // Department Modal State
   const [isDeptModalOpen, setIsDeptModalOpen] = useState(false);
@@ -115,13 +159,14 @@ export function RegionDetail({ regionId }: { regionId: string }) {
   const [deptParentId, setDeptParentId] = useState<string>("");
   const [isParentLocked, setIsParentLocked] = useState(false);
 
-  // User Modal State
+  // User Modal State (Create & Edit)
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<any | null>(null);
   const [userName, setUserName] = useState("");
   const [userEmail, setUserEmail] = useState("");
   const [userPhone, setUserPhone] = useState("");
   const [userDeptId, setUserDeptId] = useState("");
-  const [userRoleId, setUserRoleId] = useState("");
+  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
 
   // Branding Form State
   const [systemFullName, setSystemFullName] = useState("");
@@ -144,6 +189,108 @@ export function RegionDetail({ regionId }: { regionId: string }) {
     setLogoPrimaryPath(brandingData.logo_primary_path || region?.logo_path || null);
     setBrandingInitialized(true);
   }
+
+  // Filter ONLY regional permissions (never merged with federal permissions)
+  const isRegionalResource = (resource: string) => {
+    const r = (resource || "").toLowerCase();
+    return r.startsWith("regional_") || r === "regions";
+  };
+
+  const regionalPermissions = useMemo(() => {
+    const rawList = Array.isArray(allPermissionsData) ? allPermissionsData : [];
+    return rawList.filter((p: any) => isRegionalResource(p.resource));
+  }, [allPermissionsData]);
+
+  // Dynamically compute attached regional permissions based on selected roles
+  const attachedPermissions = useMemo(() => {
+    const permMap = new Map<string, { resource: string; action: string }>();
+    for (const r of roles as any[]) {
+      if (selectedRoleIds.includes(r.role_id)) {
+        const perms = r.permissions || r.rolePermissions?.map((rp: any) => rp.permission) || [];
+        for (const p of perms) {
+          if (p && p.resource && p.action) {
+            const key = `${p.resource}:${p.action}`;
+            if (!permMap.has(key)) {
+              permMap.set(key, { resource: p.resource, action: p.action });
+            }
+          }
+        }
+      }
+    }
+    return Array.from(permMap.values());
+  }, [roles, selectedRoleIds]);
+
+  // Regional permissions UI helpers matching common permissions page
+  const [expandedResource, setExpandedResource] = useState<string | null>(null);
+
+  const toggleResourceExpand = useCallback((resource: string) => {
+    setExpandedResource((prev) => (prev === resource ? null : resource));
+  }, []);
+
+  const handleTogglePermission = useCallback(
+    async (id: string) => {
+      try {
+        await togglePermissionMutation(id).unwrap();
+        actionFeedback.success("Permission updated successfully.");
+        refetchPermissions();
+      } catch (err: any) {
+        actionFeedback.error(err?.data?.message || "Failed to toggle permission.");
+      }
+    },
+    [togglePermissionMutation, refetchPermissions]
+  );
+
+  const regionalStats = useMemo(
+    () => ({
+      total: regionalPermissions.length,
+      active: regionalPermissions.filter((p: any) => p.is_active).length,
+      inactive: regionalPermissions.filter((p: any) => !p.is_active).length,
+    }),
+    [regionalPermissions]
+  );
+
+  const regionalResourceIcons: ResourceIcons = useMemo(
+    () => ({
+      regions: <MapPin className="h-4 w-4 text-indigo-500" />,
+      regional_dashboard: <LayoutDashboard className="h-4 w-4 text-indigo-500" />,
+      regional_structures: <Building2 className="h-4 w-4 text-indigo-500" />,
+      regional_users: <Users2 className="h-4 w-4 text-indigo-500" />,
+      regional_branding: <Paintbrush className="h-4 w-4 text-indigo-500" />,
+    }),
+    []
+  );
+
+  const regionalResourceGroups = useMemo((): ResourceGroupType[] => {
+    const grouped = regionalPermissions.reduce((acc: any, permission: any) => {
+      if (!acc[permission.resource]) {
+        acc[permission.resource] = [];
+      }
+      acc[permission.resource].push(permission);
+      return acc;
+    }, {} as Record<string, Permission[]>);
+
+    return Object.entries(grouped).map(([resource, perms]: [string, any]) => {
+      const activeCount = perms.filter((p: any) => p.is_active).length;
+      return {
+        resource,
+        icon: regionalResourceIcons[resource] || <Shield className="h-4 w-4 text-indigo-500" />,
+        permissions: perms,
+        isExpanded: expandedResource === resource,
+        activeCount,
+        totalCount: perms.length,
+      };
+    });
+  }, [regionalPermissions, expandedResource, regionalResourceIcons]);
+
+  const filteredRegionalResourceGroups = useMemo(() => {
+    if (!permSearchQuery) return regionalResourceGroups;
+    const query = permSearchQuery.toLowerCase();
+    return regionalResourceGroups.filter(
+      (group) =>
+        group.resource.toLowerCase().includes(query) ||
+        group.permissions.some((p: any) => p.action.toLowerCase().includes(query))
+    );
+  }, [regionalResourceGroups, permSearchQuery]);
 
   // Department handlers
   const handleOpenDeptModal = (dept?: RegionalStructure, parentId?: string, lockParent?: boolean) => {
@@ -208,8 +355,32 @@ export function RegionDetail({ regionId }: { regionId: string }) {
     }
   };
 
-  // User handlers
-  const handleCreateRegionalUser = async (e: React.FormEvent) => {
+  // User handlers (Create & Edit)
+  const handleOpenUserModal = (user?: any) => {
+    if (user) {
+      setEditingUser(user);
+      setUserName(user.full_name || "");
+      setUserEmail(user.email || "");
+      setUserPhone(user.phone_number || "");
+      setUserDeptId(user.regional_structure_id || "");
+      const validRegionalRoleIds = new Set(roles.map((r: any) => r.role_id));
+      const rawRoleIds = user.roles?.map((r: any) => r.role_id) || [];
+      const roleIds = validRegionalRoleIds.size > 0
+        ? rawRoleIds.filter((id: string) => validRegionalRoleIds.has(id))
+        : rawRoleIds;
+      setSelectedRoleIds(roleIds);
+    } else {
+      setEditingUser(null);
+      setUserName("");
+      setUserEmail("");
+      setUserPhone("");
+      setUserDeptId("");
+      setSelectedRoleIds([]);
+    }
+    setIsUserModalOpen(true);
+  };
+
+  const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userName.trim() || !userEmail.trim()) {
       actionFeedback.error("Name and email are required.");
@@ -217,25 +388,33 @@ export function RegionDetail({ regionId }: { regionId: string }) {
     }
 
     try {
-      await createUser({
-        full_name: userName.trim(),
-        email: userEmail.trim(),
-        phone_number: userPhone.trim() || undefined,
-        region_id: regionId,
-        regional_structure_id: userDeptId || undefined,
-        role_ids: userRoleId ? [userRoleId] : undefined,
-      } as any).unwrap();
-
-      actionFeedback.success(`Regional account created for ${userName}.`);
+      if (editingUser) {
+        await updateUser({
+          id: editingUser.user_id,
+          data: {
+            full_name: userName.trim(),
+            email: userEmail.trim().toLowerCase(),
+            phone_number: userPhone.trim() || undefined,
+            regional_structure_id: userDeptId || null,
+            role_ids: selectedRoleIds,
+          },
+        }).unwrap();
+        actionFeedback.success(`Regional account '${userName}' updated successfully.`);
+      } else {
+        await createUser({
+          full_name: userName.trim(),
+          email: userEmail.trim().toLowerCase(),
+          phone_number: userPhone.trim() || undefined,
+          region_id: regionId,
+          regional_structure_id: userDeptId || undefined,
+          role_ids: selectedRoleIds,
+        } as any).unwrap();
+        actionFeedback.success(`Regional account created for ${userName}.`);
+      }
       setIsUserModalOpen(false);
-      setUserName("");
-      setUserEmail("");
-      setUserPhone("");
-      setUserDeptId("");
-      setUserRoleId("");
       refetchUsers();
     } catch (err: any) {
-      actionFeedback.error(err?.data?.message || err?.message || "Failed to create regional account.");
+      actionFeedback.error(err?.data?.message || err?.message || "Failed to save user account.");
     }
   };
 
@@ -311,23 +490,37 @@ export function RegionDetail({ regionId }: { regionId: string }) {
     ? getFileUrl(logoPrimaryPath || region.logo_path || "")
     : null;
 
-  const sideActionTabs = [
+  // Tabular Tab Actions matching GovernmentStructureDetail.tsx pattern
+  const sideActionTabs: ActionButton[] = [
     {
-      id: "departments" as const,
       label: "Departments",
-      count: structures.length,
       icon: <Layers className="h-4 w-4" />,
+      variant: activeTab === "departments" ? "default" : "outline",
+      onClick: () => setActiveTab("departments"),
     },
     {
-      id: "users" as const,
       label: "Users",
-      count: users.length,
       icon: <Users className="h-4 w-4" />,
+      variant: activeTab === "users" ? "default" : "outline",
+      onClick: () => setActiveTab("users"),
     },
     {
-      id: "branding" as const,
+      label: "Roles",
+      icon: <KeyRound className="h-4 w-4" />,
+      variant: activeTab === "roles" ? "default" : "outline",
+      onClick: () => setActiveTab("roles"),
+    },
+    {
+      label: "Permissions",
+      icon: <Shield className="h-4 w-4" />,
+      variant: activeTab === "permissions" ? "default" : "outline",
+      onClick: () => setActiveTab("permissions"),
+    },
+    {
       label: "UI & Configuration",
       icon: <Palette className="h-4 w-4" />,
+      variant: activeTab === "branding" ? "default" : "outline",
+      onClick: () => setActiveTab("branding"),
     },
   ];
 
@@ -391,22 +584,48 @@ export function RegionDetail({ regionId }: { regionId: string }) {
         </div>
       </div>
 
-      {/* ===================== TAB ACTIONS (STRUCTURE-STYLE) ===================== */}
+      {/* ===================== TABULAR TABS (MATCHING STRUCTURE TABULAR TABS) ===================== */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border/60 pb-3">
         {sideActionTabs.map((tab) => {
-          const isActive = activeTab === tab.id;
+          const tabId =
+            tab.label === "Departments"
+              ? "departments"
+              : tab.label === "Users"
+              ? "users"
+              : tab.label === "Roles"
+              ? "roles"
+              : tab.label === "Permissions"
+              ? "permissions"
+              : "branding";
+          const isActive = activeTab === tabId;
+          const count =
+            tabId === "departments"
+              ? structures.length
+              : tabId === "users"
+              ? users.length
+              : tabId === "roles"
+              ? roles.length
+              : tabId === "permissions"
+              ? regionalPermissions.length
+              : undefined;
+
           return (
             <Button
-              key={tab.id}
+              key={tabId}
               type="button"
               variant={isActive ? "default" : "outline"}
               size="sm"
-              onClick={() => setActiveTab(tab.id)}
-              className="flex items-center gap-2 transition-all"
+              onClick={() => setActiveTab(tabId as TabType)}
+              className={cn(
+                "flex items-center gap-2 transition-all font-medium",
+                isActive
+                  ? "shadow-xs"
+                  : "hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+              )}
             >
               {tab.icon}
               <span>{tab.label}</span>
-              {tab.count !== undefined && (
+              {count !== undefined && (
                 <span
                   className={cn(
                     "ml-1 px-1.5 py-0.2 rounded-full text-xs font-semibold",
@@ -415,7 +634,7 @@ export function RegionDetail({ regionId }: { regionId: string }) {
                       : "bg-muted text-muted-foreground"
                   )}
                 >
-                  {tab.count}
+                  {count}
                 </span>
               )}
             </Button>
@@ -585,6 +804,7 @@ export function RegionDetail({ regionId }: { regionId: string }) {
               title="Regional Departments"
               description={`Organizational departments and hierarchy confined strictly within ${region.name}`}
               actions={deptActions}
+              sideActions={sideActionTabs}
               filters={deptFilters}
               filterColumnsPerRow={1}
               showSearch={true}
@@ -615,96 +835,344 @@ export function RegionDetail({ regionId }: { regionId: string }) {
         );
       })()}
 
-      {/* ===================== TAB 2: USERS ===================== */}
-      {activeTab === "users" && (
-        <div className="space-y-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <Users className="h-5 w-5 text-blue-600" />
-                Regional User Accounts ({users.length})
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Staff accounts strictly isolated to {region.name}.
-              </p>
-            </div>
-            {canAddUser && (
-              <Button onClick={() => setIsUserModalOpen(true)} size="sm" className="gap-1.5">
-                <Plus className="h-4 w-4" />
-                Create Regional Account
-              </Button>
-            )}
-          </div>
+      {/* ===================== TAB 2: USERS (WITH EDIT & FULL ACTIONS) ===================== */}
+      {activeTab === "users" && (() => {
+        const handleExportUsers = () => {
+          const headers = ["Full Name", "Email", "Phone", "Department", "Roles", "Status"];
+          const rows = filteredUsers.map((u: any) => [
+            `"${(u.full_name || "").replace(/"/g, '""')}"`,
+            `"${(u.email || "").replace(/"/g, '""')}"`,
+            `"${(u.phone_number || "").replace(/"/g, '""')}"`,
+            `"${(u.regionalStructure?.name || "Bureau Wide").replace(/"/g, '""')}"`,
+            `"${(u.roles?.map((r: any) => r.name).join(", ") || "No role").replace(/"/g, '""')}"`,
+            u.is_active ? "Active" : "Inactive",
+          ]);
+          const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+          const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${region.code}-users-${new Date().toISOString().slice(0, 10)}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          actionFeedback.success("Regional users list exported successfully.");
+        };
 
-          {users.length === 0 ? (
-            <Card className="border border-dashed p-8 text-center bg-card">
-              <Users className="h-10 w-10 text-muted-foreground mx-auto mb-2 opacity-40" />
-              <p className="text-sm text-muted-foreground mb-3">No regional accounts created for this region yet.</p>
-              {canAddUser && (
-                <Button onClick={() => setIsUserModalOpen(true)} variant="outline" size="sm">
-                  <Plus className="h-4 w-4 mr-1" /> Create First Account
-                </Button>
-              )}
-            </Card>
-          ) : (
-            <div className="border rounded-lg overflow-hidden bg-card shadow-sm">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 border-b text-xs text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-semibold">Full Name</th>
-                    <th className="px-4 py-3 text-left font-semibold">Email</th>
-                    <th className="px-4 py-3 text-left font-semibold">Department</th>
-                    <th className="px-4 py-3 text-left font-semibold">Roles</th>
-                    <th className="px-4 py-3 text-center font-semibold">Status</th>
-                    <th className="px-4 py-3 text-right font-semibold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/60">
-                  {users.map((u: any) => (
-                    <tr key={u.user_id} className="hover:bg-muted/20">
-                      <td className="px-4 py-3 font-medium text-foreground">{u.full_name}</td>
-                      <td className="px-4 py-3 text-muted-foreground font-mono text-xs">{u.email}</td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {u.regionalStructure?.name || <span className="italic text-muted-foreground/60">Bureau Wide</span>}
-                      </td>
-                      <td className="px-4 py-3 text-xs">
-                        {u.roles?.map((r: any) => r.name).join(", ") || "User"}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <ActiveStatusBadge isActive={u.is_active} />
-                      </td>
-                      <td className="px-4 py-3 text-right space-x-1">
-                        {canUpdateUser && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleToggleUser(u)}
-                              className="h-8 text-xs"
-                            >
-                              {u.is_active ? "Deactivate" : "Activate"}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleResetUserPassword(u)}
-                              className="h-8 text-xs"
-                            >
-                              Reset Pwd
-                            </Button>
-                          </>
-                        )}
-                      </td>
-                    </tr>
+        const userColumns: ColumnDef<any>[] = [
+          {
+            accessorKey: "full_name",
+            header: "User",
+            cell: ({ row }) => {
+              const u = row.original;
+              return (
+                <div className="flex items-center gap-3">
+                  <UserAvatar name={u.full_name} className="h-9 w-9 shrink-0" />
+                  <div>
+                    <div className="font-medium text-foreground">{u.full_name}</div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Mail className="h-3 w-3" />
+                      {u.email}
+                    </div>
+                  </div>
+                </div>
+              );
+            },
+          },
+          {
+            accessorKey: "regional_structure",
+            header: "Regional Department",
+            cell: ({ row }) => {
+              const deptId = row.original.regional_structure_id;
+              const dept =
+                row.original.regionalStructure ||
+                structures.find((s) => s.regional_structure_id === deptId);
+              return dept ? (
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground">
+                  <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                  {dept.name}
+                </span>
+              ) : (
+                <span className="text-xs text-muted-foreground italic">Bureau Wide (Unassigned)</span>
+              );
+            },
+          },
+          {
+            accessorKey: "roles",
+            header: "Assigned Roles",
+            cell: ({ row }) => {
+              const userRolesList = row.original.roles || [];
+              if (userRolesList.length === 0) {
+                return <span className="text-xs text-muted-foreground italic">No role</span>;
+              }
+              return (
+                <div className="flex flex-wrap gap-1">
+                  {userRolesList.map((r: any) => (
+                    <span
+                      key={r.role_id}
+                      className="font-mono text-[10px] font-semibold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800"
+                    >
+                      {r.name}
+                    </span>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                </div>
+              );
+            },
+          },
+          {
+            accessorKey: "phone_number",
+            header: "Phone",
+            cell: ({ row }) => (
+              <span className="text-xs text-muted-foreground">
+                {row.original.phone_number || "—"}
+              </span>
+            ),
+          },
+          {
+            accessorKey: "is_active",
+            header: "Status",
+            cell: ({ row }) => <ActiveStatusBadge isActive={row.original.is_active} />,
+          },
+          {
+            id: "actions",
+            header: () => <div className="text-right">Actions</div>,
+            cell: ({ row }) => {
+              const u = row.original;
+              return (
+                <div className="flex items-center justify-end gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="View User Details"
+                    onClick={() => router.push(`/users/list/${u.user_id}`)}
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  {canUpdateUser && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Edit Regional User"
+                      onClick={() => handleOpenUserModal(u)}
+                      className="h-8 w-8 text-primary hover:text-primary"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {canUpdateUser && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title={u.is_active ? "Deactivate User" : "Activate User"}
+                      onClick={() => handleToggleUser(u)}
+                      className="h-8 w-8"
+                    >
+                      <Power
+                        className={`h-4 w-4 ${
+                          u.is_active ? "text-emerald-600" : "text-muted-foreground"
+                        }`}
+                      />
+                    </Button>
+                  )}
+                  {canUpdateUser && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Reset Password"
+                      onClick={() => handleResetUserPassword(u)}
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              );
+            },
+          },
+        ];
+
+        const userFilters: FilterField[] = [
+          {
+            key: "status",
+            label: "Status",
+            type: "multiselect",
+            placeholder: "Select status",
+            value: userStatusFilter,
+            onChange: setUserStatusFilter,
+            options: [
+              { label: "Active", value: "active" },
+              { label: "Inactive", value: "inactive" },
+            ],
+          },
+          {
+            key: "department",
+            label: "Department",
+            type: "select",
+            placeholder: "All Departments",
+            value: userDeptFilter,
+            onChange: setUserDeptFilter,
+            options: [
+              { label: "All Departments", value: "" },
+              { label: "Bureau Wide (Unassigned)", value: "__unassigned__" },
+              ...structures.map((s) => ({
+                label: s.name,
+                value: s.regional_structure_id,
+              })),
+            ],
+          },
+        ];
+
+        const userActions: ActionButton[] = [
+          {
+            label: "Export",
+            icon: <Download className="h-4 w-4" />,
+            variant: "outline",
+            onClick: handleExportUsers,
+          },
+          ...(canAddUser
+            ? [
+                {
+                  label: "Create Regional Account",
+                  icon: <Plus className="h-4 w-4" />,
+                  variant: "default" as const,
+                  onClick: () => handleOpenUserModal(),
+                },
+              ]
+            : []),
+        ];
+
+        const filteredUsers = users.filter((u: any) => {
+          const matchesStatus = matchesActiveInactiveFilter(userStatusFilter, u.is_active);
+          const matchesDept =
+            !userDeptFilter ||
+            (userDeptFilter === "__unassigned__" ? !u.regional_structure_id : u.regional_structure_id === userDeptFilter);
+          const matchesSearch =
+            !searchQuery ||
+            (u.full_name && u.full_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            (u.email && u.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            (u.phone_number && u.phone_number.toLowerCase().includes(searchQuery.toLowerCase()));
+          return matchesStatus && matchesDept && matchesSearch;
+        });
+
+        return (
+          <div className="space-y-4">
+            <TableLayout
+              title="Regional User Accounts"
+              description={`Staff user accounts strictly isolated to ${region.name}.`}
+              actions={userActions}
+              sideActions={sideActionTabs}
+              filters={userFilters}
+              filterColumnsPerRow={2}
+              showSearch={true}
+            >
+              <DataTable
+                columns={userColumns}
+                data={filteredUsers}
+                isLoading={isUsersLoading}
+                resetKey={`${searchQuery}-${userStatusFilter}-${userDeptFilter}`}
+              />
+            </TableLayout>
+          </div>
+        );
+      })()}
+
+      {/* ===================== TAB 3: REGIONAL ROLES ===================== */}
+      {activeTab === "roles" && (
+        <div className="space-y-4">
+          <RegionalRoleList sideActions={sideActionTabs} />
         </div>
       )}
 
-      {/* ===================== TAB 3: UI CONFIGURATION & BRANDING ===================== */}
+      {/* ===================== TAB 4: REGIONAL PERMISSIONS (UI MATCHING COMMON PERMISSIONS PAGE) ===================== */}
+      {activeTab === "permissions" && (
+        <div className="space-y-6">
+          {/* Informational Banner */}
+          <div className="flex items-start gap-3 rounded-lg border border-indigo-200 bg-indigo-50/70 dark:bg-indigo-950/30 dark:border-indigo-900/50 p-4 text-xs text-indigo-900 dark:text-indigo-200">
+            <Info className="h-4 w-4 shrink-0 mt-0.5 text-indigo-600 dark:text-indigo-400" />
+            <div>
+              <p className="font-semibold text-indigo-950 dark:text-indigo-100">
+                Regional Operational Permissions
+              </p>
+              <p className="mt-0.5 text-indigo-800/90 dark:text-indigo-300/80">
+                These permissions control authority strictly inside regional domains, including
+                regional dashboards, regional departments, staff account administration, and
+                custom regional branding. Decoupled and strictly isolated from federal permissions.
+              </p>
+            </div>
+          </div>
+
+          {/* Statistics matching common permissions list page */}
+          <StatsComponent stats={regionalStats} />
+
+          {/* Permissions Accordion / Grid matching common permissions list page */}
+          <div className="w-full bg-white dark:bg-card border border-border rounded-lg shadow-sm">
+            <div className="p-6 border-b">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-primary flex items-center gap-2">
+                    <MapPin className="h-5 w-5 text-indigo-600" />
+                    Regional Permissions Catalog
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {regionalPermissions.length} total permissions • {regionalStats.active} active •{" "}
+                    {regionalStats.inactive} inactive
+                  </p>
+                </div>
+                <div className="relative w-full md:w-auto">
+                  <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Search regional permissions..."
+                    value={permSearchQuery}
+                    onChange={(e) => setPermSearchQuery(e.target.value)}
+                    className="h-11 w-full rounded-lg border border-input py-2 pl-10 pr-4 text-sm text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary md:w-72"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="p-6">
+              {isPermissionsLoading ? (
+                <PermissionSkeleton />
+              ) : filteredRegionalResourceGroups.length === 0 ? (
+                <EmptyState
+                  title="No permissions found"
+                  description={
+                    permSearchQuery
+                      ? "Try adjusting your search criteria."
+                      : "No regional permissions have been configured yet."
+                  }
+                  action={
+                    permSearchQuery && (
+                      <Button
+                        variant="outline"
+                        onClick={() => setPermSearchQuery("")}
+                      >
+                        Clear search
+                      </Button>
+                    )
+                  }
+                />
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                  {filteredRegionalResourceGroups.map((group) => (
+                    <ResourceGroupComponent
+                      key={group.resource}
+                      group={group}
+                      onToggle={handleTogglePermission}
+                      isToggling={isTogglingPermission}
+                      onToggleExpand={toggleResourceExpand}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================== TAB 5: UI CONFIGURATION & BRANDING ===================== */}
       {activeTab === "branding" && (
         <div className="space-y-6">
           {!canViewBranding ? (
@@ -1017,36 +1485,40 @@ export function RegionDetail({ regionId }: { regionId: string }) {
                     </div>
                   )}
 
-            <DialogFooter className="pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsDeptModalOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isCreatingStructure || isUpdatingStructure}>
-                {isCreatingStructure || isUpdatingStructure
-                  ? "Saving..."
-                  : editingDept
-                  ? "Update Department"
-                  : "Create Department"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </>
-      );
-    })()}
-  </DialogContent>
-</Dialog>
+                  <DialogFooter className="pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsDeptModalOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={isCreatingStructure || isUpdatingStructure}>
+                      {isCreatingStructure || isUpdatingStructure
+                        ? "Saving..."
+                        : editingDept
+                        ? "Update Department"
+                        : "Create Department"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
-      {/* ===================== USER MODAL ===================== */}
+      {/* ===================== USER CREATE / EDIT MODAL ===================== */}
       <Dialog open={isUserModalOpen} onOpenChange={setIsUserModalOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create Regional Account for {region.name}</DialogTitle>
+            <DialogTitle>
+              {editingUser
+                ? `Edit Regional Account: ${editingUser.full_name}`
+                : `Create Regional Account for ${region.name}`}
+            </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleCreateRegionalUser} className="space-y-4 py-2">
+          <form onSubmit={handleSaveUser} className="space-y-4 py-2">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-foreground">
                 Full Name <span className="text-destructive">*</span>
@@ -1091,27 +1563,87 @@ export function RegionDetail({ regionId }: { regionId: string }) {
                 <option value="">Bureau Wide (Unassigned to specific department)</option>
                 {structures.map((s) => (
                   <option key={s.regional_structure_id} value={s.regional_structure_id}>
-                    {s.name} (Level {s.level})
+                    {"— ".repeat((s.level || 1) - 1)} {s.name} (Level {s.level})
                   </option>
                 ))}
               </select>
+              <p className="text-[11px] text-muted-foreground">
+                Confined strictly to departments within {region.name}.
+              </p>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Role</label>
-              <select
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                value={userRoleId}
-                onChange={(e) => setUserRoleId(e.target.value)}
-              >
-                <option value="">Select a Role</option>
-                {roles.map((r: any) => (
-                  <option key={r.role_id} value={r.role_id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Shield className="h-4 w-4 text-primary" />
+                  Assignable Regional Roles
+                </span>
+                <span className="text-[11px] text-muted-foreground font-normal">
+                  {selectedRoleIds.length} role(s) selected
+                </span>
+              </label>
+              <div className="max-h-36 overflow-y-auto space-y-1.5 rounded-md border p-2.5 bg-muted/20">
+                {roles.length === 0 ? (
+                  <div className="text-xs text-muted-foreground">No regional roles configured</div>
+                ) : (
+                  roles.map((r: any) => (
+                    <label
+                      key={r.role_id}
+                      className="flex items-center gap-2.5 text-xs cursor-pointer hover:bg-muted/40 p-1.5 rounded transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedRoleIds.includes(r.role_id)}
+                        onChange={() => {
+                          setSelectedRoleIds((prev) =>
+                            prev.includes(r.role_id)
+                              ? prev.filter((id) => id !== r.role_id)
+                              : [...prev, r.role_id]
+                          );
+                        }}
+                        className="rounded border-input text-primary focus:ring-primary"
+                      />
+                      <span className="font-semibold text-foreground">{r.name}</span>
+                      {r.description && (
+                        <span className="text-muted-foreground text-[11px] truncate">
+                          — {r.description}
+                        </span>
+                      )}
+                    </label>
+                  ))
+                )}
+              </div>
             </div>
+
+            {/* Attached Regional Permissions Preview */}
+            {selectedRoleIds.length > 0 && (
+              <div className="space-y-2 rounded-lg border border-indigo-200/80 bg-indigo-50/50 dark:bg-indigo-950/20 dark:border-indigo-800/60 p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                    <KeyRound className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                    Attached Regional Permissions ({attachedPermissions.length})
+                  </span>
+                  <span className="text-[10px] text-indigo-700 dark:text-indigo-300 font-medium">
+                    Granted via selected regional role(s)
+                  </span>
+                </div>
+                {attachedPermissions.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">No permissions attached to selected role(s).</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto pt-1">
+                    {attachedPermissions.map((p) => (
+                      <span
+                        key={`${p.resource}:${p.action}`}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-white dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-800 shadow-2xs"
+                      >
+                        <span className="font-semibold">{p.resource}</span>:
+                        <span>{p.action}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <DialogFooter className="pt-4">
               <Button
@@ -1121,8 +1653,12 @@ export function RegionDetail({ regionId }: { regionId: string }) {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isCreatingUser}>
-                {isCreatingUser ? "Creating Account..." : "Create Account"}
+              <Button type="submit" disabled={isCreatingUser || isUpdatingUser}>
+                {isCreatingUser || isUpdatingUser
+                  ? "Saving..."
+                  : editingUser
+                  ? "Update Account"
+                  : "Create Account"}
               </Button>
             </DialogFooter>
           </form>

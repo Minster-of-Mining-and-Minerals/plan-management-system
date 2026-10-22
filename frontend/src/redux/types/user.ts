@@ -79,7 +79,7 @@ export interface CreateUserPayload {
   government_structure_id?: string;
   internal_structure_id?: string;
   region_id?: string;
-  regional_structure_id?: string;
+  regional_structure_id?: string | null;
 }
 
 export interface UpdateUserPayload {
@@ -90,7 +90,7 @@ export interface UpdateUserPayload {
   government_structure_id?: string;
   internal_structure_id?: string;
   region_id?: string;
-  regional_structure_id?: string;
+  regional_structure_id?: string | null;
   is_active?: boolean;
   is_first_logged_in?: boolean;
   profile_image?: string | null;

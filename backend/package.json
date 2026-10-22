@@ -23,6 +23,7 @@
     "db:restore-plans": "node scripts/restore-plan-data-from-backup.js",
     "test:scope": "node scripts/verify-scope-unit-checks.js && node scripts/verify-scope-smoke.js",
     "test:regional": "node scripts/verify-regional-foundation.js",
+    "test:regional-routing": "node scripts/verify-phase-3-1-regional-dynamic-routing.js",
     "test:rollup": "node scripts/verify-execution-rollup.js",
     "test:special-groups": "node scripts/verify-special-permission-groups.js",
     "test:plan-visibility": "node scripts/verify-plan-visibility-phase-b.js",

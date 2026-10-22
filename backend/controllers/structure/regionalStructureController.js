@@ -1,14 +1,19 @@
 "use strict";
 
 const regionalStructureService = require("../../services/regionalStructureService");
-const { isSuperAdminActor } = require("../../utils/structureScopeUtils");
+const { assertRegionAccessible } = require("../../utils/structureScopeUtils");
 
 async function listStructures(req, res) {
   try {
     let regionId = req.query.region_id;
 
     if (req.user?.is_regional) {
-      // Regional user is strictly pinned to their own region
+      if (req.query.region_id && req.query.region_id !== req.user.region_id) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied. Cannot access departments of another region.",
+        });
+      }
       regionId = req.user.region_id;
     }
 
@@ -18,6 +23,8 @@ async function listStructures(req, res) {
         message: "region_id query parameter is required.",
       });
     }
+
+    assertRegionAccessible(req, regionId, "read");
 
     const structures = await regionalStructureService.listRegionalStructures(
       regionId,
@@ -42,13 +49,7 @@ async function getStructureById(req, res) {
     const { id } = req.params;
     const structure = await regionalStructureService.getRegionalStructureById(id);
 
-    // Cross-region isolation
-    if (req.user?.is_regional && req.user.region_id !== structure.region_id) {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied. Cannot view departments of another region.",
-      });
-    }
+    assertRegionAccessible(req, structure.region_id, "read");
 
     return res.status(200).json({
       success: true,
@@ -85,6 +86,8 @@ async function createStructure(req, res) {
       });
     }
 
+    assertRegionAccessible(req, regionId, "create");
+
     const structure = await regionalStructureService.createRegionalStructure(
       regionId,
       req.body
@@ -109,12 +112,7 @@ async function updateStructure(req, res) {
     const { id } = req.params;
     const existing = await regionalStructureService.getRegionalStructureById(id);
 
-    if (req.user?.is_regional && req.user.region_id !== existing.region_id) {
-      return res.status(403).json({
-        success: false,
-        message: "Cannot modify departments of another region.",
-      });
-    }
+    assertRegionAccessible(req, existing.region_id, "update");
 
     const structure = await regionalStructureService.updateRegionalStructure(
       id,
@@ -140,12 +138,7 @@ async function deleteStructure(req, res) {
     const { id } = req.params;
     const existing = await regionalStructureService.getRegionalStructureById(id);
 
-    if (req.user?.is_regional && req.user.region_id !== existing.region_id) {
-      return res.status(403).json({
-        success: false,
-        message: "Cannot delete departments of another region.",
-      });
-    }
+    assertRegionAccessible(req, existing.region_id, "delete");
 
     const result = await regionalStructureService.deleteRegionalStructure(id);
     return res.status(200).json({
@@ -167,12 +160,7 @@ async function assignUsers(req, res) {
     const { user_ids } = req.body;
 
     const existing = await regionalStructureService.getRegionalStructureById(id);
-    if (req.user?.is_regional && req.user.region_id !== existing.region_id) {
-      return res.status(403).json({
-        success: false,
-        message: "Cannot assign users in another region.",
-      });
-    }
+    assertRegionAccessible(req, existing.region_id, "update");
 
     const structure = await regionalStructureService.assignUsersToRegionalStructure(
       id,
@@ -197,13 +185,7 @@ async function removeUser(req, res) {
   try {
     const { id, user_id } = req.params;
     const existing = await regionalStructureService.getRegionalStructureById(id);
-
-    if (req.user?.is_regional && req.user.region_id !== existing.region_id) {
-      return res.status(403).json({
-        success: false,
-        message: "Cannot manage users in another region.",
-      });
-    }
+    assertRegionAccessible(req, existing.region_id, "update");
 
     const result = await regionalStructureService.removeUserFromRegionalStructure(
       id,

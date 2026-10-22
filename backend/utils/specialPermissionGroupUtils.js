@@ -10,6 +10,7 @@ const {
 const GROUP_KIND = {
   STANDARD: "standard",
   SPECIAL: "special",
+  REGIONAL: "regional",
 };
 
 const PERMISSION_TIER = {
@@ -34,7 +35,9 @@ const SPECIAL_PERMISSION_KEYS = new Set([
 
 function normalizeGroupKind(groupKind) {
   const value = String(groupKind || GROUP_KIND.STANDARD).trim().toLowerCase();
-  return value === GROUP_KIND.SPECIAL ? GROUP_KIND.SPECIAL : GROUP_KIND.STANDARD;
+  if (value === GROUP_KIND.SPECIAL) return GROUP_KIND.SPECIAL;
+  if (value === GROUP_KIND.REGIONAL) return GROUP_KIND.REGIONAL;
+  return GROUP_KIND.STANDARD;
 }
 
 function normalizePermissionTier(permissionTier) {
@@ -60,6 +63,25 @@ async function assertPermissionIdsMatchGroupKind(
   options = {}
 ) {
   if (!permissionIds?.length) {
+    return;
+  }
+
+  const normalizedKind = normalizeGroupKind(groupKind);
+  if (normalizedKind === GROUP_KIND.REGIONAL) {
+    const permissions = await Permission.findAll({
+      where: { permission_id: permissionIds },
+      attributes: ["permission_id", "resource", "action", "permission_tier"],
+      transaction: options.transaction,
+    });
+    const nonRegional = permissions.filter(
+      (p) => !p.resource.startsWith("regional_") && p.resource !== "regions"
+    );
+    if (nonRegional.length > 0) {
+      throw buildPermissionScopeError(
+        "Regional permission groups may only include regional permissions.",
+        400
+      );
+    }
     return;
   }
 

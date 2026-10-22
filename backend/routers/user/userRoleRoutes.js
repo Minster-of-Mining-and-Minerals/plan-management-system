@@ -7,6 +7,7 @@ const {
 const {
   authenticateToken,
   checkPermission,
+  checkAnyPermission,
 } = require("../../middlewares/authMiddleware");
 
 router.use(authenticateToken);
@@ -46,7 +47,17 @@ router.use(authenticateToken);
  *       200:
  *         description: Roles assigned successfully
  */
-router.post("/assign", checkPermission("USERS", "ASSIGN_ROLE"), assignRolesToUser);
+router.post(
+  "/assign",
+  checkAnyPermission([
+    { resource: "USERS", action: "ASSIGN_ROLE" },
+    { resource: "USERS", action: "UPDATE" },
+    { resource: "REGIONAL_USERS", action: "ASSIGN_ROLE" },
+    { resource: "REGIONAL_USERS", action: "UPDATE" },
+    { resource: "REGIONAL_USERS", action: "MANAGE" },
+  ]),
+  assignRolesToUser
+);
 
 /**
  * @swagger
@@ -74,6 +85,16 @@ router.post("/assign", checkPermission("USERS", "ASSIGN_ROLE"), assignRolesToUse
  *       200:
  *         description: Role removed successfully
  */
-router.post("/remove", checkPermission("USERS", "ASSIGN_ROLE"), removeRoleFromUser);
+router.post(
+  "/remove",
+  checkAnyPermission([
+    { resource: "USERS", action: "ASSIGN_ROLE" },
+    { resource: "USERS", action: "UPDATE" },
+    { resource: "REGIONAL_USERS", action: "ASSIGN_ROLE" },
+    { resource: "REGIONAL_USERS", action: "UPDATE" },
+    { resource: "REGIONAL_USERS", action: "MANAGE" },
+  ]),
+  removeRoleFromUser
+);
 
 module.exports = router;

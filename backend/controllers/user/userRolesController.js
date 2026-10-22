@@ -4,7 +4,9 @@ const { User, Role, UserRoles, GovernmentStructure } = require("../../models");
 const { v4: uuidv4 } = require("uuid");
 const {
   assertRoleAssignable,
+  assertRegionalRoleAssignable,
   assertUserInStructure,
+  assertRegionalUserManageable,
   sendScopeError,
 } = require("../../utils/structureScopeUtils");
 
@@ -23,13 +25,6 @@ const assignRolesToUser = async (req, res) => {
       return res.status(404).json({ message: "User not found." });
     }
 
-    try {
-      const structureIndex = await loadGovernmentStructureIndex();
-      assertUserInStructure(user, user.government_structure_id, req, structureIndex);
-    } catch (error) {
-      return sendScopeError(res, error);
-    }
-
     const roles = await Role.findAll({ where: { role_id: role_ids, is_active: true } });
     if (roles.length !== role_ids.length) {
       return res.status(400).json({
@@ -37,11 +32,34 @@ const assignRolesToUser = async (req, res) => {
       });
     }
 
-    for (const role of roles) {
+    if (user.region_id) {
       try {
-        assertRoleAssignable(role, user.government_structure_id, req);
+        assertRegionalUserManageable(user, req, "assign_role");
       } catch (error) {
         return sendScopeError(res, error);
+      }
+
+      for (const role of roles) {
+        try {
+          assertRegionalRoleAssignable(role, req);
+        } catch (error) {
+          return sendScopeError(res, error);
+        }
+      }
+    } else {
+      try {
+        const structureIndex = await loadGovernmentStructureIndex();
+        assertUserInStructure(user, user.government_structure_id, req, structureIndex);
+      } catch (error) {
+        return sendScopeError(res, error);
+      }
+
+      for (const role of roles) {
+        try {
+          assertRoleAssignable(role, user.government_structure_id, req);
+        } catch (error) {
+          return sendScopeError(res, error);
+        }
       }
     }
 
@@ -80,7 +98,6 @@ const assignRolesToUser = async (req, res) => {
   }
 };
 
-
 const removeRoleFromUser = async (req, res) => {
   try {
     const { user_id, role_id } = req.body;
@@ -90,11 +107,19 @@ const removeRoleFromUser = async (req, res) => {
       return res.status(404).json({ message: "User not found." });
     }
 
-    try {
-      const structureIndex = await loadGovernmentStructureIndex();
-      assertUserInStructure(user, user.government_structure_id, req, structureIndex);
-    } catch (error) {
-      return sendScopeError(res, error);
+    if (user.region_id) {
+      try {
+        assertRegionalUserManageable(user, req, "assign_role");
+      } catch (error) {
+        return sendScopeError(res, error);
+      }
+    } else {
+      try {
+        const structureIndex = await loadGovernmentStructureIndex();
+        assertUserInStructure(user, user.government_structure_id, req, structureIndex);
+      } catch (error) {
+        return sendScopeError(res, error);
+      }
     }
 
     const assignment = await UserRoles.findOne({

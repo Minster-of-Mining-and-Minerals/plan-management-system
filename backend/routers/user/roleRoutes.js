@@ -6,7 +6,11 @@ const {
   validateUpdateRole,
 } = require("../../validators/user/roleValidator");
 
-const { authenticateToken, checkPermission } = require("../../middlewares/authMiddleware");
+const {
+  authenticateToken,
+  checkPermission,
+  checkAnyPermission,
+} = require("../../middlewares/authMiddleware");
 
 const {
   createRole,
@@ -18,11 +22,72 @@ const {
 
 router.use(authenticateToken);
 
-router.post("/", checkPermission("ROLES", "CREATE"), validateCreateRole, createRole);
-router.get("/", checkPermission("ROLES", "READ"), getRoles);
-router.get("/:id", checkPermission("ROLES", "READ"), getRoleById);
-router.put("/:id", checkPermission("ROLES", "UPDATE"), validateUpdateRole, updateRole);
-router.delete("/:id", checkPermission("ROLES", "DELETE"), deleteRole);
+router.post(
+  "/",
+  checkAnyPermission([
+    { resource: "ROLES", action: "CREATE" },
+    { resource: "REGIONAL_ROLES", action: "CREATE" },
+    { resource: "REGIONAL_ROLES", action: "MANAGE" },
+    { resource: "REGIONAL_USERS", action: "MANAGE" },
+    { resource: "REGIONS", action: "MANAGE" },
+  ]),
+  validateCreateRole,
+  createRole
+);
+
+router.get(
+  "/",
+  checkAnyPermission([
+    { resource: "ROLES", action: "READ" },
+    { resource: "REGIONAL_ROLES", action: "READ" },
+    { resource: "REGIONAL_ROLES", action: "MANAGE" },
+    { resource: "REGIONAL_USERS", action: "READ" },
+    { resource: "REGIONAL_USERS", action: "MANAGE" },
+    { resource: "REGIONS", action: "READ" },
+    { resource: "REGIONS", action: "MANAGE" },
+  ]),
+  getRoles
+);
+
+router.get(
+  "/:id",
+  checkAnyPermission([
+    { resource: "ROLES", action: "READ" },
+    { resource: "REGIONAL_ROLES", action: "READ" },
+    { resource: "REGIONAL_ROLES", action: "MANAGE" },
+    { resource: "REGIONAL_USERS", action: "READ" },
+    { resource: "REGIONAL_USERS", action: "MANAGE" },
+    { resource: "REGIONS", action: "READ" },
+    { resource: "REGIONS", action: "MANAGE" },
+  ]),
+  getRoleById
+);
+
+router.put(
+  "/:id",
+  checkAnyPermission([
+    { resource: "ROLES", action: "UPDATE" },
+    { resource: "REGIONAL_ROLES", action: "UPDATE" },
+    { resource: "REGIONAL_ROLES", action: "MANAGE" },
+    { resource: "REGIONAL_USERS", action: "UPDATE" },
+    { resource: "REGIONAL_USERS", action: "MANAGE" },
+    { resource: "REGIONS", action: "MANAGE" },
+  ]),
+  validateUpdateRole,
+  updateRole
+);
+
+router.delete(
+  "/:id",
+  checkAnyPermission([
+    { resource: "ROLES", action: "DELETE" },
+    { resource: "REGIONAL_ROLES", action: "DELETE" },
+    { resource: "REGIONAL_ROLES", action: "MANAGE" },
+    { resource: "REGIONAL_USERS", action: "MANAGE" },
+    { resource: "REGIONS", action: "MANAGE" },
+  ]),
+  deleteRole
+);
 
 /**
  * @swagger

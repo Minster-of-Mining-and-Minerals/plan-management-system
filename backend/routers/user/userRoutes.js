@@ -12,7 +12,11 @@ const {
   updateProfile,
   getUserDisplayNames,
 } = require("../../controllers/user/userController");
-const { authenticateToken, checkPermission } = require("../../middlewares/authMiddleware");
+const {
+  authenticateToken,
+  checkPermission,
+  checkAnyPermission,
+} = require("../../middlewares/authMiddleware");
 const {
   validateUpdateProfile,
 } = require("../../validators/user/userValidator");
@@ -48,13 +52,34 @@ router.use(authenticateToken);
  *       200:
  *         description: List of users
  */
-router.get("/", checkPermission("USERS", "READ"), getUsers);
+router.get(
+  "/",
+  checkAnyPermission([
+    { resource: "USERS", action: "READ" },
+    { resource: "REGIONAL_USERS", action: "READ" },
+  ]),
+  getUsers
+);
 
 router.get("/profile/me", getProfile);
 router.patch("/profile/me", validateUpdateProfile, updateProfile);
-router.post("/display-names", checkPermission("USERS", "READ"), getUserDisplayNames);
+router.post(
+  "/display-names",
+  checkAnyPermission([
+    { resource: "USERS", action: "READ" },
+    { resource: "REGIONAL_USERS", action: "READ" },
+  ]),
+  getUserDisplayNames
+);
 
-router.get("/:id", checkPermission("USERS", "READ"), getUserById);
+router.get(
+  "/:id",
+  checkAnyPermission([
+    { resource: "USERS", action: "READ" },
+    { resource: "REGIONAL_USERS", action: "READ" },
+  ]),
+  getUserById
+);
 
 /**
  * @swagger
@@ -86,7 +111,14 @@ router.get("/:id", checkPermission("USERS", "READ"), getUserById);
  *       201:
  *         description: User created
  */
-router.post("/", checkPermission("USERS", "CREATE"), createUser);
+router.post(
+  "/",
+  checkAnyPermission([
+    { resource: "USERS", action: "CREATE" },
+    { resource: "REGIONAL_USERS", action: "CREATE" },
+  ]),
+  createUser
+);
 
 /**
  * @swagger
@@ -123,7 +155,14 @@ router.post("/", checkPermission("USERS", "CREATE"), createUser);
  *       200:
  *         description: User updated
  */
-router.put("/:id", checkPermission("USERS", "UPDATE"), updateUser);
+router.put(
+  "/:id",
+  checkAnyPermission([
+    { resource: "USERS", action: "UPDATE" },
+    { resource: "REGIONAL_USERS", action: "UPDATE" },
+  ]),
+  updateUser
+);
 
 /**
  * @swagger
@@ -141,7 +180,14 @@ router.put("/:id", checkPermission("USERS", "UPDATE"), updateUser);
  *       200:
  *         description: User deactivated
  */
-router.delete("/:id", checkPermission("USERS", "DELETE"), deleteUser);
+router.delete(
+  "/:id",
+  checkAnyPermission([
+    { resource: "USERS", action: "DELETE" },
+    { resource: "REGIONAL_USERS", action: "DELETE" },
+  ]),
+  deleteUser
+);
 
 /**
  * @swagger
@@ -168,7 +214,14 @@ router.delete("/:id", checkPermission("USERS", "DELETE"), deleteUser);
  *       200:
  *         description: Status updated
  */
-router.patch("/:id/toggle-status", checkPermission("USERS", "UPDATE"), toggleUserActiveStatus);
+router.patch(
+  "/:id/toggle-status",
+  checkAnyPermission([
+    { resource: "USERS", action: "UPDATE" },
+    { resource: "REGIONAL_USERS", action: "UPDATE" },
+  ]),
+  toggleUserActiveStatus
+);
 
 /**
  * @swagger
@@ -186,6 +239,13 @@ router.patch("/:id/toggle-status", checkPermission("USERS", "UPDATE"), toggleUse
  *       200:
  *         description: Password reset successfully
  */
-router.post("/:id/reset-password", checkPermission("USERS", "UPDATE"), resetUserPassword);
+router.post(
+  "/:id/reset-password",
+  checkAnyPermission([
+    { resource: "USERS", action: "UPDATE" },
+    { resource: "REGIONAL_USERS", action: "UPDATE" },
+  ]),
+  resetUserPassword
+);
 
 module.exports = router;

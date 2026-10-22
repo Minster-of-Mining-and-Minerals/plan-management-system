@@ -3,11 +3,13 @@ import type {
   Region,
   RegionalStructure,
   RegionalBrandingData,
+  RegionalDashboardData,
   CreateRegionPayload,
   UpdateRegionPayload,
   CreateRegionalStructurePayload,
   UpdateRegionalStructurePayload,
 } from "../types/region";
+import type { Role } from "../types/user";
 
 export const regionApi = baseApi.injectEndpoints({
   overrideExisting: true,
@@ -208,7 +210,30 @@ export const regionApi = baseApi.injectEndpoints({
         { type: "RegionalBranding", id: region_id },
         { type: "Regions", id: region_id },
         { type: "Regions", id: "LIST" },
+        { type: "RegionalDashboard", id: region_id },
       ],
+    }),
+
+    getRegionalDashboard: builder.query<
+      RegionalDashboardData,
+      { region_id?: string } | void
+    >({
+      query: (params) => ({
+        url: "/regional/dashboard",
+        params: params?.region_id ? { region_id: params.region_id } : undefined,
+      }),
+      transformResponse: (res: { data: RegionalDashboardData }) => res.data,
+      providesTags: (_res, _err, arg) => [
+        { type: "RegionalDashboard", id: arg?.region_id || "CURRENT" },
+      ],
+    }),
+
+    getRegionalRoles: builder.query<Role[], void>({
+      query: () => ({
+        url: "/regional/roles",
+      }),
+      transformResponse: (res: { data: Role[] }) => res.data,
+      providesTags: [{ type: "Roles", id: "REGIONAL_LIST" }],
     }),
   }),
 });
@@ -229,4 +254,6 @@ export const {
   useRemoveUserFromRegionalStructureMutation,
   useGetRegionalBrandingQuery,
   useUpdateRegionalBrandingMutation,
+  useGetRegionalDashboardQuery,
+  useGetRegionalRolesQuery,
 } = regionApi;

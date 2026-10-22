@@ -1,11 +1,57 @@
-import RoleList from "@/features/template/component/roleList/roleList";
+"use client";
 
-function Roles() {
+import { useSearchParams, useRouter } from "next/navigation";
+import RoleList from "@/features/template/component/roleList/roleList";
+import RegionalRoleList from "@/features/template/component/roleList/RegionalRoleList";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Shield, MapPin } from "lucide-react";
+
+export default function RolesPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const currentTab = searchParams.get("tab") === "regional" ? "regional" : "system";
+
+  const handleTabChange = (val: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (val === "regional") {
+      params.set("tab", "regional");
+    } else {
+      params.delete("tab");
+    }
+    const query = params.toString() ? `?${params.toString()}` : "";
+    router.replace(`/users/roles${query}`);
+  };
+
   return (
-    <div>
-      <RoleList />
+    <div className="space-y-4">
+      <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
+        <div className="border-b bg-card/60 backdrop-blur-sm px-6 py-2.5 rounded-xl border flex items-center justify-between">
+          <TabsList className="grid grid-cols-2 h-10 w-full sm:w-[420px] bg-muted/60 p-1">
+            <TabsTrigger
+              value="system"
+              className="flex items-center gap-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all"
+            >
+              <Shield className="h-4 w-4" />
+              <span>System & Sector Roles</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="regional"
+              className="flex items-center gap-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all"
+            >
+              <MapPin className="h-4 w-4 text-indigo-500" />
+              <span>Regional Roles</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="system" className="mt-4 focus-visible:outline-none">
+          <RoleList />
+        </TabsContent>
+
+        <TabsContent value="regional" className="mt-4 focus-visible:outline-none">
+          <RegionalRoleList />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
-
-export default Roles;

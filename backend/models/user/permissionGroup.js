@@ -36,6 +36,12 @@ module.exports = (sequelize, DataTypes) => {
                 otherKey: "internal_structure_id",
                 as: "internalStructures",
             });
+
+            // Region association for regional permission groups
+            PermissionGroup.belongsTo(models.Region, {
+                foreignKey: "region_id",
+                as: "region",
+            });
         }
     }
 
@@ -54,6 +60,11 @@ module.exports = (sequelize, DataTypes) => {
 
             description: {
                 type: DataTypes.TEXT,
+                allowNull: true,
+            },
+
+            region_id: {
+                type: DataTypes.UUID,
                 allowNull: true,
             },
 

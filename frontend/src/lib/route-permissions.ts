@@ -101,6 +101,48 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/settings/notes/[id]", anyPermissions: ["NOTES:VIEW", "NOTES:MANAGE"] },
   { pattern: "/settings/notes", anyPermissions: ["NOTES:VIEW", "NOTES:MANAGE"] },
 
+  // Dynamic Regional Workspace (both /regions/[id] and /[id] variants)
+  { pattern: "/regions/[id]/departments", anyPermissions: ["REGIONAL_STRUCTURES:READ", "REGIONAL_STRUCTURES:MANAGE"] },
+  { pattern: "/regions/[id]/users/roles/new", anyPermissions: ["REGIONAL_ROLES:CREATE", "REGIONAL_ROLES:MANAGE"] },
+  { pattern: "/regions/[id]/users/roles/[roleId]", anyPermissions: ["REGIONAL_ROLES:READ", "REGIONAL_ROLES:MANAGE"] },
+  { pattern: "/regions/[id]/users/roles", anyPermissions: ["REGIONAL_ROLES:READ", "REGIONAL_ROLES:MANAGE"] },
+  { pattern: "/regions/[id]/users/permission-groups/new", anyPermissions: ["REGIONAL_PERMISSION_GROUPS:CREATE", "REGIONAL_PERMISSION_GROUPS:MANAGE"] },
+  { pattern: "/regions/[id]/users/permission-groups/[groupId]", anyPermissions: ["REGIONAL_PERMISSION_GROUPS:READ", "REGIONAL_PERMISSION_GROUPS:MANAGE"] },
+  { pattern: "/regions/[id]/users/permission-groups", anyPermissions: ["REGIONAL_PERMISSION_GROUPS:READ", "REGIONAL_PERMISSION_GROUPS:MANAGE"] },
+  { pattern: "/regions/[id]/users/permissions", anyPermissions: ["REGIONAL_PERMISSIONS:READ", "REGIONAL_PERMISSIONS:MANAGE", "REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] },
+  { pattern: "/regions/[id]/users/list", anyPermissions: ["REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] },
+  { pattern: "/regions/[id]/users", anyPermissions: ["REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] },
+  { pattern: "/regions/[id]/settings", anyPermissions: ["REGIONAL_BRANDING:READ", "REGIONAL_BRANDING:MANAGE"] },
+  { pattern: "/regions/[id]", anyPermissions: ["REGIONAL_DASHBOARD:VIEW"] },
+
+  { pattern: "/[id]/departments", anyPermissions: ["REGIONAL_STRUCTURES:READ", "REGIONAL_STRUCTURES:MANAGE"] },
+  { pattern: "/[id]/users/roles/new", anyPermissions: ["REGIONAL_ROLES:CREATE", "REGIONAL_ROLES:MANAGE"] },
+  { pattern: "/[id]/users/roles/[roleId]", anyPermissions: ["REGIONAL_ROLES:READ", "REGIONAL_ROLES:MANAGE"] },
+  { pattern: "/[id]/users/roles", anyPermissions: ["REGIONAL_ROLES:READ", "REGIONAL_ROLES:MANAGE"] },
+  { pattern: "/[id]/users/permission-groups/new", anyPermissions: ["REGIONAL_PERMISSION_GROUPS:CREATE", "REGIONAL_PERMISSION_GROUPS:MANAGE"] },
+  { pattern: "/[id]/users/permission-groups/[groupId]", anyPermissions: ["REGIONAL_PERMISSION_GROUPS:READ", "REGIONAL_PERMISSION_GROUPS:MANAGE"] },
+  { pattern: "/[id]/users/permission-groups", anyPermissions: ["REGIONAL_PERMISSION_GROUPS:READ", "REGIONAL_PERMISSION_GROUPS:MANAGE"] },
+  { pattern: "/[id]/users/permissions", anyPermissions: ["REGIONAL_PERMISSIONS:READ", "REGIONAL_PERMISSIONS:MANAGE", "REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] },
+  { pattern: "/[id]/users/list", anyPermissions: ["REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] },
+  { pattern: "/[id]/users", anyPermissions: ["REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] },
+  { pattern: "/[id]/settings", anyPermissions: ["REGIONAL_BRANDING:READ", "REGIONAL_BRANDING:MANAGE"] },
+  { pattern: "/[id]", anyPermissions: ["REGIONAL_DASHBOARD:VIEW"] },
+
+  // Regional Workspace fallback aliases
+  { pattern: "/regional/dashboard", anyPermissions: ["REGIONAL_DASHBOARD:VIEW"] },
+  { pattern: "/regional/departments", anyPermissions: ["REGIONAL_STRUCTURES:READ", "REGIONAL_STRUCTURES:MANAGE"] },
+  { pattern: "/regional/users/roles/new", anyPermissions: ["REGIONAL_ROLES:CREATE", "REGIONAL_ROLES:MANAGE"] },
+  { pattern: "/regional/users/roles/[roleId]", anyPermissions: ["REGIONAL_ROLES:READ", "REGIONAL_ROLES:MANAGE"] },
+  { pattern: "/regional/users/roles", anyPermissions: ["REGIONAL_ROLES:READ", "REGIONAL_ROLES:MANAGE"] },
+  { pattern: "/regional/users/permission-groups/new", anyPermissions: ["REGIONAL_PERMISSION_GROUPS:CREATE", "REGIONAL_PERMISSION_GROUPS:MANAGE"] },
+  { pattern: "/regional/users/permission-groups/[groupId]", anyPermissions: ["REGIONAL_PERMISSION_GROUPS:READ", "REGIONAL_PERMISSION_GROUPS:MANAGE"] },
+  { pattern: "/regional/users/permission-groups", anyPermissions: ["REGIONAL_PERMISSION_GROUPS:READ", "REGIONAL_PERMISSION_GROUPS:MANAGE"] },
+  { pattern: "/regional/users/permissions", anyPermissions: ["REGIONAL_PERMISSIONS:READ", "REGIONAL_PERMISSIONS:MANAGE", "REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] },
+  { pattern: "/regional/users/list", anyPermissions: ["REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] },
+  { pattern: "/regional/users", anyPermissions: ["REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] },
+  { pattern: "/regional/settings", anyPermissions: ["REGIONAL_BRANDING:READ", "REGIONAL_BRANDING:MANAGE"] },
+  { pattern: "/regional", anyPermissions: ["REGIONAL_DASHBOARD:VIEW", "REGIONAL_STRUCTURES:READ", "REGIONAL_USERS:READ", "REGIONAL_BRANDING:READ"] },
+
   // Dashboard
   { pattern: "/dashboard", anyPermissions: ["DASHBOARD:VIEW"] },
 
@@ -152,9 +194,23 @@ export function matchRoutePermissionRule(pathname: string): RoutePermissionRule 
  * Fallback route when access is denied — first accessible destination for the user.
  */
 export function getDefaultFallbackRoute(
-  userPermissions: readonly PermissionKey[]
+  userPermissions: readonly PermissionKey[],
+  isRegional?: boolean,
+  regionId?: string | null
 ): string {
-  const candidates: Array<{ path: string; rule: PermissionRule }> = [
+  const hasRegionalPerm = userPermissions.some((p) => p.startsWith("REGIONAL_"));
+  const shouldUseRegional = isRegional !== undefined ? isRegional : hasRegionalPerm;
+  const prefix = regionId ? `/regions/${regionId}` : "/regions";
+
+  const regionalCandidates: Array<{ path: string; rule: PermissionRule }> = [
+    { path: `${prefix}`, rule: { anyPermissions: ["REGIONAL_DASHBOARD:VIEW"] } },
+    { path: `${prefix}/departments`, rule: { anyPermissions: ["REGIONAL_STRUCTURES:READ", "REGIONAL_STRUCTURES:MANAGE"] } },
+    { path: `${prefix}/users`, rule: { anyPermissions: ["REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] } },
+    { path: `${prefix}/settings`, rule: { anyPermissions: ["REGIONAL_BRANDING:READ", "REGIONAL_BRANDING:MANAGE"] } },
+    { path: "/notifications", rule: {} },
+  ];
+
+  const federalCandidates: Array<{ path: string; rule: PermissionRule }> = [
     { path: "/dashboard", rule: { anyPermissions: ["DASHBOARD:VIEW"] } },
     { path: "/issues", rule: { anyPermissions: ["ISSUES:READ", "ISSUES:READ_ALL"] } },
     {
@@ -171,6 +227,8 @@ export function getDefaultFallbackRoute(
     { path: "/users/list", rule: { allPermissions: ["USERS:READ"] } },
     { path: "/notifications", rule: {} },
   ];
+
+  const candidates = shouldUseRegional ? regionalCandidates : federalCandidates;
 
   for (const { path, rule } of candidates) {
     if (canAccessRoute([...userPermissions], rule)) {

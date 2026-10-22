@@ -41,6 +41,7 @@ const updateUserSchema = Joi.object({
   email: joiEmailField({ required: false }),
   phone_number: Joi.string()
     .pattern(ETHIOPIAN_PHONE_REGEX)
+    .allow(null, "")
     .optional()
     .messages({
       "string.pattern.base":
@@ -53,6 +54,22 @@ const updateUserSchema = Joi.object({
     .messages({
       "string.guid": "Each role ID must be a valid UUID.",
     }),
+  government_structure_id: Joi.string()
+    .guid({ version: ["uuidv4", "uuidv5"] })
+    .allow(null, "")
+    .optional(),
+  internal_structure_id: Joi.string()
+    .guid({ version: ["uuidv4", "uuidv5"] })
+    .allow(null, "")
+    .optional(),
+  region_id: Joi.string()
+    .guid({ version: ["uuidv4", "uuidv5"] })
+    .allow(null, "")
+    .optional(),
+  regional_structure_id: Joi.string()
+    .guid({ version: ["uuidv4", "uuidv5"] })
+    .allow(null, "")
+    .optional(),
   is_active: Joi.boolean().optional(),
   is_first_logged_in: Joi.boolean().optional(),
   profile_image: Joi.string().max(500).allow(null, "").optional(),

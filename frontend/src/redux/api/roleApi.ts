@@ -8,7 +8,7 @@ export const roleApi = baseApi.injectEndpoints({
      * --------------------------- */
     getRoles: builder.query<
       Role[],
-      { is_active?: boolean; government_structure_id?: string } | void
+      { is_active?: boolean; government_structure_id?: string; scope?: string } | void
     >({
       query: (params) => {
         return params ? { url: "/roles", params } : { url: "/roles" };

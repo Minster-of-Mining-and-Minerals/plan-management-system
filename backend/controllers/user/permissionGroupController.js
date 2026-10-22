@@ -99,6 +99,40 @@ async function getPermissionGroupKind(permissionGroupId, options = {}) {
 }
 
 async function assertPermissionGroupAccessible(permissionGroupId, req, structureId) {
+    const group = await PermissionGroup.findByPk(permissionGroupId, {
+        attributes: ["permission_group_id", "group_kind", "region_id"],
+    });
+    if (!group) {
+        const error = new Error("Permission group not found.");
+        error.status = 404;
+        throw error;
+    }
+
+    if (group.group_kind === GROUP_KIND.REGIONAL || group.region_id) {
+        if (isSuperAdminActor(req)) {
+            return;
+        }
+        if (req.user?.is_regional) {
+            if (group.region_id && req.user.region_id && group.region_id !== req.user.region_id) {
+                const error = new Error("Access denied: permission group belongs to another region.");
+                error.status = 403;
+                throw error;
+            }
+            return;
+        }
+        const perms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
+        if (
+            perms.includes("regional_permission_groups:read") ||
+            perms.includes("regional_permission_groups:manage") ||
+            perms.includes("regions:manage")
+        ) {
+            return;
+        }
+        const error = new Error("Access denied: regional permission groups are restricted.");
+        error.status = 403;
+        throw error;
+    }
+
     if (isSuperAdminActor(req) && !structureId) {
         return;
     }
@@ -133,6 +167,40 @@ async function assertPermissionGroupAccessible(permissionGroupId, req, structure
 }
 
 async function assertPermissionGroupMutable(permissionGroupId, req) {
+    const group = await PermissionGroup.findByPk(permissionGroupId, {
+        attributes: ["permission_group_id", "group_kind", "region_id"],
+    });
+    if (!group) {
+        const error = new Error("Permission group not found.");
+        error.status = 404;
+        throw error;
+    }
+
+    if (group.group_kind === GROUP_KIND.REGIONAL || group.region_id) {
+        if (isSuperAdminActor(req)) {
+            return;
+        }
+        if (req.user?.is_regional) {
+            if (group.region_id && req.user.region_id && group.region_id !== req.user.region_id) {
+                const error = new Error("Access denied: permission group belongs to another region.");
+                error.status = 403;
+                throw error;
+            }
+            return;
+        }
+        const perms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
+        if (
+            perms.includes("regional_permission_groups:update") ||
+            perms.includes("regional_permission_groups:manage") ||
+            perms.includes("regions:manage")
+        ) {
+            return;
+        }
+        const error = new Error("Access denied: missing permission to modify regional permission groups.");
+        error.status = 403;
+        throw error;
+    }
+
     const structureId =
         req.body?.government_structure_id || req.query?.government_structure_id;
 
@@ -199,16 +267,31 @@ const createPermissionGroup = async (req, res) => {
             group_kind,
             government_structure_id: bodyStructureId,
         } = req.body;
-        const normalizedGroupKind = normalizeGroupKind(group_kind);
+        const isRegionalUser = Boolean(req.user?.is_regional);
+        const normalizedGroupKind = (isRegionalUser || group_kind === "regional" || group_kind === GROUP_KIND.REGIONAL)
+            ? GROUP_KIND.REGIONAL
+            : normalizeGroupKind(group_kind);
 
         assertCanManagePermissionGroup(req.user, normalizedGroupKind, "create");
 
-        let structureId;
-        try {
-            structureId = resolveManageableStructureId(req, bodyStructureId);
-        } catch (error) {
-            await t.rollback();
-            return sendScopeError(res, error);
+        let structureId = null;
+        let regionId = null;
+
+        if (normalizedGroupKind === GROUP_KIND.REGIONAL) {
+            regionId = isRegionalUser ? req.user.region_id : (req.body.region_id || null);
+            if (isRegionalUser && !regionId) {
+                await t.rollback();
+                return res.status(400).json({
+                    error: "Regional administrator must have a valid region_id.",
+                });
+            }
+        } else {
+            try {
+                structureId = resolveManageableStructureId(req, bodyStructureId);
+            } catch (error) {
+                await t.rollback();
+                return sendScopeError(res, error);
+            }
         }
 
         if (permission_ids?.length) {
@@ -230,6 +313,7 @@ const createPermissionGroup = async (req, res) => {
             description,
             is_active: true,
             group_kind: normalizedGroupKind,
+            region_id: regionId,
         }, { transaction: t });
 
         if (permission_ids && permission_ids.length > 0) {
@@ -270,16 +354,12 @@ const createPermissionGroup = async (req, res) => {
 const getPermissionGroups = async (req, res) => {
     try {
         const { government_structure_id: queryStructureId, is_active, group_kind } = req.query;
-        const normalizedGroupKind = resolveRequestedGroupKind(group_kind, undefined, GROUP_KIND.STANDARD);
+        const isRegionalUser = Boolean(req.user?.is_regional);
+        const normalizedGroupKind = (isRegionalUser || group_kind === "regional" || group_kind === GROUP_KIND.REGIONAL)
+            ? GROUP_KIND.REGIONAL
+            : resolveRequestedGroupKind(group_kind, undefined, GROUP_KIND.STANDARD);
 
         assertCanManagePermissionGroup(req.user, normalizedGroupKind, "read");
-
-        let structureId;
-        try {
-            structureId = resolveManageableStructureId(req, queryStructureId);
-        } catch (error) {
-            return sendScopeError(res, error);
-        }
 
         const where = {
             group_kind: normalizedGroupKind,
@@ -289,17 +369,32 @@ const getPermissionGroups = async (req, res) => {
             where.is_active = is_active === "true";
         }
 
-        if (structureId) {
-            const groupIds = await getPermissionGroupIdsForStructure(structureId);
-            if (groupIds.length === 0) {
-                return res.json({ data: [] });
+        if (normalizedGroupKind === GROUP_KIND.REGIONAL) {
+            if (isRegionalUser) {
+                where.region_id = req.user.region_id;
+            } else if (req.query.region_id) {
+                where.region_id = req.query.region_id;
             }
-            where.permission_group_id = { [Op.in]: groupIds };
-        } else if (!isSuperAdminActor(req)) {
-            return sendScopeError(res, {
-                status: 403,
-                message: "Access denied: structure context is required.",
-            });
+        } else {
+            let structureId;
+            try {
+                structureId = resolveManageableStructureId(req, queryStructureId);
+            } catch (error) {
+                return sendScopeError(res, error);
+            }
+
+            if (structureId) {
+                const groupIds = await getPermissionGroupIdsForStructure(structureId);
+                if (groupIds.length === 0) {
+                    return res.json({ data: [] });
+                }
+                where.permission_group_id = { [Op.in]: groupIds };
+            } else if (!isSuperAdminActor(req)) {
+                return sendScopeError(res, {
+                    status: 403,
+                    message: "Access denied: structure context is required.",
+                });
+            }
         }
 
         const groups = await PermissionGroup.findAll({
@@ -409,9 +504,11 @@ const updatePermissionGroup = async (req, res) => {
         }, { transaction: t });
 
         if (Array.isArray(permission_ids)) {
-            await assertPermissionIdsFitLinkedStructureHierarchies(id, permission_ids, {
-                ...structureScopeOptions(req, t),
-            });
+            if (nextGroupKind !== GROUP_KIND.REGIONAL) {
+                await assertPermissionIdsFitLinkedStructureHierarchies(id, permission_ids, {
+                    ...structureScopeOptions(req, t),
+                });
+            }
 
             // Remove existing permissions
             await PermissionGroupPermission.destroy({
@@ -495,11 +592,13 @@ const addPermissionsToGroup = async (req, res) => {
         const mergedIds = [...new Set([...existingIds, ...permission_ids])];
 
         await assertPermissionIdsMatchGroupKind(mergedIds, group.group_kind);
-        await assertPermissionIdsFitLinkedStructureHierarchies(
-            permission_group_id,
-            mergedIds,
-            structureScopeOptions(req)
-        );
+        if (group.group_kind !== GROUP_KIND.REGIONAL) {
+            await assertPermissionIdsFitLinkedStructureHierarchies(
+                permission_group_id,
+                mergedIds,
+                structureScopeOptions(req)
+            );
+        }
 
         const records = permission_ids.map((pid) => ({
             permission_group_id,
@@ -552,6 +651,28 @@ const addUsersToGroup = async (req, res) => {
         assertCanManagePermissionGroup(req.user, groupKind, "addUsers");
 
         await assertPermissionGroupMutable(permission_group_id, req);
+
+        const group = await PermissionGroup.findByPk(permission_group_id);
+        if (group.group_kind === GROUP_KIND.REGIONAL || group.region_id) {
+            const users = await User.findAll({ where: { user_id: user_ids } });
+            if (users.length !== user_ids.length) {
+                return res.status(400).json({ message: "One or more users were not found." });
+            }
+            for (const user of users) {
+                if (group.region_id && user.region_id !== group.region_id) {
+                    return res.status(403).json({
+                        message: "Access denied: user belongs to another region.",
+                    });
+                }
+            }
+            const records = user_ids.map((uid) => ({
+                id: uuidv4(),
+                user_id: uid,
+                permission_group_id,
+            }));
+            await UserPermissionGroup.bulkCreate(records);
+            return res.json({ message: "Users added" });
+        }
 
         const structureLinks = await GovernmentStructurePermissionGroup.findAll({
             where: { permission_group_id },

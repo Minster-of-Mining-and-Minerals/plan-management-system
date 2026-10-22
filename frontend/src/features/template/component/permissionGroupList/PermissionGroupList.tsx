@@ -23,6 +23,8 @@ import {
   STANDARD_PERMISSION_GROUP_CONFIG,
 } from "./permissionGroupSectionConfig";
 
+import { useSession } from "next-auth/react";
+
 export interface PermissionGroupListProps {
   government_structure_id?: string;
   hideLayout?: boolean;
@@ -38,6 +40,10 @@ export default function PermissionGroupList({
   readOnly = false,
   config = STANDARD_PERMISSION_GROUP_CONFIG,
 }: PermissionGroupListProps) {
+  const { data: session } = useSession();
+  const isRegional = config.groupKind === "regional";
+  const regionalUserRegionId = session?.user?.region_id;
+
   const { isSuperAdmin, structureId: sessionStructureId } = useStructureScope();
   const { can } = usePermissions();
   const structureId = government_structure_id || sessionStructureId || undefined;
@@ -47,17 +53,17 @@ export default function PermissionGroupList({
   const effectiveReadOnly = readOnly || !canUpdate;
 
   const queryArgs = {
-    ...(structureId ? { government_structure_id: structureId } : {}),
+    ...(structureId && !isRegional ? { government_structure_id: structureId } : {}),
     group_kind: config.groupKind,
-    ...(!structureId && isSuperAdmin ? {} : {}),
+    ...(isRegional && regionalUserRegionId ? { region_id: regionalUserRegionId } : {}),
   };
 
+  const shouldFetch = isRegional || Boolean(structureId || isSuperAdmin || sessionStructureId);
+
   const { data = [], isLoading, isError, refetch } = useGetPermissionGroupsQuery(
-    structureId || isSuperAdmin || sessionStructureId
-      ? queryArgs
-      : undefined,
+    shouldFetch ? queryArgs : undefined,
     {
-      skip: !isSuperAdmin && !structureId && !sessionStructureId,
+      skip: !shouldFetch,
     }
   );
   const [deleteGroup] = useDeletePermissionGroupMutation();
@@ -95,15 +101,19 @@ export default function PermissionGroupList({
       header: "Actions",
       cell: ({ row }) => {
         const group = row.original;
-        const viewPath = withStructureQuery(
-          `${config.basePath}/${group.permission_group_id}`,
-          structureId,
-          { mode: "view" }
-        );
-        const editPath = withStructureQuery(
-          `${config.basePath}/${group.permission_group_id}`,
-          structureId
-        );
+        const viewPath = isRegional
+          ? `${config.basePath}/${group.permission_group_id}?mode=view`
+          : withStructureQuery(
+              `${config.basePath}/${group.permission_group_id}`,
+              structureId,
+              { mode: "view" }
+            );
+        const editPath = isRegional
+          ? `${config.basePath}/${group.permission_group_id}`
+          : withStructureQuery(
+              `${config.basePath}/${group.permission_group_id}`,
+              structureId
+            );
         if (effectiveReadOnly) {
           return (
             <Button
@@ -189,11 +199,20 @@ export default function PermissionGroupList({
             onClick: () => console.log("Export clicked"),
           },
           {
-            label: config.groupKind === "special" ? "New Special Group" : "New Group",
+            label:
+              config.groupKind === "special"
+                ? "New Special Group"
+                : config.groupKind === "regional"
+                ? "New Regional Group"
+                : "New Group",
             icon: <Plus className="h-4 w-4" />,
             variant: "default",
             onClick: () =>
-              router.push(withStructureQuery(`${config.basePath}/new`, structureId)),
+              router.push(
+                isRegional
+                  ? `${config.basePath}/new`
+                  : withStructureQuery(`${config.basePath}/new`, structureId)
+              ),
           },
         ];
 
@@ -208,9 +227,11 @@ export default function PermissionGroupList({
       description={
         hideLayout
           ? undefined
-          : structureId
-            ? `Groups assigned to this sector structure`
-            : config.listDescription
+          : isRegional
+            ? config.listDescription
+            : structureId
+              ? `Groups assigned to this sector structure`
+              : config.listDescription
       }
       actions={actions}
       sideActions={sideActions}

@@ -27,6 +27,8 @@ import {
 } from "./permissionGroupSectionConfig";
 import { SpecialPermissionGroupGuidance } from "./SpecialPermissionGroupGuidance";
 
+import { useSession } from "next-auth/react";
+
 export default function CreatePermissionGroup({
   groupId,
   config = STANDARD_PERMISSION_GROUP_CONFIG,
@@ -37,6 +39,7 @@ export default function CreatePermissionGroup({
   const { id: paramId } = useParams<{ id?: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
   const { isSuperAdmin, structureId: sessionStructureId } = useStructureScope();
   const { can } = usePermissions();
   const id = groupId || paramId;
@@ -46,9 +49,12 @@ export default function CreatePermissionGroup({
   const forceViewMode = searchParams.get("mode") === "view";
   const canUpdateGroups = can(config.updatePermission);
   const isViewOnly = forceViewMode || (isEditMode && !canUpdateGroups);
-  const cancelHref = structureId
-    ? governmentStructureDetailPath(structureId)
-    : config.basePath;
+  const cancelHref =
+    config.groupKind === "regional"
+      ? config.basePath
+      : structureId
+      ? governmentStructureDetailPath(structureId)
+      : config.basePath;
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -60,6 +66,10 @@ export default function CreatePermissionGroup({
   const permissionTier = config.groupKind === "special" ? "special" : "standard";
 
   const permissionQueryArgs = useMemo((): GetPermissionsParams | undefined => {
+    if (config.groupKind === "regional") {
+      return { scope: "regional" };
+    }
+
     const base: GetPermissionsParams = { tier: permissionTier };
 
     // Special groups use the global special catalog for super admins so every
@@ -106,6 +116,10 @@ export default function CreatePermissionGroup({
 
     const activePermissions = permissionsResponse.filter((p: Permission & { permission_tier?: string }) => {
       if (p.is_active !== true) return false;
+      if (config.groupKind === "regional") {
+        const r = (p.resource || "").toLowerCase();
+        return r.startsWith("regional_") || r === "regions";
+      }
       const tier = (p.permission_tier || "standard").toLowerCase();
       return config.groupKind === "special" ? tier === "special" : tier === "standard";
     });
@@ -311,17 +325,27 @@ export default function CreatePermissionGroup({
           description: description.trim(),
           permission_ids: selectedPermissionIds,
           group_kind: config.groupKind,
-          ...(structureId ? { government_structure_id: structureId } : {}),
+          ...(config.groupKind === "regional"
+            ? { region_id: session?.user?.region_id || undefined }
+            : structureId
+            ? { government_structure_id: structureId }
+            : {}),
         }).unwrap();
 
         actionFeedback.success(
           config.groupKind === "special"
             ? "Special permission group created successfully!"
+            : config.groupKind === "regional"
+            ? "Regional permission group created successfully!"
             : "Permission group created successfully!"
         );
         resetForm();
         router.push(
-          structureId ? withStructureQuery(config.basePath, structureId) : config.basePath
+          config.groupKind === "regional"
+            ? config.basePath
+            : structureId
+            ? withStructureQuery(config.basePath, structureId)
+            : config.basePath
         );
       }
     } catch (error: any) {

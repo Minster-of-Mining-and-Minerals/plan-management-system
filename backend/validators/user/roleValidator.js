@@ -21,6 +21,14 @@ const createRoleSchema = Joi.object({
     .messages({
       "any.only": "role_type must be either 'internal' or 'external'",
     }),
+  scope: Joi.string().valid("structure", "global", "regional").optional(),
+  region_id: Joi.string()
+    .guid({ version: ["uuidv4", "uuidv5"] })
+    .optional()
+    .allow(null, "")
+    .messages({
+      "string.guid": "region_id must be a valid UUID",
+    }),
   is_active: Joi.boolean().optional(),
   permission_ids: Joi.alternatives()
     .try(
@@ -106,6 +114,14 @@ const updateRoleSchema = Joi.object({
     .valid("internal", "external")
     .messages({
       "any.only": "role_type must be either 'internal' or 'external'",
+    }),
+  scope: Joi.string().valid("structure", "global", "regional").optional(),
+  region_id: Joi.string()
+    .guid({ version: ["uuidv4", "uuidv5"] })
+    .optional()
+    .allow(null, "")
+    .messages({
+      "string.guid": "region_id must be a valid UUID",
     }),
   // Allow updating permissions at role level
   permission_ids: Joi.array()

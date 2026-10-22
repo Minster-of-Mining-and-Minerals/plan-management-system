@@ -44,7 +44,12 @@ async function getRegionalBranding(req, res) {
     let regionId = req.query.region_id;
 
     if (req.user?.is_regional) {
-      // Authenticated regional actor always resolves their own assigned region
+      if (req.query.region_id && req.query.region_id !== req.user.region_id) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied. Cannot access another region's branding.",
+        });
+      }
       regionId = req.user.region_id;
     }
 

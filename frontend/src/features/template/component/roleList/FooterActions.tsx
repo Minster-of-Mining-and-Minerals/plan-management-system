@@ -8,6 +8,7 @@ interface FooterActionsProps {
   name: string;
   selectedPermissionsCount: number;
   onSubmit: () => void;
+  onCancel?: () => void;
 }
 
 export const FooterActions: React.FC<FooterActionsProps> = ({
@@ -16,6 +17,7 @@ export const FooterActions: React.FC<FooterActionsProps> = ({
   name,
   selectedPermissionsCount,
   onSubmit,
+  onCancel,
 }) => {
   const router = useRouter();
 
@@ -27,7 +29,7 @@ export const FooterActions: React.FC<FooterActionsProps> = ({
             type="button"
             variant="outline"
             className="min-w-[150px] text-base"
-            onClick={() => router.push("/role")}
+            onClick={onCancel || (() => router.back())}
             disabled={isLoading}
           >
             Cancel

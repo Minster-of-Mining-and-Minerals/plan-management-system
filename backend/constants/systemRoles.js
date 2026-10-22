@@ -8,10 +8,20 @@ const SUPER_ADMIN_ROLE_NAME = "Super Admin";
 const USER_ROLE_ID = "10000000-0000-4000-8000-000000000010";
 const USER_ROLE_NAME = "User";
 
+const REGIONAL_ADMIN_ROLE_ID = "20000000-0000-4000-8000-000000000001";
+const REGIONAL_ADMIN_ROLE_NAME = "Regional Administrator";
+
+const REGIONAL_OFFICER_ROLE_ID = "20000000-0000-4000-8000-000000000002";
+const REGIONAL_OFFICER_ROLE_NAME = "Regional Officer";
+
+const REGIONAL_VIEWER_ROLE_ID = "20000000-0000-4000-8000-000000000003";
+const REGIONAL_VIEWER_ROLE_NAME = "Regional Viewer";
+
 const ROLE_SCOPE = {
   GLOBAL: "global",
   PRIVATE: "private",
   STRUCTURE: "structure",
+  REGIONAL: "regional",
 };
 
 /** System roles with global scope (all structures) */
@@ -20,6 +30,13 @@ const GLOBAL_ROLE_IDS = new Set([USER_ROLE_ID]);
 /** System roles with private scope (Super Admin only) */
 const PRIVATE_ROLE_IDS = new Set([SUPER_ADMIN_ROLE_ID]);
 
+/** Regional roles assignable to regional accounts */
+const REGIONAL_ROLE_IDS = new Set([
+  REGIONAL_ADMIN_ROLE_ID,
+  REGIONAL_OFFICER_ROLE_ID,
+  REGIONAL_VIEWER_ROLE_ID,
+]);
+
 /** Global roles structures may assign to their users */
 const STRUCTURE_ASSIGNABLE_GLOBAL_ROLE_IDS = new Set([USER_ROLE_ID]);
 
@@ -27,6 +44,9 @@ const STRUCTURE_ASSIGNABLE_GLOBAL_ROLE_IDS = new Set([USER_ROLE_ID]);
 const SYSTEM_PROTECTED_ROLE_IDS = new Set([
   SUPER_ADMIN_ROLE_ID,
   USER_ROLE_ID,
+  REGIONAL_ADMIN_ROLE_ID,
+  REGIONAL_OFFICER_ROLE_ID,
+  REGIONAL_VIEWER_ROLE_ID,
 ]);
 
 module.exports = {
@@ -34,9 +54,16 @@ module.exports = {
   SUPER_ADMIN_ROLE_NAME,
   USER_ROLE_ID,
   USER_ROLE_NAME,
+  REGIONAL_ADMIN_ROLE_ID,
+  REGIONAL_ADMIN_ROLE_NAME,
+  REGIONAL_OFFICER_ROLE_ID,
+  REGIONAL_OFFICER_ROLE_NAME,
+  REGIONAL_VIEWER_ROLE_ID,
+  REGIONAL_VIEWER_ROLE_NAME,
   ROLE_SCOPE,
   GLOBAL_ROLE_IDS,
   PRIVATE_ROLE_IDS,
+  REGIONAL_ROLE_IDS,
   STRUCTURE_ASSIGNABLE_GLOBAL_ROLE_IDS,
   SYSTEM_PROTECTED_ROLE_IDS,
 };

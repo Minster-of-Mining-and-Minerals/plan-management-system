@@ -101,3 +101,45 @@ export interface UpdateRegionalStructurePayload {
   parent_id?: string | null;
   is_active?: boolean;
 }
+
+export interface RegionalDashboardData {
+  region: {
+    region_id: string;
+    name: string;
+    code: string;
+    description?: string | null;
+    is_active: boolean;
+    created_at: string;
+  };
+  branding: RegionalBrandingData;
+  counts: {
+    departments: {
+      total: number;
+      root: number;
+      active: number;
+    };
+    users: {
+      total: number;
+      active: number;
+      assigned: number;
+      unassigned: number;
+    };
+  };
+  recent_departments: Array<{
+    regional_structure_id: string;
+    name: string;
+    level: number;
+    is_active: boolean;
+    created_at: string;
+  }>;
+  recent_users: Array<{
+    user_id: string;
+    full_name: string;
+    email: string;
+    is_active: boolean;
+    created_at: string;
+    roles?: Array<{ role_id: string; name: string; scope: string }>;
+    regional_structure?: { regional_structure_id: string; name: string } | null;
+  }>;
+}
+

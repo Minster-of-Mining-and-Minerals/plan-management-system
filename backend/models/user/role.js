@@ -17,9 +17,19 @@ module.exports = (sequelize, DataTypes) => {
         otherKey: "user_id",
         as: "users",
       });
+      Role.belongsToMany(models.Permission, {
+        through: models.RolePermission,
+        foreignKey: "role_id",
+        otherKey: "permission_id",
+        as: "permissions",
+      });
       Role.belongsTo(models.GovernmentStructure, {
         foreignKey: "government_structure_id",
         as: "governmentStructure",
+      });
+      Role.belongsTo(models.Region, {
+        foreignKey: "region_id",
+        as: "region",
       });
     }
   }
@@ -45,6 +55,10 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: "structure",
       },
       government_structure_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      region_id: {
         type: DataTypes.UUID,
         allowNull: true,
       },

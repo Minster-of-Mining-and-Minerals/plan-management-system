@@ -1,4 +1,5 @@
 const { Permission } = require("../../models");
+const { Op } = require("sequelize");
 const { getStructureAssignablePermissions } = require("../../utils/structureEffectivePermissionsUtils");
 const { normalizePermissionTier, PERMISSION_TIER, filterPermissionsByTier } = require("../../utils/specialPermissionGroupUtils");
 const {
@@ -9,10 +10,64 @@ const {
 
 const getPermissions = async (req, res) => {
   try {
-    const { government_structure_id: queryStructureId, scope, tier } = req.query;
+    const { government_structure_id: queryStructureId, scope, tier, is_active } = req.query;
 
     const normalizedTier = tier ? normalizePermissionTier(tier) : null;
     const wantsSpecialTier = normalizedTier === PERMISSION_TIER.SPECIAL;
+
+    // Strict regional separation: return only regional permissions when scope=regional or caller is regional
+    if (scope === "regional" || req.user?.is_regional) {
+      const where = {
+        [Op.or]: [
+          { resource: { [Op.like]: "regional_%" } },
+          { resource: "regions" },
+        ],
+      };
+      if (is_active !== undefined) {
+        where.is_active = is_active === "true";
+      }
+      if (tier) {
+        where.permission_tier = normalizePermissionTier(tier);
+      }
+
+      const permissions = await Permission.findAll({
+        where,
+        order: [["resource", "ASC"], ["action", "ASC"]],
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Regional permissions fetched successfully.",
+        data: permissions,
+      });
+    }
+
+    // System permissions separation: exclude regional permissions when scope=system
+    if (scope === "system") {
+      const where = {
+        [Op.and]: [
+          { resource: { [Op.notLike]: "regional_%" } },
+          { resource: { [Op.ne]: "regions" } },
+        ],
+      };
+      if (is_active !== undefined) {
+        where.is_active = is_active === "true";
+      }
+      if (tier) {
+        where.permission_tier = normalizePermissionTier(tier);
+      }
+
+      const permissions = await Permission.findAll({
+        where,
+        order: [["resource", "ASC"], ["action", "ASC"]],
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "System permissions fetched successfully.",
+        data: permissions,
+      });
+    }
 
     // Special governance permissions are global catalog entries. Structure-scoped
     // pickers hide them when the structure has not inherited every special permission.
@@ -102,16 +157,25 @@ const getStructureEffectivePermissionsHandler = async (req, res) => {
   }
 };
 
+function canManagePermissionRecord(req, permission) {
+  if (isSuperAdminActor(req)) return true;
+  const isRegional =
+    permission.resource.startsWith("regional_") || permission.resource === "regions";
+  if (isRegional) {
+    const userPerms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
+    return (
+      userPerms.includes("regional_permissions:update") ||
+      userPerms.includes("regional_permissions:manage") ||
+      userPerms.includes("regional_users:manage") ||
+      userPerms.includes("regions:manage")
+    );
+  }
+  return false;
+}
+
 // ====== Activate permission ======
 const activatePermission = async (req, res) => {
   try {
-    if (!isSuperAdminActor(req)) {
-      return res.status(403).json({
-        success: false,
-        message: "Only Super Admin can manage the global permission catalog.",
-      });
-    }
-
     const { permission_id } = req.params;
 
     const permission = await Permission.findByPk(permission_id);
@@ -119,6 +183,13 @@ const activatePermission = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, message: "Permission not found." });
+    }
+
+    if (!canManagePermissionRecord(req, permission)) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied: insufficient permission to manage this permission.",
+      });
     }
 
     permission.is_active = true;
@@ -138,13 +209,6 @@ const activatePermission = async (req, res) => {
 // ====== Deactivate permission ======
 const deactivatePermission = async (req, res) => {
   try {
-    if (!isSuperAdminActor(req)) {
-      return res.status(403).json({
-        success: false,
-        message: "Only Super Admin can manage the global permission catalog.",
-      });
-    }
-
     const { permission_id } = req.params;
 
     const permission = await Permission.findByPk(permission_id);
@@ -152,6 +216,13 @@ const deactivatePermission = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, message: "Permission not found." });
+    }
+
+    if (!canManagePermissionRecord(req, permission)) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied: insufficient permission to manage this permission.",
+      });
     }
 
     permission.is_active = false;
@@ -171,13 +242,6 @@ const deactivatePermission = async (req, res) => {
 // ====== Toggle permission ======
 const togglePermission = async (req, res) => {
   try {
-    if (!isSuperAdminActor(req)) {
-      return res.status(403).json({
-        success: false,
-        message: "Only Super Admin can manage the global permission catalog.",
-      });
-    }
-
     const { permission_id } = req.params;
 
     const permission = await Permission.findByPk(permission_id);
@@ -185,6 +249,13 @@ const togglePermission = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, message: "Permission not found." });
+    }
+
+    if (!canManagePermissionRecord(req, permission)) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied: insufficient permission to manage this permission.",
+      });
     }
 
     permission.is_active = !permission.is_active;

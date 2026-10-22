@@ -259,6 +259,7 @@ async function runTests() {
         is_federal: false,
         region_id: region1.region_id,
         roles: ["User"],
+        permissions: ["regional_users:update", "regional_users:manage", "regional_users:read"],
       },
     };
 
@@ -326,7 +327,7 @@ async function runTests() {
         structureScopeUtils.assertRegionAccessible(mockFederalReq, region1.region_id);
       },
       "Federal User is blocked from accessing Regional resources",
-      "Access denied: federal users cannot access regional operational resources"
+      "Access denied: federal account lacks regional management permission"
     );
 
     // Super Admin accessing both Federal and Regional -> Allowed

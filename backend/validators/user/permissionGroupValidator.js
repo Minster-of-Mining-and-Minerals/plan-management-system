@@ -16,7 +16,8 @@ const createPermissionGroupSchema = Joi.object({
 
     is_active: Joi.boolean().optional(),
 
-    group_kind: Joi.string().valid("standard", "special").optional(),
+    group_kind: Joi.string().valid("standard", "special", "regional").optional(),
+    region_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
 
     permission_ids: Joi.array()
         .items(
@@ -51,7 +52,8 @@ const updatePermissionGroupSchema = Joi.object({
     name: Joi.string().trim().min(2).max(150).optional(),
     description: Joi.string().allow("", null).optional(),
     is_active: Joi.boolean().optional(),
-    group_kind: Joi.string().valid("standard", "special").optional(),
+    group_kind: Joi.string().valid("standard", "special", "regional").optional(),
+    region_id: Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).allow(null).optional(),
     permission_ids: Joi.array()
         .items(
             Joi.string().guid({ version: ["uuidv4", "uuidv5"] }).messages({

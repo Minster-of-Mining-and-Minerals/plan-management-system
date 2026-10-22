@@ -189,9 +189,14 @@ const checkAnyPermission = (checks) => {
       });
     }
 
-    const hasAny = checks.some(({ resource, action }) =>
-      req.user.permissions.includes(`${resource.toLowerCase()}:${action.toLowerCase()}`)
-    );
+    const hasAny = checks.some(({ resource, action }) => {
+      const resLower = resource.toLowerCase();
+      const actLower = action.toLowerCase();
+      return (
+        req.user.permissions.includes(`${resLower}:${actLower}`) ||
+        req.user.permissions.includes(`${resLower}:manage`)
+      );
+    });
 
     if (!hasAny) {
       const required = checks.map(({ resource, action }) =>
