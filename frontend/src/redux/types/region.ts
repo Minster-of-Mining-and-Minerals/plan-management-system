@@ -140,6 +140,7 @@ export interface RegionalDashboardData {
     created_at: string;
     roles?: Array<{ role_id: string; name: string; scope: string }>;
     regional_structure?: { regional_structure_id: string; name: string } | null;
+    regionalStructure?: { regional_structure_id: string; name: string } | null;
   }>;
 }
 

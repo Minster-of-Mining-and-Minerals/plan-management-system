@@ -93,12 +93,20 @@ async function getRegionalDashboard(req, res) {
           },
           {
             model: RegionalStructure,
-            as: "regional_structure",
+            as: "regionalStructure",
             attributes: ["regional_structure_id", "name"],
           },
         ],
       }),
     ]);
+
+    const formattedRecentUsers = (recentUsers || []).map((u) => {
+      const plain = u.toJSON ? u.toJSON() : u;
+      return {
+        ...plain,
+        regional_structure: plain.regionalStructure,
+      };
+    });
 
     return res.status(200).json({
       success: true,
@@ -119,7 +127,7 @@ async function getRegionalDashboard(req, res) {
           },
         },
         recent_departments: recentDepts,
-        recent_users: recentUsers,
+        recent_users: formattedRecentUsers,
       },
     });
   } catch (error) {
