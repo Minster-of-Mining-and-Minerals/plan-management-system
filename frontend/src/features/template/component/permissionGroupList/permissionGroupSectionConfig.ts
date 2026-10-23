@@ -1,6 +1,6 @@
 import type { PermissionKey } from "@/lib/permissions";
 
-export type PermissionGroupKind = "standard" | "special" | "regional" | "company";
+export type PermissionGroupKind = "standard" | "special" | "regional" | "company" | "purchasing_center";
 
 export type PermissionGroupSectionConfig = {
   groupKind: PermissionGroupKind;
@@ -71,4 +71,18 @@ export const COMPANY_PERMISSION_GROUP_CONFIG: PermissionGroupSectionConfig = {
   createPermission: "COMPANY_PERMISSION_GROUPS:CREATE",
   updatePermission: "COMPANY_PERMISSION_GROUPS:UPDATE",
   deletePermission: "COMPANY_PERMISSION_GROUPS:DELETE",
+};
+
+export const PURCHASING_CENTER_PERMISSION_GROUP_CONFIG: PermissionGroupSectionConfig = {
+  groupKind: "purchasing_center",
+  basePath: "/purchasing-center/users/permission-groups",
+  listTitle: "Purchasing Center Permission Group Management",
+  listDescription: "View and manage permission groups scoped to your purchasing center",
+  createTitle: "Create Center Permission Group",
+  editTitle: "Edit Center Permission Group",
+  viewTitle: "View Center Permission Group",
+  readPermission: "PURCHASING_CENTER_PERMISSION_GROUPS:READ",
+  createPermission: "PURCHASING_CENTER_PERMISSION_GROUPS:CREATE",
+  updatePermission: "PURCHASING_CENTER_PERMISSION_GROUPS:UPDATE",
+  deletePermission: "PURCHASING_CENTER_PERMISSION_GROUPS:DELETE",
 };

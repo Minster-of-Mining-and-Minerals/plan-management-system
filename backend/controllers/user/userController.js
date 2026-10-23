@@ -10,6 +10,7 @@ const {
   PermissionGroup,
   Company,
   CompanyStructure,
+  PurchasingCenter,
 } = require("../../models");
 const { v4: uuidv4, validate: isUuid } = require("uuid");
 const { Op } = require("sequelize");
@@ -26,15 +27,19 @@ const {
   isSuperAdminActor,
   isRegionalActor,
   isCompanyActor,
+  isPurchasingCenterActor,
   resolveManageableStructureId,
   resolveUserGovernmentStructureFilter,
   assertRoleAssignable,
   assertRegionalRoleAssignable,
   assertCompanyRoleAssignable,
+  assertPurchasingCenterRoleAssignable,
   assertUserInStructure,
   assertUserManageable,
   assertRegionAccessible,
   assertCompanyAccessible,
+  assertPurchasingCenterAccessible,
+  assertPurchasingCenterUserManageable,
   assertFederalAccessible,
   sendScopeError,
 } = require("../../utils/structureScopeUtils");
@@ -66,6 +71,8 @@ async function validateRoleAssignments(role_ids, structureId, req, transaction, 
       assertRegionalRoleAssignable(role, req);
     } else if (domain === "company") {
       assertCompanyRoleAssignable(role, req);
+    } else if (domain === "purchasing_center") {
+      assertPurchasingCenterRoleAssignable(role, req);
     } else {
       assertRoleAssignable(role, structureId, req);
     }
@@ -103,6 +110,10 @@ const userDetailIncludes = [
     as: "companyStructure",
   },
   {
+    model: PurchasingCenter,
+    as: "purchasingCenter",
+  },
+  {
     model: PermissionGroup,
     as: "permissionGroups",
     through: { attributes: [] },
@@ -123,25 +134,36 @@ const createUser = async (req, res) => {
       regional_structure_id,
       company_id,
       company_structure_id,
+      purchasing_center_id,
     } = req.body;
     const email = normalizeEmail(req.body.email);
 
     const hasFederal = Boolean(government_structure_id || internal_structure_id);
     const hasRegional = Boolean(region_id || regional_structure_id);
     const hasCompany = Boolean(company_id || company_structure_id);
+    const hasPurchasingCenter = Boolean(purchasing_center_id);
 
     // Enforce mutual exclusivity of domain assignments (at most 1 domain)
-    const domainCount = [hasFederal, hasRegional, hasCompany].filter(Boolean).length;
+    const domainCount = [hasFederal, hasRegional, hasCompany, hasPurchasingCenter].filter(Boolean).length;
     if (domainCount > 1) {
       await t.rollback();
       return res.status(400).json({
         success: false,
-        message: "An account cannot be assigned to multiple domains (federal, regional, company) simultaneously.",
+        message: "An account cannot be assigned to multiple domains (federal, regional, company, purchasing center) simultaneously.",
+      });
+    }
+
+    // Purchasing center user cannot create accounts outside their purchasing center
+    if (req.user?.is_purchasing_center && (hasRegional || hasFederal || hasCompany)) {
+      await t.rollback();
+      return res.status(403).json({
+        success: false,
+        message: "Purchasing center users cannot create accounts outside their purchasing center domain.",
       });
     }
 
     // Company user cannot create accounts outside their company
-    if (req.user?.is_company && (hasRegional || hasFederal)) {
+    if (req.user?.is_company && (hasRegional || hasFederal || hasPurchasingCenter)) {
       await t.rollback();
       return res.status(403).json({
         success: false,
@@ -150,11 +172,11 @@ const createUser = async (req, res) => {
     }
 
     // Regional user cannot create accounts outside their region
-    if (req.user?.is_regional && (hasCompany || hasFederal)) {
+    if (req.user?.is_regional && (hasCompany || hasFederal || hasPurchasingCenter)) {
       await t.rollback();
       return res.status(403).json({
         success: false,
-        message: "Regional users cannot create company or federal accounts.",
+        message: "Regional users cannot create company, purchasing center, or federal accounts.",
       });
     }
 
@@ -277,6 +299,7 @@ const createUser = async (req, res) => {
           regional_structure_id: null,
           company_id: targetCompanyId,
           company_structure_id: company_structure_id || null,
+          purchasing_center_id: null,
           created_at: new Date(),
           updated_at: new Date(),
         },
@@ -463,6 +486,7 @@ const createUser = async (req, res) => {
           regional_structure_id: regional_structure_id || null,
           company_id: null,
           company_structure_id: null,
+          purchasing_center_id: null,
           created_at: new Date(),
           updated_at: new Date(),
         },
@@ -528,12 +552,188 @@ const createUser = async (req, res) => {
       });
     }
 
+    // Purchasing Center account creation path
+    if (hasPurchasingCenter || req.user?.is_purchasing_center) {
+      if (
+        government_structure_id ||
+        internal_structure_id ||
+        regional_structure_id ||
+        company_structure_id
+      ) {
+        await t.rollback();
+        return res.status(400).json({
+          success: false,
+          message:
+            "Purchasing center accounts cannot be assigned to departments or organizational structures.",
+        });
+      }
+
+      let targetPurchasingCenterId = purchasing_center_id;
+      if (req.user?.is_purchasing_center) {
+        if (purchasing_center_id && purchasing_center_id !== req.user.purchasing_center_id) {
+          await t.rollback();
+          return res.status(403).json({
+            success: false,
+            message: "Purchasing center users cannot create accounts for other purchasing centers.",
+          });
+        }
+        targetPurchasingCenterId = req.user.purchasing_center_id;
+
+        const actorPerms = (req.user.permissions || []).map((p) => String(p).toLowerCase());
+        const hasPCCreatePerm =
+          actorPerms.includes("purchasing_center_users:create") ||
+          actorPerms.includes("purchasing_center_users:manage") ||
+          actorPerms.includes("purchasing_centers:manage") ||
+          isSuperAdminActor(req);
+
+        if (!hasPCCreatePerm) {
+          await t.rollback();
+          return res.status(403).json({
+            success: false,
+            message: "Access denied: missing purchasing center user creation permission.",
+          });
+        }
+      } else {
+        const actorPerms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
+        const hasFederalPCCreate =
+          actorPerms.includes("purchasing_center_users:create") ||
+          actorPerms.includes("purchasing_center_users:manage") ||
+          actorPerms.includes("purchasing_centers:manage") ||
+          actorPerms.includes("users:create") ||
+          actorPerms.includes("users:manage") ||
+          isSuperAdminActor(req);
+
+        if (!hasFederalPCCreate) {
+          await t.rollback();
+          return res.status(403).json({
+            success: false,
+            message: "Access denied: federal account lacks purchasing center user creation permission.",
+          });
+        }
+      }
+
+      if (!targetPurchasingCenterId) {
+        await t.rollback();
+        return res.status(400).json({
+          success: false,
+          message: "purchasing_center_id is required for purchasing center accounts.",
+        });
+      }
+
+      const targetPC = await PurchasingCenter.findByPk(targetPurchasingCenterId, { transaction: t });
+      if (!targetPC) {
+        await t.rollback();
+        return res.status(400).json({
+          success: false,
+          message: "Target purchasing center not found.",
+        });
+      }
+      if (!targetPC.is_active) {
+        await t.rollback();
+        return res.status(400).json({
+          success: false,
+          message: "Cannot create accounts in a deactivated purchasing center.",
+        });
+      }
+
+      const existingUser = await User.findOne({
+        where: { email: { [Op.iLike]: email } },
+        transaction: t,
+      });
+      if (existingUser) {
+        await t.rollback();
+        return res.status(400).json({ success: false, message: "User already exists." });
+      }
+
+      const password = "12345678";
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const user = await User.create(
+        {
+          user_id: uuidv4(),
+          full_name,
+          email,
+          password: hashedPassword,
+          phone_number,
+          is_first_logged_in: true,
+          is_active: true,
+          government_structure_id: null,
+          internal_structure_id: null,
+          region_id: null,
+          regional_structure_id: null,
+          company_id: null,
+          company_structure_id: null,
+          purchasing_center_id: targetPurchasingCenterId,
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
+        { transaction: t }
+      );
+
+      if (role_ids && Array.isArray(role_ids) && role_ids.length > 0) {
+        try {
+          await validateRoleAssignments(role_ids, null, req, t, "purchasing_center");
+        } catch (error) {
+          await t.rollback();
+          return sendScopeError(res, error);
+        }
+
+        const roleAssignments = role_ids.map((rid) => ({
+          user_role_id: uuidv4(),
+          user_id: user.user_id,
+          role_id: rid,
+          assigned_by: req.user?.user_id || null,
+          assigned_at: new Date(),
+          is_active: true,
+        }));
+        await UserRoles.bulkCreate(roleAssignments, { transaction: t });
+      }
+
+      await recordSystemAuditLog(
+        {
+          module: AUDIT_MODULES.USERS,
+          action: "create",
+          entityId: user.user_id,
+          entityLabel: user.full_name,
+          newValues: {
+            user_id: user.user_id,
+            full_name: user.full_name,
+            email: user.email,
+            phone_number: user.phone_number,
+            purchasing_center_id: user.purchasing_center_id,
+            is_active: user.is_active,
+          },
+          changedBy: req.user.user_id,
+          ipAddress: getClientIp(req),
+        },
+        t
+      );
+
+      await t.commit();
+
+      await sendEmail(
+        email,
+        `Welcome to ${process.env.APP_NAME}!`,
+        `Dear ${full_name},\nYour account for ${targetPC.name} has been created.\nEmail: ${email}\nTemporary Password: ${password}\nPlease change your password after first login.`
+      );
+
+      const createdWithIncludes = await User.findByPk(user.user_id, {
+        include: userDetailIncludes,
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Purchasing center user created successfully.",
+        data: createdWithIncludes || user,
+      });
+    }
+
     // Federal account creation path:
-    if (req.user?.is_regional || req.user?.is_company) {
+    if (req.user?.is_regional || req.user?.is_company || req.user?.is_purchasing_center) {
       await t.rollback();
       return res.status(403).json({
         success: false,
-        message: "Regional or company users cannot create federal accounts.",
+        message: "Regional, company, or purchasing center users cannot create federal accounts.",
       });
     }
 
@@ -599,6 +799,7 @@ const createUser = async (req, res) => {
         regional_structure_id: null,
         company_id: null,
         company_structure_id: null,
+        purchasing_center_id: null,
         created_at: new Date(),
         updated_at: new Date(),
       },
@@ -684,6 +885,7 @@ const updateUser = async (req, res) => {
       regional_structure_id,
       company_id,
       company_structure_id,
+      purchasing_center_id,
       profile_image,
     } = req.body;
     const email = req.body.email != null ? normalizeEmail(req.body.email) : undefined;
@@ -714,11 +916,18 @@ const updateUser = async (req, res) => {
     // Strict account-domain boundary check:
     if (user.company_id) {
       // User is in Company domain
-      if (government_structure_id || internal_structure_id || region_id || regional_structure_id) {
+      if (
+        government_structure_id ||
+        internal_structure_id ||
+        region_id ||
+        regional_structure_id ||
+        purchasing_center_id
+      ) {
         await t.rollback();
         return res.status(400).json({
           success: false,
-          message: "Cannot assign federal or regional structures to a company account. Accounts cannot cross domains.",
+          message:
+            "Cannot assign federal, regional, or purchasing center structures to a company account. Accounts cannot cross domains.",
         });
       }
 
@@ -726,18 +935,22 @@ const updateUser = async (req, res) => {
         await t.rollback();
         return res.status(400).json({
           success: false,
-          message: "Cannot transfer a user across companies. Accounts must remain strictly within their assigned company.",
+          message:
+            "Cannot transfer a user across companies. Accounts must remain strictly within their assigned company.",
         });
       }
 
       if (company_structure_id !== undefined) {
         if (company_structure_id) {
-          const compStruct = await CompanyStructure.findByPk(company_structure_id, { transaction: t });
+          const compStruct = await CompanyStructure.findByPk(company_structure_id, {
+            transaction: t,
+          });
           if (!compStruct || compStruct.company_id !== user.company_id) {
             await t.rollback();
             return res.status(400).json({
               success: false,
-              message: "Target company department does not exist or belongs to another company.",
+              message:
+                "Target company department does not exist or belongs to another company.",
             });
           }
           if (!compStruct.is_active) {
@@ -754,11 +967,18 @@ const updateUser = async (req, res) => {
       }
     } else if (user.region_id) {
       // User is in Regional domain
-      if (government_structure_id || internal_structure_id || company_id || company_structure_id) {
+      if (
+        government_structure_id ||
+        internal_structure_id ||
+        company_id ||
+        company_structure_id ||
+        purchasing_center_id
+      ) {
         await t.rollback();
         return res.status(400).json({
           success: false,
-          message: "Cannot assign federal or company structures to a regional account. Accounts cannot cross domains.",
+          message:
+            "Cannot assign federal, company, or purchasing center structures to a regional account. Accounts cannot cross domains.",
         });
       }
 
@@ -766,18 +986,22 @@ const updateUser = async (req, res) => {
         await t.rollback();
         return res.status(400).json({
           success: false,
-          message: "Cannot transfer a user across regions. Accounts must remain strictly within their assigned region.",
+          message:
+            "Cannot transfer a user across regions. Accounts must remain strictly within their assigned region.",
         });
       }
 
       if (regional_structure_id !== undefined) {
         if (regional_structure_id) {
-          const regStruct = await RegionalStructure.findByPk(regional_structure_id, { transaction: t });
+          const regStruct = await RegionalStructure.findByPk(regional_structure_id, {
+            transaction: t,
+          });
           if (!regStruct || regStruct.region_id !== user.region_id) {
             await t.rollback();
             return res.status(400).json({
               success: false,
-              message: "Target regional department does not exist or belongs to another region.",
+              message:
+                "Target regional department does not exist or belongs to another region.",
             });
           }
           if (!regStruct.is_active) {
@@ -792,13 +1016,46 @@ const updateUser = async (req, res) => {
           targetRegionalStructureId = null;
         }
       }
-    } else {
-      // User is in Federal domain
-      if (region_id || regional_structure_id || company_id || company_structure_id) {
+    } else if (user.purchasing_center_id) {
+      // User is in Purchasing Center domain
+      if (
+        government_structure_id ||
+        internal_structure_id ||
+        region_id ||
+        regional_structure_id ||
+        company_id ||
+        company_structure_id
+      ) {
         await t.rollback();
         return res.status(400).json({
           success: false,
-          message: "Cannot assign regional or company structures to a federal account. Accounts cannot cross domains.",
+          message:
+            "Cannot assign federal, regional, or company structures to a purchasing center account. Accounts cannot cross domains or have departments.",
+        });
+      }
+
+      if (purchasing_center_id && purchasing_center_id !== user.purchasing_center_id) {
+        await t.rollback();
+        return res.status(400).json({
+          success: false,
+          message:
+            "Cannot transfer a user across purchasing centers. Accounts must remain strictly within their assigned purchasing center.",
+        });
+      }
+    } else {
+      // User is in Federal domain
+      if (
+        region_id ||
+        regional_structure_id ||
+        company_id ||
+        company_structure_id ||
+        purchasing_center_id
+      ) {
+        await t.rollback();
+        return res.status(400).json({
+          success: false,
+          message:
+            "Cannot assign regional, company, or purchasing center structures to a federal account. Accounts cannot cross domains.",
         });
       }
 
@@ -834,6 +1091,7 @@ const updateUser = async (req, res) => {
       regional_structure_id: user.regional_structure_id,
       company_id: user.company_id,
       company_structure_id: user.company_structure_id,
+      purchasing_center_id: user.purchasing_center_id,
     };
 
     // ====== Check for email duplication ======
@@ -875,7 +1133,13 @@ const updateUser = async (req, res) => {
 
     // ====== Update roles if provided ======
     if (role_ids && Array.isArray(role_ids)) {
-      const targetDomain = user.company_id ? "company" : user.region_id ? "regional" : "federal";
+      const targetDomain = user.purchasing_center_id
+        ? "purchasing_center"
+        : user.company_id
+        ? "company"
+        : user.region_id
+        ? "regional"
+        : "federal";
       try {
         await validateRoleAssignments(
           role_ids,
@@ -962,6 +1226,7 @@ const getUsers = async (req, res) => {
       region_id,
       company_id,
       company_structure_id,
+      purchasing_center_id,
       domain,
     } = req.query;
 
@@ -969,8 +1234,31 @@ const getUsers = async (req, res) => {
 
     if (is_active !== undefined) whereClause.is_active = is_active === "true";
 
-    // Domain, region, and company filtering
-    if (req.user?.is_company) {
+    // Domain, region, company, and purchasing center filtering
+    if (req.user?.is_purchasing_center) {
+      if (purchasing_center_id && purchasing_center_id !== req.user.purchasing_center_id) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied: cannot access users of another purchasing center.",
+        });
+      }
+
+      const actorPerms = (req.user.permissions || []).map((p) => String(p).toLowerCase());
+      const hasPCUserRead =
+        actorPerms.includes("purchasing_center_users:read") ||
+        actorPerms.includes("purchasing_center_users:manage") ||
+        actorPerms.includes("purchasing_centers:manage") ||
+        isSuperAdminActor(req);
+
+      if (!hasPCUserRead) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied: missing purchasing center user read permission.",
+        });
+      }
+
+      whereClause.purchasing_center_id = req.user.purchasing_center_id;
+    } else if (req.user?.is_company) {
       if (company_id && company_id !== req.user.company_id) {
         return res.status(403).json({
           success: false,
@@ -1021,10 +1309,35 @@ const getUsers = async (req, res) => {
       }
     } else {
       // Federal caller
+      const isTargetingPC = Boolean(purchasing_center_id || domain === "purchasing_center");
       const isTargetingCompany = Boolean(company_id || domain === "company");
       const isTargetingRegional = Boolean(region_id || domain === "regional");
 
-      if (isTargetingCompany) {
+      if (isTargetingPC) {
+        const actorPerms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
+        const hasFederalPCUserRead =
+          actorPerms.includes("purchasing_center_users:read") ||
+          actorPerms.includes("purchasing_center_users:manage") ||
+          actorPerms.includes("purchasing_centers:read") ||
+          actorPerms.includes("purchasing_centers:manage") ||
+          isSuperAdminActor(req);
+
+        if (!hasFederalPCUserRead) {
+          return res.status(403).json({
+            success: false,
+            message: "Access denied: federal account lacks purchasing center user management permission.",
+          });
+        }
+
+        if (purchasing_center_id) {
+          whereClause.purchasing_center_id = purchasing_center_id;
+        } else {
+          whereClause.purchasing_center_id = { [Op.ne]: null };
+        }
+        whereClause.company_id = null;
+        whereClause.region_id = null;
+        whereClause.government_structure_id = null;
+      } else if (isTargetingCompany) {
         const actorPerms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
         const hasFederalCompanyUserRead =
           actorPerms.includes("company_users:read") ||
@@ -1047,6 +1360,7 @@ const getUsers = async (req, res) => {
         }
         whereClause.region_id = null;
         whereClause.government_structure_id = null;
+        whereClause.purchasing_center_id = null;
 
         if (company_structure_id || internal_structure_id) {
           whereClause.company_structure_id = company_structure_id || internal_structure_id;
@@ -1073,6 +1387,7 @@ const getUsers = async (req, res) => {
         }
         whereClause.company_id = null;
         whereClause.government_structure_id = null;
+        whereClause.purchasing_center_id = null;
 
         if (internal_structure_id) {
           whereClause.regional_structure_id = internal_structure_id;
@@ -1080,6 +1395,7 @@ const getUsers = async (req, res) => {
       } else {
         whereClause.region_id = null;
         whereClause.company_id = null;
+        whereClause.purchasing_center_id = null;
 
         if (internal_structure_id) {
           whereClause.internal_structure_id = internal_structure_id;
@@ -1440,6 +1756,18 @@ const getUserDisplayNames = async (req, res) => {
 
     if (!uniqueIds.length) {
       return res.status(200).json({ success: true, data: {} });
+    }
+
+    if (req.user?.is_purchasing_center) {
+      const users = await User.findAll({
+        where: { user_id: { [Op.in]: uniqueIds }, purchasing_center_id: req.user.purchasing_center_id },
+        attributes: ["user_id", "full_name", "email"],
+      });
+      const data = {};
+      for (const u of users) {
+        data[u.user_id] = { full_name: u.full_name, email: u.email };
+      }
+      return res.status(200).json({ success: true, data });
     }
 
     if (req.user?.is_company) {

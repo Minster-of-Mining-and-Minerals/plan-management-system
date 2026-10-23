@@ -85,6 +85,10 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/admin/companies/[id]", anyPermissions: ["COMPANIES:READ", "COMPANIES:MANAGE", "COMPANIES:UPDATE"] },
   { pattern: "/admin/companies", anyPermissions: ["COMPANIES:READ", "COMPANIES:MANAGE"] },
 
+  // Purchasing Center Administration
+  { pattern: "/admin/purchasing-centers/[id]", anyPermissions: ["PURCHASING_CENTERS:READ", "PURCHASING_CENTERS:MANAGE", "PURCHASING_CENTERS:UPDATE"] },
+  { pattern: "/admin/purchasing-centers", anyPermissions: ["PURCHASING_CENTERS:READ", "PURCHASING_CENTERS:MANAGE"] },
+
   // Issues
   { pattern: "/issues/form-config", allPermissions: ["FORM_CONFIG_CONTAINERS:READ"] },
   { pattern: "/issues/categories", allPermissions: ["ISSUE_CATEGORIES:READ"] },
@@ -160,6 +164,33 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/companies/[id]/users", anyPermissions: ["COMPANY_USERS:READ", "COMPANY_USERS:MANAGE"] },
   { pattern: "/companies/[id]/settings", anyPermissions: ["COMPANY_BRANDING:READ", "COMPANY_BRANDING:MANAGE"] },
   { pattern: "/companies/[id]", anyPermissions: ["COMPANY_DASHBOARD:VIEW"] },
+
+  // Dynamic Purchasing Center Workspace (strictly NO departments!)
+  { pattern: "/purchasing-centers/[id]/users/roles/new", anyPermissions: ["PURCHASING_CENTER_ROLES:CREATE", "PURCHASING_CENTER_ROLES:MANAGE"] },
+  { pattern: "/purchasing-centers/[id]/users/roles/[roleId]", anyPermissions: ["PURCHASING_CENTER_ROLES:READ", "PURCHASING_CENTER_ROLES:MANAGE"] },
+  { pattern: "/purchasing-centers/[id]/users/roles", anyPermissions: ["PURCHASING_CENTER_ROLES:READ", "PURCHASING_CENTER_ROLES:MANAGE"] },
+  { pattern: "/purchasing-centers/[id]/users/permission-groups/new", anyPermissions: ["PURCHASING_CENTER_PERMISSION_GROUPS:CREATE", "PURCHASING_CENTER_PERMISSION_GROUPS:MANAGE"] },
+  { pattern: "/purchasing-centers/[id]/users/permission-groups/[groupId]", anyPermissions: ["PURCHASING_CENTER_PERMISSION_GROUPS:READ", "PURCHASING_CENTER_PERMISSION_GROUPS:MANAGE"] },
+  { pattern: "/purchasing-centers/[id]/users/permission-groups", anyPermissions: ["PURCHASING_CENTER_PERMISSION_GROUPS:READ", "PURCHASING_CENTER_PERMISSION_GROUPS:MANAGE"] },
+  { pattern: "/purchasing-centers/[id]/users/permissions", anyPermissions: ["PURCHASING_CENTER_PERMISSIONS:READ", "PURCHASING_CENTER_PERMISSIONS:MANAGE", "PURCHASING_CENTER_USERS:READ", "PURCHASING_CENTER_USERS:MANAGE"] },
+  { pattern: "/purchasing-centers/[id]/users/list", anyPermissions: ["PURCHASING_CENTER_USERS:READ", "PURCHASING_CENTER_USERS:MANAGE"] },
+  { pattern: "/purchasing-centers/[id]/users", anyPermissions: ["PURCHASING_CENTER_USERS:READ", "PURCHASING_CENTER_USERS:MANAGE"] },
+  { pattern: "/purchasing-centers/[id]/settings", anyPermissions: ["PURCHASING_CENTER_BRANDING:READ", "PURCHASING_CENTER_BRANDING:MANAGE"] },
+  { pattern: "/purchasing-centers/[id]", anyPermissions: ["PURCHASING_CENTER_DASHBOARD:VIEW"] },
+
+  // Purchasing Center Workspace fallback aliases
+  { pattern: "/purchasing-center/dashboard", anyPermissions: ["PURCHASING_CENTER_DASHBOARD:VIEW"] },
+  { pattern: "/purchasing-center/users/roles/new", anyPermissions: ["PURCHASING_CENTER_ROLES:CREATE", "PURCHASING_CENTER_ROLES:MANAGE"] },
+  { pattern: "/purchasing-center/users/roles/[roleId]", anyPermissions: ["PURCHASING_CENTER_ROLES:READ", "PURCHASING_CENTER_ROLES:MANAGE"] },
+  { pattern: "/purchasing-center/users/roles", anyPermissions: ["PURCHASING_CENTER_ROLES:READ", "PURCHASING_CENTER_ROLES:MANAGE"] },
+  { pattern: "/purchasing-center/users/permission-groups/new", anyPermissions: ["PURCHASING_CENTER_PERMISSION_GROUPS:CREATE", "PURCHASING_CENTER_PERMISSION_GROUPS:MANAGE"] },
+  { pattern: "/purchasing-center/users/permission-groups/[groupId]", anyPermissions: ["PURCHASING_CENTER_PERMISSION_GROUPS:READ", "PURCHASING_CENTER_PERMISSION_GROUPS:MANAGE"] },
+  { pattern: "/purchasing-center/users/permission-groups", anyPermissions: ["PURCHASING_CENTER_PERMISSION_GROUPS:READ", "PURCHASING_CENTER_PERMISSION_GROUPS:MANAGE"] },
+  { pattern: "/purchasing-center/users/permissions", anyPermissions: ["PURCHASING_CENTER_PERMISSIONS:READ", "PURCHASING_CENTER_PERMISSIONS:MANAGE", "PURCHASING_CENTER_USERS:READ", "PURCHASING_CENTER_USERS:MANAGE"] },
+  { pattern: "/purchasing-center/users/list", anyPermissions: ["PURCHASING_CENTER_USERS:READ", "PURCHASING_CENTER_USERS:MANAGE"] },
+  { pattern: "/purchasing-center/users", anyPermissions: ["PURCHASING_CENTER_USERS:READ", "PURCHASING_CENTER_USERS:MANAGE"] },
+  { pattern: "/purchasing-center/settings", anyPermissions: ["PURCHASING_CENTER_BRANDING:READ", "PURCHASING_CENTER_BRANDING:MANAGE"] },
+  { pattern: "/purchasing-center", anyPermissions: ["PURCHASING_CENTER_DASHBOARD:VIEW", "PURCHASING_CENTER_USERS:READ", "PURCHASING_CENTER_BRANDING:READ"] },
 
   // Dashboard
   { pattern: "/dashboard", anyPermissions: ["DASHBOARD:VIEW"] },

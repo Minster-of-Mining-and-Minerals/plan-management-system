@@ -20,6 +20,7 @@ export const userApi = baseApi.injectEndpoints({
         region_id?: string;
         company_id?: string;
         company_structure_id?: string;
+        purchasing_center_id?: string;
         domain?: string;
         is_active?: boolean; 
         search?: string;

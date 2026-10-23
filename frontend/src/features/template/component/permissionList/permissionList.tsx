@@ -44,17 +44,23 @@ import { PermissionSkeleton } from "./Skeleton";
 export default function PermissionList({
   isRegionalOnly = false,
   isCompanyOnly = false,
+  isPurchasingCenterOnly = false,
 }: {
   isRegionalOnly?: boolean;
   isCompanyOnly?: boolean;
+  isPurchasingCenterOnly?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
-  const activeTab = isCompanyOnly
+  const activeTab = isPurchasingCenterOnly
+    ? "purchasing_center"
+    : isCompanyOnly
     ? "company"
     : isRegionalOnly
     ? "regional"
+    : tabParam === "purchasing_center"
+    ? "purchasing_center"
     : tabParam === "company"
     ? "company"
     : tabParam === "regional"
@@ -66,10 +72,11 @@ export default function PermissionList({
   const [expandedResource, setExpandedResource] = useState<string | null>(null);
 
   const queryParams = useMemo(() => {
+    if (isPurchasingCenterOnly) return { scope: "purchasing_center" as const };
     if (isCompanyOnly) return { scope: "company" as const };
     if (isRegionalOnly) return { scope: "regional" as const };
     return undefined;
-  }, [isRegionalOnly, isCompanyOnly]);
+  }, [isRegionalOnly, isCompanyOnly, isPurchasingCenterOnly]);
 
   const {
     data: apiResponse,
@@ -112,6 +119,18 @@ export default function PermissionList({
     company_roles: <Shield className="h-4 w-4 text-emerald-500" />,
     company_permission_groups: <Users className="h-4 w-4 text-emerald-500" />,
     company_permissions: <Shield className="h-4 w-4 text-emerald-500" />,
+    purchasing_centers: <Building2 className="h-4 w-4 text-amber-500" />,
+    purchasing_center_dashboard: <LayoutDashboard className="h-4 w-4 text-amber-500" />,
+    purchasing_center_users: <Users2 className="h-4 w-4 text-amber-500" />,
+    purchasing_center_branding: <Paintbrush className="h-4 w-4 text-amber-500" />,
+    purchasing_center_roles: <Shield className="h-4 w-4 text-amber-500" />,
+    purchasing_center_permission_groups: <Users className="h-4 w-4 text-amber-500" />,
+    purchasing_center_permissions: <Shield className="h-4 w-4 text-amber-500" />,
+  };
+
+  const isPurchasingCenterResource = (resource: string) => {
+    const r = resource.toLowerCase();
+    return r.startsWith("purchasing_center") || r === "purchasing_centers";
   };
 
   const isRegionalResource = (resource: string) => {
@@ -124,14 +143,17 @@ export default function PermissionList({
     return r.startsWith("company_") || r === "companies";
   };
 
-  // Divide permissions into System vs Regional vs Company
-  const { systemPermissions, regionalPermissions, companyPermissions } = useMemo(() => {
+  // Divide permissions into System vs Regional vs Company vs Purchasing Center
+  const { systemPermissions, regionalPermissions, companyPermissions, purchasingCenterPermissions } = useMemo(() => {
     const system: Permission[] = [];
     const regional: Permission[] = [];
     const company: Permission[] = [];
+    const purchasingCenter: Permission[] = [];
 
     for (const p of permissions) {
-      if (isCompanyResource(p.resource)) {
+      if (isPurchasingCenterResource(p.resource)) {
+        purchasingCenter.push(p);
+      } else if (isCompanyResource(p.resource)) {
         company.push(p);
       } else if (isRegionalResource(p.resource)) {
         regional.push(p);
@@ -139,13 +161,17 @@ export default function PermissionList({
         system.push(p);
       }
     }
-    return { systemPermissions: system, regionalPermissions: regional, companyPermissions: company };
+    return { systemPermissions: system, regionalPermissions: regional, companyPermissions: company, purchasingCenterPermissions: purchasingCenter };
   }, [permissions]);
 
-  const currentPermissions = isCompanyOnly
+  const currentPermissions = isPurchasingCenterOnly
+    ? permissions.filter((p) => isPurchasingCenterResource(p.resource))
+    : isCompanyOnly
     ? permissions.filter((p) => isCompanyResource(p.resource))
     : isRegionalOnly
     ? permissions.filter((p) => isRegionalResource(p.resource))
+    : activeTab === "purchasing_center"
+    ? purchasingCenterPermissions
     : activeTab === "company"
     ? companyPermissions
     : activeTab === "regional"

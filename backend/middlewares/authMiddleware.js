@@ -41,6 +41,10 @@ const authenticateToken = async (req, res, next) => {
           as: "companyStructure",
         },
         {
+          model: db.PurchasingCenter,
+          as: "purchasingCenter",
+        },
+        {
           model: db.Role,
           as: "roles",
           through: { attributes: [] },
@@ -110,8 +114,15 @@ const authenticateToken = async (req, res, next) => {
 
     const isRegional = !!user.region_id;
     const isCompany = !!user.company_id;
-    const isFederal = !isRegional && !isCompany;
-    const domain = isRegional ? "regional" : (isCompany ? "company" : "federal");
+    const isPurchasingCenter = !!user.purchasing_center_id;
+    const isFederal = !isRegional && !isCompany && !isPurchasingCenter;
+    const domain = isRegional
+      ? "regional"
+      : isPurchasingCenter
+      ? "purchasing_center"
+      : isCompany
+      ? "company"
+      : "federal";
 
     req.user = {
       user_id: user.user_id,
@@ -120,6 +131,7 @@ const authenticateToken = async (req, res, next) => {
       domain,
       is_regional: isRegional,
       is_company: isCompany,
+      is_purchasing_center: isPurchasingCenter,
       is_federal: isFederal,
       government_structure_id: user.government_structure_id,
       internal_structure_id: user.internal_structure_id,
@@ -127,6 +139,7 @@ const authenticateToken = async (req, res, next) => {
       regional_structure_id: user.regional_structure_id,
       company_id: user.company_id,
       company_structure_id: user.company_structure_id,
+      purchasing_center_id: user.purchasing_center_id,
       roles,
       permissions,
     };

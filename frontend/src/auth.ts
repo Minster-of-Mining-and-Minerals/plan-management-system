@@ -32,6 +32,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           company_structure_id: user.company_structure_id,
           company: user.company,
           company_structure: user.company_structure,
+          purchasing_center_id: user.purchasing_center_id,
+          purchasing_center: user.purchasing_center,
           government_structure: user.government_structure,
           internal_structure: user.internal_structure,
         };
@@ -59,6 +61,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           company_structure_id: token.company_structure_id,
           company: token.company,
           company_structure: token.company_structure,
+          purchasing_center_id: token.purchasing_center_id,
+          purchasing_center: token.purchasing_center,
           government_structure: token.government_structure,
           internal_structure: token.internal_structure,
         },
@@ -82,6 +86,8 @@ declare module "next-auth" {
     company_structure_id?: string | null;
     company?: any;
     company_structure?: any;
+    purchasing_center_id?: string | null;
+    purchasing_center?: any;
     government_structure?: any;
     internal_structure?: any;
   }
@@ -103,6 +109,8 @@ declare module "next-auth" {
       company_structure_id?: string | null;
       company?: any;
       company_structure?: any;
+      purchasing_center_id?: string | null;
+      purchasing_center?: any;
       government_structure?: any;
       internal_structure?: any;
     };
@@ -123,6 +131,8 @@ declare module "next-auth/jwt" {
     company_structure_id?: string | null;
     company?: any;
     company_structure?: any;
+    purchasing_center_id?: string | null;
+    purchasing_center?: any;
     government_structure?: any;
     internal_structure?: any;
   }

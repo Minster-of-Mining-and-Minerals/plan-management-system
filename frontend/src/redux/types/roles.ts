@@ -12,10 +12,11 @@ export interface Role {
   name: string;
   description?: string;
   is_active: boolean;
-  scope?: "global" | "private" | "structure" | "regional" | "company";
+  scope?: "global" | "private" | "structure" | "regional" | "company" | "purchasing_center";
   government_structure_id?: string | null;
   region_id?: string | null;
   company_id?: string | null;
+  purchasing_center_id?: string | null;
   rolePermissions: RolePermission[];
 }
 
@@ -26,7 +27,8 @@ export interface CreateRolePayload {
   government_structure_id?: string;
   region_id?: string;
   company_id?: string;
-  scope?: "global" | "private" | "structure" | "regional" | "company";
+  purchasing_center_id?: string;
+  scope?: "global" | "private" | "structure" | "regional" | "company" | "purchasing_center";
 }
 
 export interface UpdateRolePayload {

@@ -64,7 +64,7 @@ export default {
             email: user.email,
             name: user.full_name,
             is_first_logged_in: user.is_first_logged_in,
-            domain: user.domain || (user.company_id ? "company" : user.region_id ? "regional" : "federal"),
+            domain: user.domain || (user.purchasing_center_id ? "purchasing_center" : user.company_id ? "company" : user.region_id ? "regional" : "federal"),
             region_id: user.region_id || null,
             regional_structure_id: user.regional_structure_id || null,
             region: user.region || null,
@@ -73,6 +73,8 @@ export default {
             company_structure_id: user.company_structure_id || null,
             company: user.company || null,
             company_structure: user.company_structure || null,
+            purchasing_center_id: user.purchasing_center_id || null,
+            purchasing_center: user.purchasing_center || null,
             government_structure: user.government_structure,
             internal_structure: user.internal_structure,
           };

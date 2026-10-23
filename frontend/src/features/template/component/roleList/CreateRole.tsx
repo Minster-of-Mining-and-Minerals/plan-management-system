@@ -27,11 +27,13 @@ export default function CreateRole({
   backPath,
   forceRegional = false,
   forceCompany = false,
+  forcePurchasingCenter = false,
 }: {
   roleId?: string;
   backPath?: string;
   forceRegional?: boolean;
   forceCompany?: boolean;
+  forcePurchasingCenter?: boolean;
 }) {
   const { id: paramId } = useParams<{ id?: string }>();
   const router = useRouter();
@@ -62,12 +64,19 @@ export default function CreateRole({
   } = useGetRoleByIdQuery(id!, { skip: !isEditMode });
 
   const scopeParam = searchParams.get("scope");
+  const isPurchasingCenterRole =
+    forcePurchasingCenter ||
+    roleResponse?.scope === "purchasing_center" ||
+    scopeParam === "purchasing_center";
+
   const isCompanyRole =
-    forceCompany ||
-    roleResponse?.scope === "company" ||
-    scopeParam === "company";
+    !isPurchasingCenterRole &&
+    (forceCompany ||
+      roleResponse?.scope === "company" ||
+      scopeParam === "company");
 
   const isRegionalRole =
+    !isPurchasingCenterRole &&
     !isCompanyRole &&
     (forceRegional ||
       roleResponse?.scope === "regional" ||
@@ -78,7 +87,9 @@ export default function CreateRole({
     (roleResponse?.scope === "global" || roleResponse?.scope === "private");
 
   const permissionQueryArgs =
-    isCompanyRole
+    isPurchasingCenterRole
+      ? { scope: "purchasing_center" as const }
+      : isCompanyRole
       ? { scope: "company" as const }
       : isRegionalRole
       ? { scope: "regional" as const }
@@ -102,6 +113,11 @@ export default function CreateRole({
   const resourceGroups = useMemo((): ResourceGroup[] => {
     if (!permissionsResponse) return [];
 
+    const isPurchasingCenterResource = (resource: string) => {
+      const r = (resource || "").toLowerCase();
+      return r.startsWith("purchasing_center") || r === "purchasing_centers";
+    };
+
     const isRegionalResource = (resource: string) => {
       const r = (resource || "").toLowerCase();
       return r.startsWith("regional_") || r === "regions";
@@ -115,13 +131,16 @@ export default function CreateRole({
     const activePermissions = (permissionsResponse || []).filter(
       (p: Permission) => {
         if (p.is_active !== true) return false;
+        if (isPurchasingCenterRole) {
+          return isPurchasingCenterResource(p.resource);
+        }
         if (isCompanyRole) {
           return isCompanyResource(p.resource);
         }
         if (isRegionalRole) {
           return isRegionalResource(p.resource);
         }
-        return !isRegionalResource(p.resource) && !isCompanyResource(p.resource);
+        return !isRegionalResource(p.resource) && !isCompanyResource(p.resource) && !isPurchasingCenterResource(p.resource);
       }
     );
 
@@ -328,7 +347,7 @@ export default function CreateRole({
       return;
     }
 
-    if (!isEditMode && !structureId && !isRegionalRole && !isCompanyRole) {
+    if (!isEditMode && !structureId && !isRegionalRole && !isCompanyRole && !isPurchasingCenterRole) {
       actionFeedback.error("Select a structure before creating a role.");
       return;
     }
@@ -347,7 +366,9 @@ export default function CreateRole({
         actionFeedback.success("Role updated successfully!");
         router.push(
           backPath ||
-            (isCompanyRole
+            (isPurchasingCenterRole
+              ? "/users/roles?tab=purchasing_center"
+              : isCompanyRole
               ? "/users/roles?tab=company"
               : isRegionalRole
               ? "/users/roles?tab=regional"
@@ -358,7 +379,12 @@ export default function CreateRole({
           name: name.trim(),
           description: description.trim(),
           permission_ids: selectedPermissionIds,
-          ...(isCompanyRole
+          ...(isPurchasingCenterRole
+            ? {
+                scope: "purchasing_center" as any,
+                purchasing_center_id: (session?.user as any)?.purchasing_center_id || undefined,
+              }
+            : isCompanyRole
             ? {
                 scope: "company" as any,
                 company_id: session?.user?.company_id || undefined,
@@ -375,7 +401,9 @@ export default function CreateRole({
         resetForm();
         router.push(
           backPath ||
-            (isCompanyRole
+            (isPurchasingCenterRole
+              ? "/users/roles?tab=purchasing_center"
+              : isCompanyRole
               ? "/users/roles?tab=company"
               : isRegionalRole
               ? "/users/roles?tab=regional"

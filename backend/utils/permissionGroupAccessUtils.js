@@ -7,6 +7,7 @@ const STANDARD_RESOURCE = "permission_groups";
 const SPECIAL_RESOURCE = "special_permission_groups";
 const REGIONAL_RESOURCE = "regional_permission_groups";
 const COMPANY_RESOURCE = "company_permission_groups";
+const PURCHASING_CENTER_RESOURCE = "purchasing_center_permission_groups";
 
 const ACTION_MAP = {
   create: "create",
@@ -28,6 +29,7 @@ function permissionResourceForGroupKind(groupKind) {
   if (normalized === GROUP_KIND.SPECIAL) return SPECIAL_RESOURCE;
   if (normalized === GROUP_KIND.REGIONAL) return REGIONAL_RESOURCE;
   if (normalized === GROUP_KIND.COMPANY) return COMPANY_RESOURCE;
+  if (normalized === GROUP_KIND.PURCHASING_CENTER) return PURCHASING_CENTER_RESOURCE;
   return STANDARD_RESOURCE;
 }
 
@@ -56,6 +58,17 @@ function userCanManagePermissionGroup(user, groupKind, action) {
     if (userHasPermission(user, `${COMPANY_RESOURCE}:manage`)) return true;
     if (userHasPermission(user, "company_users:manage")) return true;
     if (userHasPermission(user, "companies:manage")) return true;
+    if (userHasPermission(user, `${STANDARD_RESOURCE}:${mappedAction}`)) return true;
+    if (userHasPermission(user, `${STANDARD_RESOURCE}:manage`)) return true;
+    return false;
+  }
+  if (normalized === GROUP_KIND.PURCHASING_CENTER) {
+    const mappedAction = ACTION_MAP[action] || action;
+    const directKey = `${PURCHASING_CENTER_RESOURCE}:${mappedAction}`;
+    if (userHasPermission(user, directKey)) return true;
+    if (userHasPermission(user, `${PURCHASING_CENTER_RESOURCE}:manage`)) return true;
+    if (userHasPermission(user, "purchasing_center_users:manage")) return true;
+    if (userHasPermission(user, "purchasing_centers:manage")) return true;
     if (userHasPermission(user, `${STANDARD_RESOURCE}:${mappedAction}`)) return true;
     if (userHasPermission(user, `${STANDARD_RESOURCE}:manage`)) return true;
     return false;
@@ -90,6 +103,7 @@ module.exports = {
   SPECIAL_RESOURCE,
   REGIONAL_RESOURCE,
   COMPANY_RESOURCE,
+  PURCHASING_CENTER_RESOURCE,
   ACTION_MAP,
   permissionResourceForGroupKind,
   buildPermissionKey,

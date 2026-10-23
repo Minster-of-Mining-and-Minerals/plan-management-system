@@ -123,6 +123,9 @@ export const baseApi = createApi({
     "CompanyStructures",
     "CompanyBranding",
     "CompanyDashboard",
+    "PurchasingCenters",
+    "PurchasingCenterBranding",
+    "PurchasingCenterDashboard",
   ],
   endpoints: () => ({}),
 });

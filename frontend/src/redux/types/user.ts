@@ -79,6 +79,12 @@ export interface User {
     company_structure_id: string;
     name: string;
   };
+  purchasing_center_id?: string | null;
+  purchasing_center?: {
+    purchasing_center_id: string;
+    name: string;
+    code: string;
+  } | null;
 }
 
 // Payloads
@@ -93,6 +99,7 @@ export interface CreateUserPayload {
   regional_structure_id?: string | null;
   company_id?: string;
   company_structure_id?: string | null;
+  purchasing_center_id?: string | null;
 }
 
 export interface UpdateUserPayload {
@@ -106,6 +113,7 @@ export interface UpdateUserPayload {
   regional_structure_id?: string | null;
   company_id?: string;
   company_structure_id?: string | null;
+  purchasing_center_id?: string | null;
   is_active?: boolean;
   is_first_logged_in?: boolean;
   profile_image?: string | null;

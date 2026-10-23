@@ -15,6 +15,14 @@ const nextConfig: NextConfig = {
         source: "/:locale/regions/:id/:path*",
         destination: "/:locale/:id/:path*",
       },
+      {
+        source: "/:locale/purchasing-center/:id",
+        destination: "/:locale/purchasing-centers/:id",
+      },
+      {
+        source: "/:locale/purchasing-center/:id/:path*",
+        destination: "/:locale/purchasing-centers/:id/:path*",
+      },
     ];
   },
 };

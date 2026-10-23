@@ -12,6 +12,7 @@ const GROUP_KIND = {
   SPECIAL: "special",
   REGIONAL: "regional",
   COMPANY: "company",
+  PURCHASING_CENTER: "purchasing_center",
 };
 
 const PERMISSION_TIER = {
@@ -39,6 +40,7 @@ function normalizeGroupKind(groupKind) {
   if (value === GROUP_KIND.SPECIAL) return GROUP_KIND.SPECIAL;
   if (value === GROUP_KIND.REGIONAL) return GROUP_KIND.REGIONAL;
   if (value === GROUP_KIND.COMPANY) return GROUP_KIND.COMPANY;
+  if (value === GROUP_KIND.PURCHASING_CENTER) return GROUP_KIND.PURCHASING_CENTER;
   return GROUP_KIND.STANDARD;
 }
 
@@ -99,6 +101,24 @@ async function assertPermissionIdsMatchGroupKind(
     if (nonCompany.length > 0) {
       throw buildPermissionScopeError(
         "Company permission groups may only include company permissions.",
+        400
+      );
+    }
+    return;
+  }
+
+  if (normalizedKind === GROUP_KIND.PURCHASING_CENTER) {
+    const permissions = await Permission.findAll({
+      where: { permission_id: permissionIds },
+      attributes: ["permission_id", "resource", "action", "permission_tier"],
+      transaction: options.transaction,
+    });
+    const nonPC = permissions.filter(
+      (p) => !p.resource.startsWith("purchasing_center_") && p.resource !== "purchasing_centers"
+    );
+    if (nonPC.length > 0) {
+      throw buildPermissionScopeError(
+        "Purchasing center permission groups may only include purchasing center permissions.",
         400
       );
     }

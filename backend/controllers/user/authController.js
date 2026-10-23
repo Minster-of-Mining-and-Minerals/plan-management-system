@@ -1,5 +1,5 @@
 const db = require("../../models");
-const { User, Role, RolePermission, Permission, PermissionGroup, GovernmentStructure, InternalStructure, Region, RegionalStructure, Company, CompanyStructure } = db;
+const { User, Role, RolePermission, Permission, PermissionGroup, GovernmentStructure, InternalStructure, Region, RegionalStructure, Company, CompanyStructure, PurchasingCenter } = db;
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { normalizeEmail } = require("../../utils/emailUtils");
@@ -23,6 +23,7 @@ const login = async (req, res) => {
         { model: RegionalStructure, as: "regionalStructure" },
         { model: Company, as: "company" },
         { model: CompanyStructure, as: "companyStructure" },
+        { model: PurchasingCenter, as: "purchasingCenter" },
       ],
     });
 
@@ -51,6 +52,16 @@ const login = async (req, res) => {
         return res.status(403).json({
           success: false,
           message: "Assigned company is inactive or deleted. Access denied.",
+        });
+      }
+    }
+
+    // Purchasing center account domain check: if user belongs to a purchasing center, center must be active
+    if (user.purchasing_center_id) {
+      if (!user.purchasingCenter || !user.purchasingCenter.is_active) {
+        return res.status(403).json({
+          success: false,
+          message: "Assigned purchasing center is inactive or deleted. Access denied.",
         });
       }
     }
@@ -89,7 +100,13 @@ const login = async (req, res) => {
           phone_number: user.phone_number,
           profile_image: user.profile_image,
           is_first_logged_in: user.is_first_logged_in,
-          domain: user.company_id ? "company" : user.region_id ? "regional" : "federal",
+          domain: user.purchasing_center_id
+            ? "purchasing_center"
+            : user.company_id
+            ? "company"
+            : user.region_id
+            ? "regional"
+            : "federal",
           region_id: user.region_id || null,
           regional_structure_id: user.regional_structure_id || null,
           region: user.region || null,
@@ -98,6 +115,8 @@ const login = async (req, res) => {
           company_structure_id: user.company_structure_id || null,
           company: user.company || null,
           company_structure: user.companyStructure || null,
+          purchasing_center_id: user.purchasing_center_id || null,
+          purchasing_center: user.purchasingCenter || null,
           government_structure: user.governmentStructure ? user.governmentStructure : [],
           internal_structure: user.internalStructure ? user.internalStructure : [],
         },
@@ -140,6 +159,7 @@ const getMe = async (req, res) => {
         "regional_structure_id",
         "company_id",
         "company_structure_id",
+        "purchasing_center_id",
       ],
       include: [
         { model: GovernmentStructure, as: "governmentStructure" },
@@ -148,6 +168,7 @@ const getMe = async (req, res) => {
         { model: RegionalStructure, as: "regionalStructure" },
         { model: Company, as: "company" },
         { model: CompanyStructure, as: "companyStructure" },
+        { model: PurchasingCenter, as: "purchasingCenter" },
       ],
     });
 
@@ -167,7 +188,13 @@ const getMe = async (req, res) => {
           phone_number: user.phone_number,
           profile_image: user.profile_image,
           is_first_logged_in: user.is_first_logged_in,
-          domain: user.company_id ? "company" : user.region_id ? "regional" : "federal",
+          domain: user.purchasing_center_id
+            ? "purchasing_center"
+            : user.company_id
+            ? "company"
+            : user.region_id
+            ? "regional"
+            : "federal",
           region_id: user.region_id || null,
           regional_structure_id: user.regional_structure_id || null,
           region: user.region || null,
@@ -176,6 +203,8 @@ const getMe = async (req, res) => {
           company_structure_id: user.company_structure_id || null,
           company: user.company || null,
           company_structure: user.companyStructure || null,
+          purchasing_center_id: user.purchasing_center_id || null,
+          purchasing_center: user.purchasingCenter || null,
           government_structure: user.governmentStructure ? user.governmentStructure : [],
           internal_structure: user.internalStructure ? user.internalStructure : [],
         },

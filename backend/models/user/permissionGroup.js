@@ -48,6 +48,12 @@ module.exports = (sequelize, DataTypes) => {
                 foreignKey: "company_id",
                 as: "company",
             });
+
+            // Purchasing Center association for purchasing center permission groups
+            PermissionGroup.belongsTo(models.PurchasingCenter, {
+                foreignKey: "purchasing_center_id",
+                as: "purchasingCenter",
+            });
         }
     }
 
@@ -75,6 +81,11 @@ module.exports = (sequelize, DataTypes) => {
             },
 
             company_id: {
+                type: DataTypes.UUID,
+                allowNull: true,
+            },
+
+            purchasing_center_id: {
                 type: DataTypes.UUID,
                 allowNull: true,
             },

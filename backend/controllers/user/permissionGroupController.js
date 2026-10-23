@@ -100,7 +100,7 @@ async function getPermissionGroupKind(permissionGroupId, options = {}) {
 
 async function assertPermissionGroupAccessible(permissionGroupId, req, structureId) {
     const group = await PermissionGroup.findByPk(permissionGroupId, {
-        attributes: ["permission_group_id", "group_kind", "region_id", "company_id"],
+        attributes: ["permission_group_id", "group_kind", "region_id", "company_id", "purchasing_center_id"],
     });
     if (!group) {
         const error = new Error("Permission group not found.");
@@ -154,6 +154,31 @@ async function assertPermissionGroupAccessible(permissionGroupId, req, structure
             return;
         }
         const error = new Error("Access denied: company permission groups are restricted.");
+        error.status = 403;
+        throw error;
+    }
+
+    if (group.group_kind === GROUP_KIND.PURCHASING_CENTER || group.purchasing_center_id) {
+        if (isSuperAdminActor(req)) {
+            return;
+        }
+        if (req.user?.is_purchasing_center) {
+            if (group.purchasing_center_id && req.user.purchasing_center_id && group.purchasing_center_id !== req.user.purchasing_center_id) {
+                const error = new Error("Access denied: permission group belongs to another purchasing center.");
+                error.status = 403;
+                throw error;
+            }
+            return;
+        }
+        const perms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
+        if (
+            perms.includes("purchasing_center_permission_groups:read") ||
+            perms.includes("purchasing_center_permission_groups:manage") ||
+            perms.includes("purchasing_centers:manage")
+        ) {
+            return;
+        }
+        const error = new Error("Access denied: purchasing center permission groups are restricted.");
         error.status = 403;
         throw error;
     }
@@ -319,11 +344,14 @@ const createPermissionGroup = async (req, res) => {
         } = req.body;
         const isRegionalUser = Boolean(req.user?.is_regional);
         const isCompanyUser = Boolean(req.user?.is_company);
+        const isPCUser = Boolean(req.user?.is_purchasing_center);
         let normalizedGroupKind = normalizeGroupKind(group_kind);
         if (isRegionalUser || group_kind === "regional" || group_kind === GROUP_KIND.REGIONAL) {
             normalizedGroupKind = GROUP_KIND.REGIONAL;
         } else if (isCompanyUser || group_kind === "company" || group_kind === GROUP_KIND.COMPANY) {
             normalizedGroupKind = GROUP_KIND.COMPANY;
+        } else if (isPCUser || group_kind === "purchasing_center" || group_kind === GROUP_KIND.PURCHASING_CENTER) {
+            normalizedGroupKind = GROUP_KIND.PURCHASING_CENTER;
         }
 
         assertCanManagePermissionGroup(req.user, normalizedGroupKind, "create");
@@ -331,6 +359,7 @@ const createPermissionGroup = async (req, res) => {
         let structureId = null;
         let regionId = null;
         let companyId = null;
+        let purchasingCenterId = null;
 
         if (normalizedGroupKind === GROUP_KIND.REGIONAL) {
             regionId = isRegionalUser ? req.user.region_id : (req.body.region_id || null);
@@ -346,6 +375,14 @@ const createPermissionGroup = async (req, res) => {
                 await t.rollback();
                 return res.status(400).json({
                     error: "Company administrator must have a valid company_id.",
+                });
+            }
+        } else if (normalizedGroupKind === GROUP_KIND.PURCHASING_CENTER) {
+            purchasingCenterId = isPCUser ? req.user.purchasing_center_id : (req.body.purchasing_center_id || null);
+            if (isPCUser && !purchasingCenterId) {
+                await t.rollback();
+                return res.status(400).json({
+                    error: "Purchasing center administrator must have a valid purchasing_center_id.",
                 });
             }
         } else {
@@ -378,6 +415,7 @@ const createPermissionGroup = async (req, res) => {
             group_kind: normalizedGroupKind,
             region_id: regionId,
             company_id: companyId,
+            purchasing_center_id: purchasingCenterId,
         }, { transaction: t });
 
         if (permission_ids && permission_ids.length > 0) {
@@ -420,11 +458,14 @@ const getPermissionGroups = async (req, res) => {
         const { government_structure_id: queryStructureId, is_active, group_kind } = req.query;
         const isRegionalUser = Boolean(req.user?.is_regional);
         const isCompanyUser = Boolean(req.user?.is_company);
+        const isPCUser = Boolean(req.user?.is_purchasing_center);
         let normalizedGroupKind = resolveRequestedGroupKind(group_kind, undefined, GROUP_KIND.STANDARD);
         if (isRegionalUser || group_kind === "regional" || group_kind === GROUP_KIND.REGIONAL) {
             normalizedGroupKind = GROUP_KIND.REGIONAL;
         } else if (isCompanyUser || group_kind === "company" || group_kind === GROUP_KIND.COMPANY) {
             normalizedGroupKind = GROUP_KIND.COMPANY;
+        } else if (isPCUser || group_kind === "purchasing_center" || group_kind === GROUP_KIND.PURCHASING_CENTER) {
+            normalizedGroupKind = GROUP_KIND.PURCHASING_CENTER;
         }
 
         assertCanManagePermissionGroup(req.user, normalizedGroupKind, "read");
@@ -448,6 +489,12 @@ const getPermissionGroups = async (req, res) => {
                 where.company_id = req.user.company_id;
             } else if (req.query.company_id) {
                 where.company_id = req.query.company_id;
+            }
+        } else if (normalizedGroupKind === GROUP_KIND.PURCHASING_CENTER) {
+            if (isPCUser) {
+                where.purchasing_center_id = req.user.purchasing_center_id;
+            } else if (req.query.purchasing_center_id) {
+                where.purchasing_center_id = req.query.purchasing_center_id;
             }
         } else {
             let structureId;
@@ -578,7 +625,11 @@ const updatePermissionGroup = async (req, res) => {
         }, { transaction: t });
 
         if (Array.isArray(permission_ids)) {
-            if (nextGroupKind !== GROUP_KIND.REGIONAL) {
+            if (
+                nextGroupKind !== GROUP_KIND.REGIONAL &&
+                nextGroupKind !== GROUP_KIND.COMPANY &&
+                nextGroupKind !== GROUP_KIND.PURCHASING_CENTER
+            ) {
                 await assertPermissionIdsFitLinkedStructureHierarchies(id, permission_ids, {
                     ...structureScopeOptions(req, t),
                 });
@@ -736,6 +787,48 @@ const addUsersToGroup = async (req, res) => {
                 if (group.region_id && user.region_id !== group.region_id) {
                     return res.status(403).json({
                         message: "Access denied: user belongs to another region.",
+                    });
+                }
+            }
+            const records = user_ids.map((uid) => ({
+                id: uuidv4(),
+                user_id: uid,
+                permission_group_id,
+            }));
+            await UserPermissionGroup.bulkCreate(records);
+            return res.json({ message: "Users added" });
+        }
+
+        if (group.group_kind === GROUP_KIND.COMPANY || group.company_id) {
+            const users = await User.findAll({ where: { user_id: user_ids } });
+            if (users.length !== user_ids.length) {
+                return res.status(400).json({ message: "One or more users were not found." });
+            }
+            for (const user of users) {
+                if (group.company_id && user.company_id !== group.company_id) {
+                    return res.status(403).json({
+                        message: "Access denied: user belongs to another company.",
+                    });
+                }
+            }
+            const records = user_ids.map((uid) => ({
+                id: uuidv4(),
+                user_id: uid,
+                permission_group_id,
+            }));
+            await UserPermissionGroup.bulkCreate(records);
+            return res.json({ message: "Users added" });
+        }
+
+        if (group.group_kind === GROUP_KIND.PURCHASING_CENTER || group.purchasing_center_id) {
+            const users = await User.findAll({ where: { user_id: user_ids } });
+            if (users.length !== user_ids.length) {
+                return res.status(400).json({ message: "One or more users were not found." });
+            }
+            for (const user of users) {
+                if (group.purchasing_center_id && user.purchasing_center_id !== group.purchasing_center_id) {
+                    return res.status(403).json({
+                        message: "Access denied: user belongs to another purchasing center.",
                     });
                 }
             }

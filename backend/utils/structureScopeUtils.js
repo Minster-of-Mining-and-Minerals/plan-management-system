@@ -7,6 +7,7 @@ const {
   ROLE_SCOPE,
   STRUCTURE_ASSIGNABLE_GLOBAL_ROLE_IDS,
   SYSTEM_PROTECTED_ROLE_IDS,
+  PURCHASING_CENTER_ROLE_IDS,
 } = require("../constants/systemRoles");
 const { collectDescendantIds } = require("./structureLifecycleUtils");
 
@@ -178,6 +179,38 @@ function assertRoleAccessible(role, req, structureId) {
     return;
   }
 
+  if (role.scope === ROLE_SCOPE.PURCHASING_CENTER) {
+    if (isSuperAdminActor(req)) {
+      return;
+    }
+    if (isPurchasingCenterActor(req)) {
+      if (role.purchasing_center_id && req.user.purchasing_center_id && role.purchasing_center_id !== req.user.purchasing_center_id) {
+        const error = new Error("Access denied: role belongs to another purchasing center.");
+        error.status = 403;
+        throw error;
+      }
+      return;
+    }
+    const perms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
+    const hasPurchasingCenterManage =
+      perms.includes("purchasing_center_roles:read") ||
+      perms.includes("purchasing_center_roles:manage") ||
+      perms.includes("purchasing_center_users:read") ||
+      perms.includes("purchasing_center_users:manage") ||
+      perms.includes("purchasing_centers:read") ||
+      perms.includes("purchasing_centers:manage") ||
+      perms.includes("roles:read") ||
+      perms.includes("roles:manage") ||
+      perms.includes("users:read") ||
+      perms.includes("users:manage");
+    if (!hasPurchasingCenterManage) {
+      const error = new Error("Access denied: purchasing center roles are restricted to purchasing center administrators.");
+      error.status = 403;
+      throw error;
+    }
+    return;
+  }
+
   if (!structureId) {
     const error = new Error("Structure context is required.");
     error.status = 400;
@@ -241,6 +274,58 @@ function assertCompanyRoleAssignable(role, req) {
     perms.includes("companies:manage");
   if (!hasFederalCompanyPerm) {
     const error = new Error("Access denied: federal account lacks company user management permission.");
+    error.status = 403;
+    throw error;
+  }
+}
+
+function assertPurchasingCenterRoleAssignable(role, req) {
+  if (!role) {
+    const error = new Error("Role not found.");
+    error.status = 404;
+    throw error;
+  }
+
+  if (role.scope !== ROLE_SCOPE.PURCHASING_CENTER && !STRUCTURE_ASSIGNABLE_GLOBAL_ROLE_IDS.has(role.role_id)) {
+    const error = new Error("Access denied: only purchasing-center-scoped roles can be assigned to purchasing center accounts.");
+    error.status = 403;
+    throw error;
+  }
+
+  if (isSuperAdminActor(req)) {
+    return;
+  }
+
+  const perms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
+
+  if (isPurchasingCenterActor(req)) {
+    const hasRoleAssign =
+      perms.includes("purchasing_center_users:assign_role") ||
+      perms.includes("purchasing_center_users:create") ||
+      perms.includes("purchasing_center_users:update") ||
+      perms.includes("purchasing_center_users:manage") ||
+      perms.includes("purchasing_center_roles:manage") ||
+      perms.includes("roles:manage");
+    if (!hasRoleAssign) {
+      const error = new Error("Access denied: missing purchasing center user role assignment permission.");
+      error.status = 403;
+      throw error;
+    }
+    return;
+  }
+
+  const hasFederalPcPerm =
+    perms.includes("purchasing_center_users:assign_role") ||
+    perms.includes("purchasing_center_users:create") ||
+    perms.includes("purchasing_center_users:update") ||
+    perms.includes("purchasing_center_users:manage") ||
+    perms.includes("users:manage") ||
+    perms.includes("users:update") ||
+    perms.includes("users:create") ||
+    perms.includes("users:assign_role") ||
+    perms.includes("purchasing_centers:manage");
+  if (!hasFederalPcPerm) {
+    const error = new Error("Access denied: federal account lacks purchasing center user management permission.");
     error.status = 403;
     throw error;
   }
@@ -394,6 +479,40 @@ function assertRoleModifiable(role, req) {
     throw error;
   }
 
+  if (role.scope === ROLE_SCOPE.PURCHASING_CENTER) {
+    if (isSuperAdminActor(req)) {
+      return;
+    }
+    if (isPurchasingCenterActor(req)) {
+      if (!role.purchasing_center_id) {
+        const error = new Error("System purchasing center template roles cannot be modified.");
+        error.status = 403;
+        throw error;
+      }
+      if (role.purchasing_center_id !== req.user.purchasing_center_id) {
+        const error = new Error("Access denied: role belongs to another purchasing center.");
+        error.status = 403;
+        throw error;
+      }
+      return;
+    }
+    const perms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
+    if (
+      perms.includes("purchasing_center_roles:update") ||
+      perms.includes("purchasing_center_roles:manage") ||
+      perms.includes("purchasing_center_users:manage") ||
+      perms.includes("purchasing_center_users:update") ||
+      perms.includes("roles:update") ||
+      perms.includes("roles:manage") ||
+      perms.includes("purchasing_centers:manage")
+    ) {
+      return;
+    }
+    const error = new Error("Access denied: missing permission to modify purchasing center roles.");
+    error.status = 403;
+    throw error;
+  }
+
   const error = new Error("Unsupported role scope.");
   error.status = 400;
   throw error;
@@ -406,8 +525,13 @@ function assertRoleDeletable(role, req) {
     throw error;
   }
 
-  if (role.scope !== ROLE_SCOPE.STRUCTURE && role.scope !== ROLE_SCOPE.REGIONAL && role.scope !== ROLE_SCOPE.COMPANY) {
-    const error = new Error("Only structure-scoped, regional-scoped, or company-scoped roles can be deleted.");
+  if (
+    role.scope !== ROLE_SCOPE.STRUCTURE &&
+    role.scope !== ROLE_SCOPE.REGIONAL &&
+    role.scope !== ROLE_SCOPE.COMPANY &&
+    role.scope !== ROLE_SCOPE.PURCHASING_CENTER
+  ) {
+    const error = new Error("Only structure-scoped, regional-scoped, company-scoped, or purchasing-center-scoped roles can be deleted.");
     error.status = 403;
     throw error;
   }
@@ -433,6 +557,19 @@ function assertRoleDeletable(role, req) {
     }
     if (role.company_id && isCompanyActor(req) && role.company_id !== req.user?.company_id) {
       const error = new Error("Access denied: role belongs to another company.");
+      error.status = 403;
+      throw error;
+    }
+  }
+
+  if (role.scope === ROLE_SCOPE.PURCHASING_CENTER) {
+    if (!role.purchasing_center_id && !isSuperAdminActor(req)) {
+      const error = new Error("System purchasing center template roles cannot be deleted.");
+      error.status = 403;
+      throw error;
+    }
+    if (role.purchasing_center_id && isPurchasingCenterActor(req) && role.purchasing_center_id !== req.user?.purchasing_center_id) {
+      const error = new Error("Access denied: role belongs to another purchasing center.");
       error.status = 403;
       throw error;
     }
@@ -742,6 +879,10 @@ function isCompanyActor(req) {
   return Boolean(req.user?.company_id);
 }
 
+function isPurchasingCenterActor(req) {
+  return Boolean(req.user?.purchasing_center_id);
+}
+
 function isFederalActor(req) {
   return Boolean(req.user?.government_structure_id);
 }
@@ -752,6 +893,9 @@ function getUserDomain(user) {
     user.roles.some((name) => String(name).toLowerCase() === "super admin")
   ) {
     return "super_admin";
+  }
+  if (user?.purchasing_center_id) {
+    return "purchasing_center";
   }
   if (user?.region_id) {
     return "regional";
@@ -963,6 +1107,112 @@ function assertFederalAccessible(req) {
     error.status = 403;
     throw error;
   }
+
+  if (isPurchasingCenterActor(req)) {
+    const error = new Error("Access denied: purchasing center users cannot access federal organizational resources.");
+    error.status = 403;
+    throw error;
+  }
+}
+
+function assertPurchasingCenterAccessible(req, purchasingCenterId, requiredAction = "read") {
+  if (!purchasingCenterId) {
+    const error = new Error("Purchasing Center ID is required.");
+    error.status = 400;
+    throw error;
+  }
+
+  if (isSuperAdminActor(req)) {
+    return;
+  }
+
+  if (isPurchasingCenterActor(req)) {
+    if (req.user.purchasing_center_id !== purchasingCenterId) {
+      const error = new Error("Access denied: you do not have permission to access another purchasing center.");
+      error.status = 403;
+      throw error;
+    }
+    return;
+  }
+
+  if (isRegionalActor(req)) {
+    const error = new Error("Access denied: regional accounts cannot access purchasing center domain resources.");
+    error.status = 403;
+    throw error;
+  }
+
+  if (isCompanyActor(req)) {
+    const error = new Error("Access denied: company accounts cannot access purchasing center domain resources.");
+    error.status = 403;
+    throw error;
+  }
+
+  // Federal actor acting under explicit purchasing center management permissions
+  const actionLower = String(requiredAction).toLowerCase();
+  const perms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
+  const hasExplicitPerm =
+    perms.includes(`purchasing_centers:${actionLower}`) ||
+    perms.includes("purchasing_centers:manage") ||
+    perms.includes(`purchasing_center_branding:${actionLower}`) ||
+    perms.includes("purchasing_center_branding:manage") ||
+    perms.includes(`purchasing_center_users:${actionLower}`) ||
+    perms.includes("purchasing_center_users:manage") ||
+    perms.includes(`purchasing_center_roles:${actionLower}`) ||
+    perms.includes("purchasing_center_roles:manage") ||
+    perms.includes(`purchasing_center_permission_groups:${actionLower}`) ||
+    perms.includes("purchasing_center_permission_groups:manage");
+
+  if (!hasExplicitPerm) {
+    const error = new Error("Access denied: federal account lacks purchasing center management permission.");
+    error.status = 403;
+    throw error;
+  }
+}
+
+function assertPurchasingCenterUserManageable(targetUser, req, action = "read") {
+  if (!targetUser) {
+    const error = new Error("User not found.");
+    error.status = 404;
+    throw error;
+  }
+
+  if (isSuperAdminActor(req)) {
+    return;
+  }
+
+  if (isPurchasingCenterActor(req)) {
+    if (targetUser.purchasing_center_id !== req.user.purchasing_center_id) {
+      const error = new Error("Access denied: cannot manage users of another purchasing center.");
+      error.status = 403;
+      throw error;
+    }
+    return;
+  }
+
+  if (isRegionalActor(req)) {
+    const error = new Error("Access denied: regional accounts cannot manage purchasing center users.");
+    error.status = 403;
+    throw error;
+  }
+
+  if (isCompanyActor(req)) {
+    const error = new Error("Access denied: company accounts cannot manage purchasing center users.");
+    error.status = 403;
+    throw error;
+  }
+
+  const actionLower = String(action).toLowerCase();
+  const perms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
+  const hasExplicitPerm =
+    perms.includes(`purchasing_center_users:${actionLower}`) ||
+    perms.includes("purchasing_center_users:manage") ||
+    perms.includes("purchasing_centers:manage");
+
+  if (!hasExplicitPerm) {
+    const error = new Error("Access denied: federal account lacks purchasing center user management permission.");
+    error.status = 403;
+    throw error;
+  }
 }
 
 function assertUserManageable(targetUser, req, structureIndex, action = "update") {
@@ -970,6 +1220,11 @@ function assertUserManageable(targetUser, req, structureIndex, action = "update"
     const error = new Error("User not found.");
     error.status = 404;
     throw error;
+  }
+
+  if (targetUser.purchasing_center_id) {
+    assertPurchasingCenterUserManageable(targetUser, req, action);
+    return;
   }
 
   if (targetUser.region_id) {
@@ -990,16 +1245,20 @@ module.exports = {
   isSuperAdminActor,
   isRegionalActor,
   isCompanyActor,
+  isPurchasingCenterActor,
   isFederalActor,
   getUserDomain,
   assertRegionAccessible,
   assertRegionalUserManageable,
   assertCompanyAccessible,
   assertCompanyUserManageable,
+  assertPurchasingCenterAccessible,
+  assertPurchasingCenterUserManageable,
   assertFederalAccessible,
   assertUserManageable,
   assertRegionalRoleAssignable,
   assertCompanyRoleAssignable,
+  assertPurchasingCenterRoleAssignable,
   getActorStructureId,
   resolveManageableStructureId,
   buildRoleVisibilityWhere,

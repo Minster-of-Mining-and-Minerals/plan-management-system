@@ -31,7 +31,10 @@ export default function ExternalLogin() {
     if (status === "authenticated") {
       const regionId = session?.user?.region_id;
       const companyId = session?.user?.company_id;
-      if (companyId && (!rawCallbackUrl || rawCallbackUrl === "/dashboard")) {
+      const purchasingCenterId = session?.user?.purchasing_center_id;
+      if (purchasingCenterId && (!rawCallbackUrl || rawCallbackUrl === "/dashboard")) {
+        router.replace(`/purchasing-centers/${purchasingCenterId}` as any);
+      } else if (companyId && (!rawCallbackUrl || rawCallbackUrl === "/dashboard")) {
         router.replace(`/companies/${companyId}` as any);
       } else if (regionId && (!rawCallbackUrl || rawCallbackUrl === "/dashboard")) {
         router.replace(`/regions/${regionId}` as any);
@@ -39,7 +42,7 @@ export default function ExternalLogin() {
         router.replace(resolvePostAuthRedirect(rawCallbackUrl || "/dashboard") as any);
       }
     }
-  }, [status, session?.user?.region_id, session?.user?.company_id, rawCallbackUrl, router]);
+  }, [status, session?.user?.region_id, session?.user?.company_id, session?.user?.purchasing_center_id, rawCallbackUrl, router]);
 
   const [formData, setFormData] = useState({
     email: "",
@@ -65,7 +68,10 @@ export default function ExternalLogin() {
       } else {
         const regionId = newSession?.user?.region_id;
         const companyId = newSession?.user?.company_id;
-        if (companyId && (!rawCallbackUrl || rawCallbackUrl === "/dashboard")) {
+        const purchasingCenterId = newSession?.user?.purchasing_center_id;
+        if (purchasingCenterId && (!rawCallbackUrl || rawCallbackUrl === "/dashboard")) {
+          router.replace(`/purchasing-centers/${purchasingCenterId}` as any);
+        } else if (companyId && (!rawCallbackUrl || rawCallbackUrl === "/dashboard")) {
           router.replace(`/companies/${companyId}` as any);
         } else if (regionId && (!rawCallbackUrl || rawCallbackUrl === "/dashboard")) {
           router.replace(`/regions/${regionId}` as any);

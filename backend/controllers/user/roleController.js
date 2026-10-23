@@ -15,7 +15,7 @@ const {
   sendScopeError,
 } = require("../../utils/structureScopeUtils");
 
-async function assertValidPermissionIds(permissionIds, transaction, { allowRegional = false, allowCompany = false } = {}) {
+async function assertValidPermissionIds(permissionIds, transaction, { allowRegional = false, allowCompany = false, allowPurchasingCenter = false } = {}) {
   if (!permissionIds?.length) return;
 
   const uniqueIds = [...new Set(permissionIds)];
@@ -34,6 +34,12 @@ async function assertValidPermissionIds(permissionIds, transaction, { allowRegio
     exclusions.push(
       { resource: { [Op.notLike]: "company_%" } },
       { resource: { [Op.ne]: "companies" } }
+    );
+  }
+  if (!allowPurchasingCenter) {
+    exclusions.push(
+      { resource: { [Op.notLike]: "purchasing_center_%" } },
+      { resource: { [Op.ne]: "purchasing_centers" } }
     );
   }
   if (exclusions.length > 0) {
@@ -97,6 +103,29 @@ async function assertValidCompanyPermissionIds(permissionIds, transaction) {
   }
 }
 
+async function assertValidPurchasingCenterPermissionIds(permissionIds, transaction) {
+  if (!permissionIds?.length) return;
+
+  const uniqueIds = [...new Set(permissionIds)];
+  const found = await Permission.findAll({
+    where: {
+      permission_id: uniqueIds,
+      is_active: true,
+      [Op.or]: [
+        { resource: { [Op.like]: "purchasing_center_%" } },
+        { resource: "purchasing_centers" },
+      ],
+    },
+    transaction,
+  });
+
+  if (found.length !== uniqueIds.length) {
+    const error = new Error("Purchasing center roles can only be assigned purchasing center permissions.");
+    error.status = 400;
+    throw error;
+  }
+}
+
 function parsePermissionIds(permission_ids) {
   if (!permission_ids) return [];
   let permissionIds = permission_ids;
@@ -110,7 +139,7 @@ function parsePermissionIds(permission_ids) {
   return Array.isArray(permissionIds) ? permissionIds : [];
 }
 
-async function assertUniqueRoleName(name, government_structure_id, scope, transaction, excludeRoleId, region_id = null, company_id = null) {
+async function assertUniqueRoleName(name, government_structure_id, scope, transaction, excludeRoleId, region_id = null, company_id = null, purchasing_center_id = null) {
   const where = {
     name,
     scope,
@@ -126,6 +155,9 @@ async function assertUniqueRoleName(name, government_structure_id, scope, transa
   } else if (scope === ROLE_SCOPE.COMPANY || scope === "company") {
     where.government_structure_id = null;
     where.company_id = company_id || null;
+  } else if (scope === ROLE_SCOPE.PURCHASING_CENTER || scope === "purchasing_center") {
+    where.government_structure_id = null;
+    where.purchasing_center_id = purchasing_center_id || null;
   } else {
     where.government_structure_id = null;
   }
@@ -284,6 +316,77 @@ const createRole = async (req, res) => {
       });
     }
 
+    const isPCActor = Boolean(req.user?.is_purchasing_center || bodyScope === ROLE_SCOPE.PURCHASING_CENTER || bodyScope === "purchasing_center");
+    if (isPCActor) {
+      const pcId = req.user?.is_purchasing_center ? req.user.purchasing_center_id : (req.body.purchasing_center_id || null);
+      if (req.user?.is_purchasing_center && !pcId) {
+        await t.rollback();
+        return res.status(400).json({
+          success: false,
+          message: "Purchasing center administrator must have a valid purchasing_center_id.",
+        });
+      }
+
+      await assertUniqueRoleName(name, null, ROLE_SCOPE.PURCHASING_CENTER, t, null, null, null, pcId);
+      await assertValidPurchasingCenterPermissionIds(permissionIds, t);
+
+      const role = await Role.create(
+        {
+          role_id: uuidv4(),
+          name,
+          description,
+          scope: ROLE_SCOPE.PURCHASING_CENTER,
+          purchasing_center_id: pcId,
+          company_id: null,
+          region_id: null,
+          government_structure_id: null,
+          is_active: true,
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
+        { transaction: t }
+      );
+
+      if (permissionIds.length > 0) {
+        const rolePermissions = permissionIds.map((pid) => ({
+          role_permission_id: uuidv4(),
+          role_id: role.role_id,
+          permission_id: pid,
+          is_active: true,
+          created_at: new Date(),
+          updated_at: new Date(),
+        }));
+        await RolePermission.bulkCreate(rolePermissions, { transaction: t });
+      }
+
+      await t.commit();
+
+      const createdRole = await Role.findOne({
+        where: { role_id: role.role_id },
+        include: [
+          {
+            model: RolePermission,
+            as: "rolePermissions",
+            required: false,
+            where: { is_active: true },
+            include: [
+              {
+                model: Permission,
+                as: "permission",
+                attributes: ["permission_id", "resource", "action"],
+              },
+            ],
+          },
+        ],
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Purchasing center role created successfully",
+        data: createdRole,
+      });
+    }
+
     let structureId;
     try {
       structureId = resolveManageableStructureId(req, bodyStructureId);
@@ -406,6 +509,19 @@ const getRoles = async (req, res) => {
           { company_id: null },
         ];
       }
+    } else if (scope === "purchasing_center" || scope === ROLE_SCOPE.PURCHASING_CENTER || req.user?.is_purchasing_center) {
+      whereClause.scope = ROLE_SCOPE.PURCHASING_CENTER;
+      if (req.user?.is_purchasing_center) {
+        whereClause[Op.or] = [
+          { purchasing_center_id: req.user.purchasing_center_id },
+          { purchasing_center_id: null },
+        ];
+      } else if (req.query.purchasing_center_id) {
+        whereClause[Op.or] = [
+          { purchasing_center_id: req.query.purchasing_center_id },
+          { purchasing_center_id: null },
+        ];
+      }
     } else {
       let structureId;
       try {
@@ -462,7 +578,7 @@ const getRoleById = async (req, res) => {
     const { government_structure_id: queryStructureId } = req.query;
 
     let structureId = null;
-    if (!req.user?.is_regional && !req.user?.is_company) {
+    if (!req.user?.is_regional && !req.user?.is_company && !req.user?.is_purchasing_center) {
       try {
         structureId = resolveManageableStructureId(req, queryStructureId);
       } catch (error) {
@@ -526,7 +642,7 @@ const updateRole = async (req, res) => {
       req.body;
 
     let structureId = null;
-    if (!req.user?.is_regional && !req.user?.is_company) {
+    if (!req.user?.is_regional && !req.user?.is_company && !req.user?.is_purchasing_center) {
       try {
         structureId = resolveManageableStructureId(req, queryStructureId);
       } catch (error) {
@@ -572,7 +688,8 @@ const updateRole = async (req, res) => {
         t,
         id,
         role.region_id,
-        role.company_id
+        role.company_id,
+        role.purchasing_center_id
       );
     }
 
@@ -598,6 +715,8 @@ const updateRole = async (req, res) => {
         await assertValidRegionalPermissionIds(permissionIds, t);
       } else if (role.scope === ROLE_SCOPE.COMPANY || role.scope === "company") {
         await assertValidCompanyPermissionIds(permissionIds, t);
+      } else if (role.scope === ROLE_SCOPE.PURCHASING_CENTER || role.scope === "purchasing_center") {
+        await assertValidPurchasingCenterPermissionIds(permissionIds, t);
       } else {
         await assertValidPermissionIds(permissionIds, t);
       }

@@ -49,6 +49,11 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "company_structure_id",
         as: "companyStructure",
       });
+
+      User.belongsTo(models.PurchasingCenter, {
+        foreignKey: "purchasing_center_id",
+        as: "purchasingCenter",
+      });
     }
   }
 
@@ -119,6 +124,10 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
       },
       company_structure_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      purchasing_center_id: {
         type: DataTypes.UUID,
         allowNull: true,
       },
