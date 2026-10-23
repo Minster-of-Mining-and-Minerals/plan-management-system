@@ -100,7 +100,7 @@ async function getPermissionGroupKind(permissionGroupId, options = {}) {
 
 async function assertPermissionGroupAccessible(permissionGroupId, req, structureId) {
     const group = await PermissionGroup.findByPk(permissionGroupId, {
-        attributes: ["permission_group_id", "group_kind", "region_id"],
+        attributes: ["permission_group_id", "group_kind", "region_id", "company_id"],
     });
     if (!group) {
         const error = new Error("Permission group not found.");
@@ -129,6 +129,31 @@ async function assertPermissionGroupAccessible(permissionGroupId, req, structure
             return;
         }
         const error = new Error("Access denied: regional permission groups are restricted.");
+        error.status = 403;
+        throw error;
+    }
+
+    if (group.group_kind === GROUP_KIND.COMPANY || group.company_id) {
+        if (isSuperAdminActor(req)) {
+            return;
+        }
+        if (req.user?.is_company) {
+            if (group.company_id && req.user.company_id && group.company_id !== req.user.company_id) {
+                const error = new Error("Access denied: permission group belongs to another company.");
+                error.status = 403;
+                throw error;
+            }
+            return;
+        }
+        const perms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
+        if (
+            perms.includes("company_permission_groups:read") ||
+            perms.includes("company_permission_groups:manage") ||
+            perms.includes("companies:manage")
+        ) {
+            return;
+        }
+        const error = new Error("Access denied: company permission groups are restricted.");
         error.status = 403;
         throw error;
     }
@@ -168,7 +193,7 @@ async function assertPermissionGroupAccessible(permissionGroupId, req, structure
 
 async function assertPermissionGroupMutable(permissionGroupId, req) {
     const group = await PermissionGroup.findByPk(permissionGroupId, {
-        attributes: ["permission_group_id", "group_kind", "region_id"],
+        attributes: ["permission_group_id", "group_kind", "region_id", "company_id"],
     });
     if (!group) {
         const error = new Error("Permission group not found.");
@@ -197,6 +222,31 @@ async function assertPermissionGroupMutable(permissionGroupId, req) {
             return;
         }
         const error = new Error("Access denied: missing permission to modify regional permission groups.");
+        error.status = 403;
+        throw error;
+    }
+
+    if (group.group_kind === GROUP_KIND.COMPANY || group.company_id) {
+        if (isSuperAdminActor(req)) {
+            return;
+        }
+        if (req.user?.is_company) {
+            if (group.company_id && req.user.company_id && group.company_id !== req.user.company_id) {
+                const error = new Error("Access denied: permission group belongs to another company.");
+                error.status = 403;
+                throw error;
+            }
+            return;
+        }
+        const perms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
+        if (
+            perms.includes("company_permission_groups:update") ||
+            perms.includes("company_permission_groups:manage") ||
+            perms.includes("companies:manage")
+        ) {
+            return;
+        }
+        const error = new Error("Access denied: missing permission to modify company permission groups.");
         error.status = 403;
         throw error;
     }
@@ -268,14 +318,19 @@ const createPermissionGroup = async (req, res) => {
             government_structure_id: bodyStructureId,
         } = req.body;
         const isRegionalUser = Boolean(req.user?.is_regional);
-        const normalizedGroupKind = (isRegionalUser || group_kind === "regional" || group_kind === GROUP_KIND.REGIONAL)
-            ? GROUP_KIND.REGIONAL
-            : normalizeGroupKind(group_kind);
+        const isCompanyUser = Boolean(req.user?.is_company);
+        let normalizedGroupKind = normalizeGroupKind(group_kind);
+        if (isRegionalUser || group_kind === "regional" || group_kind === GROUP_KIND.REGIONAL) {
+            normalizedGroupKind = GROUP_KIND.REGIONAL;
+        } else if (isCompanyUser || group_kind === "company" || group_kind === GROUP_KIND.COMPANY) {
+            normalizedGroupKind = GROUP_KIND.COMPANY;
+        }
 
         assertCanManagePermissionGroup(req.user, normalizedGroupKind, "create");
 
         let structureId = null;
         let regionId = null;
+        let companyId = null;
 
         if (normalizedGroupKind === GROUP_KIND.REGIONAL) {
             regionId = isRegionalUser ? req.user.region_id : (req.body.region_id || null);
@@ -283,6 +338,14 @@ const createPermissionGroup = async (req, res) => {
                 await t.rollback();
                 return res.status(400).json({
                     error: "Regional administrator must have a valid region_id.",
+                });
+            }
+        } else if (normalizedGroupKind === GROUP_KIND.COMPANY) {
+            companyId = isCompanyUser ? req.user.company_id : (req.body.company_id || null);
+            if (isCompanyUser && !companyId) {
+                await t.rollback();
+                return res.status(400).json({
+                    error: "Company administrator must have a valid company_id.",
                 });
             }
         } else {
@@ -314,6 +377,7 @@ const createPermissionGroup = async (req, res) => {
             is_active: true,
             group_kind: normalizedGroupKind,
             region_id: regionId,
+            company_id: companyId,
         }, { transaction: t });
 
         if (permission_ids && permission_ids.length > 0) {
@@ -355,9 +419,13 @@ const getPermissionGroups = async (req, res) => {
     try {
         const { government_structure_id: queryStructureId, is_active, group_kind } = req.query;
         const isRegionalUser = Boolean(req.user?.is_regional);
-        const normalizedGroupKind = (isRegionalUser || group_kind === "regional" || group_kind === GROUP_KIND.REGIONAL)
-            ? GROUP_KIND.REGIONAL
-            : resolveRequestedGroupKind(group_kind, undefined, GROUP_KIND.STANDARD);
+        const isCompanyUser = Boolean(req.user?.is_company);
+        let normalizedGroupKind = resolveRequestedGroupKind(group_kind, undefined, GROUP_KIND.STANDARD);
+        if (isRegionalUser || group_kind === "regional" || group_kind === GROUP_KIND.REGIONAL) {
+            normalizedGroupKind = GROUP_KIND.REGIONAL;
+        } else if (isCompanyUser || group_kind === "company" || group_kind === GROUP_KIND.COMPANY) {
+            normalizedGroupKind = GROUP_KIND.COMPANY;
+        }
 
         assertCanManagePermissionGroup(req.user, normalizedGroupKind, "read");
 
@@ -374,6 +442,12 @@ const getPermissionGroups = async (req, res) => {
                 where.region_id = req.user.region_id;
             } else if (req.query.region_id) {
                 where.region_id = req.query.region_id;
+            }
+        } else if (normalizedGroupKind === GROUP_KIND.COMPANY) {
+            if (isCompanyUser) {
+                where.company_id = req.user.company_id;
+            } else if (req.query.company_id) {
+                where.company_id = req.query.company_id;
             }
         } else {
             let structureId;

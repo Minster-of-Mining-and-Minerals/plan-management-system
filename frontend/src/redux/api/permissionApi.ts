@@ -3,7 +3,7 @@ import type { Permission } from "../types/permission";
 
 export type GetPermissionsParams = {
   government_structure_id?: string;
-  scope?: "all" | "regional" | "system";
+  scope?: "all" | "regional" | "company" | "system";
   tier?: "standard" | "special";
 };
 

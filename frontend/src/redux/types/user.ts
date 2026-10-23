@@ -68,6 +68,17 @@ export interface User {
     regional_structure_id: string;
     name: string;
   };
+  company_id?: string | null;
+  company_structure_id?: string | null;
+  company?: {
+    company_id: string;
+    name: string;
+    code: string;
+  };
+  companyStructure?: {
+    company_structure_id: string;
+    name: string;
+  };
 }
 
 // Payloads
@@ -80,6 +91,8 @@ export interface CreateUserPayload {
   internal_structure_id?: string;
   region_id?: string;
   regional_structure_id?: string | null;
+  company_id?: string;
+  company_structure_id?: string | null;
 }
 
 export interface UpdateUserPayload {
@@ -91,6 +104,8 @@ export interface UpdateUserPayload {
   internal_structure_id?: string;
   region_id?: string;
   regional_structure_id?: string | null;
+  company_id?: string;
+  company_structure_id?: string | null;
   is_active?: boolean;
   is_first_logged_in?: boolean;
   profile_image?: string | null;

@@ -13,6 +13,7 @@ import "@/redux/api/issueApi";
 import "@/redux/api/formConfigApi";
 import "@/redux/api/noteApi";
 import "@/redux/api/collaborationApi";
+import "@/redux/api/companyApi";
 export const store = configureStore({
   reducer: {
     [baseApi.reducerPath]: baseApi.reducer,

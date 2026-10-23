@@ -10,11 +10,13 @@ import { canAccessItem } from "@/lib/can-access";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
 import { useGetRegionsQuery } from "@/redux/api/regionApi";
+import { useGetCompaniesQuery } from "@/redux/api/companyApi";
 import { GovernmentStructure } from "@/redux/types/governmentStructure";
 import { buildSectorTree } from "@/utils/buildSectorTree";
 import { useGovernmentStructureListParams } from "@/hooks/useGovernmentStructureListParams";
 import { NavStructures } from "./nav-structures";
 import { NavRegions } from "./nav-regions";
+import { NavCompanies } from "./nav-companies";
 import { useSession } from "next-auth/react";
 import { useBranding } from "@/providers/BrandingProvider";
 import {
@@ -117,6 +119,15 @@ export function AppSidebar() {
     }
   );
 
+  const canAccessCompanies = visibleNav.some((item) => item.url === "/admin/companies");
+  const { data: companiesData } = useGetCompaniesQuery(
+    { is_active: true },
+    {
+      skip: !isAuthReady || !canAccessCompanies,
+      refetchOnMountOrArgChange: true,
+    }
+  );
+
   return (
     <Sidebar collapsible="icon" variant="floating" className="hide-scrollbar">
       {/* ---------- HEADER ---------- */}
@@ -157,7 +168,8 @@ export function AppSidebar() {
                 const hasConfigChildren = item.children && item.children.length > 0;
                 const isGovStructures = item.url === "/government-structures";
                 const isRegions = item.url === "/admin/regions";
-                const hasDynamicChildren = isGovStructures || isRegions;
+                const isCompanies = item.url === "/admin/companies";
+                const hasDynamicChildren = isGovStructures || isRegions || isCompanies;
                 const childUrls = item.children?.map((child) => child.url) ?? [];
 
                 if (hasConfigChildren || hasDynamicChildren) {
@@ -250,6 +262,11 @@ export function AppSidebar() {
                           ) : isRegions ? (
                             <NavRegions
                               regions={regionsData || []}
+                              basePath={item.url}
+                            />
+                          ) : isCompanies ? (
+                            <NavCompanies
+                              companies={companiesData || []}
                               basePath={item.url}
                             />
                           ) : null}

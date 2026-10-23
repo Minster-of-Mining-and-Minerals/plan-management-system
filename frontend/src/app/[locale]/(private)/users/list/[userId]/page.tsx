@@ -18,6 +18,10 @@ import {
   useGetRegionalStructuresQuery,
   useGetRegionalRolesQuery,
 } from "@/redux/api/regionApi";
+import {
+  useGetCompanyStructuresQuery,
+  useGetCompanyRolesQuery,
+} from "@/redux/api/companyApi";
 import { 
   Mail, 
   Phone, 
@@ -68,6 +72,7 @@ const userFormSchema = z.object({
   government_structure_id: z.string().optional().nullable(),
   internal_structure_id: z.string().optional().nullable(),
   regional_structure_id: z.string().optional().nullable(),
+  company_structure_id: z.string().optional().nullable(),
   role_ids: z.array(z.string()).min(1, "At least one role must be assigned"),
   profile_image: z.string().nullable().optional(),
   is_first_logged_in: z.boolean(),
@@ -95,10 +100,11 @@ const UserViewPage = () => {
 
   const [isEditing, setIsEditing] = useState(false);
   const isRegionalUser = Boolean(user?.region_id || user?.regional_structure_id);
+  const isCompanyUser = Boolean(user?.company_id || user?.company_structure_id);
 
   const { data: govStructures = EMPTY_STRUCTURES } = useGetGovernmentStructuresQuery(
     { is_active: true },
-    { skip: isRegionalUser }
+    { skip: isRegionalUser || isCompanyUser }
   );
 
   const { data: regionalStructures = EMPTY_STRUCTURES } = useGetRegionalStructuresQuery(
@@ -108,6 +114,15 @@ const UserViewPage = () => {
 
   const { data: regionalRoles = EMPTY_ROLES } = useGetRegionalRolesQuery(undefined, {
     skip: !isRegionalUser,
+  });
+
+  const { data: companyStructures = EMPTY_STRUCTURES } = useGetCompanyStructuresQuery(
+    { company_id: user?.company_id || "" },
+    { skip: !isCompanyUser || !user?.company_id }
+  );
+
+  const { data: companyRoles = EMPTY_ROLES } = useGetCompanyRolesQuery(undefined, {
+    skip: !isCompanyUser,
   });
   
   const form = useForm<UserFormValues>({
@@ -120,6 +135,7 @@ const UserViewPage = () => {
       government_structure_id: "",
       internal_structure_id: "",
       regional_structure_id: "",
+      company_structure_id: "",
       role_ids: [],
       profile_image: null,
       is_first_logged_in: true,
@@ -155,6 +171,7 @@ const UserViewPage = () => {
         government_structure_id: user.government_structure_id || "",
         internal_structure_id: user.internal_structure_id || "",
         regional_structure_id: user.regional_structure_id || "",
+        company_structure_id: user.company_structure_id || "",
         role_ids: user.roles?.map((r) => r.role_id) || [],
         profile_image: user.profile_image || null,
         is_first_logged_in: user.is_first_logged_in,
@@ -173,6 +190,7 @@ const UserViewPage = () => {
         government_structure_id: user.government_structure_id || "",
         internal_structure_id: user.internal_structure_id || "",
         regional_structure_id: user.regional_structure_id || "",
+        company_structure_id: user.company_structure_id || "",
         role_ids: user.roles?.map((r) => r.role_id) || [],
         profile_image: user.profile_image || null,
         is_first_logged_in: user.is_first_logged_in,
@@ -182,7 +200,26 @@ const UserViewPage = () => {
 
   const handleSave = async (values: UserFormValues) => {
     try {
-      if (isRegionalUser) {
+      if (isCompanyUser) {
+        const validCompanyRoleIds = new Set(companyRoles.map((r) => r.role_id));
+        const cleanRoleIds = validCompanyRoleIds.size > 0
+          ? values.role_ids.filter((id) => validCompanyRoleIds.has(id))
+          : values.role_ids;
+
+        await updateUser({
+          id: userId,
+          data: {
+            full_name: values.full_name,
+            email: values.email,
+            phone_number: values.phone_number || undefined,
+            role_ids: cleanRoleIds,
+            company_structure_id: values.company_structure_id ? values.company_structure_id : null,
+            is_active: values.is_active,
+            profile_image: values.profile_image ?? null,
+            is_first_logged_in: values.is_first_logged_in,
+          },
+        }).unwrap();
+      } else if (isRegionalUser) {
         const validRegionalRoleIds = new Set(regionalRoles.map((r) => r.role_id));
         const cleanRoleIds = validRegionalRoleIds.size > 0
           ? values.role_ids.filter((id) => validRegionalRoleIds.has(id))
@@ -497,7 +534,11 @@ const UserViewPage = () => {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2 text-primary">
-                {isRegionalUser ? (
+                {isCompanyUser ? (
+                  <>
+                    <Building2 className="h-5 w-5 text-emerald-500" /> Company Administration
+                  </>
+                ) : isRegionalUser ? (
                   <>
                     <MapPin className="h-5 w-5 text-indigo-500" /> Regional Administration
                   </>
@@ -509,7 +550,62 @@ const UserViewPage = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {isRegionalUser ? (
+              {isCompanyUser ? (
+                <>
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                      Assigned Company
+                    </p>
+                    <div className="flex items-center gap-2 p-3 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-lg border border-emerald-100 dark:border-emerald-900/40">
+                      <Building2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      <span className="text-sm font-semibold text-emerald-950 dark:text-emerald-200">
+                        {user.company?.name || "Company Workspace Domain"}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                      Company Department
+                    </p>
+                    {isEditing ? (
+                      <div className="space-y-2">
+                        <Controller
+                          control={form.control}
+                          name="company_structure_id"
+                          render={({ field }) => (
+                            <Select
+                              onValueChange={(val) => field.onChange(val === "__none__" ? "" : val)}
+                              value={field.value || "__none__"}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select company department" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none__">— Unassigned —</SelectItem>
+                                {companyStructures.map((s) => (
+                                  <SelectItem
+                                    key={s.company_structure_id}
+                                    value={s.company_structure_id}
+                                  >
+                                    {s.name} (Level {s.level})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg border">
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">
+                          {user.companyStructure?.name || "— Unassigned —"}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : isRegionalUser ? (
                 <>
                   <div>
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
@@ -667,7 +763,7 @@ const UserViewPage = () => {
               {isEditing ? (
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {(isRegionalUser ? regionalRoles : allRoles).map((role) => (
+                    {(isCompanyUser ? companyRoles : isRegionalUser ? regionalRoles : allRoles).map((role) => (
                       <div key={role.role_id} className="flex items-center space-x-2 border p-2 rounded-md hover:bg-muted/50 cursor-pointer">
                         <input
                           type="checkbox"

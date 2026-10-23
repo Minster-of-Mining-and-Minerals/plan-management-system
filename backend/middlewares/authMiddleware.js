@@ -33,6 +33,14 @@ const authenticateToken = async (req, res, next) => {
           as: "regionalStructure",
         },
         {
+          model: db.Company,
+          as: "company",
+        },
+        {
+          model: db.CompanyStructure,
+          as: "companyStructure",
+        },
+        {
           model: db.Role,
           as: "roles",
           through: { attributes: [] },
@@ -83,6 +91,16 @@ const authenticateToken = async (req, res, next) => {
       }
     }
 
+    // Strict account isolation: reject access if company user's assigned company is inactive or missing
+    if (user.company_id) {
+      if (!user.company || !user.company.is_active) {
+        return res.status(403).json({
+          success: false,
+          message: "Assigned company is inactive or deleted. Access denied.",
+        });
+      }
+    }
+
     user.departmentPermissionGroups = await loadDepartmentPermissionGroups(
       user.internal_structure_id
     );
@@ -91,8 +109,9 @@ const authenticateToken = async (req, res, next) => {
     const permissions = collectUserPermissionKeys(user);
 
     const isRegional = !!user.region_id;
-    const isFederal = !isRegional;
-    const domain = isRegional ? "regional" : "federal";
+    const isCompany = !!user.company_id;
+    const isFederal = !isRegional && !isCompany;
+    const domain = isRegional ? "regional" : (isCompany ? "company" : "federal");
 
     req.user = {
       user_id: user.user_id,
@@ -100,11 +119,14 @@ const authenticateToken = async (req, res, next) => {
       full_name: user.full_name,
       domain,
       is_regional: isRegional,
+      is_company: isCompany,
       is_federal: isFederal,
       government_structure_id: user.government_structure_id,
       internal_structure_id: user.internal_structure_id,
       region_id: user.region_id,
       regional_structure_id: user.regional_structure_id,
+      company_id: user.company_id,
+      company_structure_id: user.company_structure_id,
       roles,
       permissions,
     };

@@ -23,6 +23,7 @@ export interface RegionalRoleListProps {
   sideActions?: ActionButton[];
   readOnly?: boolean;
   basePath?: string;
+  regionId?: string;
 }
 
 export default function RegionalRoleList({
@@ -30,6 +31,7 @@ export default function RegionalRoleList({
   sideActions,
   readOnly = false,
   basePath,
+  regionId: propRegionId,
 }: RegionalRoleListProps = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -40,7 +42,7 @@ export default function RegionalRoleList({
 
   const [statusFilter, setStatusFilter] = useState("");
   const searchQuery = searchParams.get("search") || "";
-  const activeRegionId = session?.user?.region_id;
+  const activeRegionId = propRegionId || session?.user?.region_id;
 
   const { data = [], isLoading, refetch } = useGetRolesQuery({
     scope: "regional",

@@ -45,6 +45,12 @@ export const NAVIGATION: NavItem[] = [
     anyPermissions: ["REGIONS:READ", "REGIONS:MANAGE"],
   },
   {
+    title: "Companies",
+    url: "/admin/companies",
+    icon: Building2,
+    anyPermissions: ["COMPANIES:READ", "COMPANIES:MANAGE"],
+  },
+  {
     title: "Sector Structures",
     url: "/government-structures",
     icon: Building2,

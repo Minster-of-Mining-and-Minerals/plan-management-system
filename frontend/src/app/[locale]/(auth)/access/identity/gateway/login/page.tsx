@@ -30,13 +30,16 @@ export default function ExternalLogin() {
   useEffect(() => {
     if (status === "authenticated") {
       const regionId = session?.user?.region_id;
-      if (regionId && (!rawCallbackUrl || rawCallbackUrl === "/dashboard")) {
+      const companyId = session?.user?.company_id;
+      if (companyId && (!rawCallbackUrl || rawCallbackUrl === "/dashboard")) {
+        router.replace(`/companies/${companyId}` as any);
+      } else if (regionId && (!rawCallbackUrl || rawCallbackUrl === "/dashboard")) {
         router.replace(`/regions/${regionId}` as any);
       } else {
         router.replace(resolvePostAuthRedirect(rawCallbackUrl || "/dashboard") as any);
       }
     }
-  }, [status, session?.user?.region_id, rawCallbackUrl, router]);
+  }, [status, session?.user?.region_id, session?.user?.company_id, rawCallbackUrl, router]);
 
   const [formData, setFormData] = useState({
     email: "",
@@ -61,7 +64,10 @@ export default function ExternalLogin() {
         router.replace(AUTH_ROUTES.changePassword);
       } else {
         const regionId = newSession?.user?.region_id;
-        if (regionId && (!rawCallbackUrl || rawCallbackUrl === "/dashboard")) {
+        const companyId = newSession?.user?.company_id;
+        if (companyId && (!rawCallbackUrl || rawCallbackUrl === "/dashboard")) {
+          router.replace(`/companies/${companyId}` as any);
+        } else if (regionId && (!rawCallbackUrl || rawCallbackUrl === "/dashboard")) {
           router.replace(`/regions/${regionId}` as any);
         } else {
           router.replace(resolvePostAuthRedirect(rawCallbackUrl || "/dashboard") as any);

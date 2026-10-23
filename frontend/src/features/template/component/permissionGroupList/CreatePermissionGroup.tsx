@@ -50,7 +50,7 @@ export default function CreatePermissionGroup({
   const canUpdateGroups = can(config.updatePermission);
   const isViewOnly = forceViewMode || (isEditMode && !canUpdateGroups);
   const cancelHref =
-    config.groupKind === "regional"
+    config.groupKind === "regional" || config.groupKind === "company"
       ? config.basePath
       : structureId
       ? governmentStructureDetailPath(structureId)
@@ -68,6 +68,9 @@ export default function CreatePermissionGroup({
   const permissionQueryArgs = useMemo((): GetPermissionsParams | undefined => {
     if (config.groupKind === "regional") {
       return { scope: "regional" };
+    }
+    if (config.groupKind === "company") {
+      return { scope: "company" };
     }
 
     const base: GetPermissionsParams = { tier: permissionTier };
@@ -119,6 +122,10 @@ export default function CreatePermissionGroup({
       if (config.groupKind === "regional") {
         const r = (p.resource || "").toLowerCase();
         return r.startsWith("regional_") || r === "regions";
+      }
+      if (config.groupKind === "company") {
+        const r = (p.resource || "").toLowerCase();
+        return r.startsWith("company_") || r === "companies";
       }
       const tier = (p.permission_tier || "standard").toLowerCase();
       return config.groupKind === "special" ? tier === "special" : tier === "standard";
@@ -327,6 +334,8 @@ export default function CreatePermissionGroup({
           group_kind: config.groupKind,
           ...(config.groupKind === "regional"
             ? { region_id: session?.user?.region_id || undefined }
+            : config.groupKind === "company"
+            ? { company_id: session?.user?.company_id || undefined }
             : structureId
             ? { government_structure_id: structureId }
             : {}),
@@ -337,11 +346,13 @@ export default function CreatePermissionGroup({
             ? "Special permission group created successfully!"
             : config.groupKind === "regional"
             ? "Regional permission group created successfully!"
+            : config.groupKind === "company"
+            ? "Company permission group created successfully!"
             : "Permission group created successfully!"
         );
         resetForm();
         router.push(
-          config.groupKind === "regional"
+          config.groupKind === "regional" || config.groupKind === "company"
             ? config.basePath
             : structureId
             ? withStructureQuery(config.basePath, structureId)

@@ -81,6 +81,10 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/admin/regions/[id]", anyPermissions: ["REGIONS:READ", "REGIONS:MANAGE", "REGIONS:UPDATE"] },
   { pattern: "/admin/regions", anyPermissions: ["REGIONS:READ", "REGIONS:MANAGE"] },
 
+  // Company Administration
+  { pattern: "/admin/companies/[id]", anyPermissions: ["COMPANIES:READ", "COMPANIES:MANAGE", "COMPANIES:UPDATE"] },
+  { pattern: "/admin/companies", anyPermissions: ["COMPANIES:READ", "COMPANIES:MANAGE"] },
+
   // Issues
   { pattern: "/issues/form-config", allPermissions: ["FORM_CONFIG_CONTAINERS:READ"] },
   { pattern: "/issues/categories", allPermissions: ["ISSUE_CATEGORIES:READ"] },
@@ -142,6 +146,20 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/regional/users", anyPermissions: ["REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] },
   { pattern: "/regional/settings", anyPermissions: ["REGIONAL_BRANDING:READ", "REGIONAL_BRANDING:MANAGE"] },
   { pattern: "/regional", anyPermissions: ["REGIONAL_DASHBOARD:VIEW", "REGIONAL_STRUCTURES:READ", "REGIONAL_USERS:READ", "REGIONAL_BRANDING:READ"] },
+
+  // Dynamic Company Workspace
+  { pattern: "/companies/[id]/departments", anyPermissions: ["COMPANY_STRUCTURES:READ", "COMPANY_STRUCTURES:MANAGE"] },
+  { pattern: "/companies/[id]/users/roles/new", anyPermissions: ["COMPANY_ROLES:CREATE", "COMPANY_ROLES:MANAGE"] },
+  { pattern: "/companies/[id]/users/roles/[roleId]", anyPermissions: ["COMPANY_ROLES:READ", "COMPANY_ROLES:MANAGE"] },
+  { pattern: "/companies/[id]/users/roles", anyPermissions: ["COMPANY_ROLES:READ", "COMPANY_ROLES:MANAGE"] },
+  { pattern: "/companies/[id]/users/permission-groups/new", anyPermissions: ["COMPANY_PERMISSION_GROUPS:CREATE", "COMPANY_PERMISSION_GROUPS:MANAGE"] },
+  { pattern: "/companies/[id]/users/permission-groups/[groupId]", anyPermissions: ["COMPANY_PERMISSION_GROUPS:READ", "COMPANY_PERMISSION_GROUPS:MANAGE"] },
+  { pattern: "/companies/[id]/users/permission-groups", anyPermissions: ["COMPANY_PERMISSION_GROUPS:READ", "COMPANY_PERMISSION_GROUPS:MANAGE"] },
+  { pattern: "/companies/[id]/users/permissions", anyPermissions: ["COMPANY_PERMISSIONS:READ", "COMPANY_PERMISSIONS:MANAGE", "COMPANY_USERS:READ", "COMPANY_USERS:MANAGE"] },
+  { pattern: "/companies/[id]/users/list", anyPermissions: ["COMPANY_USERS:READ", "COMPANY_USERS:MANAGE"] },
+  { pattern: "/companies/[id]/users", anyPermissions: ["COMPANY_USERS:READ", "COMPANY_USERS:MANAGE"] },
+  { pattern: "/companies/[id]/settings", anyPermissions: ["COMPANY_BRANDING:READ", "COMPANY_BRANDING:MANAGE"] },
+  { pattern: "/companies/[id]", anyPermissions: ["COMPANY_DASHBOARD:VIEW"] },
 
   // Dashboard
   { pattern: "/dashboard", anyPermissions: ["DASHBOARD:VIEW"] },

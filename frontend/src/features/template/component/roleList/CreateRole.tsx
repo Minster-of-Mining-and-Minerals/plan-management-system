@@ -13,7 +13,7 @@ import {
 import { useStructureScope } from "@/hooks/useStructureScope";
 import { useSearchParams } from "next/navigation";
 import { withStructureQuery } from "@/utils/structureQueryUtils";
-import { MapPin } from "lucide-react";
+import { MapPin, Building2 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { CreateRoleHeader } from "./Header";
 import { BasicInfo } from "./BasicInfo";
@@ -26,10 +26,12 @@ export default function CreateRole({
   roleId,
   backPath,
   forceRegional = false,
+  forceCompany = false,
 }: {
   roleId?: string;
   backPath?: string;
   forceRegional?: boolean;
+  forceCompany?: boolean;
 }) {
   const { id: paramId } = useParams<{ id?: string }>();
   const router = useRouter();
@@ -60,17 +62,25 @@ export default function CreateRole({
   } = useGetRoleByIdQuery(id!, { skip: !isEditMode });
 
   const scopeParam = searchParams.get("scope");
+  const isCompanyRole =
+    forceCompany ||
+    roleResponse?.scope === "company" ||
+    scopeParam === "company";
+
   const isRegionalRole =
-    forceRegional ||
-    roleResponse?.scope === "regional" ||
-    scopeParam === "regional";
+    !isCompanyRole &&
+    (forceRegional ||
+      roleResponse?.scope === "regional" ||
+      scopeParam === "regional");
 
   const editingSystemRole =
     isEditMode &&
     (roleResponse?.scope === "global" || roleResponse?.scope === "private");
 
   const permissionQueryArgs =
-    isRegionalRole
+    isCompanyRole
+      ? { scope: "company" as const }
+      : isRegionalRole
       ? { scope: "regional" as const }
       : isSuperAdmin && (!structureId || editingSystemRole)
         ? { scope: "system" as const, tier: "standard" as const }
@@ -88,7 +98,7 @@ export default function CreateRole({
 
   const isLoading = isCreating || isUpdating;
 
-  // Group permissions by resource with strict regional / system separation
+  // Group permissions by resource with strict domain separation
   const resourceGroups = useMemo((): ResourceGroup[] => {
     if (!permissionsResponse) return [];
 
@@ -97,11 +107,21 @@ export default function CreateRole({
       return r.startsWith("regional_") || r === "regions";
     };
 
+    const isCompanyResource = (resource: string) => {
+      const r = (resource || "").toLowerCase();
+      return r.startsWith("company_") || r === "companies";
+    };
+
     const activePermissions = (permissionsResponse || []).filter(
       (p: Permission) => {
         if (p.is_active !== true) return false;
-        const isRegional = isRegionalResource(p.resource);
-        return isRegionalRole ? isRegional : !isRegional;
+        if (isCompanyRole) {
+          return isCompanyResource(p.resource);
+        }
+        if (isRegionalRole) {
+          return isRegionalResource(p.resource);
+        }
+        return !isRegionalResource(p.resource) && !isCompanyResource(p.resource);
       }
     );
 
@@ -122,7 +142,7 @@ export default function CreateRole({
       permissions: permissions as Permission[],
       selected: false,
     }));
-  }, [permissionsResponse, isRegionalRole]);
+  }, [permissionsResponse, isRegionalRole, isCompanyRole]);
 
   // Initialize permission matrix
   useEffect(() => {
@@ -308,7 +328,7 @@ export default function CreateRole({
       return;
     }
 
-    if (!isEditMode && !structureId && !isRegionalRole) {
+    if (!isEditMode && !structureId && !isRegionalRole && !isCompanyRole) {
       actionFeedback.error("Select a structure before creating a role.");
       return;
     }
@@ -326,17 +346,27 @@ export default function CreateRole({
 
         actionFeedback.success("Role updated successfully!");
         router.push(
-          backPath || (isRegionalRole ? "/users/roles?tab=regional" : rolesListPath)
+          backPath ||
+            (isCompanyRole
+              ? "/users/roles?tab=company"
+              : isRegionalRole
+              ? "/users/roles?tab=regional"
+              : rolesListPath)
         );
       } else {
         await createRole({
           name: name.trim(),
           description: description.trim(),
           permission_ids: selectedPermissionIds,
-          ...(isRegionalRole
+          ...(isCompanyRole
+            ? {
+                scope: "company" as any,
+                company_id: session?.user?.company_id || undefined,
+              }
+            : isRegionalRole
             ? {
                 scope: "regional" as any,
-                region_id: session?.user?.region_id,
+                region_id: session?.user?.region_id || undefined,
               }
             : { government_structure_id: structureId }),
         }).unwrap();
@@ -344,7 +374,12 @@ export default function CreateRole({
         actionFeedback.success("Role created successfully!");
         resetForm();
         router.push(
-          backPath || (isRegionalRole ? "/users/roles?tab=regional" : rolesListPath)
+          backPath ||
+            (isCompanyRole
+              ? "/users/roles?tab=company"
+              : isRegionalRole
+              ? "/users/roles?tab=regional"
+              : rolesListPath)
         );
       }
     } catch (error: any) {
@@ -389,6 +424,20 @@ export default function CreateRole({
                   </p>
                   <p className="mt-0.5 text-indigo-800/90 dark:text-indigo-300/80">
                     This role is strictly restricted to Regional Security Permissions. System and federal governance permissions are decoupled and excluded from assignment.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {isCompanyRole && (
+              <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50/70 dark:bg-emerald-950/30 dark:border-emerald-900/50 p-4 text-xs text-emerald-900 dark:text-emerald-200">
+                <Building2 className="h-4 w-4 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
+                <div>
+                  <p className="font-semibold text-emerald-950 dark:text-emerald-100">
+                    Company Role Scope
+                  </p>
+                  <p className="mt-0.5 text-emerald-800/90 dark:text-emerald-300/80">
+                    This role is strictly restricted to Company Security Permissions. System, regional, and federal governance permissions are decoupled and excluded from assignment.
                   </p>
                 </div>
               </div>

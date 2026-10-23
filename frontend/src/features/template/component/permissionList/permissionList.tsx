@@ -43,14 +43,21 @@ import { PermissionSkeleton } from "./Skeleton";
 
 export default function PermissionList({
   isRegionalOnly = false,
+  isCompanyOnly = false,
 }: {
   isRegionalOnly?: boolean;
+  isCompanyOnly?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const activeTab = isRegionalOnly
+  const tabParam = searchParams.get("tab");
+  const activeTab = isCompanyOnly
+    ? "company"
+    : isRegionalOnly
     ? "regional"
-    : searchParams.get("tab") === "regional"
+    : tabParam === "company"
+    ? "company"
+    : tabParam === "regional"
     ? "regional"
     : "system";
 
@@ -59,8 +66,10 @@ export default function PermissionList({
   const [expandedResource, setExpandedResource] = useState<string | null>(null);
 
   const queryParams = useMemo(() => {
-    return isRegionalOnly ? { scope: "regional" as const } : undefined;
-  }, [isRegionalOnly]);
+    if (isCompanyOnly) return { scope: "company" as const };
+    if (isRegionalOnly) return { scope: "regional" as const };
+    return undefined;
+  }, [isRegionalOnly, isCompanyOnly]);
 
   const {
     data: apiResponse,
@@ -95,6 +104,14 @@ export default function PermissionList({
     regional_roles: <Shield className="h-4 w-4 text-indigo-500" />,
     regional_permission_groups: <Users className="h-4 w-4 text-indigo-500" />,
     regional_permissions: <Shield className="h-4 w-4 text-indigo-500" />,
+    companies: <Building2 className="h-4 w-4 text-emerald-500" />,
+    company_dashboard: <LayoutDashboard className="h-4 w-4 text-emerald-500" />,
+    company_structures: <Building className="h-4 w-4 text-emerald-500" />,
+    company_users: <Users2 className="h-4 w-4 text-emerald-500" />,
+    company_branding: <Paintbrush className="h-4 w-4 text-emerald-500" />,
+    company_roles: <Shield className="h-4 w-4 text-emerald-500" />,
+    company_permission_groups: <Users className="h-4 w-4 text-emerald-500" />,
+    company_permissions: <Shield className="h-4 w-4 text-emerald-500" />,
   };
 
   const isRegionalResource = (resource: string) => {
@@ -102,23 +119,35 @@ export default function PermissionList({
     return r.startsWith("regional_") || r === "regions";
   };
 
-  // Divide permissions into System vs Regional
-  const { systemPermissions, regionalPermissions } = useMemo(() => {
+  const isCompanyResource = (resource: string) => {
+    const r = resource.toLowerCase();
+    return r.startsWith("company_") || r === "companies";
+  };
+
+  // Divide permissions into System vs Regional vs Company
+  const { systemPermissions, regionalPermissions, companyPermissions } = useMemo(() => {
     const system: Permission[] = [];
     const regional: Permission[] = [];
+    const company: Permission[] = [];
 
     for (const p of permissions) {
-      if (isRegionalResource(p.resource)) {
+      if (isCompanyResource(p.resource)) {
+        company.push(p);
+      } else if (isRegionalResource(p.resource)) {
         regional.push(p);
       } else {
         system.push(p);
       }
     }
-    return { systemPermissions: system, regionalPermissions: regional };
+    return { systemPermissions: system, regionalPermissions: regional, companyPermissions: company };
   }, [permissions]);
 
-  const currentPermissions = isRegionalOnly
+  const currentPermissions = isCompanyOnly
+    ? permissions.filter((p) => isCompanyResource(p.resource))
+    : isRegionalOnly
     ? permissions.filter((p) => isRegionalResource(p.resource))
+    : activeTab === "company"
+    ? companyPermissions
     : activeTab === "regional"
     ? regionalPermissions
     : systemPermissions;
@@ -200,8 +229,8 @@ export default function PermissionList({
 
   const handleTabChange = (val: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (val === "regional") {
-      params.set("tab", "regional");
+    if (val === "regional" || val === "company") {
+      params.set("tab", val);
     } else {
       params.delete("tab");
     }
@@ -239,23 +268,27 @@ export default function PermissionList({
       <div className="w-full bg-white dark:bg-card border border-border rounded-xl shadow-sm overflow-hidden">
         <PermissionHeader
           title={
-            isRegionalOnly
+            isCompanyOnly
+              ? "Company Permission Management"
+              : isRegionalOnly
               ? "Regional Permission Management"
               : "Permission Management"
           }
           description={
-            isRegionalOnly
+            isCompanyOnly
+              ? "View and manage permissions applicable to company operations and workspace access"
+              : isRegionalOnly
               ? "View and manage permissions applicable to regional operations and security"
               : "Manage and configure system permissions"
           }
         />
 
         <div className="p-6 space-y-6">
-          {/* Tab bar dividing System vs Regional Permissions */}
-          {!isRegionalOnly && (
+          {/* Tab bar dividing System vs Regional vs Company Permissions */}
+          {!isRegionalOnly && !isCompanyOnly && (
             <div className="border-b bg-muted/30 px-4 py-2.5 rounded-lg border flex flex-col sm:flex-row items-center justify-between gap-4">
               <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full sm:w-auto">
-                <TabsList className="grid grid-cols-2 h-10 w-full sm:w-[420px] bg-muted/60 p-1">
+                <TabsList className="grid grid-cols-3 h-10 w-full sm:w-[600px] bg-muted/60 p-1">
                   <TabsTrigger
                     value="system"
                     className="flex items-center gap-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all"
@@ -270,11 +303,20 @@ export default function PermissionList({
                     <MapPin className="h-4 w-4 text-indigo-500" />
                     <span>Regional Permissions ({regionalPermissions.length})</span>
                   </TabsTrigger>
+                  <TabsTrigger
+                    value="company"
+                    className="flex items-center gap-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all"
+                  >
+                    <Building2 className="h-4 w-4 text-emerald-500" />
+                    <span>Company Permissions ({companyPermissions.length})</span>
+                  </TabsTrigger>
                 </TabsList>
               </Tabs>
 
               <span className="text-xs text-muted-foreground hidden sm:inline">
-                {activeTab === "regional"
+                {activeTab === "company"
+                  ? "Restricted to company management domain"
+                  : activeTab === "regional"
                   ? "Restricted to regional management domain"
                   : "System-wide federal & structure scope"}
               </span>
@@ -297,6 +339,22 @@ export default function PermissionList({
             </div>
           )}
 
+          {(isCompanyOnly || activeTab === "company") && (
+            <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50/70 dark:bg-emerald-950/30 dark:border-emerald-900/50 p-4 text-xs text-emerald-900 dark:text-emerald-200">
+              <Info className="h-4 w-4 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
+              <div>
+                <p className="font-semibold text-emerald-950 dark:text-emerald-100">
+                  Company Operational Permissions
+                </p>
+                <p className="mt-0.5 text-emerald-800/90 dark:text-emerald-300/80">
+                  These permissions control authority strictly inside company domains, including
+                  company dashboards, company departments, staff account administration, roles, permission groups, and
+                  custom company branding. Decoupled and strictly isolated from federal and regional permissions.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Statistics */}
           <StatsComponent stats={stats} />
 
@@ -306,7 +364,12 @@ export default function PermissionList({
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-bold text-primary flex items-center gap-2">
-                    {activeTab === "regional" ? (
+                    {activeTab === "company" || isCompanyOnly ? (
+                      <>
+                        <Building2 className="h-5 w-5 text-emerald-600" />
+                        Company Permissions Catalog
+                      </>
+                    ) : activeTab === "regional" || isRegionalOnly ? (
                       <>
                         <MapPin className="h-5 w-5 text-indigo-600" />
                         Regional Permissions Catalog
@@ -327,7 +390,7 @@ export default function PermissionList({
                   <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-muted-foreground" />
                   <Input
                     type="text"
-                    placeholder={`Search ${activeTab === "regional" ? "regional " : ""}permissions...`}
+                    placeholder={`Search ${activeTab === "company" ? "company " : activeTab === "regional" ? "regional " : ""}permissions...`}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="h-11 w-full rounded-lg border border-input py-2 pl-10 pr-4 text-sm text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary md:w-72"

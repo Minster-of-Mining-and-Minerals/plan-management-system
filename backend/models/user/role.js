@@ -31,6 +31,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "region_id",
         as: "region",
       });
+      Role.belongsTo(models.Company, {
+        foreignKey: "company_id",
+        as: "company",
+      });
     }
   }
 
@@ -59,6 +63,10 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
       },
       region_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      company_id: {
         type: DataTypes.UUID,
         allowNull: true,
       },

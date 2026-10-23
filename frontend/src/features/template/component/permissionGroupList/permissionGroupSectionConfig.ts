@@ -1,6 +1,6 @@
 import type { PermissionKey } from "@/lib/permissions";
 
-export type PermissionGroupKind = "standard" | "special" | "regional";
+export type PermissionGroupKind = "standard" | "special" | "regional" | "company";
 
 export type PermissionGroupSectionConfig = {
   groupKind: PermissionGroupKind;
@@ -57,4 +57,18 @@ export const REGIONAL_PERMISSION_GROUP_CONFIG: PermissionGroupSectionConfig = {
   createPermission: "REGIONAL_PERMISSION_GROUPS:CREATE",
   updatePermission: "REGIONAL_PERMISSION_GROUPS:UPDATE",
   deletePermission: "REGIONAL_PERMISSION_GROUPS:DELETE",
+};
+
+export const COMPANY_PERMISSION_GROUP_CONFIG: PermissionGroupSectionConfig = {
+  groupKind: "company",
+  basePath: "/company/users/permission-groups",
+  listTitle: "Company Permission Group Management",
+  listDescription: "View and manage permission groups scoped to your company",
+  createTitle: "Create Company Permission Group",
+  editTitle: "Edit Company Permission Group",
+  viewTitle: "View Company Permission Group",
+  readPermission: "COMPANY_PERMISSION_GROUPS:READ",
+  createPermission: "COMPANY_PERMISSION_GROUPS:CREATE",
+  updatePermission: "COMPANY_PERMISSION_GROUPS:UPDATE",
+  deletePermission: "COMPANY_PERMISSION_GROUPS:DELETE",
 };

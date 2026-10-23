@@ -8,6 +8,8 @@ const {
   Region,
   RegionalStructure,
   PermissionGroup,
+  Company,
+  CompanyStructure,
 } = require("../../models");
 const { v4: uuidv4, validate: isUuid } = require("uuid");
 const { Op } = require("sequelize");
@@ -23,13 +25,16 @@ const {
 const {
   isSuperAdminActor,
   isRegionalActor,
+  isCompanyActor,
   resolveManageableStructureId,
   resolveUserGovernmentStructureFilter,
   assertRoleAssignable,
   assertRegionalRoleAssignable,
+  assertCompanyRoleAssignable,
   assertUserInStructure,
   assertUserManageable,
   assertRegionAccessible,
+  assertCompanyAccessible,
   assertFederalAccessible,
   sendScopeError,
 } = require("../../utils/structureScopeUtils");
@@ -40,7 +45,7 @@ async function loadGovernmentStructureIndex() {
   });
 }
 
-async function validateRoleAssignments(role_ids, structureId, req, transaction, isRegional = false) {
+async function validateRoleAssignments(role_ids, structureId, req, transaction, domain = "federal") {
   if (!role_ids?.length) {
     return;
   }
@@ -57,8 +62,10 @@ async function validateRoleAssignments(role_ids, structureId, req, transaction, 
   }
 
   for (const role of roles) {
-    if (isRegional) {
+    if (domain === "regional") {
       assertRegionalRoleAssignable(role, req);
+    } else if (domain === "company") {
+      assertCompanyRoleAssignable(role, req);
     } else {
       assertRoleAssignable(role, structureId, req);
     }
@@ -88,6 +95,14 @@ const userDetailIncludes = [
     as: "regionalStructure",
   },
   {
+    model: Company,
+    as: "company",
+  },
+  {
+    model: CompanyStructure,
+    as: "companyStructure",
+  },
+  {
     model: PermissionGroup,
     as: "permissionGroups",
     through: { attributes: [] },
@@ -106,18 +121,224 @@ const createUser = async (req, res) => {
       internal_structure_id,
       region_id,
       regional_structure_id,
+      company_id,
+      company_structure_id,
     } = req.body;
     const email = normalizeEmail(req.body.email);
 
     const hasFederal = Boolean(government_structure_id || internal_structure_id);
     const hasRegional = Boolean(region_id || regional_structure_id);
+    const hasCompany = Boolean(company_id || company_structure_id);
 
-    // Enforce mutual exclusivity of domain assignments
-    if (hasFederal && hasRegional) {
+    // Enforce mutual exclusivity of domain assignments (at most 1 domain)
+    const domainCount = [hasFederal, hasRegional, hasCompany].filter(Boolean).length;
+    if (domainCount > 1) {
       await t.rollback();
       return res.status(400).json({
         success: false,
-        message: "An account cannot be assigned to both federal and regional domains simultaneously.",
+        message: "An account cannot be assigned to multiple domains (federal, regional, company) simultaneously.",
+      });
+    }
+
+    // Company user cannot create accounts outside their company
+    if (req.user?.is_company && (hasRegional || hasFederal)) {
+      await t.rollback();
+      return res.status(403).json({
+        success: false,
+        message: "Company users cannot create accounts outside their company domain.",
+      });
+    }
+
+    // Regional user cannot create accounts outside their region
+    if (req.user?.is_regional && (hasCompany || hasFederal)) {
+      await t.rollback();
+      return res.status(403).json({
+        success: false,
+        message: "Regional users cannot create company or federal accounts.",
+      });
+    }
+
+    // Company account creation path
+    if (hasCompany || req.user?.is_company) {
+      let targetCompanyId = company_id;
+      if (req.user?.is_company) {
+        if (company_id && company_id !== req.user.company_id) {
+          await t.rollback();
+          return res.status(403).json({
+            success: false,
+            message: "Company users cannot create accounts for other companies.",
+          });
+        }
+        targetCompanyId = req.user.company_id;
+
+        const actorPerms = (req.user.permissions || []).map((p) => String(p).toLowerCase());
+        const hasCompanyCreatePerm =
+          actorPerms.includes("company_users:create") ||
+          actorPerms.includes("company_users:manage") ||
+          isSuperAdminActor(req);
+
+        if (!hasCompanyCreatePerm) {
+          await t.rollback();
+          return res.status(403).json({
+            success: false,
+            message: "Access denied: missing company user creation permission.",
+          });
+        }
+      } else {
+        const actorPerms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
+        const hasFederalCompanyCreate =
+          actorPerms.includes("company_users:create") ||
+          actorPerms.includes("company_users:manage") ||
+          actorPerms.includes("companies:manage") ||
+          isSuperAdminActor(req);
+
+        if (!hasFederalCompanyCreate) {
+          await t.rollback();
+          return res.status(403).json({
+            success: false,
+            message: "Access denied: federal account lacks company user creation permission.",
+          });
+        }
+      }
+
+      if (!targetCompanyId) {
+        await t.rollback();
+        return res.status(400).json({
+          success: false,
+          message: "company_id is required for company accounts.",
+        });
+      }
+
+      const targetCompany = await Company.findByPk(targetCompanyId, { transaction: t });
+      if (!targetCompany) {
+        await t.rollback();
+        return res.status(400).json({
+          success: false,
+          message: "Target company not found.",
+        });
+      }
+      if (!targetCompany.is_active) {
+        await t.rollback();
+        return res.status(400).json({
+          success: false,
+          message: "Cannot create accounts in a deactivated company.",
+        });
+      }
+
+      if (company_structure_id) {
+        const compStruct = await CompanyStructure.findByPk(company_structure_id, { transaction: t });
+        if (!compStruct) {
+          await t.rollback();
+          return res.status(400).json({
+            success: false,
+            message: "Target company department not found.",
+          });
+        }
+        if (compStruct.company_id !== targetCompanyId) {
+          await t.rollback();
+          return res.status(400).json({
+            success: false,
+            message: "Company department must belong to the user's assigned company.",
+          });
+        }
+        if (!compStruct.is_active) {
+          await t.rollback();
+          return res.status(400).json({
+            success: false,
+            message: "Cannot assign user to an inactive company department.",
+          });
+        }
+      }
+
+      const existingUser = await User.findOne({
+        where: { email: { [Op.iLike]: email } },
+        transaction: t,
+      });
+      if (existingUser) {
+        await t.rollback();
+        return res.status(400).json({ success: false, message: "User already exists." });
+      }
+
+      const password = "12345678";
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const user = await User.create(
+        {
+          user_id: uuidv4(),
+          full_name,
+          email,
+          password: hashedPassword,
+          phone_number,
+          is_first_logged_in: true,
+          is_active: true,
+          government_structure_id: null,
+          internal_structure_id: null,
+          region_id: null,
+          regional_structure_id: null,
+          company_id: targetCompanyId,
+          company_structure_id: company_structure_id || null,
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
+        { transaction: t }
+      );
+
+      if (role_ids && Array.isArray(role_ids) && role_ids.length > 0) {
+        try {
+          await validateRoleAssignments(role_ids, null, req, t, "company");
+        } catch (error) {
+          await t.rollback();
+          return sendScopeError(res, error);
+        }
+
+        const roleAssignments = role_ids.map((rid) => ({
+          user_role_id: uuidv4(),
+          user_id: user.user_id,
+          role_id: rid,
+          assigned_by: req.user?.user_id || null,
+          assigned_at: new Date(),
+          is_active: true,
+        }));
+        await UserRoles.bulkCreate(roleAssignments, { transaction: t });
+      }
+
+      await recordSystemAuditLog(
+        {
+          module: AUDIT_MODULES.USERS,
+          action: "create",
+          entityId: user.user_id,
+          entityLabel: user.full_name,
+          newValues: {
+            user_id: user.user_id,
+            full_name: user.full_name,
+            email: user.email,
+            phone_number: user.phone_number,
+            company_id: user.company_id,
+            company_structure_id: user.company_structure_id,
+            is_active: user.is_active,
+          },
+          changedBy: req.user.user_id,
+          ipAddress: getClientIp(req),
+        },
+        t
+      );
+
+      await t.commit();
+
+      await sendEmail(
+        email,
+        `Welcome to ${process.env.APP_NAME}!`,
+        `Dear ${full_name},\nYour company account for ${targetCompany.name} has been created.\nEmail: ${email}\nTemporary Password: ${password}\nPlease change your password after first login.`
+      );
+
+      const createdWithIncludes = await User.findByPk(user.user_id, {
+        include: userDetailIncludes,
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Company user created successfully.",
+        data: createdWithIncludes || user,
       });
     }
 
@@ -240,6 +461,8 @@ const createUser = async (req, res) => {
           internal_structure_id: null,
           region_id: targetRegionId,
           regional_structure_id: regional_structure_id || null,
+          company_id: null,
+          company_structure_id: null,
           created_at: new Date(),
           updated_at: new Date(),
         },
@@ -248,7 +471,7 @@ const createUser = async (req, res) => {
 
       if (role_ids && Array.isArray(role_ids) && role_ids.length > 0) {
         try {
-          await validateRoleAssignments(role_ids, null, req, t, true);
+          await validateRoleAssignments(role_ids, null, req, t, "regional");
         } catch (error) {
           await t.rollback();
           return sendScopeError(res, error);
@@ -306,11 +529,11 @@ const createUser = async (req, res) => {
     }
 
     // Federal account creation path:
-    if (req.user?.is_regional) {
+    if (req.user?.is_regional || req.user?.is_company) {
       await t.rollback();
       return res.status(403).json({
         success: false,
-        message: "Regional users cannot create federal accounts.",
+        message: "Regional or company users cannot create federal accounts.",
       });
     }
 
@@ -374,6 +597,8 @@ const createUser = async (req, res) => {
         internal_structure_id,
         region_id: null,
         regional_structure_id: null,
+        company_id: null,
+        company_structure_id: null,
         created_at: new Date(),
         updated_at: new Date(),
       },
@@ -457,6 +682,8 @@ const updateUser = async (req, res) => {
       internal_structure_id,
       region_id,
       regional_structure_id,
+      company_id,
+      company_structure_id,
       profile_image,
     } = req.body;
     const email = req.body.email != null ? normalizeEmail(req.body.email) : undefined;
@@ -482,15 +709,56 @@ const updateUser = async (req, res) => {
     let targetStructureId = user.government_structure_id;
     let targetInternalStructureId = user.internal_structure_id;
     let targetRegionalStructureId = user.regional_structure_id;
+    let targetCompanyStructureId = user.company_structure_id;
 
     // Strict account-domain boundary check:
-    if (user.region_id) {
-      // User is in Regional domain
-      if (government_structure_id || internal_structure_id) {
+    if (user.company_id) {
+      // User is in Company domain
+      if (government_structure_id || internal_structure_id || region_id || regional_structure_id) {
         await t.rollback();
         return res.status(400).json({
           success: false,
-          message: "Cannot assign federal structures to a regional account. Accounts cannot cross domains.",
+          message: "Cannot assign federal or regional structures to a company account. Accounts cannot cross domains.",
+        });
+      }
+
+      if (company_id && company_id !== user.company_id) {
+        await t.rollback();
+        return res.status(400).json({
+          success: false,
+          message: "Cannot transfer a user across companies. Accounts must remain strictly within their assigned company.",
+        });
+      }
+
+      if (company_structure_id !== undefined) {
+        if (company_structure_id) {
+          const compStruct = await CompanyStructure.findByPk(company_structure_id, { transaction: t });
+          if (!compStruct || compStruct.company_id !== user.company_id) {
+            await t.rollback();
+            return res.status(400).json({
+              success: false,
+              message: "Target company department does not exist or belongs to another company.",
+            });
+          }
+          if (!compStruct.is_active) {
+            await t.rollback();
+            return res.status(400).json({
+              success: false,
+              message: "Cannot assign user to an inactive company department.",
+            });
+          }
+          targetCompanyStructureId = company_structure_id;
+        } else {
+          targetCompanyStructureId = null;
+        }
+      }
+    } else if (user.region_id) {
+      // User is in Regional domain
+      if (government_structure_id || internal_structure_id || company_id || company_structure_id) {
+        await t.rollback();
+        return res.status(400).json({
+          success: false,
+          message: "Cannot assign federal or company structures to a regional account. Accounts cannot cross domains.",
         });
       }
 
@@ -526,11 +794,11 @@ const updateUser = async (req, res) => {
       }
     } else {
       // User is in Federal domain
-      if (region_id || regional_structure_id) {
+      if (region_id || regional_structure_id || company_id || company_structure_id) {
         await t.rollback();
         return res.status(400).json({
           success: false,
-          message: "Cannot assign a region or regional department to a federal account. Accounts cannot cross domains.",
+          message: "Cannot assign regional or company structures to a federal account. Accounts cannot cross domains.",
         });
       }
 
@@ -564,6 +832,8 @@ const updateUser = async (req, res) => {
       internal_structure_id: user.internal_structure_id,
       region_id: user.region_id,
       regional_structure_id: user.regional_structure_id,
+      company_id: user.company_id,
+      company_structure_id: user.company_structure_id,
     };
 
     // ====== Check for email duplication ======
@@ -596,6 +866,7 @@ const updateUser = async (req, res) => {
         government_structure_id: targetStructureId,
         internal_structure_id: targetInternalStructureId,
         regional_structure_id: targetRegionalStructureId,
+        company_structure_id: targetCompanyStructureId,
         profile_image: profile_image !== undefined ? profile_image : user.profile_image,
         updated_at: new Date(),
       },
@@ -604,13 +875,14 @@ const updateUser = async (req, res) => {
 
     // ====== Update roles if provided ======
     if (role_ids && Array.isArray(role_ids)) {
+      const targetDomain = user.company_id ? "company" : user.region_id ? "regional" : "federal";
       try {
         await validateRoleAssignments(
           role_ids,
           targetStructureId,
           req,
           t,
-          Boolean(user.region_id || user.regional_structure_id || region_id || regional_structure_id)
+          targetDomain
         );
       } catch (error) {
         await t.rollback();
@@ -651,6 +923,8 @@ const updateUser = async (req, res) => {
           internal_structure_id: user.internal_structure_id,
           region_id: user.region_id,
           regional_structure_id: user.regional_structure_id,
+          company_id: user.company_id,
+          company_structure_id: user.company_structure_id,
           role_ids: role_ids ?? undefined,
         },
         changedBy: req.user.user_id,
@@ -686,6 +960,8 @@ const getUsers = async (req, res) => {
       government_structure_id,
       internal_structure_id,
       region_id,
+      company_id,
+      company_structure_id,
       domain,
     } = req.query;
 
@@ -693,8 +969,33 @@ const getUsers = async (req, res) => {
 
     if (is_active !== undefined) whereClause.is_active = is_active === "true";
 
-    // Domain and region filtering
-    if (req.user?.is_regional) {
+    // Domain, region, and company filtering
+    if (req.user?.is_company) {
+      if (company_id && company_id !== req.user.company_id) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied: cannot access users of another company.",
+        });
+      }
+
+      const actorPerms = (req.user.permissions || []).map((p) => String(p).toLowerCase());
+      const hasCompanyUserRead =
+        actorPerms.includes("company_users:read") ||
+        actorPerms.includes("company_users:manage") ||
+        isSuperAdminActor(req);
+
+      if (!hasCompanyUserRead) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied: missing company user read permission.",
+        });
+      }
+
+      whereClause.company_id = req.user.company_id;
+      if (company_structure_id || internal_structure_id) {
+        whereClause.company_structure_id = company_structure_id || internal_structure_id;
+      }
+    } else if (req.user?.is_regional) {
       if (region_id && region_id !== req.user.region_id) {
         return res.status(403).json({
           success: false,
@@ -720,8 +1021,37 @@ const getUsers = async (req, res) => {
       }
     } else {
       // Federal caller
+      const isTargetingCompany = Boolean(company_id || domain === "company");
       const isTargetingRegional = Boolean(region_id || domain === "regional");
-      if (isTargetingRegional) {
+
+      if (isTargetingCompany) {
+        const actorPerms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
+        const hasFederalCompanyUserRead =
+          actorPerms.includes("company_users:read") ||
+          actorPerms.includes("company_users:manage") ||
+          actorPerms.includes("companies:read") ||
+          actorPerms.includes("companies:manage") ||
+          isSuperAdminActor(req);
+
+        if (!hasFederalCompanyUserRead) {
+          return res.status(403).json({
+            success: false,
+            message: "Access denied: federal account lacks company user management permission.",
+          });
+        }
+
+        if (company_id) {
+          whereClause.company_id = company_id;
+        } else {
+          whereClause.company_id = { [Op.ne]: null };
+        }
+        whereClause.region_id = null;
+        whereClause.government_structure_id = null;
+
+        if (company_structure_id || internal_structure_id) {
+          whereClause.company_structure_id = company_structure_id || internal_structure_id;
+        }
+      } else if (isTargetingRegional) {
         const hasFederalRegionalUserRead =
           req.user.permissions?.includes("regional_users:read") ||
           req.user.permissions?.includes("regional_users:manage") ||
@@ -741,15 +1071,20 @@ const getUsers = async (req, res) => {
         } else {
           whereClause.region_id = { [Op.ne]: null };
         }
+        whereClause.company_id = null;
+        whereClause.government_structure_id = null;
+
+        if (internal_structure_id) {
+          whereClause.regional_structure_id = internal_structure_id;
+        }
       } else {
         whereClause.region_id = null;
-      }
+        whereClause.company_id = null;
 
-      if (internal_structure_id && !whereClause.region_id) {
-        whereClause.internal_structure_id = internal_structure_id;
-      }
+        if (internal_structure_id) {
+          whereClause.internal_structure_id = internal_structure_id;
+        }
 
-      if (!whereClause.region_id) {
         const structureIndex = await loadGovernmentStructureIndex();
         let structureIds;
         try {
@@ -1105,6 +1440,30 @@ const getUserDisplayNames = async (req, res) => {
 
     if (!uniqueIds.length) {
       return res.status(200).json({ success: true, data: {} });
+    }
+
+    if (req.user?.is_company) {
+      const users = await User.findAll({
+        where: { user_id: { [Op.in]: uniqueIds }, company_id: req.user.company_id },
+        attributes: ["user_id", "full_name", "email"],
+      });
+      const data = {};
+      for (const u of users) {
+        data[u.user_id] = { full_name: u.full_name, email: u.email };
+      }
+      return res.status(200).json({ success: true, data });
+    }
+
+    if (req.user?.is_regional) {
+      const users = await User.findAll({
+        where: { user_id: { [Op.in]: uniqueIds }, region_id: req.user.region_id },
+        attributes: ["user_id", "full_name", "email"],
+      });
+      const data = {};
+      for (const u of users) {
+        data[u.user_id] = { full_name: u.full_name, email: u.email };
+      }
+      return res.status(200).json({ success: true, data });
     }
 
     const users = await User.findAll({

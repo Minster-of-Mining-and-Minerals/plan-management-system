@@ -11,6 +11,7 @@ const GROUP_KIND = {
   STANDARD: "standard",
   SPECIAL: "special",
   REGIONAL: "regional",
+  COMPANY: "company",
 };
 
 const PERMISSION_TIER = {
@@ -37,6 +38,7 @@ function normalizeGroupKind(groupKind) {
   const value = String(groupKind || GROUP_KIND.STANDARD).trim().toLowerCase();
   if (value === GROUP_KIND.SPECIAL) return GROUP_KIND.SPECIAL;
   if (value === GROUP_KIND.REGIONAL) return GROUP_KIND.REGIONAL;
+  if (value === GROUP_KIND.COMPANY) return GROUP_KIND.COMPANY;
   return GROUP_KIND.STANDARD;
 }
 
@@ -79,6 +81,24 @@ async function assertPermissionIdsMatchGroupKind(
     if (nonRegional.length > 0) {
       throw buildPermissionScopeError(
         "Regional permission groups may only include regional permissions.",
+        400
+      );
+    }
+    return;
+  }
+
+  if (normalizedKind === GROUP_KIND.COMPANY) {
+    const permissions = await Permission.findAll({
+      where: { permission_id: permissionIds },
+      attributes: ["permission_id", "resource", "action", "permission_tier"],
+      transaction: options.transaction,
+    });
+    const nonCompany = permissions.filter(
+      (p) => !p.resource.startsWith("company_") && p.resource !== "companies"
+    );
+    if (nonCompany.length > 0) {
+      throw buildPermissionScopeError(
+        "Company permission groups may only include company permissions.",
         400
       );
     }

@@ -15,7 +15,7 @@ const {
   sendScopeError,
 } = require("../../utils/structureScopeUtils");
 
-async function assertValidPermissionIds(permissionIds, transaction, { allowRegional = false } = {}) {
+async function assertValidPermissionIds(permissionIds, transaction, { allowRegional = false, allowCompany = false } = {}) {
   if (!permissionIds?.length) return;
 
   const uniqueIds = [...new Set(permissionIds)];
@@ -23,11 +23,21 @@ async function assertValidPermissionIds(permissionIds, transaction, { allowRegio
     permission_id: uniqueIds,
     is_active: true,
   };
+  const exclusions = [];
   if (!allowRegional) {
-    where[Op.and] = [
+    exclusions.push(
       { resource: { [Op.notLike]: "regional_%" } },
-      { resource: { [Op.ne]: "regions" } },
-    ];
+      { resource: { [Op.ne]: "regions" } }
+    );
+  }
+  if (!allowCompany) {
+    exclusions.push(
+      { resource: { [Op.notLike]: "company_%" } },
+      { resource: { [Op.ne]: "companies" } }
+    );
+  }
+  if (exclusions.length > 0) {
+    where[Op.and] = exclusions;
   }
   const found = await Permission.findAll({
     where,
@@ -64,6 +74,29 @@ async function assertValidRegionalPermissionIds(permissionIds, transaction) {
   }
 }
 
+async function assertValidCompanyPermissionIds(permissionIds, transaction) {
+  if (!permissionIds?.length) return;
+
+  const uniqueIds = [...new Set(permissionIds)];
+  const found = await Permission.findAll({
+    where: {
+      permission_id: uniqueIds,
+      is_active: true,
+      [Op.or]: [
+        { resource: { [Op.like]: "company_%" } },
+        { resource: "companies" },
+      ],
+    },
+    transaction,
+  });
+
+  if (found.length !== uniqueIds.length) {
+    const error = new Error("Company roles can only be assigned company permissions.");
+    error.status = 400;
+    throw error;
+  }
+}
+
 function parsePermissionIds(permission_ids) {
   if (!permission_ids) return [];
   let permissionIds = permission_ids;
@@ -77,7 +110,7 @@ function parsePermissionIds(permission_ids) {
   return Array.isArray(permissionIds) ? permissionIds : [];
 }
 
-async function assertUniqueRoleName(name, government_structure_id, scope, transaction, excludeRoleId, region_id = null) {
+async function assertUniqueRoleName(name, government_structure_id, scope, transaction, excludeRoleId, region_id = null, company_id = null) {
   const where = {
     name,
     scope,
@@ -90,6 +123,9 @@ async function assertUniqueRoleName(name, government_structure_id, scope, transa
   } else if (scope === ROLE_SCOPE.REGIONAL || scope === "regional") {
     where.government_structure_id = null;
     where.region_id = region_id || null;
+  } else if (scope === ROLE_SCOPE.COMPANY || scope === "company") {
+    where.government_structure_id = null;
+    where.company_id = company_id || null;
   } else {
     where.government_structure_id = null;
   }
@@ -174,6 +210,76 @@ const createRole = async (req, res) => {
       return res.status(201).json({
         success: true,
         message: "Regional role created successfully",
+        data: createdRole,
+      });
+    }
+
+    const isCompanyActor = Boolean(req.user?.is_company || bodyScope === ROLE_SCOPE.COMPANY || bodyScope === "company");
+    if (isCompanyActor) {
+      const companyId = req.user?.is_company ? req.user.company_id : (req.body.company_id || null);
+      if (req.user?.is_company && !companyId) {
+        await t.rollback();
+        return res.status(400).json({
+          success: false,
+          message: "Company administrator must have a valid company_id.",
+        });
+      }
+
+      await assertUniqueRoleName(name, null, ROLE_SCOPE.COMPANY, t, null, null, companyId);
+      await assertValidCompanyPermissionIds(permissionIds, t);
+
+      const role = await Role.create(
+        {
+          role_id: uuidv4(),
+          name,
+          description,
+          scope: ROLE_SCOPE.COMPANY,
+          company_id: companyId,
+          region_id: null,
+          government_structure_id: null,
+          is_active: true,
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
+        { transaction: t }
+      );
+
+      if (permissionIds.length > 0) {
+        const rolePermissions = permissionIds.map((pid) => ({
+          role_permission_id: uuidv4(),
+          role_id: role.role_id,
+          permission_id: pid,
+          is_active: true,
+          created_at: new Date(),
+          updated_at: new Date(),
+        }));
+        await RolePermission.bulkCreate(rolePermissions, { transaction: t });
+      }
+
+      await t.commit();
+
+      const createdRole = await Role.findOne({
+        where: { role_id: role.role_id },
+        include: [
+          {
+            model: RolePermission,
+            as: "rolePermissions",
+            required: false,
+            where: { is_active: true },
+            include: [
+              {
+                model: Permission,
+                as: "permission",
+                attributes: ["permission_id", "resource", "action"],
+              },
+            ],
+          },
+        ],
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Company role created successfully",
         data: createdRole,
       });
     }
@@ -287,6 +393,19 @@ const getRoles = async (req, res) => {
           { region_id: null },
         ];
       }
+    } else if (scope === "company" || scope === ROLE_SCOPE.COMPANY || req.user?.is_company) {
+      whereClause.scope = ROLE_SCOPE.COMPANY;
+      if (req.user?.is_company) {
+        whereClause[Op.or] = [
+          { company_id: req.user.company_id },
+          { company_id: null },
+        ];
+      } else if (req.query.company_id) {
+        whereClause[Op.or] = [
+          { company_id: req.query.company_id },
+          { company_id: null },
+        ];
+      }
     } else {
       let structureId;
       try {
@@ -343,7 +462,7 @@ const getRoleById = async (req, res) => {
     const { government_structure_id: queryStructureId } = req.query;
 
     let structureId = null;
-    if (!req.user?.is_regional) {
+    if (!req.user?.is_regional && !req.user?.is_company) {
       try {
         structureId = resolveManageableStructureId(req, queryStructureId);
       } catch (error) {
@@ -407,7 +526,7 @@ const updateRole = async (req, res) => {
       req.body;
 
     let structureId = null;
-    if (!req.user?.is_regional) {
+    if (!req.user?.is_regional && !req.user?.is_company) {
       try {
         structureId = resolveManageableStructureId(req, queryStructureId);
       } catch (error) {
@@ -452,7 +571,8 @@ const updateRole = async (req, res) => {
         role.scope,
         t,
         id,
-        role.region_id
+        role.region_id,
+        role.company_id
       );
     }
 
@@ -476,6 +596,8 @@ const updateRole = async (req, res) => {
         );
       } else if (role.scope === ROLE_SCOPE.REGIONAL || role.scope === "regional") {
         await assertValidRegionalPermissionIds(permissionIds, t);
+      } else if (role.scope === ROLE_SCOPE.COMPANY || role.scope === "company") {
+        await assertValidCompanyPermissionIds(permissionIds, t);
       } else {
         await assertValidPermissionIds(permissionIds, t);
       }
@@ -539,7 +661,7 @@ const deleteRole = async (req, res) => {
     const { government_structure_id: queryStructureId } = req.query;
 
     let structureId = null;
-    if (!req.user?.is_regional) {
+    if (!req.user?.is_regional && !req.user?.is_company) {
       try {
         structureId = resolveManageableStructureId(req, queryStructureId);
       } catch (error) {

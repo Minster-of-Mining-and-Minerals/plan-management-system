@@ -28,6 +28,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           regional_structure_id: user.regional_structure_id,
           region: user.region,
           regional_structure: user.regional_structure,
+          company_id: user.company_id,
+          company_structure_id: user.company_structure_id,
+          company: user.company,
+          company_structure: user.company_structure,
           government_structure: user.government_structure,
           internal_structure: user.internal_structure,
         };
@@ -51,6 +55,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           regional_structure_id: token.regional_structure_id,
           region: token.region,
           regional_structure: token.regional_structure,
+          company_id: token.company_id,
+          company_structure_id: token.company_structure_id,
+          company: token.company,
+          company_structure: token.company_structure,
           government_structure: token.government_structure,
           internal_structure: token.internal_structure,
         },
@@ -70,6 +78,10 @@ declare module "next-auth" {
     regional_structure_id?: string | null;
     region?: any;
     regional_structure?: any;
+    company_id?: string | null;
+    company_structure_id?: string | null;
+    company?: any;
+    company_structure?: any;
     government_structure?: any;
     internal_structure?: any;
   }
@@ -87,6 +99,10 @@ declare module "next-auth" {
       regional_structure_id?: string | null;
       region?: any;
       regional_structure?: any;
+      company_id?: string | null;
+      company_structure_id?: string | null;
+      company?: any;
+      company_structure?: any;
       government_structure?: any;
       internal_structure?: any;
     };
@@ -103,6 +119,10 @@ declare module "next-auth/jwt" {
     regional_structure_id?: string | null;
     region?: any;
     regional_structure?: any;
+    company_id?: string | null;
+    company_structure_id?: string | null;
+    company?: any;
+    company_structure?: any;
     government_structure?: any;
     internal_structure?: any;
   }

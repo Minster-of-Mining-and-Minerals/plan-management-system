@@ -42,12 +42,41 @@ const getPermissions = async (req, res) => {
       });
     }
 
-    // System permissions separation: exclude regional permissions when scope=system
+    // Strict company separation: return only company permissions when scope=company or caller is company
+    if (scope === "company" || req.user?.is_company) {
+      const where = {
+        [Op.or]: [
+          { resource: { [Op.like]: "company_%" } },
+          { resource: "companies" },
+        ],
+      };
+      if (is_active !== undefined) {
+        where.is_active = is_active === "true";
+      }
+      if (tier) {
+        where.permission_tier = normalizePermissionTier(tier);
+      }
+
+      const permissions = await Permission.findAll({
+        where,
+        order: [["resource", "ASC"], ["action", "ASC"]],
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Company permissions fetched successfully.",
+        data: permissions,
+      });
+    }
+
+    // System permissions separation: exclude regional and company permissions when scope=system
     if (scope === "system") {
       const where = {
         [Op.and]: [
           { resource: { [Op.notLike]: "regional_%" } },
           { resource: { [Op.ne]: "regions" } },
+          { resource: { [Op.notLike]: "company_%" } },
+          { resource: { [Op.ne]: "companies" } },
         ],
       };
       if (is_active !== undefined) {

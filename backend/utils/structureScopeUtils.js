@@ -146,6 +146,38 @@ function assertRoleAccessible(role, req, structureId) {
     return;
   }
 
+  if (role.scope === ROLE_SCOPE.COMPANY) {
+    if (isSuperAdminActor(req)) {
+      return;
+    }
+    if (isCompanyActor(req)) {
+      if (role.company_id && req.user.company_id && role.company_id !== req.user.company_id) {
+        const error = new Error("Access denied: role belongs to another company.");
+        error.status = 403;
+        throw error;
+      }
+      return;
+    }
+    const perms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
+    const hasCompanyManage =
+      perms.includes("company_roles:read") ||
+      perms.includes("company_roles:manage") ||
+      perms.includes("company_users:read") ||
+      perms.includes("company_users:manage") ||
+      perms.includes("companies:read") ||
+      perms.includes("companies:manage") ||
+      perms.includes("roles:read") ||
+      perms.includes("roles:manage") ||
+      perms.includes("users:read") ||
+      perms.includes("users:manage");
+    if (!hasCompanyManage) {
+      const error = new Error("Access denied: company roles are restricted to company administrators.");
+      error.status = 403;
+      throw error;
+    }
+    return;
+  }
+
   if (!structureId) {
     const error = new Error("Structure context is required.");
     error.status = 400;
@@ -157,6 +189,58 @@ function assertRoleAccessible(role, req, structureId) {
     role.government_structure_id !== structureId
   ) {
     const error = new Error("Access denied: role belongs to another structure.");
+    error.status = 403;
+    throw error;
+  }
+}
+
+function assertCompanyRoleAssignable(role, req) {
+  if (!role) {
+    const error = new Error("Role not found.");
+    error.status = 404;
+    throw error;
+  }
+
+  if (role.scope !== ROLE_SCOPE.COMPANY && !STRUCTURE_ASSIGNABLE_GLOBAL_ROLE_IDS.has(role.role_id)) {
+    const error = new Error("Access denied: only company-scoped roles can be assigned to company accounts.");
+    error.status = 403;
+    throw error;
+  }
+
+  if (isSuperAdminActor(req)) {
+    return;
+  }
+
+  const perms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
+
+  if (isCompanyActor(req)) {
+    const hasRoleAssign =
+      perms.includes("company_users:assign_role") ||
+      perms.includes("company_users:create") ||
+      perms.includes("company_users:update") ||
+      perms.includes("company_users:manage") ||
+      perms.includes("company_roles:manage") ||
+      perms.includes("roles:manage");
+    if (!hasRoleAssign) {
+      const error = new Error("Access denied: missing company user role assignment permission.");
+      error.status = 403;
+      throw error;
+    }
+    return;
+  }
+
+  const hasFederalCompanyPerm =
+    perms.includes("company_users:assign_role") ||
+    perms.includes("company_users:create") ||
+    perms.includes("company_users:update") ||
+    perms.includes("company_users:manage") ||
+    perms.includes("users:manage") ||
+    perms.includes("users:update") ||
+    perms.includes("users:create") ||
+    perms.includes("users:assign_role") ||
+    perms.includes("companies:manage");
+  if (!hasFederalCompanyPerm) {
+    const error = new Error("Access denied: federal account lacks company user management permission.");
     error.status = 403;
     throw error;
   }
@@ -276,6 +360,40 @@ function assertRoleModifiable(role, req) {
     throw error;
   }
 
+  if (role.scope === ROLE_SCOPE.COMPANY) {
+    if (isSuperAdminActor(req)) {
+      return;
+    }
+    if (isCompanyActor(req)) {
+      if (!role.company_id) {
+        const error = new Error("System company template roles cannot be modified.");
+        error.status = 403;
+        throw error;
+      }
+      if (role.company_id !== req.user.company_id) {
+        const error = new Error("Access denied: role belongs to another company.");
+        error.status = 403;
+        throw error;
+      }
+      return;
+    }
+    const perms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
+    if (
+      perms.includes("company_roles:update") ||
+      perms.includes("company_roles:manage") ||
+      perms.includes("company_users:manage") ||
+      perms.includes("company_users:update") ||
+      perms.includes("roles:update") ||
+      perms.includes("roles:manage") ||
+      perms.includes("companies:manage")
+    ) {
+      return;
+    }
+    const error = new Error("Access denied: missing permission to modify company roles.");
+    error.status = 403;
+    throw error;
+  }
+
   const error = new Error("Unsupported role scope.");
   error.status = 400;
   throw error;
@@ -288,8 +406,8 @@ function assertRoleDeletable(role, req) {
     throw error;
   }
 
-  if (role.scope !== ROLE_SCOPE.STRUCTURE && role.scope !== ROLE_SCOPE.REGIONAL) {
-    const error = new Error("Only structure-scoped or regional-scoped roles can be deleted.");
+  if (role.scope !== ROLE_SCOPE.STRUCTURE && role.scope !== ROLE_SCOPE.REGIONAL && role.scope !== ROLE_SCOPE.COMPANY) {
+    const error = new Error("Only structure-scoped, regional-scoped, or company-scoped roles can be deleted.");
     error.status = 403;
     throw error;
   }
@@ -302,6 +420,19 @@ function assertRoleDeletable(role, req) {
     }
     if (role.region_id && isRegionalActor(req) && role.region_id !== req.user?.region_id) {
       const error = new Error("Access denied: role belongs to another region.");
+      error.status = 403;
+      throw error;
+    }
+  }
+
+  if (role.scope === ROLE_SCOPE.COMPANY) {
+    if (!role.company_id && !isSuperAdminActor(req)) {
+      const error = new Error("System company template roles cannot be deleted.");
+      error.status = 403;
+      throw error;
+    }
+    if (role.company_id && isCompanyActor(req) && role.company_id !== req.user?.company_id) {
+      const error = new Error("Access denied: role belongs to another company.");
       error.status = 403;
       throw error;
     }
@@ -607,6 +738,10 @@ function isRegionalActor(req) {
   return Boolean(req.user?.region_id);
 }
 
+function isCompanyActor(req) {
+  return Boolean(req.user?.company_id);
+}
+
 function isFederalActor(req) {
   return Boolean(req.user?.government_structure_id);
 }
@@ -621,10 +756,103 @@ function getUserDomain(user) {
   if (user?.region_id) {
     return "regional";
   }
+  if (user?.company_id) {
+    return "company";
+  }
   if (user?.government_structure_id) {
     return "federal";
   }
   return "unassigned";
+}
+
+function assertCompanyAccessible(req, companyId, requiredAction = "read") {
+  if (!companyId) {
+    const error = new Error("Company ID is required.");
+    error.status = 400;
+    throw error;
+  }
+
+  if (isSuperAdminActor(req)) {
+    return;
+  }
+
+  if (isCompanyActor(req)) {
+    if (req.user.company_id !== companyId) {
+      const error = new Error("Access denied: you do not have permission to access another company.");
+      error.status = 403;
+      throw error;
+    }
+    return;
+  }
+
+  if (isRegionalActor(req)) {
+    const error = new Error("Access denied: regional accounts cannot access company domain resources.");
+    error.status = 403;
+    throw error;
+  }
+
+  // Federal actor acting under explicit company-management permissions
+  const actionLower = String(requiredAction).toLowerCase();
+  const perms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
+  const hasExplicitCompanyPerm =
+    perms.includes(`companies:${actionLower}`) ||
+    perms.includes("companies:manage") ||
+    perms.includes(`company_structures:${actionLower}`) ||
+    perms.includes("company_structures:manage") ||
+    perms.includes(`company_branding:${actionLower}`) ||
+    perms.includes("company_branding:manage") ||
+    perms.includes(`company_users:${actionLower}`) ||
+    perms.includes("company_users:manage") ||
+    perms.includes(`company_roles:${actionLower}`) ||
+    perms.includes("company_roles:manage") ||
+    perms.includes(`company_permission_groups:${actionLower}`) ||
+    perms.includes("company_permission_groups:manage");
+
+  if (!hasExplicitCompanyPerm) {
+    const error = new Error("Access denied: federal account lacks company management permission.");
+    error.status = 403;
+    throw error;
+  }
+}
+
+function assertCompanyUserManageable(targetUser, req, action = "read") {
+  if (!targetUser) {
+    const error = new Error("User not found.");
+    error.status = 404;
+    throw error;
+  }
+
+  if (isSuperAdminActor(req)) {
+    return;
+  }
+
+  if (isCompanyActor(req)) {
+    if (targetUser.company_id !== req.user.company_id) {
+      const error = new Error("Access denied: cannot manage users of another company.");
+      error.status = 403;
+      throw error;
+    }
+    return;
+  }
+
+  if (isRegionalActor(req)) {
+    const error = new Error("Access denied: regional accounts cannot manage company users.");
+    error.status = 403;
+    throw error;
+  }
+
+  const actionLower = String(action).toLowerCase();
+  const perms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
+  const hasExplicitPerm =
+    perms.includes(`company_users:${actionLower}`) ||
+    perms.includes("company_users:manage") ||
+    perms.includes("companies:manage");
+
+  if (!hasExplicitPerm) {
+    const error = new Error("Access denied: federal account lacks company user management permission.");
+    error.status = 403;
+    throw error;
+  }
 }
 
 function assertRegionAccessible(req, regionId, requiredAction = "read") {
@@ -725,6 +953,12 @@ function assertFederalAccessible(req) {
     error.status = 403;
     throw error;
   }
+
+  if (isCompanyActor(req)) {
+    const error = new Error("Access denied: company users cannot access federal organizational resources.");
+    error.status = 403;
+    throw error;
+  }
 }
 
 function assertUserManageable(targetUser, req, structureIndex, action = "update") {
@@ -739,6 +973,11 @@ function assertUserManageable(targetUser, req, structureIndex, action = "update"
     return;
   }
 
+  if (targetUser.company_id) {
+    assertCompanyUserManageable(targetUser, req, action);
+    return;
+  }
+
   assertFederalAccessible(req);
   assertUserInStructure(targetUser, targetUser.government_structure_id, req, structureIndex);
 }
@@ -746,13 +985,17 @@ function assertUserManageable(targetUser, req, structureIndex, action = "update"
 module.exports = {
   isSuperAdminActor,
   isRegionalActor,
+  isCompanyActor,
   isFederalActor,
   getUserDomain,
   assertRegionAccessible,
   assertRegionalUserManageable,
+  assertCompanyAccessible,
+  assertCompanyUserManageable,
   assertFederalAccessible,
   assertUserManageable,
   assertRegionalRoleAssignable,
+  assertCompanyRoleAssignable,
   getActorStructureId,
   resolveManageableStructureId,
   buildRoleVisibilityWhere,

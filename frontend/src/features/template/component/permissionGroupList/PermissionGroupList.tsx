@@ -42,7 +42,9 @@ export default function PermissionGroupList({
 }: PermissionGroupListProps) {
   const { data: session } = useSession();
   const isRegional = config.groupKind === "regional";
+  const isCompany = config.groupKind === "company";
   const regionalUserRegionId = session?.user?.region_id;
+  const companyUserCompanyId = session?.user?.company_id;
 
   const { isSuperAdmin, structureId: sessionStructureId } = useStructureScope();
   const { can } = usePermissions();
@@ -53,12 +55,13 @@ export default function PermissionGroupList({
   const effectiveReadOnly = readOnly || !canUpdate;
 
   const queryArgs = {
-    ...(structureId && !isRegional ? { government_structure_id: structureId } : {}),
+    ...(structureId && !isRegional && !isCompany ? { government_structure_id: structureId } : {}),
     group_kind: config.groupKind,
     ...(isRegional && regionalUserRegionId ? { region_id: regionalUserRegionId } : {}),
+    ...(isCompany && companyUserCompanyId ? { company_id: companyUserCompanyId } : {}),
   };
 
-  const shouldFetch = isRegional || Boolean(structureId || isSuperAdmin || sessionStructureId);
+  const shouldFetch = isRegional || isCompany || Boolean(structureId || isSuperAdmin || sessionStructureId);
 
   const { data = [], isLoading, isError, refetch } = useGetPermissionGroupsQuery(
     shouldFetch ? queryArgs : undefined,

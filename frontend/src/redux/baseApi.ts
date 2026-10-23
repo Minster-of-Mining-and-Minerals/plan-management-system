@@ -113,6 +113,10 @@ export const baseApi = createApi({
     "RegionalStructures",
     "RegionalBranding",
     "RegionalDashboard",
+    "Companies",
+    "CompanyStructures",
+    "CompanyBranding",
+    "CompanyDashboard",
   ],
   endpoints: () => ({}),
 });

@@ -30,6 +30,10 @@ const regionRoutes = require("./routers/structure/regionRoutes");
 const regionalStructureRoutes = require("./routers/structure/regionalStructureRoutes");
 const regionalBrandingRoutes = require("./routers/config/regionalBrandingRoutes");
 const regionalOperationalRoutes = require("./routers/structure/regionalOperationalRoutes");
+const companyRoutes = require("./routers/structure/companyRoutes");
+const companyStructureRoutes = require("./routers/structure/companyStructureRoutes");
+const companyBrandingRoutes = require("./routers/config/companyBrandingRoutes");
+const companyOperationalRoutes = require("./routers/structure/companyOperationalRoutes");
 
 // Plan Management Routes
 const planRoutes = require("./routers/plan/planRoutes");
@@ -153,6 +157,10 @@ app.use("/api/regions", regionRoutes);
 app.use("/api/regional-structures", regionalStructureRoutes);
 app.use("/api/regional-branding", regionalBrandingRoutes);
 app.use("/api/regional", regionalOperationalRoutes);
+app.use("/api/companies", companyRoutes);
+app.use("/api/company-structures", companyStructureRoutes);
+app.use("/api/company-branding", companyBrandingRoutes);
+app.use("/api/company", companyOperationalRoutes);
 
 // Plan Management Routes
 app.use("/api/plan", planRoutes);

@@ -42,6 +42,12 @@ module.exports = (sequelize, DataTypes) => {
                 foreignKey: "region_id",
                 as: "region",
             });
+
+            // Company association for company permission groups
+            PermissionGroup.belongsTo(models.Company, {
+                foreignKey: "company_id",
+                as: "company",
+            });
         }
     }
 
@@ -64,6 +70,11 @@ module.exports = (sequelize, DataTypes) => {
             },
 
             region_id: {
+                type: DataTypes.UUID,
+                allowNull: true,
+            },
+
+            company_id: {
                 type: DataTypes.UUID,
                 allowNull: true,
             },

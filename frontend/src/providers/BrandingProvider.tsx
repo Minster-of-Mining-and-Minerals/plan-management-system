@@ -16,6 +16,7 @@ import {
 } from "@/lib/branding/applyBrandingTheme";
 import { useGetPublicBrandingQuery } from "@/redux/api/brandingApi";
 import { useGetRegionalBrandingQuery } from "@/redux/api/regionApi";
+import { useGetCompanyBrandingQuery } from "@/redux/api/companyApi";
 import type { BrandingSettings } from "@/redux/types/branding";
 
 type BrandingContextValue = {
@@ -27,6 +28,7 @@ type BrandingContextValue = {
   isUsingDefault: boolean;
   resolvedFromStructureId: string | null;
   regionId?: string | null;
+  companyId?: string | null;
 };
 
 const BrandingContext = createContext<BrandingContextValue>({
@@ -38,6 +40,7 @@ const BrandingContext = createContext<BrandingContextValue>({
   isUsingDefault: true,
   resolvedFromStructureId: null,
   regionId: null,
+  companyId: null,
 });
 
 function resolveSessionStructureId(
@@ -54,10 +57,11 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
 
   const regionId = session?.user?.region_id || null;
+  const companyId = session?.user?.company_id || null;
 
   const structureId = useMemo(
-    () => (!regionId ? resolveSessionStructureId(session?.user?.government_structure) : undefined),
-    [regionId, session?.user?.government_structure]
+    () => (!regionId && !companyId ? resolveSessionStructureId(session?.user?.government_structure) : undefined),
+    [regionId, companyId, session?.user?.government_structure]
   );
 
   const queryArg = useMemo(
@@ -65,11 +69,11 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     [structureId]
   );
 
-  // Federal / global branding query (skipped if regional account)
+  // Federal / global branding query (skipped if regional or company account)
   const { data: federalData, isLoading: federalLoading, isFetching: federalFetching } = useGetPublicBrandingQuery(
     queryArg,
     {
-      skip: status === "loading" || Boolean(regionId),
+      skip: status === "loading" || Boolean(regionId) || Boolean(companyId),
       refetchOnMountOrArgChange: true,
     }
   );
@@ -83,9 +87,20 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     }
   );
 
-  const effectiveData = regionId ? regionalData : federalData;
+  // Company branding query (active only when user belongs to a company)
+  const { data: companyData, isLoading: companyLoading, isFetching: companyFetching } = useGetCompanyBrandingQuery(
+    companyId as string,
+    {
+      skip: status === "loading" || !companyId,
+      refetchOnMountOrArgChange: true,
+    }
+  );
+
+  const effectiveData = companyId ? companyData : regionId ? regionalData : federalData;
   const branding = (effectiveData as unknown as BrandingSettings) ?? DEFAULT_BRANDING;
-  const isDataLoading = regionId
+  const isDataLoading = companyId
+    ? companyLoading || companyFetching
+    : regionId
     ? regionalLoading || regionalFetching
     : federalLoading || federalFetching;
 
@@ -102,11 +117,12 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
       logoPrimaryUrl: resolveBrandingAssetUrl(branding.logo_primary_path),
       logoSecondaryUrl: resolveBrandingAssetUrl(branding.logo_secondary_path),
       faviconUrl: resolveBrandingAssetUrl(branding.favicon_path),
-      isUsingDefault: effectiveData?.is_using_default ?? !structureId,
+      isUsingDefault: effectiveData?.is_using_default ?? (!structureId && !regionId && !companyId),
       resolvedFromStructureId: federalData?.resolved_from_structure_id ?? null,
       regionId,
+      companyId,
     }),
-    [branding, effectiveData, federalData, isDataLoading, regionId, status, structureId]
+    [branding, effectiveData, federalData, isDataLoading, regionId, companyId, status, structureId]
   );
 
   return (
