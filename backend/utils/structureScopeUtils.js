@@ -886,7 +886,11 @@ function assertRegionAccessible(req, regionId, requiredAction = "read") {
     perms.includes(`regional_branding:${actionLower}`) ||
     perms.includes("regional_branding:manage") ||
     perms.includes(`regional_users:${actionLower}`) ||
-    perms.includes("regional_users:manage");
+    perms.includes("regional_users:manage") ||
+    perms.includes(`regional_plans:${actionLower}`) ||
+    perms.includes("regional_plans:manage") ||
+    perms.includes(`regional_plan_rules:${actionLower}`) ||
+    perms.includes(`regional_planning_config:${actionLower}`);
 
   if (!hasExplicitRegionalPerm) {
     const error = new Error("Access denied: federal account lacks regional management permission.");

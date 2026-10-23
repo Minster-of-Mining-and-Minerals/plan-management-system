@@ -28,6 +28,7 @@ import {
   Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
 import { useBranding } from "@/providers/BrandingProvider";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -35,6 +36,10 @@ import {
   useGetRegionalDashboardQuery,
   useGetRegionalRolesQuery,
 } from "@/redux/api/regionApi";
+import {
+  useGetRegionalExecutionDashboardSummaryQuery,
+  useGetRegionalExecutionDashboardDepartmentUserQuery,
+} from "@/redux/api/regionalPlanApi";
 import { useGetPermissionGroupsQuery } from "@/redux/api/permissionGroupApi";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import { cn } from "@/lib/utils";
@@ -109,6 +114,17 @@ export function RegionalDashboardView() {
     activeRegionId
       ? { group_kind: "regional", region_id: activeRegionId }
       : undefined,
+    { skip: !activeRegionId }
+  );
+
+  // 4. Fetch live regional planning execution summary & department scorecard
+  const { data: planSummary } = useGetRegionalExecutionDashboardSummaryQuery(
+    { region_id: activeRegionId as string },
+    { skip: !activeRegionId }
+  );
+
+  const { data: planDeptData } = useGetRegionalExecutionDashboardDepartmentUserQuery(
+    { region_id: activeRegionId as string },
     { skip: !activeRegionId }
   );
 
@@ -717,117 +733,121 @@ export function RegionalDashboardView() {
       )}
 
       {/* =========================================================================
-          4. STRATEGIC PLANNING TAB (CLEARLY LABELED PREVIEW PLACEHOLDER)
-          Replicates the federal PlanDashboardView layout without fabricating data
+          4. STRATEGIC PLANNING TAB
+          Live Regional Planning Summary & Performance Analytics
       ========================================================================= */}
       {activeTab === "strategic-preview" && (
         <div className="space-y-6">
-          {/* Transparent Notice Banner */}
-          <div className="flex items-start gap-3.5 rounded-xl border border-amber-200 bg-amber-50/80 dark:bg-amber-950/30 dark:border-amber-900/50 p-4 text-xs text-amber-900 dark:text-amber-200 shadow-2xs">
-            <Sparkles className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
-            <div className="space-y-1">
-              <p className="font-semibold text-sm text-amber-950 dark:text-amber-100 flex items-center gap-2">
-                <span>Regional Strategic Execution (Preview Mode)</span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-800 dark:text-amber-300">
-                  Coming Soon
-                </span>
-              </p>
-              <p className="text-amber-800/90 dark:text-amber-300/80 leading-relaxed">
-                This section illustrates how regional strategic master plans, milestone achievement,
-                and department targets will be visualized once the regional strategic planning module
-                is released. No regional plans are currently published.
-              </p>
+          {/* Header Banner with Direct Navigation Links */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-primary/20 bg-primary/5 p-4 text-xs shadow-2xs">
+            <div className="flex items-start gap-3.5">
+              <Sparkles className="h-5 w-5 shrink-0 text-primary mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-semibold text-sm text-foreground flex items-center gap-2">
+                  <span>Regional Strategic Plan Execution</span>
+                  <Badge variant="default" className="text-[10px] uppercase font-bold tracking-wider">
+                    Live Regional Data
+                  </Badge>
+                </p>
+                <p className="text-muted-foreground leading-relaxed">
+                  Real-time status of regional strategic master plans, active execution periods, and department rollups.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <Button asChild size="sm" variant="outline" className="gap-2">
+                <Link href={`${basePath}/plans`}>
+                  <Layers className="h-4 w-4" />
+                  <span>All Plans</span>
+                </Link>
+              </Button>
+
+              <Button asChild size="sm" className="gap-2 shadow-xs">
+                <Link href={`${basePath}/plans/dashboard`}>
+                  <TrendingUp className="h-4 w-4" />
+                  <span>Execution Dashboard</span>
+                </Link>
+              </Button>
             </div>
           </div>
 
           <DashboardSectionHeader
             title="Strategic Execution Overview"
-            description="Milestone achievement, target rollups, and directorate scorecard preview."
-            badge="Preview Layout"
+            description="Milestone achievement, target rollups, and directorate scorecard analytics."
+            badge="Live Performance"
           />
 
-          {/* Placeholders for KPI Cards */}
+          {/* Live KPI Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <KpiCard
               title="Regional Plans"
-              value="—"
-              subtitle="Planned Strategic Portfolio"
+              value={planSummary?.summary?.total_plans ?? planSummary?.total_plans ?? 0}
+              subtitle={`${planSummary?.summary?.status_breakdown?.active_plans ?? planSummary?.active_plans ?? 0} actively executing cycles`}
               icon={Layers}
               variant="gradient"
               accent="primary"
             />
             <KpiCard
-              title="Avg Progress"
-              value="—"
-              subtitle="Pending plan publication"
+              title="Portfolio Progress"
+              value={`${planSummary?.summary?.avg_progress ?? planSummary?.portfolio_progress_percent ?? 0}%`}
+              subtitle="Confirmed hierarchical rollups"
               icon={TrendingUp}
               variant="solid"
               accent="success"
             />
             <KpiCard
               title="Active Milestones"
-              value="—"
-              subtitle="0 reporting milestones"
+              value={planSummary?.summary?.active_milestones ?? planSummary?.active_milestones ?? 0}
+              subtitle="Planned goals & leaf KPIs"
               icon={CheckCircle2}
               variant="gradient"
               accent="accent"
             />
             <KpiCard
-              title="Eligible Directorates"
-              value={counts.departments.total}
-              subtitle="Department planning units"
-              icon={GitBranch}
+              title="Delayed KPIs"
+              value={planSummary?.summary?.delayed_kpis ?? planSummary?.delayed_kpis ?? 0}
+              subtitle="Behind target schedule"
+              icon={AlertCircle}
               variant="gradient"
               accent="warning"
             />
           </div>
 
-          {/* Placeholders for Charts & Leaderboard */}
+          {/* Charts & Directorate Scorecard */}
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
             <AnalyticsPanel
               title="Execution Pulse"
-              description="Portfolio-wide achievement preview"
+              description="Portfolio-wide achievement score"
               variant="gradient"
               tone="primary"
               className="xl:col-span-4"
             >
               <div className="flex flex-col items-center justify-center py-4">
                 <CircularProgress
-                  value={0}
+                  value={planSummary?.summary?.avg_progress ?? planSummary?.portfolio_progress_percent ?? 0}
                   color={primaryTone.color}
                   size={150}
-                  label="Preview"
+                  label={`${planSummary?.summary?.avg_progress ?? planSummary?.portfolio_progress_percent ?? 0}%`}
                 />
                 <p className="mt-4 text-xs text-muted-foreground text-center max-w-[220px]">
-                  0 active strategic plans published for {regionName}. Progress tracking will begin upon plan rollout.
+                  {planSummary?.summary?.total_plans ?? planSummary?.total_plans ?? 0} strategic cycles configured for {regionName}. Overall confirmed execution is at {planSummary?.summary?.avg_progress ?? planSummary?.portfolio_progress_percent ?? 0}%.
                 </p>
               </div>
             </AnalyticsPanel>
 
-            <div className="xl:col-span-8 grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="xl:col-span-8">
               <RankedLeaderboard
                 title="Directorate Performance Scorecard"
-                description="Preview of top-performing regional units"
-                entries={recent_departments.map((dept, idx) => ({
+                description="Live performance across regional departments"
+                entries={(planDeptData?.departments || []).map((dept) => ({
                   id: dept.regional_structure_id,
                   title: dept.name,
-                  subtitle: `Level ${dept.level} Directorate`,
-                  value: 0,
-                  valueLabel: "Planned",
-                  hasProgress: false,
+                  subtitle: `Level ${dept.level} Directorate • ${dept.assigned_nodes_count} milestones`,
+                  value: dept.avg_progress,
+                  valueLabel: `${dept.avg_progress}%`,
+                  hasProgress: true,
                 }))}
-              />
-
-              <SimpleBarChart
-                title="Annual Target Projection"
-                description="Target completion preview by fiscal year"
-                items={[
-                  { label: "2025/26", value: 0, subtitle: "Awaiting rollout" },
-                  { label: "2026/27", value: 0, subtitle: "Projected" },
-                  { label: "2027/28", value: 0, subtitle: "Projected" },
-                ]}
-                valueSuffix="%"
-                height={200}
               />
             </div>
           </div>

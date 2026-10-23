@@ -7,6 +7,7 @@ import {
   Shield,
   Key,
   Paintbrush,
+  Layers,
 } from "lucide-react";
 
 export type NavItem = {
@@ -25,6 +26,63 @@ export const REGIONAL_NAVIGATION: NavItem[] = [
     url: "/regional/dashboard",
     icon: LayoutDashboard,
     anyPermissions: ["REGIONAL_DASHBOARD:VIEW"],
+  },
+  {
+    title: "Plan Management",
+    url: "/regional/plans",
+    icon: Layers,
+    anyPermissions: [
+      "REGIONAL_PLANS:READ",
+      "REGIONAL_PLANS:MANAGE",
+      "REGIONS:READ",
+      "REGIONS:MANAGE",
+    ],
+    children: [
+      {
+        title: "All Plans",
+        url: "/regional/plans",
+        icon: Layers,
+        anyPermissions: [
+          "REGIONAL_PLANS:READ",
+          "REGIONAL_PLANS:MANAGE",
+          "REGIONS:READ",
+          "REGIONS:MANAGE",
+        ],
+      },
+      {
+        title: "Plan Dashboard",
+        url: "/regional/plans/dashboard",
+        icon: LayoutDashboard,
+        anyPermissions: [
+          "REGIONAL_PLANS:READ",
+          "REGIONAL_PLANS:MANAGE",
+          "REGIONS:READ",
+          "REGIONS:MANAGE",
+        ],
+      },
+      {
+        title: "Plan Rules",
+        url: "/regional/plans/rules",
+        icon: Shield,
+        anyPermissions: [
+          "REGIONAL_PLAN_RULES:READ",
+          "REGIONAL_PLANS:UPDATE",
+          "REGIONAL_PLANS:MANAGE",
+          "REGIONS:MANAGE",
+        ],
+      },
+      {
+        title: "Configuration",
+        url: "/regional/plans/configuration",
+        icon: Paintbrush,
+        anyPermissions: [
+          "REGIONAL_PLANNING_CONFIG:READ",
+          "REGIONAL_PLANS:READ",
+          "REGIONAL_PLANS:MANAGE",
+          "REGIONS:MANAGE",
+        ],
+      },
+    ],
   },
   {
     title: "Departments",

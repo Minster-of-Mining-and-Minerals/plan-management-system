@@ -38,6 +38,25 @@ module.exports = (sequelize, DataTypes) => {
         as: "permissionGroups",
         onDelete: "CASCADE",
       });
+
+      // 📋 Regional Plan Management Associations
+      Region.hasMany(models.RegionalPlanVersion, {
+        foreignKey: "region_id",
+        as: "planVersions",
+        onDelete: "CASCADE",
+      });
+
+      Region.hasOne(models.RegionalPlanningConfiguration, {
+        foreignKey: "region_id",
+        as: "planningConfiguration",
+        onDelete: "CASCADE",
+      });
+
+      Region.hasMany(models.RegionalPlanRule, {
+        foreignKey: "region_id",
+        as: "planRules",
+        onDelete: "CASCADE",
+      });
     }
   }
 
