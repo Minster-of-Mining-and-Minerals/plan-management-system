@@ -48,6 +48,10 @@ const goldDailyReportRoutes = require("./routers/gold/goldDailyReportRoutes");
 const goldOversightRoutes = require("./routers/gold/goldOversightRoutes");
 const goldPriceConfigurationRoutes = require("./routers/gold/goldPriceConfigurationRoutes");
 
+// Production Configuration & Company Production Routes
+const productionConfigRoutes = require("./routers/production/productionConfigRoutes");
+const companyProductionRoutes = require("./routers/production/companyProductionRoutes");
+
 // Plan Management Routes
 const planRoutes = require("./routers/plan/planRoutes");
 const planAssignmentRoutes = require("./routers/plan/planAssignmentRoutes");
@@ -176,6 +180,11 @@ app.use("/api/company-structures", companyStructureRoutes);
 app.use("/api/company-branding", companyBrandingRoutes);
 app.use("/api/company/plans", companyPlanRoutes);
 app.use("/api/company", companyOperationalRoutes);
+
+// Production Configuration & Company Production Routes
+app.use("/api/production/config", productionConfigRoutes);
+app.use("/api/production/company", companyProductionRoutes);
+
 app.use("/api/purchasing-centers", purchasingCenterRoutes);
 app.use("/api/purchasing-center-branding", purchasingCenterBrandingRoutes);
 app.use("/api/purchasing-center", purchasingCenterOperationalRoutes);

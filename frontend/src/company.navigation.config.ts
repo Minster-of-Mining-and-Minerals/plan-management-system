@@ -8,6 +8,9 @@ import {
   Key,
   Paintbrush,
   Layers,
+  Factory,
+  FilePlus2,
+  ClipboardList,
   type LucideIcon,
 } from "lucide-react";
 
@@ -81,6 +84,48 @@ export const COMPANY_NAVIGATION: NavItem[] = [
           "COMPANY_PLANS:READ",
           "COMPANY_PLANS:MANAGE",
           "COMPANIES:MANAGE",
+        ],
+      },
+    ],
+  },
+  {
+    title: "Production Reporting",
+    url: "/company/production",
+    icon: Factory,
+    anyPermissions: [
+      "COMPANY_PRODUCTION:READ",
+      "COMPANY_PRODUCTION_REPORTS:READ",
+      "COMPANY_PRODUCTION_REPORTS:CREATE",
+      "COMPANY_DASHBOARD:VIEW",
+    ],
+    children: [
+      {
+        title: "Production Dashboard",
+        url: "/company/production",
+        icon: LayoutDashboard,
+        anyPermissions: [
+          "COMPANY_PRODUCTION:READ",
+          "COMPANY_PRODUCTION_REPORTS:READ",
+          "COMPANY_DASHBOARD:VIEW",
+        ],
+      },
+      {
+        title: "Submit Daily Report",
+        url: "/company/production/submit",
+        icon: FilePlus2,
+        anyPermissions: [
+          "COMPANY_PRODUCTION_REPORTS:CREATE",
+          "COMPANY_PRODUCTION_REPORTS:UPDATE",
+          "COMPANY_PRODUCTION_REPORTS:MANAGE",
+        ],
+      },
+      {
+        title: "Report History",
+        url: "/company/production/reports",
+        icon: ClipboardList,
+        anyPermissions: [
+          "COMPANY_PRODUCTION_REPORTS:READ",
+          "COMPANY_PRODUCTION_REPORTS:MANAGE",
         ],
       },
     ],

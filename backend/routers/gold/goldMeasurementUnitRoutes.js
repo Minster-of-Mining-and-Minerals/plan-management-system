@@ -7,7 +7,7 @@ const { authenticateToken, checkPermission, checkAnyPermission } = require("../.
 
 router.use(authenticateToken);
 
-// Read units: Purchasing center users and federal users
+// Read units: Purchasing center, company production, and federal users
 router.get(
   "/",
   checkAnyPermission([
@@ -15,6 +15,10 @@ router.get(
     { resource: "gold_units", action: "manage" },
     { resource: "gold_purchases", action: "create" },
     { resource: "gold_purchases", action: "read" },
+    { resource: "production_items", action: "read" },
+    { resource: "production_items", action: "manage" },
+    { resource: "company_production", action: "read" },
+    { resource: "company_production_reports", action: "create" },
   ]),
   unitController.listUnits
 );

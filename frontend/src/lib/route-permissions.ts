@@ -89,6 +89,13 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/admin/purchasing-centers/[id]", anyPermissions: ["PURCHASING_CENTERS:READ", "PURCHASING_CENTERS:MANAGE", "PURCHASING_CENTERS:UPDATE"] },
   { pattern: "/admin/purchasing-centers", anyPermissions: ["PURCHASING_CENTERS:READ", "PURCHASING_CENTERS:MANAGE"] },
 
+  // Federal Production Management & Configuration
+  { pattern: "/admin/production/dashboard", anyPermissions: ["PRODUCTION_DASHBOARD:READ", "PRODUCTION_ITEMS:READ"] },
+  { pattern: "/admin/production/items", anyPermissions: ["PRODUCTION_ITEMS:READ", "PRODUCTION_ITEMS:MANAGE"] },
+  { pattern: "/admin/production/frequencies", anyPermissions: ["PRODUCTION_FREQUENCIES:READ", "PRODUCTION_FREQUENCIES:MANAGE"] },
+  { pattern: "/admin/production/assignments", anyPermissions: ["COMPANY_PRODUCTION:READ", "COMPANY_PRODUCTION:ASSIGN", "COMPANY_PRODUCTION:MANAGE"] },
+  { pattern: "/admin/production", anyPermissions: ["PRODUCTION_DASHBOARD:READ", "PRODUCTION_ITEMS:READ", "COMPANY_PRODUCTION:READ"] },
+
   // Gold Operations Administration
   {
     pattern: "/admin/gold-operations/purchases/[purchaseId]",
@@ -203,6 +210,9 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/companies/[id]/plans/[versionId]/hierarchy", anyPermissions: ["COMPANY_PLANS:READ", "COMPANY_PLANS:MANAGE"] },
   { pattern: "/companies/[id]/plans/[versionId]", anyPermissions: ["COMPANY_PLANS:READ", "COMPANY_PLANS:MANAGE"] },
   { pattern: "/companies/[id]/plans", anyPermissions: ["COMPANY_PLANS:READ", "COMPANY_PLANS:MANAGE"] },
+  { pattern: "/companies/[id]/production/submit", anyPermissions: ["COMPANY_PRODUCTION_REPORTS:CREATE", "COMPANY_PRODUCTION_REPORTS:UPDATE", "COMPANY_PRODUCTION_REPORTS:MANAGE"] },
+  { pattern: "/companies/[id]/production/reports", anyPermissions: ["COMPANY_PRODUCTION_REPORTS:READ", "COMPANY_PRODUCTION_REPORTS:MANAGE"] },
+  { pattern: "/companies/[id]/production", anyPermissions: ["COMPANY_PRODUCTION:READ", "COMPANY_PRODUCTION_REPORTS:READ", "COMPANY_DASHBOARD:VIEW"] },
   { pattern: "/companies/[id]/departments", anyPermissions: ["COMPANY_STRUCTURES:READ", "COMPANY_STRUCTURES:MANAGE"] },
   { pattern: "/companies/[id]/users/roles/new", anyPermissions: ["COMPANY_ROLES:CREATE", "COMPANY_ROLES:MANAGE"] },
   { pattern: "/companies/[id]/users/roles/[roleId]", anyPermissions: ["COMPANY_ROLES:READ", "COMPANY_ROLES:MANAGE"] },
@@ -223,6 +233,9 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/company/plans/[versionId]/hierarchy", anyPermissions: ["COMPANY_PLANS:READ", "COMPANY_PLANS:MANAGE"] },
   { pattern: "/company/plans/[versionId]", anyPermissions: ["COMPANY_PLANS:READ", "COMPANY_PLANS:MANAGE"] },
   { pattern: "/company/plans", anyPermissions: ["COMPANY_PLANS:READ", "COMPANY_PLANS:MANAGE"] },
+  { pattern: "/company/production/submit", anyPermissions: ["COMPANY_PRODUCTION_REPORTS:CREATE", "COMPANY_PRODUCTION_REPORTS:UPDATE", "COMPANY_PRODUCTION_REPORTS:MANAGE"] },
+  { pattern: "/company/production/reports", anyPermissions: ["COMPANY_PRODUCTION_REPORTS:READ", "COMPANY_PRODUCTION_REPORTS:MANAGE"] },
+  { pattern: "/company/production", anyPermissions: ["COMPANY_PRODUCTION:READ", "COMPANY_PRODUCTION_REPORTS:READ", "COMPANY_DASHBOARD:VIEW"] },
   { pattern: "/company/dashboard", anyPermissions: ["COMPANY_DASHBOARD:VIEW", "COMPANIES:READ"] },
   { pattern: "/company/departments", anyPermissions: ["COMPANY_STRUCTURES:READ", "COMPANY_STRUCTURES:MANAGE"] },
   { pattern: "/company/users", anyPermissions: ["COMPANY_USERS:READ", "COMPANY_USERS:MANAGE"] },

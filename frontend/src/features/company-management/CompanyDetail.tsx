@@ -17,6 +17,7 @@ import {
   KeyRound,
   Shield,
   ExternalLink,
+  Factory,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
@@ -27,11 +28,12 @@ import type { ActionButton } from "@/types/tableLayout";
 import { CompanyDepartmentManagement } from "./CompanyDepartmentManagement";
 import { CompanyUserManagement } from "./CompanyUserManagement";
 import { CompanySettingsAndBranding } from "./CompanySettingsAndBranding";
+import { CompanyProductionDetailTab } from "@/features/production/CompanyProductionDetailTab";
 import CompanyRoleList from "@/features/template/component/roleList/CompanyRoleList";
 import PermissionList from "@/features/template/component/permissionList/permissionList";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 
-type TabType = "departments" | "users" | "roles" | "permissions" | "branding";
+type TabType = "departments" | "users" | "roles" | "permissions" | "branding" | "production";
 
 export function CompanyDetail({ companyId }: { companyId: string }) {
   const router = useRouter();
@@ -39,7 +41,7 @@ export function CompanyDetail({ companyId }: { companyId: string }) {
   const tabParam = searchParams.get("tab") as TabType | null;
 
   const [activeTab, setActiveTabState] = useState<TabType>(
-    tabParam && ["departments", "users", "roles", "permissions", "branding"].includes(tabParam)
+    tabParam && ["departments", "users", "roles", "permissions", "branding", "production"].includes(tabParam)
       ? tabParam
       : "departments"
   );
@@ -81,6 +83,12 @@ export function CompanyDetail({ companyId }: { companyId: string }) {
       icon: <Shield className="h-4 w-4" />,
       variant: activeTab === "permissions" ? "default" : "outline",
       onClick: () => setTab("permissions"),
+    },
+    {
+      label: "Production Reporting",
+      icon: <Factory className="h-4 w-4" />,
+      variant: activeTab === "production" ? "default" : "outline",
+      onClick: () => setTab("production"),
     },
     {
       label: "UI & Configuration",
@@ -217,6 +225,8 @@ export function CompanyDetail({ companyId }: { companyId: string }) {
               ? "roles"
               : tab.label === "Permissions"
               ? "permissions"
+              : tab.label === "Production Reporting"
+              ? "production"
               : "branding";
           const isActive = activeTab === tabId;
 
@@ -267,6 +277,11 @@ export function CompanyDetail({ companyId }: { companyId: string }) {
           <div className="space-y-6">
             <PermissionList isCompanyOnly />
           </div>
+        )}
+        {activeTab === "production" && (
+          <CompanyProductionDetailTab
+            companyId={company.company_id}
+          />
         )}
         {activeTab === "branding" && (
           <CompanySettingsAndBranding

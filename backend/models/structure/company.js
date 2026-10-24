@@ -63,6 +63,19 @@ module.exports = (sequelize, DataTypes) => {
         as: "planVersions",
         onDelete: "CASCADE",
       });
+
+      // ⛏️ Production Reporting
+      Company.hasMany(models.CompanyProductionAssignment, {
+        foreignKey: "company_id",
+        as: "productionAssignments",
+        onDelete: "CASCADE",
+      });
+
+      Company.hasMany(models.CompanyProductionReport, {
+        foreignKey: "company_id",
+        as: "productionReports",
+        onDelete: "CASCADE",
+      });
     }
   }
 

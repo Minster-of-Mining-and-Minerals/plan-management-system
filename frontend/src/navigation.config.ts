@@ -21,6 +21,7 @@ import {
   MapPin,
   Coins,
   HardHat,
+  Factory,
 } from "lucide-react";
 
 export type NavItem = {
@@ -100,6 +101,43 @@ export const NAVIGATION: NavItem[] = [
     url: "/admin/companies",
     icon: Building2,
     anyPermissions: ["COMPANIES:READ", "COMPANIES:MANAGE"],
+  },
+  {
+    title: "Production Management",
+    url: "/admin/production/dashboard",
+    icon: Factory,
+    anyPermissions: [
+      "PRODUCTION_DASHBOARD:READ",
+      "PRODUCTION_ITEMS:READ",
+      "COMPANY_PRODUCTION:READ",
+      "COMPANY_PRODUCTION:MANAGE",
+    ],
+    children: [
+      {
+        title: "Production Dashboard",
+        url: "/admin/production/dashboard",
+        icon: LayoutDashboard,
+        anyPermissions: ["PRODUCTION_DASHBOARD:READ"],
+      },
+      {
+        title: "Company Assignments",
+        url: "/admin/production/assignments",
+        icon: Building2,
+        anyPermissions: ["COMPANY_PRODUCTION:READ", "COMPANY_PRODUCTION:ASSIGN", "COMPANY_PRODUCTION:MANAGE"],
+      },
+      {
+        title: "Production Items",
+        url: "/admin/production/items",
+        icon: Scale,
+        anyPermissions: ["PRODUCTION_ITEMS:READ", "PRODUCTION_ITEMS:MANAGE"],
+      },
+      {
+        title: "Reporting Frequencies",
+        url: "/admin/production/frequencies",
+        icon: Settings,
+        anyPermissions: ["PRODUCTION_FREQUENCIES:READ", "PRODUCTION_FREQUENCIES:MANAGE"],
+      },
+    ],
   },
   {
     title: "Purchasing Centers",

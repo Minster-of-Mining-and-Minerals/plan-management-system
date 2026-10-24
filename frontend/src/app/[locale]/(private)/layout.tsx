@@ -40,11 +40,27 @@ export default function PrivateLayout({
         router.replace(`/regions/${session.user.region_id}`);
         return;
       }
+      if (session?.user?.company_id) {
+        router.replace(`/companies/${session.user.company_id}` as any);
+        return;
+      }
+      if (session?.user?.purchasing_center_id) {
+        router.replace(`/purchasing-centers/${session.user.purchasing_center_id}` as any);
+        return;
+      }
       if (isFirstLogin && !isChangePasswordPage) {
         router.push(AUTH_ROUTES.changePassword);
       }
     }
-  }, [status, session?.user?.region_id, isFirstLogin, isChangePasswordPage, router]);
+  }, [
+    status,
+    session?.user?.region_id,
+    session?.user?.company_id,
+    session?.user?.purchasing_center_id,
+    isFirstLogin,
+    isChangePasswordPage,
+    router,
+  ]);
 
   if (
     status === "loading" ||
@@ -54,7 +70,11 @@ export default function PrivateLayout({
     return <Loading01 />;
   }
 
-  if (session?.user?.region_id) {
+  if (
+    session?.user?.region_id ||
+    session?.user?.company_id ||
+    session?.user?.purchasing_center_id
+  ) {
     return <Loading01 />;
   }
 

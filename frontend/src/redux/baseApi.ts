@@ -138,6 +138,13 @@ export const baseApi = createApi({
     "GoldUnits",
     "GoldPrices",
     "GoldOversight",
+    "ProductionItems",
+    "ProductionItemUnits",
+    "ProductionFrequencies",
+    "CompanyProductionAssignments",
+    "CompanyProductionTargets",
+    "CompanyProductionReports",
+    "ProductionDashboard",
   ],
   endpoints: () => ({}),
 });
