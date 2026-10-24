@@ -64,6 +64,12 @@ export const NAVIGATION: NavItem[] = [
         anyPermissions: ["GOLD_OVERSIGHT:READ", "GOLD_OVERSIGHT:MANAGE"],
       },
       {
+        title: "Price Configuration",
+        url: "/admin/gold-operations/pricing",
+        icon: Coins,
+        anyPermissions: ["GOLD_PRICES:READ", "GOLD_PRICES:MANAGE", "GOLD_OVERSIGHT:MANAGE"],
+      },
+      {
         title: "Daily Report Monitoring",
         url: "/admin/gold-operations/reports",
         icon: ClipboardCheck,

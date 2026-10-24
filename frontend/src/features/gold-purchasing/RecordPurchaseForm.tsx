@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link, useRouter } from "@/i18n/navigation";
 import { useParams } from "next/navigation";
 import {
@@ -15,6 +15,9 @@ import {
   ArrowLeft,
   ShieldCheck,
   Check,
+  Sparkles,
+  CheckCircle2,
+  Sliders,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,8 +47,34 @@ import {
   useLazySearchAsmCandidatesQuery,
   useRegisterAsmMinerMutation,
   useRecordGoldPurchaseMutation,
+  useGetActiveGoldPriceQuery,
 } from "@/redux/api/goldApi";
 import { useGetCompaniesQuery } from "@/redux/api/companyApi";
+
+const GOLD_TYPES = [
+  "Raw/Placer Gold",
+  "Smelted Bar",
+  "Refined Bullion",
+  "Gold Dust",
+  "Gold Nugget",
+  "Dore Bar",
+];
+
+const KARAT_OPTIONS = [
+  { label: "24K (99.9% Pure)", value: "24K", purity: 99.9 },
+  { label: "22K (91.6% Pure)", value: "22K", purity: 91.6 },
+  { label: "21K (87.5% Pure)", value: "21K", purity: 87.5 },
+  { label: "18K (75.0% Pure)", value: "18K", purity: 75.0 },
+  { label: "14K (58.5% Pure)", value: "14K", purity: 58.5 },
+  { label: "Raw / Unrefined", value: "Raw", purity: 80.0 },
+];
+
+const QUALITY_GRADES = [
+  { label: "Grade A - High Purity Export Grade", value: "Grade A" },
+  { label: "Grade B - Standard Commercial Grade", value: "Grade B" },
+  { label: "Grade C - Artisanal / Small-Scale Grade", value: "Grade C" },
+  { label: "Grade D - Low Purity / Alluvial Aggregate", value: "Grade D" },
+];
 
 export function RecordPurchaseForm() {
   const router = useRouter();
@@ -62,6 +91,11 @@ export function RecordPurchaseForm() {
   const [measurementUnitId, setMeasurementUnitId] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unitPrice, setUnitPrice] = useState("");
+  const [goldType, setGoldType] = useState<string>("Raw/Placer Gold");
+  const [karat, setKarat] = useState<string>("24K");
+  const [qualityGrade, setQualityGrade] = useState<string>("Grade A");
+  const [purityPercentage, setPurityPercentage] = useState<string>("99.9");
+  const [priceMode, setPriceMode] = useState<"configured" | "custom">("configured");
   const [businessDate, setBusinessDate] = useState(() => {
     return new Intl.DateTimeFormat("en-CA", {
       timeZone: "Africa/Addis_Ababa",
@@ -99,9 +133,23 @@ export function RecordPurchaseForm() {
     limit: 50,
   });
 
+  const { data: activePriceConfig, isFetching: isPriceConfigLoading } = useGetActiveGoldPriceQuery({
+    gold_type: goldType,
+    karat: karat,
+    quality_grade: qualityGrade,
+    measurement_unit_id: measurementUnitId || undefined,
+  });
+
   const [searchCandidates, { data: candidateMatches }] = useLazySearchAsmCandidatesQuery();
   const [registerAsm, { isLoading: isRegisteringAsm }] = useRegisterAsmMinerMutation();
   const [recordPurchase, { isLoading: isSubmittingPurchase }] = useRecordGoldPurchaseMutation();
+
+  // Auto-populate unit price when using configured pricing benchmark
+  useEffect(() => {
+    if (priceMode === "configured" && activePriceConfig?.price_per_unit) {
+      setUnitPrice(String(activePriceConfig.price_per_unit));
+    }
+  }, [activePriceConfig, priceMode]);
 
   // Selected Unit metadata & conversion calculation
   const selectedUnit = useMemo(() => {
@@ -231,6 +279,12 @@ export function RecordPurchaseForm() {
         quantity: parsedQuantity,
         measurement_unit_id: measurementUnitId,
         unit_price: parsedPrice,
+        gold_type: goldType,
+        karat: karat,
+        quality_grade: qualityGrade,
+        purity_percentage: purityPercentage ? parseFloat(purityPercentage) : undefined,
+        is_custom_price: priceMode === "custom",
+        price_configuration_id: priceMode === "configured" ? activePriceConfig?.price_config_id : undefined,
         business_date: businessDate,
         notes: notes.trim() || undefined,
       }).unwrap();
@@ -468,24 +522,171 @@ export function RecordPurchaseForm() {
           )}
         </div>
 
-        {/* SECTION 2: MEASUREMENT, QUANTITY & FINANCIALS */}
-        <div className="space-y-4 pt-4 border-t border-border">
+        {/* SECTION 2: GOLD SPECIFICATION, MEASUREMENT & VALUATION */}
+        <div className="space-y-6 pt-4 border-t border-border">
           <div>
             <h3 className="text-base font-bold text-foreground flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center font-bold">
                 2
               </span>
-              Gold Quantity & Pricing
+              Gold Quality, Unit & Price Configuration
             </h3>
             <p className="text-xs text-muted-foreground">
-              Select an approved measurement unit, enter measured weight, and specify the transaction rate.
+              Specify gold type, karat purity, and quality grading. Use the official configured price benchmark or supply a custom expert valuation.
             </p>
+          </div>
+
+          {/* Sub-grid: Gold Quality Specifications */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-2xl bg-muted/30 border border-border">
+            {/* Gold Type */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Gold Type *</Label>
+              <Select value={goldType} onValueChange={setGoldType}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {GOLD_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Karat */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Karat Grade *</Label>
+              <Select
+                value={karat}
+                onValueChange={(val) => {
+                  setKarat(val);
+                  const matched = KARAT_OPTIONS.find((k) => k.value === val);
+                  if (matched) setPurityPercentage(String(matched.purity));
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {KARAT_OPTIONS.map((k) => (
+                    <SelectItem key={k.value} value={k.value}>
+                      {k.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Purity % */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Purity Percentage (%)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                value={purityPercentage}
+                onChange={(e) => setPurityPercentage(e.target.value)}
+                placeholder="e.g. 99.9"
+                className="h-9 text-xs font-mono"
+              />
+            </div>
+
+            {/* Quality Grade */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Quality Grading *</Label>
+              <Select value={qualityGrade} onValueChange={setQualityGrade}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {QUALITY_GRADES.map((q) => (
+                    <SelectItem key={q.value} value={q.value}>
+                      {q.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Pricing Mode Toggle: Configured Benchmark vs Custom Expert */}
+          <div className="p-4 rounded-2xl border border-amber-500/20 bg-amber-500/5 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <Coins className="h-4 w-4 text-amber-500" />
+                  Valuation Rate Mode
+                </Label>
+                <p className="text-[11px] text-muted-foreground">
+                  The registrar can use the official benchmark price configured for {karat} {goldType} or fill a custom valuation for the assayer/expert.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-1.5 bg-card p-1 rounded-xl border border-border shadow-2xs shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPriceMode("configured");
+                    if (activePriceConfig?.price_per_unit) {
+                      setUnitPrice(String(activePriceConfig.price_per_unit));
+                    }
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    priceMode === "configured"
+                      ? "bg-amber-500 text-slate-950 font-bold shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Configured Benchmark
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPriceMode("custom")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    priceMode === "custom"
+                      ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Custom Expert Override
+                </button>
+              </div>
+            </div>
+
+            {/* Active Config Callout */}
+            {priceMode === "configured" ? (
+              <div className="flex items-center justify-between flex-wrap gap-2 text-xs pt-2 border-t border-amber-500/15">
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-500/30 font-semibold text-[11px]">
+                    Official Rate: {activePriceConfig ? `${parseFloat(String(activePriceConfig.price_per_unit)).toLocaleString()} ETB / ${selectedUnit?.symbol || "g"}` : "Loading benchmark..."}
+                  </Badge>
+                  {activePriceConfig?.min_price_per_unit && activePriceConfig?.max_price_per_unit && (
+                    <span className="text-muted-foreground font-mono text-[11px]">
+                      (Allowed: {parseFloat(String(activePriceConfig.min_price_per_unit)).toLocaleString()} – {parseFloat(String(activePriceConfig.max_price_per_unit)).toLocaleString()} ETB)
+                    </span>
+                  )}
+                </div>
+                <span className="text-[11px] text-muted-foreground">
+                  Auto-populated from Price Configuration
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-xs text-primary font-medium pt-2 border-t border-amber-500/15">
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>
+                  Custom Rate Mode: Registrar manually specifies the negotiated or assayed price for expert evaluation.
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Measurement Unit */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Configurable Unit</Label>
+              <Label className="text-xs font-semibold">Configurable Unit *</Label>
               <Select value={measurementUnitId} onValueChange={setMeasurementUnitId}>
                 <SelectTrigger className="h-10 text-sm">
                   <SelectValue placeholder="Select Measurement Unit" />
@@ -502,7 +703,7 @@ export function RecordPurchaseForm() {
 
             {/* Quantity */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Quantity ({selectedUnit?.symbol || "unit"})</Label>
+              <Label className="text-xs font-semibold">Quantity ({selectedUnit?.symbol || "unit"}) *</Label>
               <Input
                 type="number"
                 step="0.0001"
@@ -516,7 +717,21 @@ export function RecordPurchaseForm() {
 
             {/* Unit Price */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Unit Price (ETB / {selectedUnit?.symbol || "unit"})</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">
+                  Unit Price (ETB / {selectedUnit?.symbol || "unit"}) *
+                </Label>
+                {priceMode === "configured" && (
+                  <Badge variant="outline" className="text-[10px] font-mono text-amber-600 dark:text-amber-400">
+                    Configured Rate
+                  </Badge>
+                )}
+                {priceMode === "custom" && (
+                  <Badge variant="outline" className="text-[10px] font-mono text-primary">
+                    Custom Override
+                  </Badge>
+                )}
+              </div>
               <Input
                 type="number"
                 step="0.01"
@@ -524,7 +739,11 @@ export function RecordPurchaseForm() {
                 placeholder="0.00"
                 value={unitPrice}
                 onChange={(e) => setUnitPrice(e.target.value)}
-                className="h-10 text-sm font-mono"
+                className={`h-10 text-sm font-mono font-bold ${
+                  priceMode === "configured"
+                    ? "bg-amber-500/5 border-amber-500/30 text-amber-700 dark:text-amber-300"
+                    : "border-primary/50"
+                }`}
               />
             </div>
           </div>
@@ -653,6 +872,24 @@ export function RecordPurchaseForm() {
               <span className="font-semibold text-foreground text-right max-w-[200px] truncate">
                 {sellerType === "company" ? selectedCompany?.name : selectedAsm?.full_name}
               </span>
+            </div>
+            <div className="flex justify-between py-1.5">
+              <span className="text-muted-foreground">Gold Spec:</span>
+              <span className="font-semibold text-foreground">
+                {karat} ({goldType})
+              </span>
+            </div>
+            <div className="flex justify-between py-1.5">
+              <span className="text-muted-foreground">Quality & Purity:</span>
+              <span className="text-foreground">
+                {qualityGrade} ({purityPercentage}% pure)
+              </span>
+            </div>
+            <div className="flex justify-between py-1.5">
+              <span className="text-muted-foreground">Pricing Mode:</span>
+              <Badge variant={priceMode === "configured" ? "default" : "secondary"} className="text-xs">
+                {priceMode === "configured" ? "Configured Benchmark" : "Expert Custom Override"}
+              </Badge>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-muted-foreground">Recorded Quantity:</span>

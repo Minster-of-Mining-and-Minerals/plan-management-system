@@ -21,6 +21,7 @@ import { useGetFederalGoldOversightQuery } from "@/redux/api/goldApi";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import { KpiCard } from "@/features/plan-management/dashboard/components/KpiCard";
 import { AnalyticsPanel } from "@/features/plan-management/dashboard/components/AnalyticsPanel";
+import { GoldOperationsTabsHeader } from "./GoldOperationsTabsHeader";
 
 export function FederalReportMonitoringView() {
   const [businessDate, setBusinessDate] = useState(() => {
@@ -46,6 +47,8 @@ export function FederalReportMonitoringView() {
 
   return (
     <div className="space-y-6">
+      <GoldOperationsTabsHeader />
+
       {/* ----------------- TOP HEADER ----------------- */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

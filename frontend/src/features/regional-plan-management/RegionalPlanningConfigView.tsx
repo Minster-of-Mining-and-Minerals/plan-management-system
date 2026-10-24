@@ -26,6 +26,7 @@ import {
   useGetRegionalPlanConfigQuery,
   useUpdateRegionalPlanConfigMutation,
 } from "@/redux/api/regionalPlanApi";
+import { RegionalPlanTabsHeader } from "./RegionalPlanTabsHeader";
 
 export function RegionalPlanningConfigView() {
   const params = useParams<{ id: string }>();
@@ -102,6 +103,8 @@ export function RegionalPlanningConfigView() {
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
+      <RegionalPlanTabsHeader />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-5">
         <div>

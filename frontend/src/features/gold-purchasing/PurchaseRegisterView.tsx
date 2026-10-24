@@ -27,6 +27,7 @@ import {
 import { usePermissions } from "@/hooks/usePermissions";
 import { useGetGoldPurchasesQuery } from "@/redux/api/goldApi";
 import Loading01 from "@/features/template/component/Loading/Loading01";
+import { GoldOperationsTabsHeader } from "./GoldOperationsTabsHeader";
 
 interface PurchaseRegisterViewProps {
   centerId?: string;
@@ -78,6 +79,8 @@ export function PurchaseRegisterView({
 
   return (
     <div className="space-y-6">
+      {isFederalOversight && <GoldOperationsTabsHeader />}
+
       {/* ----------------- TOP HEADER ----------------- */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -274,6 +277,18 @@ export function PurchaseRegisterView({
                             <p className="text-xs font-mono text-muted-foreground">
                               {p.seller_identifier_snapshot}
                             </p>
+                          )}
+                          {p.karat && (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 font-mono">
+                                {p.karat} {p.quality_grade ? `• ${p.quality_grade}` : ""}
+                              </span>
+                              {p.is_custom_price && (
+                                <Badge variant="secondary" className="text-[9px] py-0 px-1">
+                                  Custom Override
+                                </Badge>
+                              )}
+                            </div>
                           )}
                         </div>
                       </td>

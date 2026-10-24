@@ -33,6 +33,7 @@ import {
   useToggleAsmMinerStatusMutation,
 } from "@/redux/api/goldApi";
 import Loading01 from "@/features/template/component/Loading/Loading01";
+import { GoldOperationsTabsHeader } from "./GoldOperationsTabsHeader";
 import type { AsmMiner } from "@/redux/types/gold";
 
 interface AsmRegistryViewProps {
@@ -170,6 +171,8 @@ export function AsmRegistryView({
 
   return (
     <div className="space-y-6">
+      {isFederalOversight && <GoldOperationsTabsHeader />}
+
       {/* ----------------- TOP HEADER ----------------- */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

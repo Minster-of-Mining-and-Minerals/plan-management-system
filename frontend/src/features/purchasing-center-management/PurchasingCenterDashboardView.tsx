@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { Link } from "@/i18n/navigation";
 import { useRouter, useParams } from "next/navigation";
@@ -25,6 +25,10 @@ import {
   ShieldCheck,
   ChevronRight,
   DollarSign,
+  PieChart,
+  BarChart3,
+  Layers,
+  Filter,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +44,8 @@ import {
   DashboardSectionHeader,
 } from "@/features/plan-management/dashboard/components/AnalyticsPanel";
 import { useDashboardAppearance } from "@/features/plan-management/dashboard/hooks/useDashboardAppearance";
+import { SimpleBarChart } from "@/features/plan-management/dashboard/components/SimpleBarChart";
+import { DonutStatCard } from "@/features/plan-management/dashboard/components/DonutStatCard";
 
 export interface PurchasingCenterDashboardViewProps {
   overrideCenterId?: string;
@@ -71,6 +77,8 @@ export function PurchasingCenterDashboardView({
     ? `/purchasing-centers/${activeCenterId}`
     : "/purchasing-center";
 
+  const [timeRange, setTimeRange] = useState<string>("30d");
+
   // 1. Fetch purchasing center base metadata & user counts
   const {
     data: baseData,
@@ -79,12 +87,16 @@ export function PurchasingCenterDashboardView({
     activeCenterId ? { purchasing_center_id: activeCenterId } : undefined
   );
 
-  // 2. Fetch live gold purchasing dashboard aggregates
+  // 2. Fetch live gold purchasing dashboard aggregates with time range filtering
   const {
     data: goldData,
     isLoading: isGoldLoading,
+    isFetching: isGoldFetching,
+    refetch: refetchGold,
   } = useGetGoldCenterDashboardQuery(
-    activeCenterId ? { purchasing_center_id: activeCenterId } : undefined
+    activeCenterId
+      ? { purchasing_center_id: activeCenterId, time_range: timeRange }
+      : { time_range: timeRange }
   );
 
   if (isBaseLoading || isGoldLoading) {
@@ -97,6 +109,30 @@ export function PurchasingCenterDashboardView({
   const period = goldData?.period_summary;
   const recentPurchases = goldData?.recent_purchases || [];
   const dailyTrends = goldData?.daily_trends || [];
+
+  // Chart Items for Daily Volume Trends
+  const volumeTrendItems = (dailyTrends || []).map((t) => ({
+    label: t.date,
+    value: parseFloat(parseFloat(String(t.canonical_quantity)).toFixed(2)),
+    subtitle: `${parseFloat(String(t.amount)).toLocaleString()} ETB`,
+    color: "#f59e0b",
+  }));
+
+  // Karat breakdown segments for Donut chart
+  const karatPalette = ["#f59e0b", "#eab308", "#f97316", "#3b82f6", "#8b5cf6", "#10b981", "#64748b"];
+  const karatSegments = (period?.karat_breakdown || []).map((k, idx) => ({
+    label: k.karat,
+    value: parseFloat(parseFloat(String(k.canonical_quantity)).toFixed(2)),
+    color: karatPalette[idx % karatPalette.length],
+  }));
+
+  // Quality grade segments for Donut chart
+  const qualityPalette = ["#10b981", "#3b82f6", "#f59e0b", "#64748b", "#8b5cf6"];
+  const qualitySegments = (period?.quality_breakdown || []).map((q, idx) => ({
+    label: q.quality_grade,
+    value: parseFloat(parseFloat(String(q.canonical_quantity)).toFixed(2)),
+    color: qualityPalette[idx % qualityPalette.length],
+  }));
 
   return (
     <div className="space-y-8">
@@ -253,37 +289,66 @@ export function PurchasingCenterDashboardView({
         </div>
       </div>
 
-      {/* ----------------- CUMULATIVE PERIOD SUMMARY ----------------- */}
+      {/* ----------------- CUMULATIVE PERIOD SUMMARY & TIME RANGE FILTER ----------------- */}
       <div className="space-y-4">
-        <DashboardSectionHeader
-          title="Cumulative Purchasing Statistics"
-          description="Total gold acquired, canonical weight rollups, and distinct seller attribution"
-        />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <DashboardSectionHeader
+            title="Cumulative Purchasing Intelligence"
+            description="Total gold volume acquired, canonical weight rollups, and supplier sourcing analytics"
+          />
+
+          {/* Time Range Selector */}
+          <div className="flex items-center gap-1.5 bg-card p-1 rounded-2xl border border-border shadow-xs self-start sm:self-auto">
+            <span className="text-xs text-muted-foreground px-2 flex items-center gap-1">
+              <Filter className="h-3 w-3" /> Range:
+            </span>
+            {[
+              { id: "today", label: "Today" },
+              { id: "7d", label: "7 Days" },
+              { id: "30d", label: "30 Days" },
+              { id: "90d", label: "Quarter" },
+              { id: "all", label: "All Time" },
+            ].map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => setTimeRange(r.id)}
+                className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all ${
+                  timeRange === r.id
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                }`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard
             title="Total Gold Purchases"
             value={period?.total_purchases?.toLocaleString() || "0"}
-            subtitle="All completed purchasing records"
+            subtitle={`Transactions in ${timeRange === "all" ? "full history" : timeRange}`}
             icon={Coins}
             accent="primary"
           />
           <KpiCard
             title="Total Canonical Gold"
             value={`${(period?.total_canonical_quantity || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} g`}
-            subtitle="Aggregated standard base unit"
+            subtitle="Aggregated standard metric weight"
             icon={Scale}
             accent="success"
           />
           <KpiCard
             title="Total Purchase Payout"
             value={`${(period?.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB`}
-            subtitle="Total value disbursed to sellers"
+            subtitle="Capital disbursed to suppliers"
             icon={TrendingUp}
             accent="warning"
           />
           <KpiCard
-            title="Sellers Served"
+            title="Sellers Sourced"
             value={period?.distinct_sellers?.total?.toLocaleString() || "0"}
             subtitle={`${period?.distinct_sellers?.companies || 0} Companies • ${period?.distinct_sellers?.asm || 0} ASM Miners`}
             icon={Users}
@@ -292,108 +357,215 @@ export function PurchasingCenterDashboardView({
         </div>
       </div>
 
-      {/* ----------------- BREAKDOWNS: UNIT BREAKDOWN & SELLER DISTRIBUTION ----------------- */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Unit Breakdown */}
-        <AnalyticsPanel
-          title="Recorded Quantity by Measurement Unit"
-          description="Non-lossy totals displayed per configurable unit"
-          headerAction={
-            <Badge variant="outline" className="text-xs">
-              {period?.unit_breakdown?.length || 0} Unit{period?.unit_breakdown?.length === 1 ? "" : "s"} Used
-            </Badge>
-          }
-        >
-          {period?.unit_breakdown && period.unit_breakdown.length > 0 ? (
-            <div className="divide-y divide-border">
-              {period.unit_breakdown.map((u) => (
-                <div key={u.code} className="py-3 flex items-center justify-between first:pt-0 last:pb-0">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-xs uppercase">
-                      {u.symbol}
+      {/* ----------------- DIAGRAMS, CHARTS & VISUAL ANALYTICS ----------------- */}
+      <div className="space-y-4">
+        <DashboardSectionHeader
+          title="Intake Visualizations & Diagrams"
+          description="Visual intake trajectory, karat purity composition, and certified quality distributions"
+        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Trend Bar Chart */}
+          <div className="lg:col-span-2">
+            <SimpleBarChart
+              title="Daily Gold Volume Intake Trends"
+              description={`Canonical gold weight (grams) recorded per business day (${timeRange === "all" ? "all records" : timeRange})`}
+              items={volumeTrendItems}
+              valueSuffix=" g"
+              height={240}
+              color="#f59e0b"
+            />
+          </div>
+
+          {/* Karat Donut */}
+          <div>
+            <DonutStatCard
+              title="Karat Purity Sourcing"
+              description="Gold weight canonical volume split by karat grade"
+              segments={karatSegments}
+              centerLabel="Canonical Gold"
+              centerValue={`${(period?.total_canonical_quantity || 0).toFixed(1)}g`}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Quality Grading Donut */}
+          <DonutStatCard
+            title="Certified Quality Grade Breakdown"
+            description="Volume distribution by export, commercial, and artisanal quality grades"
+            segments={qualitySegments}
+            centerLabel="Total Weight"
+            centerValue={`${(period?.total_canonical_quantity || 0).toFixed(1)}g`}
+          />
+
+          {/* Unit Breakdown */}
+          <AnalyticsPanel
+            title="Recorded Quantity by Measurement Unit"
+            description="Non-lossy totals displayed per configurable unit"
+            headerAction={
+              <Badge variant="outline" className="text-xs">
+                {period?.unit_breakdown?.length || 0} Unit{period?.unit_breakdown?.length === 1 ? "" : "s"} Used
+              </Badge>
+            }
+          >
+            {period?.unit_breakdown && period.unit_breakdown.length > 0 ? (
+              <div className="divide-y divide-border">
+                {period.unit_breakdown.map((u) => (
+                  <div key={u.code} className="py-3 flex items-center justify-between first:pt-0 last:pb-0">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-xs uppercase">
+                        {u.symbol}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">{u.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {u.purchase_count} transaction{u.purchase_count === 1 ? "" : "s"}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">{u.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {u.purchase_count} transaction{u.purchase_count === 1 ? "" : "s"}
+                    <div className="text-right">
+                      <p className="text-sm font-bold font-mono text-foreground">
+                        {u.total_quantity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}{" "}
+                        <span className="text-xs font-normal text-muted-foreground">{u.symbol}</span>
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold font-mono text-foreground">
-                      {u.total_quantity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}{" "}
-                      <span className="text-xs font-normal text-muted-foreground">{u.symbol}</span>
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="py-8 text-center text-muted-foreground text-sm">
-              No purchase records found for the selected period.
-            </div>
-          )}
-        </AnalyticsPanel>
+                ))}
+              </div>
+            ) : (
+              <div className="py-8 text-center text-muted-foreground text-sm">
+                No purchase records found for the selected period.
+              </div>
+            )}
+          </AnalyticsPanel>
+        </div>
+      </div>
 
-        {/* Seller Distribution: Company vs ASM */}
-        <AnalyticsPanel
-          title="Seller Sourcing Distribution"
-          description="Gold volume and transaction attribution between Companies and ASM Miners"
-        >
-          <div className="grid grid-cols-2 gap-4">
-            {/* Company Card */}
-            <div className="p-4 rounded-2xl bg-card border border-border space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center">
-                  <Building2 className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-foreground">Companies</h4>
-                  <p className="text-xs text-muted-foreground">Registered corporate suppliers</p>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xl font-bold font-mono text-foreground">
-                  {(period?.seller_distribution?.company?.canonical_quantity || 0).toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 4,
-                  })}{" "}
-                  <span className="text-xs font-normal text-muted-foreground">g</span>
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {period?.seller_distribution?.company?.count || 0} transactions •{" "}
-                  {(period?.seller_distribution?.company?.amount || 0).toLocaleString()} ETB
-                </p>
-              </div>
-            </div>
+      {/* ----------------- SUPPLIER DETAILED BREAKDOWN TABLES (COMPANIES & ASM MINERS) ----------------- */}
+      <div className="space-y-4">
+        <DashboardSectionHeader
+          title="Supplier Performance & Sourcing Breakdown"
+          description="Detailed tabular results per supplying mining companies and registered ASM miners"
+        />
 
-            {/* ASM Miner Card */}
-            <div className="p-4 rounded-2xl bg-card border border-border space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                  <HardHat className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-foreground">ASM Miners</h4>
-                  <p className="text-xs text-muted-foreground">Artisanal & small-scale miners</p>
-                </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Companies Breakdown Table */}
+          <AnalyticsPanel
+            title="Registered Companies Sourcing Ledger"
+            description="Purchasing volume, transactions, and settlement per corporate seller"
+            headerAction={
+              <Badge variant="outline" className="text-xs font-mono">
+                {period?.company_breakdown?.length || 0} Companies
+              </Badge>
+            }
+          >
+            {period?.company_breakdown && period.company_breakdown.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="border-b border-border text-[11px] text-muted-foreground uppercase bg-muted/30">
+                    <tr>
+                      <th className="py-2.5 px-3 font-semibold">Company</th>
+                      <th className="py-2.5 px-3 font-semibold text-center">Txns</th>
+                      <th className="py-2.5 px-3 font-semibold">Volume (g)</th>
+                      <th className="py-2.5 px-3 font-semibold text-right">Settlement</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {period.company_breakdown.map((c) => {
+                      const totalVol = period.total_canonical_quantity || 1;
+                      const sharePct = ((c.canonical_quantity / totalVol) * 100).toFixed(1);
+                      return (
+                        <tr key={c.company_id} className="hover:bg-muted/20">
+                          <td className="py-2.5 px-3">
+                            <div className="font-semibold text-foreground flex items-center gap-1.5">
+                              <Building2 className="h-3.5 w-3.5 text-sky-500 shrink-0" />
+                              <span className="truncate max-w-[140px]">{c.name}</span>
+                            </div>
+                            <div className="text-[10px] font-mono text-muted-foreground">code: {c.code}</div>
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-mono">
+                            {c.count}
+                          </td>
+                          <td className="py-2.5 px-3 font-mono font-bold text-amber-600 dark:text-amber-400">
+                            {c.canonical_quantity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} g
+                            <span className="text-[10px] text-muted-foreground font-normal ml-1">({sharePct}%)</span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono font-semibold text-foreground">
+                            {c.amount.toLocaleString()} ETB
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-              <div className="space-y-1">
-                <p className="text-xl font-bold font-mono text-foreground">
-                  {(period?.seller_distribution?.asm?.canonical_quantity || 0).toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 4,
-                  })}{" "}
-                  <span className="text-xs font-normal text-muted-foreground">g</span>
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {period?.seller_distribution?.asm?.count || 0} transactions •{" "}
-                  {(period?.seller_distribution?.asm?.amount || 0).toLocaleString()} ETB
-                </p>
+            ) : (
+              <div className="py-8 text-center text-muted-foreground text-xs">
+                No company purchases recorded in this time range.
               </div>
-            </div>
-          </div>
-        </AnalyticsPanel>
+            )}
+          </AnalyticsPanel>
+
+          {/* ASM Miners Breakdown Table */}
+          <AnalyticsPanel
+            title="ASM Miners & Individual Sourcing Ledger"
+            description="Purchasing volume and payout per artisanal and small-scale miner"
+            headerAction={
+              <Badge variant="outline" className="text-xs font-mono">
+                {period?.asm_breakdown?.length || 0} Miners
+              </Badge>
+            }
+          >
+            {period?.asm_breakdown && period.asm_breakdown.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="border-b border-border text-[11px] text-muted-foreground uppercase bg-muted/30">
+                    <tr>
+                      <th className="py-2.5 px-3 font-semibold">Miner Name</th>
+                      <th className="py-2.5 px-3 font-semibold text-center">Txns</th>
+                      <th className="py-2.5 px-3 font-semibold">Volume (g)</th>
+                      <th className="py-2.5 px-3 font-semibold text-right">Settlement</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {period.asm_breakdown.map((m) => {
+                      const totalVol = period.total_canonical_quantity || 1;
+                      const sharePct = ((m.canonical_quantity / totalVol) * 100).toFixed(1);
+                      return (
+                        <tr key={m.asm_id} className="hover:bg-muted/20">
+                          <td className="py-2.5 px-3">
+                            <div className="font-semibold text-foreground flex items-center gap-1.5">
+                              <HardHat className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                              <span className="truncate max-w-[140px]">{m.full_name}</span>
+                            </div>
+                            <div className="text-[10px] font-mono text-muted-foreground">
+                              {m.mining_license_number ? `lic: ${m.mining_license_number}` : "Artisanal Seller"}
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-mono">
+                            {m.count}
+                          </td>
+                          <td className="py-2.5 px-3 font-mono font-bold text-amber-600 dark:text-amber-400">
+                            {m.canonical_quantity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} g
+                            <span className="text-[10px] text-muted-foreground font-normal ml-1">({sharePct}%)</span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono font-semibold text-foreground">
+                            {m.amount.toLocaleString()} ETB
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="py-8 text-center text-muted-foreground text-xs">
+                No ASM purchases recorded in this time range.
+              </div>
+            )}
+          </AnalyticsPanel>
+        </div>
       </div>
 
       {/* ----------------- RECENT GOLD PURCHASES REGISTER ----------------- */}

@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { ColumnDef } from "@tanstack/react-table";
 import {
   Scale,
   PlusCircle,
   Edit,
+  CheckCircle2,
+  AlertCircle,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,16 +31,21 @@ import {
   useUpdateGoldUnitMutation,
   useToggleGoldUnitStatusMutation,
 } from "@/redux/api/goldApi";
-import Loading01 from "@/features/template/component/Loading/Loading01";
+import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { TableLayout } from "@/features/template/component/tableList/TableLayout";
+import { GoldOperationsTabsHeader } from "./GoldOperationsTabsHeader";
 import type { GoldMeasurementUnit } from "@/redux/types/gold";
 
 export function MeasurementUnitsView() {
   const { can } = usePermissions();
 
-  const { data: units = [], isLoading, refetch } = useGetGoldUnitsQuery();
+  const { data: units = [], isLoading, isError, refetch } = useGetGoldUnitsQuery();
   const [createUnit, { isLoading: isCreating }] = useCreateGoldUnitMutation();
   const [updateUnit, { isLoading: isUpdating }] = useUpdateGoldUnitMutation();
   const [toggleStatus] = useToggleGoldUnitStatusMutation();
+
+  // Search filter
+  const [search, setSearch] = useState("");
 
   // Create Modal State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -108,12 +117,7 @@ export function MeasurementUnitsView() {
     }
   };
 
-  const handleToggle = async (unit: GoldMeasurementUnit) => {
-    if (unit.is_canonical_base && unit.is_active) {
-      toast.error("The canonical base unit cannot be deactivated.");
-      return;
-    }
-
+  const handleToggleStatus = async (unit: GoldMeasurementUnit) => {
     try {
       await toggleStatus({
         id: unit.unit_id,
@@ -128,123 +132,186 @@ export function MeasurementUnitsView() {
     }
   };
 
-  return (
-    <div className="space-y-6">
-      {/* ----------------- TOP HEADER ----------------- */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-            <Scale className="h-7 w-7 text-primary" />
-            Configurable Gold Measurement Units
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Dynamic weight registry with standardized canonical conversions to grams. Historical transactions preserve their recorded units non-lossily.
-          </p>
-        </div>
+  const filteredData = useMemo(() => {
+    if (!search.trim()) return units;
+    const term = search.toLowerCase();
+    return units.filter(
+      (u) =>
+        u.name.toLowerCase().includes(term) ||
+        u.code.toLowerCase().includes(term) ||
+        u.symbol.toLowerCase().includes(term) ||
+        (u.description && u.description.toLowerCase().includes(term))
+    );
+  }, [units, search]);
 
-        {can("GOLD_UNITS:CREATE") && (
-          <Button onClick={() => setIsCreateOpen(true)} className="gap-2 font-semibold shadow-sm shrink-0">
-            <PlusCircle className="h-4 w-4" /> Add Measurement Unit
-          </Button>
-        )}
-      </div>
-
-      {/* ----------------- UNITS CARDS GRID ----------------- */}
-      {isLoading ? (
-        <div className="p-12">
-          <Loading01 />
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {units.map((u) => (
-            <div
-              key={u.unit_id}
-              className={`p-6 rounded-3xl bg-card border shadow-xs space-y-4 relative overflow-hidden transition-all ${
-                u.is_canonical_base
-                  ? "border-amber-500/50 dark:border-amber-500/40"
-                  : "border-border"
-              }`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-base uppercase shrink-0 ${
-                      u.is_canonical_base
-                        ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                        : "bg-muted text-foreground"
-                    }`}
-                  >
-                    {u.symbol}
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-foreground">{u.name}</h3>
-                    <p className="text-xs font-mono text-muted-foreground">Code: {u.code}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5 flex-col items-end">
+  const columns: ColumnDef<GoldMeasurementUnit>[] = useMemo(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Unit Name & Code",
+        cell: ({ row }) => {
+          const u = row.original;
+          return (
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-xs uppercase shrink-0 border ${
+                  u.is_canonical_base
+                    ? "bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                    : "bg-muted border-border text-foreground"
+                }`}
+              >
+                {u.symbol}
+              </div>
+              <div>
+                <div className="font-semibold text-foreground flex items-center gap-1.5">
+                  {u.name}
                   {u.is_canonical_base && (
-                    <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 text-[10px]">
-                      Canonical Base (1.0g)
+                    <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 text-[10px] py-0 px-1.5">
+                      Canonical Base
                     </Badge>
                   )}
-                  <Badge
-                    variant={u.is_active ? "default" : "secondary"}
-                    className={
-                      u.is_active
-                        ? "bg-emerald-600/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-[10px]"
-                        : "text-[10px]"
-                    }
-                  >
-                    {u.is_active ? "Active" : "Deactivated"}
-                  </Badge>
                 </div>
-              </div>
-
-              <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/60 space-y-1">
-                <p className="text-xs text-muted-foreground">Standardized Conversion Factor</p>
-                <p className="text-sm font-bold font-mono text-foreground">
-                  1 {u.symbol} = {parseFloat(String(u.conversion_factor)).toLocaleString()} grams
-                </p>
-              </div>
-
-              {u.description && (
-                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
-                  {u.description}
-                </p>
-              )}
-
-              <div className="pt-2 flex items-center justify-between border-t border-border">
-                <span className="text-[11px] text-muted-foreground">
-                  {u.is_canonical_base ? "Official base currency standard" : "Approved measurement unit"}
-                </span>
-                <div className="flex items-center gap-1">
-                  {can("GOLD_UNITS:UPDATE") && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setEditingUnit(u)}
-                      className="h-8 px-2 text-xs"
-                    >
-                      <Edit className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                  {can("GOLD_UNITS:DEACTIVATE") && !u.is_canonical_base && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleToggle(u)}
-                      className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-                    >
-                      {u.is_active ? "Deactivate" : "Activate"}
-                    </Button>
-                  )}
-                </div>
+                <div className="text-xs font-mono text-muted-foreground">code: {u.code}</div>
               </div>
             </div>
-          ))}
+          );
+        },
+      },
+      {
+        accessorKey: "symbol",
+        header: "Symbol",
+        cell: ({ row }) => (
+          <Badge variant="outline" className="font-mono font-bold text-xs px-2.5 py-0.5">
+            {row.original.symbol}
+          </Badge>
+        ),
+      },
+      {
+        accessorKey: "conversion_factor",
+        header: "Canonical Conversion Factor",
+        cell: ({ row }) => {
+          const u = row.original;
+          const factor = parseFloat(String(u.conversion_factor));
+          return (
+            <div>
+              <div className="font-mono font-bold text-foreground text-sm">
+                1 {u.symbol} = {factor.toLocaleString(undefined, { maximumFractionDigits: 6 })} g
+              </div>
+              <div className="text-[11px] text-muted-foreground">Standardized metric weight</div>
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: "description",
+        header: "Description / Standard",
+        cell: ({ row }) => {
+          const desc = row.original.description;
+          return (
+            <div className="text-xs text-muted-foreground max-w-sm line-clamp-2">
+              {desc || "Standard national measurement unit"}
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: "is_active",
+        header: "Status",
+        cell: ({ row }) => {
+          const active = row.original.is_active;
+          return (
+            <Badge
+              variant={active ? "default" : "secondary"}
+              className={
+                active
+                  ? "bg-emerald-600/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-[10px] font-semibold"
+                  : "text-[10px]"
+              }
+            >
+              {active ? "Active" : "Deactivated"}
+            </Badge>
+          );
+        },
+      },
+      {
+        id: "actions",
+        header: () => <div className="text-right">Actions</div>,
+        cell: ({ row }) => {
+          const u = row.original;
+          return (
+            <div className="flex items-center justify-end gap-1">
+              {can("GOLD_UNITS:UPDATE") && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditingUnit(u)}
+                  className="h-8 px-2 text-xs"
+                  title="Edit Unit"
+                >
+                  <Edit className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              {can("GOLD_UNITS:DEACTIVATE") && !u.is_canonical_base && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleToggleStatus(u)}
+                  className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  {u.is_active ? "Deactivate" : "Activate"}
+                </Button>
+              )}
+            </div>
+          );
+        },
+      },
+    ],
+    [can]
+  );
+
+  return (
+    <div className="space-y-6">
+      <GoldOperationsTabsHeader />
+
+      <TableLayout
+        title="Configurable Gold Measurement Units"
+        description="Dynamic weight registry with standardized canonical conversions to grams. Historical transactions preserve their recorded units non-lossily."
+        actions={
+          can("GOLD_UNITS:CREATE")
+            ? [
+                {
+                  label: "Add Measurement Unit",
+                  icon: <PlusCircle className="h-4 w-4" />,
+                  onClick: () => setIsCreateOpen(true),
+                },
+              ]
+            : []
+        }
+      >
+        <div className="p-4 border-b border-border bg-card/50 flex items-center justify-between gap-3">
+          <div className="max-w-sm w-full">
+            <Input
+              placeholder="Search units by name, symbol, or code..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-9 text-xs"
+            />
+          </div>
+          {search && (
+            <Button variant="ghost" size="sm" onClick={() => setSearch("")} className="h-9 px-2 text-xs">
+              Clear
+            </Button>
+          )}
         </div>
-      )}
+
+        <DataTable
+          columns={columns}
+          data={filteredData}
+          isLoading={isLoading}
+          isError={isError}
+          onRetry={refetch}
+        />
+      </TableLayout>
 
       {/* ----------------- CREATE MODAL ----------------- */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -252,11 +319,11 @@ export function MeasurementUnitsView() {
           <form onSubmit={handleCreate}>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Scale className="h-5 w-5 text-primary" />
-                Add Approved Gold Measurement Unit
+                <PlusCircle className="h-5 w-5 text-primary" />
+                Add Measurement Unit
               </DialogTitle>
               <DialogDescription>
-                Define an approved weighing standard and specify its exact conversion factor to canonical grams.
+                Define a new weight unit and its exact conversion multiplier to standard grams (1 unit = X grams).
               </DialogDescription>
             </DialogHeader>
 
@@ -265,7 +332,7 @@ export function MeasurementUnitsView() {
                 <Label className="text-xs font-semibold">Unit Name *</Label>
                 <Input
                   required
-                  placeholder="e.g. Tola, Mithqal, Troy Ounce"
+                  placeholder="e.g. Shekel, Tola, Ounce, Waqet"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="h-9 text-sm"
@@ -277,45 +344,45 @@ export function MeasurementUnitsView() {
                   <Label className="text-xs font-semibold">Unique Code *</Label>
                   <Input
                     required
-                    placeholder="e.g. tola, mth"
+                    placeholder="e.g. shekel"
                     value={code}
                     onChange={(e) => setCode(e.target.value)}
-                    className="h-9 text-sm font-mono lowercase"
+                    className="h-9 text-sm font-mono"
                   />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">Symbol *</Label>
                   <Input
                     required
-                    placeholder="e.g. tola, oz t"
+                    placeholder="e.g. sh, oz, tl"
                     value={symbol}
                     onChange={(e) => setSymbol(e.target.value)}
-                    className="h-9 text-sm"
+                    className="h-9 text-sm font-mono"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Conversion Factor to Grams *</Label>
+                <Label className="text-xs font-semibold">Conversion Factor (Grams) *</Label>
                 <Input
                   required
                   type="number"
                   step="0.000001"
                   min="0.000001"
-                  placeholder="e.g. 11.663804"
+                  placeholder="e.g. 11.4 for Shekel, 31.1035 for Troy Oz"
                   value={conversionFactor}
                   onChange={(e) => setConversionFactor(e.target.value)}
                   className="h-9 text-sm font-mono"
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  Number of grams equivalent to exactly 1.0 of this unit.
+                  Specifies how many grams are in 1 unit of this measurement.
                 </p>
               </div>
 
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Description</Label>
                 <Textarea
-                  placeholder="Regional context, traditional usage, market trading origin..."
+                  placeholder="Cultural or customary weight description..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={2}

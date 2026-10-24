@@ -11,6 +11,8 @@ import type {
   CreateGoldPurchasePayload,
   RegisterAsmMinerPayload,
   CreateMeasurementUnitPayload,
+  GoldPriceConfiguration,
+  CreateGoldPricePayload,
 } from "../types/gold";
 
 export const goldApi = baseApi.injectEndpoints({
@@ -73,6 +75,80 @@ export const goldApi = baseApi.injectEndpoints({
       invalidatesTags: (_res, _err, { id }) => [
         { type: "GoldUnits", id },
         { type: "GoldUnits", id: "LIST" },
+      ],
+    }),
+
+    // ----------------------------------------------------
+    // Gold Price Configurations
+    // ----------------------------------------------------
+    getGoldPrices: builder.query<
+      GoldPriceConfiguration[],
+      { is_active?: boolean; gold_type?: string; karat?: string; search?: string } | void
+    >({
+      query: (params) => ({
+        url: "/gold/prices",
+        params: params || undefined,
+      }),
+      transformResponse: (res: { data: GoldPriceConfiguration[] }) => res.data,
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.map(({ price_config_id }) => ({ type: "GoldPrices" as const, id: price_config_id })),
+              { type: "GoldPrices", id: "LIST" },
+            ]
+          : [{ type: "GoldPrices", id: "LIST" }],
+    }),
+
+    getActiveGoldPrice: builder.query<
+      GoldPriceConfiguration | null,
+      { karat?: string; gold_type?: string; quality_grade?: string; measurement_unit_id?: string }
+    >({
+      query: (params) => ({
+        url: "/gold/prices/active",
+        params,
+      }),
+      transformResponse: (res: { data: GoldPriceConfiguration | null }) => res.data,
+      providesTags: [{ type: "GoldPrices", id: "ACTIVE" }],
+    }),
+
+    createGoldPrice: builder.mutation<GoldPriceConfiguration, CreateGoldPricePayload>({
+      query: (body) => ({
+        url: "/gold/prices",
+        method: "POST",
+        body,
+      }),
+      transformResponse: (res: { data: GoldPriceConfiguration }) => res.data,
+      invalidatesTags: [
+        { type: "GoldPrices", id: "LIST" },
+        { type: "GoldPrices", id: "ACTIVE" },
+      ],
+    }),
+
+    updateGoldPrice: builder.mutation<
+      GoldPriceConfiguration,
+      { id: string; data: Partial<CreateGoldPricePayload> }
+    >({
+      query: ({ id, data }) => ({
+        url: `/gold/prices/${id}`,
+        method: "PUT",
+        body: data,
+      }),
+      transformResponse: (res: { data: GoldPriceConfiguration }) => res.data,
+      invalidatesTags: (_res, _err, { id }) => [
+        { type: "GoldPrices", id },
+        { type: "GoldPrices", id: "LIST" },
+        { type: "GoldPrices", id: "ACTIVE" },
+      ],
+    }),
+
+    deleteGoldPrice: builder.mutation<{ message: string }, string>({
+      query: (id) => ({
+        url: `/gold/prices/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: [
+        { type: "GoldPrices", id: "LIST" },
+        { type: "GoldPrices", id: "ACTIVE" },
       ],
     }),
 
@@ -323,7 +399,7 @@ export const goldApi = baseApi.injectEndpoints({
     // ----------------------------------------------------
     getGoldCenterDashboard: builder.query<
       PurchasingCenterDashboardData,
-      { purchasing_center_id?: string; date_from?: string; date_to?: string } | void
+      { purchasing_center_id?: string; date_from?: string; date_to?: string; time_range?: string } | void
     >({
       query: (params) => ({
         url: "/gold/dashboard",
@@ -371,4 +447,10 @@ export const {
   useGetGoldHistoricalReportsQuery,
   useGetGoldCenterDashboardQuery,
   useGetFederalGoldOversightQuery,
+  useGetGoldPricesQuery,
+  useGetActiveGoldPriceQuery,
+  useLazyGetActiveGoldPriceQuery,
+  useCreateGoldPriceMutation,
+  useUpdateGoldPriceMutation,
+  useDeleteGoldPriceMutation,
 } = goldApi;

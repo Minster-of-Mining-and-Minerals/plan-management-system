@@ -7,3 +7,5 @@ export * from "./MeasurementUnitsView";
 export * from "./PurchaseDetailView";
 export * from "./PurchaseRegisterView";
 export * from "./RecordPurchaseForm";
+export * from "./GoldPriceConfigurationTable";
+export * from "./GoldOperationsTabsHeader";

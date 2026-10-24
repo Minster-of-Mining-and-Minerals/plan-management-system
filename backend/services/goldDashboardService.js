@@ -43,7 +43,24 @@ async function getPurchasingCenterDashboard(centerId, query = {}, actor) {
     purchasing_center_id: centerId,
     status: "completed",
   };
-  if (query.date_from || query.date_to) {
+
+  const selectedTimeRange = query.time_range || "all";
+  if (query.time_range && query.time_range !== "all") {
+    const todayDate = new Date();
+    let days = 0;
+    if (query.time_range === "7d") days = 7;
+    else if (query.time_range === "30d") days = 30;
+    else if (query.time_range === "90d") days = 90;
+
+    if (query.time_range === "today") {
+      periodWhere.business_date = today;
+    } else if (days > 0) {
+      const past = new Date(todayDate);
+      past.setDate(past.getDate() - days);
+      const pastStr = past.toISOString().slice(0, 10);
+      periodWhere.business_date = { [Op.gte]: pastStr, [Op.lte]: today };
+    }
+  } else if (query.date_from || query.date_to) {
     const dateRange = {};
     if (query.date_from) dateRange[Op.gte] = query.date_from;
     if (query.date_to) dateRange[Op.lte] = query.date_to;
@@ -64,14 +81,30 @@ async function getPurchasingCenterDashboard(centerId, query = {}, actor) {
         "unit_price",
         "total_amount",
         "seller_type",
+        "seller_name_snapshot",
+        "seller_identifier_snapshot",
         "company_id",
         "asm_id",
+        "gold_type",
+        "karat",
+        "quality_grade",
+        "is_custom_price",
       ],
       include: [
         {
           model: GoldMeasurementUnit,
           as: "measurementUnit",
           attributes: ["name", "symbol", "code"],
+        },
+        {
+          model: Company,
+          as: "companySeller",
+          attributes: ["company_id", "name", "code"],
+        },
+        {
+          model: AsmMiner,
+          as: "asmSeller",
+          attributes: ["asm_id", "full_name", "national_id_number"],
         },
       ],
       order: [["business_date", "ASC"]],
@@ -115,7 +148,7 @@ async function getPurchasingCenterDashboard(centerId, query = {}, actor) {
         },
       ],
       order: [["created_at", "DESC"]],
-      limit: 5,
+      limit: 10,
     }),
   ]);
 
@@ -123,6 +156,10 @@ async function getPurchasingCenterDashboard(centerId, query = {}, actor) {
   let totalPeriodQuantityCanonical = 0;
   let totalPeriodAmount = 0;
   const unitMap = new Map();
+  const companyBreakdownMap = new Map();
+  const asmBreakdownMap = new Map();
+  const karatBreakdownMap = new Map();
+  const qualityBreakdownMap = new Map();
   const distinctCompanies = new Set();
   const distinctAsms = new Set();
   const trendMap = new Map();
@@ -142,16 +179,78 @@ async function getPurchasingCenterDashboard(centerId, query = {}, actor) {
     totalPeriodAmount += amount;
 
     if (p.seller_type === "company") {
+      const compId = p.company_id || p.seller_name_snapshot;
       if (p.company_id) distinctCompanies.add(p.company_id);
       sellerDistribution.company.count += 1;
       sellerDistribution.company.canonical_quantity += canonical;
       sellerDistribution.company.amount += amount;
+
+      if (!companyBreakdownMap.has(compId)) {
+        companyBreakdownMap.set(compId, {
+          company_id: p.company_id || null,
+          name: p.companySeller?.name || p.seller_name_snapshot || "Corporate Seller",
+          code: p.companySeller?.code || "COMP",
+          purchases_count: 0,
+          canonical_quantity: 0,
+          total_amount: 0,
+        });
+      }
+      const cEntry = companyBreakdownMap.get(compId);
+      cEntry.purchases_count += 1;
+      cEntry.canonical_quantity = parseFloat((cEntry.canonical_quantity + canonical).toFixed(4));
+      cEntry.total_amount = parseFloat((cEntry.total_amount + amount).toFixed(2));
     } else if (p.seller_type === "asm") {
+      const asmKey = p.asm_id || p.seller_name_snapshot;
       if (p.asm_id) distinctAsms.add(p.asm_id);
       sellerDistribution.asm.count += 1;
       sellerDistribution.asm.canonical_quantity += canonical;
       sellerDistribution.asm.amount += amount;
+
+      if (!asmBreakdownMap.has(asmKey)) {
+        asmBreakdownMap.set(asmKey, {
+          asm_id: p.asm_id || null,
+          full_name: p.asmSeller?.full_name || p.seller_name_snapshot || "Artisanal Miner",
+          identifier: p.asmSeller?.national_id_number || p.seller_identifier_snapshot || "N/A",
+          purchases_count: 0,
+          canonical_quantity: 0,
+          total_amount: 0,
+        });
+      }
+      const aEntry = asmBreakdownMap.get(asmKey);
+      aEntry.purchases_count += 1;
+      aEntry.canonical_quantity = parseFloat((aEntry.canonical_quantity + canonical).toFixed(4));
+      aEntry.total_amount = parseFloat((aEntry.total_amount + amount).toFixed(2));
     }
+
+    // Karat breakdown
+    const karatKey = p.karat || "Standard/Raw";
+    if (!karatBreakdownMap.has(karatKey)) {
+      karatBreakdownMap.set(karatKey, {
+        karat: karatKey,
+        purchases_count: 0,
+        canonical_quantity: 0,
+        total_amount: 0,
+      });
+    }
+    const kEntry = karatBreakdownMap.get(karatKey);
+    kEntry.purchases_count += 1;
+    kEntry.canonical_quantity = parseFloat((kEntry.canonical_quantity + canonical).toFixed(4));
+    kEntry.total_amount = parseFloat((kEntry.total_amount + amount).toFixed(2));
+
+    // Quality grade breakdown
+    const qualityKey = p.quality_grade || "Standard Grade";
+    if (!qualityBreakdownMap.has(qualityKey)) {
+      qualityBreakdownMap.set(qualityKey, {
+        quality_grade: qualityKey,
+        purchases_count: 0,
+        canonical_quantity: 0,
+        total_amount: 0,
+      });
+    }
+    const qEntry = qualityBreakdownMap.get(qualityKey);
+    qEntry.purchases_count += 1;
+    qEntry.canonical_quantity = parseFloat((qEntry.canonical_quantity + canonical).toFixed(4));
+    qEntry.total_amount = parseFloat((qEntry.total_amount + amount).toFixed(2));
 
     // Unit breakdown
     const unitCode = p.unit_code_snapshot || p.measurementUnit?.code || "unknown";
@@ -175,12 +274,19 @@ async function getPurchasingCenterDashboard(centerId, query = {}, actor) {
         count: 0,
         canonical_quantity: 0,
         amount: 0,
+        company_quantity: 0,
+        asm_quantity: 0,
       });
     }
     const tEntry = trendMap.get(bDate);
     tEntry.count += 1;
     tEntry.canonical_quantity = parseFloat((tEntry.canonical_quantity + canonical).toFixed(4));
     tEntry.amount = parseFloat((tEntry.amount + amount).toFixed(2));
+    if (p.seller_type === "company") {
+      tEntry.company_quantity = parseFloat((tEntry.company_quantity + canonical).toFixed(4));
+    } else {
+      tEntry.asm_quantity = parseFloat((tEntry.asm_quantity + canonical).toFixed(4));
+    }
   }
 
   // Today aggregates
@@ -202,6 +308,7 @@ async function getPurchasingCenterDashboard(centerId, query = {}, actor) {
 
   return {
     purchasing_center: center,
+    time_range: selectedTimeRange,
     today: {
       business_date: today,
       purchases_count: todayPurchases.length,
@@ -233,6 +340,18 @@ async function getPurchasingCenterDashboard(centerId, query = {}, actor) {
           amount: parseFloat(sellerDistribution.asm.amount.toFixed(2)),
         },
       },
+      company_breakdown: Array.from(companyBreakdownMap.values()).sort(
+        (a, b) => b.canonical_quantity - a.canonical_quantity
+      ),
+      asm_breakdown: Array.from(asmBreakdownMap.values()).sort(
+        (a, b) => b.canonical_quantity - a.canonical_quantity
+      ),
+      karat_breakdown: Array.from(karatBreakdownMap.values()).sort(
+        (a, b) => b.canonical_quantity - a.canonical_quantity
+      ),
+      quality_breakdown: Array.from(qualityBreakdownMap.values()).sort(
+        (a, b) => b.canonical_quantity - a.canonical_quantity
+      ),
     },
     daily_trends: Array.from(trendMap.values()),
     recent_purchases: recentPurchases,

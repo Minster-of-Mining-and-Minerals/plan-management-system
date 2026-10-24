@@ -8,6 +8,7 @@ const {
   Company,
   AsmMiner,
   GoldMeasurementUnit,
+  GoldPriceConfiguration,
   User,
   SystemAuditLog,
 } = require("../models");
@@ -71,6 +72,12 @@ async function recordPurchase(data, actor) {
     unit_price,
     business_date,
     notes,
+    gold_type,
+    karat,
+    quality_grade,
+    purity_percentage,
+    is_custom_price,
+    price_configuration_id,
   } = data;
 
   // 1. Resolve and enforce purchasing center ID
@@ -222,6 +229,12 @@ async function recordPurchase(data, actor) {
     unit_price: price,
     total_amount: computedTotal,
     currency: "ETB",
+    gold_type: gold_type?.trim() || null,
+    karat: karat?.trim() || null,
+    quality_grade: quality_grade?.trim() || null,
+    purity_percentage: purity_percentage ? parseFloat(purity_percentage) : null,
+    is_custom_price: Boolean(is_custom_price),
+    price_configuration_id: price_configuration_id || null,
     notes: notes ? notes.trim() : null,
     status: "completed",
     created_by_id: actor.user_id,
@@ -382,6 +395,11 @@ async function getPurchaseById(purchaseId, actor) {
         model: GoldMeasurementUnit,
         as: "measurementUnit",
         attributes: ["unit_id", "name", "code", "symbol", "conversion_factor", "is_canonical_base"],
+      },
+      {
+        model: GoldPriceConfiguration,
+        as: "priceConfiguration",
+        attributes: ["price_config_id", "karat", "quality_grade", "price_per_unit", "currency"],
       },
       {
         model: User,

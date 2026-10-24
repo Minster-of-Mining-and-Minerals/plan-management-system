@@ -11,6 +11,46 @@ export interface GoldMeasurementUnit {
   updated_at?: string;
 }
 
+export interface GoldPriceConfiguration {
+  price_config_id: string;
+  gold_type: string;
+  karat: string;
+  purity_percentage?: number | string | null;
+  quality_grade: string;
+  measurement_unit_id?: string | null;
+  price_per_unit: number | string;
+  min_price_per_unit?: number | string | null;
+  max_price_per_unit?: number | string | null;
+  currency: string;
+  effective_date: string;
+  is_active: boolean;
+  notes?: string | null;
+  created_by_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  measurementUnit?: GoldMeasurementUnit | null;
+  createdBy?: {
+    user_id: string;
+    full_name: string;
+    email: string;
+  } | null;
+}
+
+export interface CreateGoldPricePayload {
+  gold_type: string;
+  karat: string;
+  purity_percentage?: number | string;
+  quality_grade?: string;
+  measurement_unit_id?: string;
+  price_per_unit: number | string;
+  min_price_per_unit?: number | string;
+  max_price_per_unit?: number | string;
+  currency?: string;
+  effective_date?: string;
+  is_active?: boolean;
+  notes?: string;
+}
+
 export interface AsmMiner {
   asm_id: string;
   full_name: string;
@@ -63,6 +103,13 @@ export interface GoldPurchase {
   unit_price: number | string;
   total_amount: number | string;
   currency: string;
+  gold_type?: string | null;
+  karat?: string | null;
+  quality_grade?: string | null;
+  purity_percentage?: number | string | null;
+  is_custom_price?: boolean;
+  price_configuration_id?: string | null;
+  priceConfiguration?: GoldPriceConfiguration | null;
   notes?: string | null;
   status: "completed" | "cancelled";
   cancelled_reason?: string | null;
@@ -219,6 +266,7 @@ export interface PurchasingCenterDashboardData {
     description?: string | null;
     is_active: boolean;
   };
+  time_range?: string;
   today: {
     business_date: string;
     purchases_count: number;
@@ -242,12 +290,42 @@ export interface PurchasingCenterDashboardData {
       company: { count: number; canonical_quantity: number; amount: number };
       asm: { count: number; canonical_quantity: number; amount: number };
     };
+    company_breakdown?: Array<{
+      company_id: string;
+      name: string;
+      code: string;
+      count: number;
+      canonical_quantity: number;
+      amount: number;
+    }>;
+    asm_breakdown?: Array<{
+      asm_id: string;
+      full_name: string;
+      mining_license_number?: string | null;
+      count: number;
+      canonical_quantity: number;
+      amount: number;
+    }>;
+    karat_breakdown?: Array<{
+      karat: string;
+      count: number;
+      canonical_quantity: number;
+      amount: number;
+    }>;
+    quality_breakdown?: Array<{
+      quality_grade: string;
+      count: number;
+      canonical_quantity: number;
+      amount: number;
+    }>;
   };
   daily_trends: Array<{
     date: string;
     count: number;
     canonical_quantity: number;
     amount: number;
+    company_quantity?: number;
+    asm_quantity?: number;
   }>;
   recent_purchases: GoldPurchase[];
 }
@@ -302,6 +380,12 @@ export interface CreateGoldPurchasePayload {
   quantity: number | string;
   measurement_unit_id: string;
   unit_price: number | string;
+  gold_type?: string;
+  karat?: string;
+  quality_grade?: string;
+  purity_percentage?: number | string;
+  is_custom_price?: boolean;
+  price_configuration_id?: string;
   business_date?: string;
   notes?: string;
 }

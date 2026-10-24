@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Link } from "@/i18n/navigation";
+import { ColumnDef } from "@tanstack/react-table";
 import {
   Layers,
   Plus,
@@ -11,20 +12,20 @@ import {
   Trash2,
   Calendar,
   CheckCircle2,
-  Clock,
-  Sparkles,
   GitBranch,
-  ArrowRight,
-  TrendingUp,
-  AlertCircle,
-  Shield,
-  Sliders,
-  RefreshCw,
+  Sparkles,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -35,7 +36,9 @@ import {
 import { actionFeedback } from "@/components/action-feedback";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useBranding } from "@/providers/BrandingProvider";
-import Loading01 from "@/features/template/component/Loading/Loading01";
+import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { TableLayout } from "@/features/template/component/tableList/TableLayout";
+import { RegionalPlanTabsHeader } from "./RegionalPlanTabsHeader";
 
 import {
   useGetRegionalPlanVersionsQuery,
@@ -69,8 +72,7 @@ export function RegionalPlanVersionTable() {
   const {
     data: plans = [],
     isLoading,
-    isFetching,
-    error,
+    isError,
     refetch,
   } = useGetRegionalPlanVersionsQuery(
     { region_id: regionId, version_kind: "master" },
@@ -82,7 +84,6 @@ export function RegionalPlanVersionTable() {
   const [deletePlan, { isLoading: isDeleting }] = useDeleteRegionalPlanVersionMutation();
 
   const canCreate = can("REGIONAL_PLANS:CREATE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
-  const canUpdate = can("REGIONAL_PLANS:UPDATE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
   const canDelete = can("REGIONAL_PLANS:DELETE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
 
   const filteredPlans = useMemo(() => {
@@ -117,8 +118,9 @@ export function RegionalPlanVersionTable() {
       setIsCreateOpen(false);
       setDraftName("");
       router.push(`/regions/${regionId}/plans/${created.regional_plan_version_id}`);
-    } catch (err: any) {
-      actionFeedback.error(err?.data?.message || err?.message || "Failed to create plan draft");
+    } catch (err: unknown) {
+      const errorObj = err as { data?: { message?: string }; message?: string };
+      actionFeedback.error(errorObj?.data?.message || errorObj?.message || "Failed to create plan draft");
     }
   };
 
@@ -128,244 +130,279 @@ export function RegionalPlanVersionTable() {
       const duplicated = await duplicateDraft({
         id: selectedPlan.regional_plan_version_id,
         region_id: regionId,
-        data: { draft_name: duplicateName.trim() || undefined },
+        data: {
+          draft_name: duplicateName.trim() || `Copy of ${selectedPlan.draft_name}`,
+        },
       }).unwrap();
 
-      actionFeedback.success("Plan draft duplicated successfully");
+      actionFeedback.success("Plan duplicated as draft");
       setIsDuplicateOpen(false);
       setSelectedPlan(null);
       router.push(`/regions/${regionId}/plans/${duplicated.regional_plan_version_id}`);
-    } catch (err: any) {
-      actionFeedback.error(err?.data?.message || err?.message || "Failed to duplicate plan");
+    } catch (err: unknown) {
+      const errorObj = err as { data?: { message?: string }; message?: string };
+      actionFeedback.error(errorObj?.data?.message || errorObj?.message || "Failed to duplicate plan");
     }
   };
 
   const handleDelete = async (plan: RegionalPlanVersion) => {
-    if (!confirm(`Are you sure you want to delete "${plan.draft_name}"? This cannot be undone.`)) {
+    if (!confirm(`Are you sure you want to delete "${plan.draft_name}"? This action cannot be undone.`)) {
       return;
     }
     try {
-      await deletePlan({ id: plan.regional_plan_version_id, region_id: regionId }).unwrap();
-      actionFeedback.success("Plan deleted successfully");
-    } catch (err: any) {
-      actionFeedback.error(err?.data?.message || err?.message || "Failed to delete plan");
+      await deletePlan({
+        id: plan.regional_plan_version_id,
+        region_id: regionId,
+      }).unwrap();
+
+      actionFeedback.success("Regional plan deleted successfully");
+      refetch();
+    } catch (err: unknown) {
+      const errorObj = err as { data?: { message?: string }; message?: string };
+      actionFeedback.error(errorObj?.data?.message || errorObj?.message || "Failed to delete plan");
     }
   };
 
-  if (isLoading) return <Loading01 />;
-
-  return (
-    <div className="space-y-6 animate-in fade-in-50 duration-300">
-      {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-5">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
-            <Layers className="h-4 w-4" />
-            <span>Regional Strategic Portfolio</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mt-1">
-            Regional Plan Management
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Create, develop, execute, and monitor regional strategic master plans and annual cycles.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            className="gap-2"
-            disabled={isFetching}
-          >
-            <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-
-          {canCreate && (
-            <Button
-              size="sm"
-              onClick={() => {
-                setDraftName(`Regional Strategic Plan (${new Date().getFullYear()} - ${new Date().getFullYear() + 4})`);
-                setIsCreateOpen(true);
-              }}
-              className="gap-2 shadow-xs"
-            >
-              <Plus className="h-4 w-4" />
-              New Regional Plan
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Filter and Stats Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3 flex-1 max-w-md">
-          <Input
-            placeholder="Search plans by title or start year..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-9"
-          />
-        </div>
-
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
-          {["all", "draft", "finalized", "active", "completed"].map((st) => (
-            <button
-              key={st}
-              onClick={() => setStatusFilter(st)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all ${
-                statusFilter === st
-                  ? "bg-primary text-primary-foreground shadow-2xs"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              {st}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Plans List Cards */}
-      {filteredPlans.length === 0 ? (
-        <div className="text-center p-12 border rounded-2xl bg-card/50 space-y-4">
-          <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-            <Layers className="h-6 w-6" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold">No regional plans found</h3>
-            <p className="text-sm text-muted-foreground max-w-sm mx-auto mt-1">
-              {search || statusFilter !== "all"
-                ? "No plans match your current search or status filter."
-                : "No strategic plans have been created for this region yet. Create the first regional plan draft to begin."}
-            </p>
-          </div>
-          {canCreate && !search && statusFilter === "all" && (
-            <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Create Regional Plan
-            </Button>
-          )}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredPlans.map((plan) => {
-            const isDraft = plan.status === "draft";
-            const isFinalized = plan.status === "finalized";
-            const isActive = plan.status === "active";
-            const isCompleted = plan.status === "completed";
-
-            const statusBadgeColor = isDraft
-              ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200"
-              : isFinalized
-              ? "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-200"
-              : isActive
-              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200"
-              : "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-200";
-
-            return (
-              <div
-                key={plan.regional_plan_version_id}
-                className="group relative flex flex-col justify-between rounded-2xl border bg-card p-5 shadow-xs hover:border-primary/40 hover:shadow-md transition-all"
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <Badge variant="outline" className={`capitalize font-semibold text-xs px-2.5 py-0.5 ${statusBadgeColor}`}>
-                      {plan.status}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground font-mono">
-                      v{plan.version_number}
-                    </span>
-                  </div>
-
-                  <h3 className="font-semibold text-lg text-foreground group-hover:text-primary transition-colors line-clamp-2">
+  const columns: ColumnDef<RegionalPlanVersion>[] = useMemo(
+    () => [
+      {
+        accessorKey: "draft_name",
+        header: "Plan Title & Version",
+        cell: ({ row }) => {
+          const plan = row.original;
+          return (
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                <Layers className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="font-semibold text-foreground flex items-center gap-1.5">
+                  <Link
+                    href={`/regions/${regionId}/plans/${plan.regional_plan_version_id}`}
+                    className="hover:underline hover:text-primary transition-colors"
+                  >
                     {plan.draft_name}
-                  </h3>
-
-                  <div className="mt-4 space-y-2 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-3.5 w-3.5 text-primary shrink-0" />
-                      <span>
-                        {plan.start_year} – {plan.end_year} ({plan.planning_duration_years} Years)
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <GitBranch className="h-3.5 w-3.5 text-primary shrink-0" />
-                      <span>
-                        {plan.annualVersions?.length || 0} Annual Cycles Configured
-                      </span>
-                    </div>
-
-                    {plan.finalized_at && (
-                      <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
-                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                        <span>Finalized on {new Date(plan.finalized_at).toLocaleDateString()}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-6 pt-4 border-t flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                      title="Duplicate Plan"
-                      onClick={() => {
-                        setSelectedPlan(plan);
-                        setDuplicateName(`Copy of ${plan.draft_name}`);
-                        setIsDuplicateOpen(true);
-                      }}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-
-                    {canDelete && isDraft && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                        title="Delete Draft"
-                        onClick={() => handleDelete(plan)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-
-                  <Link href={`/regions/${regionId}/plans/${plan.regional_plan_version_id}`}>
-                    <Button size="sm" variant="default" className="gap-1.5 h-8">
-                      <span>Manage Plan</span>
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </Button>
                   </Link>
+                  <Badge variant="outline" className="text-[10px] font-mono py-0">
+                    v{plan.version_number}
+                  </Badge>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Regional Strategic Master Hierarchy
                 </div>
               </div>
-            );
-          })}
-        </div>
-      )}
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: "planning_duration_years",
+        header: "Strategic Cycle",
+        cell: ({ row }) => {
+          const plan = row.original;
+          return (
+            <div className="flex items-center gap-2 text-xs">
+              <Calendar className="h-4 w-4 text-primary shrink-0" />
+              <div>
+                <div className="font-semibold text-foreground font-mono">
+                  {plan.start_year} – {plan.end_year}
+                </div>
+                <div className="text-muted-foreground">{plan.planning_duration_years} Years Duration</div>
+              </div>
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: "annualVersions",
+        header: "Annual Breakdown",
+        cell: ({ row }) => {
+          const count = row.original.annualVersions?.length || 0;
+          return (
+            <div className="flex items-center gap-1.5 text-xs">
+              <GitBranch className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="font-medium text-foreground">{count} Annual Cycles</span>
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => {
+          const status = row.original.status;
+          const isDraft = status === "draft";
+          const isFinalized = status === "finalized";
+          const isActive = status === "active";
 
-      {/* Create Plan Modal */}
+          const badgeClass = isDraft
+            ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200"
+            : isFinalized
+            ? "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-200"
+            : isActive
+            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200"
+            : "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-200";
+
+          return (
+            <Badge variant="outline" className={`capitalize font-semibold text-xs px-2.5 py-0.5 ${badgeClass}`}>
+              {status}
+            </Badge>
+          );
+        },
+      },
+      {
+        accessorKey: "finalized_at",
+        header: "Finalized / Created",
+        cell: ({ row }) => {
+          const plan = row.original;
+          return (
+            <div className="text-xs text-muted-foreground">
+              {plan.finalized_at ? (
+                <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                  <span>{new Date(plan.finalized_at).toLocaleDateString()}</span>
+                </div>
+              ) : plan.created_at ? (
+                <span>Created {new Date(plan.created_at).toLocaleDateString()}</span>
+              ) : (
+                "Draft"
+              )}
+            </div>
+          );
+        },
+      },
+      {
+        id: "actions",
+        header: () => <div className="text-right">Actions</div>,
+        cell: ({ row }) => {
+          const plan = row.original;
+          return (
+            <div className="flex items-center justify-end gap-1.5">
+              <Button asChild variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+                <Link href={`/regions/${regionId}/plans/${plan.regional_plan_version_id}`}>
+                  <Eye className="h-3.5 w-3.5" />
+                  <span>View</span>
+                </Link>
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-xs"
+                title="Duplicate Plan"
+                onClick={() => {
+                  setSelectedPlan(plan);
+                  setDuplicateName(`Copy of ${plan.draft_name}`);
+                  setIsDuplicateOpen(true);
+                }}
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </Button>
+
+              {canDelete && plan.status === "draft" && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 text-xs text-destructive hover:bg-destructive/10"
+                  title="Delete Plan"
+                  onClick={() => handleDelete(plan)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          );
+        },
+      },
+    ],
+    [regionId, canDelete]
+  );
+
+  return (
+    <div className="space-y-6">
+      <RegionalPlanTabsHeader />
+
+      <TableLayout
+        title="Regional Strategic Plans"
+        description="Multi-year regional development cycles, goals, and organizational contribution hierarchies."
+        actions={
+          canCreate
+            ? [
+                {
+                  label: "New Regional Plan",
+                  icon: <Plus className="h-4 w-4" />,
+                  onClick: () => setIsCreateOpen(true),
+                },
+              ]
+            : []
+        }
+      >
+        <div className="p-4 border-b border-border bg-card/50 flex flex-wrap items-center justify-between gap-3">
+          <div className="max-w-sm w-full">
+            <Input
+              placeholder="Search plans by title or start year..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-9 text-xs"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[140px] h-9 text-xs">
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="finalized">Finalized</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {(search || statusFilter !== "all") && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSearch("");
+                  setStatusFilter("all");
+                }}
+                className="h-9 px-2 text-xs"
+              >
+                Reset
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <DataTable
+          columns={columns}
+          data={filteredPlans}
+          isLoading={isLoading}
+          isError={isError}
+          onRetry={refetch}
+        />
+      </TableLayout>
+
+      {/* Create Plan Draft Modal */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="max-w-md">
           <form onSubmit={handleCreate}>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Layers className="h-5 w-5 text-primary" />
+                <Plus className="h-5 w-5 text-primary" />
                 <span>Create Regional Strategic Plan</span>
               </DialogTitle>
             </DialogHeader>
 
             <div className="space-y-4 py-4">
               <div>
-                <label className="text-xs font-semibold text-foreground">Plan Draft Title</label>
+                <label className="text-xs font-semibold text-foreground">Plan Draft Title *</label>
                 <Input
                   className="mt-1"
-                  placeholder="e.g., Regional 5-Year Mining Development Strategy"
+                  placeholder="e.g. 5-Year Regional Growth & Transformation Plan"
                   value={draftName}
                   onChange={(e) => setDraftName(e.target.value)}
                   required
@@ -374,27 +411,25 @@ export function RegionalPlanVersionTable() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-semibold text-foreground">Start Year</label>
+                  <label className="text-xs font-semibold text-foreground">Start Year *</label>
                   <Input
-                    className="mt-1"
                     type="number"
-                    min={2000}
-                    max={2100}
+                    className="mt-1"
                     value={startYear}
-                    onChange={(e) => setStartYear(parseInt(e.target.value, 10))}
+                    onChange={(e) => setStartYear(Number(e.target.value))}
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-foreground">Duration (Years)</label>
+                  <label className="text-xs font-semibold text-foreground">Duration (Years) *</label>
                   <Input
-                    className="mt-1"
                     type="number"
-                    min={1}
-                    max={10}
+                    min={config?.min_duration_years || 1}
+                    max={config?.max_duration_years || 10}
+                    className="mt-1"
                     value={durationYears}
-                    onChange={(e) => setDurationYears(parseInt(e.target.value, 10))}
+                    onChange={(e) => setDurationYears(Number(e.target.value))}
                     required
                   />
                 </div>

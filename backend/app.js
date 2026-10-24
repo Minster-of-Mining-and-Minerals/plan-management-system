@@ -45,6 +45,7 @@ const asmMinerRoutes = require("./routers/gold/asmMinerRoutes");
 const goldPurchaseRoutes = require("./routers/gold/goldPurchaseRoutes");
 const goldDailyReportRoutes = require("./routers/gold/goldDailyReportRoutes");
 const goldOversightRoutes = require("./routers/gold/goldOversightRoutes");
+const goldPriceConfigurationRoutes = require("./routers/gold/goldPriceConfigurationRoutes");
 
 // Plan Management Routes
 const planRoutes = require("./routers/plan/planRoutes");
@@ -182,6 +183,7 @@ app.use("/api/gold/units", goldMeasurementUnitRoutes);
 app.use("/api/gold/asm", asmMinerRoutes);
 app.use("/api/gold/purchases", goldPurchaseRoutes);
 app.use("/api/gold/reports", goldDailyReportRoutes);
+app.use("/api/gold/prices", goldPriceConfigurationRoutes);
 app.use("/api/gold", goldOversightRoutes);
 
 // Plan Management Routes

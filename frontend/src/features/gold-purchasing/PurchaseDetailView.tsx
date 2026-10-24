@@ -279,6 +279,52 @@ export function PurchaseDetailView({
         </div>
       </div>
 
+      {/* ----------------- GOLD QUALITY & BENCHMARK SPECIFICATION ----------------- */}
+      <div className="p-6 sm:p-8 rounded-3xl bg-card border border-border shadow-xs space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+            <Coins className="h-5 w-5 text-amber-500" />
+            Gold Quality & Valuation Specification
+          </h3>
+          <Badge
+            variant={purchase.is_custom_price ? "secondary" : "default"}
+            className={
+              purchase.is_custom_price
+                ? "bg-muted text-foreground text-xs"
+                : "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 text-xs font-semibold"
+            }
+          >
+            {purchase.is_custom_price ? "Expert Custom Valuation" : "Official Configured Benchmark"}
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-1">
+          <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/60">
+            <p className="text-[11px] text-muted-foreground">Gold Type</p>
+            <p className="text-sm font-bold text-foreground mt-0.5">{purchase.gold_type || "Standard Raw"}</p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/60">
+            <p className="text-[11px] text-muted-foreground">Karat & Purity</p>
+            <p className="text-sm font-bold text-amber-600 dark:text-amber-400 mt-0.5">
+              {purchase.karat || "24K"} {purchase.purity_percentage ? `(${purchase.purity_percentage}%)` : ""}
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/60">
+            <p className="text-[11px] text-muted-foreground">Quality Grade</p>
+            <p className="text-sm font-semibold text-foreground mt-0.5">{purchase.quality_grade || "Grade A"}</p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/60">
+            <p className="text-[11px] text-muted-foreground">Rate Basis</p>
+            <p className="text-sm font-semibold text-foreground mt-0.5">
+              {purchase.is_custom_price ? "Custom Expert" : "Official Benchmark"}
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* ----------------- GOLD WEIGHT & FINANCIAL BREAKDOWN ----------------- */}
       <div className="p-6 sm:p-8 rounded-3xl bg-card border border-border shadow-xs space-y-6">
         <h3 className="text-base font-bold text-foreground flex items-center gap-2">

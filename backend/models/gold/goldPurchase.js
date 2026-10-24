@@ -29,6 +29,12 @@ module.exports = (sequelize, DataTypes) => {
         as: "measurementUnit",
       });
 
+      // Associated price configuration (if unit price was derived from official rate)
+      GoldPurchase.belongsTo(models.GoldPriceConfiguration, {
+        foreignKey: "price_configuration_id",
+        as: "priceConfiguration",
+      });
+
       // Recorded by user
       GoldPurchase.belongsTo(models.User, {
         foreignKey: "created_by_id",
@@ -145,6 +151,31 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING(10),
         allowNull: false,
         defaultValue: "ETB",
+      },
+      gold_type: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+      },
+      karat: {
+        type: DataTypes.STRING(20),
+        allowNull: true,
+      },
+      quality_grade: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+      },
+      purity_percentage: {
+        type: DataTypes.DECIMAL(5, 2),
+        allowNull: true,
+      },
+      is_custom_price: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
+      price_configuration_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
       },
       notes: {
         type: DataTypes.TEXT,

@@ -130,6 +130,7 @@ export const baseApi = createApi({
     "GoldReports",
     "AsmMiners",
     "GoldUnits",
+    "GoldPrices",
     "GoldOversight",
   ],
   endpoints: () => ({}),
