@@ -245,7 +245,7 @@ export function RecordPurchaseForm() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="w-full mx-auto space-y-6">
       {/* ----------------- TOP HEADER ----------------- */}
       <div className="flex items-center justify-between gap-4">
         <div>
@@ -298,11 +298,10 @@ export function RecordPurchaseForm() {
             <button
               type="button"
               onClick={() => handleSellerTypeChange("company")}
-              className={`py-3 px-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2.5 transition-all ${
-                sellerType === "company"
-                  ? "bg-background text-foreground shadow-xs border border-border"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              className={`py-3 px-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2.5 transition-all ${sellerType === "company"
+                ? "bg-background text-foreground shadow-xs border border-border"
+                : "text-muted-foreground hover:text-foreground"
+                }`}
             >
               <Building2 className="h-4 w-4 text-sky-500" />
               Registered Company
@@ -310,11 +309,10 @@ export function RecordPurchaseForm() {
             <button
               type="button"
               onClick={() => handleSellerTypeChange("asm")}
-              className={`py-3 px-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2.5 transition-all ${
-                sellerType === "asm"
-                  ? "bg-background text-foreground shadow-xs border border-border"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              className={`py-3 px-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2.5 transition-all ${sellerType === "asm"
+                ? "bg-background text-foreground shadow-xs border border-border"
+                : "text-muted-foreground hover:text-foreground"
+                }`}
             >
               <HardHat className="h-4 w-4 text-amber-500" />
               ASM Miner
@@ -341,11 +339,10 @@ export function RecordPurchaseForm() {
                     <div
                       key={c.company_id}
                       onClick={() => setSelectedCompanyId(c.company_id)}
-                      className={`p-3 flex items-center justify-between cursor-pointer transition-colors ${
-                        selectedCompanyId === c.company_id
-                          ? "bg-primary/10 border-l-4 border-l-primary"
-                          : "hover:bg-muted/40"
-                      }`}
+                      className={`p-3 flex items-center justify-between cursor-pointer transition-colors ${selectedCompanyId === c.company_id
+                        ? "bg-primary/10 border-l-4 border-l-primary"
+                        : "hover:bg-muted/40"
+                        }`}
                     >
                       <div className="space-y-0.5">
                         <p className="text-sm font-semibold text-foreground">{c.name}</p>
@@ -409,11 +406,10 @@ export function RecordPurchaseForm() {
                       <div
                         key={m.asm_id}
                         onClick={() => setSelectedAsmId(m.asm_id)}
-                        className={`p-3 flex items-center justify-between cursor-pointer transition-colors ${
-                          selectedAsmId === m.asm_id
-                            ? "bg-amber-500/10 border-l-4 border-l-amber-500"
-                            : "hover:bg-muted/40"
-                        }`}
+                        className={`p-3 flex items-center justify-between cursor-pointer transition-colors ${selectedAsmId === m.asm_id
+                          ? "bg-amber-500/10 border-l-4 border-l-amber-500"
+                          : "hover:bg-muted/40"
+                          }`}
                       >
                         <div className="space-y-0.5">
                           <p className="text-sm font-semibold text-foreground">{m.full_name}</p>

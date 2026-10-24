@@ -36,7 +36,6 @@ export const FooterActions: React.FC<FooterActionsProps> = ({
           </Button>
           <Button
             type="submit"
-            onClick={onSubmit}
             disabled={
               isLoading || !name.trim() || selectedPermissionsCount === 0
             }

@@ -89,6 +89,32 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/admin/purchasing-centers/[id]", anyPermissions: ["PURCHASING_CENTERS:READ", "PURCHASING_CENTERS:MANAGE", "PURCHASING_CENTERS:UPDATE"] },
   { pattern: "/admin/purchasing-centers", anyPermissions: ["PURCHASING_CENTERS:READ", "PURCHASING_CENTERS:MANAGE"] },
 
+  // Gold Operations Administration
+  {
+    pattern: "/admin/gold-operations/purchases/[purchaseId]",
+    anyPermissions: ["GOLD_PURCHASES:READ", "GOLD_PURCHASES:MANAGE", "GOLD_OVERSIGHT:READ", "GOLD_OVERSIGHT:MANAGE"],
+  },
+  {
+    pattern: "/admin/gold-operations/purchases",
+    anyPermissions: ["GOLD_PURCHASES:READ", "GOLD_PURCHASES:MANAGE", "GOLD_OVERSIGHT:READ", "GOLD_OVERSIGHT:MANAGE"],
+  },
+  {
+    pattern: "/admin/gold-operations/reports",
+    anyPermissions: ["GOLD_REPORTS:READ", "GOLD_REPORTS:MANAGE", "GOLD_OVERSIGHT:READ", "GOLD_OVERSIGHT:MANAGE"],
+  },
+  {
+    pattern: "/admin/gold-operations/asm",
+    anyPermissions: ["ASM:READ", "ASM:MANAGE", "GOLD_OVERSIGHT:READ", "GOLD_OVERSIGHT:MANAGE"],
+  },
+  {
+    pattern: "/admin/gold-operations/units",
+    anyPermissions: ["GOLD_UNITS:READ", "GOLD_UNITS:MANAGE"],
+  },
+  {
+    pattern: "/admin/gold-operations",
+    anyPermissions: ["GOLD_OVERSIGHT:READ", "GOLD_OVERSIGHT:MANAGE", "PURCHASING_CENTERS:READ", "PURCHASING_CENTERS:MANAGE"],
+  },
+
   // Issues
   { pattern: "/issues/form-config", allPermissions: ["FORM_CONFIG_CONTAINERS:READ"] },
   { pattern: "/issues/categories", allPermissions: ["ISSUE_CATEGORIES:READ"] },
@@ -110,6 +136,11 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/settings/notes", anyPermissions: ["NOTES:VIEW", "NOTES:MANAGE"] },
 
   // Dynamic Regional Workspace (both /regions/[id] and /[id] variants)
+  { pattern: "/regions/[id]/plans/configuration", anyPermissions: ["REGIONAL_PLANNING_CONFIG:READ", "REGIONAL_PLANNING_CONFIG:UPDATE", "REGIONAL_PLANS:MANAGE"] },
+  { pattern: "/regions/[id]/plans/rules", anyPermissions: ["REGIONAL_PLAN_RULES:READ", "REGIONAL_PLAN_RULES:CREATE", "REGIONAL_PLAN_RULES:UPDATE", "REGIONAL_PLAN_RULES:DELETE"] },
+  { pattern: "/regions/[id]/plans/dashboard", anyPermissions: ["REGIONAL_PLANS:READ", "REGIONAL_DASHBOARD:VIEW"] },
+  { pattern: "/regions/[id]/plans/[versionId]", anyPermissions: ["REGIONAL_PLANS:READ", "REGIONAL_PLANS:MANAGE"] },
+  { pattern: "/regions/[id]/plans", anyPermissions: ["REGIONAL_PLANS:READ", "REGIONAL_PLANS:MANAGE"] },
   { pattern: "/regions/[id]/departments", anyPermissions: ["REGIONAL_STRUCTURES:READ", "REGIONAL_STRUCTURES:MANAGE"] },
   { pattern: "/regions/[id]/users/roles/new", anyPermissions: ["REGIONAL_ROLES:CREATE", "REGIONAL_ROLES:MANAGE"] },
   { pattern: "/regions/[id]/users/roles/[roleId]", anyPermissions: ["REGIONAL_ROLES:READ", "REGIONAL_ROLES:MANAGE"] },
@@ -121,8 +152,13 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/regions/[id]/users/list", anyPermissions: ["REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] },
   { pattern: "/regions/[id]/users", anyPermissions: ["REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] },
   { pattern: "/regions/[id]/settings", anyPermissions: ["REGIONAL_BRANDING:READ", "REGIONAL_BRANDING:MANAGE"] },
-  { pattern: "/regions/[id]", anyPermissions: ["REGIONAL_DASHBOARD:VIEW"] },
+  { pattern: "/regions/[id]", anyPermissions: ["REGIONAL_DASHBOARD:VIEW", "REGIONS:READ"] },
 
+  { pattern: "/[id]/plans/configuration", anyPermissions: ["REGIONAL_PLANNING_CONFIG:READ", "REGIONAL_PLANNING_CONFIG:UPDATE", "REGIONAL_PLANS:MANAGE"] },
+  { pattern: "/[id]/plans/rules", anyPermissions: ["REGIONAL_PLAN_RULES:READ", "REGIONAL_PLAN_RULES:CREATE", "REGIONAL_PLAN_RULES:UPDATE", "REGIONAL_PLAN_RULES:DELETE"] },
+  { pattern: "/[id]/plans/dashboard", anyPermissions: ["REGIONAL_PLANS:READ", "REGIONAL_DASHBOARD:VIEW"] },
+  { pattern: "/[id]/plans/[versionId]", anyPermissions: ["REGIONAL_PLANS:READ", "REGIONAL_PLANS:MANAGE"] },
+  { pattern: "/[id]/plans", anyPermissions: ["REGIONAL_PLANS:READ", "REGIONAL_PLANS:MANAGE"] },
   { pattern: "/[id]/departments", anyPermissions: ["REGIONAL_STRUCTURES:READ", "REGIONAL_STRUCTURES:MANAGE"] },
   { pattern: "/[id]/users/roles/new", anyPermissions: ["REGIONAL_ROLES:CREATE", "REGIONAL_ROLES:MANAGE"] },
   { pattern: "/[id]/users/roles/[roleId]", anyPermissions: ["REGIONAL_ROLES:READ", "REGIONAL_ROLES:MANAGE"] },
@@ -134,10 +170,15 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/[id]/users/list", anyPermissions: ["REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] },
   { pattern: "/[id]/users", anyPermissions: ["REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] },
   { pattern: "/[id]/settings", anyPermissions: ["REGIONAL_BRANDING:READ", "REGIONAL_BRANDING:MANAGE"] },
-  { pattern: "/[id]", anyPermissions: ["REGIONAL_DASHBOARD:VIEW"] },
+  { pattern: "/[id]", anyPermissions: ["REGIONAL_DASHBOARD:VIEW", "REGIONS:READ"] },
 
   // Regional Workspace fallback aliases
-  { pattern: "/regional/dashboard", anyPermissions: ["REGIONAL_DASHBOARD:VIEW"] },
+  { pattern: "/regional/plans/configuration", anyPermissions: ["REGIONAL_PLANNING_CONFIG:READ", "REGIONAL_PLANNING_CONFIG:UPDATE", "REGIONAL_PLANS:MANAGE"] },
+  { pattern: "/regional/plans/rules", anyPermissions: ["REGIONAL_PLAN_RULES:READ", "REGIONAL_PLAN_RULES:CREATE", "REGIONAL_PLAN_RULES:UPDATE", "REGIONAL_PLAN_RULES:DELETE"] },
+  { pattern: "/regional/plans/dashboard", anyPermissions: ["REGIONAL_PLANS:READ", "REGIONAL_DASHBOARD:VIEW"] },
+  { pattern: "/regional/plans/[versionId]", anyPermissions: ["REGIONAL_PLANS:READ", "REGIONAL_PLANS:MANAGE"] },
+  { pattern: "/regional/plans", anyPermissions: ["REGIONAL_PLANS:READ", "REGIONAL_PLANS:MANAGE"] },
+  { pattern: "/regional/dashboard", anyPermissions: ["REGIONAL_DASHBOARD:VIEW", "REGIONS:READ"] },
   { pattern: "/regional/departments", anyPermissions: ["REGIONAL_STRUCTURES:READ", "REGIONAL_STRUCTURES:MANAGE"] },
   { pattern: "/regional/users/roles/new", anyPermissions: ["REGIONAL_ROLES:CREATE", "REGIONAL_ROLES:MANAGE"] },
   { pattern: "/regional/users/roles/[roleId]", anyPermissions: ["REGIONAL_ROLES:READ", "REGIONAL_ROLES:MANAGE"] },
@@ -163,9 +204,16 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/companies/[id]/users/list", anyPermissions: ["COMPANY_USERS:READ", "COMPANY_USERS:MANAGE"] },
   { pattern: "/companies/[id]/users", anyPermissions: ["COMPANY_USERS:READ", "COMPANY_USERS:MANAGE"] },
   { pattern: "/companies/[id]/settings", anyPermissions: ["COMPANY_BRANDING:READ", "COMPANY_BRANDING:MANAGE"] },
-  { pattern: "/companies/[id]", anyPermissions: ["COMPANY_DASHBOARD:VIEW"] },
+  { pattern: "/companies/[id]", anyPermissions: ["COMPANY_DASHBOARD:VIEW", "COMPANIES:READ"] },
 
   // Dynamic Purchasing Center Workspace (strictly NO departments!)
+  { pattern: "/purchasing-centers/[id]/purchases/new", anyPermissions: ["GOLD_PURCHASES:CREATE", "GOLD_PURCHASES:MANAGE"] },
+  { pattern: "/purchasing-centers/[id]/purchases/[purchaseId]", anyPermissions: ["GOLD_PURCHASES:READ", "GOLD_PURCHASES:MANAGE", "GOLD_OVERSIGHT:READ"] },
+  { pattern: "/purchasing-centers/[id]/purchases", anyPermissions: ["GOLD_PURCHASES:READ", "GOLD_PURCHASES:MANAGE"] },
+  { pattern: "/purchasing-centers/[id]/reports/daily", anyPermissions: ["GOLD_REPORTS:READ", "GOLD_REPORTS:GENERATE", "GOLD_REPORTS:SUBMIT", "GOLD_REPORTS:MANAGE"] },
+  { pattern: "/purchasing-centers/[id]/reports", anyPermissions: ["GOLD_REPORTS:READ", "GOLD_REPORTS:MANAGE"] },
+  { pattern: "/purchasing-centers/[id]/sellers/asm", anyPermissions: ["ASM:READ", "ASM:CREATE", "ASM:MANAGE"] },
+  { pattern: "/purchasing-centers/[id]/sellers", anyPermissions: ["ASM:READ", "ASM:MANAGE"] },
   { pattern: "/purchasing-centers/[id]/users/roles/new", anyPermissions: ["PURCHASING_CENTER_ROLES:CREATE", "PURCHASING_CENTER_ROLES:MANAGE"] },
   { pattern: "/purchasing-centers/[id]/users/roles/[roleId]", anyPermissions: ["PURCHASING_CENTER_ROLES:READ", "PURCHASING_CENTER_ROLES:MANAGE"] },
   { pattern: "/purchasing-centers/[id]/users/roles", anyPermissions: ["PURCHASING_CENTER_ROLES:READ", "PURCHASING_CENTER_ROLES:MANAGE"] },
@@ -176,10 +224,17 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/purchasing-centers/[id]/users/list", anyPermissions: ["PURCHASING_CENTER_USERS:READ", "PURCHASING_CENTER_USERS:MANAGE"] },
   { pattern: "/purchasing-centers/[id]/users", anyPermissions: ["PURCHASING_CENTER_USERS:READ", "PURCHASING_CENTER_USERS:MANAGE"] },
   { pattern: "/purchasing-centers/[id]/settings", anyPermissions: ["PURCHASING_CENTER_BRANDING:READ", "PURCHASING_CENTER_BRANDING:MANAGE"] },
-  { pattern: "/purchasing-centers/[id]", anyPermissions: ["PURCHASING_CENTER_DASHBOARD:VIEW"] },
+  { pattern: "/purchasing-centers/[id]", anyPermissions: ["PURCHASING_CENTER_DASHBOARD:VIEW", "PURCHASING_CENTERS:READ"] },
 
   // Purchasing Center Workspace fallback aliases
-  { pattern: "/purchasing-center/dashboard", anyPermissions: ["PURCHASING_CENTER_DASHBOARD:VIEW"] },
+  { pattern: "/purchasing-center/purchases/new", anyPermissions: ["GOLD_PURCHASES:CREATE", "GOLD_PURCHASES:MANAGE"] },
+  { pattern: "/purchasing-center/purchases/[purchaseId]", anyPermissions: ["GOLD_PURCHASES:READ", "GOLD_PURCHASES:MANAGE", "GOLD_OVERSIGHT:READ"] },
+  { pattern: "/purchasing-center/purchases", anyPermissions: ["GOLD_PURCHASES:READ", "GOLD_PURCHASES:MANAGE"] },
+  { pattern: "/purchasing-center/reports/daily", anyPermissions: ["GOLD_REPORTS:READ", "GOLD_REPORTS:GENERATE", "GOLD_REPORTS:SUBMIT", "GOLD_REPORTS:MANAGE"] },
+  { pattern: "/purchasing-center/reports", anyPermissions: ["GOLD_REPORTS:READ", "GOLD_REPORTS:MANAGE"] },
+  { pattern: "/purchasing-center/sellers/asm", anyPermissions: ["ASM:READ", "ASM:CREATE", "ASM:MANAGE"] },
+  { pattern: "/purchasing-center/sellers", anyPermissions: ["ASM:READ", "ASM:MANAGE"] },
+  { pattern: "/purchasing-center/dashboard", anyPermissions: ["PURCHASING_CENTER_DASHBOARD:VIEW", "PURCHASING_CENTERS:READ"] },
   { pattern: "/purchasing-center/users/roles/new", anyPermissions: ["PURCHASING_CENTER_ROLES:CREATE", "PURCHASING_CENTER_ROLES:MANAGE"] },
   { pattern: "/purchasing-center/users/roles/[roleId]", anyPermissions: ["PURCHASING_CENTER_ROLES:READ", "PURCHASING_CENTER_ROLES:MANAGE"] },
   { pattern: "/purchasing-center/users/roles", anyPermissions: ["PURCHASING_CENTER_ROLES:READ", "PURCHASING_CENTER_ROLES:MANAGE"] },
@@ -245,22 +300,54 @@ export function matchRoutePermissionRule(pathname: string): RoutePermissionRule 
 export function getDefaultFallbackRoute(
   userPermissions: readonly PermissionKey[],
   isRegional?: boolean,
-  regionId?: string | null
+  regionId?: string | null,
+  companyId?: string | null,
+  purchasingCenterId?: string | null
 ): string {
   const hasRegionalPerm = userPermissions.some((p) => p.startsWith("REGIONAL_"));
+  const hasCompanyPerm = userPermissions.some((p) => p.startsWith("COMPANY_"));
+  const hasPurchasingCenterPerm = userPermissions.some(
+    (p) => p.startsWith("PURCHASING_CENTER_") || p.startsWith("GOLD_") || p.startsWith("ASM:")
+  );
+
   const shouldUseRegional = isRegional !== undefined ? isRegional : hasRegionalPerm;
-  const prefix = regionId ? `/regions/${regionId}` : "/regions";
+  const regionalPrefix = regionId ? `/regions/${regionId}` : "/regions";
+  const companyPrefix = companyId ? `/companies/${companyId}` : "/companies";
+  const pcPrefix = purchasingCenterId ? `/purchasing-centers/${purchasingCenterId}` : "/purchasing-centers";
 
   const regionalCandidates: Array<{ path: string; rule: PermissionRule }> = [
-    { path: `${prefix}`, rule: { anyPermissions: ["REGIONAL_DASHBOARD:VIEW"] } },
-    { path: `${prefix}/departments`, rule: { anyPermissions: ["REGIONAL_STRUCTURES:READ", "REGIONAL_STRUCTURES:MANAGE"] } },
-    { path: `${prefix}/users`, rule: { anyPermissions: ["REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] } },
-    { path: `${prefix}/settings`, rule: { anyPermissions: ["REGIONAL_BRANDING:READ", "REGIONAL_BRANDING:MANAGE"] } },
+    { path: `${regionalPrefix}`, rule: { anyPermissions: ["REGIONAL_DASHBOARD:VIEW", "REGIONS:READ"] } },
+    { path: `${regionalPrefix}/departments`, rule: { anyPermissions: ["REGIONAL_STRUCTURES:READ", "REGIONAL_STRUCTURES:MANAGE"] } },
+    { path: `${regionalPrefix}/plans`, rule: { anyPermissions: ["REGIONAL_PLANS:READ", "REGIONAL_PLANS:MANAGE"] } },
+    { path: `${regionalPrefix}/users`, rule: { anyPermissions: ["REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] } },
+    { path: `${regionalPrefix}/settings`, rule: { anyPermissions: ["REGIONAL_BRANDING:READ", "REGIONAL_BRANDING:MANAGE"] } },
+    { path: "/notifications", rule: {} },
+  ];
+
+  const companyCandidates: Array<{ path: string; rule: PermissionRule }> = [
+    { path: `${companyPrefix}`, rule: { anyPermissions: ["COMPANY_DASHBOARD:VIEW", "COMPANIES:READ"] } },
+    { path: `${companyPrefix}/departments`, rule: { anyPermissions: ["COMPANY_STRUCTURES:READ", "COMPANY_STRUCTURES:MANAGE"] } },
+    { path: `${companyPrefix}/users`, rule: { anyPermissions: ["COMPANY_USERS:READ", "COMPANY_USERS:MANAGE"] } },
+    { path: `${companyPrefix}/settings`, rule: { anyPermissions: ["COMPANY_BRANDING:READ", "COMPANY_BRANDING:MANAGE"] } },
+    { path: "/notifications", rule: {} },
+  ];
+
+  const purchasingCenterCandidates: Array<{ path: string; rule: PermissionRule }> = [
+    { path: `${pcPrefix}`, rule: { anyPermissions: ["PURCHASING_CENTER_DASHBOARD:VIEW", "PURCHASING_CENTERS:READ"] } },
+    { path: `${pcPrefix}/purchases`, rule: { anyPermissions: ["GOLD_PURCHASES:READ", "GOLD_PURCHASES:MANAGE"] } },
+    { path: `${pcPrefix}/reports`, rule: { anyPermissions: ["GOLD_REPORTS:READ", "GOLD_REPORTS:MANAGE"] } },
+    { path: `${pcPrefix}/sellers/asm`, rule: { anyPermissions: ["ASM:READ", "ASM:MANAGE"] } },
+    { path: `${pcPrefix}/users`, rule: { anyPermissions: ["PURCHASING_CENTER_USERS:READ", "PURCHASING_CENTER_USERS:MANAGE"] } },
+    { path: `${pcPrefix}/settings`, rule: { anyPermissions: ["PURCHASING_CENTER_BRANDING:READ", "PURCHASING_CENTER_BRANDING:MANAGE"] } },
     { path: "/notifications", rule: {} },
   ];
 
   const federalCandidates: Array<{ path: string; rule: PermissionRule }> = [
     { path: "/dashboard", rule: { anyPermissions: ["DASHBOARD:VIEW"] } },
+    { path: "/admin/gold-operations", rule: { anyPermissions: ["GOLD_OVERSIGHT:READ", "GOLD_OVERSIGHT:MANAGE", "PURCHASING_CENTERS:READ"] } },
+    { path: "/admin/regions", rule: { anyPermissions: ["REGIONS:READ", "REGIONS:MANAGE"] } },
+    { path: "/admin/companies", rule: { anyPermissions: ["COMPANIES:READ", "COMPANIES:MANAGE"] } },
+    { path: "/admin/purchasing-centers", rule: { anyPermissions: ["PURCHASING_CENTERS:READ", "PURCHASING_CENTERS:MANAGE"] } },
     { path: "/issues", rule: { anyPermissions: ["ISSUES:READ", "ISSUES:READ_ALL"] } },
     {
       path: "/plans/review",
@@ -272,12 +359,17 @@ export function getDefaultFallbackRoute(
     },
     { path: "/government-structures", rule: { anyPermissions: ["GOVERNMENT_STRUCTURES:READ"] } },
     { path: "/internal-structures", rule: { anyPermissions: ["INTERNAL_STRUCTURES:READ"] } },
-    { path: "/admin/regions", rule: { anyPermissions: ["REGIONS:READ", "REGIONS:MANAGE"] } },
     { path: "/users/list", rule: { allPermissions: ["USERS:READ"] } },
     { path: "/notifications", rule: {} },
   ];
 
-  const candidates = shouldUseRegional ? regionalCandidates : federalCandidates;
+  const candidates = shouldUseRegional
+    ? regionalCandidates
+    : Boolean(companyId) || hasCompanyPerm
+    ? companyCandidates
+    : Boolean(purchasingCenterId) || hasPurchasingCenterPerm
+    ? purchasingCenterCandidates
+    : federalCandidates;
 
   for (const { path, rule } of candidates) {
     if (canAccessRoute([...userPermissions], rule)) {
@@ -287,3 +379,4 @@ export function getDefaultFallbackRoute(
 
   return "/notifications";
 }
+

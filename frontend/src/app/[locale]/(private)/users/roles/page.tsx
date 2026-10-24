@@ -4,15 +4,18 @@ import { useSearchParams, useRouter } from "next/navigation";
 import RoleList from "@/features/template/component/roleList/roleList";
 import RegionalRoleList from "@/features/template/component/roleList/RegionalRoleList";
 import CompanyRoleList from "@/features/template/component/roleList/CompanyRoleList";
+import PurchasingCenterRoleList from "@/features/template/component/roleList/PurchasingCenterRoleList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, MapPin, Building2 } from "lucide-react";
+import { Shield, MapPin, Building2, Store } from "lucide-react";
 
 export default function RolesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
   const currentTab =
-    tabParam === "company"
+    tabParam === "purchasing_center"
+      ? "purchasing_center"
+      : tabParam === "company"
       ? "company"
       : tabParam === "regional"
       ? "regional"
@@ -20,7 +23,7 @@ export default function RolesPage() {
 
   const handleTabChange = (val: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (val === "regional" || val === "company") {
+    if (val === "regional" || val === "company" || val === "purchasing_center") {
       params.set("tab", val);
     } else {
       params.delete("tab");
@@ -33,7 +36,7 @@ export default function RolesPage() {
     <div className="space-y-4">
       <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
         <div className="border-b bg-card/60 backdrop-blur-sm px-6 py-2.5 rounded-xl border flex items-center justify-between">
-          <TabsList className="grid grid-cols-3 h-10 w-full sm:w-[580px] bg-muted/60 p-1">
+          <TabsList className="grid grid-cols-4 h-10 w-full sm:w-[760px] bg-muted/60 p-1">
             <TabsTrigger
               value="system"
               className="flex items-center gap-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all"
@@ -55,6 +58,13 @@ export default function RolesPage() {
               <Building2 className="h-4 w-4 text-emerald-500" />
               <span>Company Roles</span>
             </TabsTrigger>
+            <TabsTrigger
+              value="purchasing_center"
+              className="flex items-center gap-2 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all"
+            >
+              <Store className="h-4 w-4 text-amber-500" />
+              <span>Purchasing Center Roles</span>
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -69,7 +79,12 @@ export default function RolesPage() {
         <TabsContent value="company" className="mt-4 focus-visible:outline-none">
           <CompanyRoleList />
         </TabsContent>
+
+        <TabsContent value="purchasing_center" className="mt-4 focus-visible:outline-none">
+          <PurchasingCenterRoleList />
+        </TabsContent>
       </Tabs>
     </div>
   );
 }
+

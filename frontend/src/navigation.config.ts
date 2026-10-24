@@ -41,18 +41,6 @@ export const NAVIGATION: NavItem[] = [
     anyPermissions: ["DASHBOARD:VIEW"],
   },
   {
-    title: "Regions",
-    url: "/admin/regions",
-    icon: Globe,
-    anyPermissions: ["REGIONS:READ", "REGIONS:MANAGE"],
-  },
-  {
-    title: "Purchasing Centers",
-    url: "/admin/purchasing-centers",
-    icon: Building2,
-    anyPermissions: ["PURCHASING_CENTERS:READ", "PURCHASING_CENTERS:MANAGE"],
-  },
-  {
     title: "Gold Operations",
     url: "/admin/gold-operations",
     icon: Coins,
@@ -94,6 +82,24 @@ export const NAVIGATION: NavItem[] = [
         anyPermissions: ["GOLD_UNITS:READ", "GOLD_UNITS:MANAGE"],
       },
     ],
+  },
+  {
+    title: "Regions",
+    url: "/admin/regions",
+    icon: Globe,
+    anyPermissions: ["REGIONS:READ", "REGIONS:MANAGE"],
+  },
+  {
+    title: "Companies",
+    url: "/admin/companies",
+    icon: Building2,
+    anyPermissions: ["COMPANIES:READ", "COMPANIES:MANAGE"],
+  },
+  {
+    title: "Purchasing Centers",
+    url: "/admin/purchasing-centers",
+    icon: Building2,
+    anyPermissions: ["PURCHASING_CENTERS:READ", "PURCHASING_CENTERS:MANAGE"],
   },
   {
     title: "Sector Structures",

@@ -55,15 +55,107 @@ const PERMISSION_LABELS: Partial<Record<PermissionKey, string>> = {
   "SYSTEM_SETTINGS:READ": "View system settings",
   "SYSTEM_SETTINGS:UPDATE": "Update system settings",
   "PERFORMANCE_COLOR_THRESHOLDS:READ": "View performance color thresholds",
+
+  // Regional Management
+  "REGIONS:READ": "View regions",
+  "REGIONS:CREATE": "Create regions",
+  "REGIONS:UPDATE": "Update regions",
+  "REGIONS:DELETE": "Delete regions",
+  "REGIONS:MANAGE": "Manage regions",
+  "REGIONAL_DASHBOARD:VIEW": "View regional dashboard",
+  "REGIONAL_STRUCTURES:READ": "View regional structures",
+  "REGIONAL_STRUCTURES:MANAGE": "Manage regional structures",
+  "REGIONAL_USERS:READ": "View regional users",
+  "REGIONAL_USERS:MANAGE": "Manage regional users",
+  "REGIONAL_ROLES:READ": "View regional roles",
+  "REGIONAL_ROLES:MANAGE": "Manage regional roles",
+  "REGIONAL_PERMISSION_GROUPS:READ": "View regional permission groups",
+  "REGIONAL_PERMISSION_GROUPS:MANAGE": "Manage regional permission groups",
+  "REGIONAL_PERMISSIONS:READ": "View regional permissions",
+  "REGIONAL_BRANDING:READ": "View regional branding",
+  "REGIONAL_BRANDING:MANAGE": "Manage regional branding",
+  "REGIONAL_PLANS:READ": "View regional plans",
+  "REGIONAL_PLANS:MANAGE": "Manage regional plans",
+  "REGIONAL_PLAN_RULES:READ": "View regional plan rules",
+  "REGIONAL_PLANNING_CONFIG:READ": "View regional planning configuration",
+
+  // Companies Management
+  "COMPANIES:READ": "View companies",
+  "COMPANIES:CREATE": "Create companies",
+  "COMPANIES:UPDATE": "Update companies",
+  "COMPANIES:DELETE": "Delete companies",
+  "COMPANIES:MANAGE": "Manage companies",
+  "COMPANY_DASHBOARD:VIEW": "View company dashboard",
+  "COMPANY_STRUCTURES:READ": "View company structures",
+  "COMPANY_STRUCTURES:MANAGE": "Manage company structures",
+  "COMPANY_USERS:READ": "View company users",
+  "COMPANY_USERS:MANAGE": "Manage company users",
+  "COMPANY_ROLES:READ": "View company roles",
+  "COMPANY_ROLES:MANAGE": "Manage company roles",
+  "COMPANY_PERMISSION_GROUPS:READ": "View company permission groups",
+  "COMPANY_PERMISSION_GROUPS:MANAGE": "Manage company permission groups",
+  "COMPANY_PERMISSIONS:READ": "View company permissions",
+  "COMPANY_BRANDING:READ": "View company branding",
+  "COMPANY_BRANDING:MANAGE": "Manage company branding",
+
+  // Gold Purchasing Centers Management
+  "PURCHASING_CENTERS:READ": "View purchasing centers",
+  "PURCHASING_CENTERS:CREATE": "Create purchasing centers",
+  "PURCHASING_CENTERS:UPDATE": "Update purchasing centers",
+  "PURCHASING_CENTERS:DELETE": "Delete purchasing centers",
+  "PURCHASING_CENTERS:MANAGE": "Manage purchasing centers",
+  "PURCHASING_CENTER_DASHBOARD:VIEW": "View purchasing center dashboard",
+  "PURCHASING_CENTER_USERS:READ": "View purchasing center users",
+  "PURCHASING_CENTER_USERS:MANAGE": "Manage purchasing center users",
+  "PURCHASING_CENTER_ROLES:READ": "View purchasing center roles",
+  "PURCHASING_CENTER_ROLES:MANAGE": "Manage purchasing center roles",
+  "PURCHASING_CENTER_PERMISSION_GROUPS:READ": "View purchasing center permission groups",
+  "PURCHASING_CENTER_PERMISSION_GROUPS:MANAGE": "Manage purchasing center permission groups",
+  "PURCHASING_CENTER_PERMISSIONS:READ": "View purchasing center permissions",
+  "PURCHASING_CENTER_BRANDING:READ": "View purchasing center branding",
+  "PURCHASING_CENTER_BRANDING:MANAGE": "Manage purchasing center branding",
+
+  // Gold Operations
+  "GOLD_OVERSIGHT:READ": "View gold oversight dashboard",
+  "GOLD_OVERSIGHT:MANAGE": "Manage gold oversight",
+  "GOLD_PURCHASES:READ": "View gold purchases register",
+  "GOLD_PURCHASES:CREATE": "Record gold purchase",
+  "GOLD_PURCHASES:UPDATE": "Update gold purchase",
+  "GOLD_PURCHASES:CANCEL": "Cancel gold purchase",
+  "GOLD_PURCHASES:MANAGE": "Manage gold purchases",
+  "GOLD_REPORTS:READ": "View gold daily reports",
+  "GOLD_REPORTS:GENERATE": "Generate gold daily report",
+  "GOLD_REPORTS:SUBMIT": "Submit gold daily report",
+  "GOLD_REPORTS:EXPORT": "Export gold reports",
+  "GOLD_REPORTS:MANAGE": "Manage gold reports",
+  "ASM:READ": "View Artisanal and Small-Scale Miner sellers",
+  "ASM:CREATE": "Register Artisanal and Small-Scale Miner seller",
+  "ASM:UPDATE": "Update Artisanal and Small-Scale Miner seller",
+  "ASM:DEACTIVATE": "Deactivate Artisanal and Small-Scale Miner seller",
+  "ASM:MANAGE": "Manage Artisanal and Small-Scale Miner sellers",
+  "GOLD_UNITS:READ": "View gold measurement units",
+  "GOLD_UNITS:CREATE": "Create gold measurement unit",
+  "GOLD_UNITS:UPDATE": "Update gold measurement unit",
+  "GOLD_UNITS:DEACTIVATE": "Deactivate gold measurement unit",
+  "GOLD_UNITS:MANAGE": "Manage gold measurement units",
 };
 
-export function formatPermissionKey(permission: PermissionKey | string): string {
+export function getCanonicalPermissionCode(permission: PermissionKey | string): string {
   const [resource, action] = String(permission).split(":");
-  const normalized =
-    resource && action
-      ? (`${resource.toUpperCase()}:${action.toUpperCase()}` as PermissionKey)
-      : (String(permission).toUpperCase() as PermissionKey);
-  return PERMISSION_LABELS[normalized] ?? String(permission);
+  return resource && action
+    ? `${resource.toUpperCase()}:${action.toUpperCase()}`
+    : String(permission).toUpperCase();
+}
+
+export function getPermissionHumanLabel(permission: PermissionKey | string): string | null {
+  const code = getCanonicalPermissionCode(permission);
+  return PERMISSION_LABELS[code as PermissionKey] ?? null;
+}
+
+export function formatPermissionKey(permission: PermissionKey | string): string {
+  const code = getCanonicalPermissionCode(permission);
+  const label = PERMISSION_LABELS[code as PermissionKey];
+  return label ? `${code} (${label})` : code;
 }
 
 export function describePermissionRule(rule: PermissionRule): PermissionRequirement | null {

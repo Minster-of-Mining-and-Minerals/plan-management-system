@@ -96,7 +96,12 @@ export default function PurchasingCenterRoleList({
       header: "Assigned Permissions",
       cell: ({ row }) => {
         const role = row.original;
-        const count = role.rolePermissions?.length ?? 0;
+        const count =
+          typeof role.permissions_count === "number"
+            ? role.permissions_count
+            : Array.isArray(role.rolePermissions)
+            ? role.rolePermissions.filter((rp: any) => rp.is_active !== false).length
+            : 0;
         return (
           <div className="flex items-center gap-1.5">
             <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />

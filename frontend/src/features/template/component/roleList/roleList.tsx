@@ -6,7 +6,7 @@ import { TableLayout } from "@/features/template/component/tableList/TableLayout
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Download, Plus } from "lucide-react";
+import { Download, Plus, KeyRound } from "lucide-react";
 import { Edit, Trash2 } from "lucide-react";
 
 import { useGetRolesQuery, useDeleteRoleMutation } from "@/redux/api/roleApi";
@@ -85,6 +85,27 @@ export default function RoleList({
               : "outline";
         return (
           <Badge variant={variant}>{formatRoleScopeLabel(scope)}</Badge>
+        );
+      },
+    },
+    {
+      id: "permissions_count",
+      header: "Assigned Permissions",
+      cell: ({ row }) => {
+        const role = row.original;
+        const count =
+          typeof role.permissions_count === "number"
+            ? role.permissions_count
+            : Array.isArray(role.rolePermissions)
+            ? role.rolePermissions.filter((rp: any) => rp.is_active !== false).length
+            : 0;
+        return (
+          <div className="flex items-center gap-1.5">
+            <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs font-medium text-muted-foreground">
+              {count} {count === 1 ? "permission" : "permissions"}
+            </span>
+          </div>
         );
       },
     },

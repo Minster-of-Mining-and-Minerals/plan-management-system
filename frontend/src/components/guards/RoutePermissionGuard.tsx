@@ -60,21 +60,39 @@ export function RoutePermissionGuard({ children }: RoutePermissionGuardProps) {
     );
   }
 
-  const isSuperAdmin = roles?.some((r) => String(r).toLowerCase() === "super admin");
+  const isSuperAdmin = roles?.some(
+    (r) =>
+      String(r).toLowerCase() === "super admin" ||
+      String(r).toLowerCase() === "superadmin"
+  );
   const matchedRule = matchRoutePermissionRule(pathname);
   const rule = matchRoutePermission(pathname);
   const permissionKeys = normalizeToPermissionKeys(permissions);
 
-  if (!isSuperAdmin && (rule === null || !canAccessRoute(permissionKeys, rule))) {
+  const hasAccess =
+    isSuperAdmin || (rule ? canAccessRoute(permissionKeys, rule) : false);
+
+  if (!hasAccess) {
     const isRegional = Boolean(session?.user?.region_id);
-    const fallbackPath = getDefaultFallbackRoute(permissionKeys, isRegional, session?.user?.region_id);
+    const fallbackPath = getDefaultFallbackRoute(
+      permissionKeys,
+      isRegional,
+      session?.user?.region_id,
+      session?.user?.company_id,
+      (session?.user as any)?.purchasing_center_id
+    );
     return (
       <AccessDenied
         attemptedPath={pathname}
         fallbackPath={fallbackPath}
         permissionRule={rule}
         routePattern={matchedRule?.pattern}
-        showRequiredPermissions={Boolean(securitySettings?.expose_required_permissions)}
+        showRequiredPermissions={
+          Boolean(securitySettings?.expose_required_permissions) ||
+          process.env.NODE_ENV !== "production"
+        }
+        userPermissions={permissionKeys}
+        userRoles={roles}
       />
     );
   }

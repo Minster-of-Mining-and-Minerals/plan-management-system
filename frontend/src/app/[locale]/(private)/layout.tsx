@@ -8,6 +8,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Header } from "@/components/layout/header";
 import { RoutePermissionGuard } from "@/components/guards/RoutePermissionGuard";
+import { PagePermissionDiagnostics } from "@/components/guards/PagePermissionDiagnostics";
 import { SecuritySettingsBridge } from "@/components/guards/SecuritySettingsBridge";
 import { useSession } from "next-auth/react";
 import { useAuth } from "@/hooks/use-auth";
@@ -77,6 +78,7 @@ export default function PrivateLayout({
         <Header title={title || "Dashboard"} />
         <div className="p-6">
           <RoutePermissionGuard>{children}</RoutePermissionGuard>
+          <PagePermissionDiagnostics />
         </div>
       </SidebarInset>
       </SocketNotificationProvider>

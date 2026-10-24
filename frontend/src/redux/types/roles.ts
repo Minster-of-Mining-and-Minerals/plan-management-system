@@ -17,6 +17,7 @@ export interface Role {
   region_id?: string | null;
   company_id?: string | null;
   purchasing_center_id?: string | null;
+  permissions_count?: number;
   rolePermissions: RolePermission[];
 }
 

@@ -94,7 +94,7 @@ export default function CreateRole({
       : isRegionalRole
       ? { scope: "regional" as const }
       : isSuperAdmin && (!structureId || editingSystemRole)
-        ? { scope: "system" as const, tier: "standard" as const }
+        ? { scope: "all" as const }
         : structureId
           ? { government_structure_id: structureId, tier: "standard" as const }
           : undefined;
@@ -140,7 +140,14 @@ export default function CreateRole({
         if (isRegionalRole) {
           return isRegionalResource(p.resource);
         }
-        return !isRegionalResource(p.resource) && !isCompanyResource(p.resource) && !isPurchasingCenterResource(p.resource);
+        if (isSuperAdmin || editingSystemRole) {
+          return true;
+        }
+        return (
+          !isRegionalResource(p.resource) &&
+          !isCompanyResource(p.resource) &&
+          !isPurchasingCenterResource(p.resource)
+        );
       }
     );
 
@@ -161,7 +168,14 @@ export default function CreateRole({
       permissions: permissions as Permission[],
       selected: false,
     }));
-  }, [permissionsResponse, isRegionalRole, isCompanyRole]);
+  }, [
+    permissionsResponse,
+    isRegionalRole,
+    isCompanyRole,
+    isPurchasingCenterRole,
+    isSuperAdmin,
+    editingSystemRole,
+  ]);
 
   // Initialize permission matrix
   useEffect(() => {
@@ -332,8 +346,8 @@ export default function CreateRole({
   }, [resourceGroups]);
 
   // Form submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault?.();
 
     if (!name.trim()) {
       actionFeedback.error("Role name is required");
@@ -505,7 +519,7 @@ export default function CreateRole({
             isEditMode={isEditMode}
             name={name}
             selectedPermissionsCount={getSelectedPermissionsCount()}
-            onSubmit={() => handleSubmit}
+            onSubmit={() => handleSubmit()}
             onCancel={backPath ? () => router.push(backPath) : undefined}
           />
         </form>

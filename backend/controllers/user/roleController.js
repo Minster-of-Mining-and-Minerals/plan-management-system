@@ -391,11 +391,13 @@ const createRole = async (req, res) => {
     try {
       structureId = resolveManageableStructureId(req, bodyStructureId);
     } catch (error) {
-      await t.rollback();
-      return sendScopeError(res, error);
+      if (!isSuperAdminActor(req)) {
+        await t.rollback();
+        return sendScopeError(res, error);
+      }
     }
 
-    if (!structureId) {
+    if (!structureId && !isSuperAdminActor(req)) {
       await t.rollback();
       return res.status(400).json({
         success: false,
@@ -403,18 +405,28 @@ const createRole = async (req, res) => {
       });
     }
 
-    await assertUniqueRoleName(name, structureId, ROLE_SCOPE.STRUCTURE, t);
-    await assertPermissionIdsAllowedForStructure(permissionIds, structureId, {
-      transaction: t,
-    });
+    const roleScope = structureId ? ROLE_SCOPE.STRUCTURE : ROLE_SCOPE.GLOBAL;
+
+    await assertUniqueRoleName(name, structureId || null, roleScope, t);
+    if (structureId) {
+      await assertPermissionIdsAllowedForStructure(permissionIds, structureId, {
+        transaction: t,
+      });
+    } else {
+      await assertValidPermissionIds(permissionIds, t, {
+        allowRegional: true,
+        allowCompany: true,
+        allowPurchasingCenter: true,
+      });
+    }
 
     const role = await Role.create(
       {
         role_id: uuidv4(),
         name,
         description,
-        scope: ROLE_SCOPE.STRUCTURE,
-        government_structure_id: structureId,
+        scope: roleScope,
+        government_structure_id: structureId || null,
         is_active: true,
         created_at: new Date(),
         updated_at: new Date(),
@@ -557,10 +569,18 @@ const getRoles = async (req, res) => {
       order: [["created_at", "DESC"]],
     });
 
+    const serializedRoles = roles.map((r) => {
+      const json = r.toJSON();
+      json.permissions_count = Array.isArray(json.rolePermissions)
+        ? json.rolePermissions.filter((rp) => rp.is_active !== false).length
+        : 0;
+      return json;
+    });
+
     return res.status(200).json({
       success: true,
-      count: roles.length,
-      data: roles,
+      count: serializedRoles.length,
+      data: serializedRoles,
     });
   } catch (error) {
     console.error("Error fetching roles:", error);
@@ -620,9 +640,14 @@ const getRoleById = async (req, res) => {
       return sendScopeError(res, error);
     }
 
+    const json = role.toJSON();
+    json.permissions_count = Array.isArray(json.rolePermissions)
+      ? json.rolePermissions.filter((rp) => rp.is_active !== false).length
+      : 0;
+
     return res.status(200).json({
       success: true,
-      data: role,
+      data: json,
     });
   } catch (error) {
     console.error("Error fetching role:", error);
@@ -718,7 +743,11 @@ const updateRole = async (req, res) => {
       } else if (role.scope === ROLE_SCOPE.PURCHASING_CENTER || role.scope === "purchasing_center") {
         await assertValidPurchasingCenterPermissionIds(permissionIds, t);
       } else {
-        await assertValidPermissionIds(permissionIds, t);
+        await assertValidPermissionIds(permissionIds, t, {
+          allowRegional: true,
+          allowCompany: true,
+          allowPurchasingCenter: true,
+        });
       }
 
       await RolePermission.update(
@@ -754,10 +783,17 @@ const updateRole = async (req, res) => {
       ],
     });
 
+    const json = updatedRole ? updatedRole.toJSON() : null;
+    if (json) {
+      json.permissions_count = Array.isArray(json.rolePermissions)
+        ? json.rolePermissions.filter((rp) => rp.is_active !== false).length
+        : 0;
+    }
+
     return res.status(200).json({
       success: true,
       message: "Role updated successfully",
-      data: updatedRole,
+      data: json,
     });
   } catch (error) {
     if (!t.finished) await t.rollback();
