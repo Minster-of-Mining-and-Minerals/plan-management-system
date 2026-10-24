@@ -37,6 +37,8 @@ import { useBranding } from "@/providers/BrandingProvider";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useGetPurchasingCenterDashboardQuery } from "@/redux/api/purchasingCenterApi";
 import { useGetGoldCenterDashboardQuery } from "@/redux/api/goldApi";
+import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { ColumnDef } from "@tanstack/react-table";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import { KpiCard } from "@/features/plan-management/dashboard/components/KpiCard";
 import {
@@ -133,6 +135,218 @@ export function PurchasingCenterDashboardView({
     value: parseFloat(parseFloat(String(q.canonical_quantity)).toFixed(2)),
     color: qualityPalette[idx % qualityPalette.length],
   }));
+
+  const companyBreakdownColumns = useMemo<ColumnDef<any>[]>(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Company",
+        cell: ({ row }) => (
+          <div>
+            <div className="font-semibold text-foreground flex items-center gap-1.5 text-xs">
+              <Building2 className="h-3.5 w-3.5 text-sky-500 shrink-0" />
+              <span className="truncate max-w-[140px]">{row.original.name}</span>
+            </div>
+            <div className="text-[10px] font-mono text-muted-foreground">code: {row.original.code}</div>
+          </div>
+        ),
+      },
+      {
+        accessorKey: "count",
+        header: "Txns",
+        cell: ({ row }) => <span className="font-mono text-xs">{row.original.count}</span>,
+      },
+      {
+        id: "volume",
+        header: "Volume (g)",
+        cell: ({ row }) => {
+          const totalVol = period?.total_canonical_quantity || 1;
+          const sharePct = ((row.original.canonical_quantity / totalVol) * 100).toFixed(1);
+          return (
+            <span className="font-mono font-bold text-amber-600 dark:text-amber-400 text-xs">
+              {row.original.canonical_quantity.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}{" "}
+              g <span className="text-[10px] text-muted-foreground font-normal">({sharePct}%)</span>
+            </span>
+          );
+        },
+      },
+      {
+        id: "amount",
+        header: "Settlement",
+        cell: ({ row }) => (
+          <span className="font-mono font-semibold text-foreground text-xs text-right block">
+            {row.original.amount.toLocaleString()} ETB
+          </span>
+        ),
+      },
+    ],
+    [period]
+  );
+
+  const asmBreakdownColumns = useMemo<ColumnDef<any>[]>(
+    () => [
+      {
+        accessorKey: "full_name",
+        header: "Miner Name",
+        cell: ({ row }) => (
+          <div>
+            <div className="font-semibold text-foreground flex items-center gap-1.5 text-xs">
+              <HardHat className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+              <span className="truncate max-w-[140px]">{row.original.full_name}</span>
+            </div>
+            <div className="text-[10px] font-mono text-muted-foreground">
+              {row.original.mining_license_number
+                ? `lic: ${row.original.mining_license_number}`
+                : "Artisanal Seller"}
+            </div>
+          </div>
+        ),
+      },
+      {
+        accessorKey: "count",
+        header: "Txns",
+        cell: ({ row }) => <span className="font-mono text-xs">{row.original.count}</span>,
+      },
+      {
+        id: "volume",
+        header: "Volume (g)",
+        cell: ({ row }) => {
+          const totalVol = period?.total_canonical_quantity || 1;
+          const sharePct = ((row.original.canonical_quantity / totalVol) * 100).toFixed(1);
+          return (
+            <span className="font-mono font-bold text-amber-600 dark:text-amber-400 text-xs">
+              {row.original.canonical_quantity.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}{" "}
+              g <span className="text-[10px] text-muted-foreground font-normal">({sharePct}%)</span>
+            </span>
+          );
+        },
+      },
+      {
+        id: "amount",
+        header: "Settlement",
+        cell: ({ row }) => (
+          <span className="font-mono font-semibold text-foreground text-xs text-right block">
+            {row.original.amount.toLocaleString()} ETB
+          </span>
+        ),
+      },
+    ],
+    [period]
+  );
+
+  const recentPurchaseColumns = useMemo<ColumnDef<any>[]>(
+    () => [
+      {
+        accessorKey: "purchase_reference",
+        header: "Reference",
+        cell: ({ row }) => (
+          <span className="font-mono font-medium text-foreground text-xs">
+            {row.original.purchase_reference}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "business_date",
+        header: "Date",
+        cell: ({ row }) => (
+          <span className="text-muted-foreground whitespace-nowrap text-xs">
+            {row.original.business_date}
+          </span>
+        ),
+      },
+      {
+        id: "seller",
+        header: "Seller",
+        cell: ({ row }) => {
+          const isCompany = row.original.seller_type === "company";
+          return (
+            <div className="flex items-center gap-2">
+              <Badge
+                variant="outline"
+                className={
+                  isCompany
+                    ? "text-sky-600 dark:text-sky-400 border-sky-400/30 text-[10px]"
+                    : "text-amber-600 dark:text-amber-400 border-amber-400/30 text-[10px]"
+                }
+              >
+                {isCompany ? "Company" : "ASM"}
+              </Badge>
+              <span className="font-medium text-foreground text-xs">
+                {row.original.seller_name_snapshot}
+              </span>
+            </div>
+          );
+        },
+      },
+      {
+        id: "quantity",
+        header: "Quantity",
+        cell: ({ row }) => (
+          <span className="font-mono text-xs">
+            {parseFloat(String(row.original.quantity)).toLocaleString()}{" "}
+            <span className="text-muted-foreground">{row.original.unit_code_snapshot}</span>
+          </span>
+        ),
+      },
+      {
+        id: "canonical_g",
+        header: "Base (g)",
+        cell: ({ row }) => (
+          <span className="font-mono text-muted-foreground text-xs">
+            {parseFloat(String(row.original.quantity_in_canonical_unit)).toLocaleString()} g
+          </span>
+        ),
+      },
+      {
+        id: "total_amount",
+        header: "Total Amount",
+        cell: ({ row }) => (
+          <span className="font-mono font-semibold text-foreground text-xs">
+            {parseFloat(String(row.original.total_amount)).toLocaleString()} ETB
+          </span>
+        ),
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => {
+          const isCompleted = row.original.status === "completed";
+          return (
+            <Badge
+              variant={isCompleted ? "default" : "destructive"}
+              className={
+                isCompleted
+                  ? "bg-emerald-600/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-[11px]"
+                  : "text-[11px]"
+              }
+            >
+              {row.original.status}
+            </Badge>
+          );
+        },
+      },
+      {
+        id: "actions",
+        header: "Action",
+        cell: ({ row }) => (
+          <div className="text-right">
+            <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-xs">
+              <Link href={`${basePath}/purchases/${row.original.purchase_id}`}>
+                View <ChevronRight className="h-3 w-3 ml-0.5" />
+              </Link>
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    [basePath]
+  );
 
   return (
     <div className="space-y-8">
@@ -460,51 +674,7 @@ export function PurchasingCenterDashboardView({
               </Badge>
             }
           >
-            {period?.company_breakdown && period.company_breakdown.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="border-b border-border text-[11px] text-muted-foreground uppercase bg-muted/30">
-                    <tr>
-                      <th className="py-2.5 px-3 font-semibold">Company</th>
-                      <th className="py-2.5 px-3 font-semibold text-center">Txns</th>
-                      <th className="py-2.5 px-3 font-semibold">Volume (g)</th>
-                      <th className="py-2.5 px-3 font-semibold text-right">Settlement</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {period.company_breakdown.map((c) => {
-                      const totalVol = period.total_canonical_quantity || 1;
-                      const sharePct = ((c.canonical_quantity / totalVol) * 100).toFixed(1);
-                      return (
-                        <tr key={c.company_id} className="hover:bg-muted/20">
-                          <td className="py-2.5 px-3">
-                            <div className="font-semibold text-foreground flex items-center gap-1.5">
-                              <Building2 className="h-3.5 w-3.5 text-sky-500 shrink-0" />
-                              <span className="truncate max-w-[140px]">{c.name}</span>
-                            </div>
-                            <div className="text-[10px] font-mono text-muted-foreground">code: {c.code}</div>
-                          </td>
-                          <td className="py-2.5 px-3 text-center font-mono">
-                            {c.count}
-                          </td>
-                          <td className="py-2.5 px-3 font-mono font-bold text-amber-600 dark:text-amber-400">
-                            {c.canonical_quantity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} g
-                            <span className="text-[10px] text-muted-foreground font-normal ml-1">({sharePct}%)</span>
-                          </td>
-                          <td className="py-2.5 px-3 text-right font-mono font-semibold text-foreground">
-                            {c.amount.toLocaleString()} ETB
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="py-8 text-center text-muted-foreground text-xs">
-                No company purchases recorded in this time range.
-              </div>
-            )}
+            <DataTable columns={companyBreakdownColumns} data={period?.company_breakdown || []} />
           </AnalyticsPanel>
 
           {/* ASM Miners Breakdown Table */}
@@ -517,53 +687,7 @@ export function PurchasingCenterDashboardView({
               </Badge>
             }
           >
-            {period?.asm_breakdown && period.asm_breakdown.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="border-b border-border text-[11px] text-muted-foreground uppercase bg-muted/30">
-                    <tr>
-                      <th className="py-2.5 px-3 font-semibold">Miner Name</th>
-                      <th className="py-2.5 px-3 font-semibold text-center">Txns</th>
-                      <th className="py-2.5 px-3 font-semibold">Volume (g)</th>
-                      <th className="py-2.5 px-3 font-semibold text-right">Settlement</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {period.asm_breakdown.map((m) => {
-                      const totalVol = period.total_canonical_quantity || 1;
-                      const sharePct = ((m.canonical_quantity / totalVol) * 100).toFixed(1);
-                      return (
-                        <tr key={m.asm_id} className="hover:bg-muted/20">
-                          <td className="py-2.5 px-3">
-                            <div className="font-semibold text-foreground flex items-center gap-1.5">
-                              <HardHat className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                              <span className="truncate max-w-[140px]">{m.full_name}</span>
-                            </div>
-                            <div className="text-[10px] font-mono text-muted-foreground">
-                              {m.mining_license_number ? `lic: ${m.mining_license_number}` : "Artisanal Seller"}
-                            </div>
-                          </td>
-                          <td className="py-2.5 px-3 text-center font-mono">
-                            {m.count}
-                          </td>
-                          <td className="py-2.5 px-3 font-mono font-bold text-amber-600 dark:text-amber-400">
-                            {m.canonical_quantity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} g
-                            <span className="text-[10px] text-muted-foreground font-normal ml-1">({sharePct}%)</span>
-                          </td>
-                          <td className="py-2.5 px-3 text-right font-mono font-semibold text-foreground">
-                            {m.amount.toLocaleString()} ETB
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="py-8 text-center text-muted-foreground text-xs">
-                No ASM purchases recorded in this time range.
-              </div>
-            )}
+            <DataTable columns={asmBreakdownColumns} data={period?.asm_breakdown || []} />
           </AnalyticsPanel>
         </div>
       </div>
@@ -580,92 +704,7 @@ export function PurchasingCenterDashboardView({
           </Button>
         }
       >
-        {recentPurchases.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-border text-xs text-muted-foreground uppercase bg-muted/40">
-                <tr>
-                  <th className="py-3 px-4 font-semibold">Reference</th>
-                  <th className="py-3 px-4 font-semibold">Date</th>
-                  <th className="py-3 px-4 font-semibold">Seller</th>
-                  <th className="py-3 px-4 font-semibold">Quantity</th>
-                  <th className="py-3 px-4 font-semibold">Base (g)</th>
-                  <th className="py-3 px-4 font-semibold">Total Amount</th>
-                  <th className="py-3 px-4 font-semibold">Status</th>
-                  <th className="py-3 px-4 font-semibold text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {recentPurchases.map((p) => (
-                  <tr key={p.purchase_id} className="hover:bg-muted/30 transition-colors">
-                    <td className="py-3 px-4 font-mono font-medium text-foreground">
-                      {p.purchase_reference}
-                    </td>
-                    <td className="py-3 px-4 text-muted-foreground whitespace-nowrap">
-                      {p.business_date}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          variant="outline"
-                          className={
-                            p.seller_type === "company"
-                              ? "text-sky-600 dark:text-sky-400 border-sky-400/30 text-[10px]"
-                              : "text-amber-600 dark:text-amber-400 border-amber-400/30 text-[10px]"
-                          }
-                        >
-                          {p.seller_type === "company" ? "Company" : "ASM"}
-                        </Badge>
-                        <span className="font-medium text-foreground">{p.seller_name_snapshot}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 font-mono">
-                      {parseFloat(String(p.quantity)).toLocaleString()}{" "}
-                      <span className="text-xs text-muted-foreground">{p.unit_code_snapshot}</span>
-                    </td>
-                    <td className="py-3 px-4 font-mono text-muted-foreground">
-                      {parseFloat(String(p.quantity_in_canonical_unit)).toLocaleString()} g
-                    </td>
-                    <td className="py-3 px-4 font-mono font-semibold text-foreground">
-                      {parseFloat(String(p.total_amount)).toLocaleString()} ETB
-                    </td>
-                    <td className="py-3 px-4">
-                      <Badge
-                        variant={p.status === "completed" ? "default" : "destructive"}
-                        className={
-                          p.status === "completed"
-                            ? "bg-emerald-600/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-[11px]"
-                            : "text-[11px]"
-                        }
-                      >
-                        {p.status}
-                      </Badge>
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-xs">
-                        <Link href={`${basePath}/purchases/${p.purchase_id}`}>
-                          Details <ChevronRight className="h-3.5 w-3.5 ml-1" />
-                        </Link>
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="py-12 text-center text-muted-foreground text-sm space-y-3">
-            <Coins className="h-10 w-10 mx-auto text-muted-foreground/40" />
-            <p>No gold purchase records have been registered yet.</p>
-            {can("GOLD_PURCHASES:CREATE") && (
-              <Button asChild size="sm" className="gap-2">
-                <Link href={`${basePath}/purchases/new`}>
-                  <PlusCircle className="h-4 w-4" /> Record First Purchase
-                </Link>
-              </Button>
-            )}
-          </div>
-        )}
+        <DataTable columns={recentPurchaseColumns} data={recentPurchases} />
       </AnalyticsPanel>
 
       {/* ----------------- CENTER ACCOUNTS SUMMARY ----------------- */}

@@ -388,6 +388,108 @@ export function PurchasingCenterList() {
     );
   }, [centerUsers, userSearchQuery]);
 
+  const centerUserColumns = useMemo<ColumnDef<User>[]>(
+    () => [
+      {
+        accessorKey: "full_name",
+        header: "Account",
+        cell: ({ row }) => {
+          const u = row.original;
+          return (
+            <div className="flex items-center gap-2.5">
+              <UserAvatar name={u.full_name} className="h-8 w-8 text-xs shrink-0" />
+              <div>
+                <p className="font-medium text-foreground text-xs">{u.full_name}</p>
+                <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <Mail className="h-3 w-3" />
+                  {u.email}
+                </p>
+              </div>
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: "phone_number",
+        header: "Phone",
+        cell: ({ row }) => (
+          <span className="text-muted-foreground text-xs">{row.original.phone_number || "—"}</span>
+        ),
+      },
+      {
+        id: "roles",
+        header: "Assigned Roles",
+        cell: ({ row }) => {
+          const roles = row.original.roles;
+          if (!roles || roles.length === 0) {
+            return <span className="text-muted-foreground italic text-[11px]">No role assigned</span>;
+          }
+          return (
+            <div className="flex flex-wrap gap-1">
+              {roles.map((r: Role) => (
+                <span
+                  key={r.role_id}
+                  className="font-mono text-[10px] font-semibold px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20"
+                >
+                  {r.name}
+                </span>
+              ))}
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: "is_active",
+        header: "Status",
+        cell: ({ row }) => <ActiveStatusBadge isActive={row.original.is_active} />,
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => {
+          const u = row.original;
+          if (!canManageUsers) return null;
+          return (
+            <div className="flex items-center justify-end gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                title="Edit User"
+                onClick={() => handleOpenEditUser(u)}
+                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+              >
+                <Edit className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                title={u.is_active ? "Deactivate User" : "Activate User"}
+                onClick={() => handleToggleUserActive(u)}
+                className="h-7 w-7"
+              >
+                {u.is_active ? (
+                  <XCircle className="h-3.5 w-3.5 text-amber-600" />
+                ) : (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                title="Reset Temporary Password"
+                onClick={() => handleResetPassword(u)}
+                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          );
+        },
+      },
+    ],
+    [canManageUsers]
+  );
+
   const columns: ColumnDef<PurchasingCenter>[] = [
     {
       id: "logo",
@@ -843,130 +945,12 @@ export function PurchasingCenterList() {
               </div>
 
               {/* Accounts Table */}
-              <div className="border rounded-lg overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead className="bg-muted/50 border-b text-muted-foreground font-medium">
-                    <tr>
-                      <th className="py-2.5 px-3 text-left">Account</th>
-                      <th className="py-2.5 px-3 text-left">Phone</th>
-                      <th className="py-2.5 px-3 text-left">Assigned Roles</th>
-                      <th className="py-2.5 px-3 text-left">Status</th>
-                      <th className="py-2.5 px-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {isUsersLoading ? (
-                      <tr>
-                        <td colSpan={5} className="py-8 text-center text-muted-foreground">
-                          Loading accounts...
-                        </td>
-                      </tr>
-                    ) : filteredCenterUsers.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="py-8 text-center text-muted-foreground">
-                          <Users className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-                          <p className="font-medium text-sm">No accounts found</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {userSearchQuery
-                              ? "No accounts match your search filter."
-                              : "This purchasing center has no staff accounts yet."}
-                          </p>
-                          {canManageUsers && !userSearchQuery && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={handleOpenAddUser}
-                              className="mt-3 gap-1.5 text-xs"
-                            >
-                              <Plus className="h-3.5 w-3.5" />
-                              Create First Account
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredCenterUsers.map((u) => (
-                        <tr key={u.user_id} className="hover:bg-muted/30 transition-colors">
-                          <td className="py-2.5 px-3">
-                            <div className="flex items-center gap-2.5">
-                              <UserAvatar name={u.full_name} className="h-8 w-8 text-xs shrink-0" />
-                              <div>
-                                <p className="font-medium text-foreground">{u.full_name}</p>
-                                <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                                  <Mail className="h-3 w-3" />
-                                  {u.email}
-                                </p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-2.5 px-3 text-muted-foreground">
-                            {u.phone_number || "—"}
-                          </td>
-                          <td className="py-2.5 px-3">
-                            <div className="flex flex-wrap gap-1">
-                              {u.roles && u.roles.length > 0 ? (
-                                u.roles.map((r: Role) => (
-                                  <span
-                                    key={r.role_id}
-                                    className="font-mono text-[10px] font-semibold px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20"
-                                  >
-                                    {r.name}
-                                  </span>
-                                ))
-                              ) : (
-                                <span className="text-muted-foreground italic text-[11px]">
-                                  No role assigned
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-2.5 px-3">
-                            <ActiveStatusBadge isActive={u.is_active} />
-                          </td>
-                          <td className="py-2.5 px-3 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              {canManageUsers && (
-                                <>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    title="Edit User"
-                                    onClick={() => handleOpenEditUser(u)}
-                                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                  >
-                                    <Edit className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    title={u.is_active ? "Deactivate User" : "Activate User"}
-                                    onClick={() => handleToggleUserActive(u)}
-                                    className="h-7 w-7"
-                                  >
-                                    {u.is_active ? (
-                                      <XCircle className="h-3.5 w-3.5 text-amber-600" />
-                                    ) : (
-                                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                                    )}
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    title="Reset Temporary Password"
-                                    onClick={() => handleResetPassword(u)}
-                                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                  >
-                                    <RotateCcw className="h-3.5 w-3.5" />
-                                  </Button>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+              <div className="border rounded-lg overflow-hidden p-2">
+                <DataTable
+                  columns={centerUserColumns}
+                  data={filteredCenterUsers}
+                  isLoading={isUsersLoading}
+                />
               </div>
             </div>
 

@@ -35,6 +35,8 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermissions";
+import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { ColumnDef } from "@tanstack/react-table";
 import {
   useGetGoldDailyReportQuery,
   useSubmitGoldDailyReportMutation,
@@ -94,6 +96,101 @@ export function DailyReportView({
   const summary = report?.summary;
   const submission = report?.submission;
   const transactions = report?.transactions || [];
+
+  const transactionColumns: ColumnDef<any>[] = [
+    {
+      accessorKey: "purchase_reference",
+      header: "Reference",
+      cell: ({ row }) => (
+        <span className="font-mono font-medium text-foreground text-xs">
+          {row.original.purchase_reference}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "purchase_date",
+      header: "Time",
+      cell: ({ row }) => (
+        <span className="text-xs text-muted-foreground whitespace-nowrap">
+          {new Date(row.original.purchase_date).toLocaleTimeString()}
+        </span>
+      ),
+    },
+    {
+      id: "seller",
+      header: "Seller",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-[10px] uppercase">
+            {row.original.seller_type}
+          </Badge>
+          <span className="font-medium text-foreground text-xs">
+            {row.original.seller_name_snapshot}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: "recorded_qty",
+      header: "Recorded Qty",
+      cell: ({ row }) => (
+        <span className="font-mono font-medium text-xs">
+          {parseFloat(String(row.original.quantity)).toLocaleString()}{" "}
+          {row.original.unit_code_snapshot}
+        </span>
+      ),
+    },
+    {
+      id: "base_qty",
+      header: "Base (g)",
+      cell: ({ row }) => (
+        <span className="font-mono text-muted-foreground text-xs">
+          {parseFloat(String(row.original.quantity_in_canonical_unit)).toLocaleString()} g
+        </span>
+      ),
+    },
+    {
+      id: "total_amount",
+      header: "Total Amount",
+      cell: ({ row }) => (
+        <span className="font-mono font-semibold text-foreground text-xs">
+          {parseFloat(String(row.original.total_amount)).toLocaleString()} ETB
+        </span>
+      ),
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => {
+        const isCompleted = row.original.status === "completed";
+        return (
+          <Badge
+            variant={isCompleted ? "default" : "destructive"}
+            className={
+              isCompleted
+                ? "bg-emerald-600/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-[11px]"
+                : "text-[11px]"
+            }
+          >
+            {row.original.status}
+          </Badge>
+        );
+      },
+    },
+    {
+      id: "actions",
+      header: "Details",
+      cell: ({ row }) => (
+        <div className="text-right">
+          <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-xs">
+            <Link href={`${basePath}/purchases/${row.original.purchase_id}`}>
+              <Eye className="h-3.5 w-3.5 mr-1" /> View
+            </Link>
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
   const handleSubmit = async () => {
     try {
@@ -345,76 +442,12 @@ export function DailyReportView({
         title="Itemized Daily Transactions"
         description={`Every individual purchase recorded for business date ${selectedDate}`}
       >
-        {transactions.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-border text-xs text-muted-foreground uppercase bg-muted/40">
-                <tr>
-                  <th className="py-3 px-4 font-semibold">Reference</th>
-                  <th className="py-3 px-4 font-semibold">Time</th>
-                  <th className="py-3 px-4 font-semibold">Seller</th>
-                  <th className="py-3 px-4 font-semibold">Recorded Qty</th>
-                  <th className="py-3 px-4 font-semibold">Base (g)</th>
-                  <th className="py-3 px-4 font-semibold">Total Amount</th>
-                  <th className="py-3 px-4 font-semibold">Status</th>
-                  <th className="py-3 px-4 font-semibold text-right">Details</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {transactions.map((t) => (
-                  <tr key={t.purchase_id} className="hover:bg-muted/30 transition-colors">
-                    <td className="py-3 px-4 font-mono font-medium text-foreground">
-                      {t.purchase_reference}
-                    </td>
-                    <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">
-                      {new Date(t.purchase_date).toLocaleTimeString()}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-[10px] uppercase">
-                          {t.seller_type}
-                        </Badge>
-                        <span className="font-medium text-foreground">{t.seller_name_snapshot}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 font-mono font-medium">
-                      {parseFloat(String(t.quantity)).toLocaleString()} {t.unit_code_snapshot}
-                    </td>
-                    <td className="py-3 px-4 font-mono text-muted-foreground">
-                      {parseFloat(String(t.quantity_in_canonical_unit)).toLocaleString()} g
-                    </td>
-                    <td className="py-3 px-4 font-mono font-semibold text-foreground">
-                      {parseFloat(String(t.total_amount)).toLocaleString()} ETB
-                    </td>
-                    <td className="py-3 px-4">
-                      <Badge
-                        variant={t.status === "completed" ? "default" : "destructive"}
-                        className={
-                          t.status === "completed"
-                            ? "bg-emerald-600/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-[11px]"
-                            : "text-[11px]"
-                        }
-                      >
-                        {t.status}
-                      </Badge>
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-xs">
-                        <Link href={`${basePath}/purchases/${t.purchase_id}`}>
-                          <Eye className="h-3.5 w-3.5 mr-1" /> View
-                        </Link>
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="py-12 text-center text-muted-foreground text-sm">
-            No gold purchase transactions were recorded on {selectedDate}.
-          </div>
-        )}
+        <DataTable
+          columns={transactionColumns}
+          data={transactions}
+          isLoading={isLoading}
+          onRetry={refetch}
+        />
       </AnalyticsPanel>
 
       {/* ----------------- SUBMISSION MODAL ----------------- */}

@@ -24,6 +24,8 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { ColumnDef } from "@tanstack/react-table";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import { CompanyProductionTabsHeader } from "./CompanyProductionTabsHeader";
 import {
@@ -99,6 +101,79 @@ export function CompanyProductionDashboardView({ companyId: propCompanyId }: { c
   const overallComplianceRate = totalExpectedReports > 0
     ? Math.min(100, Math.round((totalSubmittedReports / totalExpectedReports) * 100))
     : 100;
+
+  const recentReportColumns: ColumnDef<any>[] = [
+    {
+      accessorKey: "report_date",
+      header: "Production Date",
+      cell: ({ row }) => (
+        <span className="font-medium font-mono text-xs">{row.original.report_date}</span>
+      ),
+    },
+    {
+      id: "item",
+      header: "Item",
+      cell: ({ row }) => (
+        <span className="font-medium text-xs">{row.original.productionItem?.name || "N/A"}</span>
+      ),
+    },
+    {
+      id: "reported_quantity",
+      header: "Reported Quantity",
+      cell: ({ row }) => (
+        <span className="font-semibold text-foreground text-xs">
+          {Number(row.original.quantity_reported).toLocaleString()}{" "}
+          <span className="text-muted-foreground font-normal">
+            {row.original.reportedUnit?.symbol || row.original.reportedUnit?.code}
+          </span>
+        </span>
+      ),
+    },
+    {
+      id: "base_quantity",
+      header: "Base Quantity",
+      cell: ({ row }) => (
+        <span className="text-muted-foreground font-mono text-xs">
+          {Number(row.original.normalized_quantity).toLocaleString()}{" "}
+          {row.original.productionItem?.baseUnit?.symbol ||
+            (row.original.productionItem as any)?.base_unit?.symbol ||
+            "base"}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => {
+        const s = row.original.status;
+        return (
+          <Badge
+            variant={
+              s === "approved"
+                ? "default"
+                : s === "submitted"
+                ? "secondary"
+                : s === "rejected"
+                ? "destructive"
+                : "outline"
+            }
+            className="capitalize text-xs"
+          >
+            {s}
+          </Badge>
+        );
+      },
+    },
+    {
+      id: "submitted_by",
+      header: "Submitted By",
+      cell: ({ row }) => (
+        <span className="text-xs text-muted-foreground">
+          {row.original.submittedByUser?.full_name || "Self-Reported"}
+        </span>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -480,65 +555,7 @@ export function CompanyProductionDashboardView({ companyId: propCompanyId }: { c
               </Button>
             </div>
 
-            {recentReports.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground text-sm">
-                No production reports have been submitted yet.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-muted/50 text-xs uppercase font-semibold text-muted-foreground border-b border-border">
-                    <tr>
-                      <th className="px-4 py-3">Production Date</th>
-                      <th className="px-4 py-3">Item</th>
-                      <th className="px-4 py-3">Reported Quantity</th>
-                      <th className="px-4 py-3">Base Quantity</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Submitted By</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {recentReports.map((report) => (
-                      <tr key={report.report_id} className="hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-3 font-medium font-mono text-xs">
-                          {report.report_date}
-                        </td>
-                        <td className="px-4 py-3 font-medium">
-                          {report.productionItem?.name || "N/A"}
-                        </td>
-                        <td className="px-4 py-3 font-semibold text-foreground">
-                          {Number(report.quantity_reported).toLocaleString()}{" "}
-                          {report.reportedUnit?.symbol || report.reportedUnit?.code}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground font-mono text-xs">
-                          {Number(report.normalized_quantity).toLocaleString()}{" "}
-                          {report.productionItem?.baseUnit?.symbol || (report.productionItem as any)?.base_unit?.symbol || "base"}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge
-                            variant={
-                              report.status === "approved"
-                                ? "default"
-                                : report.status === "submitted"
-                                ? "secondary"
-                                : report.status === "rejected"
-                                ? "destructive"
-                                : "outline"
-                            }
-                            className="capitalize text-xs"
-                          >
-                            {report.status}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground">
-                          {report.submittedByUser?.full_name || "Self-Reported"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <DataTable columns={recentReportColumns} data={recentReports} />
           </div>
         </>
       )}

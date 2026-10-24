@@ -2,41 +2,35 @@
 
 import { useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Link } from "@/i18n/navigation";
 import { useSession } from "next-auth/react";
 import {
-  Factory,
   ClipboardList,
-  Filter,
-  Search,
   Plus,
-  Calendar,
   CheckCircle2,
   AlertTriangle,
   Clock,
-  Eye,
   Edit2,
   X,
-  FileText,
-  ChevronLeft,
-  ChevronRight,
-  Scale,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import Loading01 from "@/features/template/component/Loading/Loading01";
+import { TableLayout } from "@/features/template/component/tableList/TableLayout";
+import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { ColumnDef } from "@tanstack/react-table";
+import type { ActionButton, FilterField } from "@/types/tableLayout";
 import { CompanyProductionTabsHeader } from "./CompanyProductionTabsHeader";
 import {
   useGetReportsQuery,
   useGetAssignmentsQuery,
   useUpdateReportMutation,
 } from "@/redux/api/productionApi";
-import type { CompanyProductionReport, CompanyProductionAssignment } from "@/redux/types/production";
+import type { CompanyProductionReport } from "@/redux/types/production";
 
 export function CompanyProductionReportHistoryView({ companyId: propCompanyId }: { companyId?: string }) {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
 
@@ -46,10 +40,8 @@ export function CompanyProductionReportHistoryView({ companyId: propCompanyId }:
   // Filter States
   const [selectedItemId, setSelectedItemId] = useState<string>(initialItemId);
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
-  const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
   const [page, setPage] = useState<number>(1);
-  const limit = 15;
+  const [limit, setLimit] = useState<number>(15);
 
   const { data: assignments = [] } = useGetAssignmentsQuery(
     { company_id: companyId as string, is_active: true },
@@ -59,15 +51,13 @@ export function CompanyProductionReportHistoryView({ companyId: propCompanyId }:
   const {
     data: reportsData,
     isLoading,
-    isFetching,
+    isError,
     refetch,
   } = useGetReportsQuery(
     {
       company_id: companyId as string,
       production_item_id: selectedItemId === "all" ? undefined : selectedItemId,
       status: selectedStatus === "all" ? undefined : selectedStatus,
-      start_date: startDate || undefined,
-      end_date: endDate || undefined,
       page,
       limit,
     },
@@ -83,10 +73,6 @@ export function CompanyProductionReportHistoryView({ companyId: propCompanyId }:
   const [editNotes, setEditNotes] = useState<string>("");
   const [editError, setEditError] = useState<string>("");
 
-  if (isLoading) {
-    return <Loading01 />;
-  }
-
   if (!companyId) {
     return (
       <div className="p-8 text-center max-w-md mx-auto">
@@ -101,7 +87,6 @@ export function CompanyProductionReportHistoryView({ companyId: propCompanyId }:
 
   const reports = reportsData?.reports || [];
   const totalReports = reportsData?.total || 0;
-  const totalPages = reportsData?.totalPages || 1;
 
   const handleOpenEdit = (report: CompanyProductionReport) => {
     setSelectedReport(report);
@@ -132,282 +117,239 @@ export function CompanyProductionReportHistoryView({ companyId: propCompanyId }:
 
       setIsEditModalOpen(false);
       setSelectedReport(null);
+      refetch();
     } catch (err: any) {
       setEditError(err?.data?.message || err?.message || "Failed to update production report.");
     }
   };
 
+  const columns: ColumnDef<CompanyProductionReport>[] = [
+    {
+      accessorKey: "report_date",
+      header: "Date",
+      cell: ({ row }) => (
+        <span className="font-mono text-xs font-medium text-foreground">
+          {row.original.report_date}
+        </span>
+      ),
+    },
+    {
+      id: "productionItem",
+      header: "Production Item",
+      cell: ({ row }) => (
+        <div>
+          <div className="font-medium text-foreground">
+            {row.original.productionItem?.name || "N/A"}
+          </div>
+          <div className="text-[11px] font-mono text-muted-foreground">
+            {row.original.productionItem?.code}
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "quantity_reported",
+      header: "Reported Quantity",
+      cell: ({ row }) => (
+        <div className="font-bold text-foreground">
+          {Number(row.original.quantity_reported).toLocaleString()}{" "}
+          <span className="text-xs font-normal text-muted-foreground">
+            {row.original.reportedUnit?.symbol || row.original.reportedUnit?.code}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: "normalized_quantity",
+      header: "Normalized Base Quantity",
+      cell: ({ row }) => (
+        <div className="font-mono text-xs text-muted-foreground">
+          {Number(row.original.normalized_quantity).toLocaleString()}{" "}
+          <span>
+            {row.original.productionItem?.baseUnit?.symbol ||
+              (row.original.productionItem as any)?.base_unit?.symbol ||
+              "base"}
+          </span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => {
+        const s = row.original.status;
+        return (
+          <Badge
+            variant={
+              s === "approved"
+                ? "default"
+                : s === "submitted"
+                ? "secondary"
+                : s === "rejected"
+                ? "destructive"
+                : "outline"
+            }
+            className="capitalize text-xs font-semibold"
+          >
+            {s}
+          </Badge>
+        );
+      },
+    },
+    {
+      id: "submittedBy",
+      header: "Submitted By",
+      cell: ({ row }) => (
+        <div className="text-xs text-muted-foreground">
+          <div>{row.original.submittedByUser?.full_name || "Self-Reported"}</div>
+          <div className="text-[10px] opacity-70">
+            {row.original.created_at ? new Date(row.original.created_at).toLocaleDateString() : ""}
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "reviewInfo",
+      header: "Review Info",
+      cell: ({ row }) => {
+        const report = row.original;
+        if (report.status === "approved") {
+          return (
+            <div className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1 text-xs font-medium">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              <span>Approved</span>
+            </div>
+          );
+        }
+        if (report.status === "rejected") {
+          return (
+            <div className="text-destructive space-y-0.5 text-xs">
+              <div className="flex items-center gap-1 font-semibold">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                <span>Rejected</span>
+              </div>
+              {report.review_comments && (
+                <div className="text-[10px] text-muted-foreground italic">
+                  &quot;{report.review_comments}&quot;
+                </div>
+              )}
+            </div>
+          );
+        }
+        return (
+          <span className="text-muted-foreground flex items-center gap-1 text-xs">
+            <Clock className="h-3.5 w-3.5" />
+            Pending Review
+          </span>
+        );
+      },
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => {
+        const report = row.original;
+        if (report.status === "approved") return null;
+        return (
+          <div className="text-right">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleOpenEdit(report)}
+              className="h-8 px-2 gap-1 text-xs"
+            >
+              <Edit2 className="h-3.5 w-3.5" />
+              Edit
+            </Button>
+          </div>
+        );
+      },
+    },
+  ];
+
+  const filters: FilterField[] = [
+    {
+      key: "status",
+      label: "Review Status",
+      type: "select",
+      placeholder: "All Statuses",
+      value: selectedStatus,
+      onChange: (val: string) => {
+        setSelectedStatus(val);
+        setPage(1);
+      },
+      options: [
+        { label: "All Statuses", value: "all" },
+        { label: "Submitted", value: "submitted" },
+        { label: "Approved", value: "approved" },
+        { label: "Rejected", value: "rejected" },
+        { label: "Draft", value: "draft" },
+      ],
+    },
+    ...(assignments.length > 0
+      ? [
+          {
+            key: "item",
+            label: "Production Item",
+            type: "select" as const,
+            placeholder: "All Items",
+            value: selectedItemId,
+            onChange: (val: string) => {
+              setSelectedItemId(val);
+              setPage(1);
+            },
+            options: [
+              { label: "All Items", value: "all" },
+              ...assignments.map((a) => ({
+                label: `${a.productionItem?.name} (${a.productionItem?.code})`,
+                value: a.production_item_id,
+              })),
+            ],
+          },
+        ]
+      : []),
+  ];
+
+  const actions: ActionButton[] = [
+    {
+      label: "Submit New Report",
+      icon: <Plus className="h-4 w-4" />,
+      variant: "default",
+      onClick: () => router.push(`/companies/${companyId}/production/submit`),
+    },
+  ];
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card p-6 rounded-2xl border border-border shadow-xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="p-2 rounded-xl bg-primary/10 text-primary">
-              <ClipboardList className="h-6 w-6" />
-            </span>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Production Report History & Audit
-            </h1>
-          </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Complete audit trail of submitted daily production records, unit normalizations, and review status.
-          </p>
-        </div>
-
-        <Button asChild size="sm" className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground">
-          <Link href={`/companies/${companyId}/production/submit`}>
-            <Plus className="h-4 w-4" />
-            Submit New Report
-          </Link>
-        </Button>
-      </div>
-
       <CompanyProductionTabsHeader companyId={companyId} />
 
-      {/* Filter Toolbar */}
-      <div className="bg-card p-5 rounded-2xl border border-border shadow-xs space-y-4">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          <Filter className="h-4 w-4 text-primary" />
-          Filter Report Records
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Commodity Filter */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Production Item</label>
-            <select
-              value={selectedItemId}
-              onChange={(e) => {
-                setSelectedItemId(e.target.value);
-                setPage(1);
-              }}
-              className="w-full h-10 px-3 rounded-xl border border-input bg-background text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="all">All Items</option>
-              {assignments.map((a) => (
-                <option key={a.assignment_id} value={a.production_item_id}>
-                  {a.productionItem?.name} ({a.productionItem?.code})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Status Filter */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Review Status</label>
-            <select
-              value={selectedStatus}
-              onChange={(e) => {
-                setSelectedStatus(e.target.value);
-                setPage(1);
-              }}
-              className="w-full h-10 px-3 rounded-xl border border-input bg-background text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="all">All Statuses</option>
-              <option value="submitted">Submitted</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-              <option value="draft">Draft</option>
-            </select>
-          </div>
-
-          {/* Start Date */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">From Date</label>
-            <Input
-              type="date"
-              value={startDate}
-              onChange={(e) => {
-                setStartDate(e.target.value);
-                setPage(1);
-              }}
-              className="h-10 rounded-xl"
-            />
-          </div>
-
-          {/* End Date */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">To Date</label>
-            <Input
-              type="date"
-              value={endDate}
-              onChange={(e) => {
-                setEndDate(e.target.value);
-                setPage(1);
-              }}
-              className="h-10 rounded-xl"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Reports Table Card */}
-      <div className="rounded-2xl border border-border bg-card shadow-xs overflow-hidden">
-        <div className="p-5 border-b border-border flex items-center justify-between">
-          <span className="text-sm font-bold text-foreground">
-            Total Records Found: <span className="text-primary font-mono">{totalReports}</span>
-          </span>
-
-          {isFetching && (
-            <span className="text-xs text-muted-foreground animate-pulse">
-              Updating list...
-            </span>
-          )}
-        </div>
-
-        {reports.length === 0 ? (
-          <div className="p-12 text-center text-muted-foreground">
-            <ClipboardList className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p className="font-semibold text-foreground">No reports found</p>
-            <p className="text-xs mt-1">Try adjusting your filters or submit a new daily report.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-muted/50 text-xs uppercase font-semibold text-muted-foreground border-b border-border">
-                <tr>
-                  <th className="px-4 py-3.5">Date</th>
-                  <th className="px-4 py-3.5">Production Item</th>
-                  <th className="px-4 py-3.5">Reported Quantity</th>
-                  <th className="px-4 py-3.5">Normalized Base Quantity</th>
-                  <th className="px-4 py-3.5">Status</th>
-                  <th className="px-4 py-3.5">Submitted By</th>
-                  <th className="px-4 py-3.5">Review Info</th>
-                  <th className="px-4 py-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {reports.map((report) => (
-                  <tr key={report.report_id} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3.5 font-medium font-mono text-xs text-foreground">
-                      {report.report_date}
-                    </td>
-
-                    <td className="px-4 py-3.5">
-                      <div className="font-medium text-foreground">
-                        {report.productionItem?.name || "N/A"}
-                      </div>
-                      <div className="text-[11px] font-mono text-muted-foreground">
-                        {report.productionItem?.code}
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-3.5 font-bold text-foreground">
-                      {Number(report.quantity_reported).toLocaleString()}{" "}
-                      <span className="text-xs font-normal text-muted-foreground">
-                        {report.reportedUnit?.symbol || report.reportedUnit?.code}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-3.5 font-mono text-xs text-muted-foreground">
-                      {Number(report.normalized_quantity).toLocaleString()}{" "}
-                      <span>{report.productionItem?.baseUnit?.symbol || (report.productionItem as any)?.base_unit?.symbol || "base"}</span>
-                    </td>
-
-                    <td className="px-4 py-3.5">
-                      <Badge
-                        variant={
-                          report.status === "approved"
-                            ? "default"
-                            : report.status === "submitted"
-                            ? "secondary"
-                            : report.status === "rejected"
-                            ? "destructive"
-                            : "outline"
-                        }
-                        className="capitalize text-xs font-semibold"
-                      >
-                        {report.status}
-                      </Badge>
-                    </td>
-
-                    <td className="px-4 py-3.5 text-xs text-muted-foreground">
-                      <div>{report.submittedByUser?.full_name || "Self-Reported"}</div>
-                      <div className="text-[10px] opacity-70">
-                        {report.created_at ? new Date(report.created_at).toLocaleDateString() : ""}
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-3.5 text-xs">
-                      {report.status === "approved" ? (
-                        <div className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          <span>Approved</span>
-                        </div>
-                      ) : report.status === "rejected" ? (
-                        <div className="text-destructive space-y-0.5">
-                          <div className="flex items-center gap-1 font-semibold">
-                            <AlertTriangle className="h-3.5 w-3.5" />
-                            <span>Rejected</span>
-                          </div>
-                          {report.review_comments && (
-                            <div className="text-[10px] text-muted-foreground italic">
-                              "{report.review_comments}"
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground flex items-center gap-1">
-                          <Clock className="h-3.5 w-3.5" />
-                          Pending Review
-                        </span>
-                      )}
-                    </td>
-
-                    <td className="px-4 py-3.5 text-right">
-                      {report.status !== "approved" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleOpenEdit(report)}
-                          className="h-8 px-2 gap-1 text-xs"
-                        >
-                          <Edit2 className="h-3.5 w-3.5" />
-                          Edit
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Pagination Footer */}
-        {totalPages > 1 && (
-          <div className="p-4 border-t border-border flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">
-              Page {page} of {totalPages}
-            </span>
-
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="h-8 px-3 gap-1"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Previous
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="h-8 px-3 gap-1"
-              >
-                Next
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
+      <TableLayout
+        title="Production Report History & Audit"
+        description="Complete audit trail of submitted daily production records, unit normalizations, and review status."
+        actions={actions}
+        filters={filters}
+        filterColumnsPerRow={assignments.length > 0 ? 2 : 1}
+      >
+        <DataTable
+          columns={columns}
+          data={reports}
+          isLoading={isLoading}
+          isError={isError}
+          errorMessage="Failed to load production reports."
+          onRetry={refetch}
+          paginationMode="server"
+          totalRowCount={totalReports}
+          pageIndex={page - 1}
+          pageSize={limit}
+          onPaginationChange={(newPageIndex, newPageSize) => {
+            setPage(newPageIndex + 1);
+            if (newPageSize !== limit) {
+              setLimit(newPageSize);
+            }
+          }}
+          resetKey={`${selectedItemId}-${selectedStatus}`}
+        />
+      </TableLayout>
 
       {/* Edit Report Modal */}
       {isEditModalOpen && selectedReport && (

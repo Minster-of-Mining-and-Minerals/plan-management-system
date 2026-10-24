@@ -20,6 +20,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { ColumnDef } from "@tanstack/react-table";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 
 import {
@@ -70,6 +72,70 @@ export function FederalProductionDashboardView() {
     reporting_companies: 0,
     active_production_items: 0,
   };
+
+  const recentReportColumns: ColumnDef<any>[] = [
+    {
+      accessorKey: "report_date",
+      header: "Date",
+      cell: ({ row }) => (
+        <span className="font-mono font-medium text-xs">{row.original.report_date}</span>
+      ),
+    },
+    {
+      id: "company",
+      header: "Company",
+      cell: ({ row }) => (
+        <span className="font-medium text-foreground text-xs">{row.original.company?.name}</span>
+      ),
+    },
+    {
+      id: "item",
+      header: "Item",
+      cell: ({ row }) => (
+        <span className="text-xs">{row.original.productionItem?.name}</span>
+      ),
+    },
+    {
+      id: "quantity_reported",
+      header: "Reported Quantity",
+      cell: ({ row }) => (
+        <span className="font-mono font-bold text-xs">
+          {Number(row.original.quantity_reported).toLocaleString()}{" "}
+          {row.original.reportedUnit?.symbol}
+        </span>
+      ),
+    },
+    {
+      id: "normalized_quantity",
+      header: "Normalized Base",
+      cell: ({ row }) => (
+        <span className="font-mono text-muted-foreground text-xs">
+          {Number(row.original.normalized_quantity).toLocaleString()} base
+        </span>
+      ),
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => {
+        const s = row.original.status;
+        return (
+          <Badge
+            variant={
+              s === "approved"
+                ? "default"
+                : s === "rejected"
+                ? "destructive"
+                : "secondary"
+            }
+            className="capitalize text-[10px]"
+          >
+            {s}
+          </Badge>
+        );
+      },
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -389,49 +455,7 @@ export function FederalProductionDashboardView() {
             Recent Production Report Submissions
           </h3>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b bg-muted/40 font-semibold text-muted-foreground uppercase">
-                <tr>
-                  <th className="py-2.5 px-3">Date</th>
-                  <th className="py-2.5 px-3">Company</th>
-                  <th className="py-2.5 px-3">Item</th>
-                  <th className="py-2.5 px-3 text-right">Reported Quantity</th>
-                  <th className="py-2.5 px-3 text-right">Normalized Base</th>
-                  <th className="py-2.5 px-3">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {dashboard.recent_reports.map((r) => (
-                  <tr key={r.report_id} className="hover:bg-muted/20">
-                    <td className="py-2.5 px-3 font-mono font-medium">{r.report_date}</td>
-                    <td className="py-2.5 px-3 font-medium text-foreground">{r.company?.name}</td>
-                    <td className="py-2.5 px-3">{r.productionItem?.name}</td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold">
-                      {Number(r.quantity_reported).toLocaleString()} {r.reportedUnit?.symbol}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-mono text-muted-foreground">
-                      {Number(r.normalized_quantity).toLocaleString()} base
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <Badge
-                        variant={
-                          r.status === "approved"
-                            ? "default"
-                            : r.status === "rejected"
-                            ? "destructive"
-                            : "secondary"
-                        }
-                        className="capitalize text-[10px]"
-                      >
-                        {r.status}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable columns={recentReportColumns} data={dashboard.recent_reports} />
         </div>
       )}
     </div>

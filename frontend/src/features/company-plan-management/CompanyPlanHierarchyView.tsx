@@ -36,6 +36,8 @@ import {
 import { actionFeedback } from "@/components/action-feedback";
 import { usePermissions } from "@/hooks/usePermissions";
 import Loading01 from "@/features/template/component/Loading/Loading01";
+import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { ColumnDef } from "@tanstack/react-table";
 
 import {
   useGetCompanyPlanHierarchyQuery,
@@ -419,6 +421,94 @@ export function CompanyPlanHierarchyView() {
     });
   }, [hierarchyData, search, levelFilter]);
 
+  const hierarchyTableColumns = useMemo<ColumnDef<CompanyPlanNode>[]>(
+    () => [
+      {
+        id: "level",
+        header: "Level",
+        cell: ({ row }) => {
+          const config = LEVEL_COLORS[row.original.level] || { label: `L${row.original.level}` };
+          return (
+            <Badge variant="outline" className="text-[10px] font-bold">
+              {config.label}
+            </Badge>
+          );
+        },
+      },
+      {
+        accessorKey: "title",
+        header: "Title & Hierarchy",
+        cell: ({ row }) => (
+          <span className="font-semibold text-foreground max-w-xs truncate block text-xs">
+            {row.original.title}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "target_unit",
+        header: "Unit",
+        cell: ({ row }) => (
+          <span className="text-muted-foreground font-mono text-xs">{row.original.target_unit || "—"}</span>
+        ),
+      },
+      {
+        id: "target",
+        header: "Target",
+        cell: ({ row }) => {
+          const target = row.original.annual_target || row.original.period_target || 0;
+          return <span className="font-mono font-bold text-xs">{target || "—"}</span>;
+        },
+      },
+      {
+        id: "actual",
+        header: "Actual",
+        cell: ({ row }) => {
+          const actual = row.original.period_actual || 0;
+          return <span className="font-mono font-bold text-primary text-xs">{actual || "—"}</span>;
+        },
+      },
+      {
+        accessorKey: "period_actual_status",
+        header: "Status",
+        cell: ({ row }) => (
+          <Badge variant="secondary" className="text-[10px] capitalize">
+            {row.original.period_actual_status || "empty"}
+          </Badge>
+        ),
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => {
+          const node = row.original;
+          return (
+            <div className="flex items-center justify-end gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => handleOpenAchievementModal(node)}
+              >
+                Achievement
+              </Button>
+              {!isLocked && canManage && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => handleOpenEditModal(node)}
+                >
+                  Edit
+                </Button>
+              )}
+            </div>
+          );
+        },
+      },
+    ],
+    [isLocked, canManage]
+  );
+
   if (isHierarchyLoading) {
     return <Loading01 />;
   }
@@ -626,60 +716,8 @@ export function CompanyPlanHierarchyView() {
         </div>
       ) : (
         /* TABLE VIEW */
-        <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-xs">
-          <table className="w-full text-xs text-left">
-            <thead className="bg-muted/50 border-b border-border text-muted-foreground uppercase font-bold text-[10px]">
-              <tr>
-                <th className="p-3 pl-4">Level</th>
-                <th className="p-3">Title & Hierarchy</th>
-                <th className="p-3">Unit</th>
-                <th className="p-3 text-right">Target</th>
-                <th className="p-3 text-right">Actual</th>
-                <th className="p-3 text-center">Status</th>
-                <th className="p-3 pr-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60">
-              {flatList.map((node) => {
-                const config = LEVEL_COLORS[node.level] || { label: `L${node.level}` };
-                const target = node.annual_target || node.period_target || 0;
-                const actual = node.period_actual || 0;
-
-                return (
-                  <tr key={node.company_plan_node_id} className="hover:bg-muted/30 transition-colors">
-                    <td className="p-3 pl-4">
-                      <Badge variant="outline" className="text-[10px] font-bold">
-                        {config.label}
-                      </Badge>
-                    </td>
-                    <td className="p-3 font-semibold text-foreground max-w-xs truncate">
-                      {node.title}
-                    </td>
-                    <td className="p-3 text-muted-foreground font-mono">{node.target_unit || "—"}</td>
-                    <td className="p-3 text-right font-mono font-bold">{target || "—"}</td>
-                    <td className="p-3 text-right font-mono font-bold text-primary">{actual || "—"}</td>
-                    <td className="p-3 text-center">
-                      <Badge variant="secondary" className="text-[10px] capitalize">
-                        {node.period_actual_status || "empty"}
-                      </Badge>
-                    </td>
-                    <td className="p-3 pr-4 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => handleOpenAchievementModal(node)}>
-                          Achievement
-                        </Button>
-                        {!isLocked && canManage && (
-                          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => handleOpenEditModal(node)}>
-                            Edit
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-xs p-4">
+          <DataTable columns={hierarchyTableColumns} data={flatList} />
         </div>
       )}
 

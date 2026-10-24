@@ -4,29 +4,25 @@ import { useState, useMemo } from "react";
 import {
   Building2,
   Plus,
-  Search,
   Target,
-  Edit,
   Layers,
-  Calendar,
   Clock,
-  Scale,
-  CheckCircle2,
   AlertTriangle,
-  History,
-  ArrowRight,
-  Filter,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import Loading01 from "@/features/template/component/Loading/Loading01";
+import { TableLayout } from "@/features/template/component/tableList/TableLayout";
+import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { ColumnDef } from "@tanstack/react-table";
+import type { ActionButton, FilterField } from "@/types/tableLayout";
+import { useSearchParams } from "next/navigation";
+import { matchesSearchQuery } from "@/utils/tableUtils";
 
 import {
   useGetAssignmentsQuery,
   useCreateAssignmentMutation,
-  useUpdateAssignmentMutation,
   useSaveTargetHierarchyMutation,
   useGetProductionItemsQuery,
   useGetFrequenciesQuery,
@@ -36,7 +32,8 @@ import { useGetCompaniesQuery } from "@/redux/api/companyApi";
 import type { CompanyProductionAssignment, TargetPeriodNode } from "@/redux/types/production";
 
 export function CompanyProductionAssignmentsView() {
-  const [search, setSearch] = useState("");
+  const searchParams = useSearchParams();
+  const searchQuery = searchParams.get("search") || "";
   const [companyFilter, setCompanyFilter] = useState("all");
 
   // Assignment Modal
@@ -59,7 +56,7 @@ export function CompanyProductionAssignmentsView() {
   const [revisionReason, setRevisionReason] = useState("");
   const [targetError, setTargetError] = useState("");
 
-  const { data: assignments = [], isLoading, refetch } = useGetAssignmentsQuery();
+  const { data: assignments = [], isLoading, isError, refetch } = useGetAssignmentsQuery();
   const { data: companies = [] } = useGetCompaniesQuery();
   const { data: items = [] } = useGetProductionItemsQuery();
   const { data: frequencies = [] } = useGetFrequenciesQuery();
@@ -80,17 +77,11 @@ export function CompanyProductionAssignmentsView() {
     return assignments.filter((a) => {
       const companyName = a.company?.name || "";
       const itemName = a.productionItem?.name || "";
-      const matchesSearch =
-        !search.trim() ||
-        companyName.toLowerCase().includes(search.toLowerCase()) ||
-        itemName.toLowerCase().includes(search.toLowerCase());
-
-      const matchesCompany =
-        companyFilter === "all" || a.company_id === companyFilter;
-
+      const matchesSearch = matchesSearchQuery(searchQuery, [companyName, itemName, a.company?.code || ""]);
+      const matchesCompany = companyFilter === "all" || a.company_id === companyFilter;
       return matchesSearch && matchesCompany;
     });
-  }, [assignments, search, companyFilter]);
+  }, [assignments, searchQuery, companyFilter]);
 
   const handleOpenAssignModal = () => {
     setSelectedCompanyId(companies[0]?.company_id || "");
@@ -140,7 +131,6 @@ export function CompanyProductionAssignmentsView() {
     setTargetError("");
     setRevisionReason("");
 
-    // Initialize existing targets if available
     const rootTarget = assignment.targets?.find((t) => t.target_period_type === "year");
     if (rootTarget) {
       setAnnualQuantity(String(rootTarget.target_quantity));
@@ -157,7 +147,6 @@ export function CompanyProductionAssignmentsView() {
     }
   };
 
-  // Target Sum & Remainder calculation
   const calculatedChildSum = useMemo(() => {
     let sum = 0;
     Object.values(childQuantities).forEach((val) => {
@@ -188,7 +177,6 @@ export function CompanyProductionAssignmentsView() {
       return;
     }
 
-    // Build hierarchical target payload
     const rootPeriod = generatedPeriods[0] || {
       target_period_type: "year",
       period_label: String(targetYear),
@@ -232,174 +220,165 @@ export function CompanyProductionAssignmentsView() {
     }
   };
 
-  if (isLoading) {
-    return <Loading01 />;
-  }
+  const columns: ColumnDef<CompanyProductionAssignment>[] = [
+    {
+      accessorKey: "company",
+      header: "Company",
+      cell: ({ row }) => (
+        <div>
+          <div className="font-semibold text-foreground flex items-center gap-1.5">
+            <Building2 className="h-3.5 w-3.5 text-teal-600 shrink-0" />
+            {row.original.company?.name}
+          </div>
+          <span className="text-[11px] font-mono text-muted-foreground">
+            {row.original.company?.code}
+          </span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "productionItem",
+      header: "Production Item",
+      cell: ({ row }) => (
+        <div>
+          <div className="font-medium text-foreground">
+            {row.original.productionItem?.name}
+          </div>
+          <span className="text-[11px] text-muted-foreground">
+            Unit: {row.original.defaultReportingUnit?.name || row.original.productionItem?.baseUnit?.name || "Standard"}
+          </span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "reportingFrequency",
+      header: "Reporting Frequency",
+      cell: ({ row }) => (
+        <Badge variant="outline" className="capitalize bg-muted/40 text-xs">
+          <Clock className="h-3 w-3 mr-1 text-muted-foreground" />
+          {row.original.reportingFrequency?.name || "Daily"}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "target_allocation_depth",
+      header: "Target Allocation Depth",
+      cell: ({ row }) => (
+        <span className="inline-flex items-center gap-1 font-medium capitalize text-teal-700 dark:text-teal-300 text-xs">
+          <Layers className="h-3 w-3" />
+          {row.original.target_allocation_depth?.replace("_", " ")}
+        </span>
+      ),
+    },
+    {
+      id: "currentPublishedTarget",
+      header: "Current Published Target",
+      cell: ({ row }) => {
+        const rootTarget = row.original.targets?.find((t) => t.target_period_type === "year");
+        const childTargets = row.original.targets?.filter((t) => t.target_period_type !== "year") || [];
+        if (rootTarget) {
+          return (
+            <div>
+              <div className="font-bold text-foreground text-xs">
+                {Number(rootTarget.target_quantity).toLocaleString()}{" "}
+                {rootTarget.unit?.symbol || "units"}
+              </div>
+              <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <span>v{rootTarget.version_number}</span>
+                {childTargets.length > 0 && <span>• {childTargets.length} Sub-periods</span>}
+              </div>
+            </div>
+          );
+        }
+        return (
+          <span className="text-amber-600 dark:text-amber-400 italic flex items-center gap-1 text-xs">
+            <AlertTriangle className="h-3 w-3" />
+            Target Not Configured
+          </span>
+        );
+      },
+    },
+    {
+      id: "effectiveDates",
+      header: "Effective Dates",
+      cell: ({ row }) => (
+        <span className="text-muted-foreground font-mono text-[11px]">
+          {row.original.effective_from} → {row.original.effective_to || "Indefinite"}
+        </span>
+      ),
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => {
+        const rootTarget = row.original.targets?.find((t) => t.target_period_type === "year");
+        return (
+          <div className="text-right">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => handleOpenTargetModal(row.original)}
+              className="h-8 text-xs flex items-center gap-1.5 font-medium bg-teal-50 text-teal-800 hover:bg-teal-100 dark:bg-teal-950 dark:text-teal-200"
+            >
+              <Target className="h-3.5 w-3.5 text-teal-600" />
+              {rootTarget ? "Reallocate / Revise" : "Configure Targets"}
+            </Button>
+          </div>
+        );
+      },
+    },
+  ];
+
+  const filters: FilterField[] = [
+    ...(companies.length > 0
+      ? [
+          {
+            key: "company",
+            label: "Company",
+            type: "select" as const,
+            placeholder: "All Companies",
+            value: companyFilter,
+            onChange: setCompanyFilter,
+            options: [
+              { label: "All Companies", value: "all" },
+              ...companies.map((c) => ({
+                label: `${c.name} (${c.code})`,
+                value: c.company_id,
+              })),
+            ],
+          },
+        ]
+      : []),
+  ];
+
+  const actions: ActionButton[] = [
+    {
+      label: "Assign Production Item",
+      icon: <Plus className="h-4 w-4" />,
+      variant: "default",
+      onClick: handleOpenAssignModal,
+    },
+  ];
 
   return (
-    <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-900 via-cyan-900 to-slate-900 p-6 text-white shadow-xl">
-        <div className="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="rounded-md bg-white/20 p-2 backdrop-blur-sm">
-                <Target className="h-6 w-6 text-white" />
-              </span>
-              <h1 className="text-2xl font-bold tracking-tight">
-                Company Production Assignments & Targets
-              </h1>
-            </div>
-            <p className="mt-1 text-sm text-teal-100">
-              Assign production items to registered companies and configure flexible target period hierarchies.
-            </p>
-          </div>
-          <Button
-            onClick={handleOpenAssignModal}
-            className="flex items-center gap-2 bg-teal-500 hover:bg-teal-600 text-white shadow-md font-medium"
-          >
-            <Plus className="h-4 w-4" />
-            Assign Production Item
-          </Button>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border bg-card p-4 shadow-sm">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by company or item..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <select
-            value={companyFilter}
-            onChange={(e) => setCompanyFilter(e.target.value)}
-            className="rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-          >
-            <option value="all">All Companies</option>
-            {companies.map((c) => (
-              <option key={c.company_id} value={c.company_id}>
-                {c.name} ({c.code})
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Assignments Table */}
-      <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b bg-muted/40 text-xs font-semibold text-muted-foreground uppercase">
-              <tr>
-                <th className="py-3 px-4">Company</th>
-                <th className="py-3 px-4">Production Item</th>
-                <th className="py-3 px-4">Reporting Frequency</th>
-                <th className="py-3 px-4">Target Allocation Depth</th>
-                <th className="py-3 px-4">Current Published Target</th>
-                <th className="py-3 px-4">Effective Dates</th>
-                <th className="py-3 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y text-xs">
-              {filteredAssignments.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-muted-foreground">
-                    No production assignments found. Click &quot;Assign Production Item&quot; to configure one.
-                  </td>
-                </tr>
-              ) : (
-                filteredAssignments.map((a) => {
-                  const rootTarget = a.targets?.find((t) => t.target_period_type === "year");
-                  const childTargets = a.targets?.filter((t) => t.target_period_type !== "year") || [];
-
-                  return (
-                    <tr key={a.assignment_id} className="hover:bg-muted/20">
-                      <td className="py-3.5 px-4">
-                        <div className="font-semibold text-foreground flex items-center gap-1.5">
-                          <Building2 className="h-3.5 w-3.5 text-teal-600" />
-                          {a.company?.name}
-                        </div>
-                        <span className="text-[11px] font-mono text-muted-foreground">
-                          {a.company?.code}
-                        </span>
-                      </td>
-
-                      <td className="py-3.5 px-4">
-                        <div className="font-medium text-foreground">
-                          {a.productionItem?.name}
-                        </div>
-                        <span className="text-[11px] text-muted-foreground">
-                          Unit: {a.defaultReportingUnit?.name || a.productionItem?.baseUnit?.name}
-                        </span>
-                      </td>
-
-                      <td className="py-3.5 px-4">
-                        <Badge variant="outline" className="capitalize bg-muted/40">
-                          <Clock className="h-3 w-3 mr-1 text-muted-foreground" />
-                          {a.reportingFrequency?.name || "Daily"}
-                        </Badge>
-                      </td>
-
-                      <td className="py-3.5 px-4">
-                        <span className="inline-flex items-center gap-1 font-medium capitalize text-teal-700 dark:text-teal-300">
-                          <Layers className="h-3 w-3" />
-                          {a.target_allocation_depth.replace("_", " ")}
-                        </span>
-                      </td>
-
-                      <td className="py-3.5 px-4">
-                        {rootTarget ? (
-                          <div>
-                            <div className="font-bold text-foreground">
-                              {Number(rootTarget.target_quantity).toLocaleString()}{" "}
-                              {rootTarget.unit?.symbol || "units"}
-                            </div>
-                            <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-                              <span>v{rootTarget.version_number}</span>
-                              {childTargets.length > 0 && (
-                                <span>• {childTargets.length} Sub-periods</span>
-                              )}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-amber-600 dark:text-amber-400 italic flex items-center gap-1">
-                            <AlertTriangle className="h-3 w-3" />
-                            Target Not Configured
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="py-3.5 px-4 text-muted-foreground font-mono text-[11px]">
-                        {a.effective_from} → {a.effective_to || "Indefinite"}
-                      </td>
-
-                      <td className="py-3.5 px-4 text-right">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handleOpenTargetModal(a)}
-                          className="h-8 text-xs flex items-center gap-1.5 font-medium bg-teal-50 text-teal-800 hover:bg-teal-100 dark:bg-teal-950 dark:text-teal-200"
-                        >
-                          <Target className="h-3.5 w-3.5 text-teal-600" />
-                          {rootTarget ? "Reallocate / Revise" : "Configure Targets"}
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+    <>
+      <TableLayout
+        title="Company Production Assignments & Targets"
+        description="Assign production items to registered companies and configure flexible target period hierarchies."
+        actions={actions}
+        filters={filters}
+        filterColumnsPerRow={1}
+      >
+        <DataTable
+          columns={columns}
+          data={filteredAssignments}
+          isLoading={isLoading}
+          isError={isError}
+          errorMessage="Failed to load company production assignments."
+          onRetry={refetch}
+          resetKey={`${searchQuery}-${companyFilter}`}
+        />
+      </TableLayout>
 
       {/* Modal 1: Assign Production Item */}
       {isAssignModalOpen && (
@@ -568,7 +547,6 @@ export function CompanyProductionAssignmentsView() {
             )}
 
             <form onSubmit={handleSaveTargets} className="space-y-4 text-sm mt-3">
-              {/* Year & Unit details */}
               <div className="grid grid-cols-2 gap-3 bg-muted/30 p-3 rounded-lg border">
                 <div>
                   <label className="block text-xs font-medium mb-1">Target Year</label>
@@ -588,7 +566,6 @@ export function CompanyProductionAssignmentsView() {
                 </div>
               </div>
 
-              {/* Annual Target */}
               <div className="rounded-lg border p-4 bg-teal-50/50 dark:bg-teal-950/20 border-teal-200 dark:border-teal-800">
                 <label className="block text-xs font-bold text-teal-950 dark:text-teal-200 mb-1">
                   Approved Annual Target ({targetYear}) *
@@ -609,7 +586,6 @@ export function CompanyProductionAssignmentsView() {
                 </div>
               </div>
 
-              {/* Child Target Period Inputs (if allocation depth > annual) */}
               {generatedPeriods[0]?.children && generatedPeriods[0].children.length > 0 && (
                 <div className="space-y-3 pt-2">
                   <div className="flex items-center justify-between">
@@ -657,7 +633,6 @@ export function CompanyProductionAssignmentsView() {
                 </div>
               )}
 
-              {/* Revision Reason (when revising existing published targets) */}
               <div>
                 <label className="block text-xs font-medium mb-1">
                   Revision Reason / Audit Note
@@ -691,6 +666,6 @@ export function CompanyProductionAssignmentsView() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

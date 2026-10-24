@@ -20,6 +20,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
+import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { ColumnDef } from "@tanstack/react-table";
 import { useGetFederalGoldOversightQuery } from "@/redux/api/goldApi";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import { KpiCard } from "@/features/plan-management/dashboard/components/KpiCard";
@@ -40,14 +43,120 @@ export function FederalOversightView() {
     business_date: businessDate || undefined,
   });
 
-  if (isLoading) {
-    return <Loading01 />;
-  }
-
   const overview = data?.overview;
   const today = data?.today;
   const sellerDistribution = data?.seller_distribution;
   const centers = data?.centers || [];
+
+  const centerColumns: ColumnDef<any>[] = [
+    {
+      accessorKey: "name",
+      header: "Center Name & Code",
+      cell: ({ row }) => (
+        <div>
+          <div className="font-semibold text-foreground text-xs">{row.original.name}</div>
+          <div className="text-[11px] font-mono text-muted-foreground">{row.original.code}</div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "is_active",
+      header: "Status",
+      cell: ({ row }) => <ActiveStatusBadge isActive={row.original.is_active} />,
+    },
+    {
+      accessorKey: "today_purchases",
+      header: "Today's Purchases",
+      cell: ({ row }) => (
+        <span className="font-mono font-medium text-xs text-foreground">
+          {row.original.today_purchases}
+        </span>
+      ),
+    },
+    {
+      id: "today_quantity_canonical",
+      header: "Today's Gold (g)",
+      cell: ({ row }) => (
+        <span className="font-mono font-bold text-amber-600 dark:text-amber-400 text-xs">
+          {parseFloat(String(row.original.today_quantity_canonical)).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 4,
+          })}{" "}
+          g
+        </span>
+      ),
+    },
+    {
+      id: "today_amount",
+      header: "Today's Amount",
+      cell: ({ row }) => (
+        <span className="font-mono text-foreground font-semibold text-xs">
+          {parseFloat(String(row.original.today_amount)).toLocaleString()} ETB
+        </span>
+      ),
+    },
+    {
+      id: "today_report",
+      header: "Today's Report",
+      cell: ({ row }) => {
+        const c = row.original;
+        return (
+          <Badge
+            variant={
+              c.today_report_status === "submitted" || c.today_report_status === "reviewed"
+                ? "default"
+                : c.today_report_status === "unsubmitted"
+                ? "outline"
+                : "secondary"
+            }
+            className={
+              c.today_report_status === "submitted" || c.today_report_status === "reviewed"
+                ? "bg-emerald-600 text-white text-[10px] gap-1"
+                : c.today_report_status === "unsubmitted"
+                ? "border-amber-500 text-amber-700 dark:text-amber-300 text-[10px] gap-1"
+                : "text-[10px] gap-1"
+            }
+          >
+            {c.today_report_status === "submitted" ? (
+              <>
+                <CheckCircle2 className="h-3 w-3" /> Submitted
+              </>
+            ) : c.today_report_status === "unsubmitted" ? (
+              <>
+                <AlertCircle className="h-3 w-3" /> Pending
+              </>
+            ) : (
+              <>
+                <Clock className="h-3 w-3" /> No activity
+              </>
+            )}
+          </Badge>
+        );
+      },
+    },
+    {
+      id: "total_quantity_canonical",
+      header: "Total Gold (g)",
+      cell: ({ row }) => (
+        <span className="font-mono text-muted-foreground text-xs">
+          {parseFloat(String(row.original.total_quantity_canonical)).toLocaleString()} g
+        </span>
+      ),
+    },
+    {
+      id: "actions",
+      header: "Drilldown",
+      cell: ({ row }) => (
+        <div className="text-right">
+          <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-xs">
+            <Link href={`/purchasing-centers/${row.original.purchasing_center_id}`}>
+              Center View <ChevronRight className="h-3.5 w-3.5 ml-1" />
+            </Link>
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -256,92 +365,12 @@ export function FederalOversightView() {
         title="Purchasing Centers Activity & Daily Reporting Matrix"
         description={`Live purchasing totals and daily reporting submission status for ${today?.business_date}`}
       >
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-border text-xs text-muted-foreground uppercase bg-muted/40">
-              <tr>
-                <th className="py-3 px-4 font-semibold">Center Name & Code</th>
-                <th className="py-3 px-4 font-semibold">Status</th>
-                <th className="py-3 px-4 font-semibold">Today&apos;s Purchases</th>
-                <th className="py-3 px-4 font-semibold">Today&apos;s Gold (g)</th>
-                <th className="py-3 px-4 font-semibold">Today&apos;s Amount</th>
-                <th className="py-3 px-4 font-semibold">Today&apos;s Report</th>
-                <th className="py-3 px-4 font-semibold">Total Gold (g)</th>
-                <th className="py-3 px-4 font-semibold text-right">Drilldown</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {centers.map((c) => (
-                <tr key={c.purchasing_center_id} className="hover:bg-muted/30 transition-colors">
-                  <td className="py-3.5 px-4">
-                    <div className="font-semibold text-foreground">{c.name}</div>
-                    <div className="text-xs font-mono text-muted-foreground">{c.code}</div>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <Badge variant={c.is_active ? "default" : "secondary"} className="text-[10px]">
-                      {c.is_active ? "Active" : "Inactive"}
-                    </Badge>
-                  </td>
-                  <td className="py-3.5 px-4 font-mono font-medium">
-                    {c.today_purchases}
-                  </td>
-                  <td className="py-3.5 px-4 font-mono font-bold text-amber-600 dark:text-amber-400">
-                    {parseFloat(String(c.today_quantity_canonical)).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 4,
-                    })}{" "}
-                    g
-                  </td>
-                  <td className="py-3.5 px-4 font-mono text-foreground font-semibold">
-                    {parseFloat(String(c.today_amount)).toLocaleString()} ETB
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <Badge
-                      variant={
-                        c.today_report_status === "submitted" || c.today_report_status === "reviewed"
-                          ? "default"
-                          : c.today_report_status === "unsubmitted"
-                          ? "outline"
-                          : "secondary"
-                      }
-                      className={
-                        c.today_report_status === "submitted" || c.today_report_status === "reviewed"
-                          ? "bg-emerald-600 text-white text-[10px] gap-1"
-                          : c.today_report_status === "unsubmitted"
-                          ? "border-amber-500 text-amber-700 dark:text-amber-300 text-[10px] gap-1"
-                          : "text-[10px] gap-1"
-                      }
-                    >
-                      {c.today_report_status === "submitted" ? (
-                        <>
-                          <CheckCircle2 className="h-3 w-3" /> Submitted
-                        </>
-                      ) : c.today_report_status === "unsubmitted" ? (
-                        <>
-                          <AlertCircle className="h-3 w-3" /> Pending
-                        </>
-                      ) : (
-                        <>
-                          <Clock className="h-3 w-3" /> No activity
-                        </>
-                      )}
-                    </Badge>
-                  </td>
-                  <td className="py-3.5 px-4 font-mono text-muted-foreground">
-                    {parseFloat(String(c.total_quantity_canonical)).toLocaleString()} g
-                  </td>
-                  <td className="py-3.5 px-4 text-right">
-                    <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-xs">
-                      <Link href={`/purchasing-centers/${c.purchasing_center_id}`}>
-                        Center View <ChevronRight className="h-3.5 w-3.5 ml-1" />
-                      </Link>
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={centerColumns}
+          data={centers}
+          isLoading={isLoading}
+          onRetry={refetch}
+        />
       </AnalyticsPanel>
     </div>
   );

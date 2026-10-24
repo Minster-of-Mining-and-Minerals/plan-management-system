@@ -6,16 +6,14 @@ import {
   Calendar,
   Clock,
   Plus,
-  Play,
-  CheckCircle2,
-  RefreshCw,
-  Layers,
-  ArrowRight,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
+import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { ColumnDef } from "@tanstack/react-table";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 
 import {
@@ -24,9 +22,10 @@ import {
   useUpdateFrequencyMutation,
   useGetTargetPeriodsQuery,
 } from "@/redux/api/productionApi";
+import type { ProductionReportingFrequency } from "@/redux/types/production";
 
 export function ProductionFrequenciesView() {
-  const { data: frequencies = [], isLoading, refetch } = useGetFrequenciesQuery();
+  const { data: frequencies = [], isLoading, isError, refetch } = useGetFrequenciesQuery();
   const [createFrequency, { isLoading: isCreating }] = useCreateFrequencyMutation();
   const [updateFrequency] = useUpdateFrequencyMutation();
 
@@ -72,7 +71,7 @@ export function ProductionFrequenciesView() {
     }
   };
 
-  const handleToggleActive = async (freq: any) => {
+  const handleToggleActive = async (freq: ProductionReportingFrequency) => {
     try {
       await updateFrequency({
         id: freq.frequency_id,
@@ -83,6 +82,65 @@ export function ProductionFrequenciesView() {
       alert(err.data?.message || err.message || "Failed to update frequency status.");
     }
   };
+
+  const columns: ColumnDef<ProductionReportingFrequency>[] = [
+    {
+      accessorKey: "name",
+      header: "Name",
+      cell: ({ row }) => (
+        <div>
+          <div className="font-medium text-foreground">{row.original.name}</div>
+          {row.original.description && (
+            <span className="block text-[11px] text-muted-foreground mt-0.5">
+              {row.original.description}
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "code",
+      header: "Code",
+      cell: ({ row }) => <span className="font-mono text-xs text-muted-foreground">{row.original.code}</span>,
+    },
+    {
+      accessorKey: "interval_days",
+      header: "Interval (Days)",
+      cell: ({ row }) => (
+        <span className="text-xs">
+          {row.original.interval_days ? `${row.original.interval_days} days` : "Calendar-based"}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "calendar_basis",
+      header: "Calendar",
+      cell: ({ row }) => (
+        <span className="capitalize text-xs text-muted-foreground">{row.original.calendar_basis}</span>
+      ),
+    },
+    {
+      accessorKey: "is_active",
+      header: "Status",
+      cell: ({ row }) => <ActiveStatusBadge isActive={row.original.is_active} />,
+    },
+    {
+      id: "actions",
+      header: "Action",
+      cell: ({ row }) => (
+        <div className="text-right">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleToggleActive(row.original)}
+            className="h-7 text-xs text-muted-foreground hover:text-foreground"
+          >
+            {row.original.is_active ? "Deactivate" : "Activate"}
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
   if (isLoading) {
     return <Loading01 />;
@@ -136,58 +194,14 @@ export function ProductionFrequenciesView() {
               <Badge variant="secondary">{frequencies.length} Available</Badge>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b bg-muted/40 text-xs font-semibold text-muted-foreground uppercase">
-                  <tr>
-                    <th className="py-3 px-3">Name</th>
-                    <th className="py-3 px-3">Code</th>
-                    <th className="py-3 px-3">Interval (Days)</th>
-                    <th className="py-3 px-3">Calendar</th>
-                    <th className="py-3 px-3">Status</th>
-                    <th className="py-3 px-3 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y text-xs">
-                  {frequencies.map((freq) => (
-                    <tr key={freq.frequency_id} className="hover:bg-muted/20">
-                      <td className="py-3 px-3 font-medium text-foreground">
-                        {freq.name}
-                        {freq.description && (
-                          <span className="block text-[11px] text-muted-foreground mt-0.5">
-                            {freq.description}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-3 font-mono text-muted-foreground">
-                        {freq.code}
-                      </td>
-                      <td className="py-3 px-3">
-                        {freq.interval_days ? `${freq.interval_days} days` : "Calendar-based"}
-                      </td>
-                      <td className="py-3 px-3 capitalize text-muted-foreground">
-                        {freq.calendar_basis}
-                      </td>
-                      <td className="py-3 px-3">
-                        <Badge variant={freq.is_active ? "default" : "secondary"}>
-                          {freq.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-3 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleToggleActive(freq)}
-                          className="h-7 text-xs"
-                        >
-                          {freq.is_active ? "Deactivate" : "Activate"}
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              columns={columns}
+              data={frequencies}
+              isLoading={isLoading}
+              isError={isError}
+              errorMessage="Failed to load frequencies."
+              onRetry={refetch}
+            />
           </div>
         </div>
 

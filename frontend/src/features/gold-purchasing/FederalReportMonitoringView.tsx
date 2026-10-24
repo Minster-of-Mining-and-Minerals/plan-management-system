@@ -9,14 +9,15 @@ import {
   AlertCircle,
   Clock,
   RefreshCw,
-  Coins,
-  Scale,
   Store,
   ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
+import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { ColumnDef } from "@tanstack/react-table";
 import { useGetFederalGoldOversightQuery } from "@/redux/api/goldApi";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import { KpiCard } from "@/features/plan-management/dashboard/components/KpiCard";
@@ -33,17 +34,123 @@ export function FederalReportMonitoringView() {
     }).format(new Date());
   });
 
-  const { data, isLoading, isFetching, refetch } = useGetFederalGoldOversightQuery({
+  const { data, isLoading, isError, isFetching, refetch } = useGetFederalGoldOversightQuery({
     business_date: businessDate || undefined,
   });
-
-  if (isLoading) {
-    return <Loading01 />;
-  }
 
   const overview = data?.overview;
   const today = data?.today;
   const centers = data?.centers || [];
+
+  const columns: ColumnDef<any>[] = [
+    {
+      accessorKey: "name",
+      header: "Purchasing Center",
+      cell: ({ row }) => (
+        <div>
+          <div className="font-semibold text-foreground flex items-center gap-2 text-xs">
+            <Store className="h-4 w-4 text-primary shrink-0" />
+            {row.original.name}
+          </div>
+          <div className="text-[11px] font-mono text-muted-foreground">{row.original.code}</div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "is_active",
+      header: "Center Status",
+      cell: ({ row }) => <ActiveStatusBadge isActive={row.original.is_active} />,
+    },
+    {
+      accessorKey: "today_purchases",
+      header: "Purchases Today",
+      cell: ({ row }) => (
+        <span className="font-mono font-medium text-xs text-foreground">
+          {row.original.today_purchases}
+        </span>
+      ),
+    },
+    {
+      id: "today_quantity_canonical",
+      header: "Gold Volume (g)",
+      cell: ({ row }) => (
+        <span className="font-mono font-bold text-amber-600 dark:text-amber-400 text-xs">
+          {parseFloat(String(row.original.today_quantity_canonical)).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 4,
+          })}{" "}
+          g
+        </span>
+      ),
+    },
+    {
+      id: "today_amount",
+      header: "Settlement Total",
+      cell: ({ row }) => (
+        <span className="font-mono font-semibold text-foreground text-xs">
+          {parseFloat(String(row.original.today_amount)).toLocaleString()} ETB
+        </span>
+      ),
+    },
+    {
+      id: "today_report_status",
+      header: "Reporting Status",
+      cell: ({ row }) => {
+        const s = row.original.today_report_status;
+        return (
+          <Badge
+            variant={
+              s === "submitted" || s === "reviewed"
+                ? "default"
+                : s === "unsubmitted"
+                ? "outline"
+                : "secondary"
+            }
+            className={
+              s === "submitted" || s === "reviewed"
+                ? "bg-emerald-600 text-white text-[11px] gap-1 py-0.5 px-2.5 font-semibold"
+                : s === "unsubmitted"
+                ? "border-amber-500 text-amber-700 dark:text-amber-300 bg-amber-500/10 text-[11px] gap-1 py-0.5 px-2.5 font-semibold"
+                : "text-[11px] gap-1 py-0.5 px-2.5 font-medium"
+            }
+          >
+            {s === "submitted" ? (
+              <>
+                <CheckCircle2 className="h-3.5 w-3.5" /> Submitted
+              </>
+            ) : s === "unsubmitted" ? (
+              <>
+                <AlertCircle className="h-3.5 w-3.5" /> Report Pending
+              </>
+            ) : (
+              <>
+                <Clock className="h-3.5 w-3.5" /> No Purchases
+              </>
+            )}
+          </Badge>
+        );
+      },
+    },
+    {
+      id: "actions",
+      header: "Center Drilldown",
+      cell: ({ row }) => (
+        <div className="text-right">
+          <Button asChild variant="ghost" size="sm" className="h-8 px-2.5 text-xs">
+            <Link
+              href={`/purchasing-centers/${row.original.purchasing_center_id}/reports/daily?date=${businessDate}`}
+            >
+              View Report <ChevronRight className="h-3.5 w-3.5 ml-1" />
+            </Link>
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
+  if (isLoading) {
+    return <Loading01 />;
+  }
 
   return (
     <div className="space-y-6">
@@ -98,22 +205,23 @@ export function FederalReportMonitoringView() {
           title="Today's Total Purchases"
           value={today?.purchases_count?.toLocaleString() || "0"}
           subtitle="Transactions across reporting centers"
-          icon={Coins}
-          accent="primary"
+          icon={CheckCircle2}
         />
         <KpiCard
-          title="Today's Canonical Volume"
-          value={`${(today?.canonical_quantity || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} g`}
-          subtitle="Standardized metric gold weight"
-          icon={Scale}
+          title="Today's Total Gold"
+          value={`${parseFloat(String(today?.canonical_quantity || 0)).toLocaleString(undefined, {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 2,
+          })} g`}
+          subtitle="Collected fine gold weight"
+          icon={CheckCircle2}
           accent="warning"
         />
         <KpiCard
-          title="Today's Total Value"
-          value={`${(today?.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB`}
-          subtitle="Settled purchasing capital"
-          icon={Coins}
-          accent="info"
+          title="Settlement Payout"
+          value={`${parseFloat(String(today?.amount || 0)).toLocaleString()} ETB`}
+          subtitle="Disbursed settlement funds"
+          icon={CheckCircle2}
         />
       </div>
 
@@ -122,91 +230,14 @@ export function FederalReportMonitoringView() {
         title={`Purchasing Centers Reporting Matrix — ${today?.business_date}`}
         description="Individual center status, eligible transaction volume, and verified daily report submissions"
       >
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-border text-xs text-muted-foreground uppercase bg-muted/40">
-              <tr>
-                <th className="py-3 px-4 font-semibold">Purchasing Center</th>
-                <th className="py-3 px-4 font-semibold">Center Status</th>
-                <th className="py-3 px-4 font-semibold">Purchases Today</th>
-                <th className="py-3 px-4 font-semibold">Gold Volume (g)</th>
-                <th className="py-3 px-4 font-semibold">Settlement Total</th>
-                <th className="py-3 px-4 font-semibold">Reporting Status</th>
-                <th className="py-3 px-4 font-semibold text-right">Center Drilldown</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {centers.map((c) => (
-                <tr key={c.purchasing_center_id} className="hover:bg-muted/30 transition-colors">
-                  <td className="py-3.5 px-4">
-                    <div className="font-semibold text-foreground flex items-center gap-2">
-                      <Store className="h-4 w-4 text-primary shrink-0" />
-                      {c.name}
-                    </div>
-                    <div className="text-xs font-mono text-muted-foreground">{c.code}</div>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <Badge variant={c.is_active ? "default" : "secondary"} className="text-[10px]">
-                      {c.is_active ? "Active" : "Inactive"}
-                    </Badge>
-                  </td>
-                  <td className="py-3.5 px-4 font-mono font-medium">
-                    {c.today_purchases}
-                  </td>
-                  <td className="py-3.5 px-4 font-mono font-bold text-amber-600 dark:text-amber-400">
-                    {parseFloat(String(c.today_quantity_canonical)).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 4,
-                    })}{" "}
-                    g
-                  </td>
-                  <td className="py-3.5 px-4 font-mono font-semibold text-foreground">
-                    {parseFloat(String(c.today_amount)).toLocaleString()} ETB
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <Badge
-                      variant={
-                        c.today_report_status === "submitted" || c.today_report_status === "reviewed"
-                          ? "default"
-                          : c.today_report_status === "unsubmitted"
-                          ? "outline"
-                          : "secondary"
-                      }
-                      className={
-                        c.today_report_status === "submitted" || c.today_report_status === "reviewed"
-                          ? "bg-emerald-600 text-white text-[11px] gap-1 py-0.5 px-2.5 font-semibold"
-                          : c.today_report_status === "unsubmitted"
-                          ? "border-amber-500 text-amber-700 dark:text-amber-300 bg-amber-500/10 text-[11px] gap-1 py-0.5 px-2.5 font-semibold"
-                          : "text-[11px] gap-1 py-0.5 px-2.5 font-medium"
-                      }
-                    >
-                      {c.today_report_status === "submitted" ? (
-                        <>
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Submitted
-                        </>
-                      ) : c.today_report_status === "unsubmitted" ? (
-                        <>
-                          <AlertCircle className="h-3.5 w-3.5" /> Report Pending
-                        </>
-                      ) : (
-                        <>
-                          <Clock className="h-3.5 w-3.5" /> No Purchases
-                        </>
-                      )}
-                    </Badge>
-                  </td>
-                  <td className="py-3.5 px-4 text-right">
-                    <Button asChild variant="ghost" size="sm" className="h-8 px-2.5 text-xs">
-                      <Link href={`/purchasing-centers/${c.purchasing_center_id}/reports/daily?date=${businessDate}`}>
-                        View Report <ChevronRight className="h-3.5 w-3.5 ml-1" />
-                      </Link>
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={columns}
+          data={centers}
+          isLoading={isLoading}
+          isError={isError}
+          errorMessage="Failed to load center monitoring data."
+          onRetry={refetch}
+        />
       </AnalyticsPanel>
     </div>
   );

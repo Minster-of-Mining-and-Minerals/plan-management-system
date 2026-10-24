@@ -4,34 +4,36 @@ import { useState, useMemo } from "react";
 import {
   Scale,
   Plus,
-  Search,
-  CheckCircle2,
-  XCircle,
   Edit,
-  Trash2,
-  Layers,
-  ArrowRight,
-  Filter,
-  RefreshCw,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import Loading01 from "@/features/template/component/Loading/Loading01";
+import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
+import { TableLayout } from "@/features/template/component/tableList/TableLayout";
+import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { ColumnDef } from "@tanstack/react-table";
+import type { ActionButton, FilterField } from "@/types/tableLayout";
+import { useSearchParams } from "next/navigation";
+import {
+  matchesActiveInactiveFilter,
+  matchesSearchQuery,
+} from "@/utils/tableUtils";
 
 import {
   useGetProductionItemsQuery,
   useCreateProductionItemMutation,
   useUpdateProductionItemMutation,
-  useDeleteProductionItemMutation,
   useGetMeasurementUnitsQuery,
 } from "@/redux/api/productionApi";
 import type { ProductionItem } from "@/redux/types/production";
 
 export function ProductionItemsView() {
-  const [search, setSearch] = useState("");
+  const searchParams = useSearchParams();
+  const searchQuery = searchParams.get("search") || "";
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ProductionItem | null>(null);
 
@@ -45,11 +47,10 @@ export function ProductionItemsView() {
   const [selectedUnits, setSelectedUnits] = useState<Record<string, { factor: string; isDefault: boolean }>>({});
   const [formError, setFormError] = useState("");
 
-  const { data: items = [], isLoading, refetch } = useGetProductionItemsQuery();
+  const { data: items = [], isLoading, isError, refetch } = useGetProductionItemsQuery();
   const { data: units = [] } = useGetMeasurementUnitsQuery();
   const [createItem, { isLoading: isCreating }] = useCreateProductionItemMutation();
   const [updateItem, { isLoading: isUpdating }] = useUpdateProductionItemMutation();
-  const [deleteItem] = useDeleteProductionItemMutation();
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -61,18 +62,12 @@ export function ProductionItemsView() {
 
   const filteredItems = useMemo(() => {
     return items.filter((i) => {
-      const matchesSearch =
-        !search.trim() ||
-        i.name.toLowerCase().includes(search.toLowerCase()) ||
-        i.code.toLowerCase().includes(search.toLowerCase()) ||
-        (i.category && i.category.toLowerCase().includes(search.toLowerCase()));
-
-      const matchesCat =
-        selectedCategory === "all" || i.category === selectedCategory;
-
-      return matchesSearch && matchesCat;
+      if (!matchesActiveInactiveFilter(statusFilter, i.is_active)) return false;
+      const matchesCat = selectedCategory === "all" || i.category === selectedCategory;
+      if (!matchesCat) return false;
+      return matchesSearchQuery(searchQuery, [i.name, i.code, i.category || "", i.description || ""]);
     });
-  }, [items, search, selectedCategory]);
+  }, [items, searchQuery, selectedCategory, statusFilter]);
 
   const handleOpenCreate = () => {
     setEditingItem(null);
@@ -157,7 +152,6 @@ export function ProductionItemsView() {
       is_default: uId === defaultUnitId,
     }));
 
-    // Ensure base unit is included
     if (!supportedUnitsPayload.some((u) => u.unit_id === baseUnitId)) {
       supportedUnitsPayload.unshift({
         unit_id: baseUnitId,
@@ -208,192 +202,190 @@ export function ProductionItemsView() {
     }
   };
 
-  if (isLoading) {
-    return <Loading01 />;
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-800 via-emerald-800 to-cyan-900 p-6 text-white shadow-xl">
-        <div className="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="rounded-md bg-white/20 p-2 backdrop-blur-sm">
-                <Scale className="h-6 w-6 text-white" />
-              </span>
-              <h1 className="text-2xl font-bold tracking-tight">Production Item Registry</h1>
-            </div>
-            <p className="mt-1 text-sm text-teal-100">
-              Configure minerals, ores, and production commodities with compatible measurement units.
-            </p>
+  const columns: ColumnDef<ProductionItem>[] = [
+    {
+      accessorKey: "name",
+      header: "Item Name",
+      cell: ({ row }) => (
+        <div>
+          <div className="font-semibold text-foreground flex items-center gap-2">
+            <Scale className="h-4 w-4 text-teal-600 shrink-0" />
+            <span>{row.original.name}</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-muted text-muted-foreground">
+              {row.original.code}
+            </span>
           </div>
-          <Button
-            onClick={handleOpenCreate}
-            className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white shadow-md font-medium"
-          >
-            <Plus className="h-4 w-4" />
-            Add Production Item
-          </Button>
-        </div>
-      </div>
-
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border bg-card p-4 shadow-sm">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search items by name, code, or category..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-          >
-            <option value="all">All Categories</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-          <Button variant="ghost" size="icon" onClick={() => refetch()} title="Refresh list">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Items Table / Cards */}
-      {filteredItems.length === 0 ? (
-        <div className="rounded-xl border border-dashed p-12 text-center bg-card/50">
-          <Scale className="mx-auto h-12 w-12 text-muted-foreground/40 mb-3" />
-          <h3 className="text-lg font-semibold">No production items found</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {search || selectedCategory !== "all"
-              ? "Try adjusting your search query or category filter."
-              : "Create your first production item to configure company reporting."}
-          </p>
-          {!search && (
-            <Button onClick={handleOpenCreate} className="mt-4 bg-teal-600 hover:bg-teal-700 text-white">
-              <Plus className="h-4 w-4 mr-1.5" />
-              Add First Item
-            </Button>
+          {row.original.description && (
+            <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+              {row.original.description}
+            </p>
           )}
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredItems.map((item) => (
-            <div
-              key={item.production_item_id}
-              className={`rounded-xl border bg-card p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between ${
-                !item.is_active ? "opacity-70 bg-muted/40" : ""
-              }`}
-            >
-              <div>
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <div>
-                    <h3 className="font-semibold text-lg text-foreground flex items-center gap-2">
-                      {item.name}
-                      <span className="text-xs px-2 py-0.5 rounded font-mono bg-muted text-muted-foreground">
-                        {item.code}
-                      </span>
-                    </h3>
-                    {item.category && (
-                      <span className="inline-block mt-1 text-xs font-medium px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
-                        {item.category}
-                      </span>
-                    )}
-                  </div>
-                  <Badge variant={item.is_active ? "default" : "secondary"}>
-                    {item.is_active ? "Active" : "Inactive"}
-                  </Badge>
-                </div>
-
-                {item.description && (
-                  <p className="text-sm text-muted-foreground line-clamp-2 mt-2 mb-4">
-                    {item.description}
-                  </p>
-                )}
-
-                <div className="mt-4 pt-3 border-t space-y-2 text-xs">
-                  <div className="flex justify-between items-center text-muted-foreground">
-                    <span>Base Unit:</span>
-                    <span className="font-semibold text-foreground">
-                      {item.baseUnit?.name || "Standard"} ({item.baseUnit?.symbol || item.baseUnit?.code})
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-muted-foreground">
-                    <span>Default Reporting Unit:</span>
-                    <span className="font-semibold text-foreground">
-                      {item.defaultReportingUnit?.name || item.baseUnit?.name || "Standard"}
-                    </span>
-                  </div>
-
-                  <div className="pt-2">
-                    <span className="text-muted-foreground block mb-1.5 font-medium">
-                      Supported Units & Conversions:
-                    </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {item.supportedUnits && item.supportedUnits.length > 0 ? (
-                        item.supportedUnits.map((su) => (
-                          <span
-                            key={su.item_unit_id}
-                            className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs border ${
-                              su.is_default
-                                ? "bg-emerald-50 border-emerald-300 text-emerald-800 dark:bg-emerald-950 dark:border-emerald-800 dark:text-emerald-300"
-                                : "bg-muted/60 border-border text-foreground"
-                            }`}
-                            title={`1 ${su.measurementUnit?.symbol || su.measurementUnit?.name} = ${su.conversion_factor_to_base} ${item.baseUnit?.symbol}`}
-                          >
-                            <span className="font-semibold">
-                              {su.measurementUnit?.name || su.measurementUnit?.symbol}
-                            </span>
-                            <span className="text-[10px] opacity-75">
-                              ({su.conversion_factor_to_base}x)
-                            </span>
-                            {su.is_default && <span className="text-[10px] font-bold">★</span>}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-muted-foreground text-xs italic">
-                          Base unit only ({item.baseUnit?.symbol})
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-5 pt-3 border-t flex items-center justify-between gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleToggleActive(item)}
-                  className="text-xs"
-                >
-                  {item.is_active ? "Deactivate" : "Activate"}
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => handleOpenEdit(item)}
-                  className="text-xs flex items-center gap-1"
-                >
-                  <Edit className="h-3.5 w-3.5" />
-                  Edit Item
-                </Button>
-              </div>
-            </div>
-          ))}
+      ),
+    },
+    {
+      accessorKey: "category",
+      header: "Category",
+      cell: ({ row }) =>
+        row.original.category ? (
+          <Badge
+            variant="outline"
+            className="text-xs bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300 border-teal-200 dark:border-teal-800"
+          >
+            {row.original.category}
+          </Badge>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        ),
+    },
+    {
+      id: "baseUnit",
+      header: "Base Unit",
+      cell: ({ row }) => (
+        <div className="text-xs font-medium text-foreground">
+          {row.original.baseUnit?.name || "Standard"}{" "}
+          <span className="text-muted-foreground">
+            ({row.original.baseUnit?.symbol || row.original.baseUnit?.code || ""})
+          </span>
         </div>
-      )}
+      ),
+    },
+    {
+      id: "defaultReportingUnit",
+      header: "Default Reporting Unit",
+      cell: ({ row }) => (
+        <div className="text-xs font-medium text-foreground">
+          {row.original.defaultReportingUnit?.name || row.original.baseUnit?.name || "Standard"}{" "}
+          <span className="text-muted-foreground">
+            ({row.original.defaultReportingUnit?.symbol || row.original.baseUnit?.symbol || ""})
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: "supportedUnits",
+      header: "Supported Units & Conversions",
+      cell: ({ row }) => {
+        const supported = row.original.supportedUnits || [];
+        if (supported.length === 0) {
+          return (
+            <span className="text-xs text-muted-foreground italic">
+              Base unit only ({row.original.baseUnit?.symbol || ""})
+            </span>
+          );
+        }
+        return (
+          <div className="flex flex-wrap gap-1 max-w-xs">
+            {supported.map((su) => (
+              <span
+                key={su.item_unit_id}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] border bg-muted/40"
+                title={`1 ${su.measurementUnit?.name} = ${su.conversion_factor_to_base} base`}
+              >
+                <span className="font-medium text-foreground">
+                  {su.measurementUnit?.symbol || su.measurementUnit?.name}
+                </span>
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  ({su.conversion_factor_to_base}x)
+                </span>
+                {su.is_default && <span className="text-[10px] text-amber-500 font-bold">★</span>}
+              </span>
+            ))}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "is_active",
+      header: "Status",
+      cell: ({ row }) => <ActiveStatusBadge isActive={row.original.is_active} />,
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1 justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleOpenEdit(row.original)}
+            className="h-8 px-2 text-xs flex items-center gap-1"
+          >
+            <Edit className="h-3.5 w-3.5" />
+            Edit
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleToggleActive(row.original)}
+            className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+          >
+            {row.original.is_active ? "Deactivate" : "Activate"}
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
+  const filters: FilterField[] = [
+    {
+      key: "status",
+      label: "Status",
+      type: "multiselect",
+      placeholder: "Select status",
+      value: statusFilter,
+      onChange: setStatusFilter,
+      options: [
+        { label: "Active", value: "active" },
+        { label: "Inactive", value: "inactive" },
+      ],
+    },
+    ...(categories.length > 0
+      ? [
+          {
+            key: "category",
+            label: "Category",
+            type: "select" as const,
+            placeholder: "All Categories",
+            value: selectedCategory,
+            onChange: setSelectedCategory,
+            options: [
+              { label: "All Categories", value: "all" },
+              ...categories.map((c) => ({ label: c, value: c })),
+            ],
+          },
+        ]
+      : []),
+  ];
+
+  const actions: ActionButton[] = [
+    {
+      label: "Add Production Item",
+      icon: <Plus className="h-4 w-4" />,
+      variant: "default",
+      onClick: handleOpenCreate,
+    },
+  ];
+
+  return (
+    <>
+      <TableLayout
+        title="Production Item Registry"
+        description="Configure minerals, ores, and production commodities with compatible measurement units."
+        actions={actions}
+        filters={filters}
+        filterColumnsPerRow={categories.length > 0 ? 2 : 1}
+      >
+        <DataTable
+          columns={columns}
+          data={filteredItems}
+          isLoading={isLoading}
+          isError={isError}
+          errorMessage="Failed to load production items."
+          onRetry={refetch}
+          resetKey={`${searchQuery}-${statusFilter}-${selectedCategory}`}
+        />
+      </TableLayout>
 
       {/* Create / Edit Dialog Modal */}
       {isModalOpen && (
@@ -572,6 +564,6 @@ export function ProductionItemsView() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
