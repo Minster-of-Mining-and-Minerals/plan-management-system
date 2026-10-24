@@ -677,23 +677,16 @@ export function PlanAmendmentWorkspace({
 
 
       {subTab === "target_reallocation" ? (
-
-        <TargetReallocationRequestTable
-
-          draftId={liveDraftId}
-
-          sideActions={sideActions}
-
-          actions={actions}
-
-          onViewRequest={(id) =>
-
-            setDetail({ kind: "target_reallocation", id })
-
-          }
-
-        />
-
+        <div data-testid="target-reallocation-section">
+          <TargetReallocationRequestTable
+            draftId={liveDraftId}
+            sideActions={sideActions}
+            actions={actions}
+            onViewRequest={(id) =>
+              setDetail({ kind: "target_reallocation", id })
+            }
+          />
+        </div>
       ) : subTab === "annual_target_revision" ? (
 
         <AnnualTargetRevisionRequestTable

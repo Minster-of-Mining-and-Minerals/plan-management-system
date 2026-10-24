@@ -7,12 +7,14 @@ import {
   Shield,
   Key,
   Paintbrush,
+  Layers,
+  type LucideIcon,
 } from "lucide-react";
 
 export type NavItem = {
   title: string;
   url: string;
-  icon: any;
+  icon: LucideIcon;
   anyPermissions?: PermissionKey[];
   allPermissions?: PermissionKey[];
   onlyPermissions?: PermissionKey[];
@@ -25,6 +27,63 @@ export const COMPANY_NAVIGATION: NavItem[] = [
     url: "/company/dashboard",
     icon: LayoutDashboard,
     anyPermissions: ["COMPANY_DASHBOARD:VIEW"],
+  },
+  {
+    title: "Plan Management",
+    url: "/company/plans",
+    icon: Layers,
+    anyPermissions: [
+      "COMPANY_PLANS:READ",
+      "COMPANY_PLANS:MANAGE",
+      "COMPANIES:READ",
+      "COMPANIES:MANAGE",
+    ],
+    children: [
+      {
+        title: "All Plans",
+        url: "/company/plans",
+        icon: Layers,
+        anyPermissions: [
+          "COMPANY_PLANS:READ",
+          "COMPANY_PLANS:MANAGE",
+          "COMPANIES:READ",
+          "COMPANIES:MANAGE",
+        ],
+      },
+      {
+        title: "Plan Dashboard",
+        url: "/company/plans/dashboard",
+        icon: LayoutDashboard,
+        anyPermissions: [
+          "COMPANY_PLANS:READ",
+          "COMPANY_PLANS:MANAGE",
+          "COMPANIES:READ",
+          "COMPANIES:MANAGE",
+        ],
+      },
+      {
+        title: "Plan Rules",
+        url: "/company/plans/rules",
+        icon: Shield,
+        anyPermissions: [
+          "COMPANY_PLAN_RULES:READ",
+          "COMPANY_PLANS:UPDATE",
+          "COMPANY_PLANS:MANAGE",
+          "COMPANIES:MANAGE",
+        ],
+      },
+      {
+        title: "Configuration",
+        url: "/company/plans/configuration",
+        icon: Paintbrush,
+        anyPermissions: [
+          "COMPANY_PLANNING_CONFIG:READ",
+          "COMPANY_PLANS:READ",
+          "COMPANY_PLANS:MANAGE",
+          "COMPANIES:MANAGE",
+        ],
+      },
+    ],
   },
   {
     title: "Departments",

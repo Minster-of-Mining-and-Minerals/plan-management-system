@@ -197,6 +197,12 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/regional", anyPermissions: ["REGIONAL_DASHBOARD:VIEW", "REGIONAL_STRUCTURES:READ", "REGIONAL_USERS:READ", "REGIONAL_BRANDING:READ"] },
 
   // Dynamic Company Workspace
+  { pattern: "/companies/[id]/plans/configuration", anyPermissions: ["COMPANY_PLANNING_CONFIG:READ", "COMPANY_PLANNING_CONFIG:UPDATE", "COMPANY_PLANS:MANAGE"] },
+  { pattern: "/companies/[id]/plans/rules", anyPermissions: ["COMPANY_PLAN_RULES:READ", "COMPANY_PLAN_RULES:CREATE", "COMPANY_PLAN_RULES:UPDATE", "COMPANY_PLAN_RULES:DELETE"] },
+  { pattern: "/companies/[id]/plans/dashboard", anyPermissions: ["COMPANY_PLANS:READ", "COMPANY_DASHBOARD:VIEW"] },
+  { pattern: "/companies/[id]/plans/[versionId]/hierarchy", anyPermissions: ["COMPANY_PLANS:READ", "COMPANY_PLANS:MANAGE"] },
+  { pattern: "/companies/[id]/plans/[versionId]", anyPermissions: ["COMPANY_PLANS:READ", "COMPANY_PLANS:MANAGE"] },
+  { pattern: "/companies/[id]/plans", anyPermissions: ["COMPANY_PLANS:READ", "COMPANY_PLANS:MANAGE"] },
   { pattern: "/companies/[id]/departments", anyPermissions: ["COMPANY_STRUCTURES:READ", "COMPANY_STRUCTURES:MANAGE"] },
   { pattern: "/companies/[id]/users/roles/new", anyPermissions: ["COMPANY_ROLES:CREATE", "COMPANY_ROLES:MANAGE"] },
   { pattern: "/companies/[id]/users/roles/[roleId]", anyPermissions: ["COMPANY_ROLES:READ", "COMPANY_ROLES:MANAGE"] },
@@ -209,6 +215,19 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/companies/[id]/users", anyPermissions: ["COMPANY_USERS:READ", "COMPANY_USERS:MANAGE"] },
   { pattern: "/companies/[id]/settings", anyPermissions: ["COMPANY_BRANDING:READ", "COMPANY_BRANDING:MANAGE"] },
   { pattern: "/companies/[id]", anyPermissions: ["COMPANY_DASHBOARD:VIEW", "COMPANIES:READ"] },
+
+  // Company Workspace fallback aliases
+  { pattern: "/company/plans/configuration", anyPermissions: ["COMPANY_PLANNING_CONFIG:READ", "COMPANY_PLANNING_CONFIG:UPDATE", "COMPANY_PLANS:MANAGE"] },
+  { pattern: "/company/plans/rules", anyPermissions: ["COMPANY_PLAN_RULES:READ", "COMPANY_PLAN_RULES:CREATE", "COMPANY_PLAN_RULES:UPDATE", "COMPANY_PLAN_RULES:DELETE"] },
+  { pattern: "/company/plans/dashboard", anyPermissions: ["COMPANY_PLANS:READ", "COMPANY_DASHBOARD:VIEW"] },
+  { pattern: "/company/plans/[versionId]/hierarchy", anyPermissions: ["COMPANY_PLANS:READ", "COMPANY_PLANS:MANAGE"] },
+  { pattern: "/company/plans/[versionId]", anyPermissions: ["COMPANY_PLANS:READ", "COMPANY_PLANS:MANAGE"] },
+  { pattern: "/company/plans", anyPermissions: ["COMPANY_PLANS:READ", "COMPANY_PLANS:MANAGE"] },
+  { pattern: "/company/dashboard", anyPermissions: ["COMPANY_DASHBOARD:VIEW", "COMPANIES:READ"] },
+  { pattern: "/company/departments", anyPermissions: ["COMPANY_STRUCTURES:READ", "COMPANY_STRUCTURES:MANAGE"] },
+  { pattern: "/company/users", anyPermissions: ["COMPANY_USERS:READ", "COMPANY_USERS:MANAGE"] },
+  { pattern: "/company/settings", anyPermissions: ["COMPANY_BRANDING:READ", "COMPANY_BRANDING:MANAGE"] },
+  { pattern: "/company", anyPermissions: ["COMPANY_DASHBOARD:VIEW", "COMPANIES:READ"] },
 
   // Dynamic Purchasing Center Workspace (strictly NO departments!)
   { pattern: "/purchasing-centers/[id]/purchases/new", anyPermissions: ["GOLD_PURCHASES:CREATE", "GOLD_PURCHASES:MANAGE"] },

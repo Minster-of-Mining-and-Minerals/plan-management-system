@@ -950,7 +950,11 @@ function assertCompanyAccessible(req, companyId, requiredAction = "read") {
     perms.includes(`company_roles:${actionLower}`) ||
     perms.includes("company_roles:manage") ||
     perms.includes(`company_permission_groups:${actionLower}`) ||
-    perms.includes("company_permission_groups:manage");
+    perms.includes("company_permission_groups:manage") ||
+    perms.includes(`company_plans:${actionLower}`) ||
+    perms.includes("company_plans:manage") ||
+    perms.includes(`company_plan_rules:${actionLower}`) ||
+    perms.includes(`company_planning_config:${actionLower}`);
 
   if (!hasExplicitCompanyPerm) {
     const error = new Error("Access denied: federal account lacks company management permission.");

@@ -50,7 +50,7 @@ const docsSource = fs.readFileSync(
 const frontendSectionSource = fs.readFileSync(
   path.join(
     root,
-    "../frontend/src/features/plan-management/components/TargetReallocationSection.tsx"
+    "../frontend/src/features/plan-management/components/PlanAmendmentWorkspace.tsx"
   ),
   "utf8"
 );

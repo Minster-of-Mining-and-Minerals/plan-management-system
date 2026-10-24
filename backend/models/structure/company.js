@@ -44,6 +44,25 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "company_id",
         as: "goldPurchases",
       });
+
+      // 📋 Planning Lifecycle & Rules
+      Company.hasOne(models.CompanyPlanningConfiguration, {
+        foreignKey: "company_id",
+        as: "planningConfiguration",
+        onDelete: "CASCADE",
+      });
+
+      Company.hasMany(models.CompanyPlanRule, {
+        foreignKey: "company_id",
+        as: "planRules",
+        onDelete: "CASCADE",
+      });
+
+      Company.hasMany(models.CompanyPlanVersion, {
+        foreignKey: "company_id",
+        as: "planVersions",
+        onDelete: "CASCADE",
+      });
     }
   }
 
