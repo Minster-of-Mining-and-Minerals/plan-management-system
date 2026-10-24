@@ -39,6 +39,13 @@ const purchasingCenterRoutes = require("./routers/structure/purchasingCenterRout
 const purchasingCenterBrandingRoutes = require("./routers/config/purchasingCenterBrandingRoutes");
 const purchasingCenterOperationalRoutes = require("./routers/structure/purchasingCenterOperationalRoutes");
 
+// Gold Purchasing & Operations Routes
+const goldMeasurementUnitRoutes = require("./routers/gold/goldMeasurementUnitRoutes");
+const asmMinerRoutes = require("./routers/gold/asmMinerRoutes");
+const goldPurchaseRoutes = require("./routers/gold/goldPurchaseRoutes");
+const goldDailyReportRoutes = require("./routers/gold/goldDailyReportRoutes");
+const goldOversightRoutes = require("./routers/gold/goldOversightRoutes");
+
 // Plan Management Routes
 const planRoutes = require("./routers/plan/planRoutes");
 const planAssignmentRoutes = require("./routers/plan/planAssignmentRoutes");
@@ -169,6 +176,13 @@ app.use("/api/company", companyOperationalRoutes);
 app.use("/api/purchasing-centers", purchasingCenterRoutes);
 app.use("/api/purchasing-center-branding", purchasingCenterBrandingRoutes);
 app.use("/api/purchasing-center", purchasingCenterOperationalRoutes);
+
+// Gold Purchasing Operations & Oversight Routes
+app.use("/api/gold/units", goldMeasurementUnitRoutes);
+app.use("/api/gold/asm", asmMinerRoutes);
+app.use("/api/gold/purchases", goldPurchaseRoutes);
+app.use("/api/gold/reports", goldDailyReportRoutes);
+app.use("/api/gold", goldOversightRoutes);
 
 // Plan Management Routes
 app.use("/api/plan", planRoutes);

@@ -38,6 +38,12 @@ module.exports = (sequelize, DataTypes) => {
         as: "permissionGroups",
         onDelete: "CASCADE",
       });
+
+      // 🥇 A company can be a gold seller in gold purchase records
+      Company.hasMany(models.GoldPurchase, {
+        foreignKey: "company_id",
+        as: "goldPurchases",
+      });
     }
   }
 

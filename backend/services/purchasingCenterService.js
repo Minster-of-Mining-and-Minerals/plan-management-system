@@ -1,10 +1,13 @@
 "use strict";
-
 const { Op } = require("sequelize");
+const bcrypt = require("bcrypt");
+const { v4: uuidv4 } = require("uuid");
 const {
   PurchasingCenter,
   PurchasingCenterBrandingSetting,
   User,
+  Role,
+  UserRoles,
   sequelize,
 } = require("../models");
 
@@ -96,7 +99,16 @@ async function getPurchasingCenterById(purchasingCenterId) {
 }
 
 async function createPurchasingCenter(payload) {
-  const { name, code, description, logo_path } = payload;
+  const {
+    name,
+    code,
+    description,
+    logo_path,
+    admin_full_name,
+    admin_email,
+    admin_phone_number,
+    admin_role_id,
+  } = payload;
 
   if (!name || !name.trim()) {
     const error = new Error("Purchasing Center name is required.");
@@ -132,6 +144,20 @@ async function createPurchasingCenter(payload) {
     throw error;
   }
 
+  // Pre-validate administrator email if provided
+  const hasAdminCreation = Boolean(admin_full_name?.trim() && admin_email?.trim());
+  if (hasAdminCreation) {
+    const trimmedEmail = admin_email.trim().toLowerCase();
+    const existingUser = await User.findOne({
+      where: { email: { [Op.iLike]: trimmedEmail } },
+    });
+    if (existingUser) {
+      const error = new Error("A user account with this administrator email already exists.");
+      error.status = 409;
+      throw error;
+    }
+  }
+
   const t = await sequelize.transaction();
   try {
     const createdCenter = await PurchasingCenter.create(
@@ -160,6 +186,67 @@ async function createPurchasingCenter(payload) {
       },
       { transaction: t }
     );
+
+    // Create Initial Administrator Account (Strictly department-free domain)
+    if (hasAdminCreation) {
+      const password = "12345678";
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const adminUser = await User.create(
+        {
+          user_id: uuidv4(),
+          full_name: admin_full_name.trim(),
+          email: admin_email.trim().toLowerCase(),
+          password: hashedPassword,
+          phone_number: admin_phone_number?.trim() || null,
+          is_first_logged_in: true,
+          is_active: true,
+          government_structure_id: null,
+          internal_structure_id: null,
+          region_id: null,
+          regional_structure_id: null,
+          company_id: null,
+          company_structure_id: null,
+          purchasing_center_id: createdCenter.purchasing_center_id,
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
+        { transaction: t }
+      );
+
+      // Find Purchasing Center Administrator role
+      let roleToAssign = null;
+      if (admin_role_id) {
+        roleToAssign = await Role.findByPk(admin_role_id, { transaction: t });
+      }
+      if (!roleToAssign) {
+        roleToAssign = await Role.findOne({
+          where: {
+            is_active: true,
+            [Op.or]: [
+              { role_id: "40000000-0000-4000-8000-000000000001" },
+              { name: { [Op.iLike]: "%Purchasing Center Admin%" } },
+              { scope: "purchasing_center" },
+            ],
+          },
+          order: [["created_at", "ASC"]],
+          transaction: t,
+        });
+      }
+
+      if (roleToAssign) {
+        await UserRoles.create(
+          {
+            user_role_id: uuidv4(),
+            user_id: adminUser.user_id,
+            role_id: roleToAssign.role_id,
+            assigned_at: new Date(),
+            is_active: true,
+          },
+          { transaction: t }
+        );
+      }
+    }
 
     await t.commit();
     return getPurchasingCenterById(createdCenter.purchasing_center_id);

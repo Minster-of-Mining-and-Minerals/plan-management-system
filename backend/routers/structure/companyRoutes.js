@@ -41,6 +41,10 @@ const authorizeCompanyRead = (req, res, next) => {
     });
   }
 
+  if (req.user?.is_purchasing_center) {
+    return next();
+  }
+
   if (req.user?.is_regional) {
     return res.status(403).json({
       success: false,
@@ -58,6 +62,10 @@ const authorizeCompanyList = (req, res, next) => {
   }
 
   if (req.user?.is_company) {
+    return next();
+  }
+
+  if (req.user?.is_purchasing_center) {
     return next();
   }
 

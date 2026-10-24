@@ -11,12 +11,14 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useGetGovernmentStructuresQuery } from "@/redux/api/governmentStructureApi";
 import { useGetRegionsQuery } from "@/redux/api/regionApi";
 import { useGetCompaniesQuery } from "@/redux/api/companyApi";
+import { useGetPurchasingCentersQuery } from "@/redux/api/purchasingCenterApi";
 import { GovernmentStructure } from "@/redux/types/governmentStructure";
 import { buildSectorTree } from "@/utils/buildSectorTree";
 import { useGovernmentStructureListParams } from "@/hooks/useGovernmentStructureListParams";
 import { NavStructures } from "./nav-structures";
 import { NavRegions } from "./nav-regions";
 import { NavCompanies } from "./nav-companies";
+import { NavPurchasingCenters } from "./nav-purchasing-centers";
 import { useSession } from "next-auth/react";
 import { useBranding } from "@/providers/BrandingProvider";
 import {
@@ -128,6 +130,17 @@ export function AppSidebar() {
     }
   );
 
+  const canAccessPurchasingCenters = visibleNav.some(
+    (item) => item.url === "/admin/purchasing-centers"
+  );
+  const { data: purchasingCentersData } = useGetPurchasingCentersQuery(
+    { is_active: true },
+    {
+      skip: !isAuthReady || !canAccessPurchasingCenters,
+      refetchOnMountOrArgChange: true,
+    }
+  );
+
   return (
     <Sidebar collapsible="icon" variant="floating" className="hide-scrollbar">
       {/* ---------- HEADER ---------- */}
@@ -169,7 +182,9 @@ export function AppSidebar() {
                 const isGovStructures = item.url === "/government-structures";
                 const isRegions = item.url === "/admin/regions";
                 const isCompanies = item.url === "/admin/companies";
-                const hasDynamicChildren = isGovStructures || isRegions || isCompanies;
+                const isPurchasingCenters = item.url === "/admin/purchasing-centers";
+                const hasDynamicChildren =
+                  isGovStructures || isRegions || isCompanies || isPurchasingCenters;
                 const childUrls = item.children?.map((child) => child.url) ?? [];
 
                 if (hasConfigChildren || hasDynamicChildren) {
@@ -267,6 +282,11 @@ export function AppSidebar() {
                           ) : isCompanies ? (
                             <NavCompanies
                               companies={companiesData || []}
+                              basePath={item.url}
+                            />
+                          ) : isPurchasingCenters ? (
+                            <NavPurchasingCenters
+                              centers={purchasingCentersData || []}
                               basePath={item.url}
                             />
                           ) : null}

@@ -58,6 +58,10 @@ export interface CreatePurchasingCenterPayload {
   code: string;
   description?: string;
   logo_path?: string;
+  admin_full_name?: string;
+  admin_email?: string;
+  admin_phone_number?: string;
+  admin_role_id?: string;
 }
 
 export interface UpdatePurchasingCenterPayload {

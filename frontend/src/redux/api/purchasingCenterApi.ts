@@ -45,7 +45,10 @@ export const purchasingCenterApi = baseApi.injectEndpoints({
         body,
       }),
       transformResponse: (res: { data: PurchasingCenter }) => res.data,
-      invalidatesTags: [{ type: "PurchasingCenters", id: "LIST" }],
+      invalidatesTags: [
+        { type: "PurchasingCenters", id: "LIST" },
+        { type: "User", id: "LIST" },
+      ],
     }),
 
     updatePurchasingCenter: builder.mutation<

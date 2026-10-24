@@ -1,8 +1,12 @@
+"use client";
+
 import { useState, useMemo, useCallback } from "react";
+import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
 import {
+  Building2,
   Users,
   Palette,
   Plus,
@@ -14,27 +18,32 @@ import {
   KeyRound,
   Shield,
   Eye,
+  Power,
   RotateCcw,
-  Paintbrush,
-  Store,
+  Mail,
+  Search,
+  Download,
+  ShieldCheck,
   Info,
-  CheckCircle2,
-  XCircle,
 } from "lucide-react";
 import { PermissionStats as StatsComponent } from "@/features/template/component/permissionList/Stats";
 import { ResourceGroup as ResourceGroupComponent } from "@/features/template/component/permissionList/ResourceGroup";
+import { EmptyState } from "@/features/template/component/permissionList/EmptyState";
+import { PermissionSkeleton } from "@/features/template/component/permissionList/Skeleton";
 import type { Permission } from "@/features/template/types/permission";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { TableLayout } from "@/features/template/component/tableList/TableLayout";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   useGetPurchasingCenterByIdQuery,
@@ -63,34 +72,41 @@ import { getFileUrl } from "@/utils/fileUrl";
 import { cn } from "@/lib/utils";
 import { matchesActiveInactiveFilter } from "@/utils/tableUtils";
 import type { User, Role } from "@/redux/types/user";
+import type { FilterField, ActionButton } from "@/types/tableLayout";
 
-type TabType = "overview" | "users" | "roles" | "permissions" | "branding";
+type TabType = "users" | "roles" | "permissions" | "branding";
 
 export function PurchasingCenterDetail({ centerId }: { centerId: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const searchQuery = searchParams.get("search") || "";
   const tabParam = searchParams.get("tab") as TabType | null;
 
   const [activeTab, setActiveTabState] = useState<TabType>(
-    tabParam && ["overview", "users", "roles", "permissions", "branding"].includes(tabParam)
+    tabParam && ["users", "roles", "permissions", "branding"].includes(tabParam)
       ? tabParam
-      : "overview"
+      : "users"
   );
 
   const setActiveTab = (tab: TabType) => {
     setActiveTabState(tab);
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", tab);
-    router.replace(`/admin/purchasing-centers/${centerId}?${params.toString()}`);
+    router.replace(`?${params.toString()}`, { scroll: false });
   };
+
+  const [userStatusFilter, setUserStatusFilter] = useState<string>("");
+  const [permSearchQuery, setPermSearchQuery] = useState<string>("");
 
   const { can } = usePermissions();
   const { roles: userRoles } = useAuth();
   const isSuperAdmin = userRoles?.some((r) => String(r).toLowerCase() === "super admin");
 
   const canManageCenter = can("PURCHASING_CENTERS:MANAGE") || isSuperAdmin;
-  const canManageUsers = can("PURCHASING_CENTER_USERS:MANAGE") || canManageCenter;
-  const canManageBranding = can("PURCHASING_CENTER_BRANDING:MANAGE") || canManageCenter;
+  const canAddUser = can("PURCHASING_CENTER_USERS:CREATE") || can("PURCHASING_CENTER_USERS:MANAGE") || canManageCenter;
+  const canUpdateUser = can("PURCHASING_CENTER_USERS:UPDATE") || can("PURCHASING_CENTER_USERS:MANAGE") || canManageCenter;
+  const canViewBranding = can("PURCHASING_CENTER_BRANDING:READ") || can("PURCHASING_CENTER_BRANDING:UPDATE") || canManageCenter;
+  const canUpdateBranding = can("PURCHASING_CENTER_BRANDING:UPDATE") || can("PURCHASING_CENTER_BRANDING:MANAGE") || canManageCenter;
 
   // 1. Fetch Purchasing Center Data
   const {
@@ -116,6 +132,7 @@ export function PurchasingCenterDetail({ centerId }: { centerId: string }) {
   // 4. Fetch Center Scoped Permissions
   const {
     data: allPermissionsData = [],
+    isLoading: isPermissionsLoading,
     refetch: refetchPermissions,
   } = useGetPermissionsQuery({ scope: "purchasing_center" });
 
@@ -137,7 +154,6 @@ export function PurchasingCenterDetail({ centerId }: { centerId: string }) {
   const [userEmail, setUserEmail] = useState("");
   const [userPhone, setUserPhone] = useState("");
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
-  const [userStatusFilter] = useState<string>("");
 
   // Branding Form State
   const [systemFullName, setSystemFullName] = useState("");
@@ -215,6 +231,21 @@ export function PurchasingCenterDetail({ centerId }: { centerId: string }) {
     }));
   }, [centerPermissions]);
 
+  const filteredResourceGroups = useMemo(() => {
+    if (!permSearchQuery.trim()) return resourceGroups;
+    const q = permSearchQuery.toLowerCase();
+    return resourceGroups
+      .map((g) => ({
+        ...g,
+        permissions: g.permissions.filter(
+          (p: Permission) =>
+            p.action.toLowerCase().includes(q) ||
+            p.resource.toLowerCase().includes(q)
+        ),
+      }))
+      .filter((g) => g.permissions.length > 0);
+  }, [resourceGroups, permSearchQuery]);
+
   // User handlers (Create & Edit) - Direct purchasing center membership, NO departments!
   const handleOpenUserModal = (user?: User) => {
     if (user) {
@@ -233,7 +264,13 @@ export function PurchasingCenterDetail({ centerId }: { centerId: string }) {
       setUserName("");
       setUserEmail("");
       setUserPhone("");
-      setSelectedRoleIds([]);
+      // Preselect Purchasing Center Administrator role by default
+      const defaultAdmin = roles.find(
+        (r: Role) =>
+          r.role_id === "40000000-0000-4000-8000-000000000001" ||
+          r.name.toLowerCase().includes("admin")
+      );
+      setSelectedRoleIds(defaultAdmin ? [defaultAdmin.role_id] : []);
     }
     setIsUserModalOpen(true);
   };
@@ -271,7 +308,10 @@ export function PurchasingCenterDetail({ centerId }: { centerId: string }) {
       setIsUserModalOpen(false);
       refetchUsers();
     } catch (err: unknown) {
-      const errorMsg = (err as { data?: { message?: string }; message?: string })?.data?.message || (err as Error)?.message || "Failed to save user account.";
+      const errorMsg =
+        (err as { data?: { message?: string }; message?: string })?.data?.message ||
+        (err as Error)?.message ||
+        "Failed to save user account.";
       actionFeedback.error(errorMsg);
     }
   };
@@ -326,117 +366,6 @@ export function PurchasingCenterDetail({ centerId }: { centerId: string }) {
     }
   };
 
-  // User columns - Direct membership, zero departments!
-  const userColumns: ColumnDef<User>[] = [
-    {
-      id: "avatar",
-      header: "",
-      cell: ({ row }) => (
-        <UserAvatar
-          name={row.original.full_name}
-          profileImage={row.original.profile_image}
-        />
-      ),
-    },
-    {
-      accessorKey: "full_name",
-      header: "Full Name",
-      cell: ({ row }) => (
-        <div>
-          <span className="font-medium text-foreground">{row.original.full_name}</span>
-          <p className="text-xs text-muted-foreground">{row.original.email}</p>
-        </div>
-      ),
-    },
-    {
-      accessorKey: "roles",
-      header: "Assigned Roles",
-      cell: ({ row }) => {
-        const uRoles = row.original.roles || [];
-        return (
-          <div className="flex flex-wrap gap-1">
-            {uRoles.length > 0 ? (
-              uRoles.map((r: Role) => (
-                <span
-                  key={r.role_id}
-                  className="px-2 py-0.5 rounded text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 font-medium"
-                >
-                  {r.name}
-                </span>
-              ))
-            ) : (
-              <span className="text-xs text-muted-foreground italic">No roles</span>
-            )}
-          </div>
-        );
-      },
-    },
-    {
-      accessorKey: "phone_number",
-      header: "Phone",
-      cell: ({ row }) => (
-        <span className="text-xs text-muted-foreground">
-          {row.original.phone_number || "—"}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "is_active",
-      header: "Status",
-      cell: ({ row }) => <ActiveStatusBadge isActive={row.original.is_active} />,
-    },
-    {
-      id: "actions",
-      header: "Actions",
-      cell: ({ row }) => {
-        const u = row.original;
-        return (
-          <div className="flex items-center gap-1">
-            {canManageUsers && (
-              <>
-                <Button
-                  onClick={() => handleOpenUserModal(u)}
-                  variant="ghost"
-                  size="icon"
-                  title="Edit Account"
-                  className="h-8 w-8"
-                >
-                  <Edit className="h-4 w-4" />
-                </Button>
-                <Button
-                  onClick={() => handleToggleUser(u)}
-                  variant="ghost"
-                  size="icon"
-                  title={u.is_active ? "Deactivate User" : "Activate User"}
-                  className="h-8 w-8"
-                >
-                  {u.is_active ? (
-                    <XCircle className="h-4 w-4 text-amber-600" />
-                  ) : (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                  )}
-                </Button>
-                <Button
-                  onClick={() => handleResetUserPassword(u)}
-                  variant="ghost"
-                  size="icon"
-                  title="Reset Password"
-                  className="h-8 w-8 text-blue-600"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                </Button>
-              </>
-            )}
-          </div>
-        );
-      },
-    },
-  ];
-
-  const filteredUsers = useMemo(() => {
-    return users.filter((u) => matchesActiveInactiveFilter(userStatusFilter, u.is_active));
-  }, [users, userStatusFilter]);
-
   if (isCenterLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -449,71 +378,112 @@ export function PurchasingCenterDetail({ centerId }: { centerId: string }) {
     return (
       <div className="p-8 text-center space-y-4">
         <ShieldAlert className="h-12 w-12 text-destructive mx-auto" />
-        <h2 className="text-xl font-bold">Purchasing Center Not Found</h2>
+        <h2 className="text-xl font-bold text-destructive">Purchasing Center Not Found</h2>
         <p className="text-muted-foreground text-sm">
-          The requested purchasing center could not be loaded or verified.
+          The requested mineral purchasing center could not be loaded or has been removed.
         </p>
-        <Button onClick={() => router.push("/admin/purchasing-centers")} variant="outline">
-          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Purchasing Centers
+        <Button asChild variant="outline">
+          <Link href="/admin/purchasing-centers">
+            <ArrowLeft className="h-4 w-4 mr-2" /> Back to Purchasing Centers
+          </Link>
         </Button>
       </div>
     );
   }
 
-  const logoUrl = center.logo_path ? getFileUrl(center.logo_path) : null;
-  const activeUsersCount = users.filter((u) => u.is_active).length;
+  const effectiveLogoUrl = (logoPrimaryPath || center.logo_path)
+    ? getFileUrl(logoPrimaryPath || center.logo_path || "")
+    : null;
+
+  // Tabular Tab Actions matching Regional Management pattern exactly
+  const sideActionTabs: ActionButton[] = [
+    {
+      label: "Users",
+      icon: <Users className="h-4 w-4" />,
+      variant: activeTab === "users" ? "default" : "outline",
+      onClick: () => setActiveTab("users"),
+    },
+    {
+      label: "Roles",
+      icon: <KeyRound className="h-4 w-4" />,
+      variant: activeTab === "roles" ? "default" : "outline",
+      onClick: () => setActiveTab("roles"),
+    },
+    {
+      label: "Permissions",
+      icon: <Shield className="h-4 w-4" />,
+      variant: activeTab === "permissions" ? "default" : "outline",
+      onClick: () => setActiveTab("permissions"),
+    },
+    {
+      label: "UI & Configuration",
+      icon: <Palette className="h-4 w-4" />,
+      variant: activeTab === "branding" ? "default" : "outline",
+      onClick: () => setActiveTab("branding"),
+    },
+  ];
 
   return (
     <div className="space-y-6">
-      {/* Top Banner / Breadcrumb & Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-5">
-        <div className="flex items-center gap-4">
-          <Button
-            onClick={() => router.push("/admin/purchasing-centers")}
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 shrink-0"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-
-          <div className="relative h-12 w-12 rounded-xl border border-primary/20 bg-muted/40 p-1 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
-            {logoUrl ? (
+      {/* ===================== HEADER (MATCHING REGIONAL DETAIL EXACTLY) ===================== */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card p-6 rounded-lg border shadow-sm">
+        <div className="flex items-center space-x-4">
+          {effectiveLogoUrl ? (
+            <div className="relative h-16 w-16 rounded-full border-2 border-primary/20 bg-muted/40 p-1 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
               <Image
-                src={logoUrl}
+                src={effectiveLogoUrl}
                 alt={center.name}
-                width={40}
-                height={40}
-                className="max-h-10 w-auto object-contain"
+                width={60}
+                height={60}
+                className="max-h-14 w-auto object-contain"
                 unoptimized
               />
-            ) : (
-              <Store className="h-6 w-6 text-primary" />
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="h-16 w-16 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center shrink-0">
+              <Building2 className="h-8 w-8 text-primary" />
+            </div>
+          )}
 
-          <div>
-            <div className="flex items-center gap-2.5">
+          <div className="space-y-1">
+            {/* Breadcrumb */}
+            <nav className="flex items-center space-x-1 text-xs text-muted-foreground">
+              <Link
+                href="/admin/purchasing-centers"
+                className="hover:text-primary transition-colors flex items-center gap-1"
+              >
+                <ArrowLeft className="h-3 w-3" />
+                Purchasing Centers
+              </Link>
+              <span className="text-gray-300">/</span>
+              <span className="text-foreground font-medium">{center.name}</span>
+            </nav>
+
+            <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold tracking-tight text-foreground">{center.name}</h1>
-              <span className="font-mono text-xs font-bold px-2.5 py-0.5 rounded bg-primary/10 text-primary uppercase">
+              <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-primary/10 text-primary uppercase">
                 {center.code}
               </span>
               <ActiveStatusBadge isActive={center.is_active} />
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Purchasing Center ID: <span className="font-mono">{center.purchasing_center_id}</span> • Registered on{" "}
-              {new Date(center.created_at).toLocaleDateString()}
+
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+              Mineral Purchasing Center Registry • Independent Administrative Domain
             </p>
           </div>
         </div>
 
-        {/* Action to preview independent workspace */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap gap-2 shrink-0">
+          <Button variant="outline" asChild>
+            <Link href="/admin/purchasing-centers" className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              All Purchasing Centers
+            </Link>
+          </Button>
           <Button
             variant="outline"
-            size="sm"
             onClick={() => router.push(`/purchasing-centers/${center.purchasing_center_id}`)}
-            className="gap-2 text-primary border-primary/30 hover:bg-primary/5"
+            className="flex items-center gap-2 text-primary border-primary/30 hover:bg-primary/5"
           >
             <Eye className="h-4 w-4" />
             View Center Workspace
@@ -521,248 +491,263 @@ export function PurchasingCenterDetail({ centerId }: { centerId: string }) {
         </div>
       </div>
 
-      {/* Domain Navigation Tabs - Strictly NO departments tab! */}
-      <div className="border-b border-border">
-        <nav className="flex space-x-6">
-          <button
-            onClick={() => setActiveTab("overview")}
-            className={cn(
-              "py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2",
-              activeTab === "overview"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Info className="h-4 w-4" />
-            Overview
-          </button>
+      {/* ===================== TABULAR TABS (MATCHING REGIONAL TABULAR TABS EXACTLY) ===================== */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-border/60 pb-3">
+        {sideActionTabs.map((tab) => {
+          const tabId =
+            tab.label === "Users"
+              ? "users"
+              : tab.label === "Roles"
+              ? "roles"
+              : tab.label === "Permissions"
+              ? "permissions"
+              : "branding";
+          const isActive = activeTab === tabId;
+          const count =
+            tabId === "users"
+              ? users.length
+              : tabId === "roles"
+              ? roles.length
+              : tabId === "permissions"
+              ? centerPermissions.length
+              : undefined;
 
-          <button
-            onClick={() => setActiveTab("users")}
-            className={cn(
-              "py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2",
-              activeTab === "users"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Users className="h-4 w-4" />
-            Accounts ({users.length})
-          </button>
-
-          <button
-            onClick={() => setActiveTab("roles")}
-            className={cn(
-              "py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2",
-              activeTab === "roles"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Shield className="h-4 w-4" />
-            Roles
-          </button>
-
-          <button
-            onClick={() => setActiveTab("permissions")}
-            className={cn(
-              "py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2",
-              activeTab === "permissions"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <KeyRound className="h-4 w-4" />
-            Permissions ({centerPermissions.length})
-          </button>
-
-          <button
-            onClick={() => setActiveTab("branding")}
-            className={cn(
-              "py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2",
-              activeTab === "branding"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Paintbrush className="h-4 w-4" />
-            Branding & Settings
-          </button>
-        </nav>
+          return (
+            <Button
+              key={tabId}
+              type="button"
+              variant={isActive ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveTab(tabId as TabType)}
+              className={cn(
+                "flex items-center gap-2 transition-all font-medium",
+                isActive
+                  ? "shadow-xs"
+                  : "hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {tab.icon}
+              <span>{tab.label}</span>
+              {count !== undefined && (
+                <span
+                  className={cn(
+                    "ml-1 px-1.5 py-0.2 rounded-full text-xs font-semibold",
+                    isActive
+                      ? "bg-primary-foreground/20 text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {count}
+                </span>
+              )}
+            </Button>
+          );
+        })}
       </div>
 
-      {/* TAB CONTENT: 1. OVERVIEW */}
-      {activeTab === "overview" && (
-        <div className="space-y-6">
-          {/* Quick Metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
+      {/* ===================== TAB 1: USERS (MATCHING REGIONAL USERS EXACTLY, STRICTLY NO DEPT) ===================== */}
+      {activeTab === "users" && (() => {
+        const handleExportUsers = () => {
+          const headers = ["Full Name", "Email", "Phone", "Assigned Roles", "Status"];
+          const rows = filteredUsers.map((u: User) => [
+            `"${(u.full_name || "").replace(/"/g, '""')}"`,
+            `"${(u.email || "").replace(/"/g, '""')}"`,
+            `"${(u.phone_number || "").replace(/"/g, '""')}"`,
+            `"${(u.roles?.map((r: Role) => r.name).join(", ") || "No role").replace(/"/g, '""')}"`,
+            u.is_active ? "Active" : "Inactive",
+          ]);
+          const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+          const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${center.code}-users-${new Date().toISOString().slice(0, 10)}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          actionFeedback.success("Purchasing center accounts list exported successfully.");
+        };
+
+        const userColumns: ColumnDef<User>[] = [
+          {
+            accessorKey: "full_name",
+            header: "User",
+            cell: ({ row }) => {
+              const u = row.original;
+              return (
+                <div className="flex items-center gap-3">
+                  <UserAvatar name={u.full_name} className="h-9 w-9 shrink-0" />
                   <div>
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-                      Total Accounts
-                    </p>
-                    <h3 className="text-2xl font-bold mt-1 text-foreground">{users.length}</h3>
-                  </div>
-                  <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/50 flex items-center justify-center">
-                    <Users className="h-5 w-5" />
+                    <div className="font-medium text-foreground">{u.full_name}</div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Mail className="h-3 w-3" />
+                      {u.email}
+                    </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-                      Active Accounts
-                    </p>
-                    <h3 className="text-2xl font-bold mt-1 text-emerald-600">{activeUsersCount}</h3>
-                  </div>
-                  <div className="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 flex items-center justify-center">
-                    <CheckCircle2 className="h-5 w-5" />
-                  </div>
+              );
+            },
+          },
+          {
+            accessorKey: "roles",
+            header: "Assigned Roles",
+            cell: ({ row }) => {
+              const userRolesList = row.original.roles || [];
+              if (userRolesList.length === 0) {
+                return <span className="text-xs text-muted-foreground italic">No role</span>;
+              }
+              return (
+                <div className="flex flex-wrap gap-1">
+                  {userRolesList.map((r: Role) => (
+                    <span
+                      key={r.role_id}
+                      className="font-mono text-[10px] font-semibold px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20"
+                    >
+                      {r.name}
+                    </span>
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-                      Center Status
-                    </p>
-                    <h3 className="text-lg font-bold mt-1 text-foreground">
-                      {center.is_active ? "Operational" : "Deactivated"}
-                    </h3>
-                  </div>
-                  <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                    <Store className="h-5 w-5" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-                      Custom Branding
-                    </p>
-                    <h3 className="text-lg font-bold mt-1 text-foreground">
-                      {brandingData ? "Configured" : "Default"}
-                    </h3>
-                  </div>
-                  <div className="h-10 w-10 rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950/50 flex items-center justify-center">
-                    <Palette className="h-5 w-5" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Details & Architecture Invariant Notice */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Center Profile & Identification</CardTitle>
-                <CardDescription>
-                  Identity specifications used across procurement and reporting domains.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <div className="flex justify-between py-1.5 border-b">
-                  <span className="text-muted-foreground">Official Name</span>
-                  <span className="font-medium text-foreground">{center.name}</span>
-                </div>
-                <div className="flex justify-between py-1.5 border-b">
-                  <span className="text-muted-foreground">Center Code</span>
-                  <span className="font-mono font-bold text-primary">{center.code}</span>
-                </div>
-                <div className="flex justify-between py-1.5 border-b">
-                  <span className="text-muted-foreground">Operational Status</span>
-                  <ActiveStatusBadge isActive={center.is_active} />
-                </div>
-                <div className="flex justify-between py-1.5 border-b">
-                  <span className="text-muted-foreground">Description</span>
-                  <span className="font-medium text-foreground max-w-xs text-right">
-                    {center.description || "N/A"}
-                  </span>
-                </div>
-                <div className="flex justify-between py-1.5">
-                  <span className="text-muted-foreground">Registration Timestamp</span>
-                  <span className="text-foreground">{new Date(center.created_at).toLocaleString()}</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/20 dark:bg-emerald-950/10">
-              <CardHeader>
-                <CardTitle className="text-base text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
-                  <Store className="h-5 w-5 text-emerald-600" />
-                  Direct Membership Model (No Departments)
-                </CardTitle>
-                <CardDescription>
-                  Purchasing Center Domain Architecture Rules
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm text-muted-foreground">
-                <p>
-                  • Purchasing centers operate on a flat organizational structure:{" "}
-                  <strong className="text-foreground">Purchasing Center → Users</strong>.
-                </p>
-                <p>
-                  • Accounts belong directly to this center without intermediate departments or hierarchies.
-                </p>
-                <p>
-                  • Strict database and authorization constraints ensure purchasing center accounts never cross domain boundaries or receive external assignments.
-                </p>
-                <div className="pt-2">
+              );
+            },
+          },
+          {
+            accessorKey: "phone_number",
+            header: "Phone",
+            cell: ({ row }) => (
+              <span className="text-xs text-muted-foreground">
+                {row.original.phone_number || "—"}
+              </span>
+            ),
+          },
+          {
+            accessorKey: "is_active",
+            header: "Status",
+            cell: ({ row }) => <ActiveStatusBadge isActive={row.original.is_active} />,
+          },
+          {
+            id: "actions",
+            header: () => <div className="text-right">Actions</div>,
+            cell: ({ row }) => {
+              const u = row.original;
+              return (
+                <div className="flex items-center justify-end gap-1">
                   <Button
-                    onClick={() => setActiveTab("users")}
-                    variant="outline"
-                    size="sm"
-                    className="border-emerald-300 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100/50"
+                    variant="ghost"
+                    size="icon"
+                    title="View User Details"
+                    onClick={() => router.push(`/users/list/${u.user_id}`)}
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
                   >
-                    Manage Center Accounts ({users.length})
+                    <Eye className="h-4 w-4" />
                   </Button>
+                  {canUpdateUser && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Edit Purchasing Center User"
+                        onClick={() => handleOpenUserModal(u)}
+                        className="h-8 w-8 text-primary hover:text-primary"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title={u.is_active ? "Deactivate User" : "Activate User"}
+                        onClick={() => handleToggleUser(u)}
+                        className="h-8 w-8"
+                      >
+                        <Power
+                          className={`h-4 w-4 ${
+                            u.is_active ? "text-emerald-600" : "text-muted-foreground"
+                          }`}
+                        />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Reset Password"
+                        onClick={() => handleResetUserPassword(u)}
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                      </Button>
+                    </>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
+              );
+            },
+          },
+        ];
+
+        const userFilters: FilterField[] = [
+          {
+            key: "status",
+            label: "Status",
+            type: "multiselect",
+            placeholder: "Select status",
+            value: userStatusFilter,
+            onChange: setUserStatusFilter,
+            options: [
+              { label: "Active", value: "active" },
+              { label: "Inactive", value: "inactive" },
+            ],
+          },
+        ];
+
+        const userActions: ActionButton[] = [
+          {
+            label: "Export",
+            icon: <Download className="h-4 w-4" />,
+            variant: "outline",
+            onClick: handleExportUsers,
+          },
+          ...(canAddUser
+            ? [
+                {
+                  label: "Create Center Account",
+                  icon: <Plus className="h-4 w-4" />,
+                  variant: "default" as const,
+                  onClick: () => handleOpenUserModal(),
+                },
+              ]
+            : []),
+        ];
+
+        const filteredUsers = users.filter((u: User) => {
+          const matchesStatus = matchesActiveInactiveFilter(userStatusFilter, u.is_active);
+          const matchesSearch =
+            !searchQuery ||
+            (u.full_name && u.full_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            (u.email && u.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            (u.phone_number && u.phone_number.toLowerCase().includes(searchQuery.toLowerCase()));
+          return matchesStatus && matchesSearch;
+        });
+
+        return (
+          <div className="space-y-4">
+            <TableLayout
+              title="Purchasing Center Staff Accounts"
+              description={`Authorized staff user accounts assigned directly to ${center.name} without department hierarchy.`}
+              actions={userActions}
+              filters={userFilters}
+              filterColumnsPerRow={2}
+              showSearch={true}
+            >
+              <DataTable
+                columns={userColumns}
+                data={filteredUsers}
+                isLoading={isUsersLoading}
+                resetKey={`${searchQuery}-${userStatusFilter}`}
+              />
+            </TableLayout>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
-      {/* TAB CONTENT: 2. USERS (DIRECT MEMBERSHIP, ZERO DEPARTMENTS) */}
-      {activeTab === "users" && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <div>
-              <h2 className="text-lg font-bold">Purchasing Center User Accounts</h2>
-              <p className="text-xs text-muted-foreground">
-                Authorized staff accounts assigned directly to this purchasing center.
-              </p>
-            </div>
-            {canManageUsers && (
-              <Button onClick={() => handleOpenUserModal()} size="sm" className="gap-2">
-                <Plus className="h-4 w-4" /> Add Account
-              </Button>
-            )}
-          </div>
-
-          <DataTable
-            columns={userColumns}
-            data={filteredUsers}
-            isLoading={isUsersLoading}
-          />
-        </div>
-      )}
-
-      {/* TAB CONTENT: 3. ROLES */}
+      {/* ===================== TAB 2: ROLES ===================== */}
       {activeTab === "roles" && (
         <div className="space-y-4">
           <PurchasingCenterRoleList
@@ -772,164 +757,319 @@ export function PurchasingCenterDetail({ centerId }: { centerId: string }) {
         </div>
       )}
 
-      {/* TAB CONTENT: 4. PERMISSIONS */}
+      {/* ===================== TAB 3: PERMISSIONS (MATCHING REGIONAL PERMISSIONS EXACTLY) ===================== */}
       {activeTab === "permissions" && (
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
+          {/* Informational Banner */}
+          <div className="flex items-start gap-3 rounded-lg border border-indigo-200 bg-indigo-50/70 dark:bg-indigo-950/30 dark:border-indigo-900/50 p-4 text-xs text-indigo-900 dark:text-indigo-200">
+            <Info className="h-4 w-4 shrink-0 mt-0.5 text-indigo-600 dark:text-indigo-400" />
             <div>
-              <h2 className="text-lg font-bold">Purchasing Center Permissions Catalog</h2>
-              <p className="text-xs text-muted-foreground">
-                Independent authorization capabilities scoped strictly to the purchasing center domain.
+              <p className="font-semibold text-indigo-950 dark:text-indigo-100">
+                Purchasing Center Operational Permissions
+              </p>
+              <p className="mt-0.5 text-indigo-800/90 dark:text-indigo-300/80">
+                These permissions control authority strictly inside mineral purchasing centers, including
+                purchasing center dashboards, staff account administration, center roles, and
+                custom branding. Decoupled and strictly isolated from regional and federal departments.
               </p>
             </div>
           </div>
 
+          {/* Statistics matching common permissions list page */}
           <StatsComponent stats={permissionStats} />
 
-          <div className="space-y-4">
-            {resourceGroups.map((group) => (
-              <ResourceGroupComponent
-                key={group.resource}
-                group={{
-                  resource: group.resource,
-                  icon: <Shield className="h-4 w-4" />,
-                  permissions: group.permissions,
-                  isExpanded: expandedResource === group.resource,
-                  activeCount: group.activeCount,
-                  totalCount: group.permissions.length,
-                }}
-                onToggleExpand={toggleResourceExpand}
-                onToggle={handleTogglePermission}
-                isToggling={isTogglingPermission}
-              />
-            ))}
+          {/* Permissions Accordion / Grid matching regional permissions list */}
+          <div className="w-full bg-white dark:bg-card border border-border rounded-lg shadow-sm">
+            <div className="p-6 border-b">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-primary flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-indigo-600" />
+                    Purchasing Center Permissions Catalog
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {centerPermissions.length} total permissions • {permissionStats.active} active •{" "}
+                    {permissionStats.inactive} inactive
+                  </p>
+                </div>
+                <div className="relative w-full md:w-auto">
+                  <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Search center permissions..."
+                    value={permSearchQuery}
+                    onChange={(e) => setPermSearchQuery(e.target.value)}
+                    className="h-11 w-full rounded-lg border border-input py-2 pl-10 pr-4 text-sm text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary md:w-72"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="p-6">
+              {isPermissionsLoading ? (
+                <PermissionSkeleton />
+              ) : filteredResourceGroups.length === 0 ? (
+                <EmptyState
+                  title="No permissions found"
+                  description={
+                    permSearchQuery
+                      ? "Try adjusting your search criteria."
+                      : "No purchasing center permissions configured."
+                  }
+                  action={
+                    permSearchQuery ? (
+                      <Button variant="outline" onClick={() => setPermSearchQuery("")}>
+                        Clear search
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                  {filteredResourceGroups.map((group) => (
+                    <ResourceGroupComponent
+                      key={group.resource}
+                      group={{
+                        resource: group.resource,
+                        icon: <Shield className="h-4 w-4" />,
+                        permissions: group.permissions,
+                        isExpanded: expandedResource === group.resource,
+                        activeCount: group.activeCount,
+                        totalCount: group.permissions.length,
+                      }}
+                      onToggle={handleTogglePermission}
+                      isToggling={isTogglingPermission}
+                      onToggleExpand={toggleResourceExpand}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
 
-      {/* TAB CONTENT: 5. BRANDING & SETTINGS */}
+      {/* ===================== TAB 4: UI CONFIGURATION & BRANDING (MATCHING REGIONAL UI EXACTLY) ===================== */}
       {activeTab === "branding" && (
-        <Card className="max-w-3xl">
-          <CardHeader>
-            <CardTitle>Purchasing Center Branding & Settings</CardTitle>
-            <CardDescription>
-              Customize system names, colors, and official logos for this center&apos;s independent workspace.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSaveBranding} className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Full System Name</label>
-                  <Input
-                    value={systemFullName}
-                    onChange={(e) => setSystemFullName(e.target.value)}
-                    placeholder={center.name}
-                  />
-                  <span className="text-xs text-muted-foreground">Displayed on login and workspace headers.</span>
-                </div>
+        <div className="space-y-6">
+          {!canViewBranding ? (
+            <Card className="border border-destructive/20 p-8 text-center bg-destructive/5">
+              <ShieldAlert className="h-10 w-10 text-destructive mx-auto mb-2" />
+              <h3 className="font-semibold text-foreground">Permission Required</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                You do not have permission to view or configure purchasing center branding settings.
+              </p>
+            </Card>
+          ) : (
+            <div className="grid gap-6 lg:grid-cols-3">
+              {/* Branding Settings Form */}
+              <div className="lg:col-span-2 space-y-4">
+                <Card className="border shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <Palette className="h-5 w-5 text-primary" />
+                      System Identity & UI Configuration
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Configure custom branding, official center emblem/logo, and theme colors for {center.name}.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleSaveBranding} className="space-y-5">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-foreground">Full System Name</label>
+                          <Input
+                            value={systemFullName}
+                            onChange={(e) => setSystemFullName(e.target.value)}
+                            placeholder="e.g. Shakiso Gold Purchasing Center PMS"
+                            disabled={!canUpdateBranding}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-foreground">Short Name / Initials</label>
+                          <Input
+                            value={systemShortName}
+                            onChange={(e) => setSystemShortName(e.target.value)}
+                            placeholder="e.g. PC-SHAKISO"
+                            disabled={!canUpdateBranding}
+                            required
+                          />
+                        </div>
+                      </div>
 
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Short Name / Code</label>
-                  <Input
-                    value={systemShortName}
-                    onChange={(e) => setSystemShortName(e.target.value)}
-                    placeholder={center.code}
-                  />
-                  <span className="text-xs text-muted-foreground">Used in badges and compact layouts.</span>
-                </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-foreground">System Tagline</label>
+                        <Input
+                          value={systemTagline}
+                          onChange={(e) => setSystemTagline(e.target.value)}
+                          placeholder="e.g. Mineral Procurement & Inventory Management"
+                          disabled={!canUpdateBranding}
+                        />
+                      </div>
+
+                      {/* File Upload for Purchasing Center Logo */}
+                      <div className="space-y-1.5">
+                        <LogoUploadField
+                          label="Official Purchasing Center Logo"
+                          value={logoPrimaryPath || ""}
+                          onChange={(val) => setLogoPrimaryPath(val || null)}
+                          disabled={!canUpdateBranding}
+                          successMessage="Center logo uploaded successfully"
+                          errorMessage="Failed to upload center logo"
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          Upload PNG, JPG, WEBP, or SVG emblem for {center.name}. This logo represents the purchasing center across headers and procurement documents.
+                        </p>
+                      </div>
+
+                      {/* Color Palette Controls */}
+                      <div className="grid gap-4 sm:grid-cols-3 pt-2">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-foreground">Primary Color</label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={primaryColor}
+                              onChange={(e) => setPrimaryColor(e.target.value)}
+                              disabled={!canUpdateBranding}
+                              className="h-9 w-12 rounded cursor-pointer border"
+                            />
+                            <Input
+                              value={primaryColor}
+                              onChange={(e) => setPrimaryColor(e.target.value)}
+                              disabled={!canUpdateBranding}
+                              className="font-mono text-xs uppercase"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-foreground">Secondary Color</label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={secondaryColor}
+                              onChange={(e) => setSecondaryColor(e.target.value)}
+                              disabled={!canUpdateBranding}
+                              className="h-9 w-12 rounded cursor-pointer border"
+                            />
+                            <Input
+                              value={secondaryColor}
+                              onChange={(e) => setSecondaryColor(e.target.value)}
+                              disabled={!canUpdateBranding}
+                              className="font-mono text-xs uppercase"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-foreground">Accent Color</label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={accentColor}
+                              onChange={(e) => setAccentColor(e.target.value)}
+                              disabled={!canUpdateBranding}
+                              className="h-9 w-12 rounded cursor-pointer border"
+                            />
+                            <Input
+                              value={accentColor}
+                              onChange={(e) => setAccentColor(e.target.value)}
+                              disabled={!canUpdateBranding}
+                              className="font-mono text-xs uppercase"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {canUpdateBranding && (
+                        <div className="pt-4 flex justify-end">
+                          <Button type="submit" disabled={isUpdatingBranding} className="gap-2">
+                            {isUpdatingBranding ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Save className="h-4 w-4" />
+                            )}
+                            {isUpdatingBranding ? "Saving Settings..." : "Save UI Configuration"}
+                          </Button>
+                        </div>
+                      )}
+                    </form>
+                  </CardContent>
+                </Card>
               </div>
 
-              <div>
-                <label className="text-sm font-medium mb-1 block">Tagline / Motto</label>
-                <Input
-                  value={systemTagline}
-                  onChange={(e) => setSystemTagline(e.target.value)}
-                  placeholder="Official tagline for this purchasing center"
-                />
+              {/* Live Theme Preview */}
+              <div className="space-y-4">
+                <Card className="overflow-hidden border shadow-sm">
+                  <CardHeader className="bg-muted/40 pb-3">
+                    <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                      <Palette className="h-4 w-4 text-primary" />
+                      Live Brand Preview
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 space-y-4">
+                    {/* Simulated Header Banner */}
+                    <div
+                      style={{ backgroundColor: primaryColor }}
+                      className="p-3 rounded-md text-white flex items-center justify-between shadow-sm"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        {logoPrimaryPath ? (
+                          <div className="h-7 w-7 rounded bg-white/20 p-0.5 shrink-0 overflow-hidden flex items-center justify-center">
+                            <Image
+                              src={getFileUrl(logoPrimaryPath)}
+                              alt="Logo preview"
+                              width={24}
+                              height={24}
+                              className="max-h-6 w-auto object-contain"
+                              unoptimized
+                            />
+                          </div>
+                        ) : (
+                          <Building2 className="h-5 w-5 shrink-0 opacity-80" />
+                        )}
+                        <span className="font-bold text-sm truncate">{systemShortName || center.code}</span>
+                      </div>
+                      <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded font-mono shrink-0">
+                        Active
+                      </span>
+                    </div>
+
+                    {/* Simulated Card Preview */}
+                    <div className="border rounded-md p-3 space-y-2 bg-card">
+                      <div className="h-2 w-16 rounded" style={{ backgroundColor: secondaryColor }} />
+                      <div className="h-3 w-3/4 rounded bg-muted" />
+                      <div className="h-2 w-1/2 rounded bg-muted/60" />
+                      <div className="pt-2 flex justify-end">
+                        <button
+                          type="button"
+                          style={{ backgroundColor: accentColor }}
+                          className="px-2.5 py-1 text-[11px] font-semibold text-white rounded shadow-xs"
+                        >
+                          Accent Button
+                        </button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Primary Color</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={primaryColor}
-                      onChange={(e) => setPrimaryColor(e.target.value)}
-                      className="h-10 w-12 rounded border cursor-pointer"
-                    />
-                    <Input
-                      value={primaryColor}
-                      onChange={(e) => setPrimaryColor(e.target.value)}
-                      className="font-mono text-xs uppercase"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Secondary Color</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={secondaryColor}
-                      onChange={(e) => setSecondaryColor(e.target.value)}
-                      className="h-10 w-12 rounded border cursor-pointer"
-                    />
-                    <Input
-                      value={secondaryColor}
-                      onChange={(e) => setSecondaryColor(e.target.value)}
-                      className="font-mono text-xs uppercase"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Accent Color</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={accentColor}
-                      onChange={(e) => setAccentColor(e.target.value)}
-                      className="h-10 w-12 rounded border cursor-pointer"
-                    />
-                    <Input
-                      value={accentColor}
-                      onChange={(e) => setAccentColor(e.target.value)}
-                      className="font-mono text-xs uppercase"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <LogoUploadField
-                  label="Official Center Logo / Emblem"
-                  value={logoPrimaryPath || ""}
-                  onChange={(val) => setLogoPrimaryPath(val || "")}
-                />
-              </div>
-
-              {canManageBranding && (
-                <div className="pt-4 flex justify-end">
-                  <Button type="submit" disabled={isUpdatingBranding} className="gap-2">
-                    <Save className="h-4 w-4" />
-                    {isUpdatingBranding ? "Saving..." : "Save Branding Settings"}
-                  </Button>
-                </div>
-              )}
-            </form>
-          </CardContent>
-        </Card>
+            </div>
+          )}
+        </div>
       )}
 
-      {/* Direct User Create / Edit Dialog - STRICTLY NO DEPARTMENT SELECTOR! */}
+      {/* ================= USER MODAL (DIRECT PURCHASING CENTER MEMBERSHIP, NO DEPARTMENTS!) ================= */}
       <Dialog open={isUserModalOpen} onOpenChange={setIsUserModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
               {editingUser ? "Edit Purchasing Center Account" : "Add Purchasing Center Account"}
             </DialogTitle>
+            <DialogDescription>
+              {center.name} • Directly assigned staff account without departments.
+            </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSaveUser} className="space-y-4 pt-2">
@@ -988,7 +1128,7 @@ export function PurchasingCenterDetail({ centerId }: { centerId: string }) {
                               setSelectedRoleIds(selectedRoleIds.filter((id) => id !== role.role_id));
                             }
                           }}
-                          className="rounded border-gray-300"
+                          className="rounded border-gray-300 h-4 w-4"
                         />
                         <span className="font-medium text-foreground">{role.name}</span>
                       </label>
@@ -998,6 +1138,16 @@ export function PurchasingCenterDetail({ centerId }: { centerId: string }) {
                   <p className="text-xs text-muted-foreground p-1">No roles available for this center.</p>
                 )}
               </div>
+            </div>
+
+            <div className="rounded-lg bg-emerald-50/60 border border-emerald-200/80 p-3 text-xs text-emerald-800 dark:bg-emerald-950/20 dark:border-emerald-800/40 dark:text-emerald-300">
+              <p className="font-semibold flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                Department-Free Invariant Verified
+              </p>
+              <p className="text-[11px] opacity-90 mt-0.5">
+                Purchasing centers operate on a flat organizational structure. Accounts belong directly to this center without department hierarchy.
+              </p>
             </div>
 
             <DialogFooter className="pt-2">

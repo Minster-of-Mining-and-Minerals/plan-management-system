@@ -201,18 +201,18 @@ export default function PurchasingCenterRoleList({
     },
   ];
 
-  const defaultActions: ActionButton[] = [
-    ...((can("PURCHASING_CENTER_ROLES:CREATE") || can("PURCHASING_CENTER_ROLES:MANAGE") || isSuperAdmin) && !readOnly
-      ? [
-          {
-            label: "Create Center Role",
-            icon: <Plus className="h-4 w-4" />,
-            onClick: () => router.push(newRolePath),
-          },
-        ]
-      : []),
-    ...(sideActions || []),
-  ];
+  const canCreate = (can("PURCHASING_CENTER_ROLES:CREATE") || can("PURCHASING_CENTER_ROLES:MANAGE") || isSuperAdmin) && !readOnly;
+
+  const actions: ActionButton[] = canCreate
+    ? [
+        {
+          label: "New Center Role",
+          icon: <Plus className="h-4 w-4" />,
+          variant: "default",
+          onClick: () => router.push(newRolePath),
+        },
+      ]
+    : [];
 
   if (hideLayout) {
     return (
@@ -229,12 +229,16 @@ export default function PurchasingCenterRoleList({
       title="Purchasing Center Roles"
       description="Manage role definitions and authorization profiles scoped strictly to this purchasing center."
       filters={filters}
-      actions={defaultActions}
+      filterColumnsPerRow={2}
+      actions={actions}
+      sideActions={sideActions}
+      showSearch={true}
     >
       <DataTable
         columns={columns}
         data={filteredData}
         isLoading={isLoading}
+        resetKey={`${searchQuery}-${statusFilter}`}
       />
     </TableLayout>
   );

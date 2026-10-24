@@ -1,36 +1,39 @@
 "use client";
 
+import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { Link } from "@/i18n/navigation";
-import { useSearchParams, useRouter, useParams } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import Image from "next/image";
 import {
   Users,
-  ShieldCheck,
-  Paintbrush,
   Store,
   ArrowRight,
-  UserCheck,
-  CheckCircle2,
-  Shield,
   Activity,
-  ShoppingCart,
+  Coins,
+  Scale,
+  Calendar,
+  FileCheck2,
+  HardHat,
+  Building2,
   TrendingUp,
-  Truck,
   Clock,
+  PlusCircle,
+  FileText,
+  CheckCircle2,
+  AlertCircle,
+  ShieldCheck,
+  ChevronRight,
+  DollarSign,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
 import { useBranding } from "@/providers/BrandingProvider";
 import { usePermissions } from "@/hooks/usePermissions";
-import {
-  useGetPurchasingCenterDashboardQuery,
-  useGetPurchasingCenterRolesQuery,
-} from "@/redux/api/purchasingCenterApi";
+import { useGetPurchasingCenterDashboardQuery } from "@/redux/api/purchasingCenterApi";
+import { useGetGoldCenterDashboardQuery } from "@/redux/api/goldApi";
 import Loading01 from "@/features/template/component/Loading/Loading01";
-
-// Shared dashboard presentation components
 import { KpiCard } from "@/features/plan-management/dashboard/components/KpiCard";
 import {
   AnalyticsPanel,
@@ -38,70 +41,60 @@ import {
 } from "@/features/plan-management/dashboard/components/AnalyticsPanel";
 import { useDashboardAppearance } from "@/features/plan-management/dashboard/hooks/useDashboardAppearance";
 
-type DashboardTab = "overview" | "procurement-preview" | "suppliers-preview";
-
 export function PurchasingCenterDashboardView() {
   const { data: session } = useSession();
   const { branding, logoPrimaryUrl } = useBranding();
   const { can } = usePermissions();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const params = useParams<{ id?: string }>();
 
   const { tone } = useDashboardAppearance();
   const primaryTone = tone("primary");
 
-  const sessionUser = session?.user as (Record<string, unknown> & { purchasing_center_id?: string; name?: string; email?: string }) | undefined;
+  const sessionUser = session?.user as
+    | (Record<string, unknown> & {
+        purchasing_center_id?: string;
+        name?: string;
+        email?: string;
+      })
+    | undefined;
   const activeCenterId = params?.id || sessionUser?.purchasing_center_id;
-  const basePath = activeCenterId ? `/purchasing-centers/${activeCenterId}` : "/purchasing-center";
+  const basePath = activeCenterId
+    ? `/purchasing-centers/${activeCenterId}`
+    : "/purchasing-center";
 
-  const requestedTab = searchParams.get("tab") as DashboardTab | null;
-  const activeTab: DashboardTab =
-    requestedTab === "procurement-preview"
-      ? "procurement-preview"
-      : requestedTab === "suppliers-preview"
-      ? "suppliers-preview"
-      : "overview";
-
-  const setActiveTab = (tab: DashboardTab) => {
-    const p = new URLSearchParams(searchParams.toString());
-    if (tab === "overview") {
-      p.delete("tab");
-    } else {
-      p.set("tab", tab);
-    }
-    const query = p.toString();
-    router.push(query ? `${basePath}?${query}` : basePath);
-  };
-
-  // 1. Fetch live purchasing center dashboard summary
+  // 1. Fetch purchasing center base metadata & user counts
   const {
-    data: dashboardData,
-    isLoading: isDashboardLoading,
+    data: baseData,
+    isLoading: isBaseLoading,
   } = useGetPurchasingCenterDashboardQuery(
     activeCenterId ? { purchasing_center_id: activeCenterId } : undefined
   );
 
-  // 2. Fetch center scoped roles
-  const { data: roles = [] } = useGetPurchasingCenterRolesQuery();
+  // 2. Fetch live gold purchasing dashboard aggregates
+  const {
+    data: goldData,
+    isLoading: isGoldLoading,
+  } = useGetGoldCenterDashboardQuery(
+    activeCenterId ? { purchasing_center_id: activeCenterId } : undefined
+  );
 
-  const counts = dashboardData?.counts;
-  const centerInfo = dashboardData?.purchasing_center;
-  const recentUsers = dashboardData?.recent_users || [];
-
-  if (isDashboardLoading) {
+  if (isBaseLoading || isGoldLoading) {
     return <Loading01 />;
   }
 
-  const totalUsers = counts?.users.total || 0;
-  const activeUsers = counts?.users.active || 0;
-  const inactiveUsers = counts?.users.inactive || 0;
+  const centerInfo = baseData?.purchasing_center || goldData?.purchasing_center;
+  const userCounts = baseData?.counts?.users;
+  const today = goldData?.today;
+  const period = goldData?.period_summary;
+  const recentPurchases = goldData?.recent_purchases || [];
+  const dailyTrends = goldData?.daily_trends || [];
 
   return (
-    <div className="space-y-6">
-      {/* ----------------- HEADER & WELCOME SECTION ----------------- */}
+    <div className="space-y-8">
+      {/* ----------------- HEADER & WELCOME HERO ----------------- */}
       <div
-        className="rounded-2xl p-6 sm:p-8 border shadow-sm relative overflow-hidden transition-all duration-300"
+        className="rounded-3xl p-6 sm:p-8 border shadow-sm relative overflow-hidden transition-all duration-300"
         style={{
           background: primaryTone.gradientBackground,
           borderColor: primaryTone.borderColor,
@@ -109,7 +102,7 @@ export function PurchasingCenterDashboardView() {
       >
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
           <div className="flex items-start gap-4">
-            <div className="h-16 w-16 rounded-2xl bg-background/90 border border-border shadow-md flex items-center justify-center p-2 shrink-0">
+            <div className="h-16 w-16 rounded-2xl bg-background/95 border border-border shadow-md flex items-center justify-center p-2 shrink-0">
               {logoPrimaryUrl ? (
                 <Image
                   src={logoPrimaryUrl}
@@ -120,56 +113,50 @@ export function PurchasingCenterDashboardView() {
                   unoptimized
                 />
               ) : (
-                <Store className="h-8 w-8 text-primary" />
+                <Coins className="h-8 w-8 text-amber-500" />
               )}
             </div>
 
             <div className="space-y-1">
               <div className="flex items-center gap-2.5 flex-wrap">
                 <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-                  {centerInfo?.name || "Purchasing Center Workspace"}
+                  {centerInfo?.name || "Gold Purchasing Center"}
                 </h1>
                 <Badge
                   variant="outline"
                   className="font-mono text-xs font-semibold uppercase bg-background/80"
-                  style={{ borderColor: primaryTone.borderColor, color: primaryTone.color }}
+                  style={{
+                    borderColor: primaryTone.borderColor,
+                    color: primaryTone.color,
+                  }}
                 >
                   {centerInfo?.code || "PC"}
                 </Badge>
                 {centerInfo && <ActiveStatusBadge isActive={centerInfo.is_active} />}
               </div>
               <p className="text-sm text-muted-foreground max-w-2xl leading-relaxed">
-                {branding.system_tagline ||
-                  "Independent Mineral Purchasing Operations & Administrative Workspace."}
+                {centerInfo?.description ||
+                  branding.system_tagline ||
+                  "Operational Gold Purchasing Registry, Dynamic Unit Measurement, and Daily Reporting."}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap shrink-0">
-            {can("PURCHASING_CENTER_USERS:READ") && (
-              <Button
-                asChild
-                variant="outline"
-                size="sm"
-                className="gap-2 bg-background/80 backdrop-blur-sm border-border hover:bg-background shadow-xs text-foreground"
-              >
-                <Link href={`${basePath}/users`}>
-                  <Users className="h-4 w-4 text-primary" />
-                  Staff Accounts
+            {can("GOLD_PURCHASES:CREATE") && (
+              <Button asChild size="default" className="gap-2 shadow-sm font-semibold">
+                <Link href={`${basePath}/purchases/new`}>
+                  <PlusCircle className="h-4 w-4" />
+                  Record Purchase
                 </Link>
               </Button>
             )}
 
-            {can("PURCHASING_CENTER_BRANDING:READ") && (
-              <Button
-                asChild
-                variant="outline"
-                size="sm"
-                className="gap-2 bg-background/80 backdrop-blur-sm border-border hover:bg-background shadow-xs text-foreground"
-              >
-                <Link href={`${basePath}/settings`}>
-                  <Paintbrush className="h-4 w-4 text-amber-600" />
-                  Branding & Theme
+            {can("GOLD_REPORTS:READ") && (
+              <Button asChild variant="outline" size="default" className="gap-2 bg-background/80 backdrop-blur-sm">
+                <Link href={`${basePath}/reports/daily`}>
+                  <Calendar className="h-4 w-4 text-emerald-600" />
+                  Today's Report
                 </Link>
               </Button>
             )}
@@ -183,273 +170,359 @@ export function PurchasingCenterDashboardView() {
         />
       </div>
 
-      {/* ----------------- SUBNAV TABS ----------------- */}
-      <div className="flex items-center gap-2 border-b border-border pb-2 overflow-x-auto">
-        <Button
-          variant={activeTab === "overview" ? "default" : "ghost"}
-          size="sm"
-          onClick={() => setActiveTab("overview")}
-          className="gap-2 text-xs font-medium"
-        >
-          <Activity className="h-3.5 w-3.5" />
-          Center Overview & Accounts
-        </Button>
-        <Button
-          variant={activeTab === "procurement-preview" ? "default" : "ghost"}
-          size="sm"
-          onClick={() => setActiveTab("procurement-preview")}
-          className="gap-2 text-xs font-medium"
-        >
-          <ShoppingCart className="h-3.5 w-3.5" />
-          Procurement Operations
-          <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 font-semibold border border-amber-500/20">
-            Preview
-          </span>
-        </Button>
-        <Button
-          variant={activeTab === "suppliers-preview" ? "default" : "ghost"}
-          size="sm"
-          onClick={() => setActiveTab("suppliers-preview")}
-          className="gap-2 text-xs font-medium"
-        >
-          <Truck className="h-3.5 w-3.5" />
-          Suppliers & Logistics
-          <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 font-semibold border border-amber-500/20">
-            Preview
-          </span>
-        </Button>
+      {/* ----------------- TODAY'S PURCHASING OPERATIONS ----------------- */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <DashboardSectionHeader
+            title="Today's Purchasing Operations"
+            description={`Live gold purchase volume and daily reporting status for business date: ${today?.business_date || "Today"}`}
+          />
+          <Badge
+            variant={today?.report_status === "submitted" ? "default" : "outline"}
+            className={
+              today?.report_status === "submitted"
+                ? "bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 py-1 px-3 text-xs"
+                : today?.report_status === "unsubmitted"
+                ? "border-amber-500 text-amber-700 dark:text-amber-400 bg-amber-500/10 gap-1.5 py-1 px-3 text-xs"
+                : "border-muted-foreground text-muted-foreground gap-1.5 py-1 px-3 text-xs"
+            }
+          >
+            {today?.report_status === "submitted" ? (
+              <>
+                <CheckCircle2 className="h-3.5 w-3.5" /> Daily Report Submitted
+              </>
+            ) : today?.report_status === "unsubmitted" ? (
+              <>
+                <AlertCircle className="h-3.5 w-3.5" /> Report Pending Submission
+              </>
+            ) : (
+              <>
+                <Clock className="h-3.5 w-3.5" /> No Purchases Today
+              </>
+            )}
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <KpiCard
+            title="Today's Purchases"
+            value={today?.purchases_count?.toLocaleString() || "0"}
+            subtitle="Individual transactions recorded today"
+            icon={Coins}
+            accent="primary"
+          />
+          <KpiCard
+            title="Today's Gold Quantity"
+            value={`${(today?.canonical_quantity || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} g`}
+            subtitle="Canonical weight (grams base)"
+            icon={Scale}
+            accent="success"
+          />
+          <KpiCard
+            title="Today's Total Value"
+            value={`${(today?.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB`}
+            subtitle="Total purchasing payout today"
+            icon={DollarSign}
+            accent="warning"
+          />
+          <KpiCard
+            title="Daily Report Status"
+            value={
+              today?.report_status === "submitted"
+                ? "Submitted"
+                : today?.report_status === "unsubmitted"
+                ? "Pending"
+                : "Ready"
+            }
+            subtitle={
+              today?.submitted_at
+                ? `Submitted at ${new Date(today.submitted_at).toLocaleTimeString()}`
+                : "Eligible purchases dynamically tracked"
+            }
+            icon={FileCheck2}
+            accent={today?.report_status === "submitted" ? "success" : "info"}
+          />
+        </div>
       </div>
 
-      {/* ----------------- TAB 1: OVERVIEW & ACCOUNTS (REAL DATA) ----------------- */}
-      {activeTab === "overview" && (
-        <div className="space-y-6">
-          {/* Key Metric Summary Cards (Backed by real database queries, ZERO departments!) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <KpiCard
-              title="Total Center Accounts"
-              value={totalUsers}
-              subtitle="Direct membership accounts"
-              icon={Users}
-              accent="primary"
-            />
-            <KpiCard
-              title="Active Center Staff"
-              value={activeUsers}
-              subtitle="Authorized operational users"
-              icon={UserCheck}
-              accent="accent"
-            />
-            <KpiCard
-              title="Inactive Accounts"
-              value={inactiveUsers}
-              subtitle="Suspended or pending access"
-              icon={Shield}
-              accent="secondary"
-            />
-            <KpiCard
-              title="Defined Center Roles"
-              value={roles.length}
-              subtitle="Scoped security roles"
-              icon={ShieldCheck}
-              accent="primary"
-            />
-          </div>
+      {/* ----------------- CUMULATIVE PERIOD SUMMARY ----------------- */}
+      <div className="space-y-4">
+        <DashboardSectionHeader
+          title="Cumulative Purchasing Statistics"
+          description="Total gold acquired, canonical weight rollups, and distinct seller attribution"
+        />
 
-          {/* Center Details & Organizational Architecture Banner */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-              <AnalyticsPanel
-                title="Recent Authorized Staff"
-                description="Accounts registered directly under this purchasing center (no departments)"
-                headerAction={
-                  <Button asChild variant="ghost" size="sm" className="gap-1 text-xs">
-                    <Link href={`${basePath}/users`}>
-                      View All <ArrowRight className="h-3.5 w-3.5" />
-                    </Link>
-                  </Button>
-                }
-              >
-                {recentUsers.length > 0 ? (
-                  <div className="divide-y divide-border">
-                    {recentUsers.slice(0, 5).map((u) => (
-                      <div key={u.user_id} className="py-3 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
-                            {u.full_name?.charAt(0).toUpperCase() || "U"}
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-foreground">{u.full_name}</p>
-                            <p className="text-xs text-muted-foreground">{u.email}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {u.roles && u.roles.length > 0 && (
-                            <span className="text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 font-medium">
-                              {u.roles[0].name}
-                            </span>
-                          )}
-                          <ActiveStatusBadge isActive={u.is_active} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="py-12 text-center text-sm text-muted-foreground">
-                    No authorized accounts registered under this center yet.
-                  </div>
-                )}
-              </AnalyticsPanel>
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <KpiCard
+            title="Total Gold Purchases"
+            value={period?.total_purchases?.toLocaleString() || "0"}
+            subtitle="All completed purchasing records"
+            icon={Coins}
+            accent="primary"
+          />
+          <KpiCard
+            title="Total Canonical Gold"
+            value={`${(period?.total_canonical_quantity || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} g`}
+            subtitle="Aggregated standard base unit"
+            icon={Scale}
+            accent="success"
+          />
+          <KpiCard
+            title="Total Purchase Payout"
+            value={`${(period?.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB`}
+            subtitle="Total value disbursed to sellers"
+            icon={TrendingUp}
+            accent="warning"
+          />
+          <KpiCard
+            title="Sellers Served"
+            value={period?.distinct_sellers?.total?.toLocaleString() || "0"}
+            subtitle={`${period?.distinct_sellers?.companies || 0} Companies • ${period?.distinct_sellers?.asm || 0} ASM Miners`}
+            icon={Users}
+            accent="info"
+          />
+        </div>
+      </div>
 
-            {/* Invariant & Scope Notice Card */}
-            <div className="space-y-4">
-              <AnalyticsPanel
-                title="Domain Security Model"
-                description="Direct Purchasing Center Architecture"
-              >
-                <div className="space-y-3 text-xs text-muted-foreground leading-relaxed">
-                  <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-900 dark:text-emerald-200">
-                    <p className="font-semibold text-emerald-800 dark:text-emerald-300 mb-1 flex items-center gap-1.5">
-                      <CheckCircle2 className="h-4 w-4" /> Zero-Department Invariant
+      {/* ----------------- BREAKDOWNS: UNIT BREAKDOWN & SELLER DISTRIBUTION ----------------- */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Unit Breakdown */}
+        <AnalyticsPanel
+          title="Recorded Quantity by Measurement Unit"
+          description="Non-lossy totals displayed per configurable unit"
+          headerAction={
+            <Badge variant="outline" className="text-xs">
+              {period?.unit_breakdown?.length || 0} Unit{period?.unit_breakdown?.length === 1 ? "" : "s"} Used
+            </Badge>
+          }
+        >
+          {period?.unit_breakdown && period.unit_breakdown.length > 0 ? (
+            <div className="divide-y divide-border">
+              {period.unit_breakdown.map((u) => (
+                <div key={u.code} className="py-3 flex items-center justify-between first:pt-0 last:pb-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-xs uppercase">
+                      {u.symbol}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{u.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {u.purchase_count} transaction{u.purchase_count === 1 ? "" : "s"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold font-mono text-foreground">
+                      {u.total_quantity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}{" "}
+                      <span className="text-xs font-normal text-muted-foreground">{u.symbol}</span>
                     </p>
-                    Purchasing-center users belong directly to this center without departmental hierarchies.
-                  </div>
-
-                  <div className="p-3 rounded-lg bg-muted/60 border border-border">
-                    <p className="font-semibold text-foreground mb-1">Domain Exclusivity</p>
-                    Accounts in this center cannot operate simultaneously as federal or regional users.
-                  </div>
-
-                  <div className="p-3 rounded-lg bg-muted/60 border border-border">
-                    <p className="font-semibold text-foreground mb-1">Isolated Workspace</p>
-                    Center branding and administrative configurations apply only within this center&apos;s boundary.
                   </div>
                 </div>
-              </AnalyticsPanel>
+              ))}
+            </div>
+          ) : (
+            <div className="py-8 text-center text-muted-foreground text-sm">
+              No purchase records found for the selected period.
+            </div>
+          )}
+        </AnalyticsPanel>
+
+        {/* Seller Distribution: Company vs ASM */}
+        <AnalyticsPanel
+          title="Seller Sourcing Distribution"
+          description="Gold volume and transaction attribution between Companies and ASM Miners"
+        >
+          <div className="grid grid-cols-2 gap-4">
+            {/* Company Card */}
+            <div className="p-4 rounded-2xl bg-card border border-border space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+                  <Building2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-foreground">Companies</h4>
+                  <p className="text-xs text-muted-foreground">Registered corporate suppliers</p>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xl font-bold font-mono text-foreground">
+                  {(period?.seller_distribution?.company?.canonical_quantity || 0).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 4,
+                  })}{" "}
+                  <span className="text-xs font-normal text-muted-foreground">g</span>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {period?.seller_distribution?.company?.count || 0} transactions •{" "}
+                  {(period?.seller_distribution?.company?.amount || 0).toLocaleString()} ETB
+                </p>
+              </div>
+            </div>
+
+            {/* ASM Miner Card */}
+            <div className="p-4 rounded-2xl bg-card border border-border space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                  <HardHat className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-foreground">ASM Miners</h4>
+                  <p className="text-xs text-muted-foreground">Artisanal & small-scale miners</p>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xl font-bold font-mono text-foreground">
+                  {(period?.seller_distribution?.asm?.canonical_quantity || 0).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 4,
+                  })}{" "}
+                  <span className="text-xs font-normal text-muted-foreground">g</span>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {period?.seller_distribution?.asm?.count || 0} transactions •{" "}
+                  {(period?.seller_distribution?.asm?.amount || 0).toLocaleString()} ETB
+                </p>
+              </div>
             </div>
           </div>
+        </AnalyticsPanel>
+      </div>
 
-          {/* Static Presentation Panels for Future Functionality (Clearly labeled "Coming soon", NO fake numbers!) */}
-          <div className="border-t pt-6 space-y-4">
-            <DashboardSectionHeader
-              title="Future Procurement Capabilities"
-              description="Presentation-only preview of operational modules planned for subsequent phases."
-            />
+      {/* ----------------- RECENT GOLD PURCHASES REGISTER ----------------- */}
+      <AnalyticsPanel
+        title="Recent Gold Purchases"
+        description="Latest purchasing transactions recorded by this purchasing center"
+        headerAction={
+          <Button asChild variant="ghost" size="sm" className="gap-1 text-xs">
+            <Link href={`${basePath}/purchases`}>
+              View Full Register <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        }
+      >
+        {recentPurchases.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-border text-xs text-muted-foreground uppercase bg-muted/40">
+                <tr>
+                  <th className="py-3 px-4 font-semibold">Reference</th>
+                  <th className="py-3 px-4 font-semibold">Date</th>
+                  <th className="py-3 px-4 font-semibold">Seller</th>
+                  <th className="py-3 px-4 font-semibold">Quantity</th>
+                  <th className="py-3 px-4 font-semibold">Base (g)</th>
+                  <th className="py-3 px-4 font-semibold">Total Amount</th>
+                  <th className="py-3 px-4 font-semibold">Status</th>
+                  <th className="py-3 px-4 font-semibold text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {recentPurchases.map((p) => (
+                  <tr key={p.purchase_id} className="hover:bg-muted/30 transition-colors">
+                    <td className="py-3 px-4 font-mono font-medium text-foreground">
+                      {p.purchase_reference}
+                    </td>
+                    <td className="py-3 px-4 text-muted-foreground whitespace-nowrap">
+                      {p.business_date}
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className={
+                            p.seller_type === "company"
+                              ? "text-sky-600 dark:text-sky-400 border-sky-400/30 text-[10px]"
+                              : "text-amber-600 dark:text-amber-400 border-amber-400/30 text-[10px]"
+                          }
+                        >
+                          {p.seller_type === "company" ? "Company" : "ASM"}
+                        </Badge>
+                        <span className="font-medium text-foreground">{p.seller_name_snapshot}</span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 font-mono">
+                      {parseFloat(String(p.quantity)).toLocaleString()}{" "}
+                      <span className="text-xs text-muted-foreground">{p.unit_code_snapshot}</span>
+                    </td>
+                    <td className="py-3 px-4 font-mono text-muted-foreground">
+                      {parseFloat(String(p.quantity_in_canonical_unit)).toLocaleString()} g
+                    </td>
+                    <td className="py-3 px-4 font-mono font-semibold text-foreground">
+                      {parseFloat(String(p.total_amount)).toLocaleString()} ETB
+                    </td>
+                    <td className="py-3 px-4">
+                      <Badge
+                        variant={p.status === "completed" ? "default" : "destructive"}
+                        className={
+                          p.status === "completed"
+                            ? "bg-emerald-600/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-[11px]"
+                            : "text-[11px]"
+                        }
+                      >
+                        {p.status}
+                      </Badge>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-xs">
+                        <Link href={`${basePath}/purchases/${p.purchase_id}`}>
+                          Details <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                        </Link>
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="py-12 text-center text-muted-foreground text-sm space-y-3">
+            <Coins className="h-10 w-10 mx-auto text-muted-foreground/40" />
+            <p>No gold purchase records have been registered yet.</p>
+            {can("GOLD_PURCHASES:CREATE") && (
+              <Button asChild size="sm" className="gap-2">
+                <Link href={`${basePath}/purchases/new`}>
+                  <PlusCircle className="h-4 w-4" /> Record First Purchase
+                </Link>
+              </Button>
+            )}
+          </div>
+        )}
+      </AnalyticsPanel>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-5 rounded-xl border border-dashed border-border bg-card/50 text-center space-y-3">
-                <div className="mx-auto w-10 h-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
-                  <ShoppingCart className="h-5 w-5" />
-                </div>
-                <h4 className="font-semibold text-sm text-foreground">Purchase Order Workflow</h4>
-                <p className="text-xs text-muted-foreground">
-                  Purchase requests, order fulfillment tracking, and procurement approval pipelines.
-                </p>
-                <span className="inline-block text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
-                  Coming soon
-                </span>
-              </div>
-
-              <div className="p-5 rounded-xl border border-dashed border-border bg-card/50 text-center space-y-3">
-                <div className="mx-auto w-10 h-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
-                  <Truck className="h-5 w-5" />
-                </div>
-                <h4 className="font-semibold text-sm text-foreground">Supplier Management</h4>
-                <p className="text-xs text-muted-foreground">
-                  Registered mineral vendors, supplier agreements, and compliance records.
-                </p>
-                <span className="inline-block text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
-                  Coming soon
-                </span>
-              </div>
-
-              <div className="p-5 rounded-xl border border-dashed border-border bg-card/50 text-center space-y-3">
-                <div className="mx-auto w-10 h-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
-                  <TrendingUp className="h-5 w-5" />
-                </div>
-                <h4 className="font-semibold text-sm text-foreground">Procurement Analytics</h4>
-                <p className="text-xs text-muted-foreground">
-                  Purchasing trends, mineral transaction ledgers, and operational reporting.
-                </p>
-                <span className="inline-block text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
-                  Coming soon
-                </span>
-              </div>
-            </div>
+      {/* ----------------- CENTER ACCOUNTS SUMMARY ----------------- */}
+      <AnalyticsPanel
+        title="Purchasing Center Staff & Accounts"
+        description="Direct center users (no departments or hierarchical structures)"
+        headerAction={
+          can("PURCHASING_CENTER_USERS:READ") ? (
+            <Button asChild variant="ghost" size="sm" className="gap-1 text-xs">
+              <Link href={`${basePath}/users`}>
+                Manage Staff <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          ) : undefined
+        }
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="p-4 rounded-2xl bg-card border border-border">
+            <p className="text-xs text-muted-foreground">Total Staff Accounts</p>
+            <p className="text-2xl font-bold font-mono mt-1 text-foreground">
+              {userCounts?.total || 0}
+            </p>
+          </div>
+          <div className="p-4 rounded-2xl bg-card border border-border">
+            <p className="text-xs text-muted-foreground">Active Staff</p>
+            <p className="text-2xl font-bold font-mono mt-1 text-emerald-600 dark:text-emerald-400">
+              {userCounts?.active || 0}
+            </p>
+          </div>
+          <div className="p-4 rounded-2xl bg-card border border-border">
+            <p className="text-xs text-muted-foreground">Direct Membership</p>
+            <p className="text-sm font-semibold mt-1 text-foreground flex items-center gap-1.5">
+              <ShieldCheck className="h-4 w-4 text-primary" /> Center Bound
+            </p>
           </div>
         </div>
-      )}
-
-      {/* ----------------- TAB 2: PROCUREMENT PREVIEW (STATIC PLACEHOLDER) ----------------- */}
-      {activeTab === "procurement-preview" && (
-        <div className="space-y-6">
-          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3 text-amber-900 dark:text-amber-200 text-sm">
-            <Clock className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
-            <div>
-              <p className="font-semibold">Procurement Operations — Coming Soon</p>
-              <p className="text-xs mt-0.5 opacity-90">
-                This preview represents future procurement lifecycle capabilities. No active transactions are recorded in this phase.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <AnalyticsPanel
-              title="Purchase Orders Overview"
-              description="Presentation preview of transaction order tracking"
-            >
-              <div className="py-12 text-center space-y-3 text-muted-foreground">
-                <ShoppingCart className="h-10 w-10 mx-auto text-muted-foreground/40" />
-                <p className="text-sm font-medium">Order management module is not yet available.</p>
-                <p className="text-xs max-w-sm mx-auto">
-                  Procurement request intake and batch purchasing workflows will be enabled in subsequent releases.
-                </p>
-              </div>
-            </AnalyticsPanel>
-
-            <AnalyticsPanel
-              title="Procurement Approval Pipeline"
-              description="Presentation preview of authorization milestones"
-            >
-              <div className="py-12 text-center space-y-3 text-muted-foreground">
-                <Clock className="h-10 w-10 mx-auto text-muted-foreground/40" />
-                <p className="text-sm font-medium">Approval pipeline not yet enabled.</p>
-                <p className="text-xs max-w-sm mx-auto">
-                  Configurable threshold verification and purchase validations will appear here once implemented.
-                </p>
-              </div>
-            </AnalyticsPanel>
-          </div>
-        </div>
-      )}
-
-      {/* ----------------- TAB 3: SUPPLIERS PREVIEW (STATIC PLACEHOLDER) ----------------- */}
-      {activeTab === "suppliers-preview" && (
-        <div className="space-y-6">
-          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3 text-amber-900 dark:text-amber-200 text-sm">
-            <Clock className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
-            <div>
-              <p className="font-semibold">Supplier Management & Logistics — Coming Soon</p>
-              <p className="text-xs mt-0.5 opacity-90">
-                Supplier registration, compliance verification, and delivery performance metrics are not yet implemented.
-              </p>
-            </div>
-          </div>
-
-          <AnalyticsPanel
-            title="Supplier Registry Preview"
-            description="Presentation placeholder for vendor directory"
-          >
-            <div className="py-16 text-center space-y-3 text-muted-foreground">
-              <Truck className="h-12 w-12 mx-auto text-muted-foreground/40" />
-              <p className="text-sm font-medium">Supplier directory is not yet available.</p>
-              <p className="text-xs max-w-md mx-auto">
-                No mock supplier data is presented. Real vendor catalogs and supplier performance scores will be populated upon feature delivery.
-              </p>
-            </div>
-          </AnalyticsPanel>
-        </div>
-      )}
+      </AnalyticsPanel>
     </div>
   );
 }

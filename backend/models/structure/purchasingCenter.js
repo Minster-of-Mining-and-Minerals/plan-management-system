@@ -31,6 +31,18 @@ module.exports = (sequelize, DataTypes) => {
         as: "permissionGroups",
         onDelete: "CASCADE",
       });
+
+      // 🥇 A purchasing center has many gold purchase transactions
+      PurchasingCenter.hasMany(models.GoldPurchase, {
+        foreignKey: "purchasing_center_id",
+        as: "purchases",
+      });
+
+      // 📊 A purchasing center has many daily gold reports
+      PurchasingCenter.hasMany(models.GoldDailyReport, {
+        foreignKey: "purchasing_center_id",
+        as: "dailyReports",
+      });
     }
   }
 

@@ -19,6 +19,8 @@ import {
   Files,
   Globe,
   MapPin,
+  Coins,
+  HardHat,
 } from "lucide-react";
 
 export type NavItem = {
@@ -49,6 +51,49 @@ export const NAVIGATION: NavItem[] = [
     url: "/admin/purchasing-centers",
     icon: Building2,
     anyPermissions: ["PURCHASING_CENTERS:READ", "PURCHASING_CENTERS:MANAGE"],
+  },
+  {
+    title: "Gold Operations",
+    url: "/admin/gold-operations",
+    icon: Coins,
+    anyPermissions: [
+      "GOLD_OVERSIGHT:READ",
+      "GOLD_OVERSIGHT:MANAGE",
+      "PURCHASING_CENTERS:READ",
+      "PURCHASING_CENTERS:MANAGE",
+    ],
+    children: [
+      {
+        title: "Oversight Dashboard",
+        url: "/admin/gold-operations",
+        icon: LayoutDashboard,
+        anyPermissions: ["GOLD_OVERSIGHT:READ", "GOLD_OVERSIGHT:MANAGE", "PURCHASING_CENTERS:READ"],
+      },
+      {
+        title: "Purchases Register",
+        url: "/admin/gold-operations/purchases",
+        icon: FileText,
+        anyPermissions: ["GOLD_OVERSIGHT:READ", "GOLD_OVERSIGHT:MANAGE"],
+      },
+      {
+        title: "Daily Report Monitoring",
+        url: "/admin/gold-operations/reports",
+        icon: ClipboardCheck,
+        anyPermissions: ["GOLD_OVERSIGHT:READ", "GOLD_OVERSIGHT:MANAGE"],
+      },
+      {
+        title: "ASM Sellers Registry",
+        url: "/admin/gold-operations/asm",
+        icon: HardHat,
+        anyPermissions: ["ASM:READ", "ASM:MANAGE"],
+      },
+      {
+        title: "Measurement Units",
+        url: "/admin/gold-operations/units",
+        icon: Scale,
+        anyPermissions: ["GOLD_UNITS:READ", "GOLD_UNITS:MANAGE"],
+      },
+    ],
   },
   {
     title: "Sector Structures",

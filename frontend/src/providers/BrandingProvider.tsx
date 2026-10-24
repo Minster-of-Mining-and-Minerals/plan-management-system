@@ -117,7 +117,14 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     ? regionalData
     : federalData;
 
-  const branding = (effectiveData as unknown as BrandingSettings) ?? DEFAULT_BRANDING;
+  const branding = useMemo<BrandingSettings>(() => {
+    if (!effectiveData) return DEFAULT_BRANDING;
+    return {
+      ...DEFAULT_BRANDING,
+      ...(effectiveData as unknown as Partial<BrandingSettings>),
+    };
+  }, [effectiveData]);
+
   const isDataLoading = purchasingCenterId
     ? purchasingCenterLoading || purchasingCenterFetching
     : companyId
@@ -128,9 +135,12 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!effectiveData) return;
-    applyBrandingTheme(effectiveData as unknown as BrandingSettings, effectiveData.css_variables);
-    applyBrandingDocumentMeta(effectiveData as unknown as BrandingSettings);
-  }, [effectiveData]);
+    const cssVars =
+      effectiveData.css_variables ||
+      (effectiveData as { cssVariables?: Record<string, string> }).cssVariables;
+    applyBrandingTheme(branding, cssVars);
+    applyBrandingDocumentMeta(branding);
+  }, [effectiveData, branding]);
 
   const value = useMemo<BrandingContextValue>(
     () => ({

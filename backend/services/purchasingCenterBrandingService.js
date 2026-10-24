@@ -66,42 +66,72 @@ function hexToHslComponents(hex) {
 }
 
 function brandingToCssVariables(b) {
+  const brand = { ...DEFAULT_BRANDING, ...(b || {}) };
   return {
-    "--primary": hexToHslComponents(b.primary_color),
+    "--primary": hexToHslComponents(brand.primary_color),
     "--primary-foreground": "0 0% 100%",
-    "--secondary": hexToHslComponents(b.secondary_color),
-    "--secondary-foreground": hexToHslComponents(b.text_primary_color),
-    "--accent": hexToHslComponents(b.accent_color),
-    "--accent-foreground": "0 0% 100%",
-    "--background": hexToHslComponents(b.background_color),
-    "--foreground": hexToHslComponents(b.text_primary_color),
-    "--card": hexToHslComponents(b.surface_color),
-    "--card-foreground": hexToHslComponents(b.text_primary_color),
-    "--popover": hexToHslComponents(b.surface_color),
-    "--popover-foreground": hexToHslComponents(b.text_primary_color),
-    "--muted": hexToHslComponents(b.surface_color),
-    "--muted-foreground": hexToHslComponents(b.text_secondary_color),
-    "--destructive": hexToHslComponents(b.error_color),
+    "--secondary": hexToHslComponents(brand.secondary_color),
+    "--secondary-foreground": hexToHslComponents(brand.text_primary_color),
+    "--accent": hexToHslComponents(brand.accent_color),
+    "--accent-foreground": hexToHslComponents(brand.text_primary_color),
+    "--destructive": hexToHslComponents(brand.error_color),
     "--destructive-foreground": "0 0% 100%",
-    "--border": hexToHslComponents(b.border_color),
-    "--input": hexToHslComponents(b.border_color),
-    "--ring": hexToHslComponents(b.primary_color),
-    "--sidebar-background": hexToHslComponents(b.sidebar_color),
-    "--sidebar-foreground": hexToHslComponents(b.text_primary_color),
-    "--sidebar-primary": hexToHslComponents(b.primary_color),
+    "--background": hexToHslComponents(brand.background_color),
+    "--foreground": hexToHslComponents(brand.text_primary_color),
+    "--card": hexToHslComponents(brand.surface_color),
+    "--card-foreground": hexToHslComponents(brand.text_primary_color),
+    "--popover": hexToHslComponents(brand.surface_color),
+    "--popover-foreground": hexToHslComponents(brand.text_primary_color),
+    "--muted": hexToHslComponents(brand.surface_color),
+    "--muted-foreground": hexToHslComponents(brand.text_secondary_color),
+    "--border": hexToHslComponents(brand.border_color),
+    "--input": hexToHslComponents(brand.border_color),
+    "--ring": hexToHslComponents(brand.accent_color || brand.primary_color),
+    "--sidebar-background": hexToHslComponents(brand.sidebar_color),
+    "--sidebar-foreground": hexToHslComponents(brand.text_primary_color),
+    "--sidebar-primary": hexToHslComponents(brand.primary_color),
     "--sidebar-primary-foreground": "0 0% 100%",
-    "--sidebar-accent": hexToHslComponents(b.surface_color),
-    "--sidebar-accent-foreground": hexToHslComponents(b.text_primary_color),
-    "--sidebar-border": hexToHslComponents(b.border_color),
-    "--sidebar-ring": hexToHslComponents(b.primary_color),
-    "--header-background": hexToHslComponents(b.header_color),
-    "--header-foreground": hexToHslComponents(b.text_primary_color),
+    "--sidebar-accent": hexToHslComponents(brand.surface_color),
+    "--sidebar-accent-foreground": hexToHslComponents(brand.text_primary_color),
+    "--sidebar-border": hexToHslComponents(brand.border_color),
+    "--sidebar-ring": hexToHslComponents(brand.primary_color),
+    "--header-background": hexToHslComponents(brand.header_color),
+    "--header-foreground": hexToHslComponents(brand.text_primary_color),
+    "--success": hexToHslComponents(brand.success_color),
+    "--warning": hexToHslComponents(brand.warning_color),
+    "--info": hexToHslComponents(brand.info_color),
+    "--sidebar-nav-hover": hexToHslComponents(brand.sidebar_nav_hover_color),
+    "--sidebar-nav-active": hexToHslComponents(brand.sidebar_nav_active_color),
+    "--sidebar-nav-active-foreground": hexToHslComponents(
+      brand.sidebar_nav_active_text_color
+    ),
+    "--sidebar-subnav-active": hexToHslComponents(brand.sidebar_subnav_active_color),
+    "--sidebar-subnav-active-foreground": hexToHslComponents(
+      brand.sidebar_subnav_active_text_color
+    ),
+    "--sidebar-header-text": hexToHslComponents(brand.sidebar_header_text_color),
+    "--toolbar-button": hexToHslComponents(brand.toolbar_button_color),
+    "--toolbar-button-hover": hexToHslComponents(brand.toolbar_button_hover_color),
+    "--toolbar-button-foreground": hexToHslComponents(brand.toolbar_button_text_color),
+    "--table-header": hexToHslComponents(brand.table_header_color),
+    "--table-header-hover": hexToHslComponents(brand.table_header_hover_color),
+    "--table-header-foreground": hexToHslComponents(brand.table_header_text_color),
+    "--golden-dark": hexToHslComponents(brand.toolbar_button_color),
+    "--golden-metallic": hexToHslComponents(brand.sidebar_nav_hover_color),
+    "--golden-dark-hover": hexToHslComponents(brand.toolbar_button_hover_color),
   };
 }
 
 async function resolveEffectivePurchasingCenterBranding(purchasingCenterId) {
   if (!purchasingCenterId) {
-    return { ...DEFAULT_BRANDING, cssVariables: brandingToCssVariables(DEFAULT_BRANDING) };
+    const cssVars = brandingToCssVariables(DEFAULT_BRANDING);
+    return {
+      ...DEFAULT_BRANDING,
+      css_variables: cssVars,
+      cssVariables: cssVars,
+      is_using_default: true,
+      scope: "global",
+    };
   }
 
   const center = await PurchasingCenter.findByPk(purchasingCenterId, {
@@ -114,40 +144,45 @@ async function resolveEffectivePurchasingCenterBranding(purchasingCenterId) {
   });
 
   if (!center) {
-    return { ...DEFAULT_BRANDING, cssVariables: brandingToCssVariables(DEFAULT_BRANDING) };
+    const cssVars = brandingToCssVariables(DEFAULT_BRANDING);
+    return {
+      ...DEFAULT_BRANDING,
+      css_variables: cssVars,
+      cssVariables: cssVars,
+      is_using_default: true,
+      scope: "global",
+    };
   }
 
+  const hasCustomBranding = Boolean(center.branding);
   const b = center.branding?.toJSON ? center.branding.toJSON() : (center.branding || {});
 
   const effective = {
+    ...DEFAULT_BRANDING,
     purchasing_center_id: center.purchasing_center_id,
     purchasing_center_name: center.name,
     purchasing_center_code: center.code,
-    system_name_full: b.system_name_full || center.name,
-    system_name_short: b.system_name_short || center.code,
+    system_name_full: b.system_name_full || `${center.name} Purchasing Center`,
+    system_name_short: b.system_name_short || `${center.code} PC`,
     system_tagline: b.system_tagline || `${center.name} Purchasing & Procurement Workspace`,
-    logo_primary_path: b.logo_primary_path || center.logo_path || null,
-    logo_secondary_path: b.logo_secondary_path || center.logo_path || null,
+    logo_primary_path: b.logo_primary_path || center.logo_path || DEFAULT_BRANDING.logo_primary_path,
+    logo_secondary_path: b.logo_secondary_path || center.logo_path || DEFAULT_BRANDING.logo_secondary_path,
     logo_dark_path: b.logo_dark_path || null,
-    favicon_path: b.favicon_path || null,
-    primary_color: b.primary_color || "#1e40af",
-    secondary_color: b.secondary_color || "#3b82f6",
-    accent_color: b.accent_color || "#60a5fa",
-    success_color: b.success_color || "#10b981",
-    warning_color: b.warning_color || "#f59e0b",
-    error_color: b.error_color || "#ef4444",
-    info_color: b.info_color || "#3b82f6",
-    background_color: b.background_color || "#f8fafc",
-    surface_color: b.surface_color || "#ffffff",
-    sidebar_color: b.sidebar_color || "#0f172a",
-    header_color: b.header_color || "#ffffff",
-    text_primary_color: b.text_primary_color || "#0f172a",
-    text_secondary_color: b.text_secondary_color || "#64748b",
-    border_color: b.border_color || "#e2e8f0",
+    favicon_path: b.favicon_path || DEFAULT_BRANDING.favicon_path,
     theme_preference: b.theme_preference || "system",
+    is_using_default: !hasCustomBranding,
+    scope: "purchasing_center",
   };
 
-  effective.cssVariables = brandingToCssVariables(effective);
+  for (const field of COLOR_FIELDS) {
+    if (b[field]) {
+      effective[field] = b[field];
+    }
+  }
+
+  const cssVars = brandingToCssVariables(effective);
+  effective.css_variables = cssVars;
+  effective.cssVariables = cssVars;
   return effective;
 }
 

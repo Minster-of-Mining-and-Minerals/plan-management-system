@@ -126,6 +126,11 @@ export const baseApi = createApi({
     "PurchasingCenters",
     "PurchasingCenterBranding",
     "PurchasingCenterDashboard",
+    "GoldPurchases",
+    "GoldReports",
+    "AsmMiners",
+    "GoldUnits",
+    "GoldOversight",
   ],
   endpoints: () => ({}),
 });
