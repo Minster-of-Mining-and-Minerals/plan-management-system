@@ -33,6 +33,7 @@
     "test:cache-coherency": "node scripts/verify-cache-coherency.js",
     "test:memory-leak": "node scripts/verify-memory-leak.js",
     "test:stress": "node scripts/stress-test-dashboard.js",
+    "test:dashboard-enhancements": "node scripts/verify-dashboard-enhancements.js",
     "validate:production": "node scripts/verify-production-readiness.js",
     "validate:organogram": "node scripts/validate-organogram-departments.js",
     "validate:comprehensive-plan": "node scripts/validate-comprehensive-plan.js",

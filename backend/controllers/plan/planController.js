@@ -369,13 +369,27 @@ const getPlanVersions = async (req, res) => {
             where[Op.or] = [
                 { draft_name: { [Op.iLike]: term } },
                 sequelize.where(
-                    sequelize.cast(sequelize.col("start_year"), "varchar"),
+                    sequelize.cast(sequelize.col("PlanVersion.start_year"), "varchar"),
                     { [Op.iLike]: term }
                 ),
                 sequelize.where(
-                    sequelize.cast(sequelize.col("end_year"), "varchar"),
+                    sequelize.cast(sequelize.col("PlanVersion.end_year"), "varchar"),
                     { [Op.iLike]: term }
                 ),
+                {
+                    plan_version_id: {
+                        [Op.in]: sequelize.literal(
+                            `(SELECT plan_version_id FROM plan_nodes WHERE title ILIKE ${sequelize.escape(term)})`
+                        ),
+                    },
+                },
+                {
+                    government_structure_id: {
+                        [Op.in]: sequelize.literal(
+                            `(SELECT government_structure_id FROM government_structures WHERE name ILIKE ${sequelize.escape(term)})`
+                        ),
+                    },
+                },
             ];
         }
 

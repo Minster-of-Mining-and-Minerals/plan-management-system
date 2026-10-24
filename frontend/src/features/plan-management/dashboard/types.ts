@@ -54,6 +54,11 @@ export interface DashboardStructure {
 export interface DashboardProgressNode {
   id: string;
   title: string;
+  type?: "strategic" | "goal" | "kpi" | "task";
+  level?: number;
+  weight?: number;
+  target_unit?: string | null;
+  parent_id?: string | null;
   sharingMode: "shared" | "exclusive";
   progress: number;
   has_progress?: boolean;
@@ -161,6 +166,8 @@ export interface PlanExecutionDashboardDepartmentUserResponse {
   generated_at: string;
 }
 
+export type HierarchyDepthFilter = "all" | "strategic" | "goal" | "kpi";
+
 export interface DashboardFilters {
   structureId: string;
   departmentId: string;
@@ -173,6 +180,11 @@ export interface DashboardFilters {
   masterPlanVersionId: string;
   /** "auto" = backend picks active (open) period */
   periodVersionId: string;
+  planSearch: string;
+  hierarchyLevel: HierarchyDepthFilter;
+  selectedStrategicFocusId: string;
+  selectedGoalId: string;
+  selectedKpiId: string;
 }
 
 export const DEFAULT_DASHBOARD_FILTERS: DashboardFilters = {
@@ -186,6 +198,11 @@ export const DEFAULT_DASHBOARD_FILTERS: DashboardFilters = {
   dateTo: "",
   masterPlanVersionId: "auto",
   periodVersionId: "auto",
+  planSearch: "",
+  hierarchyLevel: "all",
+  selectedStrategicFocusId: "all",
+  selectedGoalId: "all",
+  selectedKpiId: "all",
 };
 
 export interface PlanDashboardData {

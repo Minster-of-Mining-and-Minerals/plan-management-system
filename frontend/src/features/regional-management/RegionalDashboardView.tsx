@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Link } from "@/i18n/navigation";
 import { useSearchParams, useRouter, useParams } from "next/navigation";
@@ -59,7 +59,15 @@ import { hexToRgba } from "@/features/plan-management/dashboard/utils/dashboardA
 
 type DashboardTab = "overview" | "strategic-preview" | "issues-preview";
 
-export function RegionalDashboardView() {
+export interface RegionalDashboardViewProps {
+  overrideRegionId?: string;
+  hideHeaderNavigation?: boolean;
+}
+
+export function RegionalDashboardView({
+  overrideRegionId,
+  hideHeaderNavigation = false,
+}: RegionalDashboardViewProps = {}) {
   const { data: session } = useSession();
   const { branding, logoPrimaryUrl } = useBranding();
   const { can } = usePermissions();
@@ -73,18 +81,24 @@ export function RegionalDashboardView() {
   const accentTone = tone("accent");
 
   const user = session?.user;
-  const activeRegionId = params?.id || user?.region_id;
+  const activeRegionId = overrideRegionId || params?.id || user?.region_id;
   const basePath = activeRegionId ? `/regions/${activeRegionId}` : "/regional";
 
+  const [localTab, setLocalTab] = useState<DashboardTab>("overview");
   const requestedTab = searchParams.get("tab") as DashboardTab | null;
-  const activeTab: DashboardTab =
-    requestedTab === "strategic-preview"
-      ? "strategic-preview"
-      : requestedTab === "issues-preview"
-      ? "issues-preview"
-      : "overview";
+  const activeTab: DashboardTab = hideHeaderNavigation
+    ? localTab
+    : requestedTab === "strategic-preview"
+    ? "strategic-preview"
+    : requestedTab === "issues-preview"
+    ? "issues-preview"
+    : "overview";
 
   const setActiveTab = (tab: DashboardTab) => {
+    if (hideHeaderNavigation) {
+      setLocalTab(tab);
+      return;
+    }
     const p = new URLSearchParams(searchParams.toString());
     if (tab === "overview") {
       p.delete("tab");

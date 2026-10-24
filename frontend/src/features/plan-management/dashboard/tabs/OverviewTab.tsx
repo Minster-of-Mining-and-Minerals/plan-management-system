@@ -17,12 +17,16 @@ import type { PlanDashboardFiltersState } from "../hooks/usePlanDashboardFilters
 import { CircularProgress } from "../../components/CircularProgress";
 import { useDashboardAppearance } from "../hooks/useDashboardAppearance";
 
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Target, X } from "lucide-react";
+
 interface OverviewTabProps {
   state: PlanDashboardFiltersState;
 }
 
 export function OverviewTab({ state }: OverviewTabProps) {
-  const { data } = state;
+  const { data, activeHierarchyScope, clearHierarchyFilter } = state;
   const kpi = data.kpi;
   const { performanceColor, chartPalette } = useDashboardAppearance();
 
@@ -43,8 +47,41 @@ export function OverviewTab({ state }: OverviewTabProps) {
       <DashboardSectionHeader
         title="Overview Dashboard"
         description="Live execution metrics from strategic plans in your access scope."
-        badge={data.generatedAt ? `Updated ${new Date(data.generatedAt).toLocaleString()}` : "Live"}
+        badge={
+          activeHierarchyScope.isSubtree
+            ? `Subtree Focus: ${activeHierarchyScope.level.toUpperCase()}`
+            : data.generatedAt
+            ? `Updated ${new Date(data.generatedAt).toLocaleString()}`
+            : "Live"
+        }
       />
+
+      {activeHierarchyScope.isSubtree && (
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200">
+          <div className="flex items-center gap-2.5">
+            <Target className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+            <div>
+              <p className="font-bold text-sm">
+                Active Hierarchy Scope: [{activeHierarchyScope.level.toUpperCase()}] {activeHierarchyScope.title}
+              </p>
+              <p className="text-xs opacity-85">
+                {activeHierarchyScope.node?.progress != null
+                  ? `Node progress: ${activeHierarchyScope.node.progress}% · Contributing execution status: ${activeHierarchyScope.node.status}`
+                  : "No achievement recorded for this node yet."}
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={clearHierarchyFilter}
+            className="h-8 text-xs gap-1 border-amber-500/30 hover:bg-amber-500/20"
+          >
+            <X className="h-3.5 w-3.5" />
+            Clear Subtree Focus
+          </Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <KpiCard

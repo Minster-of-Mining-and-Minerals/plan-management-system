@@ -27,7 +27,14 @@ function formatPlanLabel(plan: DashboardPlanRow) {
 }
 
 export function ProgressTab({ state }: ProgressTabProps) {
-  const { data, executionPlanOptions, filters, updateFilter } = state;
+  const {
+    data,
+    executionPlanOptions,
+    filters,
+    updateFilter,
+    filteredPlanTree,
+    activeHierarchyScope,
+  } = state;
   const { textPrimary, color } = useDashboardAppearance();
   const isRefreshing =
     data.isFetching ||
@@ -135,7 +142,20 @@ export function ProgressTab({ state }: ProgressTabProps) {
         )}
       </div>
 
-      <AnalyticsPanel title="Execution Hierarchy" variant="inset" tone="secondary">
+      <AnalyticsPanel
+        title={
+          activeHierarchyScope.isSubtree
+            ? `Execution Hierarchy (${activeHierarchyScope.title})`
+            : "Execution Hierarchy"
+        }
+        description={
+          activeHierarchyScope.isSubtree
+            ? `Filtered to ${activeHierarchyScope.level.toUpperCase()} node branch.`
+            : "Complete plan hierarchy."
+        }
+        variant="inset"
+        tone="secondary"
+      >
         {data.progressError ? (
           <div className="flex flex-col items-center justify-center py-8 gap-3 text-sm text-destructive">
             <p>{data.progressError}</p>
@@ -154,12 +174,20 @@ export function ProgressTab({ state }: ProgressTabProps) {
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading hierarchy for the selected plan and period…
           </div>
-        ) : data.planTree.length > 0 ? (
+        ) : filteredPlanTree.length > 0 ? (
           <div className="space-y-1">
-            {data.planTree.map((node) => (
-              <TreeNodeRow key={node.id} node={node} />
+            {filteredPlanTree.map((node) => (
+              <TreeNodeRow
+                key={node.id}
+                node={node}
+                defaultExpanded={activeHierarchyScope.isSubtree || false}
+              />
             ))}
           </div>
+        ) : data.planTree.length > 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No nodes found matching the selected hierarchy filter. Try adjusting or clearing your depth selection.
+          </p>
         ) : (
           <p className="text-sm text-muted-foreground">
             No execution hierarchy available for this period. Start process on a plan and

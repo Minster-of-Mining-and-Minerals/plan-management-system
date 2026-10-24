@@ -41,7 +41,15 @@ import {
 } from "@/features/plan-management/dashboard/components/AnalyticsPanel";
 import { useDashboardAppearance } from "@/features/plan-management/dashboard/hooks/useDashboardAppearance";
 
-export function PurchasingCenterDashboardView() {
+export interface PurchasingCenterDashboardViewProps {
+  overrideCenterId?: string;
+  hideHeaderNavigation?: boolean;
+}
+
+export function PurchasingCenterDashboardView({
+  overrideCenterId,
+  hideHeaderNavigation = false,
+}: PurchasingCenterDashboardViewProps = {}) {
   const { data: session } = useSession();
   const { branding, logoPrimaryUrl } = useBranding();
   const { can } = usePermissions();
@@ -58,7 +66,7 @@ export function PurchasingCenterDashboardView() {
         email?: string;
       })
     | undefined;
-  const activeCenterId = params?.id || sessionUser?.purchasing_center_id;
+  const activeCenterId = overrideCenterId || params?.id || sessionUser?.purchasing_center_id;
   const basePath = activeCenterId
     ? `/purchasing-centers/${activeCenterId}`
     : "/purchasing-center";

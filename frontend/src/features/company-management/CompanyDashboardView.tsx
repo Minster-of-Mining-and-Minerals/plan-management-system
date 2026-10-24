@@ -1,7 +1,7 @@
 "use strict";
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Link } from "@/i18n/navigation";
 import { useSearchParams, useRouter, useParams } from "next/navigation";
@@ -59,7 +59,15 @@ import { hexToRgba } from "@/features/plan-management/dashboard/utils/dashboardA
 
 type DashboardTab = "overview" | "planning-preview" | "compliance-preview";
 
-export function CompanyDashboardView() {
+export interface CompanyDashboardViewProps {
+  overrideCompanyId?: string;
+  hideHeaderNavigation?: boolean;
+}
+
+export function CompanyDashboardView({
+  overrideCompanyId,
+  hideHeaderNavigation = false,
+}: CompanyDashboardViewProps = {}) {
   const { data: session } = useSession();
   const { branding, logoPrimaryUrl } = useBranding();
   const { can } = usePermissions();
@@ -73,18 +81,24 @@ export function CompanyDashboardView() {
   const accentTone = tone("accent");
 
   const user = session?.user;
-  const activeCompanyId = params?.id || user?.company_id;
+  const activeCompanyId = overrideCompanyId || params?.id || user?.company_id;
   const basePath = `/companies/${activeCompanyId}`;
 
+  const [localTab, setLocalTab] = useState<DashboardTab>("overview");
   const requestedTab = searchParams.get("tab") as DashboardTab | null;
-  const activeTab: DashboardTab =
-    requestedTab === "planning-preview"
-      ? "planning-preview"
-      : requestedTab === "compliance-preview"
-      ? "compliance-preview"
-      : "overview";
+  const activeTab: DashboardTab = hideHeaderNavigation
+    ? localTab
+    : requestedTab === "planning-preview"
+    ? "planning-preview"
+    : requestedTab === "compliance-preview"
+    ? "compliance-preview"
+    : "overview";
 
   const setActiveTab = (tab: DashboardTab) => {
+    if (hideHeaderNavigation) {
+      setLocalTab(tab);
+      return;
+    }
     const p = new URLSearchParams(searchParams.toString());
     if (tab === "overview") {
       p.delete("tab");

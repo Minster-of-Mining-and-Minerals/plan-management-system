@@ -9,6 +9,9 @@ import type { PlanDashboardFiltersState } from "../hooks/usePlanDashboardFilters
 import { FilterDropdown } from "./FilterDropdown";
 import { PlanDashboardSectionTabs } from "./PlanDashboardSectionTabs";
 
+import { PlanSearchSelector } from "./PlanSearchSelector";
+import { PlanHierarchyFilterBar } from "./PlanHierarchyFilterBar";
+
 interface PlanDashboardFiltersProps {
   state: PlanDashboardFiltersState;
 }
@@ -55,23 +58,27 @@ export function PlanDashboardFiltersBar({ state }: PlanDashboardFiltersProps) {
       />
 
       <div className="space-y-4 px-5 py-5 sm:px-6 sm:pb-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-primary-foreground">
             <Filter className="h-4 w-4 shrink-0 opacity-90" />
-            Global Filters
+            Global Filters & Search
             <span className="rounded-full border border-primary-foreground/25 bg-primary-foreground/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary-foreground">
               Live Data
             </span>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={resetFilters}
-            className="h-8 gap-1.5 text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Reset
-          </Button>
+
+          <div className="flex items-center gap-2.5 flex-1 max-w-lg justify-end">
+            <PlanSearchSelector state={state} onPrimary />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={resetFilters}
+              className="h-9 gap-1.5 shrink-0 text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Reset
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-3">
@@ -155,6 +162,11 @@ export function PlanDashboardFiltersBar({ state }: PlanDashboardFiltersProps) {
               onChange={(e) => updateFilter("dateTo", e.target.value)}
             />
           </div>
+        </div>
+
+        {/* Hierarchy Depth Filtering (SF -> Goal -> KPI) */}
+        <div className="border-t border-primary-foreground/15 pt-2">
+          <PlanHierarchyFilterBar state={state} onPrimary />
         </div>
       </div>
     </ProfileHeroBanner>

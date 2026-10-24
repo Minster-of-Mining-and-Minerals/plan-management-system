@@ -2,6 +2,7 @@
 
 const { Op } = require("sequelize");
 const {
+  sequelize,
   PlanVersion,
   PlanNode,
   GovernmentStructure,
@@ -215,6 +216,11 @@ function mapNodeToDashboardTree(node, rollupMap, childrenByParent) {
   return {
     id: node.plan_node_id,
     title: node.title,
+    type: node.type,
+    level: node.level,
+    weight: node.weight,
+    target_unit: node.target_unit,
+    parent_id: node.parent_id,
     sharingMode: node.assignment_sharing_mode === "shared" ? "shared" : "exclusive",
     progress: progress ?? 0,
     has_progress: metrics?.has_contributing_data ?? false,
@@ -570,7 +576,24 @@ async function getPlanExecutionDashboard(req, query = {}) {
     where.status = "completed";
   }
   if (query.search?.trim()) {
-    where.draft_name = { [Op.iLike]: `%${query.search.trim()}%` };
+    const term = `%${query.search.trim()}%`;
+    where[Op.or] = [
+      { draft_name: { [Op.iLike]: term } },
+      {
+        plan_version_id: {
+          [Op.in]: sequelize.literal(
+            `(SELECT plan_version_id FROM plan_nodes WHERE title ILIKE ${sequelize.escape(term)})`
+          ),
+        },
+      },
+      {
+        government_structure_id: {
+          [Op.in]: sequelize.literal(
+            `(SELECT government_structure_id FROM government_structures WHERE name ILIKE ${sequelize.escape(term)})`
+          ),
+        },
+      },
+    ];
   }
   if (query.date_from || query.date_to) {
     where.created_at = {};

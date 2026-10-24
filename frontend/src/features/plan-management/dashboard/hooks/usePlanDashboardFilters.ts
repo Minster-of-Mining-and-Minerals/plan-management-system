@@ -46,10 +46,11 @@ export function usePlanDashboardFilters() {
         filters.structureId !== "all" ? filters.structureId : undefined,
       status: filters.status !== "all" ? filters.status : undefined,
       sharing_mode: filters.sharingMode !== "all" ? filters.sharingMode : undefined,
+      search: filters.planSearch?.trim() ? filters.planSearch.trim() : undefined,
       date_from: filters.dateFrom || undefined,
       date_to: filters.dateTo || undefined,
     };
-  }, [filters.structureId, filters.status, filters.sharingMode, filters.dateFrom, filters.dateTo]);
+  }, [filters.structureId, filters.status, filters.sharingMode, filters.planSearch, filters.dateFrom, filters.dateTo]);
 
   const {
     data: overviewData,
@@ -59,7 +60,7 @@ export function usePlanDashboardFilters() {
     refetch: refetchOverview,
   } = useGetPlanExecutionDashboardOverviewQuery(overviewParams);
 
-  // 2. Progressive Progress Tree Query: Only fetches when Progress tab is opened
+  // 2. Progressive Progress Tree Query: Only fetches when Progress tab is opened or hierarchy is filtered
   const focusMasterId =
     filters.masterPlanVersionId !== "auto"
       ? filters.masterPlanVersionId
@@ -76,7 +77,11 @@ export function usePlanDashboardFilters() {
   }, [focusMasterId, filters.periodVersionId, filters.structureId]);
 
   const shouldFetchProgressTree =
-    (hasOpenedProgress || activeSection === "progress") && !isOverviewLoading;
+    (hasOpenedProgress ||
+      activeSection === "progress" ||
+      filters.masterPlanVersionId !== "auto" ||
+      filters.hierarchyLevel !== "all") &&
+    !isOverviewLoading;
 
   const {
     data: progressTreeData,
@@ -245,6 +250,147 @@ export function usePlanDashboardFilters() {
     [data.plans]
   );
 
+  // Helper functions to traverse and extract hierarchy nodes
+  function findNode(nodes: typeof data.planTree, id: string): (typeof data.planTree)[0] | null {
+    for (const node of nodes) {
+      if (node.id === id) return node;
+      if (node.children?.length) {
+        const found = findNode(node.children, id);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  function collectAll(
+    nodes: typeof data.planTree,
+    predicate: (n: (typeof data.planTree)[0]) => boolean
+  ): typeof data.planTree {
+    let result: typeof data.planTree = [];
+    for (const node of nodes) {
+      if (predicate(node)) {
+        result.push(node);
+      }
+      if (node.children?.length) {
+        result = result.concat(collectAll(node.children, predicate));
+      }
+    }
+    return result;
+  }
+
+  const strategicFocusOptions = useMemo(() => {
+    return data.planTree.map((n) => ({
+      value: n.id,
+      label: n.title,
+      progress: n.progress,
+      status: n.status,
+    }));
+  }, [data.planTree]);
+
+  const goalOptions = useMemo(() => {
+    if (filters.selectedStrategicFocusId !== "all") {
+      const sf = findNode(data.planTree, filters.selectedStrategicFocusId);
+      if (!sf || !sf.children) return [];
+      return sf.children.map((g) => ({
+        value: g.id,
+        label: g.title,
+        progress: g.progress,
+        status: g.status,
+      }));
+    }
+    return collectAll(data.planTree, (n) => n.type === "goal" || n.level === 2).map((g) => ({
+      value: g.id,
+      label: g.title,
+      progress: g.progress,
+      status: g.status,
+    }));
+  }, [data.planTree, filters.selectedStrategicFocusId]);
+
+  const kpiOptions = useMemo(() => {
+    if (filters.selectedGoalId !== "all") {
+      const goal = findNode(data.planTree, filters.selectedGoalId);
+      if (!goal || !goal.children) return [];
+      return goal.children.map((k) => ({
+        value: k.id,
+        label: k.title,
+        progress: k.progress,
+        status: k.status,
+      }));
+    }
+    if (filters.selectedStrategicFocusId !== "all") {
+      const sf = findNode(data.planTree, filters.selectedStrategicFocusId);
+      if (!sf) return [];
+      return collectAll(sf.children || [], (n) => n.type === "kpi" || n.level === 3).map((k) => ({
+        value: k.id,
+        label: k.title,
+        progress: k.progress,
+        status: k.status,
+      }));
+    }
+    return collectAll(data.planTree, (n) => n.type === "kpi" || n.level === 3).map((k) => ({
+      value: k.id,
+      label: k.title,
+      progress: k.progress,
+      status: k.status,
+    }));
+  }, [data.planTree, filters.selectedStrategicFocusId, filters.selectedGoalId]);
+
+  const filteredPlanTree = useMemo(() => {
+    if (filters.selectedKpiId !== "all") {
+      const kpi = findNode(data.planTree, filters.selectedKpiId);
+      return kpi ? [kpi] : [];
+    }
+    if (filters.selectedGoalId !== "all") {
+      const goal = findNode(data.planTree, filters.selectedGoalId);
+      return goal ? [goal] : [];
+    }
+    if (filters.selectedStrategicFocusId !== "all") {
+      const sf = findNode(data.planTree, filters.selectedStrategicFocusId);
+      return sf ? [sf] : [];
+    }
+    return data.planTree;
+  }, [data.planTree, filters.selectedStrategicFocusId, filters.selectedGoalId, filters.selectedKpiId]);
+
+  const activeHierarchyScope = useMemo(() => {
+    if (filters.selectedKpiId !== "all") {
+      const kpi = findNode(data.planTree, filters.selectedKpiId);
+      return {
+        isSubtree: true,
+        level: "kpi" as const,
+        id: filters.selectedKpiId,
+        title: kpi?.title || "Selected KPI",
+        node: kpi,
+      };
+    }
+    if (filters.selectedGoalId !== "all") {
+      const goal = findNode(data.planTree, filters.selectedGoalId);
+      return {
+        isSubtree: true,
+        level: "goal" as const,
+        id: filters.selectedGoalId,
+        title: goal?.title || "Selected Goal",
+        node: goal,
+      };
+    }
+    if (filters.selectedStrategicFocusId !== "all") {
+      const sf = findNode(data.planTree, filters.selectedStrategicFocusId);
+      return {
+        isSubtree: true,
+        level: "strategic" as const,
+        id: filters.selectedStrategicFocusId,
+        title: sf?.title || "Selected Strategic Focus",
+        node: sf,
+      };
+    }
+    return {
+      isSubtree: false,
+      level: "all" as const,
+      id: "all",
+      title: "Whole Plan Scope",
+      node: null,
+    };
+  }, [data.planTree, filters.selectedStrategicFocusId, filters.selectedGoalId, filters.selectedKpiId]);
+
   const updateFilter = <K extends keyof DashboardFilters>(
     key: K,
     value: DashboardFilters[K]
@@ -258,19 +404,58 @@ export function usePlanDashboardFilters() {
       if (key === "departmentId") {
         next.userId = "all";
       }
-      // Changing focus plan resets period so backend can pick the active one again.
+      // Changing focus plan resets period & hierarchy selections
       if (key === "masterPlanVersionId") {
         next.periodVersionId = "auto";
+        next.selectedStrategicFocusId = "all";
+        next.selectedGoalId = "all";
+        next.selectedKpiId = "all";
+      }
+      // Hierarchy cascading updates
+      if (key === "hierarchyLevel") {
+        if (value === "all") {
+          next.selectedStrategicFocusId = "all";
+          next.selectedGoalId = "all";
+          next.selectedKpiId = "all";
+        }
+      }
+      if (key === "selectedStrategicFocusId") {
+        next.selectedGoalId = "all";
+        next.selectedKpiId = "all";
+        if (value !== "all") {
+          next.hierarchyLevel = "strategic";
+        }
+      }
+      if (key === "selectedGoalId") {
+        next.selectedKpiId = "all";
+        if (value !== "all") {
+          next.hierarchyLevel = "goal";
+        }
+      }
+      if (key === "selectedKpiId") {
+        if (value !== "all") {
+          next.hierarchyLevel = "kpi";
+        }
       }
       return next;
     });
+  };
+
+  const clearHierarchyFilter = () => {
+    setFilters((prev) => ({
+      ...prev,
+      hierarchyLevel: "all",
+      selectedStrategicFocusId: "all",
+      selectedGoalId: "all",
+      selectedKpiId: "all",
+    }));
   };
 
   const resetFilters = () => setFilters(DEFAULT_DASHBOARD_FILTERS);
 
   const refetch = () => {
     refetchOverview();
-    if (hasOpenedProgress || activeSection === "progress") {
+    if (hasOpenedProgress || activeSection === "progress" || filters.masterPlanVersionId !== "auto") {
       refetchProgressTree();
     }
     if (hasOpenedDeptUser || isDeptUserSection) {
@@ -281,6 +466,7 @@ export function usePlanDashboardFilters() {
   return {
     filters,
     updateFilter,
+    clearHierarchyFilter,
     resetFilters,
     activeSection,
     setActiveSection,
@@ -290,6 +476,11 @@ export function usePlanDashboardFilters() {
     departmentOptions,
     userOptions,
     executionPlanOptions,
+    strategicFocusOptions,
+    goalOptions,
+    kpiOptions,
+    filteredPlanTree,
+    activeHierarchyScope,
     refetch,
     refetchProgressTree,
     refetchDeptUser,
