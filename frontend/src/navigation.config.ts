@@ -103,21 +103,23 @@ export const NAVIGATION: NavItem[] = [
     anyPermissions: ["COMPANIES:READ", "COMPANIES:MANAGE"],
   },
   {
-    title: "Production Management",
-    url: "/admin/production/dashboard",
+    title: "Production",
+    url: "/admin/production",
     icon: Factory,
     anyPermissions: [
       "PRODUCTION_DASHBOARD:READ",
       "PRODUCTION_ITEMS:READ",
+      "PRODUCTION_FREQUENCIES:READ",
       "COMPANY_PRODUCTION:READ",
       "COMPANY_PRODUCTION:MANAGE",
+      "COMPANY_PRODUCTION_REPORTS:READ",
     ],
     children: [
       {
         title: "Production Dashboard",
         url: "/admin/production/dashboard",
         icon: LayoutDashboard,
-        anyPermissions: ["PRODUCTION_DASHBOARD:READ"],
+        anyPermissions: ["PRODUCTION_DASHBOARD:READ", "COMPANY_PRODUCTION:READ"],
       },
       {
         title: "Company Assignments",
@@ -136,6 +138,12 @@ export const NAVIGATION: NavItem[] = [
         url: "/admin/production/frequencies",
         icon: Settings,
         anyPermissions: ["PRODUCTION_FREQUENCIES:READ", "PRODUCTION_FREQUENCIES:MANAGE"],
+      },
+      {
+        title: "Production Reports",
+        url: "/admin/production/reports",
+        icon: ClipboardCheck,
+        anyPermissions: ["COMPANY_PRODUCTION_REPORTS:READ", "COMPANY_PRODUCTION_REPORTS:MANAGE", "COMPANY_PRODUCTION:READ"],
       },
     ],
   },

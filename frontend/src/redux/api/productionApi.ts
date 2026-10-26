@@ -23,7 +23,7 @@ export const productionApi = baseApi.injectEndpoints({
       { is_active?: boolean | string; category?: string; search?: string } | void
     >({
       query: (params) => ({
-        url: "/api/production/config/items",
+        url: "/production/config/items",
         method: "GET",
         params: params || {},
       }),
@@ -43,7 +43,7 @@ export const productionApi = baseApi.injectEndpoints({
 
     getProductionItemById: builder.query<ProductionItem, string>({
       query: (id) => ({
-        url: `/api/production/config/items/${id}`,
+        url: `/production/config/items/${id}`,
         method: "GET",
       }),
       transformResponse: (response: { success: boolean; data: ProductionItem }) =>
@@ -53,7 +53,7 @@ export const productionApi = baseApi.injectEndpoints({
 
     createProductionItem: builder.mutation<ProductionItem, Partial<ProductionItem> & { supported_units?: any[] }>({
       query: (body) => ({
-        url: "/api/production/config/items",
+        url: "/production/config/items",
         method: "POST",
         body,
       }),
@@ -67,7 +67,7 @@ export const productionApi = baseApi.injectEndpoints({
       { id: string; data: Partial<ProductionItem> & { supported_units?: any[] } }
     >({
       query: ({ id, data }) => ({
-        url: `/api/production/config/items/${id}`,
+        url: `/production/config/items/${id}`,
         method: "PUT",
         body: data,
       }),
@@ -81,7 +81,7 @@ export const productionApi = baseApi.injectEndpoints({
 
     deleteProductionItem: builder.mutation<{ message: string }, string>({
       query: (id) => ({
-        url: `/api/production/config/items/${id}`,
+        url: `/production/config/items/${id}`,
         method: "DELETE",
       }),
       invalidatesTags: [{ type: "ProductionItems", id: "LIST" }],
@@ -92,7 +92,7 @@ export const productionApi = baseApi.injectEndpoints({
       { quantity: number; fromUnitId: string; toUnitId: string; productionItemId: string }
     >({
       query: (body) => ({
-        url: "/api/production/config/convert-quantity",
+        url: "/production/config/convert-quantity",
         method: "POST",
         body,
       }),
@@ -105,7 +105,7 @@ export const productionApi = baseApi.injectEndpoints({
     // ------------------------------------------------------------------
     getFrequencies: builder.query<ProductionReportingFrequency[], void>({
       query: () => ({
-        url: "/api/production/config/frequencies",
+        url: "/production/config/frequencies",
         method: "GET",
       }),
       transformResponse: (response: { success: boolean; data: ProductionReportingFrequency[] }) =>
@@ -115,7 +115,7 @@ export const productionApi = baseApi.injectEndpoints({
 
     createFrequency: builder.mutation<ProductionReportingFrequency, Partial<ProductionReportingFrequency>>({
       query: (body) => ({
-        url: "/api/production/config/frequencies",
+        url: "/production/config/frequencies",
         method: "POST",
         body,
       }),
@@ -129,7 +129,7 @@ export const productionApi = baseApi.injectEndpoints({
       { id: string; data: Partial<ProductionReportingFrequency> }
     >({
       query: ({ id, data }) => ({
-        url: `/api/production/config/frequencies/${id}`,
+        url: `/production/config/frequencies/${id}`,
         method: "PUT",
         body: data,
       }),
@@ -143,7 +143,7 @@ export const productionApi = baseApi.injectEndpoints({
       { year: number | string; allocationDepth?: string; startDate?: string; endDate?: string }
     >({
       query: (params) => ({
-        url: "/api/production/config/target-periods",
+        url: "/production/config/target-periods",
         method: "GET",
         params,
       }),
@@ -159,7 +159,7 @@ export const productionApi = baseApi.injectEndpoints({
       { company_id?: string; production_item_id?: string; is_active?: boolean | string } | void
     >({
       query: (params) => ({
-        url: "/api/production/company/assignments",
+        url: "/production/company/assignments",
         method: "GET",
         params: params || {},
       }),
@@ -179,7 +179,7 @@ export const productionApi = baseApi.injectEndpoints({
 
     getAssignmentById: builder.query<CompanyProductionAssignment, string>({
       query: (id) => ({
-        url: `/api/production/company/assignments/${id}`,
+        url: `/production/company/assignments/${id}`,
         method: "GET",
       }),
       transformResponse: (response: { success: boolean; data: CompanyProductionAssignment }) =>
@@ -189,7 +189,7 @@ export const productionApi = baseApi.injectEndpoints({
 
     createAssignment: builder.mutation<CompanyProductionAssignment, Partial<CompanyProductionAssignment>>({
       query: (body) => ({
-        url: "/api/production/company/assignments",
+        url: "/production/company/assignments",
         method: "POST",
         body,
       }),
@@ -207,7 +207,7 @@ export const productionApi = baseApi.injectEndpoints({
       { id: string; data: Partial<CompanyProductionAssignment> }
     >({
       query: ({ id, data }) => ({
-        url: `/api/production/company/assignments/${id}`,
+        url: `/production/company/assignments/${id}`,
         method: "PUT",
         body: data,
       }),
@@ -226,7 +226,7 @@ export const productionApi = baseApi.injectEndpoints({
       { id: string; targets: TargetPeriodNode[]; revision_reason?: string }
     >({
       query: ({ id, targets, revision_reason }) => ({
-        url: `/api/production/company/assignments/${id}/targets`,
+        url: `/production/company/assignments/${id}/targets`,
         method: "POST",
         body: { targets, revision_reason },
       }),
@@ -245,7 +245,7 @@ export const productionApi = baseApi.injectEndpoints({
       { id: string; version?: number | string }
     >({
       query: ({ id, version }) => ({
-        url: `/api/production/company/assignments/${id}/targets`,
+        url: `/production/company/assignments/${id}/targets`,
         method: "GET",
         params: version ? { version } : {},
       }),
@@ -271,7 +271,7 @@ export const productionApi = baseApi.injectEndpoints({
       } | void
     >({
       query: (params) => ({
-        url: "/api/production/company/reports",
+        url: "/production/company/reports",
         method: "GET",
         params: params || {},
       }),
@@ -290,7 +290,7 @@ export const productionApi = baseApi.injectEndpoints({
 
     getReportById: builder.query<CompanyProductionReport, string>({
       query: (id) => ({
-        url: `/api/production/company/reports/${id}`,
+        url: `/production/company/reports/${id}`,
         method: "GET",
       }),
       transformResponse: (response: { success: boolean; data: CompanyProductionReport }) =>
@@ -300,7 +300,7 @@ export const productionApi = baseApi.injectEndpoints({
 
     submitReport: builder.mutation<CompanyProductionReport, Partial<CompanyProductionReport>>({
       query: (body) => ({
-        url: "/api/production/company/reports",
+        url: "/production/company/reports",
         method: "POST",
         body,
       }),
@@ -318,7 +318,7 @@ export const productionApi = baseApi.injectEndpoints({
       { id: string; data: Partial<CompanyProductionReport> }
     >({
       query: ({ id, data }) => ({
-        url: `/api/production/company/reports/${id}`,
+        url: `/production/company/reports/${id}`,
         method: "PUT",
         body: data,
       }),
@@ -337,7 +337,7 @@ export const productionApi = baseApi.injectEndpoints({
       { id: string; action: "approved" | "rejected"; review_comments?: string }
     >({
       query: ({ id, action, review_comments }) => ({
-        url: `/api/production/company/reports/${id}/review`,
+        url: `/production/company/reports/${id}/review`,
         method: "POST",
         body: { action, review_comments },
       }),
@@ -366,7 +366,7 @@ export const productionApi = baseApi.injectEndpoints({
       }
     >({
       query: (params) => ({
-        url: "/api/production/company/performance",
+        url: "/production/company/performance",
         method: "GET",
         params,
       }),
@@ -386,7 +386,7 @@ export const productionApi = baseApi.injectEndpoints({
       } | void
     >({
       query: (params) => ({
-        url: "/api/production/company/dashboard/federal",
+        url: "/production/company/dashboard/federal",
         method: "GET",
         params: params || {},
       }),
@@ -400,7 +400,7 @@ export const productionApi = baseApi.injectEndpoints({
       { companyId: string; start_date?: string; end_date?: string; period_label?: string }
     >({
       query: ({ companyId, ...params }) => ({
-        url: `/api/production/company/dashboard/company/${companyId}`,
+        url: `/production/company/dashboard/company/${companyId}`,
         method: "GET",
         params,
       }),
@@ -414,7 +414,7 @@ export const productionApi = baseApi.injectEndpoints({
 
     getMeasurementUnits: builder.query<any[], void>({
       query: () => ({
-        url: "/api/gold/units",
+        url: "/gold/units",
         method: "GET",
       }),
       transformResponse: (response: { success: boolean; data: any[] }) => response.data,

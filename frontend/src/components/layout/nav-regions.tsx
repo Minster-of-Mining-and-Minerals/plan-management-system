@@ -35,6 +35,24 @@ export function NavRegions({ regions, basePath = "/admin/regions" }: NavRegionsP
 
   return (
     <SidebarMenuSub className="pt-1">
+      {/* Regional List navigation */}
+      <SidebarMenuSubItem>
+        <SidebarMenuSubButton
+          asChild
+          isActive={currentPath === basePath}
+          className={sidebarSubNavClasses}
+        >
+          <Link
+            href={basePath}
+            className="flex items-center gap-3 w-full min-w-0"
+            title="Regional List"
+          >
+            <LayoutGrid className="h-4 w-4 shrink-0 text-primary/70" aria-hidden />
+            <span className="truncate flex-1 whitespace-nowrap font-medium">Regional List</span>
+          </Link>
+        </SidebarMenuSubButton>
+      </SidebarMenuSubItem>
+
       {/* Individual Region sub-items */}
       {regions.map((region) => {
         const url = `${basePath}/${region.region_id}`;

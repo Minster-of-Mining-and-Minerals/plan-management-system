@@ -94,6 +94,7 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/admin/production/items", anyPermissions: ["PRODUCTION_ITEMS:READ", "PRODUCTION_ITEMS:MANAGE"] },
   { pattern: "/admin/production/frequencies", anyPermissions: ["PRODUCTION_FREQUENCIES:READ", "PRODUCTION_FREQUENCIES:MANAGE"] },
   { pattern: "/admin/production/assignments", anyPermissions: ["COMPANY_PRODUCTION:READ", "COMPANY_PRODUCTION:ASSIGN", "COMPANY_PRODUCTION:MANAGE"] },
+  { pattern: "/admin/production/reports", anyPermissions: ["COMPANY_PRODUCTION_REPORTS:READ", "COMPANY_PRODUCTION_REPORTS:MANAGE", "COMPANY_PRODUCTION:READ"] },
   { pattern: "/admin/production", anyPermissions: ["PRODUCTION_DASHBOARD:READ", "PRODUCTION_ITEMS:READ", "COMPANY_PRODUCTION:READ"] },
 
   // Gold Operations Administration

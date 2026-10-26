@@ -57,7 +57,9 @@ import { CircularProgress } from "@/features/plan-management/components/Circular
 import { useDashboardAppearance } from "@/features/plan-management/dashboard/hooks/useDashboardAppearance";
 import { hexToRgba } from "@/features/plan-management/dashboard/utils/dashboardAppearanceUtils";
 
-type DashboardTab = "overview" | "planning-preview" | "compliance-preview";
+import { CompanyProductionDashboardView } from "@/features/company-production/CompanyProductionDashboardView";
+
+type DashboardTab = "overview" | "planning-preview" | "compliance-preview" | "production";
 
 export interface CompanyDashboardViewProps {
   overrideCompanyId?: string;
@@ -88,8 +90,8 @@ export function CompanyDashboardView({
   const requestedTab = searchParams.get("tab") as DashboardTab | null;
   const activeTab: DashboardTab = hideHeaderNavigation
     ? localTab
-    : requestedTab === "planning-preview"
-    ? "planning-preview"
+    : requestedTab === "production" || requestedTab === "planning-preview"
+    ? "production"
     : requestedTab === "compliance-preview"
     ? "compliance-preview"
     : "overview";
@@ -308,24 +310,24 @@ export function CompanyDashboardView({
         <button
           type="button"
           role="tab"
-          aria-selected={activeTab === "planning-preview"}
-          onClick={() => setActiveTab("planning-preview")}
+          aria-selected={activeTab === "production"}
+          onClick={() => setActiveTab("production")}
           className={cn(
             "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all shadow-xs",
-            activeTab === "planning-preview"
+            activeTab === "production"
               ? "text-white shadow-sm"
               : "border border-border bg-card text-muted-foreground hover:bg-muted/70 hover:text-foreground"
           )}
           style={
-            activeTab === "planning-preview"
+            activeTab === "production"
               ? { backgroundColor: primaryTone.color }
               : undefined
           }
         >
-          <TrendingUp className="h-4 w-4" />
-          <span>Production & Planning</span>
-          <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
-            Coming soon
+          <Factory className="h-4 w-4" />
+          <span>Production Reporting</span>
+          <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300">
+            Live
           </span>
         </button>
 
@@ -519,6 +521,32 @@ export function CompanyDashboardView({
                 </Link>
               )}
 
+              {can("COMPANY_PRODUCTION:READ") && (
+                <Link
+                  href={`${basePath}/production`}
+                  className="flex items-start gap-4 p-4 rounded-xl border border-border bg-card hover:border-primary/50 hover:bg-muted/30 transition-all group"
+                >
+                  <div
+                    className="p-3 rounded-xl shrink-0"
+                    style={{
+                      backgroundColor: hexToRgba(primaryTone.color, 0.1),
+                      color: primaryTone.color,
+                    }}
+                  >
+                    <Factory className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-sm group-hover:text-primary transition-colors flex items-center gap-1.5">
+                      Production Reporting
+                      <ArrowRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Submit daily production actuals, track performance against dynamic targets, and view compliance.
+                    </p>
+                  </div>
+                </Link>
+              )}
+
               {canManageUsers && (
                 <Link
                   href={`${basePath}/users`}
@@ -663,82 +691,11 @@ export function CompanyDashboardView({
       )}
 
       {/* =========================================================================
-          4. TAB 2: PRODUCTION & PLANNING PREVIEW (CLEARLY LABELED STATIC PLACEHOLDER)
+          4. TAB 2: PRODUCTION REPORTING & TARGET PERFORMANCE (LIVE)
       ========================================================================= */}
-      {activeTab === "planning-preview" && (
+      {activeTab === "production" && (
         <div className="space-y-6 animate-in fade-in-50 duration-300">
-          <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5 dark:border-amber-900/40 dark:bg-amber-950/20">
-            <div className="flex items-start gap-4">
-              <div className="rounded-xl bg-amber-500/20 p-2.5 text-amber-700 dark:text-amber-400 shrink-0">
-                <Clock className="h-6 w-6" />
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-amber-950 dark:text-amber-200">
-                    Production & Operational Planning — Future Phase
-                  </h3>
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900 dark:bg-amber-900 dark:text-amber-200">
-                    Not yet available
-                  </span>
-                </div>
-                <p className="text-sm text-amber-800/90 dark:text-amber-300/90 leading-relaxed">
-                  Company production scheduling, extraction milestones, annual targets, and equipment
-                  KPIs will be integrated in subsequent phases. This view illustrates upcoming corporate
-                  planning interfaces without generating fake production metrics.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 opacity-75">
-            <AnalyticsPanel
-              title="Extraction & Refining Output"
-              description="Quarterly metric targets vs actual yield"
-              tone="secondary"
-            >
-              <div className="h-44 flex flex-col items-center justify-center text-center p-4 border border-dashed rounded-xl bg-muted/20">
-                <Pickaxe className="w-8 h-8 text-muted-foreground/40 mb-2" />
-                <span className="text-xs font-semibold text-muted-foreground uppercase">
-                  Production Schedules (Coming Soon)
-                </span>
-                <span className="text-[11px] text-muted-foreground mt-1 max-w-xs">
-                  Target tonnages, refining quotas, and daily extraction logs will populate here.
-                </span>
-              </div>
-            </AnalyticsPanel>
-
-            <AnalyticsPanel
-              title="Site Operations & Fleet Monitoring"
-              description="Active concessions and equipment telemetry"
-              tone="secondary"
-            >
-              <div className="h-44 flex flex-col items-center justify-center text-center p-4 border border-dashed rounded-xl bg-muted/20">
-                <Factory className="w-8 h-8 text-muted-foreground/40 mb-2" />
-                <span className="text-xs font-semibold text-muted-foreground uppercase">
-                  Concession Operations (Coming Soon)
-                </span>
-                <span className="text-[11px] text-muted-foreground mt-1 max-w-xs">
-                  Active mining sites, processing plants, and facility status will populate here.
-                </span>
-              </div>
-            </AnalyticsPanel>
-
-            <AnalyticsPanel
-              title="Operational Milestone Progress"
-              description="Yearly operational target completion"
-              tone="secondary"
-            >
-              <div className="h-44 flex flex-col items-center justify-center text-center p-4 border border-dashed rounded-xl bg-muted/20">
-                <TrendingUp className="w-8 h-8 text-muted-foreground/40 mb-2" />
-                <span className="text-xs font-semibold text-muted-foreground uppercase">
-                  Target Tracking (Coming Soon)
-                </span>
-                <span className="text-[11px] text-muted-foreground mt-1 max-w-xs">
-                  Strategic plan milestones aligned with federal mining objectives will display here.
-                </span>
-              </div>
-            </AnalyticsPanel>
-          </div>
+          <CompanyProductionDashboardView companyId={activeCompanyId || undefined} />
         </div>
       )}
 

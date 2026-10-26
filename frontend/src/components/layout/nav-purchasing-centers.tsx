@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Link, usePathname } from "@/i18n/navigation";
-import { Building2 } from "lucide-react";
+import { Building2, LayoutGrid } from "lucide-react";
 import Image from "next/image";
 import {
   SidebarMenuSub,
@@ -38,6 +38,24 @@ export function NavPurchasingCenters({
 
   return (
     <SidebarMenuSub className="pt-1">
+      {/* Centers List navigation */}
+      <SidebarMenuSubItem>
+        <SidebarMenuSubButton
+          asChild
+          isActive={currentPath === basePath}
+          className={sidebarSubNavClasses}
+        >
+          <Link
+            href={basePath}
+            className="flex items-center gap-3 w-full min-w-0"
+            title="Centers List"
+          >
+            <LayoutGrid className="h-4 w-4 shrink-0 text-primary/70" aria-hidden />
+            <span className="truncate flex-1 whitespace-nowrap font-medium">Centers List</span>
+          </Link>
+        </SidebarMenuSubButton>
+      </SidebarMenuSubItem>
+
       {/* Individual Purchasing Center sub-items */}
       {centers.map((center) => {
         const url = `${basePath}/${center.purchasing_center_id}`;

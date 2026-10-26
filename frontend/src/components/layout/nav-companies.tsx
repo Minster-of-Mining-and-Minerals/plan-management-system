@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Link, usePathname } from "@/i18n/navigation";
-import { Building2 } from "lucide-react";
+import { Building2, LayoutGrid } from "lucide-react";
 import Image from "next/image";
 import {
   SidebarMenuSub,
@@ -35,6 +35,24 @@ export function NavCompanies({ companies, basePath = "/admin/companies" }: NavCo
 
   return (
     <SidebarMenuSub className="pt-1">
+      {/* Companies List navigation */}
+      <SidebarMenuSubItem>
+        <SidebarMenuSubButton
+          asChild
+          isActive={currentPath === basePath}
+          className={sidebarSubNavClasses}
+        >
+          <Link
+            href={basePath}
+            className="flex items-center gap-3 w-full min-w-0"
+            title="Companies List"
+          >
+            <LayoutGrid className="h-4 w-4 shrink-0 text-primary/70" aria-hidden />
+            <span className="truncate flex-1 whitespace-nowrap font-medium">Companies List</span>
+          </Link>
+        </SidebarMenuSubButton>
+      </SidebarMenuSubItem>
+
       {/* Individual Company sub-items */}
       {companies.map((company) => {
         const url = `${basePath}/${company.company_id}`;
