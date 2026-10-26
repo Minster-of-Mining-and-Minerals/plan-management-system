@@ -85,6 +85,8 @@ export function PurchasingCenterDashboardView({
   const {
     data: baseData,
     isLoading: isBaseLoading,
+    error: baseError,
+    refetch: refetchBase,
   } = useGetPurchasingCenterDashboardQuery(
     activeCenterId ? { purchasing_center_id: activeCenterId } : undefined
   );
@@ -95,15 +97,13 @@ export function PurchasingCenterDashboardView({
     isLoading: isGoldLoading,
     isFetching: isGoldFetching,
     refetch: refetchGold,
+    error: goldError,
   } = useGetGoldCenterDashboardQuery(
     activeCenterId
       ? { purchasing_center_id: activeCenterId, time_range: timeRange }
       : { time_range: timeRange }
   );
 
-  if (isBaseLoading || isGoldLoading) {
-    return <Loading01 />;
-  }
 
   const centerInfo = baseData?.purchasing_center || goldData?.purchasing_center;
   const userCounts = baseData?.counts?.users;
@@ -115,8 +115,8 @@ export function PurchasingCenterDashboardView({
   // Chart Items for Daily Volume Trends
   const volumeTrendItems = (dailyTrends || []).map((t) => ({
     label: t.date,
-    value: parseFloat(parseFloat(String(t.canonical_quantity)).toFixed(2)),
-    subtitle: `${parseFloat(String(t.amount)).toLocaleString()} ETB`,
+    value: parseFloat(parseFloat(String(t.canonical_quantity || 0)).toFixed(2)),
+    subtitle: `${parseFloat(String(t.amount || 0)).toLocaleString()} ETB`,
     color: "#f59e0b",
   }));
 
@@ -154,17 +154,22 @@ export function PurchasingCenterDashboardView({
       {
         accessorKey: "count",
         header: "Txns",
-        cell: ({ row }) => <span className="font-mono text-xs">{row.original.count}</span>,
+        cell: ({ row }) => (
+          <span className="font-mono text-xs">
+            {row.original.count ?? row.original.purchases_count ?? 0}
+          </span>
+        ),
       },
       {
         id: "volume",
         header: "Volume (g)",
         cell: ({ row }) => {
           const totalVol = period?.total_canonical_quantity || 1;
-          const sharePct = ((row.original.canonical_quantity / totalVol) * 100).toFixed(1);
+          const canonical = Number(row.original.canonical_quantity ?? 0);
+          const sharePct = ((canonical / totalVol) * 100).toFixed(1);
           return (
             <span className="font-mono font-bold text-amber-600 dark:text-amber-400 text-xs">
-              {row.original.canonical_quantity.toLocaleString(undefined, {
+              {canonical.toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}{" "}
@@ -176,11 +181,14 @@ export function PurchasingCenterDashboardView({
       {
         id: "amount",
         header: "Settlement",
-        cell: ({ row }) => (
-          <span className="font-mono font-semibold text-foreground text-xs text-right block">
-            {row.original.amount.toLocaleString()} ETB
-          </span>
-        ),
+        cell: ({ row }) => {
+          const amt = Number(row.original.amount ?? row.original.total_amount ?? 0);
+          return (
+            <span className="font-mono font-semibold text-foreground text-xs text-right block">
+              {amt.toLocaleString()} ETB
+            </span>
+          );
+        },
       },
     ],
     [period]
@@ -208,17 +216,22 @@ export function PurchasingCenterDashboardView({
       {
         accessorKey: "count",
         header: "Txns",
-        cell: ({ row }) => <span className="font-mono text-xs">{row.original.count}</span>,
+        cell: ({ row }) => (
+          <span className="font-mono text-xs">
+            {row.original.count ?? row.original.purchases_count ?? 0}
+          </span>
+        ),
       },
       {
         id: "volume",
         header: "Volume (g)",
         cell: ({ row }) => {
           const totalVol = period?.total_canonical_quantity || 1;
-          const sharePct = ((row.original.canonical_quantity / totalVol) * 100).toFixed(1);
+          const canonical = Number(row.original.canonical_quantity ?? 0);
+          const sharePct = ((canonical / totalVol) * 100).toFixed(1);
           return (
             <span className="font-mono font-bold text-amber-600 dark:text-amber-400 text-xs">
-              {row.original.canonical_quantity.toLocaleString(undefined, {
+              {canonical.toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}{" "}
@@ -230,11 +243,14 @@ export function PurchasingCenterDashboardView({
       {
         id: "amount",
         header: "Settlement",
-        cell: ({ row }) => (
-          <span className="font-mono font-semibold text-foreground text-xs text-right block">
-            {row.original.amount.toLocaleString()} ETB
-          </span>
-        ),
+        cell: ({ row }) => {
+          const amt = Number(row.original.amount ?? row.original.total_amount ?? 0);
+          return (
+            <span className="font-mono font-semibold text-foreground text-xs text-right block">
+              {amt.toLocaleString()} ETB
+            </span>
+          );
+        },
       },
     ],
     [period]
@@ -289,7 +305,7 @@ export function PurchasingCenterDashboardView({
         header: "Quantity",
         cell: ({ row }) => (
           <span className="font-mono text-xs">
-            {parseFloat(String(row.original.quantity)).toLocaleString()}{" "}
+            {parseFloat(String(row.original.quantity || 0)).toLocaleString()}{" "}
             <span className="text-muted-foreground">{row.original.unit_code_snapshot}</span>
           </span>
         ),
@@ -299,7 +315,7 @@ export function PurchasingCenterDashboardView({
         header: "Base (g)",
         cell: ({ row }) => (
           <span className="font-mono text-muted-foreground text-xs">
-            {parseFloat(String(row.original.quantity_in_canonical_unit)).toLocaleString()} g
+            {parseFloat(String(row.original.quantity_in_canonical_unit || 0)).toLocaleString()} g
           </span>
         ),
       },
@@ -308,7 +324,7 @@ export function PurchasingCenterDashboardView({
         header: "Total Amount",
         cell: ({ row }) => (
           <span className="font-mono font-semibold text-foreground text-xs">
-            {parseFloat(String(row.original.total_amount)).toLocaleString()} ETB
+            {parseFloat(String(row.original.total_amount || 0)).toLocaleString()} ETB
           </span>
         ),
       },
@@ -347,6 +363,29 @@ export function PurchasingCenterDashboardView({
     ],
     [basePath]
   );
+
+  if (isBaseLoading || isGoldLoading) {
+    return <Loading01 />;
+  }
+
+  if ((baseError && goldError) || (!baseData && !goldData && (baseError || goldError))) {
+    return (
+      <div className="p-8 text-center border rounded-2xl bg-destructive/5 text-destructive space-y-4 max-w-xl mx-auto my-12">
+        <div className="mx-auto w-12 h-12 rounded-full bg-destructive/15 flex items-center justify-center">
+          <AlertCircle className="h-6 w-6 text-destructive" />
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold">Unable to load purchasing center dashboard</h3>
+          <p className="text-sm mt-1 text-muted-foreground">
+            {((baseError as any)?.data?.message) || ((goldError as any)?.data?.message) || "There was an error communicating with purchasing center services."}
+          </p>
+        </div>
+        <Button onClick={() => { refetchBase?.(); refetchGold?.(); }} variant="outline">
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">

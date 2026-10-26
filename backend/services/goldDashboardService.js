@@ -340,12 +340,20 @@ async function getPurchasingCenterDashboard(centerId, query = {}, actor) {
           amount: parseFloat(sellerDistribution.asm.amount.toFixed(2)),
         },
       },
-      company_breakdown: Array.from(companyBreakdownMap.values()).sort(
-        (a, b) => b.canonical_quantity - a.canonical_quantity
-      ),
-      asm_breakdown: Array.from(asmBreakdownMap.values()).sort(
-        (a, b) => b.canonical_quantity - a.canonical_quantity
-      ),
+      company_breakdown: Array.from(companyBreakdownMap.values())
+        .map((c) => ({
+          ...c,
+          count: c.purchases_count,
+          amount: c.total_amount,
+        }))
+        .sort((a, b) => b.canonical_quantity - a.canonical_quantity),
+      asm_breakdown: Array.from(asmBreakdownMap.values())
+        .map((a) => ({
+          ...a,
+          count: a.purchases_count,
+          amount: a.total_amount,
+        }))
+        .sort((a, b) => b.canonical_quantity - a.canonical_quantity),
       karat_breakdown: Array.from(karatBreakdownMap.values()).sort(
         (a, b) => b.canonical_quantity - a.canonical_quantity
       ),

@@ -1157,6 +1157,11 @@ function assertPurchasingCenterAccessible(req, purchasingCenterId, requiredActio
   const hasExplicitPerm =
     perms.includes(`purchasing_centers:${actionLower}`) ||
     perms.includes("purchasing_centers:manage") ||
+    perms.includes(`purchasing_center_dashboard:${actionLower}`) ||
+    perms.includes("purchasing_center_dashboard:view") ||
+    perms.includes("purchasing_center_dashboard:manage") ||
+    perms.includes("gold_oversight:read") ||
+    perms.includes("gold_operations:read") ||
     perms.includes(`purchasing_center_branding:${actionLower}`) ||
     perms.includes("purchasing_center_branding:manage") ||
     perms.includes(`purchasing_center_users:${actionLower}`) ||

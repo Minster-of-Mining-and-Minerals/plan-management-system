@@ -38,7 +38,7 @@ async function getPurchasingCenterDashboard(req, res) {
     assertPurchasingCenterAccessible(req, pcId, "read");
 
     const pc = await PurchasingCenter.findByPk(pcId, {
-      attributes: ["purchasing_center_id", "name", "code", "description", "location", "contact_email", "contact_phone", "is_active", "created_at"],
+      attributes: ["purchasing_center_id", "name", "code", "description", "logo_path", "is_active", "created_at"],
     });
 
     if (!pc) {
