@@ -46,6 +46,7 @@ import {
   useDeleteRegionalPlanVersionMutation,
   useDuplicateRegionalPlanDraftMutation,
   useGetRegionalPlanConfigQuery,
+  useGetRegionalPlanRulesQuery,
 } from "@/redux/api/regionalPlanApi";
 import type { RegionalPlanVersion } from "@/redux/types/regionalPlan";
 
@@ -65,10 +66,14 @@ export function RegionalPlanVersionTable() {
   // Form states
   const [draftName, setDraftName] = useState("");
   const [startYear, setStartYear] = useState(new Date().getFullYear());
+  const [startDate, setStartDate] = useState(`${new Date().getFullYear()}-01-01`);
   const [durationYears, setDurationYears] = useState(5);
+  const [selectedRuleId, setSelectedRuleId] = useState("");
+  const [basedOnVersionId, setBasedOnVersionId] = useState("");
   const [duplicateName, setDuplicateName] = useState("");
 
   const { data: config } = useGetRegionalPlanConfigQuery({ region_id: regionId }, { skip: !regionId });
+  const { data: rules = [] } = useGetRegionalPlanRulesQuery({ region_id: regionId }, { skip: !regionId });
   const {
     data: plans = [],
     isLoading,
@@ -111,13 +116,16 @@ export function RegionalPlanVersionTable() {
           draft_name: draftName.trim(),
           start_year: Number(startYear),
           planning_duration_years: Number(durationYears),
+          planning_start_date: startDate,
+          regional_plan_rule_id: selectedRuleId || undefined,
+          based_on_version_id: basedOnVersionId || undefined,
         },
       }).unwrap();
 
-      actionFeedback.success("Regional plan draft created successfully");
+      actionFeedback.success("Plan draft created successfully");
       setIsCreateOpen(false);
       setDraftName("");
-      router.push(`/regions/${regionId}/plans/${created.regional_plan_version_id}`);
+      router.push(`/${regionId}/plans/${created.regional_plan_version_id}`);
     } catch (err: unknown) {
       const errorObj = err as { data?: { message?: string }; message?: string };
       actionFeedback.error(errorObj?.data?.message || errorObj?.message || "Failed to create plan draft");
@@ -323,13 +331,13 @@ export function RegionalPlanVersionTable() {
       <RegionalPlanTabsHeader />
 
       <TableLayout
-        title="Regional Strategic Plans"
-        description="Multi-year regional development cycles, goals, and organizational contribution hierarchies."
+        title="Plan Drafts"
+        description="Multi-year development cycles, strategic goals, indicators, and organizational contribution hierarchies."
         actions={
           canCreate
             ? [
                 {
-                  label: "New Regional Plan",
+                  label: "New Plan Draft",
                   icon: <Plus className="h-4 w-4" />,
                   onClick: () => setIsCreateOpen(true),
                 },
@@ -393,7 +401,7 @@ export function RegionalPlanVersionTable() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Plus className="h-5 w-5 text-primary" />
-                <span>Create Regional Strategic Plan</span>
+                <span>Create Strategic Plan Draft</span>
               </DialogTitle>
             </DialogHeader>
 
@@ -402,7 +410,7 @@ export function RegionalPlanVersionTable() {
                 <label className="text-xs font-semibold text-foreground">Plan Draft Title *</label>
                 <Input
                   className="mt-1"
-                  placeholder="e.g. 5-Year Regional Growth & Transformation Plan"
+                  placeholder="e.g. 5-Year Growth & Transformation Plan"
                   value={draftName}
                   onChange={(e) => setDraftName(e.target.value)}
                   required
@@ -411,12 +419,18 @@ export function RegionalPlanVersionTable() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-semibold text-foreground">Start Year *</label>
+                  <label className="text-xs font-semibold text-foreground">Planning Start Date *</label>
                   <Input
-                    type="number"
+                    type="date"
                     className="mt-1"
-                    value={startYear}
-                    onChange={(e) => setStartYear(Number(e.target.value))}
+                    value={startDate}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
+                      if (e.target.value) {
+                        const y = new Date(e.target.value).getFullYear();
+                        if (!isNaN(y)) setStartYear(y);
+                      }
+                    }}
                     required
                   />
                 </div>
@@ -434,6 +448,43 @@ export function RegionalPlanVersionTable() {
                   />
                 </div>
               </div>
+
+              {rules.length > 0 && (
+                <div>
+                  <label className="text-xs font-semibold text-foreground">Applicable Plan Rule</label>
+                  <Select value={selectedRuleId} onValueChange={setSelectedRuleId}>
+                    <SelectTrigger className="w-full mt-1 text-xs">
+                      <SelectValue placeholder="Standard Rule (Default)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {rules.map((r) => (
+                        <SelectItem key={r.regional_plan_rule_id} value={r.regional_plan_rule_id}>
+                          {r.name} ({r.steps?.length || 4} levels)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {plans.length > 0 && (
+                <div>
+                  <label className="text-xs font-semibold text-foreground">Base On Existing Version (Optional)</label>
+                  <Select value={basedOnVersionId} onValueChange={setBasedOnVersionId}>
+                    <SelectTrigger className="w-full mt-1 text-xs">
+                      <SelectValue placeholder="Start from blank structure" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Blank Structure</SelectItem>
+                      {plans.map((p) => (
+                        <SelectItem key={p.regional_plan_version_id} value={p.regional_plan_version_id}>
+                          {p.draft_name} (v{p.version_number})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="rounded-xl border bg-muted/40 p-3 text-xs text-muted-foreground flex items-start gap-2">
                 <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />

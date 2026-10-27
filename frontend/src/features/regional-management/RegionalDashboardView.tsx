@@ -287,7 +287,7 @@ export function RegionalDashboardView({
       <div
         className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-white p-3 sm:p-4 shadow-xs"
         role="tablist"
-        aria-label="Regional Dashboard Views"
+        aria-label="Dashboard Views"
       >
         <Button
           type="button"
@@ -303,7 +303,7 @@ export function RegionalDashboardView({
           )}
         >
           <ListTree className="h-4 w-4 shrink-0" />
-          <span>Regional Overview</span>
+          <span>Overview</span>
           <span className="text-[10px] uppercase font-bold tracking-wide ml-1.5 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
             Live
           </span>

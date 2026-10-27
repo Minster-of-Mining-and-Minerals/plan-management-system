@@ -6,6 +6,21 @@ export interface RegionalPlanRuleStep {
   requires_weight: boolean;
   requires_contribution_weight: boolean;
   allow_kpi: boolean;
+  color_hex?: string;
+}
+
+export interface RegionalPerformanceColorThreshold {
+  regional_performance_color_threshold_id: string;
+  region_id: string;
+  label: string;
+  min_percentage: number;
+  max_percentage: number;
+  color_hex: string;
+  is_active: boolean;
+  description?: string | null;
+  sort_order: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface RegionalPlanRule {
@@ -31,11 +46,24 @@ export interface RegionalPlanningConfiguration {
   duration_label: string;
   start_year_label: string;
   end_year_label: string;
-  target_units: string[];
+  target_units: Array<string | { id: string; label: string; symbol?: string }>;
   breakdown_mode: "quarterly" | "monthly" | "semi_annual" | "custom";
   custom_periods: Array<{ label: string; start_month?: number; end_month?: number }>;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface RegionalPlanReviewDashboard {
+  version: RegionalPlanVersion;
+  stats: {
+    total: number;
+    submitted: number;
+    under_review: number;
+    accepted: number;
+    rejected: number;
+    resolved: number;
+  };
+  issues: Array<Record<string, unknown>>;
 }
 
 export interface RegionalPlanNode {
@@ -98,6 +126,8 @@ export interface RegionalPlanVersion {
   start_month: number;
   end_month: number;
   planning_duration_years: number;
+  planning_start_date?: string;
+  planning_end_date?: string;
   is_locked: boolean;
   finalized_at?: string | null;
   annual_targets_finalized_at?: string | null;

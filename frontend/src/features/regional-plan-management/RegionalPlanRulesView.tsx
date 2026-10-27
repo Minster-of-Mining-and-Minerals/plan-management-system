@@ -177,17 +177,32 @@ export function RegionalPlanRulesView() {
       },
       {
         accessorKey: "steps",
-        header: "Hierarchy Depth",
+        header: "Hierarchy Depth & Step Colors",
         cell: ({ row }) => {
           const steps = row.original.steps || [];
           if (steps.length === 0) {
-            return <span className="text-xs text-muted-foreground">Standard 3-level depth</span>;
+            return <span className="text-xs text-muted-foreground">Standard 4-level hierarchy</span>;
           }
           return (
-            <div className="text-xs font-mono">
-              <span className="font-semibold text-foreground">{steps.length} levels</span>
-              <div className="text-[11px] text-muted-foreground truncate max-w-xs">
-                {steps.map((s) => s.name).join(" → ")}
+            <div className="space-y-1">
+              <span className="font-semibold text-xs text-foreground">{steps.length} Levels</span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {steps.map((s, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium border"
+                    style={{
+                      borderColor: (s.color_hex || "#6B7280") + "40",
+                      backgroundColor: (s.color_hex || "#6B7280") + "15",
+                    }}
+                  >
+                    <span
+                      className="h-2 w-2 rounded-full shrink-0"
+                      style={{ backgroundColor: s.color_hex || "#6B7280" }}
+                    />
+                    <span>{s.name}</span>
+                  </span>
+                ))}
               </div>
             </div>
           );
@@ -250,8 +265,8 @@ export function RegionalPlanRulesView() {
       <RegionalPlanTabsHeader />
 
       <TableLayout
-        title="Regional Planning Rules"
-        description="Configure hierarchy depth, leaf weights, contribution rollups, and performance scoring policies for regional strategic planning cycles."
+        title="Plan Rules"
+        description="Configure hierarchy depth, leaf weights, contribution rollups, step colors, and performance scoring policies for strategic planning cycles."
         actions={
           canManage
             ? [
@@ -267,7 +282,7 @@ export function RegionalPlanRulesView() {
         <div className="p-4 border-b border-border bg-card/50 flex items-center justify-between gap-3">
           <div className="max-w-sm w-full">
             <Input
-              placeholder="Search planning rules..."
+              placeholder="Search plan rules..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="h-9 text-xs"
@@ -295,7 +310,7 @@ export function RegionalPlanRulesView() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-primary" />
-              Create Regional Plan Rule
+              Create Plan Rule
             </DialogTitle>
           </DialogHeader>
 

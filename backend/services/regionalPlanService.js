@@ -10,6 +10,7 @@ const {
   RegionalPlanRuleStep,
   RegionalInternalAssignment,
   RegionalPlanNodeActionLog,
+  RegionalPerformanceColorThreshold,
   RegionalStructure,
   Region,
   User,
@@ -31,6 +32,15 @@ const {
 // Helper: Default Regional Configuration & Rule Initializer
 // -------------------------------------------------------------
 
+const DEFAULT_TARGET_UNITS = [
+  { id: "person", label: "Person", symbol: "persons" },
+  { id: "km", label: "Kilometer", symbol: "km" },
+  { id: "birr", label: "Birr", symbol: "ETB" },
+  { id: "ton", label: "Ton", symbol: "t" },
+  { id: "unit", label: "Unit", symbol: "units" },
+  { id: "kg", label: "Kilogram", symbol: "kg" },
+];
+
 async function ensureDefaultRegionalPlanningConfig(regionId, transaction) {
   let config = await RegionalPlanningConfiguration.findOne({
     where: { region_id: regionId },
@@ -44,14 +54,14 @@ async function ensureDefaultRegionalPlanningConfig(regionId, transaction) {
         region_id: regionId,
         min_duration_years: 1,
         max_duration_years: 10,
-        draft_entity_label_singular: "Regional Strategic Plan Draft",
-        draft_entity_label_plural: "Regional Strategic Plan Drafts",
-        create_action_label: "Create Regional Plan",
-        planning_period_label: "Regional Planning Cycle",
-        duration_label: "Cycle Duration",
-        start_year_label: "Start Year",
-        end_year_label: "End Year",
-        target_units: ["ETB", "USD", "Tons", "Kilograms", "Units", "Percentage", "Count", "Sites"],
+        draft_entity_label_singular: "Plan Draft",
+        draft_entity_label_plural: "Plan Drafts",
+        create_action_label: "Create Plan Draft",
+        planning_period_label: "Planning Period",
+        duration_label: "Duration",
+        start_year_label: "Start Date",
+        end_year_label: "End Date",
+        target_units: DEFAULT_TARGET_UNITS,
         breakdown_mode: "quarterly",
         custom_periods: [],
       },
@@ -75,7 +85,7 @@ async function ensureDefaultRegionalPlanRule(regionId, transaction) {
       {
         regional_plan_rule_id: ruleId,
         region_id: regionId,
-        name: "Standard Regional 4-Level Planning Rule",
+        name: "Standard 4-Level Planning Rule",
         is_active: true,
         performance_scoring_policy: "CAP_100",
       },
@@ -83,10 +93,10 @@ async function ensureDefaultRegionalPlanRule(regionId, transaction) {
     );
 
     const defaultSteps = [
-      { level: 1, name: "Strategic Priority", requires_weight: false, requires_contribution_weight: false, allow_kpi: false },
-      { level: 2, name: "Regional Goal", requires_weight: false, requires_contribution_weight: false, allow_kpi: false },
-      { level: 3, name: "Key Performance Indicator (KPI)", requires_weight: true, requires_contribution_weight: true, allow_kpi: true },
-      { level: 4, name: "Operational Activity / Task", requires_weight: false, requires_contribution_weight: true, allow_kpi: true },
+      { level: 1, name: "Strategic Priority", requires_weight: false, requires_contribution_weight: false, allow_kpi: false, color_hex: "#8B5CF6" },
+      { level: 2, name: "Goal", requires_weight: false, requires_contribution_weight: false, allow_kpi: false, color_hex: "#3B82F6" },
+      { level: 3, name: "Key Performance Indicator (KPI)", requires_weight: true, requires_contribution_weight: true, allow_kpi: true, color_hex: "#10B981" },
+      { level: 4, name: "Operational Activity / Task", requires_weight: false, requires_contribution_weight: true, allow_kpi: true, color_hex: "#F59E0B" },
     ];
 
     for (const step of defaultSteps) {
@@ -107,6 +117,37 @@ async function ensureDefaultRegionalPlanRule(regionId, transaction) {
   }
 
   return rule;
+}
+
+const DEFAULT_PERFORMANCE_COLOR_THRESHOLDS = [
+  { label: "No Performance", min_percentage: 0, max_percentage: 0, color_hex: "#DC2626", sort_order: 1 },
+  { label: "Very Poor", min_percentage: 1, max_percentage: 24, color_hex: "#EF4444", sort_order: 2 },
+  { label: "Poor", min_percentage: 25, max_percentage: 49, color_hex: "#F97316", sort_order: 3 },
+  { label: "Average", min_percentage: 50, max_percentage: 69, color_hex: "#EAB308", sort_order: 4 },
+  { label: "Good", min_percentage: 70, max_percentage: 84, color_hex: "#22C55E", sort_order: 5 },
+  { label: "Very Good", min_percentage: 85, max_percentage: 99, color_hex: "#16A34A", sort_order: 6 },
+  { label: "Completed", min_percentage: 100, max_percentage: 100, color_hex: "#15803D", sort_order: 7 },
+];
+
+async function ensureDefaultRegionalPerformanceColorThresholds(regionId, transaction) {
+  const count = await RegionalPerformanceColorThreshold.count({
+    where: { region_id: regionId },
+    transaction,
+  });
+
+  if (count === 0) {
+    for (const t of DEFAULT_PERFORMANCE_COLOR_THRESHOLDS) {
+      await RegionalPerformanceColorThreshold.create(
+        {
+          regional_performance_color_threshold_id: uuidv4(),
+          region_id: regionId,
+          ...t,
+          is_active: true,
+        },
+        { transaction }
+      );
+    }
+  }
 }
 
 // -------------------------------------------------------------
@@ -161,6 +202,25 @@ async function updateRegionalPlanningConfig(regionId, payload) {
   return config;
 }
 
+async function restoreDefaultRegionalPlanningConfig(regionId) {
+  const config = await ensureDefaultRegionalPlanningConfig(regionId);
+  await config.update({
+    min_duration_years: 1,
+    max_duration_years: 10,
+    draft_entity_label_singular: "Plan Draft",
+    draft_entity_label_plural: "Plan Drafts",
+    create_action_label: "Create Plan Draft",
+    planning_period_label: "Planning Period",
+    duration_label: "Duration",
+    start_year_label: "Start Date",
+    end_year_label: "End Date",
+    target_units: DEFAULT_TARGET_UNITS,
+    breakdown_mode: "quarterly",
+    custom_periods: [],
+  });
+  return config;
+}
+
 async function listRegionalPlanRules(regionId) {
   await ensureDefaultRegionalPlanRule(regionId);
   return RegionalPlanRule.findAll({
@@ -185,24 +245,42 @@ async function createRegionalPlanRule(regionId, payload) {
       {
         regional_plan_rule_id: ruleId,
         region_id: regionId,
-        name: payload.name || "Custom Regional Plan Rule",
+        name: payload.name || "Plan Rule",
         is_active: payload.is_active !== undefined ? payload.is_active : true,
         performance_scoring_policy: payload.performance_scoring_policy || "CAP_100",
       },
       { transaction: t }
     );
 
-    if (Array.isArray(payload.steps)) {
+    if (Array.isArray(payload.steps) && payload.steps.length > 0) {
       for (const step of payload.steps) {
         await RegionalPlanRuleStep.create(
           {
             regional_plan_rule_step_id: uuidv4(),
             regional_plan_rule_id: ruleId,
-            level: step.level,
-            name: step.name,
+            level: step.level || step.step_order,
+            name: step.name || step.label,
             requires_weight: !!step.requires_weight,
             requires_contribution_weight: !!step.requires_contribution_weight,
-            allow_kpi: !!step.allow_kpi,
+            allow_kpi: step.allow_kpi !== undefined ? !!step.allow_kpi : (step.level || step.step_order) >= 3,
+            color_hex: step.color_hex || "#6B7280",
+          },
+          { transaction: t }
+        );
+      }
+    } else {
+      const defaultSteps = [
+        { level: 1, name: "Strategic Priority", requires_weight: false, requires_contribution_weight: false, allow_kpi: false, color_hex: "#8B5CF6" },
+        { level: 2, name: "Goal", requires_weight: false, requires_contribution_weight: false, allow_kpi: false, color_hex: "#3B82F6" },
+        { level: 3, name: "Key Performance Indicator (KPI)", requires_weight: true, requires_contribution_weight: true, allow_kpi: true, color_hex: "#10B981" },
+        { level: 4, name: "Operational Activity / Task", requires_weight: false, requires_contribution_weight: true, allow_kpi: true, color_hex: "#F59E0B" },
+      ];
+      for (const step of defaultSteps) {
+        await RegionalPlanRuleStep.create(
+          {
+            regional_plan_rule_step_id: uuidv4(),
+            regional_plan_rule_id: ruleId,
+            ...step,
           },
           { transaction: t }
         );
@@ -242,11 +320,12 @@ async function updateRegionalPlanRule(ruleId, regionId, payload) {
           {
             regional_plan_rule_step_id: uuidv4(),
             regional_plan_rule_id: ruleId,
-            level: step.level,
-            name: step.name,
+            level: step.level || step.step_order,
+            name: step.name || step.label,
             requires_weight: !!step.requires_weight,
             requires_contribution_weight: !!step.requires_contribution_weight,
-            allow_kpi: !!step.allow_kpi,
+            allow_kpi: step.allow_kpi !== undefined ? !!step.allow_kpi : (step.level || step.step_order) >= 3,
+            color_hex: step.color_hex || "#6B7280",
           },
           { transaction: t }
         );
@@ -271,6 +350,80 @@ async function deleteRegionalPlanRule(ruleId, regionId) {
 }
 
 // -------------------------------------------------------------
+// Regional Performance Color Thresholds
+// -------------------------------------------------------------
+
+async function listRegionalPerformanceColorThresholds(regionId) {
+  await ensureDefaultRegionalPerformanceColorThresholds(regionId);
+  return RegionalPerformanceColorThreshold.findAll({
+    where: { region_id: regionId },
+    order: [["sort_order", "ASC"], ["min_percentage", "ASC"]],
+  });
+}
+
+async function getRegionalPerformanceColorThresholdById(id, regionId) {
+  return RegionalPerformanceColorThreshold.findOne({
+    where: {
+      regional_performance_color_threshold_id: id,
+      region_id: regionId,
+    },
+  });
+}
+
+async function createRegionalPerformanceColorThreshold(regionId, payload) {
+  if (payload.min_percentage === undefined || payload.max_percentage === undefined || !payload.color_hex || !payload.label) {
+    throw new Error("Label, min_percentage, max_percentage, and color_hex are required");
+  }
+
+  return RegionalPerformanceColorThreshold.create({
+    regional_performance_color_threshold_id: uuidv4(),
+    region_id: regionId,
+    label: payload.label.trim(),
+    min_percentage: parseInt(payload.min_percentage, 10),
+    max_percentage: parseInt(payload.max_percentage, 10),
+    color_hex: payload.color_hex,
+    sort_order: parseInt(payload.sort_order || 0, 10),
+    is_active: payload.is_active !== undefined ? payload.is_active : true,
+  });
+}
+
+async function updateRegionalPerformanceColorThreshold(id, regionId, payload) {
+  const threshold = await getRegionalPerformanceColorThresholdById(id, regionId);
+  if (!threshold) throw new Error("Performance color threshold not found");
+
+  const allowed = ["label", "min_percentage", "max_percentage", "color_hex", "sort_order", "is_active"];
+  const updates = {};
+  for (const k of allowed) {
+    if (payload[k] !== undefined) updates[k] = payload[k];
+  }
+
+  await threshold.update(updates);
+  return threshold;
+}
+
+async function deleteRegionalPerformanceColorThreshold(id, regionId) {
+  const threshold = await getRegionalPerformanceColorThresholdById(id, regionId);
+  if (!threshold) throw new Error("Performance color threshold not found");
+  await threshold.destroy();
+  return { success: true };
+}
+
+async function resolveRegionalPerformanceColor(regionId, percentage) {
+  const thresholds = await listRegionalPerformanceColorThresholds(regionId);
+  const val = Math.max(0, Math.min(100, Math.round(Number(percentage) || 0)));
+  const active = thresholds.filter((t) => t.is_active !== false);
+
+  for (const t of active) {
+    if (val >= t.min_percentage && val <= t.max_percentage) {
+      return { threshold: t, color_hex: t.color_hex };
+    }
+  }
+
+  const fallback = active[active.length - 1];
+  return { threshold: fallback || null, color_hex: fallback?.color_hex || "#6B7280" };
+}
+
+// -------------------------------------------------------------
 // 2. Master Plan Version Management
 // -------------------------------------------------------------
 
@@ -280,7 +433,17 @@ async function createRegionalPlanDraft(regionId, payload, userId) {
     const config = await ensureDefaultRegionalPlanningConfig(regionId, t);
     const rule = await ensureDefaultRegionalPlanRule(regionId, t);
 
-    const startYear = parseInt(payload.start_year, 10);
+    let startYear;
+    let startMonth = 1;
+    if (payload.planning_start_date) {
+      const dt = new Date(payload.planning_start_date);
+      startYear = dt.getFullYear();
+      startMonth = dt.getMonth() + 1;
+    } else {
+      startYear = parseInt(payload.start_year || new Date().getFullYear(), 10);
+      startMonth = parseInt(payload.start_month || 1, 10);
+    }
+
     const duration = parseInt(payload.planning_duration_years || 5, 10);
     const endYear = startYear + duration - 1;
 
@@ -294,10 +457,10 @@ async function createRegionalPlanDraft(regionId, payload, userId) {
         regional_plan_version_id: uuidv4(),
         region_id: regionId,
         parent_plan_version_id: null,
-        based_on_version_id: null,
+        based_on_version_id: payload.based_on_version_id || null,
         regional_plan_rule_id: payload.regional_plan_rule_id || rule.regional_plan_rule_id,
         regional_planning_config_id: config.regional_planning_config_id,
-        draft_name: payload.draft_name || `Regional Strategic Plan (${startYear} - ${endYear})`,
+        draft_name: payload.draft_name || `Strategic Plan (${startYear} - ${endYear})`,
         version_kind: "master",
         status: "draft",
         version_number: count + 1,
@@ -305,9 +468,11 @@ async function createRegionalPlanDraft(regionId, payload, userId) {
         sequence_index: 1,
         start_year: startYear,
         end_year: endYear,
-        start_month: parseInt(payload.start_month || 1, 10),
+        start_month: startMonth,
         end_month: parseInt(payload.end_month || 12, 10),
         planning_duration_years: duration,
+        planning_start_date: payload.planning_start_date || `${startYear}-01-01`,
+        planning_end_date: payload.planning_end_date || `${endYear}-12-31`,
         is_locked: false,
       },
       { transaction: t }
@@ -888,6 +1053,142 @@ async function reorderRegionalPlanNodes(versionId, regionId, orderedNodeIds, use
     await t.rollback();
     throw err;
   }
+}
+
+// -------------------------------------------------------------
+// Regional Plan Review Workflow Service
+// -------------------------------------------------------------
+
+async function getRegionalPlanVersionsForReview(regionId, query = {}) {
+  const where = {
+    region_id: regionId,
+    version_kind: "master",
+  };
+
+  if (query.search) {
+    where.draft_name = { [Op.iLike]: `%${query.search}%` };
+  }
+
+  return RegionalPlanVersion.findAll({
+    where,
+    include: [
+      { association: "region" },
+      { association: "planRule" },
+      { association: "annualVersions" },
+    ],
+    order: [["created_at", "DESC"]],
+  });
+}
+
+async function getRegionalPublishForReviewReadiness(versionId, regionId) {
+  const version = await getRegionalPlanVersionById(versionId, regionId);
+  const errors = [];
+  if (!version) {
+    return { ready: false, errors: ["Plan not found"], review_status: null };
+  }
+  if (version.review_status === "in_review") {
+    errors.push("Plan is already under review");
+  }
+  if (version.process_started_at) {
+    errors.push("Process has already been started");
+  }
+
+  const nodes = await RegionalPlanNode.findAll({
+    where: { regional_plan_version_id: versionId, is_active: true },
+  });
+  if (nodes.length === 0) {
+    errors.push("Plan hierarchy is empty. Add at least one objective or goal.");
+  }
+
+  return {
+    ready: errors.length === 0,
+    errors,
+    review_status: version.review_status,
+  };
+}
+
+async function publishRegionalPlanForReview(versionId, regionId, req) {
+  const readiness = await getRegionalPublishForReviewReadiness(versionId, regionId);
+  if (!readiness.ready) {
+    const err = new Error(`Cannot publish for review: ${readiness.errors.join("; ")}`);
+    err.status = 400;
+    throw err;
+  }
+
+  const version = await getRegionalPlanVersionById(versionId, regionId);
+  await version.update({
+    review_status: "in_review",
+    status: "submitted",
+  });
+
+  return version;
+}
+
+async function unlockRegionalPlanReviewCorrections(versionId, regionId, req, reason) {
+  const version = await getRegionalPlanVersionById(versionId, regionId);
+  if (!version) throw new Error("Plan version not found");
+
+  await version.update({
+    review_status: "revision_requested",
+    status: "draft",
+  });
+
+  return version;
+}
+
+async function republishRegionalPlanForReview(versionId, regionId, req) {
+  const version = await getRegionalPlanVersionById(versionId, regionId);
+  if (!version) throw new Error("Plan version not found");
+
+  await version.update({
+    review_status: "in_review",
+    status: "submitted",
+  });
+
+  return version;
+}
+
+async function getRegionalCompleteReviewReadiness(versionId, regionId) {
+  const version = await getRegionalPlanVersionById(versionId, regionId);
+  const errors = [];
+  if (!version) return { ready: false, errors: ["Plan not found"] };
+  if (version.review_status !== "in_review") {
+    errors.push("Plan must be in review to complete review");
+  }
+  return {
+    ready: errors.length === 0,
+    errors,
+    review_status: version.review_status,
+  };
+}
+
+async function completeRegionalPlanReview(versionId, regionId, req, decision) {
+  const version = await getRegionalPlanVersionById(versionId, regionId);
+  if (!version) throw new Error("Plan version not found");
+
+  const isApproved = decision !== "reject";
+  await version.update({
+    review_status: isApproved ? "approved" : "rejected",
+    status: isApproved ? "approved" : "rejected",
+  });
+
+  return version;
+}
+
+async function getRegionalPlanReviewDashboard(versionId, regionId, query = {}) {
+  const version = await getRegionalPlanVersionById(versionId, regionId);
+  return {
+    version,
+    stats: {
+      total: 0,
+      submitted: 0,
+      under_review: 0,
+      accepted: 0,
+      rejected: 0,
+      resolved: 0,
+    },
+    issues: [],
+  };
 }
 
 // -------------------------------------------------------------
@@ -1675,11 +1976,30 @@ module.exports = {
   // Config & Rules
   getEffectiveRegionalPlanningConfig,
   updateRegionalPlanningConfig,
+  restoreDefaultRegionalPlanningConfig,
   listRegionalPlanRules,
   getRegionalPlanRuleById,
   createRegionalPlanRule,
   updateRegionalPlanRule,
   deleteRegionalPlanRule,
+
+  // Performance Color Thresholds
+  listRegionalPerformanceColorThresholds,
+  getRegionalPerformanceColorThresholdById,
+  createRegionalPerformanceColorThreshold,
+  updateRegionalPerformanceColorThreshold,
+  deleteRegionalPerformanceColorThreshold,
+  resolveRegionalPerformanceColor,
+
+  // Plan Review
+  getRegionalPlanVersionsForReview,
+  getRegionalPublishForReviewReadiness,
+  publishRegionalPlanForReview,
+  unlockRegionalPlanReviewCorrections,
+  republishRegionalPlanForReview,
+  getRegionalCompleteReviewReadiness,
+  completeRegionalPlanReview,
+  getRegionalPlanReviewDashboard,
 
   // Plan Version Management
   createRegionalPlanDraft,

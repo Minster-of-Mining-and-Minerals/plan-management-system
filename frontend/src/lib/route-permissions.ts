@@ -150,6 +150,8 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   // Dynamic Regional Workspace (both /regions/[id] and /[id] variants)
   { pattern: "/regions/[id]/plans/configuration", anyPermissions: ["REGIONAL_PLANNING_CONFIG:READ", "REGIONAL_PLANNING_CONFIG:UPDATE", "REGIONAL_PLANS:MANAGE"] },
   { pattern: "/regions/[id]/plans/rules", anyPermissions: ["REGIONAL_PLAN_RULES:READ", "REGIONAL_PLAN_RULES:CREATE", "REGIONAL_PLAN_RULES:UPDATE", "REGIONAL_PLAN_RULES:DELETE"] },
+  { pattern: "/regions/[id]/plans/review", anyPermissions: ["REGIONAL_PLANS:REVIEW", "REGIONAL_PLANS:READ", "REGIONAL_PLANS:MANAGE"] },
+  { pattern: "/regions/[id]/plans/performance-colors", anyPermissions: ["REGIONAL_PERFORMANCE_COLORS:READ", "REGIONAL_PERFORMANCE_COLORS:CREATE", "REGIONAL_PERFORMANCE_COLORS:UPDATE", "REGIONAL_PERFORMANCE_COLORS:DELETE", "REGIONAL_PLANS:READ", "REGIONAL_PLANS:MANAGE"] },
   { pattern: "/regions/[id]/plans/dashboard", anyPermissions: ["REGIONAL_PLANS:READ", "REGIONAL_DASHBOARD:VIEW"] },
   { pattern: "/regions/[id]/plans/[versionId]", anyPermissions: ["REGIONAL_PLANS:READ", "REGIONAL_PLANS:MANAGE"] },
   { pattern: "/regions/[id]/plans", anyPermissions: ["REGIONAL_PLANS:READ", "REGIONAL_PLANS:MANAGE"] },
@@ -168,6 +170,8 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
 
   { pattern: "/[id]/plans/configuration", anyPermissions: ["REGIONAL_PLANNING_CONFIG:READ", "REGIONAL_PLANNING_CONFIG:UPDATE", "REGIONAL_PLANS:MANAGE"] },
   { pattern: "/[id]/plans/rules", anyPermissions: ["REGIONAL_PLAN_RULES:READ", "REGIONAL_PLAN_RULES:CREATE", "REGIONAL_PLAN_RULES:UPDATE", "REGIONAL_PLAN_RULES:DELETE"] },
+  { pattern: "/[id]/plans/review", anyPermissions: ["REGIONAL_PLANS:REVIEW", "REGIONAL_PLANS:READ", "REGIONAL_PLANS:MANAGE"] },
+  { pattern: "/[id]/plans/performance-colors", anyPermissions: ["REGIONAL_PERFORMANCE_COLORS:READ", "REGIONAL_PERFORMANCE_COLORS:CREATE", "REGIONAL_PERFORMANCE_COLORS:UPDATE", "REGIONAL_PERFORMANCE_COLORS:DELETE", "REGIONAL_PLANS:READ", "REGIONAL_PLANS:MANAGE"] },
   { pattern: "/[id]/plans/dashboard", anyPermissions: ["REGIONAL_PLANS:READ", "REGIONAL_DASHBOARD:VIEW"] },
   { pattern: "/[id]/plans/[versionId]", anyPermissions: ["REGIONAL_PLANS:READ", "REGIONAL_PLANS:MANAGE"] },
   { pattern: "/[id]/plans", anyPermissions: ["REGIONAL_PLANS:READ", "REGIONAL_PLANS:MANAGE"] },
@@ -187,6 +191,8 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   // Regional Workspace fallback aliases
   { pattern: "/regional/plans/configuration", anyPermissions: ["REGIONAL_PLANNING_CONFIG:READ", "REGIONAL_PLANNING_CONFIG:UPDATE", "REGIONAL_PLANS:MANAGE"] },
   { pattern: "/regional/plans/rules", anyPermissions: ["REGIONAL_PLAN_RULES:READ", "REGIONAL_PLAN_RULES:CREATE", "REGIONAL_PLAN_RULES:UPDATE", "REGIONAL_PLAN_RULES:DELETE"] },
+  { pattern: "/regional/plans/review", anyPermissions: ["REGIONAL_PLANS:REVIEW", "REGIONAL_PLANS:READ", "REGIONAL_PLANS:MANAGE"] },
+  { pattern: "/regional/plans/performance-colors", anyPermissions: ["REGIONAL_PERFORMANCE_COLORS:READ", "REGIONAL_PERFORMANCE_COLORS:CREATE", "REGIONAL_PERFORMANCE_COLORS:UPDATE", "REGIONAL_PERFORMANCE_COLORS:DELETE", "REGIONAL_PLANS:READ", "REGIONAL_PLANS:MANAGE"] },
   { pattern: "/regional/plans/dashboard", anyPermissions: ["REGIONAL_PLANS:READ", "REGIONAL_DASHBOARD:VIEW"] },
   { pattern: "/regional/plans/[versionId]", anyPermissions: ["REGIONAL_PLANS:READ", "REGIONAL_PLANS:MANAGE"] },
   { pattern: "/regional/plans", anyPermissions: ["REGIONAL_PLANS:READ", "REGIONAL_PLANS:MANAGE"] },

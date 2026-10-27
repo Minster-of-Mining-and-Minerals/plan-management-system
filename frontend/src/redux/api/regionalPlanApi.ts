@@ -5,6 +5,8 @@ import type {
   RegionalPlanningConfiguration,
   RegionalPlanRule,
   RegionalExecutionDashboardSummary,
+  RegionalPerformanceColorThreshold,
+  RegionalPlanReviewDashboard,
 } from "../types/regionalPlan";
 
 export const regionalPlanApi = baseApi.injectEndpoints({
@@ -27,6 +29,15 @@ export const regionalPlanApi = baseApi.injectEndpoints({
         url: `/regional/plans/config?region_id=${region_id}`,
         method: "PUT",
         body: data,
+      }),
+      transformResponse: (res: { data: RegionalPlanningConfiguration }) => res.data,
+      invalidatesTags: ["RegionalPlanConfig"],
+    }),
+
+    restoreDefaultRegionalPlanConfig: builder.mutation<RegionalPlanningConfiguration, { region_id: string }>({
+      query: ({ region_id }) => ({
+        url: `/regional/plans/config/restore-defaults?region_id=${region_id}`,
+        method: "POST",
       }),
       transformResponse: (res: { data: RegionalPlanningConfiguration }) => res.data,
       invalidatesTags: ["RegionalPlanConfig"],
@@ -79,6 +90,150 @@ export const regionalPlanApi = baseApi.injectEndpoints({
     }),
 
     // -------------------------------------------------------------
+    // Performance Color Thresholds
+    // -------------------------------------------------------------
+    getRegionalPerformanceColorThresholds: builder.query<RegionalPerformanceColorThreshold[], { region_id: string }>({
+      query: (params) => ({
+        url: "/regional/plans/performance-colors",
+        params,
+      }),
+      transformResponse: (res: { data: RegionalPerformanceColorThreshold[] }) => res.data,
+      providesTags: ["RegionalPerformanceColorThresholds"],
+    }),
+
+    getRegionalPerformanceColorThresholdById: builder.query<RegionalPerformanceColorThreshold, { id: string; region_id: string }>({
+      query: ({ id, region_id }) => ({
+        url: `/regional/plans/performance-colors/${id}`,
+        params: { region_id },
+      }),
+      transformResponse: (res: { data: RegionalPerformanceColorThreshold }) => res.data,
+      providesTags: (_res, _err, { id }) => [{ type: "RegionalPerformanceColorThresholds", id }],
+    }),
+
+    createRegionalPerformanceColorThreshold: builder.mutation<
+      RegionalPerformanceColorThreshold,
+      { region_id: string; data: Partial<RegionalPerformanceColorThreshold> }
+    >({
+      query: ({ region_id, data }) => ({
+        url: `/regional/plans/performance-colors?region_id=${region_id}`,
+        method: "POST",
+        body: data,
+      }),
+      transformResponse: (res: { data: RegionalPerformanceColorThreshold }) => res.data,
+      invalidatesTags: ["RegionalPerformanceColorThresholds"],
+    }),
+
+    updateRegionalPerformanceColorThreshold: builder.mutation<
+      RegionalPerformanceColorThreshold,
+      { id: string; region_id: string; data: Partial<RegionalPerformanceColorThreshold> }
+    >({
+      query: ({ id, region_id, data }) => ({
+        url: `/regional/plans/performance-colors/${id}?region_id=${region_id}`,
+        method: "PUT",
+        body: data,
+      }),
+      transformResponse: (res: { data: RegionalPerformanceColorThreshold }) => res.data,
+      invalidatesTags: ["RegionalPerformanceColorThresholds"],
+    }),
+
+    deleteRegionalPerformanceColorThreshold: builder.mutation<{ success: boolean }, { id: string; region_id: string }>({
+      query: ({ id, region_id }) => ({
+        url: `/regional/plans/performance-colors/${id}?region_id=${region_id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["RegionalPerformanceColorThresholds"],
+    }),
+
+    resolveRegionalPerformanceColor: builder.query<{ threshold: RegionalPerformanceColorThreshold; color_hex: string }, { region_id: string; percentage: number }>({
+      query: (params) => ({
+        url: "/regional/plans/performance-colors/resolve",
+        params,
+      }),
+      transformResponse: (res: { data: { threshold: RegionalPerformanceColorThreshold; color_hex: string } }) => res.data,
+    }),
+
+    // -------------------------------------------------------------
+    // Plan Review Workflow
+    // -------------------------------------------------------------
+    getRegionalPlanVersionsForReview: builder.query<RegionalPlanVersion[], { region_id: string; search?: string }>({
+      query: (params) => ({
+        url: "/regional/plans/versions/for-review",
+        params,
+      }),
+      transformResponse: (res: { data: RegionalPlanVersion[] }) => res.data,
+      providesTags: ["RegionalPlanReview", "RegionalPlanVersions"],
+    }),
+
+    getRegionalPublishForReviewReadiness: builder.query<
+      { ready: boolean; errors: string[]; review_status: string | null },
+      { id: string; region_id: string }
+    >({
+      query: ({ id, region_id }) => ({
+        url: `/regional/plans/versions/${id}/publish-for-review-readiness`,
+        params: { region_id },
+      }),
+      transformResponse: (res: { data: { ready: boolean; errors: string[]; review_status: string | null } }) => res.data,
+    }),
+
+    publishRegionalPlanForReview: builder.mutation<RegionalPlanVersion, { id: string; region_id: string }>({
+      query: ({ id, region_id }) => ({
+        url: `/regional/plans/versions/${id}/publish-for-review?region_id=${region_id}`,
+        method: "POST",
+      }),
+      transformResponse: (res: { data: RegionalPlanVersion }) => res.data,
+      invalidatesTags: ["RegionalPlanVersions", "RegionalPlanReview"],
+    }),
+
+    unlockRegionalReviewCorrections: builder.mutation<RegionalPlanVersion, { id: string; region_id: string; reason?: string }>({
+      query: ({ id, region_id, reason }) => ({
+        url: `/regional/plans/versions/${id}/unlock-review-corrections?region_id=${region_id}`,
+        method: "POST",
+        body: { reason },
+      }),
+      transformResponse: (res: { data: RegionalPlanVersion }) => res.data,
+      invalidatesTags: ["RegionalPlanVersions", "RegionalPlanReview"],
+    }),
+
+    republishRegionalPlanForReview: builder.mutation<RegionalPlanVersion, { id: string; region_id: string }>({
+      query: ({ id, region_id }) => ({
+        url: `/regional/plans/versions/${id}/republish-for-review?region_id=${region_id}`,
+        method: "POST",
+      }),
+      transformResponse: (res: { data: RegionalPlanVersion }) => res.data,
+      invalidatesTags: ["RegionalPlanVersions", "RegionalPlanReview"],
+    }),
+
+    getRegionalCompleteReviewReadiness: builder.query<
+      { ready: boolean; errors: string[]; review_status: string | null },
+      { id: string; region_id: string }
+    >({
+      query: ({ id, region_id }) => ({
+        url: `/regional/plans/versions/${id}/complete-review-readiness`,
+        params: { region_id },
+      }),
+      transformResponse: (res: { data: { ready: boolean; errors: string[]; review_status: string | null } }) => res.data,
+    }),
+
+    completeRegionalPlanReview: builder.mutation<RegionalPlanVersion, { id: string; region_id: string; decision: "approve" | "reject" }>({
+      query: ({ id, region_id, decision }) => ({
+        url: `/regional/plans/versions/${id}/complete-review?region_id=${region_id}`,
+        method: "POST",
+        body: { decision },
+      }),
+      transformResponse: (res: { data: RegionalPlanVersion }) => res.data,
+      invalidatesTags: ["RegionalPlanVersions", "RegionalPlanReview", "RegionalPlanDashboard"],
+    }),
+
+    getRegionalPlanReviewDashboard: builder.query<RegionalPlanReviewDashboard, { id: string; region_id: string }>({
+      query: ({ id, region_id }) => ({
+        url: `/regional/plans/versions/${id}/review-dashboard`,
+        params: { region_id },
+      }),
+      transformResponse: (res: { data: RegionalPlanReviewDashboard }) => res.data,
+      providesTags: ["RegionalPlanReview"],
+    }),
+
+    // -------------------------------------------------------------
     // Dashboard & Metrics
     // -------------------------------------------------------------
     getRegionalExecutionDashboardSummary: builder.query<RegionalExecutionDashboardSummary, { region_id: string }>({
@@ -110,7 +265,18 @@ export const regionalPlanApi = baseApi.injectEndpoints({
         url: "/regional/plans/dashboard/department-user",
         params,
       }),
-      transformResponse: (res: { data: { departments: any[] } }) => res.data,
+      transformResponse: (res: {
+        data: {
+          departments: Array<{
+            regional_structure_id: string;
+            name: string;
+            level: number;
+            assigned_nodes_count: number;
+            avg_progress: number;
+            status: string;
+          }>;
+        };
+      }) => res.data,
       providesTags: ["RegionalPlanDashboard"],
     }),
 
@@ -179,7 +345,7 @@ export const regionalPlanApi = baseApi.injectEndpoints({
         url: `/regional/plans/versions/${id}/finalization-readiness`,
         params: { region_id },
       }),
-      transformResponse: (res: { data: any }) => res.data,
+      transformResponse: (res: { data: { ready: boolean; errors: string[]; planning_years: number[] } }) => res.data,
       providesTags: (_res, _err, { id }) => [{ type: "RegionalPlanVersions", id }],
     }),
 
@@ -220,12 +386,12 @@ export const regionalPlanApi = baseApi.injectEndpoints({
       providesTags: ["RegionalPlanVersions"],
     }),
 
-    getRegionalAnnualTargetAllocations: builder.query<any[], { id: string; region_id: string }>({
+    getRegionalAnnualTargetAllocations: builder.query<RegionalPlanNode[], { id: string; region_id: string }>({
       query: ({ id, region_id }) => ({
         url: `/regional/plans/versions/${id}/annual-target-allocations`,
         params: { region_id },
       }),
-      transformResponse: (res: { data: any[] }) => res.data,
+      transformResponse: (res: { data: RegionalPlanNode[] }) => res.data,
       providesTags: ["RegionalPlanNodes"],
     }),
 
@@ -260,7 +426,7 @@ export const regionalPlanApi = baseApi.injectEndpoints({
 
     initializeRegionalExecutionPeriods: builder.mutation<
       RegionalPlanVersion[],
-      { id: string; region_id: string; subdivision_mode: string; custom_periods?: any[] }
+      { id: string; region_id: string; subdivision_mode: string; custom_periods?: Array<{ label: string; start_month?: number; end_month?: number }> }
     >({
       query: ({ id, region_id, ...body }) => ({
         url: `/regional/plans/versions/${id}/initialize-execution-periods?region_id=${region_id}`,
@@ -271,12 +437,12 @@ export const regionalPlanApi = baseApi.injectEndpoints({
       invalidatesTags: ["RegionalPlanVersions"],
     }),
 
-    getRegionalPeriodTargetAllocations: builder.query<any[], { id: string; region_id: string }>({
+    getRegionalPeriodTargetAllocations: builder.query<RegionalPlanNode[], { id: string; region_id: string }>({
       query: ({ id, region_id }) => ({
         url: `/regional/plans/versions/${id}/period-target-allocations`,
         params: { region_id },
       }),
-      transformResponse: (res: { data: any[] }) => res.data,
+      transformResponse: (res: { data: RegionalPlanNode[] }) => res.data,
       providesTags: ["RegionalPlanNodes"],
     }),
 
@@ -371,7 +537,7 @@ export const regionalPlanApi = baseApi.injectEndpoints({
       invalidatesTags: ["RegionalPlanNodes", "RegionalPlanDashboard"],
     }),
 
-    approveRegionalAchievement: builder.mutation<RegionalPlanNode, { nodeId: string; region_id: string; data?: any }>({
+    approveRegionalAchievement: builder.mutation<RegionalPlanNode, { nodeId: string; region_id: string; data?: Record<string, unknown> }>({
       query: ({ nodeId, region_id, data }) => ({
         url: `/regional/plans/nodes/${nodeId}/achievement/approve?region_id=${region_id}`,
         method: "POST",
@@ -391,7 +557,7 @@ export const regionalPlanApi = baseApi.injectEndpoints({
       invalidatesTags: ["RegionalPlanNodes", "RegionalPlanDashboard"],
     }),
 
-    validateRegionalAchievement: builder.mutation<RegionalPlanNode, { nodeId: string; region_id: string; data?: any }>({
+    validateRegionalAchievement: builder.mutation<RegionalPlanNode, { nodeId: string; region_id: string; data?: Record<string, unknown> }>({
       query: ({ nodeId, region_id, data }) => ({
         url: `/regional/plans/nodes/${nodeId}/achievement/validate?region_id=${region_id}`,
         method: "POST",
@@ -421,7 +587,7 @@ export const regionalPlanApi = baseApi.injectEndpoints({
       invalidatesTags: ["RegionalPlanNodes", "RegionalPlanDashboard"],
     }),
 
-    approveRegionalAnnualAchievement: builder.mutation<RegionalPlanNode, { nodeId: string; region_id: string; data?: any }>({
+    approveRegionalAnnualAchievement: builder.mutation<RegionalPlanNode, { nodeId: string; region_id: string; data?: Record<string, unknown> }>({
       query: ({ nodeId, region_id, data }) => ({
         url: `/regional/plans/nodes/${nodeId}/annual-achievement/approve?region_id=${region_id}`,
         method: "POST",
@@ -441,7 +607,7 @@ export const regionalPlanApi = baseApi.injectEndpoints({
       invalidatesTags: ["RegionalPlanNodes", "RegionalPlanDashboard"],
     }),
 
-    validateRegionalAnnualAchievement: builder.mutation<RegionalPlanNode, { nodeId: string; region_id: string; data?: any }>({
+    validateRegionalAnnualAchievement: builder.mutation<RegionalPlanNode, { nodeId: string; region_id: string; data?: Record<string, unknown> }>({
       query: ({ nodeId, region_id, data }) => ({
         url: `/regional/plans/nodes/${nodeId}/annual-achievement/validate?region_id=${region_id}`,
         method: "POST",
@@ -456,11 +622,26 @@ export const regionalPlanApi = baseApi.injectEndpoints({
 export const {
   useGetRegionalPlanConfigQuery,
   useUpdateRegionalPlanConfigMutation,
+  useRestoreDefaultRegionalPlanConfigMutation,
   useGetRegionalPlanRulesQuery,
   useGetRegionalPlanRuleByIdQuery,
   useCreateRegionalPlanRuleMutation,
   useUpdateRegionalPlanRuleMutation,
   useDeleteRegionalPlanRuleMutation,
+  useGetRegionalPerformanceColorThresholdsQuery,
+  useGetRegionalPerformanceColorThresholdByIdQuery,
+  useCreateRegionalPerformanceColorThresholdMutation,
+  useUpdateRegionalPerformanceColorThresholdMutation,
+  useDeleteRegionalPerformanceColorThresholdMutation,
+  useResolveRegionalPerformanceColorQuery,
+  useGetRegionalPlanVersionsForReviewQuery,
+  useGetRegionalPublishForReviewReadinessQuery,
+  usePublishRegionalPlanForReviewMutation,
+  useUnlockRegionalReviewCorrectionsMutation,
+  useRepublishRegionalPlanForReviewMutation,
+  useGetRegionalCompleteReviewReadinessQuery,
+  useCompleteRegionalPlanReviewMutation,
+  useGetRegionalPlanReviewDashboardQuery,
   useGetRegionalExecutionDashboardSummaryQuery,
   useGetRegionalExecutionDashboardProgressTreeQuery,
   useGetRegionalExecutionDashboardDepartmentUserQuery,

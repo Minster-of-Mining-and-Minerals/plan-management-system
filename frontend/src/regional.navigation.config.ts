@@ -8,6 +8,11 @@ import {
   Key,
   Paintbrush,
   Layers,
+  ListTree,
+  ClipboardCheck,
+  Settings,
+  Scale,
+  Palette,
 } from "lucide-react";
 
 export type NavItem = {
@@ -25,12 +30,12 @@ export const REGIONAL_NAVIGATION: NavItem[] = [
     title: "Dashboard",
     url: "/regional/dashboard",
     icon: LayoutDashboard,
-    anyPermissions: ["REGIONAL_DASHBOARD:VIEW"],
+    anyPermissions: ["REGIONAL_DASHBOARD:VIEW", "REGIONS:READ"],
   },
   {
     title: "Plan Management",
     url: "/regional/plans",
-    icon: Layers,
+    icon: ListTree,
     anyPermissions: [
       "REGIONAL_PLANS:READ",
       "REGIONAL_PLANS:MANAGE",
@@ -39,9 +44,9 @@ export const REGIONAL_NAVIGATION: NavItem[] = [
     ],
     children: [
       {
-        title: "All Plans",
+        title: "Plan Drafts",
         url: "/regional/plans",
-        icon: Layers,
+        icon: ListTree,
         anyPermissions: [
           "REGIONAL_PLANS:READ",
           "REGIONAL_PLANS:MANAGE",
@@ -50,20 +55,31 @@ export const REGIONAL_NAVIGATION: NavItem[] = [
         ],
       },
       {
-        title: "Plan Dashboard",
-        url: "/regional/plans/dashboard",
-        icon: LayoutDashboard,
+        title: "Plan Review",
+        url: "/regional/plans/review",
+        icon: ClipboardCheck,
         anyPermissions: [
+          "REGIONAL_PLANS:REVIEW",
           "REGIONAL_PLANS:READ",
           "REGIONAL_PLANS:MANAGE",
-          "REGIONS:READ",
+          "REGIONS:MANAGE",
+        ],
+      },
+      {
+        title: "Planning Configuration",
+        url: "/regional/plans/configuration",
+        icon: Settings,
+        anyPermissions: [
+          "REGIONAL_PLANNING_CONFIG:READ",
+          "REGIONAL_PLANS:READ",
+          "REGIONAL_PLANS:MANAGE",
           "REGIONS:MANAGE",
         ],
       },
       {
         title: "Plan Rules",
         url: "/regional/plans/rules",
-        icon: Shield,
+        icon: Scale,
         anyPermissions: [
           "REGIONAL_PLAN_RULES:READ",
           "REGIONAL_PLANS:UPDATE",
@@ -72,11 +88,11 @@ export const REGIONAL_NAVIGATION: NavItem[] = [
         ],
       },
       {
-        title: "Configuration",
-        url: "/regional/plans/configuration",
-        icon: Paintbrush,
+        title: "Performance Colors",
+        url: "/regional/plans/performance-colors",
+        icon: Palette,
         anyPermissions: [
-          "REGIONAL_PLANNING_CONFIG:READ",
+          "REGIONAL_PERFORMANCE_COLORS:READ",
           "REGIONAL_PLANS:READ",
           "REGIONAL_PLANS:MANAGE",
           "REGIONS:MANAGE",

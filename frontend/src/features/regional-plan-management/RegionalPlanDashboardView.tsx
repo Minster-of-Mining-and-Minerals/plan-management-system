@@ -148,7 +148,7 @@ export function RegionalPlanDashboardView() {
             <span>Strategic Performance Intelligence</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mt-1">
-            Regional Plan Execution Dashboard
+            Plan Execution Dashboard
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Real-time execution rollups, milestone achievement, and directorate scorecard analytics.

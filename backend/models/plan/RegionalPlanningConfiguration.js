@@ -42,22 +42,22 @@ module.exports = (sequelize, DataTypes) => {
       draft_entity_label_singular: {
         type: DataTypes.STRING(100),
         allowNull: false,
-        defaultValue: "Regional Plan Draft",
+        defaultValue: "Plan Draft",
       },
       draft_entity_label_plural: {
         type: DataTypes.STRING(100),
         allowNull: false,
-        defaultValue: "Regional Plan Drafts",
+        defaultValue: "Plan Drafts",
       },
       create_action_label: {
         type: DataTypes.STRING(120),
         allowNull: false,
-        defaultValue: "Create Regional Plan",
+        defaultValue: "Create Plan Draft",
       },
       planning_period_label: {
         type: DataTypes.STRING(100),
         allowNull: false,
-        defaultValue: "Regional Planning Period",
+        defaultValue: "Planning Period",
       },
       duration_label: {
         type: DataTypes.STRING(100),

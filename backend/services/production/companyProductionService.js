@@ -201,9 +201,43 @@ async function updateAssignment(assignmentId, data) {
     throw err;
   }
 
-  if (data.reporting_frequency_id) assignment.reporting_frequency_id = data.reporting_frequency_id;
+  // Validate effective dates if modified
+  const effFrom = data.effective_from || assignment.effective_from;
+  const effTo = data.effective_to !== undefined ? data.effective_to : assignment.effective_to;
+  if (effFrom && effTo && new Date(effTo) < new Date(effFrom)) {
+    const err = new Error("Effective end date cannot be earlier than effective start date.");
+    err.status = 400;
+    throw err;
+  }
+
+  // Validate unit if modified
+  if (data.default_reporting_unit_id) {
+    const validUnit = await ProductionItemUnit.findOne({
+      where: {
+        production_item_id: assignment.production_item_id,
+        unit_id: data.default_reporting_unit_id,
+      },
+    });
+    if (!validUnit) {
+      const err = new Error("The selected unit is not permitted for this production item.");
+      err.status = 400;
+      throw err;
+    }
+    assignment.default_reporting_unit_id = data.default_reporting_unit_id;
+  }
+
+  // Validate frequency if modified
+  if (data.reporting_frequency_id) {
+    const validFreq = await ProductionReportingFrequency.findByPk(data.reporting_frequency_id);
+    if (!validFreq) {
+      const err = new Error("The selected reporting frequency does not exist.");
+      err.status = 400;
+      throw err;
+    }
+    assignment.reporting_frequency_id = data.reporting_frequency_id;
+  }
+
   if (data.target_allocation_depth) assignment.target_allocation_depth = data.target_allocation_depth;
-  if (data.default_reporting_unit_id) assignment.default_reporting_unit_id = data.default_reporting_unit_id;
   if (data.effective_from) assignment.effective_from = data.effective_from;
   if (data.effective_to !== undefined) assignment.effective_to = data.effective_to;
   if (data.requires_review !== undefined) assignment.requires_review = !!data.requires_review;
@@ -425,12 +459,18 @@ async function submitReport(data, userId, companyScope = null) {
   let assignment;
   if (assignment_id) {
     assignment = await CompanyProductionAssignment.findByPk(assignment_id, {
-      include: [{ model: ProductionItem, as: "productionItem" }],
+      include: [
+        { model: ProductionItem, as: "productionItem" },
+        { model: ProductionReportingFrequency, as: "reportingFrequency" },
+      ],
     });
   } else if (company_id && production_item_id) {
     assignment = await CompanyProductionAssignment.findOne({
       where: { company_id, production_item_id, is_active: true },
-      include: [{ model: ProductionItem, as: "productionItem" }],
+      include: [
+        { model: ProductionItem, as: "productionItem" },
+        { model: ProductionReportingFrequency, as: "reportingFrequency" },
+      ],
     });
   }
 
@@ -490,6 +530,17 @@ async function submitReport(data, userId, companyScope = null) {
     throw err;
   }
 
+  // Resolve period label based on frequency if not provided
+  const freqCode = assignment.reportingFrequency ? assignment.reportingFrequency.code : "daily";
+  let resolvedPeriodLabel = period_label ? String(period_label).trim() : null;
+  if (!resolvedPeriodLabel) {
+    if (freqCode === "monthly") {
+      resolvedPeriodLabel = report_date.slice(0, 7); // e.g. '2026-02'
+    } else {
+      resolvedPeriodLabel = report_date;
+    }
+  }
+
   const status = assignment.requires_review ? "submitted" : "approved";
 
   const report = await CompanyProductionReport.create({
@@ -497,7 +548,7 @@ async function submitReport(data, userId, companyScope = null) {
     assignment_id: assignment.assignment_id,
     production_item_id: assignment.production_item_id,
     report_date,
-    period_label: period_label || report_date,
+    period_label: resolvedPeriodLabel,
     quantity_reported: numQty,
     reported_unit_id: unitId,
     normalized_quantity: normalizedQuantity,
@@ -660,6 +711,7 @@ async function calculateProductionPerformance({
   endDate,
   periodType = null,
   periodLabel = null,
+  asOfDate = null,
 }) {
   // 1. Fetch assignment and item
   const assignment = await CompanyProductionAssignment.findOne({
@@ -773,19 +825,44 @@ async function calculateProductionPerformance({
     achievementPercentage = calculateAchievementPercentage(totalActualDisplay, targetDisplay);
   }
 
-  // 4. Missing reports calculation
-  // E.g., for daily reporting, calculate elapsed days between start and min(end, today)
-  const todayStr = new Date().toISOString().slice(0, 10);
+  // 4. Frequency-Adaptive Reporting Compliance Calculation
+  const todayStr = asOfDate || new Date().toISOString().slice(0, 10);
   const startDay = new Date(effStart);
   const endDay = new Date(effEnd > todayStr ? todayStr : effEnd);
+  const freqCode = assignment.reportingFrequency ? assignment.reportingFrequency.code : "daily";
+
   let expectedReports = 0;
-  if (assignment.reportingFrequency && assignment.reportingFrequency.code === "daily") {
-    const diffTime = Math.max(0, endDay.getTime() - startDay.getTime());
-    expectedReports = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  // Future periods have 0 expected reports (not overdue)
+  if (effStart <= todayStr && endDay >= startDay) {
+    if (freqCode === "daily") {
+      const diffTime = Math.max(0, endDay.getTime() - startDay.getTime());
+      expectedReports = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    } else if (freqCode === "weekly") {
+      const diffTime = Math.max(0, endDay.getTime() - startDay.getTime());
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      expectedReports = Math.max(1, Math.ceil(diffDays / 7));
+    } else if (freqCode === "monthly") {
+      const startYear = startDay.getUTCFullYear();
+      const startMonth = startDay.getUTCMonth();
+      const endYear = endDay.getUTCFullYear();
+      const endMonth = endDay.getUTCMonth();
+      expectedReports = Math.max(0, (endYear - startYear) * 12 + (endMonth - startMonth) + 1);
+    } else if (freqCode === "quarterly") {
+      const startYear = startDay.getUTCFullYear();
+      const startQuarter = Math.floor(startDay.getUTCMonth() / 3);
+      const endYear = endDay.getUTCFullYear();
+      const endQuarter = Math.floor(endDay.getUTCMonth() / 3);
+      expectedReports = Math.max(0, (endYear - startYear) * 4 + (endQuarter - startQuarter) + 1);
+    } else if (freqCode === "annual") {
+      const startYear = startDay.getUTCFullYear();
+      const endYear = endDay.getUTCFullYear();
+      expectedReports = Math.max(0, endYear - startYear + 1);
+    }
   }
 
   const submittedReportCount = reports.length;
   const missingReportCount = Math.max(0, expectedReports - submittedReportCount);
+  const complianceRate = expectedReports > 0 ? Math.min(100, roundDecimal((submittedReportCount / expectedReports) * 100, 1)) : 100;
 
   // 5. Projected Estimate / Expected Pace (clearly labeled as estimate)
   let projectedEstimate = null;
@@ -835,11 +912,11 @@ async function calculateProductionPerformance({
     is_overachieved: hasTarget && targetDisplay > 0 ? totalActualDisplay > targetDisplay : false,
     projected_estimate: projectedEstimate,
     reporting_compliance: {
-      frequency: assignment.reportingFrequency ? assignment.reportingFrequency.code : "unknown",
+      frequency: freqCode,
       expected_reports: expectedReports,
       submitted_reports: submittedReportCount,
       missing_reports: missingReportCount,
-      compliance_rate: expectedReports > 0 ? roundDecimal((submittedReportCount / expectedReports) * 100, 1) : 100,
+      compliance_rate: complianceRate,
     },
     report_count: submittedReportCount,
     target_version: target ? target.version_number : null,

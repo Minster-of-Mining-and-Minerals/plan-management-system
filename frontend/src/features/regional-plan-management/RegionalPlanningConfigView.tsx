@@ -13,6 +13,7 @@ import {
   Layers,
   Sparkles,
   RefreshCw,
+  RotateCcw,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ import Loading01 from "@/features/template/component/Loading/Loading01";
 import {
   useGetRegionalPlanConfigQuery,
   useUpdateRegionalPlanConfigMutation,
+  useRestoreDefaultRegionalPlanConfigMutation,
 } from "@/redux/api/regionalPlanApi";
 import { RegionalPlanTabsHeader } from "./RegionalPlanTabsHeader";
 
@@ -41,12 +43,13 @@ export function RegionalPlanningConfigView() {
   } = useGetRegionalPlanConfigQuery({ region_id: regionId }, { skip: !regionId });
 
   const [updateConfig, { isLoading: isSaving }] = useUpdateRegionalPlanConfigMutation();
+  const [restoreDefaults, { isLoading: isRestoring }] = useRestoreDefaultRegionalPlanConfigMutation();
 
   const [minYears, setMinYears] = useState(1);
   const [maxYears, setMaxYears] = useState(10);
   const [breakdownMode, setBreakdownMode] = useState<"quarterly" | "semi_annual" | "monthly">("quarterly");
-  const [draftLabel, setDraftLabel] = useState("Regional Plan Draft");
-  const [periodLabel, setPeriodLabel] = useState("Regional Planning Cycle");
+  const [draftLabel, setDraftLabel] = useState("Plan Draft");
+  const [periodLabel, setPeriodLabel] = useState("Planning Period");
   const [targetUnits, setTargetUnits] = useState<string[]>([]);
   const [newUnitInput, setNewUnitInput] = useState("");
 
@@ -56,10 +59,16 @@ export function RegionalPlanningConfigView() {
     if (config) {
       setMinYears(config.min_duration_years || 1);
       setMaxYears(config.max_duration_years || 10);
-      setBreakdownMode(config.breakdown_mode as any || "quarterly");
-      setDraftLabel(config.draft_entity_label_singular || "Regional Plan Draft");
-      setPeriodLabel(config.planning_period_label || "Regional Planning Cycle");
-      setTargetUnits(Array.isArray(config.target_units) ? config.target_units : ["ETB", "USD", "Tons", "Units", "%"]);
+      setBreakdownMode((config.breakdown_mode as any) || "quarterly");
+      setDraftLabel(config.draft_entity_label_singular || "Plan Draft");
+      setPeriodLabel(config.planning_period_label || "Planning Period");
+      if (Array.isArray(config.target_units)) {
+        setTargetUnits(
+          config.target_units.map((u) => (typeof u === "string" ? u : u.label || u.id))
+        );
+      } else {
+        setTargetUnits(["ETB", "USD", "Tons", "Units", "%"]);
+      }
     }
   }, [config]);
 
@@ -77,6 +86,26 @@ export function RegionalPlanningConfigView() {
     setTargetUnits(targetUnits.filter((u) => u !== unitToRemove));
   };
 
+  const handleRestoreDefaults = async () => {
+    if (!regionId) return;
+    if (
+      !(await actionFeedback.confirm(
+        "Are you sure you want to restore default planning configuration? Custom labels and units will be reset.",
+        { destructive: true }
+      ))
+    ) {
+      return;
+    }
+
+    try {
+      await restoreDefaults({ region_id: regionId }).unwrap();
+      actionFeedback.success("Default planning configuration restored");
+      refetch();
+    } catch (err: any) {
+      actionFeedback.error(err?.data?.message || "Failed to restore defaults");
+    }
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -92,7 +121,7 @@ export function RegionalPlanningConfigView() {
         },
       }).unwrap();
 
-      actionFeedback.success("Regional planning configuration saved successfully");
+      actionFeedback.success("Planning configuration saved successfully");
       refetch();
     } catch (err: any) {
       actionFeedback.error(err?.data?.message || err?.message || "Failed to update configuration");
@@ -113,7 +142,7 @@ export function RegionalPlanningConfigView() {
             <span>Cycle & Schema Setup</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mt-1">
-            Regional Planning Configuration
+            Planning Configuration
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Define planning cycle durations, calendar subdivision modes, custom vocabulary, and allowable target units.
@@ -121,6 +150,19 @@ export function RegionalPlanningConfigView() {
         </div>
 
         <div className="flex items-center gap-2">
+          {canManage && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRestoreDefaults}
+              disabled={isRestoring}
+              className="gap-2 text-muted-foreground hover:text-foreground"
+            >
+              <RotateCcw className={`h-4 w-4 ${isRestoring ? "animate-spin" : ""}`} />
+              <span>Restore Defaults</span>
+            </Button>
+          )}
+
           <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
             <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
             <span>Refresh</span>

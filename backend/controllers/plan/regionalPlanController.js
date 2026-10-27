@@ -51,6 +51,17 @@ async function updatePlanningConfigHandler(req, res, next) {
   }
 }
 
+async function restoreDefaultPlanningConfigHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "update");
+    const data = await regionalPlanService.restoreDefaultRegionalPlanningConfig(regionId);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function listPlanRulesHandler(req, res, next) {
   try {
     const regionId = resolveEffectiveRegionId(req);
@@ -101,7 +112,171 @@ async function deletePlanRuleHandler(req, res, next) {
     const regionId = resolveEffectiveRegionId(req);
     assertRegionAccessible(req, regionId, "delete");
     await regionalPlanService.deleteRegionalPlanRule(req.params.id, regionId);
-    res.json({ success: true, message: "Regional plan rule deleted successfully" });
+    res.json({ success: true, message: "Plan rule deleted successfully" });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// -------------------------------------------------------------
+// Regional Performance Color Threshold Handlers
+// -------------------------------------------------------------
+
+async function listPerformanceColorThresholdsHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "read");
+    const data = await regionalPlanService.listRegionalPerformanceColorThresholds(regionId);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getPerformanceColorThresholdByIdHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "read");
+    const data = await regionalPlanService.getRegionalPerformanceColorThresholdById(req.params.id, regionId);
+    if (!data) return res.status(404).json({ success: false, message: "Threshold not found" });
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function createPerformanceColorThresholdHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "create");
+    const data = await regionalPlanService.createRegionalPerformanceColorThreshold(regionId, req.body);
+    res.status(201).json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updatePerformanceColorThresholdHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "update");
+    const data = await regionalPlanService.updateRegionalPerformanceColorThreshold(req.params.id, regionId, req.body);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deletePerformanceColorThresholdHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "delete");
+    await regionalPlanService.deleteRegionalPerformanceColorThreshold(req.params.id, regionId);
+    res.json({ success: true, message: "Performance color threshold deleted successfully" });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function resolvePerformanceColorHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "read");
+    const percentage = req.query.percentage !== undefined ? req.query.percentage : req.body?.percentage;
+    const data = await regionalPlanService.resolveRegionalPerformanceColor(regionId, percentage);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// -------------------------------------------------------------
+// Regional Plan Review Handlers
+// -------------------------------------------------------------
+
+async function getPlanVersionsForReviewHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "read");
+    const data = await regionalPlanService.getRegionalPlanVersionsForReview(regionId, req.query);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getPublishForReviewReadinessHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "read");
+    const data = await regionalPlanService.getRegionalPublishForReviewReadiness(req.params.id, regionId);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function publishForReviewHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "update");
+    const data = await regionalPlanService.publishRegionalPlanForReview(req.params.id, regionId, req);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function unlockReviewCorrectionsHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "update");
+    const data = await regionalPlanService.unlockRegionalPlanReviewCorrections(req.params.id, regionId, req, req.body?.reason);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function republishForReviewHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "update");
+    const data = await regionalPlanService.republishRegionalPlanForReview(req.params.id, regionId, req);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getCompleteReviewReadinessHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "read");
+    const data = await regionalPlanService.getRegionalCompleteReviewReadiness(req.params.id, regionId);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function completeReviewHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "finalize");
+    const data = await regionalPlanService.completeRegionalPlanReview(req.params.id, regionId, req, req.body?.decision);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getPlanReviewDashboardHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "read");
+    const data = await regionalPlanService.getRegionalPlanReviewDashboard(req.params.id, regionId, req.query);
+    res.json({ success: true, data });
   } catch (err) {
     next(err);
   }
@@ -642,11 +817,30 @@ module.exports = {
   // Config & Rules
   getPlanningConfigHandler,
   updatePlanningConfigHandler,
+  restoreDefaultPlanningConfigHandler,
   listPlanRulesHandler,
   getPlanRuleByIdHandler,
   createPlanRuleHandler,
   updatePlanRuleHandler,
   deletePlanRuleHandler,
+
+  // Performance Color Thresholds
+  listPerformanceColorThresholdsHandler,
+  getPerformanceColorThresholdByIdHandler,
+  createPerformanceColorThresholdHandler,
+  updatePerformanceColorThresholdHandler,
+  deletePerformanceColorThresholdHandler,
+  resolvePerformanceColorHandler,
+
+  // Plan Review
+  getPlanVersionsForReviewHandler,
+  getPublishForReviewReadinessHandler,
+  publishForReviewHandler,
+  unlockReviewCorrectionsHandler,
+  republishForReviewHandler,
+  getCompleteReviewReadinessHandler,
+  completeReviewHandler,
+  getPlanReviewDashboardHandler,
 
   // Plan Versions
   listPlanVersionsHandler,
@@ -707,3 +901,4 @@ module.exports = {
   getExecutionDashboardProgressTreeHandler,
   getExecutionDashboardDepartmentUserHandler,
 };
+

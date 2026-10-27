@@ -50,6 +50,11 @@ async function runTests() {
   let itemLithium;
   let assign1;
   let assign2;
+  let assignLeap;
+  let itemBauxite;
+  let dailyFreq;
+  let weeklyFreq;
+  let monthlyFreq;
 
   try {
     // ----------------------------------------------------
@@ -159,8 +164,12 @@ async function runTests() {
     const frequencies = await productionConfigService.listFrequencies();
     assert(frequencies.length >= 5, "Reporting frequencies loaded (daily, weekly, monthly, quarterly, annual)");
 
-    const dailyFreq = frequencies.find((f) => f.code === "daily");
+    dailyFreq = frequencies.find((f) => f.code === "daily");
+    weeklyFreq = frequencies.find((f) => f.code === "weekly");
+    monthlyFreq = frequencies.find((f) => f.code === "monthly");
     assert(dailyFreq && dailyFreq.interval_days === 1, "Daily reporting frequency available");
+    assert(weeklyFreq && weeklyFreq.code === "weekly", "Weekly reporting frequency available");
+    assert(monthlyFreq && monthlyFreq.code === "monthly", "Monthly reporting frequency available");
 
     // Test dynamic target period generation for 2026
     const annualPeriods = productionConfigService.generateTargetPeriods({
@@ -574,6 +583,262 @@ async function runTests() {
     assert(fedDash.kpis.reporting_companies >= 2, "Federal Dashboard tracks active reporting companies");
 
     // ----------------------------------------------------
+    // [7.5] PHASE 5.11 ENHANCEMENTS: ASSIGNMENT SETTINGS, FREQUENCY-ADAPTIVE REPORTING, COMPLIANCE & DRILL-DOWN
+    // ----------------------------------------------------
+    console.log("\n[7.5] Testing Phase 5.11 Enhancements (Tests A - F)...");
+
+    // TEST A: Assignment Update (Settings, validation & integrity)
+    console.log("  Running Test A: Edit Assignment Settings & Invariants...");
+    const updatedAssign1 = await companyProductionService.updateAssignment(assign1.assignment_id, {
+      effective_to: "2026-11-30",
+      requires_review: true,
+      notes: "Updated assignment review requirement and validity to Nov 30",
+    });
+    assert(updatedAssign1.effective_to === "2026-11-30", "Test A: Assignment effective_to updated to 2026-11-30");
+    assert(updatedAssign1.requires_review === true, "Test A: Assignment requires_review updated to true");
+    assert(updatedAssign1.notes.includes("Nov 30"), "Test A: Assignment notes updated");
+
+    // Verify historical target records and report counts remain intact
+    const assign1TargetCount = await db.CompanyProductionTarget.count({ where: { assignment_id: assign1.assignment_id } });
+    assert(assign1TargetCount === 15, "Test A: Historical target records (15 across 3 versions) preserved intact");
+    const assign1ReportCount = await db.CompanyProductionReport.count({ where: { assignment_id: assign1.assignment_id } });
+    assert(assign1ReportCount === 20, "Test A: Existing submitted reports (20) preserved intact");
+
+    // Validation: End date < Start date
+    await assertThrowsAsync(
+      () =>
+        companyProductionService.updateAssignment(assign1.assignment_id, {
+          effective_to: "2025-12-31",
+        }),
+      "Test A: Invalid date range (effective_to < effective_from) rejected",
+      "earlier than"
+    );
+
+    // Validation: Unpermitted unit
+    await assertThrowsAsync(
+      () =>
+        companyProductionService.updateAssignment(assign1.assignment_id, {
+          default_reporting_unit_id: gramUnit.unit_id,
+        }),
+      "Test A: Setting default unit to unpermitted unit (g) rejected",
+      "not permitted"
+    );
+
+    // Validation: Invalid frequency ID
+    await assertThrowsAsync(
+      () =>
+        companyProductionService.updateAssignment(assign1.assignment_id, {
+          reporting_frequency_id: uuidv4(),
+        }),
+      "Test A: Setting non-existent reporting_frequency_id rejected",
+      "does not exist"
+    );
+
+    // TEST B: Daily submission
+    console.log("  Running Test B: Daily Report Submission & Duplicate Protection...");
+    const dailyRep = await companyProductionService.submitReport({
+      company_id: company1.company_id,
+      assignment_id: assign1.assignment_id,
+      production_item_id: itemLithium.production_item_id,
+      report_date: "2026-01-21",
+      quantity_reported: 10,
+      reported_unit_id: tonneUnit.unit_id,
+      notes: "Day 21 report",
+    });
+    assert(dailyRep.period_label === "2026-01-21", "Test B: Daily report period_label is 2026-01-21");
+    assert(Number(dailyRep.normalized_quantity) === 10, "Test B: Daily report normalized quantity is 10 tonnes");
+
+    // Duplicate submission on same day rejected
+    await assertThrowsAsync(
+      () =>
+        companyProductionService.submitReport({
+          company_id: company1.company_id,
+          assignment_id: assign1.assignment_id,
+          production_item_id: itemLithium.production_item_id,
+          report_date: "2026-01-21",
+          quantity_reported: 15,
+          reported_unit_id: tonneUnit.unit_id,
+        }),
+      "Test B: Duplicate daily report on same date rejected",
+      "already been submitted"
+    );
+
+    // TEST C: Weekly submission
+    console.log("  Running Test C: Weekly Report Submission & Convention...");
+    // Update assign2 to weekly reporting frequency
+    await companyProductionService.updateAssignment(assign2.assignment_id, {
+      reporting_frequency_id: weeklyFreq.frequency_id,
+    });
+    const weeklyRep = await companyProductionService.submitReport({
+      company_id: company2.company_id,
+      assignment_id: assign2.assignment_id,
+      production_item_id: itemLithium.production_item_id,
+      report_date: "2026-02-01",
+      period_label: "2026-W05",
+      quantity_reported: 25,
+      reported_unit_id: tonneUnit.unit_id,
+      notes: "Week 5 production report",
+    });
+    assert(weeklyRep.period_label === "2026-W05", "Test C: Weekly report period_label is 2026-W05");
+    assert(weeklyRep.report_date === "2026-02-01", "Test C: Weekly report representative end date is 2026-02-01");
+    assert(Number(weeklyRep.normalized_quantity) === 25, "Test C: Weekly normalized quantity is 25 tonnes");
+
+    // Duplicate weekly report on same report date rejected
+    await assertThrowsAsync(
+      () =>
+        companyProductionService.submitReport({
+          company_id: company2.company_id,
+          assignment_id: assign2.assignment_id,
+          production_item_id: itemLithium.production_item_id,
+          report_date: "2026-02-01",
+          period_label: "2026-W05",
+          quantity_reported: 30,
+          reported_unit_id: tonneUnit.unit_id,
+        }),
+      "Test C: Duplicate weekly report on same date rejected",
+      "already been submitted"
+    );
+
+    // TEST D: Monthly submission (including February and Leap Year)
+    console.log("  Running Test D: Monthly Report Submission & Leap Year...");
+    // Update assign2 to monthly frequency
+    await companyProductionService.updateAssignment(assign2.assignment_id, {
+      reporting_frequency_id: monthlyFreq.frequency_id,
+    });
+    const monthlyRep2026 = await companyProductionService.submitReport({
+      company_id: company2.company_id,
+      assignment_id: assign2.assignment_id,
+      production_item_id: itemLithium.production_item_id,
+      report_date: "2026-02-28",
+      period_label: "2026-02",
+      quantity_reported: 120,
+      reported_unit_id: tonneUnit.unit_id,
+      notes: "February 2026 monthly report",
+    });
+    assert(monthlyRep2026.period_label === "2026-02", "Test D: Monthly report period_label is 2026-02");
+    assert(monthlyRep2026.report_date === "2026-02-28", "Test D: Feb 2026 representative report date is 2026-02-28 (non-leap year)");
+    assert(Number(monthlyRep2026.normalized_quantity) === 120, "Test D: Feb 2026 normalized quantity is 120 tonnes");
+
+    // Create itemBauxite for Leap Year 2024 test
+    itemBauxite = await productionConfigService.createProductionItem({
+      name: `Bauxite ${testSuffix}`,
+      code: `bauxite_${testSuffix}`,
+      description: "Aluminum ore for metallurgical processing",
+      category: "Industrial Minerals",
+      base_unit_id: tonneUnit.unit_id,
+      default_reporting_unit_id: tonneUnit.unit_id,
+      supported_units: [
+        { unit_id: tonneUnit.unit_id, conversion_factor_to_base: 1.0, is_default: true },
+      ],
+    });
+
+    assignLeap = await companyProductionService.createAssignment({
+      company_id: company2.company_id,
+      production_item_id: itemBauxite.production_item_id,
+      reporting_frequency_id: monthlyFreq.frequency_id,
+      target_allocation_depth: "quarterly",
+      default_reporting_unit_id: tonneUnit.unit_id,
+      effective_from: "2024-01-01",
+      effective_to: "2024-12-31",
+      requires_review: false,
+    });
+
+    // Save target for 2024 Q1 (600 tonnes)
+    await companyProductionService.saveTargetHierarchy({
+      assignmentId: assignLeap.assignment_id,
+      targets: [
+        {
+          target_period_type: "year",
+          period_label: "2024",
+          period_start_date: "2024-01-01",
+          period_end_date: "2024-12-31",
+          target_quantity: 2400,
+          unit_id: tonneUnit.unit_id,
+          children: [
+            {
+              target_period_type: "quarter",
+              period_label: "2024-Q1",
+              period_start_date: "2024-01-01",
+              period_end_date: "2024-03-31",
+              target_quantity: 600,
+              unit_id: tonneUnit.unit_id,
+            },
+          ],
+        },
+      ],
+      revisionReason: "2024 baseline targets",
+    });
+
+    // Submit leap year report for February 2024
+    const leapMonthlyRep = await companyProductionService.submitReport({
+      company_id: company2.company_id,
+      assignment_id: assignLeap.assignment_id,
+      production_item_id: itemBauxite.production_item_id,
+      report_date: "2024-02-29",
+      period_label: "2024-02",
+      quantity_reported: 200,
+      reported_unit_id: tonneUnit.unit_id,
+      notes: "February 2024 leap year monthly report",
+    });
+    assert(leapMonthlyRep.period_label === "2024-02", "Test D: Leap year report period_label is 2024-02");
+    assert(leapMonthlyRep.report_date === "2024-02-29", "Test D: Leap year Feb 2024 representative report date is 2024-02-29");
+
+    // TEST E: Non-daily compliance calculation
+    console.log("  Running Test E: Non-Daily Compliance Calculations...");
+    const q12024Perf = await companyProductionService.calculateProductionPerformance({
+      companyId: company2.company_id,
+      productionItemId: itemBauxite.production_item_id,
+      startDate: "2024-01-01",
+      endDate: "2024-03-31",
+      periodLabel: "2024-Q1",
+      periodType: "quarter",
+      asOfDate: "2024-03-31",
+    });
+
+    assert(q12024Perf.reporting_compliance.expected_reports === 3, "Test E: 3 expected reports for monthly frequency in 3-month window");
+    assert(q12024Perf.reporting_compliance.submitted_reports === 1, "Test E: 1 submitted report");
+    assert(q12024Perf.reporting_compliance.missing_reports === 2, "Test E: 2 missing reports (3 expected - 1 submitted)");
+    assert(q12024Perf.reporting_compliance.compliance_rate === 33.3, "Test E: Compliance rate is 33.3% (1 / 3 * 100)");
+
+    // Test future period compliance:
+    const futurePerf = await companyProductionService.calculateProductionPerformance({
+      companyId: company2.company_id,
+      productionItemId: itemBauxite.production_item_id,
+      startDate: "2027-01-01",
+      endDate: "2027-12-31",
+      periodLabel: "2027",
+      periodType: "year",
+      asOfDate: "2026-10-26",
+    });
+    assert(futurePerf.reporting_compliance.expected_reports === 0, "Test E: Future period has 0 expected reports");
+    assert(futurePerf.reporting_compliance.missing_reports === 0, "Test E: Future period has 0 missing reports (not overdue)");
+    assert(futurePerf.reporting_compliance.compliance_rate === 100, "Test E: Future period compliance defaults cleanly to 100%");
+
+    // TEST F: Quarterly Target Drill-Down
+    console.log("  Running Test F: Quarterly Target Drill-Down...");
+    const q1DrillDown = await companyProductionService.calculateProductionPerformance({
+      companyId: company1.company_id,
+      productionItemId: itemLithium.production_item_id,
+      periodLabel: "2026-Q1",
+      periodType: "quarter",
+    });
+    assert(q1DrillDown.has_target === true, "Test F: Q1 Drill-down has active target");
+    assert(Number(q1DrillDown.target_quantity) === 2000, "Test F: Q1 Target is 2,000 tonnes");
+    assert(Number(q1DrillDown.actual_quantity) === 260, "Test F: Q1 Actual is 260 tonnes (250t + 10t from Test B)");
+    assert(Number(q1DrillDown.remaining_quantity) === 1740, "Test F: Q1 Remaining is 1,740 tonnes");
+    assert(Number(q1DrillDown.achievement_percentage) === 13.0, "Test F: Q1 Achievement is 13.0% (260 / 2,000 * 100)");
+
+    // Verify annual actual includes the exact same reports without duplication
+    const annualPerfCheck = await companyProductionService.calculateProductionPerformance({
+      companyId: company1.company_id,
+      productionItemId: itemLithium.production_item_id,
+      periodLabel: "2026",
+      periodType: "year",
+    });
+    assert(Number(annualPerfCheck.target_quantity) === 12000, "Test F: Annual Target is 12,000 tonnes");
+    assert(Number(annualPerfCheck.actual_quantity) === 260, "Test F: Annual actual is 260 tonnes (includes Q1 reports exactly once)");
+
+    // ----------------------------------------------------
     // CLEANUP
     // ----------------------------------------------------
     console.log("\n[8] Cleaning up test records...");
@@ -581,6 +846,16 @@ async function runTests() {
       where: { company_id: [company1.company_id, company2.company_id] },
       force: true,
     });
+    if (assignLeap) {
+      await db.CompanyProductionTarget.destroy({
+        where: { assignment_id: assignLeap.assignment_id },
+        force: true,
+      });
+      await db.CompanyProductionAssignment.destroy({
+        where: { assignment_id: assignLeap.assignment_id },
+        force: true,
+      });
+    }
     await db.CompanyProductionTarget.destroy({
       where: { assignment_id: [assign1.assignment_id, assign2.assignment_id] },
       force: true,
@@ -589,6 +864,16 @@ async function runTests() {
       where: { company_id: [company1.company_id, company2.company_id] },
       force: true,
     });
+    if (itemBauxite) {
+      await db.ProductionItemUnit.destroy({
+        where: { production_item_id: itemBauxite.production_item_id },
+        force: true,
+      });
+      await db.ProductionItem.destroy({
+        where: { production_item_id: itemBauxite.production_item_id },
+        force: true,
+      });
+    }
     await db.ProductionItemUnit.destroy({
       where: { production_item_id: itemLithium.production_item_id },
       force: true,

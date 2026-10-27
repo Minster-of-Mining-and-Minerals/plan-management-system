@@ -60,6 +60,56 @@ const planValidateAccess = checkAnyPermission([
   { resource: "REGIONS", action: "MANAGE" },
 ]);
 
+const colorReadAccess = checkAnyPermission([
+  { resource: "REGIONAL_PERFORMANCE_COLORS", action: "READ" },
+  { resource: "REGIONAL_PLANS", action: "READ" },
+  { resource: "REGIONAL_PLANS", action: "MANAGE" },
+  { resource: "REGIONS", action: "READ" },
+  { resource: "REGIONS", action: "MANAGE" },
+]);
+
+const colorCreateAccess = checkAnyPermission([
+  { resource: "REGIONAL_PERFORMANCE_COLORS", action: "CREATE" },
+  { resource: "REGIONAL_PERFORMANCE_COLORS", action: "MANAGE" },
+  { resource: "REGIONAL_PLANS", action: "MANAGE" },
+  { resource: "REGIONS", action: "MANAGE" },
+]);
+
+const colorUpdateAccess = checkAnyPermission([
+  { resource: "REGIONAL_PERFORMANCE_COLORS", action: "UPDATE" },
+  { resource: "REGIONAL_PERFORMANCE_COLORS", action: "MANAGE" },
+  { resource: "REGIONAL_PLANS", action: "MANAGE" },
+  { resource: "REGIONS", action: "MANAGE" },
+]);
+
+const colorDeleteAccess = checkAnyPermission([
+  { resource: "REGIONAL_PERFORMANCE_COLORS", action: "DELETE" },
+  { resource: "REGIONAL_PERFORMANCE_COLORS", action: "MANAGE" },
+  { resource: "REGIONAL_PLANS", action: "MANAGE" },
+  { resource: "REGIONS", action: "MANAGE" },
+]);
+
+const planPublishReviewAccess = checkAnyPermission([
+  { resource: "REGIONAL_PLANS", action: "PUBLISH_REVIEW" },
+  { resource: "REGIONAL_PLANS", action: "UPDATE" },
+  { resource: "REGIONAL_PLANS", action: "MANAGE" },
+  { resource: "REGIONS", action: "MANAGE" },
+]);
+
+const planReviewAccess = checkAnyPermission([
+  { resource: "REGIONAL_PLANS", action: "REVIEW" },
+  { resource: "REGIONAL_PLANS", action: "READ" },
+  { resource: "REGIONAL_PLANS", action: "MANAGE" },
+  { resource: "REGIONS", action: "MANAGE" },
+]);
+
+const planCompleteReviewAccess = checkAnyPermission([
+  { resource: "REGIONAL_PLANS", action: "COMPLETE_REVIEW" },
+  { resource: "REGIONAL_PLANS", action: "FINALIZE" },
+  { resource: "REGIONAL_PLANS", action: "MANAGE" },
+  { resource: "REGIONS", action: "MANAGE" },
+]);
+
 // All routes require authentication
 router.use(authenticateToken);
 
@@ -68,12 +118,23 @@ router.use(authenticateToken);
 // -------------------------------------------------------------
 router.get("/config", planReadAccess, regionalPlanController.getPlanningConfigHandler);
 router.put("/config", planUpdateAccess, regionalPlanController.updatePlanningConfigHandler);
+router.post("/config/restore-defaults", planUpdateAccess, regionalPlanController.restoreDefaultPlanningConfigHandler);
 
 router.get("/rules", planReadAccess, regionalPlanController.listPlanRulesHandler);
 router.post("/rules", planCreateAccess, regionalPlanController.createPlanRuleHandler);
 router.get("/rules/:id", planReadAccess, regionalPlanController.getPlanRuleByIdHandler);
 router.put("/rules/:id", planUpdateAccess, regionalPlanController.updatePlanRuleHandler);
 router.delete("/rules/:id", planDeleteAccess, regionalPlanController.deletePlanRuleHandler);
+
+// -------------------------------------------------------------
+// 1b. Performance Color Thresholds
+// -------------------------------------------------------------
+router.get("/performance-colors", colorReadAccess, regionalPlanController.listPerformanceColorThresholdsHandler);
+router.post("/performance-colors", colorCreateAccess, regionalPlanController.createPerformanceColorThresholdHandler);
+router.get("/performance-colors/resolve", colorReadAccess, regionalPlanController.resolvePerformanceColorHandler);
+router.get("/performance-colors/:id", colorReadAccess, regionalPlanController.getPerformanceColorThresholdByIdHandler);
+router.put("/performance-colors/:id", colorUpdateAccess, regionalPlanController.updatePerformanceColorThresholdHandler);
+router.delete("/performance-colors/:id", colorDeleteAccess, regionalPlanController.deletePerformanceColorThresholdHandler);
 
 // -------------------------------------------------------------
 // 2. Execution Dashboard
@@ -83,14 +144,24 @@ router.get("/dashboard/progress-tree", planReadAccess, regionalPlanController.ge
 router.get("/dashboard/department-user", planReadAccess, regionalPlanController.getExecutionDashboardDepartmentUserHandler);
 
 // -------------------------------------------------------------
-// 3. Plan Versions
+// 3. Plan Versions & Review
 // -------------------------------------------------------------
+router.get("/versions/for-review", planReviewAccess, regionalPlanController.getPlanVersionsForReviewHandler);
 router.get("/versions", planReadAccess, regionalPlanController.listPlanVersionsHandler);
 router.post("/versions", planCreateAccess, regionalPlanController.createPlanDraftHandler);
 router.get("/versions/:id", planReadAccess, regionalPlanController.getPlanVersionByIdHandler);
 router.put("/versions/:id", planUpdateAccess, regionalPlanController.updatePlanVersionHandler);
 router.delete("/versions/:id", planDeleteAccess, regionalPlanController.deletePlanVersionHandler);
 router.post("/versions/:id/duplicate", planCreateAccess, regionalPlanController.duplicatePlanDraftHandler);
+
+// Review Workflow
+router.get("/versions/:id/publish-for-review-readiness", planReadAccess, regionalPlanController.getPublishForReviewReadinessHandler);
+router.post("/versions/:id/publish-for-review", planPublishReviewAccess, regionalPlanController.publishForReviewHandler);
+router.post("/versions/:id/unlock-review-corrections", planReviewAccess, regionalPlanController.unlockReviewCorrectionsHandler);
+router.post("/versions/:id/republish-for-review", planPublishReviewAccess, regionalPlanController.republishForReviewHandler);
+router.get("/versions/:id/complete-review-readiness", planReadAccess, regionalPlanController.getCompleteReviewReadinessHandler);
+router.post("/versions/:id/complete-review", planCompleteReviewAccess, regionalPlanController.completeReviewHandler);
+router.get("/versions/:id/review-dashboard", planReadAccess, regionalPlanController.getPlanReviewDashboardHandler);
 
 // Lifecycle: Finalization & Start
 router.get("/versions/:id/finalization-readiness", planReadAccess, regionalPlanController.getDraftFinalizationReadinessHandler);

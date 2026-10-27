@@ -1,7 +1,8 @@
 "use client";
 
-import { RegionalPlanVersionDetailsView } from "@/features/regional-plan-management/RegionalPlanVersionDetailsView";
+import { RegionalPlanHierarchyView } from "@/features/regional-plan-management/RegionalPlanHierarchyView";
 
-export default function RegionalPlanDetailsPage() {
-  return <RegionalPlanVersionDetailsView />;
+export default function RegionalPlanRootPage() {
+  return <RegionalPlanHierarchyView />;
 }
+

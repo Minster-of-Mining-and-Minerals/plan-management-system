@@ -43,6 +43,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
       },
+      color_hex: {
+        type: DataTypes.STRING(7),
+        allowNull: true,
+        defaultValue: "#6B7280",
+      },
     },
     {
       sequelize,

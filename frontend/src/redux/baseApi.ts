@@ -119,6 +119,8 @@ export const baseApi = createApi({
     "RegionalPlanDashboard",
     "RegionalPlanRules",
     "RegionalPlanConfig",
+    "RegionalPerformanceColorThresholds",
+    "RegionalPlanReview",
     "Companies",
     "CompanyStructures",
     "CompanyBranding",

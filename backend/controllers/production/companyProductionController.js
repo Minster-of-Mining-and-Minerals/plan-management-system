@@ -279,6 +279,7 @@ async function getPerformanceHandler(req, res, next) {
       endDate: req.query.end_date,
       periodType: req.query.period_type || "quarter",
       periodLabel: req.query.period_label,
+      asOfDate: req.query.as_of_date,
     });
 
     return res.status(200).json({

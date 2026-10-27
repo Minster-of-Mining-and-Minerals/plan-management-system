@@ -8,6 +8,7 @@ import {
   Layers,
   Clock,
   AlertTriangle,
+  Settings2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import { matchesSearchQuery } from "@/utils/tableUtils";
 import {
   useGetAssignmentsQuery,
   useCreateAssignmentMutation,
+  useUpdateAssignmentMutation,
   useSaveTargetHierarchyMutation,
   useGetProductionItemsQuery,
   useGetFrequenciesQuery,
@@ -56,12 +58,25 @@ export function CompanyProductionAssignmentsView() {
   const [revisionReason, setRevisionReason] = useState("");
   const [targetError, setTargetError] = useState("");
 
+  // Edit Assignment Modal
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingAssignment, setEditingAssignment] = useState<CompanyProductionAssignment | null>(null);
+  const [editFrequencyId, setEditFrequencyId] = useState("");
+  const [editDefaultUnitId, setEditDefaultUnitId] = useState("");
+  const [editEffectiveFrom, setEditEffectiveFrom] = useState("");
+  const [editEffectiveTo, setEditEffectiveTo] = useState("");
+  const [editRequiresReview, setEditRequiresReview] = useState(false);
+  const [editNotes, setEditNotes] = useState("");
+  const [editIsActive, setEditIsActive] = useState(true);
+  const [editError, setEditError] = useState("");
+
   const { data: assignments = [], isLoading, isError, refetch } = useGetAssignmentsQuery();
   const { data: companies = [] } = useGetCompaniesQuery();
   const { data: items = [] } = useGetProductionItemsQuery();
   const { data: frequencies = [] } = useGetFrequenciesQuery();
 
   const [createAssignment, { isLoading: isCreatingAssignment }] = useCreateAssignmentMutation();
+  const [updateAssignment, { isLoading: isUpdatingAssignment }] = useUpdateAssignmentMutation();
   const [saveTargetHierarchy, { isLoading: isSavingTargets }] = useSaveTargetHierarchyMutation();
 
   // Dynamic target period generator query for target hierarchy modal
@@ -122,6 +137,56 @@ export function CompanyProductionAssignmentsView() {
       refetch();
     } catch (err: any) {
       setAssignError(err.data?.message || err.message || "Failed to create assignment.");
+    }
+  };
+
+  const handleOpenEditModal = (assignment: CompanyProductionAssignment) => {
+    setEditingAssignment(assignment);
+    setEditFrequencyId(assignment.reporting_frequency_id || "");
+    setEditDefaultUnitId(assignment.default_reporting_unit_id || "");
+    setEditEffectiveFrom(assignment.effective_from || "");
+    setEditEffectiveTo(assignment.effective_to || "");
+    setEditRequiresReview(!!assignment.requires_review);
+    setEditNotes(assignment.notes || "");
+    setEditIsActive(assignment.is_active !== false);
+    setEditError("");
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateAssignment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEditError("");
+    if (!editingAssignment) return;
+
+    if (!editFrequencyId || !editEffectiveFrom) {
+      setEditError("Reporting frequency and effective start date are required.");
+      return;
+    }
+
+    if (editEffectiveTo && new Date(editEffectiveTo) < new Date(editEffectiveFrom)) {
+      setEditError("Effective end date cannot be earlier than start date.");
+      return;
+    }
+
+    try {
+      await updateAssignment({
+        id: editingAssignment.assignment_id,
+        data: {
+          reporting_frequency_id: editFrequencyId,
+          default_reporting_unit_id: editDefaultUnitId || null,
+          effective_from: editEffectiveFrom,
+          effective_to: editEffectiveTo || null,
+          requires_review: editRequiresReview,
+          notes: editNotes ? editNotes.trim() : null,
+          is_active: editIsActive,
+        },
+      }).unwrap();
+
+      setIsEditModalOpen(false);
+      setEditingAssignment(null);
+      refetch();
+    } catch (err: any) {
+      setEditError(err.data?.message || err.message || "Failed to update assignment.");
     }
   };
 
@@ -313,7 +378,16 @@ export function CompanyProductionAssignmentsView() {
       cell: ({ row }) => {
         const rootTarget = row.original.targets?.find((t) => t.target_period_type === "year");
         return (
-          <div className="text-right">
+          <div className="text-right flex items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleOpenEditModal(row.original)}
+              className="h-8 text-xs flex items-center gap-1.5"
+            >
+              <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
+              Edit Settings
+            </Button>
             <Button
               variant="secondary"
               size="sm"
@@ -660,6 +734,156 @@ export function CompanyProductionAssignmentsView() {
                   className="bg-teal-600 hover:bg-teal-700 text-white"
                 >
                   {isSavingTargets ? "Publishing Targets..." : "Publish Approved Targets"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 3: Edit Assignment Settings */}
+      {isEditModalOpen && editingAssignment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="w-full max-w-lg rounded-2xl bg-card border shadow-2xl p-6 text-foreground animate-in fade-in zoom-in-95 duration-150">
+            <h2 className="text-xl font-bold mb-1">Edit Assignment Settings</h2>
+            <p className="text-xs text-muted-foreground mb-4">
+              Modify reporting schedule, permitted units, review policies, or status for this assignment.
+            </p>
+
+            {editError && (
+              <div className="mb-4 rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive">
+                {editError}
+              </div>
+            )}
+
+            <form onSubmit={handleUpdateAssignment} className="space-y-4 text-sm">
+              <div className="grid grid-cols-2 gap-3 bg-muted/30 p-3 rounded-lg border">
+                <div>
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">Company</span>
+                  <span className="text-xs font-semibold text-foreground flex items-center gap-1 mt-0.5">
+                    <Building2 className="h-3.5 w-3.5 text-teal-600 shrink-0" />
+                    {editingAssignment.company?.name}
+                  </span>
+                  <span className="text-[10px] font-mono text-muted-foreground">{editingAssignment.company?.code}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">Production Item</span>
+                  <span className="text-xs font-semibold text-foreground mt-0.5 block">
+                    {editingAssignment.productionItem?.name}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    Base: {editingAssignment.productionItem?.baseUnit?.name || "Standard"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium mb-1">Reporting Frequency *</label>
+                  <select
+                    value={editFrequencyId}
+                    onChange={(e) => setEditFrequencyId(e.target.value)}
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    {frequencies.map((f) => (
+                      <option key={f.frequency_id} value={f.frequency_id}>
+                        {f.name} ({f.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium mb-1">Default Reporting Unit</label>
+                  <select
+                    value={editDefaultUnitId}
+                    onChange={(e) => setEditDefaultUnitId(e.target.value)}
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    <option value="">Standard (Base Unit)</option>
+                    {(editingAssignment.productionItem?.supportedUnits || []).map((u: any) => (
+                      <option key={u.unit_id} value={u.unit_id}>
+                        {u.measurementUnit?.name || u.unit?.name || "Unit"} ({u.measurementUnit?.symbol || u.unit?.symbol || ""})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium mb-1">Effective From *</label>
+                  <Input
+                    type="date"
+                    required
+                    value={editEffectiveFrom}
+                    onChange={(e) => setEditEffectiveFrom(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1">Effective To</label>
+                  <Input
+                    type="date"
+                    value={editEffectiveTo}
+                    onChange={(e) => setEditEffectiveTo(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-1 border-t">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="editRequiresReviewCheck"
+                    checked={editRequiresReview}
+                    onChange={(e) => setEditRequiresReview(e.target.checked)}
+                    className="rounded text-teal-600 focus:ring-teal-500"
+                  />
+                  <label htmlFor="editRequiresReviewCheck" className="text-xs cursor-pointer">
+                    Require Federal Review & Approval for Reports
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="editIsActiveCheck"
+                    checked={editIsActive}
+                    onChange={(e) => setEditIsActive(e.target.checked)}
+                    className="rounded text-teal-600 focus:ring-teal-500"
+                  />
+                  <label htmlFor="editIsActiveCheck" className="text-xs cursor-pointer font-medium">
+                    Assignment is Active
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium mb-1">Administrative Notes</label>
+                <textarea
+                  rows={2}
+                  className="w-full rounded-md border bg-background p-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="Optional assignment instructions..."
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                />
+              </div>
+
+              <div className="pt-3 border-t flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEditModalOpen(false)}
+                  disabled={isUpdatingAssignment}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-teal-600 hover:bg-teal-700 text-white"
+                  disabled={isUpdatingAssignment}
+                >
+                  {isUpdatingAssignment ? "Saving Changes..." : "Save Settings"}
                 </Button>
               </div>
             </form>

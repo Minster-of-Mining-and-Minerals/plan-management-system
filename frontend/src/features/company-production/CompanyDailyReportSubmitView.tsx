@@ -28,6 +28,44 @@ import {
 } from "@/redux/api/productionApi";
 import type { CompanyProductionAssignment, ProductionItemUnit } from "@/redux/types/production";
 
+function getISOWeekBounds(weekStr: string): { startDate: string; endDate: string; label: string } | null {
+  if (!weekStr || !weekStr.includes("-W")) return null;
+  const [yearStr, wStr] = weekStr.split("-W");
+  const year = parseInt(yearStr, 10);
+  const week = parseInt(wStr, 10);
+  if (isNaN(year) || isNaN(week)) return null;
+
+  // Jan 4th is always in week 1 in ISO 8601
+  const simple = new Date(Date.UTC(year, 0, 4));
+  const dayOfWeek = simple.getUTCDay() || 7;
+  const isoMonday = new Date(simple.getTime() - (dayOfWeek - 1) * 86400000 + (week - 1) * 7 * 86400000);
+  const isoSunday = new Date(isoMonday.getTime() + 6 * 86400000);
+
+  return {
+    startDate: isoMonday.toISOString().slice(0, 10),
+    endDate: isoSunday.toISOString().slice(0, 10),
+    label: weekStr,
+  };
+}
+
+function getMonthBounds(monthStr: string): { startDate: string; endDate: string; label: string } | null {
+  if (!monthStr || !monthStr.includes("-")) return null;
+  const [yearStr, mStr] = monthStr.split("-");
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(mStr, 10);
+  if (isNaN(year) || isNaN(month)) return null;
+
+  const startDate = `${yearStr}-${mStr.padStart(2, "0")}-01`;
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const endDate = `${yearStr}-${mStr.padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+  return {
+    startDate,
+    endDate,
+    label: monthStr,
+  };
+}
+
 export function CompanyDailyReportSubmitView({ companyId: propCompanyId }: { companyId?: string }) {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -38,6 +76,7 @@ export function CompanyDailyReportSubmitView({ companyId: propCompanyId }: { com
   const initialItemId = searchParams.get("item_id") || "";
 
   const todayStr = new Date().toISOString().split("T")[0];
+  const currentMonthStr = todayStr.slice(0, 7);
 
   const { data: assignments = [], isLoading: isAssignmentsLoading } = useGetAssignmentsQuery(
     { company_id: companyId as string, is_active: true },
@@ -48,6 +87,8 @@ export function CompanyDailyReportSubmitView({ companyId: propCompanyId }: { com
 
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<string>("");
   const [reportDate, setReportDate] = useState<string>(todayStr);
+  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthStr);
+  const [selectedWeek, setSelectedWeek] = useState<string>("");
   const [quantity, setQuantity] = useState<string>("");
   const [unitId, setUnitId] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
@@ -74,6 +115,8 @@ export function CompanyDailyReportSubmitView({ companyId: propCompanyId }: { com
   const selectedAssignment = useMemo(() => {
     return assignments.find((a) => a.assignment_id === selectedAssignmentId) || null;
   }, [assignments, selectedAssignmentId]);
+
+  const frequencyCode = selectedAssignment?.reportingFrequency?.code || "daily";
 
   // Permitted units for this assignment's production item
   const supportedUnits: ProductionItemUnit[] = useMemo(() => {
@@ -141,19 +184,42 @@ export function CompanyDailyReportSubmitView({ companyId: propCompanyId }: { com
       return;
     }
 
-    if (!reportDate) {
-      setFormError("Please choose a production date.");
-      return;
+    let finalReportDate = reportDate;
+    let finalPeriodLabel = reportDate;
+
+    if (frequencyCode === "monthly") {
+      const bounds = getMonthBounds(selectedMonth);
+      if (!bounds) {
+        setFormError("Please select a valid production month.");
+        return;
+      }
+      finalReportDate = bounds.endDate;
+      finalPeriodLabel = bounds.label;
+    } else if (frequencyCode === "weekly") {
+      const bounds = getISOWeekBounds(selectedWeek);
+      if (!bounds) {
+        setFormError("Please select a valid production week.");
+        return;
+      }
+      finalReportDate = bounds.endDate;
+      finalPeriodLabel = bounds.label;
+    } else {
+      if (!reportDate) {
+        setFormError("Please choose a production date.");
+        return;
+      }
+      finalReportDate = reportDate;
+      finalPeriodLabel = reportDate;
     }
 
     // Boundary check with assignment effective range
-    if (selectedAssignment.effective_from && reportDate < selectedAssignment.effective_from) {
-      setFormError(`Report date cannot be earlier than assignment effective start date (${selectedAssignment.effective_from}).`);
+    if (selectedAssignment.effective_from && finalReportDate < selectedAssignment.effective_from) {
+      setFormError(`Reporting date (${finalReportDate}) cannot be earlier than assignment start date (${selectedAssignment.effective_from}).`);
       return;
     }
 
-    if (selectedAssignment.effective_to && reportDate > selectedAssignment.effective_to) {
-      setFormError(`Report date cannot be later than assignment effective end date (${selectedAssignment.effective_to}).`);
+    if (selectedAssignment.effective_to && finalReportDate > selectedAssignment.effective_to) {
+      setFormError(`Reporting date (${finalReportDate}) cannot be later than assignment end date (${selectedAssignment.effective_to}).`);
       return;
     }
 
@@ -173,7 +239,8 @@ export function CompanyDailyReportSubmitView({ companyId: propCompanyId }: { com
         company_id: companyId,
         assignment_id: selectedAssignment.assignment_id,
         production_item_id: selectedAssignment.production_item_id,
-        report_date: reportDate,
+        report_date: finalReportDate,
+        period_label: finalPeriodLabel,
         quantity_reported: numQuantity,
         reported_unit_id: unitId,
         notes: notes || null,
@@ -181,7 +248,7 @@ export function CompanyDailyReportSubmitView({ companyId: propCompanyId }: { com
 
       const reportedSymbol = selectedUnit?.measurementUnit?.symbol || (selectedUnit as any)?.unit?.symbol || "";
       setSuccessMessage(
-        `Production report for ${reportDate} (${numQuantity.toLocaleString()} ${reportedSymbol}) successfully recorded!`
+        `Production report for ${finalPeriodLabel} (${numQuantity.toLocaleString()} ${reportedSymbol}) successfully recorded!`
       );
       setQuantity("");
       setNotes("");
@@ -202,11 +269,11 @@ export function CompanyDailyReportSubmitView({ companyId: propCompanyId }: { com
               <FilePlus2 className="h-6 w-6" />
             </span>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Submit Daily Production Report
+              Submit Production Report
             </h1>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Record certified daily production quantities in company permitted measurement units.
+            Record certified production quantities in company permitted measurement units according to assigned reporting frequency.
           </p>
         </div>
 
@@ -281,24 +348,59 @@ export function CompanyDailyReportSubmitView({ companyId: propCompanyId }: { com
                 </select>
               </div>
 
-              {/* Date and Quantity Grid */}
+              {/* Date / Period and Quantity Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Production Date <span className="text-destructive">*</span>
-                  </label>
-                  <Input
-                    type="date"
-                    value={reportDate}
-                    max={todayStr}
-                    onChange={(e) => setReportDate(e.target.value)}
-                    required
-                    className="h-11 rounded-xl"
-                  />
-                  <span className="text-[11px] text-muted-foreground">
-                    Today or past calendar date
-                  </span>
-                </div>
+                {frequencyCode === "monthly" ? (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Production Month <span className="text-destructive">*</span>
+                    </label>
+                    <Input
+                      type="month"
+                      value={selectedMonth}
+                      max={currentMonthStr}
+                      onChange={(e) => setSelectedMonth(e.target.value)}
+                      required
+                      className="h-11 rounded-xl font-mono"
+                    />
+                    <span className="text-[11px] text-muted-foreground">
+                      {selectedMonth ? `Covers ${getMonthBounds(selectedMonth)?.startDate} to ${getMonthBounds(selectedMonth)?.endDate}` : "Monthly reporting period"}
+                    </span>
+                  </div>
+                ) : frequencyCode === "weekly" ? (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Production Week (ISO) <span className="text-destructive">*</span>
+                    </label>
+                    <Input
+                      type="week"
+                      value={selectedWeek}
+                      onChange={(e) => setSelectedWeek(e.target.value)}
+                      required
+                      className="h-11 rounded-xl font-mono"
+                    />
+                    <span className="text-[11px] text-muted-foreground">
+                      {selectedWeek ? `Mon ${getISOWeekBounds(selectedWeek)?.startDate} to Sun ${getISOWeekBounds(selectedWeek)?.endDate}` : "Weekly reporting period"}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Production Date <span className="text-destructive">*</span>
+                    </label>
+                    <Input
+                      type="date"
+                      value={reportDate}
+                      max={todayStr}
+                      onChange={(e) => setReportDate(e.target.value)}
+                      required
+                      className="h-11 rounded-xl font-mono"
+                    />
+                    <span className="text-[11px] text-muted-foreground">
+                      Today or past calendar date
+                    </span>
+                  </div>
+                )}
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

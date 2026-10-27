@@ -3,10 +3,11 @@
 import { usePathname, useParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import {
-  Layers,
-  Scale,
+  ListTree,
+  ClipboardCheck,
   Settings,
-  LayoutDashboard,
+  Scale,
+  Palette,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,19 +18,20 @@ export function RegionalPlanTabsHeader() {
 
   if (!regionId) return null;
 
-  const basePath = `/regions/${regionId}/plans`;
+  const isRegionsPrefixed = pathname?.includes("/regions/");
+  const basePath = isRegionsPrefixed ? `/regions/${regionId}/plans` : `/${regionId}/plans`;
 
   const tabs = [
     {
-      name: "Plan Versions",
+      name: "Plan Drafts",
       href: basePath,
-      icon: Layers,
+      icon: ListTree,
       exact: true,
     },
     {
-      name: "Planning Rules",
-      href: `${basePath}/rules`,
-      icon: Scale,
+      name: "Plan Review",
+      href: `${basePath}/review`,
+      icon: ClipboardCheck,
     },
     {
       name: "Planning Configuration",
@@ -37,9 +39,14 @@ export function RegionalPlanTabsHeader() {
       icon: Settings,
     },
     {
-      name: "Plan Dashboard",
-      href: `${basePath}/dashboard`,
-      icon: LayoutDashboard,
+      name: "Plan Rules",
+      href: `${basePath}/rules`,
+      icon: Scale,
+    },
+    {
+      name: "Performance Colors",
+      href: `${basePath}/performance-colors`,
+      icon: Palette,
     },
   ];
 
