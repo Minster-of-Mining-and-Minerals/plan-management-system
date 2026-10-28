@@ -10,6 +10,16 @@ module.exports = (sequelize, DataTypes) => {
         onDelete: "CASCADE",
       });
 
+      RegionalPlanningConfiguration.belongsTo(models.RegionalPlanVersion, {
+        foreignKey: "owned_by_plan_version_id",
+        as: "ownedByPlanVersion",
+      });
+
+      RegionalPlanningConfiguration.belongsTo(models.RegionalPlanningConfiguration, {
+        foreignKey: "source_regional_planning_config_id",
+        as: "sourcePlanningConfiguration",
+      });
+
       RegionalPlanningConfiguration.hasMany(models.RegionalPlanVersion, {
         foreignKey: "regional_planning_config_id",
         as: "planVersions",
@@ -27,7 +37,6 @@ module.exports = (sequelize, DataTypes) => {
       region_id: {
         type: DataTypes.UUID,
         allowNull: false,
-        unique: true,
       },
       min_duration_years: {
         type: DataTypes.INTEGER,
@@ -88,6 +97,14 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.JSONB,
         allowNull: false,
         defaultValue: [],
+      },
+      owned_by_plan_version_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      source_regional_planning_config_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
       },
     },
     {

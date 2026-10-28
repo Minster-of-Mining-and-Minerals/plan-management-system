@@ -57,6 +57,8 @@ router.get(
   checkAnyPermission([
     { resource: "USERS", action: "READ" },
     { resource: "REGIONAL_USERS", action: "READ" },
+    { resource: "COMPANY_USERS", action: "READ" },
+    { resource: "PURCHASING_CENTER_USERS", action: "READ" },
   ]),
   getUsers
 );
@@ -68,6 +70,8 @@ router.post(
   checkAnyPermission([
     { resource: "USERS", action: "READ" },
     { resource: "REGIONAL_USERS", action: "READ" },
+    { resource: "COMPANY_USERS", action: "READ" },
+    { resource: "PURCHASING_CENTER_USERS", action: "READ" },
   ]),
   getUserDisplayNames
 );
@@ -77,6 +81,8 @@ router.get(
   checkAnyPermission([
     { resource: "USERS", action: "READ" },
     { resource: "REGIONAL_USERS", action: "READ" },
+    { resource: "COMPANY_USERS", action: "READ" },
+    { resource: "PURCHASING_CENTER_USERS", action: "READ" },
   ]),
   getUserById
 );
@@ -116,6 +122,8 @@ router.post(
   checkAnyPermission([
     { resource: "USERS", action: "CREATE" },
     { resource: "REGIONAL_USERS", action: "CREATE" },
+    { resource: "COMPANY_USERS", action: "CREATE" },
+    { resource: "PURCHASING_CENTER_USERS", action: "CREATE" },
   ]),
   createUser
 );
@@ -160,6 +168,8 @@ router.put(
   checkAnyPermission([
     { resource: "USERS", action: "UPDATE" },
     { resource: "REGIONAL_USERS", action: "UPDATE" },
+    { resource: "COMPANY_USERS", action: "UPDATE" },
+    { resource: "PURCHASING_CENTER_USERS", action: "UPDATE" },
   ]),
   updateUser
 );
@@ -185,6 +195,8 @@ router.delete(
   checkAnyPermission([
     { resource: "USERS", action: "DELETE" },
     { resource: "REGIONAL_USERS", action: "DELETE" },
+    { resource: "COMPANY_USERS", action: "DELETE" },
+    { resource: "PURCHASING_CENTER_USERS", action: "DELETE" },
   ]),
   deleteUser
 );
@@ -219,6 +231,8 @@ router.patch(
   checkAnyPermission([
     { resource: "USERS", action: "UPDATE" },
     { resource: "REGIONAL_USERS", action: "UPDATE" },
+    { resource: "COMPANY_USERS", action: "UPDATE" },
+    { resource: "PURCHASING_CENTER_USERS", action: "UPDATE" },
   ]),
   toggleUserActiveStatus
 );
@@ -244,6 +258,8 @@ router.post(
   checkAnyPermission([
     { resource: "USERS", action: "UPDATE" },
     { resource: "REGIONAL_USERS", action: "UPDATE" },
+    { resource: "COMPANY_USERS", action: "UPDATE" },
+    { resource: "PURCHASING_CENTER_USERS", action: "UPDATE" },
   ]),
   resetUserPassword
 );

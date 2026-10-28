@@ -1,12 +1,18 @@
 "use strict";
 
 const regionService = require("../../services/regionService");
-const { isSuperAdminActor } = require("../../utils/structureScopeUtils");
+const {
+  isSuperAdminActor,
+  isFederalActor,
+  isRegionalActor,
+  isCompanyActor,
+  isPurchasingCenterActor,
+} = require("../../utils/structureScopeUtils");
 
 async function listRegions(req, res) {
   try {
     // If caller is regional, restrict list to caller's own region only
-    if (req.user?.is_regional) {
+    if (isRegionalActor(req)) {
       if (!req.user.region_id) {
         return res.status(403).json({
           success: false,
@@ -20,7 +26,15 @@ async function listRegions(req, res) {
       });
     }
 
-    // Federal actors with regions:read can list all regions
+    // Company and purchasing center accounts have no access to regional entity directory
+    if (isCompanyActor(req) || isPurchasingCenterActor(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Non-regional accounts cannot access regional resources.",
+      });
+    }
+
+    // Federal administrators with REGIONS:READ list all regions
     const regions = await regionService.listRegions(req.query);
     return res.status(200).json({
       success: true,
@@ -40,10 +54,20 @@ async function getRegionById(req, res) {
     const { id } = req.params;
 
     // Cross-region isolation: regional users can only view their own region
-    if (req.user?.is_regional && req.user.region_id !== id) {
+    if (isRegionalActor(req)) {
+      if (req.user.region_id !== id) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied. Cannot access a different region's details.",
+        });
+      }
+    }
+
+    // Company and purchasing center accounts have no access to regional entity directory
+    if (isCompanyActor(req) || isPurchasingCenterActor(req)) {
       return res.status(403).json({
         success: false,
-        message: "Access denied. Cannot access a different region's details.",
+        message: "Access denied. Non-regional accounts cannot access regional resources.",
       });
     }
 
@@ -63,11 +87,18 @@ async function getRegionById(req, res) {
 
 async function createRegion(req, res) {
   try {
-    // Region registration is restricted to system administrators (federal platform admins)
-    if (req.user?.is_regional) {
+    // Region registration is restricted strictly to authorized federal administrators
+    if (!isSuperAdminActor(req) && !isFederalActor(req)) {
       return res.status(403).json({
         success: false,
-        message: "Regional users cannot register new regions.",
+        message: "Only authorized federal administrators can register regions.",
+      });
+    }
+
+    if (isRegionalActor(req) || isCompanyActor(req) || isPurchasingCenterActor(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only authorized federal administrators can register regions.",
       });
     }
 
@@ -90,20 +121,19 @@ async function updateRegion(req, res) {
   try {
     const { id } = req.params;
 
-    // Regional users can only update their own region and cannot alter code or is_active
-    if (req.user?.is_regional) {
-      if (req.user.region_id !== id) {
-        return res.status(403).json({
-          success: false,
-          message: "Access denied. Cannot modify a different region.",
-        });
-      }
-      if (req.body.is_active !== undefined || req.body.code !== undefined) {
-        return res.status(403).json({
-          success: false,
-          message: "Only system administrators can modify region code or active status.",
-        });
-      }
+    // Modifying region entity registry records is strictly a federal administration duty
+    if (!isSuperAdminActor(req) && !isFederalActor(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only authorized federal administrators can modify region records.",
+      });
+    }
+
+    if (isRegionalActor(req) || isCompanyActor(req) || isPurchasingCenterActor(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only authorized federal administrators can modify region records.",
+      });
     }
 
     const region = await regionService.updateRegion(id, req.body);
@@ -133,10 +163,17 @@ async function toggleRegionActiveStatus(req, res) {
       });
     }
 
-    if (req.user?.is_regional) {
+    if (!isSuperAdminActor(req) && !isFederalActor(req)) {
       return res.status(403).json({
         success: false,
-        message: "Regional users cannot activate or deactivate regions.",
+        message: "Only authorized federal administrators can activate or deactivate regions.",
+      });
+    }
+
+    if (isRegionalActor(req) || isCompanyActor(req) || isPurchasingCenterActor(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only authorized federal administrators can activate or deactivate regions.",
       });
     }
 
@@ -159,10 +196,17 @@ async function deleteRegion(req, res) {
   try {
     const { id } = req.params;
 
-    if (req.user?.is_regional) {
+    if (!isSuperAdminActor(req) && !isFederalActor(req)) {
       return res.status(403).json({
         success: false,
-        message: "Regional users cannot delete regions.",
+        message: "Only authorized federal administrators can delete regions.",
+      });
+    }
+
+    if (isRegionalActor(req) || isCompanyActor(req) || isPurchasingCenterActor(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only authorized federal administrators can delete regions.",
       });
     }
 

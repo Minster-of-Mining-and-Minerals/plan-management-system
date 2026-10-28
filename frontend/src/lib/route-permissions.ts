@@ -166,7 +166,7 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/regions/[id]/users/list", anyPermissions: ["REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] },
   { pattern: "/regions/[id]/users", anyPermissions: ["REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] },
   { pattern: "/regions/[id]/settings", anyPermissions: ["REGIONAL_BRANDING:READ", "REGIONAL_BRANDING:MANAGE"] },
-  { pattern: "/regions/[id]", anyPermissions: ["REGIONAL_DASHBOARD:VIEW", "REGIONS:READ"] },
+  { pattern: "/regions/[id]", anyPermissions: ["REGIONAL_DASHBOARD:VIEW"] },
 
   { pattern: "/[id]/plans/configuration", anyPermissions: ["REGIONAL_PLANNING_CONFIG:READ", "REGIONAL_PLANNING_CONFIG:UPDATE", "REGIONAL_PLANS:MANAGE"] },
   { pattern: "/[id]/plans/rules", anyPermissions: ["REGIONAL_PLAN_RULES:READ", "REGIONAL_PLAN_RULES:CREATE", "REGIONAL_PLAN_RULES:UPDATE", "REGIONAL_PLAN_RULES:DELETE"] },
@@ -186,7 +186,7 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/[id]/users/list", anyPermissions: ["REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] },
   { pattern: "/[id]/users", anyPermissions: ["REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] },
   { pattern: "/[id]/settings", anyPermissions: ["REGIONAL_BRANDING:READ", "REGIONAL_BRANDING:MANAGE"] },
-  { pattern: "/[id]", anyPermissions: ["REGIONAL_DASHBOARD:VIEW", "REGIONS:READ"] },
+  { pattern: "/[id]", anyPermissions: ["REGIONAL_DASHBOARD:VIEW"] },
 
   // Regional Workspace fallback aliases
   { pattern: "/regional/plans/configuration", anyPermissions: ["REGIONAL_PLANNING_CONFIG:READ", "REGIONAL_PLANNING_CONFIG:UPDATE", "REGIONAL_PLANS:MANAGE"] },
@@ -196,7 +196,7 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/regional/plans/dashboard", anyPermissions: ["REGIONAL_PLANS:READ", "REGIONAL_DASHBOARD:VIEW"] },
   { pattern: "/regional/plans/[versionId]", anyPermissions: ["REGIONAL_PLANS:READ", "REGIONAL_PLANS:MANAGE"] },
   { pattern: "/regional/plans", anyPermissions: ["REGIONAL_PLANS:READ", "REGIONAL_PLANS:MANAGE"] },
-  { pattern: "/regional/dashboard", anyPermissions: ["REGIONAL_DASHBOARD:VIEW", "REGIONS:READ"] },
+  { pattern: "/regional/dashboard", anyPermissions: ["REGIONAL_DASHBOARD:VIEW"] },
   { pattern: "/regional/departments", anyPermissions: ["REGIONAL_STRUCTURES:READ", "REGIONAL_STRUCTURES:MANAGE"] },
   { pattern: "/regional/users/roles/new", anyPermissions: ["REGIONAL_ROLES:CREATE", "REGIONAL_ROLES:MANAGE"] },
   { pattern: "/regional/users/roles/[roleId]", anyPermissions: ["REGIONAL_ROLES:READ", "REGIONAL_ROLES:MANAGE"] },
@@ -231,7 +231,7 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/companies/[id]/users/list", anyPermissions: ["COMPANY_USERS:READ", "COMPANY_USERS:MANAGE"] },
   { pattern: "/companies/[id]/users", anyPermissions: ["COMPANY_USERS:READ", "COMPANY_USERS:MANAGE"] },
   { pattern: "/companies/[id]/settings", anyPermissions: ["COMPANY_BRANDING:READ", "COMPANY_BRANDING:MANAGE"] },
-  { pattern: "/companies/[id]", anyPermissions: ["COMPANY_DASHBOARD:VIEW", "COMPANIES:READ"] },
+  { pattern: "/companies/[id]", anyPermissions: ["COMPANY_DASHBOARD:VIEW"] },
 
   // Company Workspace fallback aliases
   { pattern: "/company/plans/configuration", anyPermissions: ["COMPANY_PLANNING_CONFIG:READ", "COMPANY_PLANNING_CONFIG:UPDATE", "COMPANY_PLANS:MANAGE"] },
@@ -243,11 +243,11 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/company/production/submit", anyPermissions: ["COMPANY_PRODUCTION_REPORTS:CREATE", "COMPANY_PRODUCTION_REPORTS:UPDATE", "COMPANY_PRODUCTION_REPORTS:MANAGE"] },
   { pattern: "/company/production/reports", anyPermissions: ["COMPANY_PRODUCTION_REPORTS:READ", "COMPANY_PRODUCTION_REPORTS:MANAGE"] },
   { pattern: "/company/production", anyPermissions: ["COMPANY_PRODUCTION:READ", "COMPANY_PRODUCTION_REPORTS:READ", "COMPANY_DASHBOARD:VIEW"] },
-  { pattern: "/company/dashboard", anyPermissions: ["COMPANY_DASHBOARD:VIEW", "COMPANIES:READ"] },
+  { pattern: "/company/dashboard", anyPermissions: ["COMPANY_DASHBOARD:VIEW"] },
   { pattern: "/company/departments", anyPermissions: ["COMPANY_STRUCTURES:READ", "COMPANY_STRUCTURES:MANAGE"] },
   { pattern: "/company/users", anyPermissions: ["COMPANY_USERS:READ", "COMPANY_USERS:MANAGE"] },
   { pattern: "/company/settings", anyPermissions: ["COMPANY_BRANDING:READ", "COMPANY_BRANDING:MANAGE"] },
-  { pattern: "/company", anyPermissions: ["COMPANY_DASHBOARD:VIEW", "COMPANIES:READ"] },
+  { pattern: "/company", anyPermissions: ["COMPANY_DASHBOARD:VIEW"] },
 
   // Dynamic Purchasing Center Workspace (strictly NO departments!)
   { pattern: "/purchasing-centers/[id]/purchases/new", anyPermissions: ["GOLD_PURCHASES:CREATE", "GOLD_PURCHASES:MANAGE"] },
@@ -267,7 +267,7 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/purchasing-centers/[id]/users/list", anyPermissions: ["PURCHASING_CENTER_USERS:READ", "PURCHASING_CENTER_USERS:MANAGE"] },
   { pattern: "/purchasing-centers/[id]/users", anyPermissions: ["PURCHASING_CENTER_USERS:READ", "PURCHASING_CENTER_USERS:MANAGE"] },
   { pattern: "/purchasing-centers/[id]/settings", anyPermissions: ["PURCHASING_CENTER_BRANDING:READ", "PURCHASING_CENTER_BRANDING:MANAGE"] },
-  { pattern: "/purchasing-centers/[id]", anyPermissions: ["PURCHASING_CENTER_DASHBOARD:VIEW", "PURCHASING_CENTERS:READ"] },
+  { pattern: "/purchasing-centers/[id]", anyPermissions: ["PURCHASING_CENTER_DASHBOARD:VIEW"] },
 
   // Purchasing Center Workspace fallback aliases
   { pattern: "/purchasing-center/purchases/new", anyPermissions: ["GOLD_PURCHASES:CREATE", "GOLD_PURCHASES:MANAGE"] },
@@ -277,7 +277,7 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/purchasing-center/reports", anyPermissions: ["GOLD_REPORTS:READ", "GOLD_REPORTS:MANAGE"] },
   { pattern: "/purchasing-center/sellers/asm", anyPermissions: ["ASM:READ", "ASM:CREATE", "ASM:MANAGE"] },
   { pattern: "/purchasing-center/sellers", anyPermissions: ["ASM:READ", "ASM:MANAGE"] },
-  { pattern: "/purchasing-center/dashboard", anyPermissions: ["PURCHASING_CENTER_DASHBOARD:VIEW", "PURCHASING_CENTERS:READ"] },
+  { pattern: "/purchasing-center/dashboard", anyPermissions: ["PURCHASING_CENTER_DASHBOARD:VIEW"] },
   { pattern: "/purchasing-center/users/roles/new", anyPermissions: ["PURCHASING_CENTER_ROLES:CREATE", "PURCHASING_CENTER_ROLES:MANAGE"] },
   { pattern: "/purchasing-center/users/roles/[roleId]", anyPermissions: ["PURCHASING_CENTER_ROLES:READ", "PURCHASING_CENTER_ROLES:MANAGE"] },
   { pattern: "/purchasing-center/users/roles", anyPermissions: ["PURCHASING_CENTER_ROLES:READ", "PURCHASING_CENTER_ROLES:MANAGE"] },

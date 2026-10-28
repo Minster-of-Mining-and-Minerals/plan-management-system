@@ -42,7 +42,10 @@ const authorizeCompanyRead = (req, res, next) => {
   }
 
   if (req.user?.is_purchasing_center) {
-    return next();
+    return res.status(403).json({
+      success: false,
+      message: "Purchasing center users cannot access company administrative details.",
+    });
   }
 
   if (req.user?.is_regional) {

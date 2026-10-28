@@ -41,6 +41,13 @@ const authorizePurchasingCenterRead = (req, res, next) => {
     });
   }
 
+  if (req.user?.is_regional || req.user?.is_company) {
+    return res.status(403).json({
+      success: false,
+      message: "Access denied: non-purchasing-center domain users cannot access purchasing center resources.",
+    });
+  }
+
   return checkPermission("PURCHASING_CENTERS", "READ")(req, res, next);
 };
 
@@ -52,6 +59,13 @@ const authorizePurchasingCenterList = (req, res, next) => {
 
   if (req.user?.is_purchasing_center) {
     return next();
+  }
+
+  if (req.user?.is_regional || req.user?.is_company) {
+    return res.status(403).json({
+      success: false,
+      message: "Access denied: non-purchasing-center domain users cannot access purchasing center resources.",
+    });
   }
 
   return checkPermission("PURCHASING_CENTERS", "READ")(req, res, next);

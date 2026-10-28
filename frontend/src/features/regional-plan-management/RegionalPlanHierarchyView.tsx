@@ -70,13 +70,29 @@ import {
 import { useGetRegionalStructuresQuery } from "@/redux/api/regionApi";
 import { useGetUsersQuery } from "@/redux/api/userApi";
 import type { RegionalPlanNode, RegionalPlanVersion } from "@/redux/types/regionalPlan";
+import {
+  getStepLabel,
+  getStepColorHex,
+  getMaxRuleDepth,
+  canAddChild,
+  stepRequiresWeight,
+  stepRequiresContributionWeight,
+  hexToRgba,
+} from "@/utils/planRuleUtils";
 
-const LEVEL_COLORS: Record<number, { bg: string; text: string; border: string; label: string }> = {
-  1: { bg: "bg-purple-50 dark:bg-purple-950/30", text: "text-purple-700 dark:text-purple-300", border: "border-purple-200 dark:border-purple-800", label: "Priority" },
-  2: { bg: "bg-blue-50 dark:bg-blue-950/30", text: "text-blue-700 dark:text-blue-300", border: "border-blue-200 dark:border-blue-800", label: "Goal" },
-  3: { bg: "bg-emerald-50 dark:bg-emerald-950/30", text: "text-emerald-700 dark:text-emerald-300", border: "border-emerald-200 dark:border-emerald-800", label: "KPI" },
-  4: { bg: "bg-amber-50 dark:bg-amber-950/30", text: "text-amber-700 dark:text-amber-300", border: "border-amber-200 dark:border-amber-800", label: "Task" },
-};
+function getDynamicLevelInfo(level: number, rule?: any) {
+  const label = getStepLabel(rule, level);
+  const color = getStepColorHex(rule, level);
+  return {
+    label,
+    color,
+    badgeStyle: {
+      backgroundColor: hexToRgba(color, 0.12),
+      color: color,
+      borderColor: hexToRgba(color, 0.35),
+    },
+  };
+}
 
 export function RegionalPlanHierarchyView() {
   const router = useRouter();
@@ -448,7 +464,7 @@ export function RegionalPlanHierarchyView() {
       <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Link href={`/regions/${regionId}/plans`} className="hover:text-primary transition-colors">
-            Regional Plans
+            Plans
           </Link>
           <ChevronRight className="h-3.5 w-3.5" />
           <Link href={`/regions/${regionId}/plans/${versionId}`} className="hover:text-primary transition-colors font-medium">
@@ -462,7 +478,7 @@ export function RegionalPlanHierarchyView() {
           {canUpdatePlan && (
             <Button size="sm" onClick={() => openCreateModal(null)} className="gap-2 shadow-xs">
               <Plus className="h-4 w-4" />
-              <span>Add Root Priority</span>
+              <span>Add Root {getStepLabel(plan?.planRule, 1)}</span>
             </Button>
           )}
 
@@ -549,12 +565,12 @@ export function RegionalPlanHierarchyView() {
           </div>
           <h3 className="text-base font-semibold text-foreground">No Strategic Nodes Defined</h3>
           <p className="text-xs text-muted-foreground max-w-md mx-auto mt-1 mb-6">
-            Get started by creating your Level 1 Strategic Priorities. You can then add Regional Goals, KPIs, and Operational Tasks under them.
+            Get started by creating your Level 1 {getStepLabel(plan?.planRule, 1)}. You can then add subordinate milestones under it.
           </p>
           {canUpdatePlan && (
             <Button onClick={() => openCreateModal(null)} className="gap-2 shadow-xs">
               <Plus className="h-4 w-4" />
-              <span>Create First Priority</span>
+              <span>Create Root {getStepLabel(plan?.planRule, 1)}</span>
             </Button>
           )}
         </div>
@@ -582,6 +598,7 @@ export function RegionalPlanHierarchyView() {
               canApprove={canApprove}
               canValidate={canValidate}
               isExecutionPeriod={plan.version_kind === "execution_period"}
+              planRule={plan.planRule}
             />
           ))}
         </div>
@@ -590,193 +607,277 @@ export function RegionalPlanHierarchyView() {
       {/* ------------------------------------------------------------- */}
       {/* MODAL 1: Create Plan Node */}
       {/* ------------------------------------------------------------- */}
-      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg">
-              <Plus className="h-5 w-5 text-primary" />
-              <span>
-                {parentNodeForCreate
-                  ? `Add Sub-Milestone under "${parentNodeForCreate.title}"`
-                  : "Create Level 1 Strategic Priority"}
-              </span>
-            </DialogTitle>
-          </DialogHeader>
+      {(() => {
+        const createTargetLevel = parentNodeForCreate ? (parentNodeForCreate.level || 0) + 1 : 1;
+        const createRequiresWeight = stepRequiresWeight(plan?.planRule, createTargetLevel);
+        const createRequiresContrib = stepRequiresContributionWeight(plan?.planRule, createTargetLevel);
+        const createStepLabel = getStepLabel(plan?.planRule, createTargetLevel);
+        const configuredUnits: Array<{ label?: string; symbol?: string; id?: string }> =
+          (plan?.planningConfiguration?.target_units as any) || [];
 
-          <form onSubmit={handleCreateNode} className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Node Title *</label>
-              <Input
-                placeholder="e.g. Sustainable Gold Mining Capacity"
-                value={nodeTitle}
-                onChange={(e) => setNodeTitle(e.target.value)}
-                required
-              />
-            </div>
+        return (
+          <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-lg">
+                  <Plus className="h-5 w-5 text-primary" />
+                  <span>
+                    {parentNodeForCreate
+                      ? `Add ${createStepLabel} under "${parentNodeForCreate.title}"`
+                      : `Create Level 1 ${createStepLabel}`}
+                  </span>
+                </DialogTitle>
+              </DialogHeader>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Description</label>
-              <Textarea
-                placeholder="Strategic objective details..."
-                value={nodeDesc}
-                onChange={(e) => setNodeDesc(e.target.value)}
-                rows={2}
-              />
-            </div>
+              <form onSubmit={handleCreateNode} className="space-y-4 pt-2">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">Node Title *</label>
+                  <Input
+                    placeholder={`e.g. Regional ${createStepLabel}`}
+                    value={nodeTitle}
+                    onChange={(e) => setNodeTitle(e.target.value)}
+                    required
+                  />
+                </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Strategic Weight</label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={nodeWeight}
-                  onChange={(e) => setNodeWeight(Number(e.target.value))}
-                />
-              </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">Description</label>
+                  <Textarea
+                    placeholder="Strategic objective details..."
+                    value={nodeDesc}
+                    onChange={(e) => setNodeDesc(e.target.value)}
+                    rows={2}
+                  />
+                </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Contribution Weight (%)</label>
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={nodeContribWeight}
-                  onChange={(e) => setNodeContribWeight(Number(e.target.value))}
-                />
-              </div>
-            </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">
+                      Strategic Weight {createRequiresWeight ? "*" : "(Optional)"}
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={nodeWeight}
+                      onChange={(e) => setNodeWeight(Number(e.target.value))}
+                      required={createRequiresWeight}
+                    />
+                  </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Target Unit</label>
-                <Input
-                  placeholder="e.g. Tons, USD, Count, %"
-                  value={nodeTargetUnit}
-                  onChange={(e) => setNodeTargetUnit(e.target.value)}
-                />
-              </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">
+                      Contribution Weight (%) {createRequiresContrib ? "*" : "(Optional)"}
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={nodeContribWeight}
+                      onChange={(e) => setNodeContribWeight(Number(e.target.value))}
+                      required={createRequiresContrib}
+                    />
+                  </div>
+                </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Responsible Department</label>
-                <select
-                  value={nodeStructureId}
-                  onChange={(e) => setNodeStructureId(e.target.value)}
-                  className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs focus:ring-1 focus:ring-ring"
-                >
-                  <option value="">Select Department...</option>
-                  {departments.map((dept) => (
-                    <option key={dept.regional_structure_id} value={dept.regional_structure_id}>
-                      {dept.name} (L{dept.level})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">Target Unit</label>
+                    <div className="flex gap-1.5">
+                      {configuredUnits.length > 0 && (
+                        <select
+                          value={configuredUnits.some((u) => (u.label || u) === nodeTargetUnit) ? nodeTargetUnit : "custom"}
+                          onChange={(e) => {
+                            if (e.target.value !== "custom") {
+                              setNodeTargetUnit(e.target.value);
+                            }
+                          }}
+                          className="h-9 rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-xs"
+                        >
+                          {configuredUnits.map((u, idx) => {
+                            const lbl = u.label || String(u);
+                            const sym = u.symbol ? ` (${u.symbol})` : "";
+                            return (
+                              <option key={idx} value={lbl}>
+                                {lbl}{sym}
+                              </option>
+                            );
+                          })}
+                          <option value="custom">Other...</option>
+                        </select>
+                      )}
+                      <Input
+                        placeholder="e.g. Tons, USD, Count, %"
+                        value={nodeTargetUnit}
+                        onChange={(e) => setNodeTargetUnit(e.target.value)}
+                        className="flex-1 text-xs"
+                      />
+                    </div>
+                  </div>
 
-            <DialogFooter className="pt-3">
-              <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isCreatingNode}>
-                {isCreatingNode ? "Creating..." : "Create Node"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">Responsible Department</label>
+                    <select
+                      value={nodeStructureId}
+                      onChange={(e) => setNodeStructureId(e.target.value)}
+                      className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs focus:ring-1 focus:ring-ring"
+                    >
+                      <option value="">Select Department...</option>
+                      {departments.map((dept) => (
+                        <option key={dept.regional_structure_id} value={dept.regional_structure_id}>
+                          {dept.name} (L{dept.level})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <DialogFooter className="pt-3">
+                  <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isCreatingNode}>
+                    {isCreatingNode ? "Creating..." : "Create Node"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
 
       {/* ------------------------------------------------------------- */}
       {/* MODAL 2: Edit Plan Node */}
       {/* ------------------------------------------------------------- */}
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg">
-              <Edit2 className="h-5 w-5 text-primary" />
-              <span>Edit Milestone</span>
-            </DialogTitle>
-          </DialogHeader>
+      {(() => {
+        const editTargetLevel = selectedNodeForEdit?.level || 1;
+        const editRequiresWeight = stepRequiresWeight(plan?.planRule, editTargetLevel);
+        const editRequiresContrib = stepRequiresContributionWeight(plan?.planRule, editTargetLevel);
+        const editStepLabel = getStepLabel(plan?.planRule, editTargetLevel);
+        const configuredUnits: Array<{ label?: string; symbol?: string; id?: string }> =
+          (plan?.planningConfiguration?.target_units as any) || [];
 
-          <form onSubmit={handleUpdateNode} className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Node Title *</label>
-              <Input
-                value={nodeTitle}
-                onChange={(e) => setNodeTitle(e.target.value)}
-                required
-              />
-            </div>
+        return (
+          <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-lg">
+                  <Edit2 className="h-5 w-5 text-primary" />
+                  <span>Edit {editStepLabel}</span>
+                </DialogTitle>
+              </DialogHeader>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Description</label>
-              <Textarea
-                value={nodeDesc}
-                onChange={(e) => setNodeDesc(e.target.value)}
-                rows={2}
-              />
-            </div>
+              <form onSubmit={handleUpdateNode} className="space-y-4 pt-2">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">Node Title *</label>
+                  <Input
+                    value={nodeTitle}
+                    onChange={(e) => setNodeTitle(e.target.value)}
+                    required
+                  />
+                </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Strategic Weight</label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={nodeWeight}
-                  onChange={(e) => setNodeWeight(Number(e.target.value))}
-                />
-              </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">Description</label>
+                  <Textarea
+                    value={nodeDesc}
+                    onChange={(e) => setNodeDesc(e.target.value)}
+                    rows={2}
+                  />
+                </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Contribution Weight (%)</label>
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={nodeContribWeight}
-                  onChange={(e) => setNodeContribWeight(Number(e.target.value))}
-                />
-              </div>
-            </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">
+                      Strategic Weight {editRequiresWeight ? "*" : "(Optional)"}
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={nodeWeight}
+                      onChange={(e) => setNodeWeight(Number(e.target.value))}
+                      required={editRequiresWeight}
+                    />
+                  </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Target Unit</label>
-                <Input
-                  value={nodeTargetUnit}
-                  onChange={(e) => setNodeTargetUnit(e.target.value)}
-                />
-              </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">
+                      Contribution Weight (%) {editRequiresContrib ? "*" : "(Optional)"}
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={nodeContribWeight}
+                      onChange={(e) => setNodeContribWeight(Number(e.target.value))}
+                      required={editRequiresContrib}
+                    />
+                  </div>
+                </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Responsible Department</label>
-                <select
-                  value={nodeStructureId}
-                  onChange={(e) => setNodeStructureId(e.target.value)}
-                  className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs focus:ring-1 focus:ring-ring"
-                >
-                  <option value="">Select Department...</option>
-                  {departments.map((dept) => (
-                    <option key={dept.regional_structure_id} value={dept.regional_structure_id}>
-                      {dept.name} (L{dept.level})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">Target Unit</label>
+                    <div className="flex gap-1.5">
+                      {configuredUnits.length > 0 && (
+                        <select
+                          value={configuredUnits.some((u) => (u.label || u) === nodeTargetUnit) ? nodeTargetUnit : "custom"}
+                          onChange={(e) => {
+                            if (e.target.value !== "custom") {
+                              setNodeTargetUnit(e.target.value);
+                            }
+                          }}
+                          className="h-9 rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-xs"
+                        >
+                          {configuredUnits.map((u, idx) => {
+                            const lbl = u.label || String(u);
+                            const sym = u.symbol ? ` (${u.symbol})` : "";
+                            return (
+                              <option key={idx} value={lbl}>
+                                {lbl}{sym}
+                              </option>
+                            );
+                          })}
+                          <option value="custom">Other...</option>
+                        </select>
+                      )}
+                      <Input
+                        value={nodeTargetUnit}
+                        onChange={(e) => setNodeTargetUnit(e.target.value)}
+                        className="flex-1 text-xs"
+                      />
+                    </div>
+                  </div>
 
-            <DialogFooter className="pt-3">
-              <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isUpdatingNode}>
-                {isUpdatingNode ? "Saving..." : "Save Changes"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">Responsible Department</label>
+                    <select
+                      value={nodeStructureId}
+                      onChange={(e) => setNodeStructureId(e.target.value)}
+                      className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs focus:ring-1 focus:ring-ring"
+                    >
+                      <option value="">Select Department...</option>
+                      {departments.map((dept) => (
+                        <option key={dept.regional_structure_id} value={dept.regional_structure_id}>
+                          {dept.name} (L{dept.level})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <DialogFooter className="pt-3">
+                  <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isUpdatingNode}>
+                    {isUpdatingNode ? "Saving..." : "Save Changes"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
 
       {/* ------------------------------------------------------------- */}
       {/* MODAL 3: Allocate Target */}
@@ -951,6 +1052,7 @@ function TreeNodeItem({
   canApprove,
   canValidate,
   isExecutionPeriod,
+  planRule,
 }: {
   node: RegionalPlanNode & { children?: RegionalPlanNode[] };
   indexPrefix: string;
@@ -971,6 +1073,7 @@ function TreeNodeItem({
   canApprove: boolean;
   canValidate: boolean;
   isExecutionPeriod: boolean;
+  planRule?: any;
 }) {
   const isCollapsed = collapsedNodes[node.regional_plan_node_id];
   const hasChildren = node.children && node.children.length > 0;
@@ -981,7 +1084,7 @@ function TreeNodeItem({
   const status = node.period_actual_status || "empty";
   const progress = (node as any).execution_progress_percent ?? 0;
 
-  const levelCfg = LEVEL_COLORS[node.level] || LEVEL_COLORS[1];
+  const levelCfg = getDynamicLevelInfo(node.level, planRule);
   const assignedDept = node.internalAssignments?.[0]?.department?.name;
 
   return (
@@ -1012,7 +1115,8 @@ function TreeNodeItem({
                 </span>
 
                 <span
-                  className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${levelCfg.bg} ${levelCfg.text} ${levelCfg.border}`}
+                  style={levelCfg.badgeStyle}
+                  className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border"
                 >
                   {levelCfg.label}
                 </span>
@@ -1187,14 +1291,14 @@ function TreeNodeItem({
                 </>
               )}
 
-              {/* Add child if level < 4 */}
-              {canUpdate && node.level < 4 && (
+              {/* Add child if allowed by plan rule */}
+              {canUpdate && canAddChild(planRule, node as any) && (
                 <Button
                   size="sm"
                   variant="ghost"
                   onClick={() => onAddChild(node)}
                   className="h-7 w-7 p-0"
-                  title="Add Sub-Milestone"
+                  title={`Add Sub-${getStepLabel(planRule, node.level + 1)}`}
                 >
                   <Plus className="h-4 w-4 text-muted-foreground" />
                 </Button>
@@ -1265,6 +1369,7 @@ function TreeNodeItem({
               canApprove={canApprove}
               canValidate={canValidate}
               isExecutionPeriod={isExecutionPeriod}
+              planRule={planRule}
             />
           ))}
         </div>

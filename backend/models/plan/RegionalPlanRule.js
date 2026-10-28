@@ -20,6 +20,16 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: "regional_plan_rule_id",
         as: "planVersions",
       });
+
+      RegionalPlanRule.belongsTo(models.RegionalPlanVersion, {
+        foreignKey: "owned_by_plan_version_id",
+        as: "ownedByPlanVersion",
+      });
+
+      RegionalPlanRule.belongsTo(models.RegionalPlanRule, {
+        foreignKey: "source_regional_plan_rule_id",
+        as: "sourcePlanRule",
+      });
     }
   }
 
@@ -42,10 +52,29 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.BOOLEAN,
         defaultValue: true,
       },
+      owned_by_plan_version_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      source_regional_plan_rule_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
       performance_scoring_policy: {
         type: DataTypes.STRING(50),
         allowNull: false,
         defaultValue: "CAP_100",
+      },
+      amendment_policy: {
+        type: DataTypes.JSONB,
+        allowNull: false,
+        defaultValue: {
+          completed_periods_editable: false,
+          automatic_redistribution: "manual",
+          allow_emergency_approvals: false,
+          allow_structural_amendments_after_execution: true,
+          allow_ownership_transfer: true,
+        },
       },
     },
     {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import {
@@ -22,10 +22,14 @@ import {
   Sparkles,
   BarChart3,
   RefreshCw,
+  Settings2,
+  Plus,
+  Trash2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +43,8 @@ import Loading01 from "@/features/template/component/Loading/Loading01";
 
 import {
   useGetRegionalPlanVersionByIdQuery,
+  useGetRegionalPlanRuleForVersionQuery,
+  useGetRegionalPlanningConfigForVersionQuery,
   useGetRegionalDraftFinalizationReadinessQuery,
   useFinalizeRegionalPlanDraftMutation,
   useReopenRegionalPlanDraftMutation,
@@ -49,6 +55,8 @@ import {
   useFinalizeRegionalAnnualExecutionMutation,
   useFinalizeRegionalPeriodTargetsMutation,
 } from "@/redux/api/regionalPlanApi";
+import { RegionalPlanVersionDraftRulePanel } from "./components/RegionalPlanVersionDraftRulePanel";
+import { RegionalPlanVersionDraftConfigPanel } from "./components/RegionalPlanVersionDraftConfigPanel";
 
 export function RegionalPlanVersionDetailsView() {
   const router = useRouter();
@@ -57,8 +65,13 @@ export function RegionalPlanVersionDetailsView() {
   const versionId = params?.versionId;
   const { can } = usePermissions();
 
-  const [activeTab, setActiveTab] = useState<"annual" | "periods" | "info">("annual");
-  const [subdivisionMode, setSubdivisionMode] = useState<"quarterly" | "monthly" | "semi_annual">("quarterly");
+  const [activeTab, setActiveTab] = useState<"annual" | "periods" | "rule" | "settings">("annual");
+  const [subdivisionMode, setSubdivisionMode] = useState<"quarterly" | "monthly" | "semi_annual" | "custom">("quarterly");
+  const [customPeriods, setCustomPeriods] = useState<Array<{ label: string }>>([
+    { label: "Period 1" },
+    { label: "Period 2" },
+    { label: "Period 3" },
+  ]);
   const [isInitPeriodsOpen, setIsInitPeriodsOpen] = useState(false);
 
   const {
@@ -71,6 +84,43 @@ export function RegionalPlanVersionDetailsView() {
     { id: versionId, region_id: regionId },
     { skip: !versionId || !regionId }
   );
+
+  const {
+    data: versionRule,
+    refetch: refetchRule,
+    isLoading: isRuleLoading,
+  } = useGetRegionalPlanRuleForVersionQuery(
+    { versionId: versionId!, region_id: regionId! },
+    { skip: !versionId || !regionId }
+  );
+
+  const {
+    data: versionConfig,
+    refetch: refetchConfig,
+    isLoading: isConfigLoading,
+  } = useGetRegionalPlanningConfigForVersionQuery(
+    { versionId: versionId!, region_id: regionId! },
+    { skip: !versionId || !regionId }
+  );
+
+  useEffect(() => {
+    if (plan?.planningConfiguration) {
+      if (plan.planningConfiguration.breakdown_mode) {
+        setSubdivisionMode(plan.planningConfiguration.breakdown_mode as any);
+      }
+      if (
+        plan.planningConfiguration.custom_periods &&
+        Array.isArray(plan.planningConfiguration.custom_periods) &&
+        plan.planningConfiguration.custom_periods.length > 0
+      ) {
+        setCustomPeriods(
+          plan.planningConfiguration.custom_periods.map((p: any) => ({
+            label: typeof p === "string" ? p : p.label || "Period",
+          }))
+        );
+      }
+    }
+  }, [plan]);
 
   const { data: readiness, refetch: refetchReadiness } = useGetRegionalDraftFinalizationReadinessQuery(
     { id: versionId, region_id: regionId },
@@ -134,6 +184,7 @@ export function RegionalPlanVersionDetailsView() {
         id: versionId,
         region_id: regionId,
         subdivision_mode: subdivisionMode,
+        custom_periods: subdivisionMode === "custom" ? customPeriods : undefined,
       }).unwrap();
       actionFeedback.success("Execution periods initialized successfully!");
       setIsInitPeriodsOpen(false);
@@ -176,7 +227,7 @@ export function RegionalPlanVersionDetailsView() {
       <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Link href={`/regions/${regionId}/plans`} className="hover:text-primary transition-colors">
-            Regional Plans
+            Plans
           </Link>
           <ChevronRight className="h-3.5 w-3.5" />
           <span className="font-semibold text-foreground truncate max-w-xs">{plan.draft_name}</span>
@@ -299,10 +350,10 @@ export function RegionalPlanVersionDetailsView() {
 
       {/* Workflow Tabs: Annual Cycles & Execution Periods */}
       <div className="space-y-4">
-        <div className="flex items-center gap-2 border-b">
+        <div className="flex items-center gap-2 border-b overflow-x-auto">
           <button
             onClick={() => setActiveTab("annual")}
-            className={`pb-3 px-4 text-sm font-semibold transition-all border-b-2 -mb-px flex items-center gap-2 ${
+            className={`pb-3 px-4 text-sm font-semibold transition-all border-b-2 -mb-px flex items-center gap-2 whitespace-nowrap ${
               activeTab === "annual"
                 ? "border-primary text-primary"
                 : "border-transparent text-muted-foreground hover:text-foreground"
@@ -314,7 +365,7 @@ export function RegionalPlanVersionDetailsView() {
 
           <button
             onClick={() => setActiveTab("periods")}
-            className={`pb-3 px-4 text-sm font-semibold transition-all border-b-2 -mb-px flex items-center gap-2 ${
+            className={`pb-3 px-4 text-sm font-semibold transition-all border-b-2 -mb-px flex items-center gap-2 whitespace-nowrap ${
               activeTab === "periods"
                 ? "border-primary text-primary"
                 : "border-transparent text-muted-foreground hover:text-foreground"
@@ -322,6 +373,30 @@ export function RegionalPlanVersionDetailsView() {
           >
             <Clock className="h-4 w-4" />
             <span>Execution Periods ({executionPeriods.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("rule")}
+            className={`pb-3 px-4 text-sm font-semibold transition-all border-b-2 -mb-px flex items-center gap-2 whitespace-nowrap ${
+              activeTab === "rule"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Layers className="h-4 w-4" />
+            <span>Plan Rule</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("settings")}
+            className={`pb-3 px-4 text-sm font-semibold transition-all border-b-2 -mb-px flex items-center gap-2 whitespace-nowrap ${
+              activeTab === "settings"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Settings2 className="h-4 w-4" />
+            <span>Planning Configuration</span>
           </button>
         </div>
 
@@ -395,7 +470,7 @@ export function RegionalPlanVersionDetailsView() {
               <div>
                 <h3 className="text-base font-semibold text-foreground">Execution Reporting Periods</h3>
                 <p className="text-xs text-muted-foreground">
-                  Reporting periods (Quarters or Months) allow officers to enter achievement values and evidence.
+                  Reporting periods allow officers to enter achievement values and evidence against periodic targets.
                 </p>
               </div>
 
@@ -458,6 +533,50 @@ export function RegionalPlanVersionDetailsView() {
             )}
           </div>
         )}
+
+        {/* Tab 3: Draft Plan Rule */}
+        {activeTab === "rule" && (
+          <RegionalPlanVersionDraftRulePanel
+            versionId={versionId!}
+            regionId={regionId!}
+            rule={versionRule || plan?.planRule}
+            isLoading={isRuleLoading}
+            canEdit={isDraft && canUpdate}
+            readOnlyReason={
+              !isDraft
+                ? `This plan is ${plan.status}. Plan rules can only be edited while in draft status.`
+                : !canUpdate
+                ? "You do not have permission to modify regional plan rules."
+                : null
+            }
+            onSaved={() => {
+              refetch();
+              refetchRule();
+            }}
+          />
+        )}
+
+        {/* Tab 4: Draft Planning Configuration */}
+        {activeTab === "settings" && (
+          <RegionalPlanVersionDraftConfigPanel
+            versionId={versionId!}
+            regionId={regionId!}
+            config={versionConfig || plan?.planningConfiguration}
+            isLoading={isConfigLoading}
+            canEdit={isDraft && canUpdate}
+            readOnlyReason={
+              !isDraft
+                ? `This plan is ${plan.status}. Planning configuration can only be edited while in draft status.`
+                : !canUpdate
+                ? "You do not have permission to modify regional planning configuration."
+                : null
+            }
+            onSaved={() => {
+              refetch();
+              refetchConfig();
+            }}
+          />
+        )}
       </div>
 
       {/* Initialize Periods Modal */}
@@ -478,8 +597,9 @@ export function RegionalPlanVersionDetailsView() {
             <div className="space-y-2">
               {[
                 { id: "quarterly", label: "Quarterly (4 Quarters per Year)", desc: "Q1, Q2, Q3, Q4" },
-                { id: "monthly", label: "Monthly (12 Months per Year)", desc: "Month 1 through Month 12" },
                 { id: "semi_annual", label: "Semi-Annual (2 Halves per Year)", desc: "H1, H2" },
+                { id: "monthly", label: "Monthly (12 Months per Year)", desc: "Month 1 through Month 12" },
+                { id: "custom", label: "Custom (User-Defined Periods)", desc: "Configurable period partitions" },
               ].map((opt) => (
                 <label
                   key={opt.id}
@@ -504,6 +624,57 @@ export function RegionalPlanVersionDetailsView() {
                 </label>
               ))}
             </div>
+
+            {subdivisionMode === "custom" && (
+              <div className="space-y-3 pt-3 border-t">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-foreground">Custom Period Partitions</span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setCustomPeriods((prev) => [
+                        ...prev,
+                        { label: `Period ${prev.length + 1}` },
+                      ])
+                    }
+                    className="h-6 text-[11px] gap-1 px-2"
+                  >
+                    <Plus className="h-3 w-3" />
+                    <span>Add Period</span>
+                  </Button>
+                </div>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  {customPeriods.map((p, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <span className="text-[11px] font-mono text-muted-foreground w-6">#{idx + 1}</span>
+                      <Input
+                        value={p.label}
+                        onChange={(e) => {
+                          const updated = [...customPeriods];
+                          updated[idx] = { label: e.target.value };
+                          setCustomPeriods(updated);
+                        }}
+                        className="h-7 text-xs"
+                        placeholder="e.g. Trimester 1"
+                      />
+                      {customPeriods.length > 1 && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setCustomPeriods((prev) => prev.filter((_, i) => i !== idx))}
+                          className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter>

@@ -62,6 +62,29 @@ async function restoreDefaultPlanningConfigHandler(req, res, next) {
   }
 }
 
+async function getPlanningConfigForVersionHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "read");
+    const data = await regionalPlanService.getRegionalPlanningConfigForVersion(req.params.id, regionId);
+    if (!data) return res.status(404).json({ success: false, message: "Planning configuration not found for version" });
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updatePlanningConfigForVersionHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "update");
+    const data = await regionalPlanService.updateRegionalPlanningConfigForVersion(req.params.id, regionId, req.body);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function listPlanRulesHandler(req, res, next) {
   try {
     const regionId = resolveEffectiveRegionId(req);
@@ -113,6 +136,29 @@ async function deletePlanRuleHandler(req, res, next) {
     assertRegionAccessible(req, regionId, "delete");
     await regionalPlanService.deleteRegionalPlanRule(req.params.id, regionId);
     res.json({ success: true, message: "Plan rule deleted successfully" });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getPlanRuleForVersionHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "read");
+    const data = await regionalPlanService.getRegionalPlanRuleForVersion(req.params.id, regionId);
+    if (!data) return res.status(404).json({ success: false, message: "Plan rule not found for version" });
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updatePlanRuleForVersionHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "update");
+    const data = await regionalPlanService.updateRegionalPlanRuleForVersion(req.params.id, regionId, req.body);
+    res.json({ success: true, data });
   } catch (err) {
     next(err);
   }
@@ -818,8 +864,12 @@ module.exports = {
   getPlanningConfigHandler,
   updatePlanningConfigHandler,
   restoreDefaultPlanningConfigHandler,
+  getPlanningConfigForVersionHandler,
+  updatePlanningConfigForVersionHandler,
   listPlanRulesHandler,
   getPlanRuleByIdHandler,
+  getPlanRuleForVersionHandler,
+  updatePlanRuleForVersionHandler,
   createPlanRuleHandler,
   updatePlanRuleHandler,
   deletePlanRuleHandler,

@@ -15,13 +15,10 @@ const getPermissions = async (req, res) => {
     const normalizedTier = tier ? normalizePermissionTier(tier) : null;
     const wantsSpecialTier = normalizedTier === PERMISSION_TIER.SPECIAL;
 
-    // Strict regional separation: return only regional permissions when scope=regional or caller is regional
+    // Strict regional separation: return only regional operational permissions when scope=regional or caller is regional
     if (scope === "regional" || req.user?.is_regional) {
       const where = {
-        [Op.or]: [
-          { resource: { [Op.like]: "regional_%" } },
-          { resource: "regions" },
-        ],
+        resource: { [Op.like]: "regional\\_%" },
       };
       if (is_active !== undefined) {
         where.is_active = is_active === "true";
@@ -42,13 +39,10 @@ const getPermissions = async (req, res) => {
       });
     }
 
-    // Strict company separation: return only company permissions when scope=company or caller is company
+    // Strict company separation: return only company operational permissions when scope=company or caller is company
     if (scope === "company" || req.user?.is_company) {
       const where = {
-        [Op.or]: [
-          { resource: { [Op.like]: "company_%" } },
-          { resource: "companies" },
-        ],
+        resource: { [Op.like]: "company\\_%" },
       };
       if (is_active !== undefined) {
         where.is_active = is_active === "true";
@@ -69,12 +63,12 @@ const getPermissions = async (req, res) => {
       });
     }
 
-    // Strict purchasing center separation: return only purchasing center permissions when scope=purchasing_center or caller is purchasing_center
+    // Strict purchasing center separation: return only purchasing center operational permissions when scope=purchasing_center or caller is purchasing_center
     if (scope === "purchasing_center" || req.user?.is_purchasing_center) {
       const where = {
-        [Op.or]: [
-          { resource: { [Op.like]: "purchasing_center_%" } },
-          { resource: "purchasing_centers" },
+        [Op.and]: [
+          { resource: { [Op.like]: "purchasing\\_center\\_%" } },
+          { resource: { [Op.ne]: "purchasing_centers" } },
         ],
       };
       if (is_active !== undefined) {
@@ -96,16 +90,14 @@ const getPermissions = async (req, res) => {
       });
     }
 
-    // System permissions separation: exclude regional, company, and purchasing center permissions when scope=system
+    // System permissions separation: exclude regional, company, and purchasing center operational permissions when scope=system
+    // Global entity administration (regions, companies, purchasing_centers) remains strictly in system scope
     if (scope === "system") {
       const where = {
         [Op.and]: [
-          { resource: { [Op.notLike]: "regional_%" } },
-          { resource: { [Op.ne]: "regions" } },
-          { resource: { [Op.notLike]: "company_%" } },
-          { resource: { [Op.ne]: "companies" } },
-          { resource: { [Op.notLike]: "purchasing_center_%" } },
-          { resource: { [Op.ne]: "purchasing_centers" } },
+          { resource: { [Op.notLike]: "regional\\_%" } },
+          { resource: { [Op.notLike]: "company\\_%" } },
+          { resource: { [Op.notLike]: "purchasing\\_center\\_%" } },
         ],
       };
       if (is_active !== undefined) {
@@ -217,37 +209,31 @@ const getStructureEffectivePermissionsHandler = async (req, res) => {
 
 function canManagePermissionRecord(req, permission) {
   if (isSuperAdminActor(req)) return true;
-  const isRegional =
-    permission.resource.startsWith("regional_") || permission.resource === "regions";
+  const isRegional = permission.resource.startsWith("regional_");
   if (isRegional) {
     const userPerms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
     return (
       userPerms.includes("regional_permissions:update") ||
       userPerms.includes("regional_permissions:manage") ||
-      userPerms.includes("regional_users:manage") ||
-      userPerms.includes("regions:manage")
+      userPerms.includes("regional_users:manage")
     );
   }
-  const isPurchasingCenter =
-    permission.resource.startsWith("purchasing_center_") || permission.resource === "purchasing_centers";
+  const isPurchasingCenter = permission.resource.startsWith("purchasing_center_");
   if (isPurchasingCenter) {
     const userPerms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
     return (
       userPerms.includes("purchasing_center_permissions:update") ||
       userPerms.includes("purchasing_center_permissions:manage") ||
-      userPerms.includes("purchasing_center_users:manage") ||
-      userPerms.includes("purchasing_centers:manage")
+      userPerms.includes("purchasing_center_users:manage")
     );
   }
-  const isCompany =
-    permission.resource.startsWith("company_") || permission.resource === "companies";
+  const isCompany = permission.resource.startsWith("company_");
   if (isCompany) {
     const userPerms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
     return (
       userPerms.includes("company_permissions:update") ||
       userPerms.includes("company_permissions:manage") ||
-      userPerms.includes("company_users:manage") ||
-      userPerms.includes("companies:manage")
+      userPerms.includes("company_users:manage")
     );
   }
   return false;

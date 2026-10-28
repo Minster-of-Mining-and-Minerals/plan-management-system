@@ -27,9 +27,32 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
+      step_order: {
+        type: DataTypes.VIRTUAL,
+        get() {
+          return this.getDataValue("level");
+        },
+        set(value) {
+          this.setDataValue("level", value);
+        },
+      },
       name: {
         type: DataTypes.STRING(255),
         allowNull: false,
+      },
+      label: {
+        type: DataTypes.VIRTUAL,
+        get() {
+          return this.getDataValue("name");
+        },
+        set(value) {
+          this.setDataValue("name", value);
+        },
+      },
+      node_type: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        defaultValue: "task",
       },
       requires_weight: {
         type: DataTypes.BOOLEAN,

@@ -101,12 +101,8 @@ function normalizeRuleSteps(steps) {
     throw new Error("At least one hierarchy level is required");
   }
 
-  const weightStarts = sorted.filter((s) => s.requires_weight);
-  if (weightStarts.length > 1) {
-    throw new Error("Weight can only be required starting at one hierarchy level");
-  }
-
-  const weightStart = weightStarts[0]?.step_order ?? null;
+  const firstWeightStep = sorted.find((s) => s.requires_weight);
+  const weightStart = firstWeightStep ? firstWeightStep.step_order : null;
 
   return sorted.map((step, index) => {
     const stepOrder = index + 1;

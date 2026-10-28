@@ -989,6 +989,12 @@ function assertCompanyUserManageable(targetUser, req, action = "read") {
     throw error;
   }
 
+  if (isPurchasingCenterActor(req)) {
+    const error = new Error("Access denied: purchasing center accounts cannot manage company users.");
+    error.status = 403;
+    throw error;
+  }
+
   const actionLower = String(action).toLowerCase();
   const perms = (req.user?.permissions || []).map((p) => String(p).toLowerCase());
   const hasExplicitPerm =
@@ -1021,6 +1027,18 @@ function assertRegionAccessible(req, regionId, requiredAction = "read") {
       throw error;
     }
     return;
+  }
+
+  if (isCompanyActor(req)) {
+    const error = new Error("Access denied: company accounts cannot access regional domain resources.");
+    error.status = 403;
+    throw error;
+  }
+
+  if (isPurchasingCenterActor(req)) {
+    const error = new Error("Access denied: purchasing center accounts cannot access regional domain resources.");
+    error.status = 403;
+    throw error;
   }
 
   // Federal actor acting under explicit regional-management permissions
@@ -1078,6 +1096,18 @@ function assertRegionalUserManageable(targetUser, req, action = "read") {
       throw error;
     }
     return;
+  }
+
+  if (isCompanyActor(req)) {
+    const error = new Error("Access denied: company accounts cannot manage regional users.");
+    error.status = 403;
+    throw error;
+  }
+
+  if (isPurchasingCenterActor(req)) {
+    const error = new Error("Access denied: purchasing center accounts cannot manage regional users.");
+    error.status = 403;
+    throw error;
   }
 
   // Federal actor managing regional accounts

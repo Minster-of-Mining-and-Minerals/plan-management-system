@@ -38,7 +38,6 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useBranding } from "@/providers/BrandingProvider";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
-import { RegionalPlanTabsHeader } from "./RegionalPlanTabsHeader";
 
 import {
   useGetRegionalPlanVersionsQuery,
@@ -117,15 +116,15 @@ export function RegionalPlanVersionTable() {
           start_year: Number(startYear),
           planning_duration_years: Number(durationYears),
           planning_start_date: startDate,
-          regional_plan_rule_id: selectedRuleId || undefined,
-          based_on_version_id: basedOnVersionId || undefined,
+          regional_plan_rule_id: selectedRuleId && selectedRuleId !== "default" ? selectedRuleId : undefined,
+          based_on_version_id: basedOnVersionId && basedOnVersionId !== "none" ? basedOnVersionId : undefined,
         },
       }).unwrap();
 
       actionFeedback.success("Plan draft created successfully");
       setIsCreateOpen(false);
       setDraftName("");
-      router.push(`/${regionId}/plans/${created.regional_plan_version_id}`);
+      router.push(`/regions/${regionId}/plans/${created.regional_plan_version_id}`);
     } catch (err: unknown) {
       const errorObj = err as { data?: { message?: string }; message?: string };
       actionFeedback.error(errorObj?.data?.message || errorObj?.message || "Failed to create plan draft");
@@ -328,8 +327,6 @@ export function RegionalPlanVersionTable() {
 
   return (
     <div className="space-y-6">
-      <RegionalPlanTabsHeader />
-
       <TableLayout
         title="Plan Drafts"
         description="Multi-year development cycles, strategic goals, indicators, and organizational contribution hierarchies."
@@ -452,11 +449,15 @@ export function RegionalPlanVersionTable() {
               {rules.length > 0 && (
                 <div>
                   <label className="text-xs font-semibold text-foreground">Applicable Plan Rule</label>
-                  <Select value={selectedRuleId} onValueChange={setSelectedRuleId}>
+                  <Select
+                    value={selectedRuleId || "default"}
+                    onValueChange={(val) => setSelectedRuleId(val === "default" ? "" : val)}
+                  >
                     <SelectTrigger className="w-full mt-1 text-xs">
                       <SelectValue placeholder="Standard Rule (Default)" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="default">Standard Rule (Default)</SelectItem>
                       {rules.map((r) => (
                         <SelectItem key={r.regional_plan_rule_id} value={r.regional_plan_rule_id}>
                           {r.name} ({r.steps?.length || 4} levels)
@@ -470,12 +471,15 @@ export function RegionalPlanVersionTable() {
               {plans.length > 0 && (
                 <div>
                   <label className="text-xs font-semibold text-foreground">Base On Existing Version (Optional)</label>
-                  <Select value={basedOnVersionId} onValueChange={setBasedOnVersionId}>
+                  <Select
+                    value={basedOnVersionId || "none"}
+                    onValueChange={(val) => setBasedOnVersionId(val === "none" ? "" : val)}
+                  >
                     <SelectTrigger className="w-full mt-1 text-xs">
                       <SelectValue placeholder="Start from blank structure" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Blank Structure</SelectItem>
+                      <SelectItem value="none">Blank Structure</SelectItem>
                       {plans.map((p) => (
                         <SelectItem key={p.regional_plan_version_id} value={p.regional_plan_version_id}>
                           {p.draft_name} (v{p.version_number})

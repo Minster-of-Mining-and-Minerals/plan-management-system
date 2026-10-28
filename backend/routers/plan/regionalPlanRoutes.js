@@ -110,21 +110,67 @@ const planCompleteReviewAccess = checkAnyPermission([
   { resource: "REGIONS", action: "MANAGE" },
 ]);
 
+const ruleReadAccess = checkAnyPermission([
+  { resource: "REGIONAL_PLAN_RULES", action: "READ" },
+  { resource: "REGIONAL_PLAN_RULES", action: "MANAGE" },
+  { resource: "REGIONAL_PLANS", action: "READ" },
+  { resource: "REGIONAL_PLANS", action: "MANAGE" },
+  { resource: "REGIONS", action: "READ" },
+  { resource: "REGIONS", action: "MANAGE" },
+]);
+
+const ruleCreateAccess = checkAnyPermission([
+  { resource: "REGIONAL_PLAN_RULES", action: "CREATE" },
+  { resource: "REGIONAL_PLAN_RULES", action: "MANAGE" },
+  { resource: "REGIONAL_PLANS", action: "MANAGE" },
+  { resource: "REGIONS", action: "MANAGE" },
+]);
+
+const ruleUpdateAccess = checkAnyPermission([
+  { resource: "REGIONAL_PLAN_RULES", action: "UPDATE" },
+  { resource: "REGIONAL_PLAN_RULES", action: "MANAGE" },
+  { resource: "REGIONAL_PLANS", action: "MANAGE" },
+  { resource: "REGIONS", action: "MANAGE" },
+]);
+
+const ruleDeleteAccess = checkAnyPermission([
+  { resource: "REGIONAL_PLAN_RULES", action: "DELETE" },
+  { resource: "REGIONAL_PLAN_RULES", action: "MANAGE" },
+  { resource: "REGIONAL_PLANS", action: "MANAGE" },
+  { resource: "REGIONS", action: "MANAGE" },
+]);
+
+const configReadAccess = checkAnyPermission([
+  { resource: "REGIONAL_PLANNING_CONFIG", action: "READ" },
+  { resource: "REGIONAL_PLANNING_CONFIG", action: "MANAGE" },
+  { resource: "REGIONAL_PLANS", action: "READ" },
+  { resource: "REGIONAL_PLANS", action: "MANAGE" },
+  { resource: "REGIONS", action: "READ" },
+  { resource: "REGIONS", action: "MANAGE" },
+]);
+
+const configUpdateAccess = checkAnyPermission([
+  { resource: "REGIONAL_PLANNING_CONFIG", action: "UPDATE" },
+  { resource: "REGIONAL_PLANNING_CONFIG", action: "MANAGE" },
+  { resource: "REGIONAL_PLANS", action: "MANAGE" },
+  { resource: "REGIONS", action: "MANAGE" },
+]);
+
 // All routes require authentication
 router.use(authenticateToken);
 
 // -------------------------------------------------------------
 // 1. Planning Configurations & Rules
 // -------------------------------------------------------------
-router.get("/config", planReadAccess, regionalPlanController.getPlanningConfigHandler);
-router.put("/config", planUpdateAccess, regionalPlanController.updatePlanningConfigHandler);
-router.post("/config/restore-defaults", planUpdateAccess, regionalPlanController.restoreDefaultPlanningConfigHandler);
+router.get("/config", configReadAccess, regionalPlanController.getPlanningConfigHandler);
+router.put("/config", configUpdateAccess, regionalPlanController.updatePlanningConfigHandler);
+router.post("/config/restore-defaults", configUpdateAccess, regionalPlanController.restoreDefaultPlanningConfigHandler);
 
-router.get("/rules", planReadAccess, regionalPlanController.listPlanRulesHandler);
-router.post("/rules", planCreateAccess, regionalPlanController.createPlanRuleHandler);
-router.get("/rules/:id", planReadAccess, regionalPlanController.getPlanRuleByIdHandler);
-router.put("/rules/:id", planUpdateAccess, regionalPlanController.updatePlanRuleHandler);
-router.delete("/rules/:id", planDeleteAccess, regionalPlanController.deletePlanRuleHandler);
+router.get("/rules", ruleReadAccess, regionalPlanController.listPlanRulesHandler);
+router.post("/rules", ruleCreateAccess, regionalPlanController.createPlanRuleHandler);
+router.get("/rules/:id", ruleReadAccess, regionalPlanController.getPlanRuleByIdHandler);
+router.put("/rules/:id", ruleUpdateAccess, regionalPlanController.updatePlanRuleHandler);
+router.delete("/rules/:id", ruleDeleteAccess, regionalPlanController.deletePlanRuleHandler);
 
 // -------------------------------------------------------------
 // 1b. Performance Color Thresholds
@@ -153,6 +199,10 @@ router.get("/versions/:id", planReadAccess, regionalPlanController.getPlanVersio
 router.put("/versions/:id", planUpdateAccess, regionalPlanController.updatePlanVersionHandler);
 router.delete("/versions/:id", planDeleteAccess, regionalPlanController.deletePlanVersionHandler);
 router.post("/versions/:id/duplicate", planCreateAccess, regionalPlanController.duplicatePlanDraftHandler);
+router.get("/versions/:id/rule", ruleReadAccess, regionalPlanController.getPlanRuleForVersionHandler);
+router.put("/versions/:id/rule", ruleUpdateAccess, regionalPlanController.updatePlanRuleForVersionHandler);
+router.get("/versions/:id/planning-config", configReadAccess, regionalPlanController.getPlanningConfigForVersionHandler);
+router.put("/versions/:id/planning-config", configUpdateAccess, regionalPlanController.updatePlanningConfigForVersionHandler);
 
 // Review Workflow
 router.get("/versions/:id/publish-for-review-readiness", planReadAccess, regionalPlanController.getPublishForReviewReadinessHandler);

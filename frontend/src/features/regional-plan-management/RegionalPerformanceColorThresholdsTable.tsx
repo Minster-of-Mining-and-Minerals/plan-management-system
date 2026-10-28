@@ -16,7 +16,6 @@ import {
 } from "@/redux/api/regionalPlanApi";
 import type { RegionalPerformanceColorThreshold } from "@/redux/types/regionalPlan";
 import { CreateRegionalPerformanceColorThresholdModal } from "./modals/CreateRegionalPerformanceColorThresholdModal";
-import { RegionalPlanTabsHeader } from "./RegionalPlanTabsHeader";
 import { usePermissions } from "@/hooks/usePermissions";
 
 export function RegionalPerformanceColorThresholdsTable() {
@@ -167,8 +166,6 @@ export function RegionalPerformanceColorThresholdsTable() {
 
   return (
     <div className="space-y-6">
-      <RegionalPlanTabsHeader />
-
       <TableLayout
         title="Performance Coloring Settings"
         description="Configure achievement percentage thresholds and color assignments used across plan hierarchy nodes, dashboards, and execution progress rollups."

@@ -1,12 +1,18 @@
 "use strict";
 
 const purchasingCenterService = require("../../services/purchasingCenterService");
-const { assertPurchasingCenterAccessible } = require("../../utils/structureScopeUtils");
+const {
+  isSuperAdminActor,
+  isFederalActor,
+  isPurchasingCenterActor,
+  isRegionalActor,
+  isCompanyActor,
+} = require("../../utils/structureScopeUtils");
 
 async function listPurchasingCenters(req, res) {
   try {
     // If caller is purchasing center user, restrict list to caller's own purchasing center only
-    if (req.user?.is_purchasing_center) {
+    if (isPurchasingCenterActor(req)) {
       if (!req.user.purchasing_center_id) {
         return res.status(403).json({
           success: false,
@@ -17,6 +23,14 @@ async function listPurchasingCenters(req, res) {
       return res.status(200).json({
         success: true,
         data: [pc],
+      });
+    }
+
+    // Regional and company accounts have no purchasing center management access
+    if (isRegionalActor(req) || isCompanyActor(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Non-purchasing-center domain users cannot access purchasing center resources.",
       });
     }
 
@@ -39,15 +53,23 @@ async function getPurchasingCenterById(req, res) {
   try {
     const { id } = req.params;
 
-    // Cross-purchasing-center isolation
-    if (req.user?.is_purchasing_center && req.user.purchasing_center_id !== id) {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied. Cannot access a different purchasing center's details.",
-      });
+    // Cross-purchasing-center isolation: center users can only view their own center
+    if (isPurchasingCenterActor(req)) {
+      if (req.user.purchasing_center_id !== id) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied. Cannot access a different purchasing center's details.",
+        });
+      }
     }
 
-    assertPurchasingCenterAccessible(req, id, "read");
+    // Regional and company users cannot access purchasing center details
+    if (isRegionalActor(req) || isCompanyActor(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Non-purchasing-center domain users cannot access purchasing center resources.",
+      });
+    }
 
     const pc = await purchasingCenterService.getPurchasingCenterById(id);
     return res.status(200).json({
@@ -65,7 +87,15 @@ async function getPurchasingCenterById(req, res) {
 
 async function createPurchasingCenter(req, res) {
   try {
-    if (req.user?.is_purchasing_center || req.user?.is_regional || req.user?.is_company) {
+    // Purchasing center registration is restricted strictly to authorized federal administrators
+    if (!isSuperAdminActor(req) && !isFederalActor(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only authorized federal administrators can create purchasing centers.",
+      });
+    }
+
+    if (isPurchasingCenterActor(req) || isRegionalActor(req) || isCompanyActor(req)) {
       return res.status(403).json({
         success: false,
         message: "Only authorized federal administrators can create purchasing centers.",
@@ -91,22 +121,20 @@ async function updatePurchasingCenter(req, res) {
   try {
     const { id } = req.params;
 
-    if (req.user?.is_purchasing_center) {
-      if (req.user.purchasing_center_id !== id) {
-        return res.status(403).json({
-          success: false,
-          message: "Access denied. Cannot modify a different purchasing center.",
-        });
-      }
-      if (req.body.is_active !== undefined || req.body.code !== undefined) {
-        return res.status(403).json({
-          success: false,
-          message: "Only system administrators can modify purchasing center code or active status.",
-        });
-      }
+    // Modifying purchasing center registry records is strictly a federal administration duty
+    if (!isSuperAdminActor(req) && !isFederalActor(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only authorized federal administrators can modify purchasing center records.",
+      });
     }
 
-    assertPurchasingCenterAccessible(req, id, "manage");
+    if (isPurchasingCenterActor(req) || isRegionalActor(req) || isCompanyActor(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only authorized federal administrators can modify purchasing center records.",
+      });
+    }
 
     const pc = await purchasingCenterService.updatePurchasingCenter(id, req.body);
     return res.status(200).json({
@@ -135,7 +163,14 @@ async function togglePurchasingCenterActiveStatus(req, res) {
       });
     }
 
-    if (req.user?.is_purchasing_center || req.user?.is_regional || req.user?.is_company) {
+    if (!isSuperAdminActor(req) && !isFederalActor(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only federal administrators can activate or deactivate purchasing centers.",
+      });
+    }
+
+    if (isPurchasingCenterActor(req) || isRegionalActor(req) || isCompanyActor(req)) {
       return res.status(403).json({
         success: false,
         message: "Only federal administrators can activate or deactivate purchasing centers.",
@@ -161,7 +196,14 @@ async function deletePurchasingCenter(req, res) {
   try {
     const { id } = req.params;
 
-    if (req.user?.is_purchasing_center || req.user?.is_regional || req.user?.is_company) {
+    if (!isSuperAdminActor(req) && !isFederalActor(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only federal administrators can delete purchasing centers.",
+      });
+    }
+
+    if (isPurchasingCenterActor(req) || isRegionalActor(req) || isCompanyActor(req)) {
       return res.status(403).json({
         success: false,
         message: "Only federal administrators can delete purchasing centers.",

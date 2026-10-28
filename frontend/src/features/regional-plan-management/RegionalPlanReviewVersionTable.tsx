@@ -28,7 +28,6 @@ import { actionFeedback } from "@/components/action-feedback";
 import { usePermissions } from "@/hooks/usePermissions";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
-import { RegionalPlanTabsHeader } from "./RegionalPlanTabsHeader";
 
 import {
   useGetRegionalPlanVersionsForReviewQuery,
@@ -328,8 +327,6 @@ export function RegionalPlanReviewVersionTable() {
 
   return (
     <div className="space-y-6">
-      <RegionalPlanTabsHeader />
-
       <TableLayout
         title="Plan Review Queue"
         description="Inspect submitted regional plans, review hierarchy and targets, request revisions, and finalize approval decisions."

@@ -40,6 +40,16 @@ module.exports = (sequelize, DataTypes) => {
         as: "planningConfiguration",
       });
 
+      RegionalPlanVersion.hasOne(models.RegionalPlanRule, {
+        foreignKey: "owned_by_plan_version_id",
+        as: "ownedPlanRule",
+      });
+
+      RegionalPlanVersion.hasOne(models.RegionalPlanningConfiguration, {
+        foreignKey: "owned_by_plan_version_id",
+        as: "ownedPlanningConfiguration",
+      });
+
       RegionalPlanVersion.hasMany(models.RegionalPlanNode, {
         foreignKey: "regional_plan_version_id",
         as: "planNodes",

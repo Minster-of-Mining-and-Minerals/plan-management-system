@@ -55,23 +55,23 @@ export function resolveNodeTargetUnit(
 }
 
 export function sortSteps(steps: PlanRuleStep[]): PlanRuleStep[] {
-    return [...steps].sort((a, b) => a.step_order - b.step_order);
+    return [...steps].sort((a, b) => ((a.step_order ?? (a as any).level ?? 0) - (b.step_order ?? (b as any).level ?? 0)));
 }
 
-export function getWeightStartLevel(rule?: PlanRule | null): number | null {
+export function getWeightStartLevel(rule?: PlanRule | any | null): number | null {
     if (!rule?.steps?.length) return null;
     const sorted = sortSteps(rule.steps);
     const startStep = sorted.find((s) => s.requires_weight);
-    return startStep?.step_order ?? null;
+    return startStep?.step_order ?? (startStep as any)?.level ?? null;
 }
 
-export function stepRequiresWeight(rule: PlanRule | null | undefined, level: number): boolean {
+export function stepRequiresWeight(rule: PlanRule | any | null | undefined, level: number): boolean {
     const start = getWeightStartLevel(rule);
     return start !== null && level >= start;
 }
 
 export function stepRequiresContributionWeight(
-    rule: PlanRule | null | undefined,
+    rule: PlanRule | any | null | undefined,
     level: number
 ): boolean {
     return Boolean(getStepForLevel(rule, level)?.requires_contribution_weight);
@@ -81,15 +81,15 @@ export function getContributionSiblingTarget(): number {
     return 100;
 }
 
-export function isWeightModeSelectionLevel(rule: PlanRule | null | undefined, level: number): boolean {
+export function isWeightModeSelectionLevel(rule: PlanRule | any | null | undefined, level: number): boolean {
     return getWeightStartLevel(rule) === level;
 }
 
 export function resolveNodeWeightMode(
-    rule: PlanRule | null | undefined,
+    rule: PlanRule | any | null | undefined,
     level: number,
-    parent?: PlanNode | null,
-    node?: PlanNode | null
+    parent?: PlanNode | any | null,
+    node?: PlanNode | any | null
 ): PlanRuleWeightMode | null {
     if (!stepRequiresWeight(rule, level)) return null;
     if (isWeightModeSelectionLevel(rule, level)) {
@@ -98,18 +98,19 @@ export function resolveNodeWeightMode(
     return parent?.weight_mode ?? node?.weight_mode ?? null;
 }
 
-export function getMaxRuleDepth(rule?: PlanRule | null): number {
+export function getMaxRuleDepth(rule?: PlanRule | any | null): number {
     if (!rule?.steps?.length) return 4;
-    return Math.max(...rule.steps.map((s) => s.step_order));
+    return Math.max(...rule.steps.map((s: any) => s.step_order ?? s.level ?? 1));
 }
 
-export function getStepForLevel(rule: PlanRule | null | undefined, level: number): PlanRuleStep | null {
+export function getStepForLevel(rule: PlanRule | any | null | undefined, level: number): PlanRuleStep | any | null {
     if (!rule?.steps?.length) return null;
-    return rule.steps.find((s) => s.step_order === level) ?? null;
+    return rule.steps.find((s: any) => (s.step_order ?? s.level) === level) ?? null;
 }
 
-export function getStepLabel(rule: PlanRule | null | undefined, level: number): string {
-    return getStepForLevel(rule, level)?.label ?? `Level ${level}`;
+export function getStepLabel(rule: PlanRule | any | null | undefined, level: number): string {
+    const step = getStepForLevel(rule, level);
+    return step?.label ?? step?.name ?? `Level ${level}`;
 }
 
 export function getChildStepForParent(

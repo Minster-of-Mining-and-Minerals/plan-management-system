@@ -3,10 +3,14 @@ export interface RegionalPlanRuleStep {
   regional_plan_rule_id: string;
   level: number;
   name: string;
+  step_order?: number;
+  label?: string;
+  node_type?: string;
   requires_weight: boolean;
   requires_contribution_weight: boolean;
   allow_kpi: boolean;
   color_hex?: string;
+  inherits_weight_from_level?: number | null;
 }
 
 export interface RegionalPerformanceColorThreshold {
@@ -29,7 +33,18 @@ export interface RegionalPlanRule {
   name: string;
   is_active: boolean;
   performance_scoring_policy: "CAP_100" | "ALLOW_OVER_ACHIEVEMENT";
-  steps?: RegionalPlanRuleStep[];
+  amendment_policy?: {
+    allow_kpi_target_amendment?: boolean;
+    allow_kpi_weight_amendment?: boolean;
+    require_approval?: boolean;
+    completed_periods_editable?: boolean;
+    automatic_redistribution?: string;
+    allow_emergency_approvals?: boolean;
+    allow_structural_amendments_after_execution?: boolean;
+    allow_ownership_transfer?: boolean;
+  };
+  steps?: Array<Partial<RegionalPlanRuleStep> & Record<string, any>>;
+  owned_by_plan_version_id?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -136,6 +151,9 @@ export interface RegionalPlanVersion {
   execution_status?: string | null;
   review_status?: string | null;
   planRule?: RegionalPlanRule;
+  planningConfiguration?: RegionalPlanningConfiguration;
+  ownedPlanRule?: RegionalPlanRule;
+  ownedPlanningConfiguration?: RegionalPlanningConfiguration;
   annualVersions?: RegionalPlanVersion[];
   executionPeriodVersions?: RegionalPlanVersion[];
   created_at?: string;

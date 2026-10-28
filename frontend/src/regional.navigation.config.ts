@@ -30,7 +30,7 @@ export const REGIONAL_NAVIGATION: NavItem[] = [
     title: "Dashboard",
     url: "/regional/dashboard",
     icon: LayoutDashboard,
-    anyPermissions: ["REGIONAL_DASHBOARD:VIEW", "REGIONS:READ"],
+    anyPermissions: ["REGIONAL_DASHBOARD:VIEW"],
   },
   {
     title: "Plan Management",
@@ -39,8 +39,6 @@ export const REGIONAL_NAVIGATION: NavItem[] = [
     anyPermissions: [
       "REGIONAL_PLANS:READ",
       "REGIONAL_PLANS:MANAGE",
-      "REGIONS:READ",
-      "REGIONS:MANAGE",
     ],
     children: [
       {
@@ -50,8 +48,6 @@ export const REGIONAL_NAVIGATION: NavItem[] = [
         anyPermissions: [
           "REGIONAL_PLANS:READ",
           "REGIONAL_PLANS:MANAGE",
-          "REGIONS:READ",
-          "REGIONS:MANAGE",
         ],
       },
       {
@@ -62,7 +58,6 @@ export const REGIONAL_NAVIGATION: NavItem[] = [
           "REGIONAL_PLANS:REVIEW",
           "REGIONAL_PLANS:READ",
           "REGIONAL_PLANS:MANAGE",
-          "REGIONS:MANAGE",
         ],
       },
       {
@@ -73,7 +68,6 @@ export const REGIONAL_NAVIGATION: NavItem[] = [
           "REGIONAL_PLANNING_CONFIG:READ",
           "REGIONAL_PLANS:READ",
           "REGIONAL_PLANS:MANAGE",
-          "REGIONS:MANAGE",
         ],
       },
       {
@@ -84,7 +78,6 @@ export const REGIONAL_NAVIGATION: NavItem[] = [
           "REGIONAL_PLAN_RULES:READ",
           "REGIONAL_PLANS:UPDATE",
           "REGIONAL_PLANS:MANAGE",
-          "REGIONS:MANAGE",
         ],
       },
       {
@@ -95,7 +88,6 @@ export const REGIONAL_NAVIGATION: NavItem[] = [
           "REGIONAL_PERFORMANCE_COLORS:READ",
           "REGIONAL_PLANS:READ",
           "REGIONAL_PLANS:MANAGE",
-          "REGIONS:MANAGE",
         ],
       },
     ],

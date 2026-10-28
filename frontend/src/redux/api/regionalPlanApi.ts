@@ -89,6 +89,62 @@ export const regionalPlanApi = baseApi.injectEndpoints({
       invalidatesTags: ["RegionalPlanRules"],
     }),
 
+    getRegionalPlanRuleForVersion: builder.query<RegionalPlanRule | null, { versionId: string; region_id: string }>({
+      query: ({ versionId, region_id }) => ({
+        url: `/regional/plans/versions/${versionId}/rule`,
+        params: { region_id },
+      }),
+      transformResponse: (res: { data: RegionalPlanRule | null }) => res.data ?? null,
+      providesTags: (_res, _err, { versionId }) => [
+        { type: "RegionalPlanRules", id: `version-${versionId}` },
+      ],
+    }),
+
+    updateRegionalPlanRuleForVersion: builder.mutation<
+      RegionalPlanRule,
+      { versionId: string; region_id: string; data: Partial<RegionalPlanRule> }
+    >({
+      query: ({ versionId, region_id, data }) => ({
+        url: `/regional/plans/versions/${versionId}/rule?region_id=${region_id}`,
+        method: "PUT",
+        body: data,
+      }),
+      transformResponse: (res: { data: RegionalPlanRule }) => res.data,
+      invalidatesTags: (_res, _err, { versionId }) => [
+        { type: "RegionalPlanRules", id: `version-${versionId}` },
+        "RegionalPlanRules",
+        { type: "RegionalPlanVersions", id: versionId },
+      ],
+    }),
+
+    getRegionalPlanningConfigForVersion: builder.query<RegionalPlanningConfiguration | null, { versionId: string; region_id: string }>({
+      query: ({ versionId, region_id }) => ({
+        url: `/regional/plans/versions/${versionId}/planning-config`,
+        params: { region_id },
+      }),
+      transformResponse: (res: { data: RegionalPlanningConfiguration | null }) => res.data ?? null,
+      providesTags: (_res, _err, { versionId }) => [
+        { type: "RegionalPlanConfig", id: `version-${versionId}` },
+      ],
+    }),
+
+    updateRegionalPlanningConfigForVersion: builder.mutation<
+      RegionalPlanningConfiguration,
+      { versionId: string; region_id: string; data: Partial<RegionalPlanningConfiguration> }
+    >({
+      query: ({ versionId, region_id, data }) => ({
+        url: `/regional/plans/versions/${versionId}/planning-config?region_id=${region_id}`,
+        method: "PUT",
+        body: data,
+      }),
+      transformResponse: (res: { data: RegionalPlanningConfiguration }) => res.data,
+      invalidatesTags: (_res, _err, { versionId }) => [
+        { type: "RegionalPlanConfig", id: `version-${versionId}` },
+        "RegionalPlanConfig",
+        { type: "RegionalPlanVersions", id: versionId },
+      ],
+    }),
+
     // -------------------------------------------------------------
     // Performance Color Thresholds
     // -------------------------------------------------------------
@@ -628,6 +684,10 @@ export const {
   useCreateRegionalPlanRuleMutation,
   useUpdateRegionalPlanRuleMutation,
   useDeleteRegionalPlanRuleMutation,
+  useGetRegionalPlanRuleForVersionQuery,
+  useUpdateRegionalPlanRuleForVersionMutation,
+  useGetRegionalPlanningConfigForVersionQuery,
+  useUpdateRegionalPlanningConfigForVersionMutation,
   useGetRegionalPerformanceColorThresholdsQuery,
   useGetRegionalPerformanceColorThresholdByIdQuery,
   useCreateRegionalPerformanceColorThresholdMutation,

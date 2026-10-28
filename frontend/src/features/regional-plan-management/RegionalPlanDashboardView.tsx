@@ -34,7 +34,6 @@ import {
   useGetRegionalExecutionDashboardDepartmentUserQuery,
   useGetRegionalPlanVersionsQuery,
 } from "@/redux/api/regionalPlanApi";
-import { RegionalPlanTabsHeader } from "./RegionalPlanTabsHeader";
 import type { RegionalPlanNode, RegionalPlanVersion } from "@/redux/types/regionalPlan";
 
 export function RegionalPlanDashboardView() {
@@ -138,8 +137,6 @@ export function RegionalPlanDashboardView() {
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
-      <RegionalPlanTabsHeader />
-
       {/* Top Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-5">
         <div>

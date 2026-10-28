@@ -33,7 +33,6 @@ export const PURCHASING_CENTER_NAVIGATION: NavItem[] = [
     anyPermissions: [
       "PURCHASING_CENTER_DASHBOARD:VIEW",
       "GOLD_PURCHASES:READ",
-      "PURCHASING_CENTERS:READ",
     ],
   },
   {
@@ -152,7 +151,7 @@ export const PURCHASING_CENTER_NAVIGATION: NavItem[] = [
     ],
   },
   {
-    title: "Settings & Branding",
+    title: "Settings",
     url: "/purchasing-center/settings",
     icon: Paintbrush,
     anyPermissions: ["PURCHASING_CENTER_BRANDING:READ", "PURCHASING_CENTER_BRANDING:MANAGE"],

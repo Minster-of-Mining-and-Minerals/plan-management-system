@@ -7,8 +7,7 @@ import {
   Shield,
   Plus,
   Trash2,
-  CheckCircle2,
-  AlertCircle,
+  Edit,
   Layers,
   Sparkles,
 } from "lucide-react";
@@ -16,34 +15,25 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { actionFeedback } from "@/components/action-feedback";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
   useGetRegionalPlanRulesQuery,
-  useCreateRegionalPlanRuleMutation,
   useUpdateRegionalPlanRuleMutation,
   useDeleteRegionalPlanRuleMutation,
 } from "@/redux/api/regionalPlanApi";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
-import { RegionalPlanTabsHeader } from "./RegionalPlanTabsHeader";
 import type { RegionalPlanRule } from "@/redux/types/regionalPlan";
+import { CreateRegionalPlanRuleModal } from "./modals/CreateRegionalPlanRuleModal";
 
 export function RegionalPlanRulesView() {
   const params = useParams<{ id: string }>();
-  const regionId = params?.id;
+  const regionId = params?.id as string;
   const { can } = usePermissions();
 
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [ruleName, setRuleName] = useState("");
-  const [scoringPolicy, setScoringPolicy] = useState<"CAP_100" | "ALLOW_OVER_ACHIEVEMENT">("CAP_100");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedRule, setSelectedRule] = useState<RegionalPlanRule | null>(null);
   const [search, setSearch] = useState("");
 
   const {
@@ -53,37 +43,23 @@ export function RegionalPlanRulesView() {
     refetch,
   } = useGetRegionalPlanRulesQuery({ region_id: regionId }, { skip: !regionId });
 
-  const [createRule, { isLoading: isCreating }] = useCreateRegionalPlanRuleMutation();
   const [updateRule] = useUpdateRegionalPlanRuleMutation();
   const [deleteRule] = useDeleteRegionalPlanRuleMutation();
 
-  const canManage = can("REGIONAL_PLAN_RULES:CREATE") || can("REGIONAL_PLANS:UPDATE") || can("REGIONS:MANAGE");
+  const canManage =
+    can("REGIONAL_PLAN_RULES:CREATE") ||
+    can("REGIONAL_PLAN_RULES:UPDATE") ||
+    can("REGIONAL_PLANS:UPDATE") ||
+    can("REGIONS:MANAGE");
 
-  const handleCreateRule = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!ruleName.trim()) {
-      actionFeedback.error("Rule name is required");
-      return;
-    }
-    try {
-      await createRule({
-        region_id: regionId,
-        data: {
-          name: ruleName.trim(),
-          performance_scoring_policy: scoringPolicy,
-          is_active: true,
-        },
-      }).unwrap();
+  const handleEditRule = (rule: RegionalPlanRule) => {
+    setSelectedRule(rule);
+    setIsModalOpen(true);
+  };
 
-      actionFeedback.success("Regional plan rule created successfully");
-      setIsCreateOpen(false);
-      setRuleName("");
-      setScoringPolicy("CAP_100");
-      refetch();
-    } catch (err: unknown) {
-      const errorObj = err as { data?: { message?: string }; message?: string };
-      actionFeedback.error(errorObj?.data?.message || errorObj?.message || "Failed to create rule");
-    }
+  const handleCreateRule = () => {
+    setSelectedRule(null);
+    setIsModalOpen(true);
   };
 
   const handleToggleActive = async (rule: RegionalPlanRule) => {
@@ -107,7 +83,9 @@ export function RegionalPlanRulesView() {
 
   const handleDeleteRule = async (rule: RegionalPlanRule) => {
     if (!regionId) return;
-    if (!confirm(`Are you sure you want to delete rule "${rule.name}"?`)) return;
+    if (!(await actionFeedback.confirm(`Delete rule "${rule.name}"? Active plan versions using it should be checked.`, { destructive: true }))) {
+      return;
+    }
 
     try {
       await deleteRule({
@@ -129,7 +107,7 @@ export function RegionalPlanRulesView() {
     return rules.filter(
       (r) =>
         r.name.toLowerCase().includes(term) ||
-        r.performance_scoring_policy.toLowerCase().includes(term)
+        r.performance_scoring_policy?.toLowerCase().includes(term)
     );
   }, [rules, search]);
 
@@ -137,21 +115,59 @@ export function RegionalPlanRulesView() {
     () => [
       {
         accessorKey: "name",
-        header: "Planning Rule & Hierarchy",
+        header: "Rule Name",
         cell: ({ row }) => {
           const rule = row.original;
           return (
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
-                <Shield className="h-5 w-5" />
+              <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                <Shield className="h-4 w-4" />
               </div>
               <div>
-                <div className="font-semibold text-foreground">{rule.name}</div>
+                <div className="font-semibold text-foreground text-sm">{rule.name}</div>
                 <div className="text-xs text-muted-foreground">
-                  Applied to regional strategic cycles, validating leaf KPIs and parent rollups
+                  Regional planning rule configuration
                 </div>
               </div>
             </div>
+          );
+        },
+      },
+      {
+        id: "weight_start",
+        header: "Target Required From",
+        cell: ({ row }) => {
+          const steps = (row.original.steps || []).slice().sort((a, b) => (a.step_order ?? a.level ?? 0) - (b.step_order ?? b.level ?? 0));
+          const startStep = steps.find((s) => s.requires_weight);
+          const startOrder = startStep ? (startStep.step_order ?? startStep.level) : null;
+          if (!startOrder) {
+            return <span className="text-xs text-muted-foreground">None</span>;
+          }
+          return (
+            <span className="text-xs font-medium text-foreground">
+              Level {startOrder} (inherited below)
+            </span>
+          );
+        },
+      },
+      {
+        accessorKey: "steps",
+        header: "Hierarchy Depth",
+        cell: ({ row }) => {
+          const steps = row.original.steps || [];
+          const count = steps.length > 0 ? steps.length : 4;
+          const tooltip =
+            steps.length > 0
+              ? steps.map((s) => s.label || s.name || `Level ${s.level}`).join(" → ")
+              : "Standard hierarchy";
+          return (
+            <Badge
+              variant="outline"
+              title={tooltip}
+              className="font-semibold text-xs py-0.5 px-2.5 bg-muted/40 hover:bg-muted/70 transition-colors whitespace-nowrap cursor-default"
+            >
+              {count} Levels
+            </Badge>
           );
         },
       },
@@ -170,41 +186,8 @@ export function RegionalPlanRulesView() {
                   : "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20 text-xs font-semibold"
               }
             >
-              {isCap100 ? "Capped at 100%" : "Allow Over-achievement"}
+              {isCap100 ? "Cap at 100%" : "Allow Over-achievement"}
             </Badge>
-          );
-        },
-      },
-      {
-        accessorKey: "steps",
-        header: "Hierarchy Depth & Step Colors",
-        cell: ({ row }) => {
-          const steps = row.original.steps || [];
-          if (steps.length === 0) {
-            return <span className="text-xs text-muted-foreground">Standard 4-level hierarchy</span>;
-          }
-          return (
-            <div className="space-y-1">
-              <span className="font-semibold text-xs text-foreground">{steps.length} Levels</span>
-              <div className="flex flex-wrap items-center gap-1.5">
-                {steps.map((s, idx) => (
-                  <span
-                    key={idx}
-                    className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium border"
-                    style={{
-                      borderColor: (s.color_hex || "#6B7280") + "40",
-                      backgroundColor: (s.color_hex || "#6B7280") + "15",
-                    }}
-                  >
-                    <span
-                      className="h-2 w-2 rounded-full shrink-0"
-                      style={{ backgroundColor: s.color_hex || "#6B7280" }}
-                    />
-                    <span>{s.name}</span>
-                  </span>
-                ))}
-              </div>
-            </div>
           );
         },
       },
@@ -218,8 +201,8 @@ export function RegionalPlanRulesView() {
               variant={active ? "default" : "secondary"}
               className={
                 active
-                  ? "bg-emerald-600/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-[10px] font-semibold"
-                  : "text-[10px]"
+                  ? "bg-emerald-600/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-[11px] font-semibold"
+                  : "text-[11px]"
               }
             >
               {active ? "Active" : "Inactive"}
@@ -236,18 +219,27 @@ export function RegionalPlanRulesView() {
           return (
             <div className="flex items-center justify-end gap-1.5">
               <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleEditRule(rule)}
+                className="h-8 w-8 text-foreground hover:bg-muted"
+                title="Edit rule"
+              >
+                <Edit className="h-3.5 w-3.5" />
+              </Button>
+              <Button
                 variant="outline"
                 size="sm"
                 onClick={() => handleToggleActive(rule)}
-                className="h-8 text-xs"
+                className="h-8 text-xs px-2.5"
               >
                 {rule.is_active ? "Deactivate" : "Activate"}
               </Button>
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon"
                 onClick={() => handleDeleteRule(rule)}
-                className="h-8 px-2 text-xs text-destructive hover:bg-destructive/10"
+                className="h-8 w-8 text-destructive hover:bg-destructive/10"
                 title="Delete rule"
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -257,23 +249,21 @@ export function RegionalPlanRulesView() {
         },
       },
     ],
-    [canManage]
+    [canManage, regionId]
   );
 
   return (
     <div className="space-y-6">
-      <RegionalPlanTabsHeader />
-
       <TableLayout
         title="Plan Rules"
-        description="Configure hierarchy depth, leaf weights, contribution rollups, step colors, and performance scoring policies for strategic planning cycles."
+        description="Configure hierarchy depth, node labels, step colors, target evaluation thresholds, and performance scoring policies for regional strategic cycles."
         actions={
           canManage
             ? [
                 {
                   label: "New Plan Rule",
                   icon: <Plus className="h-4 w-4" />,
-                  onClick: () => setIsCreateOpen(true),
+                  onClick: handleCreateRule,
                 },
               ]
             : []
@@ -289,7 +279,12 @@ export function RegionalPlanRulesView() {
             />
           </div>
           {search && (
-            <Button variant="ghost" size="sm" onClick={() => setSearch("")} className="h-9 px-2 text-xs">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSearch("")}
+              className="h-9 px-2 text-xs"
+            >
               Clear
             </Button>
           )}
@@ -304,76 +299,17 @@ export function RegionalPlanRulesView() {
         />
       </TableLayout>
 
-      {/* Create Dialog */}
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-primary" />
-              Create Plan Rule
-            </DialogTitle>
-          </DialogHeader>
-
-          <form onSubmit={handleCreateRule} className="space-y-4 pt-2">
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-foreground">Rule Name</label>
-              <Input
-                placeholder="e.g. Standard Regional Strategic Rule"
-                value={ruleName}
-                onChange={(e) => setRuleName(e.target.value)}
-                className="h-9 text-sm"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-foreground">
-                Performance Scoring Policy
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setScoringPolicy("CAP_100")}
-                  className={`p-3 rounded-xl border text-left transition-all ${
-                    scoringPolicy === "CAP_100"
-                      ? "border-primary bg-primary/10 shadow-xs"
-                      : "border-border hover:bg-muted/50"
-                  }`}
-                >
-                  <p className="font-semibold text-xs text-foreground">CAP 100%</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Scores cannot exceed 100% of target
-                  </p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setScoringPolicy("ALLOW_OVER_ACHIEVEMENT")}
-                  className={`p-3 rounded-xl border text-left transition-all ${
-                    scoringPolicy === "ALLOW_OVER_ACHIEVEMENT"
-                      ? "border-primary bg-primary/10 shadow-xs"
-                      : "border-border hover:bg-muted/50"
-                  }`}
-                >
-                  <p className="font-semibold text-xs text-foreground">Over-achievement</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Allow achievement exceeding 100%
-                  </p>
-                </button>
-              </div>
-            </div>
-
-            <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => setIsCreateOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" size="sm" disabled={isCreating}>
-                {isCreating ? "Creating..." : "Create Rule"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {/* Create & Edit Modal */}
+      <CreateRegionalPlanRuleModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedRule(null);
+        }}
+        regionId={regionId}
+        rule={selectedRule}
+        onSuccess={refetch}
+      />
     </div>
   );
 }

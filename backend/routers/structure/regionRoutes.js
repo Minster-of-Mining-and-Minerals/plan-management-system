@@ -42,6 +42,13 @@ const authorizeRegionRead = (req, res, next) => {
     });
   }
 
+  if (req.user?.is_company || req.user?.is_purchasing_center) {
+    return res.status(403).json({
+      success: false,
+      message: "Access denied: non-regional domain users cannot access regional resources.",
+    });
+  }
+
   return checkPermission("REGIONS", "READ")(req, res, next);
 };
 
@@ -53,6 +60,13 @@ const authorizeRegionList = (req, res, next) => {
 
   if (req.user?.is_regional) {
     return next();
+  }
+
+  if (req.user?.is_company || req.user?.is_purchasing_center) {
+    return res.status(403).json({
+      success: false,
+      message: "Access denied: non-regional domain users cannot access regional resources.",
+    });
   }
 
   return checkPermission("REGIONS", "READ")(req, res, next);
