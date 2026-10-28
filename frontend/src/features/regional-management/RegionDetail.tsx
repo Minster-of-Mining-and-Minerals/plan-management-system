@@ -584,64 +584,6 @@ export function RegionDetail({ regionId }: { regionId: string }) {
         </div>
       </div>
 
-      {/* ===================== TABULAR TABS (MATCHING STRUCTURE TABULAR TABS) ===================== */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-border/60 pb-3">
-        {sideActionTabs.map((tab) => {
-          const tabId =
-            tab.label === "Departments"
-              ? "departments"
-              : tab.label === "Users"
-              ? "users"
-              : tab.label === "Roles"
-              ? "roles"
-              : tab.label === "Permissions"
-              ? "permissions"
-              : "branding";
-          const isActive = activeTab === tabId;
-          const count =
-            tabId === "departments"
-              ? structures.length
-              : tabId === "users"
-              ? users.length
-              : tabId === "roles"
-              ? roles.length
-              : tabId === "permissions"
-              ? regionalPermissions.length
-              : undefined;
-
-          return (
-            <Button
-              key={tabId}
-              type="button"
-              variant={isActive ? "default" : "outline"}
-              size="sm"
-              onClick={() => setActiveTab(tabId as TabType)}
-              className={cn(
-                "flex items-center gap-2 transition-all font-medium",
-                isActive
-                  ? "shadow-xs"
-                  : "hover:bg-muted/60 text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {tab.icon}
-              <span>{tab.label}</span>
-              {count !== undefined && (
-                <span
-                  className={cn(
-                    "ml-1 px-1.5 py-0.2 rounded-full text-xs font-semibold",
-                    isActive
-                      ? "bg-primary-foreground/20 text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
-                  )}
-                >
-                  {count}
-                </span>
-              )}
-            </Button>
-          );
-        })}
-      </div>
-
       {/* ===================== TAB 1: DEPARTMENTS ===================== */}
       {activeTab === "departments" && (() => {
         const handleExportDepartments = () => {
@@ -1109,7 +1051,7 @@ export function RegionDetail({ regionId }: { regionId: string }) {
           {/* Permissions Accordion / Grid matching common permissions list page */}
           <div className="w-full bg-white dark:bg-card border border-border rounded-lg shadow-sm">
             <div className="p-6 border-b">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-bold text-primary flex items-center gap-2">
                     <MapPin className="h-5 w-5 text-indigo-600" />
@@ -1120,14 +1062,30 @@ export function RegionDetail({ regionId }: { regionId: string }) {
                     {regionalStats.inactive} inactive
                   </p>
                 </div>
-                <div className="relative w-full md:w-auto">
+                <div className="flex flex-wrap items-center gap-3">
+                  {sideActionTabs.map((action, index) => (
+                    <Button
+                      key={index}
+                      type="button"
+                      variant={action.variant || "default"}
+                      size={action.size || "default"}
+                      onClick={action.onClick}
+                      disabled={action.disabled || action.loading}
+                      className="flex items-center space-x-2"
+                    >
+                      {action.icon && <span className="h-4 w-4">{action.icon}</span>}
+                      <span>{action.label}</span>
+                    </Button>
+                  ))}
+                </div>
+                <div className="relative w-full lg:w-auto">
                   <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-muted-foreground" />
                   <Input
                     type="text"
                     placeholder="Search regional permissions..."
                     value={permSearchQuery}
                     onChange={(e) => setPermSearchQuery(e.target.value)}
-                    className="h-11 w-full rounded-lg border border-input py-2 pl-10 pr-4 text-sm text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary md:w-72"
+                    className="h-11 w-full rounded-lg border border-input py-2 pl-10 pr-4 text-sm text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary lg:w-72"
                   />
                 </div>
               </div>
@@ -1175,6 +1133,34 @@ export function RegionDetail({ regionId }: { regionId: string }) {
       {/* ===================== TAB 5: UI CONFIGURATION & BRANDING ===================== */}
       {activeTab === "branding" && (
         <div className="space-y-6">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-card p-6 rounded-lg border shadow-xs">
+            <div>
+              <h2 className="text-xl font-bold text-primary flex items-center gap-2">
+                <Palette className="h-5 w-5 text-primary" />
+                Regional UI & System Branding
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Configure custom branding, official regional authority logo, and theme colors for {region.name}.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              {sideActionTabs.map((action, index) => (
+                <Button
+                  key={index}
+                  type="button"
+                  variant={action.variant || "default"}
+                  size={action.size || "default"}
+                  onClick={action.onClick}
+                  disabled={action.disabled || action.loading}
+                  className="flex items-center space-x-2"
+                >
+                  {action.icon && <span className="h-4 w-4">{action.icon}</span>}
+                  <span>{action.label}</span>
+                </Button>
+              ))}
+            </div>
+          </div>
+
           {!canViewBranding ? (
             <Card className="border border-destructive/20 p-8 text-center bg-destructive/5">
               <ShieldAlert className="h-10 w-10 text-destructive mx-auto mb-2" />

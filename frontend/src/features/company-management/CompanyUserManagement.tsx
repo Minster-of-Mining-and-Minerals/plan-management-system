@@ -56,9 +56,11 @@ import Loading01 from "@/features/template/component/Loading/Loading01";
 export function CompanyUserManagement({
   companyId: propCompanyId,
   companyName: propCompanyName,
+  sideActions,
 }: {
   companyId?: string;
   companyName?: string;
+  sideActions?: ActionButton[];
 }) {
   const { data: session } = useSession();
   const companyId = propCompanyId || session?.user?.company_id;
@@ -390,6 +392,7 @@ export function CompanyUserManagement({
         description="Manage company user accounts, department assignments, and permission roles. Company accounts are strictly isolated to their assigned company."
         filters={filterFields}
         actions={actionButtons}
+        sideActions={sideActions}
       >
         <DataTable
           columns={columns}

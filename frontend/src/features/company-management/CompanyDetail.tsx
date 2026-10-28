@@ -213,55 +213,20 @@ export function CompanyDetail({ companyId }: { companyId: string }) {
         </div>
       </div>
 
-      {/* ===================== TABULAR TABS (MATCHING STRUCTURE & REGIONAL TABULAR TABS) ===================== */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-border/60 pb-3">
-        {sideActionTabs.map((tab) => {
-          const tabId =
-            tab.label === "Departments"
-              ? "departments"
-              : tab.label === "Users"
-              ? "users"
-              : tab.label === "Roles"
-              ? "roles"
-              : tab.label === "Permissions"
-              ? "permissions"
-              : tab.label === "Production Reporting"
-              ? "production"
-              : "branding";
-          const isActive = activeTab === tabId;
-
-          return (
-            <Button
-              key={tab.label}
-              variant={isActive ? "default" : "outline"}
-              size="sm"
-              onClick={tab.onClick}
-              className={cn(
-                "flex items-center gap-2 font-medium transition-all shadow-xs",
-                isActive
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-background/80 hover:bg-muted text-muted-foreground hover:text-foreground border-border/70"
-              )}
-            >
-              {tab.icon}
-              <span>{tab.label}</span>
-            </Button>
-          );
-        })}
-      </div>
-
       {/* ===================== TAB CONTENT ===================== */}
-      <div className="pt-2">
+      <div>
         {activeTab === "departments" && (
           <CompanyDepartmentManagement
             companyId={company.company_id}
             companyName={company.name}
+            sideActions={sideActionTabs}
           />
         )}
         {activeTab === "users" && (
           <CompanyUserManagement
             companyId={company.company_id}
             companyName={company.name}
+            sideActions={sideActionTabs}
           />
         )}
         {activeTab === "roles" && (
@@ -275,19 +240,71 @@ export function CompanyDetail({ companyId }: { companyId: string }) {
         )}
         {activeTab === "permissions" && (
           <div className="space-y-6">
+            <div className="flex flex-wrap items-center justify-end gap-2 bg-card p-3 rounded-lg border shadow-xs">
+              {sideActionTabs.map((action, idx) => (
+                <Button
+                  key={idx}
+                  type="button"
+                  variant={action.variant || "default"}
+                  size={action.size || "default"}
+                  onClick={action.onClick}
+                  disabled={action.disabled || action.loading}
+                  className="flex items-center space-x-2"
+                >
+                  {action.icon && <span className="h-4 w-4">{action.icon}</span>}
+                  <span>{action.label}</span>
+                </Button>
+              ))}
+            </div>
             <PermissionList isCompanyOnly />
           </div>
         )}
         {activeTab === "production" && (
-          <CompanyProductionDetailTab
-            companyId={company.company_id}
-          />
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-center justify-end gap-2 bg-card p-3 rounded-lg border shadow-xs">
+              {sideActionTabs.map((action, idx) => (
+                <Button
+                  key={idx}
+                  type="button"
+                  variant={action.variant || "default"}
+                  size={action.size || "default"}
+                  onClick={action.onClick}
+                  disabled={action.disabled || action.loading}
+                  className="flex items-center space-x-2"
+                >
+                  {action.icon && <span className="h-4 w-4">{action.icon}</span>}
+                  <span>{action.label}</span>
+                </Button>
+              ))}
+            </div>
+            <CompanyProductionDetailTab
+              companyId={company.company_id}
+            />
+          </div>
         )}
         {activeTab === "branding" && (
-          <CompanySettingsAndBranding
-            companyId={company.company_id}
-            companyName={company.name}
-          />
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-center justify-end gap-2 bg-card p-3 rounded-lg border shadow-xs">
+              {sideActionTabs.map((action, idx) => (
+                <Button
+                  key={idx}
+                  type="button"
+                  variant={action.variant || "default"}
+                  size={action.size || "default"}
+                  onClick={action.onClick}
+                  disabled={action.disabled || action.loading}
+                  className="flex items-center space-x-2"
+                >
+                  {action.icon && <span className="h-4 w-4">{action.icon}</span>}
+                  <span>{action.label}</span>
+                </Button>
+              ))}
+            </div>
+            <CompanySettingsAndBranding
+              companyId={company.company_id}
+              companyName={company.name}
+            />
+          </div>
         )}
       </div>
     </div>

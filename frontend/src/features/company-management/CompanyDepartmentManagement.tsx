@@ -52,9 +52,11 @@ import Loading01 from "@/features/template/component/Loading/Loading01";
 export function CompanyDepartmentManagement({
   companyId: propCompanyId,
   companyName: propCompanyName,
+  sideActions,
 }: {
   companyId?: string;
   companyName?: string;
+  sideActions?: ActionButton[];
 }) {
   const { data: session } = useSession();
   const companyId = propCompanyId || session?.user?.company_id;
@@ -352,6 +354,7 @@ export function CompanyDepartmentManagement({
         description="Manage company departments, operational divisions, mine sites, and organizational hierarchies."
         filters={filterFields}
         actions={actionButtons}
+        sideActions={sideActions}
       >
         {toggleHierarchyView ? (
           <CompanyStructureHierarchy
