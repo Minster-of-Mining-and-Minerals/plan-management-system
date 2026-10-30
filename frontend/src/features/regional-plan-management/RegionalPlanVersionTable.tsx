@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { ColumnDef } from "@tanstack/react-table";
@@ -87,6 +87,20 @@ export function RegionalPlanVersionTable() {
   const [duplicateDraft, { isLoading: isDuplicating }] = useDuplicateRegionalPlanDraftMutation();
   const [deletePlan, { isLoading: isDeleting }] = useDeleteRegionalPlanVersionMutation();
 
+  const templateRules = useMemo(
+    () => rules.filter((r) => !r.owned_by_plan_version_id),
+    [rules]
+  );
+
+  useEffect(() => {
+    if (templateRules.length > 0 && !selectedRuleId) {
+      const activeRule = templateRules.find((r) => r.is_active) || templateRules[0];
+      if (activeRule) {
+        setSelectedRuleId(activeRule.regional_plan_rule_id);
+      }
+    }
+  }, [templateRules, selectedRuleId]);
+
   const canCreate = can("REGIONAL_PLANS:CREATE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
   const canDelete = can("REGIONAL_PLANS:DELETE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
 
@@ -108,6 +122,10 @@ export function RegionalPlanVersionTable() {
       actionFeedback.error("Plan draft title is required");
       return;
     }
+    if (!selectedRuleId) {
+      actionFeedback.error("An applicable regional plan rule must be selected");
+      return;
+    }
     try {
       const created = await createDraft({
         region_id: regionId,
@@ -116,7 +134,7 @@ export function RegionalPlanVersionTable() {
           start_year: Number(startYear),
           planning_duration_years: Number(durationYears),
           planning_start_date: startDate,
-          regional_plan_rule_id: selectedRuleId && selectedRuleId !== "default" ? selectedRuleId : undefined,
+          regional_plan_rule_id: selectedRuleId,
           based_on_version_id: basedOnVersionId && basedOnVersionId !== "none" ? basedOnVersionId : undefined,
         },
       }).unwrap();
@@ -446,21 +464,30 @@ export function RegionalPlanVersionTable() {
                 </div>
               </div>
 
-              {rules.length > 0 && (
+              {templateRules.length === 0 ? (
+                <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+                  <p className="font-semibold">Plan Rules Not Configured</p>
+                  <p className="mt-1">
+                    No active Plan Rules exist for this region. Please configure your regional hierarchy and plan rules before creating a plan draft.
+                  </p>
+                  <Link href={`/regions/${regionId}/plans/rules`} className="mt-2 inline-block font-semibold underline">
+                    Configure Regional Plan Rules &rarr;
+                  </Link>
+                </div>
+              ) : (
                 <div>
-                  <label className="text-xs font-semibold text-foreground">Applicable Plan Rule</label>
+                  <label className="text-xs font-semibold text-foreground">Applicable Plan Rule *</label>
                   <Select
-                    value={selectedRuleId || "default"}
-                    onValueChange={(val) => setSelectedRuleId(val === "default" ? "" : val)}
+                    value={selectedRuleId}
+                    onValueChange={(val) => setSelectedRuleId(val)}
                   >
                     <SelectTrigger className="w-full mt-1 text-xs">
-                      <SelectValue placeholder="Standard Rule (Default)" />
+                      <SelectValue placeholder="Select Regional Plan Rule" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="default">Standard Rule (Default)</SelectItem>
-                      {rules.map((r) => (
+                      {templateRules.map((r) => (
                         <SelectItem key={r.regional_plan_rule_id} value={r.regional_plan_rule_id}>
-                          {r.name} ({r.steps?.length || 4} levels)
+                          {r.name} ({r.steps?.length || 4} levels) {r.is_active ? "— Active" : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -503,7 +530,7 @@ export function RegionalPlanVersionTable() {
               <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isCreating}>
+              <Button type="submit" disabled={isCreating || templateRules.length === 0}>
                 {isCreating ? "Creating..." : "Create Plan Draft"}
               </Button>
             </DialogFooter>

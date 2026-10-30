@@ -21,7 +21,10 @@ export const regionalPlanApi = baseApi.injectEndpoints({
         params,
       }),
       transformResponse: (res: { data: RegionalPlanningConfiguration }) => res.data,
-      providesTags: ["RegionalPlanConfig"],
+      providesTags: (_res, _err, { region_id }) => [
+        { type: "RegionalPlanConfig", id: region_id },
+        { type: "RegionalPlanConfig", id: "LIST" },
+      ],
     }),
 
     updateRegionalPlanConfig: builder.mutation<RegionalPlanningConfiguration, { region_id: string; data: Partial<RegionalPlanningConfiguration> }>({
@@ -31,7 +34,13 @@ export const regionalPlanApi = baseApi.injectEndpoints({
         body: data,
       }),
       transformResponse: (res: { data: RegionalPlanningConfiguration }) => res.data,
-      invalidatesTags: ["RegionalPlanConfig"],
+      invalidatesTags: (_res, _err, { region_id }) => [
+        { type: "RegionalPlanConfig", id: region_id },
+        { type: "RegionalPlanConfig", id: "LIST" },
+        { type: "RegionalPlanVersions", id: "LIST" },
+        { type: "RegionalPlanNodes", id: region_id },
+        { type: "RegionalPlanNodes", id: "LIST" },
+      ],
     }),
 
     restoreDefaultRegionalPlanConfig: builder.mutation<RegionalPlanningConfiguration, { region_id: string }>({
@@ -40,7 +49,13 @@ export const regionalPlanApi = baseApi.injectEndpoints({
         method: "POST",
       }),
       transformResponse: (res: { data: RegionalPlanningConfiguration }) => res.data,
-      invalidatesTags: ["RegionalPlanConfig"],
+      invalidatesTags: (_res, _err, { region_id }) => [
+        { type: "RegionalPlanConfig", id: region_id },
+        { type: "RegionalPlanConfig", id: "LIST" },
+        { type: "RegionalPlanVersions", id: "LIST" },
+        { type: "RegionalPlanNodes", id: region_id },
+        { type: "RegionalPlanNodes", id: "LIST" },
+      ],
     }),
 
     getRegionalPlanRules: builder.query<RegionalPlanRule[], { region_id: string }>({
@@ -49,7 +64,10 @@ export const regionalPlanApi = baseApi.injectEndpoints({
         params,
       }),
       transformResponse: (res: { data: RegionalPlanRule[] }) => res.data,
-      providesTags: ["RegionalPlanRules"],
+      providesTags: (_res, _err, { region_id }) => [
+        { type: "RegionalPlanRules", id: region_id },
+        { type: "RegionalPlanRules", id: "LIST" },
+      ],
     }),
 
     getRegionalPlanRuleById: builder.query<RegionalPlanRule, { id: string; region_id: string }>({
@@ -58,7 +76,10 @@ export const regionalPlanApi = baseApi.injectEndpoints({
         params: { region_id },
       }),
       transformResponse: (res: { data: RegionalPlanRule }) => res.data,
-      providesTags: (_res, _err, { id }) => [{ type: "RegionalPlanRules", id }],
+      providesTags: (_res, _err, { id, region_id }) => [
+        { type: "RegionalPlanRules", id },
+        { type: "RegionalPlanRules", id: region_id },
+      ],
     }),
 
     createRegionalPlanRule: builder.mutation<RegionalPlanRule, { region_id: string; data: Partial<RegionalPlanRule> }>({
@@ -68,7 +89,13 @@ export const regionalPlanApi = baseApi.injectEndpoints({
         body: data,
       }),
       transformResponse: (res: { data: RegionalPlanRule }) => res.data,
-      invalidatesTags: ["RegionalPlanRules"],
+      invalidatesTags: (_res, _err, { region_id }) => [
+        { type: "RegionalPlanRules", id: region_id },
+        { type: "RegionalPlanRules", id: "LIST" },
+        { type: "RegionalPlanVersions", id: "LIST" },
+        { type: "RegionalPlanNodes", id: region_id },
+        { type: "RegionalPlanNodes", id: "LIST" },
+      ],
     }),
 
     updateRegionalPlanRule: builder.mutation<RegionalPlanRule, { id: string; region_id: string; data: Partial<RegionalPlanRule> }>({
@@ -78,7 +105,14 @@ export const regionalPlanApi = baseApi.injectEndpoints({
         body: data,
       }),
       transformResponse: (res: { data: RegionalPlanRule }) => res.data,
-      invalidatesTags: ["RegionalPlanRules"],
+      invalidatesTags: (_res, _err, { id, region_id }) => [
+        { type: "RegionalPlanRules", id },
+        { type: "RegionalPlanRules", id: region_id },
+        { type: "RegionalPlanRules", id: "LIST" },
+        { type: "RegionalPlanVersions", id: "LIST" },
+        { type: "RegionalPlanNodes", id: region_id },
+        { type: "RegionalPlanNodes", id: "LIST" },
+      ],
     }),
 
     deleteRegionalPlanRule: builder.mutation<{ success: boolean }, { id: string; region_id: string }>({
@@ -86,7 +120,11 @@ export const regionalPlanApi = baseApi.injectEndpoints({
         url: `/regional/plans/rules/${id}?region_id=${region_id}`,
         method: "DELETE",
       }),
-      invalidatesTags: ["RegionalPlanRules"],
+      invalidatesTags: (_res, _err, { id, region_id }) => [
+        { type: "RegionalPlanRules", id },
+        { type: "RegionalPlanRules", id: region_id },
+        { type: "RegionalPlanRules", id: "LIST" },
+      ],
     }),
 
     getRegionalPlanRuleForVersion: builder.query<RegionalPlanRule | null, { versionId: string; region_id: string }>({
@@ -530,7 +568,12 @@ export const regionalPlanApi = baseApi.injectEndpoints({
         params: { region_id },
       }),
       transformResponse: (res: { data: { version: RegionalPlanVersion; nodes: RegionalPlanNode[] } }) => res.data,
-      providesTags: ["RegionalPlanNodes"],
+      providesTags: (_res, _err, { id, region_id }) => [
+        { type: "RegionalPlanNodes", id },
+        { type: "RegionalPlanNodes", id: region_id },
+        { type: "RegionalPlanNodes", id: "LIST" },
+        { type: "RegionalPlanVersions", id },
+      ],
     }),
 
     createRegionalPlanNode: builder.mutation<RegionalPlanNode, { region_id: string; data: Partial<RegionalPlanNode> & { regional_plan_version_id: string; regional_structure_id?: string; assigned_user_id?: string } }>({

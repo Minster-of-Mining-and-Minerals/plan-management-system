@@ -105,9 +105,9 @@ export function PlanNodeCardGrid({
 }: PlanNodeCardGridProps) {
     const { config: planningConfig } = useEffectivePlanningConfiguration({
         governmentStructureId,
-        skip: !governmentStructureId,
+        skip: !governmentStructureId || Boolean(propsConfiguredUnits),
     });
-    const configuredUnits = propsConfiguredUnits ?? planningConfig?.target_units;
+    const configuredUnits = propsConfiguredUnits ?? (governmentStructureId ? planningConfig?.target_units : undefined);
     const thresholds = usePerformanceColorThresholds();
 
     const sortedNodes = useMemo(() => nodes, [nodes]);

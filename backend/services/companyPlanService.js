@@ -34,6 +34,7 @@ const {
 async function ensureDefaultCompanyPlanningConfig(companyId, transaction) {
   let config = await CompanyPlanningConfiguration.findOne({
     where: { company_id: companyId },
+    order: [["created_at", "DESC"]],
     transaction,
   });
 
@@ -65,7 +66,7 @@ async function ensureDefaultCompanyPlanRule(companyId, transaction) {
   let rule = await CompanyPlanRule.findOne({
     where: { company_id: companyId, is_active: true },
     include: [{ association: "steps" }],
-    order: [["created_at", "ASC"]],
+    order: [["created_at", "DESC"]],
     transaction,
   });
 
@@ -109,6 +110,12 @@ async function ensureDefaultCompanyPlanRule(companyId, transaction) {
   return rule;
 }
 
+async function initializeCompanyPlanningDefaults(companyId, transaction = null) {
+  const config = await ensureDefaultCompanyPlanningConfig(companyId, transaction);
+  const rule = await ensureDefaultCompanyPlanRule(companyId, transaction);
+  return { config, rule };
+}
+
 // -------------------------------------------------------------
 // Helper: Resolve Period Labels
 // -------------------------------------------------------------
@@ -132,11 +139,19 @@ function resolvePeriodLabelsForMode(mode, customPeriods = []) {
 // -------------------------------------------------------------
 
 async function getEffectiveCompanyPlanningConfig(companyId) {
-  return ensureDefaultCompanyPlanningConfig(companyId);
+  return CompanyPlanningConfiguration.findOne({
+    where: { company_id: companyId },
+    order: [["created_at", "DESC"]],
+  });
 }
 
 async function updateCompanyPlanningConfig(companyId, payload) {
-  const config = await ensureDefaultCompanyPlanningConfig(companyId);
+  let config = await CompanyPlanningConfiguration.findOne({
+    where: { company_id: companyId },
+  });
+  if (!config) {
+    config = await ensureDefaultCompanyPlanningConfig(companyId);
+  }
   const allowed = [
     "min_duration_years",
     "max_duration_years",
@@ -162,7 +177,6 @@ async function updateCompanyPlanningConfig(companyId, payload) {
 }
 
 async function listCompanyPlanRules(companyId) {
-  await ensureDefaultCompanyPlanRule(companyId);
   return CompanyPlanRule.findAll({
     where: { company_id: companyId },
     include: [{ association: "steps" }],
@@ -171,22 +185,40 @@ async function listCompanyPlanRules(companyId) {
 }
 
 async function getCompanyPlanRuleById(ruleId, companyId) {
-  return CompanyPlanRule.findOne({
+  const rule = await CompanyPlanRule.findOne({
     where: { company_plan_rule_id: ruleId, company_id: companyId },
     include: [{ association: "steps" }],
   });
+  if (!rule) {
+    const existsOther = await CompanyPlanRule.findByPk(ruleId);
+    if (existsOther) {
+      const error = new Error("Access denied: configuration belongs to another company");
+      error.status = 403;
+      throw error;
+    }
+    return null;
+  }
+  return rule;
 }
 
 async function createCompanyPlanRule(companyId, payload) {
   const t = await sequelize.transaction();
   try {
+    const isActive = payload.is_active !== undefined ? payload.is_active : true;
+    if (isActive) {
+      await CompanyPlanRule.update(
+        { is_active: false },
+        { where: { company_id: companyId }, transaction: t }
+      );
+    }
+
     const ruleId = uuidv4();
     const rule = await CompanyPlanRule.create(
       {
         company_plan_rule_id: ruleId,
         company_id: companyId,
         name: payload.name || "Custom Company Plan Rule",
-        is_active: payload.is_active !== undefined ? payload.is_active : true,
+        is_active: isActive,
         performance_scoring_policy: payload.performance_scoring_policy || "CAP_100",
       },
       { transaction: t }
@@ -221,10 +253,33 @@ async function updateCompanyPlanRule(ruleId, companyId, payload) {
   const rule = await CompanyPlanRule.findOne({
     where: { company_plan_rule_id: ruleId, company_id: companyId },
   });
-  if (!rule) throw new Error("Company plan rule not found");
+  if (!rule) {
+    const existsOther = await CompanyPlanRule.findByPk(ruleId);
+    if (existsOther) {
+      const error = new Error("Access denied: configuration belongs to another company");
+      error.status = 403;
+      throw error;
+    }
+    const error = new Error("Company plan rule not found");
+    error.status = 404;
+    throw error;
+  }
 
   const t = await sequelize.transaction();
   try {
+    if (payload.is_active === true) {
+      await CompanyPlanRule.update(
+        { is_active: false },
+        {
+          where: {
+            company_id: companyId,
+            company_plan_rule_id: { [Op.ne]: ruleId },
+          },
+          transaction: t,
+        }
+      );
+    }
+
     if (payload.name) rule.name = payload.name;
     if (payload.is_active !== undefined) rule.is_active = payload.is_active;
     if (payload.performance_scoring_policy) {
@@ -262,6 +317,21 @@ async function updateCompanyPlanRule(ruleId, companyId, payload) {
 }
 
 async function deleteCompanyPlanRule(ruleId, companyId) {
+  const rule = await CompanyPlanRule.findOne({
+    where: { company_plan_rule_id: ruleId, company_id: companyId },
+  });
+  if (!rule) {
+    const existsOther = await CompanyPlanRule.findByPk(ruleId);
+    if (existsOther) {
+      const error = new Error("Access denied: configuration belongs to another company");
+      error.status = 403;
+      throw error;
+    }
+    const error = new Error("Company plan rule not found");
+    error.status = 404;
+    throw error;
+  }
+
   const count = await CompanyPlanVersion.count({
     where: { company_plan_rule_id: ruleId, company_id: companyId },
   });
@@ -319,10 +389,50 @@ async function getCompanyPlanVersionById(versionId, companyId) {
 async function createCompanyPlanDraft(companyId, payload) {
   const t = await sequelize.transaction();
   try {
-    const config = await ensureDefaultCompanyPlanningConfig(companyId, t);
-    const rule = payload.company_plan_rule_id
-      ? await CompanyPlanRule.findByPk(payload.company_plan_rule_id, { transaction: t })
-      : await ensureDefaultCompanyPlanRule(companyId, t);
+    const config = await CompanyPlanningConfiguration.findOne({
+      where: { company_id: companyId },
+      transaction: t,
+    });
+    if (!config) {
+      const err = new Error(
+        "CONFIG_NOT_READY: Company planning configuration is missing for this company. Please configure company settings first."
+      );
+      err.status = 400;
+      err.code = "CONFIG_NOT_READY";
+      throw err;
+    }
+
+    let rule;
+    if (payload.company_plan_rule_id) {
+      rule = await CompanyPlanRule.findOne({
+        where: { company_plan_rule_id: payload.company_plan_rule_id, company_id: companyId },
+        transaction: t,
+      });
+      if (!rule) {
+        const other = await CompanyPlanRule.findByPk(payload.company_plan_rule_id, { transaction: t });
+        if (other) {
+          const err = new Error("Access denied: selected company plan rule belongs to another company.");
+          err.status = 403;
+          throw err;
+        }
+        const err = new Error("Selected company plan rule not found for this company.");
+        err.status = 400;
+        throw err;
+      }
+    } else {
+      rule = await CompanyPlanRule.findOne({
+        where: { company_id: companyId, is_active: true },
+        transaction: t,
+      });
+      if (!rule) {
+        const err = new Error(
+          "CONFIG_NOT_READY: No active Plan Rules configuration found for this company. Please configure company plan rules first."
+        );
+        err.status = 400;
+        err.code = "CONFIG_NOT_READY";
+        throw err;
+      }
+    }
 
     const startYear = parseInt(payload.start_year || new Date().getFullYear(), 10);
     const duration = parseInt(payload.planning_duration_years || 5, 10);
@@ -1583,6 +1693,7 @@ async function getCompanyExecutionDashboardDepartmentUser(companyId, query = {})
 
 module.exports = {
   // Configuration & Rules
+  initializeCompanyPlanningDefaults,
   getEffectiveCompanyPlanningConfig,
   updateCompanyPlanningConfig,
   listCompanyPlanRules,

@@ -93,7 +93,13 @@ export function resolveTargetUnitSymbol(
 ): string {
   if (!unitId) return "";
   const list = units?.length ? units : DEFAULT_TARGET_UNITS;
-  const match = list.find((u) => u.id === unitId);
+  const query = unitId.toLowerCase().trim();
+  const match = list.find(
+    (u) =>
+      u.id?.toLowerCase() === query ||
+      u.label?.toLowerCase() === query ||
+      u.symbol?.toLowerCase() === query
+  );
   return match?.symbol || match?.label || unitId;
 }
 
@@ -103,5 +109,12 @@ export function resolveTargetUnitLabel(
 ): string {
   if (!unitId) return "";
   const list = units?.length ? units : DEFAULT_TARGET_UNITS;
-  return list.find((u) => u.id === unitId)?.label || unitId;
+  const query = unitId.toLowerCase().trim();
+  const match = list.find(
+    (u) =>
+      u.id?.toLowerCase() === query ||
+      u.label?.toLowerCase() === query ||
+      u.symbol?.toLowerCase() === query
+  );
+  return match?.label || match?.symbol || unitId;
 }

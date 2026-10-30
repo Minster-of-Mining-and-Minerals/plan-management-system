@@ -59,6 +59,9 @@ async function run() {
       is_active: true,
     });
 
+    await regionalPlanService.initializeRegionalPlanningDefaults(region1Id);
+    await regionalPlanService.initializeRegionalPlanningDefaults(region2Id);
+
     assert(true, "Test regions and user created successfully");
 
     // 2. Planning Configuration & Restore Defaults

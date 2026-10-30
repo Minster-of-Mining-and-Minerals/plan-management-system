@@ -107,6 +107,7 @@ export interface CompanyPlanVersion {
   execution_status?: string | null;
   review_status?: string | null;
   planRule?: CompanyPlanRule;
+  planningConfiguration?: CompanyPlanningConfiguration;
   annualVersions?: CompanyPlanVersion[];
   executionPeriodVersions?: CompanyPlanVersion[];
   created_at?: string;

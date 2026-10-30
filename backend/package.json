@@ -25,6 +25,7 @@
     "test:regional": "node scripts/verify-regional-foundation.js",
     "test:regional-plan-lifecycle": "node scripts/verify-regional-plan-lifecycle.js",
     "test:regional-plan-parity": "node scripts/verify-regional-plan-parity.js",
+    "test:domain-isolation": "node scripts/verify-phase-6-5-domain-isolation.js",
     "test:company-plan-lifecycle": "node scripts/verify-company-plan-lifecycle.js",
     "test:production-reporting": "node scripts/verify-company-production-reporting.js",
     "test:regional-routing": "node scripts/verify-phase-3-1-regional-dynamic-routing.js",

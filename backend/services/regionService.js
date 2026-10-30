@@ -2,6 +2,7 @@
 
 const { Op } = require("sequelize");
 const { Region, RegionalStructure, RegionalBrandingSetting, User, sequelize } = require("../models");
+const regionalPlanService = require("./regionalPlanService");
 
 async function listRegions(query = {}) {
   const where = {};
@@ -175,6 +176,9 @@ async function createRegion(payload) {
       },
       { transaction: t }
     );
+
+    // Initialize domain-isolated regional planning defaults (plan rule, config, performance thresholds)
+    await regionalPlanService.initializeRegionalPlanningDefaults(region.region_id, t);
 
     await t.commit();
     return getRegionById(region.region_id);

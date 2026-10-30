@@ -2,6 +2,7 @@
 
 const { Op } = require("sequelize");
 const { Company, CompanyStructure, CompanyBrandingSetting, User, sequelize } = require("../models");
+const companyPlanService = require("./companyPlanService");
 
 async function listCompanies(query = {}) {
   const where = {};
@@ -174,6 +175,9 @@ async function createCompany(payload) {
       },
       { transaction: t }
     );
+
+    // Initialize domain-isolated company planning defaults (plan rule, config)
+    await companyPlanService.initializeCompanyPlanningDefaults(company.company_id, t);
 
     await t.commit();
     return getCompanyById(company.company_id);

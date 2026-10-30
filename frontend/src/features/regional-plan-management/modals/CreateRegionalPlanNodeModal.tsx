@@ -39,6 +39,9 @@ import { getApiErrorMessage } from "@/utils/apiErrorUtils";
 import {
   useCreateRegionalPlanNodeMutation,
   useUpdateRegionalPlanNodeMutation,
+  useGetRegionalPlanConfigQuery,
+  useGetRegionalPlanningConfigForVersionQuery,
+  useGetRegionalPlanRuleForVersionQuery,
 } from "@/redux/api/regionalPlanApi";
 import { useGetRegionalStructuresQuery } from "@/redux/api/regionApi";
 import { useGetUsersQuery } from "@/redux/api/userApi";
@@ -97,6 +100,22 @@ export function CreateRegionalPlanNodeModal({
   const [createNode, { isLoading: isCreating }] = useCreateRegionalPlanNodeMutation();
   const [updateNode, { isLoading: isUpdating }] = useUpdateRegionalPlanNodeMutation();
 
+  const { data: versionConfig } = useGetRegionalPlanningConfigForVersionQuery(
+    { versionId: planVersionId, region_id: regionId },
+    { skip: !planVersionId || !regionId || !isOpen }
+  );
+  const { data: liveRegionalConfig } = useGetRegionalPlanConfigQuery(
+    { region_id: regionId },
+    { skip: !regionId || !isOpen }
+  );
+  const { data: versionRule } = useGetRegionalPlanRuleForVersionQuery(
+    { versionId: planVersionId, region_id: regionId },
+    { skip: !planVersionId || !regionId || !isOpen }
+  );
+
+  const effectiveRule = versionRule || rule;
+  const effectiveConfig = versionConfig || planningConfig || liveRegionalConfig;
+
   const { data: structures = [] } = useGetRegionalStructuresQuery(
     { region_id: regionId },
     { skip: !regionId || !isOpen }
@@ -107,38 +126,57 @@ export function CreateRegionalPlanNodeModal({
   );
 
   const configuredUnits: RegionalTargetUnit[] = useMemo(() => {
-    const raw = planningConfig?.target_units;
-    if (!raw || !Array.isArray(raw) || raw.length === 0) {
-      return [
-        { id: "person", label: "Person", symbol: "persons" },
-        { id: "km", label: "Kilometer", symbol: "km" },
-        { id: "birr", label: "Birr", symbol: "ETB" },
-        { id: "ton", label: "Ton", symbol: "t" },
-        { id: "unit", label: "Unit", symbol: "units" },
-        { id: "kg", label: "Kilogram", symbol: "kg" },
-      ];
-    }
-    return raw.map((u, i) => {
-      if (typeof u === "string") {
-        return { id: u.toLowerCase().replace(/\s+/g, "_") || `unit-${i}`, label: u, symbol: u };
+    const combinedMap = new Map<string, RegionalTargetUnit>();
+    const appendUnits = (list?: any[]) => {
+      if (!Array.isArray(list)) return;
+      list.forEach((u, i) => {
+        if (!u) return;
+        if (typeof u === "string") {
+          const key = u.trim();
+          if (key && !combinedMap.has(key.toLowerCase())) {
+            combinedMap.set(key.toLowerCase(), {
+              id: key,
+              label: key,
+              symbol: key,
+            });
+          }
+        } else if (typeof u === "object") {
+          const id = u.id || u.label || `unit-${i}`;
+          const label = u.label || u.name || id;
+          const symbol = u.symbol || label;
+          if (id && !combinedMap.has(id.toLowerCase())) {
+            combinedMap.set(id.toLowerCase(), { id, label, symbol });
+          }
+          if (label && !combinedMap.has(label.toLowerCase())) {
+            combinedMap.set(label.toLowerCase(), { id, label, symbol });
+          }
+        }
+      });
+    };
+
+    appendUnits(effectiveConfig?.target_units);
+
+    const seen = new Set<string>();
+    const result: RegionalTargetUnit[] = [];
+    for (const unit of combinedMap.values()) {
+      const key = `${unit.label.toLowerCase()}_${(unit.symbol || "").toLowerCase()}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(unit);
       }
-      return {
-        id: u.id || `unit-${i}`,
-        label: u.label || `Unit ${i + 1}`,
-        symbol: u.symbol || u.label,
-      };
-    });
-  }, [planningConfig?.target_units]);
+    }
+    return result;
+  }, [effectiveConfig?.target_units]);
 
   const nodeLevel = node?.level ?? (parentNode ? parentNode.level + 1 : 1);
-  const levelLabel = getStepLabel(rule, nodeLevel);
-  const targetRequirement = getStepTargetRequirement(rule, nodeLevel);
-  const allowsTarget = stepAllowsTarget(rule, nodeLevel);
-  const isTargetRequired = stepRequiresTarget(rule, nodeLevel);
-  const isTargetOptional = stepTargetIsOptional(rule, nodeLevel);
-  const requiresContribution = stepRequiresContributionWeight(rule, nodeLevel);
-  const showWeightModeSelect = allowsTarget && isWeightModeSelectionLevel(rule, nodeLevel);
-  const inheritedMode = resolveNodeWeightMode(rule as any, nodeLevel, parentNode as any, node as any);
+  const levelLabel = getStepLabel(effectiveRule, nodeLevel);
+  const targetRequirement = getStepTargetRequirement(effectiveRule, nodeLevel);
+  const allowsTarget = stepAllowsTarget(effectiveRule, nodeLevel);
+  const isTargetRequired = stepRequiresTarget(effectiveRule, nodeLevel);
+  const isTargetOptional = stepTargetIsOptional(effectiveRule, nodeLevel);
+  const requiresContribution = stepRequiresContributionWeight(effectiveRule, nodeLevel);
+  const showWeightModeSelect = allowsTarget && isWeightModeSelectionLevel(effectiveRule, nodeLevel);
+  const inheritedMode = resolveNodeWeightMode(effectiveRule as any, nodeLevel, parentNode as any, node as any);
 
   const formSchema = useMemo(
     () =>
@@ -204,7 +242,7 @@ export function CreateRegionalPlanNodeModal({
     ? ((selectedWeightMode as PlanRuleWeightMode | null) ?? ((node?.weight_mode as PlanRuleWeightMode | null) || null))
     : inheritedMode;
 
-  const inheritedTargetUnit = resolveNodeTargetUnit(rule as any, nodeLevel, parentNode as any, node as any);
+  const inheritedTargetUnit = resolveNodeTargetUnit(effectiveRule as any, nodeLevel, parentNode as any, node as any);
   const effectiveTargetUnit =
     effectiveWeightMode === "number"
       ? showWeightModeSelect
@@ -476,38 +514,50 @@ export function CreateRegionalPlanNodeModal({
                   <FormField
                     control={form.control}
                     name="target_unit"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Target Unit (optional)</FormLabel>
-                        <Select
-                          onValueChange={(value) =>
-                            field.onChange(value === TARGET_UNIT_NONE_VALUE ? null : value)
-                          }
-                          value={field.value ?? TARGET_UNIT_NONE_VALUE}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select unit" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value={TARGET_UNIT_NONE_VALUE}>None</SelectItem>
-                            {configuredUnits.map((unit) => (
-                              <SelectItem key={unit.id} value={unit.id}>
-                                {unit.label}
-                                {unit.symbol && unit.symbol !== unit.label
-                                  ? ` (${unit.symbol})`
-                                  : ""}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormDescription>
-                          Pick a unit configured for this region, or select None.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      const matchingUnit = configuredUnits.find(
+                        (u) =>
+                          u.id?.toLowerCase() === field.value?.toLowerCase() ||
+                          u.label?.toLowerCase() === field.value?.toLowerCase() ||
+                          u.symbol?.toLowerCase() === field.value?.toLowerCase()
+                      );
+                      const selectValue = matchingUnit
+                        ? matchingUnit.id
+                        : field.value ?? TARGET_UNIT_NONE_VALUE;
+
+                      return (
+                        <FormItem>
+                          <FormLabel>Target Unit (optional)</FormLabel>
+                          <Select
+                            onValueChange={(value) =>
+                              field.onChange(value === TARGET_UNIT_NONE_VALUE ? null : value)
+                            }
+                            value={selectValue}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select unit" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value={TARGET_UNIT_NONE_VALUE}>None</SelectItem>
+                              {configuredUnits.map((unit) => (
+                                <SelectItem key={unit.id} value={unit.id}>
+                                  {unit.label}
+                                  {unit.symbol && unit.symbol !== unit.label
+                                    ? ` (${unit.symbol})`
+                                    : ""}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Pick a unit configured for this region, or select None.
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
                 )}
 

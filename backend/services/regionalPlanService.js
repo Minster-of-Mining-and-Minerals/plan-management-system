@@ -79,6 +79,7 @@ const DEFAULT_TARGET_UNITS = [
 async function ensureDefaultRegionalPlanningConfig(regionId, transaction) {
   let config = await RegionalPlanningConfiguration.findOne({
     where: { region_id: regionId, owned_by_plan_version_id: null },
+    order: [["created_at", "DESC"]],
     transaction,
   });
 
@@ -111,7 +112,7 @@ async function ensureDefaultRegionalPlanRule(regionId, transaction) {
   let rule = await RegionalPlanRule.findOne({
     where: { region_id: regionId, is_active: true, owned_by_plan_version_id: null },
     include: [{ association: "steps" }],
-    order: [["created_at", "ASC"]],
+    order: [["created_at", "DESC"]],
     transaction,
   });
 
@@ -191,6 +192,13 @@ async function ensureDefaultRegionalPerformanceColorThresholds(regionId, transac
       );
     }
   }
+}
+
+async function initializeRegionalPlanningDefaults(regionId, transaction = null) {
+  const config = await ensureDefaultRegionalPlanningConfig(regionId, transaction);
+  const rule = await ensureDefaultRegionalPlanRule(regionId, transaction);
+  await ensureDefaultRegionalPerformanceColorThresholds(regionId, transaction);
+  return { config, rule };
 }
 
 // -------------------------------------------------------------
@@ -300,7 +308,16 @@ async function attachDraftSnapshotsToRegionalPlanVersion(regionalPlanVersion, tr
   if (existingRule?.owned_by_plan_version_id === version.regional_plan_version_id) {
     // already owns a forked rule
   } else {
-    const sourceRule = existingRule ?? (await ensureDefaultRegionalPlanRule(version.region_id, transaction));
+    const sourceRule =
+      existingRule ??
+      (await RegionalPlanRule.findOne({
+        where: {
+          region_id: version.region_id,
+          is_active: true,
+          owned_by_plan_version_id: null,
+        },
+        transaction,
+      }));
     if (sourceRule) {
       const forkedRule = await forkRegionalPlanRule(sourceRule, version.regional_plan_version_id, transaction);
       updates.regional_plan_rule_id = forkedRule.regional_plan_rule_id;
@@ -314,13 +331,23 @@ async function attachDraftSnapshotsToRegionalPlanVersion(regionalPlanVersion, tr
   if (existingConfig?.owned_by_plan_version_id === version.regional_plan_version_id) {
     // already owns a forked config
   } else {
-    const effectiveConfig = await ensureDefaultRegionalPlanningConfig(version.region_id, transaction);
-    const forkedConfig = await forkRegionalPlanningConfiguration(
-      existingConfig ?? effectiveConfig,
-      version.regional_plan_version_id,
-      transaction
-    );
-    updates.regional_planning_config_id = forkedConfig.regional_planning_config_id;
+    const effectiveConfig =
+      existingConfig ??
+      (await RegionalPlanningConfiguration.findOne({
+        where: {
+          region_id: version.region_id,
+          owned_by_plan_version_id: null,
+        },
+        transaction,
+      }));
+    if (effectiveConfig) {
+      const forkedConfig = await forkRegionalPlanningConfiguration(
+        effectiveConfig,
+        version.regional_plan_version_id,
+        transaction
+      );
+      updates.regional_planning_config_id = forkedConfig.regional_planning_config_id;
+    }
   }
 
   if (Object.keys(updates).length > 0) {
@@ -355,7 +382,12 @@ async function getEffectiveRegionalPlanningConfig(regionId) {
 }
 
 async function updateRegionalPlanningConfig(regionId, payload) {
-  const config = await ensureDefaultRegionalPlanningConfig(regionId);
+  let config = await RegionalPlanningConfiguration.findOne({
+    where: { region_id: regionId, owned_by_plan_version_id: null },
+  });
+  if (!config) {
+    config = await ensureDefaultRegionalPlanningConfig(regionId);
+  }
 
   const nextMin =
     payload.min_duration_years !== undefined
@@ -439,6 +471,33 @@ async function updateRegionalPlanningConfig(regionId, payload) {
     custom_periods: nextCustomPeriods,
   });
 
+  // Synchronize unfinalized master draft plans in this region so newly added units are immediately available
+  const draftPlans = await RegionalPlanVersion.findAll({
+    where: { region_id: regionId, version_kind: "master", status: "draft" },
+  });
+
+  for (const draft of draftPlans) {
+    if (draft.regional_planning_config_id) {
+      const draftConfig = await RegionalPlanningConfiguration.findByPk(draft.regional_planning_config_id);
+      if (draftConfig && draftConfig.owned_by_plan_version_id === draft.regional_plan_version_id) {
+        await draftConfig.update({
+          target_units: nextTargetUnits,
+          breakdown_mode: nextBreakdownMode,
+          custom_periods: nextCustomPeriods,
+          min_duration_years: nextMin,
+          max_duration_years: nextMax,
+          draft_entity_label_singular: config.draft_entity_label_singular,
+          draft_entity_label_plural: config.draft_entity_label_plural,
+          create_action_label: config.create_action_label,
+          planning_period_label: config.planning_period_label,
+          duration_label: config.duration_label,
+          start_year_label: config.start_year_label,
+          end_year_label: config.end_year_label,
+        });
+      }
+    }
+  }
+
   return config;
 }
 
@@ -462,7 +521,6 @@ async function restoreDefaultRegionalPlanningConfig(regionId) {
 }
 
 async function listRegionalPlanRules(regionId) {
-  await ensureDefaultRegionalPlanRule(regionId);
   const rules = await RegionalPlanRule.findAll({
     where: { region_id: regionId, owned_by_plan_version_id: null },
     include: [{ association: "steps" }],
@@ -476,6 +534,15 @@ async function getRegionalPlanRuleById(ruleId, regionId) {
     where: { regional_plan_rule_id: ruleId, region_id: regionId },
     include: [{ association: "steps" }],
   });
+  if (!rule) {
+    const existsOther = await RegionalPlanRule.findByPk(ruleId);
+    if (existsOther) {
+      const error = new Error("Access denied: configuration belongs to another region");
+      error.status = 403;
+      throw error;
+    }
+    return null;
+  }
   return formatRegionalRuleResponse(rule);
 }
 
@@ -485,7 +552,16 @@ async function getRegionalPlanRuleForVersion(versionId, regionId) {
     return formatRegionalRuleResponse(version.planRule);
   }
 
-  const rule = await ensureDefaultRegionalPlanRule(regionId);
+  const rule = await RegionalPlanRule.findOne({
+    where: { region_id: regionId, is_active: true, owned_by_plan_version_id: null },
+    include: [{ association: "steps" }],
+    order: [["created_at", "DESC"]],
+  });
+  if (!rule) {
+    const error = new Error("Plan rule not found for version or region");
+    error.status = 404;
+    throw error;
+  }
   return formatRegionalRuleResponse(rule);
 }
 
@@ -583,7 +659,16 @@ async function getRegionalPlanningConfigForVersion(versionId, regionId) {
     return version.planningConfiguration;
   }
 
-  return ensureDefaultRegionalPlanningConfig(regionId);
+  const config = await RegionalPlanningConfiguration.findOne({
+    where: { region_id: regionId, owned_by_plan_version_id: null },
+    order: [["created_at", "DESC"]],
+  });
+  if (!config) {
+    const error = new Error("Regional planning configuration not found for region.");
+    error.status = 404;
+    throw error;
+  }
+  return config;
 }
 
 async function updateRegionalPlanningConfigForVersion(versionId, regionId, payload) {
@@ -741,13 +826,29 @@ async function createRegionalPlanRule(regionId, payload) {
       normalizedSteps = normalizeRuleSteps(defaultSteps);
     }
 
+    const isActive = payload.is_active !== undefined ? payload.is_active : true;
+
+    // If active, deactivate other template rules in this region to prevent unique constraint violation
+    if (isActive) {
+      await RegionalPlanRule.update(
+        { is_active: false },
+        {
+          where: {
+            region_id: regionId,
+            owned_by_plan_version_id: null,
+          },
+          transaction: t,
+        }
+      );
+    }
+
     const ruleId = uuidv4();
     const rule = await RegionalPlanRule.create(
       {
         regional_plan_rule_id: ruleId,
         region_id: regionId,
         name: payload.name || "Plan Rule",
-        is_active: payload.is_active !== undefined ? payload.is_active : true,
+        is_active: isActive,
         performance_scoring_policy: payload.performance_scoring_policy || "CAP_100",
         amendment_policy: payload.amendment_policy || {
           completed_periods_editable: false,
@@ -775,6 +876,57 @@ async function createRegionalPlanRule(regionId, payload) {
       { transaction: t }
     );
 
+    // If new rule is active, synchronize unfinalized master draft plans in this region that have 0 nodes
+    if (isActive) {
+      const draftVersions = await RegionalPlanVersion.findAll({
+        where: { region_id: regionId, version_kind: "master", status: "draft" },
+        transaction: t,
+      });
+
+      for (const draft of draftVersions) {
+        const nodeCount = await RegionalPlanNode.count({
+          where: { regional_plan_version_id: draft.regional_plan_version_id },
+          transaction: t,
+        });
+
+        if (nodeCount === 0) {
+          const ownedRule = await RegionalPlanRule.findOne({
+            where: {
+              owned_by_plan_version_id: draft.regional_plan_version_id,
+            },
+            transaction: t,
+          });
+
+          if (ownedRule) {
+            ownedRule.name = rule.name;
+            ownedRule.source_regional_plan_rule_id = ruleId;
+            ownedRule.performance_scoring_policy = rule.performance_scoring_policy;
+            await ownedRule.save({ transaction: t });
+
+            await RegionalPlanRuleStep.destroy({
+              where: { regional_plan_rule_id: ownedRule.regional_plan_rule_id },
+              transaction: t,
+            });
+
+            await RegionalPlanRuleStep.bulkCreate(
+              normalizedSteps.map((step) => ({
+                regional_plan_rule_step_id: uuidv4(),
+                regional_plan_rule_id: ownedRule.regional_plan_rule_id,
+                level: step.step_order,
+                name: step.label,
+                node_type: step.node_type || levelToNodeType(step.step_order),
+                requires_weight: step.requires_weight,
+                requires_contribution_weight: step.requires_contribution_weight,
+                allow_kpi: step.allow_kpi !== undefined ? step.allow_kpi : (step.target_requirement === "required" || step.target_requirement === "optional" ? true : (step.target_requirement === "none" ? false : Boolean(step.allow_kpi ?? step.requires_weight))),
+                color_hex: step.color_hex,
+              })),
+              { transaction: t }
+            );
+          }
+        }
+      }
+    }
+
     await t.commit();
     return getRegionalPlanRuleById(ruleId, regionId);
   } catch (err) {
@@ -787,10 +939,34 @@ async function updateRegionalPlanRule(ruleId, regionId, payload) {
   const rule = await RegionalPlanRule.findOne({
     where: { regional_plan_rule_id: ruleId, region_id: regionId },
   });
-  if (!rule) throw new Error("Regional plan rule not found");
+  if (!rule) {
+    const existsOther = await RegionalPlanRule.findByPk(ruleId);
+    if (existsOther) {
+      const error = new Error("Access denied: configuration belongs to another region");
+      error.status = 403;
+      throw error;
+    }
+    const error = new Error("Regional plan rule not found");
+    error.status = 404;
+    throw error;
+  }
 
   const t = await sequelize.transaction();
   try {
+    if (payload.is_active === true) {
+      await RegionalPlanRule.update(
+        { is_active: false },
+        {
+          where: {
+            region_id: regionId,
+            owned_by_plan_version_id: null,
+            regional_plan_rule_id: { [Op.ne]: ruleId },
+          },
+          transaction: t,
+        }
+      );
+    }
+
     if (payload.name) rule.name = payload.name;
     if (payload.is_active !== undefined) rule.is_active = payload.is_active;
     if (payload.performance_scoring_policy) {
@@ -832,6 +1008,60 @@ async function updateRegionalPlanRule(ruleId, regionId, payload) {
         })),
         { transaction: t }
       );
+
+      // Synchronize owned rule snapshots in active draft plans using this rule or draft plans with 0 nodes
+      const draftVersions = await RegionalPlanVersion.findAll({
+        where: { region_id: regionId, version_kind: "master", status: "draft" },
+        transaction: t,
+      });
+
+      for (const draft of draftVersions) {
+        const nodeCount = await RegionalPlanNode.count({
+          where: { regional_plan_version_id: draft.regional_plan_version_id },
+          transaction: t,
+        });
+
+        const isCandidate =
+          draft.regional_plan_rule_id === ruleId ||
+          (rule.is_active && nodeCount === 0);
+
+        const ownedRule = await RegionalPlanRule.findOne({
+          where: {
+            owned_by_plan_version_id: draft.regional_plan_version_id,
+            ...(nodeCount > 0 ? { source_regional_plan_rule_id: ruleId } : {}),
+          },
+          transaction: t,
+        });
+
+        if (ownedRule && (isCandidate || ownedRule.source_regional_plan_rule_id === ruleId)) {
+          if (payload.name) ownedRule.name = payload.name;
+          if (payload.performance_scoring_policy) {
+            ownedRule.performance_scoring_policy = payload.performance_scoring_policy;
+          }
+          ownedRule.source_regional_plan_rule_id = ruleId;
+          await ownedRule.save({ transaction: t });
+
+          await RegionalPlanRuleStep.destroy({
+            where: { regional_plan_rule_id: ownedRule.regional_plan_rule_id },
+            transaction: t,
+          });
+
+          await RegionalPlanRuleStep.bulkCreate(
+            normalizedSteps.map((step) => ({
+              regional_plan_rule_step_id: uuidv4(),
+              regional_plan_rule_id: ownedRule.regional_plan_rule_id,
+              level: step.step_order,
+              name: step.label,
+              node_type: step.node_type || levelToNodeType(step.step_order),
+              requires_weight: step.requires_weight,
+              requires_contribution_weight: step.requires_contribution_weight,
+              allow_kpi: step.allow_kpi !== undefined ? step.allow_kpi : (step.target_requirement === "required" || step.target_requirement === "optional" ? true : (step.target_requirement === "none" ? false : Boolean(step.allow_kpi ?? step.requires_weight))),
+              color_hex: step.color_hex,
+            })),
+            { transaction: t }
+          );
+        }
+      }
     }
 
     await t.commit();
@@ -846,7 +1076,17 @@ async function deleteRegionalPlanRule(ruleId, regionId) {
   const rule = await RegionalPlanRule.findOne({
     where: { regional_plan_rule_id: ruleId, region_id: regionId },
   });
-  if (!rule) throw new Error("Regional plan rule not found");
+  if (!rule) {
+    const existsOther = await RegionalPlanRule.findByPk(ruleId);
+    if (existsOther) {
+      const error = new Error("Access denied: configuration belongs to another region");
+      error.status = 403;
+      throw error;
+    }
+    const error = new Error("Regional plan rule not found");
+    error.status = 404;
+    throw error;
+  }
 
   const inUse = await RegionalPlanVersion.count({
     where: { regional_plan_rule_id: ruleId },
@@ -942,24 +1182,58 @@ async function resolveRegionalPerformanceColor(regionId, percentage) {
 async function createRegionalPlanDraft(regionId, payload, userId) {
   const t = await sequelize.transaction();
   try {
-    const config = await ensureDefaultRegionalPlanningConfig(regionId, t);
-    let rule = await ensureDefaultRegionalPlanRule(regionId, t);
+    const config = await RegionalPlanningConfiguration.findOne({
+      where: { region_id: regionId, owned_by_plan_version_id: null },
+      transaction: t,
+    });
+    if (!config) {
+      const err = new Error(
+        "CONFIG_NOT_READY: Regional planning configuration is missing for this region. Please configure regional settings first."
+      );
+      err.status = 400;
+      err.code = "CONFIG_NOT_READY";
+      throw err;
+    }
 
-    if (payload.regional_plan_rule_id) {
+    let rule;
+    if (payload.regional_plan_rule_id && payload.regional_plan_rule_id !== "default") {
       const selectedRule = await RegionalPlanRule.findOne({
         where: {
           regional_plan_rule_id: payload.regional_plan_rule_id,
           region_id: regionId,
+          owned_by_plan_version_id: null,
         },
         transaction: t,
       });
       if (!selectedRule) {
-        await t.rollback();
-        const err = new Error("Selected regional plan rule not found or does not belong to this region");
+        const otherRule = await RegionalPlanRule.findByPk(payload.regional_plan_rule_id, { transaction: t });
+        if (otherRule) {
+          const err = new Error("Access denied: selected regional plan rule belongs to another region.");
+          err.status = 403;
+          throw err;
+        }
+        const err = new Error("Selected regional plan rule not found for this region.");
         err.status = 400;
         throw err;
       }
       rule = selectedRule;
+    } else {
+      rule = await RegionalPlanRule.findOne({
+        where: {
+          region_id: regionId,
+          is_active: true,
+          owned_by_plan_version_id: null,
+        },
+        transaction: t,
+      });
+      if (!rule) {
+        const err = new Error(
+          "CONFIG_NOT_READY: No active Plan Rules configuration found for this region. Please configure regional plan rules first."
+        );
+        err.status = 400;
+        err.code = "CONFIG_NOT_READY";
+        throw err;
+      }
     }
 
     let startYear;
@@ -1079,11 +1353,21 @@ async function updateRegionalPlanVersion(versionId, regionId, payload) {
     "start_month",
     "end_month",
     "planning_duration_years",
-    "regional_plan_rule_id",
   ];
 
   for (const key of allowed) {
     if (payload[key] !== undefined) version[key] = payload[key];
+  }
+
+  if (payload.regional_plan_rule_id !== undefined && payload.regional_plan_rule_id !== version.regional_plan_rule_id) {
+    const selectedRule = await RegionalPlanRule.findOne({
+      where: { regional_plan_rule_id: payload.regional_plan_rule_id, region_id: regionId },
+    });
+    if (!selectedRule) {
+      throw new Error("Selected regional plan rule not found or does not belong to this region");
+    }
+    const forked = await forkRegionalPlanRule(selectedRule, version.regional_plan_version_id);
+    version.regional_plan_rule_id = forked.regional_plan_rule_id;
   }
 
   await version.save();
@@ -1401,9 +1685,15 @@ async function validateRegionalPlanNodeAgainstRule({
     return { valid: false, message: "Plan version not found" };
   }
 
-  const rule = version.planRule || (await ensureDefaultRegionalPlanRule(regionId, transaction));
+  const rule =
+    version.planRule ||
+    (await RegionalPlanRule.findOne({
+      where: { region_id: regionId, is_active: true, owned_by_plan_version_id: null },
+      include: [{ association: "steps" }],
+      transaction,
+    }));
   if (!rule) {
-    return { valid: true };
+    return { valid: false, message: "No plan rule configuration found for this version or region." };
   }
 
   const steps = rule.steps || [];
@@ -1547,8 +1837,17 @@ async function validateRegionalPlanNodeAgainstRule({
         message: `${stepLabel} does not have a target field and cannot have a target unit.`,
       };
     }
-    const config = version.planningConfiguration || (await ensureDefaultRegionalPlanningConfig(regionId, transaction));
-    const validUnits = Array.isArray(config.target_units) ? config.target_units : [];
+    const versionConfig = version.planningConfiguration;
+    const regionalConfig = await RegionalPlanningConfiguration.findOne({
+      where: { region_id: regionId, owned_by_plan_version_id: null },
+      transaction,
+    });
+
+    const validUnits = [
+      ...(Array.isArray(versionConfig?.target_units) ? versionConfig.target_units : []),
+      ...(Array.isArray(regionalConfig?.target_units) ? regionalConfig.target_units : []),
+    ];
+
     const isKnown = validUnits.some(
       (u) =>
         typeof u === "string"
@@ -2304,7 +2603,15 @@ async function initializeRegionalExecutionPeriods(
   }
 
   const config =
-    master.planningConfiguration || (await ensureDefaultRegionalPlanningConfig(regionId));
+    master.planningConfiguration ||
+    (await RegionalPlanningConfiguration.findOne({
+      where: { region_id: regionId, owned_by_plan_version_id: null },
+    }));
+  if (!config) {
+    const error = new Error("Regional planning configuration not found for region.");
+    error.status = 404;
+    throw error;
+  }
   const effectiveMode = subdivisionMode || config.breakdown_mode || "quarterly";
   const effectiveCustom =
     customPeriods && customPeriods.length > 0 ? customPeriods : config.custom_periods || [];
@@ -2838,6 +3145,7 @@ async function getRegionalExecutionDashboardDepartmentUser(regionId, planVersion
 
 module.exports = {
   // Config & Rules
+  initializeRegionalPlanningDefaults,
   getEffectiveRegionalPlanningConfig,
   updateRegionalPlanningConfig,
   restoreDefaultRegionalPlanningConfig,

@@ -55,12 +55,27 @@ import {
 import { useGetCompanyStructuresQuery } from "@/redux/api/companyApi";
 import type { CompanyPlanNode } from "@/redux/types/companyPlan";
 
-const LEVEL_COLORS: Record<number, { bg: string; text: string; border: string; label: string }> = {
-  1: { bg: "bg-purple-50 dark:bg-purple-950/30", text: "text-purple-700 dark:text-purple-300", border: "border-purple-200 dark:border-purple-800", label: "Strategic Focus" },
-  2: { bg: "bg-blue-50 dark:bg-blue-950/30", text: "text-blue-700 dark:text-blue-300", border: "border-blue-200 dark:border-blue-800", label: "Goal" },
-  3: { bg: "bg-emerald-50 dark:bg-emerald-950/30", text: "text-emerald-700 dark:text-emerald-300", border: "border-emerald-200 dark:border-emerald-800", label: "KPI" },
-  4: { bg: "bg-amber-50 dark:bg-amber-950/30", text: "text-amber-700 dark:text-amber-300", border: "border-amber-200 dark:border-amber-800", label: "Task" },
-};
+const DEFAULT_PALETTES = [
+  { bg: "bg-purple-50 dark:bg-purple-950/30", text: "text-purple-700 dark:text-purple-300", border: "border-purple-200 dark:border-purple-800" },
+  { bg: "bg-blue-50 dark:bg-blue-950/30", text: "text-blue-700 dark:text-blue-300", border: "border-blue-200 dark:border-blue-800" },
+  { bg: "bg-emerald-50 dark:bg-emerald-950/30", text: "text-emerald-700 dark:text-emerald-300", border: "border-emerald-200 dark:border-emerald-800" },
+  { bg: "bg-amber-50 dark:bg-amber-950/30", text: "text-amber-700 dark:text-amber-300", border: "border-amber-200 dark:border-amber-800" },
+  { bg: "bg-rose-50 dark:bg-rose-950/30", text: "text-rose-700 dark:text-rose-300", border: "border-rose-200 dark:border-rose-800" },
+  { bg: "bg-cyan-50 dark:bg-cyan-950/30", text: "text-cyan-700 dark:text-cyan-300", border: "border-cyan-200 dark:border-cyan-800" },
+];
+
+function resolveLevelConfig(level: number, ruleSteps?: any[]) {
+  const palette = DEFAULT_PALETTES[(level - 1) % DEFAULT_PALETTES.length] || DEFAULT_PALETTES[0];
+  const step = Array.isArray(ruleSteps)
+    ? ruleSteps.find((s) => (s.level ?? s.step_order) === level)
+    : null;
+
+  return {
+    label: step?.name || step?.label || `Level ${level}`,
+    color_hex: step?.color_hex,
+    ...palette,
+  };
+}
 
 export function CompanyPlanHierarchyView() {
   const params = useParams<{ id: string; versionId: string }>();
@@ -127,6 +142,12 @@ export function CompanyPlanHierarchyView() {
 
   const plan = hierarchyData?.version;
   const isLocked = !!plan?.is_locked;
+
+  const availableTargetUnits: string[] = useMemo(() => {
+    const raw = plan?.planningConfiguration?.target_units;
+    if (!Array.isArray(raw)) return [];
+    return raw.map((u: any) => (typeof u === "string" ? u : u.label || u.name || u.id || "")).filter(Boolean);
+  }, [plan?.planningConfiguration?.target_units]);
 
   const canManage = can("COMPANY_PLANS:UPDATE") || can("COMPANY_PLANS:MANAGE") || can("COMPANIES:MANAGE");
   const canExecute = can("COMPANY_PLANS:EXECUTE_ACHIEVEMENT") || canManage;
@@ -427,7 +448,7 @@ export function CompanyPlanHierarchyView() {
         id: "level",
         header: "Level",
         cell: ({ row }) => {
-          const config = LEVEL_COLORS[row.original.level] || { label: `L${row.original.level}` };
+          const config = resolveLevelConfig(row.original.level, plan?.planRule?.steps);
           return (
             <Badge variant="outline" className="text-[10px] font-bold">
               {config.label}
@@ -506,7 +527,7 @@ export function CompanyPlanHierarchyView() {
         },
       },
     ],
-    [isLocked, canManage]
+    [isLocked, canManage, plan?.planRule?.steps]
   );
 
   if (isHierarchyLoading) {
@@ -622,12 +643,12 @@ export function CompanyPlanHierarchyView() {
           <Layers className="h-10 w-10 text-muted-foreground mx-auto" />
           <h3 className="text-base font-bold text-foreground">No Nodes Configured</h3>
           <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-            Get started by creating the highest strategic pillar (Strategic Focus) for this corporate plan.
+            Get started by creating the highest strategic pillar ({resolveLevelConfig(1, plan?.planRule?.steps).label}) for this corporate plan.
           </p>
           {canManage && !isLocked && (
             <Button onClick={() => handleOpenCreateModal(null)} className="gap-2">
               <Plus className="h-4 w-4" />
-              Add Strategic Focus
+              Add {resolveLevelConfig(1, plan?.planRule?.steps).label}
             </Button>
           )}
         </div>
@@ -650,13 +671,14 @@ export function CompanyPlanHierarchyView() {
               onDelete={handleDeleteNode}
               onOpenTarget={handleOpenTargetModal}
               onOpenAchievement={handleOpenAchievementModal}
+              ruleSteps={plan?.planRule?.steps}
             />
           ))}
         </div>
       ) : viewMode === "cards" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {flatList.map((node) => {
-            const config = LEVEL_COLORS[node.level] || { bg: "bg-card", text: "text-foreground", border: "border-border", label: `L${node.level}` };
+            const config = resolveLevelConfig(node.level, plan?.planRule?.steps);
             const target = node.annual_target || node.period_target || 0;
             const actual = node.period_actual || 0;
             const progress = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 0;
@@ -762,11 +784,41 @@ export function CompanyPlanHierarchyView() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="font-semibold text-foreground">Target Measurement Unit</label>
-                  <Input
-                    placeholder="e.g. Kilograms, USD, Count, %"
-                    value={formUnit}
-                    onChange={(e) => setFormUnit(e.target.value)}
-                  />
+                  {availableTargetUnits.length > 0 ? (
+                    <div className="space-y-1">
+                      <select
+                        className="w-full h-9 rounded-md border border-input bg-card px-3 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-foreground"
+                        value={availableTargetUnits.includes(formUnit) ? formUnit : (formUnit ? "custom" : "")}
+                        onChange={(e) => {
+                          if (e.target.value !== "custom") {
+                            setFormUnit(e.target.value);
+                          }
+                        }}
+                      >
+                        <option value="">None / Select configured unit...</option>
+                        {availableTargetUnits.map((u) => (
+                          <option key={u} value={u}>
+                            {u}
+                          </option>
+                        ))}
+                        <option value="custom">Custom unit...</option>
+                      </select>
+                      {(!availableTargetUnits.includes(formUnit) && formUnit) || !availableTargetUnits.includes(formUnit) ? (
+                        <Input
+                          placeholder="Type unit or custom value..."
+                          value={formUnit}
+                          onChange={(e) => setFormUnit(e.target.value)}
+                          className="h-8 text-xs"
+                        />
+                      ) : null}
+                    </div>
+                  ) : (
+                    <Input
+                      placeholder="e.g. Kilograms, USD, Count, %"
+                      value={formUnit}
+                      onChange={(e) => setFormUnit(e.target.value)}
+                    />
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -852,10 +904,40 @@ export function CompanyPlanHierarchyView() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="font-semibold text-foreground">Measurement Unit</label>
-                  <Input
-                    value={formUnit}
-                    onChange={(e) => setFormUnit(e.target.value)}
-                  />
+                  {availableTargetUnits.length > 0 ? (
+                    <div className="space-y-1">
+                      <select
+                        className="w-full h-9 rounded-md border border-input bg-card px-3 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-foreground"
+                        value={availableTargetUnits.includes(formUnit) ? formUnit : (formUnit ? "custom" : "")}
+                        onChange={(e) => {
+                          if (e.target.value !== "custom") {
+                            setFormUnit(e.target.value);
+                          }
+                        }}
+                      >
+                        <option value="">None / Select configured unit...</option>
+                        {availableTargetUnits.map((u) => (
+                          <option key={u} value={u}>
+                            {u}
+                          </option>
+                        ))}
+                        <option value="custom">Custom unit...</option>
+                      </select>
+                      {(!availableTargetUnits.includes(formUnit) && formUnit) || !availableTargetUnits.includes(formUnit) ? (
+                        <Input
+                          placeholder="Type unit or custom value..."
+                          value={formUnit}
+                          onChange={(e) => setFormUnit(e.target.value)}
+                          className="h-8 text-xs"
+                        />
+                      ) : null}
+                    </div>
+                  ) : (
+                    <Input
+                      value={formUnit}
+                      onChange={(e) => setFormUnit(e.target.value)}
+                    />
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -1045,6 +1127,7 @@ function HierarchyNodeItem({
   onDelete,
   onOpenTarget,
   onOpenAchievement,
+  ruleSteps,
 }: {
   node: CompanyPlanNode;
   level: number;
@@ -1060,11 +1143,12 @@ function HierarchyNodeItem({
   onDelete: (node: CompanyPlanNode) => void;
   onOpenTarget: (node: CompanyPlanNode) => void;
   onOpenAchievement: (node: CompanyPlanNode) => void;
+  ruleSteps?: any[];
 }) {
   const hasChildren = node.children && node.children.length > 0;
   const isCollapsed = !!collapsedNodes[node.company_plan_node_id];
 
-  const config = LEVEL_COLORS[node.level] || { label: `L${node.level}`, bg: "bg-card", text: "text-foreground", border: "border-border" };
+  const config = resolveLevelConfig(node.level, ruleSteps);
 
   const target = node.annual_target || node.period_target || 0;
   const actual = node.period_actual || 0;
@@ -1200,6 +1284,7 @@ function HierarchyNodeItem({
               onDelete={onDelete}
               onOpenTarget={onOpenTarget}
               onOpenAchievement={onOpenAchievement}
+              ruleSteps={ruleSteps}
             />
           ))}
         </div>
