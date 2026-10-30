@@ -146,7 +146,6 @@ async function runTests() {
         parent_id: priorityNode.regional_plan_node_id,
         title: "Goal 1.1: Gold Mining Productivity",
         type: "goal",
-        contribution_weight: 100,
         regional_structure_id: deptR1.regional_structure_id,
       },
       testUser1.user_id
@@ -162,8 +161,9 @@ async function runTests() {
         title: "KPI 1.1.1: Gold Production Volume",
         type: "kpi",
         weight: 100, // 100 Tons draft target
+        weight_mode: "number",
         contribution_weight: 50, // 50%
-        target_unit: "Tons",
+        target_unit: "Ton",
         regional_structure_id: deptR1.regional_structure_id,
       },
       testUser1.user_id
@@ -178,8 +178,9 @@ async function runTests() {
         title: "KPI 1.1.2: Licensed Artisanal Mining Sites",
         type: "kpi",
         weight: 200, // 200 Sites draft target
+        weight_mode: "number",
         contribution_weight: 50, // 50%
-        target_unit: "Sites",
+        target_unit: "Unit",
         regional_structure_id: deptR1.regional_structure_id,
       },
       testUser1.user_id
@@ -283,7 +284,7 @@ async function runTests() {
     assert(executionPeriods.length === 12, `Generated 12 execution periods across 3 annual years (4 per year)`);
 
     periodPlanQ1 = executionPeriods.find(
-      (p) => p.planning_year === 2026 && p.period_label === "Quarter 1"
+      (p) => p.planning_year === 2026 && (p.period_label === "Quarter 1" || p.period_label === "Q1")
     );
     assert(periodPlanQ1 && periodPlanQ1.version_kind === "execution_period", "Quarter 1 execution period plan verified");
 
@@ -506,7 +507,7 @@ async function runTests() {
 
     // 2. Quarter 2 period plan: Test rejection & revision workflow
     const periodPlanQ2 = executionPeriods.find(
-      (p) => p.planning_year === 2026 && p.period_label === "Quarter 2"
+      (p) => p.planning_year === 2026 && (p.period_label === "Quarter 2" || p.period_label === "Q2")
     );
     const q2Allocations = await regionalPlanService.getRegionalPeriodTargetAllocations(
       periodPlanQ2.regional_plan_version_id,

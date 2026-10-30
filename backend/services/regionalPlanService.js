@@ -49,6 +49,10 @@ const {
   getStepForLevel,
   getStepLabel,
   levelToNodeType,
+  getStepTargetRequirement,
+  stepAllowsTarget,
+  stepRequiresTarget,
+  stepTargetIsOptional,
   stepRequiresWeight,
   stepRequiresContributionWeight,
   isWeightModeSelectionLevel,
@@ -534,7 +538,9 @@ async function updateRegionalPlanRuleForVersion(versionId, regionId, payload) {
       const inputSteps = payload.steps.map((s, idx) => ({
         step_order: s.step_order || s.level || idx + 1,
         label: s.label || s.name || `Level ${idx + 1}`,
-        requires_weight: !!s.requires_weight,
+        target_requirement: s.target_requirement,
+        allow_kpi: s.allow_kpi,
+        requires_weight: s.target_requirement === "required" ? true : (s.target_requirement === "optional" || s.target_requirement === "none" ? false : !!s.requires_weight),
         requires_contribution_weight: !!s.requires_contribution_weight,
         color_hex: s.color_hex,
       }));
@@ -554,7 +560,7 @@ async function updateRegionalPlanRuleForVersion(versionId, regionId, payload) {
           node_type: step.node_type || levelToNodeType(step.step_order),
           requires_weight: step.requires_weight,
           requires_contribution_weight: step.requires_contribution_weight,
-          allow_kpi: step.step_order >= 3 || step.requires_weight,
+          allow_kpi: step.allow_kpi !== undefined ? step.allow_kpi : (step.target_requirement === "required" || step.target_requirement === "optional" ? true : (step.target_requirement === "none" ? false : Boolean(step.allow_kpi ?? step.requires_weight))),
           color_hex: step.color_hex,
         })),
         { transaction: t }
@@ -718,17 +724,19 @@ async function createRegionalPlanRule(regionId, payload) {
       const inputSteps = payload.steps.map((s, idx) => ({
         step_order: s.step_order || s.level || idx + 1,
         label: s.label || s.name || `Level ${idx + 1}`,
-        requires_weight: !!s.requires_weight,
+        target_requirement: s.target_requirement,
+        allow_kpi: s.allow_kpi,
+        requires_weight: s.target_requirement === "required" ? true : (s.target_requirement === "optional" || s.target_requirement === "none" ? false : !!s.requires_weight),
         requires_contribution_weight: !!s.requires_contribution_weight,
         color_hex: s.color_hex,
       }));
       normalizedSteps = normalizeRuleSteps(inputSteps);
     } else {
       const defaultSteps = [
-        { step_order: 1, label: "Strategic Priority", requires_weight: false, requires_contribution_weight: false, color_hex: "#8B5CF6" },
-        { step_order: 2, label: "Goal", requires_weight: false, requires_contribution_weight: false, color_hex: "#3B82F6" },
-        { step_order: 3, label: "Key Performance Indicator (KPI)", requires_weight: true, requires_contribution_weight: true, color_hex: "#10B981" },
-        { step_order: 4, label: "Operational Activity / Task", requires_weight: false, requires_contribution_weight: true, color_hex: "#F59E0B" },
+        { step_order: 1, label: "Strategic Priority", requires_weight: false, requires_contribution_weight: false, allow_kpi: false, color_hex: "#8B5CF6" },
+        { step_order: 2, label: "Goal", requires_weight: false, requires_contribution_weight: false, allow_kpi: false, color_hex: "#3B82F6" },
+        { step_order: 3, label: "Key Performance Indicator (KPI)", requires_weight: true, requires_contribution_weight: true, allow_kpi: true, color_hex: "#10B981" },
+        { step_order: 4, label: "Operational Activity / Task", requires_weight: false, requires_contribution_weight: true, allow_kpi: true, color_hex: "#F59E0B" },
       ];
       normalizedSteps = normalizeRuleSteps(defaultSteps);
     }
@@ -761,7 +769,7 @@ async function createRegionalPlanRule(regionId, payload) {
         node_type: step.node_type || levelToNodeType(step.step_order),
         requires_weight: step.requires_weight,
         requires_contribution_weight: step.requires_contribution_weight,
-        allow_kpi: step.step_order >= 3 || step.requires_weight,
+        allow_kpi: step.allow_kpi !== undefined ? step.allow_kpi : (step.target_requirement === "required" || step.target_requirement === "optional" ? true : (step.target_requirement === "none" ? false : Boolean(step.allow_kpi ?? step.requires_weight))),
         color_hex: step.color_hex,
       })),
       { transaction: t }
@@ -797,7 +805,9 @@ async function updateRegionalPlanRule(ruleId, regionId, payload) {
       const inputSteps = payload.steps.map((s, idx) => ({
         step_order: s.step_order || s.level || idx + 1,
         label: s.label || s.name || `Level ${idx + 1}`,
-        requires_weight: !!s.requires_weight,
+        target_requirement: s.target_requirement,
+        allow_kpi: s.allow_kpi,
+        requires_weight: s.target_requirement === "required" ? true : (s.target_requirement === "optional" || s.target_requirement === "none" ? false : !!s.requires_weight),
         requires_contribution_weight: !!s.requires_contribution_weight,
         color_hex: s.color_hex,
       }));
@@ -817,7 +827,7 @@ async function updateRegionalPlanRule(ruleId, regionId, payload) {
           node_type: step.node_type || levelToNodeType(step.step_order),
           requires_weight: step.requires_weight,
           requires_contribution_weight: step.requires_contribution_weight,
-          allow_kpi: step.step_order >= 3 || step.requires_weight,
+          allow_kpi: step.allow_kpi !== undefined ? step.allow_kpi : (step.target_requirement === "required" || step.target_requirement === "optional" ? true : (step.target_requirement === "none" ? false : Boolean(step.allow_kpi ?? step.requires_weight))),
           color_hex: step.color_hex,
         })),
         { transaction: t }
@@ -1428,7 +1438,10 @@ async function validateRegionalPlanNodeAgainstRule({
   }
 
   const stepLabel = getStepLabel(rule, resolvedLevel) || step.name || step.label || `Level ${resolvedLevel}`;
-  const requiresWeight = stepRequiresWeight(rule, resolvedLevel);
+  const stepTargetReq = getStepTargetRequirement(step);
+  const allowsTarget = stepAllowsTarget(step);
+  const requiresWeight = stepRequiresTarget(step);
+  const isOptionalTarget = stepTargetIsOptional(step);
   const requiresContributionWeight = stepRequiresContributionWeight(rule, resolvedLevel);
   const numericWeight = Number(weight) || 0;
   const numericContributionWeight = Number(contributionWeight) || 0;
@@ -1442,28 +1455,28 @@ async function validateRegionalPlanNodeAgainstRule({
     PlanNode: RegionalPlanNode,
   });
 
-  if (modeResult.error) {
+  if (modeResult.error && allowsTarget) {
     return { valid: false, message: modeResult.error };
   }
 
   const effectiveWeightMode = modeResult.mode;
 
-  if (requiresWeight && numericWeight <= 0) {
+  if (!allowsTarget && numericWeight > 0) {
     return {
       valid: false,
-      message: `${stepLabel} requires a weight${effectiveWeightMode ? ` (${effectiveWeightMode})` : ""}`,
+      message: `${stepLabel} does not have a target field at this level`,
     };
   }
 
-  if (!requiresWeight && numericWeight > 0) {
+  if (requiresWeight && numericWeight <= 0) {
     return {
       valid: false,
-      message: `${stepLabel} does not use weight at this level`,
+      message: `${stepLabel} requires a target value${effectiveWeightMode ? ` (${effectiveWeightMode})` : ""}`,
     };
   }
 
   const weightTarget = getWeightTarget(parent, effectiveWeightMode);
-  if (requiresWeight && weightTarget !== null) {
+  if (allowsTarget && weightTarget !== null) {
     const siblings = await RegionalPlanNode.findAll({
       where: {
         regional_plan_version_id: planVersionId,
@@ -1528,13 +1541,21 @@ async function validateRegionalPlanNodeAgainstRule({
 
   // Validate target_unit if provided
   if (targetUnit) {
+    if (!allowsTarget) {
+      return {
+        valid: false,
+        message: `${stepLabel} does not have a target field and cannot have a target unit.`,
+      };
+    }
     const config = version.planningConfiguration || (await ensureDefaultRegionalPlanningConfig(regionId, transaction));
     const validUnits = Array.isArray(config.target_units) ? config.target_units : [];
     const isKnown = validUnits.some(
       (u) =>
         typeof u === "string"
-          ? u === targetUnit
-          : u.id === targetUnit || u.label === targetUnit || u.symbol === targetUnit
+          ? u.toLowerCase() === targetUnit.toLowerCase()
+          : (u.id && u.id.toLowerCase() === targetUnit.toLowerCase()) ||
+            (u.label && u.label.toLowerCase() === targetUnit.toLowerCase()) ||
+            (u.symbol && u.symbol.toLowerCase() === targetUnit.toLowerCase())
     );
     if (validUnits.length > 0 && !isKnown) {
       return {
@@ -1549,6 +1570,11 @@ async function validateRegionalPlanNodeAgainstRule({
     rule,
     step,
     resolvedLevel,
+    allowsTarget,
+    requiresWeight,
+    isOptionalTarget,
+    targetRequirement: stepTargetReq,
+    requiresContributionWeight,
     weightMode: effectiveWeightMode,
     weightUnit: getWeightUnitLabel(effectiveWeightMode),
     stepLabel,
@@ -1610,12 +1636,14 @@ async function createRegionalPlanNode(versionId, regionId, payload, userId) {
         type: payload.type || validation.nodeType,
         title: payload.title,
         description: payload.description || null,
-        weight: Number(payload.weight) || 0,
-        weight_mode: payload.weight_mode || "percentage",
-        contribution_weight: payload.contribution_weight !== undefined ? Number(payload.contribution_weight) : null,
-        target_unit: payload.target_unit || null,
-        target_allocation_mode: payload.target_allocation_mode || "divisible",
-        achievement_mode: payload.achievement_mode || "period",
+        weight: validation.allowsTarget ? (Number(payload.weight) || 0) : 0,
+        weight_mode: validation.allowsTarget ? (payload.weight_mode || validation.weightMode || "percentage") : null,
+        contribution_weight: validation.requiresContributionWeight
+          ? (payload.contribution_weight !== undefined && payload.contribution_weight !== null ? Number(payload.contribution_weight) : null)
+          : null,
+        target_unit: (validation.allowsTarget && (validation.weightMode === "number" || payload.weight_mode === "number")) ? (payload.target_unit || null) : null,
+        target_allocation_mode: validation.allowsTarget ? (payload.target_allocation_mode || "divisible") : null,
+        achievement_mode: validation.allowsTarget ? (payload.achievement_mode || "period") : null,
         level,
         order: orderCount,
         is_active: true,
@@ -1637,11 +1665,17 @@ async function createRegionalPlanNode(versionId, regionId, payload, userId) {
       );
     }
 
+    const safeUserId =
+      typeof userId === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)
+        ? userId
+        : null;
+
     await RegionalPlanNodeActionLog.create(
       {
         action_log_id: uuidv4(),
         regional_plan_node_id: nodeId,
-        user_id: userId,
+        user_id: safeUserId,
         action: "NODE_CREATED",
         new_values: { title: payload.title, weight: payload.weight },
       },
@@ -1709,12 +1743,14 @@ async function updateRegionalPlanNode(nodeId, regionId, payload, userId) {
 
   const t = await sequelize.transaction();
   try {
+    let lastValidation = null;
     if (
       payload.weight !== undefined ||
       payload.contribution_weight !== undefined ||
-      payload.target_unit !== undefined
+      payload.target_unit !== undefined ||
+      payload.weight_mode !== undefined
     ) {
-      const validation = await validateRegionalPlanNodeAgainstRule({
+      lastValidation = await validateRegionalPlanNodeAgainstRule({
         planVersionId: node.regional_plan_version_id,
         regionId,
         parentId: node.parent_id,
@@ -1730,8 +1766,8 @@ async function updateRegionalPlanNode(nodeId, regionId, payload, userId) {
         transaction: t,
       });
 
-      if (!validation.valid) {
-        const error = new Error(validation.message);
+      if (!lastValidation.valid) {
+        const error = new Error(lastValidation.message);
         error.status = 400;
         throw error;
       }
@@ -1745,6 +1781,19 @@ async function updateRegionalPlanNode(nodeId, regionId, payload, userId) {
         prev[key] = node[key];
         node[key] = payload[key];
         next[key] = payload[key];
+      }
+    }
+
+    if (lastValidation) {
+      if (!lastValidation.allowsTarget) {
+        node.weight = 0;
+        node.weight_mode = null;
+        node.target_unit = null;
+        node.target_allocation_mode = null;
+        node.achievement_mode = null;
+      }
+      if (!lastValidation.requiresContributionWeight) {
+        node.contribution_weight = null;
       }
     }
 
@@ -1771,11 +1820,17 @@ async function updateRegionalPlanNode(nodeId, regionId, payload, userId) {
       }
     }
 
+    const safeUserId =
+      typeof userId === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)
+        ? userId
+        : null;
+
     await RegionalPlanNodeActionLog.create(
       {
         action_log_id: uuidv4(),
         regional_plan_node_id: nodeId,
-        user_id: userId,
+        user_id: safeUserId,
         action: "NODE_UPDATED",
         previous_values: prev,
         new_values: next,
@@ -2143,6 +2198,12 @@ async function getRegionalAnnualTargetAllocations(annualVersionId, regionId) {
 
 async function updateRegionalAnnualTarget(nodeId, regionId, annualTarget, userId) {
   const node = await getRegionalPlanNodeById(nodeId, regionId);
+  const version = await getRegionalPlanVersionById(node.regional_plan_version_id, regionId);
+  if (version && version.planRule && !stepAllowsTarget(version.planRule, node.level)) {
+    const error = new Error(`${getStepLabel(version.planRule, node.level)} does not have a target field and cannot have an annual target.`);
+    error.status = 400;
+    throw error;
+  }
   node.annual_target = Number(annualTarget);
   await node.save();
   return node;
@@ -2242,7 +2303,8 @@ async function initializeRegionalExecutionPeriods(
     throw new Error("Finalize annual execution targets before initializing execution periods");
   }
 
-  const config = await ensureDefaultRegionalPlanningConfig(regionId);
+  const config =
+    master.planningConfiguration || (await ensureDefaultRegionalPlanningConfig(regionId));
   const effectiveMode = subdivisionMode || config.breakdown_mode || "quarterly";
   const effectiveCustom =
     customPeriods && customPeriods.length > 0 ? customPeriods : config.custom_periods || [];
@@ -2356,6 +2418,12 @@ async function getRegionalPeriodTargetAllocations(periodVersionId, regionId) {
 
 async function updateRegionalPeriodTarget(nodeId, regionId, periodTarget, userId) {
   const node = await getRegionalPlanNodeById(nodeId, regionId);
+  const version = await getRegionalPlanVersionById(node.regional_plan_version_id, regionId);
+  if (version && version.planRule && !stepAllowsTarget(version.planRule, node.level)) {
+    const error = new Error(`${getStepLabel(version.planRule, node.level)} does not have a target field and cannot have a period target.`);
+    error.status = 400;
+    throw error;
+  }
   node.period_target = Number(periodTarget);
   await node.save();
   return node;

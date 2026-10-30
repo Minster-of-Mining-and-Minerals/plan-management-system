@@ -26,6 +26,15 @@ const planUpdateAccess = checkAnyPermission([
   { resource: "REGIONS", action: "MANAGE" },
 ]);
 
+const planNodeMutationAccess = checkAnyPermission([
+  { resource: "REGIONAL_PLANS", action: "CREATE" },
+  { resource: "REGIONAL_PLANS", action: "UPDATE" },
+  { resource: "REGIONAL_PLANS", action: "MANAGE" },
+  { resource: "REGIONS", action: "CREATE" },
+  { resource: "REGIONS", action: "UPDATE" },
+  { resource: "REGIONS", action: "MANAGE" },
+]);
+
 const planDeleteAccess = checkAnyPermission([
   { resource: "REGIONAL_PLANS", action: "DELETE" },
   { resource: "REGIONAL_PLANS", action: "MANAGE" },
@@ -243,11 +252,11 @@ router.get("/versions/:id/hierarchy", planReadAccess, regionalPlanController.get
 // -------------------------------------------------------------
 // 4. Plan Nodes
 // -------------------------------------------------------------
-router.post("/nodes", planUpdateAccess, regionalPlanController.createPlanNodeHandler);
+router.post("/nodes", planNodeMutationAccess, regionalPlanController.createPlanNodeHandler);
 router.get("/nodes/:id", planReadAccess, regionalPlanController.getPlanNodeByIdHandler);
-router.put("/nodes/:id", planUpdateAccess, regionalPlanController.updatePlanNodeHandler);
+router.put("/nodes/:id", planNodeMutationAccess, regionalPlanController.updatePlanNodeHandler);
 router.delete("/nodes/:id", planDeleteAccess, regionalPlanController.deletePlanNodeHandler);
-router.post("/nodes/reorder", planUpdateAccess, regionalPlanController.reorderPlanNodesHandler);
+router.post("/nodes/reorder", planNodeMutationAccess, regionalPlanController.reorderPlanNodesHandler);
 
 // Target Updates
 router.patch("/nodes/:id/annual-target", planUpdateAccess, regionalPlanController.updateAnnualTargetHandler);

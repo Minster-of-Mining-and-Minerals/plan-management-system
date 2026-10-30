@@ -399,6 +399,7 @@ interface PlanHierarchyTreeProps {
     canEditContribution?: boolean;
     onDistributeContributionEqually?: (parent: PlanNode, children: PlanNode[]) => void;
     isDistributingContribution?: boolean;
+    configuredUnits?: TargetUnit[];
 }
 
 export function PlanHierarchyTree({
@@ -434,12 +435,13 @@ export function PlanHierarchyTree({
     canEditContribution = false,
     onDistributeContributionEqually,
     isDistributingContribution = false,
+    configuredUnits: propsConfiguredUnits,
 }: PlanHierarchyTreeProps) {
     const { config: planningConfig } = useEffectivePlanningConfiguration({
         governmentStructureId,
         skip: !governmentStructureId,
     });
-    const configuredUnits = planningConfig?.target_units;
+    const configuredUnits = propsConfiguredUnits ?? planningConfig?.target_units;
     const sortedNodes = useMemo(() => nodes, [nodes]);
 
     if (scoped) {

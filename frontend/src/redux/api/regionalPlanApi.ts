@@ -570,6 +570,18 @@ export const regionalPlanApi = baseApi.injectEndpoints({
       invalidatesTags: ["RegionalPlanNodes"],
     }),
 
+    reorderRegionalPlanNodes: builder.mutation<
+      { success: boolean },
+      { versionId: string; region_id: string; ordered_node_ids: string[] }
+    >({
+      query: ({ versionId, region_id, ordered_node_ids }) => ({
+        url: `/regional/plans/nodes/reorder?region_id=${region_id}`,
+        method: "POST",
+        body: { version_id: versionId, ordered_node_ids },
+      }),
+      invalidatesTags: ["RegionalPlanNodes"],
+    }),
+
     // -------------------------------------------------------------
     // Execution Reporting & Achievements
     // -------------------------------------------------------------
@@ -729,6 +741,7 @@ export const {
   useGetRegionalPlanNodeByIdQuery,
   useUpdateRegionalPlanNodeMutation,
   useDeleteRegionalPlanNodeMutation,
+  useReorderRegionalPlanNodesMutation,
   useUpdateRegionalPeriodActualMutation,
   useSubmitRegionalAchievementMutation,
   useApproveRegionalAchievementMutation,

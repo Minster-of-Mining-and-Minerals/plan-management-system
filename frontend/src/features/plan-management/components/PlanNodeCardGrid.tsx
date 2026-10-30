@@ -5,6 +5,7 @@ import { ChevronRight, Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { PlanNodeHierarchy, PlanNode, PlanRule, AnnualTargetAllocation, PeriodTargetAllocation } from "@/redux/types/plan";
+import type { TargetUnit } from "@/redux/types/planningConfig";
 import {
     formatNodeTarget,
     getStepLabel,
@@ -66,6 +67,7 @@ interface PlanNodeCardGridProps {
     dangerMode?: boolean;
     showRaiseIssue?: boolean;
     governmentStructureId?: string;
+    configuredUnits?: TargetUnit[];
 }
 
 export function PlanNodeCardGrid({
@@ -99,12 +101,13 @@ export function PlanNodeCardGrid({
     dangerMode = false,
     showRaiseIssue = false,
     governmentStructureId,
+    configuredUnits: propsConfiguredUnits,
 }: PlanNodeCardGridProps) {
     const { config: planningConfig } = useEffectivePlanningConfiguration({
         governmentStructureId,
         skip: !governmentStructureId,
     });
-    const configuredUnits = planningConfig?.target_units;
+    const configuredUnits = propsConfiguredUnits ?? planningConfig?.target_units;
     const thresholds = usePerformanceColorThresholds();
 
     const sortedNodes = useMemo(() => nodes, [nodes]);

@@ -8,6 +8,7 @@ import { PlanNodeOrderControls } from "./PlanNodeOrderControls";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import {
     PLAN_PERMISSIONS,
+    PLAN_READ_PERMISSIONS,
     PLAN_STRUCTURE_MUTATION_PERMISSIONS,
 } from "@/utils/planPermissionUtils";
 import { RaiseIssueButton } from "./RaiseIssueButton";
@@ -86,7 +87,7 @@ export function PlanNodeActions({
                     className={`${iconClass} text-amber-600 hover:text-amber-700 hover:bg-amber-50`}
                 />
             )}
-            <PermissionGuard requireAll={[PLAN_PERMISSIONS.READ]}>
+            <PermissionGuard requireAny={PLAN_READ_PERMISSIONS}>
                 <Button
                     onClick={handleView}
                     variant="ghost"

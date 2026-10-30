@@ -195,6 +195,15 @@ export const PLAN_RULES_MUTATION_PERMISSIONS: PermissionKey[] = [
   PLAN_RULES_PERMISSIONS.UPDATE,
 ];
 
+/** Read access for plan versions and nodes */
+export const PLAN_READ_PERMISSIONS: PermissionKey[] = [
+  PLAN_PERMISSIONS.READ,
+  "REGIONAL_PLANS:READ",
+  "REGIONAL_PLANS:MANAGE",
+  "REGIONS:READ",
+  "REGIONS:MANAGE",
+];
+
 /** Edit draft nodes, targets, initialize periods */
 export const PLAN_UPDATE_PERMISSIONS: PermissionKey[] = [PLAN_PERMISSIONS.UPDATE];
 
@@ -205,6 +214,9 @@ export const PLAN_APPROVE_PERMISSIONS: PermissionKey[] = [PLAN_PERMISSIONS.APPRO
 export const PLAN_STRUCTURE_MUTATION_PERMISSIONS: PermissionKey[] = [
   PLAN_PERMISSIONS.UPDATE,
   PLAN_PERMISSIONS.EDIT_FINALIZED,
+  "REGIONAL_PLANS:UPDATE",
+  "REGIONAL_PLANS:MANAGE",
+  "REGIONS:MANAGE",
 ];
 
 /** Create assignments on draft or finalized master */

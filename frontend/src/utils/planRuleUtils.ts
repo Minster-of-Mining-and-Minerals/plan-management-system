@@ -41,13 +41,50 @@ export function getWeightUnitLabel(
     }
 }
 
+export type StepTargetRequirement = "required" | "optional" | "none";
+
+export function getStepTargetRequirement(
+    ruleOrStep: any,
+    level?: number
+): StepTargetRequirement {
+    let step = ruleOrStep;
+    if (level != null && ruleOrStep?.steps) {
+        step = getStepForLevel(ruleOrStep, level);
+    }
+    if (!step) return "none";
+
+    if (step.target_requirement) {
+        return step.target_requirement;
+    }
+    if (Boolean(step.requires_weight)) {
+        return "required";
+    }
+    if (Boolean(step.allow_kpi ?? step.allow_target)) {
+        return "optional";
+    }
+    return "none";
+}
+
+export function stepAllowsTarget(ruleOrStep: any, level?: number): boolean {
+    const req = getStepTargetRequirement(ruleOrStep, level);
+    return req === "required" || req === "optional";
+}
+
+export function stepRequiresTarget(ruleOrStep: any, level?: number): boolean {
+    return getStepTargetRequirement(ruleOrStep, level) === "required";
+}
+
+export function stepTargetIsOptional(ruleOrStep: any, level?: number): boolean {
+    return getStepTargetRequirement(ruleOrStep, level) === "optional";
+}
+
 export function resolveNodeTargetUnit(
     rule: PlanRule | null | undefined,
     level: number,
     parent?: PlanNode | null,
     node?: PlanNode | null
 ): string | null {
-    if (!stepRequiresWeight(rule, level)) return null;
+    if (!stepAllowsTarget(rule, level)) return null;
     if (isWeightModeSelectionLevel(rule, level)) {
         return node?.target_unit ?? null;
     }
@@ -61,11 +98,15 @@ export function sortSteps(steps: PlanRuleStep[]): PlanRuleStep[] {
 export function getWeightStartLevel(rule?: PlanRule | any | null): number | null {
     if (!rule?.steps?.length) return null;
     const sorted = sortSteps(rule.steps);
-    const startStep = sorted.find((s) => s.requires_weight);
+    const startStep = sorted.find((s) => stepAllowsTarget(s));
     return startStep?.step_order ?? (startStep as any)?.level ?? null;
 }
 
 export function stepRequiresWeight(rule: PlanRule | any | null | undefined, level: number): boolean {
+    const step = getStepForLevel(rule, level);
+    if (step) {
+        return stepRequiresTarget(step);
+    }
     const start = getWeightStartLevel(rule);
     return start !== null && level >= start;
 }

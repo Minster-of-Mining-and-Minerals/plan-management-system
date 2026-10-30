@@ -1,50 +1,40 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import {
   GitBranch,
   Layers,
   Plus,
-  Edit2,
-  Trash2,
   ArrowUp,
   ArrowDown,
   CheckCircle2,
   Clock,
   AlertCircle,
-  ShieldCheck,
   ChevronRight,
-  ChevronDown,
-  ChevronLeft,
-  Building2,
-  User as UserIcon,
   Target,
-  TrendingUp,
   Search,
-  Filter,
   BarChart3,
   Calendar,
+  CalendarDays,
   Lock,
+  Unlock,
   ListTree,
   LayoutGrid,
   Table2,
-  Sparkles,
-  FileText,
-  RotateCcw,
-  Check,
-  X,
-  History,
+  Home,
+  Sliders,
+  Trash2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -58,41 +48,35 @@ import {
   useCreateRegionalPlanNodeMutation,
   useUpdateRegionalPlanNodeMutation,
   useDeleteRegionalPlanNodeMutation,
-  useUpdateRegionalPeriodActualMutation,
-  useUpdateRegionalAnnualTargetMutation,
-  useUpdateRegionalPeriodTargetMutation,
-  useSubmitRegionalAchievementMutation,
-  useApproveRegionalAchievementMutation,
-  useRejectRegionalAchievementMutation,
-  useValidateRegionalAchievementMutation,
-  useRejectValidationRegionalAchievementMutation,
+  useReorderRegionalPlanNodesMutation,
+  useGetRegionalAnnualVersionsQuery,
+  useGetRegionalExecutionPeriodsQuery,
+  useInitializeRegionalExecutionPeriodsMutation,
+  useFinalizeRegionalAnnualExecutionMutation,
+  useFinalizeRegionalPeriodTargetsMutation,
 } from "@/redux/api/regionalPlanApi";
-import { useGetRegionalStructuresQuery } from "@/redux/api/regionApi";
-import { useGetUsersQuery } from "@/redux/api/userApi";
 import type { RegionalPlanNode, RegionalPlanVersion } from "@/redux/types/regionalPlan";
+import type { PlanNode, PlanNodeHierarchy } from "@/redux/types/plan";
+import type { TargetUnit } from "@/redux/types/planningConfig";
 import {
   getStepLabel,
-  getStepColorHex,
   getMaxRuleDepth,
   canAddChild,
-  stepRequiresWeight,
-  stepRequiresContributionWeight,
-  hexToRgba,
 } from "@/utils/planRuleUtils";
+import {
+  buildHierarchyNumberMap,
+  buildSiblingReorderPayload,
+  getHierarchyNumber,
+} from "@/utils/planNodeOrderUtils";
+import { RegionalPlanVersionSubNav } from "./components/RegionalPlanVersionSubNav";
+import { CreateRegionalPlanNodeModal } from "./modals/CreateRegionalPlanNodeModal";
+import { PlanNodeCardGrid } from "@/features/plan-management/components/PlanNodeCardGrid";
+import { PlanHierarchyTree } from "@/features/plan-management/components/PlanHierarchyTree";
+import { PlanHierarchyTableView } from "@/features/plan-management/components/PlanHierarchyTableView";
+import { PlanNodeHierarchyNumber } from "@/features/plan-management/components/PlanNodeHierarchyNumber";
 
-function getDynamicLevelInfo(level: number, rule?: any) {
-  const label = getStepLabel(rule, level);
-  const color = getStepColorHex(rule, level);
-  return {
-    label,
-    color,
-    badgeStyle: {
-      backgroundColor: hexToRgba(color, 0.12),
-      color: color,
-      borderColor: hexToRgba(color, 0.35),
-    },
-  };
-}
+type ViewMode = "card" | "hierarchy" | "table";
+type HierarchyTab = "hierarchy" | "annual" | "periods";
 
 export function RegionalPlanHierarchyView() {
   const router = useRouter();
@@ -102,43 +86,25 @@ export function RegionalPlanHierarchyView() {
   const versionId = params?.versionId;
   const { can } = usePermissions();
 
-  const [viewMode, setViewMode] = useState<"tree" | "cards" | "table">("tree");
+  const [activeTab, setActiveTab] = useState<HierarchyTab>("hierarchy");
+  const [viewMode, setViewMode] = useState<ViewMode>("hierarchy");
   const [search, setSearch] = useState("");
-  const [levelFilter, setLevelFilter] = useState<number | "all">("all");
-  const [collapsedNodes, setCollapsedNodes] = useState<Record<string, boolean>>({});
+  const [pathIds, setPathIds] = useState<string[]>([]);
 
   // Modals state
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isNodeModalOpen, setIsNodeModalOpen] = useState(false);
   const [parentNodeForCreate, setParentNodeForCreate] = useState<RegionalPlanNode | null>(null);
-
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedNodeForEdit, setSelectedNodeForEdit] = useState<RegionalPlanNode | null>(null);
 
-  const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
-  const [selectedNodeForTarget, setSelectedNodeForTarget] = useState<RegionalPlanNode | null>(null);
-  const [targetValue, setTargetValue] = useState<number>(0);
-
-  const [isActualModalOpen, setIsActualModalOpen] = useState(false);
-  const [selectedNodeForActual, setSelectedNodeForActual] = useState<RegionalPlanNode | null>(null);
-  const [actualValue, setActualValue] = useState<number>(0);
-  const [narration, setNarration] = useState<string>("");
-
-  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
-  const [selectedNodeForReject, setSelectedNodeForReject] = useState<RegionalPlanNode | null>(null);
-  const [rejectReason, setRejectReason] = useState("");
-  const [rejectType, setRejectType] = useState<"approval" | "validation">("approval");
-
-  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
-  const [selectedNodeForHistory, setSelectedNodeForHistory] = useState<RegionalPlanNode | null>(null);
-
-  // Form states for Create/Edit node
-  const [nodeTitle, setNodeTitle] = useState("");
-  const [nodeDesc, setNodeDesc] = useState("");
-  const [nodeWeight, setNodeWeight] = useState<number>(0);
-  const [nodeContribWeight, setNodeContribWeight] = useState<number>(100);
-  const [nodeTargetUnit, setNodeTargetUnit] = useState("Units");
-  const [nodeStructureId, setNodeStructureId] = useState<string>("");
-  const [nodeUserId, setNodeUserId] = useState<string>("");
+  // Period initialization modal
+  const [isInitPeriodsOpen, setIsInitPeriodsOpen] = useState(false);
+  const [subdivisionMode, setSubdivisionMode] = useState<"quarterly" | "semi_annual" | "monthly" | "custom">("quarterly");
+  const [customPeriods, setCustomPeriods] = useState<Array<{ label: string }>>([
+    { label: "Quarter 1" },
+    { label: "Quarter 2" },
+    { label: "Quarter 3" },
+    { label: "Quarter 4" },
+  ]);
 
   // Queries
   const {
@@ -147,159 +113,210 @@ export function RegionalPlanHierarchyView() {
     isFetching,
     refetch,
   } = useGetRegionalPlanHierarchyQuery(
-    { id: versionId, region_id: regionId },
+    { id: versionId!, region_id: regionId! },
     { skip: !versionId || !regionId }
   );
 
-  const { data: departments = [] } = useGetRegionalStructuresQuery(
-    { region_id: regionId },
-    { skip: !regionId }
+  const { data: annualVersions = [], refetch: refetchAnnuals } = useGetRegionalAnnualVersionsQuery(
+    { id: versionId!, region_id: regionId! },
+    { skip: !versionId || !regionId }
   );
 
-  const { data: users = [] } = useGetUsersQuery(
-    { region_id: regionId },
-    { skip: !regionId }
+  const { data: executionPeriods = [], refetch: refetchPeriods } = useGetRegionalExecutionPeriodsQuery(
+    { id: versionId!, region_id: regionId! },
+    { skip: !versionId || !regionId }
   );
 
   // Mutations
-  const [createNode, { isLoading: isCreatingNode }] = useCreateRegionalPlanNodeMutation();
-  const [updateNode, { isLoading: isUpdatingNode }] = useUpdateRegionalPlanNodeMutation();
-  const [deleteNode, { isLoading: isDeletingNode }] = useDeleteRegionalPlanNodeMutation();
-
-  const [updateAnnualTarget] = useUpdateRegionalAnnualTargetMutation();
-  const [updatePeriodTarget] = useUpdateRegionalPeriodTargetMutation();
-  const [updatePeriodActual, { isLoading: isSavingActual }] = useUpdateRegionalPeriodActualMutation();
-  const [submitAchievement, { isLoading: isSubmitting }] = useSubmitRegionalAchievementMutation();
-  const [approveAchievement, { isLoading: isApproving }] = useApproveRegionalAchievementMutation();
-  const [rejectAchievement, { isLoading: isRejecting }] = useRejectRegionalAchievementMutation();
-  const [validateAchievement, { isLoading: isValidating }] = useValidateRegionalAchievementMutation();
-  const [rejectValidation, { isLoading: isRejectingValidation }] = useRejectValidationRegionalAchievementMutation();
+  const [deleteNode] = useDeleteRegionalPlanNodeMutation();
+  const [reorderRegionalNodes, { isLoading: isReordering }] = useReorderRegionalPlanNodesMutation();
+  const [initPeriods, { isLoading: isInitializingPeriods }] = useInitializeRegionalExecutionPeriodsMutation();
+  const [finalizeAnnual, { isLoading: isFinalizingAnnual }] = useFinalizeRegionalAnnualExecutionMutation();
+  const [finalizePeriods, { isLoading: isFinalizingPeriods }] = useFinalizeRegionalPeriodTargetsMutation();
 
   // Permission flags
   const canUpdatePlan = can("REGIONAL_PLANS:UPDATE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
-  const canExecute = can("REGIONAL_PLANS:EXECUTE_ACHIEVEMENT") || canUpdatePlan;
-  const canApprove = can("REGIONAL_PLANS:APPROVE_ACHIEVEMENT") || canUpdatePlan;
-  const canValidate = can("REGIONAL_PLANS:VALIDATE_ACHIEVEMENT") || can("REGIONAL_PLANS:FINALIZE") || can("REGIONS:MANAGE");
+  const canFinalize = can("REGIONAL_PLANS:FINALIZE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
 
   const plan = hierarchyData?.version;
   const rawNodes = hierarchyData?.nodes || [];
 
-  // Toggle node collapse in tree
-  const toggleCollapse = (nodeId: string) => {
-    setCollapsedNodes((prev) => ({ ...prev, [nodeId]: !prev[nodeId] }));
-  };
+  // Sync subdivision mode from configuration if available
+  useEffect(() => {
+    if (plan?.planningConfiguration?.breakdown_mode) {
+      setSubdivisionMode(plan.planningConfiguration.breakdown_mode as any);
+    }
+  }, [plan]);
 
-  // Build recursive hierarchy tree
-  const { treeRoots, nodeMap } = useMemo(() => {
-    const map = new Map<string, RegionalPlanNode & { children: any[] }>();
-    rawNodes.forEach((n) => {
-      map.set(n.regional_plan_node_id, { ...n, children: [] });
-    });
+  // Tab switching from URL
+  useEffect(() => {
+    const tabFromUrl = searchParams.get("tab");
+    if (tabFromUrl === "annual") {
+      setActiveTab("annual");
+    } else if (tabFromUrl === "periods") {
+      setActiveTab("periods");
+    } else if (tabFromUrl === "hierarchy") {
+      setActiveTab("hierarchy");
+    }
+  }, [searchParams]);
 
-    const roots: (RegionalPlanNode & { children: any[] })[] = [];
-    rawNodes.forEach((n) => {
-      const current = map.get(n.regional_plan_node_id)!;
-      if (n.parent_id && map.has(n.parent_id)) {
-        map.get(n.parent_id)!.children.push(current);
-      } else {
-        roots.push(current);
+  // Build tree hierarchy and map to PlanNodeHierarchy
+  const { treeRoots, rawNodeMap } = useMemo(() => {
+    const rawMap = new Map<string, RegionalPlanNode>();
+    rawNodes.forEach((n) => rawMap.set(n.regional_plan_node_id, n));
+
+    const childrenByParent = new Map<string, RegionalPlanNode[]>();
+    rawNodes.forEach((node) => {
+      if (node.parent_id) {
+        const list = childrenByParent.get(node.parent_id) || [];
+        list.push(node);
+        childrenByParent.set(node.parent_id, list);
       }
     });
 
-    return { treeRoots: roots, nodeMap: map };
+    function mapNodeToHierarchy(n: RegionalPlanNode): PlanNodeHierarchy {
+      const childNodes = childrenByParent.get(n.regional_plan_node_id) || [];
+      const mappedChildren = childNodes.map(mapNodeToHierarchy);
+      const { parent: _unusedParent, internalAssignments: _unusedIA, ...restNode } = n;
+
+      return {
+        ...restNode,
+        parent: undefined,
+        internalAssignments: (n.internalAssignments as any) || [],
+        plan_node_id: n.regional_plan_node_id,
+        plan_version_id: n.regional_plan_version_id,
+        parent_id: n.parent_id || null,
+        type: (n.type || "kpi") as any,
+        title: n.title,
+        description: n.description || null,
+        weight: Number(n.weight) || 0,
+        weight_mode: (n.weight_mode || null) as any,
+        contribution_weight: n.contribution_weight != null ? Number(n.contribution_weight) : null,
+        target_unit: n.target_unit || null,
+        target_allocation_mode: (n.target_allocation_mode || null) as any,
+        achievement_mode: (n.achievement_mode || null) as any,
+        level: n.level,
+        order: n.order,
+        is_active: n.is_active,
+        assignment_sharing_mode: (n.assignment_sharing_mode || "exclusive") as any,
+        annual_target: n.annual_target != null ? Number(n.annual_target) : null,
+        period_target: n.period_target != null ? Number(n.period_target) : null,
+        period_actual: n.period_actual != null ? Number(n.period_actual) : null,
+        period_actual_status: (n.period_actual_status || "empty") as any,
+        execution_progress_percent: n.execution_progress_percent != null ? Number(n.execution_progress_percent) : null,
+        computed_period_actual: (n as any).computed_period_actual != null ? Number((n as any).computed_period_actual) : null,
+        computed_period_target: (n as any).computed_period_target != null ? Number((n as any).computed_period_target) : null,
+        created_at: (n as any).created_at || "",
+        updated_at: (n as any).updated_at || "",
+        deleted_at: null,
+        children: mappedChildren,
+        has_children: mappedChildren.length > 0,
+        child_count: mappedChildren.length,
+      };
+    }
+
+    const roots = rawNodes.filter((n) => !n.parent_id || !rawMap.has(n.parent_id));
+    const mappedRoots = roots.map(mapNodeToHierarchy);
+
+    return { treeRoots: mappedRoots, rawNodeMap: rawMap };
   }, [rawNodes]);
+
+  const hierarchyNumberMap = useMemo(() => {
+    return buildHierarchyNumberMap(treeRoots);
+  }, [treeRoots]);
+
+  const configuredUnits: TargetUnit[] = useMemo(() => {
+    const raw = plan?.planningConfiguration?.target_units;
+    if (!raw || !Array.isArray(raw)) return [];
+    return raw.map((u: any, i: number) => {
+      if (typeof u === "string") {
+        return { id: u.toLowerCase().replace(/\s+/g, "_"), label: u, symbol: u };
+      }
+      return {
+        id: u.id || `unit-${i}`,
+        label: u.label || `Unit ${i + 1}`,
+        symbol: u.symbol || u.label,
+      };
+    });
+  }, [plan?.planningConfiguration?.target_units]);
+
+  // Current level nodes for cards view
+  const currentNodes = useMemo(() => {
+    let nodes = treeRoots;
+    for (const id of pathIds) {
+      const found = nodes.find((n) => n.plan_node_id === id);
+      if (!found) return [];
+      nodes = (found.children as PlanNodeHierarchy[]) ?? [];
+    }
+    return search.trim()
+      ? nodes.filter((n) => n.title.toLowerCase().includes(search.toLowerCase()))
+      : nodes;
+  }, [treeRoots, pathIds, search]);
+
+  // Breadcrumbs path
+  const breadcrumbPath = useMemo(() => {
+    const path: PlanNodeHierarchy[] = [];
+    let nodes = treeRoots;
+    for (const id of pathIds) {
+      const found = nodes.find((n) => n.plan_node_id === id);
+      if (!found) break;
+      path.push(found);
+      nodes = (found.children as PlanNodeHierarchy[]) ?? [];
+    }
+    return path;
+  }, [treeRoots, pathIds]);
+
+  const isAtRoot = breadcrumbPath.length === 0;
+  const currentParentNode = breadcrumbPath.length > 0 ? breadcrumbPath[breadcrumbPath.length - 1] : null;
+  const currentParentRegionalNode = currentParentNode ? rawNodeMap.get(currentParentNode.plan_node_id) || null : null;
+  const currentLevel = currentParentNode ? currentParentNode.level + 1 : 1;
+  const currentChildLabel = getStepLabel(plan?.planRule, currentLevel);
+  const rootLabel = getStepLabel(plan?.planRule, 1);
+
+  const handleBreadcrumbClick = (index: number) => {
+    if (index === -1) {
+      setPathIds([]);
+    } else {
+      setPathIds(pathIds.slice(0, index + 1));
+    }
+  };
+
+  const handleDrillDown = (node: PlanNodeHierarchy) => {
+    setPathIds((prev) => [...prev, node.plan_node_id]);
+  };
 
   // Open Create Modal
   const openCreateModal = (parent: RegionalPlanNode | null = null) => {
     setParentNodeForCreate(parent);
-    setNodeTitle("");
-    setNodeDesc("");
-    setNodeWeight(0);
-    setNodeContribWeight(100);
-    setNodeTargetUnit("Units");
-    setNodeStructureId(parent?.internalAssignments?.[0]?.regional_structure_id || "");
-    setNodeUserId("");
-    setIsCreateModalOpen(true);
-  };
-
-  // Handle Create Node
-  const handleCreateNode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!nodeTitle.trim()) {
-      actionFeedback.error("Title is required");
-      return;
-    }
-
-    try {
-      await createNode({
-        region_id: regionId,
-        data: {
-          regional_plan_version_id: versionId,
-          parent_id: parentNodeForCreate ? parentNodeForCreate.regional_plan_node_id : undefined,
-          title: nodeTitle.trim(),
-          description: nodeDesc.trim() || undefined,
-          weight: Number(nodeWeight) || 0,
-          contribution_weight: Number(nodeContribWeight) || 100,
-          target_unit: nodeTargetUnit,
-          regional_structure_id: nodeStructureId || undefined,
-          assigned_user_id: nodeUserId || undefined,
-        },
-      }).unwrap();
-
-      actionFeedback.success("Node created successfully");
-      setIsCreateModalOpen(false);
-      refetch();
-    } catch (err: any) {
-      actionFeedback.error(err?.data?.message || err?.message || "Failed to create node");
-    }
+    setSelectedNodeForEdit(null);
+    setIsNodeModalOpen(true);
   };
 
   // Open Edit Modal
   const openEditModal = (node: RegionalPlanNode) => {
     setSelectedNodeForEdit(node);
-    setNodeTitle(node.title);
-    setNodeDesc(node.description || "");
-    setNodeWeight(Number(node.weight) || 0);
-    setNodeContribWeight(node.contribution_weight !== undefined ? Number(node.contribution_weight) : 100);
-    setNodeTargetUnit(node.target_unit || "Units");
-    setNodeStructureId(node.internalAssignments?.[0]?.regional_structure_id || "");
-    setNodeUserId(node.internalAssignments?.[0]?.assignedUser?.user_id || "");
-    setIsEditModalOpen(true);
+    setParentNodeForCreate(null);
+    setIsNodeModalOpen(true);
   };
 
-  // Handle Update Node
-  const handleUpdateNode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedNodeForEdit || !nodeTitle.trim()) return;
+  const handleAddChild = (parent: PlanNode) => {
+    const regionalParent = rawNodeMap.get(parent.plan_node_id) || null;
+    openCreateModal(regionalParent);
+  };
 
-    try {
-      await updateNode({
-        id: selectedNodeForEdit.regional_plan_node_id,
-        region_id: regionId,
-        data: {
-          title: nodeTitle.trim(),
-          description: nodeDesc.trim() || undefined,
-          weight: Number(nodeWeight) || 0,
-          contribution_weight: Number(nodeContribWeight) || 100,
-          target_unit: nodeTargetUnit,
-          regional_structure_id: nodeStructureId || undefined,
-        },
-      }).unwrap();
-
-      actionFeedback.success("Node updated successfully");
-      setIsEditModalOpen(false);
-      refetch();
-    } catch (err: any) {
-      actionFeedback.error(err?.data?.message || err?.message || "Failed to update node");
+  const handleEdit = (node: PlanNode) => {
+    const regionalNode = rawNodeMap.get(node.plan_node_id) || null;
+    if (regionalNode) {
+      openEditModal(regionalNode);
     }
   };
 
-  // Handle Delete Node
-  const handleDeleteNode = async (node: RegionalPlanNode) => {
-    if (!confirm(`Are you sure you want to delete "${node.title}" and any subordinate nodes?`)) return;
+  const handleDelete = async (id: string) => {
+    const targetNode = rawNodeMap.get(id);
+    if (!confirm(`Are you sure you want to delete "${targetNode?.title || "this node"}" and any subordinate nodes?`)) return;
 
     try {
-      await deleteNode({ id: node.regional_plan_node_id, region_id: regionId }).unwrap();
+      await deleteNode({ id, region_id: regionId! }).unwrap();
       actionFeedback.success("Node deleted successfully");
       refetch();
     } catch (err: any) {
@@ -307,180 +324,139 @@ export function RegionalPlanHierarchyView() {
     }
   };
 
-  // Open Target Modal
-  const openTargetModal = (node: RegionalPlanNode) => {
-    setSelectedNodeForTarget(node);
-    const current = plan?.version_kind === "execution_period" ? node.period_target : node.annual_target;
-    setTargetValue(Number(current) || 0);
-    setIsTargetModalOpen(true);
+  const handleViewDetails = (nodeId: string) => {
+    router.push(`/regions/${regionId}/plans/${versionId}/nodes/${nodeId}`);
   };
 
-  // Save Target
-  const handleSaveTarget = async () => {
-    if (!selectedNodeForTarget) return;
+  const handleMoveNode = async (
+    nodeId: string,
+    direction: "up" | "down",
+    siblings: PlanNode[]
+  ) => {
+    const payload = buildSiblingReorderPayload(siblings, nodeId, direction);
+    if (!payload) return;
     try {
-      if (plan?.version_kind === "execution_period") {
-        await updatePeriodTarget({
-          nodeId: selectedNodeForTarget.regional_plan_node_id,
-          region_id: regionId,
-          period_target: Number(targetValue),
-        }).unwrap();
-      } else {
-        await updateAnnualTarget({
-          nodeId: selectedNodeForTarget.regional_plan_node_id,
-          region_id: regionId,
-          annual_target: Number(targetValue),
-        }).unwrap();
-      }
-
-      actionFeedback.success("Target allocated successfully");
-      setIsTargetModalOpen(false);
-      refetch();
-    } catch (err: any) {
-      actionFeedback.error(err?.data?.message || err?.message || "Failed to allocate target");
-    }
-  };
-
-  // Open Actual Modal
-  const openActualModal = (node: RegionalPlanNode) => {
-    setSelectedNodeForActual(node);
-    setActualValue(Number(node.period_actual) || 0);
-    setNarration(node.narration || "");
-    setIsActualModalOpen(true);
-  };
-
-  // Save or Submit Actual
-  const handleSaveActual = async (andSubmit = false) => {
-    if (!selectedNodeForActual) return;
-    try {
-      await updatePeriodActual({
-        nodeId: selectedNodeForActual.regional_plan_node_id,
-        region_id: regionId,
-        data: {
-          period_actual: Number(actualValue),
-          narration,
-        },
+      const ordered_node_ids = payload.nodeOrders.map((no) => no.plan_node_id);
+      await reorderRegionalNodes({
+        versionId: versionId!,
+        region_id: regionId!,
+        ordered_node_ids,
       }).unwrap();
-
-      if (andSubmit) {
-        await submitAchievement({
-          nodeId: selectedNodeForActual.regional_plan_node_id,
-          region_id: regionId,
-          data: { period_actual: Number(actualValue), narration },
-        }).unwrap();
-        actionFeedback.success("Achievement recorded and submitted for department review!");
-      } else {
-        actionFeedback.success("Achievement saved as draft");
-      }
-
-      setIsActualModalOpen(false);
+      actionFeedback.success("Node reordered successfully");
       refetch();
     } catch (err: any) {
-      actionFeedback.error(err?.data?.message || err?.message || "Failed to save achievement");
+      actionFeedback.error(err?.data?.message || err?.message || "Failed to reorder nodes");
     }
   };
 
-  // Direct Submit
-  const handleSubmitAchievement = async (node: RegionalPlanNode) => {
+  const handleFinalizeAnnual = async () => {
     try {
-      await submitAchievement({
-        nodeId: node.regional_plan_node_id,
-        region_id: regionId,
+      await finalizeAnnual({ id: versionId!, region_id: regionId! }).unwrap();
+      actionFeedback.success("Annual targets finalized successfully!");
+      refetch();
+      refetchAnnuals();
+    } catch (err: any) {
+      actionFeedback.error(err?.data?.message || err?.message || "Failed to finalize annual targets");
+    }
+  };
+
+  const handleFinalizePeriods = async () => {
+    try {
+      await finalizePeriods({ id: versionId!, region_id: regionId! }).unwrap();
+      actionFeedback.success("Execution period targets finalized successfully!");
+      refetch();
+      refetchPeriods();
+    } catch (err: any) {
+      actionFeedback.error(err?.data?.message || err?.message || "Failed to finalize period targets");
+    }
+  };
+
+  const handleInitializePeriods = async () => {
+    try {
+      await initPeriods({
+        id: versionId!,
+        region_id: regionId!,
+        subdivision_mode: subdivisionMode,
+        custom_periods: subdivisionMode === "custom" ? customPeriods : undefined,
       }).unwrap();
-      actionFeedback.success("Achievement submitted for department review");
+      actionFeedback.success("Execution periods generated successfully!");
+      setIsInitPeriodsOpen(false);
       refetch();
+      refetchPeriods();
     } catch (err: any) {
-      actionFeedback.error(err?.data?.message || err?.message || "Failed to submit achievement");
-    }
-  };
-
-  // Department Approve
-  const handleApprove = async (node: RegionalPlanNode) => {
-    try {
-      await approveAchievement({
-        nodeId: node.regional_plan_node_id,
-        region_id: regionId,
-      }).unwrap();
-      actionFeedback.success("Achievement approved and queued for central validation");
-      refetch();
-    } catch (err: any) {
-      actionFeedback.error(err?.data?.message || err?.message || "Failed to approve achievement");
-    }
-  };
-
-  // Open Reject Modal
-  const openRejectModal = (node: RegionalPlanNode, type: "approval" | "validation") => {
-    setSelectedNodeForReject(node);
-    setRejectType(type);
-    setRejectReason("");
-    setIsRejectModalOpen(true);
-  };
-
-  // Handle Reject
-  const handleConfirmReject = async () => {
-    if (!selectedNodeForReject) return;
-    try {
-      if (rejectType === "approval") {
-        await rejectAchievement({
-          nodeId: selectedNodeForReject.regional_plan_node_id,
-          region_id: regionId,
-          comment: rejectReason || "Rejected by reviewer",
-        }).unwrap();
-      } else {
-        await rejectValidation({
-          nodeId: selectedNodeForReject.regional_plan_node_id,
-          region_id: regionId,
-          comment: rejectReason || "Validation rejected",
-        }).unwrap();
-      }
-
-      actionFeedback.success("Achievement rejected and returned to executor");
-      setIsRejectModalOpen(false);
-      refetch();
-    } catch (err: any) {
-      actionFeedback.error(err?.data?.message || err?.message || "Failed to reject achievement");
-    }
-  };
-
-  // Bureau Validate
-  const handleValidate = async (node: RegionalPlanNode) => {
-    try {
-      await validateAchievement({
-        nodeId: node.regional_plan_node_id,
-        region_id: regionId,
-      }).unwrap();
-      actionFeedback.success("Achievement validated and confirmed in official rollups!");
-      refetch();
-    } catch (err: any) {
-      actionFeedback.error(err?.data?.message || err?.message || "Failed to validate achievement");
+      actionFeedback.error(err?.data?.message || err?.message || "Failed to initialize execution periods");
     }
   };
 
   if (isLoading || !plan) return <Loading01 />;
 
+  const isMasterPlan = plan.version_kind === "master";
+  const isAnnualPlan = plan.version_kind === "annual";
+  const showAnnualDashboard = isMasterPlan && (plan.status === "finalized" || annualVersions.length > 0);
+  const showPeriodDashboard = isAnnualPlan;
+
+  const detailTabToggle = showAnnualDashboard ? (
+    <div className="inline-flex rounded-lg border border-border bg-card p-1 flex-wrap shadow-2xs">
+      <Button
+        variant={activeTab === "hierarchy" ? "default" : "ghost"}
+        size="sm"
+        className="gap-2 h-8"
+        onClick={() => setActiveTab("hierarchy")}
+      >
+        <ListTree className="h-4 w-4" />
+        <span>Plan Hierarchy</span>
+      </Button>
+      <Button
+        variant={activeTab === "annual" ? "default" : "ghost"}
+        size="sm"
+        className="gap-2 h-8"
+        onClick={() => setActiveTab("annual")}
+      >
+        <CalendarDays className="h-4 w-4" />
+        <span>Annual Execution</span>
+        {annualVersions.length > 0 && (
+          <Badge variant="secondary" className="ml-1 text-[11px] px-1.5 py-0 h-5">
+            {annualVersions.length}
+          </Badge>
+        )}
+      </Button>
+    </div>
+  ) : showPeriodDashboard ? (
+    <div className="inline-flex rounded-lg border border-border bg-card p-1 flex-wrap shadow-2xs">
+      <Button
+        variant={activeTab === "hierarchy" ? "default" : "ghost"}
+        size="sm"
+        className="gap-2 h-8"
+        onClick={() => setActiveTab("hierarchy")}
+      >
+        <ListTree className="h-4 w-4" />
+        <span>Plan Hierarchy</span>
+      </Button>
+      <Button
+        variant={activeTab === "periods" ? "default" : "ghost"}
+        size="sm"
+        className="gap-2 h-8"
+        onClick={() => setActiveTab("periods")}
+      >
+        <Clock className="h-4 w-4" />
+        <span>Execution Periods</span>
+        {executionPeriods.length > 0 && (
+          <Badge variant="secondary" className="ml-1 text-[11px] px-1.5 py-0 h-5">
+            {executionPeriods.length}
+          </Badge>
+        )}
+      </Button>
+    </div>
+  ) : null;
+
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
-      {/* Breadcrumb & Navigation */}
+      {/* Top Navigation & SubNav */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Link href={`/regions/${regionId}/plans`} className="hover:text-primary transition-colors">
-            Plans
-          </Link>
-          <ChevronRight className="h-3.5 w-3.5" />
-          <Link href={`/regions/${regionId}/plans/${versionId}`} className="hover:text-primary transition-colors font-medium">
-            {plan.draft_name}
-          </Link>
-          <ChevronRight className="h-3.5 w-3.5" />
-          <span className="font-semibold text-foreground">Hierarchy & Node Editor</span>
-        </div>
+        <RegionalPlanVersionSubNav regionId={regionId} versionId={versionId} />
 
         <div className="flex items-center gap-2">
-          {canUpdatePlan && (
-            <Button size="sm" onClick={() => openCreateModal(null)} className="gap-2 shadow-xs">
-              <Plus className="h-4 w-4" />
-              <span>Add Root {getStepLabel(plan?.planRule, 1)}</span>
-            </Button>
-          )}
+          {detailTabToggle}
 
           <Link href={`/regions/${regionId}/plans/dashboard?plan_version_id=${versionId}`}>
             <Button size="sm" variant="outline" className="gap-2 shadow-2xs">
@@ -491,7 +467,7 @@ export function RegionalPlanHierarchyView() {
         </div>
       </div>
 
-      {/* Plan Details Strip */}
+      {/* Plan Details Context Ribbon */}
       <div className="rounded-xl border bg-card p-4 shadow-2xs flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
@@ -513,867 +489,453 @@ export function RegionalPlanHierarchyView() {
           </div>
         </div>
 
-        {/* View Mode Switcher & Filters */}
-        <div className="flex items-center gap-2">
-          <div className="relative w-48">
-            <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search nodes..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-8 pl-8 text-xs"
-            />
-          </div>
-
-          <div className="flex items-center rounded-lg border bg-muted/40 p-0.5 text-xs">
-            <button
-              onClick={() => setViewMode("tree")}
-              className={`p-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
-                viewMode === "tree" ? "bg-card text-foreground shadow-2xs font-semibold" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <ListTree className="h-3.5 w-3.5" />
-              <span>Tree</span>
-            </button>
-            <button
-              onClick={() => setViewMode("cards")}
-              className={`p-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
-                viewMode === "cards" ? "bg-card text-foreground shadow-2xs font-semibold" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-              <span>Cards</span>
-            </button>
-            <button
-              onClick={() => setViewMode("table")}
-              className={`p-1.5 rounded-md flex items-center gap-1.5 transition-colors ${
-                viewMode === "table" ? "bg-card text-foreground shadow-2xs font-semibold" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Table2 className="h-3.5 w-3.5" />
-              <span>Table</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Hierarchy Content */}
-      {rawNodes.length === 0 ? (
-        <div className="rounded-2xl border border-dashed p-12 text-center bg-card">
-          <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4">
-            <Layers className="h-6 w-6" />
-          </div>
-          <h3 className="text-base font-semibold text-foreground">No Strategic Nodes Defined</h3>
-          <p className="text-xs text-muted-foreground max-w-md mx-auto mt-1 mb-6">
-            Get started by creating your Level 1 {getStepLabel(plan?.planRule, 1)}. You can then add subordinate milestones under it.
-          </p>
-          {canUpdatePlan && (
-            <Button onClick={() => openCreateModal(null)} className="gap-2 shadow-xs">
-              <Plus className="h-4 w-4" />
-              <span>Create Root {getStepLabel(plan?.planRule, 1)}</span>
-            </Button>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {treeRoots.map((root, index) => (
-            <TreeNodeItem
-              key={root.regional_plan_node_id}
-              node={root}
-              indexPrefix={`${index + 1}`}
-              collapsedNodes={collapsedNodes}
-              toggleCollapse={toggleCollapse}
-              onAddChild={openCreateModal}
-              onEdit={openEditModal}
-              onDelete={handleDeleteNode}
-              onSetTarget={openTargetModal}
-              onSetActual={openActualModal}
-              onSubmitAchievement={handleSubmitAchievement}
-              onApprove={handleApprove}
-              onReject={(n) => openRejectModal(n, "approval")}
-              onValidate={handleValidate}
-              onRejectValidation={(n) => openRejectModal(n, "validation")}
-              canUpdate={canUpdatePlan}
-              canExecute={canExecute}
-              canApprove={canApprove}
-              canValidate={canValidate}
-              isExecutionPeriod={plan.version_kind === "execution_period"}
-              planRule={plan.planRule}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* ------------------------------------------------------------- */}
-      {/* MODAL 1: Create Plan Node */}
-      {/* ------------------------------------------------------------- */}
-      {(() => {
-        const createTargetLevel = parentNodeForCreate ? (parentNodeForCreate.level || 0) + 1 : 1;
-        const createRequiresWeight = stepRequiresWeight(plan?.planRule, createTargetLevel);
-        const createRequiresContrib = stepRequiresContributionWeight(plan?.planRule, createTargetLevel);
-        const createStepLabel = getStepLabel(plan?.planRule, createTargetLevel);
-        const configuredUnits: Array<{ label?: string; symbol?: string; id?: string }> =
-          (plan?.planningConfiguration?.target_units as any) || [];
-
-        return (
-          <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-lg">
-                  <Plus className="h-5 w-5 text-primary" />
-                  <span>
-                    {parentNodeForCreate
-                      ? `Add ${createStepLabel} under "${parentNodeForCreate.title}"`
-                      : `Create Level 1 ${createStepLabel}`}
-                  </span>
-                </DialogTitle>
-              </DialogHeader>
-
-              <form onSubmit={handleCreateNode} className="space-y-4 pt-2">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">Node Title *</label>
-                  <Input
-                    placeholder={`e.g. Regional ${createStepLabel}`}
-                    value={nodeTitle}
-                    onChange={(e) => setNodeTitle(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">Description</label>
-                  <Textarea
-                    placeholder="Strategic objective details..."
-                    value={nodeDesc}
-                    onChange={(e) => setNodeDesc(e.target.value)}
-                    rows={2}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-foreground">
-                      Strategic Weight {createRequiresWeight ? "*" : "(Optional)"}
-                    </label>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={nodeWeight}
-                      onChange={(e) => setNodeWeight(Number(e.target.value))}
-                      required={createRequiresWeight}
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-foreground">
-                      Contribution Weight (%) {createRequiresContrib ? "*" : "(Optional)"}
-                    </label>
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={nodeContribWeight}
-                      onChange={(e) => setNodeContribWeight(Number(e.target.value))}
-                      required={createRequiresContrib}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-foreground">Target Unit</label>
-                    <div className="flex gap-1.5">
-                      {configuredUnits.length > 0 && (
-                        <select
-                          value={configuredUnits.some((u) => (u.label || u) === nodeTargetUnit) ? nodeTargetUnit : "custom"}
-                          onChange={(e) => {
-                            if (e.target.value !== "custom") {
-                              setNodeTargetUnit(e.target.value);
-                            }
-                          }}
-                          className="h-9 rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-xs"
-                        >
-                          {configuredUnits.map((u, idx) => {
-                            const lbl = u.label || String(u);
-                            const sym = u.symbol ? ` (${u.symbol})` : "";
-                            return (
-                              <option key={idx} value={lbl}>
-                                {lbl}{sym}
-                              </option>
-                            );
-                          })}
-                          <option value="custom">Other...</option>
-                        </select>
-                      )}
-                      <Input
-                        placeholder="e.g. Tons, USD, Count, %"
-                        value={nodeTargetUnit}
-                        onChange={(e) => setNodeTargetUnit(e.target.value)}
-                        className="flex-1 text-xs"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-foreground">Responsible Department</label>
-                    <select
-                      value={nodeStructureId}
-                      onChange={(e) => setNodeStructureId(e.target.value)}
-                      className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs focus:ring-1 focus:ring-ring"
-                    >
-                      <option value="">Select Department...</option>
-                      {departments.map((dept) => (
-                        <option key={dept.regional_structure_id} value={dept.regional_structure_id}>
-                          {dept.name} (L{dept.level})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <DialogFooter className="pt-3">
-                  <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={isCreatingNode}>
-                    {isCreatingNode ? "Creating..." : "Create Node"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        );
-      })()}
-
-      {/* ------------------------------------------------------------- */}
-      {/* MODAL 2: Edit Plan Node */}
-      {/* ------------------------------------------------------------- */}
-      {(() => {
-        const editTargetLevel = selectedNodeForEdit?.level || 1;
-        const editRequiresWeight = stepRequiresWeight(plan?.planRule, editTargetLevel);
-        const editRequiresContrib = stepRequiresContributionWeight(plan?.planRule, editTargetLevel);
-        const editStepLabel = getStepLabel(plan?.planRule, editTargetLevel);
-        const configuredUnits: Array<{ label?: string; symbol?: string; id?: string }> =
-          (plan?.planningConfiguration?.target_units as any) || [];
-
-        return (
-          <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-lg">
-                  <Edit2 className="h-5 w-5 text-primary" />
-                  <span>Edit {editStepLabel}</span>
-                </DialogTitle>
-              </DialogHeader>
-
-              <form onSubmit={handleUpdateNode} className="space-y-4 pt-2">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">Node Title *</label>
-                  <Input
-                    value={nodeTitle}
-                    onChange={(e) => setNodeTitle(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">Description</label>
-                  <Textarea
-                    value={nodeDesc}
-                    onChange={(e) => setNodeDesc(e.target.value)}
-                    rows={2}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-foreground">
-                      Strategic Weight {editRequiresWeight ? "*" : "(Optional)"}
-                    </label>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={nodeWeight}
-                      onChange={(e) => setNodeWeight(Number(e.target.value))}
-                      required={editRequiresWeight}
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-foreground">
-                      Contribution Weight (%) {editRequiresContrib ? "*" : "(Optional)"}
-                    </label>
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={nodeContribWeight}
-                      onChange={(e) => setNodeContribWeight(Number(e.target.value))}
-                      required={editRequiresContrib}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-foreground">Target Unit</label>
-                    <div className="flex gap-1.5">
-                      {configuredUnits.length > 0 && (
-                        <select
-                          value={configuredUnits.some((u) => (u.label || u) === nodeTargetUnit) ? nodeTargetUnit : "custom"}
-                          onChange={(e) => {
-                            if (e.target.value !== "custom") {
-                              setNodeTargetUnit(e.target.value);
-                            }
-                          }}
-                          className="h-9 rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-xs"
-                        >
-                          {configuredUnits.map((u, idx) => {
-                            const lbl = u.label || String(u);
-                            const sym = u.symbol ? ` (${u.symbol})` : "";
-                            return (
-                              <option key={idx} value={lbl}>
-                                {lbl}{sym}
-                              </option>
-                            );
-                          })}
-                          <option value="custom">Other...</option>
-                        </select>
-                      )}
-                      <Input
-                        value={nodeTargetUnit}
-                        onChange={(e) => setNodeTargetUnit(e.target.value)}
-                        className="flex-1 text-xs"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-foreground">Responsible Department</label>
-                    <select
-                      value={nodeStructureId}
-                      onChange={(e) => setNodeStructureId(e.target.value)}
-                      className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs focus:ring-1 focus:ring-ring"
-                    >
-                      <option value="">Select Department...</option>
-                      {departments.map((dept) => (
-                        <option key={dept.regional_structure_id} value={dept.regional_structure_id}>
-                          {dept.name} (L{dept.level})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <DialogFooter className="pt-3">
-                  <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={isUpdatingNode}>
-                    {isUpdatingNode ? "Saving..." : "Save Changes"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        );
-      })()}
-
-      {/* ------------------------------------------------------------- */}
-      {/* MODAL 3: Allocate Target */}
-      {/* ------------------------------------------------------------- */}
-      <Dialog open={isTargetModalOpen} onOpenChange={setIsTargetModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base">
-              <Target className="h-5 w-5 text-primary" />
-              <span>
-                {plan.version_kind === "execution_period" ? "Allocate Execution Period Target" : "Allocate Annual Target"}
-              </span>
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4 pt-2">
-            <p className="text-xs text-muted-foreground">
-              Target for <span className="font-semibold text-foreground">"{selectedNodeForTarget?.title}"</span>
-            </p>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Target Value ({selectedNodeForTarget?.target_unit || "Units"})</label>
+        {activeTab === "hierarchy" && (
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative w-48">
+              <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
-                type="number"
-                min="0"
-                step="any"
-                value={targetValue}
-                onChange={(e) => setTargetValue(Number(e.target.value))}
+                placeholder="Search nodes..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-8 pl-8 text-xs"
               />
             </div>
 
-            <DialogFooter className="pt-2">
-              <Button variant="outline" onClick={() => setIsTargetModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSaveTarget}>
-                Save Target
-              </Button>
-            </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* ------------------------------------------------------------- */}
-      {/* MODAL 4: Report Actual Achievement */}
-      {/* ------------------------------------------------------------- */}
-      <Dialog open={isActualModalOpen} onOpenChange={setIsActualModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base">
-              <TrendingUp className="h-5 w-5 text-emerald-600" />
-              <span>Record Milestone Achievement</span>
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4 pt-2">
-            <div>
-              <p className="text-xs font-semibold text-foreground truncate">
-                {selectedNodeForActual?.title}
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Target: {selectedNodeForActual?.period_target || selectedNodeForActual?.annual_target || "0"} {selectedNodeForActual?.target_unit || "Units"}
-              </p>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Actual Achievement Value *</label>
-              <Input
-                type="number"
-                step="any"
-                min="0"
-                value={actualValue}
-                onChange={(e) => setActualValue(Number(e.target.value))}
-                required
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Narration & Executive Summary</label>
-              <Textarea
-                placeholder="Describe methodology, verification documents, and achievement highlights..."
-                value={narration}
-                onChange={(e) => setNarration(e.target.value)}
-                rows={3}
-              />
-            </div>
-
-            <DialogFooter className="pt-2 flex flex-col sm:flex-row gap-2">
-              <Button variant="outline" onClick={() => setIsActualModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button variant="secondary" onClick={() => handleSaveActual(false)} disabled={isSavingActual}>
-                Save Draft
-              </Button>
-              <Button onClick={() => handleSaveActual(true)} disabled={isSavingActual || isSubmitting} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                Submit for Review
-              </Button>
-            </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* ------------------------------------------------------------- */}
-      {/* MODAL 5: Reject Reason Prompt */}
-      {/* ------------------------------------------------------------- */}
-      <Dialog open={isRejectModalOpen} onOpenChange={setIsRejectModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base text-destructive">
-              <AlertCircle className="h-5 w-5" />
-              <span>
-                {rejectType === "approval" ? "Reject Submitted Achievement" : "Reject Bureau Validation"}
-              </span>
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4 pt-2">
-            <p className="text-xs text-muted-foreground">
-              Please state why this achievement value cannot be approved. The executing department will receive this comment and be required to adjust the figure.
-            </p>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Rejection Reason *</label>
-              <Textarea
-                placeholder="e.g. Supporting weighbridge receipts missing or figures don't match regional audit..."
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                rows={3}
-                required
-              />
-            </div>
-
-            <DialogFooter className="pt-2">
-              <Button variant="outline" onClick={() => setIsRejectModalOpen(false)}>
-                Cancel
+            <div className="inline-flex rounded-lg border border-border bg-muted/40 p-1">
+              <Button
+                variant={viewMode === "card" ? "default" : "ghost"}
+                size="sm"
+                className="gap-2 h-8"
+                onClick={() => setViewMode("card")}
+              >
+                <LayoutGrid className="h-4 w-4" />
+                <span>Cards</span>
               </Button>
               <Button
-                variant="destructive"
-                onClick={handleConfirmReject}
-                disabled={isRejecting || isRejectingValidation || !rejectReason.trim()}
+                variant={viewMode === "hierarchy" ? "default" : "ghost"}
+                size="sm"
+                className="gap-2 h-8"
+                onClick={() => setViewMode("hierarchy")}
               >
-                Confirm Rejection
+                <ListTree className="h-4 w-4" />
+                <span>Hierarchy</span>
               </Button>
-            </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
-// -------------------------------------------------------------
-// Recursive Tree Node Item Component
-// -------------------------------------------------------------
-function TreeNodeItem({
-  node,
-  indexPrefix,
-  collapsedNodes,
-  toggleCollapse,
-  onAddChild,
-  onEdit,
-  onDelete,
-  onSetTarget,
-  onSetActual,
-  onSubmitAchievement,
-  onApprove,
-  onReject,
-  onValidate,
-  onRejectValidation,
-  canUpdate,
-  canExecute,
-  canApprove,
-  canValidate,
-  isExecutionPeriod,
-  planRule,
-}: {
-  node: RegionalPlanNode & { children?: RegionalPlanNode[] };
-  indexPrefix: string;
-  collapsedNodes: Record<string, boolean>;
-  toggleCollapse: (id: string) => void;
-  onAddChild: (node: RegionalPlanNode) => void;
-  onEdit: (node: RegionalPlanNode) => void;
-  onDelete: (node: RegionalPlanNode) => void;
-  onSetTarget: (node: RegionalPlanNode) => void;
-  onSetActual: (node: RegionalPlanNode) => void;
-  onSubmitAchievement: (node: RegionalPlanNode) => void;
-  onApprove: (node: RegionalPlanNode) => void;
-  onReject: (node: RegionalPlanNode) => void;
-  onValidate: (node: RegionalPlanNode) => void;
-  onRejectValidation: (node: RegionalPlanNode) => void;
-  canUpdate: boolean;
-  canExecute: boolean;
-  canApprove: boolean;
-  canValidate: boolean;
-  isExecutionPeriod: boolean;
-  planRule?: any;
-}) {
-  const isCollapsed = collapsedNodes[node.regional_plan_node_id];
-  const hasChildren = node.children && node.children.length > 0;
-  const isLeaf = !hasChildren;
-
-  const target = isExecutionPeriod ? Number(node.period_target) || 0 : Number(node.annual_target) || 0;
-  const actual = Number(node.period_actual);
-  const status = node.period_actual_status || "empty";
-  const progress = (node as any).execution_progress_percent ?? 0;
-
-  const levelCfg = getDynamicLevelInfo(node.level, planRule);
-  const assignedDept = node.internalAssignments?.[0]?.department?.name;
-
-  return (
-    <div className="space-y-2">
-      <div
-        className={`rounded-xl border bg-card p-4 shadow-2xs hover:border-primary/40 transition-all ${
-          node.level > 1 ? "ml-4 sm:ml-8" : ""
-        }`}
-      >
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          {/* Left: Indicator Title, Level badge, Code */}
-          <div className="flex items-start gap-3 min-w-0">
-            {hasChildren ? (
-              <button
-                onClick={() => toggleCollapse(node.regional_plan_node_id)}
-                className="mt-1 p-1 hover:bg-muted rounded transition-colors text-muted-foreground"
+              <Button
+                variant={viewMode === "table" ? "default" : "ghost"}
+                size="sm"
+                className="gap-2 h-8"
+                onClick={() => {
+                  setPathIds([]);
+                  setViewMode("table");
+                }}
               >
-                {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </button>
-            ) : (
-              <div className="w-6 mt-1" />
+                <Table2 className="h-4 w-4" />
+                <span>Table</span>
+              </Button>
+            </div>
+
+            {canUpdatePlan && (
+              <Button
+                onClick={() => openCreateModal(currentParentRegionalNode)}
+                className="gap-2 h-8 text-xs shadow-xs"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Add {currentChildLabel}</span>
+              </Button>
             )}
-
-            <div className="space-y-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-xs font-bold text-muted-foreground">
-                  {indexPrefix}
-                </span>
-
-                <span
-                  style={levelCfg.badgeStyle}
-                  className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border"
-                >
-                  {levelCfg.label}
-                </span>
-
-                <h4 className="font-semibold text-sm text-foreground truncate max-w-md">
-                  {node.title}
-                </h4>
-
-                {assignedDept && (
-                  <Badge variant="outline" className="text-[11px] gap-1 font-normal">
-                    <Building2 className="h-3 w-3 text-muted-foreground" />
-                    <span>{assignedDept}</span>
-                  </Badge>
-                )}
-              </div>
-
-              {node.description && (
-                <p className="text-xs text-muted-foreground line-clamp-1">
-                  {node.description}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Center: Targets, Actuals & Progress */}
-          <div className="flex flex-wrap items-center gap-4 text-xs">
-            {/* Target & Actual */}
-            <div className="flex items-center gap-3 bg-muted/30 px-3 py-1.5 rounded-lg border border-border/60">
-              <div>
-                <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Target</span>
-                <span className="font-mono font-bold text-foreground">
-                  {target.toLocaleString()} {node.target_unit || ""}
-                </span>
-              </div>
-
-              <div className="h-6 w-px bg-border" />
-
-              <div>
-                <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Actual</span>
-                <span className="font-mono font-bold text-foreground">
-                  {isNaN(actual) || node.period_actual === null ? "—" : actual.toLocaleString()} {node.target_unit || ""}
-                </span>
-              </div>
-            </div>
-
-            {/* Achievement Status Badge */}
-            <div>
-              <span className="text-[10px] uppercase font-semibold text-muted-foreground block mb-0.5">Workflow</span>
-              <span
-                className={`text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize ${
-                  status === "validated"
-                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
-                    : status === "approved"
-                    ? "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300"
-                    : status === "submitted"
-                    ? "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
-                    : status === "rejected"
-                    ? "bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300"
-                    : "bg-muted text-muted-foreground"
-                }`}
-              >
-                {status}
-              </span>
-            </div>
-
-            {/* Progress Pill */}
-            <div className="w-20 text-right">
-              <span className="text-[10px] uppercase font-semibold text-muted-foreground block mb-0.5">Progress</span>
-              <div className="flex items-center gap-1.5 justify-end">
-                <span className="font-mono font-bold text-xs text-foreground">{progress}%</span>
-                <div className="w-8 h-1.5 rounded-full bg-muted overflow-hidden">
-                  <div
-                    className={`h-full ${
-                      progress >= 100 ? "bg-emerald-600" : progress > 50 ? "bg-blue-600" : "bg-amber-500"
-                    }`}
-                    style={{ width: `${Math.min(100, progress)}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Actions Menu */}
-            <div className="flex items-center gap-1">
-              {/* Target allocation trigger */}
-              {canUpdate && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onSetTarget(node)}
-                  className="h-7 text-xs px-2 gap-1"
-                  title="Allocate Target"
-                >
-                  <Target className="h-3.5 w-3.5 text-primary" />
-                  <span className="hidden sm:inline">Target</span>
-                </Button>
-              )}
-
-              {/* Execution reporting triggers for leaf nodes */}
-              {isLeaf && canExecute && status !== "validated" && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onSetActual(node)}
-                  className="h-7 text-xs px-2 gap-1"
-                  title="Record Actual Achievement"
-                >
-                  <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-                  <span className="hidden sm:inline">Report</span>
-                </Button>
-              )}
-
-              {/* Executor Submit if draft actual entered */}
-              {isLeaf && canExecute && (status === "empty" || status === "rejected") && actual > 0 && (
-                <Button
-                  size="sm"
-                  onClick={() => onSubmitAchievement(node)}
-                  className="h-7 text-xs px-2 gap-1 bg-amber-600 hover:bg-amber-700 text-white"
-                  title="Submit Achievement for Review"
-                >
-                  <ArrowUp className="h-3.5 w-3.5" />
-                  <span>Submit</span>
-                </Button>
-              )}
-
-              {/* Department Leader Approval Trigger */}
-              {canApprove && status === "submitted" && (
-                <>
-                  <Button
-                    size="sm"
-                    onClick={() => onApprove(node)}
-                    className="h-7 text-xs px-2 gap-1 bg-blue-600 hover:bg-blue-700 text-white"
-                    title="Approve Achievement"
-                  >
-                    <Check className="h-3.5 w-3.5" />
-                    <span>Approve</span>
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => onReject(node)}
-                    className="h-7 text-xs px-2 text-rose-600 border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                    title="Reject Achievement"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </>
-              )}
-
-              {/* Central Validator Trigger */}
-              {canValidate && status === "approved" && (
-                <>
-                  <Button
-                    size="sm"
-                    onClick={() => onValidate(node)}
-                    className="h-7 text-xs px-2 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                    title="Validate Achievement (Locking)"
-                  >
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                    <span>Validate</span>
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => onRejectValidation(node)}
-                    className="h-7 text-xs px-2 text-rose-600 border-rose-200 hover:bg-rose-50"
-                    title="Reject Validation"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </>
-              )}
-
-              {/* Add child if allowed by plan rule */}
-              {canUpdate && canAddChild(planRule, node as any) && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => onAddChild(node)}
-                  className="h-7 w-7 p-0"
-                  title={`Add Sub-${getStepLabel(planRule, node.level + 1)}`}
-                >
-                  <Plus className="h-4 w-4 text-muted-foreground" />
-                </Button>
-              )}
-
-              {/* Edit */}
-              {canUpdate && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => onEdit(node)}
-                  className="h-7 w-7 p-0"
-                  title="Edit Milestone"
-                >
-                  <Edit2 className="h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
-              )}
-
-              {/* Delete */}
-              {canUpdate && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => onDelete(node)}
-                  className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
-                  title="Delete Milestone"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Rejection comment notice if rejected */}
-        {node.period_actual_rejection_comment && status === "rejected" && (
-          <div className="mt-3 p-2.5 rounded-lg border border-rose-200 bg-rose-50/70 dark:bg-rose-950/30 text-rose-900 dark:text-rose-200 text-xs flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
-            <span>
-              <strong>Reviewer Note:</strong> {node.period_actual_rejection_comment}
-            </span>
           </div>
         )}
       </div>
 
-      {/* Recursive children rendering */}
-      {!isCollapsed && hasChildren && (
-        <div className="space-y-2">
-          {node.children!.map((child, cIdx) => (
-            <TreeNodeItem
-              key={child.regional_plan_node_id}
-              node={child}
-              indexPrefix={`${indexPrefix}.${cIdx + 1}`}
-              collapsedNodes={collapsedNodes}
-              toggleCollapse={toggleCollapse}
-              onAddChild={onAddChild}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              onSetTarget={onSetTarget}
-              onSetActual={onSetActual}
-              onSubmitAchievement={onSubmitAchievement}
-              onApprove={onApprove}
-              onReject={onReject}
-              onValidate={onValidate}
-              onRejectValidation={onRejectValidation}
-              canUpdate={canUpdate}
-              canExecute={canExecute}
-              canApprove={canApprove}
-              canValidate={canValidate}
-              isExecutionPeriod={isExecutionPeriod}
-              planRule={planRule}
+      {/* ------------------------------------------------------------- */}
+      {/* TAB 1: PLAN HIERARCHY */}
+      {/* ------------------------------------------------------------- */}
+      {activeTab === "hierarchy" && (
+        <div className="space-y-4">
+          {/* Breadcrumbs navigation for Card / Tree drill-down */}
+          {viewMode !== "table" && (
+            <nav className="flex items-center gap-1 flex-wrap text-sm bg-card rounded-xl border px-4 py-2.5 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => handleBreadcrumbClick(-1)}
+                className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors ${
+                  isAtRoot
+                    ? "text-primary font-semibold bg-primary/10"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                <Home className="h-3.5 w-3.5" />
+                <span>{rootLabel}</span>
+              </button>
+
+              {breadcrumbPath.map((node, index) => (
+                <span key={node.plan_node_id} className="inline-flex items-center gap-1">
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
+                  <button
+                    type="button"
+                    onClick={() => handleBreadcrumbClick(index)}
+                    className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors max-w-[240px] ${
+                      index === breadcrumbPath.length - 1
+                        ? "text-primary font-semibold bg-primary/10"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {getHierarchyNumber(hierarchyNumberMap, node.plan_node_id) && (
+                      <PlanNodeHierarchyNumber
+                        value={getHierarchyNumber(hierarchyNumberMap, node.plan_node_id)!}
+                        size="sm"
+                      />
+                    )}
+                    <span className="truncate">{node.title}</span>
+                  </button>
+                </span>
+              ))}
+
+              {!isAtRoot && (
+                <>
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
+                  <span className="text-muted-foreground text-xs px-2 py-1">{currentChildLabel}</span>
+                </>
+              )}
+            </nav>
+          )}
+
+          {/* Main Content: Card, Hierarchy Tree, or Table */}
+          {rawNodes.length === 0 ? (
+            <div className="rounded-2xl border border-dashed p-12 text-center bg-card">
+              <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4">
+                <Layers className="h-6 w-6" />
+              </div>
+              <h3 className="text-base font-semibold text-foreground">No Strategic Nodes Defined</h3>
+              <p className="text-xs text-muted-foreground max-w-md mx-auto mt-1 mb-6">
+                Get started by creating your Level 1 {getStepLabel(plan?.planRule, 1)}. You can then add subordinate milestones under it.
+              </p>
+              {canUpdatePlan && (
+                <Button onClick={() => openCreateModal(null)} className="gap-2 shadow-xs">
+                  <Plus className="h-4 w-4" />
+                  <span>Create Root {getStepLabel(plan?.planRule, 1)}</span>
+                </Button>
+              )}
+            </div>
+          ) : viewMode === "table" ? (
+            <PlanHierarchyTableView
+              roots={treeRoots}
+              hierarchyNumberMap={hierarchyNumberMap}
+              rule={plan?.planRule as any}
+              rootLabel={rootLabel}
+              configuredUnits={configuredUnits}
+              onAddChild={handleAddChild}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              onViewDetails={handleViewDetails}
+              onMoveNode={handleMoveNode}
+              isReordering={isReordering}
+              readOnly={!canUpdatePlan}
+              showAnnualTargets={false}
+              showPeriodTargets={false}
+              showPeriodActuals={false}
             />
-          ))}
+          ) : viewMode === "card" ? (
+            <PlanNodeCardGrid
+              nodes={currentNodes}
+              hierarchyNumberMap={hierarchyNumberMap}
+              rule={plan?.planRule as any}
+              configuredUnits={configuredUnits}
+              onAddChild={handleAddChild}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              onViewDetails={handleViewDetails}
+              onDrillDown={handleDrillDown}
+              onMoveNode={(nodeId, direction) => handleMoveNode(nodeId, direction, currentNodes)}
+              isReordering={isReordering}
+              readOnly={!canUpdatePlan}
+            />
+          ) : (
+            <PlanHierarchyTree
+              nodes={treeRoots}
+              hierarchyNumberMap={hierarchyNumberMap}
+              rule={plan?.planRule as any}
+              configuredUnits={configuredUnits}
+              onAddChild={handleAddChild}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              onViewDetails={handleViewDetails}
+              onDrillDown={handleDrillDown}
+              onMoveNode={handleMoveNode}
+              isReordering={isReordering}
+              scoped={false}
+              readOnly={!canUpdatePlan}
+            />
+          )}
         </div>
       )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* TAB 2: ANNUAL IMPLEMENTATION PLANS */}
+      {/* ------------------------------------------------------------- */}
+      {activeTab === "annual" && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border bg-card shadow-2xs">
+            <div>
+              <h3 className="text-base font-semibold text-foreground">Annual Implementation Plans</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Each annual implementation plan inherits the master hierarchy. Set annual targets for each fiscal year cycle.
+              </p>
+            </div>
+
+            {plan.status === "finalized" && canUpdatePlan && !plan.annual_targets_finalized_at && (
+              <Button size="sm" onClick={handleFinalizeAnnual} disabled={isFinalizingAnnual} className="gap-2 shadow-xs">
+                <CheckCircle2 className="h-4 w-4" />
+                <span>Finalize Annual Targets</span>
+              </Button>
+            )}
+          </div>
+
+          {annualVersions.length === 0 ? (
+            <div className="text-center p-8 border rounded-xl bg-card text-muted-foreground text-sm">
+              No annual versions generated yet. Finalize the master plan draft to generate annual cycles.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {annualVersions.map((annual) => (
+                <div
+                  key={annual.regional_plan_version_id}
+                  className="rounded-xl border bg-card p-4 shadow-2xs space-y-3 flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <Badge variant="outline" className="text-xs capitalize font-semibold">
+                        {annual.status}
+                      </Badge>
+                      <span className="text-xs font-mono text-muted-foreground">Year {annual.sequence_index}</span>
+                    </div>
+                    <h4 className="font-semibold text-foreground mt-2">{annual.draft_name}</h4>
+                    <p className="text-xs text-muted-foreground mt-1">Fiscal Year {annual.planning_year}</p>
+                  </div>
+
+                  <div className="pt-3 border-t flex items-center justify-between gap-2">
+                    <Link href={`/regions/${regionId}/plans/${annual.regional_plan_version_id}`}>
+                      <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs">
+                        <Target className="h-3.5 w-3.5 text-primary" />
+                        <span>Plan Hierarchy & Targets</span>
+                      </Button>
+                    </Link>
+
+                    {annual.is_locked ? (
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Lock className="h-3.5 w-3.5" />
+                        <span>Locked</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs text-emerald-600 flex items-center gap-1">
+                        <Unlock className="h-3.5 w-3.5" />
+                        <span>Editable</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* TAB 3: EXECUTION PERIODS */}
+      {/* ------------------------------------------------------------- */}
+      {activeTab === "periods" && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border bg-card shadow-2xs">
+            <div>
+              <h3 className="text-base font-semibold text-foreground">Execution Period Subdivisions</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Periodic execution milestones partition each annual cycle according to the configured breakdown mode.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {canUpdatePlan && executionPeriods.length === 0 && (
+                <Button size="sm" onClick={() => setIsInitPeriodsOpen(true)} className="gap-2 shadow-xs">
+                  <Sliders className="h-4 w-4" />
+                  <span>Initialize Execution Periods</span>
+                </Button>
+              )}
+
+              {canUpdatePlan && executionPeriods.length > 0 && !plan.period_targets_finalized_at && (
+                <Button size="sm" onClick={handleFinalizePeriods} disabled={isFinalizingPeriods} className="gap-2 shadow-xs">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>Finalize Period Targets</span>
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {executionPeriods.length === 0 ? (
+            <div className="text-center p-8 border rounded-xl bg-card text-muted-foreground text-sm space-y-3">
+              <p>No execution periods initialized yet.</p>
+              <Button size="sm" onClick={() => setIsInitPeriodsOpen(true)} className="gap-2 shadow-xs">
+                <Sliders className="h-4 w-4" />
+                <span>Initialize Periods</span>
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {executionPeriods.map((period) => (
+                <div
+                  key={period.regional_plan_version_id}
+                  className="rounded-xl border bg-card p-4 shadow-2xs space-y-3 flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <Badge variant="outline" className="text-xs capitalize font-semibold">
+                        {period.status}
+                      </Badge>
+                      <span className="text-xs font-mono text-muted-foreground">Period #{period.sequence_index}</span>
+                    </div>
+                    <h4 className="font-semibold text-foreground mt-2">{period.period_label || period.draft_name}</h4>
+                    <p className="text-xs text-muted-foreground mt-1">Year {period.planning_year}</p>
+                  </div>
+
+                  <div className="pt-3 border-t flex items-center justify-between gap-2">
+                    <Link href={`/regions/${regionId}/plans/${period.regional_plan_version_id}`}>
+                      <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs">
+                        <Target className="h-3.5 w-3.5 text-primary" />
+                        <span>View Milestones</span>
+                      </Button>
+                    </Link>
+
+                    {period.is_locked ? (
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Lock className="h-3.5 w-3.5" />
+                        <span>Locked</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs text-emerald-600 flex items-center gap-1">
+                        <Unlock className="h-3.5 w-3.5" />
+                        <span>Open</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL: Dynamic Rule-Driven Node Create/Edit Modal */}
+      {/* ------------------------------------------------------------- */}
+      <CreateRegionalPlanNodeModal
+        isOpen={isNodeModalOpen}
+        onClose={() => {
+          setIsNodeModalOpen(false);
+          setParentNodeForCreate(null);
+          setSelectedNodeForEdit(null);
+          refetch();
+        }}
+        regionId={regionId!}
+        planVersionId={versionId!}
+        parentNode={parentNodeForCreate}
+        node={selectedNodeForEdit}
+        rule={plan?.planRule}
+        planningConfig={plan?.planningConfiguration}
+        allNodes={rawNodes}
+      />
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL: Period Initialization Modal */}
+      {/* ------------------------------------------------------------- */}
+      <Dialog open={isInitPeriodsOpen} onOpenChange={setIsInitPeriodsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Sliders className="h-5 w-5 text-primary" />
+              <span>Initialize Execution Periods</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Choose the periodic breakdown mode. This will generate execution sub-versions for every annual plan cycle.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">Breakdown Cadence</label>
+              <select
+                value={subdivisionMode}
+                onChange={(e) => setSubdivisionMode(e.target.value as any)}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs"
+              >
+                <option value="quarterly">Quarterly (4 Periods / Year)</option>
+                <option value="semi_annual">Semi-Annual (2 Periods / Year)</option>
+                <option value="monthly">Monthly (12 Periods / Year)</option>
+                <option value="custom">Custom Division</option>
+              </select>
+            </div>
+
+            {subdivisionMode === "custom" && (
+              <div className="space-y-2 border-t pt-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-foreground">Custom Period Names</label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2 text-xs gap-1"
+                    onClick={() =>
+                      setCustomPeriods((prev) => [...prev, { label: `Period ${prev.length + 1}` }])
+                    }
+                  >
+                    <Plus className="h-3 w-3" />
+                    <span>Add Period</span>
+                  </Button>
+                </div>
+
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {customPeriods.map((cp, idx) => (
+                    <div key={idx} className="flex items-center gap-1.5">
+                      <Input
+                        value={cp.label}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCustomPeriods((prev) =>
+                            prev.map((p, i) => (i === idx ? { label: val } : p))
+                          );
+                        }}
+                        className="h-8 text-xs"
+                        placeholder="e.g. Trimester 1"
+                      />
+                      {customPeriods.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
+                          onClick={() =>
+                            setCustomPeriods((prev) => prev.filter((_, i) => i !== idx))
+                          }
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <DialogFooter className="pt-2">
+              <Button variant="outline" onClick={() => setIsInitPeriodsOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleInitializePeriods} disabled={isInitializingPeriods}>
+                {isInitializingPeriods ? "Generating..." : "Generate Periods"}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

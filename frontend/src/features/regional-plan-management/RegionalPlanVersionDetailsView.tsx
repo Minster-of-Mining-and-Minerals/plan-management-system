@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import {
@@ -25,10 +25,16 @@ import {
   Settings2,
   Plus,
   Trash2,
+  History,
+  Building2,
+  Info,
+  Check,
+  X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -37,6 +43,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { ProfileHeroBanner } from "@/components/common/ProfileHeroBanner";
 import { actionFeedback } from "@/components/action-feedback";
 import { usePermissions } from "@/hooks/usePermissions";
 import Loading01 from "@/features/template/component/Loading/Loading01";
@@ -55,8 +62,95 @@ import {
   useFinalizeRegionalAnnualExecutionMutation,
   useFinalizeRegionalPeriodTargetsMutation,
 } from "@/redux/api/regionalPlanApi";
+import type {
+  RegionalPlanVersion,
+  RegionalPlanRule,
+  RegionalPlanningConfiguration,
+} from "@/redux/types/regionalPlan";
+import {
+  formatDurationYears,
+  formatPlanningPeriod,
+  getPlanDraftDisplayName,
+} from "@/utils/planDraftUtils";
+import { formatDate } from "@/utils/formatDate";
+import { RegionalPlanVersionSubNav } from "./components/RegionalPlanVersionSubNav";
 import { RegionalPlanVersionDraftRulePanel } from "./components/RegionalPlanVersionDraftRulePanel";
 import { RegionalPlanVersionDraftConfigPanel } from "./components/RegionalPlanVersionDraftConfigPanel";
+
+const VERSION_KIND_LABELS: Record<string, string> = {
+  master: "Strategic draft",
+  annual: "Annual execution",
+  execution_period: "Execution period",
+};
+
+const STATUS_STYLES: Record<string, string> = {
+  draft: "bg-primary-foreground/15 text-primary-foreground border-primary-foreground/25",
+  active: "bg-emerald-500/20 text-primary-foreground border-emerald-200/30",
+  finalized: "bg-violet-500/20 text-primary-foreground border-violet-200/30",
+  locked: "bg-amber-500/20 text-primary-foreground border-amber-200/30",
+  completed: "bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20",
+};
+
+type DetailTab = "overview" | "settings" | "rule" | "timeline" | "annual" | "periods";
+
+function formatStatus(status: string) {
+  return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatTimestamp(value?: string | null) {
+  if (!value) return "—";
+  return formatDate(value);
+}
+
+function OverviewRow({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-4 py-2 border-b border-border/40 last:border-b-0">
+      <dt className="text-muted-foreground text-xs sm:text-sm">{label}</dt>
+      <dd className="font-semibold text-foreground text-xs sm:text-sm sm:text-right">{value}</dd>
+    </div>
+  );
+}
+
+function TimelineItem({
+  label,
+  value,
+  isLast,
+}: {
+  label: string;
+  value: string;
+  isLast?: boolean;
+}) {
+  if (value === "—") return null;
+
+  return (
+    <div className="relative flex gap-4 pb-6 last:pb-0">
+      {!isLast ? (
+        <span className="absolute left-[0.4375rem] top-3 h-full w-px bg-border" aria-hidden />
+      ) : null}
+      <span className="relative z-10 mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-primary ring-4 ring-background" />
+      <div>
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className="mt-0.5 text-sm font-semibold text-foreground">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function MetaChip({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-primary-foreground/20 bg-primary-foreground/10 px-3 py-2 backdrop-blur-sm">
+      <div className="flex items-center gap-2">
+        <span className="text-primary-foreground/90">{icon}</span>
+        <div className="min-w-0">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-primary-foreground/70">
+            {label}
+          </p>
+          <p className="truncate text-sm font-semibold text-primary-foreground">{value}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function RegionalPlanVersionDetailsView() {
   const router = useRouter();
@@ -65,7 +159,7 @@ export function RegionalPlanVersionDetailsView() {
   const versionId = params?.versionId;
   const { can } = usePermissions();
 
-  const [activeTab, setActiveTab] = useState<"annual" | "periods" | "rule" | "settings">("annual");
+  const [activeTab, setActiveTab] = useState<DetailTab>("overview");
   const [subdivisionMode, setSubdivisionMode] = useState<"quarterly" | "monthly" | "semi_annual" | "custom">("quarterly");
   const [customPeriods, setCustomPeriods] = useState<Array<{ label: string }>>([
     { label: "Period 1" },
@@ -103,6 +197,21 @@ export function RegionalPlanVersionDetailsView() {
     { skip: !versionId || !regionId }
   );
 
+  const { data: readiness, refetch: refetchReadiness } = useGetRegionalDraftFinalizationReadinessQuery(
+    { id: versionId, region_id: regionId },
+    { skip: !versionId || !regionId || plan?.status !== "draft" }
+  );
+
+  const { data: annualVersions = [] } = useGetRegionalAnnualVersionsQuery(
+    { id: versionId, region_id: regionId },
+    { skip: !versionId || !regionId }
+  );
+
+  const { data: executionPeriods = [] } = useGetRegionalExecutionPeriodsQuery(
+    { id: versionId, region_id: regionId },
+    { skip: !versionId || !regionId }
+  );
+
   useEffect(() => {
     if (plan?.planningConfiguration) {
       if (plan.planningConfiguration.breakdown_mode) {
@@ -122,21 +231,6 @@ export function RegionalPlanVersionDetailsView() {
     }
   }, [plan]);
 
-  const { data: readiness, refetch: refetchReadiness } = useGetRegionalDraftFinalizationReadinessQuery(
-    { id: versionId, region_id: regionId },
-    { skip: !versionId || !regionId || plan?.status !== "draft" }
-  );
-
-  const { data: annualVersions = [] } = useGetRegionalAnnualVersionsQuery(
-    { id: versionId, region_id: regionId },
-    { skip: !versionId || !regionId }
-  );
-
-  const { data: executionPeriods = [] } = useGetRegionalExecutionPeriodsQuery(
-    { id: versionId, region_id: regionId },
-    { skip: !versionId || !regionId }
-  );
-
   const [finalizeDraft, { isLoading: isFinalizing }] = useFinalizeRegionalPlanDraftMutation();
   const [reopenDraft, { isLoading: isReopening }] = useReopenRegionalPlanDraftMutation();
   const [startProcess, { isLoading: isStarting }] = useStartRegionalPlanProcessMutation();
@@ -146,6 +240,26 @@ export function RegionalPlanVersionDetailsView() {
 
   const canFinalize = can("REGIONAL_PLANS:FINALIZE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
   const canUpdate = can("REGIONAL_PLANS:UPDATE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
+
+  const isMasterDraft = plan?.version_kind === "master" && plan?.status === "draft";
+  const hasDraftSnapshots =
+    Boolean(versionConfig?.owned_by_plan_version_id) ||
+    Boolean(versionRule?.owned_by_plan_version_id);
+
+  const readOnlyReason = !isMasterDraft
+    ? plan?.version_kind !== "master"
+      ? "Edit planning settings on the master strategic draft — annual and period versions inherit them."
+      : `This master plan is ${plan?.status}. Configuration can only be edited while in draft status.`
+    : null;
+
+  const configReadOnlyReason =
+    readOnlyReason ??
+    (!hasDraftSnapshots
+      ? "This draft still uses live planning config. Save the draft rule once to isolate config editing."
+      : null);
+
+  const canEditRule = isMasterDraft && canUpdate;
+  const canEditConfig = isMasterDraft && hasDraftSnapshots && canUpdate;
 
   const handleFinalizeDraft = async () => {
     try {
@@ -221,17 +335,24 @@ export function RegionalPlanVersionDetailsView() {
   const isActive = plan.status === "active";
   const isCompleted = plan.status === "completed";
 
+  const statusClass =
+    STATUS_STYLES[plan.status] ??
+    "bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20";
+
+  const tabs: Array<{ id: DetailTab; label: string; icon: any; count?: number }> = [
+    { id: "overview", label: "Overview", icon: GitBranch },
+    { id: "settings", label: "Configuration", icon: Settings2 },
+    { id: "rule", label: "Plan Rule", icon: Layers },
+    { id: "timeline", label: "Lifecycle", icon: History },
+    { id: "annual", label: "Annual Cycles", icon: Calendar, count: annualVersions.length },
+    { id: "periods", label: "Execution Periods", icon: Clock, count: executionPeriods.length },
+  ];
+
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
-      {/* Breadcrumb / Top Bar */}
+      {/* Top Navigation & SubNav */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Link href={`/regions/${regionId}/plans`} className="hover:text-primary transition-colors">
-            Plans
-          </Link>
-          <ChevronRight className="h-3.5 w-3.5" />
-          <span className="font-semibold text-foreground truncate max-w-xs">{plan.draft_name}</span>
-        </div>
+        <RegionalPlanVersionSubNav regionId={regionId} versionId={versionId} />
 
         <div className="flex items-center gap-2">
           <Link href={`/regions/${regionId}/plans/${versionId}/hierarchy`}>
@@ -250,422 +371,712 @@ export function RegionalPlanVersionDetailsView() {
         </div>
       </div>
 
-      {/* Plan Hero Banner */}
-      <div className="rounded-2xl border bg-card p-6 shadow-xs relative overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="capitalize font-semibold text-xs px-2.5 py-0.5">
-                {plan.status}
+      {/* Federal Parity ProfileHeroBanner */}
+      <ProfileHeroBanner className="overflow-hidden rounded-2xl border shadow-sm">
+        <div className="px-6 py-6 sm:px-8">
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge className={`border ${statusClass}`}>{formatStatus(plan.status)}</Badge>
+              <Badge
+                variant="secondary"
+                className="bg-primary-foreground/15 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
+              >
+                {VERSION_KIND_LABELS[plan.version_kind] || plan.version_kind}
               </Badge>
-              <span className="text-xs text-muted-foreground font-mono">v{plan.version_number}</span>
-              <span className="text-xs text-muted-foreground">•</span>
-              <span className="text-xs text-muted-foreground">Cycle {plan.start_year} – {plan.end_year}</span>
+              {hasDraftSnapshots && (
+                <Badge className="gap-1 bg-primary-foreground/15 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20">
+                  <Shield className="h-3 w-3" />
+                  Isolated Snapshots
+                </Badge>
+              )}
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-              {plan.draft_name}
-            </h1>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-primary-foreground flex items-center gap-2">
+                <Info className="h-7 w-7 shrink-0 opacity-90" />
+                {getPlanDraftDisplayName(plan as any)}
+              </h1>
+              <p className="mt-2 text-sm text-primary-foreground/80 max-w-3xl">
+                Regional rules, planning configuration, and lifecycle metadata for this plan.
+                {plan.region?.name ? ` Region: ${plan.region.name}.` : ""}
+              </p>
+              <p className="mt-1 text-sm text-primary-foreground/70">
+                {formatPlanningPeriod(plan as any)}
+                {plan.planning_duration_years != null
+                  ? ` · ${formatDurationYears(plan.planning_duration_years)}`
+                  : ""}
+              </p>
+            </div>
 
-            <p className="text-sm text-muted-foreground">
-              Master Plan Rule: <span className="font-semibold text-foreground">{plan.planRule?.name || "Standard Rule"}</span>
-            </p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <MetaChip
+                icon={<Building2 className="h-4 w-4" />}
+                label="Region / Sector"
+                value={plan.region?.name ?? "Regional"}
+              />
+              <MetaChip
+                icon={<Calendar className="h-4 w-4" />}
+                label="Planning Period"
+                value={formatPlanningPeriod(plan as any)}
+              />
+              <MetaChip
+                icon={<Layers className="h-4 w-4" />}
+                label="Hierarchy Levels"
+                value={versionRule?.steps?.length ? String(versionRule.steps.length) : "—"}
+              />
+              <MetaChip
+                icon={<Settings2 className="h-4 w-4" />}
+                label="Target Units"
+                value={String(versionConfig?.target_units?.length || 0)}
+              />
+            </div>
           </div>
+        </div>
+      </ProfileHeroBanner>
 
-          {/* Quick Lifecycle Action Triggers */}
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            {isDraft && canFinalize && (
-              <Button
-                onClick={handleFinalizeDraft}
-                disabled={isFinalizing || (readiness && !readiness.ready)}
-                className="gap-2 shadow-sm"
-              >
-                <CheckCircle2 className="h-4 w-4" />
-                <span>{isFinalizing ? "Finalizing..." : "Finalize Strategic Plan"}</span>
-              </Button>
-            )}
+      {/* Quick Action Ribbon if Draft/Finalized */}
+      <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl border bg-card shadow-2xs">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="font-semibold text-foreground">Lifecycle Action:</span>
+          {isDraft && "Plan is in draft mode. Validate all hierarchy milestones to finalize."}
+          {isFinalized && !plan.annual_targets_finalized_at && "Master draft finalized. Allocate and finalize annual targets."}
+          {isFinalized && plan.annual_targets_finalized_at && !plan.period_targets_finalized_at && "Annual targets finalized. Initialize execution periods and set period targets."}
+          {isFinalized && plan.period_targets_finalized_at && !plan.process_started_at && "Period targets finalized. Start the regional execution process to open reporting."}
+          {isActive && "Regional plan execution is currently active and accepting department achievement reports."}
+          {isCompleted && "Regional plan execution cycle is completed."}
+        </div>
 
-            {isFinalized && canUpdate && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleReopenDraft}
-                disabled={isReopening}
-                className="gap-2"
-              >
-                <RotateCcw className="h-4 w-4 text-amber-600" />
-                <span>Reopen for Edit</span>
-              </Button>
-            )}
+        <div className="flex flex-wrap items-center gap-2">
+          {isDraft && canFinalize && (
+            <Button
+              size="sm"
+              onClick={handleFinalizeDraft}
+              disabled={isFinalizing || (readiness && !readiness.ready)}
+              className="gap-2 shadow-xs"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              <span>{isFinalizing ? "Finalizing..." : "Finalize Strategic Plan"}</span>
+            </Button>
+          )}
 
-            {isFinalized && canFinalize && (
-              <Button
-                onClick={handleStartProcess}
-                disabled={isStarting || !plan.period_targets_finalized_at}
-                className="gap-2 shadow-sm bg-emerald-600 hover:bg-emerald-700 text-white"
-              >
-                <Play className="h-4 w-4" />
-                <span>{isStarting ? "Starting..." : "Start Plan Execution"}</span>
-              </Button>
-            )}
-          </div>
+          {isFinalized && canUpdate && !plan.process_started_at && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReopenDraft}
+              disabled={isReopening}
+              className="gap-2"
+            >
+              <RotateCcw className="h-4 w-4 text-amber-600" />
+              <span>Reopen for Edit</span>
+            </Button>
+          )}
+
+          {isFinalized && canFinalize && plan.period_targets_finalized_at && !plan.process_started_at && (
+            <Button
+              size="sm"
+              onClick={handleStartProcess}
+              disabled={isStarting}
+              className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+            >
+              <Play className="h-4 w-4" />
+              <span>Start Execution Process</span>
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Lifecycle Stage Readiness Notice if Draft */}
-      {isDraft && readiness && (
-        <div
-          className={`rounded-xl border p-4 text-xs ${
-            readiness.ready
-              ? "bg-emerald-50/80 border-emerald-200 text-emerald-900 dark:bg-emerald-950/30 dark:border-emerald-900 dark:text-emerald-200"
-              : "bg-amber-50/80 border-amber-200 text-amber-900 dark:bg-amber-950/30 dark:border-amber-900 dark:text-amber-200"
-          }`}
-        >
+      {/* Readiness Warning Card if Draft */}
+      {isDraft && readiness && !readiness.ready && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-4 text-amber-900 dark:text-amber-200 text-xs">
           <div className="flex items-start gap-3">
-            {readiness.ready ? (
-              <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
-            ) : (
-              <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-            )}
+            <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
             <div>
-              <p className="font-semibold text-sm">
-                {readiness.ready ? "Plan Draft is Ready for Finalization" : "Finalization Requirements Incomplete"}
-              </p>
-              {readiness.errors.length > 0 ? (
-                <ul className="list-disc list-inside mt-1.5 space-y-1">
-                  {readiness.errors.map((err, i) => (
-                    <li key={i}>{err}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-1">
-                  All hierarchy levels, targets, and contribution weights are properly validated.
-                  Clicking Finalize will generate {plan.planning_duration_years} annual plans and snapshot this version.
-                </p>
-              )}
+              <p className="font-semibold text-sm">Finalization Requirements Incomplete</p>
+              <ul className="list-disc list-inside mt-1.5 space-y-1">
+                {readiness.errors.map((err, i) => (
+                  <li key={i}>{err}</li>
+                ))}
+              </ul>
             </div>
           </div>
         </div>
       )}
 
-      {/* Workflow Tabs: Annual Cycles & Execution Periods */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 border-b overflow-x-auto">
-          <button
-            onClick={() => setActiveTab("annual")}
-            className={`pb-3 px-4 text-sm font-semibold transition-all border-b-2 -mb-px flex items-center gap-2 whitespace-nowrap ${
-              activeTab === "annual"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
+      {/* Detail Sections Tabs */}
+      <nav className="flex flex-wrap items-center gap-2" aria-label="Plan detail sections">
+        {tabs.map(({ id, label, icon: Icon, count }) => (
+          <Button
+            key={id}
+            type="button"
+            variant={activeTab === id ? "default" : "outline"}
+            className="gap-2"
+            onClick={() => setActiveTab(id)}
+            aria-current={activeTab === id ? "page" : undefined}
           >
-            <Calendar className="h-4 w-4" />
-            <span>Annual Planning Cycles ({annualVersions.length})</span>
-          </button>
+            <Icon className="h-4 w-4" />
+            <span>{label}</span>
+            {count !== undefined && (
+              <Badge variant="secondary" className="ml-1 text-[11px] px-1.5 py-0 h-5">
+                {count}
+              </Badge>
+            )}
+          </Button>
+        ))}
+      </nav>
 
-          <button
-            onClick={() => setActiveTab("periods")}
-            className={`pb-3 px-4 text-sm font-semibold transition-all border-b-2 -mb-px flex items-center gap-2 whitespace-nowrap ${
-              activeTab === "periods"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Clock className="h-4 w-4" />
-            <span>Execution Periods ({executionPeriods.length})</span>
-          </button>
+      {/* ------------------------------------------------------------- */}
+      {/* TAB 1: OVERVIEW */}
+      {/* ------------------------------------------------------------- */}
+      {activeTab === "overview" && (
+        <div className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Version Summary */}
+            <Card className="border shadow-xs">
+              <CardContent className="pt-6">
+                <h3 className="text-base font-semibold mb-3 flex items-center gap-2">
+                  <GitBranch className="h-4 w-4 text-primary" />
+                  <span>Version Summary</span>
+                </h3>
+                <dl className="text-sm">
+                  <OverviewRow label="Version kind" value={VERSION_KIND_LABELS[plan.version_kind] || plan.version_kind} />
+                  <OverviewRow label="Status" value={formatStatus(plan.status)} />
+                  <OverviewRow label="Start Year" value={String(plan.start_year)} />
+                  <OverviewRow label="End Year" value={String(plan.end_year)} />
+                  <OverviewRow label="Duration" value={formatDurationYears(plan.planning_duration_years || 1)} />
+                  {plan.planning_year != null && (
+                    <OverviewRow label="Planning Year" value={String(plan.planning_year)} />
+                  )}
+                  {plan.period_label && (
+                    <OverviewRow label="Period Label" value={plan.period_label} />
+                  )}
+                  {plan.sequence_index != null && (
+                    <OverviewRow label="Sequence Index" value={String(plan.sequence_index)} />
+                  )}
+                </dl>
+              </CardContent>
+            </Card>
 
-          <button
-            onClick={() => setActiveTab("rule")}
-            className={`pb-3 px-4 text-sm font-semibold transition-all border-b-2 -mb-px flex items-center gap-2 whitespace-nowrap ${
-              activeTab === "rule"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Layers className="h-4 w-4" />
-            <span>Plan Rule</span>
-          </button>
+            {/* Lineage & Relationships */}
+            <Card className="border shadow-xs">
+              <CardContent className="pt-6">
+                <h3 className="text-base font-semibold mb-3 flex items-center gap-2">
+                  <Layers className="h-4 w-4 text-primary" />
+                  <span>Lineage & Structure</span>
+                </h3>
+                <dl className="text-sm">
+                  <OverviewRow
+                    label="Parent Version"
+                    value={
+                      plan.parent_plan_version_id ? (
+                        <Link
+                          href={`/regions/${regionId}/plans/${plan.parent_plan_version_id}/details`}
+                          className="font-medium text-primary hover:underline"
+                        >
+                          {plan.parentPlanVersion?.draft_name || plan.parent_plan_version_id}
+                        </Link>
+                      ) : (
+                        "None (Root Master Plan)"
+                      )
+                    }
+                  />
+                  <OverviewRow label="Annual Cycles Generated" value={String(annualVersions.length)} />
+                  <OverviewRow label="Execution Periods" value={String(executionPeriods.length)} />
+                  <OverviewRow
+                    label="Snapshot Isolation"
+                    value={
+                      hasDraftSnapshots ? (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                          Isolated Snapshot Attached
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Regional Template Defaults</span>
+                      )
+                    }
+                  />
+                </dl>
+              </CardContent>
+            </Card>
+          </div>
 
-          <button
-            onClick={() => setActiveTab("settings")}
-            className={`pb-3 px-4 text-sm font-semibold transition-all border-b-2 -mb-px flex items-center gap-2 whitespace-nowrap ${
-              activeTab === "settings"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Settings2 className="h-4 w-4" />
-            <span>Planning Configuration</span>
-          </button>
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Configuration Overview Card */}
+            <Card className="border shadow-xs">
+              <CardContent className="pt-6">
+                <h3 className="text-base font-semibold mb-3 flex items-center gap-2">
+                  <Settings2 className="h-4 w-4 text-primary" />
+                  <span>Planning Configuration Highlights</span>
+                </h3>
+                <dl className="text-sm">
+                  <OverviewRow
+                    label="Execution Breakdown"
+                    value={
+                      <span className="capitalize font-semibold">
+                        {versionConfig?.breakdown_mode?.replace("_", " ") || "Quarterly"}
+                      </span>
+                    }
+                  />
+                  <OverviewRow
+                    label="Custom Periods"
+                    value={
+                      versionConfig?.custom_periods?.length
+                        ? `${versionConfig.custom_periods.length} Periods Defined`
+                        : "Standard Cadence"
+                    }
+                  />
+                  <OverviewRow
+                    label="Configured Target Units"
+                    value={
+                      <div className="flex flex-wrap gap-1 justify-end">
+                        {versionConfig?.target_units?.map((u: any) => (
+                          <Badge key={u.id} variant="outline" className="text-[11px]">
+                            {u.label} {u.symbol && u.symbol !== u.label ? `(${u.symbol})` : ""}
+                          </Badge>
+                        )) || "Standard Units"}
+                      </div>
+                    }
+                  />
+                  <OverviewRow
+                    label="Duration Limits"
+                    value={`${versionConfig?.min_duration_years || 1} to ${versionConfig?.max_duration_years || 10} Years`}
+                  />
+                </dl>
+              </CardContent>
+            </Card>
+
+            {/* Plan Rules Highlights Card */}
+            <Card className="border shadow-xs">
+              <CardContent className="pt-6">
+                <h3 className="text-base font-semibold mb-3 flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-primary" />
+                  <span>Plan Rules & Hierarchy Highlights</span>
+                </h3>
+                <dl className="text-sm">
+                  <OverviewRow label="Rule Name" value={versionRule?.name || "Standard Rule"} />
+                  <OverviewRow
+                    label="Scoring Policy"
+                    value={
+                      versionRule?.performance_scoring_policy === "ALLOW_OVER_ACHIEVEMENT"
+                        ? "Allow Over-achievement (>100%)"
+                        : "Cap at 100%"
+                    }
+                  />
+                  <OverviewRow
+                    label="Hierarchy Depth"
+                    value={`${versionRule?.steps?.length || 0} Dynamic Levels`}
+                  />
+                  <OverviewRow
+                    label="Configured Levels"
+                    value={
+                      <div className="flex flex-wrap gap-1.5 justify-end mt-1">
+                        {versionRule?.steps?.map((s: any) => (
+                          <Badge
+                            key={s.step_order}
+                            variant="secondary"
+                            className="text-[10px] font-mono"
+                          >
+                            L{s.step_order}: {s.label}
+                            {s.requires_weight ? " (Target)" : ""}
+                          </Badge>
+                        )) || "—"}
+                      </div>
+                    }
+                  />
+                </dl>
+              </CardContent>
+            </Card>
+          </div>
         </div>
+      )}
 
-        {/* Tab 1: Annual Plans */}
-        {activeTab === "annual" && (
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h3 className="text-base font-semibold text-foreground">Annual Implementation Plans</h3>
-                <p className="text-xs text-muted-foreground">
-                  Each year inherits the master strategic hierarchy. Allocate annual targets to plan annual milestones.
-                </p>
+      {/* ------------------------------------------------------------- */}
+      {/* TAB 2: CONFIGURATION (EDITABLE SETTINGS) */}
+      {/* ------------------------------------------------------------- */}
+      {activeTab === "settings" && (
+        <RegionalPlanVersionDraftConfigPanel
+          versionId={versionId!}
+          regionId={regionId!}
+          config={versionConfig}
+          isLoading={isConfigLoading}
+          canEdit={canEditConfig}
+          readOnlyReason={configReadOnlyReason}
+          onSaved={() => {
+            refetchConfig();
+            refetch();
+          }}
+        />
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* TAB 3: PLAN RULE (EDITABLE RULES) */}
+      {/* ------------------------------------------------------------- */}
+      {activeTab === "rule" && (
+        <RegionalPlanVersionDraftRulePanel
+          versionId={versionId!}
+          regionId={regionId!}
+          rule={versionRule}
+          isLoading={isRuleLoading}
+          canEdit={canEditRule}
+          readOnlyReason={readOnlyReason}
+          onSaved={() => {
+            refetchRule();
+            refetch();
+          }}
+        />
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* TAB 4: TIMELINE (LIFECYCLE) */}
+      {/* ------------------------------------------------------------- */}
+      {activeTab === "timeline" && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card className="border shadow-xs">
+            <CardContent className="pt-6">
+              <h3 className="text-base font-semibold mb-4 text-foreground flex items-center gap-2">
+                <History className="h-4 w-4 text-primary" />
+                <span>Lifecycle History Timeline</span>
+              </h3>
+              <div className="max-w-md pt-2">
+                <TimelineItem label="Created" value={formatTimestamp(plan.created_at)} />
+                <TimelineItem label="Last Updated" value={formatTimestamp(plan.updated_at)} />
+                <TimelineItem label="Strategic Finalized" value={formatTimestamp(plan.finalized_at)} />
+                <TimelineItem
+                  label="Annual Targets Finalized"
+                  value={formatTimestamp(plan.annual_targets_finalized_at)}
+                />
+                <TimelineItem
+                  label="Period Targets Finalized"
+                  value={formatTimestamp(plan.period_targets_finalized_at)}
+                />
+                <TimelineItem
+                  label="Process Started"
+                  value={formatTimestamp(plan.process_started_at)}
+                />
+                <TimelineItem
+                  label="Published for Review"
+                  value={formatTimestamp(plan.published_for_review_at)}
+                />
+                <TimelineItem
+                  label="Review Completed"
+                  value={formatTimestamp(plan.review_completed_at)}
+                  isLast
+                />
               </div>
+            </CardContent>
+          </Card>
 
-              {isFinalized && canUpdate && !plan.annual_targets_finalized_at && (
-                <Button size="sm" onClick={handleFinalizeAnnual} disabled={isFinalizingAnnual} className="gap-2">
+          <Card className="border shadow-xs">
+            <CardContent className="pt-6">
+              <h3 className="text-base font-semibold mb-4 text-foreground flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                <span>Stage Readiness Checklist</span>
+              </h3>
+              <div className="space-y-4 pt-1">
+                <div className="flex items-start gap-3 p-3 rounded-lg border bg-muted/20">
+                  {plan.finalized_at ? (
+                    <Check className="h-5 w-5 text-emerald-600 mt-0.5" />
+                  ) : (
+                    <Clock className="h-5 w-5 text-amber-500 mt-0.5" />
+                  )}
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">1. Strategic Plan Finalization</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {plan.finalized_at
+                        ? `Finalized on ${formatDate(plan.finalized_at)}`
+                        : "Draft hierarchy creation and validation"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 rounded-lg border bg-muted/20">
+                  {plan.annual_targets_finalized_at ? (
+                    <Check className="h-5 w-5 text-emerald-600 mt-0.5" />
+                  ) : (
+                    <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  )}
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">2. Annual Target Allocation</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {plan.annual_targets_finalized_at
+                        ? `Finalized on ${formatDate(plan.annual_targets_finalized_at)}`
+                        : "Requires finalized master strategic plan"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 rounded-lg border bg-muted/20">
+                  {plan.period_targets_finalized_at ? (
+                    <Check className="h-5 w-5 text-emerald-600 mt-0.5" />
+                  ) : (
+                    <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  )}
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">3. Execution Period Target Distribution</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {plan.period_targets_finalized_at
+                        ? `Finalized on ${formatDate(plan.period_targets_finalized_at)}`
+                        : "Requires finalized annual targets"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 rounded-lg border bg-muted/20">
+                  {plan.process_started_at ? (
+                    <Check className="h-5 w-5 text-emerald-600 mt-0.5" />
+                  ) : (
+                    <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  )}
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">4. Execution Process & Reporting</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {plan.process_started_at
+                        ? `Started on ${formatDate(plan.process_started_at)}`
+                        : "Opens regional department achievement reporting"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* TAB 5: ANNUAL PLANNING CYCLES */}
+      {/* ------------------------------------------------------------- */}
+      {activeTab === "annual" && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-base font-semibold text-foreground">Annual Implementation Plans</h3>
+              <p className="text-xs text-muted-foreground">
+                Each fiscal year inherits the master strategic hierarchy. Allocate annual targets to plan annual milestones.
+              </p>
+            </div>
+
+            {isFinalized && canUpdate && !plan.annual_targets_finalized_at && (
+              <Button size="sm" onClick={handleFinalizeAnnual} disabled={isFinalizingAnnual} className="gap-2">
+                <CheckCircle2 className="h-4 w-4" />
+                <span>Finalize Annual Targets</span>
+              </Button>
+            )}
+          </div>
+
+          {annualVersions.length === 0 ? (
+            <div className="text-center p-8 border rounded-xl bg-card text-muted-foreground text-sm">
+              No annual versions generated yet. Finalize the master plan draft to generate annual cycles.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {annualVersions.map((annual) => (
+                <div
+                  key={annual.regional_plan_version_id}
+                  className="rounded-xl border bg-card p-4 shadow-2xs space-y-3 flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <Badge variant="outline" className="text-xs capitalize font-semibold">
+                        {annual.status}
+                      </Badge>
+                      <span className="text-xs font-mono text-muted-foreground">Year {annual.sequence_index}</span>
+                    </div>
+                    <h4 className="font-semibold text-foreground mt-2">{annual.draft_name}</h4>
+                    <p className="text-xs text-muted-foreground mt-1">Fiscal Year {annual.planning_year}</p>
+                  </div>
+
+                  <div className="pt-3 border-t flex items-center justify-between gap-2">
+                    <Link href={`/regions/${regionId}/plans/${annual.regional_plan_version_id}/hierarchy`}>
+                      <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs">
+                        <Target className="h-3.5 w-3.5 text-primary" />
+                        <span>Set Targets</span>
+                      </Button>
+                    </Link>
+
+                    {annual.is_locked ? (
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Lock className="h-3.5 w-3.5" />
+                        <span>Locked</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs text-emerald-600 flex items-center gap-1">
+                        <Unlock className="h-3.5 w-3.5" />
+                        <span>Editable</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* TAB 6: EXECUTION PERIODS */}
+      {/* ------------------------------------------------------------- */}
+      {activeTab === "periods" && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-base font-semibold text-foreground">Execution Period Subdivisions</h3>
+              <p className="text-xs text-muted-foreground">
+                Progress reporting occurs at the execution period level. Periods divide annual targets according to regional rules.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {isFinalized && canUpdate && plan.annual_targets_finalized_at && executionPeriods.length === 0 && (
+                <Button size="sm" onClick={() => setIsInitPeriodsOpen(true)} className="gap-2 shadow-xs">
+                  <Sliders className="h-4 w-4" />
+                  <span>Initialize Execution Periods</span>
+                </Button>
+              )}
+
+              {isFinalized && canUpdate && executionPeriods.length > 0 && !plan.period_targets_finalized_at && (
+                <Button size="sm" onClick={handleFinalizePeriods} disabled={isFinalizingPeriods} className="gap-2">
                   <CheckCircle2 className="h-4 w-4" />
-                  <span>Finalize Annual Targets</span>
+                  <span>Finalize Period Targets</span>
                 </Button>
               )}
             </div>
-
-            {annualVersions.length === 0 ? (
-              <div className="text-center p-8 border rounded-xl bg-card text-muted-foreground text-sm">
-                No annual versions generated yet. Finalize the master plan draft to generate annual cycles.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {annualVersions.map((annual) => (
-                  <div
-                    key={annual.regional_plan_version_id}
-                    className="rounded-xl border bg-card p-4 shadow-2xs space-y-3 flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-2">
-                        <Badge variant="outline" className="text-xs capitalize font-semibold">
-                          {annual.status}
-                        </Badge>
-                        <span className="text-xs font-mono text-muted-foreground">Year {annual.sequence_index}</span>
-                      </div>
-                      <h4 className="font-semibold text-foreground mt-2">{annual.draft_name}</h4>
-                      <p className="text-xs text-muted-foreground mt-1">Fiscal Year {annual.planning_year}</p>
-                    </div>
-
-                    <div className="pt-3 border-t flex items-center justify-between gap-2">
-                      <Link href={`/regions/${regionId}/plans/${annual.regional_plan_version_id}/hierarchy`}>
-                        <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs">
-                          <Target className="h-3.5 w-3.5 text-primary" />
-                          <span>Set Targets</span>
-                        </Button>
-                      </Link>
-
-                      <Link href={`/regions/${regionId}/plans/${annual.regional_plan_version_id}`}>
-                        <Button size="sm" variant="ghost" className="gap-1 h-8 text-xs">
-                          <span>Details</span>
-                          <ChevronRight className="h-3.5 w-3.5" />
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
-        )}
 
-        {/* Tab 2: Execution Periods */}
-        {activeTab === "periods" && (
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h3 className="text-base font-semibold text-foreground">Execution Reporting Periods</h3>
-                <p className="text-xs text-muted-foreground">
-                  Reporting periods allow officers to enter achievement values and evidence against periodic targets.
+          {executionPeriods.length === 0 ? (
+            <div className="text-center p-8 border rounded-xl bg-card text-muted-foreground text-sm space-y-3">
+              <p>No execution periods initialized yet.</p>
+              {plan.annual_targets_finalized_at ? (
+                <Button size="sm" onClick={() => setIsInitPeriodsOpen(true)} className="gap-2">
+                  <Sliders className="h-4 w-4" />
+                  <span>Generate Execution Periods</span>
+                </Button>
+              ) : (
+                <p className="text-xs text-amber-600 font-medium">
+                  Annual targets must be finalized before execution periods can be generated.
                 </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {isFinalized && canUpdate && !plan.period_subdivision_mode && (
-                  <Button size="sm" onClick={() => setIsInitPeriodsOpen(true)} className="gap-2">
-                    <Clock className="h-4 w-4" />
-                    <span>Initialize Reporting Periods</span>
-                  </Button>
-                )}
-
-                {isFinalized && canUpdate && plan.period_subdivision_mode && !plan.period_targets_finalized_at && (
-                  <Button size="sm" onClick={handleFinalizePeriods} disabled={isFinalizingPeriods} className="gap-2">
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span>Finalize Period Targets</span>
-                  </Button>
-                )}
-              </div>
+              )}
             </div>
-
-            {executionPeriods.length === 0 ? (
-              <div className="text-center p-8 border rounded-xl bg-card text-muted-foreground text-sm space-y-3">
-                <p>No execution reporting periods initialized for this plan cycle yet.</p>
-                {isFinalized && canUpdate && (
-                  <Button size="sm" onClick={() => setIsInitPeriodsOpen(true)} className="gap-2">
-                    <Clock className="h-4 w-4" />
-                    <span>Initialize Reporting Periods</span>
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {executionPeriods.map((period) => (
-                  <div
-                    key={period.regional_plan_version_id}
-                    className="rounded-xl border bg-card p-4 shadow-2xs space-y-3 flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-2">
-                        <Badge variant="outline" className="text-xs capitalize font-semibold">
-                          {period.execution_status || period.status}
-                        </Badge>
-                        <span className="text-xs font-mono text-muted-foreground">FY {period.planning_year}</span>
-                      </div>
-                      <h4 className="font-semibold text-foreground mt-2">{period.period_label || period.draft_name}</h4>
-                      <p className="text-xs text-muted-foreground mt-0.5">Reporting Window</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {executionPeriods.map((period) => (
+                <div
+                  key={period.regional_plan_version_id}
+                  className="rounded-xl border bg-card p-4 shadow-2xs space-y-3 flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <Badge variant="outline" className="text-xs capitalize font-semibold">
+                        {period.status}
+                      </Badge>
+                      <span className="text-xs font-mono text-muted-foreground">
+                        {period.planning_year ? `FY ${period.planning_year}` : ""}
+                      </span>
                     </div>
 
-                    <div className="pt-3 border-t flex items-center justify-between gap-2">
-                      <Link href={`/regions/${regionId}/plans/${period.regional_plan_version_id}/hierarchy`}>
-                        <Button size="sm" variant="default" className="gap-1.5 h-8 text-xs w-full">
-                          <span>Open Reporting</span>
-                          <ArrowRight className="h-3.5 w-3.5" />
-                        </Button>
-                      </Link>
-                    </div>
+                    <h4 className="font-semibold text-foreground mt-2">{period.draft_name}</h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Label: <span className="font-semibold text-foreground">{period.period_label || "Execution Period"}</span>
+                    </p>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
 
-        {/* Tab 3: Draft Plan Rule */}
-        {activeTab === "rule" && (
-          <RegionalPlanVersionDraftRulePanel
-            versionId={versionId!}
-            regionId={regionId!}
-            rule={versionRule || plan?.planRule}
-            isLoading={isRuleLoading}
-            canEdit={isDraft && canUpdate}
-            readOnlyReason={
-              !isDraft
-                ? `This plan is ${plan.status}. Plan rules can only be edited while in draft status.`
-                : !canUpdate
-                ? "You do not have permission to modify regional plan rules."
-                : null
-            }
-            onSaved={() => {
-              refetch();
-              refetchRule();
-            }}
-          />
-        )}
+                  <div className="pt-3 border-t flex items-center justify-between gap-2">
+                    <Link href={`/regions/${regionId}/plans/${period.regional_plan_version_id}/hierarchy`}>
+                      <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs">
+                        <Target className="h-3.5 w-3.5 text-primary" />
+                        <span>Allocate / Report</span>
+                      </Button>
+                    </Link>
 
-        {/* Tab 4: Draft Planning Configuration */}
-        {activeTab === "settings" && (
-          <RegionalPlanVersionDraftConfigPanel
-            versionId={versionId!}
-            regionId={regionId!}
-            config={versionConfig || plan?.planningConfiguration}
-            isLoading={isConfigLoading}
-            canEdit={isDraft && canUpdate}
-            readOnlyReason={
-              !isDraft
-                ? `This plan is ${plan.status}. Planning configuration can only be edited while in draft status.`
-                : !canUpdate
-                ? "You do not have permission to modify regional planning configuration."
-                : null
-            }
-            onSaved={() => {
-              refetch();
-              refetchConfig();
-            }}
-          />
-        )}
-      </div>
+                    {period.is_locked ? (
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Lock className="h-3.5 w-3.5" />
+                        <span>Locked</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs text-emerald-600 flex items-center gap-1">
+                        <Unlock className="h-3.5 w-3.5" />
+                        <span>Open</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* Initialize Periods Modal */}
+      {/* ------------------------------------------------------------- */}
+      {/* PERIOD INITIALIZATION MODAL */}
+      {/* ------------------------------------------------------------- */}
       <Dialog open={isInitPeriodsOpen} onOpenChange={setIsInitPeriodsOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-primary" />
-              <span>Initialize Reporting Periods</span>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Sliders className="h-5 w-5 text-primary" />
+              <span>Initialize Execution Periods</span>
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 pt-2">
             <p className="text-xs text-muted-foreground">
-              Select the subdivision frequency to partition each annual cycle into execution periods:
+              Choose the periodic breakdown mode. This will generate execution sub-versions for every annual plan cycle.
             </p>
 
-            <div className="space-y-2">
-              {[
-                { id: "quarterly", label: "Quarterly (4 Quarters per Year)", desc: "Q1, Q2, Q3, Q4" },
-                { id: "semi_annual", label: "Semi-Annual (2 Halves per Year)", desc: "H1, H2" },
-                { id: "monthly", label: "Monthly (12 Months per Year)", desc: "Month 1 through Month 12" },
-                { id: "custom", label: "Custom (User-Defined Periods)", desc: "Configurable period partitions" },
-              ].map((opt) => (
-                <label
-                  key={opt.id}
-                  className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                    subdivisionMode === opt.id
-                      ? "border-primary bg-primary/5 ring-1 ring-primary"
-                      : "border-border hover:border-primary/40"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="subdivisionMode"
-                    value={opt.id}
-                    checked={subdivisionMode === opt.id}
-                    onChange={() => setSubdivisionMode(opt.id as any)}
-                    className="mt-0.5"
-                  />
-                  <div>
-                    <div className="text-xs font-semibold text-foreground">{opt.label}</div>
-                    <div className="text-[11px] text-muted-foreground">{opt.desc}</div>
-                  </div>
-                </label>
-              ))}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">Breakdown Cadence</label>
+              <select
+                value={subdivisionMode}
+                onChange={(e) => setSubdivisionMode(e.target.value as any)}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs"
+              >
+                <option value="quarterly">Quarterly (4 Periods / Year)</option>
+                <option value="semi_annual">Semi-Annual (2 Periods / Year)</option>
+                <option value="monthly">Monthly (12 Periods / Year)</option>
+                <option value="custom">Custom Division</option>
+              </select>
             </div>
 
             {subdivisionMode === "custom" && (
-              <div className="space-y-3 pt-3 border-t">
+              <div className="space-y-2 border-t pt-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-foreground">Custom Period Partitions</span>
+                  <label className="text-xs font-semibold text-foreground">Custom Period Names</label>
                   <Button
                     type="button"
-                    size="sm"
                     variant="outline"
+                    size="sm"
+                    className="h-6 px-2 text-xs gap-1"
                     onClick={() =>
-                      setCustomPeriods((prev) => [
-                        ...prev,
-                        { label: `Period ${prev.length + 1}` },
-                      ])
+                      setCustomPeriods((prev) => [...prev, { label: `Period ${prev.length + 1}` }])
                     }
-                    className="h-6 text-[11px] gap-1 px-2"
                   >
                     <Plus className="h-3 w-3" />
                     <span>Add Period</span>
                   </Button>
                 </div>
-                <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                  {customPeriods.map((p, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <span className="text-[11px] font-mono text-muted-foreground w-6">#{idx + 1}</span>
+
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {customPeriods.map((cp, idx) => (
+                    <div key={idx} className="flex items-center gap-1.5">
                       <Input
-                        value={p.label}
+                        value={cp.label}
                         onChange={(e) => {
-                          const updated = [...customPeriods];
-                          updated[idx] = { label: e.target.value };
-                          setCustomPeriods(updated);
+                          const val = e.target.value;
+                          setCustomPeriods((prev) =>
+                            prev.map((p, i) => (i === idx ? { label: val } : p))
+                          );
                         }}
-                        className="h-7 text-xs"
+                        className="h-8 text-xs"
                         placeholder="e.g. Trimester 1"
                       />
                       {customPeriods.length > 1 && (
                         <Button
                           type="button"
-                          size="sm"
                           variant="ghost"
-                          onClick={() => setCustomPeriods((prev) => prev.filter((_, i) => i !== idx))}
-                          className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
+                          onClick={() =>
+                            setCustomPeriods((prev) => prev.filter((_, i) => i !== idx))
+                          }
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -675,16 +1086,16 @@ export function RegionalPlanVersionDetailsView() {
                 </div>
               </div>
             )}
-          </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsInitPeriodsOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleInitializePeriods} disabled={isInitializingPeriods}>
-              {isInitializingPeriods ? "Initializing..." : "Initialize Periods"}
-            </Button>
-          </DialogFooter>
+            <DialogFooter className="pt-2">
+              <Button variant="outline" onClick={() => setIsInitPeriodsOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleInitializePeriods} disabled={isInitializingPeriods}>
+                {isInitializingPeriods ? "Generating..." : "Generate Periods"}
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -35,14 +35,50 @@ function toPlainStep(step) {
   return step;
 }
 
+function getStepTargetRequirement(stepOrRule, level) {
+  let step = stepOrRule;
+  if (level != null && stepOrRule?.steps) {
+    step = getStepForLevel(stepOrRule, level);
+  }
+  if (!step) return "none";
+  const plain = toPlainStep ? toPlainStep(step) : step;
+  if (plain.target_requirement) {
+    return plain.target_requirement;
+  }
+  if (Boolean(plain.requires_weight)) {
+    return "required";
+  }
+  if (Boolean(plain.allow_kpi ?? plain.allow_target)) {
+    return "optional";
+  }
+  return "none";
+}
+
+function stepAllowsTarget(stepOrRule, level) {
+  const req = getStepTargetRequirement(stepOrRule, level);
+  return req === "required" || req === "optional";
+}
+
+function stepRequiresTarget(stepOrRule, level) {
+  return getStepTargetRequirement(stepOrRule, level) === "required";
+}
+
+function stepTargetIsOptional(stepOrRule, level) {
+  return getStepTargetRequirement(stepOrRule, level) === "optional";
+}
+
 function getWeightStartLevel(rule) {
   if (!rule?.steps?.length) return null;
   const sorted = sortSteps(rule.steps.map(toPlainStep));
-  const startStep = sorted.find((s) => s.requires_weight);
+  const startStep = sorted.find((s) => stepAllowsTarget(s));
   return startStep?.step_order ?? null;
 }
 
 function stepRequiresWeight(rule, level) {
+  const step = getStepForLevel(rule, level);
+  if (step) {
+    return stepRequiresTarget(step);
+  }
   const start = getWeightStartLevel(rule);
   return start !== null && level >= start;
 }
@@ -62,17 +98,17 @@ function isWeightModeSelectionLevel(rule, level) {
 
 function getStepForLevel(rule, level) {
   if (!rule?.steps?.length) return null;
-  return rule.steps.find((s) => s.step_order === level) || null;
+  return rule.steps.find((s) => (s.step_order === level || s.level === level)) || null;
 }
 
 function getStepLabel(rule, level) {
   const step = getStepForLevel(rule, level);
-  return step?.label || `Level ${level}`;
+  return step?.label || step?.name || `Level ${level}`;
 }
 
 function getMaxDepth(rule) {
   if (!rule?.steps?.length) return 4;
-  return Math.max(...rule.steps.map((s) => s.step_order));
+  return Math.max(...rule.steps.map((s) => (s.step_order || s.level || 1)));
 }
 
 function getWeightTarget(parent, weightMode) {
@@ -93,7 +129,7 @@ function getWeightUnitLabel(weightMode) {
 }
 
 /**
- * Normalize steps: level + label + optional requires_weight on ONE level (cascades down).
+ * Normalize steps: level + label + optional target_requirement/allow_kpi/requires_weight.
  */
 function normalizeRuleSteps(steps) {
   const sorted = sortSteps(steps);
@@ -101,17 +137,45 @@ function normalizeRuleSteps(steps) {
     throw new Error("At least one hierarchy level is required");
   }
 
+  const hasExplicitTargetConfig = sorted.some(
+    (s) => s.target_requirement !== undefined || s.allow_kpi !== undefined
+  );
   const firstWeightStep = sorted.find((s) => s.requires_weight);
-  const weightStart = firstWeightStep ? firstWeightStep.step_order : null;
+  const weightStart = firstWeightStep ? (firstWeightStep.step_order || firstWeightStep.level) : null;
 
   return sorted.map((step, index) => {
     const stepOrder = index + 1;
+    let requires_weight = false;
+    let allow_kpi = false;
+
+    if (step.target_requirement === "required") {
+      requires_weight = true;
+      allow_kpi = true;
+    } else if (step.target_requirement === "optional") {
+      requires_weight = false;
+      allow_kpi = true;
+    } else if (step.target_requirement === "none") {
+      requires_weight = false;
+      allow_kpi = false;
+    } else if (step.allow_kpi !== undefined) {
+      requires_weight = Boolean(step.requires_weight);
+      allow_kpi = Boolean(step.allow_kpi);
+    } else if (!hasExplicitTargetConfig && weightStart !== null) {
+      requires_weight = stepOrder >= weightStart;
+      allow_kpi = requires_weight;
+    } else {
+      requires_weight = Boolean(step.requires_weight);
+      allow_kpi = Boolean(step.allow_kpi ?? step.requires_weight);
+    }
+
     return {
       step_order: stepOrder,
-      label: step.label?.trim() || `Level ${stepOrder}`,
-      requires_weight: weightStart !== null && stepOrder >= weightStart,
+      label: step.label?.trim() || step.name?.trim() || `Level ${stepOrder}`,
+      requires_weight,
+      allow_kpi,
+      target_requirement: requires_weight ? "required" : (allow_kpi ? "optional" : "none"),
       requires_contribution_weight: Boolean(step.requires_contribution_weight),
-      node_type: levelToNodeType(stepOrder),
+      node_type: step.node_type || levelToNodeType(stepOrder),
       color_hex: normalizeStepColorHex(step.color_hex, stepOrder),
     };
   });
@@ -123,14 +187,14 @@ function enrichRuleSteps(steps) {
 
   return sorted.map((step) => ({
     ...step,
-    requires_weight: weightStart !== null && step.step_order >= weightStart,
+    requires_weight: stepRequiresWeight({ steps: sorted }, step.step_order || step.level),
     inherits_weight_from_level:
-      weightStart !== null && step.step_order > weightStart ? weightStart : null,
+      weightStart !== null && (step.step_order || step.level) > weightStart ? weightStart : null,
   }));
 }
 
 async function resolveNodeWeightMode({ rule, level, parent, weightMode, transaction, PlanNode }) {
-  if (!stepRequiresWeight(rule, level)) return { mode: null };
+  if (!stepAllowsTarget(rule, level)) return { mode: null };
 
   if (isWeightModeSelectionLevel(rule, level)) {
     if (!weightMode) {
@@ -157,6 +221,10 @@ async function resolveNodeWeightMode({ rule, level, parent, weightMode, transact
 module.exports = {
   DEFAULT_STEP_COLORS,
   levelToNodeType,
+  getStepTargetRequirement,
+  stepAllowsTarget,
+  stepRequiresTarget,
+  stepTargetIsOptional,
   getWeightStartLevel,
   stepRequiresWeight,
   stepRequiresContributionWeight,

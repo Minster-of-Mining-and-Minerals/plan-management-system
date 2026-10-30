@@ -49,6 +49,12 @@ export interface RegionalPlanRule {
   updated_at?: string;
 }
 
+export interface RegionalTargetUnit {
+  id: string;
+  label: string;
+  symbol?: string;
+}
+
 export interface RegionalPlanningConfiguration {
   regional_planning_config_id: string;
   region_id: string;
@@ -61,9 +67,10 @@ export interface RegionalPlanningConfiguration {
   duration_label: string;
   start_year_label: string;
   end_year_label: string;
-  target_units: Array<string | { id: string; label: string; symbol?: string }>;
+  target_units: Array<string | RegionalTargetUnit>;
   breakdown_mode: "quarterly" | "monthly" | "semi_annual" | "custom";
   custom_periods: Array<{ label: string; start_month?: number; end_month?: number }>;
+  owned_by_plan_version_id?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -90,11 +97,14 @@ export interface RegionalPlanNode {
   title: string;
   description?: string | null;
   weight: number;
-  weight_mode?: string;
+  weight_mode?: string | null;
   contribution_weight?: number | null;
   target_unit?: string | null;
   target_allocation_mode?: string;
   achievement_mode?: string;
+  regional_structure_id?: string | null;
+  assigned_user_id?: string | null;
+  assignment_sharing_mode?: string | null;
   level: number;
   order: number;
   is_active: boolean;
@@ -118,13 +128,16 @@ export interface RegionalPlanNode {
     department?: { regional_structure_id: string; name: string };
     assignedUser?: { user_id: string; full_name: string; email: string };
   }>;
+  parent?: RegionalPlanNode | null;
   children?: RegionalPlanNode[];
 }
 
 export interface RegionalPlanVersion {
   regional_plan_version_id: string;
   region_id: string;
+  region?: { region_id: string; name: string; code?: string };
   parent_plan_version_id?: string | null;
+  parentPlanVersion?: RegionalPlanVersion | null;
   based_on_version_id?: string | null;
   regional_plan_rule_id?: string | null;
   regional_planning_config_id?: string | null;
@@ -148,6 +161,8 @@ export interface RegionalPlanVersion {
   annual_targets_finalized_at?: string | null;
   period_targets_finalized_at?: string | null;
   process_started_at?: string | null;
+  published_for_review_at?: string | null;
+  review_completed_at?: string | null;
   execution_status?: string | null;
   review_status?: string | null;
   planRule?: RegionalPlanRule;
