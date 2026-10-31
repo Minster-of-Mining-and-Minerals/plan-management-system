@@ -17,14 +17,14 @@ async function run() {
   try {
     await Region.create({
       region_id: region1Id,
-      name: "Test Region Alpha",
+      name: "Test Region Alpha " + Date.now(),
       code: "TR_ALPHA_" + Date.now().toString().slice(-4),
       is_active: true,
     });
 
     await Region.create({
       region_id: region2Id,
-      name: "Test Region Beta",
+      name: "Test Region Beta " + Date.now(),
       code: "TR_BETA_" + Date.now().toString().slice(-4),
       is_active: true,
     });

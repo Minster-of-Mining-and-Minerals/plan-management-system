@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ColumnDef } from "@tanstack/react-table";
 import {
@@ -14,6 +15,7 @@ import {
   Phone,
   Power,
   RotateCcw,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,8 +60,10 @@ export function RegionalUserManagement({
   readOnly = false,
   hideHeaderCard = false,
 }: RegionalUserManagementProps = {}) {
+  const router = useRouter();
+  const params = useParams<{ id?: string }>();
   const { data: session } = useSession();
-  const regionId = session?.user?.region_id;
+  const regionId = session?.user?.region_id || params?.id;
 
   const { can } = usePermissions();
   const { roles: userRoles } = useAuth();
@@ -309,6 +313,19 @@ export function RegionalUserManagement({
         const u = row.original;
         return (
           <div className="flex items-center justify-end gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              title="View User Details"
+              onClick={() => {
+                const path = regionId
+                  ? `/${regionId}/users/list/${u.user_id}`
+                  : `/regional/users/list/${u.user_id}`;
+                router.push(path);
+              }}
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
             {canUpdate && (
               <Button
                 variant="ghost"
@@ -430,7 +447,7 @@ export function RegionalUserManagement({
 
       {/* Add / Edit User Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-6 overflow-hidden">
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col p-6 overflow-hidden">
           <form onSubmit={handleSaveUser} className="flex flex-col flex-1 min-h-0">
             <DialogHeader className="pb-3 border-b">
               <DialogTitle>
@@ -509,29 +526,33 @@ export function RegionalUserManagement({
                     <Shield className="h-4 w-4 text-primary" />
                     Assignable Regional Roles
                   </label>
-                  <div className="max-h-40 overflow-y-auto overflow-x-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden space-y-1.5 rounded-md border p-2.5 bg-muted/20">
+                  <div className="max-h-52 overflow-y-auto overflow-x-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden rounded-md border p-2.5 bg-muted/20">
                     {roles.length === 0 ? (
                       <div className="text-xs text-muted-foreground">No regional roles configured</div>
                     ) : (
-                      roles.map((r) => (
-                        <label
-                          key={r.role_id}
-                          className="flex items-center gap-2.5 text-xs cursor-pointer hover:bg-muted/40 p-1.5 rounded transition-colors"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedRoleIds.includes(r.role_id)}
-                            onChange={() => toggleRoleSelection(r.role_id)}
-                            className="rounded border-input text-primary"
-                          />
-                          <span className="font-medium text-foreground">{r.name}</span>
-                          {r.description && (
-                            <span className="text-muted-foreground text-[11px] truncate">
-                              — {r.description}
-                            </span>
-                          )}
-                        </label>
-                      ))
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {roles.map((r) => (
+                          <label
+                            key={r.role_id}
+                            className="flex items-center gap-2.5 text-xs cursor-pointer hover:bg-muted/40 p-2 rounded-md border border-border/40 transition-colors"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedRoleIds.includes(r.role_id)}
+                              onChange={() => toggleRoleSelection(r.role_id)}
+                              className="rounded border-input text-primary shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <span className="font-medium text-foreground block truncate">{r.name}</span>
+                              {r.description && (
+                                <span className="text-muted-foreground text-[11px] block truncate">
+                                  {r.description}
+                                </span>
+                              )}
+                            </div>
+                          </label>
+                        ))}
+                      </div>
                     )}
                   </div>
                 </div>

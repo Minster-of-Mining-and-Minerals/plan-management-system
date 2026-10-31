@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 interface ErrorStateProps {
   message: string;
   onRetry?: () => void;
+  backPath?: string;
 }
 
-export const ErrorState: React.FC<ErrorStateProps> = ({ message, onRetry }) => {
+export const ErrorState: React.FC<ErrorStateProps> = ({ message, onRetry, backPath }) => {
   const router = useRouter();
 
   return (
@@ -15,7 +16,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({ message, onRetry }) => {
       <div className="text-center py-12">
         <p className="text-red-600 text-lg mb-4">{message}</p>
         <div className="flex gap-3 justify-center">
-          <Button onClick={() => router.push("/users/roles")}>
+          <Button onClick={() => router.push(backPath || "/users/roles")}>
             Back to Roles
           </Button>
           {onRetry && (

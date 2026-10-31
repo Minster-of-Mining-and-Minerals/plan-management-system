@@ -38,7 +38,8 @@ export default function CreateRole({
   const { id: paramId } = useParams<{ id?: string }>();
   const router = useRouter();
   const { data: session } = useSession();
-  const id = roleId || paramId;
+  const isScopedRole = forceRegional || forceCompany || forcePurchasingCenter;
+  const id = isScopedRole ? roleId : (roleId || paramId);
   const isEditMode = Boolean(id && id !== "create" && id !== "new");
 
   const [name, setName] = useState("");
@@ -396,17 +397,17 @@ export default function CreateRole({
           ...(isPurchasingCenterRole
             ? {
                 scope: "purchasing_center" as any,
-                purchasing_center_id: (session?.user as any)?.purchasing_center_id || undefined,
+                purchasing_center_id: (session?.user as any)?.purchasing_center_id || paramId || undefined,
               }
             : isCompanyRole
             ? {
                 scope: "company" as any,
-                company_id: session?.user?.company_id || undefined,
+                company_id: session?.user?.company_id || paramId || undefined,
               }
             : isRegionalRole
             ? {
                 scope: "regional" as any,
-                region_id: session?.user?.region_id || undefined,
+                region_id: session?.user?.region_id || paramId || undefined,
               }
             : { government_structure_id: structureId }),
         }).unwrap();
@@ -447,7 +448,7 @@ export default function CreateRole({
 
   // Show error state if role not found
   if (isEditMode && roleError) {
-    return <ErrorState message="Role not found" onRetry={refetchRole} />;
+    return <ErrorState message="Role not found" onRetry={refetchRole} backPath={backPath} />;
   }
 
   return (

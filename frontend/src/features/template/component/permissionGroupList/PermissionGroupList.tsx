@@ -11,7 +11,7 @@ import { Download, Plus, Edit, Trash2, Eye } from "lucide-react";
 import { useGetPermissionGroupsQuery, useDeletePermissionGroupMutation } from "@/redux/api/permissionGroupApi";
 import type { PermissionGroup } from "@/redux/types/permissionGroup";
 import type { FilterField, ActionButton } from "@/types/tableLayout";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { actionFeedback } from "@/components/action-feedback";
 import { useSearchParams } from "next/navigation";
 import { matchesActiveInactiveFilter, matchesSearchQuery } from "@/utils/tableUtils";
@@ -43,7 +43,8 @@ export default function PermissionGroupList({
   const { data: session } = useSession();
   const isRegional = config.groupKind === "regional";
   const isCompany = config.groupKind === "company";
-  const regionalUserRegionId = session?.user?.region_id;
+  const { id: paramId } = (useParams?.() as { id?: string }) || {};
+  const regionalUserRegionId = session?.user?.region_id || (isRegional ? paramId : undefined);
   const companyUserCompanyId = session?.user?.company_id;
 
   const { isSuperAdmin, structureId: sessionStructureId } = useStructureScope();

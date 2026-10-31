@@ -52,7 +52,9 @@ export default function RegionalRoleList({
   const [deleteRole] = useDeleteRoleMutation();
 
   const newRegionalRolePath = basePath
-    ? `${basePath}/users/roles/new`
+    ? basePath.endsWith("/users/roles")
+      ? `${basePath}/new`
+      : `${basePath}/users/roles/new`
     : "/users/roles/new?scope=regional";
 
   const columns: ColumnDef<Role>[] = [
@@ -125,7 +127,9 @@ export default function RegionalRoleList({
       cell: ({ row }) => {
         const role = row.original;
         const editPath = basePath
-          ? `${basePath}/users/roles/${role.role_id}`
+          ? basePath.endsWith("/users/roles")
+            ? `${basePath}/${role.role_id}`
+            : `${basePath}/users/roles/${role.role_id}`
           : `/users/roles/${role.role_id}?scope=regional`;
         const editable = canEditRole(role, Boolean(isSuperAdmin), readOnly);
         const deletable = canDeleteRole(role, readOnly);

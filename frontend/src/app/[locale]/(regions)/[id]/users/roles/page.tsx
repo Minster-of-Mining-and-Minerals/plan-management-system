@@ -14,5 +14,5 @@ export default function RegionalRolesPage() {
       : `/${params.id}/users/roles`
     : "/regional/users/roles";
 
-  return <RegionalRoleList basePath={basePath} />;
+  return <RegionalRoleList basePath={basePath} regionId={params?.id} />;
 }

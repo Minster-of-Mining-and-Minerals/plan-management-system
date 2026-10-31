@@ -42,7 +42,8 @@ export default function CreatePermissionGroup({
   const { data: session } = useSession();
   const { isSuperAdmin, structureId: sessionStructureId } = useStructureScope();
   const { can } = usePermissions();
-  const id = groupId || paramId;
+  const isScopedKind = config.groupKind === "regional" || config.groupKind === "company" || config.groupKind === "purchasing_center";
+  const id = isScopedKind ? groupId : (groupId || paramId);
   const isEditMode = Boolean(id && id !== "create" && id !== "new");
   const structureId =
     searchParams.get("government_structure_id") || sessionStructureId || undefined;
@@ -332,8 +333,7 @@ export default function CreatePermissionGroup({
           description: description.trim(),
           permission_ids: selectedPermissionIds,
           group_kind: config.groupKind,
-          ...(config.groupKind === "regional"
-            ? { region_id: session?.user?.region_id || undefined }
+          ...(config.groupKind === "regional" ? { region_id: paramId || session?.user?.region_id || undefined }
             : config.groupKind === "company"
             ? { company_id: session?.user?.company_id || undefined }
             : structureId
