@@ -5,6 +5,8 @@ import type {
   RegionalPlanningConfiguration,
   RegionalPlanRule,
   RegionalExecutionDashboardSummary,
+  RegionalExecutionDashboardProgressTreeResponse,
+  RegionalExecutionDashboardDepartmentUserResponse,
   RegionalPerformanceColorThreshold,
   RegionalPlanReviewDashboard,
 } from "../types/regionalPlan";
@@ -330,7 +332,10 @@ export const regionalPlanApi = baseApi.injectEndpoints({
     // -------------------------------------------------------------
     // Dashboard & Metrics
     // -------------------------------------------------------------
-    getRegionalExecutionDashboardSummary: builder.query<RegionalExecutionDashboardSummary, { region_id: string }>({
+    getRegionalExecutionDashboardSummary: builder.query<
+      RegionalExecutionDashboardSummary,
+      { region_id: string; status?: string; search?: string; sharing_mode?: string }
+    >({
       query: (params) => ({
         url: "/regional/plans/dashboard/summary",
         params,
@@ -340,37 +345,35 @@ export const regionalPlanApi = baseApi.injectEndpoints({
     }),
 
     getRegionalExecutionDashboardProgressTree: builder.query<
-      { version: RegionalPlanVersion; tree: RegionalPlanNode[] },
-      { region_id: string; plan_version_id?: string }
+      RegionalExecutionDashboardProgressTreeResponse,
+      {
+        region_id: string;
+        plan_version_id?: string;
+        master_plan_version_id?: string;
+        period_version_id?: string;
+      }
     >({
       query: (params) => ({
         url: "/regional/plans/dashboard/progress-tree",
         params,
       }),
-      transformResponse: (res: { data: { version: RegionalPlanVersion; tree: RegionalPlanNode[] } }) => res.data,
+      transformResponse: (res: { data: RegionalExecutionDashboardProgressTreeResponse }) => res.data,
       providesTags: ["RegionalPlanDashboard", "RegionalPlanNodes"],
     }),
 
     getRegionalExecutionDashboardDepartmentUser: builder.query<
-      { departments: Array<{ regional_structure_id: string; name: string; level: number; assigned_nodes_count: number; avg_progress: number; status: string }> },
-      { region_id: string; plan_version_id?: string }
+      RegionalExecutionDashboardDepartmentUserResponse,
+      {
+        region_id: string;
+        plan_version_id?: string;
+        master_plan_version_id?: string;
+      }
     >({
       query: (params) => ({
         url: "/regional/plans/dashboard/department-user",
         params,
       }),
-      transformResponse: (res: {
-        data: {
-          departments: Array<{
-            regional_structure_id: string;
-            name: string;
-            level: number;
-            assigned_nodes_count: number;
-            avg_progress: number;
-            status: string;
-          }>;
-        };
-      }) => res.data,
+      transformResponse: (res: { data: RegionalExecutionDashboardDepartmentUserResponse }) => res.data,
       providesTags: ["RegionalPlanDashboard"],
     }),
 

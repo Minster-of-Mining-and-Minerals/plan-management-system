@@ -32,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
 import { useBranding } from "@/providers/BrandingProvider";
 import { usePermissions } from "@/hooks/usePermissions";
+import { RegionalPlanDashboardView } from "@/features/regional-plan-management/RegionalPlanDashboardView";
 import {
   useGetRegionalDashboardQuery,
   useGetRegionalRolesQuery,
@@ -52,8 +53,6 @@ import {
 } from "@/features/plan-management/dashboard/components/AnalyticsPanel";
 import { DonutStatCard } from "@/features/plan-management/dashboard/components/DonutStatCard";
 import { SimpleBarChart } from "@/features/plan-management/dashboard/components/SimpleBarChart";
-import { RankedLeaderboard } from "@/features/plan-management/dashboard/components/RankedLeaderboard";
-import { CircularProgress } from "@/features/plan-management/components/CircularProgress";
 import { useDashboardAppearance } from "@/features/plan-management/dashboard/hooks/useDashboardAppearance";
 import { hexToRgba } from "@/features/plan-management/dashboard/utils/dashboardAppearanceUtils";
 
@@ -752,119 +751,10 @@ export function RegionalDashboardView({
       ========================================================================= */}
       {activeTab === "strategic-preview" && (
         <div className="space-y-6">
-          {/* Header Banner with Direct Navigation Links */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-primary/20 bg-primary/5 p-4 text-xs shadow-2xs">
-            <div className="flex items-start gap-3.5">
-              <Sparkles className="h-5 w-5 shrink-0 text-primary mt-0.5" />
-              <div className="space-y-1">
-                <p className="font-semibold text-sm text-foreground flex items-center gap-2">
-                  <span>Regional Strategic Plan Execution</span>
-                  <Badge variant="default" className="text-[10px] uppercase font-bold tracking-wider">
-                    Live Regional Data
-                  </Badge>
-                </p>
-                <p className="text-muted-foreground leading-relaxed">
-                  Real-time status of regional strategic master plans, active execution periods, and department rollups.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <Button asChild size="sm" variant="outline" className="gap-2">
-                <Link href={`${basePath}/plans`}>
-                  <Layers className="h-4 w-4" />
-                  <span>All Plans</span>
-                </Link>
-              </Button>
-
-              <Button asChild size="sm" className="gap-2 shadow-xs">
-                <Link href={`${basePath}/plans/dashboard`}>
-                  <TrendingUp className="h-4 w-4" />
-                  <span>Execution Dashboard</span>
-                </Link>
-              </Button>
-            </div>
-          </div>
-
-          <DashboardSectionHeader
-            title="Strategic Execution Overview"
-            description="Milestone achievement, target rollups, and directorate scorecard analytics."
-            badge="Live Performance"
+          <RegionalPlanDashboardView
+            embedded={true}
+            overrideRegionId={activeRegionId as string}
           />
-
-          {/* Live KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            <KpiCard
-              title="Regional Plans"
-              value={planSummary?.summary?.total_plans ?? planSummary?.total_plans ?? 0}
-              subtitle={`${planSummary?.summary?.status_breakdown?.active_plans ?? planSummary?.active_plans ?? 0} actively executing cycles`}
-              icon={Layers}
-              variant="gradient"
-              accent="primary"
-            />
-            <KpiCard
-              title="Portfolio Progress"
-              value={`${planSummary?.summary?.avg_progress ?? planSummary?.portfolio_progress_percent ?? 0}%`}
-              subtitle="Confirmed hierarchical rollups"
-              icon={TrendingUp}
-              variant="solid"
-              accent="success"
-            />
-            <KpiCard
-              title="Active Milestones"
-              value={planSummary?.summary?.active_milestones ?? planSummary?.active_milestones ?? 0}
-              subtitle="Planned goals & leaf KPIs"
-              icon={CheckCircle2}
-              variant="gradient"
-              accent="accent"
-            />
-            <KpiCard
-              title="Delayed KPIs"
-              value={planSummary?.summary?.delayed_kpis ?? planSummary?.delayed_kpis ?? 0}
-              subtitle="Behind target schedule"
-              icon={AlertCircle}
-              variant="gradient"
-              accent="warning"
-            />
-          </div>
-
-          {/* Charts & Directorate Scorecard */}
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-            <AnalyticsPanel
-              title="Execution Pulse"
-              description="Portfolio-wide achievement score"
-              variant="gradient"
-              tone="primary"
-              className="xl:col-span-4"
-            >
-              <div className="flex flex-col items-center justify-center py-4">
-                <CircularProgress
-                  value={planSummary?.summary?.avg_progress ?? planSummary?.portfolio_progress_percent ?? 0}
-                  color={primaryTone.color}
-                  size={150}
-                  label={`${planSummary?.summary?.avg_progress ?? planSummary?.portfolio_progress_percent ?? 0}%`}
-                />
-                <p className="mt-4 text-xs text-muted-foreground text-center max-w-[220px]">
-                  {planSummary?.summary?.total_plans ?? planSummary?.total_plans ?? 0} strategic cycles configured for {regionName}. Overall confirmed execution is at {planSummary?.summary?.avg_progress ?? planSummary?.portfolio_progress_percent ?? 0}%.
-                </p>
-              </div>
-            </AnalyticsPanel>
-
-            <div className="xl:col-span-8">
-              <RankedLeaderboard
-                title="Directorate Performance Scorecard"
-                description="Live performance across regional departments"
-                entries={(planDeptData?.departments || []).map((dept) => ({
-                  id: dept.regional_structure_id,
-                  title: dept.name,
-                  subtitle: `Level ${dept.level} Directorate • ${dept.assigned_nodes_count} milestones`,
-                  value: dept.avg_progress,
-                  valueLabel: `${dept.avg_progress}%`,
-                  hasProgress: true,
-                }))}
-              />
-            </div>
-          </div>
         </div>
       )}
 

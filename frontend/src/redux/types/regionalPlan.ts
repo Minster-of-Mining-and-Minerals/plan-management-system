@@ -177,14 +177,157 @@ export interface RegionalPlanVersion {
   updated_at?: string;
 }
 
+export interface RegionalHierarchyStepConfig {
+  level: number;
+  name: string;
+  label: string;
+  node_type?: string;
+  allow_kpi?: boolean;
+  requires_weight?: boolean;
+  color_hex?: string;
+}
+
+export interface RegionalDashboardKpiSummary {
+  totalPlans: number;
+  activePlans: number;
+  completedPlans: number;
+  inExecutionPlans: number;
+  sharedPlans: number;
+  exclusivePlans: number;
+  averageProgress: number | null;
+  activeMilestones?: number;
+  delayedKpis?: number;
+}
+
+export interface RegionalDashboardPlanRow {
+  plan_version_id: string;
+  regional_plan_version_id?: string;
+  draft_name: string;
+  status: string;
+  region_id?: string;
+  process_started_at: string | null;
+  execution_progress_percent: number | null;
+  is_evaluable?: boolean;
+  evaluation_status?: string | null;
+  has_contributing_data?: boolean;
+  active_planning_year?: number | null;
+  dashboard_status: "active" | "completed" | "delayed" | "draft";
+  start_year: number;
+  end_year: number;
+  created_at: string;
+  target_count?: number;
+  actual_count?: number;
+}
+
+export interface RegionalDashboardDepartment {
+  id: string;
+  regional_structure_id: string;
+  name: string;
+  level: number;
+  structureId?: string;
+  assignedNodeCount: number;
+  assigned_nodes_count?: number;
+  reportedNodeCount: number;
+  reported_nodes_count?: number;
+  progress: number;
+  avg_progress?: number;
+  has_progress: boolean;
+  status: "active" | "completed" | "delayed";
+  userIds: string[];
+}
+
+export interface RegionalDashboardUser {
+  id: string;
+  name: string;
+  email?: string;
+  role: string;
+  departmentId?: string | null;
+  departmentName?: string;
+  assignedNodeCount: number;
+  reportedNodeCount: number;
+  achievementPercent: number | null;
+  has_progress: boolean;
+  performance: "excellent" | "good" | "average" | "at-risk";
+  activityScore: number;
+}
+
+export interface RegionalDashboardProgressNode {
+  id: string;
+  title: string;
+  type?: string;
+  level?: number;
+  weight?: number;
+  target_unit?: string | null;
+  annual_target?: number | null;
+  annual_actual?: number | null;
+  period_target?: number | null;
+  period_actual?: number | null;
+  parent_id?: string | null;
+  sharingMode: "shared" | "exclusive";
+  progress: number;
+  has_progress?: boolean;
+  status: "active" | "completed" | "delayed";
+  internalAssignments?: any[];
+  children?: RegionalDashboardProgressNode[];
+}
+
+export interface RegionalDashboardAvailablePeriod {
+  plan_version_id: string;
+  period_label: string | null;
+  planning_year: number | null;
+  sequence_index: number | null;
+  execution_status: string | null;
+  phase: "active" | "past" | "upcoming";
+}
+
 export interface RegionalExecutionDashboardSummary {
   region_id: string;
+  kpi: RegionalDashboardKpiSummary;
+  plans: RegionalDashboardPlanRow[];
+  annual_timeline: Array<{
+    label: string;
+    average_percent: number;
+    plan_count: number;
+  }>;
+  performance_distribution: {
+    excellent: number;
+    good: number;
+    average: number;
+    at_risk: number;
+  };
+  status_distribution: {
+    active: number;
+    completed: number;
+    delayed: number;
+    draft: number;
+  };
+  hierarchy_config: RegionalHierarchyStepConfig[];
+  sharing: {
+    shared: Array<{
+      id: string;
+      plan_version_id?: string;
+      title: string;
+      progress: number;
+      status: string;
+      branches?: number;
+    }>;
+    exclusive: Array<{
+      id: string;
+      plan_version_id?: string;
+      title: string;
+      progress: number;
+      status: string;
+      target?: string;
+    }>;
+  };
+  focus_master_plan_version_id: string | null;
+  generated_at: string;
   total_plans?: number;
   active_plans?: number;
   portfolio_progress_percent?: number;
   active_milestones?: number;
   delayed_kpis?: number;
-  summary: {
+  summary?: {
     total_plans: number;
     avg_progress: number;
     active_milestones: number;
@@ -192,17 +335,31 @@ export interface RegionalExecutionDashboardSummary {
     status_breakdown: {
       total_plans: number;
       draft_plans: number;
-      finalized_plans: number;
+      finalized_plans?: number;
       active_plans: number;
       completed_plans: number;
     };
   };
-  plans: Array<{
-    regional_plan_version_id: string;
-    draft_name: string;
-    status: string;
-    start_year: number;
-    end_year: number;
-    created_at: string;
-  }>;
+}
+
+export interface RegionalExecutionDashboardProgressTreeResponse {
+  progress_tree: {
+    period_label: string | null;
+    planning_year: number | null;
+    period_version_id: string | null;
+    period_phase: "active" | "past" | "upcoming" | null;
+    available_periods: RegionalDashboardAvailablePeriod[];
+    nodes: RegionalDashboardProgressNode[];
+    hierarchy_config?: RegionalHierarchyStepConfig[];
+  };
+  focus_master_plan_version_id: string | null;
+  generated_at: string;
+  version?: RegionalPlanVersion;
+  tree?: RegionalPlanNode[];
+}
+
+export interface RegionalExecutionDashboardDepartmentUserResponse {
+  departments: RegionalDashboardDepartment[];
+  users: RegionalDashboardUser[];
+  generated_at: string;
 }

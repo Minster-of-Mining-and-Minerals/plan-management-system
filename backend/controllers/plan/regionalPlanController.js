@@ -866,8 +866,9 @@ async function getExecutionDashboardProgressTreeHandler(req, res, next) {
   try {
     const regionId = resolveEffectiveRegionId(req);
     assertRegionAccessible(req, regionId, "read");
-    const planVersionId = req.query.plan_version_id || req.params.versionId;
-    const data = await regionalPlanService.getRegionalExecutionDashboardProgressTree(regionId, planVersionId);
+    const planVersionId = req.query.plan_version_id || req.query.master_plan_version_id || req.params.versionId;
+    const periodVersionId = req.query.period_version_id;
+    const data = await regionalPlanService.getRegionalExecutionDashboardProgressTree(regionId, planVersionId, periodVersionId);
     res.json({ success: true, data });
   } catch (err) {
     next(err);
@@ -878,8 +879,8 @@ async function getExecutionDashboardDepartmentUserHandler(req, res, next) {
   try {
     const regionId = resolveEffectiveRegionId(req);
     assertRegionAccessible(req, regionId, "read");
-    const planVersionId = req.query.plan_version_id || req.params.versionId;
-    const data = await regionalPlanService.getRegionalExecutionDashboardDepartmentUser(regionId, planVersionId);
+    const planVersionId = req.query.plan_version_id || req.query.master_plan_version_id || req.params.versionId;
+    const data = await regionalPlanService.getRegionalExecutionDashboardDepartmentUser(regionId, planVersionId, req.query);
     res.json({ success: true, data });
   } catch (err) {
     next(err);
