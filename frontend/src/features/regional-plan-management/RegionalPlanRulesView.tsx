@@ -155,11 +155,11 @@ export function RegionalPlanRulesView() {
         header: "Hierarchy Depth",
         cell: ({ row }) => {
           const steps = row.original.steps || [];
-          const count = steps.length > 0 ? steps.length : 4;
+          const count = steps.length > 0 ? steps.length : (row.original.name?.includes("3") ? 3 : 4);
           const tooltip =
             steps.length > 0
               ? steps.map((s) => s.label || s.name || `Level ${s.level}`).join(" → ")
-              : "Standard hierarchy";
+              : (count === 3 ? "SF → Goal → KPI" : "Strategic Priority → Goal → KPI → Task");
           return (
             <Badge
               variant="outline"

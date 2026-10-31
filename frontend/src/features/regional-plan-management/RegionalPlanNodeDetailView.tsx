@@ -21,12 +21,22 @@ import {
   XCircle,
   Clock,
   Sparkles,
+  UserPlus,
+  RotateCcw,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { TableLayout } from "@/features/template/component/tableList/TableLayout";
+import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { ColumnDef } from "@tanstack/react-table";
+import { ActionButton } from "@/types/tableLayout";
+import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +49,7 @@ import { actionFeedback } from "@/components/action-feedback";
 import { usePermissions } from "@/hooks/usePermissions";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import { CreateRegionalPlanNodeModal } from "./modals/CreateRegionalPlanNodeModal";
+import { AssignRegionalPlanNodeModal } from "./modals/AssignRegionalPlanNodeModal";
 import { PlanNodeContributionBadge } from "@/features/plan-management/components/PlanNodeContributionBadge";
 import {
   formatNodeTarget,
@@ -58,6 +69,7 @@ import {
   useApproveRegionalAchievementMutation,
   useRejectRegionalAchievementMutation,
   useValidateRegionalAchievementMutation,
+  useRemoveRegionalPlanNodeAssignmentMutation,
 } from "@/redux/api/regionalPlanApi";
 import type { RegionalPlanNode } from "@/redux/types/regionalPlan";
 
@@ -77,6 +89,8 @@ export function RegionalPlanNodeDetailView({
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCreateChildModalOpen, setIsCreateChildModalOpen] = useState(false);
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
 
@@ -122,6 +136,8 @@ export function RegionalPlanNodeDetailView({
     useRejectRegionalAchievementMutation();
   const [validateAchievement, { isLoading: isValidatingAchievement }] =
     useValidateRegionalAchievementMutation();
+  const [removeAssignment, { isLoading: isRemovingAssignment }] =
+    useRemoveRegionalPlanNodeAssignmentMutation();
 
   const canUpdate =
     can("REGIONAL_PLANS:UPDATE") ||
@@ -150,6 +166,173 @@ export function RegionalPlanNodeDetailView({
   const rule = version?.planRule;
   const levelStep = node ? getStepForLevel(rule, node.level) : null;
   const levelLabel = node ? getStepLabel(rule, node.level) : "Node";
+
+  const allAssignments = node?.internalAssignments || [];
+  const assignmentRows = useMemo(() => {
+    if (showHistory) return allAssignments;
+    return allAssignments.filter((a: any) => a.is_active !== false);
+  }, [allAssignments, showHistory]);
+
+  const isExclusive = node?.assignment_sharing_mode !== "shared";
+  const activeAssignments = useMemo(
+    () => allAssignments.filter((a: any) => a.is_active !== false),
+    [allAssignments]
+  );
+  const activeCount = activeAssignments.length;
+  const assignLabel = isExclusive && activeCount > 0 ? "Reassign Directorate" : "Assign Directorate";
+
+  const actions: ActionButton[] = canUpdate
+    ? [
+        {
+          label: assignLabel,
+          icon:
+            isExclusive && activeCount > 0 ? (
+              <RotateCcw className="h-4 w-4" />
+            ) : (
+              <UserPlus className="h-4 w-4" />
+            ),
+          variant: "default" as const,
+          onClick: () => setIsAssignModalOpen(true),
+        },
+      ]
+    : [];
+
+  const assignmentColumns = useMemo<ColumnDef<any>[]>(() => [
+    {
+      accessorKey: "department",
+      header: "Responsible Directorate / Department",
+      cell: ({ row }) => {
+        const a = row.original;
+        const dept = a.department;
+        return (
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 rounded-lg bg-primary/10 text-primary shrink-0">
+              <Building2 className="h-4 w-4" />
+            </div>
+            <div>
+              <span className="font-semibold text-foreground text-xs block">
+                {dept?.name || "Directorate Assigned"}
+              </span>
+              {dept?.level && (
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  Level {dept.level}
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "assignedUser",
+      header: "Designated Lead / Staff",
+      cell: ({ row }) => {
+        const u = row.original.assignedUser;
+        if (!u) {
+          return (
+            <span className="text-xs text-muted-foreground italic">
+              Directorate-wide (All Staff)
+            </span>
+          );
+        }
+        return (
+          <div className="flex items-center gap-2">
+            <div className="p-1 rounded-full bg-muted text-muted-foreground shrink-0">
+              <UserIcon className="h-3.5 w-3.5" />
+            </div>
+            <div>
+              <span className="font-medium text-xs text-foreground block">
+                {u.full_name || u.email}
+              </span>
+              <span className="text-[10px] text-muted-foreground">{u.email}</span>
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      id: "assignment_mode",
+      header: "Mode",
+      cell: () => (
+        <Badge
+          variant="outline"
+          className={
+            isExclusive
+              ? "bg-slate-500/10 text-slate-700 border-slate-500/20 text-[10px]"
+              : "bg-emerald-500/10 text-emerald-700 border-emerald-500/20 text-[10px]"
+          }
+        >
+          <GitBranch className="h-3 w-3 mr-1" />
+          {isExclusive ? "Exclusive" : "Shared"}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "is_active",
+      header: "Status",
+      cell: ({ row }) => <ActiveStatusBadge isActive={row.original.is_active !== false} />,
+    },
+    {
+      accessorKey: "created_at",
+      header: "Assigned Date",
+      cell: ({ row }) => (
+        <span className="text-xs text-muted-foreground font-mono">
+          {row.original.created_at
+            ? new Date(row.original.created_at).toLocaleDateString()
+            : "—"}
+        </span>
+      ),
+    },
+    {
+      id: "actions",
+      header: () => <div className="text-right">Actions</div>,
+      cell: ({ row }) => {
+        const a = row.original;
+        if (!canUpdate) return null;
+        return (
+          <div className="flex items-center justify-end gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              title={isExclusive ? "Reassign Directorate" : "Change Assignment"}
+              onClick={() => setIsAssignModalOpen(true)}
+              className="h-8 w-8 p-0"
+            >
+              {isExclusive ? <RotateCcw className="h-4 w-4" /> : <Edit3 className="h-4 w-4" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              title="Remove Assignment"
+              onClick={async () => {
+                if (
+                  await actionFeedback.confirm(
+                    "Are you sure you want to remove this directorate assignment from the milestone?",
+                    { destructive: true }
+                  )
+                ) {
+                  try {
+                    await removeAssignment({
+                      nodeId: nodeId,
+                      assignment_id: a.regional_internal_assignment_id,
+                      region_id: regionId,
+                    }).unwrap();
+                    actionFeedback.success("Assignment removed successfully.");
+                    refetch();
+                  } catch (err: any) {
+                    actionFeedback.error(err?.data?.message || "Failed to remove assignment.");
+                  }
+                }
+              }}
+              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        );
+      },
+    },
+  ], [canUpdate, isExclusive, nodeId, regionId, removeAssignment, refetch]);
 
   const getTypeIcon = (type: string, level: number) => {
     switch (type) {
@@ -594,12 +777,23 @@ export function RegionalPlanNodeDetailView({
                     variant="outline"
                     size="sm"
                     className="mt-3 text-xs h-7"
-                    onClick={() => setIsEditModalOpen(true)}
+                    onClick={() => setIsAssignModalOpen(true)}
                   >
                     Assign Directorate
                   </Button>
                 )}
               </div>
+            )}
+            {node.internalAssignments && node.internalAssignments.length > 0 && canUpdate && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-xs h-7 gap-1.5 mt-2"
+                onClick={() => setIsAssignModalOpen(true)}
+              >
+                {isExclusive ? <RotateCcw className="h-3.5 w-3.5 text-primary" /> : <UserPlus className="h-3.5 w-3.5 text-primary" />}
+                <span>{assignLabel}</span>
+              </Button>
             )}
           </CardContent>
         </Card>
@@ -884,6 +1078,63 @@ export function RegionalPlanNodeDetailView({
           )}
         </CardContent>
       </Card>
+
+      {/* ------------------------------------------------------------- */}
+      {/* Tabular Assignments Section (Federal Parity) */}
+      {/* ------------------------------------------------------------- */}
+      <Card className="rounded-2xl border shadow-xs overflow-hidden">
+        <CardHeader className="pb-3 border-b bg-card">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-primary" />
+                <span>Accountability & Directorate Assignments</span>
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Organizational directorates and designated officers accountable for this milestone.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                id="show-regional-history"
+                checked={showHistory}
+                onCheckedChange={setShowHistory}
+              />
+              <Label
+                htmlFor="show-regional-history"
+                className="text-xs text-muted-foreground cursor-pointer font-medium"
+              >
+                Show assignment history
+              </Label>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <TableLayout actions={actions} filterColumnsPerRow={1}>
+            <DataTable
+              columns={assignmentColumns}
+              data={assignmentRows}
+              isLoading={isLoadingNode || isRemovingAssignment}
+              resetKey={`${showHistory}-${assignmentRows.length}`}
+            />
+          </TableLayout>
+        </CardContent>
+      </Card>
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL: Assign / Reassign Modal */}
+      {/* ------------------------------------------------------------- */}
+      {node && (
+        <AssignRegionalPlanNodeModal
+          isOpen={isAssignModalOpen}
+          onClose={() => {
+            setIsAssignModalOpen(false);
+            refetch();
+          }}
+          node={node}
+          regionId={regionId}
+        />
+      )}
 
       {/* ------------------------------------------------------------- */}
       {/* MODAL: Edit Node Modal */}

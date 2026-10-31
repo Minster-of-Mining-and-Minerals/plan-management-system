@@ -148,6 +148,7 @@ export function CreateRegionalPlanRuleModal({
       const start = sorted.find((s) => s.requires_weight);
       const startLevel = start ? (start.step_order ?? start.level) : null;
 
+      const is3Level = (rule.name || "").includes("3");
       const loadedSteps =
         sorted.length > 0
           ? sorted.map((s, idx) => {
@@ -160,15 +161,60 @@ export function CreateRegionalPlanRuleModal({
                 color_hex: s.color_hex || getDefaultStepColorHex(currentOrder),
               };
             })
-          : [
-              {
-                step_order: 1,
-                label: "Strategic Priority",
-                requires_weight: false,
-                requires_contribution_weight: false,
-                color_hex: getDefaultStepColorHex(1),
-              },
-            ];
+          : (is3Level
+              ? [
+                  {
+                    step_order: 1,
+                    label: "SF",
+                    requires_weight: false,
+                    requires_contribution_weight: false,
+                    color_hex: getDefaultStepColorHex(1),
+                  },
+                  {
+                    step_order: 2,
+                    label: "Goal",
+                    requires_weight: false,
+                    requires_contribution_weight: false,
+                    color_hex: getDefaultStepColorHex(2),
+                  },
+                  {
+                    step_order: 3,
+                    label: "KPI",
+                    requires_weight: true,
+                    requires_contribution_weight: true,
+                    color_hex: getDefaultStepColorHex(3),
+                  },
+                ]
+              : [
+                  {
+                    step_order: 1,
+                    label: "Strategic Priority",
+                    requires_weight: false,
+                    requires_contribution_weight: false,
+                    color_hex: getDefaultStepColorHex(1),
+                  },
+                  {
+                    step_order: 2,
+                    label: "Goal",
+                    requires_weight: false,
+                    requires_contribution_weight: false,
+                    color_hex: getDefaultStepColorHex(2),
+                  },
+                  {
+                    step_order: 3,
+                    label: "Key Performance Indicator (KPI)",
+                    requires_weight: true,
+                    requires_contribution_weight: true,
+                    color_hex: getDefaultStepColorHex(3),
+                  },
+                  {
+                    step_order: 4,
+                    label: "Activity",
+                    requires_weight: false,
+                    requires_contribution_weight: false,
+                    color_hex: getDefaultStepColorHex(4),
+                  },
+                ]);
 
       form.reset({
         name: rule.name,

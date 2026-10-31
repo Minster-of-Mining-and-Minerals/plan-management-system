@@ -125,6 +125,8 @@ export interface RegionalPlanNode {
   internalAssignments?: Array<{
     regional_internal_assignment_id: string;
     regional_structure_id?: string;
+    assigned_user_id?: string | null;
+    is_active?: boolean;
     department?: { regional_structure_id: string; name: string };
     assignedUser?: { user_id: string; full_name: string; email: string };
   }>;

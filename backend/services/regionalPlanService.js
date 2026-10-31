@@ -205,19 +205,40 @@ async function initializeRegionalPlanningDefaults(regionId, transaction = null) 
 // Snapshot Forking Helpers
 // -------------------------------------------------------------
 
+function resolveDefaultRegionalRuleSteps(name = "") {
+  const is3Level = String(name).includes("3");
+  if (is3Level) {
+    return [
+      { level: 1, name: "SF", node_type: "strategic", requires_weight: false, requires_contribution_weight: false, allow_kpi: false, color_hex: "#8B5CF6" },
+      { level: 2, name: "Goal", node_type: "goal", requires_weight: false, requires_contribution_weight: false, allow_kpi: false, color_hex: "#3B82F6" },
+      { level: 3, name: "KPI", node_type: "kpi", requires_weight: true, requires_contribution_weight: true, allow_kpi: true, color_hex: "#10B981" },
+    ];
+  }
+  return [
+    { level: 1, name: "Strategic Priority", node_type: "strategic", requires_weight: false, requires_contribution_weight: false, allow_kpi: false, color_hex: "#8B5CF6" },
+    { level: 2, name: "Goal", node_type: "goal", requires_weight: false, requires_contribution_weight: false, allow_kpi: false, color_hex: "#3B82F6" },
+    { level: 3, name: "Key Performance Indicator (KPI)", node_type: "kpi", requires_weight: true, requires_contribution_weight: true, allow_kpi: true, color_hex: "#10B981" },
+    { level: 4, name: "Operational Activity / Task", node_type: "task", requires_weight: false, requires_contribution_weight: true, allow_kpi: true, color_hex: "#F59E0B" },
+  ];
+}
+
 async function forkRegionalPlanRule(sourceRule, regionalPlanVersionId, transaction = null) {
   if (!sourceRule) return null;
 
   const plain =
     typeof sourceRule.get === "function" ? sourceRule.get({ plain: true }) : sourceRule;
 
-  const steps =
+  let steps =
     sourceRule.steps ??
     (await RegionalPlanRuleStep.findAll({
       where: { regional_plan_rule_id: plain.regional_plan_rule_id },
       order: [["level", "ASC"]],
       transaction,
     }));
+
+  if (!steps || steps.length === 0) {
+    steps = resolveDefaultRegionalRuleSteps(plain.name);
+  }
 
   const forkedRule = await RegionalPlanRule.create(
     {
@@ -260,7 +281,7 @@ async function forkRegionalPlanRule(sourceRule, regionalPlanVersionId, transacti
   }
 
   return RegionalPlanRule.findByPk(forkedRule.regional_plan_rule_id, {
-    include: [{ association: "steps" }],
+    include: [{ association: "steps", separate: true, order: [["level", "ASC"]] }],
     transaction,
   });
 }
@@ -364,7 +385,11 @@ async function attachDraftSnapshotsToRegionalPlanVersion(regionalPlanVersion, tr
 function formatRegionalRuleResponse(rule) {
   if (!rule) return rule;
   const plain = typeof rule.get === "function" ? rule.get({ plain: true }) : rule.toJSON?.() ?? rule;
-  const rawSteps = (plain.steps || []).map((s) => ({
+  let stepsList = plain.steps;
+  if (!stepsList || stepsList.length === 0) {
+    stepsList = resolveDefaultRegionalRuleSteps(plain.name);
+  }
+  const rawSteps = stepsList.map((s) => ({
     ...s,
     step_order: s.level ?? s.step_order,
     label: s.name ?? s.label,
@@ -523,7 +548,7 @@ async function restoreDefaultRegionalPlanningConfig(regionId) {
 async function listRegionalPlanRules(regionId) {
   const rules = await RegionalPlanRule.findAll({
     where: { region_id: regionId, owned_by_plan_version_id: null },
-    include: [{ association: "steps" }],
+    include: [{ association: "steps", separate: true, order: [["level", "ASC"]] }],
     order: [["created_at", "DESC"]],
   });
   return rules.map(formatRegionalRuleResponse);
@@ -532,7 +557,7 @@ async function listRegionalPlanRules(regionId) {
 async function getRegionalPlanRuleById(ruleId, regionId) {
   const rule = await RegionalPlanRule.findOne({
     where: { regional_plan_rule_id: ruleId, region_id: regionId },
-    include: [{ association: "steps" }],
+    include: [{ association: "steps", separate: true, order: [["level", "ASC"]] }],
   });
   if (!rule) {
     const existsOther = await RegionalPlanRule.findByPk(ruleId);
@@ -554,7 +579,7 @@ async function getRegionalPlanRuleForVersion(versionId, regionId) {
 
   const rule = await RegionalPlanRule.findOne({
     where: { region_id: regionId, is_active: true, owned_by_plan_version_id: null },
-    include: [{ association: "steps" }],
+    include: [{ association: "steps", separate: true, order: [["level", "ASC"]] }],
     order: [["created_at", "DESC"]],
   });
   if (!rule) {
@@ -1320,7 +1345,7 @@ async function getRegionalPlanVersionById(versionId, regionId) {
   const version = await RegionalPlanVersion.findOne({
     where,
     include: [
-      { association: "planRule", include: [{ association: "steps" }] },
+      { association: "planRule", include: [{ association: "steps", separate: true, order: [["level", "ASC"]] }] },
       { association: "planningConfiguration" },
       {
         association: "annualVersions",
@@ -2169,6 +2194,96 @@ async function reorderRegionalPlanNodes(versionId, regionId, orderedNodeIds, use
     await t.rollback();
     throw err;
   }
+}
+
+async function assignRegionalPlanNode(nodeId, regionId, payload, userId) {
+  const node = await getRegionalPlanNodeById(nodeId, regionId);
+  const { regional_structure_id, assigned_user_id } = payload;
+
+  if (!regional_structure_id) {
+    const error = new Error("Department / Structure ID is required.");
+    error.status = 400;
+    throw error;
+  }
+
+  const isExclusive = node.assignment_sharing_mode !== "shared";
+  const t = await sequelize.transaction();
+  try {
+    if (isExclusive) {
+      await RegionalInternalAssignment.destroy({
+        where: { regional_plan_node_id: nodeId },
+        transaction: t,
+      });
+    }
+
+    await RegionalInternalAssignment.create(
+      {
+        regional_internal_assignment_id: uuidv4(),
+        regional_plan_node_id: nodeId,
+        regional_structure_id,
+        assigned_user_id: assigned_user_id || null,
+        is_active: true,
+      },
+      { transaction: t }
+    );
+
+    const safeUserId =
+      typeof userId === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)
+        ? userId
+        : null;
+
+    await RegionalPlanNodeActionLog.create(
+      {
+        action_log_id: uuidv4(),
+        regional_plan_node_id: nodeId,
+        user_id: safeUserId,
+        action: isExclusive ? "NODE_REASSIGNED" : "NODE_ASSIGNED",
+        details: { regional_structure_id, assigned_user_id },
+      },
+      { transaction: t }
+    );
+
+    await t.commit();
+    return getRegionalPlanNodeById(nodeId, regionId);
+  } catch (err) {
+    await t.rollback();
+    throw err;
+  }
+}
+
+async function removeRegionalPlanNodeAssignment(nodeId, assignmentId, regionId, userId) {
+  await getRegionalPlanNodeById(nodeId, regionId);
+  const assignment = await RegionalInternalAssignment.findOne({
+    where: {
+      regional_internal_assignment_id: assignmentId,
+      regional_plan_node_id: nodeId,
+    },
+  });
+
+  if (!assignment) {
+    const error = new Error("Assignment not found");
+    error.status = 404;
+    throw error;
+  }
+
+  await assignment.destroy();
+
+  const safeUserId =
+    typeof userId === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)
+      ? userId
+      : null;
+
+  await RegionalPlanNodeActionLog.create({
+    action_log_id: uuidv4(),
+    regional_plan_node_id: nodeId,
+    user_id: safeUserId,
+    action: "NODE_UNASSIGNED",
+    details: { assignment_id: assignmentId },
+  });
+
+  return getRegionalPlanNodeById(nodeId, regionId);
 }
 
 // -------------------------------------------------------------
@@ -3193,6 +3308,8 @@ module.exports = {
   updateRegionalPlanNode,
   deleteRegionalPlanNode,
   reorderRegionalPlanNodes,
+  assignRegionalPlanNode,
+  removeRegionalPlanNodeAssignment,
 
   // Finalization & Start
   getRegionalDraftFinalizationReadiness,

@@ -62,7 +62,22 @@ function scoringPolicyLabel(policy: PerformanceScoringPolicy | string | null | u
 }
 
 function ruleToFormValues(rule: RegionalPlanRule | PlanRule | any): FormValues {
-  const stepsRaw = rule.steps || [];
+  let stepsRaw = rule?.steps || [];
+  if (!stepsRaw.length) {
+    const is3Level = (rule?.name || "").includes("3");
+    stepsRaw = is3Level
+      ? [
+          { level: 1, name: "SF", node_type: "strategic", color_hex: "#8B5CF6", requires_weight: false, requires_contribution_weight: false },
+          { level: 2, name: "Goal", node_type: "goal", color_hex: "#3B82F6", requires_weight: false, requires_contribution_weight: false },
+          { level: 3, name: "KPI", node_type: "kpi", color_hex: "#10B981", requires_weight: true, requires_contribution_weight: true },
+        ]
+      : [
+          { level: 1, name: "Strategic Priority", node_type: "strategic", color_hex: "#8B5CF6", requires_weight: false, requires_contribution_weight: false },
+          { level: 2, name: "Goal", node_type: "goal", color_hex: "#3B82F6", requires_weight: false, requires_contribution_weight: false },
+          { level: 3, name: "Key Performance Indicator (KPI)", node_type: "kpi", color_hex: "#10B981", requires_weight: true, requires_contribution_weight: true },
+          { level: 4, name: "Activity", node_type: "task", color_hex: "#F59E0B", requires_weight: false, requires_contribution_weight: false },
+        ];
+  }
   const normalizedSteps = stepsRaw.map((s: any) => ({
     step_order: s.step_order ?? s.level ?? 1,
     label: s.label ?? s.name ?? `Level ${s.step_order ?? s.level ?? 1}`,
@@ -75,9 +90,9 @@ function ruleToFormValues(rule: RegionalPlanRule | PlanRule | any): FormValues {
   const weightStart = sorted.find((s) => s.requires_weight)?.step_order ?? null;
 
   return {
-    name: rule.name || "Draft Regional Plan Rule",
-    is_active: rule.is_active !== undefined ? Boolean(rule.is_active) : true,
-    performance_scoring_policy: resolveScoringPolicy(rule.performance_scoring_policy),
+    name: rule?.name || "Draft Regional Plan Rule",
+    is_active: rule?.is_active !== undefined ? Boolean(rule.is_active) : true,
+    performance_scoring_policy: resolveScoringPolicy(rule?.performance_scoring_policy),
     steps: sorted.map((s) => ({
       step_order: s.step_order,
       label: s.label,
@@ -112,9 +127,20 @@ export function RegionalPlanVersionDraftRulePanel({
 
   const isDraftSnapshot = Boolean(rule?.owned_by_plan_version_id);
   const sortedSteps = useMemo(() => {
-    if (!rule?.steps?.length) return [];
+    let steps = rule?.steps;
+    if (!steps || !steps.length) {
+      const is3Level = (rule?.name || "").includes("3");
+      steps = is3Level
+        ? [
+            { level: 1, name: "SF", node_type: "strategic", color_hex: "#8B5CF6", requires_weight: false, requires_contribution_weight: false },
+            { level: 2, name: "Goal", node_type: "goal", color_hex: "#3B82F6", requires_weight: false, requires_contribution_weight: false },
+            { level: 3, name: "KPI", node_type: "kpi", color_hex: "#10B981", requires_weight: true, requires_contribution_weight: true },
+          ]
+        : [];
+    }
+    if (!steps.length) return [];
     return sortSteps(
-      rule.steps.map((s: any) => ({
+      steps.map((s: any) => ({
         step_order: s.step_order ?? s.level ?? 1,
         label: s.label ?? s.name ?? `Level ${s.step_order ?? s.level ?? 1}`,
         requires_weight: Boolean(s.requires_weight),
@@ -122,7 +148,7 @@ export function RegionalPlanVersionDraftRulePanel({
         color_hex: s.color_hex || getDefaultStepColorHex((s.step_order ?? s.level ?? 1) - 1),
       })) as any
     );
-  }, [rule?.steps]);
+  }, [rule?.steps, rule?.name]);
 
   const form = useForm<FormValues>({
     resolver: createFormResolver<FormValues>(formSchema),

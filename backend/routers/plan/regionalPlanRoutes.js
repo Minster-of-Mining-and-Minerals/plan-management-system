@@ -257,6 +257,8 @@ router.get("/nodes/:id", planReadAccess, regionalPlanController.getPlanNodeByIdH
 router.put("/nodes/:id", planNodeMutationAccess, regionalPlanController.updatePlanNodeHandler);
 router.delete("/nodes/:id", planDeleteAccess, regionalPlanController.deletePlanNodeHandler);
 router.post("/nodes/reorder", planNodeMutationAccess, regionalPlanController.reorderPlanNodesHandler);
+router.post("/nodes/:id/assignments", planNodeMutationAccess, regionalPlanController.assignPlanNodeHandler);
+router.delete("/nodes/:id/assignments/:assignment_id", planNodeMutationAccess, regionalPlanController.removePlanNodeAssignmentHandler);
 
 // Target Updates
 router.patch("/nodes/:id/annual-target", planUpdateAccess, regionalPlanController.updateAnnualTargetHandler);

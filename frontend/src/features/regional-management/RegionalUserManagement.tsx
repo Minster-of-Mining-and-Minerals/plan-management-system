@@ -45,7 +45,19 @@ import type { User } from "@/redux/types/user";
 import type { FilterField, ActionButton } from "@/types/tableLayout";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 
-export function RegionalUserManagement() {
+export interface RegionalUserManagementProps {
+  forced_regional_structure_id?: string;
+  sideActions?: ActionButton[];
+  readOnly?: boolean;
+  hideHeaderCard?: boolean;
+}
+
+export function RegionalUserManagement({
+  forced_regional_structure_id,
+  sideActions,
+  readOnly = false,
+  hideHeaderCard = false,
+}: RegionalUserManagementProps = {}) {
   const { data: session } = useSession();
   const regionId = session?.user?.region_id;
 
@@ -53,13 +65,13 @@ export function RegionalUserManagement() {
   const { roles: userRoles } = useAuth();
   const isSuperAdmin = userRoles?.some((r) => String(r).toLowerCase() === "super admin");
 
-  const canCreate = can("REGIONAL_USERS:CREATE") || can("REGIONAL_USERS:MANAGE") || isSuperAdmin;
-  const canUpdate = can("REGIONAL_USERS:UPDATE") || can("REGIONAL_USERS:MANAGE") || isSuperAdmin;
-  const canAssignRole = can("REGIONAL_USERS:ASSIGN_ROLE") || can("REGIONAL_USERS:MANAGE") || isSuperAdmin;
+  const canCreate = !readOnly && (can("REGIONAL_USERS:CREATE") || can("REGIONAL_USERS:MANAGE") || isSuperAdmin);
+  const canUpdate = !readOnly && (can("REGIONAL_USERS:UPDATE") || can("REGIONAL_USERS:MANAGE") || isSuperAdmin);
+  const canAssignRole = !readOnly && (can("REGIONAL_USERS:ASSIGN_ROLE") || can("REGIONAL_USERS:MANAGE") || isSuperAdmin);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [deptFilter, setDeptFilter] = useState("");
+  const [deptFilter, setDeptFilter] = useState(forced_regional_structure_id || "");
 
   // Queries
   const {
@@ -67,7 +79,10 @@ export function RegionalUserManagement() {
     isLoading: isUsersLoading,
     refetch,
   } = useGetUsersQuery(
-    { region_id: regionId || "" },
+    {
+      region_id: regionId || "",
+      regional_structure_id: forced_regional_structure_id || undefined,
+    },
     { skip: !regionId }
   );
 
@@ -98,7 +113,7 @@ export function RegionalUserManagement() {
     setFullName("");
     setEmail("");
     setPhoneNumber("");
-    setSelectedDeptId("");
+    setSelectedDeptId(forced_regional_structure_id || "");
     setSelectedRoleIds([]);
     setIsModalOpen(true);
   };
@@ -193,6 +208,9 @@ export function RegionalUserManagement() {
   // Filtered users
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
+      if (forced_regional_structure_id && u.regional_structure_id !== forced_regional_structure_id) {
+        return false;
+      }
       const matchesSearch = searchQuery
         ? u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
           u.email?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -208,7 +226,7 @@ export function RegionalUserManagement() {
         : true;
       return matchesSearch && matchesStatus && matchesDept;
     });
-  }, [users, searchQuery, statusFilter, deptFilter]);
+  }, [users, searchQuery, statusFilter, deptFilter, forced_regional_structure_id]);
 
   const columns: ColumnDef<User>[] = [
     {
@@ -365,7 +383,7 @@ export function RegionalUserManagement() {
   const actionButtons: ActionButton[] = [];
   if (canCreate) {
     actionButtons.push({
-      label: "New User",
+      label: forced_regional_structure_id ? "Create User" : "New User",
       icon: <Plus className="h-4 w-4" />,
       onClick: handleOpenAddModal,
       variant: "default",
@@ -376,25 +394,32 @@ export function RegionalUserManagement() {
     return <Loading01 />;
   }
 
+  const effectiveFilters = forced_regional_structure_id
+    ? filterFields.filter((f) => f.key !== "department")
+    : filterFields;
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <Users className="h-6 w-6 text-primary" />
-            Users
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Administer regional staff accounts, department assignments, and permission roles.
-          </p>
+      {!hideHeaderCard && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <Users className="h-6 w-6 text-primary" />
+              Users
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Administer regional staff accounts, department assignments, and permission roles.
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       <TableLayout
-        title="Users"
-        description="Accounts strictly bounded to this regional administration domain"
-        filters={filterFields}
+        title={hideHeaderCard ? undefined : "Users"}
+        description={hideHeaderCard ? undefined : "Accounts strictly bounded to this regional administration domain"}
+        filters={effectiveFilters}
         actions={actionButtons}
+        sideActions={sideActions}
       >
         <DataTable
           columns={columns}
@@ -405,91 +430,93 @@ export function RegionalUserManagement() {
 
       {/* Add / Edit User Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[520px]">
-          <form onSubmit={handleSaveUser}>
-            <DialogHeader>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-6 overflow-hidden">
+          <form onSubmit={handleSaveUser} className="flex flex-col flex-1 min-h-0">
+            <DialogHeader className="pb-3 border-b">
               <DialogTitle>
                 {editingUser ? "Edit Regional User" : "Create Regional User"}
               </DialogTitle>
             </DialogHeader>
 
-            <div className="grid gap-4 py-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">
-                  Full Name <span className="text-destructive">*</span>
-                </label>
-                <Input
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="e.g. Abebe Bikila"
-                  required
-                />
-              </div>
+            <div className="flex-1 overflow-y-auto overflow-x-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-4 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">
+                    Full Name <span className="text-destructive">*</span>
+                  </label>
+                  <Input
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="e.g. Abebe Bikila"
+                    required
+                  />
+                </div>
 
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">
-                  Email Address <span className="text-destructive">*</span>
-                </label>
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="e.g. user@region.gov.et"
-                  required
-                />
-                {!editingUser && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">
+                    Email Address <span className="text-destructive">*</span>
+                  </label>
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="e.g. user@region.gov.et"
+                    required
+                  />
+                  {!editingUser && (
+                    <p className="text-xs text-muted-foreground">
+                      A temporary password will be automatically assigned.
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">
+                    Phone Number
+                  </label>
+                  <Input
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="e.g. +251 911 234 567"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">
+                    Regional Department
+                  </label>
+                  <select
+                    value={selectedDeptId}
+                    onChange={(e) => setSelectedDeptId(e.target.value)}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="">— Unassigned —</option>
+                    {structures.map((s) => (
+                      <option key={s.regional_structure_id} value={s.regional_structure_id}>
+                        {s.name} (Level {s.level})
+                      </option>
+                    ))}
+                  </select>
                   <p className="text-xs text-muted-foreground">
-                    A temporary password will be automatically assigned.
+                    Departments belong exclusively to your regional organization.
                   </p>
-                )}
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">
-                  Phone Number
-                </label>
-                <Input
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="e.g. +251 911 234 567"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">
-                  Regional Department
-                </label>
-                <select
-                  value={selectedDeptId}
-                  onChange={(e) => setSelectedDeptId(e.target.value)}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option value="">— Unassigned —</option>
-                  {structures.map((s) => (
-                    <option key={s.regional_structure_id} value={s.regional_structure_id}>
-                      {s.name} (Level {s.level})
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-muted-foreground">
-                  Departments belong exclusively to your regional organization.
-                </p>
+                </div>
               </div>
 
               {canAssignRole && (
-                <div className="space-y-2">
+                <div className="space-y-2 pt-2 border-t border-border/60">
                   <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
                     <Shield className="h-4 w-4 text-primary" />
                     Assignable Regional Roles
                   </label>
-                  <div className="max-h-36 overflow-y-auto space-y-1.5 rounded-md border p-2.5 bg-muted/20">
+                  <div className="max-h-40 overflow-y-auto overflow-x-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden space-y-1.5 rounded-md border p-2.5 bg-muted/20">
                     {roles.length === 0 ? (
                       <div className="text-xs text-muted-foreground">No regional roles configured</div>
                     ) : (
                       roles.map((r) => (
                         <label
                           key={r.role_id}
-                          className="flex items-center gap-2.5 text-xs cursor-pointer hover:bg-muted/40 p-1.5 rounded"
+                          className="flex items-center gap-2.5 text-xs cursor-pointer hover:bg-muted/40 p-1.5 rounded transition-colors"
                         >
                           <input
                             type="checkbox"
@@ -511,7 +538,7 @@ export function RegionalUserManagement() {
               )}
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="pt-3 border-t">
               <Button
                 type="button"
                 variant="outline"

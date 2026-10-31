@@ -59,10 +59,12 @@ export interface RegionalStructure {
   region_id: string;
   parent_id?: string | null;
   name: string;
+  description?: string | null;
   level: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  region?: { region_id: string; name: string; code?: string } | null;
   parent?: { regional_structure_id: string; name: string; level?: number } | null;
   children?: RegionalStructure[];
   users?: Array<{

@@ -471,6 +471,33 @@ async function reorderPlanNodesHandler(req, res, next) {
   }
 }
 
+async function assignPlanNodeHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "update");
+    const data = await regionalPlanService.assignRegionalPlanNode(req.params.id, regionId, req.body, req.user?.user_id);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function removePlanNodeAssignmentHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "update");
+    const data = await regionalPlanService.removeRegionalPlanNodeAssignment(
+      req.params.id,
+      req.params.assignment_id,
+      regionId,
+      req.user?.user_id
+    );
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // -------------------------------------------------------------
 // Finalization & Lifecycle Handlers
 // -------------------------------------------------------------
@@ -907,6 +934,8 @@ module.exports = {
   updatePlanNodeHandler,
   deletePlanNodeHandler,
   reorderPlanNodesHandler,
+  assignPlanNodeHandler,
+  removePlanNodeAssignmentHandler,
 
   // Finalization & Start
   getDraftFinalizationReadinessHandler,

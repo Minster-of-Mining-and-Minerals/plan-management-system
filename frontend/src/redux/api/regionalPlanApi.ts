@@ -625,6 +625,48 @@ export const regionalPlanApi = baseApi.injectEndpoints({
       invalidatesTags: ["RegionalPlanNodes"],
     }),
 
+    assignRegionalPlanNode: builder.mutation<
+      RegionalPlanNode,
+      {
+        nodeId: string;
+        region_id: string;
+        regional_structure_id: string;
+        assigned_user_id?: string | null;
+      }
+    >({
+      query: ({ nodeId, region_id, ...data }) => ({
+        url: `/regional/plans/nodes/${nodeId}/assignments?region_id=${region_id}`,
+        method: "POST",
+        body: data,
+      }),
+      transformResponse: (res: { data: RegionalPlanNode }) => res.data,
+      invalidatesTags: (_res, _err, { nodeId }) => [
+        { type: "RegionalPlanNodes", id: nodeId },
+        "RegionalPlanNodes",
+        "RegionalPlanVersions",
+      ],
+    }),
+
+    removeRegionalPlanNodeAssignment: builder.mutation<
+      RegionalPlanNode,
+      {
+        nodeId: string;
+        assignment_id: string;
+        region_id: string;
+      }
+    >({
+      query: ({ nodeId, assignment_id, region_id }) => ({
+        url: `/regional/plans/nodes/${nodeId}/assignments/${assignment_id}?region_id=${region_id}`,
+        method: "DELETE",
+      }),
+      transformResponse: (res: { data: RegionalPlanNode }) => res.data,
+      invalidatesTags: (_res, _err, { nodeId }) => [
+        { type: "RegionalPlanNodes", id: nodeId },
+        "RegionalPlanNodes",
+        "RegionalPlanVersions",
+      ],
+    }),
+
     // -------------------------------------------------------------
     // Execution Reporting & Achievements
     // -------------------------------------------------------------
@@ -785,6 +827,8 @@ export const {
   useUpdateRegionalPlanNodeMutation,
   useDeleteRegionalPlanNodeMutation,
   useReorderRegionalPlanNodesMutation,
+  useAssignRegionalPlanNodeMutation,
+  useRemoveRegionalPlanNodeAssignmentMutation,
   useUpdateRegionalPeriodActualMutation,
   useSubmitRegionalAchievementMutation,
   useApproveRegionalAchievementMutation,

@@ -20,7 +20,10 @@ import {
   DEPARTMENT_HIERARCHY_LINK_STYLES,
 } from "@/utils/departmentHierarchyTreeLayout";
 import type { RegionalStructure } from "@/redux/types/region";
-import { Users, Plus, Edit } from "lucide-react";
+import { Users, Plus, Edit, Eye } from "lucide-react";
+import { useRouter } from "@/i18n/navigation";
+import { useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 export interface RegionalStructureHierarchyProps {
   data: RegionalStructure[];
@@ -28,6 +31,7 @@ export interface RegionalStructureHierarchyProps {
   regionName?: string;
   onAddChild?: (parentId: string) => void;
   onEdit?: (structure: RegionalStructure) => void;
+  onViewDetails?: (structureId: string) => void;
   canAddChild?: boolean;
   canUpdate?: boolean;
 }
@@ -60,6 +64,7 @@ interface RegionalCustomNodeProps {
   toggleNode: () => void;
   onAddChild?: (parentId: string) => void;
   onEdit?: (structure: RegionalStructure) => void;
+  onViewDetails?: (structureId: string) => void;
   canAddChild?: boolean;
   canUpdate?: boolean;
 }
@@ -69,6 +74,7 @@ const RegionalCustomNode: React.FC<RegionalCustomNodeProps> = ({
   toggleNode,
   onAddChild,
   onEdit,
+  onViewDetails,
   canAddChild = true,
   canUpdate = true,
 }) => {
@@ -91,6 +97,13 @@ const RegionalCustomNode: React.FC<RegionalCustomNodeProps> = ({
     }
   };
 
+  const handleViewDetails = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onViewDetails) {
+      onViewDetails(nodeDatum.attributes.node_id);
+    }
+  };
+
   return (
     <g>
       {hasChildren && (
@@ -107,7 +120,7 @@ const RegionalCustomNode: React.FC<RegionalCustomNodeProps> = ({
         </g>
       )}
 
-      <foreignObject x={-150} y={-95} width={300} height={165}>
+      <foreignObject x={-150} y={-95} width={300} height={195}>
         <div className="flex h-full w-full min-h-0 cursor-pointer flex-col justify-between overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-lg transition-all duration-200 hover:border-primary hover:shadow-xl">
           <div>
             <div className="mb-2 flex items-start justify-between gap-2">
@@ -147,27 +160,40 @@ const RegionalCustomNode: React.FC<RegionalCustomNodeProps> = ({
             )}
           </div>
 
-          <div className="mt-2 flex shrink-0 items-center gap-2 pt-2 border-t border-border/40">
-            {canUpdate && (
-              <button
-                type="button"
-                onClick={handleEdit}
-                className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-muted py-1.5 text-xs font-semibold text-primary transition-colors duration-200 hover:bg-muted/80"
-              >
-                <Edit className="h-3.5 w-3.5" />
-                <span>Edit</span>
-              </button>
-            )}
-            {isActive && canAddChild && (
-              <button
-                type="button"
-                onClick={handleAddChild}
-                className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-primary py-1.5 text-xs font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>Add Child</span>
-              </button>
-            )}
+          <div className="mt-2 flex shrink-0 flex-col gap-1.5 pt-2 border-t border-border/40">
+            <div className="flex items-center gap-2">
+              {canUpdate && (
+                <button
+                  type="button"
+                  onClick={handleEdit}
+                  className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-muted py-1.5 text-xs font-semibold text-primary transition-colors duration-200 hover:bg-muted/80"
+                >
+                  <Edit className="h-3.5 w-3.5" />
+                  <span>Edit</span>
+                </button>
+              )}
+              {isActive && canAddChild && (
+                <button
+                  type="button"
+                  onClick={handleAddChild}
+                  className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-primary py-1.5 text-xs font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Add Child</span>
+                </button>
+              )}
+            </div>
+
+            {/* Detail action button for viewing the detail of the department on the card below the two actions taking full width */}
+            <button
+              type="button"
+              onClick={handleViewDetails}
+              className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-muted/80 py-1.5 text-xs font-semibold text-primary transition-colors duration-200 hover:bg-muted border border-border/50"
+              title="View Department Details"
+            >
+              <Eye className="h-3.5 w-3.5" />
+              <span>View Details</span>
+            </button>
           </div>
         </div>
       </foreignObject>
@@ -181,9 +207,23 @@ export default function RegionalStructureHierarchy({
   regionName,
   onAddChild,
   onEdit,
+  onViewDetails,
   canAddChild = true,
   canUpdate = true,
 }: RegionalStructureHierarchyProps) {
+  const router = useRouter();
+  const params = useParams<{ id: string }>();
+  const { data: session } = useSession();
+  const effectiveRegionId = params?.id || session?.user?.region_id || "";
+
+  const handleDefaultViewDetails = (structureId: string) => {
+    if (onViewDetails) {
+      onViewDetails(structureId);
+    } else if (effectiveRegionId) {
+      router.push(`/${effectiveRegionId}/departments/${structureId}`);
+    }
+  };
+
   const containerRef = useRef<HTMLDivElement>(null);
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -306,6 +346,7 @@ export default function RegionalStructureHierarchy({
                   toggleNode={props.toggleNode}
                   onAddChild={onAddChild}
                   onEdit={onEdit}
+                  onViewDetails={handleDefaultViewDetails}
                   canAddChild={canAddChild}
                   canUpdate={canUpdate}
                 />

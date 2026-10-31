@@ -27,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { TargetUnitPicker } from "@/components/ui/target-unit-picker";
 import {
     Select,
     SelectContent,
@@ -382,33 +383,16 @@ export function CreatePlanNodeModal({
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Target Unit (optional)</FormLabel>
-                                        <Select
-                                            onValueChange={(value) =>
-                                                field.onChange(
-                                                    value === TARGET_UNIT_NONE_VALUE ? null : value
-                                                )
-                                            }
-                                            value={field.value ?? TARGET_UNIT_NONE_VALUE}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select unit" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                <SelectItem value={TARGET_UNIT_NONE_VALUE}>
-                                                    None
-                                                </SelectItem>
-                                                {configuredUnits.map((unit) => (
-                                                    <SelectItem key={unit.id} value={unit.id}>
-                                                        {unit.label}
-                                                        {unit.symbol && unit.symbol !== unit.label
-                                                            ? ` (${unit.symbol})`
-                                                            : ""}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <FormControl>
+                                            <TargetUnitPicker
+                                                value={field.value}
+                                                onChange={(val) => field.onChange(val)}
+                                                units={configuredUnits}
+                                                allowCustom
+                                                placeholder="Select target unit..."
+                                                searchPlaceholder="Filter units (e.g. kg, USD, %)..."
+                                            />
+                                        </FormControl>
                                         <FormDescription>
                                             Optional. Choose None to set a numeric target without a
                                             unit, or pick a unit from Planning Configuration.

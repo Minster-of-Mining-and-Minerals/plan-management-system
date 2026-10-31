@@ -1,7 +1,9 @@
 "use client";
 
 import { LogOut, User } from "lucide-react";
-import { Link } from "@/i18n/navigation";
+import { Link, usePathname } from "@/i18n/navigation";
+import { useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 import { UserAvatar } from "@/components/common/UserAvatar";
 import {
@@ -23,6 +25,16 @@ interface NavUserProps {
 }
 
 export function NavUser({ user }: NavUserProps) {
+  const pathname = usePathname();
+  const params = useParams<{ id?: string }>();
+  const { data: session } = useSession();
+
+  const isRegional = Boolean(
+    session?.user?.region_id ||
+    (params?.id && !pathname.includes("/companies/") && !pathname.includes("/purchasing-centers/") && !pathname.includes("/admin/"))
+  );
+  const regionId = params?.id || session?.user?.region_id;
+  const profileHref = isRegional && regionId ? `/${regionId}/profile` : "/profile";
   const handleLogout = async () => {
     await logout()
     // signOut({ redirectTo: "/login" });
@@ -70,7 +82,7 @@ export function NavUser({ user }: NavUserProps) {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href="/profile" className="cursor-pointer">
+          <Link href={profileHref} className="cursor-pointer">
             <User className="mr-2 h-4 w-4" />
             Profile
           </Link>

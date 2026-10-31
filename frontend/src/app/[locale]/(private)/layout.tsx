@@ -37,6 +37,10 @@ export default function PrivateLayout({
   useEffect(() => {
     if (status === "authenticated") {
       if (session?.user?.region_id) {
+        if (pathname === "/profile" || pathname.startsWith("/profile/")) {
+          router.replace(`/${session.user.region_id}/profile`);
+          return;
+        }
         router.replace(`/regions/${session.user.region_id}`);
         return;
       }

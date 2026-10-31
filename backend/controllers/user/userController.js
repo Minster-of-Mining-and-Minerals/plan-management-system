@@ -1224,6 +1224,7 @@ const getUsers = async (req, res) => {
       government_structure_id,
       internal_structure_id,
       region_id,
+      regional_structure_id,
       company_id,
       company_structure_id,
       purchasing_center_id,
@@ -1304,8 +1305,8 @@ const getUsers = async (req, res) => {
       }
 
       whereClause.region_id = req.user.region_id;
-      if (internal_structure_id) {
-        whereClause.regional_structure_id = internal_structure_id;
+      if (regional_structure_id || internal_structure_id) {
+        whereClause.regional_structure_id = regional_structure_id || internal_structure_id;
       }
     } else {
       // Federal caller
@@ -1389,8 +1390,8 @@ const getUsers = async (req, res) => {
         whereClause.government_structure_id = null;
         whereClause.purchasing_center_id = null;
 
-        if (internal_structure_id) {
-          whereClause.regional_structure_id = internal_structure_id;
+        if (regional_structure_id || internal_structure_id) {
+          whereClause.regional_structure_id = regional_structure_id || internal_structure_id;
         }
       } else {
         whereClause.region_id = null;

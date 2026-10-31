@@ -2,12 +2,14 @@
 
 import { useState, useMemo } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "@/i18n/navigation";
 import { ColumnDef } from "@tanstack/react-table";
 import {
   Building2,
   Plus,
   Trash2,
   Edit,
+  Eye,
   Layers,
   Users,
   Search,
@@ -41,7 +43,20 @@ import type { RegionalStructure } from "@/redux/types/region";
 import type { FilterField, ActionButton } from "@/types/tableLayout";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 
-export function RegionalDepartmentManagement() {
+export interface RegionalDepartmentManagementProps {
+  forced_parent_id?: string;
+  sideActions?: ActionButton[];
+  readOnly?: boolean;
+  hideHeaderCard?: boolean;
+}
+
+export function RegionalDepartmentManagement({
+  forced_parent_id,
+  sideActions,
+  readOnly = false,
+  hideHeaderCard = false,
+}: RegionalDepartmentManagementProps = {}) {
+  const router = useRouter();
   const { data: session } = useSession();
   const regionId = session?.user?.region_id;
 
@@ -49,9 +64,10 @@ export function RegionalDepartmentManagement() {
   const { roles: userRoles } = useAuth();
   const isSuperAdmin = userRoles?.some((r) => String(r).toLowerCase() === "super admin");
 
-  const canCreate = can("REGIONAL_STRUCTURES:CREATE") || can("REGIONAL_STRUCTURES:MANAGE") || isSuperAdmin;
-  const canUpdate = can("REGIONAL_STRUCTURES:UPDATE") || can("REGIONAL_STRUCTURES:MANAGE") || isSuperAdmin;
-  const canDelete = can("REGIONAL_STRUCTURES:DELETE") || can("REGIONAL_STRUCTURES:MANAGE") || isSuperAdmin;
+  const canRead = can("REGIONAL_STRUCTURES:READ") || can("REGIONS:READ") || can("REGIONAL_STRUCTURES:MANAGE") || isSuperAdmin;
+  const canCreate = !readOnly && (can("REGIONAL_STRUCTURES:CREATE") || can("REGIONAL_STRUCTURES:MANAGE") || isSuperAdmin);
+  const canUpdate = !readOnly && (can("REGIONAL_STRUCTURES:UPDATE") || can("REGIONAL_STRUCTURES:MANAGE") || isSuperAdmin);
+  const canDelete = !readOnly && (can("REGIONAL_STRUCTURES:DELETE") || can("REGIONAL_STRUCTURES:MANAGE") || isSuperAdmin);
 
   const [toggleHierarchyView, setToggleHierarchyView] = useState(false);
   const [deptStatusFilter, setDeptStatusFilter] = useState("");
@@ -78,10 +94,11 @@ export function RegionalDepartmentManagement() {
   const [isParentLocked, setIsParentLocked] = useState(false);
 
   const handleOpenAddModal = (parentId?: string) => {
+    const effectiveParentId = parentId || forced_parent_id || "";
     setEditingDept(null);
     setDeptName("");
-    setDeptParentId(parentId || "");
-    setIsParentLocked(Boolean(parentId));
+    setDeptParentId(effectiveParentId);
+    setIsParentLocked(Boolean(effectiveParentId));
     setIsModalOpen(true);
   };
 
@@ -144,6 +161,9 @@ export function RegionalDepartmentManagement() {
   // Filtered and sorted data
   const filteredData = useMemo(() => {
     return structures.filter((s) => {
+      if (forced_parent_id && s.parent_id !== forced_parent_id) {
+        return false;
+      }
       const matchesSearch = searchQuery
         ? s.name.toLowerCase().includes(searchQuery.toLowerCase())
         : true;
@@ -155,7 +175,7 @@ export function RegionalDepartmentManagement() {
           : true;
       return matchesSearch && matchesStatus;
     });
-  }, [structures, searchQuery, deptStatusFilter]);
+  }, [structures, searchQuery, deptStatusFilter, forced_parent_id]);
 
   const sortedTreeData = useMemo(() => {
     return sortStructuresByTreeDepth(filteredData);
@@ -217,6 +237,18 @@ export function RegionalDepartmentManagement() {
         const item = row.original;
         return (
           <div className="flex items-center justify-end gap-1">
+            {canRead && (
+              <Button
+                variant="ghost"
+                size="sm"
+                title="View Department Details"
+                onClick={() =>
+                  router.push(`/${regionId}/departments/${item.regional_structure_id}`)
+                }
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            )}
             {canCreate && (
               <Button
                 variant="ghost"
@@ -270,20 +302,22 @@ export function RegionalDepartmentManagement() {
     },
   ];
 
-  const actionButtons: ActionButton[] = [
-    {
+  const actionButtons: ActionButton[] = [];
+
+  if (!forced_parent_id) {
+    actionButtons.push({
       label: toggleHierarchyView ? "Table View" : "Tree Hierarchy View",
       icon: <Layers className="h-4 w-4" />,
       onClick: () => setToggleHierarchyView(!toggleHierarchyView),
       variant: "outline",
-    },
-  ];
+    });
+  }
 
   if (canCreate) {
     actionButtons.push({
-      label: "New Department",
+      label: forced_parent_id ? "Create Child Department" : "New Department",
       icon: <Plus className="h-4 w-4" />,
-      onClick: () => handleOpenAddModal(),
+      onClick: () => handleOpenAddModal(forced_parent_id),
       variant: "default",
     });
   }
@@ -294,23 +328,26 @@ export function RegionalDepartmentManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <Building2 className="h-6 w-6 text-primary" />
-            Departments
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage your region's organizational structure, directorates, and sections.
-          </p>
+      {!hideHeaderCard && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <Building2 className="h-6 w-6 text-primary" />
+              Departments
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Manage your region's organizational structure, directorates, and sections.
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       <TableLayout
-        title="Organizational Structure"
-        description="Hierarchical representation of regional departments and branches"
+        title={hideHeaderCard ? undefined : "Organizational Structure"}
+        description={hideHeaderCard ? undefined : "Hierarchical representation of regional departments and branches"}
         filters={filterFields}
         actions={actionButtons}
+        sideActions={sideActions}
       >
         {toggleHierarchyView ? (
           <div className="p-4 bg-card rounded-xl border border-border/80">

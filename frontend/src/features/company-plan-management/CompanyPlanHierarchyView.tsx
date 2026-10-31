@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { TargetUnitPicker } from "@/components/ui/target-unit-picker";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -146,7 +147,10 @@ export function CompanyPlanHierarchyView() {
   const availableTargetUnits: string[] = useMemo(() => {
     const raw = plan?.planningConfiguration?.target_units;
     if (!Array.isArray(raw)) return [];
-    return raw.map((u: any) => (typeof u === "string" ? u : u.label || u.name || u.id || "")).filter(Boolean);
+    const list = raw.map((u: any) => (typeof u === "string" ? u : u.label || u.name || u.id || "")).filter(Boolean);
+    return Array.from(new Set(list)).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base", numeric: true })
+    );
   }, [plan?.planningConfiguration?.target_units]);
 
   const canManage = can("COMPANY_PLANS:UPDATE") || can("COMPANY_PLANS:MANAGE") || can("COMPANIES:MANAGE");
@@ -784,41 +788,14 @@ export function CompanyPlanHierarchyView() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="font-semibold text-foreground">Target Measurement Unit</label>
-                  {availableTargetUnits.length > 0 ? (
-                    <div className="space-y-1">
-                      <select
-                        className="w-full h-9 rounded-md border border-input bg-card px-3 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-foreground"
-                        value={availableTargetUnits.includes(formUnit) ? formUnit : (formUnit ? "custom" : "")}
-                        onChange={(e) => {
-                          if (e.target.value !== "custom") {
-                            setFormUnit(e.target.value);
-                          }
-                        }}
-                      >
-                        <option value="">None / Select configured unit...</option>
-                        {availableTargetUnits.map((u) => (
-                          <option key={u} value={u}>
-                            {u}
-                          </option>
-                        ))}
-                        <option value="custom">Custom unit...</option>
-                      </select>
-                      {(!availableTargetUnits.includes(formUnit) && formUnit) || !availableTargetUnits.includes(formUnit) ? (
-                        <Input
-                          placeholder="Type unit or custom value..."
-                          value={formUnit}
-                          onChange={(e) => setFormUnit(e.target.value)}
-                          className="h-8 text-xs"
-                        />
-                      ) : null}
-                    </div>
-                  ) : (
-                    <Input
-                      placeholder="e.g. Kilograms, USD, Count, %"
-                      value={formUnit}
-                      onChange={(e) => setFormUnit(e.target.value)}
-                    />
-                  )}
+                  <TargetUnitPicker
+                    value={formUnit}
+                    onChange={(val) => setFormUnit(val || "")}
+                    units={availableTargetUnits}
+                    allowCustom
+                    placeholder="None / Select configured unit or custom..."
+                    searchPlaceholder="Filter units (e.g. kg, USD, %)..."
+                  />
                 </div>
 
                 <div className="space-y-1.5">
@@ -904,40 +881,14 @@ export function CompanyPlanHierarchyView() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="font-semibold text-foreground">Measurement Unit</label>
-                  {availableTargetUnits.length > 0 ? (
-                    <div className="space-y-1">
-                      <select
-                        className="w-full h-9 rounded-md border border-input bg-card px-3 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-foreground"
-                        value={availableTargetUnits.includes(formUnit) ? formUnit : (formUnit ? "custom" : "")}
-                        onChange={(e) => {
-                          if (e.target.value !== "custom") {
-                            setFormUnit(e.target.value);
-                          }
-                        }}
-                      >
-                        <option value="">None / Select configured unit...</option>
-                        {availableTargetUnits.map((u) => (
-                          <option key={u} value={u}>
-                            {u}
-                          </option>
-                        ))}
-                        <option value="custom">Custom unit...</option>
-                      </select>
-                      {(!availableTargetUnits.includes(formUnit) && formUnit) || !availableTargetUnits.includes(formUnit) ? (
-                        <Input
-                          placeholder="Type unit or custom value..."
-                          value={formUnit}
-                          onChange={(e) => setFormUnit(e.target.value)}
-                          className="h-8 text-xs"
-                        />
-                      ) : null}
-                    </div>
-                  ) : (
-                    <Input
-                      value={formUnit}
-                      onChange={(e) => setFormUnit(e.target.value)}
-                    />
-                  )}
+                  <TargetUnitPicker
+                    value={formUnit}
+                    onChange={(val) => setFormUnit(val || "")}
+                    units={availableTargetUnits}
+                    allowCustom
+                    placeholder="None / Select configured unit or custom..."
+                    searchPlaceholder="Filter units (e.g. kg, USD, %)..."
+                  />
                 </div>
 
                 <div className="space-y-1.5">

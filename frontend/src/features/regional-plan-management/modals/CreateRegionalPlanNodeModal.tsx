@@ -34,6 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { TargetUnitPicker } from "@/components/ui/target-unit-picker";
 import { actionFeedback } from "@/components/action-feedback";
 import { getApiErrorMessage } from "@/utils/apiErrorUtils";
 import {
@@ -165,6 +166,9 @@ export function CreateRegionalPlanNodeModal({
         result.push(unit);
       }
     }
+    result.sort((a, b) =>
+      a.label.localeCompare(b.label, undefined, { sensitivity: "base", numeric: true })
+    );
     return result;
   }, [effectiveConfig?.target_units]);
 
@@ -514,50 +518,25 @@ export function CreateRegionalPlanNodeModal({
                   <FormField
                     control={form.control}
                     name="target_unit"
-                    render={({ field }) => {
-                      const matchingUnit = configuredUnits.find(
-                        (u) =>
-                          u.id?.toLowerCase() === field.value?.toLowerCase() ||
-                          u.label?.toLowerCase() === field.value?.toLowerCase() ||
-                          u.symbol?.toLowerCase() === field.value?.toLowerCase()
-                      );
-                      const selectValue = matchingUnit
-                        ? matchingUnit.id
-                        : field.value ?? TARGET_UNIT_NONE_VALUE;
-
-                      return (
-                        <FormItem>
-                          <FormLabel>Target Unit (optional)</FormLabel>
-                          <Select
-                            onValueChange={(value) =>
-                              field.onChange(value === TARGET_UNIT_NONE_VALUE ? null : value)
-                            }
-                            value={selectValue}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select unit" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value={TARGET_UNIT_NONE_VALUE}>None</SelectItem>
-                              {configuredUnits.map((unit) => (
-                                <SelectItem key={unit.id} value={unit.id}>
-                                  {unit.label}
-                                  {unit.symbol && unit.symbol !== unit.label
-                                    ? ` (${unit.symbol})`
-                                    : ""}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormDescription>
-                            Pick a unit configured for this region, or select None.
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      );
-                    }}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Target Unit (optional)</FormLabel>
+                        <FormControl>
+                          <TargetUnitPicker
+                            value={field.value}
+                            onChange={(val) => field.onChange(val)}
+                            units={configuredUnits}
+                            allowCustom
+                            placeholder="Select target unit..."
+                            searchPlaceholder="Filter units (e.g. kg, USD, %)..."
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Pick a unit configured for this region, filter alphabetically, or select None.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 )}
 

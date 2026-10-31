@@ -252,14 +252,10 @@ export function RegionalPlanVersionDetailsView() {
       : `This master plan is ${plan?.status}. Configuration can only be edited while in draft status.`
     : null;
 
-  const configReadOnlyReason =
-    readOnlyReason ??
-    (!hasDraftSnapshots
-      ? "This draft still uses live planning config. Save the draft rule once to isolate config editing."
-      : null);
+  const canEditRule = isMasterDraft && (can("REGIONAL_PLAN_RULES:UPDATE") || canUpdate);
+  const canEditConfig = isMasterDraft && (can("REGIONAL_PLANNING_CONFIG:UPDATE") || canUpdate);
 
-  const canEditRule = isMasterDraft && canUpdate;
-  const canEditConfig = isMasterDraft && hasDraftSnapshots && canUpdate;
+  const configReadOnlyReason = readOnlyReason;
 
   const handleFinalizeDraft = async () => {
     try {
