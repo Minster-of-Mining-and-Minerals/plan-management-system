@@ -5,6 +5,7 @@ const {
   collectUserPermissionKeys,
 } = require("../utils/userPermissionsUtils");
 const { loadDepartmentPermissionGroups } = require("../utils/specialPermissionGroupUtils");
+const { validateSession } = require("../services/sessionSecurityService");
 
 const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers["authorization"];
@@ -105,6 +106,34 @@ const authenticateToken = async (req, res, next) => {
       }
     }
 
+    // Validate active session
+    let activeSession = null;
+    if (decoded.session_id) {
+      try {
+        activeSession = await validateSession({
+          sessionId: decoded.session_id,
+          userId: decoded.user_id,
+          req,
+        });
+      } catch (sessionErr) {
+        if (sessionErr.code === "SESSION_TERMINATED" || sessionErr.code === "SESSION_EXPIRED") {
+          return res.status(401).json({
+            success: false,
+            code: sessionErr.code,
+            message: sessionErr.message,
+          });
+        }
+        if (sessionErr.code === "DEVICE_RESTRICTED" || sessionErr.code === "IP_RESTRICTED") {
+          return res.status(403).json({
+            success: false,
+            code: sessionErr.code,
+            message: sessionErr.message,
+          });
+        }
+        throw sessionErr;
+      }
+    }
+
     user.departmentPermissionGroups = await loadDepartmentPermissionGroups(
       user.internal_structure_id
     );
@@ -124,6 +153,8 @@ const authenticateToken = async (req, res, next) => {
       ? "company"
       : "federal";
 
+    req.sessionId = decoded.session_id || null;
+    req.session = activeSession;
     req.user = {
       user_id: user.user_id,
       email: user.email,

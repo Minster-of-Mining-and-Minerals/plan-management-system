@@ -30,6 +30,7 @@ import { ProfileImageUpload } from "@/components/common/ProfileImageUpload";
 import { ProfileHeroBanner } from "@/components/common/ProfileHeroBanner";
 import { SectorLogo } from "@/components/common/SectorLogo";
 import { UserAvatar } from "@/components/common/UserAvatar";
+import { UserSessionsSection } from "@/features/security/UserSessionsSection";
 import {
   useGetProfileQuery,
   useUpdateProfileMutation,
@@ -369,6 +370,8 @@ export function ProfilePage() {
               </div>
             </CardContent>
           </Card>
+
+          <UserSessionsSection />
         </div>
       </div>
     </div>

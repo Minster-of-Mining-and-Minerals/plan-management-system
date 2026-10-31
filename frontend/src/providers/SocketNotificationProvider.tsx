@@ -6,6 +6,7 @@ import { useDispatch } from "react-redux";
 import { io, Socket } from "socket.io-client";
 import { baseApi } from "@/redux/baseApi";
 import { getSocketUrl } from "@/lib/socketUrl";
+import { performLogout } from "@/utils/logout";
 
 export default function SocketNotificationProvider({
   children,
@@ -32,6 +33,22 @@ export default function SocketNotificationProvider({
 
     socket.on("notification", () => {
       dispatch(baseApi.util.invalidateTags(["Notification"]));
+    });
+
+    socket.on("session_revoked", (data: any) => {
+      dispatch(
+        baseApi.util.invalidateTags([
+          "UserSession",
+          "DeviceRestriction",
+          "IpRestriction",
+          "SessionLog",
+        ])
+      );
+
+      const currentUserId = (session?.user as any)?.id;
+      if (currentUserId && data?.userId === currentUserId) {
+        void performLogout();
+      }
     });
 
     socket.on("connect_error", (error) => {

@@ -38,6 +38,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { actionFeedback } from "@/components/action-feedback";
+import { UserSessionsSection } from "@/features/security/UserSessionsSection";
 import { ProfileImageUpload } from "@/components/common/ProfileImageUpload";
 import { ProfileHeroBanner } from "@/components/common/ProfileHeroBanner";
 import { UserAvatar } from "@/components/common/UserAvatar";
@@ -600,6 +601,8 @@ export function RegionalProfilePage() {
               </div>
             </CardContent>
           </Card>
+
+          <UserSessionsSection />
         </div>
       </div>
     </div>

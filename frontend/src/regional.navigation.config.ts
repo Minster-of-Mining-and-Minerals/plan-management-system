@@ -111,6 +111,7 @@ export const REGIONAL_NAVIGATION: NavItem[] = [
       "REGIONAL_PERMISSION_GROUPS:MANAGE",
       "REGIONAL_PERMISSIONS:READ",
       "REGIONAL_PERMISSIONS:MANAGE",
+      "USER_SESSION:VIEW",
     ],
     children: [
       {
@@ -118,6 +119,12 @@ export const REGIONAL_NAVIGATION: NavItem[] = [
         url: "/regional/users",
         icon: User2,
         anyPermissions: ["REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"],
+      },
+      {
+        title: "User Sessions",
+        url: "/regional/users/sessions",
+        icon: Shield,
+        anyPermissions: ["USER_SESSION:VIEW", "REGIONAL_USERS:READ"],
       },
       {
         title: "Role Management",

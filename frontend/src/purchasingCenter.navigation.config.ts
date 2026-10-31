@@ -114,6 +114,7 @@ export const PURCHASING_CENTER_NAVIGATION: NavItem[] = [
       "PURCHASING_CENTER_PERMISSION_GROUPS:MANAGE",
       "PURCHASING_CENTER_PERMISSIONS:READ",
       "PURCHASING_CENTER_PERMISSIONS:MANAGE",
+      "USER_SESSION:VIEW",
     ],
     children: [
       {
@@ -121,6 +122,12 @@ export const PURCHASING_CENTER_NAVIGATION: NavItem[] = [
         url: "/purchasing-center/users",
         icon: User2,
         anyPermissions: ["PURCHASING_CENTER_USERS:READ", "PURCHASING_CENTER_USERS:MANAGE"],
+      },
+      {
+        title: "User Sessions",
+        url: "/purchasing-center/users/sessions",
+        icon: Shield,
+        anyPermissions: ["USER_SESSION:VIEW", "PURCHASING_CENTER_USERS:READ"],
       },
       {
         title: "Role Management",

@@ -39,6 +39,9 @@ export const authApi = baseApi.injectEndpoints({
         if (response.token) {
           localStorage.setItem("authToken", response.token);
         }
+        if (response.session_id) {
+          localStorage.setItem("sessionId", response.session_id);
+        }
         if (user) {
           localStorage.setItem("user", JSON.stringify(user));
         }

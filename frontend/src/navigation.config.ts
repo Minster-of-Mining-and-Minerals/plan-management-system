@@ -267,13 +267,19 @@ export const NAVIGATION: NavItem[] = [
     title: "Users",
     url: "/users/list",
     icon: User2,
-    anyPermissions: ["USERS:READ", "ROLES:READ", "PERMISSIONS:READ", "PERMISSION_GROUPS:READ", "SPECIAL_PERMISSION_GROUPS:READ"],
+    anyPermissions: ["USERS:READ", "ROLES:READ", "PERMISSIONS:READ", "PERMISSION_GROUPS:READ", "SPECIAL_PERMISSION_GROUPS:READ", "USER_SESSION:VIEW"],
     children: [
       {
         title: "Users List",
         url: "/users/list",
         icon: User2,
         allPermissions: ["USERS:READ"],
+      },
+      {
+        title: "User Sessions",
+        url: "/users/sessions",
+        icon: Shield,
+        anyPermissions: ["USER_SESSION:VIEW", "USER_SESSION:MANAGE"],
       },
       {
         title: "Role Management",

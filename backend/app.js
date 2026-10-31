@@ -22,6 +22,8 @@ const permissionRoute = require("./routers/user/permissionRoutes");
 const permissionGroupRoute = require("./routers/user/permissionGroupRoutes");
 const changePasswordRoutes = require("./routers/user/passwordChangeRoutes");
 const forgotPasswordRoutes = require("./routers/user/forgotPasswordRoutes");
+const userSessionRoutes = require("./routers/user/userSessionRoutes");
+const sessionAdminRoutes = require("./routers/admin/sessionAdminRoutes");
 
 // Structure Routes
 const governmentStructureRoutes = require("./routers/structure/governmentStructureRoutes");
@@ -165,6 +167,8 @@ app.use("/api/auth/forgot-password", forgotPasswordRoutes);
 app.use("/api/change-password", changePasswordRoutes);
 app.use("/api/permissions", permissionRoute);
 app.use("/api/permission-groups", permissionGroupRoute);
+app.use("/api/user/sessions", userSessionRoutes);
+app.use("/api/admin/sessions", sessionAdminRoutes);
 
 
 // Structure Routes

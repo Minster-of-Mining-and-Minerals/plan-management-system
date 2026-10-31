@@ -147,6 +147,10 @@ export const baseApi = createApi({
     "CompanyProductionTargets",
     "CompanyProductionReports",
     "ProductionDashboard",
+    "UserSession",
+    "DeviceRestriction",
+    "IpRestriction",
+    "SessionLog",
   ],
   endpoints: () => ({}),
 });

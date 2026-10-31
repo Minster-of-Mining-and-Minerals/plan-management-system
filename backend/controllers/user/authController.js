@@ -6,6 +6,8 @@ const { normalizeEmail } = require("../../utils/emailUtils");
 const { collectUserPermissionKeysUpper } = require("../../utils/userPermissionsUtils");
 const { loadDepartmentPermissionGroups } = require("../../utils/specialPermissionGroupUtils");
 const { Op } = require("sequelize");
+const { createSession, terminateSession } = require("../../services/sessionSecurityService");
+const { hashToken } = require("../../utils/deviceDetector");
 
 const login = async (req, res) => {
   try {
@@ -71,16 +73,42 @@ const login = async (req, res) => {
     if (!isMatch)
       return res.status(401).json({ message: "Invalid email or password" });
 
-    // ===== Generate JWT Token (lean - no roles/permissions to avoid cookie bloat) =====
+    // ===== Create User Session & check restrictions =====
+    let sessionResult;
+    try {
+      sessionResult = await createSession({
+        user,
+        req,
+        clientData: req.body.client_data || {},
+      });
+    } catch (sessionErr) {
+      if (sessionErr.code === "IP_RESTRICTED" || sessionErr.code === "DEVICE_RESTRICTED") {
+        return res.status(sessionErr.status || 403).json({
+          success: false,
+          code: sessionErr.code,
+          message: sessionErr.message,
+        });
+      }
+      throw sessionErr;
+    }
+
+    // ===== Generate JWT Token (lean - includes session_id) =====
     const token = jwt.sign(
       {
         user_id: user.user_id,
         email: user.email,
+        session_id: sessionResult ? sessionResult.sessionId : null,
         is_first_logged_in: user.is_first_logged_in,
       },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
     );
+
+    if (sessionResult && sessionResult.session) {
+      await sessionResult.session.update({
+        session_token_hash: hashToken(token),
+      });
+    }
 
     // Update last login
     await User.update(
@@ -92,6 +120,7 @@ const login = async (req, res) => {
       success: true,
       message: "Login successful",
       token,
+      session_id: sessionResult ? sessionResult.sessionId : null,
       data: {
         user: {
           user_id: user.user_id,
@@ -133,7 +162,17 @@ const login = async (req, res) => {
 // Logout
 const logout = async (req, res) => {
   try {
-    res.status(200).json({ message: "Logout successful" });
+    if (req.sessionId && req.user) {
+      await terminateSession({
+        sessionId: req.sessionId,
+        actorUser: req.user,
+        reason: "user_logout",
+        req,
+      }).catch((err) => {
+        console.warn("Session logout termination warning:", err.message);
+      });
+    }
+    res.status(200).json({ success: true, message: "Logout successful" });
   } catch (error) {
     res
       .status(500)

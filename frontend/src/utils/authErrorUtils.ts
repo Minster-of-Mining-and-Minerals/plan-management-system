@@ -6,6 +6,19 @@ const TOKEN_AUTH_FAILURE_MESSAGES = new Set([
   "user not found or inactive",
 ]);
 
+const TOKEN_AUTH_FAILURE_CODES = new Set([
+  "SESSION_TERMINATED",
+  "SESSION_EXPIRED",
+  "DEVICE_RESTRICTED",
+  "IP_RESTRICTED",
+]);
+
+function getResponseCode(data: unknown): string {
+  if (!data || typeof data !== "object") return "";
+  const code = (data as { code?: unknown }).code;
+  return typeof code === "string" ? code.trim().toUpperCase() : "";
+}
+
 function getResponseMessage(data: unknown): string {
   if (!data || typeof data !== "object") return "";
   const message = (data as { message?: unknown }).message;
@@ -23,6 +36,10 @@ export function isTokenAuthFailure(
   }
 
   if (error.status === 403) {
+    const code = getResponseCode(error.data);
+    if (code && TOKEN_AUTH_FAILURE_CODES.has(code)) {
+      return true;
+    }
     const message = getResponseMessage(error.data);
     return TOKEN_AUTH_FAILURE_MESSAGES.has(message);
   }

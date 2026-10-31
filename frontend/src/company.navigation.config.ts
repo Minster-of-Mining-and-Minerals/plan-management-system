@@ -132,6 +132,7 @@ export const COMPANY_NAVIGATION: NavItem[] = [
       "COMPANY_PERMISSION_GROUPS:MANAGE",
       "COMPANY_PERMISSIONS:READ",
       "COMPANY_PERMISSIONS:MANAGE",
+      "USER_SESSION:VIEW",
     ],
     children: [
       {
@@ -139,6 +140,12 @@ export const COMPANY_NAVIGATION: NavItem[] = [
         url: "/company/users",
         icon: User2,
         anyPermissions: ["COMPANY_USERS:READ", "COMPANY_USERS:MANAGE"],
+      },
+      {
+        title: "User Sessions",
+        url: "/company/users/sessions",
+        icon: Shield,
+        anyPermissions: ["USER_SESSION:VIEW", "COMPANY_USERS:READ"],
       },
       {
         title: "Role Management",
