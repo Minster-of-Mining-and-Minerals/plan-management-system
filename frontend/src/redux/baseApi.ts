@@ -151,6 +151,11 @@ export const baseApi = createApi({
     "DeviceRestriction",
     "IpRestriction",
     "SessionLog",
+    "NationalRequirement",
+    "NationalAssignment",
+    "NationalMapping",
+    "NationalPublishedRecord",
+    "NationalDashboard",
   ],
   endpoints: () => ({}),
 });

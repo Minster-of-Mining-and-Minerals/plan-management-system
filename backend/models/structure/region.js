@@ -57,6 +57,24 @@ module.exports = (sequelize, DataTypes) => {
         as: "planRules",
         onDelete: "CASCADE",
       });
+
+      Region.hasMany(models.NationalReportingAssignment, {
+        foreignKey: "region_id",
+        as: "nationalReportingAssignments",
+        onDelete: "CASCADE",
+      });
+
+      Region.hasMany(models.RegionalRequirementMapping, {
+        foreignKey: "region_id",
+        as: "regionalRequirementMappings",
+        onDelete: "CASCADE",
+      });
+
+      Region.hasMany(models.NationalPublishedRecord, {
+        foreignKey: "region_id",
+        as: "nationalPublishedRecords",
+        onDelete: "CASCADE",
+      });
     }
   }
 

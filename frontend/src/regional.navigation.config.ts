@@ -13,6 +13,7 @@ import {
   Settings,
   Scale,
   Palette,
+  BarChart3,
 } from "lucide-react";
 
 export type NavItem = {
@@ -90,6 +91,16 @@ export const REGIONAL_NAVIGATION: NavItem[] = [
           "REGIONAL_PLANS:MANAGE",
         ],
       },
+    ],
+  },
+  {
+    title: "National Reporting",
+    url: "/regional/national-reporting",
+    icon: BarChart3,
+    anyPermissions: [
+      "REGIONAL_NATIONAL_REPORTING:READ_ASSIGNED",
+      "REGIONAL_NATIONAL_REPORTING:MANAGE",
+      "REGIONAL_PLANS:READ",
     ],
   },
   {

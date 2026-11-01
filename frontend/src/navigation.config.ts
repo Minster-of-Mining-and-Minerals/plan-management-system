@@ -22,6 +22,7 @@ import {
   Coins,
   HardHat,
   Factory,
+  BarChart3,
 } from "lucide-react";
 
 export type NavItem = {
@@ -95,6 +96,16 @@ export const NAVIGATION: NavItem[] = [
     url: "/admin/regions",
     icon: Globe,
     anyPermissions: ["REGIONS:READ", "REGIONS:MANAGE"],
+  },
+  {
+    title: "National Reporting",
+    url: "/national-reporting",
+    icon: BarChart3,
+    anyPermissions: [
+      "NATIONAL_REPORTING:READ_REQUIREMENT",
+      "NATIONAL_REPORTING:READ_DASHBOARD",
+      "NATIONAL_REPORTING:MANAGE",
+    ],
   },
   {
     title: "Companies",

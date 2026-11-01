@@ -54,6 +54,10 @@ const goldPriceConfigurationRoutes = require("./routers/gold/goldPriceConfigurat
 const productionConfigRoutes = require("./routers/production/productionConfigRoutes");
 const companyProductionRoutes = require("./routers/production/companyProductionRoutes");
 
+// National Reporting Framework Routes
+const nationalReportingRoutes = require("./routers/nationalReporting/nationalReportingRoutes");
+const regionalNationalReportingRoutes = require("./routers/nationalReporting/regionalNationalReportingRoutes");
+
 // Plan Management Routes
 const planRoutes = require("./routers/plan/planRoutes");
 const planAssignmentRoutes = require("./routers/plan/planAssignmentRoutes");
@@ -204,6 +208,10 @@ app.use("/api/gold", goldOversightRoutes);
 // Plan Management Routes
 app.use("/api/plan", planRoutes);
 app.use("/api/plan-assignments", planAssignmentRoutes);
+
+// National Reporting Framework Routes
+app.use("/api/national-reporting", nationalReportingRoutes);
+app.use("/api/regional/national-reporting", regionalNationalReportingRoutes);
 app.use("/api/performance-color-thresholds", performanceColorThresholdRoutes);
 app.use("/api/branding", brandingRoutes);
 app.use("/api/system-settings", systemSettingsRoutes);

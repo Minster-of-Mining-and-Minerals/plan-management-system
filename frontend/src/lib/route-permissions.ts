@@ -148,7 +148,25 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/settings/notes/[id]", anyPermissions: ["NOTES:VIEW", "NOTES:MANAGE"] },
   { pattern: "/settings/notes", anyPermissions: ["NOTES:VIEW", "NOTES:MANAGE"] },
 
+  // National Reporting Framework
+  {
+    pattern: "/national-reporting",
+    anyPermissions: [
+      "NATIONAL_REPORTING:READ_REQUIREMENT",
+      "NATIONAL_REPORTING:READ_DASHBOARD",
+      "NATIONAL_REPORTING:MANAGE",
+    ],
+  },
+
   // Dynamic Regional Workspace (both /regions/[id] and /[id] variants)
+  {
+    pattern: "/regions/[id]/national-reporting",
+    anyPermissions: [
+      "REGIONAL_NATIONAL_REPORTING:READ_ASSIGNED",
+      "REGIONAL_NATIONAL_REPORTING:MANAGE",
+      "REGIONAL_PLANS:READ",
+    ],
+  },
   { pattern: "/regions/[id]/plans/configuration", anyPermissions: ["REGIONAL_PLANNING_CONFIG:READ", "REGIONAL_PLANNING_CONFIG:UPDATE", "REGIONAL_PLANS:MANAGE"] },
   { pattern: "/regions/[id]/plans/rules", anyPermissions: ["REGIONAL_PLAN_RULES:READ", "REGIONAL_PLAN_RULES:CREATE", "REGIONAL_PLAN_RULES:UPDATE", "REGIONAL_PLAN_RULES:DELETE"] },
   { pattern: "/regions/[id]/plans/review", anyPermissions: ["REGIONAL_PLANS:REVIEW", "REGIONAL_PLANS:READ", "REGIONAL_PLANS:MANAGE"] },
@@ -176,6 +194,7 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/regions/[id]/settings", anyPermissions: ["REGIONAL_BRANDING:READ", "REGIONAL_BRANDING:MANAGE"] },
   { pattern: "/regions/[id]", anyPermissions: ["REGIONAL_DASHBOARD:VIEW"] },
 
+  { pattern: "/[id]/national-reporting", anyPermissions: ["REGIONAL_NATIONAL_REPORTING:READ_ASSIGNED", "REGIONAL_NATIONAL_REPORTING:MANAGE", "REGIONAL_PLANS:READ"] },
   { pattern: "/[id]/plans/configuration", anyPermissions: ["REGIONAL_PLANNING_CONFIG:READ", "REGIONAL_PLANNING_CONFIG:UPDATE", "REGIONAL_PLANS:MANAGE"] },
   { pattern: "/[id]/plans/rules", anyPermissions: ["REGIONAL_PLAN_RULES:READ", "REGIONAL_PLAN_RULES:CREATE", "REGIONAL_PLAN_RULES:UPDATE", "REGIONAL_PLAN_RULES:DELETE"] },
   { pattern: "/[id]/plans/review", anyPermissions: ["REGIONAL_PLANS:REVIEW", "REGIONAL_PLANS:READ", "REGIONAL_PLANS:MANAGE"] },
@@ -204,6 +223,7 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/[id]", anyPermissions: ["REGIONAL_DASHBOARD:VIEW"] },
 
   // Regional Workspace fallback aliases
+  { pattern: "/regional/national-reporting", anyPermissions: ["REGIONAL_NATIONAL_REPORTING:READ_ASSIGNED", "REGIONAL_NATIONAL_REPORTING:MANAGE", "REGIONAL_PLANS:READ"] },
   { pattern: "/regional/plans/configuration", anyPermissions: ["REGIONAL_PLANNING_CONFIG:READ", "REGIONAL_PLANNING_CONFIG:UPDATE", "REGIONAL_PLANS:MANAGE"] },
   { pattern: "/regional/plans/rules", anyPermissions: ["REGIONAL_PLAN_RULES:READ", "REGIONAL_PLAN_RULES:CREATE", "REGIONAL_PLAN_RULES:UPDATE", "REGIONAL_PLAN_RULES:DELETE"] },
   { pattern: "/regional/plans/review", anyPermissions: ["REGIONAL_PLANS:REVIEW", "REGIONAL_PLANS:READ", "REGIONAL_PLANS:MANAGE"] },
