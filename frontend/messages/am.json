@@ -24,7 +24,6 @@
   "ComplaintPage": {
     "title": "ቅሬታ ያቅርቡ",
     "subtitle": "ቅሬታዎን ለማቅረብ ከታች ያለውን ቅጽ በትክክል ይሙሉ። ትክክለኛና ሙሉ መረጃ መስጠት ቅሬታዎን በፍጥነት እንዲከናወን ይረዳል።",
-
     "personalInfo": {
       "title": "የግል መረጃ",
       "optional": "(አማራጭ)",
@@ -41,7 +40,6 @@
       "woreda": "ወረዳ",
       "woredaPlaceholder": "ወረዳዎን ያስገቡ"
     },
-
     "details": {
       "title": "የ{category} ዝርዝሮች",
       "category": "ምድብ",
@@ -71,7 +69,6 @@
       "cancel": "ሰርዝ",
       "submit": "{category} አስገባ"
     },
-
     "tips": {
       "title": "የቅሬታ መመሪያዎች",
       "items": [
@@ -113,6 +110,47 @@
   },
   "LocaleSwitcher": {
     "label": "ቋንቋ",
-    "locale": "{locale, select, en {እንግሊዝኛ} am {አማርኛ} other {ያልታወቀ}}"
+    "locale": "{locale, select, en {እንግሊዝኛ} am {አማርኛ} ao {አፋን ኦሮሞ} other {ያልታወቀ}}"
+  },
+  "Issues": {
+    "title": "ጉዳዮች እና ችግሮች",
+    "regionalIssues": "የክልል ጉዳዮች",
+    "federalIssues": "የፌዴራል ጉዳዮች",
+    "newIssue": "አዲስ ጉዳይ ሪፖርት አድርግ",
+    "status": {
+      "submitted": "የቀረበ",
+      "under_review": "በግምገማ ላይ",
+      "accepted": "ተቀባይነት ያገኘ",
+      "rejected": "ውድቅ የተደረገ",
+      "resolved": "መፍትሔ ያገኘ",
+      "closed": "የተዘጋ"
+    },
+    "actions": {
+      "startReview": "ግምገማ ጀምር",
+      "accept": "ጉዳዩን ተቀበል",
+      "reject": "ጉዳዩን ውድቅ አድርግ",
+      "resolve": "መፍትሔ ስጥ",
+      "close": "ጉዳዩን ዝጋ",
+      "escalate": "ወደ ፌዴራል አስተላልፍ",
+      "recall": "የተላለፈውን መልስ"
+    }
+  },
+  "Escalations": {
+    "title": "የፌዴራል እና የክልል ማስተላለፎች",
+    "status": {
+      "none": "ያልተላለፈ",
+      "escalated": "የተላለፈ",
+      "under_federal_review": "በፌዴራል ግምገማ ላይ",
+      "clarification_requested": "ማብራሪያ የተጠየቀ",
+      "assistance_provided": "እገዛ የተደረገለት",
+      "returned": "ወደ ክልል የተመለሰ",
+      "closed": "የተዘጋ",
+      "recalled": "የተሰረዘ"
+    },
+    "actions": {
+      "requestClarification": "ማብራሪያ ጠይቅ",
+      "provideAssistance": "እገዛ ስጥ",
+      "closeIntervention": "ጣልቃ ገብነቱን አጠናቅቅ"
+    }
   }
 }

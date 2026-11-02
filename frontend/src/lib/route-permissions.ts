@@ -137,7 +137,12 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   },
   {
     pattern: "/issues",
-    anyPermissions: ["ISSUES:READ", "ISSUES:READ_ALL"],
+    anyPermissions: [
+      "ISSUES:READ",
+      "ISSUES:READ_ALL",
+      "FEDERAL_REGIONAL_ESCALATIONS:READ",
+      "FEDERAL_REGIONAL_ESCALATIONS:READ_ALL",
+    ],
   },
 
   // Settings
@@ -192,8 +197,14 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/regions/[id]/users/sessions", anyPermissions: ["USER_SESSION:VIEW", "REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] },
   { pattern: "/regions/[id]/users", anyPermissions: ["REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] },
   { pattern: "/regions/[id]/settings", anyPermissions: ["REGIONAL_BRANDING:READ", "REGIONAL_BRANDING:MANAGE"] },
+  { pattern: "/regions/[id]/issues/new", anyPermissions: ["REGIONAL_ISSUES:CREATE", "REGIONAL_ISSUES:MANAGE"] },
+  { pattern: "/regions/[id]/issues/[issueId]", anyPermissions: ["REGIONAL_ISSUES:READ", "REGIONAL_ISSUES:READ_ALL", "REGIONAL_ISSUES:MANAGE"] },
+  { pattern: "/regions/[id]/issues", anyPermissions: ["REGIONAL_ISSUES:READ", "REGIONAL_ISSUES:READ_ALL", "REGIONAL_ISSUES:CREATE", "REGIONAL_ISSUES:VIEW_DASHBOARD", "REGIONAL_ISSUES:MANAGE"] },
   { pattern: "/regions/[id]", anyPermissions: ["REGIONAL_DASHBOARD:VIEW"] },
 
+  { pattern: "/[id]/issues/new", anyPermissions: ["REGIONAL_ISSUES:CREATE", "REGIONAL_ISSUES:MANAGE"] },
+  { pattern: "/[id]/issues/[issueId]", anyPermissions: ["REGIONAL_ISSUES:READ", "REGIONAL_ISSUES:READ_ALL", "REGIONAL_ISSUES:MANAGE"] },
+  { pattern: "/[id]/issues", anyPermissions: ["REGIONAL_ISSUES:READ", "REGIONAL_ISSUES:READ_ALL", "REGIONAL_ISSUES:CREATE", "REGIONAL_ISSUES:VIEW_DASHBOARD", "REGIONAL_ISSUES:MANAGE"] },
   { pattern: "/[id]/national-reporting", anyPermissions: ["REGIONAL_NATIONAL_REPORTING:READ_ASSIGNED", "REGIONAL_NATIONAL_REPORTING:MANAGE", "REGIONAL_PLANS:READ"] },
   { pattern: "/[id]/plans/configuration", anyPermissions: ["REGIONAL_PLANNING_CONFIG:READ", "REGIONAL_PLANNING_CONFIG:UPDATE", "REGIONAL_PLANS:MANAGE"] },
   { pattern: "/[id]/plans/rules", anyPermissions: ["REGIONAL_PLAN_RULES:READ", "REGIONAL_PLAN_RULES:CREATE", "REGIONAL_PLAN_RULES:UPDATE", "REGIONAL_PLAN_RULES:DELETE"] },
@@ -250,6 +261,9 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/regional/users/sessions", anyPermissions: ["USER_SESSION:VIEW", "REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] },
   { pattern: "/regional/users", anyPermissions: ["REGIONAL_USERS:READ", "REGIONAL_USERS:MANAGE"] },
   { pattern: "/regional/settings", anyPermissions: ["REGIONAL_BRANDING:READ", "REGIONAL_BRANDING:MANAGE"] },
+  { pattern: "/regional/issues/new", anyPermissions: ["REGIONAL_ISSUES:CREATE", "REGIONAL_ISSUES:MANAGE"] },
+  { pattern: "/regional/issues/[issueId]", anyPermissions: ["REGIONAL_ISSUES:READ", "REGIONAL_ISSUES:READ_ALL", "REGIONAL_ISSUES:MANAGE"] },
+  { pattern: "/regional/issues", anyPermissions: ["REGIONAL_ISSUES:READ", "REGIONAL_ISSUES:READ_ALL", "REGIONAL_ISSUES:CREATE", "REGIONAL_ISSUES:VIEW_DASHBOARD", "REGIONAL_ISSUES:MANAGE"] },
   { pattern: "/regional", anyPermissions: ["REGIONAL_DASHBOARD:VIEW", "REGIONAL_STRUCTURES:READ", "REGIONAL_USERS:READ", "REGIONAL_BRANDING:READ"] },
 
   // Dynamic Company Workspace

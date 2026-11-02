@@ -70,6 +70,8 @@ const notificationRoutes = require("./routers/notification/notificationRoutes");
 const issueRoutes = require("./routers/issue/issueRoutes");
 const issueCategoryRoutes = require("./routers/issue/issueCategoryRoutes");
 const formConfigContainerRoutes = require("./routers/issue/formConfigContainerRoutes");
+const regionalIssueRoutes = require("./routers/issue/regionalIssueRoutes");
+const federalRegionalEscalationRoutes = require("./routers/issue/federalRegionalEscalationRoutes");
 
 // ================== Attachment Routes ==========================
 const attachmentRoute = require("./routers/attachment-routes/attachmentRoute");
@@ -182,6 +184,7 @@ app.use("/api/regions", regionRoutes);
 app.use("/api/regional-structures", regionalStructureRoutes);
 app.use("/api/regional-branding", regionalBrandingRoutes);
 app.use("/api/regional/plans", regionalPlanRoutes);
+app.use("/api/regional/issues", regionalIssueRoutes);
 app.use("/api/regional", regionalOperationalRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/company-structures", companyStructureRoutes);
@@ -221,6 +224,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/issues", issueRoutes);
 app.use("/api/issue-categories", issueCategoryRoutes);
 app.use("/api/form-config-containers", formConfigContainerRoutes);
+app.use("/api/federal-regional-escalations", federalRegionalEscalationRoutes);
 
 // ================== Api Attachment Routes =====================
 app.use("/api/attachments", attachmentRoute);

@@ -157,6 +157,47 @@
   },
   "LocaleSwitcher": {
     "label": "Language",
-    "locale": "{locale, select, en {English} am {Amharic} other {Unknown}}"
+    "locale": "{locale, select, en {English} am {Amharic} ao {Afaan Oromoo} other {Unknown}}"
+  },
+  "Issues": {
+    "title": "Issues & Concerns",
+    "regionalIssues": "Regional Issues",
+    "federalIssues": "Federal Issues",
+    "newIssue": "Report New Issue",
+    "status": {
+      "submitted": "Submitted",
+      "under_review": "Under Review",
+      "accepted": "Accepted",
+      "rejected": "Rejected",
+      "resolved": "Resolved",
+      "closed": "Closed"
+    },
+    "actions": {
+      "startReview": "Start Review",
+      "accept": "Accept Issue",
+      "reject": "Reject Issue",
+      "resolve": "Resolve Issue",
+      "close": "Close Issue",
+      "escalate": "Escalate to Federal",
+      "recall": "Recall Escalation"
+    }
+  },
+  "Escalations": {
+    "title": "Federal Regional Escalations",
+    "status": {
+      "none": "Not Escalated",
+      "escalated": "Escalated",
+      "under_federal_review": "Under Federal Review",
+      "clarification_requested": "Clarification Requested",
+      "assistance_provided": "Assistance Provided",
+      "returned": "Returned to Region",
+      "closed": "Closed",
+      "recalled": "Recalled"
+    },
+    "actions": {
+      "requestClarification": "Request Clarification",
+      "provideAssistance": "Provide Assistance",
+      "closeIntervention": "Conclude Intervention"
+    }
   }
 }

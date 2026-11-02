@@ -1,0 +1,202 @@
+{
+  "HomePage": {
+    "badge": "Sirna Karoora Tarsiimoo fi Madaallii Raawwii Hojii Ministeera Albuudaa",
+    "heading": {
+      "line1": "Karoora Tarsiimowaa fi Madaallii Raawwitiin",
+      "line2": "Guddina Mirkaneessaa"
+    },
+    "description": "Sirna dijitaalaa karoora tarsiimowaa bulchuu, raawwii hojii hordofuu, fi bu'aa madaaluuf Ministeera Albuudaaf qophaa'e. Gahumsa guddisuun, galmoota biyyaalessaa wajjin wal-simsiisuu fi murtoo ragaa irratti hundaa'e mirkaneessa.",
+    "actions": {
+      "plans": "Karoorawwan Tarsiimoo Ilaali",
+      "evaluations": "Madaalliiwwan Sakatta'i"
+    }
+  },
+  "PublicHeader": {
+    "logoLine1": "Ministeera Albuudaa",
+    "tabs": {
+      "home": "Mana",
+      "plans": "Karoorawwan",
+      "evaluations": "Madaalliiwwan",
+      "reports": "Gabaasota"
+    },
+    "login": "Seeni"
+  },
+  "ComplaintPage": {
+    "title": "Koomii Dhiyeessaa",
+    "subtitle": "Koomii keessan dhiyeessuuf unka armaan gadii guutaa. Ragaa sirrii fi guutuu kennuun akka dafee furmaata argatu taasisa.",
+    "personalInfo": {
+      "title": "Oodeeffannoo Dhuunfaa",
+      "optional": "(Dirqama Miti)",
+      "fullName": "Maqaa Guutuu",
+      "fullNamePlaceholder": "Maqaa guutuu keessan galchaa",
+      "phone": "Lakkoofsa Bilbilaa",
+      "phonePlaceholder": "Lakkoofsa bilbilaa galchaa",
+      "email": "Imeelii",
+      "emailPlaceholder": "Teessoo imeelii keessan galchaa",
+      "city": "Magaalaa/Naannoo",
+      "cityPlaceholder": "Magaalaa ykn naannoo galchaa",
+      "subCity": "Kutaa Magaalaa/Godina",
+      "subCityPlaceholder": "Kutaa magaalaa ykn godina galchaa",
+      "woreda": "Aanaa",
+      "woredaPlaceholder": "Aanaa galchaa"
+    },
+    "details": {
+      "title": "Bal'ina {category}",
+      "category": "Gosa",
+      "categoryPlaceholder": "Gosa Filadhaa",
+      "incidentDate": "Guyyaa Mudate",
+      "sector": "Damee {category} Simatu",
+      "sectorPlaceholder": "Damee Filadhaa",
+      "department": "Waajjira {category} Simatu",
+      "departmentPlaceholder": "Waajjira galchaa",
+      "personConcerned": "Maqaa Nama Dhimmi Ilaallatu",
+      "personConcernedPlaceholder": "Maqaa nama dhimmi ilaallatu galchaa",
+      "description": "Ibsa {category}",
+      "descriptionPlaceholder": "Ibsa bal'aa kenni",
+      "requestedAction": "Tarkaanfii Barbaadamu",
+      "requestedActionPlaceholder": "Tarkaanfii akka fudhatamu barbaaddan ibsaa",
+      "evidence": "Ragaa {category}",
+      "evidencePlaceholder": "Ragaalee deeggarsaa ol-fe'aa",
+      "optional": "Dirqama Miti"
+    },
+    "toast": {
+      "success": {
+        "submitted": "Koomiin keessan milkaa'inaan dhiyaateera."
+      },
+      "error": {
+        "unexpected": "Dogoggorri sirnaa mudateera. Maaloo irra-deebiin yaalaa.",
+        "errors": "Dogoggoroonni muraasni jiru. Maaloo unka sakatta'aa irra deebiin yaalaa."
+      }
+    },
+    "buttons": {
+      "cancel": "Dhiisi",
+      "submit": "{category} Dhiyeessi",
+      "submitting": "{category} Dhiyeessaa jira..."
+    },
+    "tips": {
+      "title": "Gorsa Koomii",
+      "items": [
+        "Ibsa keessan ifaa fi gabaabaa godhaa.",
+        "Guyyootaa fi bal'ina barbaachisaa ta'e dabalataa.",
+        "Ragaalee deeggarsaa yoo barbaachise wal-qabsiisaa.",
+        "Hordoffiif teessoo keessan guutuu kenni."
+      ]
+    }
+  },
+  "ComplaintTrackPage": {
+    "title": "Koomii Keessan Hordofaa",
+    "subtitle": "Sadarkaa koomii keessanii baruuf koodii hordoffii galchaa.",
+    "trackingId": "Koodii Hordoffii",
+    "track": "Koomii Hordofi",
+    "loading": "Sadarkaan koomii sakatta'amaa jira...",
+    "errors": {
+      "required": "Koodiin hordoffii barbaachisaadha.",
+      "notFound": "Koomiin koodii kanaan galmaa'e hin argamne."
+    },
+    "details": {
+      "title": "Bal'ina Koomii",
+      "trackingId": "Koodii Hordoffii",
+      "category": "Gosa Koomii",
+      "sector": "Damee",
+      "department": "Waajjira",
+      "incidentDate": "Guyyaa Mudate",
+      "submittedAt": "Guyyaa Dhiyaate",
+      "description": "Ibsa Koomii",
+      "requestedAction": "Tarkaanfii Barbaadamu"
+    },
+    "status": {
+      "submitted": "Dhiyaateera",
+      "underReview": "Gamaaggama Irra Jira",
+      "resolved": "Furmaata Argateera"
+    },
+    "personalInfo": {
+      "toggle": "Oodeeffannoo Dhuunfaa Mul'isi / Dhoksi",
+      "fullName": "Maqaa Guutuu",
+      "phone": "Lakkoofsa Bilbilaa",
+      "email": "Teessoo Imeelii",
+      "city": "Magaalaa"
+    },
+    "response": {
+      "title": "Deebii Rasmii",
+      "status": "Haala Deebii",
+      "date": "Guyyaa Deebii",
+      "description": "Ibsa Deebii",
+      "attachments": "Faayiloota Deebii",
+      "noResponse": "Hamma yoonaatti deebiin rasmiin hin kennamne.",
+      "download": "Buufadhu"
+    }
+  },
+  "Feedback": {
+    "title": "Yaada Dhiyeessi",
+    "description": "Yaada keessan dhiyeessuuf unka armaan gadii guutaa.",
+    "fields": {
+      "fullName": "Maqaa Guutuu",
+      "fullNameOptional": "(Dirqama Miti)",
+      "fullNamePlaceholder": "Maqaa guutuu galchaa",
+      "sector": "Damee Yaada Simatu",
+      "sectorPlaceholder": "Damee Filadhaa",
+      "feedbackDescription": "Ibsa Yaadaa",
+      "feedbackPlaceholder": "Yaada keessan bal'inaan ibsaa",
+      "rating": "Sadarkaa",
+      "selectRating": "Sadarkaa Filadhaa"
+    },
+    "toast": {
+      "success": {
+        "submitted": "Yaadni keessan milkaa'inaan dhiyaateera."
+      },
+      "error": {
+        "unexpected": "Dogoggorri hin eegamne mudateera.",
+        "errors": "Dogoggoroonni jiru. Maaloo unka sakatta'aa."
+      }
+    },
+    "actions": {
+      "submit": "Yaada Ergi",
+      "cancel": "Dhiisi"
+    }
+  },
+  "LocaleSwitcher": {
+    "label": "Afaan",
+    "locale": "{locale, select, en {Ingiliffa} am {Amaariffa} ao {Afaan Oromoo} other {Kan biraa}}"
+  },
+  "Issues": {
+    "title": "Dhimmoota fi Yaaddowwan",
+    "regionalIssues": "Dhimmoota Naannoo",
+    "federalIssues": "Dhimmoota Federaalaa",
+    "newIssue": "Dhimma Haaraa Gabaasi",
+    "status": {
+      "submitted": "Dhiyaateera",
+      "under_review": "Gamaaggama Irra Jira",
+      "accepted": "Fudhatameera",
+      "rejected": "Kufaa Ta'eera",
+      "resolved": "Furmaata Argateera",
+      "closed": "Cufameera"
+    },
+    "actions": {
+      "startReview": "Gamaaggama Jalqabi",
+      "accept": "Dhimma Fudhadhu",
+      "reject": "Dhimma Kufaa Godhi",
+      "resolve": "Furmaata Kenni",
+      "close": "Dhimma Cufi",
+      "escalate": "Gara Federaalaatti Dabarsi",
+      "recall": "Dabarfama Deebisi"
+    }
+  },
+  "Escalations": {
+    "title": "Dhimmoota Federaalaatti Dabarfaman",
+    "status": {
+      "none": "Hin Dabarfamne",
+      "escalated": "Dabarfameera",
+      "under_federal_review": "Gamaaggama Federaalaa Irra Jira",
+      "clarification_requested": "Ibsi Dabalataa Gaafatameera",
+      "assistance_provided": "Deeggarsi Kennameera",
+      "returned": "Gara Naannootti Deebi'eera",
+      "closed": "Cufameera",
+      "recalled": "Haqameera"
+    },
+    "actions": {
+      "requestClarification": "Ibsa Gaafadhu",
+      "provideAssistance": "Deeggarsa Kenni",
+      "closeIntervention": "Gidduu-seentummaa Xumuri"
+    }
+  }
+}

@@ -252,13 +252,20 @@ export const NAVIGATION: NavItem[] = [
       "ISSUES:READ",
       "ISSUES:READ_ALL",
       "ISSUE_CATEGORIES:READ",
+      "FEDERAL_REGIONAL_ESCALATIONS:READ",
+      "FEDERAL_REGIONAL_ESCALATIONS:READ_ALL",
     ],
     children: [
       {
         title: "Issues",
         url: "/issues",
         icon: AlertCircle,
-        anyPermissions: ["ISSUES:READ", "ISSUES:READ_ALL"],
+        anyPermissions: [
+          "ISSUES:READ",
+          "ISSUES:READ_ALL",
+          "FEDERAL_REGIONAL_ESCALATIONS:READ",
+          "FEDERAL_REGIONAL_ESCALATIONS:READ_ALL",
+        ],
       },
       {
         title: "Issue Categories",

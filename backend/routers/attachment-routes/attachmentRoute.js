@@ -47,6 +47,10 @@ router.post(
     { resource: "documents", action: "create" },
     { resource: "documents", action: "update" },
     { resource: "documents", action: "manage" },
+    { resource: "regional_issues", action: "create" },
+    { resource: "regional_issues", action: "edit" },
+    { resource: "regional_issues", action: "comment" },
+    { resource: "regional_issues", action: "manage" },
   ]),
   upload.array("files", 10),
   uploadFiles
@@ -66,6 +70,8 @@ router.get(
     { resource: "branding_settings", action: "read" },
     { resource: "branding_settings", action: "update" },
     { resource: "documents", action: "read" },
+    { resource: "regional_issues", action: "read" },
+    { resource: "regional_issues", action: "read_all" },
   ]),
   getAllAttachments
 );
@@ -88,6 +94,7 @@ router.delete(
     { resource: "purchasing_centers", action: "manage" },
     { resource: "documents", action: "delete" },
     { resource: "documents", action: "manage" },
+    { resource: "regional_issues", action: "manage" },
   ]),
   deleteAttachment
 );

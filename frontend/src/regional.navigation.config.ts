@@ -14,6 +14,7 @@ import {
   Scale,
   Palette,
   BarChart3,
+  AlertCircle,
 } from "lucide-react";
 
 export type NavItem = {
@@ -101,6 +102,18 @@ export const REGIONAL_NAVIGATION: NavItem[] = [
       "REGIONAL_NATIONAL_REPORTING:READ_ASSIGNED",
       "REGIONAL_NATIONAL_REPORTING:MANAGE",
       "REGIONAL_PLANS:READ",
+    ],
+  },
+  {
+    title: "Issues",
+    url: "/regional/issues",
+    icon: AlertCircle,
+    anyPermissions: [
+      "REGIONAL_ISSUES:READ",
+      "REGIONAL_ISSUES:READ_ALL",
+      "REGIONAL_ISSUES:CREATE",
+      "REGIONAL_ISSUES:VIEW_DASHBOARD",
+      "REGIONAL_ISSUES:MANAGE",
     ],
   },
   {

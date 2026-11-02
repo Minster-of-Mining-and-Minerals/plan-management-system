@@ -56,7 +56,7 @@ function buildIssueSearchWhere(search) {
     { title: { [Op.iLike]: pattern } },
     { issue_number: { [Op.iLike]: pattern } },
     { description: { [Op.iLike]: pattern } },
-    { status: { [Op.iLike]: pattern } },
+    sequelize.where(sequelize.cast(sequelize.col("Issue.status"), "text"), { [Op.iLike]: pattern }),
     { entity_type: { [Op.iLike]: pattern } },
     { "$category.name$": { [Op.iLike]: pattern } },
     { "$priority.label$": { [Op.iLike]: pattern } },
