@@ -406,7 +406,7 @@ async function getPlanHierarchyHandler(req, res, next) {
   try {
     const regionId = resolveEffectiveRegionId(req);
     assertRegionAccessible(req, regionId, "read");
-    const data = await regionalPlanService.getRegionalPlanHierarchy(req.params.id, regionId);
+    const data = await regionalPlanService.getRegionalPlanHierarchy(req.params.id, regionId, req.user);
     res.json({ success: true, data });
   } catch (err) {
     next(err);
@@ -430,7 +430,18 @@ async function getPlanNodeByIdHandler(req, res, next) {
   try {
     const regionId = resolveEffectiveRegionId(req);
     assertRegionAccessible(req, regionId, "read");
-    const data = await regionalPlanService.getRegionalPlanNodeById(req.params.id, regionId);
+    const data = await regionalPlanService.getRegionalPlanNodeById(req.params.id, regionId, req.user);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getPlanNodeAchievementHistoryHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "read");
+    const data = await regionalPlanService.getRegionalPlanNodeAchievementHistory(req.params.id, regionId, req.user);
     res.json({ success: true, data });
   } catch (err) {
     next(err);
@@ -752,7 +763,7 @@ async function submitAchievementHandler(req, res, next) {
   try {
     const regionId = resolveEffectiveRegionId(req);
     assertRegionAccessible(req, regionId, "update");
-    const data = await regionalPlanService.submitRegionalAchievement(req.params.id, regionId, req.body, req.user?.user_id);
+    const data = await regionalPlanService.submitRegionalAchievement(req.params.id, regionId, req.body, req.user);
     res.json({ success: true, data, message: "Achievement submitted for department review" });
   } catch (err) {
     next(err);
@@ -763,7 +774,7 @@ async function approveAchievementHandler(req, res, next) {
   try {
     const regionId = resolveEffectiveRegionId(req);
     assertRegionAccessible(req, regionId, "update");
-    const data = await regionalPlanService.approveRegionalAchievement(req.params.id, regionId, req.body, req.user?.user_id);
+    const data = await regionalPlanService.approveRegionalAchievement(req.params.id, regionId, req.body, req.user);
     res.json({ success: true, data, message: "Achievement approved and pending validation" });
   } catch (err) {
     next(err);
@@ -774,7 +785,7 @@ async function rejectAchievementHandler(req, res, next) {
   try {
     const regionId = resolveEffectiveRegionId(req);
     assertRegionAccessible(req, regionId, "update");
-    const data = await regionalPlanService.rejectRegionalAchievement(req.params.id, regionId, req.body.comment, req.user?.user_id);
+    const data = await regionalPlanService.rejectRegionalAchievement(req.params.id, regionId, req.body.comment, req.user);
     res.json({ success: true, data, message: "Achievement rejected" });
   } catch (err) {
     next(err);
@@ -785,7 +796,7 @@ async function validateAchievementHandler(req, res, next) {
   try {
     const regionId = resolveEffectiveRegionId(req);
     assertRegionAccessible(req, regionId, "update");
-    const data = await regionalPlanService.validateRegionalAchievement(req.params.id, regionId, req.body, req.user?.user_id);
+    const data = await regionalPlanService.validateRegionalAchievement(req.params.id, regionId, req.body, req.user);
     res.json({ success: true, data, message: "Achievement validated and locked" });
   } catch (err) {
     next(err);
@@ -796,7 +807,7 @@ async function rejectValidationAchievementHandler(req, res, next) {
   try {
     const regionId = resolveEffectiveRegionId(req);
     assertRegionAccessible(req, regionId, "update");
-    const data = await regionalPlanService.rejectValidationRegionalAchievement(req.params.id, regionId, req.body.comment, req.user?.user_id);
+    const data = await regionalPlanService.rejectValidationRegionalAchievement(req.params.id, regionId, req.body.comment, req.user);
     res.json({ success: true, data, message: "Validation rejected" });
   } catch (err) {
     next(err);
@@ -932,6 +943,7 @@ module.exports = {
   getPlanHierarchyHandler,
   createPlanNodeHandler,
   getPlanNodeByIdHandler,
+  getPlanNodeAchievementHistoryHandler,
   updatePlanNodeHandler,
   deletePlanNodeHandler,
   reorderPlanNodesHandler,

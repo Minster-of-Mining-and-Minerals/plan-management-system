@@ -118,6 +118,7 @@ export interface RegionalPlanNode {
   period_actual_approved_at?: string | null;
   period_actual_validated_at?: string | null;
   period_actual_rejection_comment?: string | null;
+  is_validation_required?: boolean;
   narration?: string | null;
   evidence_attachment_ids?: string[];
   execution_progress_percent?: number | null;

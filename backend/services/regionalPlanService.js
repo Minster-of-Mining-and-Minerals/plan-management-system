@@ -29,6 +29,24 @@ const {
 } = require("../utils/planAchievementWorkflowUtils");
 
 const {
+  submitRegionalAchievementWorkflow,
+  approveRegionalAchievementWorkflow,
+  rejectRegionalAchievementWorkflow,
+  validateRegionalAchievementWorkflow,
+  rejectValidationRegionalAchievementWorkflow,
+  isRollupEligibleAchievement,
+  isRollupEligibleAchievementStatus,
+  userCanExecuteRegionalAchievement,
+  userCanApproveRegionalAchievement,
+  userCanValidateRegionalAchievement,
+  userQualifiesForRegionalBypass,
+  assertUserCanAccessPlanNode,
+  assertUserCanExecuteAchievement,
+  assertUserCanApproveAchievement,
+  assertUserCanValidateAchievement,
+} = require("./regionalPlanAchievementWorkflowService");
+
+const {
   normalizeTargetUnits,
   normalizeCustomPeriods,
   resolvePeriodLabelsForMode,
@@ -1575,17 +1593,23 @@ function computeRegionalTreeRollup(rawNodes, rule) {
     if (children.length === 0) {
       // Leaf Node evaluation
       const target = Number(node.period_target ?? node.annual_target ?? node.weight) || 0;
-      const actual = node.period_actual !== null && node.period_actual !== undefined
+      const rawActual = node.period_actual !== null && node.period_actual !== undefined
         ? Number(node.period_actual)
         : (node.annual_actual !== null && node.annual_actual !== undefined ? Number(node.annual_actual) : null);
 
       computedTarget = target;
-      computedActual = actual;
 
-      if (target > 0 && actual !== null) {
+      const isEligible = isRollupEligibleAchievement(node);
+
+      if (isEligible && target > 0 && rawActual !== null) {
         hasData = true;
-        const scored = computePerformanceMetrics(target, actual, policy);
+        computedActual = rawActual;
+        const scored = computePerformanceMetrics(target, rawActual, policy);
         progressPercent = scored.performance_percentage ?? 0;
+      } else {
+        hasData = false;
+        computedActual = null;
+        progressPercent = 0;
       }
     } else {
       // Parent Node evaluation: recursively evaluate all children
@@ -1595,7 +1619,8 @@ function computeRegionalTreeRollup(rawNodes, rule) {
       for (let i = 0; i < children.length; i++) {
         const c = children[i];
         const m = childMetrics[i];
-        if (m.hasData || m.computedTarget > 0) {
+        const childEligible = isRollupEligibleAchievement(c);
+        if (m.hasData || (m.computedTarget > 0 && childEligible)) {
           evaluableChildren.push({ child: c, metrics: m });
         }
       }
@@ -1646,7 +1671,7 @@ function computeRegionalTreeRollup(rawNodes, rule) {
   return { nodeMap, childrenMap, metricsMemo };
 }
 
-async function getRegionalPlanHierarchy(versionId, regionId) {
+async function getRegionalPlanHierarchy(versionId, regionId, user = null) {
   const version = await getRegionalPlanVersionById(versionId, regionId);
 
   const nodes = await RegionalPlanNode.findAll({
@@ -1666,7 +1691,7 @@ async function getRegionalPlanHierarchy(versionId, regionId) {
   const { metricsMemo } = computeRegionalTreeRollup(nodes, version.planRule);
 
   // Attach metrics to each node
-  const nodesWithMetrics = nodes.map((node) => {
+  let nodesWithMetrics = nodes.map((node) => {
     const json = node.toJSON();
     const metrics = metricsMemo.get(node.regional_plan_node_id) || {
       progressPercent: 0,
@@ -1678,6 +1703,42 @@ async function getRegionalPlanHierarchy(versionId, regionId) {
     json.evaluation_status = metrics.status;
     return json;
   });
+
+  // Departmental hierarchy access filtering (Section 1)
+  if (user && !userQualifiesForRegionalBypass(user) && !userCanExecuteRegionalAchievement(user) && user.regional_structure_id) {
+    const accessibleNodeIds = new Set();
+    for (const node of nodes) {
+      try {
+        const hasAccess = await assertUserCanAccessPlanNode(user, node, regionId);
+        if (hasAccess) {
+          accessibleNodeIds.add(node.regional_plan_node_id);
+        }
+      } catch {
+        // Excluded
+      }
+    }
+
+    const nodeMap = new Map(nodes.map((n) => [n.regional_plan_node_id, n]));
+    const visibleIds = new Set();
+    const addAncestors = (id) => {
+      let cur = nodeMap.get(id);
+      while (cur) {
+        visibleIds.add(cur.regional_plan_node_id);
+        cur = cur.parent_id ? nodeMap.get(cur.parent_id) : null;
+      }
+    };
+    const addDescendants = (id) => {
+      visibleIds.add(id);
+      for (const n of nodes) {
+        if (n.parent_id === id) addDescendants(n.regional_plan_node_id);
+      }
+    };
+    for (const id of accessibleNodeIds) {
+      addAncestors(id);
+      addDescendants(id);
+    }
+    nodesWithMetrics = nodesWithMetrics.filter((n) => visibleIds.has(n.regional_plan_node_id));
+  }
 
   const versionJson = version.toJSON ? version.toJSON() : { ...version };
   if (version.planRule) {
@@ -2014,7 +2075,7 @@ async function createRegionalPlanNode(versionId, regionId, payload, userId) {
   }
 }
 
-async function getRegionalPlanNodeById(nodeId, regionId) {
+async function getRegionalPlanNodeById(nodeId, regionId, user = null) {
   const node = await RegionalPlanNode.findByPk(nodeId, {
     include: [
       {
@@ -2043,6 +2104,10 @@ async function getRegionalPlanNodeById(nodeId, regionId) {
     const error = new Error("Access denied: node belongs to a different region");
     error.status = 403;
     throw error;
+  }
+
+  if (user) {
+    await assertUserCanAccessPlanNode(user, node, regionId);
   }
 
   return node;
@@ -2198,15 +2263,54 @@ async function reorderRegionalPlanNodes(versionId, regionId, orderedNodeIds, use
 
 async function assignRegionalPlanNode(nodeId, regionId, payload, userId) {
   const node = await getRegionalPlanNodeById(nodeId, regionId);
-  const { regional_structure_id, assigned_user_id } = payload;
+  let targetStructureId = payload.regional_structure_id || null;
 
-  if (!regional_structure_id) {
-    const error = new Error("Department / Structure ID is required.");
+  const targetUserIds = Array.isArray(payload.assigned_user_ids)
+    ? payload.assigned_user_ids
+    : (payload.assigned_user_id ? [payload.assigned_user_id] : []);
+
+  for (const uid of targetUserIds) {
+    const user = await User.findByPk(uid);
+    if (!user) {
+      const error = new Error(`Assigned user not found: ${uid}`);
+      error.status = 404;
+      throw error;
+    }
+    if (user.region_id && user.region_id !== regionId) {
+      const error = new Error("Assigned user belongs to a different region.");
+      error.status = 403;
+      throw error;
+    }
+    if (!targetStructureId && user.regional_structure_id) {
+      targetStructureId = user.regional_structure_id;
+    }
+  }
+
+  if (targetStructureId) {
+    const struct = await RegionalStructure.findByPk(targetStructureId);
+    if (!struct) {
+      const error = new Error("Regional structure not found.");
+      error.status = 404;
+      throw error;
+    }
+    if (struct.region_id && struct.region_id !== regionId) {
+      const error = new Error("Regional structure belongs to a different region.");
+      error.status = 403;
+      throw error;
+    }
+  }
+
+  if (!targetStructureId && targetUserIds.length === 0) {
+    const error = new Error("At least one of regional_structure_id or assigned_user_id is required.");
     error.status = 400;
     throw error;
   }
 
-  const isExclusive = node.assignment_sharing_mode !== "shared";
+  const isExclusive =
+    node.assignment_sharing_mode !== "shared" &&
+    payload.append !== true &&
+    targetUserIds.length <= 1;
+
   const t = await sequelize.transaction();
   try {
     if (isExclusive) {
@@ -2216,22 +2320,50 @@ async function assignRegionalPlanNode(nodeId, regionId, payload, userId) {
       });
     }
 
-    await RegionalInternalAssignment.create(
-      {
-        regional_internal_assignment_id: uuidv4(),
-        regional_plan_node_id: nodeId,
-        regional_structure_id,
-        assigned_user_id: assigned_user_id || null,
-        is_active: true,
-      },
-      { transaction: t }
-    );
+    if (targetUserIds.length > 0) {
+      for (const uid of targetUserIds) {
+        const existing = await RegionalInternalAssignment.findOne({
+          where: { regional_plan_node_id: nodeId, assigned_user_id: uid, is_active: true },
+          transaction: t,
+        });
+        if (!existing) {
+          await RegionalInternalAssignment.create(
+            {
+              regional_internal_assignment_id: uuidv4(),
+              regional_plan_node_id: nodeId,
+              regional_structure_id: targetStructureId,
+              assigned_user_id: uid,
+              is_active: true,
+            },
+            { transaction: t }
+          );
+        }
+      }
+    } else {
+      // Department-only assignment
+      const existing = await RegionalInternalAssignment.findOne({
+        where: { regional_plan_node_id: nodeId, regional_structure_id: targetStructureId, assigned_user_id: null, is_active: true },
+        transaction: t,
+      });
+      if (!existing) {
+        await RegionalInternalAssignment.create(
+          {
+            regional_internal_assignment_id: uuidv4(),
+            regional_plan_node_id: nodeId,
+            regional_structure_id: targetStructureId,
+            assigned_user_id: null,
+            is_active: true,
+          },
+          { transaction: t }
+        );
+      }
+    }
 
     const safeUserId =
       typeof userId === "string" &&
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)
         ? userId
-        : null;
+        : (userId?.user_id || null);
 
     await RegionalPlanNodeActionLog.create(
       {
@@ -2239,7 +2371,7 @@ async function assignRegionalPlanNode(nodeId, regionId, payload, userId) {
         regional_plan_node_id: nodeId,
         user_id: safeUserId,
         action: isExclusive ? "NODE_REASSIGNED" : "NODE_ASSIGNED",
-        details: { regional_structure_id, assigned_user_id },
+        details: { regional_structure_id: targetStructureId, assigned_user_ids: targetUserIds },
       },
       { transaction: t }
     );
@@ -2965,124 +3097,28 @@ async function updateRegionalPeriodActual(nodeId, regionId, payload, userId) {
   return getRegionalPlanNodeById(nodeId, regionId);
 }
 
-async function submitRegionalAchievement(nodeId, regionId, payload, userId) {
-  const node = await getRegionalPlanNodeById(nodeId, regionId);
-
-  if (!canTransitionAchievementStatus(node.period_actual_status, ACHIEVEMENT_STATUS.SUBMITTED)) {
-    throw new Error(`Cannot submit achievement from status "${node.period_actual_status}"`);
-  }
-
-  if (payload?.period_actual !== undefined) {
-    node.period_actual = Number(payload.period_actual);
-  }
-  if (payload?.narration) node.narration = payload.narration;
-
-  node.period_actual_status = ACHIEVEMENT_STATUS.SUBMITTED;
-  node.period_actual_submitted_at = new Date();
-  node.period_actual_submitted_by = userId;
-  node.period_actual_rejection_comment = null;
-
-  await node.save();
-
-  await RegionalPlanNodeActionLog.create({
-    action_log_id: uuidv4(),
-    regional_plan_node_id: nodeId,
-    user_id: userId,
-    action: "ACHIEVEMENT_SUBMITTED",
-    new_values: { period_actual: node.period_actual, status: ACHIEVEMENT_STATUS.SUBMITTED },
-  });
-
+async function submitRegionalAchievement(nodeId, regionId, payload, userOrUserId) {
+  await submitRegionalAchievementWorkflow(nodeId, regionId, payload, userOrUserId);
   return getRegionalPlanNodeById(nodeId, regionId);
 }
 
-async function approveRegionalAchievement(nodeId, regionId, payload, userId) {
-  const node = await getRegionalPlanNodeById(nodeId, regionId);
-
-  if (!canTransitionAchievementStatus(node.period_actual_status, ACHIEVEMENT_STATUS.APPROVED)) {
-    throw new Error(`Cannot approve achievement from status "${node.period_actual_status}"`);
-  }
-
-  node.period_actual_status = ACHIEVEMENT_STATUS.APPROVED;
-  node.period_actual_approved_at = new Date();
-  node.period_actual_approved_by = userId;
-  node.period_actual_rejection_comment = null;
-
-  await node.save();
-
-  await RegionalPlanNodeActionLog.create({
-    action_log_id: uuidv4(),
-    regional_plan_node_id: nodeId,
-    user_id: userId,
-    action: "ACHIEVEMENT_APPROVED",
-    new_values: { status: ACHIEVEMENT_STATUS.APPROVED },
-  });
-
+async function approveRegionalAchievement(nodeId, regionId, payload, userOrUserId) {
+  await approveRegionalAchievementWorkflow(nodeId, regionId, payload, userOrUserId);
   return getRegionalPlanNodeById(nodeId, regionId);
 }
 
-async function rejectRegionalAchievement(nodeId, regionId, rejectionComment, userId) {
-  const node = await getRegionalPlanNodeById(nodeId, regionId);
-
-  if (!canTransitionAchievementStatus(node.period_actual_status, ACHIEVEMENT_STATUS.REJECTED)) {
-    throw new Error(`Cannot reject achievement from status "${node.period_actual_status}"`);
-  }
-
-  node.period_actual_status = ACHIEVEMENT_STATUS.REJECTED;
-  node.period_actual_rejection_comment = rejectionComment || "Achievement rejected";
-
-  await node.save();
-
-  await RegionalPlanNodeActionLog.create({
-    action_log_id: uuidv4(),
-    regional_plan_node_id: nodeId,
-    user_id: userId,
-    action: "ACHIEVEMENT_REJECTED",
-    comment: rejectionComment,
-  });
-
+async function rejectRegionalAchievement(nodeId, regionId, rejectionComment, userOrUserId) {
+  await rejectRegionalAchievementWorkflow(nodeId, regionId, rejectionComment, userOrUserId);
   return getRegionalPlanNodeById(nodeId, regionId);
 }
 
-async function validateRegionalAchievement(nodeId, regionId, payload, userId) {
-  const node = await getRegionalPlanNodeById(nodeId, regionId);
-
-  if (!canTransitionAchievementStatus(node.period_actual_status, ACHIEVEMENT_STATUS.VALIDATED)) {
-    throw new Error(`Cannot validate achievement from status "${node.period_actual_status}"`);
-  }
-
-  node.period_actual_status = ACHIEVEMENT_STATUS.VALIDATED;
-  node.period_actual_validated_at = new Date();
-  node.period_actual_validated_by = userId;
-
-  await node.save();
-
-  await RegionalPlanNodeActionLog.create({
-    action_log_id: uuidv4(),
-    regional_plan_node_id: nodeId,
-    user_id: userId,
-    action: "ACHIEVEMENT_VALIDATED",
-    new_values: { status: ACHIEVEMENT_STATUS.VALIDATED },
-  });
-
+async function validateRegionalAchievement(nodeId, regionId, payload, userOrUserId) {
+  await validateRegionalAchievementWorkflow(nodeId, regionId, payload, userOrUserId);
   return getRegionalPlanNodeById(nodeId, regionId);
 }
 
-async function rejectValidationRegionalAchievement(nodeId, regionId, rejectionComment, userId) {
-  const node = await getRegionalPlanNodeById(nodeId, regionId);
-
-  node.period_actual_status = ACHIEVEMENT_STATUS.REJECTED;
-  node.period_actual_rejection_comment = rejectionComment || "Validation rejected";
-
-  await node.save();
-
-  await RegionalPlanNodeActionLog.create({
-    action_log_id: uuidv4(),
-    regional_plan_node_id: nodeId,
-    user_id: userId,
-    action: "ACHIEVEMENT_VALIDATION_REJECTED",
-    comment: rejectionComment,
-  });
-
+async function rejectValidationRegionalAchievement(nodeId, regionId, rejectionComment, userOrUserId) {
+  await rejectValidationRegionalAchievementWorkflow(nodeId, regionId, rejectionComment, userOrUserId);
   return getRegionalPlanNodeById(nodeId, regionId);
 }
 
@@ -3676,9 +3712,12 @@ async function getRegionalExecutionDashboardDepartmentUser(regionId, planVersion
     }
     const assignedNodes = Array.from(nodeMap.values());
     const totalAssigned = assignedNodes.length;
-    const reportedNodes = assignedNodes.filter(
-      (n) => n.period_actual !== null || n.annual_actual !== null
-    );
+    const reportedNodes = assignedNodes.filter((n) => {
+      const actual = n.period_actual !== null ? Number(n.period_actual) : (n.annual_actual !== null ? Number(n.annual_actual) : null);
+      const status = (n.period_actual_status || n.annual_actual_status || "").toLowerCase();
+      const isEligible = isRollupEligibleAchievementStatus(status) || (actual !== null && (!status || status === "empty"));
+      return actual !== null && isEligible;
+    });
     const reportedCount = reportedNodes.length;
 
     let avgScore = 0;
@@ -3686,7 +3725,9 @@ async function getRegionalExecutionDashboardDepartmentUser(regionId, planVersion
       const sum = assignedNodes.reduce((acc, n) => {
         const target = Number(n.period_target ?? n.annual_target ?? n.weight) || 0;
         const actual = n.period_actual !== null ? Number(n.period_actual) : (n.annual_actual !== null ? Number(n.annual_actual) : null);
-        if (target > 0 && actual !== null) {
+        const status = (n.period_actual_status || n.annual_actual_status || "").toLowerCase();
+        const isEligible = isRollupEligibleAchievementStatus(status) || (actual !== null && (!status || status === "empty"));
+        if (isEligible && target > 0 && actual !== null) {
           return acc + Math.min(100, Math.round((actual / target) * 100));
         }
         return acc;
@@ -3722,9 +3763,12 @@ async function getRegionalExecutionDashboardDepartmentUser(regionId, planVersion
     }
     const assignedNodes = Array.from(nodeMap.values());
     const totalAssigned = assignedNodes.length;
-    const reportedNodes = assignedNodes.filter(
-      (n) => n.period_actual !== null || n.annual_actual !== null
-    );
+    const reportedNodes = assignedNodes.filter((n) => {
+      const actual = n.period_actual !== null ? Number(n.period_actual) : (n.annual_actual !== null ? Number(n.annual_actual) : null);
+      const status = (n.period_actual_status || n.annual_actual_status || "").toLowerCase();
+      const isEligible = isRollupEligibleAchievementStatus(status) || (actual !== null && (!status || status === "empty"));
+      return actual !== null && isEligible;
+    });
     const reportedCount = reportedNodes.length;
 
     let achievementPercent = null;
@@ -3732,7 +3776,9 @@ async function getRegionalExecutionDashboardDepartmentUser(regionId, planVersion
       const sum = assignedNodes.reduce((acc, n) => {
         const target = Number(n.period_target ?? n.annual_target ?? n.weight) || 0;
         const actual = n.period_actual !== null ? Number(n.period_actual) : (n.annual_actual !== null ? Number(n.annual_actual) : null);
-        if (target > 0 && actual !== null) {
+        const status = (n.period_actual_status || n.annual_actual_status || "").toLowerCase();
+        const isEligible = isRollupEligibleAchievementStatus(status) || (actual !== null && (!status || status === "empty"));
+        if (isEligible && target > 0 && actual !== null) {
           return acc + Math.min(100, Math.round((actual / target) * 100));
         }
         return acc;
@@ -3773,6 +3819,36 @@ async function getRegionalExecutionDashboardDepartmentUser(regionId, planVersion
     departments: deptPerformance,
     users: userPerformance,
     generated_at: new Date().toISOString(),
+  };
+}
+
+async function getRegionalPlanNodeAchievementHistory(nodeId, regionId, user = null) {
+  const node = await getRegionalPlanNodeById(nodeId, regionId, user);
+  const logs = await RegionalPlanNodeActionLog.findAll({
+    where: {
+      regional_plan_node_id: nodeId,
+    },
+    order: [["created_at", "DESC"]],
+  });
+
+  return {
+    nodeId,
+    currentNode: {
+      period_actual: node.period_actual,
+      period_actual_status: node.period_actual_status,
+      period_actual_submitted_at: node.period_actual_submitted_at,
+      period_actual_submitted_by: node.period_actual_submitted_by,
+      period_actual_approved_at: node.period_actual_approved_at,
+      period_actual_approved_by: node.period_actual_approved_by,
+      period_actual_validated_at: node.period_actual_validated_at,
+      period_actual_validated_by: node.period_actual_validated_by,
+      period_actual_rejection_comment: node.period_actual_rejection_comment,
+      is_validation_required: node.is_validation_required,
+      narration: node.narration,
+      evidence_attachment_ids: node.evidence_attachment_ids,
+    },
+    history: logs,
+    revisions: logs,
   };
 }
 
@@ -3823,6 +3899,7 @@ module.exports = {
   getRegionalPlanHierarchy,
   createRegionalPlanNode,
   getRegionalPlanNodeById,
+  getRegionalPlanNodeAchievementHistory,
   updateRegionalPlanNode,
   deleteRegionalPlanNode,
   reorderRegionalPlanNodes,
@@ -3866,6 +3943,11 @@ module.exports = {
   approveRegionalAnnualAchievement,
   rejectRegionalAnnualAchievement,
   validateRegionalAnnualAchievement,
+  assertUserCanExecuteAchievement,
+  assertUserCanApproveAchievement,
+  assertUserCanValidateAchievement,
+  userQualifiesForRegionalBypass,
+  isRollupEligibleAchievementStatus,
 
   // Dashboard & Metrics
   getRegionalExecutionDashboardSummary,

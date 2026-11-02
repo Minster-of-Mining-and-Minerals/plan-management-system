@@ -221,6 +221,10 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.TEXT,
         allowNull: true,
       },
+      is_validation_required: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true,
+      },
       evidence_attachment_ids: {
         type: DataTypes.JSONB,
         defaultValue: [],

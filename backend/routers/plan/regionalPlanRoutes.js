@@ -57,14 +57,12 @@ const planExecuteAccess = checkAnyPermission([
 
 const planApproveAccess = checkAnyPermission([
   { resource: "REGIONAL_PLANS", action: "APPROVE_ACHIEVEMENT" },
-  { resource: "REGIONAL_PLANS", action: "UPDATE" },
   { resource: "REGIONAL_PLANS", action: "MANAGE" },
   { resource: "REGIONS", action: "MANAGE" },
 ]);
 
 const planValidateAccess = checkAnyPermission([
   { resource: "REGIONAL_PLANS", action: "VALIDATE_ACHIEVEMENT" },
-  { resource: "REGIONAL_PLANS", action: "FINALIZE" },
   { resource: "REGIONAL_PLANS", action: "MANAGE" },
   { resource: "REGIONS", action: "MANAGE" },
 ]);
@@ -265,6 +263,7 @@ router.patch("/nodes/:id/annual-target", planUpdateAccess, regionalPlanControlle
 router.patch("/nodes/:id/period-target", planUpdateAccess, regionalPlanController.updatePeriodTargetHandler);
 
 // Actuals & Achievements
+router.get("/nodes/:id/achievement/history", planReadAccess, regionalPlanController.getPlanNodeAchievementHistoryHandler);
 router.patch("/nodes/:id/period-actual", planExecuteAccess, regionalPlanController.updatePeriodActualHandler);
 router.post("/nodes/:id/achievement/submit", planExecuteAccess, regionalPlanController.submitAchievementHandler);
 router.post("/nodes/:id/achievement/approve", planApproveAccess, regionalPlanController.approveAchievementHandler);
