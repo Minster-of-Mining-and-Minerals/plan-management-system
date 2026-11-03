@@ -1,37 +1,72 @@
 const nodemailer = require("nodemailer");
-const logger = require("./logger"); // your custom logger
+const logger = require("./logger");
 
-const sendEmail = async (to, subject, text) => {
+const cleanEnvStr = (val) => {
+  if (!val) return "";
+  return String(val).replace(/^["']|["']$/g, "").trim();
+};
+
+/**
+ * Send an email using configured SMTP / service credentials.
+ * By default, this function is completely non-blocking and safe:
+ * it logs failures and returns `{ success: false, ... }` rather than throwing,
+ * ensuring business flows (like user creation) never fail due to email issues.
+ */
+const sendEmail = async (to, subject, text, options = {}) => {
+  const user = cleanEnvStr(process.env.EMAIL_USER);
+  const pass = cleanEnvStr(process.env.EMAIL_PASS || process.env.EMAIL_PASSWORD);
+  const host = cleanEnvStr(process.env.EMAIL_HOST) || "smtp.gmail.com";
+  const port = process.env.EMAIL_PORT ? parseInt(process.env.EMAIL_PORT, 10) : 465;
+  const isSecure = process.env.EMAIL_SECURE !== undefined
+    ? process.env.EMAIL_SECURE === "true"
+    : port === 465;
+  const service = cleanEnvStr(process.env.EMAIL_SERVICE) || (host.includes("gmail") ? "gmail" : undefined);
+  const appName = cleanEnvStr(process.env.APP_NAME) || "Ministry of Mines Plan Management System";
+  const from = cleanEnvStr(process.env.EMAIL_FROM) || (user ? `"${appName}" <${user}>` : `"${appName}"`);
+
+  // If credentials are not configured, log a warning and return skipped
+  if (!user || !pass) {
+    const warnMsg = `Email not sent: EMAIL_USER or EMAIL_PASS/EMAIL_PASSWORD is not configured. Skipping email to ${to} (Subject: "${subject}")`;
+    logger.warn(warnMsg);
+    if (options.throwOnMissingConfig === true) {
+      throw new Error("Email service is not configured (missing credentials)");
+    }
+    return { success: false, skipped: true, reason: "Missing credentials" };
+  }
+
   try {
-    // Create transporter
-    const transporter = nodemailer.createTransport({
-      service: process.env.EMAIL_SERVICE || "gmail",
-      host: process.env.EMAIL_HOST || "smtp.gmail.com",
-      port: process.env.EMAIL_PORT ? parseInt(process.env.EMAIL_PORT) : 465,
-      secure: process.env.EMAIL_SECURE === "true" || true, // true for port 465, false for others
+    const transportConfig = {
+      host,
+      port,
+      secure: isSecure,
       auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+        user,
+        pass,
       },
-    });
+    };
 
-    // Define mail options
+    if (service) {
+      transportConfig.service = service;
+    }
+
+    const transporter = nodemailer.createTransport(transportConfig);
+
     const mailOptions = {
-      from: `"${process.env.APP_NAME || "Notification System"}" <${process.env.EMAIL_USER}>`,
+      from,
       to,
       subject,
       text,
     };
 
-    // Send email
     await transporter.sendMail(mailOptions);
-
-    // Log success
-    logger.info(`Email sent to ${to} | Subject: ${subject}`);
+    logger.info(`Email sent successfully to ${to} | Subject: ${subject}`);
+    return { success: true };
   } catch (error) {
-    // Log error
     logger.error(`Failed to send email to ${to} | Subject: ${subject} | Error: ${error.message}`);
-    throw new Error(`Failed to send email: ${error.message}`);
+    if (options.throwOnError === true) {
+      throw new Error(`Failed to send email: ${error.message}`);
+    }
+    return { success: false, error: error.message };
   }
 };
 
