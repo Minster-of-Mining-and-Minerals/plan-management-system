@@ -6,6 +6,12 @@ const cleanEnvStr = (val) => {
   return String(val).replace(/^["']|["']$/g, "").trim();
 };
 
+/**
+ * Send an email using configured SMTP / service credentials.
+ * By default, this function is completely non-blocking and safe:
+ * it logs failures and returns `{ success: false, ... }` rather than throwing,
+ * ensuring business flows (like user creation) never fail due to email issues.
+ */
 const sendEmail = async (to, subject, text, options = {}) => {
   const user = cleanEnvStr(process.env.EMAIL_USER);
   const pass = cleanEnvStr(process.env.EMAIL_PASS || process.env.EMAIL_PASSWORD);
@@ -18,10 +24,11 @@ const sendEmail = async (to, subject, text, options = {}) => {
   const appName = cleanEnvStr(process.env.APP_NAME) || "Ministry of Mines Plan Management System";
   const from = cleanEnvStr(process.env.EMAIL_FROM) || (user ? `"${appName}" <${user}>` : `"${appName}"`);
 
+  // If credentials are not configured, log a warning and return skipped
   if (!user || !pass) {
     const warnMsg = `Email not sent: EMAIL_USER or EMAIL_PASS/EMAIL_PASSWORD is not configured. Skipping email to ${to} (Subject: "${subject}")`;
     logger.warn(warnMsg);
-    if (options.throwOnMissingConfig) {
+    if (options.throwOnMissingConfig === true) {
       throw new Error("Email service is not configured (missing credentials)");
     }
     return { success: false, skipped: true, reason: "Missing credentials" };
@@ -56,10 +63,10 @@ const sendEmail = async (to, subject, text, options = {}) => {
     return { success: true };
   } catch (error) {
     logger.error(`Failed to send email to ${to} | Subject: ${subject} | Error: ${error.message}`);
-    if (options.throwOnError === false) {
-      return { success: false, error: error.message };
+    if (options.throwOnError === true) {
+      throw new Error(`Failed to send email: ${error.message}`);
     }
-    throw new Error(`Failed to send email: ${error.message}`);
+    return { success: false, error: error.message };
   }
 };
 

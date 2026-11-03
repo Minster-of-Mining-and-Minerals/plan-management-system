@@ -349,13 +349,18 @@ const createUser = async (req, res) => {
 
       await t.commit();
 
+      let emailSent = true;
       try {
-        await sendEmail(
+        const emailResult = await sendEmail(
           email,
           `Welcome to ${process.env.APP_NAME || "Ministry of Mines"}!`,
           `Dear ${full_name},\nYour company account for ${targetCompany.name} has been created.\nEmail: ${email}\nTemporary Password: ${password}\nPlease change your password after first login.`
         );
+        if (emailResult && emailResult.success === false) {
+          emailSent = false;
+        }
       } catch (emailError) {
+        emailSent = false;
         logger.warn(`Company user created, but email notification failed: ${emailError.message}`);
       }
 
@@ -365,7 +370,9 @@ const createUser = async (req, res) => {
 
       return res.status(201).json({
         success: true,
-        message: "Company user created successfully.",
+        message: emailSent
+          ? "Company user created successfully."
+          : "Company user created successfully (email notification could not be delivered).",
         data: createdWithIncludes || user,
       });
     }
@@ -540,13 +547,18 @@ const createUser = async (req, res) => {
 
       await t.commit();
 
+      let emailSent = true;
       try {
-        await sendEmail(
+        const emailResult = await sendEmail(
           email,
           `Welcome to ${process.env.APP_NAME || "Ministry of Mines"}!`,
           `Dear ${full_name},\nYour regional account for ${targetRegion.name} has been created.\nEmail: ${email}\nTemporary Password: ${password}\nPlease change your password after first login.`
         );
+        if (emailResult && emailResult.success === false) {
+          emailSent = false;
+        }
       } catch (emailError) {
+        emailSent = false;
         logger.warn(`Regional user created, but email notification failed: ${emailError.message}`);
       }
 
@@ -556,7 +568,9 @@ const createUser = async (req, res) => {
 
       return res.status(201).json({
         success: true,
-        message: "Regional user created successfully.",
+        message: emailSent
+          ? "Regional user created successfully."
+          : "Regional user created successfully (email notification could not be delivered).",
         data: createdWithIncludes || user,
       });
     }
@@ -720,13 +734,18 @@ const createUser = async (req, res) => {
 
       await t.commit();
 
+      let emailSent = true;
       try {
-        await sendEmail(
+        const emailResult = await sendEmail(
           email,
           `Welcome to ${process.env.APP_NAME || "Ministry of Mines"}!`,
           `Dear ${full_name},\nYour account for ${targetPC.name} has been created.\nEmail: ${email}\nTemporary Password: ${password}\nPlease change your password after first login.`
         );
+        if (emailResult && emailResult.success === false) {
+          emailSent = false;
+        }
       } catch (emailError) {
+        emailSent = false;
         logger.warn(`Purchasing center user created, but email notification failed: ${emailError.message}`);
       }
 
@@ -736,7 +755,9 @@ const createUser = async (req, res) => {
 
       return res.status(201).json({
         success: true,
-        message: "Purchasing center user created successfully.",
+        message: emailSent
+          ? "Purchasing center user created successfully."
+          : "Purchasing center user created successfully (email notification could not be delivered).",
         data: createdWithIncludes || user,
       });
     }
@@ -857,8 +878,9 @@ const createUser = async (req, res) => {
     await t.commit();
 
     // ====== Send welcome email ======
+    let emailSent = true;
     try {
-      await sendEmail(
+      const emailResult = await sendEmail(
         email,
         `Welcome to ${process.env.APP_NAME || "Ministry of Mines"}!`,
         `
@@ -869,13 +891,21 @@ const createUser = async (req, res) => {
         Please change your password after first login.
       `
       );
+      if (emailResult && emailResult.success === false) {
+        emailSent = false;
+      }
     } catch (emailError) {
+      emailSent = false;
       logger.warn(`Federal user created, but email notification failed: ${emailError.message}`);
     }
 
     return res.status(201).json({
       success: true,
-      message: "User registered globally (no roles assigned yet)",
+      message: emailSent
+        ? (role_ids && role_ids.length > 0
+            ? "User registered successfully."
+            : "User registered globally (no roles assigned yet)")
+        : "User registered successfully (email notification could not be delivered).",
       data: user,
     });
   } catch (error) {
@@ -1672,8 +1702,9 @@ const resetUserPassword = async (req, res) => {
 
     await t.commit();
 
+    let emailSent = true;
     try {
-      await sendEmail(
+      const emailResult = await sendEmail(
         user.email,
         `Password Reset - ${process.env.APP_NAME || "Ministry of Mines"}`,
         `
@@ -1684,14 +1715,20 @@ const resetUserPassword = async (req, res) => {
         You will be required to change your password after logging in.
         `
       );
+      if (emailResult && emailResult.success === false) {
+        emailSent = false;
+      }
     } catch (emailError) {
+      emailSent = false;
       logger.warn(`Password reset successfully, but email notification failed: ${emailError.message}`);
     }
 
     return res.status(200).json({
       success: true,
-      message:
-        "Password reset successfully. The new password has been sent via email.",
+      message: emailSent
+        ? "Password reset successfully. The new password has been sent via email."
+        : `Password reset successfully. New temporary password: ${newPassword} (email notification could not be delivered).`,
+      ...(emailSent ? {} : { temporary_password: newPassword }),
     });
   } catch (error) {
     await t.rollback();
