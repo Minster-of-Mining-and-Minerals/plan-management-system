@@ -25,6 +25,14 @@ module.exports = {
     ];
 
     for (const ruleId of threeLevelRuleIds) {
+      // These IDs come from a specific environment; skip on fresh databases
+      // where the rule does not exist (avoids FK violations on steps insert).
+      const [existingRule] = await queryInterface.sequelize.query(
+        `SELECT 1 FROM public.regional_plan_rules WHERE regional_plan_rule_id = :ruleId LIMIT 1;`,
+        { replacements: { ruleId } }
+      );
+      if (!existingRule || existingRule.length === 0) continue;
+
       await queryInterface.sequelize.query(`
         UPDATE public.regional_plan_rules
         SET name = 'Standard 3-Level Plan',
