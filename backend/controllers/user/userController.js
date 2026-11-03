@@ -18,6 +18,7 @@ const bcrypt = require("bcrypt");
 const { generateRandomPassword } = require("../../utils/password");
 const { sendEmail } = require("../../utils/sendEmail");
 const { normalizeEmail } = require("../../utils/emailUtils");
+const logger = require("../../utils/logger");
 const {
   AUDIT_MODULES,
   getClientIp,
@@ -348,11 +349,15 @@ const createUser = async (req, res) => {
 
       await t.commit();
 
-      await sendEmail(
-        email,
-        `Welcome to ${process.env.APP_NAME}!`,
-        `Dear ${full_name},\nYour company account for ${targetCompany.name} has been created.\nEmail: ${email}\nTemporary Password: ${password}\nPlease change your password after first login.`
-      );
+      try {
+        await sendEmail(
+          email,
+          `Welcome to ${process.env.APP_NAME || "Ministry of Mines"}!`,
+          `Dear ${full_name},\nYour company account for ${targetCompany.name} has been created.\nEmail: ${email}\nTemporary Password: ${password}\nPlease change your password after first login.`
+        );
+      } catch (emailError) {
+        logger.warn(`Company user created, but email notification failed: ${emailError.message}`);
+      }
 
       const createdWithIncludes = await User.findByPk(user.user_id, {
         include: userDetailIncludes,
@@ -535,11 +540,15 @@ const createUser = async (req, res) => {
 
       await t.commit();
 
-      await sendEmail(
-        email,
-        `Welcome to ${process.env.APP_NAME}!`,
-        `Dear ${full_name},\nYour regional account for ${targetRegion.name} has been created.\nEmail: ${email}\nTemporary Password: ${password}\nPlease change your password after first login.`
-      );
+      try {
+        await sendEmail(
+          email,
+          `Welcome to ${process.env.APP_NAME || "Ministry of Mines"}!`,
+          `Dear ${full_name},\nYour regional account for ${targetRegion.name} has been created.\nEmail: ${email}\nTemporary Password: ${password}\nPlease change your password after first login.`
+        );
+      } catch (emailError) {
+        logger.warn(`Regional user created, but email notification failed: ${emailError.message}`);
+      }
 
       const createdWithIncludes = await User.findByPk(user.user_id, {
         include: userDetailIncludes,
@@ -711,11 +720,15 @@ const createUser = async (req, res) => {
 
       await t.commit();
 
-      await sendEmail(
-        email,
-        `Welcome to ${process.env.APP_NAME}!`,
-        `Dear ${full_name},\nYour account for ${targetPC.name} has been created.\nEmail: ${email}\nTemporary Password: ${password}\nPlease change your password after first login.`
-      );
+      try {
+        await sendEmail(
+          email,
+          `Welcome to ${process.env.APP_NAME || "Ministry of Mines"}!`,
+          `Dear ${full_name},\nYour account for ${targetPC.name} has been created.\nEmail: ${email}\nTemporary Password: ${password}\nPlease change your password after first login.`
+        );
+      } catch (emailError) {
+        logger.warn(`Purchasing center user created, but email notification failed: ${emailError.message}`);
+      }
 
       const createdWithIncludes = await User.findByPk(user.user_id, {
         include: userDetailIncludes,
@@ -844,17 +857,21 @@ const createUser = async (req, res) => {
     await t.commit();
 
     // ====== Send welcome email ======
-    await sendEmail(
-      email,
-      `Welcome to ${process.env.APP_NAME}!`,
+    try {
+      await sendEmail(
+        email,
+        `Welcome to ${process.env.APP_NAME || "Ministry of Mines"}!`,
+        `
+        Dear ${full_name},
+        Your account has been successfully created.
+        Email: ${email}
+        Temporary Password: ${password}
+        Please change your password after first login.
       `
-      Dear ${full_name},
-      Your account has been successfully created.
-      Email: ${email}
-      Temporary Password: ${password}
-      Please change your password after first login.
-    `
-    );
+      );
+    } catch (emailError) {
+      logger.warn(`Federal user created, but email notification failed: ${emailError.message}`);
+    }
 
     return res.status(201).json({
       success: true,
@@ -1655,17 +1672,21 @@ const resetUserPassword = async (req, res) => {
 
     await t.commit();
 
-    await sendEmail(
-      user.email,
-      `Password Reset - ${process.env.APP_NAME}`,
-      `
-      Dear ${user.full_name},
-      Your password has been reset by an administrator.
-      Email: ${user.email}
-      New Temporary Password: ${newPassword}
-      You will be required to change your password after logging in.
-      `
-    );
+    try {
+      await sendEmail(
+        user.email,
+        `Password Reset - ${process.env.APP_NAME || "Ministry of Mines"}`,
+        `
+        Dear ${user.full_name},
+        Your password has been reset by an administrator.
+        Email: ${user.email}
+        New Temporary Password: ${newPassword}
+        You will be required to change your password after logging in.
+        `
+      );
+    } catch (emailError) {
+      logger.warn(`Password reset successfully, but email notification failed: ${emailError.message}`);
+    }
 
     return res.status(200).json({
       success: true,
