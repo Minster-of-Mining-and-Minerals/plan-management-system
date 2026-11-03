@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Link, useRouter } from "@/i18n/navigation";
-import { useSession } from "next-auth/react";
+import { getSession, useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Label } from "@/components/ui/label";
@@ -43,10 +43,17 @@ export default function ExternalLogin() {
   const rawCallbackUrl = searchParams.get("callbackUrl");
 
   useEffect(() => {
-    if (status === "authenticated") {
-      const regionId = session?.user?.region_id;
-      const companyId = session?.user?.company_id;
-      const purchasingCenterId = session?.user?.purchasing_center_id;
+    if (status !== "authenticated") return;
+    let cancelled = false;
+
+    // The client-side session can be stale right after a logout. Confirm with
+    // the server before redirecting, otherwise we'd send a logged-out user to
+    // a private page and the middleware would answer with a 404.
+    getSession().then((fresh) => {
+      if (cancelled || !fresh?.user) return;
+      const regionId = fresh.user.region_id ?? session?.user?.region_id;
+      const companyId = fresh.user.company_id ?? session?.user?.company_id;
+      const purchasingCenterId = fresh.user.purchasing_center_id ?? session?.user?.purchasing_center_id;
       if (purchasingCenterId && (!rawCallbackUrl || rawCallbackUrl === "/dashboard")) {
         router.replace(`/purchasing-centers/${purchasingCenterId}` as any);
       } else if (companyId && (!rawCallbackUrl || rawCallbackUrl === "/dashboard")) {
@@ -56,7 +63,11 @@ export default function ExternalLogin() {
       } else {
         router.replace(resolvePostAuthRedirect(rawCallbackUrl || "/dashboard") as any);
       }
-    }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [status, session?.user?.region_id, session?.user?.company_id, session?.user?.purchasing_center_id, rawCallbackUrl, router]);
 
   const [formData, setFormData] = useState({

@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { logout } from "@/actions/user";
+import { performLogout } from "@/utils/logout";
 
 interface NavUserProps {
   user: {
@@ -35,9 +35,10 @@ export function NavUser({ user }: NavUserProps) {
   );
   const regionId = params?.id || session?.user?.region_id;
   const profileHref = isRegional && regionId ? `/${regionId}/profile` : "/profile";
+  // Client-side sign-out: clears the in-memory session as well as the cookie,
+  // so the login page doesn't see a stale "authenticated" state afterwards.
   const handleLogout = async () => {
-    await logout()
-    // signOut({ redirectTo: "/login" });
+    await performLogout();
   };
 
 
