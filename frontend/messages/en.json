@@ -1,16 +1,15 @@
 {
   "HomePage": {
-    "title": "Plan Management System",
-    "description": "Manage strategic plans, monitor implementation progress, and evaluate performance across the Ministry of Mines.",
+    "heading": {
+      "line1": "Plan the sector from the",
+      "line2": "ground up."
+    },
+    "description": "Strategic plans, regional targets, company production and gold purchasing, followed in one place by the Ministry of Mines.",
     "actions": {
       "signIn": "Sign in to continue"
     },
-    "features": {
-      "planning": "Strategic Planning",
-      "monitoring": "Performance Monitoring",
-      "reporting": "Reporting & Insights"
-    },
-    "footer": "Ministry of Mines. All rights reserved."
+    "secureNote": "Authorized staff only",
+    "mockupLabel": "The Plan Management System on a laptop and a phone"
   },
   "PublicHeader": {
     "logoLine1": "Minister of Mining",

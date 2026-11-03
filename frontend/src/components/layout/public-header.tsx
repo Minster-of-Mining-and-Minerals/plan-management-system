@@ -8,26 +8,27 @@ import { AUTH_ROUTES } from "@/constants/authRoutes";
 import { useTranslations } from "next-intl";
 import LocaleSwitcher from "../LanguageSwitcher/LocaleSwitcher";
 
+/** Transparent header that sits on top of the landing-page hero. */
 const PublicHeader = () => {
   const t = useTranslations("PublicHeader");
 
   return (
-    <header className="w-full z-20 bg-white/80 backdrop-blur-md border-b border-gray-100 fixed top-0 left-0">
+    <header className="absolute inset-x-0 top-0 z-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-3 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#efc23f]">
           <Image
             src="/logo-only.png"
             alt="Logo"
             width={40}
             height={40}
-            className="object-contain"
+            className="h-10 w-10 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.35)]"
           />
           <div className="hidden sm:block leading-tight">
-            <p className="text-sm font-semibold text-golden-dark tracking-wide">
+            <p className="text-sm font-semibold text-[#f4d986] tracking-wide">
               የማዕድን ሚኒስቴር
             </p>
-            <p className="text-sm font-semibold text-golden-dark tracking-wide">
+            <p className="text-sm font-semibold text-[#f4d986] tracking-wide">
               Minister of Mining
             </p>
           </div>
@@ -35,12 +36,13 @@ const PublicHeader = () => {
 
         {/* Right Section */}
         <div className="flex items-center gap-3 sm:gap-4">
-          <LocaleSwitcher />
+          {/* Home page offers English and Amharic only for now; the rest of the app keeps all locales. */}
+          <LocaleSwitcher locales={["en", "am"]} />
           <Link
             href={AUTH_ROUTES.login}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white
-              bg-golden-dark hover:bg-golden-darkHover
-              focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-[#1b1404]
+              bg-[#efc23f] hover:bg-[#f6cf5a]
+              focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#3a5565]
               transition-colors duration-200 shadow-sm"
           >
             <LogIn className="h-4 w-4" aria-hidden="true" />

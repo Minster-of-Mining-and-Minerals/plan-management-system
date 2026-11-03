@@ -13,7 +13,12 @@ import { routing } from '@/i18n/routing';
 /* ===== LOCAL STORAGE KEY ===== */
 const LOCALE_KEY = 'NEXT_LOCALE';
 
-export default function LocaleSwitcher() {
+type LocaleSwitcherProps = {
+  /** Limit the languages offered (defaults to every supported locale). */
+  locales?: readonly Locale[];
+};
+
+export default function LocaleSwitcher({ locales = routing.locales }: LocaleSwitcherProps = {}) {
   const t = useTranslations('LocaleSwitcher');
   const locale = useLocale();
   const router = useRouter();
@@ -87,7 +92,7 @@ export default function LocaleSwitcher() {
             'border-none focus:outline-none focus:ring-0'
           )}
         >
-          {routing.locales.map((cur) => (
+          {locales.map((cur) => (
             <option key={cur} value={cur}>
               {t('locale', { locale: cur })}
             </option>

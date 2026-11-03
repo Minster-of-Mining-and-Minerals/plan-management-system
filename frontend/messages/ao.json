@@ -1,16 +1,15 @@
 {
   "HomePage": {
-    "title": "Sirna Bulchiinsa Karoora",
-    "description": "Ministeera Albuudaa keessatti karoora tarsiimoo bulchaa, adeemsa hojiirra oolmaa hordofaa, raawwii hojii madaalaa.",
+    "heading": {
+      "line1": "Damee kana hundee isaa irraa",
+      "line2": "karoorfadhaa."
+    },
+    "description": "Karoorri tarsiimoo, kaayyoon naannoo, oomishni dhaabbilee fi bittaan warqee Ministeera Albuudaatiin bakka tokkotti hordofama.",
     "actions": {
       "signIn": "Itti fufuuf seeni"
     },
-    "features": {
-      "planning": "Karoora Tarsiimoo",
-      "monitoring": "Hordoffii Raawwii",
-      "reporting": "Gabaasaa fi Xiinxala"
-    },
-    "footer": "Ministeera Albuudaa. Mirgi seeraan eegamaadha."
+    "secureNote": "Hojjettoota hayyamamoo qofaaf",
+    "mockupLabel": "Sirna Bulchiinsa Karoora laaptooppii fi bilbila irratti"
   },
   "PublicHeader": {
     "logoLine1": "Ministeera Albuudaa",
