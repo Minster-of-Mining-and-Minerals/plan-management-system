@@ -27,3 +27,8 @@ logs/
 /collaboration-service/node_modules/
 /collaboration-service/.env
 /collaboration-service/storage/
+
+# TLS certificates and server-specific HTTPS config (generated on the server)
+/nginx/ssl/*.pem
+/nginx/conf.d/app-ssl.conf
+/nginx/certbot-www/

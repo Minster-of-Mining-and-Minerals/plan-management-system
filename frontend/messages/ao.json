@@ -1,24 +1,19 @@
 {
   "HomePage": {
-    "badge": "Sirna Karoora Tarsiimoo fi Madaallii Raawwii Hojii Ministeera Albuudaa",
-    "heading": {
-      "line1": "Karoora Tarsiimowaa fi Madaallii Raawwitiin",
-      "line2": "Guddina Mirkaneessaa"
-    },
-    "description": "Sirna dijitaalaa karoora tarsiimowaa bulchuu, raawwii hojii hordofuu, fi bu'aa madaaluuf Ministeera Albuudaaf qophaa'e. Gahumsa guddisuun, galmoota biyyaalessaa wajjin wal-simsiisuu fi murtoo ragaa irratti hundaa'e mirkaneessa.",
+    "title": "Sirna Bulchiinsa Karoora",
+    "description": "Ministeera Albuudaa keessatti karoora tarsiimoo bulchaa, adeemsa hojiirra oolmaa hordofaa, raawwii hojii madaalaa.",
     "actions": {
-      "plans": "Karoorawwan Tarsiimoo Ilaali",
-      "evaluations": "Madaalliiwwan Sakatta'i"
-    }
+      "signIn": "Itti fufuuf seeni"
+    },
+    "features": {
+      "planning": "Karoora Tarsiimoo",
+      "monitoring": "Hordoffii Raawwii",
+      "reporting": "Gabaasaa fi Xiinxala"
+    },
+    "footer": "Ministeera Albuudaa. Mirgi seeraan eegamaadha."
   },
   "PublicHeader": {
     "logoLine1": "Ministeera Albuudaa",
-    "tabs": {
-      "home": "Mana",
-      "plans": "Karoorawwan",
-      "evaluations": "Madaalliiwwan",
-      "reports": "Gabaasota"
-    },
     "login": "Seeni"
   },
   "ComplaintPage": {

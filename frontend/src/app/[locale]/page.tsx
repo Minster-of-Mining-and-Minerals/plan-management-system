@@ -1,85 +1,101 @@
 import Image from "next/image";
 import Link from "next/link";
-import { useTranslations } from 'next-intl';
+import { useTranslations } from "next-intl";
+import { ArrowRight, BarChart3, ClipboardCheck, Target } from "lucide-react";
 import PublicHeader from "@/components/layout/public-header";
+import { AUTH_ROUTES } from "@/constants/authRoutes";
+
+const FEATURES = [
+  { key: "planning", icon: Target },
+  { key: "monitoring", icon: ClipboardCheck },
+  { key: "reporting", icon: BarChart3 },
+] as const;
+
+// Shown in all three languages on every locale, by design.
+const GREETINGS = [
+  { text: "Welcome", lang: "en" },
+  { text: "እንኳን ደህና መጡ", lang: "am" },
+  { text: "Baga nagaan dhuftan", lang: "om" },
+] as const;
 
 export default function Home() {
-  const t = useTranslations('HomePage');
+  const t = useTranslations("HomePage");
+  const year = new Date().getFullYear();
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-white relative overflow-hidden font-sans">
-      {/* Decorative Background Pattern */}
-      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-blue-500/5 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-teal-500/5 rounded-full blur-3xl" />
-      </div>
-
-      {/* Watermark Logo */}
-      {/* <div
-        className="fixed inset-0 mt-16 flex items-center justify-center pointer-events-none z-0"
-        style={{ opacity: 0.04 }}
-      >
-        <Image
-          src="/logo-aii.png"
-          alt="Organization Logo"
-          width={700}
-          height={700}
-          className="object-contain"
-        />
-      </div> */}
-
-      {/* Navigation */}
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#fffdf7] via-white to-white font-sans">
       <PublicHeader />
 
-      {/* Hero Section */}
-      <main className="flex justify-center items-center min-h-screen z-10 relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-16">
-        <div className="text-center">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-golden-dark text-sm font-medium mb-8">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-golden-dark opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-golden-dark"></span>
-            </span>
-            {t('badge')}
+      <main className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 pt-28 pb-16">
+        <div className="w-full max-w-3xl flex flex-col items-center text-center gap-6">
+          {/* Emblem */}
+          <div className="rounded-full bg-white p-1 ring-[10px] ring-golden-dark/10 shadow-[0_20px_40px_-20px_rgba(184,143,20,0.8)]">
+            <Image
+              src="/logo-only.png"
+              alt="Ministry of Mines emblem"
+              width={112}
+              height={112}
+              className="h-24 w-24 sm:h-28 sm:w-28 rounded-full object-contain"
+              priority
+            />
           </div>
-          <h1 className="text-4xl sm:text-5xl md:text-4xl font-bold text-gray-900 leading-tight">
-            {t('heading.line1')}
-            <span className="block text-primary mt-2">
-              {t('heading.line2')}
-            </span>
-          </h1>
 
-          <p className="text-lg text-gray-600 max-w-3xl mx-auto mt-6 leading-relaxed">
-            {t('description')}
+          {/* Trilingual welcome */}
+          <p className="flex flex-wrap justify-center items-center gap-x-3 gap-y-1 text-sm sm:text-base font-semibold text-golden-dark">
+            {GREETINGS.map((g, i) => (
+              <span key={g.lang} className="inline-flex items-center gap-3">
+                {i > 0 && (
+                  <span className="text-gray-300" aria-hidden="true">
+                    ·
+                  </span>
+                )}
+                <span lang={g.lang}>{g.text}</span>
+              </span>
+            ))}
           </p>
 
-          {/* CTA Buttons */}
-          <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/plans"
-              className="px-8 py-4 bg-golden-dark text-white font-semibold rounded-xl 
-                shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 
-                hover:bg-golden-darkHover transition-all duration-200 text-lg"
-            >
-              {t('actions.plans')}
-            </Link>
-            <Link
-              href="/evaluations"
-              className="px-8 py-4 bg-white text-primary font-semibold rounded-xl 
-                border border-primary/20 hover:border-primary/40 hover:bg-golden-metallic
-                transition-all duration-200 text-lg"
-            >
-              {t('actions.evaluations')}
-            </Link>
-          </div>
+          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-gray-900 leading-tight text-balance">
+            {t("title")}
+          </h1>
 
+          <div className="h-[3px] w-14 rounded-full bg-golden-dark" aria-hidden="true" />
 
+          <p className="max-w-2xl text-base sm:text-lg text-gray-600 leading-relaxed">
+            {t("description")}
+          </p>
+
+          <Link
+            href={AUTH_ROUTES.login}
+            className="group mt-2 inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-golden-dark text-white text-base sm:text-lg font-semibold
+              shadow-lg shadow-golden-dark/25 hover:bg-golden-darkHover hover:shadow-xl
+              focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-golden-dark
+              transition-all duration-200"
+          >
+            {t("actions.signIn")}
+            <ArrowRight
+              className="h-5 w-5 transition-transform group-hover:translate-x-1 motion-reduce:transition-none"
+              aria-hidden="true"
+            />
+          </Link>
+
+          {/* Feature pills */}
+          <ul className="mt-2 flex flex-wrap justify-center gap-3">
+            {FEATURES.map(({ key, icon: Icon }) => (
+              <li
+                key={key}
+                className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm text-gray-800"
+              >
+                <Icon className="h-4 w-4 text-golden-dark" aria-hidden="true" />
+                {t(`features.${key}`)}
+              </li>
+            ))}
+          </ul>
         </div>
       </main>
 
-
-
-
+      <footer className="border-t border-gray-100 py-6 text-center text-xs text-gray-500">
+        © {year} {t("footer")}
+      </footer>
     </div>
   );
 }

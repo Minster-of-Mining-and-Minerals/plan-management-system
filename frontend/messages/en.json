@@ -1,24 +1,19 @@
 {
   "HomePage": {
-    "badge": "Official Strategic Plan & Performance Evaluation Platform",
-    "heading": {
-      "line1": "Drive Progress through Strategic",
-      "line2": "Planning and Performance Evaluation"
-    },
-    "description": "A comprehensive digital platform designed for the Ministry of Mining to manage strategic plans, monitor implementation progress, and evaluate performance outcomes. Enhancing efficiency, ensuring alignment with national goals, and fostering data-driven decision making.",
+    "title": "Plan Management System",
+    "description": "Manage strategic plans, monitor implementation progress, and evaluate performance across the Ministry of Mines.",
     "actions": {
-      "plans": "View Strategic Plans",
-      "evaluations": "Check Evaluations"
-    }
+      "signIn": "Sign in to continue"
+    },
+    "features": {
+      "planning": "Strategic Planning",
+      "monitoring": "Performance Monitoring",
+      "reporting": "Reporting & Insights"
+    },
+    "footer": "Ministry of Mines. All rights reserved."
   },
   "PublicHeader": {
     "logoLine1": "Minister of Mining",
-    "tabs": {
-      "home": "Home",
-      "plans": "Plans",
-      "evaluations": "Evaluations",
-      "reports": "Reports"
-    },
     "login": "Login"
   },
   "ComplaintPage": {

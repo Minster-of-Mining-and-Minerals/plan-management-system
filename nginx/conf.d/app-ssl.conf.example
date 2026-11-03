@@ -1,20 +1,32 @@
-# HTTPS virtual host — copy to app-ssl.conf when TLS certificates are ready.
-# See nginx/ssl/README.md
+# HTTPS virtual host — generated as app-ssl.conf by scripts/setup-ssl.sh.
+# Manual use: copy to app-ssl.conf and replace YOUR_DOMAIN. See nginx/ssl/README.md
 #
-# Replace server_name with your production domain (APP_DOMAIN in .env).
+# Requires nginx/ssl/fullchain.pem and nginx/ssl/privkey.pem to exist,
+# otherwise nginx will fail to start.
 
 server {
-    listen 443 ssl http2;
-    server_name localhost;
+    listen 443 ssl;
+    http2 on;
+    server_name YOUR_DOMAIN;
 
     include /etc/nginx/snippets/ssl.conf;
     include /etc/nginx/snippets/security-headers.conf;
     include /etc/nginx/snippets/app-locations.conf;
 }
 
-# Optional HTTP -> HTTPS redirect (uncomment after TLS is working)
-# server {
-#     listen 80;
-#     server_name your-domain.example.gov.et;
-#     return 301 https://$host$request_uri;
-# }
+# HTTP -> HTTPS redirect for the domain. The ACME challenge stays on HTTP so
+# certificate renewals keep working. Access by plain IP is unaffected.
+server {
+    listen 80;
+    server_name YOUR_DOMAIN;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        default_type text/plain;
+        try_files $uri =404;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
