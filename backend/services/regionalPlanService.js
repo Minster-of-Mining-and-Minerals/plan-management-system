@@ -2988,24 +2988,33 @@ async function finalizeRegionalPlanDraft(versionId, regionId, userId) {
         version_kind: "annual",
         region_id: regionId,
       },
-      order: [["sequence_index", "ASC"]],
+      order: [["sequence_index", "ASC"], ["created_at", "ASC"]],
       transaction: t,
     });
 
-    const annualBySequence = new Map();
+    const bySeq = new Map();
     for (const ann of existingAnnuals) {
-      annualBySequence.set(ann.sequence_index, ann);
+      if (!bySeq.has(ann.sequence_index)) bySeq.set(ann.sequence_index, []);
+      bySeq.get(ann.sequence_index).push(ann);
     }
 
     const targetAnnualVersions = [];
 
     for (let i = 0; i < duration; i++) {
-      const year = version.start_year + i;
       const sequence = i + 1;
-      const existing = annualBySequence.get(sequence);
+      const year = version.start_year + i;
+      const list = bySeq.get(sequence) || [];
 
-      if (existing) {
-        await existing.update(
+      if (list.length > 0) {
+        // Pick canonical: priority to finalized targets, then latest
+        list.sort((a, b) => {
+          if (a.annual_targets_finalized_at && !b.annual_targets_finalized_at) return -1;
+          if (!a.annual_targets_finalized_at && b.annual_targets_finalized_at) return 1;
+          return new Date(b.created_at) - new Date(a.created_at);
+        });
+
+        const canonical = list[0];
+        await canonical.update(
           {
             draft_name: `${version.draft_name} — Year ${sequence} (${year})`,
             planning_year: year,
@@ -3020,8 +3029,56 @@ async function finalizeRegionalPlanDraft(versionId, regionId, userId) {
           { transaction: t }
         );
 
-        await syncRegionalDerivedNodes(version.regional_plan_version_id, existing.regional_plan_version_id, t, "annual");
-        targetAnnualVersions.push(existing);
+        await syncRegionalDerivedNodes(version.regional_plan_version_id, canonical.regional_plan_version_id, t, "annual");
+        targetAnnualVersions.push(canonical);
+
+        // Safely prune non-canonical duplicates for this sequence
+        for (const dup of list.slice(1)) {
+          const actualCount = await RegionalPlanNode.count({
+            where: {
+              regional_plan_version_id: dup.regional_plan_version_id,
+              [Op.or]: [
+                { period_actual: { [Op.ne]: null } },
+                { annual_actual: { [Op.ne]: null } },
+              ],
+            },
+            transaction: t,
+          });
+
+          if (actualCount === 0) {
+            const childPeriods = await RegionalPlanVersion.findAll({
+              where: { parent_plan_version_id: dup.regional_plan_version_id, version_kind: "execution_period" },
+              transaction: t,
+            });
+            for (const cp of childPeriods) {
+              await RegionalPlanNode.destroy({ where: { regional_plan_version_id: cp.regional_plan_version_id }, transaction: t });
+              await cp.destroy({ transaction: t });
+            }
+            const dupNodeIds = (
+              await RegionalPlanNode.findAll({
+                where: { regional_plan_version_id: dup.regional_plan_version_id },
+                attributes: ["regional_plan_node_id"],
+                transaction: t,
+              })
+            ).map((n) => n.regional_plan_node_id);
+
+            if (dupNodeIds.length > 0) {
+              await RegionalInternalAssignment.destroy({
+                where: { regional_plan_node_id: dupNodeIds },
+                transaction: t,
+              });
+              await RegionalExternalAssignment.destroy({
+                where: { regional_plan_node_id: dupNodeIds },
+                transaction: t,
+              });
+              await RegionalPlanNode.destroy({
+                where: { regional_plan_node_id: dupNodeIds },
+                transaction: t,
+              });
+            }
+            await dup.destroy({ transaction: t });
+          }
+        }
       } else {
         const newAnnualId = uuidv4();
         const annualVersion = await RegionalPlanVersion.create(
@@ -3056,37 +3113,62 @@ async function finalizeRegionalPlanDraft(versionId, regionId, userId) {
       }
     }
 
-    // Handle obsolete annual versions (e.g. sequence > duration when duration was reduced from 5 to 3)
-    for (const ann of existingAnnuals) {
-      if (ann.sequence_index > duration) {
-        const achievementCount = await RegionalPlanNode.count({
-          where: {
-            regional_plan_version_id: ann.regional_plan_version_id,
-            [Op.or]: [
-              { period_actual: { [Op.ne]: null } },
-              { annual_actual: { [Op.ne]: null } },
-              { period_actual_status: { [Op.ne]: "empty" } },
-              { annual_actual_status: { [Op.ne]: "empty" } },
-            ],
-          },
-          transaction: t,
-        });
+    // Handle obsolete annual versions (e.g. sequence > duration when duration was reduced)
+    for (const [seqStr, list] of bySeq.entries()) {
+      const seq = Number(seqStr);
+      if (seq > duration) {
+        for (const ann of list) {
+          const achievementCount = await RegionalPlanNode.count({
+            where: {
+              regional_plan_version_id: ann.regional_plan_version_id,
+              [Op.or]: [
+                { period_actual: { [Op.ne]: null } },
+                { annual_actual: { [Op.ne]: null } },
+                { period_actual_status: { [Op.ne]: "empty" } },
+                { annual_actual_status: { [Op.ne]: "empty" } },
+              ],
+            },
+            transaction: t,
+          });
 
-        if (achievementCount === 0 && ann.status !== "completed") {
-          await RegionalPlanVersion.destroy({
-            where: { parent_plan_version_id: ann.regional_plan_version_id, version_kind: "execution_period" },
-            transaction: t,
-          });
-          await RegionalPlanNode.destroy({
-            where: { regional_plan_version_id: ann.regional_plan_version_id },
-            transaction: t,
-          });
-          await ann.destroy({ transaction: t });
-        } else {
-          await ann.update(
-            { status: "archived", execution_status: "locked", is_locked: true },
-            { transaction: t }
-          );
+          if (achievementCount === 0 && ann.status !== "completed") {
+            const childPeriods = await RegionalPlanVersion.findAll({
+              where: { parent_plan_version_id: ann.regional_plan_version_id, version_kind: "execution_period" },
+              transaction: t,
+            });
+            for (const cp of childPeriods) {
+              await RegionalPlanNode.destroy({ where: { regional_plan_version_id: cp.regional_plan_version_id }, transaction: t });
+              await cp.destroy({ transaction: t });
+            }
+            const annNodeIds = (
+              await RegionalPlanNode.findAll({
+                where: { regional_plan_version_id: ann.regional_plan_version_id },
+                attributes: ["regional_plan_node_id"],
+                transaction: t,
+              })
+            ).map((n) => n.regional_plan_node_id);
+
+            if (annNodeIds.length > 0) {
+              await RegionalInternalAssignment.destroy({
+                where: { regional_plan_node_id: annNodeIds },
+                transaction: t,
+              });
+              await RegionalExternalAssignment.destroy({
+                where: { regional_plan_node_id: annNodeIds },
+                transaction: t,
+              });
+              await RegionalPlanNode.destroy({
+                where: { regional_plan_node_id: annNodeIds },
+                transaction: t,
+              });
+            }
+            await ann.destroy({ transaction: t });
+          } else {
+            await ann.update(
+              { status: "archived", execution_status: "locked", is_locked: true },
+              { transaction: t }
+            );
+          }
         }
       }
     }
@@ -3124,15 +3206,23 @@ async function reopenRegionalPlanDraftForEdit(versionId, regionId, userId) {
 // -------------------------------------------------------------
 
 async function listRegionalAnnualVersions(masterVersionId, regionId) {
-  return RegionalPlanVersion.findAll({
+  const annuals = await RegionalPlanVersion.findAll({
     where: {
       parent_plan_version_id: masterVersionId,
       version_kind: "annual",
       region_id: regionId,
     },
-    order: [["sequence_index", "ASC"]],
+    order: [["sequence_index", "ASC"], ["created_at", "DESC"]],
     include: [{ association: "executionPeriodVersions" }],
   });
+
+  const uniqueMap = new Map();
+  for (const ann of annuals) {
+    if (!uniqueMap.has(ann.sequence_index)) {
+      uniqueMap.set(ann.sequence_index, ann);
+    }
+  }
+  return Array.from(uniqueMap.values()).sort((a, b) => (a.sequence_index || 0) - (b.sequence_index || 0));
 }
 
 async function getRegionalAnnualTargetAllocations(annualVersionId, regionId) {
@@ -3142,10 +3232,7 @@ async function getRegionalAnnualTargetAllocations(annualVersionId, regionId) {
   }
 
   const masterVersionId = annualVersion.parent_plan_version_id;
-  const allAnnuals = await RegionalPlanVersion.findAll({
-    where: { parent_plan_version_id: masterVersionId, version_kind: "annual", region_id: regionId },
-    attributes: ["regional_plan_version_id"],
-  });
+  const allAnnuals = await listRegionalAnnualVersions(masterVersionId, regionId);
   const allAnnualIds = allAnnuals.map((a) => a.regional_plan_version_id);
 
   const [nodesInThisVersion, allAnnualNodes, masterNodes] = await Promise.all([
@@ -3262,9 +3349,16 @@ async function updateRegionalAnnualTarget(nodeId, regionId, annualTarget, userId
         throw err;
       }
 
-      // Check sum across sibling annual versions
+      // Check sum across canonical sibling annual versions
+      const canonicalAnnuals = await listRegionalAnnualVersions(version.parent_plan_version_id, regionId);
+      const canonicalAnnualIds = canonicalAnnuals.map((a) => a.regional_plan_version_id);
+
       const siblingNodes = await RegionalPlanNode.findAll({
-        where: { source_regional_plan_node_id: node.source_regional_plan_node_id },
+        where: {
+          source_regional_plan_node_id: node.source_regional_plan_node_id,
+          regional_plan_version_id: canonicalAnnualIds,
+          is_active: true,
+        },
         transaction: t,
       });
 
@@ -3319,6 +3413,10 @@ async function getRegionalAnnualExecutionReadiness(masterVersionId, regionId) {
   if (annuals.length === 0) {
     errors.push("No annual execution versions exist");
     return { ready: false, errors, master, annualVersions: [] };
+  }
+
+  if (master.planning_duration_years && annuals.length !== master.planning_duration_years) {
+    errors.push(`Expected ${master.planning_duration_years} annual versions, found ${annuals.length}`);
   }
 
   const masterNodes = await RegionalPlanNode.findAll({
@@ -3538,22 +3636,29 @@ async function initializeRegionalExecutionPeriods(
     for (const annual of annuals) {
       const existingPeriods = await RegionalPlanVersion.findAll({
         where: { parent_plan_version_id: annual.regional_plan_version_id, version_kind: "execution_period" },
-        order: [["sequence_index", "ASC"]],
+        order: [["sequence_index", "ASC"], ["created_at", "ASC"]],
         transaction: t,
       });
 
-      const periodBySequence = new Map();
+      const byPeriodSeq = new Map();
       for (const p of existingPeriods) {
-        periodBySequence.set(p.sequence_index, p);
+        if (!byPeriodSeq.has(p.sequence_index)) byPeriodSeq.set(p.sequence_index, []);
+        byPeriodSeq.get(p.sequence_index).push(p);
       }
 
       for (let i = 0; i < periodLabels.length; i++) {
         const sequence = i + 1;
         const label = periodLabels[i];
-        const existing = periodBySequence.get(sequence);
+        const list = byPeriodSeq.get(sequence) || [];
 
-        if (existing) {
-          await existing.update(
+        if (list.length > 0) {
+          list.sort((a, b) => {
+            if (a.period_targets_finalized_at && !b.period_targets_finalized_at) return -1;
+            if (!a.period_targets_finalized_at && b.period_targets_finalized_at) return 1;
+            return new Date(b.created_at) - new Date(a.created_at);
+          });
+          const canonical = list[0];
+          await canonical.update(
             {
               period_label: label,
               draft_name: `${annual.draft_name} — ${label}`,
@@ -3565,7 +3670,13 @@ async function initializeRegionalExecutionPeriods(
             { transaction: t }
           );
 
-          await syncRegionalDerivedNodes(annual.regional_plan_version_id, existing.regional_plan_version_id, t, "period");
+          await syncRegionalDerivedNodes(annual.regional_plan_version_id, canonical.regional_plan_version_id, t, "period");
+
+          // Prune non-canonical duplicates
+          for (const dup of list.slice(1)) {
+            await RegionalPlanNode.destroy({ where: { regional_plan_version_id: dup.regional_plan_version_id }, transaction: t });
+            await dup.destroy({ transaction: t });
+          }
         } else {
           const periodVersionId = uuidv4();
           const periodVersion = await RegionalPlanVersion.create(
@@ -3598,25 +3709,28 @@ async function initializeRegionalExecutionPeriods(
         }
       }
 
-      // Handle obsolete periods
-      for (const p of existingPeriods) {
-        if (p.sequence_index > periodLabels.length) {
-          const hasAchievements = await RegionalPlanNode.count({
-            where: {
-              regional_plan_version_id: p.regional_plan_version_id,
-              [Op.or]: [
-                { period_actual: { [Op.ne]: null } },
-                { period_actual_status: { [Op.ne]: "empty" } },
-              ],
-            },
-            transaction: t,
-          });
+      // Handle obsolete periods (sequence > periodLabels.length)
+      for (const [seqStr, list] of byPeriodSeq.entries()) {
+        const seq = Number(seqStr);
+        if (seq > periodLabels.length) {
+          for (const p of list) {
+            const hasAchievements = await RegionalPlanNode.count({
+              where: {
+                regional_plan_version_id: p.regional_plan_version_id,
+                [Op.or]: [
+                  { period_actual: { [Op.ne]: null } },
+                  { period_actual_status: { [Op.ne]: "empty" } },
+                ],
+              },
+              transaction: t,
+            });
 
-          if (hasAchievements === 0 && p.status !== "completed") {
-            await RegionalPlanNode.destroy({ where: { regional_plan_version_id: p.regional_plan_version_id }, transaction: t });
-            await p.destroy({ transaction: t });
-          } else {
-            await p.update({ status: "archived", execution_status: "locked", is_locked: true }, { transaction: t });
+            if (hasAchievements === 0 && p.status !== "completed") {
+              await RegionalPlanNode.destroy({ where: { regional_plan_version_id: p.regional_plan_version_id }, transaction: t });
+              await p.destroy({ transaction: t });
+            } else {
+              await p.update({ status: "archived", execution_status: "locked", is_locked: true }, { transaction: t });
+            }
           }
         }
       }
@@ -3971,28 +4085,72 @@ async function startRegionalPlanProcess(versionId, regionId, userId) {
   const master = await getRegionalPlanVersionById(versionId, regionId);
   const now = new Date();
 
-  await master.update({
-    process_started_at: now,
-    execution_status: "open",
-    status: "active",
-  });
+  const t = await sequelize.transaction();
+  try {
+    await master.update(
+      {
+        process_started_at: now,
+        execution_status: "open",
+        status: "active",
+      },
+      { transaction: t }
+    );
 
-  const firstAnnual = await RegionalPlanVersion.findOne({
-    where: { parent_plan_version_id: versionId, version_kind: "annual" },
-    order: [["sequence_index", "ASC"]],
-  });
-  if (firstAnnual) {
-    await firstAnnual.update({ status: "active", execution_status: "open" });
-    const firstPeriod = await RegionalPlanVersion.findOne({
-      where: { parent_plan_version_id: firstAnnual.regional_plan_version_id, version_kind: "execution_period" },
-      order: [["sequence_index", "ASC"]],
+    // Lock all annual versions first
+    await RegionalPlanVersion.update(
+      { is_locked: true, execution_status: "locked" },
+      {
+        where: {
+          parent_plan_version_id: versionId,
+          version_kind: "annual",
+        },
+        transaction: t,
+      }
+    );
+
+    const allAnnuals = await RegionalPlanVersion.findAll({
+      where: { parent_plan_version_id: versionId, version_kind: "annual" },
+      attributes: ["regional_plan_version_id"],
+      transaction: t,
     });
-    if (firstPeriod) {
-      await firstPeriod.update({ status: "active", execution_status: "open" });
+    const allAnnualIds = allAnnuals.map((a) => a.regional_plan_version_id);
+    if (allAnnualIds.length > 0) {
+      await RegionalPlanVersion.update(
+        { is_locked: true, execution_status: "locked" },
+        {
+          where: {
+            parent_plan_version_id: allAnnualIds,
+            version_kind: "execution_period",
+          },
+          transaction: t,
+        }
+      );
     }
-  }
 
-  return getRegionalPlanVersionById(versionId, regionId);
+    // Unlock and activate Year 1 and Period 1
+    const firstAnnual = await RegionalPlanVersion.findOne({
+      where: { parent_plan_version_id: versionId, version_kind: "annual" },
+      order: [["sequence_index", "ASC"]],
+      transaction: t,
+    });
+    if (firstAnnual) {
+      await firstAnnual.update({ status: "active", execution_status: "open", is_locked: false }, { transaction: t });
+      const firstPeriod = await RegionalPlanVersion.findOne({
+        where: { parent_plan_version_id: firstAnnual.regional_plan_version_id, version_kind: "execution_period" },
+        order: [["sequence_index", "ASC"]],
+        transaction: t,
+      });
+      if (firstPeriod) {
+        await firstPeriod.update({ status: "active", execution_status: "open", is_locked: false }, { transaction: t });
+      }
+    }
+
+    await t.commit();
+    return getRegionalPlanVersionById(versionId, regionId);
+  } catch (err) {
+    await t.rollback();
+    throw err;
+  }
 }
 
 // -------------------------------------------------------------

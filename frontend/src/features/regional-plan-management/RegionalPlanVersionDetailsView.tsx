@@ -461,10 +461,10 @@ export function RegionalPlanVersionDetailsView() {
               size="sm"
               onClick={handleFinalizeAnnual}
               disabled={isFinalizingAnnual}
-              className="gap-2 shadow-xs"
+              className="gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white"
             >
               <CheckCircle2 className="h-4 w-4" />
-              <span>Finalize Annual Targets</span>
+              <span>{isFinalizingAnnual ? "Finalizing..." : "Finalize Annual Targets"}</span>
             </Button>
           )}
 
@@ -476,6 +476,18 @@ export function RegionalPlanVersionDetailsView() {
             >
               <Sliders className="h-4 w-4" />
               <span>Initialize Execution Periods</span>
+            </Button>
+          )}
+
+          {isFinalized && canUpdate && executionPeriods.length > 0 && !plan.period_targets_finalized_at && (
+            <Button
+              size="sm"
+              onClick={handleFinalizePeriods}
+              disabled={isFinalizingPeriods}
+              className="gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              <span>{isFinalizingPeriods ? "Finalizing..." : "Finalize Period Targets"}</span>
             </Button>
           )}
 
@@ -501,18 +513,6 @@ export function RegionalPlanVersionDetailsView() {
             >
               <RotateCcw className="h-4 w-4 text-amber-600" />
               <span>Reopen for Edit</span>
-            </Button>
-          )}
-
-          {isFinalized && canFinalize && plan.period_targets_finalized_at && !plan.process_started_at && (
-            <Button
-              size="sm"
-              onClick={handleStartProcess}
-              disabled={isStarting}
-              className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
-            >
-              <Play className="h-4 w-4" />
-              <span>Start Execution Process</span>
             </Button>
           )}
         </div>
