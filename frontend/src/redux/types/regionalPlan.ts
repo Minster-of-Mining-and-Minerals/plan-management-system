@@ -62,6 +62,7 @@ export interface RegionalTargetUnit {
 
 export interface RegionalPlanningConfiguration {
   regional_planning_config_id: string;
+  planning_configuration_id?: string;
   region_id: string;
   min_duration_years: number;
   max_duration_years: number;
@@ -162,6 +163,10 @@ export interface RegionalPlanVersion {
   start_month: number;
   end_month: number;
   planning_duration_years: number;
+  duration_years?: number | null;
+  year?: number | null;
+  execution_evaluation_status?: any;
+  execution_is_evaluable?: boolean;
   planning_start_date?: string;
   planning_end_date?: string;
   is_locked: boolean;

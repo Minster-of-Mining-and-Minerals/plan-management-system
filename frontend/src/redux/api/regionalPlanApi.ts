@@ -447,7 +447,7 @@ export const regionalPlanApi = baseApi.injectEndpoints({
       providesTags: (_res, _err, { id }) => [{ type: "RegionalPlanVersions", id }],
     }),
 
-    getRegionalAnnualExecutionReadiness: builder.query<{ ready: boolean; errors: string[]; master?: RegionalPlanVersion; annualVersions?: RegionalPlanVersion[] }, { id: string; region_id: string }>({
+    getRegionalAnnualExecutionReadiness: builder.query<{ ready: boolean; errors: string[]; planning_years?: number[]; master?: RegionalPlanVersion; annualVersions?: RegionalPlanVersion[] }, { id: string; region_id: string }>({
       query: ({ id, region_id }) => ({
         url: `/regional/plans/versions/${id}/annual-execution-readiness`,
         params: { region_id },

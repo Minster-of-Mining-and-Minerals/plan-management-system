@@ -4,63 +4,37 @@ import { useState, useMemo, useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import {
-  GitBranch,
   Layers,
   Plus,
-  ArrowUp,
-  ArrowDown,
-  CheckCircle2,
-  Clock,
-  AlertCircle,
+  ChevronLeft,
   ChevronRight,
-  Target,
-  Search,
-  BarChart3,
-  Calendar,
   CalendarDays,
-  Lock,
-  Unlock,
+  Clock,
   ListTree,
   LayoutGrid,
   Table2,
   Home,
-  Sliders,
-  Trash2,
-  Play,
-  CheckSquare,
+  ShieldCheck,
+  Unlock,
+  AlertCircle,
+  BarChart3,
+  GitBranch,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { actionFeedback } from "@/components/action-feedback";
 import { usePermissions } from "@/hooks/usePermissions";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 
 import {
   useGetRegionalPlanHierarchyQuery,
-  useCreateRegionalPlanNodeMutation,
-  useUpdateRegionalPlanNodeMutation,
   useDeleteRegionalPlanNodeMutation,
   useReorderRegionalPlanNodesMutation,
   useGetRegionalAnnualVersionsQuery,
   useGetRegionalExecutionPeriodsQuery,
-  useInitializeRegionalExecutionPeriodsMutation,
-  useFinalizeRegionalAnnualExecutionMutation,
-  useFinalizeRegionalPeriodTargetsMutation,
-  useFinalizeRegionalPlanDraftMutation,
   useReopenRegionalPlanDraftMutation,
-  useStartRegionalPlanProcessMutation,
-  useCompleteRegionalExecutionPeriodMutation,
-  useCompleteRegionalAnnualPlanMutation,
   useGetRegionalDraftFinalizationReadinessQuery,
   useGetRegionalAnnualTargetAllocationsQuery,
   useUpdateRegionalAnnualTargetMutation,
@@ -73,7 +47,6 @@ import type { TargetUnit } from "@/redux/types/planningConfig";
 import {
   getStepLabel,
   getMaxRuleDepth,
-  canAddChild,
 } from "@/utils/planRuleUtils";
 import {
   buildHierarchyNumberMap,
@@ -82,10 +55,30 @@ import {
 } from "@/utils/planNodeOrderUtils";
 import { RegionalPlanVersionSubNav } from "./components/RegionalPlanVersionSubNav";
 import { CreateRegionalPlanNodeModal } from "./modals/CreateRegionalPlanNodeModal";
+import { FinalizeRegionalPlanDraftModal } from "./modals/FinalizeRegionalPlanDraftModal";
+import { FinalizeRegionalExecutionPeriodsModal } from "./modals/FinalizeRegionalExecutionPeriodsModal";
+import { RegionalAnnualVersionsDashboard } from "./components/RegionalAnnualVersionsDashboard";
+import { RegionalExecutionPeriodsDashboard } from "./components/RegionalExecutionPeriodsDashboard";
 import { PlanNodeCardGrid } from "@/features/plan-management/components/PlanNodeCardGrid";
 import { PlanHierarchyTree } from "@/features/plan-management/components/PlanHierarchyTree";
 import { PlanHierarchyTableView } from "@/features/plan-management/components/PlanHierarchyTableView";
 import { PlanNodeHierarchyNumber } from "@/features/plan-management/components/PlanNodeHierarchyNumber";
+import { PlanDraftHeaderMeta } from "@/features/plan-management/components/PlanDraftHeaderMeta";
+import { PerformanceColorBadge } from "@/features/plan-management/components/PerformanceColorBadge";
+import { EvaluationStatusBadge } from "@/features/plan-management/components/EvaluationStatusBadge";
+import {
+  resolveCompletionForVersion,
+  resolveWorkflowStatusAppearance,
+} from "@/utils/performanceColorUtils";
+import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
+import {
+  resolvePlanVersionStatusLabel,
+  resolveWorkflowDisplayStatus,
+  resolveExecutionEvaluationStatus,
+  getExecutionStatusLabel,
+} from "@/utils/planExecutionUtils";
+import { formatStatus } from "@/utils/statusFormatter";
+import { cn } from "@/lib/utils";
 
 type ViewMode = "card" | "hierarchy" | "table";
 type HierarchyTab = "hierarchy" | "annual" | "periods";
@@ -97,6 +90,7 @@ export function RegionalPlanHierarchyView() {
   const regionId = params?.id;
   const versionId = params?.versionId;
   const { can } = usePermissions();
+  const thresholds = usePerformanceColorThresholds();
 
   const [activeTab, setActiveTab] = useState<HierarchyTab>("hierarchy");
   const [viewMode, setViewMode] = useState<ViewMode>("hierarchy");
@@ -108,59 +102,19 @@ export function RegionalPlanHierarchyView() {
   const [parentNodeForCreate, setParentNodeForCreate] = useState<RegionalPlanNode | null>(null);
   const [selectedNodeForEdit, setSelectedNodeForEdit] = useState<RegionalPlanNode | null>(null);
 
-  // Period initialization modal
-  const [isInitPeriodsOpen, setIsInitPeriodsOpen] = useState(false);
-  const [subdivisionMode, setSubdivisionMode] = useState<"quarterly" | "semi_annual" | "monthly" | "custom">("quarterly");
-  const [customPeriods, setCustomPeriods] = useState<Array<{ label: string }>>([
-    { label: "Quarter 1" },
-    { label: "Quarter 2" },
-    { label: "Quarter 3" },
-    { label: "Quarter 4" },
-  ]);
+  // Lifecycle modals state
+  const [isFinalizeDraftOpen, setIsFinalizeDraftOpen] = useState(false);
+  const [isFinalizePeriodModalOpen, setIsFinalizePeriodModalOpen] = useState(false);
 
   // Queries
   const {
     data: hierarchyData,
     isLoading,
-    isFetching,
     refetch,
   } = useGetRegionalPlanHierarchyQuery(
     { id: versionId!, region_id: regionId! },
     { skip: !versionId || !regionId }
   );
-
-  const { data: annualVersions = [], refetch: refetchAnnuals } = useGetRegionalAnnualVersionsQuery(
-    { id: versionId!, region_id: regionId! },
-    { skip: !versionId || !regionId }
-  );
-
-  const { data: executionPeriods = [], refetch: refetchPeriods } = useGetRegionalExecutionPeriodsQuery(
-    { id: versionId!, region_id: regionId! },
-    { skip: !versionId || !regionId }
-  );
-
-  // Mutations
-  const [deleteNode] = useDeleteRegionalPlanNodeMutation();
-  const [reorderRegionalNodes, { isLoading: isReordering }] = useReorderRegionalPlanNodesMutation();
-  const [initPeriods, { isLoading: isInitializingPeriods }] = useInitializeRegionalExecutionPeriodsMutation();
-  const [finalizeAnnual, { isLoading: isFinalizingAnnual }] = useFinalizeRegionalAnnualExecutionMutation();
-  const [finalizePeriods, { isLoading: isFinalizingPeriods }] = useFinalizeRegionalPeriodTargetsMutation();
-  const [finalizeDraft, { isLoading: isFinalizingDraft }] = useFinalizeRegionalPlanDraftMutation();
-  const [startProcess, { isLoading: isStartingProcess }] = useStartRegionalPlanProcessMutation();
-  const [completePeriod, { isLoading: isCompletingPeriod }] = useCompleteRegionalExecutionPeriodMutation();
-
-  const { data: readiness, refetch: refetchReadiness } = useGetRegionalDraftFinalizationReadinessQuery(
-    { id: versionId!, region_id: regionId! },
-    { skip: !versionId || !regionId }
-  );
-
-  const [reopenDraft, { isLoading: isReopeningDraft }] = useReopenRegionalPlanDraftMutation();
-  const [updateAnnualTarget] = useUpdateRegionalAnnualTargetMutation();
-  const [updatePeriodTarget] = useUpdateRegionalPeriodTargetMutation();
-
-  // Permission flags
-  const canUpdatePlan = can("REGIONAL_PLANS:UPDATE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
-  const canFinalize = can("REGIONAL_PLANS:FINALIZE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
 
   const plan = hierarchyData?.version;
   const rawNodes = hierarchyData?.nodes || [];
@@ -168,6 +122,21 @@ export function RegionalPlanHierarchyView() {
   const isMasterPlan = plan?.version_kind === "master";
   const isAnnualPlan = plan?.version_kind === "annual";
   const isPeriodPlan = plan?.version_kind === "execution_period";
+
+  const { data: annualVersions = [], refetch: refetchAnnuals } = useGetRegionalAnnualVersionsQuery(
+    { id: versionId!, region_id: regionId! },
+    { skip: !versionId || !regionId || !isMasterPlan }
+  );
+
+  const { data: executionPeriods = [], refetch: refetchPeriods } = useGetRegionalExecutionPeriodsQuery(
+    { id: versionId!, region_id: regionId! },
+    { skip: !versionId || !regionId || !isAnnualPlan }
+  );
+
+  const { data: readiness, refetch: refetchReadiness } = useGetRegionalDraftFinalizationReadinessQuery(
+    { id: versionId!, region_id: regionId! },
+    { skip: !versionId || !regionId || !isMasterPlan || plan?.status !== "draft" }
+  );
 
   // Target allocations queries
   const { data: annualAllocations = [], refetch: refetchAnnualAllocations } = useGetRegionalAnnualTargetAllocationsQuery(
@@ -195,6 +164,43 @@ export function RegionalPlanHierarchyView() {
     }
     return map;
   }, [periodAllocations]);
+
+  // Mutations
+  const [deleteNode] = useDeleteRegionalPlanNodeMutation();
+  const [reorderRegionalNodes, { isLoading: isReordering }] = useReorderRegionalPlanNodesMutation();
+  const [reopenDraft, { isLoading: isReopeningDraft }] = useReopenRegionalPlanDraftMutation();
+  const [updateAnnualTarget] = useUpdateRegionalAnnualTargetMutation();
+  const [updatePeriodTarget] = useUpdateRegionalPeriodTargetMutation();
+
+  // Permissions
+  const canUpdatePlan = can("REGIONAL_PLANS:UPDATE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
+  const canFinalize = can("REGIONAL_PLANS:FINALIZE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
+
+  // Lifecycle flags
+  const annualTargetsFinalized = Boolean(plan?.annual_targets_finalized_at);
+  const periodsInitializedGlobally = Boolean(plan?.period_subdivision_mode);
+  const periodTargetsFinalized = Boolean(plan?.period_targets_finalized_at);
+  const processStarted = Boolean(plan?.process_started_at);
+
+  const showAnnualDashboard = isMasterPlan && (plan?.status === "finalized" || annualVersions.length > 0);
+  const showPeriodDashboard = isAnnualPlan && periodsInitializedGlobally;
+
+  // Auto-default tab based on Federal Private lifecycle
+  useEffect(() => {
+    const tabFromUrl = searchParams.get("tab");
+    if (tabFromUrl === "annual" || tabFromUrl === "periods" || tabFromUrl === "hierarchy") {
+      setActiveTab(tabFromUrl);
+      return;
+    }
+
+    if (isMasterPlan && plan?.status === "finalized") {
+      setActiveTab("annual");
+    } else if (isAnnualPlan && periodsInitializedGlobally) {
+      setActiveTab("periods");
+    } else {
+      setActiveTab("hierarchy");
+    }
+  }, [versionId, isMasterPlan, isAnnualPlan, plan?.status, periodsInitializedGlobally, searchParams]);
 
   const handleSaveAnnualTarget = async (node: PlanNode, val: number | null) => {
     try {
@@ -227,37 +233,17 @@ export function RegionalPlanHierarchyView() {
   };
 
   const handleReopenDraft = async () => {
-    if (!confirm("Are you sure you want to reopen this plan draft for editing? This will set it back to draft status so you can update structure and durations.")) return;
+    if (!confirm("Are you sure you want to reopen this strategic plan draft for editing? This will set it back to draft status so you can update structure and durations.")) return;
     try {
       await reopenDraft({ id: versionId!, region_id: regionId! }).unwrap();
       actionFeedback.success("Plan draft reopened for editing");
       refetch();
       refetchAnnuals();
-      refetchPeriods();
       refetchReadiness();
     } catch (err: any) {
       actionFeedback.error(err?.data?.message || err?.message || "Failed to reopen plan draft");
     }
   };
-
-  // Sync subdivision mode from configuration if available
-  useEffect(() => {
-    if (plan?.planningConfiguration?.breakdown_mode) {
-      setSubdivisionMode(plan.planningConfiguration.breakdown_mode as any);
-    }
-  }, [plan]);
-
-  // Tab switching from URL
-  useEffect(() => {
-    const tabFromUrl = searchParams.get("tab");
-    if (tabFromUrl === "annual") {
-      setActiveTab("annual");
-    } else if (tabFromUrl === "periods") {
-      setActiveTab("periods");
-    } else if (tabFromUrl === "hierarchy") {
-      setActiveTab("hierarchy");
-    }
-  }, [searchParams]);
 
   // Build tree hierarchy and map to PlanNodeHierarchy
   const { treeRoots, rawNodeMap } = useMemo(() => {
@@ -385,6 +371,7 @@ export function RegionalPlanHierarchyView() {
   const currentLevel = currentParentNode ? currentParentNode.level + 1 : 1;
   const currentChildLabel = getStepLabel(plan?.planRule, currentLevel);
   const rootLabel = getStepLabel(plan?.planRule, 1);
+  const maxDepth = getMaxRuleDepth(plan?.planRule);
 
   const handleBreadcrumbClick = (index: number) => {
     if (index === -1) {
@@ -426,7 +413,7 @@ export function RegionalPlanHierarchyView() {
 
   const handleDelete = async (id: string) => {
     const targetNode = rawNodeMap.get(id);
-    if (!confirm(`Are you sure you want to delete "${targetNode?.title || "this node"}" and any subordinate nodes?`)) return;
+    if (!confirm(`Are you sure you want to delete "${targetNode?.title || "this node"}" and all subordinate milestones?`)) return;
 
     try {
       await deleteNode({ id, region_id: regionId! }).unwrap();
@@ -462,73 +449,40 @@ export function RegionalPlanHierarchyView() {
     }
   };
 
-  const handleFinalizeAnnual = async () => {
-    try {
-      await finalizeAnnual({ id: versionId!, region_id: regionId! }).unwrap();
-      actionFeedback.success("Annual targets finalized successfully!");
-      refetch();
-      refetchAnnuals();
-    } catch (err: any) {
-      actionFeedback.error(err?.data?.message || err?.message || "Failed to finalize annual targets");
-    }
-  };
-
-  const handleFinalizePeriods = async () => {
-    try {
-      await finalizePeriods({ id: versionId!, region_id: regionId! }).unwrap();
-      actionFeedback.success("Execution period targets finalized successfully!");
-      refetch();
-      refetchPeriods();
-    } catch (err: any) {
-      actionFeedback.error(err?.data?.message || err?.message || "Failed to finalize period targets");
-    }
-  };
-
-  const handleStartProcess = async () => {
-    try {
-      await startProcess({ id: versionId!, region_id: regionId! }).unwrap();
-      actionFeedback.success("Regional plan execution process started! Reporting is now open.");
-      refetch();
-      refetchPeriods();
-    } catch (err: any) {
-      actionFeedback.error(err?.data?.message || err?.message || "Failed to start execution process");
-    }
-  };
-
-  const handleInitializePeriods = async () => {
-    try {
-      await initPeriods({
-        id: versionId!,
-        region_id: regionId!,
-        subdivision_mode: subdivisionMode,
-        custom_periods: subdivisionMode === "custom" ? customPeriods : undefined,
-      }).unwrap();
-      actionFeedback.success("Execution periods generated successfully!");
-      setIsInitPeriodsOpen(false);
-      refetch();
-      refetchPeriods();
-    } catch (err: any) {
-      actionFeedback.error(err?.data?.message || err?.message || "Failed to initialize execution periods");
-    }
-  };
-
-  const handleFinalizeDraft = async () => {
-    try {
-      await finalizeDraft({ id: versionId!, region_id: regionId! }).unwrap();
-      actionFeedback.success("Strategic plan draft finalized successfully! Annual execution is ready.");
-      refetch();
-      refetchAnnuals();
-      refetchPeriods();
-      refetchReadiness();
-    } catch (err: any) {
-      actionFeedback.error(err?.data?.message || err?.message || "Failed to finalize plan draft");
+  const handleBackNavigation = () => {
+    if (isPeriodPlan && plan?.parent_plan_version_id) {
+      router.push(`/regions/${regionId}/plans/${plan.parent_plan_version_id}?tab=periods`);
+    } else if (isAnnualPlan && plan?.parent_plan_version_id) {
+      router.push(`/regions/${regionId}/plans/${plan.parent_plan_version_id}?tab=annual`);
+    } else {
+      router.push(`/regions/${regionId}/plans`);
     }
   };
 
   if (isLoading || !plan) return <Loading01 />;
 
-  const showAnnualDashboard = isMasterPlan && (plan.status === "finalized" || annualVersions.length > 0);
-  const showPeriodDashboard = isAnnualPlan;
+  const versionProgress = resolveCompletionForVersion(
+    thresholds,
+    plan as any,
+    processStarted
+  );
+
+  const versionStatusAppearance = resolveWorkflowStatusAppearance(thresholds, {
+    status: resolveWorkflowDisplayStatus(plan as any, processStarted),
+    isLocked: processStarted && plan.execution_status === "locked",
+    progress: versionProgress,
+    statusLabel: resolvePlanVersionStatusLabel(
+      plan as any,
+      processStarted,
+      (p) => formatStatus(p.status ?? "draft")
+    ),
+    useAchievementColors: Boolean(versionProgress?.visible && plan.execution_status !== "completed"),
+  });
+
+  const versionEvaluationStatus = resolveExecutionEvaluationStatus(
+    plan as any,
+    processStarted
+  );
 
   const detailTabToggle = showAnnualDashboard ? (
     <div className="inline-flex rounded-lg border border-border bg-card p-1 flex-wrap shadow-2xs">
@@ -584,38 +538,138 @@ export function RegionalPlanHierarchyView() {
     </div>
   ) : null;
 
+  const hierarchyToolbar = (
+    <div className="flex items-center gap-3 flex-wrap">
+      <div className="relative w-44">
+        <Input
+          placeholder="Search nodes..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="h-8 text-xs"
+        />
+      </div>
+
+      <div className="inline-flex rounded-lg border border-border bg-card p-1">
+        <Button
+          variant={viewMode === "card" ? "default" : "ghost"}
+          size="sm"
+          className="gap-2 h-8"
+          onClick={() => setViewMode("card")}
+        >
+          <LayoutGrid className="h-4 w-4" />
+          <span>Cards</span>
+        </Button>
+        <Button
+          variant={viewMode === "hierarchy" ? "default" : "ghost"}
+          size="sm"
+          className="gap-2 h-8"
+          onClick={() => setViewMode("hierarchy")}
+        >
+          <ListTree className="h-4 w-4" />
+          <span>Hierarchy</span>
+        </Button>
+        <Button
+          variant={viewMode === "table" ? "default" : "ghost"}
+          size="sm"
+          className="gap-2 h-8"
+          onClick={() => {
+            setPathIds([]);
+            setViewMode("table");
+          }}
+        >
+          <Table2 className="h-4 w-4" />
+          <span>Table</span>
+        </Button>
+      </div>
+
+      {canUpdatePlan && isMasterPlan && plan.status === "draft" && (
+        <Button
+          onClick={() => openCreateModal(currentParentRegionalNode)}
+          className="gap-2 h-8 text-xs shadow-xs"
+        >
+          <Plus className="h-4 w-4" />
+          <span>Add {currentChildLabel}</span>
+        </Button>
+      )}
+    </div>
+  );
+
   return (
-    <div className="space-y-6 animate-in fade-in-50 duration-300">
-      {/* Top Navigation & SubNav */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
-        <RegionalPlanVersionSubNav regionId={regionId} versionId={versionId} />
+    <div className="space-y-6">
+      {/* Header bar matching Federal Private */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleBackNavigation}
+            className="rounded-full shrink-0"
+            title={
+              isPeriodPlan
+                ? "Return to Annual Plan"
+                : isAnnualPlan
+                  ? "Return to Strategic Plan"
+                  : "Back to Plans"
+            }
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          {detailTabToggle}
+          <div className="flex-1 min-w-0">
+            <PlanDraftHeaderMeta
+              version={plan as any}
+              config={plan.planningConfiguration as any}
+              showSector={false}
+            />
 
+            <div className="flex items-center gap-2 flex-wrap mt-1">
+              <PerformanceColorBadge
+                color={versionStatusAppearance.color}
+                label={versionStatusAppearance.label}
+                variant="solid"
+              />
+              {versionProgress?.visible && (
+                <Badge
+                  variant="outline"
+                  style={{
+                    borderColor: `${versionProgress.color}55`,
+                    color: versionProgress.color,
+                  }}
+                >
+                  {versionProgress.percent}% achievement
+                </Badge>
+              )}
+              {processStarted && versionEvaluationStatus && (
+                <EvaluationStatusBadge status={versionEvaluationStatus as any} />
+              )}
+              {isPeriodPlan && plan.period_label && (
+                <Badge variant="outline">{plan.period_label}</Badge>
+              )}
+              {isAnnualPlan && plan.planning_year && (
+                <Badge variant="outline">Year {plan.sequence_index} ({plan.planning_year})</Badge>
+              )}
+              {plan.planRule && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Badge variant="outline">{plan.planRule.name}</Badge>
+                  <span>({maxDepth} levels)</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <RegionalPlanVersionSubNav regionId={regionId} versionId={versionId} />
+
+          {/* Action buttons inside the header */}
           {isMasterPlan && plan.status === "draft" && canFinalize && (
             <Button
               size="sm"
-              onClick={handleFinalizeDraft}
-              disabled={isFinalizingDraft || (readiness && !readiness.ready)}
+              onClick={() => setIsFinalizeDraftOpen(true)}
               className="gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-              title={readiness && !readiness.ready ? readiness.errors.join("; ") : "Finalize draft and generate annual plans"}
             >
-              <CheckCircle2 className="h-4 w-4" />
-              <span>{isFinalizingDraft ? "Finalizing..." : "Finalize Draft & Generate Annual Plans"}</span>
-            </Button>
-          )}
-
-          {isMasterPlan && plan.status === "finalized" && !plan.annual_targets_finalized_at && canFinalize && (
-            <Button
-              size="sm"
-              onClick={handleFinalizeAnnual}
-              disabled={isFinalizingAnnual}
-              className="gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-              title="Finalize annual targets to proceed to execution periods"
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              <span>{isFinalizingAnnual ? "Finalizing..." : "Finalize Annual Targets"}</span>
+              <ShieldCheck className="h-4 w-4" />
+              <span>Finalize Strategic Plan & Start Annual Execution</span>
             </Button>
           )}
 
@@ -626,596 +680,116 @@ export function RegionalPlanHierarchyView() {
               onClick={handleReopenDraft}
               disabled={isReopeningDraft}
               className="gap-2 shadow-xs text-amber-700 border-amber-300 hover:bg-amber-50"
-              title="Reopen draft to edit structure or duration"
             >
               <Unlock className="h-4 w-4" />
               <span>{isReopeningDraft ? "Reopening..." : "Reopen Draft for Edit"}</span>
             </Button>
           )}
 
-          {isMasterPlan && plan.status === "finalized" && plan.annual_targets_finalized_at && executionPeriods.length === 0 && canUpdatePlan && (
-            <Button
-              size="sm"
-              onClick={() => setIsInitPeriodsOpen(true)}
-              className="gap-2 shadow-xs"
-            >
-              <Sliders className="h-4 w-4" />
-              <span>Initialize Execution Periods</span>
-            </Button>
-          )}
-
-          {isMasterPlan && plan.status === "finalized" && executionPeriods.length > 0 && !plan.period_targets_finalized_at && canFinalize && (
-            <Button
-              size="sm"
-              onClick={handleFinalizePeriods}
-              disabled={isFinalizingPeriods}
-              className="gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              <span>{isFinalizingPeriods ? "Finalizing..." : "Finalize Period Targets"}</span>
-            </Button>
-          )}
-
-          {isMasterPlan && plan.status === "finalized" && plan.period_targets_finalized_at && !plan.process_started_at && canFinalize && (
-            <Button
-              size="sm"
-              onClick={handleStartProcess}
-              disabled={isStartingProcess}
-              className="gap-2 shadow-xs bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              <Play className="h-4 w-4" />
-              <span>{isStartingProcess ? "Starting..." : "Start Process"}</span>
-            </Button>
-          )}
-
           <Link href={`/regions/${regionId}/plans/dashboard?plan_version_id=${versionId}`}>
             <Button size="sm" variant="outline" className="gap-2 shadow-2xs">
               <BarChart3 className="h-4 w-4 text-primary" />
-              <span>Execution Dashboard</span>
+              <span>Dashboard</span>
             </Button>
           </Link>
+
+          {(!showAnnualDashboard && !showPeriodDashboard) || activeTab === "hierarchy" ? hierarchyToolbar : null}
         </div>
       </div>
 
-      {/* Plan Details Context Ribbon */}
-      <div className="rounded-xl border bg-card p-4 shadow-2xs flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-            <GitBranch className="h-5 w-5" />
+      {/* Main Body */}
+      {showAnnualDashboard ? (
+        <div className="rounded-xl border border-gray-100 bg-white dark:bg-card shadow-sm overflow-hidden">
+          <div className="flex items-center justify-end px-4 py-3 border-b border-gray-100 dark:border-border">
+            {detailTabToggle}
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-foreground">{plan.draft_name}</h2>
-              <Badge variant="outline" className="capitalize text-xs font-semibold">
-                {plan.status}
-              </Badge>
-              <Badge variant="secondary" className="capitalize text-xs">
-                {plan.version_kind.replace("_", " ")}
-              </Badge>
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Cycle: {plan.start_year} – {plan.end_year} • {rawNodes.length} strategic milestones configured
-            </p>
-          </div>
-        </div>
-
-        {activeTab === "hierarchy" && (
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="relative w-48">
-              <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search nodes..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-8 pl-8 text-xs"
-              />
-            </div>
-
-            <div className="inline-flex rounded-lg border border-border bg-muted/40 p-1">
-              <Button
-                variant={viewMode === "card" ? "default" : "ghost"}
-                size="sm"
-                className="gap-2 h-8"
-                onClick={() => setViewMode("card")}
-              >
-                <LayoutGrid className="h-4 w-4" />
-                <span>Cards</span>
-              </Button>
-              <Button
-                variant={viewMode === "hierarchy" ? "default" : "ghost"}
-                size="sm"
-                className="gap-2 h-8"
-                onClick={() => setViewMode("hierarchy")}
-              >
-                <ListTree className="h-4 w-4" />
-                <span>Hierarchy</span>
-              </Button>
-              <Button
-                variant={viewMode === "table" ? "default" : "ghost"}
-                size="sm"
-                className="gap-2 h-8"
-                onClick={() => {
-                  setPathIds([]);
-                  setViewMode("table");
-                }}
-              >
-                <Table2 className="h-4 w-4" />
-                <span>Table</span>
-              </Button>
-            </div>
-
-            {canUpdatePlan && (
-              <Button
-                onClick={() => openCreateModal(currentParentRegionalNode)}
-                className="gap-2 h-8 text-xs shadow-xs"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Add {currentChildLabel}</span>
-              </Button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Draft Readiness Alert Banner */}
-      {isMasterPlan && plan.status === "draft" && readiness && !readiness.ready && (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-4 text-amber-900 dark:text-amber-200 text-xs">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
-            <div>
-              <h4 className="font-semibold text-sm text-amber-900 dark:text-amber-100">
-                Action Required Before Finalizing Draft
-              </h4>
-              <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
-                The strategic plan draft cannot be finalized until the following hierarchy requirements are satisfied:
-              </p>
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                {readiness.errors.map((err: string, i: number) => (
-                  <li key={i}>{err}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Annual Target Setting Phase Banner */}
-      {isMasterPlan && plan.status === "finalized" && !plan.annual_targets_finalized_at && (
-        <div className="rounded-xl border border-blue-200 bg-blue-50 dark:bg-blue-950/20 p-4 text-blue-900 dark:text-blue-200 text-xs">
-          <div className="flex items-start gap-3">
-            <Layers className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
-            <div>
-              <h4 className="font-semibold text-sm text-blue-900 dark:text-blue-100">
-                Annual Target Setting is Open
-              </h4>
-              <p className="mt-1 text-xs text-blue-800 dark:text-blue-300">
-                Strategic Master Plan draft has been finalized and yearly implementation plans have been generated.
-                Open the <strong>Annual Implementation Plans</strong> tab or select an annual year to configure annual targets, then click <strong>Finalize Annual Targets</strong>.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Initialize Execution Periods Needed Banner */}
-      {isMasterPlan && plan.status === "finalized" && plan.annual_targets_finalized_at && executionPeriods.length === 0 && (
-        <div className="rounded-xl border border-purple-200 bg-purple-50 dark:bg-purple-950/20 p-4 text-purple-900 dark:text-purple-200 text-xs">
-          <div className="flex items-start gap-3">
-            <Sliders className="h-5 w-5 text-purple-600 mt-0.5 shrink-0" />
-            <div>
-              <h4 className="font-semibold text-sm text-purple-900 dark:text-purple-100">
-                Annual Targets Finalized — Initialize Execution Periods
-              </h4>
-              <p className="mt-1 text-xs text-purple-800 dark:text-purple-300">
-                Annual execution targets have been finalized. Click <strong>Initialize Execution Periods</strong> to subdivide the fiscal years into operational execution cycles (Quarterly, Semi-Annual, or Monthly).
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Period Targets Finalization Needed Banner */}
-      {isMasterPlan && plan.status === "finalized" && executionPeriods.length > 0 && !plan.period_targets_finalized_at && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-4 text-amber-900 dark:text-amber-200 text-xs">
-          <div className="flex items-start gap-3">
-            <Clock className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
-            <div>
-              <h4 className="font-semibold text-sm text-amber-900 dark:text-amber-100">
-                Execution Periods Initialized — Set and Finalize Period Targets
-              </h4>
-              <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
-                Execution periods have been generated. Distribute and finalize targets across periods, then click <strong>Finalize Period Targets</strong>.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Start Process Ready Banner */}
-      {isMasterPlan && plan.status === "finalized" && plan.period_targets_finalized_at && !plan.process_started_at && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 p-4 text-emerald-900 dark:text-emerald-200 text-xs">
-          <div className="flex items-start gap-3">
-            <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5 shrink-0" />
-            <div>
-              <h4 className="font-semibold text-sm text-emerald-900 dark:text-emerald-100">
-                Ready to Launch Operational Execution
-              </h4>
-              <p className="mt-1 text-xs text-emerald-800 dark:text-emerald-300">
-                All targets (strategic, annual, and periodic) are finalized. Click <strong>Start Process</strong> to freeze target configuration and open the first execution cycle for achievement reporting.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Operational Execution Active Banner */}
-      {isMasterPlan && plan.process_started_at && plan.status === "active" && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 p-3 text-emerald-900 dark:text-emerald-200 text-xs flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-            <span>
-              <strong>Operational Execution Active:</strong> Assigned officers can submit achievements, and department heads and validators can review and validate reports.
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Back-Navigation Breadcrumb when on Annual or Period Plan */}
-      {isAnnualPlan && plan.parent_plan_version_id && (
-        <div className="flex items-center gap-2 text-xs bg-muted/40 px-3.5 py-2.5 rounded-lg border border-border">
-          <Link
-            href={`/regions/${regionId}/plans/${plan.parent_plan_version_id}?tab=annual`}
-            className="inline-flex items-center gap-1.5 text-primary hover:underline font-medium"
-          >
-            <ArrowUp className="h-3.5 w-3.5" />
-            <span>Return to Master Plan</span>
-          </Link>
-          <span className="text-muted-foreground">/</span>
-          <span className="text-foreground font-semibold">
-            Year ${plan.sequence_index} (${plan.planning_year}) Target Allocation
-          </span>
-          {plan.annual_targets_finalized_at && (
-            <Badge variant="secondary" className="ml-2 text-[10px] font-normal">
-              <Lock className="h-3 w-3 mr-1" /> Targets Finalized
-            </Badge>
-          )}
-        </div>
-      )}
-
-      {isPeriodPlan && plan.parent_plan_version_id && (
-        <div className="flex items-center gap-2 text-xs bg-muted/40 px-3.5 py-2.5 rounded-lg border border-border">
-          <Link
-            href={`/regions/${regionId}/plans/${plan.parent_plan_version_id}?tab=periods`}
-            className="inline-flex items-center gap-1.5 text-primary hover:underline font-medium"
-          >
-            <ArrowUp className="h-3.5 w-3.5" />
-            <span>Return to Annual Plan</span>
-          </Link>
-          <span className="text-muted-foreground">/</span>
-          <span className="text-foreground font-semibold">
-            ${plan.period_label || `Period ${plan.sequence_index}`} (${plan.planning_year}) Execution
-          </span>
-          {plan.period_targets_finalized_at && (
-            <Badge variant="secondary" className="ml-2 text-[10px] font-normal">
-              <Lock className="h-3 w-3 mr-1" /> Targets Finalized
-            </Badge>
-          )}
-        </div>
-      )}
-
-      {/* ------------------------------------------------------------- */}
-      {/* TAB 1: PLAN HIERARCHY */}
-      {/* ------------------------------------------------------------- */}
-      {activeTab === "hierarchy" && (
-        <div className="space-y-4">
-          {/* Breadcrumbs navigation for Card / Tree drill-down */}
-          {viewMode !== "table" && (
-            <nav className="flex items-center gap-1 flex-wrap text-sm bg-card rounded-xl border px-4 py-2.5 shadow-2xs">
-              <button
-                type="button"
-                onClick={() => handleBreadcrumbClick(-1)}
-                className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors ${
-                  isAtRoot
-                    ? "text-primary font-semibold bg-primary/10"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`}
-              >
-                <Home className="h-3.5 w-3.5" />
-                <span>{rootLabel}</span>
-              </button>
-
-              {breadcrumbPath.map((node, index) => (
-                <span key={node.plan_node_id} className="inline-flex items-center gap-1">
-                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
-                  <button
-                    type="button"
-                    onClick={() => handleBreadcrumbClick(index)}
-                    className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors max-w-[240px] ${
-                      index === breadcrumbPath.length - 1
-                        ? "text-primary font-semibold bg-primary/10"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    {getHierarchyNumber(hierarchyNumberMap, node.plan_node_id) && (
-                      <PlanNodeHierarchyNumber
-                        value={getHierarchyNumber(hierarchyNumberMap, node.plan_node_id)!}
-                        size="sm"
-                      />
-                    )}
-                    <span className="truncate">{node.title}</span>
-                  </button>
-                </span>
-              ))}
-
-              {!isAtRoot && (
-                <>
-                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
-                  <span className="text-muted-foreground text-xs px-2 py-1">{currentChildLabel}</span>
-                </>
-              )}
-            </nav>
-          )}
-
-          {/* Main Content: Card, Hierarchy Tree, or Table */}
-          {rawNodes.length === 0 ? (
-            <div className="rounded-2xl border border-dashed p-12 text-center bg-card">
-              <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4">
-                <Layers className="h-6 w-6" />
-              </div>
-              <h3 className="text-base font-semibold text-foreground">No Strategic Nodes Defined</h3>
-              <p className="text-xs text-muted-foreground max-w-md mx-auto mt-1 mb-6">
-                Get started by creating your Level 1 {getStepLabel(plan?.planRule, 1)}. You can then add subordinate milestones under it.
-              </p>
-              {canUpdatePlan && (
-                <Button onClick={() => openCreateModal(null)} className="gap-2 shadow-xs">
-                  <Plus className="h-4 w-4" />
-                  <span>Create Root {getStepLabel(plan?.planRule, 1)}</span>
-                </Button>
-              )}
-            </div>
-          ) : viewMode === "table" ? (
-            <PlanHierarchyTableView
-              roots={treeRoots}
-              hierarchyNumberMap={hierarchyNumberMap}
-              rule={plan?.planRule as any}
-              rootLabel={rootLabel}
-              configuredUnits={configuredUnits}
-              onAddChild={handleAddChild}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              onViewDetails={handleViewDetails}
-              onMoveNode={handleMoveNode}
-              isReordering={isReordering}
-              readOnly={!canUpdatePlan}
-              showAnnualTargets={isAnnualPlan}
-              canEditAnnualTarget={isAnnualPlan && !plan.annual_targets_finalized_at && canUpdatePlan}
-              annualTargetAllocations={annualAllocationsMap}
-              onSaveAnnualTarget={handleSaveAnnualTarget}
-              showPeriodTargets={isPeriodPlan}
-              canEditPeriodTarget={isPeriodPlan && !plan.period_targets_finalized_at && canUpdatePlan}
-              periodTargetAllocations={periodAllocationsMap}
-              onSavePeriodTarget={handleSavePeriodTarget}
-              showPeriodActuals={isPeriodPlan && Boolean(plan.process_started_at || plan.execution_status === "open" || plan.status === "active")}
-            />
-          ) : viewMode === "card" ? (
-            <PlanNodeCardGrid
-              nodes={currentNodes}
-              hierarchyNumberMap={hierarchyNumberMap}
-              rule={plan?.planRule as any}
-              configuredUnits={configuredUnits}
-              onAddChild={handleAddChild}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              onViewDetails={handleViewDetails}
-              onDrillDown={handleDrillDown}
-              onMoveNode={(nodeId, direction) => handleMoveNode(nodeId, direction, currentNodes)}
-              isReordering={isReordering}
-              readOnly={!canUpdatePlan}
-              showAnnualTargets={isAnnualPlan}
-              canEditAnnualTarget={isAnnualPlan && !plan.annual_targets_finalized_at && canUpdatePlan}
-              annualTargetAllocations={annualAllocationsMap}
-              onSaveAnnualTarget={handleSaveAnnualTarget}
-              showPeriodTargets={isPeriodPlan}
-              canEditPeriodTarget={isPeriodPlan && !plan.period_targets_finalized_at && canUpdatePlan}
-              periodTargetAllocations={periodAllocationsMap}
-              onSavePeriodTarget={handleSavePeriodTarget}
-              showPeriodActuals={isPeriodPlan && Boolean(plan.process_started_at || plan.execution_status === "open" || plan.status === "active")}
-            />
-          ) : (
-            <PlanHierarchyTree
-              nodes={treeRoots}
-              hierarchyNumberMap={hierarchyNumberMap}
-              rule={plan?.planRule as any}
-              configuredUnits={configuredUnits}
-              onAddChild={handleAddChild}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              onViewDetails={handleViewDetails}
-              onDrillDown={handleDrillDown}
-              onMoveNode={handleMoveNode}
-              isReordering={isReordering}
-              scoped={false}
-              readOnly={!canUpdatePlan}
-              showAnnualTargets={isAnnualPlan}
-              canEditAnnualTarget={isAnnualPlan && !plan.annual_targets_finalized_at && canUpdatePlan}
-              annualTargetAllocations={annualAllocationsMap}
-              onSaveAnnualTarget={handleSaveAnnualTarget}
-              showPeriodTargets={isPeriodPlan}
-              canEditPeriodTarget={isPeriodPlan && !plan.period_targets_finalized_at && canUpdatePlan}
-              periodTargetAllocations={periodAllocationsMap}
-              onSavePeriodTarget={handleSavePeriodTarget}
-              showPeriodActuals={isPeriodPlan && Boolean(plan.process_started_at || plan.execution_status === "open" || plan.status === "active")}
-            />
-          )}
-        </div>
-      )}
-
-      {/* ------------------------------------------------------------- */}
-      {/* TAB 2: ANNUAL IMPLEMENTATION PLANS */}
-      {/* ------------------------------------------------------------- */}
-      {activeTab === "annual" && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border bg-card shadow-2xs">
-            <div>
-              <h3 className="text-base font-semibold text-foreground">Annual Implementation Plans</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Each annual implementation plan inherits the master hierarchy. Set annual targets for each fiscal year cycle.
-              </p>
-            </div>
-
-            {plan.status === "finalized" && canUpdatePlan && (
-              <div className="flex items-center gap-2">
-                {!plan.annual_targets_finalized_at && (
-                  <Button size="sm" onClick={handleFinalizeAnnual} disabled={isFinalizingAnnual} className="gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white">
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span>Finalize Annual Targets</span>
-                  </Button>
+          <div className="p-4 sm:p-6 space-y-6">
+            {activeTab === "annual" ? (
+              <RegionalAnnualVersionsDashboard masterVersion={plan} regionId={regionId!} />
+            ) : (
+              <div className="space-y-4">
+                {/* Strategic draft finalized banner */}
+                {!processStarted && !annualTargetsFinalized && (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 px-4 py-3 text-sm text-blue-900 dark:text-blue-200">
+                    Strategic draft is finalized. Use the <strong>Annual Execution</strong> tab to open each year,
+                    distribute annual targets across years (total must match the draft target), then finalize annual execution.
+                  </div>
                 )}
-                {plan.annual_targets_finalized_at && executionPeriods.length === 0 && (
-                  <Button size="sm" onClick={() => setIsInitPeriodsOpen(true)} className="gap-2 shadow-xs">
-                    <Sliders className="h-4 w-4" />
-                    <span>Initialize Execution Periods</span>
-                  </Button>
-                )}
+                {renderHierarchyBody()}
               </div>
             )}
           </div>
-
-          {annualVersions.length === 0 ? (
-            <div className="text-center p-8 border rounded-xl bg-card text-muted-foreground text-sm">
-              No annual versions generated yet. Finalize the master plan draft to generate annual cycles.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {annualVersions.map((annual) => (
-                <div
-                  key={annual.regional_plan_version_id}
-                  className="rounded-xl border bg-card p-4 shadow-2xs space-y-3 flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <Badge variant="outline" className="text-xs capitalize font-semibold">
-                        {annual.status}
-                      </Badge>
-                      <span className="text-xs font-mono text-muted-foreground">Year {annual.sequence_index}</span>
-                    </div>
-                    <h4 className="font-semibold text-foreground mt-2">{annual.draft_name}</h4>
-                    <p className="text-xs text-muted-foreground mt-1">Fiscal Year {annual.planning_year}</p>
-                  </div>
-
-                  <div className="pt-3 border-t flex items-center justify-between gap-2">
-                    <Link href={`/regions/${regionId}/plans/${annual.regional_plan_version_id}`}>
-                      <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs">
-                        <Target className="h-3.5 w-3.5 text-primary" />
-                        <span>Plan Hierarchy & Targets</span>
-                      </Button>
-                    </Link>
-
-                    {annual.is_locked ? (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Lock className="h-3.5 w-3.5" />
-                        <span>Locked</span>
-                      </span>
-                    ) : (
-                      <span className="text-xs text-emerald-600 flex items-center gap-1">
-                        <Unlock className="h-3.5 w-3.5" />
-                        <span>Editable</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
-      )}
-
-      {/* ------------------------------------------------------------- */}
-      {/* TAB 3: EXECUTION PERIODS */}
-      {/* ------------------------------------------------------------- */}
-      {activeTab === "periods" && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border bg-card shadow-2xs">
-            <div>
-              <h3 className="text-base font-semibold text-foreground">Execution Period Subdivisions</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Periodic execution milestones partition each annual cycle according to the configured breakdown mode.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              {canUpdatePlan && executionPeriods.length === 0 && (
-                <Button size="sm" onClick={() => setIsInitPeriodsOpen(true)} className="gap-2 shadow-xs">
-                  <Sliders className="h-4 w-4" />
-                  <span>Initialize Execution Periods</span>
-                </Button>
-              )}
-
-              {canUpdatePlan && executionPeriods.length > 0 && !plan.period_targets_finalized_at && (
-                <Button size="sm" onClick={handleFinalizePeriods} disabled={isFinalizingPeriods} className="gap-2 shadow-xs">
-                  <CheckCircle2 className="h-4 w-4" />
-                  <span>Finalize Period Targets</span>
+      ) : showPeriodDashboard ? (
+        <div className="rounded-xl border border-gray-100 bg-white dark:bg-card shadow-sm overflow-hidden">
+          <div className="flex flex-col gap-3 px-4 py-3 border-b border-gray-100 dark:border-border sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap gap-2">
+              {periodsInitializedGlobally && !periodTargetsFinalized && canFinalize && (
+                <Button
+                  className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                  onClick={() => setIsFinalizePeriodModalOpen(true)}
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  Finalize Execution Period
                 </Button>
               )}
             </div>
+            {detailTabToggle}
           </div>
-
-          {executionPeriods.length === 0 ? (
-            <div className="text-center p-8 border rounded-xl bg-card text-muted-foreground text-sm space-y-3">
-              <p>No execution periods initialized yet.</p>
-              <Button size="sm" onClick={() => setIsInitPeriodsOpen(true)} className="gap-2 shadow-xs">
-                <Sliders className="h-4 w-4" />
-                <span>Initialize Periods</span>
-              </Button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {executionPeriods.map((period) => (
-                <div
-                  key={period.regional_plan_version_id}
-                  className="rounded-xl border bg-card p-4 shadow-2xs space-y-3 flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <Badge variant="outline" className="text-xs capitalize font-semibold">
-                        {period.status}
-                      </Badge>
-                      <span className="text-xs font-mono text-muted-foreground">Period #{period.sequence_index}</span>
-                    </div>
-                    <h4 className="font-semibold text-foreground mt-2">{period.period_label || period.draft_name}</h4>
-                    <p className="text-xs text-muted-foreground mt-1">Year {period.planning_year}</p>
+          <div className="p-4 sm:p-6 space-y-6">
+            {activeTab === "periods" ? (
+              <RegionalExecutionPeriodsDashboard annualVersion={plan} regionId={regionId!} />
+            ) : (
+              <div className="space-y-4">
+                {!periodTargetsFinalized && (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 px-4 py-3 text-sm text-blue-900 dark:text-blue-200">
+                    Annual target distribution is finalized. Open each execution period in the <strong>Execution Periods</strong> tab,
+                    set period targets so totals match annual targets, then use <strong>Finalize Execution Period</strong> for this year.
                   </div>
-
-                  <div className="pt-3 border-t flex items-center justify-between gap-2">
-                    <Link href={`/regions/${regionId}/plans/${period.regional_plan_version_id}`}>
-                      <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs">
-                        <Target className="h-3.5 w-3.5 text-primary" />
-                        <span>View Milestones</span>
-                      </Button>
-                    </Link>
-
-                    {period.is_locked ? (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Lock className="h-3.5 w-3.5" />
-                        <span>Locked</span>
-                      </span>
-                    ) : (
-                      <span className="text-xs text-emerald-600 flex items-center gap-1">
-                        <Unlock className="h-3.5 w-3.5" />
-                        <span>Open</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
+                )}
+                {renderHierarchyBody()}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Context Guidance Banners */}
+          {isAnnualPlan && !periodsInitializedGlobally && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 px-4 py-3 text-sm text-blue-900 dark:text-blue-200">
+              Set annual targets for this fiscal year so that allocations across all years sum exactly to the strategic draft target.
+              When ready, return to the strategic plan and click <strong>Finalize Annual Execution</strong>.
             </div>
           )}
+
+          {isPeriodPlan && !processStarted && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 px-4 py-3 text-sm text-blue-900 dark:text-blue-200">
+              Set period targets for {plan.period_label || `Period ${plan.sequence_index}`} so totals match this year&apos;s annual target.
+              Finalize execution period from the annual plan when this year is ready.
+            </div>
+          )}
+
+          {isPeriodPlan && processStarted && (
+            <div
+              className={cn(
+                "rounded-lg border px-4 py-3 text-sm",
+                plan.execution_status === "open"
+                  ? "border-green-200 bg-green-50 text-green-900 dark:bg-green-950/20 dark:text-green-200"
+                  : "border-slate-200 bg-slate-50 text-slate-800 dark:bg-slate-900/20 dark:text-slate-300"
+              )}
+            >
+              Execution version 1 — {getExecutionStatusLabel(plan.execution_status as any)}.
+              {plan.execution_status === "open"
+                ? " Record achievements on assigned leaf nodes, then submit for departmental approval and validation."
+                : " This period is locked until the previous period completes."}
+            </div>
+          )}
+
+          {renderHierarchyBody()}
         </div>
       )}
 
-      {/* ------------------------------------------------------------- */}
-      {/* MODAL: Dynamic Rule-Driven Node Create/Edit Modal */}
-      {/* ------------------------------------------------------------- */}
+      {/* Modals */}
       <CreateRegionalPlanNodeModal
         isOpen={isNodeModalOpen}
         onClose={() => {
@@ -1228,104 +802,191 @@ export function RegionalPlanHierarchyView() {
         planVersionId={versionId!}
         parentNode={parentNodeForCreate}
         node={selectedNodeForEdit}
-        rule={plan?.planRule}
-        planningConfig={plan?.planningConfiguration}
+        rule={plan.planRule}
+        planningConfig={plan.planningConfiguration}
         allNodes={rawNodes}
       />
 
-      {/* ------------------------------------------------------------- */}
-      {/* MODAL: Period Initialization Modal */}
-      {/* ------------------------------------------------------------- */}
-      <Dialog open={isInitPeriodsOpen} onOpenChange={setIsInitPeriodsOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base">
-              <Sliders className="h-5 w-5 text-primary" />
-              <span>Initialize Execution Periods</span>
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
-              Choose the periodic breakdown mode. This will generate execution sub-versions for every annual plan cycle.
-            </DialogDescription>
-          </DialogHeader>
+      <FinalizeRegionalPlanDraftModal
+        isOpen={isFinalizeDraftOpen}
+        onClose={() => setIsFinalizeDraftOpen(false)}
+        version={plan}
+        regionId={regionId!}
+        onSuccess={() => {
+          refetch();
+          refetchAnnuals();
+          setActiveTab("annual");
+        }}
+      />
 
-          <div className="space-y-4 pt-2">
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Breakdown Cadence</label>
-              <select
-                value={subdivisionMode}
-                onChange={(e) => setSubdivisionMode(e.target.value as any)}
-                className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs"
-              >
-                <option value="quarterly">Quarterly (4 Periods / Year)</option>
-                <option value="semi_annual">Semi-Annual (2 Periods / Year)</option>
-                <option value="monthly">Monthly (12 Periods / Year)</option>
-                <option value="custom">Custom Division</option>
-              </select>
-            </div>
-
-            {subdivisionMode === "custom" && (
-              <div className="space-y-2 border-t pt-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-foreground">Custom Period Names</label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-6 px-2 text-xs gap-1"
-                    onClick={() =>
-                      setCustomPeriods((prev) => [...prev, { label: `Period ${prev.length + 1}` }])
-                    }
-                  >
-                    <Plus className="h-3 w-3" />
-                    <span>Add Period</span>
-                  </Button>
-                </div>
-
-                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                  {customPeriods.map((cp, idx) => (
-                    <div key={idx} className="flex items-center gap-1.5">
-                      <Input
-                        value={cp.label}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setCustomPeriods((prev) =>
-                            prev.map((p, i) => (i === idx ? { label: val } : p))
-                          );
-                        }}
-                        className="h-8 text-xs"
-                        placeholder="e.g. Trimester 1"
-                      />
-                      {customPeriods.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
-                          onClick={() =>
-                            setCustomPeriods((prev) => prev.filter((_, i) => i !== idx))
-                          }
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <DialogFooter className="pt-2">
-              <Button variant="outline" onClick={() => setIsInitPeriodsOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleInitializePeriods} disabled={isInitializingPeriods}>
-                {isInitializingPeriods ? "Generating..." : "Generate Periods"}
-              </Button>
-            </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {isAnnualPlan && (
+        <FinalizeRegionalExecutionPeriodsModal
+          isOpen={isFinalizePeriodModalOpen}
+          onClose={() => setIsFinalizePeriodModalOpen(false)}
+          annualVersion={plan}
+          regionId={regionId!}
+          onSuccess={() => {
+            refetch();
+            refetchPeriods();
+          }}
+        />
+      )}
     </div>
   );
+
+  function renderHierarchyBody() {
+    if (!plan) return null;
+    return (
+      <div className="space-y-4">
+        {/* Breadcrumbs navigation */}
+        {viewMode !== "table" && (
+          <nav className="flex items-center gap-1 flex-wrap text-sm bg-card rounded-xl border px-4 py-2.5 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => handleBreadcrumbClick(-1)}
+              className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors ${
+                isAtRoot
+                  ? "text-primary font-semibold bg-primary/10"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+            >
+              <Home className="h-3.5 w-3.5" />
+              <span>{rootLabel}</span>
+            </button>
+
+            {breadcrumbPath.map((node, index) => (
+              <span key={node.plan_node_id} className="inline-flex items-center gap-1">
+                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
+                <button
+                  type="button"
+                  onClick={() => handleBreadcrumbClick(index)}
+                  className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors max-w-[240px] ${
+                    index === breadcrumbPath.length - 1
+                      ? "text-primary font-semibold bg-primary/10"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  {getHierarchyNumber(hierarchyNumberMap, node.plan_node_id) && (
+                    <PlanNodeHierarchyNumber
+                      value={getHierarchyNumber(hierarchyNumberMap, node.plan_node_id)!}
+                      size="sm"
+                    />
+                  )}
+                  <span className="truncate">{node.title}</span>
+                </button>
+              </span>
+            ))}
+
+            {!isAtRoot && (
+              <>
+                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
+                <span className="text-muted-foreground text-xs px-2 py-1">{currentChildLabel}</span>
+              </>
+            )}
+          </nav>
+        )}
+
+        {/* Hierarchy Views */}
+        {rawNodes.length === 0 ? (
+          <div className="rounded-2xl border border-dashed p-12 text-center bg-card">
+            <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4">
+              <Layers className="h-6 w-6" />
+            </div>
+            <h3 className="text-base font-semibold text-foreground">No Strategic Nodes Defined</h3>
+            <p className="text-xs text-muted-foreground max-w-md mx-auto mt-1 mb-6">
+              Get started by adding your Level 1 {rootLabel}. You can then add subordinate milestones under it.
+            </p>
+            {canUpdatePlan && isMasterPlan && plan.status === "draft" && (
+              <Button onClick={() => openCreateModal(null)} className="gap-2 shadow-xs">
+                <Plus className="h-4 w-4" />
+                <span>Create Root {rootLabel}</span>
+              </Button>
+            )}
+          </div>
+        ) : viewMode === "table" ? (
+          <PlanHierarchyTableView
+            roots={treeRoots}
+            hierarchyNumberMap={hierarchyNumberMap}
+            rule={plan.planRule as any}
+            rootLabel={rootLabel}
+            configuredUnits={configuredUnits}
+            onAddChild={handleAddChild}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onViewDetails={handleViewDetails}
+            onMoveNode={handleMoveNode}
+            isReordering={isReordering}
+            readOnly={!canUpdatePlan || (isMasterPlan && plan.status !== "draft")}
+            showAnnualTargets={isAnnualPlan}
+            canEditAnnualTarget={isAnnualPlan && !plan.annual_targets_finalized_at && canUpdatePlan}
+            annualTargetAllocations={annualAllocationsMap}
+            onSaveAnnualTarget={handleSaveAnnualTarget}
+            showPeriodTargets={isPeriodPlan && !processStarted}
+            canEditPeriodTarget={isPeriodPlan && !plan.period_targets_finalized_at && canUpdatePlan}
+            periodTargetAllocations={periodAllocationsMap}
+            onSavePeriodTarget={handleSavePeriodTarget}
+            showPeriodActuals={isPeriodPlan && processStarted}
+            canEditPeriodActual={isPeriodPlan && processStarted && plan.execution_status === "open"}
+            useExecutionCompletion={isPeriodPlan && processStarted}
+            processStarted={processStarted}
+          />
+        ) : viewMode === "card" ? (
+          <PlanNodeCardGrid
+            nodes={currentNodes}
+            hierarchyNumberMap={hierarchyNumberMap}
+            rule={plan.planRule as any}
+            configuredUnits={configuredUnits}
+            onAddChild={handleAddChild}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onViewDetails={handleViewDetails}
+            onDrillDown={handleDrillDown}
+            onMoveNode={(nodeId, direction) => handleMoveNode(nodeId, direction, currentNodes)}
+            isReordering={isReordering}
+            readOnly={!canUpdatePlan || (isMasterPlan && plan.status !== "draft")}
+            showAnnualTargets={isAnnualPlan}
+            canEditAnnualTarget={isAnnualPlan && !plan.annual_targets_finalized_at && canUpdatePlan}
+            annualTargetAllocations={annualAllocationsMap}
+            onSaveAnnualTarget={handleSaveAnnualTarget}
+            showPeriodTargets={isPeriodPlan && !processStarted}
+            canEditPeriodTarget={isPeriodPlan && !plan.period_targets_finalized_at && canUpdatePlan}
+            periodTargetAllocations={periodAllocationsMap}
+            onSavePeriodTarget={handleSavePeriodTarget}
+            showPeriodActuals={isPeriodPlan && processStarted}
+            canEditPeriodActual={isPeriodPlan && processStarted && plan.execution_status === "open"}
+            useExecutionCompletion={isPeriodPlan && processStarted}
+            processStarted={processStarted}
+          />
+        ) : (
+          <PlanHierarchyTree
+            nodes={treeRoots}
+            hierarchyNumberMap={hierarchyNumberMap}
+            rule={plan.planRule as any}
+            configuredUnits={configuredUnits}
+            onAddChild={handleAddChild}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onViewDetails={handleViewDetails}
+            onDrillDown={handleDrillDown}
+            onMoveNode={handleMoveNode}
+            isReordering={isReordering}
+            scoped={false}
+            readOnly={!canUpdatePlan || (isMasterPlan && plan.status !== "draft")}
+            showAnnualTargets={isAnnualPlan}
+            canEditAnnualTarget={isAnnualPlan && !plan.annual_targets_finalized_at && canUpdatePlan}
+            annualTargetAllocations={annualAllocationsMap}
+            onSaveAnnualTarget={handleSaveAnnualTarget}
+            showPeriodTargets={isPeriodPlan && !processStarted}
+            canEditPeriodTarget={isPeriodPlan && !plan.period_targets_finalized_at && canUpdatePlan}
+            periodTargetAllocations={periodAllocationsMap}
+            onSavePeriodTarget={handleSavePeriodTarget}
+            showPeriodActuals={isPeriodPlan && processStarted}
+            canEditPeriodActual={isPeriodPlan && processStarted && plan.execution_status === "open"}
+            useExecutionCompletion={isPeriodPlan && processStarted}
+            processStarted={processStarted}
+          />
+        )}
+      </div>
+    );
+  }
 }
