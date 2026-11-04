@@ -8,6 +8,8 @@ import {
   Layers,
   Plus,
   Eye,
+  Edit,
+  RotateCcw,
   Copy,
   Trash2,
   Calendar,
@@ -42,8 +44,10 @@ import { TableLayout } from "@/features/template/component/tableList/TableLayout
 import {
   useGetRegionalPlanVersionsQuery,
   useCreateRegionalPlanDraftMutation,
+  useUpdateRegionalPlanVersionMutation,
   useDeleteRegionalPlanVersionMutation,
   useDuplicateRegionalPlanDraftMutation,
+  useReopenRegionalPlanDraftMutation,
   useGetRegionalPlanConfigQuery,
   useGetRegionalPlanRulesQuery,
 } from "@/redux/api/regionalPlanApi";
@@ -84,8 +88,18 @@ export function RegionalPlanVersionTable() {
   );
 
   const [createDraft, { isLoading: isCreating }] = useCreateRegionalPlanDraftMutation();
+  const [updateVersion, { isLoading: isUpdating }] = useUpdateRegionalPlanVersionMutation();
   const [duplicateDraft, { isLoading: isDuplicating }] = useDuplicateRegionalPlanDraftMutation();
   const [deletePlan, { isLoading: isDeleting }] = useDeleteRegionalPlanVersionMutation();
+  const [reopenDraft, { isLoading: isReopening }] = useReopenRegionalPlanDraftMutation();
+
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingPlan, setEditingPlan] = useState<RegionalPlanVersion | null>(null);
+  const [editDraftName, setEditDraftName] = useState("");
+  const [editStartYear, setEditStartYear] = useState(new Date().getFullYear());
+  const [editStartDate, setEditStartDate] = useState(`${new Date().getFullYear()}-01-01`);
+  const [editDurationYears, setEditDurationYears] = useState(5);
+  const [editRuleId, setEditRuleId] = useState("");
 
   const templateRules = useMemo(
     () => rules.filter((r) => !r.owned_by_plan_version_id),
@@ -102,7 +116,71 @@ export function RegionalPlanVersionTable() {
   }, [templateRules, selectedRuleId]);
 
   const canCreate = can("REGIONAL_PLANS:CREATE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
+  const canUpdate = can("REGIONAL_PLANS:UPDATE") || can("REGIONAL_PLANS:CREATE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
   const canDelete = can("REGIONAL_PLANS:DELETE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
+  const canFinalize = can("REGIONAL_PLANS:FINALIZE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
+
+  const handleOpenEdit = (plan: RegionalPlanVersion) => {
+    setEditingPlan(plan);
+    setEditDraftName(plan.draft_name);
+    setEditStartYear(plan.start_year);
+    setEditStartDate(plan.planning_start_date || `${plan.start_year}-01-01`);
+    setEditDurationYears(plan.planning_duration_years);
+    setEditRuleId(plan.regional_plan_rule_id || "");
+    setIsEditOpen(true);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPlan) return;
+    if (!editDraftName.trim()) {
+      actionFeedback.error("Plan draft title is required");
+      return;
+    }
+    try {
+      await updateVersion({
+        id: editingPlan.regional_plan_version_id,
+        region_id: regionId,
+        data: {
+          draft_name: editDraftName.trim(),
+          start_year: Number(editStartYear),
+          planning_duration_years: Number(editDurationYears),
+          planning_start_date: editStartDate,
+          regional_plan_rule_id: editRuleId || undefined,
+        },
+      }).unwrap();
+
+      actionFeedback.success("Regional plan draft updated successfully");
+      setIsEditOpen(false);
+      setEditingPlan(null);
+      refetch();
+    } catch (err: unknown) {
+      const errorObj = err as { data?: { message?: string }; message?: string };
+      actionFeedback.error(errorObj?.data?.message || errorObj?.message || "Failed to update plan draft");
+    }
+  };
+
+  const handleReopen = async (plan: RegionalPlanVersion) => {
+    if (
+      !confirm(
+        `Are you sure you want to reopen "${plan.draft_name}" for editing? This will set the plan back to draft status so you can update its structure, rules, and milestones.`
+      )
+    ) {
+      return;
+    }
+    try {
+      await reopenDraft({
+        id: plan.regional_plan_version_id,
+        region_id: regionId,
+      }).unwrap();
+
+      actionFeedback.success("Plan reopened for editing");
+      refetch();
+    } catch (err: unknown) {
+      const errorObj = err as { data?: { message?: string }; message?: string };
+      actionFeedback.error(errorObj?.data?.message || errorObj?.message || "Failed to reopen plan");
+    }
+  };
 
   const filteredPlans = useMemo(() => {
     return plans.filter((plan) => {
@@ -310,6 +388,31 @@ export function RegionalPlanVersionTable() {
                 </Link>
               </Button>
 
+              {canUpdate && plan.status === "draft" && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 text-xs"
+                  title="Edit Draft"
+                  onClick={() => handleOpenEdit(plan)}
+                >
+                  <Edit className="h-3.5 w-3.5 text-primary" />
+                </Button>
+              )}
+
+              {canFinalize && plan.status === "finalized" && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                  title="Reopen Draft for Editing"
+                  onClick={() => handleReopen(plan)}
+                  disabled={isReopening}
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                </Button>
+              )}
+
               <Button
                 variant="ghost"
                 size="sm"
@@ -340,7 +443,7 @@ export function RegionalPlanVersionTable() {
         },
       },
     ],
-    [regionId, canDelete]
+    [regionId, canUpdate, canFinalize, canDelete, isReopening]
   );
 
   return (
@@ -570,6 +673,93 @@ export function RegionalPlanVersionTable() {
               {isDuplicating ? "Duplicating..." : "Duplicate Draft"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Regional Plan Draft Modal */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5 text-primary" />
+              <span>Edit Regional Plan Draft</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveEdit} className="space-y-4 py-2">
+            <div>
+              <label className="text-xs font-semibold text-foreground">Plan Draft Title *</label>
+              <Input
+                className="mt-1"
+                placeholder="e.g. 5-Year Regional Mineral Sector Strategic Plan"
+                value={editDraftName}
+                onChange={(e) => setEditDraftName(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-semibold text-foreground">Planning Start Date *</label>
+                <Input
+                  type="date"
+                  className="mt-1"
+                  value={editStartDate}
+                  onChange={(e) => {
+                    setEditStartDate(e.target.value);
+                    if (e.target.value) {
+                      const y = new Date(e.target.value).getFullYear();
+                      if (!isNaN(y)) setEditStartYear(y);
+                    }
+                  }}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-foreground">Duration (Years) *</label>
+                <Input
+                  type="number"
+                  min={config?.min_duration_years || 1}
+                  max={config?.max_duration_years || 10}
+                  className="mt-1"
+                  value={editDurationYears}
+                  onChange={(e) => setEditDurationYears(Number(e.target.value))}
+                  required
+                />
+              </div>
+            </div>
+
+            {templateRules.length > 0 && (
+              <div>
+                <label className="text-xs font-semibold text-foreground">Applicable Plan Rule</label>
+                <Select
+                  value={editRuleId}
+                  onValueChange={(val) => setEditRuleId(val)}
+                >
+                  <SelectTrigger className="w-full mt-1 text-xs">
+                    <SelectValue placeholder="Select Regional Plan Rule" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templateRules.map((r) => (
+                      <SelectItem key={r.regional_plan_rule_id} value={r.regional_plan_rule_id}>
+                        {r.name} ({r.steps?.length || 4} levels) {r.is_active ? "— Active" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isUpdating}>
+                {isUpdating ? "Saving..." : "Save Changes"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

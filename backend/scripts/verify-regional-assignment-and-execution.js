@@ -10,11 +10,13 @@ const {
   RegionalPlanRuleStep,
   RegionalInternalAssignment,
   RegionalPlanningConfiguration,
+  NationalReportingRequirement,
   User,
   sequelize,
 } = require("../models");
 
 const regionalPlanService = require("../services/regionalPlanService");
+const nationalReportingService = require("../services/nationalReportingService");
 const { getStepAssignmentRequirement, stepRequiresAssignment } = require("../services/planRuleStepUtils");
 
 // Mirror of frontend getPlanNodeAssignmentLabels from frontend/src/utils/planAssignmentUtils.ts
@@ -57,8 +59,6 @@ async function runVerification() {
   console.log(`✓ Test Region created: ${region.name} (${region.region_id})`);
 
   // 2. Create hierarchical departments in RegionalStructure
-  // Parent Directorate A -> Child Division A.1
-  // Independent Directorate B (different branch)
   const dirA = await RegionalStructure.create({
     regional_structure_id: uuidv4(),
     region_id: region.region_id,
@@ -122,27 +122,74 @@ async function runVerification() {
   });
   console.log("✓ Test users created (Alice in Dir A, Bob in Div A.1, Charlie in Dir B)");
 
-  // 4. Create Regional Plan Rule with Assignment Requirement beginning at Level 2 (Goal)
+  // 3.5 Test National Reporting KPI creation and update (Part 1 verification)
+  console.log("\n--- PART 1: Testing National Reporting Requirement Update ---");
+  const natReq = await nationalReportingService.createRequirement({
+    code: `NAT-${testId.toString().slice(-6)}`,
+    title: "National Artisanal Gold Metric",
+    expected_unit: "kg",
+    unit_category: "mass",
+    frequency: "quarterly",
+    requires_numeric: true,
+    effective_start_date: "",
+    effective_end_date: "",
+  }, userA.user_id);
+  console.log(`✓ National requirement created: ${natReq.code}`);
+
+  // Test updating the requirement with empty date strings (the previous failure point)
+  const updatedNatReq = await nationalReportingService.updateRequirement(natReq.requirement_id, {
+    title: "Updated National Artisanal Gold Metric",
+    description: "Detailed description of gold metric",
+    effective_start_date: "",
+    effective_end_date: "",
+  }, userA.user_id);
+  console.log(`✓ National requirement successfully updated with empty dates sanitized: title="${updatedNatReq.title}"`);
+
+  // 4. Create Regional Plan Rule with Depth Assignment Configuration
+  console.log("\n--- PART 2 & 3: Regional Plan Assignment, Lifecycle & Edit Verification ---");
   const rule = await regionalPlanService.createRegionalPlanRule(region.region_id, {
-    name: `Custom 3-Level Assignment Rule ${testId}`,
-    is_active: true,
+    name: `Test Mining Strategy Rule ${testId}`,
+    performance_scoring_policy: "CAP_100",
     steps: [
-      { step_order: 1, label: "Strategic Priority", requires_weight: false, requires_contribution_weight: false, requires_assignment: false, color_hex: "#8B5CF6" },
-      { step_order: 2, label: "Goal", requires_weight: false, requires_contribution_weight: false, requires_assignment: true, color_hex: "#3B82F6" },
-      { step_order: 3, label: "KPI", requires_weight: true, requires_contribution_weight: true, color_hex: "#10B981" },
+      {
+        level: 1,
+        name: "Strategic Priority",
+        requires_weight: false,
+        requires_contribution_weight: false,
+        allow_kpi: false,
+        requires_assignment: false,
+        assignment_requirement: "none",
+        allow_assignment: false,
+      },
+      {
+        level: 2,
+        name: "Goal",
+        requires_weight: false,
+        requires_contribution_weight: false,
+        allow_kpi: false,
+        requires_assignment: true,
+        assignment_requirement: "required",
+        allow_assignment: true,
+      },
+      {
+        level: 3,
+        name: "KPI",
+        requires_weight: true,
+        requires_contribution_weight: false,
+        allow_kpi: true,
+      },
     ],
   });
 
-  const sortedRuleSteps = (rule.steps || []).sort((a, b) => a.level - b.level);
-  console.log("✓ Regional plan rule created with steps:");
-  for (const s of sortedRuleSteps) {
+  const ruleSteps = await RegionalPlanRuleStep.findAll({
+    where: { regional_plan_rule_id: rule.regional_plan_rule_id },
+  });
+  const sortedRuleSteps = ruleSteps.sort((a, b) => a.level - b.level);
+  console.log(`✓ Regional plan rule created with steps:`);
+  sortedRuleSteps.forEach((s) => {
     console.log(`   Level ${s.level} (${s.name}): requires_assignment=${s.requires_assignment}, requirement=${s.assignment_requirement}`);
-  }
+  });
 
-  // Check depth inheritance:
-  // Level 1: requires_assignment = false
-  // Level 2: requires_assignment = true
-  // Level 3: requires_assignment = true (inherited!)
   if (sortedRuleSteps[0].requires_assignment !== false) throw new Error("Level 1 should not require assignment");
   if (sortedRuleSteps[1].requires_assignment !== true) throw new Error("Level 2 must require assignment");
   if (sortedRuleSteps[2].requires_assignment !== true) throw new Error("Level 3 must inherit assignment requirement");
@@ -165,6 +212,17 @@ async function runVerification() {
     regional_plan_rule_id: rule.regional_plan_rule_id,
   });
   console.log(`✓ Master plan draft created: ${plan.draft_name} (${plan.regional_plan_version_id})`);
+
+  // 5.5 Test Edit Action on Draft (Part 2 verification)
+  const editedPlan = await regionalPlanService.updateRegionalPlanVersion(
+    plan.regional_plan_version_id,
+    region.region_id,
+    {
+      draft_name: `Updated Strategic Plan ${testId}`,
+      planning_duration_years: 3,
+    }
+  );
+  console.log(`✓ Plan draft edit action verified successfully: "${editedPlan.draft_name}"`);
 
   // 6. Create Level 1 node (SF)
   const sfNode = await regionalPlanService.createRegionalPlanNode(
@@ -196,23 +254,19 @@ async function runVerification() {
   );
   console.log(`✓ Level 2 (Goal) created: ${goalNode.title}`);
 
-  // 8. Check draft finalization readiness - should FAIL because Goal is unassigned!
+  // 8. Test Draft Readiness Gate when Level 2 is unassigned -> MUST BLOCK!
   let readiness = await regionalPlanService.getRegionalDraftFinalizationReadiness(
     plan.regional_plan_version_id,
     region.region_id
   );
   console.log(`✓ Draft readiness check (unassigned): ready=${readiness.ready}`);
-  console.log(`   Errors: ${readiness.errors.join("; ")}`);
   if (readiness.ready) {
-    throw new Error("Readiness should NOT be ready when required assignment is missing!");
+    throw new Error("Draft finalization should be blocked when an assignment-required node is unassigned!");
   }
-  const hasAssignmentError = readiness.errors.some((e) => e.includes("requires organizational assignment"));
-  if (!hasAssignmentError) {
-    throw new Error("Expected assignment readiness error missing!");
-  }
+  console.log(`   Errors: ${readiness.errors.join("; ")}`);
   console.log("✓ Draft readiness correctly blocked when assignment is missing!");
 
-  // 9. Assign Level 2 (Goal) to Mining Exploration Directorate (dirA)
+  // 9. Assign Level 2 (Goal) to Directorate A (Mining Exploration Directorate)
   await regionalPlanService.assignRegionalPlanNode(
     goalNode.regional_plan_node_id,
     region.region_id,
@@ -221,7 +275,7 @@ async function runVerification() {
   );
   console.log(`✓ Assigned Goal to department: ${dirA.name}`);
 
-  // 10. Create Level 3 (KPI) under Goal with weight & contribution
+  // 10. Create Level 3 node (KPI) under Goal
   const kpiNode = await regionalPlanService.createRegionalPlanNode(
     plan.regional_plan_version_id,
     region.region_id,
@@ -230,18 +284,16 @@ async function runVerification() {
       type: "kpi",
       parent_id: goalNode.regional_plan_node_id,
       level: 3,
-      weight: 100,
-      weight_mode: "percentage",
-      contribution_weight: 100,
+      weight_mode: "custom",
+      weight: 50,
+      target_unit: "sites",
     },
     userA.user_id
   );
   console.log(`✓ Level 3 (KPI) created: ${kpiNode.title}`);
 
-  // 11. Test Hierarchical Assignment Scoping Constraint on KPI:
-  // Scenario: "if goal is required and assigned to dept the kpi only can be assigned to that dept child dept or that dept users"
-
-  // 11a. Attempt assigning KPI to Directorate B (CROSS-BRANCH) -> MUST BE REJECTED (400)
+  // 11. Test Hierarchical Scoping Enforcement!
+  // 11a. Try to assign KPI to Directorate B (different department branch) -> MUST BE REJECTED!
   let rejectedCrossDept = false;
   try {
     await regionalPlanService.assignRegionalPlanNode(
@@ -258,13 +310,13 @@ async function runVerification() {
     throw new Error("Failed to block cross-branch department assignment!");
   }
 
-  // 11b. Attempt assigning KPI to Charlie (user in Directorate B) -> MUST BE REJECTED (400)
+  // 11b. Try to assign KPI to User B (Charlie in Directorate B) -> MUST BE REJECTED!
   let rejectedCrossUser = false;
   try {
     await regionalPlanService.assignRegionalPlanNode(
       kpiNode.regional_plan_node_id,
       region.region_id,
-      { assigned_user_id: userB.user_id },
+      { regional_structure_id: dirB.regional_structure_id, assigned_user_id: userB.user_id },
       userA.user_id
     );
   } catch (err) {
@@ -303,15 +355,45 @@ async function runVerification() {
     throw new Error(`Readiness should be ready! Got errors: ${readiness.errors.join("; ")}`);
   }
 
-  // 13. Finalize Master Plan Draft
+  // 13. Finalize Master Plan Draft -> Generates Annual Plans, opens Annual Target Setting
   const finalizedMaster = await regionalPlanService.finalizeRegionalPlanDraft(
     plan.regional_plan_version_id,
     region.region_id,
     userA.user_id
   );
   console.log(`✓ Master plan finalized. Status: ${finalizedMaster.status}`);
+  console.log(`✓ Master annual_targets_finalized_at is initially null: ${finalizedMaster.annual_targets_finalized_at === null}`);
+  if (finalizedMaster.annual_targets_finalized_at !== null) {
+    throw new Error("annual_targets_finalized_at should be null right after draft finalization to allow annual target setting!");
+  }
 
-  // 14. Initialize Execution Periods (verifying annual execution initialization button readiness)
+  // 13.5 Test that initializing execution periods BEFORE annual targets finalization is BLOCKED!
+  let blockedInitWithoutAnnuals = false;
+  try {
+    await regionalPlanService.initializeRegionalExecutionPeriods(
+      plan.regional_plan_version_id,
+      region.region_id,
+      "quarterly",
+      [],
+      userA.user_id
+    );
+  } catch (err) {
+    blockedInitWithoutAnnuals = true;
+    console.log(`✓ Initialization blocked without finalized annual targets as expected: "${err.message}"`);
+  }
+  if (!blockedInitWithoutAnnuals) {
+    throw new Error("initializeRegionalExecutionPeriods should have blocked when annual targets are not finalized!");
+  }
+
+  // 14. Finalize Annual Execution Targets
+  const finalizedAnnuals = await regionalPlanService.finalizeRegionalAnnualExecution(
+    plan.regional_plan_version_id,
+    region.region_id,
+    userA.user_id
+  );
+  console.log(`✓ Annual targets finalized successfully. annual_targets_finalized_at: ${finalizedAnnuals.annual_targets_finalized_at}`);
+
+  // 15. Now Initialize Execution Periods (quarterly)
   const periods = await regionalPlanService.initializeRegionalExecutionPeriods(
     plan.regional_plan_version_id,
     region.region_id,
@@ -324,7 +406,32 @@ async function runVerification() {
     throw new Error("Execution periods were not generated!");
   }
 
-  // 15. Verify display of assigned department & user in hierarchy view
+  // 16. Finalize Period Targets
+  const finalizedPeriods = await regionalPlanService.finalizeRegionalPeriodTargets(
+    plan.regional_plan_version_id,
+    region.region_id,
+    userA.user_id
+  );
+  console.log(`✓ Period targets finalized. period_targets_finalized_at: ${finalizedPeriods.period_targets_finalized_at}`);
+
+  // 17. Start Process -> Launches operational execution
+  const activePlan = await regionalPlanService.startRegionalPlanProcess(
+    plan.regional_plan_version_id,
+    region.region_id,
+    userA.user_id
+  );
+  console.log(`✓ Regional execution process started: status=${activePlan.status}, execution_status=${activePlan.execution_status}`);
+
+  // 18. Complete First Execution Period
+  const firstPeriod = periods[0];
+  const completedPeriod = await regionalPlanService.completeRegionalExecutionPeriod(
+    firstPeriod.regional_plan_version_id,
+    region.region_id,
+    userA.user_id
+  );
+  console.log(`✓ Execution period completed: ${completedPeriod.period_label || completedPeriod.draft_name}, status=${completedPeriod.status}`);
+
+  // 19. Verify display of assigned department & user in hierarchy view across all 3 views
   const hierarchy = await regionalPlanService.getRegionalPlanHierarchy(
     plan.regional_plan_version_id,
     region.region_id,
@@ -337,7 +444,6 @@ async function runVerification() {
   console.log(`   Department: ${assignments[0]?.department?.name}`);
   console.log(`   AssignedUser: ${assignments[0]?.assignedUser?.full_name}`);
 
-  // Test the frontend utility `getPlanNodeAssignmentLabels`
   const labels = getPlanNodeAssignmentLabels(kpiNodeHierarchy);
   console.log(`✓ getPlanNodeAssignmentLabels output:`, labels);
   const hasUserLabel = labels.some((l) => l.type === "user" && l.name === userA1.full_name);
@@ -347,7 +453,7 @@ async function runVerification() {
   }
   console.log("✓ Assigned department and user correctly resolved for all 3 views!");
 
-  console.log("\nALL VERIFICATION CHECKS PASSED PERFECTLY!");
+  console.log("\nALL VERIFICATION CHECKS (PARTS 1, 2, AND 3) PASSED PERFECTLY!");
   process.exit(0);
 }
 

@@ -145,20 +145,30 @@ export function NationalRequirementsTab() {
       return;
     }
 
+    const payload = {
+      ...formData,
+      code: formData.code.trim().toUpperCase(),
+      title: formData.title.trim(),
+      description: formData.description?.trim() || null,
+      expected_unit: formData.expected_unit?.trim(),
+      effective_start_date: formData.effective_start_date ? formData.effective_start_date : null,
+      effective_end_date: formData.effective_end_date ? formData.effective_end_date : null,
+    };
+
     try {
       if (editingReq) {
         await updateRequirement({
           id: editingReq.requirement_id,
-          data: formData,
+          data: payload,
         }).unwrap();
         toast.success("National requirement updated successfully");
       } else {
-        await createRequirement(formData).unwrap();
+        await createRequirement(payload).unwrap();
         toast.success("National requirement created successfully");
       }
       setIsCreateOpen(false);
     } catch (err: any) {
-      toast.error(err?.data?.message || "Failed to save requirement");
+      toast.error(err?.data?.message || err?.message || "Failed to save requirement");
     }
   };
 

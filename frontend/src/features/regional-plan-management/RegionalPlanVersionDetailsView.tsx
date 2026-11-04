@@ -468,7 +468,7 @@ export function RegionalPlanVersionDetailsView() {
             </Button>
           )}
 
-          {isFinalized && canUpdate && executionPeriods.length === 0 && (
+          {isFinalized && canUpdate && plan.annual_targets_finalized_at && executionPeriods.length === 0 && (
             <Button
               size="sm"
               onClick={() => setIsInitPeriodsOpen(true)}
@@ -476,6 +476,18 @@ export function RegionalPlanVersionDetailsView() {
             >
               <Sliders className="h-4 w-4" />
               <span>Initialize Execution Periods</span>
+            </Button>
+          )}
+
+          {isFinalized && canFinalize && plan.period_targets_finalized_at && !plan.process_started_at && (
+            <Button
+              size="sm"
+              onClick={handleStartProcess}
+              disabled={isStarting}
+              className="gap-2 shadow-xs bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Play className="h-4 w-4" />
+              <span>{isStarting ? "Starting..." : "Start Process"}</span>
             </Button>
           )}
 

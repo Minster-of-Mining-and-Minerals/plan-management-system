@@ -562,6 +562,24 @@ export const regionalPlanApi = baseApi.injectEndpoints({
       invalidatesTags: ["RegionalPlanVersions"],
     }),
 
+    completeRegionalExecutionPeriod: builder.mutation<RegionalPlanVersion, { id: string; region_id: string }>({
+      query: ({ id, region_id }) => ({
+        url: `/regional/plans/versions/${id}/complete-period?region_id=${region_id}`,
+        method: "POST",
+      }),
+      transformResponse: (res: { data: RegionalPlanVersion }) => res.data,
+      invalidatesTags: ["RegionalPlanVersions", "RegionalPlanNodes", "RegionalPlanDashboard"],
+    }),
+
+    completeRegionalAnnualPlan: builder.mutation<RegionalPlanVersion, { id: string; region_id: string }>({
+      query: ({ id, region_id }) => ({
+        url: `/regional/plans/versions/${id}/complete-annual?region_id=${region_id}`,
+        method: "POST",
+      }),
+      transformResponse: (res: { data: RegionalPlanVersion }) => res.data,
+      invalidatesTags: ["RegionalPlanVersions", "RegionalPlanNodes", "RegionalPlanDashboard"],
+    }),
+
     // -------------------------------------------------------------
     // Hierarchy & Node Mutations
     // -------------------------------------------------------------
@@ -824,6 +842,8 @@ export const {
   useGetRegionalPeriodTargetAllocationsQuery,
   useUpdateRegionalPeriodTargetMutation,
   useFinalizeRegionalPeriodTargetsMutation,
+  useCompleteRegionalExecutionPeriodMutation,
+  useCompleteRegionalAnnualPlanMutation,
   useGetRegionalPlanHierarchyQuery,
   useCreateRegionalPlanNodeMutation,
   useGetRegionalPlanNodeByIdQuery,

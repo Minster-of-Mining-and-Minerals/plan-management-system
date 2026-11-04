@@ -28,23 +28,29 @@ class NationalReportingService {
       throw err;
     }
 
+    let validUserId = null;
+    if (userId) {
+      const userExists = await User.findByPk(userId);
+      if (userExists) validUserId = userId;
+    }
+
     const requirement = await NationalReportingRequirement.create({
       code: data.code.trim().toUpperCase(),
       title: data.title.trim(),
-      description: data.description || null,
+      description: data.description ? data.description.trim() : null,
       category: data.category || "mining_production",
-      expected_unit: data.expected_unit.trim(),
+      expected_unit: data.expected_unit ? data.expected_unit.trim() : "kg",
       unit_category: data.unit_category || "mass",
       frequency: data.frequency || "quarterly",
-      requires_numeric: data.requires_numeric !== undefined ? data.requires_numeric : true,
+      requires_numeric: data.requires_numeric !== undefined ? !!data.requires_numeric : true,
       requires_narrative: !!data.requires_narrative,
       requires_evidence: !!data.requires_evidence,
-      validation_rules: data.validation_rules || {},
-      effective_start_date: data.effective_start_date || null,
-      effective_end_date: data.effective_end_date || null,
-      is_active: data.is_active !== undefined ? data.is_active : true,
+      validation_rules: typeof data.validation_rules === "string" ? JSON.parse(data.validation_rules) : (data.validation_rules || {}),
+      effective_start_date: data.effective_start_date ? data.effective_start_date : null,
+      effective_end_date: data.effective_end_date ? data.effective_end_date : null,
+      is_active: data.is_active !== undefined ? !!data.is_active : true,
       version_number: 1,
-      created_by: userId || null,
+      created_by: validUserId,
     });
 
     return requirement;
@@ -77,21 +83,32 @@ class NationalReportingService {
     }
 
     if (data.title !== undefined) requirement.title = data.title.trim();
-    if (data.description !== undefined) requirement.description = data.description;
+    if (data.description !== undefined) requirement.description = data.description ? data.description.trim() : null;
     if (data.category !== undefined) requirement.category = data.category;
-    if (data.expected_unit !== undefined) requirement.expected_unit = data.expected_unit.trim();
+    if (data.expected_unit !== undefined) requirement.expected_unit = data.expected_unit ? data.expected_unit.trim() : requirement.expected_unit;
     if (data.unit_category !== undefined) requirement.unit_category = data.unit_category;
     if (data.frequency !== undefined) requirement.frequency = data.frequency;
-    if (data.requires_numeric !== undefined) requirement.requires_numeric = data.requires_numeric;
-    if (data.requires_narrative !== undefined) requirement.requires_narrative = data.requires_narrative;
-    if (data.requires_evidence !== undefined) requirement.requires_evidence = data.requires_evidence;
-    if (data.validation_rules !== undefined) requirement.validation_rules = data.validation_rules;
-    if (data.effective_start_date !== undefined) requirement.effective_start_date = data.effective_start_date;
-    if (data.effective_end_date !== undefined) requirement.effective_end_date = data.effective_end_date;
-    if (data.is_active !== undefined) requirement.is_active = data.is_active;
+    if (data.requires_numeric !== undefined) requirement.requires_numeric = !!data.requires_numeric;
+    if (data.requires_narrative !== undefined) requirement.requires_narrative = !!data.requires_narrative;
+    if (data.requires_evidence !== undefined) requirement.requires_evidence = !!data.requires_evidence;
+    if (data.validation_rules !== undefined) {
+      requirement.validation_rules = typeof data.validation_rules === "string" ? JSON.parse(data.validation_rules) : (data.validation_rules || {});
+    }
+    if (data.effective_start_date !== undefined) {
+      requirement.effective_start_date = data.effective_start_date ? data.effective_start_date : null;
+    }
+    if (data.effective_end_date !== undefined) {
+      requirement.effective_end_date = data.effective_end_date ? data.effective_end_date : null;
+    }
+    if (data.is_active !== undefined) requirement.is_active = !!data.is_active;
 
     requirement.version_number += 1;
-    requirement.updated_by = userId || null;
+    let validUserId = null;
+    if (userId) {
+      const userExists = await User.findByPk(userId);
+      if (userExists) validUserId = userId;
+    }
+    requirement.updated_by = validUserId;
 
     await requirement.save();
     return requirement;
@@ -297,11 +314,15 @@ class NationalReportingService {
     }
 
     if (updateData.status) assignment.status = updateData.status;
-    if (updateData.is_mandatory !== undefined) assignment.is_mandatory = updateData.is_mandatory;
+    if (updateData.is_mandatory !== undefined) assignment.is_mandatory = !!updateData.is_mandatory;
     if (updateData.frequency_override !== undefined) assignment.frequency_override = updateData.frequency_override;
-    if (updateData.notes !== undefined) assignment.notes = updateData.notes;
-    if (updateData.effective_start_date !== undefined) assignment.effective_start_date = updateData.effective_start_date;
-    if (updateData.effective_end_date !== undefined) assignment.effective_end_date = updateData.effective_end_date;
+    if (updateData.notes !== undefined) assignment.notes = updateData.notes ? updateData.notes.trim() : null;
+    if (updateData.effective_start_date !== undefined) {
+      assignment.effective_start_date = updateData.effective_start_date ? updateData.effective_start_date : null;
+    }
+    if (updateData.effective_end_date !== undefined) {
+      assignment.effective_end_date = updateData.effective_end_date ? updateData.effective_end_date : null;
+    }
 
     await assignment.save();
     return assignment;

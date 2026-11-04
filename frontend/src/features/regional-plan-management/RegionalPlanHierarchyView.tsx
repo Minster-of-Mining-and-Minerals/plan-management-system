@@ -26,6 +26,8 @@ import {
   Home,
   Sliders,
   Trash2,
+  Play,
+  CheckSquare,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -55,6 +57,9 @@ import {
   useFinalizeRegionalAnnualExecutionMutation,
   useFinalizeRegionalPeriodTargetsMutation,
   useFinalizeRegionalPlanDraftMutation,
+  useStartRegionalPlanProcessMutation,
+  useCompleteRegionalExecutionPeriodMutation,
+  useCompleteRegionalAnnualPlanMutation,
   useGetRegionalDraftFinalizationReadinessQuery,
 } from "@/redux/api/regionalPlanApi";
 import type { RegionalPlanNode, RegionalPlanVersion } from "@/redux/types/regionalPlan";
@@ -136,6 +141,8 @@ export function RegionalPlanHierarchyView() {
   const [finalizeAnnual, { isLoading: isFinalizingAnnual }] = useFinalizeRegionalAnnualExecutionMutation();
   const [finalizePeriods, { isLoading: isFinalizingPeriods }] = useFinalizeRegionalPeriodTargetsMutation();
   const [finalizeDraft, { isLoading: isFinalizingDraft }] = useFinalizeRegionalPlanDraftMutation();
+  const [startProcess, { isLoading: isStartingProcess }] = useStartRegionalPlanProcessMutation();
+  const [completePeriod, { isLoading: isCompletingPeriod }] = useCompleteRegionalExecutionPeriodMutation();
 
   const { data: readiness, refetch: refetchReadiness } = useGetRegionalDraftFinalizationReadinessQuery(
     { id: versionId!, region_id: regionId! },
@@ -393,6 +400,17 @@ export function RegionalPlanHierarchyView() {
     }
   };
 
+  const handleStartProcess = async () => {
+    try {
+      await startProcess({ id: versionId!, region_id: regionId! }).unwrap();
+      actionFeedback.success("Regional plan execution process started! Reporting is now open.");
+      refetch();
+      refetchPeriods();
+    } catch (err: any) {
+      actionFeedback.error(err?.data?.message || err?.message || "Failed to start execution process");
+    }
+  };
+
   const handleInitializePeriods = async () => {
     try {
       await initPeriods({
@@ -499,14 +517,27 @@ export function RegionalPlanHierarchyView() {
               onClick={handleFinalizeDraft}
               disabled={isFinalizingDraft || (readiness && !readiness.ready)}
               className="gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-              title={readiness && !readiness.ready ? readiness.errors.join("; ") : "Finalize draft and start annual execution"}
+              title={readiness && !readiness.ready ? readiness.errors.join("; ") : "Finalize draft and generate annual plans"}
             >
               <CheckCircle2 className="h-4 w-4" />
-              <span>{isFinalizingDraft ? "Finalizing..." : "Start Annual Execution"}</span>
+              <span>{isFinalizingDraft ? "Finalizing..." : "Finalize Draft & Generate Annual Plans"}</span>
             </Button>
           )}
 
-          {isMasterPlan && plan.status === "finalized" && canUpdatePlan && executionPeriods.length === 0 && (
+          {isMasterPlan && plan.status === "finalized" && !plan.annual_targets_finalized_at && canFinalize && (
+            <Button
+              size="sm"
+              onClick={handleFinalizeAnnual}
+              disabled={isFinalizingAnnual}
+              className="gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+              title="Finalize annual targets to proceed to execution periods"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              <span>{isFinalizingAnnual ? "Finalizing..." : "Finalize Annual Targets"}</span>
+            </Button>
+          )}
+
+          {isMasterPlan && plan.status === "finalized" && plan.annual_targets_finalized_at && executionPeriods.length === 0 && canUpdatePlan && (
             <Button
               size="sm"
               onClick={() => setIsInitPeriodsOpen(true)}
@@ -514,6 +545,30 @@ export function RegionalPlanHierarchyView() {
             >
               <Sliders className="h-4 w-4" />
               <span>Initialize Execution Periods</span>
+            </Button>
+          )}
+
+          {isMasterPlan && plan.status === "finalized" && executionPeriods.length > 0 && !plan.period_targets_finalized_at && canFinalize && (
+            <Button
+              size="sm"
+              onClick={handleFinalizePeriods}
+              disabled={isFinalizingPeriods}
+              className="gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              <span>{isFinalizingPeriods ? "Finalizing..." : "Finalize Period Targets"}</span>
+            </Button>
+          )}
+
+          {isMasterPlan && plan.status === "finalized" && plan.period_targets_finalized_at && !plan.process_started_at && canFinalize && (
+            <Button
+              size="sm"
+              onClick={handleStartProcess}
+              disabled={isStartingProcess}
+              className="gap-2 shadow-xs bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Play className="h-4 w-4" />
+              <span>{isStartingProcess ? "Starting..." : "Start Process"}</span>
             </Button>
           )}
 
@@ -613,10 +668,10 @@ export function RegionalPlanHierarchyView() {
             <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
             <div>
               <h4 className="font-semibold text-sm text-amber-900 dark:text-amber-100">
-                Action Required Before Starting Annual Execution
+                Action Required Before Finalizing Draft
               </h4>
               <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
-                The strategic plan draft cannot start annual execution until the following hierarchy requirements are satisfied:
+                The strategic plan draft cannot be finalized until the following hierarchy requirements are satisfied:
               </p>
               <ul className="list-disc list-inside mt-2 space-y-1">
                 {readiness.errors.map((err: string, i: number) => (
@@ -624,6 +679,87 @@ export function RegionalPlanHierarchyView() {
                 ))}
               </ul>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Annual Target Setting Phase Banner */}
+      {isMasterPlan && plan.status === "finalized" && !plan.annual_targets_finalized_at && (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 dark:bg-blue-950/20 p-4 text-blue-900 dark:text-blue-200 text-xs">
+          <div className="flex items-start gap-3">
+            <Layers className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
+            <div>
+              <h4 className="font-semibold text-sm text-blue-900 dark:text-blue-100">
+                Annual Target Setting is Open
+              </h4>
+              <p className="mt-1 text-xs text-blue-800 dark:text-blue-300">
+                Strategic Master Plan draft has been finalized and yearly implementation plans have been generated.
+                Open the <strong>Annual Implementation Plans</strong> tab or select an annual year to configure annual targets, then click <strong>Finalize Annual Targets</strong>.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Initialize Execution Periods Needed Banner */}
+      {isMasterPlan && plan.status === "finalized" && plan.annual_targets_finalized_at && executionPeriods.length === 0 && (
+        <div className="rounded-xl border border-purple-200 bg-purple-50 dark:bg-purple-950/20 p-4 text-purple-900 dark:text-purple-200 text-xs">
+          <div className="flex items-start gap-3">
+            <Sliders className="h-5 w-5 text-purple-600 mt-0.5 shrink-0" />
+            <div>
+              <h4 className="font-semibold text-sm text-purple-900 dark:text-purple-100">
+                Annual Targets Finalized — Initialize Execution Periods
+              </h4>
+              <p className="mt-1 text-xs text-purple-800 dark:text-purple-300">
+                Annual execution targets have been finalized. Click <strong>Initialize Execution Periods</strong> to subdivide the fiscal years into operational execution cycles (Quarterly, Semi-Annual, or Monthly).
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Period Targets Finalization Needed Banner */}
+      {isMasterPlan && plan.status === "finalized" && executionPeriods.length > 0 && !plan.period_targets_finalized_at && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-4 text-amber-900 dark:text-amber-200 text-xs">
+          <div className="flex items-start gap-3">
+            <Clock className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+            <div>
+              <h4 className="font-semibold text-sm text-amber-900 dark:text-amber-100">
+                Execution Periods Initialized — Set and Finalize Period Targets
+              </h4>
+              <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
+                Execution periods have been generated. Distribute and finalize targets across periods, then click <strong>Finalize Period Targets</strong>.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Start Process Ready Banner */}
+      {isMasterPlan && plan.status === "finalized" && plan.period_targets_finalized_at && !plan.process_started_at && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 p-4 text-emerald-900 dark:text-emerald-200 text-xs">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5 shrink-0" />
+            <div>
+              <h4 className="font-semibold text-sm text-emerald-900 dark:text-emerald-100">
+                Ready to Launch Operational Execution
+              </h4>
+              <p className="mt-1 text-xs text-emerald-800 dark:text-emerald-300">
+                All targets (strategic, annual, and periodic) are finalized. Click <strong>Start Process</strong> to freeze target configuration and open the first execution cycle for achievement reporting.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Operational Execution Active Banner */}
+      {isMasterPlan && plan.process_started_at && plan.status === "active" && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 p-3 text-emerald-900 dark:text-emerald-200 text-xs flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+            <span>
+              <strong>Operational Execution Active:</strong> Assigned officers can submit achievements, and department heads and validators can review and validate reports.
+            </span>
           </div>
         </div>
       )}
@@ -766,16 +902,16 @@ export function RegionalPlanHierarchyView() {
 
             {plan.status === "finalized" && canUpdatePlan && (
               <div className="flex items-center gap-2">
-                {executionPeriods.length === 0 && (
+                {!plan.annual_targets_finalized_at && (
+                  <Button size="sm" onClick={handleFinalizeAnnual} disabled={isFinalizingAnnual} className="gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>Finalize Annual Targets</span>
+                  </Button>
+                )}
+                {plan.annual_targets_finalized_at && executionPeriods.length === 0 && (
                   <Button size="sm" onClick={() => setIsInitPeriodsOpen(true)} className="gap-2 shadow-xs">
                     <Sliders className="h-4 w-4" />
                     <span>Initialize Execution Periods</span>
-                  </Button>
-                )}
-                {!plan.annual_targets_finalized_at && (
-                  <Button size="sm" onClick={handleFinalizeAnnual} disabled={isFinalizingAnnual} className="gap-2 shadow-xs">
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span>Finalize Annual Targets</span>
                   </Button>
                 )}
               </div>

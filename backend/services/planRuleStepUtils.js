@@ -219,7 +219,7 @@ function normalizeRuleSteps(steps) {
     } else if (step.allow_kpi !== undefined) {
       requires_weight = Boolean(step.requires_weight);
       allow_kpi = Boolean(step.allow_kpi);
-    } else if (!hasExplicitTargetConfig && weightStart !== null) {
+    } else if (weightStart !== null && stepOrder >= weightStart) {
       requires_weight = stepOrder >= weightStart;
       allow_kpi = requires_weight;
     } else {
@@ -242,7 +242,7 @@ function normalizeRuleSteps(steps) {
     } else if (step.allow_assignment !== undefined) {
       requires_assignment = Boolean(step.requires_assignment);
       allow_assignment = Boolean(step.allow_assignment);
-    } else if (!hasExplicitAssignmentConfig && assignmentStart !== null) {
+    } else if (assignmentStart !== null && stepOrder >= assignmentStart) {
       requires_assignment = stepOrder >= assignmentStart;
       allow_assignment = requires_assignment;
     } else {

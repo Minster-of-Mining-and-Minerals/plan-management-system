@@ -667,11 +667,11 @@ async function updateRegionalPlanRuleForVersion(versionId, regionId, payload) {
         label: s.label || s.name || `Level ${idx + 1}`,
         target_requirement: s.target_requirement,
         allow_kpi: s.allow_kpi,
-        requires_weight: s.target_requirement === "required" ? true : (s.target_requirement === "optional" || s.target_requirement === "none" ? false : !!s.requires_weight),
+        requires_weight: s.target_requirement === "required" ? true : (s.target_requirement === "optional" || s.target_requirement === "none" ? false : (s.requires_weight !== undefined ? !!s.requires_weight : undefined)),
         requires_contribution_weight: !!s.requires_contribution_weight,
         assignment_requirement: s.assignment_requirement,
         allow_assignment: s.allow_assignment,
-        requires_assignment: s.assignment_requirement === "required" ? true : (s.assignment_requirement === "optional" || s.assignment_requirement === "none" ? false : !!s.requires_assignment),
+        requires_assignment: s.assignment_requirement === "required" ? true : (s.assignment_requirement === "optional" || s.assignment_requirement === "none" ? false : (s.requires_assignment !== undefined ? !!s.requires_assignment : undefined)),
         color_hex: s.color_hex,
       }));
       const normalizedSteps = normalizeRuleSteps(inputSteps);
@@ -868,11 +868,11 @@ async function createRegionalPlanRule(regionId, payload) {
         label: s.label || s.name || `Level ${idx + 1}`,
         target_requirement: s.target_requirement,
         allow_kpi: s.allow_kpi,
-        requires_weight: s.target_requirement === "required" ? true : (s.target_requirement === "optional" || s.target_requirement === "none" ? false : !!s.requires_weight),
+        requires_weight: s.target_requirement === "required" ? true : (s.target_requirement === "optional" || s.target_requirement === "none" ? false : (s.requires_weight !== undefined ? !!s.requires_weight : undefined)),
         requires_contribution_weight: !!s.requires_contribution_weight,
         assignment_requirement: s.assignment_requirement,
         allow_assignment: s.allow_assignment,
-        requires_assignment: s.assignment_requirement === "required" ? true : (s.assignment_requirement === "optional" || s.assignment_requirement === "none" ? false : !!s.requires_assignment),
+        requires_assignment: s.assignment_requirement === "required" ? true : (s.assignment_requirement === "optional" || s.assignment_requirement === "none" ? false : (s.requires_assignment !== undefined ? !!s.requires_assignment : undefined)),
         color_hex: s.color_hex,
       }));
       normalizedSteps = normalizeRuleSteps(inputSteps);
@@ -1049,11 +1049,11 @@ async function updateRegionalPlanRule(ruleId, regionId, payload) {
         label: s.label || s.name || `Level ${idx + 1}`,
         target_requirement: s.target_requirement,
         allow_kpi: s.allow_kpi,
-        requires_weight: s.target_requirement === "required" ? true : (s.target_requirement === "optional" || s.target_requirement === "none" ? false : !!s.requires_weight),
+        requires_weight: s.target_requirement === "required" ? true : (s.target_requirement === "optional" || s.target_requirement === "none" ? false : (s.requires_weight !== undefined ? !!s.requires_weight : undefined)),
         requires_contribution_weight: !!s.requires_contribution_weight,
         assignment_requirement: s.assignment_requirement,
         allow_assignment: s.allow_assignment,
-        requires_assignment: s.assignment_requirement === "required" ? true : (s.assignment_requirement === "optional" || s.assignment_requirement === "none" ? false : !!s.requires_assignment),
+        requires_assignment: s.assignment_requirement === "required" ? true : (s.assignment_requirement === "optional" || s.assignment_requirement === "none" ? false : (s.requires_assignment !== undefined ? !!s.requires_assignment : undefined)),
         color_hex: s.color_hex,
       }));
       const normalizedSteps = normalizeRuleSteps(inputSteps);
@@ -2998,7 +2998,29 @@ async function unlockRegionalAnnualPlan(annualVersionId, regionId) {
 
 async function completeRegionalAnnualPlan(annualVersionId, regionId, userId) {
   const annual = await getRegionalPlanVersionById(annualVersionId, regionId);
-  await annual.update({ status: "completed" });
+  await annual.update({ status: "completed", execution_status: "completed" });
+
+  const nextAnnual = await RegionalPlanVersion.findOne({
+    where: {
+      parent_plan_version_id: annual.parent_plan_version_id,
+      version_kind: "annual",
+      sequence_index: (annual.sequence_index || 0) + 1,
+    },
+  });
+  if (nextAnnual) {
+    await nextAnnual.update({ status: "active", execution_status: "open" });
+    const firstPeriodOfNext = await RegionalPlanVersion.findOne({
+      where: {
+        parent_plan_version_id: nextAnnual.regional_plan_version_id,
+        version_kind: "execution_period",
+      },
+      order: [["sequence_index", "ASC"]],
+    });
+    if (firstPeriodOfNext) {
+      await firstPeriodOfNext.update({ status: "active", execution_status: "open" });
+    }
+  }
+
   return annual;
 }
 
@@ -3042,13 +3064,10 @@ async function initializeRegionalExecutionPeriods(
   userId
 ) {
   const master = await getRegionalPlanVersionById(masterVersionId, regionId);
-  const now = new Date();
   if (!master.annual_targets_finalized_at) {
-    await master.update({ annual_targets_finalized_at: now });
-    await RegionalPlanVersion.update(
-      { annual_targets_finalized_at: now },
-      { where: { parent_plan_version_id: masterVersionId, version_kind: "annual" } }
-    );
+    const error = new Error("Finalize annual execution targets before initializing execution periods.");
+    error.status = 400;
+    throw error;
   }
 
   const config =
@@ -3224,6 +3243,18 @@ async function finalizeRegionalPeriodTargets(masterOrAnnualId, regionId, userId)
 async function completeRegionalExecutionPeriod(periodVersionId, regionId, userId) {
   const period = await getRegionalPlanVersionById(periodVersionId, regionId);
   await period.update({ status: "completed", execution_status: "completed" });
+
+  const nextPeriod = await RegionalPlanVersion.findOne({
+    where: {
+      parent_plan_version_id: period.parent_plan_version_id,
+      version_kind: "execution_period",
+      sequence_index: (period.sequence_index || 0) + 1,
+    },
+  });
+  if (nextPeriod) {
+    await nextPeriod.update({ status: "active", execution_status: "open" });
+  }
+
   return period;
 }
 
@@ -3265,6 +3296,21 @@ async function startRegionalPlanProcess(versionId, regionId, userId) {
     execution_status: "open",
     status: "active",
   });
+
+  const firstAnnual = await RegionalPlanVersion.findOne({
+    where: { parent_plan_version_id: versionId, version_kind: "annual" },
+    order: [["sequence_index", "ASC"]],
+  });
+  if (firstAnnual) {
+    await firstAnnual.update({ status: "active", execution_status: "open" });
+    const firstPeriod = await RegionalPlanVersion.findOne({
+      where: { parent_plan_version_id: firstAnnual.regional_plan_version_id, version_kind: "execution_period" },
+      order: [["sequence_index", "ASC"]],
+    });
+    if (firstPeriod) {
+      await firstPeriod.update({ status: "active", execution_status: "open" });
+    }
+  }
 
   return getRegionalPlanVersionById(versionId, regionId);
 }
