@@ -34,6 +34,7 @@ interface PlanNodePeriodTargetSectionProps {
     variant?: "card" | "compact" | "table";
     className?: string;
     onClick?: (event: React.MouseEvent) => void;
+    onSaveTarget?: (val: number | null) => Promise<void>;
 }
 
 export function PlanNodePeriodTargetSection({
@@ -47,20 +48,24 @@ export function PlanNodePeriodTargetSection({
     variant = "card",
     className,
     onClick,
+    onSaveTarget,
 }: PlanNodePeriodTargetSectionProps) {
     const { can } = usePermissions();
     const { canExecuteOnNode, isReady: scopeReady } = usePlanAchievementScope();
-    const [updatePeriodTarget, { isLoading: isSaving }] = useUpdatePeriodTargetMutation();
+    const [updatePeriodTarget, { isLoading: isSavingMutation }] = useUpdatePeriodTargetMutation();
+    const [isSavingCustom, setIsSavingCustom] = useState(false);
+    const isSaving = isSavingMutation || isSavingCustom;
     const [periodTargetInput, setPeriodTargetInput] = useState("");
 
     const canExecuteAchievement = can(PLAN_LIFECYCLE_PERMISSIONS.EXECUTE_ACHIEVEMENT);
     const isTargetLeaf = canSetPeriodTargetOnNode(node);
-    const canEditTarget =
-        canEdit &&
-        canExecuteAchievement &&
-        isTargetLeaf &&
-        scopeReady &&
-        canExecuteOnNode(node.plan_node_id);
+    const canEditTarget = onSaveTarget
+        ? canEdit && isTargetLeaf
+        : canEdit &&
+          canExecuteAchievement &&
+          isTargetLeaf &&
+          scopeReady &&
+          canExecuteOnNode(node.plan_node_id);
 
     const nodeWeightMode = node.weight_mode;
     const requiresWeight = stepRequiresWeight(rule, node.level);
@@ -120,14 +125,23 @@ export function PlanNodePeriodTargetSection({
                 actionFeedback.error("Period target must be greater than 0");
                 return;
             }
-            await updatePeriodTarget({
-                id: node.plan_node_id,
-                period_target: val,
-            }).unwrap();
+            if (onSaveTarget) {
+                setIsSavingCustom(true);
+                try {
+                    await onSaveTarget(val);
+                } finally {
+                    setIsSavingCustom(false);
+                }
+            } else {
+                await updatePeriodTarget({
+                    id: node.plan_node_id,
+                    period_target: val,
+                }).unwrap();
+            }
             actionFeedback.success("Period target saved");
         } catch (error: unknown) {
-            const err = error as { data?: { message?: string } };
-            actionFeedback.error(err.data?.message || "Failed to save period target");
+            const err = error as { data?: { message?: string }; message?: string };
+            actionFeedback.error(err.data?.message || err.message || "Failed to save period target");
         }
     };
 
@@ -181,7 +195,7 @@ export function PlanNodePeriodTargetSection({
                     </Button>
                 )}
             </div>
-            <PermissionGuard requireAll={PLAN_EXECUTE_ACHIEVEMENT_PERMISSIONS}>
+            {onSaveTarget ? (
                 <Button
                     size={variant === "compact" || variant === "table" ? "sm" : "default"}
                     disabled={isSaving}
@@ -193,7 +207,21 @@ export function PlanNodePeriodTargetSection({
                 >
                     Save
                 </Button>
-            </PermissionGuard>
+            ) : (
+                <PermissionGuard requireAll={PLAN_EXECUTE_ACHIEVEMENT_PERMISSIONS}>
+                    <Button
+                        size={variant === "compact" || variant === "table" ? "sm" : "default"}
+                        disabled={isSaving}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            void handleSave();
+                        }}
+                        className="shrink-0"
+                    >
+                        Save
+                    </Button>
+                </PermissionGuard>
+            )}
         </div>
     ) : null;
 

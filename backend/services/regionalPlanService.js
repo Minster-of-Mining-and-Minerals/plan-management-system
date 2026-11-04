@@ -1477,7 +1477,7 @@ async function cloneRegionalNodes(sourceVersionId, targetVersionId, transaction,
         regional_plan_node_id: newNodeId,
         regional_plan_version_id: targetVersionId,
         parent_id: null,
-        source_regional_plan_node_id: src.source_regional_plan_node_id || src.regional_plan_node_id,
+        source_regional_plan_node_id: src.regional_plan_node_id,
         type: src.type,
         title: src.title,
         description: src.description,
@@ -1536,6 +1536,142 @@ async function cloneRegionalNodes(sourceVersionId, targetVersionId, transaction,
   }
 
   return nodeIdMap;
+}
+
+/**
+ * Reconciles nodes from a source plan version to a target derived version (annual or period).
+ * Preserves existing targets and historical data while syncing updates from parent.
+ */
+async function syncRegionalDerivedNodes(sourceVersionId, targetVersionId, transaction, targetKind = "annual") {
+  const sourceNodes = await RegionalPlanNode.findAll({
+    where: { regional_plan_version_id: sourceVersionId, is_active: true },
+    order: [["level", "ASC"], ["order", "ASC"]],
+    transaction,
+  });
+
+  const targetNodes = await RegionalPlanNode.findAll({
+    where: { regional_plan_version_id: targetVersionId },
+    transaction,
+  });
+
+  const targetBySourceId = new Map();
+  for (const tNode of targetNodes) {
+    if (tNode.source_regional_plan_node_id) {
+      targetBySourceId.set(tNode.source_regional_plan_node_id, tNode);
+    }
+  }
+
+  const sourceToTargetIdMap = new Map();
+
+  for (const src of sourceNodes) {
+    const existingTarget = targetBySourceId.get(src.regional_plan_node_id);
+    const nodeAttrs = {
+      type: src.type,
+      title: src.title,
+      description: src.description,
+      weight: src.weight,
+      weight_mode: src.weight_mode,
+      contribution_weight: src.contribution_weight,
+      target_unit: src.target_unit,
+      target_allocation_mode: src.target_allocation_mode,
+      achievement_mode: src.achievement_mode,
+      level: src.level,
+      order: src.order,
+      is_active: src.is_active,
+      assignment_sharing_mode: src.assignment_sharing_mode,
+      ...(targetKind === "period" ? { annual_target: src.annual_target != null ? src.annual_target : null } : {}),
+    };
+
+    if (existingTarget) {
+      await existingTarget.update(nodeAttrs, { transaction });
+      sourceToTargetIdMap.set(src.regional_plan_node_id, existingTarget.regional_plan_node_id);
+    } else {
+      const newNodeId = uuidv4();
+      await RegionalPlanNode.create(
+        {
+          regional_plan_node_id: newNodeId,
+          regional_plan_version_id: targetVersionId,
+          source_regional_plan_node_id: src.regional_plan_node_id,
+          parent_id: null,
+          annual_target: targetKind === "period" ? (src.annual_target != null ? src.annual_target : null) : null,
+          period_target: null,
+          ...nodeAttrs,
+        },
+        { transaction }
+      );
+      sourceToTargetIdMap.set(src.regional_plan_node_id, newNodeId);
+    }
+  }
+
+  // Update parent pointers
+  for (const src of sourceNodes) {
+    if (src.parent_id && sourceToTargetIdMap.has(src.parent_id)) {
+      const childTargetId = sourceToTargetIdMap.get(src.regional_plan_node_id);
+      const parentTargetId = sourceToTargetIdMap.get(src.parent_id);
+      await RegionalPlanNode.update(
+        { parent_id: parentTargetId },
+        { where: { regional_plan_node_id: childTargetId }, transaction }
+      );
+    }
+  }
+
+  // Handle orphan target nodes
+  const activeSourceIdSet = new Set(sourceNodes.map((n) => n.regional_plan_node_id));
+  for (const tNode of targetNodes) {
+    if (tNode.source_regional_plan_node_id && !activeSourceIdSet.has(tNode.source_regional_plan_node_id)) {
+      const hasAchievements =
+        (tNode.period_actual != null && tNode.period_actual > 0) ||
+        (tNode.annual_actual != null && tNode.annual_actual > 0) ||
+        (tNode.period_actual_status && tNode.period_actual_status !== "empty") ||
+        (tNode.annual_actual_status && tNode.annual_actual_status !== "empty");
+
+      if (!hasAchievements) {
+        await RegionalInternalAssignment.destroy({
+          where: { regional_plan_node_id: tNode.regional_plan_node_id },
+          transaction,
+        });
+        await tNode.destroy({ transaction });
+      } else {
+        await tNode.update({ is_active: false }, { transaction });
+      }
+    }
+  }
+
+  // Sync internal assignments
+  const sourceAssignments = await RegionalInternalAssignment.findAll({
+    where: {
+      regional_plan_node_id: sourceNodes.map((n) => n.regional_plan_node_id),
+      is_active: true,
+    },
+    transaction,
+  });
+
+  for (const assign of sourceAssignments) {
+    const targetNodeId = sourceToTargetIdMap.get(assign.regional_plan_node_id);
+    if (!targetNodeId) continue;
+
+    const existingAssign = await RegionalInternalAssignment.findOne({
+      where: {
+        regional_plan_node_id: targetNodeId,
+        regional_structure_id: assign.regional_structure_id,
+        assigned_user_id: assign.assigned_user_id || null,
+      },
+      transaction,
+    });
+
+    if (!existingAssign) {
+      await RegionalInternalAssignment.create(
+        {
+          regional_internal_assignment_id: uuidv4(),
+          regional_plan_node_id: targetNodeId,
+          regional_structure_id: assign.regional_structure_id,
+          assigned_user_id: assign.assigned_user_id,
+          is_active: true,
+        },
+        { transaction }
+      );
+    }
+  }
 }
 
 async function duplicateRegionalPlanDraft(sourceVersionId, regionId, payload, userId) {
@@ -2811,6 +2947,11 @@ async function getRegionalDraftFinalizationReadiness(versionId, regionId) {
 }
 
 async function finalizeRegionalPlanDraft(versionId, regionId, userId) {
+  const existing = await getRegionalPlanVersionById(versionId, regionId);
+  if (existing.status === "finalized") {
+    return existing;
+  }
+
   const readiness = await getRegionalDraftFinalizationReadiness(versionId, regionId);
   if (!readiness.ready) {
     const error = new Error(`Cannot finalize draft: ${readiness.errors.join("; ")}`);
@@ -2818,9 +2959,18 @@ async function finalizeRegionalPlanDraft(versionId, regionId, userId) {
     throw error;
   }
 
-  const version = await getRegionalPlanVersionById(versionId, regionId);
   const t = await sequelize.transaction();
   try {
+    const version = await RegionalPlanVersion.findByPk(versionId, {
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    if (!version || version.region_id !== regionId) {
+      const err = new Error("Plan version not found");
+      err.status = 404;
+      throw err;
+    }
+
     const now = new Date();
     await version.update(
       {
@@ -2830,44 +2980,115 @@ async function finalizeRegionalPlanDraft(versionId, regionId, userId) {
       { transaction: t }
     );
 
-    // Auto-generate Annual Versions for each planning year
+    // Reconcile Annual Versions for each planning year
     const duration = version.planning_duration_years;
-    const annualVersions = [];
+    const existingAnnuals = await RegionalPlanVersion.findAll({
+      where: {
+        parent_plan_version_id: version.regional_plan_version_id,
+        version_kind: "annual",
+        region_id: regionId,
+      },
+      order: [["sequence_index", "ASC"]],
+      transaction: t,
+    });
+
+    const annualBySequence = new Map();
+    for (const ann of existingAnnuals) {
+      annualBySequence.set(ann.sequence_index, ann);
+    }
+
+    const targetAnnualVersions = [];
 
     for (let i = 0; i < duration; i++) {
       const year = version.start_year + i;
       const sequence = i + 1;
+      const existing = annualBySequence.get(sequence);
 
-      const annualVersion = await RegionalPlanVersion.create(
-        {
-          regional_plan_version_id: uuidv4(),
-          region_id: regionId,
-          parent_plan_version_id: version.regional_plan_version_id,
-          regional_plan_rule_id: version.regional_plan_rule_id,
-          regional_planning_config_id: version.regional_planning_config_id,
-          draft_name: `${version.draft_name} — Year ${sequence} (${year})`,
-          version_kind: "annual",
-          status: "draft",
-          version_number: sequence,
-          planning_year: year,
-          sequence_index: sequence,
-          start_year: year,
-          end_year: year,
-          start_month: version.start_month,
-          end_month: version.end_month,
-          planning_duration_years: 1,
-          is_locked: false,
-        },
-        { transaction: t }
-      );
+      if (existing) {
+        await existing.update(
+          {
+            draft_name: `${version.draft_name} — Year ${sequence} (${year})`,
+            planning_year: year,
+            start_year: year,
+            end_year: year,
+            start_month: version.start_month,
+            end_month: version.end_month,
+            planning_duration_years: 1,
+            regional_plan_rule_id: version.regional_plan_rule_id,
+            regional_planning_config_id: version.regional_planning_config_id,
+          },
+          { transaction: t }
+        );
 
-      // Clone nodes from master to annual version
-      await cloneRegionalNodes(version.regional_plan_version_id, annualVersion.regional_plan_version_id, t, {
-        preserveAnnualTargets: false,
-        preservePeriodTargets: false,
-      });
+        await syncRegionalDerivedNodes(version.regional_plan_version_id, existing.regional_plan_version_id, t, "annual");
+        targetAnnualVersions.push(existing);
+      } else {
+        const newAnnualId = uuidv4();
+        const annualVersion = await RegionalPlanVersion.create(
+          {
+            regional_plan_version_id: newAnnualId,
+            region_id: regionId,
+            parent_plan_version_id: version.regional_plan_version_id,
+            regional_plan_rule_id: version.regional_plan_rule_id,
+            regional_planning_config_id: version.regional_planning_config_id,
+            draft_name: `${version.draft_name} — Year ${sequence} (${year})`,
+            version_kind: "annual",
+            status: "draft",
+            version_number: sequence,
+            planning_year: year,
+            sequence_index: sequence,
+            start_year: year,
+            end_year: year,
+            start_month: version.start_month,
+            end_month: version.end_month,
+            planning_duration_years: 1,
+            is_locked: false,
+          },
+          { transaction: t }
+        );
 
-      annualVersions.push(annualVersion);
+        await cloneRegionalNodes(version.regional_plan_version_id, annualVersion.regional_plan_version_id, t, {
+          preserveAnnualTargets: false,
+          preservePeriodTargets: false,
+        });
+
+        targetAnnualVersions.push(annualVersion);
+      }
+    }
+
+    // Handle obsolete annual versions (e.g. sequence > duration when duration was reduced from 5 to 3)
+    for (const ann of existingAnnuals) {
+      if (ann.sequence_index > duration) {
+        const achievementCount = await RegionalPlanNode.count({
+          where: {
+            regional_plan_version_id: ann.regional_plan_version_id,
+            [Op.or]: [
+              { period_actual: { [Op.ne]: null } },
+              { annual_actual: { [Op.ne]: null } },
+              { period_actual_status: { [Op.ne]: "empty" } },
+              { annual_actual_status: { [Op.ne]: "empty" } },
+            ],
+          },
+          transaction: t,
+        });
+
+        if (achievementCount === 0 && ann.status !== "completed") {
+          await RegionalPlanVersion.destroy({
+            where: { parent_plan_version_id: ann.regional_plan_version_id, version_kind: "execution_period" },
+            transaction: t,
+          });
+          await RegionalPlanNode.destroy({
+            where: { regional_plan_version_id: ann.regional_plan_version_id },
+            transaction: t,
+          });
+          await ann.destroy({ transaction: t });
+        } else {
+          await ann.update(
+            { status: "archived", execution_status: "locked", is_locked: true },
+            { transaction: t }
+          );
+        }
+      }
     }
 
     await t.commit();
@@ -2884,9 +3105,15 @@ async function reopenRegionalPlanDraftForEdit(versionId, regionId, userId) {
     throw new Error("Only finalized master drafts can be reopened for edit");
   }
 
+  if (version.process_started_at) {
+    throw new Error("Cannot reopen plan draft after operational execution has started.");
+  }
+
   await version.update({
     status: "draft",
     finalized_at: null,
+    annual_targets_finalized_at: null,
+    period_targets_finalized_at: null,
   });
 
   return getRegionalPlanVersionById(versionId, regionId);
@@ -2915,41 +3142,165 @@ async function getRegionalAnnualTargetAllocations(annualVersionId, regionId) {
   }
 
   const masterVersionId = annualVersion.parent_plan_version_id;
-  const [masterNodes, annualNodes] = await Promise.all([
-    RegionalPlanNode.findAll({ where: { regional_plan_version_id: masterVersionId, is_active: true } }),
+  const allAnnuals = await RegionalPlanVersion.findAll({
+    where: { parent_plan_version_id: masterVersionId, version_kind: "annual", region_id: regionId },
+    attributes: ["regional_plan_version_id"],
+  });
+  const allAnnualIds = allAnnuals.map((a) => a.regional_plan_version_id);
+
+  const [nodesInThisVersion, allAnnualNodes, masterNodes] = await Promise.all([
     RegionalPlanNode.findAll({ where: { regional_plan_version_id: annualVersionId, is_active: true } }),
+    RegionalPlanNode.findAll({ where: { regional_plan_version_id: allAnnualIds, is_active: true } }),
+    RegionalPlanNode.findAll({ where: { regional_plan_version_id: masterVersionId, is_active: true } }),
   ]);
 
   const masterMap = new Map(masterNodes.map((n) => [n.regional_plan_node_id, n]));
 
-  return annualNodes.map((node) => {
+  const siblingsBySourceId = new Map();
+  for (const aNode of allAnnualNodes) {
+    const srcId = aNode.source_regional_plan_node_id;
+    if (!srcId) continue;
+    if (!siblingsBySourceId.has(srcId)) siblingsBySourceId.set(srcId, []);
+    siblingsBySourceId.get(srcId).push(aNode);
+  }
+
+  const allocations = [];
+
+  for (const node of nodesInThisVersion) {
+    if (!node.source_regional_plan_node_id) continue;
     const masterNode = masterMap.get(node.source_regional_plan_node_id);
     const draftTarget = masterNode ? Number(masterNode.weight) || 0 : 0;
-    const currentTarget = Number(node.annual_target) || 0;
+    if (draftTarget <= 0) continue;
 
-    return {
+    const siblings = siblingsBySourceId.get(node.source_regional_plan_node_id) || [];
+    let allocatedOtherYears = 0;
+    let currentYearValue = 0;
+
+    for (const sib of siblings) {
+      const val = Number(sib.annual_target) || 0;
+      if (sib.regional_plan_node_id === node.regional_plan_node_id) {
+        currentYearValue = val;
+      } else {
+        allocatedOtherYears += val;
+      }
+    }
+
+    const allocatedTotal = allocatedOtherYears + currentYearValue;
+
+    allocations.push({
+      plan_node_id: node.regional_plan_node_id,
       regional_plan_node_id: node.regional_plan_node_id,
+      source_plan_node_id: node.source_regional_plan_node_id,
       source_regional_plan_node_id: node.source_regional_plan_node_id,
-      title: node.title,
-      level: node.level,
       draft_target: draftTarget,
-      annual_target: currentTarget,
-      remaining: Math.max(0, draftTarget - currentTarget),
-    };
-  });
+      allocated_other_years: allocatedOtherYears,
+      current_year_value: currentYearValue,
+      allocated_total: allocatedTotal,
+      remaining_for_this_year: Math.max(0, draftTarget - allocatedOtherYears),
+      remaining_overall: Math.max(0, draftTarget - allocatedTotal),
+    });
+  }
+
+  return allocations;
 }
 
 async function updateRegionalAnnualTarget(nodeId, regionId, annualTarget, userId) {
-  const node = await getRegionalPlanNodeById(nodeId, regionId);
-  const version = await getRegionalPlanVersionById(node.regional_plan_version_id, regionId);
-  if (version && version.planRule && !stepAllowsTarget(version.planRule, node.level)) {
-    const error = new Error(`${getStepLabel(version.planRule, node.level)} does not have a target field and cannot have an annual target.`);
-    error.status = 400;
-    throw error;
+  const t = await sequelize.transaction();
+  try {
+    const node = await RegionalPlanNode.findByPk(nodeId, { transaction: t });
+    if (!node) {
+      const err = new Error("Plan node not found");
+      err.status = 404;
+      throw err;
+    }
+
+    const version = await RegionalPlanVersion.findByPk(node.regional_plan_version_id, { transaction: t });
+    if (!version || version.region_id !== regionId) {
+      const err = new Error("Version not found or inaccessible");
+      err.status = 404;
+      throw err;
+    }
+
+    if (version.version_kind !== "annual") {
+      const err = new Error("Annual targets can only be set on annual plan versions");
+      err.status = 400;
+      throw err;
+    }
+
+    const master = await RegionalPlanVersion.findByPk(version.parent_plan_version_id, { transaction: t });
+    if (master?.annual_targets_finalized_at || version.annual_targets_finalized_at) {
+      const err = new Error("Annual targets are finalized — edit targets before finalizing annual execution");
+      err.status = 400;
+      throw err;
+    }
+
+    if (!node.source_regional_plan_node_id) {
+      const err = new Error("Node is not linked to a master draft node");
+      err.status = 400;
+      throw err;
+    }
+
+    if (annualTarget !== null && annualTarget !== undefined && annualTarget !== "") {
+      const val = Number(annualTarget);
+      if (Number.isNaN(val) || val <= 0) {
+        const err = new Error("Annual target must be greater than 0");
+        err.status = 400;
+        throw err;
+      }
+
+      const masterNode = await RegionalPlanNode.findByPk(node.source_regional_plan_node_id, { transaction: t });
+      if (!masterNode) {
+        const err = new Error("Source master node not found");
+        err.status = 404;
+        throw err;
+      }
+
+      const draftTarget = Number(masterNode.weight) || 0;
+      if (draftTarget <= 0) {
+        const err = new Error("This node has no draft target to allocate against");
+        err.status = 400;
+        throw err;
+      }
+
+      // Check sum across sibling annual versions
+      const siblingNodes = await RegionalPlanNode.findAll({
+        where: { source_regional_plan_node_id: node.source_regional_plan_node_id },
+        transaction: t,
+      });
+
+      let allocatedOther = 0;
+      for (const sib of siblingNodes) {
+        if (sib.regional_plan_node_id === node.regional_plan_node_id) continue;
+        allocatedOther += Number(sib.annual_target) || 0;
+      }
+
+      if (allocatedOther + val > draftTarget + 0.001) {
+        const err = new Error(`Total annual targets (${allocatedOther + val}) cannot exceed draft target (${draftTarget})`);
+        err.status = 400;
+        throw err;
+      }
+
+      await node.update({ annual_target: val }, { transaction: t });
+
+      // Propagate to derived period nodes if periods already exist
+      await RegionalPlanNode.update(
+        { annual_target: val },
+        { where: { source_regional_plan_node_id: node.regional_plan_node_id }, transaction: t }
+      );
+    } else {
+      await node.update({ annual_target: null }, { transaction: t });
+      await RegionalPlanNode.update(
+        { annual_target: null },
+        { where: { source_regional_plan_node_id: node.regional_plan_node_id }, transaction: t }
+      );
+    }
+
+    await t.commit();
+    return node;
+  } catch (err) {
+    await t.rollback();
+    throw err;
   }
-  node.annual_target = Number(annualTarget);
-  await node.save();
-  return node;
 }
 
 async function getRegionalAnnualExecutionReadiness(masterVersionId, regionId) {
@@ -2957,31 +3308,109 @@ async function getRegionalAnnualExecutionReadiness(masterVersionId, regionId) {
   const errors = [];
 
   if (master.status !== "finalized") {
-    errors.push("Master plan must be finalized first.");
+    errors.push("Master plan draft must be finalized before annual execution can be finalized");
+  }
+
+  if (master.annual_targets_finalized_at) {
+    errors.push("Annual execution targets have already been finalized");
   }
 
   const annuals = await listRegionalAnnualVersions(masterVersionId, regionId);
   if (annuals.length === 0) {
-    errors.push("No annual plans generated.");
+    errors.push("No annual execution versions exist");
+    return { ready: false, errors, master, annualVersions: [] };
+  }
+
+  const masterNodes = await RegionalPlanNode.findAll({
+    where: { regional_plan_version_id: masterVersionId, is_active: true },
+  });
+
+  const rule = master.planRule || (await RegionalPlanRule.findByPk(master.regional_plan_rule_id));
+
+  for (const mNode of masterNodes) {
+    if (rule && !stepRequiresWeight(rule, mNode.level)) {
+      continue;
+    }
+
+    const draftTarget = Number(mNode.weight) || 0;
+    if (draftTarget <= 0) continue;
+
+    let allocatedSum = 0;
+
+    for (const ann of annuals) {
+      const aNode = await RegionalPlanNode.findOne({
+        where: {
+          regional_plan_version_id: ann.regional_plan_version_id,
+          source_regional_plan_node_id: mNode.regional_plan_node_id,
+          is_active: true,
+        },
+      });
+
+      if (!aNode) {
+        errors.push(`Missing annual node for "${mNode.title}" in year ${ann.planning_year}`);
+        continue;
+      }
+
+      const annualTarget = Number(aNode.annual_target);
+      if (aNode.annual_target == null || Number.isNaN(annualTarget)) {
+        errors.push(`Annual target is not set for "${mNode.title}" in year ${ann.planning_year}`);
+        continue;
+      }
+
+      if (annualTarget <= 0) {
+        errors.push(`Annual target for "${mNode.title}" in year ${ann.planning_year} must be greater than 0`);
+        continue;
+      }
+
+      allocatedSum += annualTarget;
+    }
+
+    if (Math.abs(allocatedSum - draftTarget) > 0.001) {
+      errors.push(
+        `Total annual targets for "${mNode.title}" (${allocatedSum}) must equal the draft target (${draftTarget})`
+      );
+    }
   }
 
   return {
     ready: errors.length === 0,
     errors,
+    master,
+    annualVersions: annuals,
+    planning_years: annuals.map((a) => a.planning_year),
   };
 }
 
 async function finalizeRegionalAnnualExecution(masterVersionId, regionId, userId) {
-  const master = await getRegionalPlanVersionById(masterVersionId, regionId);
-  const now = new Date();
+  const readiness = await getRegionalAnnualExecutionReadiness(masterVersionId, regionId);
+  if (!readiness.ready) {
+    const err = new Error(`Cannot finalize annual execution: ${readiness.errors.join("; ")}`);
+    err.status = 400;
+    throw err;
+  }
 
-  await master.update({ annual_targets_finalized_at: now });
-  await RegionalPlanVersion.update(
-    { annual_targets_finalized_at: now },
-    { where: { parent_plan_version_id: masterVersionId, version_kind: "annual" } }
-  );
+  const t = await sequelize.transaction();
+  try {
+    const now = new Date();
+    await RegionalPlanVersion.update(
+      { annual_targets_finalized_at: now },
+      {
+        where: {
+          [Op.or]: [
+            { regional_plan_version_id: masterVersionId },
+            { parent_plan_version_id: masterVersionId, version_kind: "annual" },
+          ],
+        },
+        transaction: t,
+      }
+    );
 
-  return getRegionalPlanVersionById(masterVersionId, regionId);
+    await t.commit();
+    return getRegionalPlanVersionById(masterVersionId, regionId);
+  } catch (err) {
+    await t.rollback();
+    throw err;
+  }
 }
 
 async function lockRegionalAnnualPlan(annualVersionId, regionId) {
@@ -3042,7 +3471,6 @@ async function listRegionalExecutionPeriods(annualOrMasterVersionId, regionId) {
     });
   }
 
-  // If master, list all periods for all annual versions
   const annuals = await listRegionalAnnualVersions(annualOrMasterVersionId, regionId);
   const annualIds = annuals.map((a) => a.regional_plan_version_id);
 
@@ -3108,50 +3536,95 @@ async function initializeRegionalExecutionPeriods(
   const t = await sequelize.transaction();
   try {
     for (const annual of annuals) {
-      // Clean up previous unfinalized periods if any
-      await RegionalPlanVersion.destroy({
+      const existingPeriods = await RegionalPlanVersion.findAll({
         where: { parent_plan_version_id: annual.regional_plan_version_id, version_kind: "execution_period" },
+        order: [["sequence_index", "ASC"]],
         transaction: t,
       });
+
+      const periodBySequence = new Map();
+      for (const p of existingPeriods) {
+        periodBySequence.set(p.sequence_index, p);
+      }
 
       for (let i = 0; i < periodLabels.length; i++) {
         const sequence = i + 1;
         const label = periodLabels[i];
+        const existing = periodBySequence.get(sequence);
 
-        const periodVersion = await RegionalPlanVersion.create(
-          {
-            regional_plan_version_id: uuidv4(),
-            region_id: regionId,
-            parent_plan_version_id: annual.regional_plan_version_id,
-            regional_plan_rule_id: master.regional_plan_rule_id,
-            regional_planning_config_id: master.regional_planning_config_id,
-            draft_name: `${annual.draft_name} — ${label}`,
-            version_kind: "execution_period",
-            status: "draft",
-            version_number: 100 + sequence,
-            planning_year: annual.planning_year,
-            sequence_index: sequence,
-            period_label: label,
-            period_subdivision_mode: subdivisionMode,
-            start_year: annual.start_year,
-            end_year: annual.end_year,
-            planning_duration_years: 1,
-            is_locked: false,
-          },
-          { transaction: t }
-        );
+        if (existing) {
+          await existing.update(
+            {
+              period_label: label,
+              draft_name: `${annual.draft_name} — ${label}`,
+              planning_year: annual.planning_year,
+              start_year: annual.start_year,
+              end_year: annual.end_year,
+              period_subdivision_mode: effectiveMode,
+            },
+            { transaction: t }
+          );
 
-        // Clone nodes from annual to period
-        await cloneRegionalNodes(annual.regional_plan_version_id, periodVersion.regional_plan_version_id, t, {
-          preserveAnnualTargets: true,
-          preservePeriodTargets: false,
-        });
+          await syncRegionalDerivedNodes(annual.regional_plan_version_id, existing.regional_plan_version_id, t, "period");
+        } else {
+          const periodVersionId = uuidv4();
+          const periodVersion = await RegionalPlanVersion.create(
+            {
+              regional_plan_version_id: periodVersionId,
+              region_id: regionId,
+              parent_plan_version_id: annual.regional_plan_version_id,
+              regional_plan_rule_id: master.regional_plan_rule_id,
+              regional_planning_config_id: master.regional_planning_config_id,
+              draft_name: `${annual.draft_name} — ${label}`,
+              version_kind: "execution_period",
+              status: "draft",
+              version_number: 100 + sequence,
+              planning_year: annual.planning_year,
+              sequence_index: sequence,
+              period_label: label,
+              period_subdivision_mode: effectiveMode,
+              start_year: annual.start_year,
+              end_year: annual.end_year,
+              planning_duration_years: 1,
+              is_locked: false,
+            },
+            { transaction: t }
+          );
+
+          await cloneRegionalNodes(annual.regional_plan_version_id, periodVersion.regional_plan_version_id, t, {
+            preserveAnnualTargets: true,
+            preservePeriodTargets: false,
+          });
+        }
       }
 
-      await annual.update({ period_subdivision_mode: subdivisionMode }, { transaction: t });
+      // Handle obsolete periods
+      for (const p of existingPeriods) {
+        if (p.sequence_index > periodLabels.length) {
+          const hasAchievements = await RegionalPlanNode.count({
+            where: {
+              regional_plan_version_id: p.regional_plan_version_id,
+              [Op.or]: [
+                { period_actual: { [Op.ne]: null } },
+                { period_actual_status: { [Op.ne]: "empty" } },
+              ],
+            },
+            transaction: t,
+          });
+
+          if (hasAchievements === 0 && p.status !== "completed") {
+            await RegionalPlanNode.destroy({ where: { regional_plan_version_id: p.regional_plan_version_id }, transaction: t });
+            await p.destroy({ transaction: t });
+          } else {
+            await p.update({ status: "archived", execution_status: "locked", is_locked: true }, { transaction: t });
+          }
+        }
+      }
+
+      await annual.update({ period_subdivision_mode: effectiveMode }, { transaction: t });
     }
 
-    await master.update({ period_subdivision_mode: subdivisionMode }, { transaction: t });
+    await master.update({ period_subdivision_mode: effectiveMode }, { transaction: t });
 
     await t.commit();
     return listRegionalExecutionPeriods(masterVersionId, regionId);
@@ -3163,54 +3636,230 @@ async function initializeRegionalExecutionPeriods(
 
 async function getRegionalPeriodTargetAllocations(periodVersionId, regionId) {
   const period = await getRegionalPlanVersionById(periodVersionId, regionId);
-  const annualId = period.parent_plan_version_id;
+  if (period.version_kind !== "execution_period") {
+    return [];
+  }
 
-  const [annualNodes, periodNodes] = await Promise.all([
+  const annualId = period.parent_plan_version_id;
+  const allPeriods = await RegionalPlanVersion.findAll({
+    where: { parent_plan_version_id: annualId, version_kind: "execution_period" },
+    attributes: ["regional_plan_version_id"],
+  });
+  const allPeriodIds = allPeriods.map((p) => p.regional_plan_version_id);
+
+  const [annualNodes, periodNodesInThis, allPeriodNodes] = await Promise.all([
     RegionalPlanNode.findAll({ where: { regional_plan_version_id: annualId, is_active: true } }),
     RegionalPlanNode.findAll({ where: { regional_plan_version_id: periodVersionId, is_active: true } }),
+    RegionalPlanNode.findAll({ where: { regional_plan_version_id: allPeriodIds, is_active: true } }),
   ]);
 
   const annualMap = new Map(annualNodes.map((n) => [n.regional_plan_node_id, n]));
 
-  return periodNodes.map((node) => {
+  const siblingsBySourceId = new Map();
+  for (const pNode of allPeriodNodes) {
+    const srcId = pNode.source_regional_plan_node_id;
+    if (!srcId) continue;
+    if (!siblingsBySourceId.has(srcId)) siblingsBySourceId.set(srcId, []);
+    siblingsBySourceId.get(srcId).push(pNode);
+  }
+
+  const allocations = [];
+
+  for (const node of periodNodesInThis) {
+    if (!node.source_regional_plan_node_id) continue;
     const annualNode = annualMap.get(node.source_regional_plan_node_id);
     const annualTarget = annualNode ? Number(annualNode.annual_target) || 0 : 0;
-    const currentTarget = Number(node.period_target) || 0;
+    if (annualTarget <= 0) continue;
 
-    return {
+    const siblings = siblingsBySourceId.get(node.source_regional_plan_node_id) || [];
+    let allocatedOtherPeriods = 0;
+    let currentPeriodValue = 0;
+
+    for (const sib of siblings) {
+      const val = Number(sib.period_target) || 0;
+      if (sib.regional_plan_node_id === node.regional_plan_node_id) {
+        currentPeriodValue = val;
+      } else {
+        allocatedOtherPeriods += val;
+      }
+    }
+
+    const allocatedTotal = allocatedOtherPeriods + currentPeriodValue;
+
+    allocations.push({
+      plan_node_id: node.regional_plan_node_id,
       regional_plan_node_id: node.regional_plan_node_id,
+      source_plan_node_id: node.source_regional_plan_node_id,
       source_regional_plan_node_id: node.source_regional_plan_node_id,
-      title: node.title,
-      level: node.level,
       annual_target: annualTarget,
-      period_target: currentTarget,
+      allocated_other_periods: allocatedOtherPeriods,
+      current_period_value: currentPeriodValue,
+      allocated_total: allocatedTotal,
+      remaining_for_this_period: Math.max(0, annualTarget - allocatedOtherPeriods),
+      remaining_overall: Math.max(0, annualTarget - allocatedTotal),
       period_actual: node.period_actual,
       period_actual_status: node.period_actual_status,
-      remaining: Math.max(0, annualTarget - currentTarget),
-    };
-  });
+    });
+  }
+
+  return allocations;
 }
 
 async function updateRegionalPeriodTarget(nodeId, regionId, periodTarget, userId) {
-  const node = await getRegionalPlanNodeById(nodeId, regionId);
-  const version = await getRegionalPlanVersionById(node.regional_plan_version_id, regionId);
-  if (version && version.planRule && !stepAllowsTarget(version.planRule, node.level)) {
-    const error = new Error(`${getStepLabel(version.planRule, node.level)} does not have a target field and cannot have a period target.`);
-    error.status = 400;
-    throw error;
+  const t = await sequelize.transaction();
+  try {
+    const node = await RegionalPlanNode.findByPk(nodeId, { transaction: t });
+    if (!node) {
+      const err = new Error("Plan node not found");
+      err.status = 404;
+      throw err;
+    }
+
+    const version = await RegionalPlanVersion.findByPk(node.regional_plan_version_id, { transaction: t });
+    if (!version || version.region_id !== regionId || version.version_kind !== "execution_period") {
+      const err = new Error("Version not found or not an execution period");
+      err.status = 400;
+      throw err;
+    }
+
+    const annualVersion = await RegionalPlanVersion.findByPk(version.parent_plan_version_id, { transaction: t });
+    if (annualVersion?.period_targets_finalized_at || version.period_targets_finalized_at) {
+      const err = new Error("Period targets are finalized for this annual year and cannot be changed");
+      err.status = 400;
+      throw err;
+    }
+
+    if (!node.source_regional_plan_node_id) {
+      const err = new Error("Node is not linked to an annual plan node");
+      err.status = 400;
+      throw err;
+    }
+
+    if (periodTarget !== null && periodTarget !== undefined && periodTarget !== "") {
+      const val = Number(periodTarget);
+      if (Number.isNaN(val) || val <= 0) {
+        const err = new Error("Period target must be greater than 0");
+        err.status = 400;
+        throw err;
+      }
+
+      const annualNode = await RegionalPlanNode.findByPk(node.source_regional_plan_node_id, { transaction: t });
+      if (!annualNode) {
+        const err = new Error("Source annual node not found");
+        err.status = 404;
+        throw err;
+      }
+
+      const annualTarget = Number(annualNode.annual_target) || 0;
+      if (annualTarget <= 0) {
+        const err = new Error("This node has no annual target to allocate against");
+        err.status = 400;
+        throw err;
+      }
+
+      // Check sum across sibling periods
+      const siblingNodes = await RegionalPlanNode.findAll({
+        where: { source_regional_plan_node_id: node.source_regional_plan_node_id },
+        transaction: t,
+      });
+
+      let allocatedOther = 0;
+      for (const sib of siblingNodes) {
+        if (sib.regional_plan_node_id === node.regional_plan_node_id) continue;
+        allocatedOther += Number(sib.period_target) || 0;
+      }
+
+      if (allocatedOther + val > annualTarget + 0.001) {
+        const err = new Error(`Total period targets (${allocatedOther + val}) cannot exceed annual target (${annualTarget})`);
+        err.status = 400;
+        throw err;
+      }
+
+      await node.update({ period_target: val }, { transaction: t });
+    } else {
+      await node.update({ period_target: null }, { transaction: t });
+    }
+
+    await t.commit();
+    return node;
+  } catch (err) {
+    await t.rollback();
+    throw err;
   }
-  node.period_target = Number(periodTarget);
-  await node.save();
-  return node;
 }
 
 async function getRegionalPeriodFinalizationReadiness(masterOrAnnualId, regionId) {
   const version = await getRegionalPlanVersionById(masterOrAnnualId, regionId);
-  const periods = await listRegionalExecutionPeriods(masterOrAnnualId, regionId);
   const errors = [];
 
-  if (periods.length === 0) {
-    errors.push("No execution periods initialized.");
+  let annuals = [];
+  if (version.version_kind === "master") {
+    annuals = await listRegionalAnnualVersions(masterOrAnnualId, regionId);
+  } else if (version.version_kind === "annual") {
+    annuals = [version];
+  } else {
+    const parent = await RegionalPlanVersion.findByPk(version.parent_plan_version_id);
+    annuals = parent ? [parent] : [];
+  }
+
+  if (annuals.length === 0) {
+    errors.push("No annual versions found to validate period targets.");
+    return { ready: false, errors };
+  }
+
+  for (const annual of annuals) {
+    const periods = await RegionalPlanVersion.findAll({
+      where: { parent_plan_version_id: annual.regional_plan_version_id, version_kind: "execution_period" },
+      order: [["sequence_index", "ASC"]],
+    });
+
+    if (periods.length === 0) {
+      errors.push(`No execution periods exist for Year ${annual.planning_year}`);
+      continue;
+    }
+
+    const annualNodes = await RegionalPlanNode.findAll({
+      where: { regional_plan_version_id: annual.regional_plan_version_id, is_active: true },
+    });
+
+    const rule = annual.planRule || (await RegionalPlanRule.findByPk(annual.regional_plan_rule_id));
+
+    for (const aNode of annualNodes) {
+      if (rule && !stepRequiresWeight(rule, aNode.level)) continue;
+      const annualTarget = Number(aNode.annual_target) || 0;
+      if (annualTarget <= 0) continue;
+
+      // Leaf check: validate period targets on leaves
+      const weightedChildren = annualNodes.filter(
+        (c) => c.parent_id === aNode.regional_plan_node_id && c.is_active && (!rule || stepRequiresWeight(rule, c.level))
+      );
+      if (weightedChildren.length > 0) continue;
+
+      let allocatedSum = 0;
+      for (const p of periods) {
+        const pNode = await RegionalPlanNode.findOne({
+          where: {
+            regional_plan_version_id: p.regional_plan_version_id,
+            source_regional_plan_node_id: aNode.regional_plan_node_id,
+            is_active: true,
+          },
+        });
+
+        if (!pNode) {
+          errors.push(`Missing period node for "${aNode.title}" in ${p.period_label || `Period ${p.sequence_index}`}`);
+          continue;
+        }
+
+        const pTarget = Number(pNode.period_target) || 0;
+        allocatedSum += pTarget;
+      }
+
+      if (Math.abs(allocatedSum - annualTarget) > 0.001) {
+        errors.push(
+          `Total period targets for "${aNode.title}" (${allocatedSum}) must equal the annual target (${annualTarget}) in Year ${annual.planning_year}`
+        );
+      }
+    }
   }
 
   return {
@@ -3220,24 +3869,55 @@ async function getRegionalPeriodFinalizationReadiness(masterOrAnnualId, regionId
 }
 
 async function finalizeRegionalPeriodTargets(masterOrAnnualId, regionId, userId) {
-  const now = new Date();
+  const readiness = await getRegionalPeriodFinalizationReadiness(masterOrAnnualId, regionId);
+  if (!readiness.ready) {
+    const err = new Error(`Cannot finalize period targets: ${readiness.errors.join("; ")}`);
+    err.status = 400;
+    throw err;
+  }
+
   const version = await getRegionalPlanVersionById(masterOrAnnualId, regionId);
-
-  const masterId = version.version_kind === "master" ? version.regional_plan_version_id : version.parent_plan_version_id;
-
-  await RegionalPlanVersion.update(
-    { period_targets_finalized_at: now },
-    {
-      where: {
-        [Op.or]: [
-          { regional_plan_version_id: masterId },
-          { parent_plan_version_id: masterId },
-        ],
-      },
+  const now = new Date();
+  const t = await sequelize.transaction();
+  try {
+    if (version.version_kind === "master") {
+      await RegionalPlanVersion.update(
+        { period_targets_finalized_at: now },
+        {
+          where: {
+            [Op.or]: [
+              { regional_plan_version_id: masterOrAnnualId },
+              { parent_plan_version_id: masterOrAnnualId, version_kind: "annual" },
+            ],
+          },
+          transaction: t,
+        }
+      );
+    } else {
+      await version.update({ period_targets_finalized_at: now }, { transaction: t });
+      if (version.parent_plan_version_id) {
+        const allAnnuals = await RegionalPlanVersion.findAll({
+          where: { parent_plan_version_id: version.parent_plan_version_id, version_kind: "annual" },
+          transaction: t,
+        });
+        const allFinalized = allAnnuals.every(
+          (a) => a.regional_plan_version_id === version.regional_plan_version_id || Boolean(a.period_targets_finalized_at)
+        );
+        if (allFinalized) {
+          await RegionalPlanVersion.update(
+            { period_targets_finalized_at: now },
+            { where: { regional_plan_version_id: version.parent_plan_version_id }, transaction: t }
+          );
+        }
+      }
     }
-  );
 
-  return getRegionalPlanVersionById(masterId, regionId);
+    await t.commit();
+    return getRegionalPlanVersionById(masterOrAnnualId, regionId);
+  } catch (err) {
+    await t.rollback();
+    throw err;
+  }
 }
 
 async function completeRegionalExecutionPeriod(periodVersionId, regionId, userId) {

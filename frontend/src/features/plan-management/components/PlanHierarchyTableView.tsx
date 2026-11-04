@@ -76,6 +76,8 @@ interface PlanHierarchyTableViewProps {
     canEditPeriodTarget?: boolean;
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
     periodTargetAllocations?: Record<string, PeriodTargetAllocation>;
+    onSaveAnnualTarget?: (node: PlanNode, val: number | null) => Promise<void>;
+    onSavePeriodTarget?: (node: PlanNode, val: number | null) => Promise<void>;
     governmentStructureId?: string;
     canEditContribution?: boolean;
     onDistributeContributionEqually?: (parent: PlanNode, children: PlanNode[]) => void;
@@ -112,6 +114,8 @@ interface StrategicFocusTableProps {
     canEditPeriodTarget?: boolean;
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
     periodTargetAllocations?: Record<string, PeriodTargetAllocation>;
+    onSaveAnnualTarget?: (node: PlanNode, val: number | null) => Promise<void>;
+    onSavePeriodTarget?: (node: PlanNode, val: number | null) => Promise<void>;
     configuredUnits?: TargetUnit[];
     canEditContribution?: boolean;
     onDistributeContributionEqually?: (parent: PlanNode, children: PlanNode[]) => void;
@@ -147,6 +151,8 @@ function StrategicFocusTable({
     canEditPeriodTarget = false,
     annualTargetAllocations,
     periodTargetAllocations,
+    onSaveAnnualTarget,
+    onSavePeriodTarget,
     configuredUnits,
     canEditContribution = false,
     onDistributeContributionEqually,
@@ -256,6 +262,7 @@ function StrategicFocusTable({
                             allocation={annualTargetAllocations?.[root.plan_node_id]}
                             canEdit={canEditAnnualTarget}
                             showRaiseIssue={showRaiseIssue}
+                            onSaveTarget={onSaveAnnualTarget ? (val) => onSaveAnnualTarget(root, val) : undefined}
                             variant="compact"
                             className="mt-2"
                         />
@@ -268,6 +275,7 @@ function StrategicFocusTable({
                             allocation={periodTargetAllocations?.[root.plan_node_id]}
                             canEdit={canEditPeriodTarget}
                             showRaiseIssue={showRaiseIssue}
+                            onSaveTarget={onSavePeriodTarget ? (val) => onSavePeriodTarget(root, val) : undefined}
                             variant="compact"
                             className="mt-2"
                         />
@@ -464,6 +472,7 @@ function StrategicFocusTable({
                                                         allocation={annualTargetAllocations?.[node.plan_node_id]}
                                                         canEdit={canEditAnnualTarget}
                                                         showRaiseIssue={showRaiseIssue}
+                                                        onSaveTarget={onSaveAnnualTarget ? (val) => onSaveAnnualTarget(node, val) : undefined}
                                                         variant="table"
                                                         onClick={(e) => e.stopPropagation()}
                                                     />
@@ -482,6 +491,7 @@ function StrategicFocusTable({
                                                         allocation={periodTargetAllocations?.[node.plan_node_id]}
                                                         canEdit={canEditPeriodTarget}
                                                         showRaiseIssue={showRaiseIssue}
+                                                        onSaveTarget={onSavePeriodTarget ? (val) => onSavePeriodTarget(node, val) : undefined}
                                                         variant="table"
                                                         onClick={(e) => e.stopPropagation()}
                                                     />
@@ -644,6 +654,8 @@ export function PlanHierarchyTableView({
     canEditPeriodTarget = false,
     annualTargetAllocations,
     periodTargetAllocations,
+    onSaveAnnualTarget,
+    onSavePeriodTarget,
     governmentStructureId,
     canEditContribution = false,
     onDistributeContributionEqually,
@@ -694,6 +706,8 @@ export function PlanHierarchyTableView({
                     canEditPeriodTarget={canEditPeriodTarget}
                     annualTargetAllocations={annualTargetAllocations}
                     periodTargetAllocations={periodTargetAllocations}
+                    onSaveAnnualTarget={onSaveAnnualTarget}
+                    onSavePeriodTarget={onSavePeriodTarget}
                     configuredUnits={configuredUnits}
                     canEditContribution={canEditContribution}
                     onDistributeContributionEqually={onDistributeContributionEqually}

@@ -57,10 +57,15 @@ import {
   useFinalizeRegionalAnnualExecutionMutation,
   useFinalizeRegionalPeriodTargetsMutation,
   useFinalizeRegionalPlanDraftMutation,
+  useReopenRegionalPlanDraftMutation,
   useStartRegionalPlanProcessMutation,
   useCompleteRegionalExecutionPeriodMutation,
   useCompleteRegionalAnnualPlanMutation,
   useGetRegionalDraftFinalizationReadinessQuery,
+  useGetRegionalAnnualTargetAllocationsQuery,
+  useUpdateRegionalAnnualTargetMutation,
+  useGetRegionalPeriodTargetAllocationsQuery,
+  useUpdateRegionalPeriodTargetMutation,
 } from "@/redux/api/regionalPlanApi";
 import type { RegionalPlanNode, RegionalPlanVersion } from "@/redux/types/regionalPlan";
 import type { PlanNode, PlanNodeHierarchy } from "@/redux/types/plan";
@@ -149,12 +154,91 @@ export function RegionalPlanHierarchyView() {
     { skip: !versionId || !regionId }
   );
 
+  const [reopenDraft, { isLoading: isReopeningDraft }] = useReopenRegionalPlanDraftMutation();
+  const [updateAnnualTarget] = useUpdateRegionalAnnualTargetMutation();
+  const [updatePeriodTarget] = useUpdateRegionalPeriodTargetMutation();
+
   // Permission flags
   const canUpdatePlan = can("REGIONAL_PLANS:UPDATE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
   const canFinalize = can("REGIONAL_PLANS:FINALIZE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
 
   const plan = hierarchyData?.version;
   const rawNodes = hierarchyData?.nodes || [];
+
+  const isMasterPlan = plan?.version_kind === "master";
+  const isAnnualPlan = plan?.version_kind === "annual";
+  const isPeriodPlan = plan?.version_kind === "execution_period";
+
+  // Target allocations queries
+  const { data: annualAllocations = [], refetch: refetchAnnualAllocations } = useGetRegionalAnnualTargetAllocationsQuery(
+    { id: versionId!, region_id: regionId! },
+    { skip: !versionId || !regionId || !isAnnualPlan }
+  );
+
+  const annualAllocationsMap = useMemo(() => {
+    const map: Record<string, any> = {};
+    for (const a of (annualAllocations as any[])) {
+      map[a.plan_node_id || a.regional_plan_node_id] = a;
+    }
+    return map;
+  }, [annualAllocations]);
+
+  const { data: periodAllocations = [], refetch: refetchPeriodAllocations } = useGetRegionalPeriodTargetAllocationsQuery(
+    { id: versionId!, region_id: regionId! },
+    { skip: !versionId || !regionId || !isPeriodPlan }
+  );
+
+  const periodAllocationsMap = useMemo(() => {
+    const map: Record<string, any> = {};
+    for (const p of (periodAllocations as any[])) {
+      map[p.plan_node_id || p.regional_plan_node_id] = p;
+    }
+    return map;
+  }, [periodAllocations]);
+
+  const handleSaveAnnualTarget = async (node: PlanNode, val: number | null) => {
+    try {
+      await updateAnnualTarget({
+        nodeId: node.plan_node_id,
+        region_id: regionId!,
+        annual_target: val as number,
+      }).unwrap();
+      refetch();
+      refetchAnnualAllocations();
+    } catch (err: any) {
+      actionFeedback.error(err?.data?.message || err?.message || "Failed to save annual target");
+      throw err;
+    }
+  };
+
+  const handleSavePeriodTarget = async (node: PlanNode, val: number | null) => {
+    try {
+      await updatePeriodTarget({
+        nodeId: node.plan_node_id,
+        region_id: regionId!,
+        period_target: val as number,
+      }).unwrap();
+      refetch();
+      refetchPeriodAllocations();
+    } catch (err: any) {
+      actionFeedback.error(err?.data?.message || err?.message || "Failed to save period target");
+      throw err;
+    }
+  };
+
+  const handleReopenDraft = async () => {
+    if (!confirm("Are you sure you want to reopen this plan draft for editing? This will set it back to draft status so you can update structure and durations.")) return;
+    try {
+      await reopenDraft({ id: versionId!, region_id: regionId! }).unwrap();
+      actionFeedback.success("Plan draft reopened for editing");
+      refetch();
+      refetchAnnuals();
+      refetchPeriods();
+      refetchReadiness();
+    } catch (err: any) {
+      actionFeedback.error(err?.data?.message || err?.message || "Failed to reopen plan draft");
+    }
+  };
 
   // Sync subdivision mode from configuration if available
   useEffect(() => {
@@ -443,8 +527,6 @@ export function RegionalPlanHierarchyView() {
 
   if (isLoading || !plan) return <Loading01 />;
 
-  const isMasterPlan = plan.version_kind === "master";
-  const isAnnualPlan = plan.version_kind === "annual";
   const showAnnualDashboard = isMasterPlan && (plan.status === "finalized" || annualVersions.length > 0);
   const showPeriodDashboard = isAnnualPlan;
 
@@ -534,6 +616,20 @@ export function RegionalPlanHierarchyView() {
             >
               <CheckCircle2 className="h-4 w-4" />
               <span>{isFinalizingAnnual ? "Finalizing..." : "Finalize Annual Targets"}</span>
+            </Button>
+          )}
+
+          {isMasterPlan && plan.status === "finalized" && !plan.process_started_at && canUpdatePlan && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleReopenDraft}
+              disabled={isReopeningDraft}
+              className="gap-2 shadow-xs text-amber-700 border-amber-300 hover:bg-amber-50"
+              title="Reopen draft to edit structure or duration"
+            >
+              <Unlock className="h-4 w-4" />
+              <span>{isReopeningDraft ? "Reopening..." : "Reopen Draft for Edit"}</span>
             </Button>
           )}
 
@@ -764,6 +860,49 @@ export function RegionalPlanHierarchyView() {
         </div>
       )}
 
+      {/* Back-Navigation Breadcrumb when on Annual or Period Plan */}
+      {isAnnualPlan && plan.parent_plan_version_id && (
+        <div className="flex items-center gap-2 text-xs bg-muted/40 px-3.5 py-2.5 rounded-lg border border-border">
+          <Link
+            href={`/regions/${regionId}/plans/${plan.parent_plan_version_id}?tab=annual`}
+            className="inline-flex items-center gap-1.5 text-primary hover:underline font-medium"
+          >
+            <ArrowUp className="h-3.5 w-3.5" />
+            <span>Return to Master Plan</span>
+          </Link>
+          <span className="text-muted-foreground">/</span>
+          <span className="text-foreground font-semibold">
+            Year ${plan.sequence_index} (${plan.planning_year}) Target Allocation
+          </span>
+          {plan.annual_targets_finalized_at && (
+            <Badge variant="secondary" className="ml-2 text-[10px] font-normal">
+              <Lock className="h-3 w-3 mr-1" /> Targets Finalized
+            </Badge>
+          )}
+        </div>
+      )}
+
+      {isPeriodPlan && plan.parent_plan_version_id && (
+        <div className="flex items-center gap-2 text-xs bg-muted/40 px-3.5 py-2.5 rounded-lg border border-border">
+          <Link
+            href={`/regions/${regionId}/plans/${plan.parent_plan_version_id}?tab=periods`}
+            className="inline-flex items-center gap-1.5 text-primary hover:underline font-medium"
+          >
+            <ArrowUp className="h-3.5 w-3.5" />
+            <span>Return to Annual Plan</span>
+          </Link>
+          <span className="text-muted-foreground">/</span>
+          <span className="text-foreground font-semibold">
+            ${plan.period_label || `Period ${plan.sequence_index}`} (${plan.planning_year}) Execution
+          </span>
+          {plan.period_targets_finalized_at && (
+            <Badge variant="secondary" className="ml-2 text-[10px] font-normal">
+              <Lock className="h-3 w-3 mr-1" /> Targets Finalized
+            </Badge>
+          )}
+        </div>
+      )}
+
       {/* ------------------------------------------------------------- */}
       {/* TAB 1: PLAN HIERARCHY */}
       {/* ------------------------------------------------------------- */}
@@ -848,9 +987,15 @@ export function RegionalPlanHierarchyView() {
               onMoveNode={handleMoveNode}
               isReordering={isReordering}
               readOnly={!canUpdatePlan}
-              showAnnualTargets={false}
-              showPeriodTargets={false}
-              showPeriodActuals={false}
+              showAnnualTargets={isAnnualPlan}
+              canEditAnnualTarget={isAnnualPlan && !plan.annual_targets_finalized_at && canUpdatePlan}
+              annualTargetAllocations={annualAllocationsMap}
+              onSaveAnnualTarget={handleSaveAnnualTarget}
+              showPeriodTargets={isPeriodPlan}
+              canEditPeriodTarget={isPeriodPlan && !plan.period_targets_finalized_at && canUpdatePlan}
+              periodTargetAllocations={periodAllocationsMap}
+              onSavePeriodTarget={handleSavePeriodTarget}
+              showPeriodActuals={isPeriodPlan && Boolean(plan.process_started_at || plan.execution_status === "open" || plan.status === "active")}
             />
           ) : viewMode === "card" ? (
             <PlanNodeCardGrid
@@ -866,6 +1011,15 @@ export function RegionalPlanHierarchyView() {
               onMoveNode={(nodeId, direction) => handleMoveNode(nodeId, direction, currentNodes)}
               isReordering={isReordering}
               readOnly={!canUpdatePlan}
+              showAnnualTargets={isAnnualPlan}
+              canEditAnnualTarget={isAnnualPlan && !plan.annual_targets_finalized_at && canUpdatePlan}
+              annualTargetAllocations={annualAllocationsMap}
+              onSaveAnnualTarget={handleSaveAnnualTarget}
+              showPeriodTargets={isPeriodPlan}
+              canEditPeriodTarget={isPeriodPlan && !plan.period_targets_finalized_at && canUpdatePlan}
+              periodTargetAllocations={periodAllocationsMap}
+              onSavePeriodTarget={handleSavePeriodTarget}
+              showPeriodActuals={isPeriodPlan && Boolean(plan.process_started_at || plan.execution_status === "open" || plan.status === "active")}
             />
           ) : (
             <PlanHierarchyTree
@@ -882,6 +1036,15 @@ export function RegionalPlanHierarchyView() {
               isReordering={isReordering}
               scoped={false}
               readOnly={!canUpdatePlan}
+              showAnnualTargets={isAnnualPlan}
+              canEditAnnualTarget={isAnnualPlan && !plan.annual_targets_finalized_at && canUpdatePlan}
+              annualTargetAllocations={annualAllocationsMap}
+              onSaveAnnualTarget={handleSaveAnnualTarget}
+              showPeriodTargets={isPeriodPlan}
+              canEditPeriodTarget={isPeriodPlan && !plan.period_targets_finalized_at && canUpdatePlan}
+              periodTargetAllocations={periodAllocationsMap}
+              onSavePeriodTarget={handleSavePeriodTarget}
+              showPeriodActuals={isPeriodPlan && Boolean(plan.process_started_at || plan.execution_status === "open" || plan.status === "active")}
             />
           )}
         </div>

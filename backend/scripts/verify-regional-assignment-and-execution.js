@@ -356,7 +356,7 @@ async function runVerification() {
   }
 
   // 13. Finalize Master Plan Draft -> Generates Annual Plans, opens Annual Target Setting
-  const finalizedMaster = await regionalPlanService.finalizeRegionalPlanDraft(
+  let finalizedMaster = await regionalPlanService.finalizeRegionalPlanDraft(
     plan.regional_plan_version_id,
     region.region_id,
     userA.user_id
@@ -367,7 +367,51 @@ async function runVerification() {
     throw new Error("annual_targets_finalized_at should be null right after draft finalization to allow annual target setting!");
   }
 
-  // 13.5 Test that initializing execution periods BEFORE annual targets finalization is BLOCKED!
+  let annualVersions = await regionalPlanService.listRegionalAnnualVersions(plan.regional_plan_version_id, region.region_id);
+  console.log(`✓ Annual versions created: count=${annualVersions.length}`);
+  if (annualVersions.length !== 3) {
+    throw new Error(`Expected 3 annual versions for 3-year plan, got ${annualVersions.length}`);
+  }
+
+  // 13.1 IDEMPOTENCY CHECK 1: Re-running finalizeRegionalPlanDraft MUST NOT create duplicates!
+  await regionalPlanService.finalizeRegionalPlanDraft(
+    plan.regional_plan_version_id,
+    region.region_id,
+    userA.user_id
+  );
+  annualVersions = await regionalPlanService.listRegionalAnnualVersions(plan.regional_plan_version_id, region.region_id);
+  console.log(`✓ Idempotent finalize check: count=${annualVersions.length} (zero duplicate annual versions)`);
+  if (annualVersions.length !== 3) {
+    throw new Error(`Duplicate annual versions detected on re-finalize! Expected 3, got ${annualVersions.length}`);
+  }
+
+  // 13.2 REOPEN DRAFT & CHANGE DURATION CHECK: Reopen -> expand duration from 3 to 5 -> finalize
+  await regionalPlanService.reopenRegionalPlanDraftForEdit(plan.regional_plan_version_id, region.region_id, userA.user_id);
+  await RegionalPlanVersion.update(
+    { planning_duration_years: 5, end_year: 2030 },
+    { where: { regional_plan_version_id: plan.regional_plan_version_id } }
+  );
+  await regionalPlanService.finalizeRegionalPlanDraft(plan.regional_plan_version_id, region.region_id, userA.user_id);
+  annualVersions = await regionalPlanService.listRegionalAnnualVersions(plan.regional_plan_version_id, region.region_id);
+  console.log(`✓ Expanded duration check (3 -> 5 years): count=${annualVersions.length}`);
+  if (annualVersions.length !== 5) {
+    throw new Error(`Expected 5 annual versions after expanding duration, got ${annualVersions.length}`);
+  }
+
+  // 13.3 REOPEN DRAFT & REDUCE DURATION CHECK: Reopen -> reduce duration from 5 to 3 -> finalize
+  await regionalPlanService.reopenRegionalPlanDraftForEdit(plan.regional_plan_version_id, region.region_id, userA.user_id);
+  await RegionalPlanVersion.update(
+    { planning_duration_years: 3, end_year: 2028 },
+    { where: { regional_plan_version_id: plan.regional_plan_version_id } }
+  );
+  await regionalPlanService.finalizeRegionalPlanDraft(plan.regional_plan_version_id, region.region_id, userA.user_id);
+  annualVersions = await regionalPlanService.listRegionalAnnualVersions(plan.regional_plan_version_id, region.region_id);
+  console.log(`✓ Reduced duration reconciliation check (5 -> 3 years): count=${annualVersions.length}`);
+  if (annualVersions.length !== 3) {
+    throw new Error(`Expected 3 annual versions after reducing duration, got ${annualVersions.length}`);
+  }
+
+  // 13.4 Test that initializing execution periods BEFORE annual targets finalization is BLOCKED!
   let blockedInitWithoutAnnuals = false;
   try {
     await regionalPlanService.initializeRegionalExecutionPeriods(
@@ -385,6 +429,63 @@ async function runVerification() {
     throw new Error("initializeRegionalExecutionPeriods should have blocked when annual targets are not finalized!");
   }
 
+  // 13.5 ANNUAL TARGET ALLOCATION & VALIDATION
+  // Find annual KPI nodes
+  const [annYear1, annYear2, annYear3] = annualVersions;
+  const kpiYear1 = await RegionalPlanNode.findOne({
+    where: { regional_plan_version_id: annYear1.regional_plan_version_id, source_regional_plan_node_id: kpiNode.regional_plan_node_id },
+  });
+  const kpiYear2 = await RegionalPlanNode.findOne({
+    where: { regional_plan_version_id: annYear2.regional_plan_version_id, source_regional_plan_node_id: kpiNode.regional_plan_node_id },
+  });
+  const kpiYear3 = await RegionalPlanNode.findOne({
+    where: { regional_plan_version_id: annYear3.regional_plan_version_id, source_regional_plan_node_id: kpiNode.regional_plan_node_id },
+  });
+
+  // Draft target for KPI is 50. Test exceeding target rejection:
+  let rejectedExceedingAnnual = false;
+  try {
+    await regionalPlanService.updateRegionalAnnualTarget(kpiYear1.regional_plan_node_id, region.region_id, 60, userA.user_id);
+  } catch (err) {
+    rejectedExceedingAnnual = true;
+    console.log(`✓ Exceeding annual target rejected as expected: "${err.message}"`);
+  }
+  if (!rejectedExceedingAnnual) {
+    throw new Error("Setting annual target exceeding draft target should have failed!");
+  }
+
+  // Test negative annual target rejection:
+  let rejectedNegativeAnnual = false;
+  try {
+    await regionalPlanService.updateRegionalAnnualTarget(kpiYear1.regional_plan_node_id, region.region_id, -10, userA.user_id);
+  } catch (err) {
+    rejectedNegativeAnnual = true;
+    console.log(`✓ Negative annual target rejected as expected: "${err.message}"`);
+  }
+  if (!rejectedNegativeAnnual) {
+    throw new Error("Setting negative annual target should have failed!");
+  }
+
+  // Set valid annual targets: Year 1 = 20, Year 2 = 15, Year 3 = 15 (sum = 50)
+  await regionalPlanService.updateRegionalAnnualTarget(kpiYear1.regional_plan_node_id, region.region_id, 20, userA.user_id);
+  await regionalPlanService.updateRegionalAnnualTarget(kpiYear2.regional_plan_node_id, region.region_id, 15, userA.user_id);
+  await regionalPlanService.updateRegionalAnnualTarget(kpiYear3.regional_plan_node_id, region.region_id, 15, userA.user_id);
+  console.log("✓ Annual targets set across 3 years: 20 + 15 + 15 = 50");
+
+  // Check allocations summary calculation
+  const allocsYear1 = await regionalPlanService.getRegionalAnnualTargetAllocations(annYear1.regional_plan_version_id, region.region_id);
+  const kpiAlloc1 = allocsYear1.find((a) => a.regional_plan_node_id === kpiYear1.regional_plan_node_id);
+  console.log("✓ Annual allocations summary for Year 1:", {
+    draft_target: kpiAlloc1.draft_target,
+    current_year_value: kpiAlloc1.current_year_value,
+    allocated_other_years: kpiAlloc1.allocated_other_years,
+    allocated_total: kpiAlloc1.allocated_total,
+    remaining_for_this_year: kpiAlloc1.remaining_for_this_year,
+  });
+  if (kpiAlloc1.current_year_value !== 20 || kpiAlloc1.allocated_other_years !== 30 || kpiAlloc1.allocated_total !== 50) {
+    throw new Error("Annual target allocations math incorrect!");
+  }
+
   // 14. Finalize Annual Execution Targets
   const finalizedAnnuals = await regionalPlanService.finalizeRegionalAnnualExecution(
     plan.regional_plan_version_id,
@@ -393,8 +494,8 @@ async function runVerification() {
   );
   console.log(`✓ Annual targets finalized successfully. annual_targets_finalized_at: ${finalizedAnnuals.annual_targets_finalized_at}`);
 
-  // 15. Now Initialize Execution Periods (quarterly)
-  const periods = await regionalPlanService.initializeRegionalExecutionPeriods(
+  // 15. Initialize Execution Periods (quarterly -> 4 quarters * 3 years = 12 periods)
+  let periods = await regionalPlanService.initializeRegionalExecutionPeriods(
     plan.regional_plan_version_id,
     region.region_id,
     "quarterly",
@@ -402,8 +503,69 @@ async function runVerification() {
     userA.user_id
   );
   console.log(`✓ Execution periods initialized successfully: count=${periods.length}`);
-  if (periods.length === 0) {
-    throw new Error("Execution periods were not generated!");
+  if (periods.length !== 12) {
+    throw new Error(`Expected 12 quarterly periods for 3 years, got ${periods.length}`);
+  }
+
+  // 15.1 IDEMPOTENCY CHECK 2: Re-running initializeRegionalExecutionPeriods MUST NOT duplicate periods!
+  periods = await regionalPlanService.initializeRegionalExecutionPeriods(
+    plan.regional_plan_version_id,
+    region.region_id,
+    "quarterly",
+    [],
+    userA.user_id
+  );
+  console.log(`✓ Idempotent execution periods check: count=${periods.length} (zero duplicate periods)`);
+  if (periods.length !== 12) {
+    throw new Error(`Duplicate periods detected on re-initialize! Expected 12, got ${periods.length}`);
+  }
+
+  // 15.2 PERIOD TARGET ALLOCATION & VALIDATION
+  // Allocate period targets for Year 1 (quarters 1..4 sum to annual target 20 -> 5 each)
+  const year1Periods = periods.filter((p) => p.parent_plan_version_id === annYear1.regional_plan_version_id);
+  const q1Node = await RegionalPlanNode.findOne({
+    where: { regional_plan_version_id: year1Periods[0].regional_plan_version_id, source_regional_plan_node_id: kpiYear1.regional_plan_node_id },
+  });
+
+  // Test exceeding period target rejection:
+  let rejectedExceedingPeriod = false;
+  try {
+    await regionalPlanService.updateRegionalPeriodTarget(q1Node.regional_plan_node_id, region.region_id, 25, userA.user_id);
+  } catch (err) {
+    rejectedExceedingPeriod = true;
+    console.log(`✓ Exceeding period target rejected as expected: "${err.message}"`);
+  }
+  if (!rejectedExceedingPeriod) {
+    throw new Error("Setting period target exceeding annual target should have failed!");
+  }
+
+  // Set quarterly targets for all periods
+  for (const annual of annualVersions) {
+    const annPeriods = periods.filter((p) => p.parent_plan_version_id === annual.regional_plan_version_id);
+    const annKpi = await RegionalPlanNode.findOne({
+      where: { regional_plan_version_id: annual.regional_plan_version_id, source_regional_plan_node_id: kpiNode.regional_plan_node_id },
+    });
+    const perQuarter = (Number(annKpi.annual_target) || 0) / annPeriods.length;
+    for (const p of annPeriods) {
+      const pNode = await RegionalPlanNode.findOne({
+        where: { regional_plan_version_id: p.regional_plan_version_id, source_regional_plan_node_id: annKpi.regional_plan_node_id },
+      });
+      await regionalPlanService.updateRegionalPeriodTarget(pNode.regional_plan_node_id, region.region_id, perQuarter, userA.user_id);
+    }
+  }
+  console.log("✓ Period targets allocated across all quarterly execution periods");
+
+  // Check period allocation summary
+  const periodAllocs = await regionalPlanService.getRegionalPeriodTargetAllocations(year1Periods[0].regional_plan_version_id, region.region_id);
+  const q1Alloc = periodAllocs.find((a) => a.regional_plan_node_id === q1Node.regional_plan_node_id);
+  console.log("✓ Period allocations summary for Q1:", {
+    annual_target: q1Alloc.annual_target,
+    current_period_value: q1Alloc.current_period_value,
+    allocated_other_periods: q1Alloc.allocated_other_periods,
+    allocated_total: q1Alloc.allocated_total,
+  });
+  if (q1Alloc.current_period_value !== 5 || q1Alloc.allocated_total !== 20) {
+    throw new Error("Period target allocations math incorrect!");
   }
 
   // 16. Finalize Period Targets
@@ -423,7 +585,7 @@ async function runVerification() {
   console.log(`✓ Regional execution process started: status=${activePlan.status}, execution_status=${activePlan.execution_status}`);
 
   // 18. Complete First Execution Period
-  const firstPeriod = periods[0];
+  const firstPeriod = year1Periods[0];
   const completedPeriod = await regionalPlanService.completeRegionalExecutionPeriod(
     firstPeriod.regional_plan_version_id,
     region.region_id,

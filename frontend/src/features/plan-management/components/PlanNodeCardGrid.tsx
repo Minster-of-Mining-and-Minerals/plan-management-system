@@ -53,6 +53,8 @@ interface PlanNodeCardGridProps {
     canEditPeriodTarget?: boolean;
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
     periodTargetAllocations?: Record<string, PeriodTargetAllocation>;
+    onSaveAnnualTarget?: (node: PlanNode, val: number | null) => Promise<void>;
+    onSavePeriodTarget?: (node: PlanNode, val: number | null) => Promise<void>;
     canEditContribution?: boolean;
     onDistributeContributionEqually?: (parent: PlanNode, children: PlanNode[]) => void;
     isDistributingContribution?: boolean;
@@ -87,6 +89,8 @@ export function PlanNodeCardGrid({
     canEditPeriodTarget = false,
     annualTargetAllocations,
     periodTargetAllocations,
+    onSaveAnnualTarget,
+    onSavePeriodTarget,
     canEditContribution = false,
     onDistributeContributionEqually,
     isDistributingContribution = false,
@@ -269,6 +273,7 @@ export function PlanNodeCardGrid({
                                                 allocation={annualTargetAllocations?.[node.plan_node_id]}
                                                 canEdit={canEditAnnualTarget}
                                                 showRaiseIssue={showRaiseIssue}
+                                                onSaveTarget={onSaveAnnualTarget ? (val) => onSaveAnnualTarget(node, val) : undefined}
                                                 variant="card"
                                                 onClick={(e) => e.stopPropagation()}
                                             />
@@ -282,6 +287,7 @@ export function PlanNodeCardGrid({
                                                 allocation={periodTargetAllocations?.[node.plan_node_id]}
                                                 canEdit={canEditPeriodTarget}
                                                 showRaiseIssue={showRaiseIssue}
+                                                onSaveTarget={onSavePeriodTarget ? (val) => onSavePeriodTarget(node, val) : undefined}
                                                 variant="card"
                                                 onClick={(e) => e.stopPropagation()}
                                             />

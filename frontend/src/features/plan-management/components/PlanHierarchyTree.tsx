@@ -69,6 +69,8 @@ interface NodeItemProps {
     canEditPeriodTarget?: boolean;
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
     periodTargetAllocations?: Record<string, PeriodTargetAllocation>;
+    onSaveAnnualTarget?: (node: PlanNode, val: number | null) => Promise<void>;
+    onSavePeriodTarget?: (node: PlanNode, val: number | null) => Promise<void>;
     canEditContribution?: boolean;
     onDistributeContributionEqually?: (parent: PlanNode, children: PlanNode[]) => void;
     isDistributingContribution?: boolean;
@@ -106,6 +108,8 @@ const NodeItem = ({
     canEditPeriodTarget = false,
     annualTargetAllocations,
     periodTargetAllocations,
+    onSaveAnnualTarget,
+    onSavePeriodTarget,
     canEditContribution = false,
     onDistributeContributionEqually,
     isDistributingContribution = false,
@@ -250,6 +254,7 @@ const NodeItem = ({
                                 allocation={annualTargetAllocations?.[node.plan_node_id]}
                                 canEdit={canEditAnnualTarget}
                                 showRaiseIssue={showRaiseIssue}
+                                onSaveTarget={onSaveAnnualTarget ? (val) => onSaveAnnualTarget(node, val) : undefined}
                                 variant="compact"
                             />
                         )}
@@ -261,6 +266,7 @@ const NodeItem = ({
                                 allocation={periodTargetAllocations?.[node.plan_node_id]}
                                 canEdit={canEditPeriodTarget}
                                 showRaiseIssue={showRaiseIssue}
+                                onSaveTarget={onSavePeriodTarget ? (val) => onSavePeriodTarget(node, val) : undefined}
                                 variant="compact"
                             />
                         )}
@@ -354,6 +360,8 @@ const NodeItem = ({
                             canEditPeriodTarget={canEditPeriodTarget}
                             annualTargetAllocations={annualTargetAllocations}
                             periodTargetAllocations={periodTargetAllocations}
+                            onSaveAnnualTarget={onSaveAnnualTarget}
+                            onSavePeriodTarget={onSavePeriodTarget}
                             canEditContribution={canEditContribution}
                             onDistributeContributionEqually={onDistributeContributionEqually}
                             isDistributingContribution={isDistributingContribution}
@@ -395,6 +403,8 @@ interface PlanHierarchyTreeProps {
     canEditPeriodTarget?: boolean;
     annualTargetAllocations?: Record<string, AnnualTargetAllocation>;
     periodTargetAllocations?: Record<string, PeriodTargetAllocation>;
+    onSaveAnnualTarget?: (node: PlanNode, val: number | null) => Promise<void>;
+    onSavePeriodTarget?: (node: PlanNode, val: number | null) => Promise<void>;
     governmentStructureId?: string;
     canEditContribution?: boolean;
     onDistributeContributionEqually?: (parent: PlanNode, children: PlanNode[]) => void;
@@ -431,6 +441,8 @@ export function PlanHierarchyTree({
     canEditPeriodTarget = false,
     annualTargetAllocations,
     periodTargetAllocations,
+    onSaveAnnualTarget,
+    onSavePeriodTarget,
     governmentStructureId,
     canEditContribution = false,
     onDistributeContributionEqually,
@@ -526,6 +538,8 @@ export function PlanHierarchyTree({
                     canEditPeriodTarget={canEditPeriodTarget}
                     annualTargetAllocations={annualTargetAllocations}
                     periodTargetAllocations={periodTargetAllocations}
+                    onSaveAnnualTarget={onSaveAnnualTarget}
+                    onSavePeriodTarget={onSavePeriodTarget}
                     canEditContribution={canEditContribution}
                     onDistributeContributionEqually={onDistributeContributionEqually}
                     isDistributingContribution={isDistributingContribution}

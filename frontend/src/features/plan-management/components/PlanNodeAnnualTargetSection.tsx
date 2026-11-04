@@ -31,6 +31,7 @@ interface PlanNodeAnnualTargetSectionProps {
     variant?: "card" | "compact" | "table";
     className?: string;
     onClick?: (event: React.MouseEvent) => void;
+    onSaveTarget?: (val: number | null) => Promise<void>;
 }
 
 export function PlanNodeAnnualTargetSection({
@@ -43,8 +44,11 @@ export function PlanNodeAnnualTargetSection({
     variant = "card",
     className,
     onClick,
+    onSaveTarget,
 }: PlanNodeAnnualTargetSectionProps) {
-    const [updateAnnualTarget, { isLoading: isSaving }] = useUpdateAnnualTargetMutation();
+    const [updateAnnualTarget, { isLoading: isSavingMutation }] = useUpdateAnnualTargetMutation();
+    const [isSavingCustom, setIsSavingCustom] = useState(false);
+    const isSaving = isSavingMutation || isSavingCustom;
     const [annualTargetInput, setAnnualTargetInput] = useState("");
 
     const nodeWeightMode = node.weight_mode;
@@ -98,14 +102,23 @@ export function PlanNodeAnnualTargetSection({
                 actionFeedback.error("Annual target must be greater than 0");
                 return;
             }
-            await updateAnnualTarget({
-                id: node.plan_node_id,
-                annual_target: val,
-            }).unwrap();
+            if (onSaveTarget) {
+                setIsSavingCustom(true);
+                try {
+                    await onSaveTarget(val);
+                } finally {
+                    setIsSavingCustom(false);
+                }
+            } else {
+                await updateAnnualTarget({
+                    id: node.plan_node_id,
+                    annual_target: val,
+                }).unwrap();
+            }
             actionFeedback.success("Annual target saved");
         } catch (error: unknown) {
-            const err = error as { data?: { message?: string } };
-            actionFeedback.error(err.data?.message || "Failed to save annual target");
+            const err = error as { data?: { message?: string }; message?: string };
+            actionFeedback.error(err.data?.message || err.message || "Failed to save annual target");
         }
     };
 
@@ -138,7 +151,7 @@ export function PlanNodeAnnualTargetSection({
                     className={variant === "compact" ? "h-8 text-xs" : variant === "table" ? "h-8 text-sm" : ""}
                 />
             </div>
-            <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
+            {onSaveTarget ? (
                 <Button
                     size={variant === "compact" || variant === "table" ? "sm" : "default"}
                     disabled={isSaving}
@@ -150,7 +163,21 @@ export function PlanNodeAnnualTargetSection({
                 >
                     Save
                 </Button>
-            </PermissionGuard>
+            ) : (
+                <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
+                    <Button
+                        size={variant === "compact" || variant === "table" ? "sm" : "default"}
+                        disabled={isSaving}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            void handleSave();
+                        }}
+                        className="shrink-0"
+                    >
+                        Save
+                    </Button>
+                </PermissionGuard>
+            )}
         </div>
     ) : null;
 

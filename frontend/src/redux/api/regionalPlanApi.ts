@@ -10,6 +10,7 @@ import type {
   RegionalPerformanceColorThreshold,
   RegionalPlanReviewDashboard,
 } from "../types/regionalPlan";
+import type { AnnualTargetAllocation, PeriodTargetAllocation } from "../types/plan";
 
 export const regionalPlanApi = baseApi.injectEndpoints({
   overrideExisting: true,
@@ -446,6 +447,33 @@ export const regionalPlanApi = baseApi.injectEndpoints({
       providesTags: (_res, _err, { id }) => [{ type: "RegionalPlanVersions", id }],
     }),
 
+    getRegionalAnnualExecutionReadiness: builder.query<{ ready: boolean; errors: string[]; master?: RegionalPlanVersion; annualVersions?: RegionalPlanVersion[] }, { id: string; region_id: string }>({
+      query: ({ id, region_id }) => ({
+        url: `/regional/plans/versions/${id}/annual-execution-readiness`,
+        params: { region_id },
+      }),
+      transformResponse: (res: { data: any }) => res.data,
+      providesTags: ["RegionalPlanVersions", "RegionalPlanNodes"],
+    }),
+
+    getRegionalPeriodFinalizationReadiness: builder.query<{ ready: boolean; errors: string[] }, { id: string; region_id: string }>({
+      query: ({ id, region_id }) => ({
+        url: `/regional/plans/versions/${id}/execution-period-readiness`,
+        params: { region_id },
+      }),
+      transformResponse: (res: { data: any }) => res.data,
+      providesTags: ["RegionalPlanVersions", "RegionalPlanNodes"],
+    }),
+
+    getRegionalStartProcessReadiness: builder.query<{ ready: boolean; errors: string[] }, { id: string; region_id: string }>({
+      query: ({ id, region_id }) => ({
+        url: `/regional/plans/versions/${id}/start-process-readiness`,
+        params: { region_id },
+      }),
+      transformResponse: (res: { data: any }) => res.data,
+      providesTags: ["RegionalPlanVersions"],
+    }),
+
     finalizeRegionalPlanDraft: builder.mutation<RegionalPlanVersion, { id: string; region_id: string }>({
       query: ({ id, region_id }) => ({
         url: `/regional/plans/versions/${id}/finalize?region_id=${region_id}`,
@@ -483,12 +511,12 @@ export const regionalPlanApi = baseApi.injectEndpoints({
       providesTags: ["RegionalPlanVersions"],
     }),
 
-    getRegionalAnnualTargetAllocations: builder.query<RegionalPlanNode[], { id: string; region_id: string }>({
+    getRegionalAnnualTargetAllocations: builder.query<AnnualTargetAllocation[], { id: string; region_id: string }>({
       query: ({ id, region_id }) => ({
         url: `/regional/plans/versions/${id}/annual-target-allocations`,
         params: { region_id },
       }),
-      transformResponse: (res: { data: RegionalPlanNode[] }) => res.data,
+      transformResponse: (res: { data: AnnualTargetAllocation[] }) => res.data,
       providesTags: ["RegionalPlanNodes"],
     }),
 
@@ -534,12 +562,12 @@ export const regionalPlanApi = baseApi.injectEndpoints({
       invalidatesTags: ["RegionalPlanVersions"],
     }),
 
-    getRegionalPeriodTargetAllocations: builder.query<RegionalPlanNode[], { id: string; region_id: string }>({
+    getRegionalPeriodTargetAllocations: builder.query<PeriodTargetAllocation[], { id: string; region_id: string }>({
       query: ({ id, region_id }) => ({
         url: `/regional/plans/versions/${id}/period-target-allocations`,
         params: { region_id },
       }),
-      transformResponse: (res: { data: RegionalPlanNode[] }) => res.data,
+      transformResponse: (res: { data: PeriodTargetAllocation[] }) => res.data,
       providesTags: ["RegionalPlanNodes"],
     }),
 
@@ -830,6 +858,9 @@ export const {
   useDeleteRegionalPlanVersionMutation,
   useDuplicateRegionalPlanDraftMutation,
   useGetRegionalDraftFinalizationReadinessQuery,
+  useGetRegionalAnnualExecutionReadinessQuery,
+  useGetRegionalPeriodFinalizationReadinessQuery,
+  useGetRegionalStartProcessReadinessQuery,
   useFinalizeRegionalPlanDraftMutation,
   useReopenRegionalPlanDraftMutation,
   useStartRegionalPlanProcessMutation,
