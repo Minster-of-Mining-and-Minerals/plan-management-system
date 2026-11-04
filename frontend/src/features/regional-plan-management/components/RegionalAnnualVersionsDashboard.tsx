@@ -2,16 +2,18 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, CheckCircle, CalendarDays, ShieldCheck, Layers, Play, Lock, Unlock } from "lucide-react";
+import { Eye, CheckCircle, CalendarDays, ShieldCheck, Layers, Play, Lock, Unlock, Sparkles } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   useGetRegionalAnnualVersionsQuery,
   useCompleteRegionalAnnualPlanMutation,
+  useDistributeRegionalAnnualTargetsEquallyMutation,
 } from "@/redux/api/regionalPlanApi";
 import type { RegionalPlanVersion } from "@/redux/types/regionalPlan";
 import { formatStatus } from "@/utils/statusFormatter";
 import { actionFeedback } from "@/components/action-feedback";
+import { getApiErrorMessage } from "@/utils/apiErrorUtils";
 import {
   resolveCompletionForVersion,
   resolveWorkflowStatusAppearance,
@@ -67,6 +69,8 @@ export function RegionalAnnualVersionsDashboard({
   );
 
   const [completeAnnual, { isLoading: isCompleting }] = useCompleteRegionalAnnualPlanMutation();
+  const [distributeAnnualEqually, { isLoading: isDistributing }] =
+    useDistributeRegionalAnnualTargetsEquallyMutation();
 
   const annualTargetsFinalized = Boolean(masterVersion.annual_targets_finalized_at);
   const periodsInitializedGlobally = Boolean(masterVersion.period_subdivision_mode);
@@ -80,6 +84,19 @@ export function RegionalAnnualVersionsDashboard({
     masterVersion as any,
     processStarted
   );
+
+  const handleDistributeEqually = async () => {
+    try {
+      await distributeAnnualEqually({
+        id: masterVersion.regional_plan_version_id,
+        region_id: regionId,
+      }).unwrap();
+      actionFeedback.success("Annual targets divided equally across planning years");
+      refetch();
+    } catch (err: unknown) {
+      actionFeedback.error(getApiErrorMessage(err, "Failed to distribute annual targets"));
+    }
+  };
 
   const handleComplete = async (versionId: string, year: number) => {
     if (!(await actionFeedback.confirm(`Mark Year ${year} annual version as completed?`))) {
@@ -131,10 +148,21 @@ export function RegionalAnnualVersionsDashboard({
 
         <div className="flex flex-wrap gap-2 shrink-0">
           {!annualTargetsFinalized && (
-            <Button className="gap-2 shadow-xs" onClick={() => setFinalizeModalOpen(true)}>
-              <ShieldCheck className="h-4 w-4" />
-              Finalize Annual Execution
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                className="gap-2 shadow-xs text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700/50 hover:bg-amber-50 dark:hover:bg-amber-950/20"
+                onClick={handleDistributeEqually}
+                disabled={isDistributing}
+              >
+                <Sparkles className="h-4 w-4 text-amber-500" />
+                {isDistributing ? "Dividing..." : "Auto-Divide Annual Targets"}
+              </Button>
+              <Button className="gap-2 shadow-xs" onClick={() => setFinalizeModalOpen(true)}>
+                <ShieldCheck className="h-4 w-4" />
+                Finalize Annual Execution
+              </Button>
+            </>
           )}
           {annualTargetsFinalized && !periodsInitializedGlobally && (
             <Button className="gap-2 shadow-xs" onClick={() => setInitPeriodsModalOpen(true)}>

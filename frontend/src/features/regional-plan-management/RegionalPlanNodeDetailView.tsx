@@ -512,6 +512,13 @@ export function RegionalPlanNodeDetailView({
   const isAnnual = version?.version_kind === "annual";
   const isMaster = version?.version_kind === "master";
 
+  const parentMasterId = isAnnual ? version?.parent_plan_version_id : null;
+  const { data: masterVersion } = useGetRegionalPlanVersionByIdQuery(
+    { id: parentMasterId!, region_id: regionId },
+    { skip: !parentMasterId || !regionId }
+  );
+  const annualTargetsFinalized = Boolean(masterVersion?.annual_targets_finalized_at);
+
   const statusColorClass =
     node.period_actual_status === "validated"
       ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
@@ -821,7 +828,7 @@ export function RegionalPlanNodeDetailView({
             <div className="pt-3 border-t">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground block">Annual Target</span>
-                {isAnnual && canUpdate && !version?.annual_targets_finalized_at && (
+                {isAnnual && canUpdate && !annualTargetsFinalized && (
                   <Badge variant="outline" className="text-[10px] text-primary border-primary/30">
                     Editable Draft
                   </Badge>
@@ -831,7 +838,7 @@ export function RegionalPlanNodeDetailView({
                 <span className="font-bold text-base text-foreground">
                   {node.annual_target != null ? node.annual_target : "—"} {node.target_unit || ""}
                 </span>
-                {isAnnual && canUpdate && !version?.annual_targets_finalized_at && (
+                {isAnnual && canUpdate && !annualTargetsFinalized && (
                   <div className="flex items-center gap-1.5 ml-auto">
                     <Input
                       type="number"

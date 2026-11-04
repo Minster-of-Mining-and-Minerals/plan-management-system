@@ -289,6 +289,32 @@ async function runVerification() {
   console.log(`✓ Complete allocation readiness check: ready = ${readiness.ready}`);
   if (!readiness.ready) throw new Error(`Readiness should be true after complete allocation! Errors: ${readiness.errors.join("; ")}`);
 
+  // Test Reopen Draft & Re-initialize Annual Execution Lifecycle Parity
+  console.log("\n[Phase 9.5] Testing Reopening Draft, Reconciliation, and Auto-Distribution...");
+  await regionalPlanService.reopenRegionalPlanDraftForEdit(master.regional_plan_version_id, region.region_id, user.user_id);
+  const reopenedMaster = await regionalPlanService.getRegionalPlanVersionById(master.regional_plan_version_id, region.region_id);
+  console.log(`✓ Draft reopened: status = ${reopenedMaster.status}, annual_targets_finalized_at = ${reopenedMaster.annual_targets_finalized_at}`);
+  if (reopenedMaster.status !== "draft" || reopenedMaster.annual_targets_finalized_at !== null) {
+    throw new Error("Master should be in draft status with null annual_targets_finalized_at!");
+  }
+
+  // Refinalize draft
+  await regionalPlanService.finalizeRegionalPlanDraft(master.regional_plan_version_id, region.region_id, user.user_id);
+  const refinalizedAnnuals = await regionalPlanService.listRegionalAnnualVersions(master.regional_plan_version_id, region.region_id);
+  console.log(`✓ Draft refinalized: annual versions count = ${refinalizedAnnuals.length} (must be exactly 3, no duplicates)`);
+  if (refinalizedAnnuals.length !== 3) {
+    throw new Error(`Expected exactly 3 annual versions after refinalize, found ${refinalizedAnnuals.length}!`);
+  }
+
+  // Test Auto-Divide Annual Targets Equally
+  const autoDivideResult = await regionalPlanService.distributeRegionalAnnualTargetsEqually(master.regional_plan_version_id, region.region_id, user.user_id);
+  console.log(`✓ Auto-divide annual targets: processed ${autoDivideResult.count} master nodes`);
+  readiness = await regionalPlanService.getRegionalAnnualExecutionReadiness(master.regional_plan_version_id, region.region_id);
+  console.log(`✓ Readiness after auto-distribution: ready = ${readiness.ready}`);
+  if (!readiness.ready) {
+    throw new Error(`Auto-divide targets should yield ready = true! Errors: ${readiness.errors.join("; ")}`);
+  }
+
   // Finalize Annual Execution
   await regionalPlanService.finalizeRegionalAnnualExecution(master.regional_plan_version_id, region.region_id, user.user_id);
   const reloadedMaster = await regionalPlanService.getRegionalPlanVersionById(master.regional_plan_version_id, region.region_id);

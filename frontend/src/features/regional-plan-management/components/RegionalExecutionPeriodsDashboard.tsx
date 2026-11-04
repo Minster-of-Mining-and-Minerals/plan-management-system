@@ -63,7 +63,7 @@ export function RegionalExecutionPeriodsDashboard({
     { skip: !parentMasterId || !!masterVersionProp || !regionId }
   );
   const masterVersion = masterVersionProp ?? fetchedMasterVersion;
-  const annualTargetsFinalized = Boolean(masterVersion?.annual_targets_finalized_at || annualVersion.annual_targets_finalized_at);
+  const annualTargetsFinalized = Boolean(masterVersion?.annual_targets_finalized_at);
   const periodsInitializedGlobally = Boolean(masterVersion?.period_subdivision_mode || annualVersion.period_subdivision_mode);
   const processStarted = Boolean(masterVersion?.process_started_at || annualVersion.process_started_at);
 

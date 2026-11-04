@@ -232,6 +232,7 @@ router.get("/versions/:id/annual-versions", planReadAccess, regionalPlanControll
 router.get("/versions/:id/annual-target-allocations", planReadAccess, regionalPlanController.getAnnualTargetAllocationsHandler);
 router.get("/versions/:id/annual-execution-readiness", planReadAccess, regionalPlanController.getAnnualExecutionReadinessHandler);
 router.post("/versions/:id/finalize-annual-execution", planFinalizeAccess, regionalPlanController.finalizeAnnualExecutionHandler);
+router.post("/versions/:id/distribute-annual-targets-equally", planUpdateAccess, regionalPlanController.distributeAnnualTargetsEquallyHandler);
 router.post("/versions/:id/lock-annual", planUpdateAccess, regionalPlanController.lockAnnualPlanHandler);
 router.post("/versions/:id/unlock-annual", planUpdateAccess, regionalPlanController.unlockAnnualPlanHandler);
 router.post("/versions/:id/complete-annual", planFinalizeAccess, regionalPlanController.completeAnnualPlanHandler);
@@ -242,6 +243,7 @@ router.post("/versions/:id/initialize-execution-periods", planUpdateAccess, regi
 router.get("/versions/:id/period-target-allocations", planReadAccess, regionalPlanController.getPeriodTargetAllocationsHandler);
 router.get("/versions/:id/execution-period-readiness", planReadAccess, regionalPlanController.getPeriodFinalizationReadinessHandler);
 router.post("/versions/:id/finalize-execution-periods", planFinalizeAccess, regionalPlanController.finalizePeriodTargetsHandler);
+router.post("/versions/:id/distribute-period-targets-equally", planUpdateAccess, regionalPlanController.distributePeriodTargetsEquallyHandler);
 router.post("/versions/:id/complete-period", planFinalizeAccess, regionalPlanController.completeExecutionPeriodHandler);
 
 // Hierarchy

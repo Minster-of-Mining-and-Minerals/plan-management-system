@@ -26,6 +26,7 @@ const {
   ACHIEVEMENT_STATUS,
   canTransitionAchievementStatus,
   canEditAchievementValue,
+  isRollupEligibleAchievementStatus,
 } = require("../utils/planAchievementWorkflowUtils");
 
 const {
@@ -35,7 +36,6 @@ const {
   validateRegionalAchievementWorkflow,
   rejectValidationRegionalAchievementWorkflow,
   isRollupEligibleAchievement,
-  isRollupEligibleAchievementStatus,
   userCanExecuteRegionalAchievement,
   userCanApproveRegionalAchievement,
   userCanValidateRegionalAchievement,
@@ -3038,12 +3038,8 @@ async function finalizeRegionalPlanDraft(versionId, regionId, userId) {
       const list = bySeq.get(sequence) || [];
 
       if (list.length > 0) {
-        // Pick canonical: priority to finalized targets, then latest
-        list.sort((a, b) => {
-          if (a.annual_targets_finalized_at && !b.annual_targets_finalized_at) return -1;
-          if (!a.annual_targets_finalized_at && b.annual_targets_finalized_at) return 1;
-          return new Date(b.created_at) - new Date(a.created_at);
-        });
+        // Pick canonical: priority to earliest created
+        list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
         const canonical = list[0];
         await canonical.update(
@@ -3057,9 +3053,25 @@ async function finalizeRegionalPlanDraft(versionId, regionId, userId) {
             planning_duration_years: 1,
             regional_plan_rule_id: version.regional_plan_rule_id,
             regional_planning_config_id: version.regional_planning_config_id,
+            status: "draft",
+            annual_targets_finalized_at: null,
+            period_targets_finalized_at: null,
+            period_subdivision_mode: null,
           },
           { transaction: t }
         );
+
+        // If annual targets are not finalized on the master plan, ensure child execution periods are removed
+        if (!version.annual_targets_finalized_at) {
+          const childPeriods = await RegionalPlanVersion.findAll({
+            where: { parent_plan_version_id: canonical.regional_plan_version_id, version_kind: "execution_period" },
+            transaction: t,
+          });
+          for (const cp of childPeriods) {
+            await RegionalPlanNode.destroy({ where: { regional_plan_version_id: cp.regional_plan_version_id }, transaction: t });
+            await cp.destroy({ transaction: t });
+          }
+        }
 
         await syncRegionalDerivedNodes(version.regional_plan_version_id, canonical.regional_plan_version_id, t, "annual");
         targetAnnualVersions.push(canonical);
@@ -3242,6 +3254,7 @@ async function reopenRegionalPlanDraftForEdit(versionId, regionId, userId) {
     if (annualIds.length > 0) {
       await RegionalPlanVersion.update(
         {
+          status: "draft",
           period_subdivision_mode: null,
           period_targets_finalized_at: null,
           annual_targets_finalized_at: null,
@@ -3271,6 +3284,29 @@ async function reopenRegionalPlanDraftForEdit(versionId, regionId, userId) {
           where: { regional_plan_version_id: periodIds },
           transaction: t,
         });
+      }
+
+      // Reset annual_target and period_target on all annual nodes
+      await RegionalPlanNode.update(
+        {
+          annual_target: null,
+          period_target: null,
+        },
+        {
+          where: { regional_plan_version_id: annualIds },
+          transaction: t,
+        }
+      );
+
+      // Prune obsolete annual versions exceeding master duration
+      const maxDuration = version.planning_duration_years || (version.end_year - version.start_year + 1) || 100;
+      const obsoleteAnnuals = annuals.filter((a) => a.sequence_index > maxDuration);
+      for (const obs of obsoleteAnnuals) {
+        await RegionalPlanNode.destroy({
+          where: { regional_plan_version_id: obs.regional_plan_version_id },
+          transaction: t,
+        });
+        await obs.destroy({ transaction: t });
       }
     }
 
@@ -3406,7 +3442,7 @@ async function updateRegionalAnnualTarget(nodeId, regionId, annualTarget, userId
     }
 
     const master = await RegionalPlanVersion.findByPk(version.parent_plan_version_id, { transaction: t });
-    if (master?.annual_targets_finalized_at || version.annual_targets_finalized_at) {
+    if (master?.annual_targets_finalized_at) {
       const err = new Error("Annual targets are finalized — edit targets before finalizing annual execution");
       err.status = 400;
       throw err;
@@ -3640,6 +3676,128 @@ async function completeRegionalAnnualPlan(annualVersionId, regionId, userId) {
   }
 
   return annual;
+}
+
+async function distributeRegionalAnnualTargetsEqually(masterVersionId, regionId, userId) {
+  const master = await getRegionalPlanVersionById(masterVersionId, regionId);
+  if (master.status !== "finalized") {
+    const err = new Error("Master plan draft must be finalized to distribute annual targets");
+    err.status = 400;
+    throw err;
+  }
+  if (master.annual_targets_finalized_at) {
+    const err = new Error("Annual targets are already finalized");
+    err.status = 400;
+    throw err;
+  }
+
+  const annuals = await listRegionalAnnualVersions(masterVersionId, regionId);
+  if (annuals.length === 0) {
+    const err = new Error("No annual execution versions found");
+    err.status = 400;
+    throw err;
+  }
+
+  const duration = annuals.length;
+  const masterNodes = await RegionalPlanNode.findAll({
+    where: { regional_plan_version_id: masterVersionId, is_active: true },
+  });
+
+  const rule = master.planRule || (await RegionalPlanRule.findByPk(master.regional_plan_rule_id));
+
+  const t = await sequelize.transaction();
+  try {
+    for (const mNode of masterNodes) {
+      if (rule && !stepRequiresWeight(rule, mNode.level)) continue;
+      const draftTarget = Number(mNode.weight) || 0;
+      if (draftTarget <= 0) continue;
+
+      const baseValue = Math.floor((draftTarget / duration) * 100) / 100;
+      const remainder = Math.round((draftTarget - baseValue * duration) * 100) / 100;
+
+      for (let i = 0; i < duration; i++) {
+        const ann = annuals[i];
+        const yearTarget = i === 0 ? Math.round((baseValue + remainder) * 100) / 100 : baseValue;
+        await RegionalPlanNode.update(
+          { annual_target: yearTarget },
+          {
+            where: {
+              regional_plan_version_id: ann.regional_plan_version_id,
+              source_regional_plan_node_id: mNode.regional_plan_node_id,
+              is_active: true,
+            },
+            transaction: t,
+          }
+        );
+      }
+    }
+    await t.commit();
+    return { success: true, count: masterNodes.length };
+  } catch (err) {
+    await t.rollback();
+    throw err;
+  }
+}
+
+async function distributeRegionalPeriodTargetsEqually(annualVersionId, regionId, userId) {
+  const annual = await getRegionalPlanVersionById(annualVersionId, regionId);
+  if (annual.version_kind !== "annual") {
+    const err = new Error("Must be an annual version to distribute period targets");
+    err.status = 400;
+    throw err;
+  }
+  if (annual.period_targets_finalized_at) {
+    const err = new Error("Period targets are already finalized for this annual year");
+    err.status = 400;
+    throw err;
+  }
+
+  const periods = await listRegionalExecutionPeriods(annualVersionId, regionId);
+  if (periods.length === 0) {
+    const err = new Error("Execution periods must be initialized first");
+    err.status = 400;
+    throw err;
+  }
+
+  const periodCount = periods.length;
+  const annualNodes = await RegionalPlanNode.findAll({
+    where: { regional_plan_version_id: annualVersionId, is_active: true },
+  });
+
+  const rule = annual.planRule || (await RegionalPlanRule.findByPk(annual.regional_plan_rule_id));
+
+  const t = await sequelize.transaction();
+  try {
+    for (const aNode of annualNodes) {
+      if (rule && !stepRequiresWeight(rule, aNode.level)) continue;
+      const annualTarget = Number(aNode.annual_target) || 0;
+      if (annualTarget <= 0) continue;
+
+      const baseValue = Math.floor((annualTarget / periodCount) * 100) / 100;
+      const remainder = Math.round((annualTarget - baseValue * periodCount) * 100) / 100;
+
+      for (let i = 0; i < periodCount; i++) {
+        const period = periods[i];
+        const periodTarget = i === 0 ? Math.round((baseValue + remainder) * 100) / 100 : baseValue;
+        await RegionalPlanNode.update(
+          { period_target: periodTarget },
+          {
+            where: {
+              regional_plan_version_id: period.regional_plan_version_id,
+              source_regional_plan_node_id: aNode.regional_plan_node_id,
+              is_active: true,
+            },
+            transaction: t,
+          }
+        );
+      }
+    }
+    await t.commit();
+    return { success: true, count: annualNodes.length };
+  } catch (err) {
+    await t.rollback();
+    throw err;
+  }
 }
 
 // -------------------------------------------------------------
@@ -5100,6 +5258,8 @@ module.exports = {
   lockRegionalAnnualPlan,
   unlockRegionalAnnualPlan,
   completeRegionalAnnualPlan,
+  distributeRegionalAnnualTargetsEqually,
+  distributeRegionalPeriodTargetsEqually,
 
   // Period Planning
   listRegionalExecutionPeriods,

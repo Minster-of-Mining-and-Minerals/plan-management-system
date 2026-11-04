@@ -539,6 +539,28 @@ export const regionalPlanApi = baseApi.injectEndpoints({
       invalidatesTags: ["RegionalPlanVersions"],
     }),
 
+    distributeRegionalAnnualTargetsEqually: builder.mutation<
+      { success: boolean; count: number },
+      { id: string; region_id: string }
+    >({
+      query: ({ id, region_id }) => ({
+        url: `/regional/plans/versions/${id}/distribute-annual-targets-equally?region_id=${region_id}`,
+        method: "POST",
+      }),
+      invalidatesTags: ["RegionalPlanNodes", "RegionalPlanVersions"],
+    }),
+
+    distributeRegionalPeriodTargetsEqually: builder.mutation<
+      { success: boolean; count: number },
+      { id: string; region_id: string }
+    >({
+      query: ({ id, region_id }) => ({
+        url: `/regional/plans/versions/${id}/distribute-period-targets-equally?region_id=${region_id}`,
+        method: "POST",
+      }),
+      invalidatesTags: ["RegionalPlanNodes", "RegionalPlanVersions"],
+    }),
+
     // Period Planning
     getRegionalExecutionPeriods: builder.query<RegionalPlanVersion[], { id: string; region_id: string }>({
       query: ({ id, region_id }) => ({
@@ -868,6 +890,8 @@ export const {
   useGetRegionalAnnualTargetAllocationsQuery,
   useUpdateRegionalAnnualTargetMutation,
   useFinalizeRegionalAnnualExecutionMutation,
+  useDistributeRegionalAnnualTargetsEquallyMutation,
+  useDistributeRegionalPeriodTargetsEquallyMutation,
   useGetRegionalExecutionPeriodsQuery,
   useInitializeRegionalExecutionPeriodsMutation,
   useGetRegionalPeriodTargetAllocationsQuery,

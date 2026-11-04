@@ -627,6 +627,17 @@ async function finalizeAnnualExecutionHandler(req, res, next) {
   }
 }
 
+async function distributeAnnualTargetsEquallyHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "update");
+    const data = await regionalPlanService.distributeRegionalAnnualTargetsEqually(req.params.id, regionId, req.user?.user_id);
+    res.json({ success: true, data, message: "Annual targets distributed equally across years" });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function lockAnnualPlanHandler(req, res, next) {
   try {
     const regionId = resolveEffectiveRegionId(req);
@@ -728,6 +739,17 @@ async function finalizePeriodTargetsHandler(req, res, next) {
     assertRegionAccessible(req, regionId, "update");
     const data = await regionalPlanService.finalizeRegionalPeriodTargets(req.params.id, regionId, req.user?.user_id);
     res.json({ success: true, data, message: "Execution period targets finalized" });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function distributePeriodTargetsEquallyHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "update");
+    const data = await regionalPlanService.distributeRegionalPeriodTargetsEqually(req.params.id, regionId, req.user?.user_id);
+    res.json({ success: true, data, message: "Period targets distributed equally across execution periods" });
   } catch (err) {
     next(err);
   }
@@ -963,6 +985,7 @@ module.exports = {
   updateAnnualTargetHandler,
   getAnnualExecutionReadinessHandler,
   finalizeAnnualExecutionHandler,
+  distributeAnnualTargetsEquallyHandler,
   lockAnnualPlanHandler,
   unlockAnnualPlanHandler,
   completeAnnualPlanHandler,
@@ -974,6 +997,7 @@ module.exports = {
   updatePeriodTargetHandler,
   getPeriodFinalizationReadinessHandler,
   finalizePeriodTargetsHandler,
+  distributePeriodTargetsEquallyHandler,
   completeExecutionPeriodHandler,
 
   // Achievement Workflow

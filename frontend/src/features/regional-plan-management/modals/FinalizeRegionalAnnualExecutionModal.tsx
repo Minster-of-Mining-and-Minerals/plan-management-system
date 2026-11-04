@@ -11,11 +11,12 @@ import { DIALOG_SCROLLABLE_CONTENT } from "@/lib/dialogLayout";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
 import { actionFeedback } from "@/components/action-feedback";
 import {
   useFinalizeRegionalAnnualExecutionMutation,
   useGetRegionalAnnualExecutionReadinessQuery,
+  useDistributeRegionalAnnualTargetsEquallyMutation,
 } from "@/redux/api/regionalPlanApi";
 import type { RegionalPlanVersion } from "@/redux/types/regionalPlan";
 import { getApiErrorMessage } from "@/utils/apiErrorUtils";
@@ -40,6 +41,21 @@ export function FinalizeRegionalAnnualExecutionModal({
     { skip: !isOpen }
   );
   const [finalize, { isLoading: isFinalizing }] = useFinalizeRegionalAnnualExecutionMutation();
+  const [distributeAnnualEqually, { isLoading: isDistributing }] =
+    useDistributeRegionalAnnualTargetsEquallyMutation();
+
+  const handleAutoDistribute = async () => {
+    try {
+      await distributeAnnualEqually({
+        id: masterVersion.regional_plan_version_id,
+        region_id: regionId,
+      }).unwrap();
+      actionFeedback.success("Annual targets divided equally across years. Re-validating...");
+      refetch();
+    } catch (error: unknown) {
+      actionFeedback.error(getApiErrorMessage(error, "Failed to distribute annual targets"));
+    }
+  };
 
   const handleFinalize = async () => {
     try {
@@ -101,6 +117,19 @@ export function FinalizeRegionalAnnualExecutionModal({
                     <li key={i}>{err}</li>
                   ))}
                 </ul>
+                <div className="pt-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 border-amber-300 bg-white text-amber-900 hover:bg-amber-100 dark:bg-amber-950 dark:text-amber-100 text-xs shadow-xs"
+                    onClick={handleAutoDistribute}
+                    disabled={isDistributing}
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-amber-600" />
+                    {isDistributing ? "Auto-dividing..." : "Auto-Divide Targets Equally"}
+                  </Button>
+                </div>
               </div>
             )}
 
