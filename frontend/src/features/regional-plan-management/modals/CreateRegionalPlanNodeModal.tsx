@@ -65,6 +65,7 @@ import {
   stepTargetIsOptional,
   stepRequiresWeight,
   stepRequiresContributionWeight,
+  stepRequiresAssignment,
   isWeightModeSelectionLevel,
   TARGET_FIELD_LABEL,
   CONTRIBUTION_FIELD_LABEL,
@@ -179,8 +180,68 @@ export function CreateRegionalPlanNodeModal({
   const isTargetRequired = stepRequiresTarget(effectiveRule, nodeLevel);
   const isTargetOptional = stepTargetIsOptional(effectiveRule, nodeLevel);
   const requiresContribution = stepRequiresContributionWeight(effectiveRule, nodeLevel);
+  const isAssignmentRequired = stepRequiresAssignment(effectiveRule, nodeLevel);
   const showWeightModeSelect = allowsTarget && isWeightModeSelectionLevel(effectiveRule, nodeLevel);
   const inheritedMode = resolveNodeWeightMode(effectiveRule as any, nodeLevel, parentNode as any, node as any);
+
+  const ancestorScope = useMemo(() => {
+    if (parentNode) {
+      const active = ((parentNode as any).internalAssignments || []).filter((a: any) => a.is_active !== false);
+      for (const a of active) {
+        if (a.regional_structure_id) {
+          const dept = (structures as any[]).find((s) => s.regional_structure_id === a.regional_structure_id);
+          return {
+            deptId: a.regional_structure_id,
+            deptName: a.department?.name || dept?.name || "Parent Department",
+            ancestorTitle: parentNode.title,
+          };
+        }
+        if (a.assignedUser?.regional_structure_id) {
+          const dept = (structures as any[]).find((s) => s.regional_structure_id === a.assignedUser.regional_structure_id);
+          return {
+            deptId: a.assignedUser.regional_structure_id,
+            deptName: a.department?.name || dept?.name || "Parent Department",
+            ancestorTitle: parentNode.title,
+          };
+        }
+      }
+      if ((parentNode as any).regional_structure_id) {
+        const dept = (structures as any[]).find((s) => s.regional_structure_id === (parentNode as any).regional_structure_id);
+        return {
+          deptId: (parentNode as any).regional_structure_id,
+          deptName: dept?.name || "Parent Department",
+          ancestorTitle: parentNode.title,
+        };
+      }
+    }
+    return null;
+  }, [parentNode, structures]);
+
+  const allowedStructureIds = useMemo(() => {
+    if (!ancestorScope?.deptId) return null;
+    const allowed = new Set<string>([ancestorScope.deptId]);
+    let added = true;
+    while (added) {
+      added = false;
+      for (const s of (structures as any[])) {
+        if (s.parent_id && allowed.has(s.parent_id) && !allowed.has(s.regional_structure_id)) {
+          allowed.add(s.regional_structure_id);
+          added = true;
+        }
+      }
+    }
+    return allowed;
+  }, [structures, ancestorScope]);
+
+  const filteredStructures = useMemo(() => {
+    if (!allowedStructureIds) return structures;
+    return (structures as any[]).filter((s) => allowedStructureIds.has(s.regional_structure_id));
+  }, [structures, allowedStructureIds]);
+
+  const filteredUsers = useMemo(() => {
+    if (!allowedStructureIds) return users;
+    return (users as any[]).filter((u) => u.regional_structure_id && allowedStructureIds.has(u.regional_structure_id));
+  }, [users, allowedStructureIds]);
 
   const formSchema = useMemo(
     () =>
@@ -700,13 +761,26 @@ export function CreateRegionalPlanNodeModal({
                 )}
 
                 {/* Department / Regional Structure */}
+                {ancestorScope && (
+                  <div className="rounded-lg border border-blue-500/20 bg-blue-500/10 p-2.5 text-blue-900 dark:text-blue-200 text-xs">
+                    Scoped to <strong>{ancestorScope.deptName}</strong> and its child departments because parent milestone &ldquo;{ancestorScope.ancestorTitle}&rdquo; is assigned to this department.
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="regional_structure_id"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Assigned Directorate / Structure</FormLabel>
+                        <div className="flex items-center justify-between">
+                          <FormLabel>Assigned Directorate / Structure</FormLabel>
+                          {isAssignmentRequired && (
+                            <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300">
+                              Assignment Required
+                            </Badge>
+                          )}
+                        </div>
                         <Select
                           onValueChange={(val) => field.onChange(val === "__none__" ? null : val)}
                           value={field.value ?? "__none__"}
@@ -718,7 +792,7 @@ export function CreateRegionalPlanNodeModal({
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="__none__">None (Inherit from parent)</SelectItem>
-                            {structures.map((s: any) => (
+                            {filteredStructures.map((s: any) => (
                               <SelectItem key={s.regional_structure_id} value={s.regional_structure_id}>
                                 {s.name}
                               </SelectItem>
@@ -747,7 +821,7 @@ export function CreateRegionalPlanNodeModal({
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="__none__">Unassigned</SelectItem>
-                            {users.map((u: any) => (
+                            {filteredUsers.map((u: any) => (
                               <SelectItem key={u.user_id} value={u.user_id}>
                                 {u.full_name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email} ({u.email})
                               </SelectItem>

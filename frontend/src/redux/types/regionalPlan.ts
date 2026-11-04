@@ -9,8 +9,13 @@ export interface RegionalPlanRuleStep {
   requires_weight: boolean;
   requires_contribution_weight: boolean;
   allow_kpi: boolean;
+  requires_assignment?: boolean;
+  assignment_requirement?: "none" | "optional" | "required" | string;
+  target_requirement?: "none" | "optional" | "required" | string;
+  allow_assignment?: boolean;
   color_hex?: string;
   inherits_weight_from_level?: number | null;
+  inherits_assignment_from_level?: number | null;
 }
 
 export interface RegionalPerformanceColorThreshold {
@@ -129,7 +134,7 @@ export interface RegionalPlanNode {
     assigned_user_id?: string | null;
     is_active?: boolean;
     department?: { regional_structure_id: string; name: string };
-    assignedUser?: { user_id: string; full_name: string; email: string };
+    assignedUser?: { user_id: string; full_name: string; email: string; regional_structure_id?: string | null };
   }>;
   parent?: RegionalPlanNode | null;
   children?: RegionalPlanNode[];

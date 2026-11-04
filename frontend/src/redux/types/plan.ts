@@ -837,6 +837,10 @@ export interface PlanRuleStep {
     requires_contribution_weight?: boolean;
     color_hex?: string | null;
     inherits_weight_from_level?: number | null;
+    requires_assignment?: boolean;
+    assignment_requirement?: "none" | "optional" | "required" | string;
+    allow_assignment?: boolean;
+    inherits_assignment_from_level?: number | null;
     created_at: string;
     updated_at: string;
 }

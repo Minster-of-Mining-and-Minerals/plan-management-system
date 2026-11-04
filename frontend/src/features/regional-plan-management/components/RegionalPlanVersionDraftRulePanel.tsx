@@ -37,6 +37,7 @@ const stepSchema = z.object({
   label: z.string().min(1).max(255),
   requires_weight: z.boolean(),
   requires_contribution_weight: z.boolean(),
+  requires_assignment: z.boolean().default(false),
   color_hex: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Use a valid hex color"),
 });
 
@@ -67,15 +68,15 @@ function ruleToFormValues(rule: RegionalPlanRule | PlanRule | any): FormValues {
     const is3Level = (rule?.name || "").includes("3");
     stepsRaw = is3Level
       ? [
-          { level: 1, name: "SF", node_type: "strategic", color_hex: "#8B5CF6", requires_weight: false, requires_contribution_weight: false },
-          { level: 2, name: "Goal", node_type: "goal", color_hex: "#3B82F6", requires_weight: false, requires_contribution_weight: false },
-          { level: 3, name: "KPI", node_type: "kpi", color_hex: "#10B981", requires_weight: true, requires_contribution_weight: true },
+          { level: 1, name: "SF", node_type: "strategic", color_hex: "#8B5CF6", requires_weight: false, requires_contribution_weight: false, requires_assignment: false },
+          { level: 2, name: "Goal", node_type: "goal", color_hex: "#3B82F6", requires_weight: false, requires_contribution_weight: false, requires_assignment: false },
+          { level: 3, name: "KPI", node_type: "kpi", color_hex: "#10B981", requires_weight: true, requires_contribution_weight: true, requires_assignment: true },
         ]
       : [
-          { level: 1, name: "Strategic Priority", node_type: "strategic", color_hex: "#8B5CF6", requires_weight: false, requires_contribution_weight: false },
-          { level: 2, name: "Goal", node_type: "goal", color_hex: "#3B82F6", requires_weight: false, requires_contribution_weight: false },
-          { level: 3, name: "Key Performance Indicator (KPI)", node_type: "kpi", color_hex: "#10B981", requires_weight: true, requires_contribution_weight: true },
-          { level: 4, name: "Activity", node_type: "task", color_hex: "#F59E0B", requires_weight: false, requires_contribution_weight: false },
+          { level: 1, name: "Strategic Priority", node_type: "strategic", color_hex: "#8B5CF6", requires_weight: false, requires_contribution_weight: false, requires_assignment: false },
+          { level: 2, name: "Goal", node_type: "goal", color_hex: "#3B82F6", requires_weight: false, requires_contribution_weight: false, requires_assignment: false },
+          { level: 3, name: "Key Performance Indicator (KPI)", node_type: "kpi", color_hex: "#10B981", requires_weight: true, requires_contribution_weight: true, requires_assignment: true },
+          { level: 4, name: "Activity", node_type: "task", color_hex: "#F59E0B", requires_weight: false, requires_contribution_weight: false, requires_assignment: false },
         ];
   }
   const normalizedSteps = stepsRaw.map((s: any) => ({
@@ -83,11 +84,13 @@ function ruleToFormValues(rule: RegionalPlanRule | PlanRule | any): FormValues {
     label: s.label ?? s.name ?? `Level ${s.step_order ?? s.level ?? 1}`,
     requires_weight: Boolean(s.requires_weight),
     requires_contribution_weight: Boolean(s.requires_contribution_weight),
+    requires_assignment: Boolean(s.requires_assignment || s.assignment_requirement === "required"),
     color_hex: s.color_hex || getDefaultStepColorHex((s.step_order ?? s.level ?? 1) - 1),
   }));
 
   const sorted = sortSteps(normalizedSteps as any);
   const weightStart = sorted.find((s) => s.requires_weight)?.step_order ?? null;
+  const assignmentStart = sorted.find((s) => s.requires_assignment)?.step_order ?? null;
 
   return {
     name: rule?.name || "Draft Regional Plan Rule",
@@ -98,6 +101,7 @@ function ruleToFormValues(rule: RegionalPlanRule | PlanRule | any): FormValues {
       label: s.label,
       requires_weight: weightStart !== null && s.step_order === weightStart,
       requires_contribution_weight: Boolean(s.requires_contribution_weight),
+      requires_assignment: assignmentStart !== null && s.step_order === assignmentStart,
       color_hex: s.color_hex || getDefaultStepColorHex(s.step_order - 1),
     })),
   };
@@ -145,6 +149,7 @@ export function RegionalPlanVersionDraftRulePanel({
         label: s.label ?? s.name ?? `Level ${s.step_order ?? s.level ?? 1}`,
         requires_weight: Boolean(s.requires_weight),
         requires_contribution_weight: Boolean(s.requires_contribution_weight),
+        requires_assignment: Boolean(s.requires_assignment || s.assignment_requirement === "required"),
         color_hex: s.color_hex || getDefaultStepColorHex((s.step_order ?? s.level ?? 1) - 1),
       })) as any
     );
@@ -162,6 +167,7 @@ export function RegionalPlanVersionDraftRulePanel({
           label: "Level 1",
           requires_weight: false,
           requires_contribution_weight: false,
+          requires_assignment: false,
           color_hex: getDefaultStepColorHex(0),
         },
       ],
@@ -179,6 +185,11 @@ export function RegionalPlanVersionDraftRulePanel({
     return idx >= 0 ? idx + 1 : null;
   }, [watchedSteps]);
 
+  const assignmentStartLevel = useMemo(() => {
+    const idx = watchedSteps.findIndex((s) => s.requires_assignment);
+    return idx >= 0 ? idx + 1 : null;
+  }, [watchedSteps]);
+
   useEffect(() => {
     if (rule && isEditing) {
       form.reset(ruleToFormValues(rule));
@@ -191,6 +202,7 @@ export function RegionalPlanVersionDraftRulePanel({
       label: `Level ${fields.length + 1}`,
       requires_weight: false,
       requires_contribution_weight: false,
+      requires_assignment: false,
       color_hex: getDefaultStepColorHex(fields.length),
     });
   };
@@ -214,16 +226,35 @@ export function RegionalPlanVersionDraftRulePanel({
     form.setValue("steps", updated, { shouldDirty: true });
   };
 
+  const setAssignmentStartFromLevel = (level: number | null) => {
+    const current = form.getValues("steps");
+    const updated = current.map((s) => ({
+      ...s,
+      requires_assignment: level !== null && s.step_order === level,
+    }));
+    form.setValue("steps", updated, { shouldDirty: true });
+  };
+
   const onSubmit = async (values: FormValues) => {
     try {
       const startIndex = values.steps.findIndex((s) => s.requires_weight);
-      const payloadSteps = values.steps.map((s, index) => ({
-        step_order: index + 1,
-        label: s.label.trim(),
-        requires_weight: startIndex >= 0 && index >= startIndex,
-        requires_contribution_weight: Boolean(s.requires_contribution_weight),
-        color_hex: s.color_hex.trim(),
-      }));
+      const startAssignmentIndex = values.steps.findIndex((s) => s.requires_assignment);
+      const payloadSteps = values.steps.map((s, index) => {
+        const reqWeight = startIndex >= 0 && index >= startIndex;
+        const reqAssignment = startAssignmentIndex >= 0 && index >= startAssignmentIndex;
+        return {
+          step_order: index + 1,
+          label: s.label.trim(),
+          requires_weight: reqWeight,
+          allow_kpi: reqWeight,
+          target_requirement: reqWeight ? "required" : "none",
+          requires_contribution_weight: Boolean(s.requires_contribution_weight),
+          requires_assignment: reqAssignment,
+          assignment_requirement: reqAssignment ? "required" : "none",
+          allow_assignment: reqAssignment,
+          color_hex: s.color_hex.trim(),
+        };
+      });
 
       await updateRule({
         versionId,
@@ -374,6 +405,12 @@ export function RegionalPlanVersionDraftRulePanel({
                         </Badge>
                       ) : (
                         <span className="text-muted-foreground text-[10px]">No target required</span>
+                      )}
+
+                      {step.requires_assignment && (
+                        <Badge variant="secondary" className="text-[10px] bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/20">
+                          Assignment Required
+                        </Badge>
                       )}
 
                       {step.requires_contribution_weight && (
@@ -543,7 +580,7 @@ export function RegionalPlanVersionDraftRulePanel({
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t text-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t text-xs">
                         <div className="flex items-center justify-between">
                           <div>
                             <span className="font-medium text-foreground block">Target Required From Here</span>
@@ -555,6 +592,21 @@ export function RegionalPlanVersionDraftRulePanel({
                             checked={isWeightStart}
                             onCheckedChange={(checked) =>
                               setWeightStartFromLevel(checked ? stepNumber : null)
+                            }
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="font-medium text-foreground block">Assignment Required From Here</span>
+                            <span className="text-[11px] text-muted-foreground">
+                              Requires department/user assignment on Level {stepNumber} and deeper levels.
+                            </span>
+                          </div>
+                          <Switch
+                            checked={assignmentStartLevel === stepNumber}
+                            onCheckedChange={(checked) =>
+                              setAssignmentStartFromLevel(checked ? stepNumber : null)
                             }
                           />
                         </div>

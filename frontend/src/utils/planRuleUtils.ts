@@ -95,6 +95,63 @@ export function sortSteps(steps: PlanRuleStep[]): PlanRuleStep[] {
     return [...steps].sort((a, b) => ((a.step_order ?? (a as any).level ?? 0) - (b.step_order ?? (b as any).level ?? 0)));
 }
 
+export type StepAssignmentRequirement = "required" | "optional" | "none";
+
+export function getStepAssignmentRequirement(
+    ruleOrStep: any,
+    level?: number
+): StepAssignmentRequirement {
+    let step = ruleOrStep;
+    if (level != null && ruleOrStep?.steps) {
+        step = getStepForLevel(ruleOrStep, level);
+    }
+    if (!step) return "none";
+
+    if (step.assignment_requirement) {
+        return step.assignment_requirement;
+    }
+    if (Boolean(step.requires_assignment)) {
+        return "required";
+    }
+    if (Boolean(step.allow_assignment)) {
+        return "optional";
+    }
+    return "none";
+}
+
+export function stepAllowsAssignment(ruleOrStep: any, level?: number): boolean {
+    const req = getStepAssignmentRequirement(ruleOrStep, level);
+    return req === "required" || req === "optional";
+}
+
+export function stepRequiresAssignment(ruleOrStep: any, level?: number): boolean {
+    const step = level != null && ruleOrStep?.steps ? getStepForLevel(ruleOrStep, level) : ruleOrStep;
+    if (step) {
+        if (step.assignment_requirement) {
+            return step.assignment_requirement === "required";
+        }
+        if (step.requires_assignment !== undefined) {
+            return Boolean(step.requires_assignment);
+        }
+    }
+    const start = getAssignmentStartLevel(ruleOrStep);
+    return start !== null && level != null && level >= start;
+}
+
+export function stepAssignmentIsOptional(ruleOrStep: any, level?: number): boolean {
+    return getStepAssignmentRequirement(ruleOrStep, level) === "optional";
+}
+
+export function getAssignmentStartLevel(rule?: PlanRule | any | null): number | null {
+    if (!rule?.steps?.length) return null;
+    const sorted = sortSteps(rule.steps);
+    const startStep = sorted.find((s) => {
+        const req = s.assignment_requirement || (s.requires_assignment ? "required" : (s.allow_assignment ? "optional" : "none"));
+        return req === "required";
+    });
+    return startStep?.step_order ?? (startStep as any)?.level ?? null;
+}
+
 export function getWeightStartLevel(rule?: PlanRule | any | null): number | null {
     if (!rule?.steps?.length) return null;
     const sorted = sortSteps(rule.steps);

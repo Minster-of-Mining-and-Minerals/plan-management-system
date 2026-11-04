@@ -448,10 +448,34 @@ export function RegionalPlanVersionDetailsView() {
               size="sm"
               onClick={handleFinalizeDraft}
               disabled={isFinalizing || (readiness && !readiness.ready)}
+              className="gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+              title={readiness && !readiness.ready ? readiness.errors.join("; ") : "Finalize draft and start annual execution"}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              <span>{isFinalizing ? "Finalizing..." : "Finalize Strategic Plan & Start Annual Execution"}</span>
+            </Button>
+          )}
+
+          {isFinalized && canUpdate && !plan.annual_targets_finalized_at && (
+            <Button
+              size="sm"
+              onClick={handleFinalizeAnnual}
+              disabled={isFinalizingAnnual}
               className="gap-2 shadow-xs"
             >
               <CheckCircle2 className="h-4 w-4" />
-              <span>{isFinalizing ? "Finalizing..." : "Finalize Strategic Plan"}</span>
+              <span>Finalize Annual Targets</span>
+            </Button>
+          )}
+
+          {isFinalized && canUpdate && executionPeriods.length === 0 && (
+            <Button
+              size="sm"
+              onClick={() => setIsInitPeriodsOpen(true)}
+              className="gap-2 shadow-xs"
+            >
+              <Sliders className="h-4 w-4" />
+              <span>Initialize Execution Periods</span>
             </Button>
           )}
 

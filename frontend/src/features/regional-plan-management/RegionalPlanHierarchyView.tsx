@@ -54,6 +54,8 @@ import {
   useInitializeRegionalExecutionPeriodsMutation,
   useFinalizeRegionalAnnualExecutionMutation,
   useFinalizeRegionalPeriodTargetsMutation,
+  useFinalizeRegionalPlanDraftMutation,
+  useGetRegionalDraftFinalizationReadinessQuery,
 } from "@/redux/api/regionalPlanApi";
 import type { RegionalPlanNode, RegionalPlanVersion } from "@/redux/types/regionalPlan";
 import type { PlanNode, PlanNodeHierarchy } from "@/redux/types/plan";
@@ -133,6 +135,12 @@ export function RegionalPlanHierarchyView() {
   const [initPeriods, { isLoading: isInitializingPeriods }] = useInitializeRegionalExecutionPeriodsMutation();
   const [finalizeAnnual, { isLoading: isFinalizingAnnual }] = useFinalizeRegionalAnnualExecutionMutation();
   const [finalizePeriods, { isLoading: isFinalizingPeriods }] = useFinalizeRegionalPeriodTargetsMutation();
+  const [finalizeDraft, { isLoading: isFinalizingDraft }] = useFinalizeRegionalPlanDraftMutation();
+
+  const { data: readiness, refetch: refetchReadiness } = useGetRegionalDraftFinalizationReadinessQuery(
+    { id: versionId!, region_id: regionId! },
+    { skip: !versionId || !regionId }
+  );
 
   // Permission flags
   const canUpdatePlan = can("REGIONAL_PLANS:UPDATE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
@@ -179,10 +187,24 @@ export function RegionalPlanHierarchyView() {
       const mappedChildren = childNodes.map(mapNodeToHierarchy);
       const { parent: _unusedParent, internalAssignments: _unusedIA, ...restNode } = n;
 
+      const mappedInternalAssignments = ((n.internalAssignments as any) || []).map((assignment: any) => ({
+        ...assignment,
+        internalStructure:
+          assignment.internalStructure ||
+          assignment.department ||
+          (assignment.regional_structure_id ? { name: assignment.department?.name } : undefined),
+        department: assignment.department || assignment.internalStructure,
+        user:
+          assignment.user ||
+          assignment.assignedUser ||
+          (assignment.assigned_user_id ? { full_name: assignment.assignedUser?.full_name } : undefined),
+        assignedUser: assignment.assignedUser || assignment.user,
+      }));
+
       return {
         ...restNode,
         parent: undefined,
-        internalAssignments: (n.internalAssignments as any) || [],
+        internalAssignments: mappedInternalAssignments,
         plan_node_id: n.regional_plan_node_id,
         plan_version_id: n.regional_plan_version_id,
         parent_id: n.parent_id || null,
@@ -388,6 +410,19 @@ export function RegionalPlanHierarchyView() {
     }
   };
 
+  const handleFinalizeDraft = async () => {
+    try {
+      await finalizeDraft({ id: versionId!, region_id: regionId! }).unwrap();
+      actionFeedback.success("Strategic plan draft finalized successfully! Annual execution is ready.");
+      refetch();
+      refetchAnnuals();
+      refetchPeriods();
+      refetchReadiness();
+    } catch (err: any) {
+      actionFeedback.error(err?.data?.message || err?.message || "Failed to finalize plan draft");
+    }
+  };
+
   if (isLoading || !plan) return <Loading01 />;
 
   const isMasterPlan = plan.version_kind === "master";
@@ -455,8 +490,32 @@ export function RegionalPlanHierarchyView() {
       <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
         <RegionalPlanVersionSubNav regionId={regionId} versionId={versionId} />
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {detailTabToggle}
+
+          {isMasterPlan && plan.status === "draft" && canFinalize && (
+            <Button
+              size="sm"
+              onClick={handleFinalizeDraft}
+              disabled={isFinalizingDraft || (readiness && !readiness.ready)}
+              className="gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+              title={readiness && !readiness.ready ? readiness.errors.join("; ") : "Finalize draft and start annual execution"}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              <span>{isFinalizingDraft ? "Finalizing..." : "Start Annual Execution"}</span>
+            </Button>
+          )}
+
+          {isMasterPlan && plan.status === "finalized" && canUpdatePlan && executionPeriods.length === 0 && (
+            <Button
+              size="sm"
+              onClick={() => setIsInitPeriodsOpen(true)}
+              className="gap-2 shadow-xs"
+            >
+              <Sliders className="h-4 w-4" />
+              <span>Initialize Execution Periods</span>
+            </Button>
+          )}
 
           <Link href={`/regions/${regionId}/plans/dashboard?plan_version_id=${versionId}`}>
             <Button size="sm" variant="outline" className="gap-2 shadow-2xs">
@@ -546,6 +605,28 @@ export function RegionalPlanHierarchyView() {
           </div>
         )}
       </div>
+
+      {/* Draft Readiness Alert Banner */}
+      {isMasterPlan && plan.status === "draft" && readiness && !readiness.ready && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-4 text-amber-900 dark:text-amber-200 text-xs">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+            <div>
+              <h4 className="font-semibold text-sm text-amber-900 dark:text-amber-100">
+                Action Required Before Starting Annual Execution
+              </h4>
+              <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
+                The strategic plan draft cannot start annual execution until the following hierarchy requirements are satisfied:
+              </p>
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                {readiness.errors.map((err: string, i: number) => (
+                  <li key={i}>{err}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ------------------------------------------------------------- */}
       {/* TAB 1: PLAN HIERARCHY */}
@@ -683,11 +764,21 @@ export function RegionalPlanHierarchyView() {
               </p>
             </div>
 
-            {plan.status === "finalized" && canUpdatePlan && !plan.annual_targets_finalized_at && (
-              <Button size="sm" onClick={handleFinalizeAnnual} disabled={isFinalizingAnnual} className="gap-2 shadow-xs">
-                <CheckCircle2 className="h-4 w-4" />
-                <span>Finalize Annual Targets</span>
-              </Button>
+            {plan.status === "finalized" && canUpdatePlan && (
+              <div className="flex items-center gap-2">
+                {executionPeriods.length === 0 && (
+                  <Button size="sm" onClick={() => setIsInitPeriodsOpen(true)} className="gap-2 shadow-xs">
+                    <Sliders className="h-4 w-4" />
+                    <span>Initialize Execution Periods</span>
+                  </Button>
+                )}
+                {!plan.annual_targets_finalized_at && (
+                  <Button size="sm" onClick={handleFinalizeAnnual} disabled={isFinalizingAnnual} className="gap-2 shadow-xs">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>Finalize Annual Targets</span>
+                  </Button>
+                )}
+              </div>
             )}
           </div>
 

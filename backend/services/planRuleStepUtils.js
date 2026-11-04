@@ -74,6 +74,59 @@ function getWeightStartLevel(rule) {
   return startStep?.step_order ?? null;
 }
 
+function getStepAssignmentRequirement(stepOrRule, level) {
+  let step = stepOrRule;
+  if (level != null && stepOrRule?.steps) {
+    step = getStepForLevel(stepOrRule, level);
+  }
+  if (!step) return "none";
+  const plain = toPlainStep ? toPlainStep(step) : step;
+  if (plain.assignment_requirement) {
+    return plain.assignment_requirement;
+  }
+  if (Boolean(plain.requires_assignment)) {
+    return "required";
+  }
+  if (Boolean(plain.allow_assignment)) {
+    return "optional";
+  }
+  return "none";
+}
+
+function stepAllowsAssignment(stepOrRule, level) {
+  const req = getStepAssignmentRequirement(stepOrRule, level);
+  return req === "required" || req === "optional";
+}
+
+function stepRequiresAssignment(stepOrRule, level) {
+  const step = level != null && stepOrRule?.steps ? getStepForLevel(stepOrRule, level) : stepOrRule;
+  if (step) {
+    const plain = toPlainStep ? toPlainStep(step) : step;
+    if (plain.assignment_requirement) {
+      return plain.assignment_requirement === "required";
+    }
+    if (plain.requires_assignment !== undefined) {
+      return Boolean(plain.requires_assignment);
+    }
+  }
+  const start = getAssignmentStartLevel(stepOrRule);
+  return start !== null && level >= start;
+}
+
+function stepAssignmentIsOptional(stepOrRule, level) {
+  return getStepAssignmentRequirement(stepOrRule, level) === "optional";
+}
+
+function getAssignmentStartLevel(rule) {
+  if (!rule?.steps?.length) return null;
+  const sorted = sortSteps(rule.steps.map(toPlainStep));
+  const startStep = sorted.find((s) => {
+    const req = s.assignment_requirement || (s.requires_assignment ? "required" : (s.allow_assignment ? "optional" : "none"));
+    return req === "required";
+  });
+  return startStep ? (startStep.step_order || startStep.level) : null;
+}
+
 function stepRequiresWeight(rule, level) {
   const step = getStepForLevel(rule, level);
   if (step) {
@@ -129,7 +182,7 @@ function getWeightUnitLabel(weightMode) {
 }
 
 /**
- * Normalize steps: level + label + optional target_requirement/allow_kpi/requires_weight.
+ * Normalize steps: level + label + optional target_requirement/allow_kpi/requires_weight + assignment_requirement.
  */
 function normalizeRuleSteps(steps) {
   const sorted = sortSteps(steps);
@@ -142,6 +195,12 @@ function normalizeRuleSteps(steps) {
   );
   const firstWeightStep = sorted.find((s) => s.requires_weight);
   const weightStart = firstWeightStep ? (firstWeightStep.step_order || firstWeightStep.level) : null;
+
+  const hasExplicitAssignmentConfig = sorted.some(
+    (s) => s.assignment_requirement !== undefined || s.allow_assignment !== undefined
+  );
+  const firstAssignmentStep = sorted.find((s) => s.requires_assignment || s.assignment_requirement === "required");
+  const assignmentStart = firstAssignmentStep ? (firstAssignmentStep.step_order || firstAssignmentStep.level) : null;
 
   return sorted.map((step, index) => {
     const stepOrder = index + 1;
@@ -168,6 +227,29 @@ function normalizeRuleSteps(steps) {
       allow_kpi = Boolean(step.allow_kpi ?? step.requires_weight);
     }
 
+    let requires_assignment = false;
+    let allow_assignment = false;
+
+    if (step.assignment_requirement === "required") {
+      requires_assignment = true;
+      allow_assignment = true;
+    } else if (step.assignment_requirement === "optional") {
+      requires_assignment = false;
+      allow_assignment = true;
+    } else if (step.assignment_requirement === "none") {
+      requires_assignment = false;
+      allow_assignment = false;
+    } else if (step.allow_assignment !== undefined) {
+      requires_assignment = Boolean(step.requires_assignment);
+      allow_assignment = Boolean(step.allow_assignment);
+    } else if (!hasExplicitAssignmentConfig && assignmentStart !== null) {
+      requires_assignment = stepOrder >= assignmentStart;
+      allow_assignment = requires_assignment;
+    } else {
+      requires_assignment = Boolean(step.requires_assignment);
+      allow_assignment = Boolean(step.allow_assignment ?? step.requires_assignment);
+    }
+
     return {
       step_order: stepOrder,
       label: step.label?.trim() || step.name?.trim() || `Level ${stepOrder}`,
@@ -175,6 +257,9 @@ function normalizeRuleSteps(steps) {
       allow_kpi,
       target_requirement: requires_weight ? "required" : (allow_kpi ? "optional" : "none"),
       requires_contribution_weight: Boolean(step.requires_contribution_weight),
+      requires_assignment,
+      allow_assignment,
+      assignment_requirement: requires_assignment ? "required" : (allow_assignment ? "optional" : "none"),
       node_type: step.node_type || levelToNodeType(stepOrder),
       color_hex: normalizeStepColorHex(step.color_hex, stepOrder),
     };
@@ -184,12 +269,16 @@ function normalizeRuleSteps(steps) {
 function enrichRuleSteps(steps) {
   const sorted = sortSteps((steps || []).map(toPlainStep));
   const weightStart = getWeightStartLevel({ steps: sorted });
+  const assignmentStart = getAssignmentStartLevel({ steps: sorted });
 
   return sorted.map((step) => ({
     ...step,
     requires_weight: stepRequiresWeight({ steps: sorted }, step.step_order || step.level),
     inherits_weight_from_level:
       weightStart !== null && (step.step_order || step.level) > weightStart ? weightStart : null,
+    requires_assignment: stepRequiresAssignment({ steps: sorted }, step.step_order || step.level),
+    inherits_assignment_from_level:
+      assignmentStart !== null && (step.step_order || step.level) > assignmentStart ? assignmentStart : null,
   }));
 }
 
@@ -229,6 +318,11 @@ module.exports = {
   stepRequiresWeight,
   stepRequiresContributionWeight,
   getContributionSiblingTarget,
+  getStepAssignmentRequirement,
+  stepAllowsAssignment,
+  stepRequiresAssignment,
+  stepAssignmentIsOptional,
+  getAssignmentStartLevel,
   isWeightModeSelectionLevel,
   getStepForLevel,
   getStepLabel,

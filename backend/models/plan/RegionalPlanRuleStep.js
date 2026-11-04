@@ -66,6 +66,18 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
       },
+      requires_assignment: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+      },
+      assignment_requirement: {
+        type: DataTypes.STRING(50),
+        defaultValue: "none",
+      },
+      allow_assignment: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+      },
       color_hex: {
         type: DataTypes.STRING(7),
         allowNull: true,

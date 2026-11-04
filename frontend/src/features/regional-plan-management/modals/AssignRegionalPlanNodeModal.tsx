@@ -22,7 +22,10 @@ import { Building2, User as UserIcon, RotateCcw, UserPlus, Info } from "lucide-r
 import { actionFeedback } from "@/components/action-feedback";
 import { useGetRegionalStructuresQuery } from "@/redux/api/regionApi";
 import { useGetUsersQuery } from "@/redux/api/userApi";
-import { useAssignRegionalPlanNodeMutation } from "@/redux/api/regionalPlanApi";
+import {
+  useAssignRegionalPlanNodeMutation,
+  useGetRegionalPlanHierarchyQuery,
+} from "@/redux/api/regionalPlanApi";
 import type { RegionalPlanNode } from "@/redux/types/regionalPlan";
 
 interface AssignRegionalPlanNodeModalProps {
@@ -57,8 +60,75 @@ function AssignRegionalPlanNodeForm({
     currentAssignment?.assigned_user_id || currentAssignment?.assignedUser?.user_id || ""
   );
 
+  const { data: hierarchyData } = useGetRegionalPlanHierarchyQuery(
+    { id: node.regional_plan_version_id, region_id: regionId },
+    { skip: !node.regional_plan_version_id || !regionId }
+  );
+
   const { data: structures = [], isLoading: isLoadingStructures } =
     useGetRegionalStructuresQuery({ region_id: regionId }, { skip: !regionId });
+
+  // Compute nearest assigned ancestor department in the plan hierarchy
+  const ancestorScope = useMemo(() => {
+    const rawNodes = hierarchyData?.nodes || [];
+    const nodeMap = new Map<string, RegionalPlanNode>();
+    rawNodes.forEach((n) => nodeMap.set(n.regional_plan_node_id, n));
+
+    let currentParentId = node.parent_id;
+    while (currentParentId) {
+      const pNode = nodeMap.get(currentParentId);
+      if (!pNode) break;
+
+      const active = (pNode.internalAssignments || []).filter((a) => a.is_active !== false);
+      for (const a of active) {
+        if (a.regional_structure_id) {
+          return {
+            deptId: a.regional_structure_id,
+            deptName: a.department?.name || "Ancestor Department",
+            ancestorTitle: pNode.title,
+            ancestorLevel: pNode.level,
+          };
+        }
+        if (a.assignedUser?.regional_structure_id) {
+          return {
+            deptId: a.assignedUser.regional_structure_id,
+            deptName: a.department?.name || "Ancestor Department",
+            ancestorTitle: pNode.title,
+            ancestorLevel: pNode.level,
+          };
+        }
+      }
+      currentParentId = pNode.parent_id;
+    }
+    return null;
+  }, [hierarchyData?.nodes, node.parent_id]);
+
+  // Compute descendant structure IDs allowed under ancestor department
+  const allowedStructureIds = useMemo(() => {
+    if (!ancestorScope?.deptId) return null;
+    const allowed = new Set<string>([ancestorScope.deptId]);
+    let added = true;
+    while (added) {
+      added = false;
+      for (const s of structures) {
+        if (s.parent_id && allowed.has(s.parent_id) && !allowed.has(s.regional_structure_id)) {
+          allowed.add(s.regional_structure_id);
+          added = true;
+        }
+      }
+    }
+    return allowed;
+  }, [structures, ancestorScope]);
+
+  // Alphabetically sorted structures filtered by ancestor scope
+  const filteredStructures = useMemo(() => {
+    const base = allowedStructureIds
+      ? structures.filter((s) => allowedStructureIds.has(s.regional_structure_id))
+      : structures;
+    return [...base].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+    );
+  }, [structures, allowedStructureIds]);
 
   const { data: users = [], isLoading: isLoadingUsers } = useGetUsersQuery(
     { region_id: regionId, regional_structure_id: selectedStructureId || undefined },
@@ -67,19 +137,15 @@ function AssignRegionalPlanNodeForm({
 
   const [assignNode, { isLoading: isAssigning }] = useAssignRegionalPlanNodeMutation();
 
-  // Alphabetically sorted structures
-  const sortedStructures = useMemo(() => {
-    return [...structures].sort((a, b) =>
-      a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
-    );
-  }, [structures]);
-
-  // Alphabetically sorted users
-  const sortedUsers = useMemo(() => {
-    return [...users].sort((a, b) =>
+  // Alphabetically sorted users filtered by ancestor scope if department not explicitly picked
+  const filteredUsers = useMemo(() => {
+    const base = allowedStructureIds && !selectedStructureId
+      ? users.filter((u) => u.regional_structure_id && allowedStructureIds.has(u.regional_structure_id))
+      : users;
+    return [...base].sort((a, b) =>
       a.full_name.localeCompare(b.full_name, undefined, { sensitivity: "base" })
     );
-  }, [users]);
+  }, [users, allowedStructureIds, selectedStructureId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,6 +202,15 @@ function AssignRegionalPlanNodeForm({
         </DialogHeader>
 
         <div className="space-y-4 py-4 text-sm">
+          {ancestorScope && (
+            <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-blue-900 dark:text-blue-200 flex items-start gap-2.5 text-xs">
+              <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+              <div>
+                Scoped to <strong>{ancestorScope.deptName}</strong> and its child departments because parent milestone &ldquo;{ancestorScope.ancestorTitle}&rdquo; (Level {ancestorScope.ancestorLevel}) is assigned to this department.
+              </div>
+            </div>
+          )}
+
           {isReassign && currentAssignment?.department && (
             <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
               <Info className="h-4 w-4 text-amber-600 dark:text-amber-400" />
@@ -165,7 +240,7 @@ function AssignRegionalPlanNodeForm({
                 <SelectValue placeholder="Select regional department..." />
               </SelectTrigger>
               <SelectContent>
-                {sortedStructures.map((s) => (
+                {filteredStructures.map((s) => (
                   <SelectItem key={s.regional_structure_id} value={s.regional_structure_id}>
                     {s.name} {s.level ? `(Level ${s.level})` : ""}
                   </SelectItem>
@@ -192,7 +267,7 @@ function AssignRegionalPlanNodeForm({
                 <SelectItem value="__none__">
                   All staff in department (No specific lead)
                 </SelectItem>
-                {sortedUsers.map((u) => (
+                {filteredUsers.map((u) => (
                   <SelectItem key={u.user_id} value={u.user_id}>
                     {u.full_name} ({u.email})
                   </SelectItem>

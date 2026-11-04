@@ -50,6 +50,7 @@ const stepSchema = z.object({
   label: z.string().min(1, "Label is required").max(255),
   requires_weight: z.boolean(),
   requires_contribution_weight: z.boolean(),
+  requires_assignment: z.boolean().default(false),
   color_hex: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Use a valid hex color"),
 });
 
@@ -100,6 +101,7 @@ export function CreateRegionalPlanRuleModal({
           label: "Strategic Priority",
           requires_weight: false,
           requires_contribution_weight: false,
+          requires_assignment: false,
           color_hex: getDefaultStepColorHex(1),
         },
         {
@@ -107,6 +109,7 @@ export function CreateRegionalPlanRuleModal({
           label: "Goal",
           requires_weight: false,
           requires_contribution_weight: false,
+          requires_assignment: false,
           color_hex: getDefaultStepColorHex(2),
         },
         {
@@ -114,6 +117,7 @@ export function CreateRegionalPlanRuleModal({
           label: "Key Performance Indicator (KPI)",
           requires_weight: true,
           requires_contribution_weight: true,
+          requires_assignment: true,
           color_hex: getDefaultStepColorHex(3),
         },
         {
@@ -121,6 +125,7 @@ export function CreateRegionalPlanRuleModal({
           label: "Activity",
           requires_weight: false,
           requires_contribution_weight: false,
+          requires_assignment: false,
           color_hex: getDefaultStepColorHex(4),
         },
       ],
@@ -138,6 +143,11 @@ export function CreateRegionalPlanRuleModal({
     return idx >= 0 ? idx + 1 : null;
   }, [watchedSteps]);
 
+  const assignmentStartLevel = useMemo(() => {
+    const idx = watchedSteps.findIndex((s) => s.requires_assignment);
+    return idx >= 0 ? idx + 1 : null;
+  }, [watchedSteps]);
+
   useEffect(() => {
     if (rule) {
       const sorted = (rule.steps ?? []).slice().sort((a, b) => {
@@ -147,6 +157,8 @@ export function CreateRegionalPlanRuleModal({
       });
       const start = sorted.find((s) => s.requires_weight);
       const startLevel = start ? (start.step_order ?? start.level) : null;
+      const startAssignment = sorted.find((s) => s.requires_assignment || (s as any).assignment_requirement === "required");
+      const assignmentStart = startAssignment ? (startAssignment.step_order ?? startAssignment.level) : null;
 
       const is3Level = (rule.name || "").includes("3");
       const loadedSteps =
@@ -158,6 +170,7 @@ export function CreateRegionalPlanRuleModal({
                 label: s.label || s.name || `Level ${currentOrder}`,
                 requires_weight: startLevel !== null && currentOrder === startLevel,
                 requires_contribution_weight: Boolean(s.requires_contribution_weight),
+                requires_assignment: assignmentStart !== null && currentOrder === assignmentStart,
                 color_hex: s.color_hex || getDefaultStepColorHex(currentOrder),
               };
             })
@@ -168,6 +181,7 @@ export function CreateRegionalPlanRuleModal({
                     label: "SF",
                     requires_weight: false,
                     requires_contribution_weight: false,
+                    requires_assignment: false,
                     color_hex: getDefaultStepColorHex(1),
                   },
                   {
@@ -175,6 +189,7 @@ export function CreateRegionalPlanRuleModal({
                     label: "Goal",
                     requires_weight: false,
                     requires_contribution_weight: false,
+                    requires_assignment: false,
                     color_hex: getDefaultStepColorHex(2),
                   },
                   {
@@ -182,6 +197,7 @@ export function CreateRegionalPlanRuleModal({
                     label: "KPI",
                     requires_weight: true,
                     requires_contribution_weight: true,
+                    requires_assignment: true,
                     color_hex: getDefaultStepColorHex(3),
                   },
                 ]
@@ -191,6 +207,7 @@ export function CreateRegionalPlanRuleModal({
                     label: "Strategic Priority",
                     requires_weight: false,
                     requires_contribution_weight: false,
+                    requires_assignment: false,
                     color_hex: getDefaultStepColorHex(1),
                   },
                   {
@@ -198,6 +215,7 @@ export function CreateRegionalPlanRuleModal({
                     label: "Goal",
                     requires_weight: false,
                     requires_contribution_weight: false,
+                    requires_assignment: false,
                     color_hex: getDefaultStepColorHex(2),
                   },
                   {
@@ -205,6 +223,7 @@ export function CreateRegionalPlanRuleModal({
                     label: "Key Performance Indicator (KPI)",
                     requires_weight: true,
                     requires_contribution_weight: true,
+                    requires_assignment: true,
                     color_hex: getDefaultStepColorHex(3),
                   },
                   {
@@ -212,6 +231,7 @@ export function CreateRegionalPlanRuleModal({
                     label: "Activity",
                     requires_weight: false,
                     requires_contribution_weight: false,
+                    requires_assignment: false,
                     color_hex: getDefaultStepColorHex(4),
                   },
                 ]);
@@ -280,6 +300,7 @@ export function CreateRegionalPlanRuleModal({
       label: `Level ${nextOrder}`,
       requires_weight: false,
       requires_contribution_weight: false,
+      requires_assignment: false,
       color_hex: getDefaultStepColorHex(nextOrder),
     });
   };
@@ -296,6 +317,18 @@ export function CreateRegionalPlanRuleModal({
     );
   };
 
+  const setAssignmentRequiredForLevel = (index: number, required: boolean) => {
+    const current = form.getValues("steps");
+    form.setValue(
+      "steps",
+      current.map((step, i) => ({
+        ...step,
+        requires_assignment: i === index ? required : false,
+      })),
+      { shouldValidate: true }
+    );
+  };
+
   async function onSubmit(values: FormValues) {
     if (!regionId) {
       actionFeedback.error("Region identifier is missing");
@@ -303,6 +336,9 @@ export function CreateRegionalPlanRuleModal({
     }
 
     try {
+      const weightStartIndex = values.steps.findIndex((s) => s.requires_weight);
+      const assignmentStartIndex = values.steps.findIndex((s) => s.requires_assignment);
+
       const payload = {
         name: values.name.trim(),
         is_active: values.is_active,
@@ -322,14 +358,22 @@ export function CreateRegionalPlanRuleModal({
               : stepOrder === 3
               ? "kpi"
               : "task";
+          const requiresWeight = weightStartIndex >= 0 && index >= weightStartIndex;
+          const requiresAssignment = assignmentStartIndex >= 0 && index >= assignmentStartIndex;
+
           return {
             step_order: stepOrder,
             level: stepOrder,
             label: step.label.trim(),
             name: step.label.trim(),
             node_type: nodeType,
-            requires_weight: step.requires_weight,
+            requires_weight: requiresWeight,
+            allow_kpi: requiresWeight,
+            target_requirement: requiresWeight ? "required" : "none",
             requires_contribution_weight: step.requires_contribution_weight,
+            requires_assignment: requiresAssignment,
+            assignment_requirement: requiresAssignment ? "required" : "none",
+            allow_assignment: requiresAssignment,
             color_hex: step.color_hex,
           };
         }),
@@ -455,7 +499,7 @@ export function CreateRegionalPlanRuleModal({
                     Hierarchy Levels &amp; Depth Configuration
                   </FormLabel>
                   <FormDescription className="text-xs">
-                    Define custom hierarchy depth, node labels, level accent colors, and where target evaluation begins. All levels deeper than the target-required level inherit the target requirement.
+                    Define custom hierarchy depth, node labels, level accent colors, target evaluation, and where assignment begins. Deeper levels inherit the target and assignment requirements.
                   </FormDescription>
                 </div>
                 <Button
@@ -469,16 +513,18 @@ export function CreateRegionalPlanRuleModal({
                 </Button>
               </div>
 
-              <div className="space-y-2 rounded-lg border p-3 bg-muted/10">
+              <div className="space-y-2 rounded-lg border p-3 bg-muted/10 overflow-x-auto">
                 {fields.map((field, index) => {
                   const level = index + 1;
                   const inheritsWeight =
                     weightStartLevel !== null && level > weightStartLevel;
+                  const inheritsAssignment =
+                    assignmentStartLevel !== null && level > assignmentStartLevel;
 
                   return (
                     <div
                       key={field.id}
-                      className="grid grid-cols-[52px_1fr_96px_1fr_1fr_auto] gap-2 items-end pb-2 border-b border-border/50 last:border-b-0 last:pb-0"
+                      className="grid grid-cols-[44px_1fr_88px_130px_130px_120px_auto] gap-2 items-end pb-2 border-b border-border/50 last:border-b-0 last:pb-0 min-w-[700px]"
                     >
                       <div className="text-sm font-semibold text-muted-foreground pb-2 text-center">
                         L{level}
@@ -567,6 +613,33 @@ export function CreateRegionalPlanRuleModal({
                         )}
                       </FormItem>
 
+                      <FormItem>
+                        {index === 0 && (
+                          <FormLabel className="text-xs">Assign required</FormLabel>
+                        )}
+                        {inheritsAssignment ? (
+                          <div className="flex h-9 items-center">
+                            <Badge variant="secondary" className="text-[11px] font-normal">
+                              Inherits L{assignmentStartLevel}
+                            </Badge>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 h-9">
+                            <Switch
+                              checked={watchedSteps[index]?.requires_assignment ?? false}
+                              onCheckedChange={(checked) =>
+                                setAssignmentRequiredForLevel(index, !!checked)
+                              }
+                            />
+                            <span className="text-xs text-muted-foreground">
+                              {watchedSteps[index]?.requires_assignment
+                                ? "Required from L" + level
+                                : "Not required"}
+                            </span>
+                          </div>
+                        )}
+                      </FormItem>
+
                       <FormField
                         control={form.control}
                         name={`steps.${index}.requires_contribution_weight`}
@@ -610,6 +683,11 @@ export function CreateRegionalPlanRuleModal({
               {weightStartLevel && (
                 <p className="text-xs text-muted-foreground">
                   Levels {weightStartLevel}–{fields.length} require target evaluation. Sibling contribution weights roll up according to each level&apos;s setting.
+                </p>
+              )}
+              {assignmentStartLevel && (
+                <p className="text-xs text-muted-foreground">
+                  Levels {assignmentStartLevel}–{fields.length} require organizational assignment before starting annual execution.
                 </p>
               )}
             </div>

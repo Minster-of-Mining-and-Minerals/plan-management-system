@@ -44,6 +44,7 @@ const {
   assertUserCanExecuteAchievement,
   assertUserCanApproveAchievement,
   assertUserCanValidateAchievement,
+  isRegionalStructureAncestor,
 } = require("./regionalPlanAchievementWorkflowService");
 
 const {
@@ -73,6 +74,10 @@ const {
   stepTargetIsOptional,
   stepRequiresWeight,
   stepRequiresContributionWeight,
+  getStepAssignmentRequirement,
+  stepAllowsAssignment,
+  stepRequiresAssignment,
+  getAssignmentStartLevel,
   isWeightModeSelectionLevel,
   resolveNodeWeightMode,
   getWeightTarget,
@@ -292,6 +297,9 @@ async function forkRegionalPlanRule(sourceRule, regionalPlanVersionId, transacti
         requires_weight: Boolean(stepPlain.requires_weight),
         requires_contribution_weight: Boolean(stepPlain.requires_contribution_weight),
         allow_kpi: Boolean(stepPlain.allow_kpi ?? stepPlain.requires_weight),
+        requires_assignment: Boolean(stepPlain.requires_assignment),
+        assignment_requirement: stepPlain.assignment_requirement || (stepPlain.requires_assignment ? "required" : (stepPlain.allow_assignment ? "optional" : "none")),
+        allow_assignment: Boolean(stepPlain.allow_assignment ?? stepPlain.requires_assignment),
         color_hex: stepPlain.color_hex || "#6B7280",
       },
       { transaction }
@@ -661,6 +669,9 @@ async function updateRegionalPlanRuleForVersion(versionId, regionId, payload) {
         allow_kpi: s.allow_kpi,
         requires_weight: s.target_requirement === "required" ? true : (s.target_requirement === "optional" || s.target_requirement === "none" ? false : !!s.requires_weight),
         requires_contribution_weight: !!s.requires_contribution_weight,
+        assignment_requirement: s.assignment_requirement,
+        allow_assignment: s.allow_assignment,
+        requires_assignment: s.assignment_requirement === "required" ? true : (s.assignment_requirement === "optional" || s.assignment_requirement === "none" ? false : !!s.requires_assignment),
         color_hex: s.color_hex,
       }));
       const normalizedSteps = normalizeRuleSteps(inputSteps);
@@ -680,6 +691,9 @@ async function updateRegionalPlanRuleForVersion(versionId, regionId, payload) {
           requires_weight: step.requires_weight,
           requires_contribution_weight: step.requires_contribution_weight,
           allow_kpi: step.allow_kpi !== undefined ? step.allow_kpi : (step.target_requirement === "required" || step.target_requirement === "optional" ? true : (step.target_requirement === "none" ? false : Boolean(step.allow_kpi ?? step.requires_weight))),
+          requires_assignment: step.requires_assignment,
+          assignment_requirement: step.assignment_requirement,
+          allow_assignment: step.allow_assignment,
           color_hex: step.color_hex,
         })),
         { transaction: t }
@@ -856,15 +870,18 @@ async function createRegionalPlanRule(regionId, payload) {
         allow_kpi: s.allow_kpi,
         requires_weight: s.target_requirement === "required" ? true : (s.target_requirement === "optional" || s.target_requirement === "none" ? false : !!s.requires_weight),
         requires_contribution_weight: !!s.requires_contribution_weight,
+        assignment_requirement: s.assignment_requirement,
+        allow_assignment: s.allow_assignment,
+        requires_assignment: s.assignment_requirement === "required" ? true : (s.assignment_requirement === "optional" || s.assignment_requirement === "none" ? false : !!s.requires_assignment),
         color_hex: s.color_hex,
       }));
       normalizedSteps = normalizeRuleSteps(inputSteps);
     } else {
       const defaultSteps = [
-        { step_order: 1, label: "Strategic Priority", requires_weight: false, requires_contribution_weight: false, allow_kpi: false, color_hex: "#8B5CF6" },
-        { step_order: 2, label: "Goal", requires_weight: false, requires_contribution_weight: false, allow_kpi: false, color_hex: "#3B82F6" },
-        { step_order: 3, label: "Key Performance Indicator (KPI)", requires_weight: true, requires_contribution_weight: true, allow_kpi: true, color_hex: "#10B981" },
-        { step_order: 4, label: "Operational Activity / Task", requires_weight: false, requires_contribution_weight: true, allow_kpi: true, color_hex: "#F59E0B" },
+        { step_order: 1, label: "Strategic Priority", requires_weight: false, requires_contribution_weight: false, allow_kpi: false, requires_assignment: false, assignment_requirement: "none", color_hex: "#8B5CF6" },
+        { step_order: 2, label: "Goal", requires_weight: false, requires_contribution_weight: false, allow_kpi: false, requires_assignment: false, assignment_requirement: "none", color_hex: "#3B82F6" },
+        { step_order: 3, label: "Key Performance Indicator (KPI)", requires_weight: true, requires_contribution_weight: true, allow_kpi: true, requires_assignment: true, assignment_requirement: "required", color_hex: "#10B981" },
+        { step_order: 4, label: "Operational Activity / Task", requires_weight: false, requires_contribution_weight: true, allow_kpi: true, requires_assignment: true, assignment_requirement: "required", color_hex: "#F59E0B" },
       ];
       normalizedSteps = normalizeRuleSteps(defaultSteps);
     }
@@ -914,6 +931,9 @@ async function createRegionalPlanRule(regionId, payload) {
         requires_weight: step.requires_weight,
         requires_contribution_weight: step.requires_contribution_weight,
         allow_kpi: step.allow_kpi !== undefined ? step.allow_kpi : (step.target_requirement === "required" || step.target_requirement === "optional" ? true : (step.target_requirement === "none" ? false : Boolean(step.allow_kpi ?? step.requires_weight))),
+        requires_assignment: step.requires_assignment,
+        assignment_requirement: step.assignment_requirement,
+        allow_assignment: step.allow_assignment,
         color_hex: step.color_hex,
       })),
       { transaction: t }
@@ -961,6 +981,9 @@ async function createRegionalPlanRule(regionId, payload) {
                 requires_weight: step.requires_weight,
                 requires_contribution_weight: step.requires_contribution_weight,
                 allow_kpi: step.allow_kpi !== undefined ? step.allow_kpi : (step.target_requirement === "required" || step.target_requirement === "optional" ? true : (step.target_requirement === "none" ? false : Boolean(step.allow_kpi ?? step.requires_weight))),
+                requires_assignment: step.requires_assignment,
+                assignment_requirement: step.assignment_requirement,
+                allow_assignment: step.allow_assignment,
                 color_hex: step.color_hex,
               })),
               { transaction: t }
@@ -1028,6 +1051,9 @@ async function updateRegionalPlanRule(ruleId, regionId, payload) {
         allow_kpi: s.allow_kpi,
         requires_weight: s.target_requirement === "required" ? true : (s.target_requirement === "optional" || s.target_requirement === "none" ? false : !!s.requires_weight),
         requires_contribution_weight: !!s.requires_contribution_weight,
+        assignment_requirement: s.assignment_requirement,
+        allow_assignment: s.allow_assignment,
+        requires_assignment: s.assignment_requirement === "required" ? true : (s.assignment_requirement === "optional" || s.assignment_requirement === "none" ? false : !!s.requires_assignment),
         color_hex: s.color_hex,
       }));
       const normalizedSteps = normalizeRuleSteps(inputSteps);
@@ -1047,6 +1073,9 @@ async function updateRegionalPlanRule(ruleId, regionId, payload) {
           requires_weight: step.requires_weight,
           requires_contribution_weight: step.requires_contribution_weight,
           allow_kpi: step.allow_kpi !== undefined ? step.allow_kpi : (step.target_requirement === "required" || step.target_requirement === "optional" ? true : (step.target_requirement === "none" ? false : Boolean(step.allow_kpi ?? step.requires_weight))),
+          requires_assignment: step.requires_assignment,
+          assignment_requirement: step.assignment_requirement,
+          allow_assignment: step.allow_assignment,
           color_hex: step.color_hex,
         })),
         { transaction: t }
@@ -1099,6 +1128,9 @@ async function updateRegionalPlanRule(ruleId, regionId, payload) {
               requires_weight: step.requires_weight,
               requires_contribution_weight: step.requires_contribution_weight,
               allow_kpi: step.allow_kpi !== undefined ? step.allow_kpi : (step.target_requirement === "required" || step.target_requirement === "optional" ? true : (step.target_requirement === "none" ? false : Boolean(step.allow_kpi ?? step.requires_weight))),
+              requires_assignment: step.requires_assignment,
+              assignment_requirement: step.assignment_requirement,
+              allow_assignment: step.allow_assignment,
               color_hex: step.color_hex,
             })),
             { transaction: t }
@@ -1968,6 +2000,130 @@ async function validateRegionalPlanNodeAgainstRule({
   };
 }
 
+/**
+ * Enforces hierarchical assignment scoping:
+ * If an ancestor node is assigned to a department, descendant nodes can ONLY be assigned to:
+ * 1. That department itself, OR
+ * 2. A descendant department of that department in RegionalStructure, OR
+ * 3. Users belonging to that department or one of its descendant departments.
+ */
+async function validateRegionalNodeAssignmentScoping({
+  nodeId = null,
+  parentId = null,
+  targetStructureId = null,
+  targetUserIds = [],
+  regionId = null,
+  transaction = null,
+}) {
+  let effectiveParentId = parentId;
+  if (!effectiveParentId && nodeId) {
+    const existingNode = await RegionalPlanNode.findByPk(nodeId, {
+      attributes: ["regional_plan_node_id", "parent_id"],
+      transaction,
+    });
+    effectiveParentId = existingNode?.parent_id || null;
+  }
+
+  if (!effectiveParentId) {
+    return { valid: true };
+  }
+
+  // Walk up ancestor chain to find nearest ancestor node with an active department assignment
+  let currentParentId = effectiveParentId;
+  let nearestAncestorDeptId = null;
+  let nearestAncestorNode = null;
+
+  while (currentParentId && !nearestAncestorDeptId) {
+    const pNode = await RegionalPlanNode.findByPk(currentParentId, {
+      attributes: ["regional_plan_node_id", "title", "level", "parent_id"],
+      include: [
+        {
+          association: "internalAssignments",
+          where: { is_active: true },
+          required: false,
+          include: [{ association: "department" }, { association: "assignedUser" }],
+        },
+      ],
+      transaction,
+    });
+
+    if (!pNode) break;
+
+    const activeAssignments = pNode.internalAssignments || [];
+    for (const a of activeAssignments) {
+      if (a.regional_structure_id) {
+        nearestAncestorDeptId = a.regional_structure_id;
+        nearestAncestorNode = pNode;
+        break;
+      }
+      if (a.assignedUser?.regional_structure_id) {
+        nearestAncestorDeptId = a.assignedUser.regional_structure_id;
+        nearestAncestorNode = pNode;
+        break;
+      }
+    }
+
+    if (!nearestAncestorDeptId) {
+      currentParentId = pNode.parent_id;
+    }
+  }
+
+  if (!nearestAncestorDeptId) {
+    return { valid: true };
+  }
+
+  const ancestorDept = await RegionalStructure.findByPk(nearestAncestorDeptId, { transaction });
+  const ancestorDeptName = ancestorDept?.name || "assigned ancestor department";
+
+  // Validate targetStructureId
+  if (targetStructureId) {
+    const isAllowedDept =
+      targetStructureId === nearestAncestorDeptId ||
+      (await isRegionalStructureAncestor(nearestAncestorDeptId, targetStructureId, transaction));
+
+    if (!isAllowedDept) {
+      const targetDept = await RegionalStructure.findByPk(targetStructureId, { transaction });
+      const targetDeptName = targetDept?.name || "Selected department";
+      const error = new Error(
+        `Assignment restricted: Parent milestone "${nearestAncestorNode?.title || 'Ancestor'}" is assigned to department "${ancestorDeptName}". Descendant nodes can only be assigned to "${ancestorDeptName}", its sub-departments, or its users. "${targetDeptName}" is outside this scope.`
+      );
+      error.status = 400;
+      throw error;
+    }
+  }
+
+  // Validate targetUserIds
+  const uids = Array.isArray(targetUserIds) ? targetUserIds : (targetUserIds ? [targetUserIds] : []);
+  for (const uid of uids) {
+    const user = await User.findByPk(uid, { transaction });
+    if (!user) continue;
+
+    if (!user.regional_structure_id) {
+      const error = new Error(
+        `Assignment restricted: User "${user.full_name}" is not associated with department "${ancestorDeptName}" or its child departments.`
+      );
+      error.status = 400;
+      throw error;
+    }
+
+    const isAllowedUserDept =
+      user.regional_structure_id === nearestAncestorDeptId ||
+      (await isRegionalStructureAncestor(nearestAncestorDeptId, user.regional_structure_id, transaction));
+
+    if (!isAllowedUserDept) {
+      const userDept = await RegionalStructure.findByPk(user.regional_structure_id, { transaction });
+      const userDeptName = userDept?.name || "unknown department";
+      const error = new Error(
+        `Assignment restricted: User "${user.full_name}" belongs to department "${userDeptName}", which is outside the scope of parent assignment "${ancestorDeptName}".`
+      );
+      error.status = 400;
+      throw error;
+    }
+  }
+
+  return { valid: true, ancestorDeptId: nearestAncestorDeptId, ancestorDeptName };
+}
+
 async function createRegionalPlanNode(versionId, regionId, payload, userId) {
   const version = await getRegionalPlanVersionById(versionId, regionId);
   if (version.status !== "draft" && !payload.force) {
@@ -2037,12 +2193,20 @@ async function createRegionalPlanNode(versionId, regionId, payload, userId) {
     );
 
     // Create assignment if provided
-    if (payload.regional_structure_id) {
+    if (payload.regional_structure_id || payload.assigned_user_id) {
+      await validateRegionalNodeAssignmentScoping({
+        parentId,
+        targetStructureId: payload.regional_structure_id || null,
+        targetUserIds: payload.assigned_user_id ? [payload.assigned_user_id] : [],
+        regionId,
+        transaction: t,
+      });
+
       await RegionalInternalAssignment.create(
         {
           regional_internal_assignment_id: uuidv4(),
           regional_plan_node_id: nodeId,
-          regional_structure_id: payload.regional_structure_id,
+          regional_structure_id: payload.regional_structure_id || null,
           assigned_user_id: payload.assigned_user_id || null,
           is_active: true,
         },
@@ -2188,19 +2352,29 @@ async function updateRegionalPlanNode(nodeId, regionId, payload, userId) {
 
     await node.save({ transaction: t });
 
-    // Update assignment if structure specified
-    if (payload.regional_structure_id !== undefined) {
+    // Update assignment if structure or assigned user specified
+    if (payload.regional_structure_id !== undefined || payload.assigned_user_id !== undefined) {
+      if (payload.regional_structure_id || payload.assigned_user_id) {
+        await validateRegionalNodeAssignmentScoping({
+          nodeId,
+          targetStructureId: payload.regional_structure_id || null,
+          targetUserIds: payload.assigned_user_id ? [payload.assigned_user_id] : [],
+          regionId,
+          transaction: t,
+        });
+      }
+
       await RegionalInternalAssignment.destroy({
         where: { regional_plan_node_id: nodeId },
         transaction: t,
       });
 
-      if (payload.regional_structure_id) {
+      if (payload.regional_structure_id || payload.assigned_user_id) {
         await RegionalInternalAssignment.create(
           {
             regional_internal_assignment_id: uuidv4(),
             regional_plan_node_id: nodeId,
-            regional_structure_id: payload.regional_structure_id,
+            regional_structure_id: payload.regional_structure_id || null,
             assigned_user_id: payload.assigned_user_id || null,
             is_active: true,
           },
@@ -2313,6 +2487,14 @@ async function assignRegionalPlanNode(nodeId, regionId, payload, userId) {
 
   const t = await sequelize.transaction();
   try {
+    await validateRegionalNodeAssignmentScoping({
+      nodeId,
+      targetStructureId,
+      targetUserIds,
+      regionId,
+      transaction: t,
+    });
+
     if (isExclusive) {
       await RegionalInternalAssignment.destroy({
         where: { regional_plan_node_id: nodeId },
@@ -2588,6 +2770,21 @@ async function getRegionalDraftFinalizationReadiness(versionId, regionId) {
   }
 
   const rule = version.planRule || (await getRegionalPlanRuleForVersion(versionId, regionId));
+
+  // Check required assignments according to rule
+  for (const n of nodes) {
+    if (stepRequiresAssignment(rule, n.level)) {
+      const activeAssignments = (n.internalAssignments || []).filter((a) => a.is_active !== false);
+      const isAssigned = activeAssignments.some((a) => a.regional_structure_id || a.assigned_user_id);
+      if (!isAssigned) {
+        const stepLabel = getStepLabel(rule, n.level);
+        errors.push(
+          `${stepLabel} "${n.title}" (Level ${n.level}) requires organizational assignment before annual execution can be initialized.`
+        );
+      }
+    }
+  }
+
   for (const [parentId, children] of childrenByParent.entries()) {
     const childLevel = children[0]?.level;
     if (!stepRequiresContributionWeight(rule, childLevel)) {
@@ -2845,8 +3042,13 @@ async function initializeRegionalExecutionPeriods(
   userId
 ) {
   const master = await getRegionalPlanVersionById(masterVersionId, regionId);
+  const now = new Date();
   if (!master.annual_targets_finalized_at) {
-    throw new Error("Finalize annual execution targets before initializing execution periods");
+    await master.update({ annual_targets_finalized_at: now });
+    await RegionalPlanVersion.update(
+      { annual_targets_finalized_at: now },
+      { where: { parent_plan_version_id: masterVersionId, version_kind: "annual" } }
+    );
   }
 
   const config =
@@ -3905,6 +4107,7 @@ module.exports = {
   reorderRegionalPlanNodes,
   assignRegionalPlanNode,
   removeRegionalPlanNodeAssignment,
+  validateRegionalNodeAssignmentScoping,
 
   // Finalization & Start
   getRegionalDraftFinalizationReadiness,

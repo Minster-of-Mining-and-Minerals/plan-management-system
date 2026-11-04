@@ -36,24 +36,33 @@ export type PlanAssignmentLabel = {
   name: string;
 };
 
-export function getPlanNodeAssignmentLabels(node: PlanNode): PlanAssignmentLabel[] {
+export function getPlanNodeAssignmentLabels(node: PlanNode | any): PlanAssignmentLabel[] {
   const labels: PlanAssignmentLabel[] = [];
 
-  for (const assignment of node.externalAssignments?.filter((item) => item.is_active) ?? []) {
+  for (const assignment of node.externalAssignments?.filter((item: any) => item.is_active !== false) ?? []) {
     const name = assignment.governmentStructure?.name;
     if (name) {
       labels.push({ type: "sector", name });
     }
   }
 
-  for (const assignment of node.internalAssignments?.filter((item) => item.is_active) ?? []) {
-    if (assignment.user?.full_name) {
-      labels.push({ type: "user", name: assignment.user.full_name });
-    } else if (assignment.internalStructure?.name) {
-      labels.push({ type: "department", name: assignment.internalStructure.name });
-    } else if (assignment.role?.name) {
+  for (const assignment of node.internalAssignments?.filter((item: any) => item.is_active !== false) ?? []) {
+    const userName = assignment.user?.full_name || assignment.assignedUser?.full_name;
+    const deptName =
+      assignment.internalStructure?.name ||
+      assignment.department?.name ||
+      assignment.regionalStructure?.name;
+
+    if (userName) {
+      labels.push({ type: "user", name: userName });
+    }
+    if (deptName) {
+      labels.push({ type: "department", name: deptName });
+    }
+    if (assignment.role?.name) {
       labels.push({ type: "role", name: assignment.role.name });
-    } else if (assignment.permissionGroup?.name) {
+    }
+    if (assignment.permissionGroup?.name) {
       labels.push({ type: "permission_group", name: assignment.permissionGroup.name });
     }
   }
