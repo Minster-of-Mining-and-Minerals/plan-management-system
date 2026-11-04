@@ -3067,10 +3067,6 @@ async function finalizeRegionalPlanDraft(versionId, regionId, userId) {
                 where: { regional_plan_node_id: dupNodeIds },
                 transaction: t,
               });
-              await RegionalExternalAssignment.destroy({
-                where: { regional_plan_node_id: dupNodeIds },
-                transaction: t,
-              });
               await RegionalPlanNode.destroy({
                 where: { regional_plan_node_id: dupNodeIds },
                 transaction: t,
@@ -3150,10 +3146,6 @@ async function finalizeRegionalPlanDraft(versionId, regionId, userId) {
 
             if (annNodeIds.length > 0) {
               await RegionalInternalAssignment.destroy({
-                where: { regional_plan_node_id: annNodeIds },
-                transaction: t,
-              });
-              await RegionalExternalAssignment.destroy({
                 where: { regional_plan_node_id: annNodeIds },
                 transaction: t,
               });

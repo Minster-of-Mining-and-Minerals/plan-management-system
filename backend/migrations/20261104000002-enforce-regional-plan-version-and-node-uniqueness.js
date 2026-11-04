@@ -1,7 +1,5 @@
 "use strict";
 
-const { Op } = require("sequelize");
-
 module.exports = {
   up: async (queryInterface, Sequelize) => {
     // 1. Reconcile existing duplicates in regional_plan_versions before creating unique index
@@ -76,13 +74,6 @@ module.exports = {
           // Delete assignments and nodes of the duplicate annual version
           await queryInterface.sequelize.query(
             `DELETE FROM regional_internal_assignments WHERE regional_plan_node_id IN (
-               SELECT regional_plan_node_id FROM regional_plan_nodes WHERE regional_plan_version_id = :annId
-             );`,
-            { replacements: { annId: d.regional_plan_version_id } }
-          );
-
-          await queryInterface.sequelize.query(
-            `DELETE FROM regional_external_assignments WHERE regional_plan_node_id IN (
                SELECT regional_plan_node_id FROM regional_plan_nodes WHERE regional_plan_version_id = :annId
              );`,
             { replacements: { annId: d.regional_plan_version_id } }
