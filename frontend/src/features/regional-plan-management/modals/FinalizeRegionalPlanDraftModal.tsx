@@ -57,7 +57,23 @@ export function FinalizeRegionalPlanDraftModal({
     }
   };
 
-  const durationYears = version.duration_years ?? version.planning_duration_years ?? 3;
+  const durationYears =
+    readiness?.planning_years?.length ||
+    version.duration_years ||
+    version.planning_duration_years ||
+    (version.end_year && version.start_year
+      ? version.end_year - version.start_year + 1
+      : 3);
+
+  const startYear = version.start_year || new Date().getFullYear();
+  const calculatedEndYear = startYear + durationYears - 1;
+  const normalizedVersionForPeriod = {
+    ...version,
+    start_year: startYear,
+    end_year: calculatedEndYear,
+    planning_start_date: `${startYear}-01-01`,
+    planning_end_date: `${calculatedEndYear}-12-31`,
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -73,7 +89,7 @@ export function FinalizeRegionalPlanDraftModal({
                 {version.draft_name}
               </p>
               <p className="text-muted-foreground">
-                {formatPlanningPeriod(version as any)} · {durationYears}{" "}
+                {formatPlanningPeriod(normalizedVersionForPeriod as any)} · {durationYears}{" "}
                 {durationYears === 1 ? "Year" : "Years"}
               </p>
             </div>

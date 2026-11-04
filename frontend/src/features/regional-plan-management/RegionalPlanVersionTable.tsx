@@ -138,14 +138,19 @@ export function RegionalPlanVersionTable() {
       return;
     }
     try {
+      const parsedStartYear = Number(editStartYear);
+      const parsedDuration = Number(editDurationYears);
+      const calculatedEndYear = parsedStartYear + parsedDuration - 1;
       await updateVersion({
         id: editingPlan.regional_plan_version_id,
         region_id: regionId,
         data: {
           draft_name: editDraftName.trim(),
-          start_year: Number(editStartYear),
-          planning_duration_years: Number(editDurationYears),
+          start_year: parsedStartYear,
+          end_year: calculatedEndYear,
+          planning_duration_years: parsedDuration,
           planning_start_date: editStartDate,
+          planning_end_date: `${calculatedEndYear}-12-31`,
           regional_plan_rule_id: editRuleId || undefined,
         },
       }).unwrap();
@@ -205,13 +210,18 @@ export function RegionalPlanVersionTable() {
       return;
     }
     try {
+      const parsedStartYear = Number(startYear);
+      const parsedDuration = Number(durationYears);
+      const calculatedEndYear = parsedStartYear + parsedDuration - 1;
       const created = await createDraft({
         region_id: regionId,
         data: {
           draft_name: draftName.trim(),
-          start_year: Number(startYear),
-          planning_duration_years: Number(durationYears),
+          start_year: parsedStartYear,
+          end_year: calculatedEndYear,
+          planning_duration_years: parsedDuration,
           planning_start_date: startDate,
+          planning_end_date: `${calculatedEndYear}-12-31`,
           regional_plan_rule_id: selectedRuleId,
           based_on_version_id: basedOnVersionId && basedOnVersionId !== "none" ? basedOnVersionId : undefined,
         },

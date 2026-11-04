@@ -131,7 +131,7 @@ export function RegionalAnnualVersionsDashboard({
 
         <div className="flex flex-wrap gap-2 shrink-0">
           {!annualTargetsFinalized && (
-            <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs" onClick={() => setFinalizeModalOpen(true)}>
+            <Button className="gap-2 shadow-xs" onClick={() => setFinalizeModalOpen(true)}>
               <ShieldCheck className="h-4 w-4" />
               Finalize Annual Execution
             </Button>
@@ -143,7 +143,7 @@ export function RegionalAnnualVersionsDashboard({
             </Button>
           )}
           {allAnnualsPeriodFinalized && !processStarted && (
-            <Button className="gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-xs" onClick={() => setStartProcessModalOpen(true)}>
+            <Button className="gap-2 shadow-xs" onClick={() => setStartProcessModalOpen(true)}>
               <Play className="h-4 w-4" />
               Start Process
             </Button>

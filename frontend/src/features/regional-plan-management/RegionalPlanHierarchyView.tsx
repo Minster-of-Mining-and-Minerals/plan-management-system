@@ -30,6 +30,7 @@ import Loading01 from "@/features/template/component/Loading/Loading01";
 
 import {
   useGetRegionalPlanHierarchyQuery,
+  useGetRegionalPlanVersionByIdQuery,
   useDeleteRegionalPlanNodeMutation,
   useReorderRegionalPlanNodesMutation,
   useGetRegionalAnnualVersionsQuery,
@@ -176,14 +177,32 @@ export function RegionalPlanHierarchyView() {
   const canUpdatePlan = can("REGIONAL_PLANS:UPDATE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
   const canFinalize = can("REGIONAL_PLANS:FINALIZE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
 
+  const parentMasterId = isAnnualPlan ? plan?.parent_plan_version_id : null;
+  const { data: masterVersion } = useGetRegionalPlanVersionByIdQuery(
+    { id: parentMasterId!, region_id: regionId! },
+    { skip: !parentMasterId || !regionId }
+  );
+
   // Lifecycle flags
-  const annualTargetsFinalized = Boolean(plan?.annual_targets_finalized_at);
-  const periodsInitializedGlobally = Boolean(plan?.period_subdivision_mode);
+  const annualTargetsFinalized = Boolean(
+    isMasterPlan
+      ? plan?.annual_targets_finalized_at
+      : masterVersion?.annual_targets_finalized_at || plan?.annual_targets_finalized_at
+  );
+  const periodsInitializedGlobally = Boolean(
+    isMasterPlan
+      ? plan?.period_subdivision_mode
+      : masterVersion?.period_subdivision_mode || plan?.period_subdivision_mode
+  );
   const periodTargetsFinalized = Boolean(plan?.period_targets_finalized_at);
-  const processStarted = Boolean(plan?.process_started_at);
+  const processStarted = Boolean(
+    isMasterPlan
+      ? plan?.process_started_at
+      : masterVersion?.process_started_at || plan?.process_started_at
+  );
 
   const showAnnualDashboard = isMasterPlan && (plan?.status === "finalized" || annualVersions.length > 0);
-  const showPeriodDashboard = isAnnualPlan && periodsInitializedGlobally;
+  const showPeriodDashboard = isAnnualPlan && annualTargetsFinalized && periodsInitializedGlobally;
 
   // Auto-default tab based on Federal Private lifecycle
   useEffect(() => {
@@ -195,12 +214,12 @@ export function RegionalPlanHierarchyView() {
 
     if (isMasterPlan && plan?.status === "finalized") {
       setActiveTab("annual");
-    } else if (isAnnualPlan && periodsInitializedGlobally) {
+    } else if (isAnnualPlan && annualTargetsFinalized && periodsInitializedGlobally) {
       setActiveTab("periods");
     } else {
       setActiveTab("hierarchy");
     }
-  }, [versionId, isMasterPlan, isAnnualPlan, plan?.status, periodsInitializedGlobally, searchParams]);
+  }, [versionId, isMasterPlan, isAnnualPlan, plan?.status, annualTargetsFinalized, periodsInitializedGlobally, searchParams]);
 
   const handleSaveAnnualTarget = async (node: PlanNode, val: number | null) => {
     try {
@@ -666,7 +685,7 @@ export function RegionalPlanHierarchyView() {
             <Button
               size="sm"
               onClick={() => setIsFinalizeDraftOpen(true)}
-              className="gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="gap-2 shadow-xs"
             >
               <ShieldCheck className="h-4 w-4" />
               <span>Finalize Strategic Plan & Start Annual Execution</span>
@@ -726,7 +745,7 @@ export function RegionalPlanHierarchyView() {
             <div className="flex flex-wrap gap-2">
               {periodsInitializedGlobally && !periodTargetsFinalized && canFinalize && (
                 <Button
-                  className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                  className="gap-2 shadow-xs"
                   onClick={() => setIsFinalizePeriodModalOpen(true)}
                 >
                   <ShieldCheck className="h-4 w-4" />

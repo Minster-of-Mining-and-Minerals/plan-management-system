@@ -1428,10 +1428,23 @@ async function updateRegionalPlanVersion(versionId, regionId, payload) {
     "start_month",
     "end_month",
     "planning_duration_years",
+    "planning_start_date",
+    "planning_end_date",
   ];
 
   for (const key of allowed) {
     if (payload[key] !== undefined) version[key] = payload[key];
+  }
+
+  // Ensure end_year, duration, and dates stay strictly synchronized
+  if (version.start_year) {
+    const duration = parseInt(version.planning_duration_years || 1, 10);
+    version.planning_duration_years = duration;
+    version.end_year = version.start_year + duration - 1;
+    version.planning_end_date = `${version.end_year}-12-31`;
+    if (!version.planning_start_date) {
+      version.planning_start_date = `${version.start_year}-01-01`;
+    }
   }
 
   if (payload.regional_plan_rule_id !== undefined && payload.regional_plan_rule_id !== version.regional_plan_rule_id) {
@@ -2934,8 +2947,16 @@ async function getRegionalDraftFinalizationReadiness(versionId, regionId) {
     }
   }
 
+  const startYear = version.start_year || new Date().getFullYear();
+  const duration = parseInt(
+    version.planning_duration_years ||
+      (version.end_year ? version.end_year - startYear + 1 : 1),
+    10
+  );
+  const endYear = startYear + duration - 1;
+
   const planningYears = [];
-  for (let y = version.start_year; y <= version.end_year; y++) {
+  for (let y = startYear; y <= endYear; y++) {
     planningYears.push(y);
   }
 
@@ -2972,16 +2993,27 @@ async function finalizeRegionalPlanDraft(versionId, regionId, userId) {
     }
 
     const now = new Date();
+    const startYear = version.start_year || new Date().getFullYear();
+    const duration = parseInt(
+      version.planning_duration_years ||
+        (version.end_year ? version.end_year - startYear + 1 : 1),
+      10
+    );
+    const endYear = startYear + duration - 1;
+
     await version.update(
       {
         status: "finalized",
         finalized_at: now,
+        start_year: startYear,
+        end_year: endYear,
+        planning_duration_years: duration,
+        planning_end_date: `${endYear}-12-31`,
       },
       { transaction: t }
     );
 
     // Reconcile Annual Versions for each planning year
-    const duration = version.planning_duration_years;
     const existingAnnuals = await RegionalPlanVersion.findAll({
       where: {
         parent_plan_version_id: version.regional_plan_version_id,
@@ -3183,14 +3215,71 @@ async function reopenRegionalPlanDraftForEdit(versionId, regionId, userId) {
     throw new Error("Cannot reopen plan draft after operational execution has started.");
   }
 
-  await version.update({
-    status: "draft",
-    finalized_at: null,
-    annual_targets_finalized_at: null,
-    period_targets_finalized_at: null,
-  });
+  const t = await sequelize.transaction();
+  try {
+    await version.update(
+      {
+        status: "draft",
+        finalized_at: null,
+        annual_targets_finalized_at: null,
+        period_targets_finalized_at: null,
+        period_subdivision_mode: null,
+      },
+      { transaction: t }
+    );
 
-  return getRegionalPlanVersionById(versionId, regionId);
+    const annuals = await RegionalPlanVersion.findAll({
+      where: {
+        parent_plan_version_id: versionId,
+        version_kind: "annual",
+        region_id: regionId,
+      },
+      transaction: t,
+    });
+
+    const annualIds = annuals.map((a) => a.regional_plan_version_id);
+
+    if (annualIds.length > 0) {
+      await RegionalPlanVersion.update(
+        {
+          period_subdivision_mode: null,
+          period_targets_finalized_at: null,
+          annual_targets_finalized_at: null,
+        },
+        {
+          where: { regional_plan_version_id: annualIds },
+          transaction: t,
+        }
+      );
+
+      // Clean up any child execution period versions and their nodes
+      const periods = await RegionalPlanVersion.findAll({
+        where: {
+          parent_plan_version_id: annualIds,
+          version_kind: "execution_period",
+        },
+        transaction: t,
+      });
+
+      const periodIds = periods.map((p) => p.regional_plan_version_id);
+      if (periodIds.length > 0) {
+        await RegionalPlanNode.destroy({
+          where: { regional_plan_version_id: periodIds },
+          transaction: t,
+        });
+        await RegionalPlanVersion.destroy({
+          where: { regional_plan_version_id: periodIds },
+          transaction: t,
+        });
+      }
+    }
+
+    await t.commit();
+    return getRegionalPlanVersionById(versionId, regionId);
+  } catch (err) {
+    await t.rollback();
+    throw err;
+  }
 }
 
 // -------------------------------------------------------------
@@ -3198,6 +3287,13 @@ async function reopenRegionalPlanDraftForEdit(versionId, regionId, userId) {
 // -------------------------------------------------------------
 
 async function listRegionalAnnualVersions(masterVersionId, regionId) {
+  const master = await RegionalPlanVersion.findByPk(masterVersionId);
+  const maxDuration =
+    master?.planning_duration_years ||
+    (master?.end_year && master?.start_year
+      ? master.end_year - master.start_year + 1
+      : 100);
+
   const annuals = await RegionalPlanVersion.findAll({
     where: {
       parent_plan_version_id: masterVersionId,
@@ -3210,11 +3306,14 @@ async function listRegionalAnnualVersions(masterVersionId, regionId) {
 
   const uniqueMap = new Map();
   for (const ann of annuals) {
+    if (ann.sequence_index > maxDuration) continue;
     if (!uniqueMap.has(ann.sequence_index)) {
       uniqueMap.set(ann.sequence_index, ann);
     }
   }
-  return Array.from(uniqueMap.values()).sort((a, b) => (a.sequence_index || 0) - (b.sequence_index || 0));
+  return Array.from(uniqueMap.values()).sort(
+    (a, b) => (a.sequence_index || 0) - (b.sequence_index || 0)
+  );
 }
 
 async function getRegionalAnnualTargetAllocations(annualVersionId, regionId) {
