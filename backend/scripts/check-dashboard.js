@@ -4,7 +4,15 @@ const { getPlanExecutionDashboard } = require("../services/planExecutionDashboar
 
 async function check() {
   try {
-    const data = await getPlanExecutionDashboard({});
+    const mockReq = {
+      user: {
+        user_id: "00000000-0000-0000-0000-000000000001",
+        roles: ["Super Admin"],
+        permissions: ["PLAN:VIEW_FULL_PLAN_HIERARCHY", "PLAN:READ_ALL"],
+      },
+    };
+
+    const data = await getPlanExecutionDashboard(mockReq, {});
     console.log("=== PLAN EXECUTION DASHBOARD SUMMARY ===");
     console.log("Total Plans:", data.kpi?.totalPlans);
     console.log("Active Plans:", data.kpi?.activePlans);
