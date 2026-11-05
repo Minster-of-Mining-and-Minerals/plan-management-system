@@ -9,8 +9,17 @@ const {
   RegionalStructure,
   User,
   sequelize,
+  Op,
 } = require("../models");
 const { userHasPermission } = require("../utils/userPermissionsUtils");
+const {
+  emitRegionalAchievementSubmittedEvent,
+  emitRegionalAchievementApprovedEvent,
+  emitRegionalAchievementRejectedEvent,
+  emitRegionalAchievementPendingValidationEvent,
+  emitRegionalAchievementValidatedEvent,
+  emitRegionalAchievementValidationRejectedEvent,
+} = require("./regionalPlanNotificationService");
 
 const ACHIEVEMENT_STATUS = Object.freeze({
   EMPTY: "empty",
@@ -488,6 +497,82 @@ async function determineRegionalAchievementWorkflow(node, regionId, transaction 
   };
 }
 
+async function findEligibleRegionalApprovers(node, regionId, transaction = null) {
+  const responsibleStructureId = await resolveResponsibleStructureId(node, transaction);
+  if (!responsibleStructureId) return [];
+
+  const activeUsers = await User.findAll({
+    where: { region_id: regionId, is_active: true },
+    include: [
+      { association: "roles", include: [{ association: "rolePermissions", include: ["permission"] }] },
+      { association: "permissionGroups", include: [{ association: "permissions" }] },
+    ],
+    transaction,
+  });
+
+  const approvers = [];
+  for (const u of activeUsers) {
+    if (!userCanApproveRegionalAchievement(u)) continue;
+    if (!u.regional_structure_id) continue;
+    if (u.regional_structure_id === responsibleStructureId) {
+      approvers.push(u);
+      continue;
+    }
+    const isAncestor = await isRegionalStructureAncestor(
+      u.regional_structure_id,
+      responsibleStructureId,
+      transaction
+    );
+    if (isAncestor) {
+      approvers.push(u);
+    }
+  }
+  return approvers;
+}
+
+async function findEligibleRegionalValidators(node, regionId, transaction = null) {
+  const responsibleStructureId = await resolveResponsibleStructureId(node, transaction);
+  const activeUsers = await User.findAll({
+    where: { region_id: regionId, is_active: true },
+    include: [
+      { association: "roles", include: [{ association: "rolePermissions", include: ["permission"] }] },
+      { association: "permissionGroups", include: [{ association: "permissions" }] },
+    ],
+    transaction,
+  });
+
+  const validators = [];
+  for (const u of activeUsers) {
+    if (!userCanValidateRegionalAchievement(u)) continue;
+    if (isSuperAdmin(u)) {
+      validators.push(u);
+      continue;
+    }
+    if (!responsibleStructureId) {
+      validators.push(u);
+      continue;
+    }
+    if (!u.regional_structure_id || u.regional_structure_id === responsibleStructureId) continue;
+
+    const isAncestor = await isRegionalStructureAncestor(
+      u.regional_structure_id,
+      responsibleStructureId,
+      transaction
+    );
+    if (isAncestor) continue;
+
+    const isDescendant = await isRegionalStructureAncestor(
+      responsibleStructureId,
+      u.regional_structure_id,
+      transaction
+    );
+    if (isDescendant) continue;
+
+    validators.push(u);
+  }
+  return validators;
+}
+
 function normalizeStatus(status) {
   const s = String(status || ACHIEVEMENT_STATUS.EMPTY).toLowerCase();
   return Object.values(ACHIEVEMENT_STATUS).includes(s) ? s : ACHIEVEMENT_STATUS.EMPTY;
@@ -553,6 +638,22 @@ async function submitRegionalAchievementWorkflow(nodeId, regionId, payload, user
   try {
     const node = await loadNodeWithContext(nodeId, regionId, t);
     await assertUserCanExecuteAchievement(user, node, regionId, t);
+
+    if (node.planVersion?.version_kind === "execution_period") {
+      if (
+        node.planVersion.execution_status !== "open" ||
+        node.planVersion.is_locked ||
+        node.planVersion.status === "completed"
+      ) {
+        const error = new Error(
+          `Cannot submit achievement: period is not open for execution (status: ${
+            node.planVersion.execution_status || node.planVersion.status
+          })`
+        );
+        error.status = 400;
+        throw error;
+      }
+    }
 
     const currentStatus = normalizeStatus(node.period_actual_status);
     if (
@@ -643,6 +744,31 @@ async function submitRegionalAchievementWorkflow(nodeId, regionId, payload, user
     );
 
     await t.commit();
+
+    try {
+      if (nextStatus === ACHIEVEMENT_STATUS.SUBMITTED) {
+        const approvers = await findEligibleRegionalApprovers(node, regionId);
+        await emitRegionalAchievementSubmittedEvent({
+          node,
+          periodVersionId: node.regional_plan_version_id,
+          regionId,
+          approvers,
+          actor: user,
+        });
+      } else if (nextStatus === ACHIEVEMENT_STATUS.APPROVED && hasEligibleValidator) {
+        const validators = await findEligibleRegionalValidators(node, regionId);
+        await emitRegionalAchievementPendingValidationEvent({
+          node,
+          periodVersionId: node.regional_plan_version_id,
+          regionId,
+          validators,
+          actor: user,
+        });
+      }
+    } catch (notifyErr) {
+      console.error("Regional achievement submit notification failed:", notifyErr);
+    }
+
     return node;
   } catch (err) {
     await t.rollback();
@@ -708,6 +834,32 @@ async function approveRegionalAchievementWorkflow(nodeId, regionId, payload, use
     );
 
     await t.commit();
+
+    try {
+      if (node.period_actual_submitted_by) {
+        await emitRegionalAchievementApprovedEvent({
+          node,
+          periodVersionId: node.regional_plan_version_id,
+          regionId,
+          recipients: [{ user_id: node.period_actual_submitted_by }],
+          actor: user,
+          pendingValidation: Boolean(node.is_validation_required),
+        });
+      }
+      if (node.is_validation_required) {
+        const validators = await findEligibleRegionalValidators(node, regionId);
+        await emitRegionalAchievementPendingValidationEvent({
+          node,
+          periodVersionId: node.regional_plan_version_id,
+          regionId,
+          validators,
+          actor: user,
+        });
+      }
+    } catch (notifyErr) {
+      console.error("Regional achievement approve notification failed:", notifyErr);
+    }
+
     return node;
   } catch (err) {
     await t.rollback();
@@ -773,6 +925,22 @@ async function rejectRegionalAchievementWorkflow(nodeId, regionId, rejectionComm
     );
 
     await t.commit();
+
+    try {
+      if (node.period_actual_submitted_by) {
+        await emitRegionalAchievementRejectedEvent({
+          node,
+          periodVersionId: node.regional_plan_version_id,
+          regionId,
+          recipients: [{ user_id: node.period_actual_submitted_by }],
+          actor: user,
+          comment: rejectionComment.trim(),
+        });
+      }
+    } catch (notifyErr) {
+      console.error("Regional achievement reject notification failed:", notifyErr);
+    }
+
     return node;
   } catch (err) {
     await t.rollback();
@@ -821,6 +989,22 @@ async function validateRegionalAchievementWorkflow(nodeId, regionId, payload, us
     );
 
     await t.commit();
+
+    try {
+      const recipients = [];
+      if (node.period_actual_submitted_by) recipients.push({ user_id: node.period_actual_submitted_by });
+      if (node.period_actual_approved_by) recipients.push({ user_id: node.period_actual_approved_by });
+      await emitRegionalAchievementValidatedEvent({
+        node,
+        periodVersionId: node.regional_plan_version_id,
+        regionId,
+        recipients,
+        actor: user,
+      });
+    } catch (notifyErr) {
+      console.error("Regional achievement validate notification failed:", notifyErr);
+    }
+
     return node;
   } catch (err) {
     await t.rollback();
@@ -888,11 +1072,127 @@ async function rejectValidationRegionalAchievementWorkflow(nodeId, regionId, rej
     );
 
     await t.commit();
+
+    try {
+      const recipients = [];
+      if (node.period_actual_submitted_by) recipients.push({ user_id: node.period_actual_submitted_by });
+      if (node.period_actual_approved_by) recipients.push({ user_id: node.period_actual_approved_by });
+      await emitRegionalAchievementValidationRejectedEvent({
+        node,
+        periodVersionId: node.regional_plan_version_id,
+        regionId,
+        recipients,
+        actor: user,
+        comment: rejectionComment.trim(),
+      });
+    } catch (notifyErr) {
+      console.error("Regional achievement validation reject notification failed:", notifyErr);
+    }
+
     return node;
   } catch (err) {
     await t.rollback();
     throw err;
   }
+}
+
+/**
+ * Resolves achievement workflow scope for a regional plan version (period or annual).
+ * Returns sets of node IDs where the user can execute, approve, or validate achievements.
+ */
+async function resolveRegionalAchievementWorkflowScope(planVersionId, regionId, userOrUserId, transaction = null) {
+  const user = await resolveUserObject(userOrUserId, transaction);
+  if (!user) {
+    return { success: false, message: "User context required" };
+  }
+
+  const version = await RegionalPlanVersion.findByPk(planVersionId, { transaction });
+  if (!version) {
+    return { success: false, message: "Regional plan version not found" };
+  }
+
+  const nodes = await RegionalPlanNode.findAll({
+    where: { regional_plan_version_id: planVersionId, is_active: true },
+    include: [
+      {
+        association: "internalAssignments",
+        where: { is_active: true },
+        required: false,
+      },
+    ],
+    transaction,
+  });
+
+  const executorNodeIds = new Set();
+  const approverNodeIds = new Set();
+  const validatorNodeIds = new Set();
+
+  const isBypass = userQualifiesForRegionalBypass(user);
+  const canExec = userCanExecuteRegionalAchievement(user);
+  const canApprove = userCanApproveRegionalAchievement(user);
+  const canValidate = userCanValidateRegionalAchievement(user);
+
+  let hasValidationGate = false;
+
+  for (const node of nodes) {
+    if (node.is_validation_required) {
+      hasValidationGate = true;
+    }
+
+    // 1. Executor (must be directly assigned unless bypass)
+    if (canExec) {
+      if (isBypass) {
+        executorNodeIds.add(node.regional_plan_node_id);
+      } else {
+        const assignments = node.internalAssignments || [];
+        const isAssigned = assignments.some((a) => a.assigned_user_id === user.user_id);
+        if (isAssigned) {
+          executorNodeIds.add(node.regional_plan_node_id);
+        }
+      }
+    }
+
+    // 2. Approver (departmental hierarchy scope)
+    if (canApprove) {
+      if (isBypass) {
+        approverNodeIds.add(node.regional_plan_node_id);
+      } else {
+        try {
+          const check = await assertUserCanApproveAchievement(user, node, regionId, transaction);
+          if (check?.allowed) {
+            approverNodeIds.add(node.regional_plan_node_id);
+          }
+        } catch {
+          // not eligible approver
+        }
+      }
+    }
+
+    // 3. Validator (cross-branch independent)
+    if (canValidate) {
+      try {
+        const check = await assertUserCanValidateAchievement(user, node, regionId, transaction);
+        if (check?.allowed) {
+          validatorNodeIds.add(node.regional_plan_node_id);
+        }
+      } catch {
+        // not eligible validator
+      }
+    }
+  }
+
+  return {
+    success: true,
+    data: {
+      master_version_id: version.parent_plan_version_id || version.regional_plan_version_id,
+      plan_version_id: version.regional_plan_version_id,
+      executor_node_ids: Array.from(executorNodeIds),
+      approver_node_ids: Array.from(approverNodeIds),
+      validator_node_ids: Array.from(validatorNodeIds),
+      has_validation_gate: hasValidationGate,
+      assignment_bypass_active: isBypass,
+    },
+  };
 }
 
 module.exports = {
@@ -908,6 +1208,9 @@ module.exports = {
   assertUserCanApproveAchievement,
   assertUserCanValidateAchievement,
   determineRegionalAchievementWorkflow,
+  findEligibleRegionalApprovers,
+  findEligibleRegionalValidators,
+  resolveRegionalAchievementWorkflowScope,
   isRollupEligibleAchievement,
   submitRegionalAchievementWorkflow,
   approveRegionalAchievementWorkflow,

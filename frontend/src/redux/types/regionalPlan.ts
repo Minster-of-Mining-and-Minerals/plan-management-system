@@ -374,3 +374,14 @@ export interface RegionalExecutionDashboardDepartmentUserResponse {
   users: RegionalDashboardUser[];
   generated_at: string;
 }
+
+
+export interface RegionalAchievementWorkflowScope {
+  master_version_id: string;
+  plan_version_id: string;
+  executor_node_ids: string[];
+  approver_node_ids: string[];
+  validator_node_ids: string[];
+  has_validation_gate: boolean;
+  assignment_bypass_active: boolean;
+}

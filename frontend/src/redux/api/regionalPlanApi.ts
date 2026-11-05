@@ -9,6 +9,7 @@ import type {
   RegionalExecutionDashboardDepartmentUserResponse,
   RegionalPerformanceColorThreshold,
   RegionalPlanReviewDashboard,
+  RegionalAchievementWorkflowScope,
 } from "../types/regionalPlan";
 import type { AnnualTargetAllocation, PeriodTargetAllocation } from "../types/plan";
 
@@ -840,6 +841,26 @@ export const regionalPlanApi = baseApi.injectEndpoints({
       transformResponse: (res: { data: RegionalPlanNode }) => res.data,
       invalidatesTags: ["RegionalPlanNodes", "RegionalPlanDashboard"],
     }),
+
+    getRegionalPlanAchievementWorkflowScope: builder.query<
+      RegionalAchievementWorkflowScope,
+      { versionId: string; region_id?: string } | string
+    >({
+      query: (arg) => {
+        const versionId = typeof arg === "string" ? arg : arg.versionId;
+        const regionId = typeof arg === "object" ? arg.region_id : undefined;
+        const query = regionId ? `?region_id=${encodeURIComponent(regionId)}` : "";
+        return `/regional/plans/versions/${versionId}/achievement-workflow-scope${query}`;
+      },
+      transformResponse: (res: { data: RegionalAchievementWorkflowScope } | RegionalAchievementWorkflowScope) => {
+        if ("data" in res && res.data) return res.data;
+        return res as RegionalAchievementWorkflowScope;
+      },
+      providesTags: (_res, _err, arg) => {
+        const versionId = typeof arg === "string" ? arg : arg.versionId;
+        return [{ type: "RegionalPlanVersions", id: `ACHIEVEMENT_SCOPE_${versionId}` }];
+      },
+    }),
   }),
 });
 
@@ -917,4 +938,5 @@ export const {
   useApproveRegionalAnnualAchievementMutation,
   useRejectRegionalAnnualAchievementMutation,
   useValidateRegionalAnnualAchievementMutation,
+  useGetRegionalPlanAchievementWorkflowScopeQuery,
 } = regionalPlanApi;

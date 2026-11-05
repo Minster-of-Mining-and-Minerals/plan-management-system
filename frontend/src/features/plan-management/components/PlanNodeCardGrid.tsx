@@ -70,6 +70,7 @@ interface PlanNodeCardGridProps {
     showRaiseIssue?: boolean;
     governmentStructureId?: string;
     configuredUnits?: TargetUnit[];
+    renderPeriodActualSection?: (node: PlanNode, options?: { variant?: "card" | "compact" | "table" }) => React.ReactNode;
 }
 
 export function PlanNodeCardGrid({
@@ -106,6 +107,7 @@ export function PlanNodeCardGrid({
     showRaiseIssue = false,
     governmentStructureId,
     configuredUnits: propsConfiguredUnits,
+    renderPeriodActualSection,
 }: PlanNodeCardGridProps) {
     const { config: planningConfig } = useEffectivePlanningConfiguration({
         governmentStructureId,
@@ -294,14 +296,18 @@ export function PlanNodeCardGrid({
                                         )}
 
                                         {showPeriodActuals && (
-                                            <PlanNodePeriodActualSection
-                                                node={node}
-                                                rule={rule}
-                                                configuredUnits={configuredUnits}
-                                                canEdit={canEditPeriodActual}
-                                                variant="card"
-                                                onClick={(e) => e.stopPropagation()}
-                                            />
+                                            renderPeriodActualSection ? (
+                                                renderPeriodActualSection(node, { variant: "card" })
+                                            ) : (
+                                                <PlanNodePeriodActualSection
+                                                    node={node}
+                                                    rule={rule}
+                                                    configuredUnits={configuredUnits}
+                                                    canEdit={canEditPeriodActual}
+                                                    variant="card"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                />
+                                            )
                                         )}
 
                                         {childLevelRequiresContribution(rule, childNodes) && (

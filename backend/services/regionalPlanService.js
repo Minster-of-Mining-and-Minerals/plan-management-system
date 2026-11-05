@@ -35,6 +35,7 @@ const {
   rejectRegionalAchievementWorkflow,
   validateRegionalAchievementWorkflow,
   rejectValidationRegionalAchievementWorkflow,
+  resolveRegionalAchievementWorkflowScope,
   isRollupEligibleAchievement,
   userCanExecuteRegionalAchievement,
   userCanApproveRegionalAchievement,
@@ -46,6 +47,12 @@ const {
   assertUserCanValidateAchievement,
   isRegionalStructureAncestor,
 } = require("./regionalPlanAchievementWorkflowService");
+
+const {
+  REGIONAL_PLAN_EVENTS,
+  getRegionalReviewRecipients,
+  emitRegionalPlanReviewEvent,
+} = require("./regionalPlanNotificationService");
 
 const {
   normalizeTargetUnits,
@@ -2818,6 +2825,21 @@ async function publishRegionalPlanForReview(versionId, regionId, req) {
     status: "finalized",
   });
 
+  try {
+    const recipients = await getRegionalReviewRecipients(versionId, regionId);
+    await emitRegionalPlanReviewEvent(
+      REGIONAL_PLAN_EVENTS.REVIEW_PUBLISHED,
+      {
+        version,
+        regionId,
+        actor: req?.user || null,
+        recipients,
+      }
+    );
+  } catch (notifyErr) {
+    console.error("Regional publish for review notification failed:", notifyErr);
+  }
+
   return version;
 }
 
@@ -2831,6 +2853,21 @@ async function unlockRegionalPlanReviewCorrections(versionId, regionId, req, rea
     status: "finalized",
   });
 
+  try {
+    const recipients = await getRegionalReviewRecipients(versionId, regionId);
+    await emitRegionalPlanReviewEvent(
+      REGIONAL_PLAN_EVENTS.REVIEW_REOPENED,
+      {
+        version,
+        regionId,
+        actor: req?.user || null,
+        recipients,
+      }
+    );
+  } catch (notifyErr) {
+    console.error("Regional review unlock notification failed:", notifyErr);
+  }
+
   return version;
 }
 
@@ -2843,6 +2880,21 @@ async function republishRegionalPlanForReview(versionId, regionId, req) {
     published_for_review_at: new Date(),
     status: "finalized",
   });
+
+  try {
+    const recipients = await getRegionalReviewRecipients(versionId, regionId);
+    await emitRegionalPlanReviewEvent(
+      REGIONAL_PLAN_EVENTS.REVIEW_PUBLISHED,
+      {
+        version,
+        regionId,
+        actor: req?.user || null,
+        recipients,
+      }
+    );
+  } catch (notifyErr) {
+    console.error("Regional republish for review notification failed:", notifyErr);
+  }
 
   return version;
 }
@@ -2871,6 +2923,21 @@ async function completeRegionalPlanReview(versionId, regionId, req, decision) {
     review_completed_at: isApproved ? new Date() : null,
     status: "finalized",
   });
+
+  try {
+    const recipients = await getRegionalReviewRecipients(versionId, regionId);
+    await emitRegionalPlanReviewEvent(
+      REGIONAL_PLAN_EVENTS.REVIEW_COMPLETED,
+      {
+        version,
+        regionId,
+        actor: req?.user || null,
+        recipients,
+      }
+    );
+  } catch (notifyErr) {
+    console.error("Regional complete review notification failed:", notifyErr);
+  }
 
   return version;
 }
@@ -4427,8 +4494,28 @@ async function startRegionalPlanProcess(versionId, regionId, userId) {
 // 8. Execution Reporting & Achievement Workflow
 // -------------------------------------------------------------
 
-async function updateRegionalPeriodActual(nodeId, regionId, payload, userId) {
+async function updateRegionalPeriodActual(nodeId, regionId, payload, userOrUserId) {
   const node = await getRegionalPlanNodeById(nodeId, regionId);
+  const userId = typeof userOrUserId === "string" ? userOrUserId : userOrUserId?.user_id;
+  const user = typeof userOrUserId === "object" ? userOrUserId : await User.findByPk(userId);
+
+  await assertUserCanExecuteAchievement(user, node, regionId);
+
+  if (node.planVersion?.version_kind === "execution_period") {
+    if (
+      node.planVersion.execution_status !== "open" ||
+      node.planVersion.is_locked ||
+      node.planVersion.status === "completed"
+    ) {
+      const error = new Error(
+        `Cannot update actual value: period is not open for execution (status: ${
+          node.planVersion.execution_status || node.planVersion.status
+        })`
+      );
+      error.status = 400;
+      throw error;
+    }
+  }
 
   if (!canEditAchievementValue(node.period_actual_status)) {
     throw new Error(`Cannot edit actual value while status is "${node.period_actual_status}"`);
@@ -5292,6 +5379,7 @@ module.exports = {
   completeRegionalExecutionPeriod,
 
   // Execution Reporting & Workflow
+  resolveRegionalAchievementWorkflowScope,
   updateRegionalPeriodActual,
   submitRegionalAchievement,
   approveRegionalAchievement,

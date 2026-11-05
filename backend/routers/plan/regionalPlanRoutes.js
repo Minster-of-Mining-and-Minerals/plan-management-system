@@ -248,6 +248,8 @@ router.post("/versions/:id/complete-period", planFinalizeAccess, regionalPlanCon
 
 // Hierarchy
 router.get("/versions/:id/hierarchy", planReadAccess, regionalPlanController.getPlanHierarchyHandler);
+router.get("/versions/:id/achievement-workflow-scope", planReadAccess, regionalPlanController.getAchievementWorkflowScopeHandler);
+router.get("/versions/:id/achievement/workflow-scope", planReadAccess, regionalPlanController.getAchievementWorkflowScopeHandler);
 
 // -------------------------------------------------------------
 // 4. Plan Nodes

@@ -83,6 +83,7 @@ interface PlanHierarchyTableViewProps {
     onDistributeContributionEqually?: (parent: PlanNode, children: PlanNode[]) => void;
     isDistributingContribution?: boolean;
     configuredUnits?: TargetUnit[];
+    renderPeriodActualSection?: (node: PlanNode, options?: { variant?: "card" | "compact" | "table" }) => React.ReactNode;
 }
 
 interface StrategicFocusTableProps {
@@ -120,6 +121,7 @@ interface StrategicFocusTableProps {
     canEditContribution?: boolean;
     onDistributeContributionEqually?: (parent: PlanNode, children: PlanNode[]) => void;
     isDistributingContribution?: boolean;
+    renderPeriodActualSection?: (node: PlanNode, options?: { variant?: "card" | "compact" | "table" }) => React.ReactNode;
 }
 
 function StrategicFocusTable({
@@ -157,6 +159,7 @@ function StrategicFocusTable({
     canEditContribution = false,
     onDistributeContributionEqually,
     isDistributingContribution = false,
+    renderPeriodActualSection,
 }: StrategicFocusTableProps) {
     const thresholds = usePerformanceColorThresholds();
 
@@ -502,14 +505,18 @@ function StrategicFocusTable({
                                         )}
                                         {showPeriodActuals && (
                                             <TableCell className="whitespace-normal">
-                                                <PlanNodePeriodActualSection
-                                                    node={node}
-                                                    rule={rule}
-                                                    configuredUnits={configuredUnits}
-                                                    canEdit={canEditPeriodActual}
-                                                    variant="table"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                />
+                                                {renderPeriodActualSection ? (
+                                                    renderPeriodActualSection(node, { variant: "table" })
+                                                ) : (
+                                                    <PlanNodePeriodActualSection
+                                                        node={node}
+                                                        rule={rule}
+                                                        configuredUnits={configuredUnits}
+                                                        canEdit={canEditPeriodActual}
+                                                        variant="table"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                )}
                                             </TableCell>
                                         )}
                                         <TableCell>
@@ -661,6 +668,7 @@ export function PlanHierarchyTableView({
     onDistributeContributionEqually,
     isDistributingContribution = false,
     configuredUnits: propsConfiguredUnits,
+    renderPeriodActualSection,
 }: PlanHierarchyTableViewProps) {
     const { config: planningConfig } = useEffectivePlanningConfiguration({
         governmentStructureId,
@@ -712,6 +720,7 @@ export function PlanHierarchyTableView({
                     canEditContribution={canEditContribution}
                     onDistributeContributionEqually={onDistributeContributionEqually}
                     isDistributingContribution={isDistributingContribution}
+                    renderPeriodActualSection={renderPeriodActualSection}
                 />
             ))}
         </div>

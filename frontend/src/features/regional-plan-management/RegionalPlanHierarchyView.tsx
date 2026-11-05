@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import {
@@ -55,6 +55,14 @@ import {
   getHierarchyNumber,
 } from "@/utils/planNodeOrderUtils";
 import { RegionalPlanVersionSubNav } from "./components/RegionalPlanVersionSubNav";
+import { RegionalPlanAchievementScopeProvider } from "./hooks/useRegionalPlanAchievementScope";
+import { RegionalPlanNodePeriodActualSection } from "./components/RegionalPlanNodePeriodActualSection";
+import { RegionalPlanAchievementPendingPanel } from "./components/RegionalPlanAchievementPendingPanel";
+import { RegionalPlanAchievementPendingValidationPanel } from "./components/RegionalPlanAchievementPendingValidationPanel";
+import {
+  collectPendingAchievementNodes,
+  collectPendingValidationNodes,
+} from "@/utils/planAchievementHierarchyUtils";
 import { CreateRegionalPlanNodeModal } from "./modals/CreateRegionalPlanNodeModal";
 import { FinalizeRegionalPlanDraftModal } from "./modals/FinalizeRegionalPlanDraftModal";
 import { FinalizeRegionalExecutionPeriodsModal } from "./modals/FinalizeRegionalExecutionPeriodsModal";
@@ -367,6 +375,29 @@ export function RegionalPlanHierarchyView() {
     });
   }, [plan?.planningConfiguration?.target_units]);
 
+  const pendingApprovalNodes = useMemo(
+    () => (isPeriodPlan && processStarted ? collectPendingAchievementNodes(treeRoots as any) : []),
+    [treeRoots, isPeriodPlan, processStarted]
+  );
+  const pendingValidationNodes = useMemo(
+    () => (isPeriodPlan && processStarted ? collectPendingValidationNodes(treeRoots as any) : []),
+    [treeRoots, isPeriodPlan, processStarted]
+  );
+
+  const renderPeriodActualSection = useCallback(
+    (node: PlanNode, options?: { variant?: "card" | "compact" | "table" }) => (
+      <RegionalPlanNodePeriodActualSection
+        node={node}
+        rule={plan?.planRule as any}
+        configuredUnits={configuredUnits}
+        canEdit={isPeriodPlan && processStarted && plan?.execution_status === "open"}
+        variant={options?.variant ?? "card"}
+        regionId={regionId!}
+      />
+    ),
+    [plan?.planRule, configuredUnits, isPeriodPlan, processStarted, plan?.execution_status, regionId]
+  );
+
   // Current level nodes for cards view
   const currentNodes = useMemo(() => {
     let nodes = treeRoots;
@@ -666,7 +697,12 @@ export function RegionalPlanHierarchyView() {
   );
 
   return (
-    <div className="space-y-6">
+    <RegionalPlanAchievementScopeProvider
+      versionId={versionId!}
+      regionId={regionId!}
+      enabled={Boolean((isPeriodPlan || isAnnualPlan) && processStarted)}
+    >
+      <div className="space-y-6">
       {/* Header bar matching Federal Private */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-4">
@@ -932,6 +968,7 @@ export function RegionalPlanHierarchyView() {
         />
       )}
     </div>
+    </RegionalPlanAchievementScopeProvider>
   );
 
   function renderHierarchyBody() {
@@ -987,6 +1024,25 @@ export function RegionalPlanHierarchyView() {
         )}
 
         {/* Hierarchy Views */}
+        {isPeriodPlan && processStarted && (
+          <div className="space-y-3 mb-4">
+            <RegionalPlanAchievementPendingPanel
+              pendingNodes={pendingApprovalNodes}
+              hierarchyNumberMap={hierarchyNumberMap}
+              configuredUnits={configuredUnits}
+              onNavigateToNode={handleViewDetails}
+              regionId={regionId!}
+            />
+            <RegionalPlanAchievementPendingValidationPanel
+              pendingNodes={pendingValidationNodes}
+              hierarchyNumberMap={hierarchyNumberMap}
+              configuredUnits={configuredUnits}
+              onNavigateToNode={handleViewDetails}
+              regionId={regionId!}
+            />
+          </div>
+        )}
+
         {rawNodes.length === 0 ? (
           <div className="rounded-2xl border border-dashed p-12 text-center bg-card">
             <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4">
@@ -1029,6 +1085,7 @@ export function RegionalPlanHierarchyView() {
             canEditPeriodActual={isPeriodPlan && processStarted && plan.execution_status === "open"}
             useExecutionCompletion={isPeriodPlan && processStarted}
             processStarted={processStarted}
+            renderPeriodActualSection={renderPeriodActualSection}
           />
         ) : viewMode === "card" ? (
           <PlanNodeCardGrid
@@ -1056,6 +1113,7 @@ export function RegionalPlanHierarchyView() {
             canEditPeriodActual={isPeriodPlan && processStarted && plan.execution_status === "open"}
             useExecutionCompletion={isPeriodPlan && processStarted}
             processStarted={processStarted}
+            renderPeriodActualSection={renderPeriodActualSection}
           />
         ) : (
           <PlanHierarchyTree
@@ -1084,6 +1142,7 @@ export function RegionalPlanHierarchyView() {
             canEditPeriodActual={isPeriodPlan && processStarted && plan.execution_status === "open"}
             useExecutionCompletion={isPeriodPlan && processStarted}
             processStarted={processStarted}
+            renderPeriodActualSection={renderPeriodActualSection}
           />
         )}
       </div>

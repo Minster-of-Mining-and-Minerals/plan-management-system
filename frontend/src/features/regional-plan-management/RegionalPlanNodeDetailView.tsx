@@ -50,6 +50,8 @@ import { usePermissions } from "@/hooks/usePermissions";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import { CreateRegionalPlanNodeModal } from "./modals/CreateRegionalPlanNodeModal";
 import { AssignRegionalPlanNodeModal } from "./modals/AssignRegionalPlanNodeModal";
+import { RegionalPlanAchievementScopeProvider } from "./hooks/useRegionalPlanAchievementScope";
+import { RegionalPlanNodePeriodActualSection } from "./components/RegionalPlanNodePeriodActualSection";
 import { PlanNodeContributionBadge } from "@/features/plan-management/components/PlanNodeContributionBadge";
 import {
   formatNodeTarget,
@@ -120,12 +122,27 @@ export function RegionalPlanNodeDetailView({
   const isAnnual = version?.version_kind === "annual";
   const isMaster = version?.version_kind === "master";
 
-  const parentMasterId = isAnnual ? version?.parent_plan_version_id : null;
-  const { data: masterVersion } = useGetRegionalPlanVersionByIdQuery(
+  const parentMasterId = isAnnual
+    ? version?.parent_plan_version_id
+    : isExecutionPeriod
+    ? version?.parent_plan_version_id
+    : null;
+  const { data: parentVersion } = useGetRegionalPlanVersionByIdQuery(
     { id: parentMasterId!, region_id: regionId },
     { skip: !parentMasterId || !regionId }
   );
+  const masterVersion = isAnnual ? parentVersion : undefined;
   const annualTargetsFinalized = Boolean(masterVersion?.annual_targets_finalized_at);
+
+  const processStarted = Boolean(
+    version?.process_started_at ||
+      parentVersion?.process_started_at ||
+      version?.execution_status === "open" ||
+      version?.status === "active"
+  );
+  const showPeriodActuals = isExecutionPeriod && processStarted;
+  const canEditPeriodActual =
+    isExecutionPeriod && processStarted && version?.execution_status === "open";
 
   const { data: hierarchyData } = useGetRegionalPlanHierarchyQuery(
     { id: versionId, region_id: regionId },
@@ -531,7 +548,12 @@ export function RegionalPlanNodeDetailView({
       : "bg-muted text-muted-foreground border-border";
 
   return (
-    <div className="space-y-6">
+    <RegionalPlanAchievementScopeProvider
+      versionId={versionId}
+      regionId={regionId}
+      enabled={Boolean(showPeriodActuals)}
+    >
+      <div className="space-y-6">
       {/* ------------------------------------------------------------- */}
       {/* Header Bar matching Federal Information Architecture */}
       {/* ------------------------------------------------------------- */}
@@ -861,7 +883,7 @@ export function RegionalPlanNodeDetailView({
               </div>
             </div>
 
-            {/* Execution Period Target & Actual */}
+            {/* Execution Period Target */}
             {isExecutionPeriod && (
               <div className="pt-3 border-t space-y-3">
                 <div>
@@ -870,7 +892,7 @@ export function RegionalPlanNodeDetailView({
                     <span className="font-bold text-base text-foreground">
                       {node.period_target != null ? node.period_target : "—"} {node.target_unit || ""}
                     </span>
-                    {canUpdate && !version?.period_targets_finalized_at && (
+                    {canUpdate && !version?.period_targets_finalized_at && !processStarted && (
                       <div className="flex items-center gap-1.5 ml-auto">
                         <Input
                           type="number"
@@ -892,106 +914,25 @@ export function RegionalPlanNodeDetailView({
                     )}
                   </div>
                 </div>
-
-                <div className="pt-2 border-t">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-muted-foreground">Recorded Achievement</span>
-                    <span className="font-bold text-emerald-600">
-                      {Math.round(node.execution_progress_percent ?? 0)}% Progress
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-lg text-foreground">
-                      {node.period_actual != null ? node.period_actual : "0"} {node.target_unit || ""}
-                    </span>
-                  </div>
-
-                  {canExecute && node.period_actual_status !== "validated" && (
-                    <div className="space-y-2 mt-2 pt-2 border-t">
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          placeholder="Enter actual value"
-                          value={periodActualInput}
-                          onChange={(e) => setPeriodActualInput(e.target.value)}
-                          className="h-7 text-xs flex-1"
-                        />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 px-2.5 text-xs"
-                          onClick={handleSavePeriodActual}
-                          disabled={isUpdatingPeriodActual}
-                        >
-                          Save Draft
-                        </Button>
-                      </div>
-                      <Textarea
-                        placeholder="Optional achievement narration or performance notes..."
-                        value={narrationInput}
-                        onChange={(e) => setNarrationInput(e.target.value)}
-                        className="text-xs min-h-[50px]"
-                        rows={2}
-                      />
-                    </div>
-                  )}
-
-                  {/* Achievement Lifecycle Buttons */}
-                  <div className="flex flex-wrap gap-2 pt-3 border-t">
-                    {canExecute && node.period_actual_status !== "validated" && (
-                      <Button
-                        size="sm"
-                        className="h-8 gap-1.5 text-xs font-semibold"
-                        onClick={handleSubmit}
-                        disabled={isSubmittingAchievement}
-                      >
-                        <Send className="h-3.5 w-3.5" />
-                        <span>Submit for Review</span>
-                      </Button>
-                    )}
-
-                    {canApprove && node.period_actual_status === "submitted" && (
-                      <>
-                        <Button
-                          size="sm"
-                          className="h-8 gap-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
-                          onClick={handleApprove}
-                          disabled={isApprovingAchievement}
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          <span>Approve</span>
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 gap-1.5 text-xs text-rose-600 border-rose-300 hover:bg-rose-50"
-                          onClick={() => setIsRejectDialogOpen(true)}
-                          disabled={isRejectingAchievement}
-                        >
-                          <XCircle className="h-3.5 w-3.5" />
-                          <span>Reject</span>
-                        </Button>
-                      </>
-                    )}
-
-                    {canValidate && node.period_actual_status === "approved" && (
-                      <Button
-                        size="sm"
-                        className="h-8 gap-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white"
-                        onClick={handleValidate}
-                        disabled={isValidatingAchievement}
-                      >
-                        <ShieldCheck className="h-3.5 w-3.5" />
-                        <span>Validate & Lock</span>
-                      </Button>
-                    )}
-                  </div>
-                </div>
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {showPeriodActuals && (
+        <div className="space-y-2">
+          <h3 className="text-lg font-bold text-gray-900 px-1 dark:text-foreground">Period Achievement</h3>
+          <RegionalPlanNodePeriodActualSection
+            node={node}
+            rule={rule as any}
+            configuredUnits={configuredUnits as any}
+            canEdit={canEditPeriodActual}
+            variant="card"
+            regionId={regionId}
+          />
+        </div>
+      )}
 
       {/* ------------------------------------------------------------- */}
       {/* Subordinate Child Nodes Section */}
@@ -1217,5 +1158,6 @@ export function RegionalPlanNodeDetailView({
         </DialogContent>
       </Dialog>
     </div>
+    </RegionalPlanAchievementScopeProvider>
   );
 }

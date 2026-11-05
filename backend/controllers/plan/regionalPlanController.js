@@ -836,6 +836,20 @@ async function rejectValidationAchievementHandler(req, res, next) {
   }
 }
 
+async function getAchievementWorkflowScopeHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "read");
+    const result = await regionalPlanService.resolveRegionalAchievementWorkflowScope(req.params.id, regionId, req.user);
+    if (!result.success) {
+      return res.status(400).json({ success: false, message: result.message });
+    }
+    res.json({ success: true, data: result.data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function submitAnnualAchievementHandler(req, res, next) {
   try {
     const regionId = resolveEffectiveRegionId(req);
@@ -1001,6 +1015,7 @@ module.exports = {
   completeExecutionPeriodHandler,
 
   // Achievement Workflow
+  getAchievementWorkflowScopeHandler,
   updatePeriodActualHandler,
   submitAchievementHandler,
   approveAchievementHandler,

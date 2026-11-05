@@ -74,6 +74,7 @@ interface NodeItemProps {
     canEditContribution?: boolean;
     onDistributeContributionEqually?: (parent: PlanNode, children: PlanNode[]) => void;
     isDistributingContribution?: boolean;
+    renderPeriodActualSection?: (node: PlanNode, options?: { variant?: "card" | "compact" | "table" }) => React.ReactNode;
 }
 
 const NodeItem = ({
@@ -113,6 +114,7 @@ const NodeItem = ({
     canEditContribution = false,
     onDistributeContributionEqually,
     isDistributingContribution = false,
+    renderPeriodActualSection,
 }: NodeItemProps) => {
     const thresholds = usePerformanceColorThresholds();
     const hierarchyNumber = getHierarchyNumber(hierarchyNumberMap, node.plan_node_id);
@@ -271,13 +273,17 @@ const NodeItem = ({
                             />
                         )}
                         {showPeriodActuals && (
-                            <PlanNodePeriodActualSection
-                                node={node}
-                                rule={rule}
-                                configuredUnits={configuredUnits}
-                                canEdit={canEditPeriodActual}
-                                variant="compact"
-                            />
+                            renderPeriodActualSection ? (
+                                renderPeriodActualSection(node, { variant: "compact" })
+                            ) : (
+                                <PlanNodePeriodActualSection
+                                    node={node}
+                                    rule={rule}
+                                    configuredUnits={configuredUnits}
+                                    canEdit={canEditPeriodActual}
+                                    variant="compact"
+                                />
+                            )
                         )}
                         {showAnnualActuals && (
                             <PlanNodeAnnualActualSection
@@ -365,6 +371,7 @@ const NodeItem = ({
                             canEditContribution={canEditContribution}
                             onDistributeContributionEqually={onDistributeContributionEqually}
                             isDistributingContribution={isDistributingContribution}
+                            renderPeriodActualSection={renderPeriodActualSection}
                         />
                     ))}
                 </div>
@@ -410,6 +417,7 @@ interface PlanHierarchyTreeProps {
     onDistributeContributionEqually?: (parent: PlanNode, children: PlanNode[]) => void;
     isDistributingContribution?: boolean;
     configuredUnits?: TargetUnit[];
+    renderPeriodActualSection?: (node: PlanNode, options?: { variant?: "card" | "compact" | "table" }) => React.ReactNode;
 }
 
 export function PlanHierarchyTree({
@@ -448,6 +456,7 @@ export function PlanHierarchyTree({
     onDistributeContributionEqually,
     isDistributingContribution = false,
     configuredUnits: propsConfiguredUnits,
+    renderPeriodActualSection,
 }: PlanHierarchyTreeProps) {
     const { config: planningConfig } = useEffectivePlanningConfiguration({
         governmentStructureId,
@@ -496,6 +505,7 @@ export function PlanHierarchyTree({
                         canEditContribution={canEditContribution}
                         onDistributeContributionEqually={onDistributeContributionEqually}
                         isDistributingContribution={isDistributingContribution}
+                        renderPeriodActualSection={renderPeriodActualSection}
                     />
                 ))}
             </div>
@@ -543,6 +553,7 @@ export function PlanHierarchyTree({
                     canEditContribution={canEditContribution}
                     onDistributeContributionEqually={onDistributeContributionEqually}
                     isDistributingContribution={isDistributingContribution}
+                    renderPeriodActualSection={renderPeriodActualSection}
                 />
             ))}
         </div>
