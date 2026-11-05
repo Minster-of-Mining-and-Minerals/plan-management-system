@@ -305,15 +305,19 @@ async function runE2ETests() {
     // 5. Initialize Execution Periods (Quarterly)
     console.log("\n5. Initializing Execution Periods (Quarterly)...");
     await regionalPlanService.initializeRegionalExecutionPeriods(
-      annualVersion.regional_plan_version_id,
+      masterVersion.regional_plan_version_id,
       testRegion.region_id,
-      { mode: "quarterly" }
+      "quarterly"
     );
     await regionalPlanService.distributeRegionalPeriodTargetsEqually(
       annualVersion.regional_plan_version_id,
       testRegion.region_id
     );
     await regionalPlanService.finalizeRegionalPeriodTargets(
+      annualVersion.regional_plan_version_id,
+      testRegion.region_id
+    );
+    annualVersion = await regionalPlanService.getRegionalPlanVersionById(
       annualVersion.regional_plan_version_id,
       testRegion.region_id
     );
