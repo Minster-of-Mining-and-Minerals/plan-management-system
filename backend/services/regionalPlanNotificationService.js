@@ -1,7 +1,8 @@
 "use strict";
 
+const { Op } = require("sequelize");
 const { sendNotification } = require("../utils/notification");
-const { Notification, RegionalPlanNode, RegionalInternalAssignment, User, Op } = require("../models");
+const { Notification, RegionalPlanNode, RegionalInternalAssignment, User } = require("../models");
 
 const REGIONAL_PLAN_EVENTS = {
   REVIEW_PUBLISHED: "regional_plan_published_for_review",

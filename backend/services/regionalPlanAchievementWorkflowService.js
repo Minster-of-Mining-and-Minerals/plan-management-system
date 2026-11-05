@@ -1,5 +1,6 @@
 "use strict";
 
+const { Op } = require("sequelize");
 const { v4: uuidv4 } = require("uuid");
 const {
   RegionalPlanNode,
@@ -9,7 +10,6 @@ const {
   RegionalStructure,
   User,
   sequelize,
-  Op,
 } = require("../models");
 const { userHasPermission } = require("../utils/userPermissionsUtils");
 const {
