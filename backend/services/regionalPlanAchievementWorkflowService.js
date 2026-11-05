@@ -91,10 +91,15 @@ function userQualifiesForRegionalBypass(user) {
 
 async function resolveUserObject(userOrUserId, transaction = null) {
   if (!userOrUserId) return null;
-  if (typeof userOrUserId === "object" && userOrUserId.user_id) {
+  if (
+    typeof userOrUserId === "object" &&
+    userOrUserId.user_id &&
+    (userOrUserId.permissions || (Array.isArray(userOrUserId.roles) && userOrUserId.roles.length > 0))
+  ) {
     return userOrUserId;
   }
-  return User.findByPk(userOrUserId, {
+  const userId = typeof userOrUserId === "object" ? userOrUserId.user_id : userOrUserId;
+  return User.findByPk(userId, {
     attributes: { exclude: ["password"] },
     include: [
       { association: "roles", include: [{ association: "rolePermissions", include: ["permission"] }] },

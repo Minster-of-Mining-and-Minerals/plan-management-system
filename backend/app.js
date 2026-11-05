@@ -243,38 +243,6 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ================== Start App Server ==================
-const { warmSystemSettingsCache } = require("./services/systemSettingsService");
-
-const appPort = process.env.PORT || 4000;
-const appHost = process.env.HOST || "0.0.0.0";
-warmSystemSettingsCache()
-  .catch((error) => {
-    console.error("Failed to warm system settings cache:", error.message);
-  })
-  .finally(async () => {
-    try {
-      await mountCollaboration(app);
-    } catch (error) {
-      console.error("Failed to mount collaboration routes:", error.message);
-      if (process.env.NODE_ENV === "production") {
-        process.exit(1);
-      }
-    }
-
-    appServer.listen(appPort, appHost, () => {
-      console.log(` App server running at http://${appHost}:${appPort}`);
-      try {
-        const {
-          startExecutionWindowOverrideExpiryJob,
-        } = require("./jobs/executionWindowOverrideExpiryJob");
-        startExecutionWindowOverrideExpiryJob();
-      } catch (error) {
-        console.error("Failed to start execution window override expiry job:", error.message);
-      }
-    });
-  });
-
 // ================== Socket.IO Setup ==================
 const socketServer = http.createServer();
 const io = new Server(socketServer, {
@@ -314,11 +282,46 @@ io.on("connection", (socket) => {
   });
 });
 
+// ================== Start App Server ==================
+const { warmSystemSettingsCache } = require("./services/systemSettingsService");
+
+const appPort = process.env.PORT || 4000;
+const appHost = process.env.HOST || "0.0.0.0";
 const socketPort = process.env.SOCKET_PORT || 5000;
 const socketHost = process.env.SOCKET_HOST || "0.0.0.0";
-socketServer.listen(socketPort, socketHost, () => {
-  console.log(`Socket.IO server running at http://${socketHost}:${socketPort}`);
-});
+
+if (require.main === module) {
+  warmSystemSettingsCache()
+    .catch((error) => {
+      console.error("Failed to warm system settings cache:", error.message);
+    })
+    .finally(async () => {
+      try {
+        await mountCollaboration(app);
+      } catch (error) {
+        console.error("Failed to mount collaboration routes:", error.message);
+        if (process.env.NODE_ENV === "production") {
+          process.exit(1);
+        }
+      }
+
+      appServer.listen(appPort, appHost, () => {
+        console.log(` App server running at http://${appHost}:${appPort}`);
+        try {
+          const {
+            startExecutionWindowOverrideExpiryJob,
+          } = require("./jobs/executionWindowOverrideExpiryJob");
+          startExecutionWindowOverrideExpiryJob();
+        } catch (error) {
+          console.error("Failed to start execution window override expiry job:", error.message);
+        }
+      });
+    });
+
+  socketServer.listen(socketPort, socketHost, () => {
+    console.log(`Socket.IO server running at http://${socketHost}:${socketPort}`);
+  });
+}
 
 // Make Socket.IO accessible globally
 app.set("socketio", io);

@@ -309,16 +309,22 @@ async function runE2ETests() {
       testRegion.region_id,
       "quarterly"
     );
-    await regionalPlanService.distributeRegionalPeriodTargetsEqually(
-      annualVersion.regional_plan_version_id,
-      testRegion.region_id
-    );
-    await regionalPlanService.finalizeRegionalPeriodTargets(
-      annualVersion.regional_plan_version_id,
-      testRegion.region_id
-    );
+    for (const ann of annualVersions) {
+      await regionalPlanService.distributeRegionalPeriodTargetsEqually(
+        ann.regional_plan_version_id,
+        testRegion.region_id
+      );
+      await regionalPlanService.finalizeRegionalPeriodTargets(
+        ann.regional_plan_version_id,
+        testRegion.region_id
+      );
+    }
     annualVersion = await regionalPlanService.getRegionalPlanVersionById(
       annualVersion.regional_plan_version_id,
+      testRegion.region_id
+    );
+    masterVersion = await regionalPlanService.getRegionalPlanVersionById(
+      masterVersion.regional_plan_version_id,
       testRegion.region_id
     );
 
@@ -438,7 +444,7 @@ async function runE2ETests() {
     // Check submission notification to supervisor
     const submitNotifs = await Notification.findAll({
       where: {
-        notification_type: "regional_achievement_submitted",
+        notification_type: "regional_plan_achievement_submitted",
         recipient_id: supervisorUser.user_id,
       },
     });
@@ -458,7 +464,7 @@ async function runE2ETests() {
     // Check pending validation notification to validator
     const validationNotifs = await Notification.findAll({
       where: {
-        notification_type: "regional_achievement_pending_validation",
+        notification_type: "regional_plan_achievement_pending_validation",
         recipient_id: validatorUser.user_id,
       },
     });
@@ -474,12 +480,23 @@ async function runE2ETests() {
     );
 
     assert(validateResult.period_actual_status === "validated", "Task status transitioned to 'validated'");
-    assert(validateResult.is_locked === true, "Task node is permanently locked");
+    let reSubmitBlocked = false;
+    try {
+      await submitRegionalAchievementWorkflow(
+        q1TaskNode.regional_plan_node_id,
+        testRegion.region_id,
+        { period_actual: 30 },
+        officerUser
+      );
+    } catch (e) {
+      reSubmitBlocked = e.message.includes("Cannot submit achievement from status");
+    }
+    assert(reSubmitBlocked, "Validated task node cannot be resubmitted (permanently locked against modifications)");
 
     // Check validated notification back to executor
     const validatedNotifs = await Notification.findAll({
       where: {
-        notification_type: "regional_achievement_validated",
+        notification_type: "regional_plan_achievement_validated",
         recipient_id: officerUser.user_id,
       },
     });
@@ -558,9 +575,13 @@ async function runE2ETests() {
 
     // 13. Rollup Verification
     console.log("\n13. Verifying Hierarchical Rollup Progress...");
-    const refreshedKpi = await RegionalPlanNode.findByPk(q1KpiNode.regional_plan_node_id);
-    console.log(`  KPI rolled-up progress: ${refreshedKpi.execution_progress_percent}%`);
-    assert(refreshedKpi.execution_progress_percent != null, "KPI rolled up progress is computed and present");
+    const hierarchy = await regionalPlanService.getRegionalPlanHierarchy(
+      q1Version.regional_plan_version_id,
+      testRegion.region_id
+    );
+    const kpiInHierarchy = hierarchy.nodes.find((n) => n.regional_plan_node_id === q1KpiNode.regional_plan_node_id);
+    console.log(`  KPI rolled-up progress: ${kpiInHierarchy?.execution_progress_percent}%`);
+    assert(kpiInHierarchy?.execution_progress_percent != null, "KPI rolled up progress is computed and present");
 
     console.log("\n===============================================================================");
     console.log(`   ALL ${passedCount} VERIFICATION TESTS PASSED SUCCESSFULLY!`);
@@ -574,16 +595,27 @@ async function runE2ETests() {
     try {
       if (testRegion) {
         await Notification.destroy({ where: { recipient_id: [officerUser?.user_id, supervisorUser?.user_id, validatorUser?.user_id, adminUser?.user_id].filter(Boolean) } });
-        await RegionalInternalAssignment.destroy({ where: {} });
-        await RegionalPlanNode.destroy({ where: {} });
+        const testVersions = await RegionalPlanVersion.findAll({ where: { region_id: testRegion.region_id }, attributes: ["regional_plan_version_id"] });
+        const testVersionIds = testVersions.map((v) => v.regional_plan_version_id);
+        if (testVersionIds.length > 0) {
+          const testNodes = await RegionalPlanNode.findAll({ where: { regional_plan_version_id: testVersionIds }, attributes: ["regional_plan_node_id"] });
+          const testNodeIds = testNodes.map((n) => n.regional_plan_node_id);
+          if (testNodeIds.length > 0) {
+            await RegionalInternalAssignment.destroy({ where: { regional_plan_node_id: testNodeIds } });
+            await RegionalPlanNode.destroy({ where: { regional_plan_node_id: testNodeIds } });
+          }
+        }
         await RegionalPlanVersion.destroy({ where: { region_id: testRegion.region_id } });
-        await RegionalPlanRuleStep.destroy({ where: {} });
-        await RegionalPlanRule.destroy({ where: { region_id: testRegion.region_id } });
+        if (testRule) {
+          await RegionalPlanRuleStep.destroy({ where: { regional_plan_rule_id: testRule.regional_plan_rule_id } });
+          await RegionalPlanRule.destroy({ where: { regional_plan_rule_id: testRule.regional_plan_rule_id } });
+        }
         await UserRoles.destroy({ where: { user_id: [officerUser?.user_id, supervisorUser?.user_id, validatorUser?.user_id, adminUser?.user_id].filter(Boolean) } });
         await User.destroy({ where: { region_id: testRegion.region_id } });
         await RolePermission.destroy({ where: { role_id: [officerRole?.role_id, supervisorRole?.role_id, validatorRole?.role_id, adminRole?.role_id].filter(Boolean) } });
         await Role.destroy({ where: { role_id: [officerRole?.role_id, supervisorRole?.role_id, validatorRole?.role_id, adminRole?.role_id].filter(Boolean) } });
         await RegionalStructure.destroy({ where: { region_id: testRegion.region_id } });
+        await RegionalPlanningConfiguration.destroy({ where: { region_id: testRegion.region_id } });
         await Region.destroy({ where: { region_id: testRegion.region_id } });
       }
       console.log("Cleanup complete.");

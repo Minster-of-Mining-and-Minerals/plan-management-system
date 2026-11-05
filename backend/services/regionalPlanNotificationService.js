@@ -152,7 +152,7 @@ async function emitRegionalPlanReviewEvent(
   return sendNotification(
     filteredRecipients,
     {
-      category: "regional_plans",
+      category: "plans",
       notification_type: template.notification_type,
       title: template.title,
       message: template.message,
@@ -186,7 +186,7 @@ async function emitRegionalAchievementSubmittedEvent(
   return sendNotification(
     recipients,
     {
-      category: "regional_plans",
+      category: "plans",
       notification_type: REGIONAL_PLAN_EVENTS.ACHIEVEMENT_SUBMITTED,
       title: "Achievement pending approval",
       message: `${actor?.full_name || "An assigned officer"} submitted achievement for "${node.title}". Review and approve or reject.`,
@@ -221,7 +221,7 @@ async function emitRegionalAchievementApprovedEvent(
   return sendNotification(
     normalized,
     {
-      category: "regional_plans",
+      category: "plans",
       notification_type: REGIONAL_PLAN_EVENTS.ACHIEVEMENT_APPROVED,
       title: pendingValidation ? "Achievement execution-approved" : "Achievement approved",
       message: pendingValidation
@@ -260,7 +260,7 @@ async function emitRegionalAchievementRejectedEvent(
   return sendNotification(
     normalized,
     {
-      category: "regional_plans",
+      category: "plans",
       notification_type: REGIONAL_PLAN_EVENTS.ACHIEVEMENT_REJECTED,
       title: "Achievement rejected",
       message: `Achievement for "${node.title}" was rejected. Please revise and resubmit.${suffix}`,
@@ -295,7 +295,7 @@ async function emitRegionalAchievementPendingValidationEvent(
   return sendNotification(
     recipients,
     {
-      category: "regional_plans",
+      category: "plans",
       notification_type: REGIONAL_PLAN_EVENTS.ACHIEVEMENT_PENDING_VALIDATION,
       title: "Achievement pending validation",
       message: `Achievement for "${node.title}" is awaiting your cross-branch validation before counting toward plan progress.`,
@@ -329,7 +329,7 @@ async function emitRegionalAchievementValidatedEvent(
   return sendNotification(
     normalized,
     {
-      category: "regional_plans",
+      category: "plans",
       notification_type: REGIONAL_PLAN_EVENTS.ACHIEVEMENT_VALIDATED,
       title: "Achievement validated",
       message: `Achievement for "${node.title}" was validated and now counts toward regional plan progress.`,
@@ -366,7 +366,7 @@ async function emitRegionalAchievementValidationRejectedEvent(
   return sendNotification(
     normalized,
     {
-      category: "regional_plans",
+      category: "plans",
       notification_type: REGIONAL_PLAN_EVENTS.ACHIEVEMENT_VALIDATION_REJECTED,
       title: "Validation rejected",
       message: `Validation was rejected for "${node.title}". Please update and resubmit.${suffix}`,
