@@ -413,10 +413,44 @@ async function removeExistingPlan(queryInterface, planIds, planningConfigId = nu
     ...ALL_EXECUTION_PERIOD_VERSION_IDS,
   ].filter(Boolean);
 
-  const ownedRules = await queryInterface.sequelize.query(
-    `SELECT plan_rule_id FROM plan_rules WHERE owned_by_plan_version_id = :masterId`,
+  // Discover all snapshot versions and descendant versions
+  const snapshotRows = await queryInterface.sequelize.query(
+    `WITH RECURSIVE snapshot_tree AS (
+       SELECT plan_version_id FROM plan_versions
+       WHERE execution_snapshot_of_version_id IN (:versionIds)
+          OR review_snapshot_of_version_id IN (:versionIds)
+          OR plan_version_id IN (:versionIds)
+       UNION
+       SELECT pv.plan_version_id FROM plan_versions pv
+       JOIN snapshot_tree st ON pv.parent_plan_version_id = st.plan_version_id
+     )
+     SELECT plan_version_id FROM snapshot_tree`,
     {
-      replacements: { masterId: planIds.MASTER },
+      replacements: { versionIds },
+      type: queryInterface.sequelize.QueryTypes.SELECT,
+    }
+  );
+
+  const allTargetVersionIds = Array.from(
+    new Set([...versionIds, ...snapshotRows.map((r) => r.plan_version_id)])
+  );
+
+  const tables = await queryInterface.showAllTables();
+  const tableNames = tables.map((t) => (typeof t === "string" ? t : Object.values(t)[0]));
+
+  if (tableNames.includes("plan_period_target_baselines")) {
+    await queryInterface.sequelize.query(
+      `DELETE FROM plan_period_target_baselines
+       WHERE master_plan_version_id IN (:ids)
+          OR snapshot_master_plan_version_id IN (:ids)`,
+      { replacements: { ids: allTargetVersionIds } }
+    );
+  }
+
+  const ownedRules = await queryInterface.sequelize.query(
+    `SELECT plan_rule_id FROM plan_rules WHERE owned_by_plan_version_id IN (:masterIds)`,
+    {
+      replacements: { masterIds: allTargetVersionIds },
       type: queryInterface.sequelize.QueryTypes.SELECT,
     }
   );
@@ -431,9 +465,9 @@ async function removeExistingPlan(queryInterface, planIds, planningConfigId = nu
   }
 
   const nodes = await queryInterface.sequelize.query(
-    `SELECT plan_node_id FROM plan_nodes WHERE plan_version_id IN (:versionIds)`,
+    `SELECT plan_node_id FROM plan_nodes WHERE plan_version_id IN (:allTargetVersionIds)`,
     {
-      replacements: { versionIds },
+      replacements: { allTargetVersionIds },
       type: queryInterface.sequelize.QueryTypes.SELECT,
     }
   );
@@ -441,23 +475,18 @@ async function removeExistingPlan(queryInterface, planIds, planningConfigId = nu
   const nodeIds = nodes.map((n) => n.plan_node_id);
 
   if (nodeIds.length > 0) {
-    const tables = await queryInterface.showAllTables();
-    const tableNames = tables.map((t) => (typeof t === "string" ? t : Object.values(t)[0]));
-
     if (tableNames.includes("plan_node_action_logs")) {
       await queryInterface.bulkDelete("plan_node_action_logs", { plan_node_id: nodeIds });
     }
 
     await queryInterface.bulkDelete("internal_assignments", { plan_node_id: nodeIds });
     await queryInterface.bulkDelete("external_assignments", { plan_node_id: nodeIds });
-    await queryInterface.bulkDelete("plan_nodes", { plan_version_id: versionIds });
+    await queryInterface.bulkDelete("plan_nodes", { plan_version_id: allTargetVersionIds });
   }
 
-  await queryInterface.bulkDelete("plan_versions", { plan_version_id: versionIds });
+  await queryInterface.bulkDelete("plan_versions", { plan_version_id: allTargetVersionIds });
 
   if (planningConfigId) {
-    const tables = await queryInterface.showAllTables();
-    const tableNames = tables.map((t) => (typeof t === "string" ? t : Object.values(t)[0]));
     if (tableNames.includes("planning_configurations")) {
       await queryInterface.bulkDelete("planning_configurations", {
         planning_configuration_id: planningConfigId,
