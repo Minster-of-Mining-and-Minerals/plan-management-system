@@ -6,6 +6,7 @@ const {
   sequelize,
   Region,
   RegionalStructure,
+  RegionalPlanningConfiguration,
   RegionalPlanVersion,
   RegionalPlanNode,
   RegionalPlanRule,
@@ -66,6 +67,13 @@ async function runE2ETests() {
       name: `Reporting Test Region ${testId}`,
       code: `RTR_${testId}`,
       is_active: true,
+    });
+
+    await RegionalPlanningConfiguration.create({
+      regional_planning_config_id: uuidv4(),
+      region_id: testRegion.region_id,
+      breakdown_mode: "quarterly",
+      target_units: [{ name: "Tonnes", symbol: "T" }],
     });
 
     // Create Regional Structures
