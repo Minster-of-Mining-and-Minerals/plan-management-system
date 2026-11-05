@@ -177,12 +177,10 @@ async function runE2ETests() {
       const user = await User.create({
         user_id: uuidv4(),
         email: `${email}_${testId}@example.com`,
-        username: `${email}_${testId}`,
-        first_name: name,
-        last_name: "Tester",
+        full_name: `${name} Tester`,
+        password: "dummy_hashed_password",
         is_active: true,
         region_id: testRegion.region_id,
-        is_regional: true,
         regional_structure_id: deptId,
       });
       await UserRoles.create({ user_id: user.user_id, role_id: role.role_id });
