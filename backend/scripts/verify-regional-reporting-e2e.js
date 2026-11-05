@@ -206,9 +206,9 @@ async function runE2ETests() {
     });
 
     await RegionalPlanRuleStep.bulkCreate([
-      { regional_plan_rule_step_id: uuidv4(), regional_plan_rule_id: testRule.regional_plan_rule_id, level: 1, step_name: "Goal", is_weight_mandatory: false },
-      { regional_plan_rule_step_id: uuidv4(), regional_plan_rule_id: testRule.regional_plan_rule_id, level: 2, step_name: "KPI", is_weight_mandatory: true },
-      { regional_plan_rule_step_id: uuidv4(), regional_plan_rule_id: testRule.regional_plan_rule_id, level: 3, step_name: "Task", is_weight_mandatory: true },
+      { regional_plan_rule_step_id: uuidv4(), regional_plan_rule_id: testRule.regional_plan_rule_id, level: 1, name: "Goal", is_weight_mandatory: false },
+      { regional_plan_rule_step_id: uuidv4(), regional_plan_rule_id: testRule.regional_plan_rule_id, level: 2, name: "KPI", is_weight_mandatory: true },
+      { regional_plan_rule_step_id: uuidv4(), regional_plan_rule_id: testRule.regional_plan_rule_id, level: 3, name: "Task", is_weight_mandatory: true },
     ]);
 
     masterVersion = await RegionalPlanVersion.create({
