@@ -442,7 +442,7 @@ async function removeExistingPlan(queryInterface, planIds, planningConfigId = nu
     await queryInterface.sequelize.query(
       `DELETE FROM plan_period_target_baselines
        WHERE master_plan_version_id IN (:ids)
-          OR snapshot_master_plan_version_id IN (:ids)`,
+          OR execution_snapshot_root_id IN (:ids)`,
       { replacements: { ids: allTargetVersionIds } }
     );
   }
