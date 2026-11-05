@@ -8,14 +8,13 @@ const PLAN_RULE_ID = "60000000-0000-4000-8000-000000000002";
 /** Draft-owned fork of the global template — edits stay on this plan only. */
 const PLAN_RULE_SNAPSHOT_ID = "60000000-0000-4000-8000-000000000403";
 
-const PLAN_RULE_TEMPLATE_NAME = "Weight Rollup Based 4-Level Plan";
+const PLAN_RULE_TEMPLATE_NAME = "Weight Rollup Based 3-Level Plan";
 
 /**
  * Office rule pattern:
  * - Strategic: no target, no contribution weight
  * - Goal: no target, contribution weight for rollup
- * - KPI: target required (weight starts here)
- * - Task: inherits target from KPI branch, no contribution weight
+ * - KPI: target required (weight starts here, leaf node for execution & reporting)
  */
 const PLAN_RULE_SNAPSHOT_STEPS = [
   {
@@ -44,15 +43,6 @@ const PLAN_RULE_SNAPSHOT_STEPS = [
     requires_weight: true,
     requires_contribution_weight: false,
     color_hex: "#059669",
-  },
-  {
-    plan_rule_step_id: "60000000-0000-4000-8000-000000000044",
-    step_order: 4,
-    node_type: "task",
-    label: "Task / Activity",
-    requires_weight: false,
-    requires_contribution_weight: false,
-    color_hex: "#D97706",
   },
 ];
 
@@ -139,7 +129,7 @@ const EXPECTED_NODE_COUNTS = {
   strategic: 3,
   goal: 9,
   kpi: 27,
-  task: 81,
+  task: 0,
 };
 
 module.exports = {

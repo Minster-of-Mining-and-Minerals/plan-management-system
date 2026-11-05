@@ -189,26 +189,6 @@ function buildPlanTree() {
         const mode = KPI_MODES[kpiModeIndex % KPI_MODES.length];
         kpiModeIndex++;
         const kpiWeight = kpiWeights[k];
-        const taskSplits = scaleTaskWeights(
-          kpiWeight,
-          CONTRIBUTION_SPLITS.tasksByKpi[taskSplitIndex % CONTRIBUTION_SPLITS.tasksByKpi.length]
-        );
-        taskSplitIndex++;
-
-        const tasks = [];
-        for (let t = 0; t < 3; t++) {
-          const taskId = nodeId("T", s + 1, g + 1, k + 1, t + 1);
-          const dept =
-            spec.kpiDepartments[(s * 9 + g * 3 + k + t) % spec.kpiDepartments.length];
-          tasks.push({
-            id: taskId,
-            title: `${TASK_TITLE_TEMPLATES[t]} — ${KPI_TITLE_TEMPLATES[k]} (${spec.goalTitles[g]})`,
-            departmentName: dept,
-            weight: taskSplits[t],
-            weightMode: mode.weightMode,
-            targetUnit: mode.targetUnit ?? null,
-          });
-        }
 
         kpis.push({
           id: kpiId,
@@ -217,7 +197,7 @@ function buildPlanTree() {
           weight: kpiWeight,
           weightMode: mode.weightMode,
           targetUnit: mode.targetUnit ?? null,
-          tasks,
+          tasks: [],
         });
       }
 

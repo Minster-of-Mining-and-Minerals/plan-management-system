@@ -32,6 +32,7 @@ import { EvaluationStatusBadge } from "@/features/plan-management/components/Eva
 import { FinalizeRegionalAnnualExecutionModal } from "../modals/FinalizeRegionalAnnualExecutionModal";
 import { InitializeRegionalExecutionPeriodsModal } from "../modals/InitializeRegionalExecutionPeriodsModal";
 import { StartRegionalProcessModal } from "../modals/StartRegionalProcessModal";
+import { RegionalPlanReviewWorkflowBar } from "./RegionalPlanReviewWorkflowBar";
 import { cn } from "@/lib/utils";
 import Loading01 from "@/features/template/component/Loading/Loading01";
 
@@ -78,6 +79,13 @@ export function RegionalAnnualVersionsDashboard({
     annualVersions.length > 0 &&
     annualVersions.every((annual) => Boolean(annual.period_targets_finalized_at));
   const processStarted = Boolean(masterVersion.process_started_at);
+  const reviewStatus = masterVersion.review_status;
+  const startProcessReady =
+    allAnnualsPeriodFinalized &&
+    !processStarted &&
+    (reviewStatus === "review_completed" ||
+      reviewStatus === "approved" ||
+      !masterVersion.published_for_review_at);
 
   const masterCompletion = resolveCompletionForVersion(
     thresholds,
@@ -170,7 +178,7 @@ export function RegionalAnnualVersionsDashboard({
               Initialize Execution Periods
             </Button>
           )}
-          {allAnnualsPeriodFinalized && !processStarted && (
+          {allAnnualsPeriodFinalized && !processStarted && startProcessReady && (
             <Button className="gap-2 shadow-xs" onClick={() => setStartProcessModalOpen(true)}>
               <Play className="h-4 w-4" />
               Start Process
@@ -178,6 +186,22 @@ export function RegionalAnnualVersionsDashboard({
           )}
         </div>
       </div>
+
+      {allAnnualsPeriodFinalized && !processStarted && !startProcessReady && (
+        <div className="rounded-lg border border-amber-300 dark:border-amber-700/50 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+          Complete and close regional plan review before starting process.
+        </div>
+      )}
+
+      {annualTargetsFinalized && (
+        <RegionalPlanReviewWorkflowBar
+          master={masterVersion}
+          regionId={regionId}
+          allPeriodsFinalized={allAnnualsPeriodFinalized}
+          processStarted={processStarted}
+          onUpdated={() => refetch()}
+        />
+      )}
 
       {processStarted && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 px-4 py-3 text-sm text-blue-900 dark:text-blue-200">

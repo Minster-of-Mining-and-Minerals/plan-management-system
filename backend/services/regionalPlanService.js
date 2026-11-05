@@ -2812,7 +2812,10 @@ async function publishRegionalPlanForReview(versionId, regionId, req) {
   const version = await getRegionalPlanVersionById(versionId, regionId);
   await version.update({
     review_status: "in_review",
-    status: "submitted",
+    published_for_review_at: new Date(),
+    review_unlocked_at: null,
+    review_completed_at: null,
+    status: "finalized",
   });
 
   return version;
@@ -2824,7 +2827,8 @@ async function unlockRegionalPlanReviewCorrections(versionId, regionId, req, rea
 
   await version.update({
     review_status: "revision_requested",
-    status: "draft",
+    review_unlocked_at: new Date(),
+    status: "finalized",
   });
 
   return version;
@@ -2836,7 +2840,8 @@ async function republishRegionalPlanForReview(versionId, regionId, req) {
 
   await version.update({
     review_status: "in_review",
-    status: "submitted",
+    published_for_review_at: new Date(),
+    status: "finalized",
   });
 
   return version;
@@ -2862,8 +2867,9 @@ async function completeRegionalPlanReview(versionId, regionId, req, decision) {
 
   const isApproved = decision !== "reject";
   await version.update({
-    review_status: isApproved ? "approved" : "rejected",
-    status: isApproved ? "approved" : "rejected",
+    review_status: isApproved ? "review_completed" : "rejected",
+    review_completed_at: isApproved ? new Date() : null,
+    status: "finalized",
   });
 
   return version;
@@ -3056,24 +3062,22 @@ async function finalizeRegionalPlanDraft(versionId, regionId, userId) {
             status: "draft",
             annual_targets_finalized_at: null,
             period_targets_finalized_at: null,
-            period_subdivision_mode: null,
+            period_subdivision_mode: canonical.period_subdivision_mode || version.period_subdivision_mode || null,
           },
           { transaction: t }
         );
 
-        // If annual targets are not finalized on the master plan, ensure child execution periods are removed
-        if (!version.annual_targets_finalized_at) {
-          const childPeriods = await RegionalPlanVersion.findAll({
-            where: { parent_plan_version_id: canonical.regional_plan_version_id, version_kind: "execution_period" },
-            transaction: t,
-          });
-          for (const cp of childPeriods) {
-            await RegionalPlanNode.destroy({ where: { regional_plan_version_id: cp.regional_plan_version_id }, transaction: t });
-            await cp.destroy({ transaction: t });
-          }
+        await syncRegionalDerivedNodes(version.regional_plan_version_id, canonical.regional_plan_version_id, t, "annual");
+
+        // Sync down to any child execution periods while preserving period targets
+        const childPeriods = await RegionalPlanVersion.findAll({
+          where: { parent_plan_version_id: canonical.regional_plan_version_id, version_kind: "execution_period" },
+          transaction: t,
+        });
+        for (const cp of childPeriods) {
+          await syncRegionalDerivedNodes(canonical.regional_plan_version_id, cp.regional_plan_version_id, t, "period");
         }
 
-        await syncRegionalDerivedNodes(version.regional_plan_version_id, canonical.regional_plan_version_id, t, "annual");
         targetAnnualVersions.push(canonical);
 
         // Safely prune non-canonical duplicates for this sequence
@@ -3235,7 +3239,10 @@ async function reopenRegionalPlanDraftForEdit(versionId, regionId, userId) {
         finalized_at: null,
         annual_targets_finalized_at: null,
         period_targets_finalized_at: null,
-        period_subdivision_mode: null,
+        review_status: null,
+        published_for_review_at: null,
+        review_unlocked_at: null,
+        review_completed_at: null,
       },
       { transaction: t }
     );
@@ -3255,9 +3262,9 @@ async function reopenRegionalPlanDraftForEdit(versionId, regionId, userId) {
       await RegionalPlanVersion.update(
         {
           status: "draft",
-          period_subdivision_mode: null,
           period_targets_finalized_at: null,
           annual_targets_finalized_at: null,
+          is_locked: false,
         },
         {
           where: { regional_plan_version_id: annualIds },
@@ -3265,7 +3272,7 @@ async function reopenRegionalPlanDraftForEdit(versionId, regionId, userId) {
         }
       );
 
-      // Clean up any child execution period versions and their nodes
+      // Child execution periods: unlock and reset finalization while preserving targets
       const periods = await RegionalPlanVersion.findAll({
         where: {
           parent_plan_version_id: annualIds,
@@ -3276,32 +3283,40 @@ async function reopenRegionalPlanDraftForEdit(versionId, regionId, userId) {
 
       const periodIds = periods.map((p) => p.regional_plan_version_id);
       if (periodIds.length > 0) {
-        await RegionalPlanNode.destroy({
-          where: { regional_plan_version_id: periodIds },
-          transaction: t,
-        });
-        await RegionalPlanVersion.destroy({
-          where: { regional_plan_version_id: periodIds },
-          transaction: t,
-        });
+        await RegionalPlanVersion.update(
+          {
+            status: "draft",
+            is_locked: false,
+            period_targets_finalized_at: null,
+          },
+          {
+            where: { regional_plan_version_id: periodIds },
+            transaction: t,
+          }
+        );
       }
 
-      // Reset annual_target and period_target on all annual nodes
-      await RegionalPlanNode.update(
-        {
-          annual_target: null,
-          period_target: null,
-        },
-        {
-          where: { regional_plan_version_id: annualIds },
-          transaction: t,
+      // Sync derived nodes from master to annual and execution periods
+      for (const ann of annuals) {
+        await syncRegionalDerivedNodes(version.regional_plan_version_id, ann.regional_plan_version_id, t, "annual");
+        const annPeriods = periods.filter((p) => p.parent_plan_version_id === ann.regional_plan_version_id);
+        for (const p of annPeriods) {
+          await syncRegionalDerivedNodes(ann.regional_plan_version_id, p.regional_plan_version_id, t, "period");
         }
-      );
+      }
 
       // Prune obsolete annual versions exceeding master duration
       const maxDuration = version.planning_duration_years || (version.end_year - version.start_year + 1) || 100;
       const obsoleteAnnuals = annuals.filter((a) => a.sequence_index > maxDuration);
       for (const obs of obsoleteAnnuals) {
+        const obsPeriods = await RegionalPlanVersion.findAll({
+          where: { parent_plan_version_id: obs.regional_plan_version_id, version_kind: "execution_period" },
+          transaction: t,
+        });
+        for (const op of obsPeriods) {
+          await RegionalPlanNode.destroy({ where: { regional_plan_version_id: op.regional_plan_version_id }, transaction: t });
+          await op.destroy({ transaction: t });
+        }
         await RegionalPlanNode.destroy({
           where: { regional_plan_version_id: obs.regional_plan_version_id },
           transaction: t,
@@ -4100,8 +4115,8 @@ async function updateRegionalPeriodTarget(nodeId, regionId, periodTarget, userId
 
     if (periodTarget !== null && periodTarget !== undefined && periodTarget !== "") {
       const val = Number(periodTarget);
-      if (Number.isNaN(val) || val <= 0) {
-        const err = new Error("Period target must be greater than 0");
+      if (Number.isNaN(val) || val < 0) {
+        const err = new Error("Period target must be a non-negative number");
         err.status = 400;
         throw err;
       }
@@ -4114,7 +4129,7 @@ async function updateRegionalPeriodTarget(nodeId, regionId, periodTarget, userId
       }
 
       const annualTarget = Number(annualNode.annual_target) || 0;
-      if (annualTarget <= 0) {
+      if (annualTarget <= 0 && val > 0) {
         const err = new Error("This node has no annual target to allocate against");
         err.status = 400;
         throw err;
@@ -4309,7 +4324,7 @@ async function getRegionalStartProcessReadiness(versionId, regionId) {
   const master = await getRegionalPlanVersionById(versionId, regionId);
   const errors = [];
 
-  if (master.status !== "finalized") {
+  if (master.status !== "finalized" && master.status !== "approved") {
     errors.push("Master plan must be finalized first.");
   }
   if (!master.annual_targets_finalized_at) {
@@ -4317,6 +4332,12 @@ async function getRegionalStartProcessReadiness(versionId, regionId) {
   }
   if (!master.period_targets_finalized_at) {
     errors.push("Execution period targets must be finalized.");
+  }
+  if (master.review_status === "in_review" || master.review_status === "revision_requested") {
+    errors.push("Plan review is currently in progress. Complete review before starting process.");
+  }
+  if (master.review_status === "rejected") {
+    errors.push("Plan review was rejected. Unlock corrections and complete review before starting process.");
   }
 
   return {

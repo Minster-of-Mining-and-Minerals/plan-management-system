@@ -60,6 +60,7 @@ import { FinalizeRegionalPlanDraftModal } from "./modals/FinalizeRegionalPlanDra
 import { FinalizeRegionalExecutionPeriodsModal } from "./modals/FinalizeRegionalExecutionPeriodsModal";
 import { RegionalAnnualVersionsDashboard } from "./components/RegionalAnnualVersionsDashboard";
 import { RegionalExecutionPeriodsDashboard } from "./components/RegionalExecutionPeriodsDashboard";
+import { RegionalPlanReviewDashboard } from "./components/RegionalPlanReviewDashboard";
 import { PlanNodeCardGrid } from "@/features/plan-management/components/PlanNodeCardGrid";
 import { PlanHierarchyTree } from "@/features/plan-management/components/PlanHierarchyTree";
 import { PlanHierarchyTableView } from "@/features/plan-management/components/PlanHierarchyTableView";
@@ -82,7 +83,7 @@ import { formatStatus } from "@/utils/statusFormatter";
 import { cn } from "@/lib/utils";
 
 type ViewMode = "card" | "hierarchy" | "table";
-type HierarchyTab = "hierarchy" | "annual" | "periods";
+type HierarchyTab = "hierarchy" | "annual" | "periods" | "review";
 
 export function RegionalPlanHierarchyView() {
   const router = useRouter();
@@ -203,11 +204,19 @@ export function RegionalPlanHierarchyView() {
 
   const showAnnualDashboard = isMasterPlan && (plan?.status === "finalized" || annualVersions.length > 0);
   const showPeriodDashboard = isAnnualPlan && annualTargetsFinalized && periodsInitializedGlobally;
+  const effectiveMasterVersion = isMasterPlan ? plan : masterVersion;
+  const masterReviewStatus = effectiveMasterVersion?.review_status;
+  const showReviewTab = Boolean(
+    effectiveMasterVersion?.published_for_review_at ||
+      effectiveMasterVersion?.review_status ||
+      plan?.published_for_review_at ||
+      plan?.review_status
+  );
 
   // Auto-default tab based on Federal Private lifecycle
   useEffect(() => {
     const tabFromUrl = searchParams.get("tab");
-    if (tabFromUrl === "annual" || tabFromUrl === "periods" || tabFromUrl === "hierarchy") {
+    if (tabFromUrl === "annual" || tabFromUrl === "periods" || tabFromUrl === "hierarchy" || tabFromUrl === "review") {
       setActiveTab(tabFromUrl);
       return;
     }
@@ -528,6 +537,17 @@ export function RegionalPlanHierarchyView() {
           </Badge>
         )}
       </Button>
+      {showReviewTab && (
+        <Button
+          variant={activeTab === "review" ? "default" : "ghost"}
+          size="sm"
+          className="gap-2 h-8"
+          onClick={() => setActiveTab("review")}
+        >
+          <ShieldCheck className="h-4 w-4" />
+          <span>Review Dashboard</span>
+        </Button>
+      )}
     </div>
   ) : showPeriodDashboard ? (
     <div className="inline-flex rounded-lg border border-border bg-card p-1 flex-wrap shadow-2xs">
@@ -553,6 +573,38 @@ export function RegionalPlanHierarchyView() {
             {executionPeriods.length}
           </Badge>
         )}
+      </Button>
+      {showReviewTab && (
+        <Button
+          variant={activeTab === "review" ? "default" : "ghost"}
+          size="sm"
+          className="gap-2 h-8"
+          onClick={() => setActiveTab("review")}
+        >
+          <ShieldCheck className="h-4 w-4" />
+          <span>Review Dashboard</span>
+        </Button>
+      )}
+    </div>
+  ) : showReviewTab ? (
+    <div className="inline-flex rounded-lg border border-border bg-card p-1 flex-wrap shadow-2xs">
+      <Button
+        variant={activeTab === "hierarchy" ? "default" : "ghost"}
+        size="sm"
+        className="gap-2 h-8"
+        onClick={() => setActiveTab("hierarchy")}
+      >
+        <ListTree className="h-4 w-4" />
+        <span>Plan Hierarchy</span>
+      </Button>
+      <Button
+        variant={activeTab === "review" ? "default" : "ghost"}
+        size="sm"
+        className="gap-2 h-8"
+        onClick={() => setActiveTab("review")}
+      >
+        <ShieldCheck className="h-4 w-4" />
+        <span>Review Dashboard</span>
       </Button>
     </div>
   ) : null;
@@ -673,6 +725,22 @@ export function RegionalPlanHierarchyView() {
                   <span>({maxDepth} levels)</span>
                 </div>
               )}
+              {masterReviewStatus && (
+                <Badge
+                  variant="outline"
+                  className={
+                    masterReviewStatus === "in_review"
+                      ? "border-amber-500/30 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 capitalize text-xs"
+                      : masterReviewStatus === "review_completed" || masterReviewStatus === "approved"
+                      ? "border-emerald-500/30 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 capitalize text-xs"
+                      : masterReviewStatus === "revision_requested"
+                      ? "border-orange-500/30 bg-orange-50 text-orange-800 dark:bg-orange-950/40 dark:text-orange-300 capitalize text-xs"
+                      : "border-rose-500/30 bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 capitalize text-xs"
+                  }
+                >
+                  {masterReviewStatus.replace(/_/g, " ")}
+                </Badge>
+              )}
             </div>
           </div>
         </div>
@@ -725,6 +793,8 @@ export function RegionalPlanHierarchyView() {
           <div className="p-4 sm:p-6 space-y-6">
             {activeTab === "annual" ? (
               <RegionalAnnualVersionsDashboard masterVersion={plan} regionId={regionId!} />
+            ) : activeTab === "review" ? (
+              <RegionalPlanReviewDashboard versionId={versionId!} regionId={regionId!} />
             ) : (
               <div className="space-y-4">
                 {/* Strategic draft finalized banner */}
@@ -758,6 +828,8 @@ export function RegionalPlanHierarchyView() {
           <div className="p-4 sm:p-6 space-y-6">
             {activeTab === "periods" ? (
               <RegionalExecutionPeriodsDashboard annualVersion={plan} regionId={regionId!} />
+            ) : activeTab === "review" ? (
+              <RegionalPlanReviewDashboard versionId={plan.parent_plan_version_id || versionId!} regionId={regionId!} />
             ) : (
               <div className="space-y-4">
                 {!periodTargetsFinalized && (
@@ -769,6 +841,15 @@ export function RegionalPlanHierarchyView() {
                 {renderHierarchyBody()}
               </div>
             )}
+          </div>
+        </div>
+      ) : activeTab === "review" ? (
+        <div className="rounded-xl border border-gray-100 bg-white dark:bg-card shadow-sm overflow-hidden">
+          <div className="flex items-center justify-end px-4 py-3 border-b border-gray-100 dark:border-border">
+            {detailTabToggle}
+          </div>
+          <div className="p-4 sm:p-6 space-y-6">
+            <RegionalPlanReviewDashboard versionId={plan.parent_plan_version_id || versionId!} regionId={regionId!} />
           </div>
         </div>
       ) : (

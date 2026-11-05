@@ -382,6 +382,149 @@ module.exports = {
       }
     }
 
+    // Set finalized timestamps and review completion on live planning versions
+    const finalizedAt = new Date("2029-01-01T08:00:00.000Z");
+    const publishedAt = new Date("2029-01-01T08:30:00.000Z");
+    const reviewCompletedAt = new Date("2029-01-01T09:00:00.000Z");
+
+    await queryInterface.sequelize.query(
+      `UPDATE plan_versions
+       SET status = 'finalized',
+           finalized_at = :finalizedAt,
+           annual_targets_finalized_at = :finalizedAt,
+           period_targets_finalized_at = :finalizedAt,
+           published_for_review_at = :publishedAt,
+           review_status = 'review_completed',
+           review_completed_at = :reviewCompletedAt
+       WHERE plan_version_id = :masterId`,
+      {
+        replacements: {
+          masterId: PLAN_IDS.MASTER,
+          finalizedAt,
+          publishedAt,
+          reviewCompletedAt,
+        },
+      }
+    );
+
+    await queryInterface.sequelize.query(
+      `UPDATE plan_versions
+       SET period_targets_finalized_at = :finalizedAt,
+           annual_targets_finalized_at = :finalizedAt,
+           status = 'finalized'
+       WHERE parent_plan_version_id = :masterId AND version_kind = 'annual'`,
+      {
+        replacements: {
+          masterId: PLAN_IDS.MASTER,
+          finalizedAt,
+        },
+      }
+    );
+
+    await queryInterface.sequelize.query(
+      `UPDATE plan_versions
+       SET period_targets_finalized_at = :finalizedAt,
+           status = 'finalized'
+       WHERE parent_plan_version_id IN (
+         SELECT plan_version_id FROM plan_versions WHERE parent_plan_version_id = :masterId AND version_kind = 'annual'
+       ) AND version_kind = 'execution_period'`,
+      {
+        replacements: {
+          masterId: PLAN_IDS.MASTER,
+          finalizedAt,
+        },
+      }
+    );
+
+    // Start plan process to generate execution snapshot & baselines
+    try {
+      const { startPlanProcess } = require("../services/planVersionLifecycleService");
+      const startResult = await startPlanProcess(PLAN_IDS.MASTER);
+      if (startResult && startResult.success) {
+        // Resolve snapshot Q1 & Q2 versions
+        const snapshotQ1Rows = await queryInterface.sequelize.query(
+          `SELECT plan_version_id FROM plan_versions
+           WHERE execution_snapshot_of_version_id = :livePeriodId
+           LIMIT 1`,
+          {
+            replacements: { livePeriodId: PLAN_IDS.PERIOD_2029_Q1 },
+            type: queryInterface.sequelize.QueryTypes.SELECT,
+          }
+        );
+        const snapshotQ1Id = snapshotQ1Rows[0]?.plan_version_id;
+
+        // Populate Q1 validated achievements on both live and snapshot KPI nodes
+        const q1VersionIds = [PLAN_IDS.PERIOD_2029_Q1, snapshotQ1Id].filter(Boolean);
+        for (const vId of q1VersionIds) {
+          await queryInterface.sequelize.query(
+            `UPDATE plan_nodes
+             SET period_actual = ROUND(CAST(period_target * 0.85 AS numeric), 2),
+                 period_actual_status = 'validated',
+                 period_actual_submitted_at = :submittedAt,
+                 period_actual_validated_at = :validatedAt
+             WHERE plan_version_id = :vId AND type = 'kpi' AND period_target IS NOT NULL`,
+            {
+              replacements: {
+                vId,
+                submittedAt: new Date("2029-03-30T10:00:00.000Z"),
+                validatedAt: new Date("2029-03-31T10:00:00.000Z"),
+              },
+            }
+          );
+
+          await queryInterface.sequelize.query(
+            `UPDATE plan_versions
+             SET execution_status = 'completed',
+                 status = 'completed',
+                 is_locked = true
+             WHERE plan_version_id = :vId`,
+            { replacements: { vId } }
+          );
+        }
+
+        // Ensure Year 1 Q2 is OPEN for demonstration by administrator
+        const snapshotQ2Rows = await queryInterface.sequelize.query(
+          `SELECT plan_version_id FROM plan_versions
+           WHERE execution_snapshot_of_version_id = :livePeriodId
+           LIMIT 1`,
+          {
+            replacements: { livePeriodId: PLAN_IDS.PERIOD_2029_Q2 },
+            type: queryInterface.sequelize.QueryTypes.SELECT,
+          }
+        );
+        const snapshotQ2Id = snapshotQ2Rows[0]?.plan_version_id;
+        const q2VersionIds = [PLAN_IDS.PERIOD_2029_Q2, snapshotQ2Id].filter(Boolean);
+
+        for (const vId of q2VersionIds) {
+          await queryInterface.sequelize.query(
+            `UPDATE plan_versions
+             SET execution_status = 'open',
+                 status = 'active',
+                 is_locked = false
+             WHERE plan_version_id = :vId`,
+            { replacements: { vId } }
+          );
+
+          await queryInterface.sequelize.query(
+            `UPDATE plan_nodes
+             SET period_actual = NULL,
+                 period_actual_status = NULL,
+                 period_actual_submitted_at = NULL,
+                 period_actual_validated_at = NULL
+             WHERE plan_version_id = :vId AND type = 'kpi'`,
+            { replacements: { vId } }
+          );
+        }
+
+        console.log("  Successfully started execution process and seeded Year 1 Q1 validated achievements (~85% progress).");
+        console.log("  Year 1 Q2 is OPEN with empty achievements for KPI demo submissions.");
+      } else {
+        console.warn("  Could not start plan process automatically:", startResult?.errors);
+      }
+    } catch (startErr) {
+      console.warn("  Process start hook error:", startErr.message);
+    }
+
     const strategicCount = masterNodePayload.filter((n) => n.type === "strategic").length;
     const goalCount = masterNodePayload.filter((n) => n.type === "goal").length;
     const kpiCount = masterNodePayload.filter((n) => n.type === "kpi").length;

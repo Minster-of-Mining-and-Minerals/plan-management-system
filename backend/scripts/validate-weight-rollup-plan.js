@@ -160,12 +160,7 @@ async function verifyKpiTargets(masterVersionId) {
         }
       );
 
-      assert.strictEqual(tasks.length, 3, `KPI "${kpi.title}" should have 3 tasks`);
-      const taskSum = tasks.reduce((total, task) => total + (Number(task.weight) || 0), 0);
-      assert.ok(
-        Math.abs(taskSum - Number(kpi.weight)) <= 0.001,
-        `Tasks under "${kpi.title}" sum to ${taskSum}, expected ${kpi.weight}`
-      );
+      assert.strictEqual(tasks.length, 0, `KPI "${kpi.title}" should be leaf node with 0 tasks`);
     }
   }
 }

@@ -116,6 +116,17 @@ export function RegionalPlanNodeDetailView({
     { skip: !nodeId || !regionId }
   );
 
+  const isExecutionPeriod = version?.version_kind === "execution_period";
+  const isAnnual = version?.version_kind === "annual";
+  const isMaster = version?.version_kind === "master";
+
+  const parentMasterId = isAnnual ? version?.parent_plan_version_id : null;
+  const { data: masterVersion } = useGetRegionalPlanVersionByIdQuery(
+    { id: parentMasterId!, region_id: regionId },
+    { skip: !parentMasterId || !regionId }
+  );
+  const annualTargetsFinalized = Boolean(masterVersion?.annual_targets_finalized_at);
+
   const { data: hierarchyData } = useGetRegionalPlanHierarchyQuery(
     { id: versionId, region_id: regionId },
     { skip: !versionId || !regionId }
@@ -507,17 +518,6 @@ export function RegionalPlanNodeDetailView({
       actionFeedback.error(error?.data?.message || "Failed to validate achievement");
     }
   };
-
-  const isExecutionPeriod = version?.version_kind === "execution_period";
-  const isAnnual = version?.version_kind === "annual";
-  const isMaster = version?.version_kind === "master";
-
-  const parentMasterId = isAnnual ? version?.parent_plan_version_id : null;
-  const { data: masterVersion } = useGetRegionalPlanVersionByIdQuery(
-    { id: parentMasterId!, region_id: regionId },
-    { skip: !parentMasterId || !regionId }
-  );
-  const annualTargetsFinalized = Boolean(masterVersion?.annual_targets_finalized_at);
 
   const statusColorClass =
     node.period_actual_status === "validated"

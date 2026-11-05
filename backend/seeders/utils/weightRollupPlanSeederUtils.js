@@ -194,22 +194,12 @@ async function resolveGoalBranch(queryInterface, sectorId, goalSpec, usersByDept
     const kpiDept = await resolveDepartment(queryInterface, sectorId, kpiSpec.departmentName);
     const kpiUsers = resolveUsers(usersByDept, kpiDept.internal_structure_id, kpiSpec.title);
 
-    const tasks = [];
-    for (const taskSpec of kpiSpec.tasks) {
-      const taskDept = await resolveDepartment(queryInterface, sectorId, taskSpec.departmentName);
-      const taskUsers = resolveUsers(usersByDept, taskDept.internal_structure_id, taskSpec.title);
-      tasks.push({
-        ...taskSpec,
-        deptId: taskDept.internal_structure_id,
-        officerUserId: taskUsers.officer,
-      });
-    }
-
     kpis.push({
       ...kpiSpec,
       deptId: kpiDept.internal_structure_id,
       headUserId: kpiUsers.head,
-      tasks,
+      officerUserId: kpiUsers.officer,
+      tasks: [],
     });
   }
 
@@ -313,27 +303,6 @@ function buildMasterNodes(planVersionId, resolvedTree) {
             }
           )
         );
-
-        let taskOrder = 1;
-        for (const task of kpi.tasks) {
-          nodes.push(
-            node(
-              task.id,
-              planVersionId,
-              kpi.id,
-              "task",
-              task.title,
-              `Task: ${task.title}`,
-              task.weight,
-              4,
-              taskOrder++,
-              {
-                weightMode: task.weightMode ?? kpi.weightMode,
-                targetUnit: task.targetUnit ?? kpi.targetUnit ?? null,
-              }
-            )
-          );
-        }
       }
     }
   }
@@ -383,15 +352,13 @@ function buildAssignments(resolvedTree, sectorId, actionMap) {
           is_active: true,
         });
 
-        for (const task of kpi.tasks) {
-          internal.push({
-            internal_assignment_id: uuidv4(),
-            plan_node_id: task.id,
-            user_id: task.officerUserId,
-            action_id: actionMap.EXECUTION,
-            is_active: true,
-          });
-        }
+        internal.push({
+          internal_assignment_id: uuidv4(),
+          plan_node_id: kpi.id,
+          user_id: kpi.officerUserId,
+          action_id: actionMap.EXECUTION,
+          is_active: true,
+        });
       }
     }
   }
