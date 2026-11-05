@@ -508,7 +508,7 @@ module.exports = {
           await queryInterface.sequelize.query(
             `UPDATE plan_nodes
              SET period_actual = NULL,
-                 period_actual_status = NULL,
+                 period_actual_status = 'empty',
                  period_actual_submitted_at = NULL,
                  period_actual_validated_at = NULL
              WHERE plan_version_id = :vId AND type = 'kpi'`,
