@@ -103,7 +103,14 @@ async function runE2ETests() {
 
     const permMap = {};
     for (const p of permsToEnsure) {
-      let perm = await Permission.findOne({ where: { resource: p.resource, action: p.action } });
+      let perm = await Permission.findOne({
+        where: {
+          [Op.and]: [
+            sequelize.where(sequelize.fn("lower", sequelize.col("resource")), p.resource.toLowerCase()),
+            sequelize.where(sequelize.fn("lower", sequelize.col("action")), p.action.toLowerCase()),
+          ],
+        },
+      });
       if (!perm) {
         perm = await Permission.create({
           permission_id: uuidv4(),
@@ -581,3 +588,4 @@ runE2ETests()
     console.error("Fatal:", err);
     process.exit(1);
   });
+
