@@ -1,5 +1,6 @@
 "use strict";
 
+const { Op } = require("sequelize");
 const { v4: uuidv4 } = require("uuid");
 const {
   sequelize,
