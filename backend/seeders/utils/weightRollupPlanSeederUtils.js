@@ -420,6 +420,7 @@ async function removeExistingPlan(queryInterface, planIds, planningConfigId = nu
        WHERE execution_snapshot_of_version_id IN (:versionIds)
           OR review_snapshot_of_version_id IN (:versionIds)
           OR plan_version_id IN (:versionIds)
+          OR draft_name LIKE 'Weight Rollup QA — Alternative MoM Mineral Sector%'
        UNION
        SELECT pv.plan_version_id FROM plan_versions pv
        JOIN snapshot_tree st ON pv.parent_plan_version_id = st.plan_version_id
@@ -433,6 +434,15 @@ async function removeExistingPlan(queryInterface, planIds, planningConfigId = nu
 
   const allTargetVersionIds = Array.from(
     new Set([...versionIds, ...snapshotRows.map((r) => r.plan_version_id)])
+  );
+
+  await queryInterface.sequelize.query(
+    `UPDATE plan_versions
+     SET active_execution_snapshot_id = NULL,
+         active_review_snapshot_id = NULL
+     WHERE active_execution_snapshot_id IN (:ids)
+        OR active_review_snapshot_id IN (:ids)`,
+    { replacements: { ids: allTargetVersionIds } }
   );
 
   const tables = await queryInterface.showAllTables();
