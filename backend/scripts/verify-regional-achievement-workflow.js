@@ -830,9 +830,12 @@ async function runTests() {
       q1Version.regional_plan_version_id,
       regionA.region_id
     );
+    const task1FinalValidated = hierarchyFinalValidated.nodes.find((n) => n.regional_plan_node_id === task1Q1.regional_plan_node_id);
+    assert(task1FinalValidated.execution_progress_percent === 95, "Test 28a: Task 1 latest validated revision contributes 95% progress");
+
     const kpiFinalValidated = hierarchyFinalValidated.nodes.find((n) => n.regional_plan_node_id === kpiNodeQ1.regional_plan_node_id);
-    // Task 1 target 100, actual 95 -> 95%
-    assert(kpiFinalValidated.execution_progress_percent === 95, "Test 28: Latest validated revision contributes 95% progress");
+    // Task 1 (60% contribution, 95% progress = 57) + Task 2 (40% contribution, unreported = 0) = 57%
+    assert(kpiFinalValidated.execution_progress_percent === 57, "Test 28b: Parent KPI correctly rolls up Task 1 (57%) + unreported Task 2 (0%) to 57%");
 
     // =========================================================================
     // SECTION 12.5: REPORTING PERIODS AND AGGREGATION (TESTS 29 - 36)
