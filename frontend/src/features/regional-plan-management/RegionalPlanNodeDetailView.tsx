@@ -146,11 +146,9 @@ export function RegionalPlanNodeDetailView({
   const annualTargetsFinalized = Boolean(masterVersion?.annual_targets_finalized_at);
 
   const processStarted = Boolean(
-    version?.process_started_at ||
-      masterVersion?.process_started_at ||
+    masterVersion?.process_started_at ||
       annualParentVersion?.process_started_at ||
-      (isExecutionPeriod && (version?.execution_status === "open" || version?.status === "active")) ||
-      (isAnnual && (version?.execution_status === "open" || version?.status === "active"))
+      version?.process_started_at
   );
   const showPeriodActuals = isExecutionPeriod && processStarted;
   const canEditPeriodActual =

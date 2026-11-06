@@ -211,7 +211,7 @@ export function RegionalAnnualVersionsDashboard({
       )}
 
       {annualTargetsFinalized && (
-        <div className="rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20 px-4 py-3 text-sm text-green-900 dark:text-green-200">
+        <div className="rounded-lg border border-amber-200 bg-amber-50/70 dark:border-amber-700/50 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
           Annual execution finalized on{" "}
           {new Date(masterVersion.annual_targets_finalized_at!).toLocaleDateString()}.
           {processStarted

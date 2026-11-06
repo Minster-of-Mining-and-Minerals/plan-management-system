@@ -229,19 +229,17 @@ export function RegionalPlanHierarchyView() {
       : false
   );
   const processStarted = Boolean(
-    plan?.process_started_at ||
+    effectiveMasterVersion?.process_started_at ||
       masterVersion?.process_started_at ||
       annualParentVersion?.process_started_at ||
-      effectiveMasterVersion?.process_started_at ||
-      (isPeriodPlan && (plan?.execution_status === "open" || plan?.status === "active")) ||
-      (isAnnualPlan && (plan?.execution_status === "open" || plan?.status === "active"))
+      plan?.process_started_at
   );
 
   const showPeriodTargets = isPeriodPlan && !processStarted;
   const showPeriodActuals = isPeriodPlan && processStarted;
   const canEditPeriodActual = isPeriodPlan && processStarted && plan?.execution_status === "open";
-  const showAnnualTargets = isAnnualPlan && !processStarted;
-  const canEditAnnualTarget = isAnnualPlan && !annualTargetsFinalized && canUpdatePlan && plan?.status !== "completed" && !processStarted;
+  const showAnnualTargets = isAnnualPlan;
+  const canEditAnnualTarget = isAnnualPlan && !annualTargetsFinalized && canUpdatePlan && plan?.status !== "completed";
   const canEditPeriodTarget = isPeriodPlan && !periodTargetsFinalized && canUpdatePlan && plan?.status !== "completed" && !processStarted;
 
   const showAnnualDashboard = isMasterPlan && (plan?.status === "finalized" || annualVersions.length > 0);
@@ -867,7 +865,7 @@ export function RegionalPlanHierarchyView() {
               <div className="space-y-4">
                 {/* Strategic draft finalized banner */}
                 {!processStarted && !annualTargetsFinalized && (
-                  <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 px-4 py-3 text-sm text-blue-900 dark:text-blue-200">
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/70 dark:border-amber-700/50 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
                     Strategic draft is finalized. Use the <strong>Annual Execution</strong> tab to open each year,
                     distribute annual targets across years (total must match the draft target), then finalize annual execution.
                   </div>
@@ -895,13 +893,18 @@ export function RegionalPlanHierarchyView() {
           </div>
           <div className="p-4 sm:p-6 space-y-6">
             {activeTab === "periods" ? (
-              <RegionalExecutionPeriodsDashboard annualVersion={plan} regionId={regionId!} />
+              <RegionalExecutionPeriodsDashboard
+                annualVersion={plan}
+                regionId={regionId!}
+                onFinalizePeriod={() => setIsFinalizePeriodModalOpen(true)}
+                canFinalize={canFinalize}
+              />
             ) : activeTab === "review" ? (
               <RegionalPlanReviewDashboard versionId={plan.parent_plan_version_id || versionId!} regionId={regionId!} />
             ) : (
               <div className="space-y-4">
                 {!periodTargetsFinalized && (
-                  <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 px-4 py-3 text-sm text-blue-900 dark:text-blue-200">
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/70 dark:border-amber-700/50 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
                     Annual target distribution is finalized. Open each execution period in the <strong>Execution Periods</strong> tab,
                     set period targets so totals match annual targets, then use <strong>Finalize Execution Period</strong> for this year.
                   </div>
@@ -924,14 +927,14 @@ export function RegionalPlanHierarchyView() {
         <div className="space-y-6">
           {/* Context Guidance Banners */}
           {isAnnualPlan && !periodsInitializedGlobally && (
-            <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 px-4 py-3 text-sm text-blue-900 dark:text-blue-200">
+            <div className="rounded-lg border border-amber-200 bg-amber-50/70 dark:border-amber-700/50 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
               Set annual targets for this fiscal year so that allocations across all years sum exactly to the strategic draft target.
               When ready, return to the strategic plan and click <strong>Finalize Annual Execution</strong>.
             </div>
           )}
 
           {isPeriodPlan && !processStarted && (
-            <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 px-4 py-3 text-sm text-blue-900 dark:text-blue-200">
+            <div className="rounded-lg border border-amber-200 bg-amber-50/70 dark:border-amber-700/50 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
               Set period targets for {plan.period_label || `Period ${plan.sequence_index}`} so totals match this year&apos;s annual target.
               Finalize execution period from the annual plan when this year is ready.
             </div>

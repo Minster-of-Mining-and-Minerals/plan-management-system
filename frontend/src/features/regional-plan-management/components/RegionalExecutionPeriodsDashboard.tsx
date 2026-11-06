@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, CheckCircle, Clock } from "lucide-react";
+import { Eye, CheckCircle, Clock, ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +35,8 @@ interface RegionalExecutionPeriodsDashboardProps {
   annualVersion: RegionalPlanVersion;
   masterVersion?: RegionalPlanVersion;
   regionId: string;
+  onFinalizePeriod?: () => void;
+  canFinalize?: boolean;
 }
 
 function formatPlanningStatus(version: Pick<RegionalPlanVersion, "status">): string {
@@ -53,6 +55,8 @@ export function RegionalExecutionPeriodsDashboard({
   annualVersion,
   masterVersion: masterVersionProp,
   regionId,
+  onFinalizePeriod,
+  canFinalize,
 }: RegionalExecutionPeriodsDashboardProps) {
   const router = useRouter();
   const thresholds = usePerformanceColorThresholds();
@@ -157,6 +161,12 @@ export function RegionalExecutionPeriodsDashboard({
               : `${formatSubdivisionMode(annualVersion.period_subdivision_mode ?? masterVersion?.period_subdivision_mode)} subdivision — set period targets (divisible across all periods, or lump into delivery periods) so totals match this year's annual targets, then finalize execution period.`}
           </p>
         </div>
+        {!periodTargetsFinalized && !processStarted && onFinalizePeriod && canFinalize && (
+          <Button className="gap-2 shadow-xs shrink-0" onClick={onFinalizePeriod}>
+            <ShieldCheck className="h-4 w-4" />
+            Finalize Execution Period
+          </Button>
+        )}
       </div>
 
       {processStarted && (
@@ -166,7 +176,7 @@ export function RegionalExecutionPeriodsDashboard({
       )}
 
       {periodTargetsFinalized && annualVersion.period_targets_finalized_at && (
-        <div className="rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20 px-4 py-3 text-sm text-green-900 dark:text-green-200">
+        <div className="rounded-lg border border-amber-200 bg-amber-50/70 dark:border-amber-700/50 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
           Execution period finalized for Year {annualVersion.planning_year ?? annualVersion.year} on{" "}
           {new Date(annualVersion.period_targets_finalized_at).toLocaleDateString()}.
         </div>
