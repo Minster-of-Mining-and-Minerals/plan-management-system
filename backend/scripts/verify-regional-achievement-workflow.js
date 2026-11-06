@@ -834,8 +834,15 @@ async function runTests() {
     assert(task1FinalValidated.execution_progress_percent === 95, "Test 28a: Task 1 latest validated revision contributes 95% progress");
 
     const kpiFinalValidated = hierarchyFinalValidated.nodes.find((n) => n.regional_plan_node_id === kpiNodeQ1.regional_plan_node_id);
+    console.log("DEBUG kpiFinalValidated:", {
+      percent: kpiFinalValidated.execution_progress_percent,
+      computed_period_actual: kpiFinalValidated.computed_period_actual,
+      computed_period_target: kpiFinalValidated.computed_period_target,
+      task1: task1FinalValidated.execution_progress_percent,
+      task2: hierarchyFinalValidated.nodes.find((n) => n.regional_plan_node_id === task2Q1.regional_plan_node_id)
+    });
     // Task 1 (60% contribution, 95% progress = 57) + Task 2 (40% contribution, unreported = 0) = 57%
-    assert(kpiFinalValidated.execution_progress_percent === 57, "Test 28b: Parent KPI correctly rolls up Task 1 (57%) + unreported Task 2 (0%) to 57%");
+    assert(kpiFinalValidated.execution_progress_percent === 57, `Test 28b: Parent KPI correctly rolls up Task 1 (57%) + unreported Task 2 (0%) to 57% (got ${kpiFinalValidated.execution_progress_percent}%)`);
 
     // =========================================================================
     // SECTION 12.5: REPORTING PERIODS AND AGGREGATION (TESTS 29 - 36)
