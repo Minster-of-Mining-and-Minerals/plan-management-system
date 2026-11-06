@@ -242,6 +242,11 @@ export function RegionalPlanHierarchyView() {
   const canEditAnnualTarget = isAnnualPlan && !annualTargetsFinalized && canUpdatePlan && plan?.status !== "completed";
   const canEditPeriodTarget = isPeriodPlan && !periodTargetsFinalized && canUpdatePlan && plan?.status !== "completed" && !processStarted;
 
+  const showAnnualActuals = isAnnualPlan && processStarted;
+  const showMasterActuals = isMasterPlan && processStarted;
+  const showAnyActuals = showPeriodActuals || showAnnualActuals || showMasterActuals;
+  const useExecutionCompletion = Boolean(processStarted);
+
   const showAnnualDashboard = isMasterPlan && (plan?.status === "finalized" || annualVersions.length > 0);
   const showPeriodDashboard = isAnnualPlan && annualTargetsFinalized && periodsInitializedGlobally;
   const showReviewTab = Boolean(
@@ -423,9 +428,11 @@ export function RegionalPlanHierarchyView() {
         canEdit={isPeriodPlan && processStarted && plan?.execution_status === "open"}
         variant={options?.variant ?? "card"}
         regionId={regionId!}
+        targetLabel={isPeriodPlan ? "Period Target" : isAnnualPlan ? "Annual Target" : "Strategic Target"}
+        versionKind={plan?.version_kind}
       />
     ),
-    [plan?.planRule, configuredUnits, isPeriodPlan, processStarted, plan?.execution_status, regionId]
+    [plan?.planRule, plan?.version_kind, configuredUnits, isPeriodPlan, isAnnualPlan, processStarted, plan?.execution_status, regionId]
   );
 
   // Current level nodes for cards view
@@ -1116,9 +1123,9 @@ export function RegionalPlanHierarchyView() {
             canEditPeriodTarget={canEditPeriodTarget}
             periodTargetAllocations={periodAllocationsMap}
             onSavePeriodTarget={handleSavePeriodTarget}
-            showPeriodActuals={showPeriodActuals}
+            showPeriodActuals={showAnyActuals}
             canEditPeriodActual={canEditPeriodActual}
-            useExecutionCompletion={showPeriodActuals}
+            useExecutionCompletion={useExecutionCompletion}
             processStarted={processStarted}
             renderPeriodActualSection={renderPeriodActualSection}
           />
@@ -1144,9 +1151,9 @@ export function RegionalPlanHierarchyView() {
             canEditPeriodTarget={canEditPeriodTarget}
             periodTargetAllocations={periodAllocationsMap}
             onSavePeriodTarget={handleSavePeriodTarget}
-            showPeriodActuals={showPeriodActuals}
+            showPeriodActuals={showAnyActuals}
             canEditPeriodActual={canEditPeriodActual}
-            useExecutionCompletion={showPeriodActuals}
+            useExecutionCompletion={useExecutionCompletion}
             processStarted={processStarted}
             renderPeriodActualSection={renderPeriodActualSection}
           />
@@ -1173,9 +1180,9 @@ export function RegionalPlanHierarchyView() {
             canEditPeriodTarget={canEditPeriodTarget}
             periodTargetAllocations={periodAllocationsMap}
             onSavePeriodTarget={handleSavePeriodTarget}
-            showPeriodActuals={showPeriodActuals}
+            showPeriodActuals={showAnyActuals}
             canEditPeriodActual={canEditPeriodActual}
-            useExecutionCompletion={showPeriodActuals}
+            useExecutionCompletion={useExecutionCompletion}
             processStarted={processStarted}
             renderPeriodActualSection={renderPeriodActualSection}
           />

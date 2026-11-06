@@ -2216,6 +2216,91 @@ async function getRegionalPlanHierarchy(versionId, regionId, user = null) {
     ],
   });
 
+  // Cross-period/annual execution aggregation for annual and master versions
+  if (version.version_kind === "annual") {
+    // Collect achievements from child quarters of this annual version
+    const childPeriods = await RegionalPlanVersion.findAll({
+      where: { parent_plan_version_id: versionId, version_kind: "execution_period" },
+      order: [["sequence_index", "ASC"]],
+    });
+    if (childPeriods.length > 0) {
+      const periodVersionIds = childPeriods.map((p) => p.regional_plan_version_id);
+      const periodNodes = await RegionalPlanNode.findAll({
+        where: { regional_plan_version_id: { [Op.in]: periodVersionIds }, is_active: true },
+      });
+      const actualByAnnualNodeId = new Map();
+      for (const pn of periodNodes) {
+        if (pn.source_regional_plan_node_id && isRollupEligibleAchievement(pn) && pn.period_actual != null) {
+          const current = actualByAnnualNodeId.get(pn.source_regional_plan_node_id) || 0;
+          actualByAnnualNodeId.set(pn.source_regional_plan_node_id, current + Number(pn.period_actual));
+        }
+      }
+      for (const node of nodes) {
+        if (actualByAnnualNodeId.has(node.regional_plan_node_id)) {
+          node.period_actual = actualByAnnualNodeId.get(node.regional_plan_node_id);
+          node.period_actual_status = "validated";
+        } else if (node.annual_actual != null && isRollupEligibleAchievement(node)) {
+          node.period_actual = Number(node.annual_actual);
+          node.period_actual_status = node.annual_actual_status || "validated";
+        }
+      }
+    }
+  } else if (version.version_kind === "master") {
+    // Collect achievements from child annuals and their quarters for the master draft plan
+    const childAnnuals = await RegionalPlanVersion.findAll({
+      where: { parent_plan_version_id: versionId, version_kind: "annual" },
+      order: [["sequence_index", "ASC"]],
+    });
+    if (childAnnuals.length > 0) {
+      const annualIds = childAnnuals.map((a) => a.regional_plan_version_id);
+      const childPeriods = await RegionalPlanVersion.findAll({
+        where: { parent_plan_version_id: { [Op.in]: annualIds }, version_kind: "execution_period" },
+      });
+      const periodVersionIds = childPeriods.map((p) => p.regional_plan_version_id);
+      const [annualNodes, periodNodes] = await Promise.all([
+        RegionalPlanNode.findAll({
+          where: { regional_plan_version_id: { [Op.in]: annualIds }, is_active: true },
+          attributes: ["regional_plan_node_id", "source_regional_plan_node_id", "annual_actual", "annual_actual_status"],
+        }),
+        periodVersionIds.length
+          ? RegionalPlanNode.findAll({
+              where: { regional_plan_version_id: { [Op.in]: periodVersionIds }, is_active: true },
+              attributes: ["regional_plan_node_id", "source_regional_plan_node_id", "period_actual", "period_actual_status"],
+            })
+          : [],
+      ]);
+      const masterIdByAnnualId = new Map();
+      for (const an of annualNodes) {
+        if (an.source_regional_plan_node_id) {
+          masterIdByAnnualId.set(an.regional_plan_node_id, an.source_regional_plan_node_id);
+        }
+      }
+      const actualByMasterNodeId = new Map();
+      for (const pn of periodNodes) {
+        if (pn.source_regional_plan_node_id && isRollupEligibleAchievement(pn) && pn.period_actual != null) {
+          const masterId = masterIdByAnnualId.get(pn.source_regional_plan_node_id) || pn.source_regional_plan_node_id;
+          if (masterId) {
+            const current = actualByMasterNodeId.get(masterId) || 0;
+            actualByMasterNodeId.set(masterId, current + Number(pn.period_actual));
+          }
+        }
+      }
+      for (const an of annualNodes) {
+        if (an.source_regional_plan_node_id && isRollupEligibleAchievement(an) && an.annual_actual != null) {
+          const masterId = an.source_regional_plan_node_id;
+          const current = actualByMasterNodeId.get(masterId) || 0;
+          actualByMasterNodeId.set(masterId, current + Number(an.annual_actual));
+        }
+      }
+      for (const node of nodes) {
+        if (actualByMasterNodeId.has(node.regional_plan_node_id)) {
+          node.period_actual = actualByMasterNodeId.get(node.regional_plan_node_id);
+          node.period_actual_status = "validated";
+        }
+      }
+    }
+  }
+
   const { metricsMemo } = computeRegionalTreeRollup(nodes, version.planRule);
 
   // Attach metrics to each node
@@ -2226,9 +2311,28 @@ async function getRegionalPlanHierarchy(versionId, regionId, user = null) {
       computedActual: null,
       computedTarget: null,
       status: "not_started",
+      is_evaluable: false,
+      hasData: false,
     };
     json.execution_progress_percent = metrics.progressPercent;
     json.evaluation_status = metrics.status;
+    json.computed_period_actual = metrics.computedActual;
+    json.computed_period_target = metrics.computedTarget;
+    json.is_evaluable = metrics.is_evaluable ?? (metrics.progressPercent != null);
+    json.has_contributing_data = metrics.hasData ?? (metrics.computedActual != null);
+    if (metrics.computedTarget != null && metrics.computedActual != null) {
+      json.variance = metrics.computedActual - metrics.computedTarget;
+      json.variance_percentage =
+        metrics.computedTarget > 0
+          ? Math.round(((metrics.computedActual - metrics.computedTarget) / metrics.computedTarget) * 100)
+          : null;
+      json.variance_type =
+        metrics.computedActual > metrics.computedTarget
+          ? "OVER"
+          : metrics.computedActual < metrics.computedTarget
+          ? "UNDER"
+          : "ON_TARGET";
+    }
     return json;
   });
 

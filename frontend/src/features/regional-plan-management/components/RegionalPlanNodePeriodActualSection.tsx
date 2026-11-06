@@ -78,6 +78,8 @@ export interface RegionalPlanNodePeriodActualSectionProps {
   onClick?: (event: React.MouseEvent) => void;
   focused?: boolean;
   regionId?: string;
+  targetLabel?: string;
+  versionKind?: string;
 }
 
 export function RegionalPlanNodePeriodActualSection({
@@ -90,10 +92,20 @@ export function RegionalPlanNodePeriodActualSection({
   onClick,
   focused = false,
   regionId: propRegionId,
+  targetLabel,
+  versionKind,
 }: RegionalPlanNodePeriodActualSectionProps) {
   const sectionRef = useRef<HTMLDivElement>(null);
   const params = useParams<{ id?: string }>();
   const effectiveRegionId = propRegionId || params?.id || (node as any).region_id || "";
+
+  const displayTargetTitle =
+    targetLabel ||
+    (versionKind === "annual"
+      ? "Annual Target"
+      : versionKind === "master"
+      ? "Plan Target"
+      : "Period Target");
 
   const nodeId =
     (node as RegionalPlanNode).regional_plan_node_id ||
@@ -876,7 +888,7 @@ export function RegionalPlanNodePeriodActualSection({
             variant="secondary"
             className="text-[10px] py-0 h-4 bg-amber-50 text-amber-900 border-amber-200 font-medium"
           >
-            Target: {periodTargetValue}
+            {displayTargetTitle}: {periodTargetValue}
           </Badge>
           <Badge
             variant="secondary"
@@ -959,7 +971,7 @@ export function RegionalPlanNodePeriodActualSection({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400">
-            Period Target
+            {displayTargetTitle}
           </p>
           <p
             className="mt-0.5 text-2xl font-bold leading-tight text-amber-950 dark:text-amber-100 truncate"

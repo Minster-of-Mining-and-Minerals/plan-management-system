@@ -690,8 +690,54 @@ async function runVerification() {
     assert(officerStat.achievementPercent > 0, "Test 9d: Officer achievement percentage > 0%");
     console.log("  [PASS] Department and User breakdowns calculate from eligible achievements.");
 
+    // TEST SUITE 10: DRAFT PLAN DOCUMENT AND PLAN CARD STATISTICS PARITY
+    console.log("\n--- TEST SUITE 10: Draft Plan Document & Hierarchy Plan Card Statistics Parity ---");
+    const q1Hierarchy = await regionalPlanService.getRegionalPlanHierarchy(
+      q1Version.regional_plan_version_id,
+      testRegion.region_id
+    );
+    assert(Array.isArray(q1Hierarchy.nodes) && q1Hierarchy.nodes.length > 0, "Q1 hierarchy nodes returned");
+    const q1Kpi1 = q1Hierarchy.nodes.find((n) => n.regional_plan_node_id === q1_kpi1.regional_plan_node_id);
+    assert(q1Kpi1 !== undefined, "Q1 KPI 1 found in hierarchy");
+    assert(Number(q1Kpi1.computed_period_target) === 100, "Test 10a: Q1 KPI 1 card target is 100");
+    assert(Number(q1Kpi1.computed_period_actual) === 90, "Test 10b: Q1 KPI 1 card actual is 90");
+    assert(Number(q1Kpi1.execution_progress_percent) === 90, "Test 10c: Q1 KPI 1 card percentage is 90%");
+
+    const q1Goal1 = q1Hierarchy.nodes.find((n) => n.regional_plan_node_id === q1_goal1.regional_plan_node_id);
+    assert(q1Goal1 !== undefined, "Q1 Goal 1 found in hierarchy");
+    assert(Number(q1Goal1.computed_period_actual) > 0, "Test 10d: Q1 Goal 1 card rolled up actual > 0");
+    assert(Number(q1Goal1.execution_progress_percent) === 78, "Test 10e: Q1 Goal 1 card rolled up percent is 78%");
+
+    const q1Sf1 = q1Hierarchy.nodes.find((n) => n.regional_plan_node_id === q1_sf1.regional_plan_node_id);
+    assert(q1Sf1 !== undefined, "Q1 SF 1 found in hierarchy");
+    assert(Number(q1Sf1.computed_period_actual) > 0, "Test 10f: Q1 SF 1 card rolled up actual > 0");
+    assert(Number(q1Sf1.execution_progress_percent) === 87, "Test 10g: Q1 SF 1 card rolled up percent is 87%");
+
+    // Annual Plan Hierarchy Cards
+    const annualHierarchy = await regionalPlanService.getRegionalPlanHierarchy(
+      annual1Version.regional_plan_version_id,
+      testRegion.region_id
+    );
+    assert(Array.isArray(annualHierarchy.nodes) && annualHierarchy.nodes.length > 0, "Annual hierarchy nodes returned");
+    const annualSf1 = annualHierarchy.nodes.find((n) => n.regional_plan_node_id === ann_sf1.regional_plan_node_id);
+    assert(annualSf1 !== undefined, "Annual SF 1 found in hierarchy");
+    assert(Number(annualSf1.computed_period_actual) > 0, "Test 10h: Annual SF 1 card rolled up actual from periods > 0");
+    assert(Number(annualSf1.execution_progress_percent) > 0, "Test 10i: Annual SF 1 card progress percent > 0%");
+
+    // Master Strategic Draft Plan Hierarchy Cards
+    const masterHierarchy = await regionalPlanService.getRegionalPlanHierarchy(
+      masterVersion.regional_plan_version_id,
+      testRegion.region_id
+    );
+    assert(Array.isArray(masterHierarchy.nodes) && masterHierarchy.nodes.length > 0, "Master draft hierarchy nodes returned");
+    const masterSf1 = masterHierarchy.nodes.find((n) => n.regional_plan_node_id === master_sf1.regional_plan_node_id);
+    assert(masterSf1 !== undefined, "Master draft SF 1 found in hierarchy");
+    assert(Number(masterSf1.computed_period_actual) > 0, "Test 10j: Master draft SF 1 card rolled up actual from annual/quarters > 0");
+    assert(Number(masterSf1.execution_progress_percent) > 0, "Test 10k: Master draft SF 1 card progress percent > 0%");
+    console.log("  [PASS] Plan card statistics (SF, Goal, KPI) across Quarter, Annual, and Master draft plans populated accurately.");
+
     console.log("\n===============================================================================");
-    console.log("   ALL 9 TEST SUITES (24 DETAILED ASSERTIONS) PASSED SUCCESSFULLY!");
+    console.log("   ALL 10 TEST SUITES (35 DETAILED ASSERTIONS) PASSED SUCCESSFULLY!");
     console.log("===============================================================================\n");
 
   } catch (err) {
