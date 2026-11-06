@@ -120,7 +120,7 @@ export function RegionalDashboardView({
   );
 
   // 2. Fetch live regional roles count
-  const { data: rolesData = [] } = useGetRegionalRolesQuery();
+  const { data: rolesData = [] } = useGetRegionalRolesQuery(activeRegionId ? { region_id: activeRegionId } : undefined);
 
   // 3. Fetch live regional permission groups count
   const { data: permissionGroupsData = [] } = useGetPermissionGroupsQuery(

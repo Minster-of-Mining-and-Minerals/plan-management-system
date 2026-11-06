@@ -107,7 +107,8 @@ export function RegionDetail({ regionId }: { regionId: string }) {
     router.replace(`?${params.toString()}`, { scroll: false });
   };
 
-  const [toggleHierarchyView, setToggleHierarchyView] = useState(false);
+  // Hierarchy view is the default; users can still switch to the table.
+  const [toggleHierarchyView, setToggleHierarchyView] = useState(true);
   const [deptStatusFilter, setDeptStatusFilter] = useState("");
   const [userStatusFilter, setUserStatusFilter] = useState("");
   const [userDeptFilter, setUserDeptFilter] = useState("");
@@ -137,7 +138,7 @@ export function RegionDetail({ regionId }: { regionId: string }) {
   const { data: users = [], isLoading: isUsersLoading, refetch: refetchUsers } = useGetUsersQuery({
     region_id: regionId,
   });
-  const { data: roles = [] } = useGetRegionalRolesQuery();
+  const { data: roles = [] } = useGetRegionalRolesQuery({ region_id: regionId });
   const { data: allPermissionsData, isLoading: isPermissionsLoading, refetch: refetchPermissions } =
     useGetPermissionsQuery();
 

@@ -145,11 +145,20 @@ async function getRegionalDashboard(req, res) {
  */
 async function getRegionalRoles(req, res) {
   try {
+    // A role created by a region (region_id set) is visible to that region only.
+    // Roles created by the federal level for all regions have region_id = null.
+    // Regional users always see their own region; federal users may narrow the
+    // list to one region with ?region_id=, otherwise they see every region's roles.
+    const regionId = req.user?.is_regional ? req.user.region_id : req.query.region_id || null;
+    const regionalScopeFilter = regionId
+      ? { scope: "regional", [Op.or]: [{ region_id: regionId }, { region_id: null }] }
+      : { scope: "regional" };
+
     const roles = await Role.findAll({
       where: {
         is_active: true,
         [Op.or]: [
-          { scope: "regional" },
+          regionalScopeFilter,
           { role_id: Array.from(STRUCTURE_ASSIGNABLE_GLOBAL_ROLE_IDS || []) },
         ],
       },

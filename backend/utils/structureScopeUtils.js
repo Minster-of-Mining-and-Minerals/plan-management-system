@@ -331,7 +331,13 @@ function assertPurchasingCenterRoleAssignable(role, req) {
   }
 }
 
-function assertRegionalRoleAssignable(role, req) {
+/**
+ * @param {object} role
+ * @param {object} req
+ * @param {string|null} [targetRegionId] Region of the user receiving the role.
+ *   Defaults to the acting regional user's own region.
+ */
+function assertRegionalRoleAssignable(role, req, targetRegionId = null) {
   if (!role) {
     const error = new Error("Role not found.");
     error.status = 404;
@@ -347,6 +353,16 @@ function assertRegionalRoleAssignable(role, req) {
       error.status = 403;
       throw error;
     }
+  }
+
+  // A role created by a region belongs to that region only. Roles with no
+  // region_id were created by the federal level and are shared by all regions.
+  const regionForAssignment =
+    targetRegionId || (isRegionalActor(req) ? req.user?.region_id : null);
+  if (role.region_id && regionForAssignment && role.region_id !== regionForAssignment) {
+    const error = new Error("Access denied: role belongs to another region.");
+    error.status = 403;
+    throw error;
   }
 
   if (isSuperAdminActor(req)) {

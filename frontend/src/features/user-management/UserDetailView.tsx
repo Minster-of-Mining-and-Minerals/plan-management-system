@@ -132,9 +132,10 @@ export default function UserDetailView({
     { skip: !isRegionalUser || !effectiveRegionId }
   );
 
-  const { data: regionalRoles = EMPTY_ROLES } = useGetRegionalRolesQuery(undefined, {
-    skip: !isRegionalUser,
-  });
+  const { data: regionalRoles = EMPTY_ROLES } = useGetRegionalRolesQuery(
+    effectiveRegionId ? { region_id: effectiveRegionId } : undefined,
+    { skip: !isRegionalUser }
+  );
 
   const { data: companyStructures = EMPTY_STRUCTURES } = useGetCompanyStructuresQuery(
     { company_id: user?.company_id || "" },

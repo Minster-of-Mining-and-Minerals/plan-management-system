@@ -95,7 +95,7 @@ export function RegionalUserManagement({
     { skip: !regionId }
   );
 
-  const { data: roles = [] } = useGetRegionalRolesQuery();
+  const { data: roles = [] } = useGetRegionalRolesQuery(regionId ? { region_id: regionId } : undefined);
 
   // Mutations
   const [createUser, { isLoading: isCreating }] = useCreateUserMutation();

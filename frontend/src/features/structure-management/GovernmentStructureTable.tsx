@@ -28,7 +28,8 @@ import { useStructureScope } from "@/hooks/useStructureScope";
 import { sortStructuresByTreeDepth } from "@/utils/structureTreeOrderUtils";
 
 export default function GovernmentStructureTable() {
-    const [toggleHierarchyView, setToggleHierarchyView] = useState(false);
+    // Hierarchy view is the default; users can still switch to the table.
+    const [toggleHierarchyView, setToggleHierarchyView] = useState(true);
     const searchParams = useSearchParams();
     const searchQuery = searchParams.get("search") || "";
     const router = useRouter();
@@ -259,7 +260,7 @@ export default function GovernmentStructureTable() {
                         resetKey={`${searchQuery}-${statusFilter}-${toggleHierarchyView}`}
                     />
                 ) : (
-                    <GovernmentHierarchyD3Tree data={filteredData} type="government" />
+                    <GovernmentHierarchyD3Tree data={filteredData} type="government" isLoading={isLoading} />
                 )}
             </TableLayout>
             <CreateGovernmentStructureModal

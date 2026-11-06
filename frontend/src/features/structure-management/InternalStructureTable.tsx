@@ -41,7 +41,8 @@ export default function InternalStructureTable({
     sideActions,
     readOnly = false,
 }: InternalStructureTableProps) {
-    const [toggleHierarchyView, setToggleHierarchyView] = useState(false);
+    // Hierarchy view is the default; users can still switch to the table.
+    const [toggleHierarchyView, setToggleHierarchyView] = useState(true);
     const searchParams = useSearchParams();
     const searchQuery = hideLayout ? "" : searchParams.get("search") || "";
     const router = useRouter();

@@ -51,7 +51,8 @@ async function loadGovernmentStructureIndex() {
   });
 }
 
-async function validateRoleAssignments(role_ids, structureId, req, transaction, domain = "federal") {
+// targetRegionId: region of the user receiving the roles (regional domain only).
+async function validateRoleAssignments(role_ids, structureId, req, transaction, domain = "federal", targetRegionId = null) {
   if (!role_ids?.length) {
     return;
   }
@@ -69,7 +70,7 @@ async function validateRoleAssignments(role_ids, structureId, req, transaction, 
 
   for (const role of roles) {
     if (domain === "regional") {
-      assertRegionalRoleAssignable(role, req);
+      assertRegionalRoleAssignable(role, req, targetRegionId);
     } else if (domain === "company") {
       assertCompanyRoleAssignable(role, req);
     } else if (domain === "purchasing_center") {
@@ -507,7 +508,7 @@ const createUser = async (req, res) => {
 
       if (role_ids && Array.isArray(role_ids) && role_ids.length > 0) {
         try {
-          await validateRoleAssignments(role_ids, null, req, t, "regional");
+          await validateRoleAssignments(role_ids, null, req, t, "regional", targetRegionId);
         } catch (error) {
           await t.rollback();
           return sendScopeError(res, error);
@@ -1193,7 +1194,8 @@ const updateUser = async (req, res) => {
           targetStructureId,
           req,
           t,
-          targetDomain
+          targetDomain,
+          user.region_id || null
         );
       } catch (error) {
         await t.rollback();

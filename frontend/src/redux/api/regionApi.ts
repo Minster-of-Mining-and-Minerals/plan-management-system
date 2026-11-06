@@ -228,9 +228,16 @@ export const regionApi = baseApi.injectEndpoints({
       ],
     }),
 
-    getRegionalRoles: builder.query<Role[], void>({
-      query: () => ({
+    /**
+     * Roles assignable in a region: that region's own roles plus roles the
+     * federal level created for all regions. Regional users always get their
+     * own region (enforced by the server); federal users pass region_id to
+     * scope the list to one region, or omit it to see every region's roles.
+     */
+    getRegionalRoles: builder.query<Role[], { region_id?: string } | void>({
+      query: (params) => ({
         url: "/regional/roles",
+        params: params?.region_id ? { region_id: params.region_id } : undefined,
       }),
       transformResponse: (res: { data: Role[] }) => res.data,
       providesTags: [{ type: "Roles", id: "REGIONAL_LIST" }],

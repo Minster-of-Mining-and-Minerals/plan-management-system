@@ -41,7 +41,7 @@ const assignRolesToUser = async (req, res) => {
 
       for (const role of roles) {
         try {
-          assertRegionalRoleAssignable(role, req);
+          assertRegionalRoleAssignable(role, req, user.region_id);
         } catch (error) {
           return sendScopeError(res, error);
         }

@@ -81,7 +81,8 @@ export function CompanyDepartmentManagement({
     can("COMPANIES:MANAGE") ||
     isSuperAdmin;
 
-  const [toggleHierarchyView, setToggleHierarchyView] = useState(false);
+  // Hierarchy view is the default; users can still switch to the table.
+  const [toggleHierarchyView, setToggleHierarchyView] = useState(true);
   const [deptStatusFilter, setDeptStatusFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 

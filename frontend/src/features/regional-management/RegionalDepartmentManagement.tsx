@@ -69,7 +69,8 @@ export function RegionalDepartmentManagement({
   const canUpdate = !readOnly && (can("REGIONAL_STRUCTURES:UPDATE") || can("REGIONAL_STRUCTURES:MANAGE") || isSuperAdmin);
   const canDelete = !readOnly && (can("REGIONAL_STRUCTURES:DELETE") || can("REGIONAL_STRUCTURES:MANAGE") || isSuperAdmin);
 
-  const [toggleHierarchyView, setToggleHierarchyView] = useState(false);
+  // Hierarchy view is the default; users can still switch to the table.
+  const [toggleHierarchyView, setToggleHierarchyView] = useState(true);
   const [deptStatusFilter, setDeptStatusFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -353,6 +354,7 @@ export function RegionalDepartmentManagement({
           <div className="p-4 bg-card rounded-xl border border-border/80">
             <RegionalStructureHierarchy
               data={filteredData}
+              isLoading={isLoading}
               regionName={session?.user?.region?.name}
               onAddChild={(parentId) => handleOpenAddModal(parentId)}
               onEdit={(dept) => handleOpenEditModal(dept)}
