@@ -683,11 +683,13 @@ async function runTests() {
     }
     assert(noPermValidateBlocked, "Test 18: User without validation permission is blocked (403)");
 
-    // Test 19: When no eligible cross-branch validator exists, validation is skipped
-    // Temporarily deactivate planningValidator to simulate a region with no cross-branch validator
-    await planningValidator.update({ is_active: false });
+    // Test 19: When no eligible validator exists in region, validation is skipped
+    await User.update(
+      { is_active: false },
+      { where: { user_id: [planningValidator.user_id, explorationValidator.user_id, miningDirectorateValidator.user_id, artisanalValidator.user_id] } }
+    );
     const workflowCheck = await determineRegionalAchievementWorkflow(task1Q1, regionA.region_id);
-    assert(workflowCheck.hasEligibleValidator === false, "Test 19a: Correctly detected no eligible cross-branch validator exists");
+    assert(workflowCheck.hasEligibleValidator === false, "Test 19a: Correctly detected no eligible validator exists");
 
     // Put task 2 in draft and submit
     await RegionalInternalAssignment.create({
@@ -706,8 +708,11 @@ async function runTests() {
     const task2Submitted = await RegionalPlanNode.findByPk(task2Q1.regional_plan_node_id);
     assert(task2Submitted.is_validation_required === false, "Test 19b: is_validation_required set to false when validator is absent");
 
-    // Reactivate planningValidator
-    await planningValidator.update({ is_active: true });
+    // Reactivate validators
+    await User.update(
+      { is_active: true },
+      { where: { user_id: [planningValidator.user_id, explorationValidator.user_id, miningDirectorateValidator.user_id, artisanalValidator.user_id] } }
+    );
 
     // Test 20: When validation is required, approval alone does not contribute to dashboard aggregation
     await RegionalPlanNode.update(

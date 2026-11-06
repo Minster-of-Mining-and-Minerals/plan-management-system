@@ -93,7 +93,6 @@ function userCanApproveRegionalAchievement(user) {
     REGIONAL_BYPASS_ACHIEVEMENT_KEY,
     REGIONAL_MANAGE_KEY,
     REGIONS_MANAGE_KEY,
-    REGIONAL_UPDATE_KEY,
   ]);
 }
 
@@ -105,7 +104,6 @@ function userCanValidateRegionalAchievement(user) {
     REGIONAL_BYPASS_ACHIEVEMENT_KEY,
     REGIONAL_MANAGE_KEY,
     REGIONS_MANAGE_KEY,
-    REGIONAL_FINALIZE_KEY,
   ]);
 }
 
@@ -230,8 +228,6 @@ async function assertUserCanAccessPlanNode(user, node, regionId, transaction = n
   if (isSuperAdmin(user) || isAdministrator(user)) return true;
   if (
     userQualifiesForRegionalBypass(user) ||
-    userCanApproveRegionalAchievement(user) ||
-    userCanValidateRegionalAchievement(user) ||
     userHasAny(user, [REGIONAL_MANAGE_KEY, REGIONS_MANAGE_KEY])
   ) {
     return true;
