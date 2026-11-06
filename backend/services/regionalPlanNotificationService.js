@@ -225,7 +225,7 @@ async function emitRegionalAchievementApprovedEvent(
       notification_type: REGIONAL_PLAN_EVENTS.ACHIEVEMENT_APPROVED,
       title: pendingValidation ? "Achievement execution-approved" : "Achievement approved",
       message: pendingValidation
-        ? `Achievement for "${node.title}" was approved by your department and is pending cross-branch validation.`
+        ? `Achievement for "${node.title}" was approved and is pending validation.`
         : `Achievement for "${node.title}" was approved and now counts toward regional plan progress.`,
       related_entity_type: "regional_plan_node",
       related_entity_id: node.regional_plan_node_id,
@@ -298,7 +298,7 @@ async function emitRegionalAchievementPendingValidationEvent(
       category: "plans",
       notification_type: REGIONAL_PLAN_EVENTS.ACHIEVEMENT_PENDING_VALIDATION,
       title: "Achievement pending validation",
-      message: `Achievement for "${node.title}" is awaiting your cross-branch validation before counting toward plan progress.`,
+      message: `Achievement for "${node.title}" is awaiting your validation before counting toward plan progress.`,
       related_entity_type: "regional_plan_node",
       related_entity_id: node.regional_plan_node_id,
       link_path: buildRegionalPlanNodeAchievementLink(regionId, periodVersionId, node.regional_plan_node_id),

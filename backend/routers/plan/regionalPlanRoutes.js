@@ -57,12 +57,17 @@ const planExecuteAccess = checkAnyPermission([
 
 const planApproveAccess = checkAnyPermission([
   { resource: "REGIONAL_PLANS", action: "APPROVE_ACHIEVEMENT" },
+  { resource: "REGIONAL_PLANS", action: "VALIDATE_ACHIEVEMENT" },
+  { resource: "REGIONAL_PLANS", action: "UPDATE" },
   { resource: "REGIONAL_PLANS", action: "MANAGE" },
   { resource: "REGIONS", action: "MANAGE" },
 ]);
 
 const planValidateAccess = checkAnyPermission([
   { resource: "REGIONAL_PLANS", action: "VALIDATE_ACHIEVEMENT" },
+  { resource: "REGIONAL_PLANS", action: "APPROVE_ACHIEVEMENT" },
+  { resource: "REGIONAL_PLANS", action: "FINALIZE" },
+  { resource: "REGIONAL_PLANS", action: "UPDATE" },
   { resource: "REGIONAL_PLANS", action: "MANAGE" },
   { resource: "REGIONS", action: "MANAGE" },
 ]);

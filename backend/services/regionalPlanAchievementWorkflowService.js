@@ -49,13 +49,32 @@ function isSuperAdmin(user) {
   return false;
 }
 
-function userHasAny(user, keys) {
+function isAdministrator(user) {
   if (!user) return false;
   if (isSuperAdmin(user)) return true;
+  if (Array.isArray(user.roles)) {
+    return user.roles.some((r) => {
+      const name = typeof r === "string" ? r : r.name;
+      if (!name) return false;
+      const lower = name.toLowerCase();
+      return (
+        lower.includes("administrator") ||
+        lower.includes("regional admin") ||
+        lower === "admin"
+      );
+    });
+  }
+  return false;
+}
+
+function userHasAny(user, keys) {
+  if (!user) return false;
+  if (isSuperAdmin(user) || isAdministrator(user)) return true;
   return keys.some((key) => userHasPermission(user, key));
 }
 
 function userCanExecuteRegionalAchievement(user) {
+  if (isSuperAdmin(user) || isAdministrator(user)) return true;
   return userHasAny(user, [
     REGIONAL_EXECUTE_ACHIEVEMENT_KEY,
     REGIONAL_BYPASS_ACHIEVEMENT_KEY,
@@ -65,27 +84,37 @@ function userCanExecuteRegionalAchievement(user) {
 }
 
 function userCanApproveRegionalAchievement(user) {
+  if (isSuperAdmin(user) || isAdministrator(user)) return true;
   return userHasAny(user, [
     REGIONAL_APPROVE_ACHIEVEMENT_KEY,
+    REGIONAL_VALIDATE_ACHIEVEMENT_KEY,
+    REGIONAL_BYPASS_ACHIEVEMENT_KEY,
     REGIONAL_MANAGE_KEY,
     REGIONS_MANAGE_KEY,
+    REGIONAL_UPDATE_KEY,
   ]);
 }
 
 function userCanValidateRegionalAchievement(user) {
+  if (isSuperAdmin(user) || isAdministrator(user)) return true;
   return userHasAny(user, [
     REGIONAL_VALIDATE_ACHIEVEMENT_KEY,
+    REGIONAL_APPROVE_ACHIEVEMENT_KEY,
+    REGIONAL_BYPASS_ACHIEVEMENT_KEY,
     REGIONAL_MANAGE_KEY,
     REGIONS_MANAGE_KEY,
+    REGIONAL_FINALIZE_KEY,
   ]);
 }
 
 function userQualifiesForRegionalBypass(user) {
   if (!user) return false;
-  if (isSuperAdmin(user)) return true;
+  if (isSuperAdmin(user) || isAdministrator(user)) return true;
   return userHasAny(user, [
     REGIONAL_BYPASS_ACHIEVEMENT_KEY,
     FEDERAL_BYPASS_ACHIEVEMENT_KEY,
+    REGIONAL_MANAGE_KEY,
+    REGIONS_MANAGE_KEY,
   ]);
 }
 
@@ -196,8 +225,15 @@ async function resolveResponsibleStructureId(node, transaction = null) {
  */
 async function assertUserCanAccessPlanNode(user, node, regionId, transaction = null) {
   if (!user) return true;
-  if (isSuperAdmin(user)) return true;
-  if (userHasAny(user, [REGIONAL_MANAGE_KEY, REGIONS_MANAGE_KEY])) return true;
+  if (isSuperAdmin(user) || isAdministrator(user)) return true;
+  if (
+    userQualifiesForRegionalBypass(user) ||
+    userCanApproveRegionalAchievement(user) ||
+    userCanValidateRegionalAchievement(user) ||
+    userHasAny(user, [REGIONAL_MANAGE_KEY, REGIONS_MANAGE_KEY])
+  ) {
+    return true;
+  }
 
   const effectiveRegionId = node.planVersion?.region_id || regionId;
   if (user.region_id && effectiveRegionId && user.region_id !== effectiveRegionId) {
@@ -274,7 +310,13 @@ async function assertUserCanExecuteAchievement(user, node, regionId, transaction
     throw error;
   }
 
-  if (user.region_id && effectiveNodeRegionId && user.region_id !== effectiveNodeRegionId && !isSuperAdmin(user)) {
+  if (
+    user.region_id &&
+    effectiveNodeRegionId &&
+    user.region_id !== effectiveNodeRegionId &&
+    !isSuperAdmin(user) &&
+    !isAdministrator(user)
+  ) {
     const error = new Error("Access denied: user belongs to a different region");
     error.status = 403;
     throw error;
@@ -324,9 +366,8 @@ async function assertUserCanExecuteAchievement(user, node, regionId, transaction
 }
 
 /**
- * Section 3: Departmental Approval — Permission-Based and Branch-Scoped
- * Approver must have approval permission and belong to the same department or an ancestor department.
- * Approvers cannot approve reports from unrelated branches or child departments.
+ * Section 3: Regional Approval — Permission-Based
+ * Any user with approval permission in this region (or administrator/bypass) can approve any department's achievement.
  */
 async function assertUserCanApproveAchievement(user, node, regionId, transaction = null) {
   if (!userCanApproveRegionalAchievement(user)) {
@@ -342,51 +383,28 @@ async function assertUserCanApproveAchievement(user, node, regionId, transaction
     throw error;
   }
 
-  if (user.region_id && effectiveNodeRegionId && user.region_id !== effectiveNodeRegionId && !isSuperAdmin(user)) {
+  if (
+    user.region_id &&
+    effectiveNodeRegionId &&
+    user.region_id !== effectiveNodeRegionId &&
+    !isSuperAdmin(user) &&
+    !isAdministrator(user)
+  ) {
     const error = new Error("Access denied: user belongs to a different region");
     error.status = 403;
     throw error;
-  }
-
-  if (userQualifiesForRegionalBypass(user)) {
-    return { allowed: true };
-  }
-
-  const responsibleStructureId = await resolveResponsibleStructureId(node, transaction);
-
-  if (responsibleStructureId) {
-    if (!user.regional_structure_id) {
-      const error = new Error("You must belong to the responsible department or its parent structure to approve this achievement");
-      error.status = 403;
-      throw error;
-    }
-
-    if (user.regional_structure_id === responsibleStructureId) {
-      return { allowed: true };
-    }
-
-    const isAncestor = await isRegionalStructureAncestor(
-      user.regional_structure_id,
-      responsibleStructureId,
-      transaction
-    );
-    if (!isAncestor) {
-      const error = new Error("You must belong to the responsible department or its parent structure to approve this achievement");
-      error.status = 403;
-      throw error;
-    }
   }
 
   return { allowed: true };
 }
 
 /**
- * Section 4: Cross-Department Validation — Independent Cross-Branch Review
- * Validator must have validation permission and belong to an independent branch:
- * not the same department, not an ancestor, and not a descendant of responsible department.
+ * Section 4: Regional Validation
+ * Any user with validation or approval permission in this region (or administrator/bypass) can validate any department's achievement.
+ * No cross-branch restriction is enforced.
  */
 async function assertUserCanValidateAchievement(user, node, regionId, transaction = null) {
-  if (!userCanValidateRegionalAchievement(user)) {
+  if (!userCanValidateRegionalAchievement(user) && !userCanApproveRegionalAchievement(user)) {
     const error = new Error("Regional validate achievement permission required");
     error.status = 403;
     throw error;
@@ -399,55 +417,16 @@ async function assertUserCanValidateAchievement(user, node, regionId, transactio
     throw error;
   }
 
-  if (user.region_id && effectiveNodeRegionId && user.region_id !== effectiveNodeRegionId && !isSuperAdmin(user)) {
+  if (
+    user.region_id &&
+    effectiveNodeRegionId &&
+    user.region_id !== effectiveNodeRegionId &&
+    !isSuperAdmin(user) &&
+    !isAdministrator(user)
+  ) {
     const error = new Error("Access denied: user belongs to a different region");
     error.status = 403;
     throw error;
-  }
-
-  if (isSuperAdmin(user)) {
-    return { allowed: true };
-  }
-
-  const responsibleStructureId = await resolveResponsibleStructureId(node, transaction);
-
-  if (responsibleStructureId) {
-    if (!user.regional_structure_id) {
-      const error = new Error("Cross-branch validation requires a validator from an independent organizational branch");
-      error.status = 403;
-      throw error;
-    }
-
-    // Must not be the same department
-    if (user.regional_structure_id === responsibleStructureId) {
-      const error = new Error("Cross-branch validation cannot be performed by the responsible department");
-      error.status = 403;
-      throw error;
-    }
-
-    // Must not be an ancestor
-    const isAncestor = await isRegionalStructureAncestor(
-      user.regional_structure_id,
-      responsibleStructureId,
-      transaction
-    );
-    if (isAncestor) {
-      const error = new Error("Cross-branch validation cannot be performed by a parent structure of the responsible department");
-      error.status = 403;
-      throw error;
-    }
-
-    // Must not be a descendant
-    const isDescendant = await isRegionalStructureAncestor(
-      responsibleStructureId,
-      user.regional_structure_id,
-      transaction
-    );
-    if (isDescendant) {
-      const error = new Error("Cross-branch validation cannot be performed by a descendant structure of the responsible department");
-      error.status = 403;
-      throw error;
-    }
   }
 
   return { allowed: true };
@@ -455,78 +434,19 @@ async function assertUserCanValidateAchievement(user, node, regionId, transactio
 
 /**
  * Section 3.2, 4.2 & 5: Complete Workflow Decision Logic
- * Dynamically determines whether an eligible departmental approver and/or cross-branch validator exists.
  */
 async function determineRegionalAchievementWorkflow(node, regionId, transaction = null) {
-  const responsibleStructureId = await resolveResponsibleStructureId(node, transaction);
-
-  const activeUsers = await User.findAll({
-    where: { region_id: regionId, is_active: true },
-    include: [
-      { association: "roles", include: [{ association: "rolePermissions", include: ["permission"] }] },
-      { association: "permissionGroups", include: [{ association: "permissions" }] },
-    ],
-    transaction,
-  });
-
-  let hasEligibleApprover = false;
-  if (responsibleStructureId) {
-    for (const u of activeUsers) {
-      if (!userCanApproveRegionalAchievement(u)) continue;
-      if (!u.regional_structure_id) continue;
-      if (u.regional_structure_id === responsibleStructureId) {
-        hasEligibleApprover = true;
-        break;
-      }
-      const isAncestor = await isRegionalStructureAncestor(
-        u.regional_structure_id,
-        responsibleStructureId,
-        transaction
-      );
-      if (isAncestor) {
-        hasEligibleApprover = true;
-        break;
-      }
-    }
-  }
-
-  let hasEligibleValidator = false;
-  if (responsibleStructureId) {
-    for (const u of activeUsers) {
-      if (!userCanValidateRegionalAchievement(u)) continue;
-      if (!u.regional_structure_id) continue;
-      if (u.regional_structure_id === responsibleStructureId) continue;
-
-      const isAncestor = await isRegionalStructureAncestor(
-        u.regional_structure_id,
-        responsibleStructureId,
-        transaction
-      );
-      if (isAncestor) continue;
-
-      const isDescendant = await isRegionalStructureAncestor(
-        responsibleStructureId,
-        u.regional_structure_id,
-        transaction
-      );
-      if (isDescendant) continue;
-
-      hasEligibleValidator = true;
-      break;
-    }
-  }
+  const approvers = await findEligibleRegionalApprovers(node, regionId, transaction);
+  const validators = await findEligibleRegionalValidators(node, regionId, transaction);
 
   return {
-    hasEligibleApprover,
-    hasEligibleValidator,
-    responsibleStructureId,
+    hasEligibleApprover: approvers.length > 0,
+    hasEligibleValidator: validators.length > 0,
+    responsibleStructureId: await resolveResponsibleStructureId(node, transaction),
   };
 }
 
 async function findEligibleRegionalApprovers(node, regionId, transaction = null) {
-  const responsibleStructureId = await resolveResponsibleStructureId(node, transaction);
-  if (!responsibleStructureId) return [];
-
   const activeUsers = await User.findAll({
     where: { region_id: regionId, is_active: true },
     include: [
@@ -536,28 +456,10 @@ async function findEligibleRegionalApprovers(node, regionId, transaction = null)
     transaction,
   });
 
-  const approvers = [];
-  for (const u of activeUsers) {
-    if (!userCanApproveRegionalAchievement(u)) continue;
-    if (!u.regional_structure_id) continue;
-    if (u.regional_structure_id === responsibleStructureId) {
-      approvers.push(u);
-      continue;
-    }
-    const isAncestor = await isRegionalStructureAncestor(
-      u.regional_structure_id,
-      responsibleStructureId,
-      transaction
-    );
-    if (isAncestor) {
-      approvers.push(u);
-    }
-  }
-  return approvers;
+  return activeUsers.filter((u) => userCanApproveRegionalAchievement(u));
 }
 
 async function findEligibleRegionalValidators(node, regionId, transaction = null) {
-  const responsibleStructureId = await resolveResponsibleStructureId(node, transaction);
   const activeUsers = await User.findAll({
     where: { region_id: regionId, is_active: true },
     include: [
@@ -567,36 +469,7 @@ async function findEligibleRegionalValidators(node, regionId, transaction = null
     transaction,
   });
 
-  const validators = [];
-  for (const u of activeUsers) {
-    if (!userCanValidateRegionalAchievement(u)) continue;
-    if (isSuperAdmin(u)) {
-      validators.push(u);
-      continue;
-    }
-    if (!responsibleStructureId) {
-      validators.push(u);
-      continue;
-    }
-    if (!u.regional_structure_id || u.regional_structure_id === responsibleStructureId) continue;
-
-    const isAncestor = await isRegionalStructureAncestor(
-      u.regional_structure_id,
-      responsibleStructureId,
-      transaction
-    );
-    if (isAncestor) continue;
-
-    const isDescendant = await isRegionalStructureAncestor(
-      responsibleStructureId,
-      u.regional_structure_id,
-      transaction
-    );
-    if (isDescendant) continue;
-
-    validators.push(u);
-  }
-  return validators;
+  return activeUsers.filter((u) => userCanValidateRegionalAchievement(u) || userCanApproveRegionalAchievement(u));
 }
 
 function normalizeStatus(status) {
@@ -1208,17 +1081,25 @@ async function resolveRegionalAchievementWorkflowScope(planVersionId, regionId, 
       }
     }
 
-    // 3. Validator (cross-branch independent)
+    // 3. Validator (scope)
     if (canValidate) {
-      try {
-        const check = await assertUserCanValidateAchievement(user, node, regionId, transaction);
-        if (check?.allowed) {
-          validatorNodeIds.add(node.regional_plan_node_id);
+      if (isBypass) {
+        validatorNodeIds.add(node.regional_plan_node_id);
+      } else {
+        try {
+          const check = await assertUserCanValidateAchievement(user, node, regionId, transaction);
+          if (check?.allowed) {
+            validatorNodeIds.add(node.regional_plan_node_id);
+          }
+        } catch {
+          // not eligible validator
         }
-      } catch {
-        // not eligible validator
       }
     }
+  }
+
+  if (validatorNodeIds.size > 0) {
+    hasValidationGate = true;
   }
 
   return {

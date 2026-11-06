@@ -3,6 +3,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useGetRegionalPlanAchievementWorkflowScopeQuery } from "@/redux/api/regionalPlanApi";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAuth } from "@/hooks/use-auth";
 
 export type RegionalPlanAchievementScopeValue = {
   canExecuteOnNode: (nodeId: string) => boolean;
@@ -43,19 +44,34 @@ export function RegionalPlanAchievementScopeProvider({
   children: ReactNode;
 }) {
   const { can } = usePermissions();
+  const { roles } = useAuth();
+  const isAdmin = Boolean(
+    roles?.some((r) =>
+      /admin|administrator/i.test(typeof r === "string" ? r : (r as any)?.name || "")
+    )
+  );
+
   const canExecuteAchievement =
+    isAdmin ||
     can("REGIONAL_PLANS:EXECUTE_ACHIEVEMENT") ||
     can("REGIONAL_PLANS:UPDATE") ||
     can("REGIONAL_PLANS:MANAGE") ||
     can("REGIONS:MANAGE");
+
   const canApproveAchievement =
+    isAdmin ||
     can("REGIONAL_PLANS:APPROVE_ACHIEVEMENT") ||
+    can("REGIONAL_PLANS:VALIDATE_ACHIEVEMENT") ||
     can("REGIONAL_PLANS:UPDATE") ||
     can("REGIONAL_PLANS:MANAGE") ||
     can("REGIONS:MANAGE");
+
   const canValidateAchievement =
+    isAdmin ||
     can("REGIONAL_PLANS:VALIDATE_ACHIEVEMENT") ||
+    can("REGIONAL_PLANS:APPROVE_ACHIEVEMENT") ||
     can("REGIONAL_PLANS:FINALIZE") ||
+    can("REGIONAL_PLANS:UPDATE") ||
     can("REGIONAL_PLANS:MANAGE") ||
     can("REGIONS:MANAGE");
 
@@ -72,14 +88,14 @@ export function RegionalPlanAchievementScopeProvider({
     const hasValidationGate = Boolean(data?.has_validation_gate);
 
     const canExecuteOnNode = (nodeId: string) => {
-      if (assignmentBypassActive && canExecuteAchievement) {
+      if ((assignmentBypassActive || isAdmin) && canExecuteAchievement) {
         return true;
       }
       return executorIds.has(nodeId);
     };
 
     const canApproveOnNode = (nodeId: string) => {
-      if (assignmentBypassActive && canApproveAchievement) {
+      if ((assignmentBypassActive || isAdmin) && canApproveAchievement) {
         return true;
       }
       return approverIds.has(nodeId);
@@ -89,7 +105,7 @@ export function RegionalPlanAchievementScopeProvider({
       if (!canValidateAchievement) {
         return false;
       }
-      if (assignmentBypassActive) {
+      if (assignmentBypassActive || isAdmin) {
         return true;
       }
       return validatorIds.has(nodeId);

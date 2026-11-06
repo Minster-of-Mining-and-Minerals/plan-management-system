@@ -36,6 +36,7 @@ import {
 } from "@/utils/planAchievementWorkflowUtils";
 import { planAchievementExecutorHint } from "@/utils/planAchievementHierarchyUtils";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAuth } from "@/hooks/use-auth";
 import { useRegionalPlanAchievementScope } from "../hooks/useRegionalPlanAchievementScope";
 import {
   Dialog,
@@ -137,21 +138,34 @@ export function RegionalPlanNodePeriodActualSection({
     isValidationRejecting ||
     isOverrideSaving;
 
+  const { roles } = useAuth();
+  const isAdmin = Boolean(
+    roles?.some((r) =>
+      /admin|administrator/i.test(typeof r === "string" ? r : (r as any)?.name || "")
+    )
+  );
+
   const achievementStatus = resolvePlanAchievementStatus(node as any);
 
   const canExecuteAchievement =
+    isAdmin ||
     can("REGIONAL_PLANS:EXECUTE_ACHIEVEMENT") ||
     can("REGIONAL_PLANS:UPDATE") ||
     can("REGIONAL_PLANS:MANAGE") ||
     can("REGIONS:MANAGE");
   const canApproveAchievement =
+    isAdmin ||
     can("REGIONAL_PLANS:APPROVE_ACHIEVEMENT") ||
+    can("REGIONAL_PLANS:VALIDATE_ACHIEVEMENT") ||
     can("REGIONAL_PLANS:UPDATE") ||
     can("REGIONAL_PLANS:MANAGE") ||
     can("REGIONS:MANAGE");
   const canValidateAchievementPermission =
+    isAdmin ||
     can("REGIONAL_PLANS:VALIDATE_ACHIEVEMENT") ||
+    can("REGIONAL_PLANS:APPROVE_ACHIEVEMENT") ||
     can("REGIONAL_PLANS:FINALIZE") ||
+    can("REGIONAL_PLANS:UPDATE") ||
     can("REGIONAL_PLANS:MANAGE") ||
     can("REGIONS:MANAGE");
 

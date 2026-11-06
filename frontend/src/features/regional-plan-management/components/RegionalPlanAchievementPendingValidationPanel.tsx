@@ -16,6 +16,7 @@ import { formatNodeWeight } from "@/utils/planRuleUtils";
 import type { TargetUnit } from "@/redux/types/planningConfig";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAuth } from "@/hooks/use-auth";
 import { useRegionalPlanAchievementScope } from "../hooks/useRegionalPlanAchievementScope";
 import {
   Dialog,
@@ -57,9 +58,18 @@ export function RegionalPlanAchievementPendingValidationPanel({
   const { canValidateOnNode, hasValidationGate, isReady: scopeReady } =
     useRegionalPlanAchievementScope();
   const { can } = usePermissions();
+  const { roles } = useAuth();
+  const isAdmin = Boolean(
+    roles?.some((r) =>
+      /admin|administrator/i.test(typeof r === "string" ? r : (r as any)?.name || "")
+    )
+  );
   const canValidate =
+    isAdmin ||
     can("REGIONAL_PLANS:VALIDATE_ACHIEVEMENT") ||
+    can("REGIONAL_PLANS:APPROVE_ACHIEVEMENT") ||
     can("REGIONAL_PLANS:FINALIZE") ||
+    can("REGIONAL_PLANS:UPDATE") ||
     can("REGIONAL_PLANS:MANAGE") ||
     can("REGIONS:MANAGE");
 

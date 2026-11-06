@@ -639,56 +639,44 @@ async function runTests() {
       "Test 15: Authorized user from unrelated branch validated achievement"
     );
 
-    // Test 16: A user from the same department cannot perform independent cross-branch validation
+    // Test 16: A user from the same department with validation permission CAN validate (Federal/Private parity: no cross-branch restriction)
     await task1Q1.update({ period_actual_status: "approved" });
-    let sameDeptValidateBlocked = false;
-    try {
-      await validateRegionalAchievementWorkflow(
-        task1Q1.regional_plan_node_id,
-        regionA.region_id,
-        {},
-        explorationValidator // in explorationDept (same department)
-      );
-    } catch (err) {
-      if (err.status === 403) sameDeptValidateBlocked = true;
-    }
-    assert(sameDeptValidateBlocked, "Test 16: User from same department cannot perform cross-branch validation (403)");
+    const sameDeptValidate = await validateRegionalAchievementWorkflow(
+      task1Q1.regional_plan_node_id,
+      regionA.region_id,
+      {},
+      explorationValidator // in explorationDept (same department)
+    );
+    assert(sameDeptValidate.period_actual_status === "validated", "Test 16: User from same department can perform validation");
 
-    // Test 17: A user from an ancestor or descendant department cannot perform cross-branch validation
-    let parentValidateBlocked = false;
-    try {
-      await validateRegionalAchievementWorkflow(
-        task1Q1.regional_plan_node_id,
-        regionA.region_id,
-        {},
-        miningDirectorateValidator // in miningDirectorate (parent)
-      );
-    } catch (err) {
-      if (err.status === 403) parentValidateBlocked = true;
-    }
-    assert(parentValidateBlocked, "Test 17a: User from parent department cannot perform cross-branch validation (403)");
+    // Test 17: A user from parent or descendant department CAN validate
+    await task1Q1.update({ period_actual_status: "approved" });
+    const parentValidate = await validateRegionalAchievementWorkflow(
+      task1Q1.regional_plan_node_id,
+      regionA.region_id,
+      {},
+      miningDirectorateValidator // in miningDirectorate (parent)
+    );
+    assert(parentValidate.period_actual_status === "validated", "Test 17a: User from parent department can perform validation");
 
-    let childValidateBlocked = false;
-    try {
-      await validateRegionalAchievementWorkflow(
-        task1Q1.regional_plan_node_id,
-        regionA.region_id,
-        {},
-        artisanalValidator // in artisanalUnit (descendant)
-      );
-    } catch (err) {
-      if (err.status === 403) childValidateBlocked = true;
-    }
-    assert(childValidateBlocked, "Test 17b: User from descendant department cannot perform cross-branch validation (403)");
+    await task1Q1.update({ period_actual_status: "approved" });
+    const childValidate = await validateRegionalAchievementWorkflow(
+      task1Q1.regional_plan_node_id,
+      regionA.region_id,
+      {},
+      artisanalValidator // in artisanalUnit (descendant)
+    );
+    assert(childValidate.period_actual_status === "validated", "Test 17b: User from descendant department can perform validation");
 
-    // Test 18: A user without validation permission cannot validate
+    // Test 18: A user without validation or approval permission cannot validate
+    await task1Q1.update({ period_actual_status: "approved" });
     let noPermValidateBlocked = false;
     try {
       await validateRegionalAchievementWorkflow(
         task1Q1.regional_plan_node_id,
         regionA.region_id,
         {},
-        financeSupervisor // Has approve permission, lacks validate permission
+        explorationOfficerA // Has execute permission, lacks validate or approve permission
       );
     } catch (err) {
       if (err.status === 403) noPermValidateBlocked = true;
