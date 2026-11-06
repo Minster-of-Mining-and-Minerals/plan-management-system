@@ -35,6 +35,8 @@ const REGIONAL_APPROVE_ACHIEVEMENT_KEY = "regional_plans:approve_achievement";
 const REGIONAL_VALIDATE_ACHIEVEMENT_KEY = "regional_plans:validate_achievement";
 const REGIONAL_BYPASS_ACHIEVEMENT_KEY = "regional_plans:bypass_achievement_assignment";
 const FEDERAL_BYPASS_ACHIEVEMENT_KEY = "plan:bypass_achievement_assignment";
+const REGIONAL_UPDATE_KEY = "regional_plans:update";
+const REGIONAL_FINALIZE_KEY = "regional_plans:finalize";
 const REGIONAL_MANAGE_KEY = "regional_plans:manage";
 const REGIONS_MANAGE_KEY = "regions:manage";
 
