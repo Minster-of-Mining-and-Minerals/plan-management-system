@@ -533,22 +533,18 @@ async function runTests() {
       "Test 10: Parent directorate approved descendant department report"
     );
 
-    // Test 11: An approver cannot approve a report from an unrelated department branch
+    // Test 11: An approver with approval permission CAN approve across departments (Federal/Private parity: no cross-branch restriction)
     await approvedNode.update({ period_actual_status: "submitted", period_actual_approved_by: null });
-    let unrelatedApproveBlocked = false;
-    try {
-      await approveRegionalAchievementWorkflow(
-        task1Q1.regional_plan_node_id,
-        regionA.region_id,
-        {},
-        financeSupervisor // In Finance Directorate (unrelated)
-      );
-    } catch (err) {
-      if (err.status === 403) unrelatedApproveBlocked = true;
-    }
-    assert(unrelatedApproveBlocked, "Test 11: Approver from unrelated department branch is blocked (403)");
+    const crossDeptApprove = await approveRegionalAchievementWorkflow(
+      task1Q1.regional_plan_node_id,
+      regionA.region_id,
+      {},
+      financeSupervisor // In Finance Directorate (unrelated department, has approval permission)
+    );
+    assert(crossDeptApprove.period_actual_status === "approved", "Test 11: Approver from another department can approve (Federal/Private parity)");
 
     // Test 12: A user without approval permission cannot approve
+    await approvedNode.update({ period_actual_status: "submitted", period_actual_approved_by: null });
     let noPermApproveBlocked = false;
     try {
       await approveRegionalAchievementWorkflow(
@@ -592,7 +588,10 @@ async function runTests() {
       is_active: true,
     });
 
-    // Submitting on isolated task (no approver in isolatedDept branch, but planningValidator exists in independent branch)
+    // Temporarily deactivate regional approvers to simulate region without approvers
+    await User.update({ is_active: false }, { where: { user_id: [miningDirector.user_id, financeSupervisor.user_id] } });
+
+    // Submitting on isolated task (no approver in region)
     await submitRegionalAchievementWorkflow(
       isolatedTask.regional_plan_node_id,
       regionA.region_id,
@@ -602,8 +601,11 @@ async function runTests() {
     const submittedIsolatedNode = await RegionalPlanNode.findByPk(isolatedTask.regional_plan_node_id);
     assert(
       submittedIsolatedNode.period_actual_status === "approved",
-      "Test 13: Approval stage skipped automatically when no approver exists in department branch"
+      "Test 13: Approval stage skipped automatically when no approver exists in region"
     );
+
+    // Reactivate approvers
+    await User.update({ is_active: true }, { where: { user_id: [miningDirector.user_id, financeSupervisor.user_id] } });
 
     // Test 14: When approval is required, submission alone does not contribute to dashboard aggregation
     // Set task 1 in submitted state
