@@ -699,10 +699,17 @@ async function runTests() {
     assert(noPermValidateBlocked, "Test 18: User without validation permission is blocked (403)");
 
     // Test 19: When no eligible validator exists in region, validation is skipped
-    await User.update(
-      { is_active: false },
-      { where: { user_id: [planningValidator.user_id, explorationValidator.user_id, miningDirectorateValidator.user_id, artisanalValidator.user_id] } }
-    );
+    const allReviewers = [
+      planningValidator.user_id,
+      explorationValidator.user_id,
+      miningDirectorateValidator.user_id,
+      artisanalValidator.user_id,
+      miningDirector.user_id,
+      financeSupervisor.user_id,
+      explorationSupervisor.user_id,
+      bypassAdmin.user_id,
+    ];
+    await User.update({ is_active: false }, { where: { user_id: allReviewers } });
     const workflowCheck = await determineRegionalAchievementWorkflow(task1Q1, regionA.region_id);
     assert(workflowCheck.hasEligibleValidator === false, "Test 19a: Correctly detected no eligible validator exists");
 
@@ -723,11 +730,8 @@ async function runTests() {
     const task2Submitted = await RegionalPlanNode.findByPk(task2Q1.regional_plan_node_id);
     assert(task2Submitted.is_validation_required === false, "Test 19b: is_validation_required set to false when validator is absent");
 
-    // Reactivate validators
-    await User.update(
-      { is_active: true },
-      { where: { user_id: [planningValidator.user_id, explorationValidator.user_id, miningDirectorateValidator.user_id, artisanalValidator.user_id] } }
-    );
+    // Reactivate reviewers
+    await User.update({ is_active: true }, { where: { user_id: allReviewers } });
 
     // Test 20: When validation is required, approval alone does not contribute to dashboard aggregation
     await RegionalPlanNode.update(
