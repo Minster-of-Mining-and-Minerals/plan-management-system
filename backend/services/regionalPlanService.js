@@ -5713,6 +5713,7 @@ async function getRegionalExecutionDashboardProgressTree(regionId, planVersionId
   // Map into hierarchical tree
   const childrenMap = new Map();
   const flatNodesWithMetrics = [];
+  const nodeMap = new Map(rawNodes.map((n) => [n.regional_plan_node_id, n]));
 
   for (const node of rawNodes) {
     const m = metricsMemo.get(node.regional_plan_node_id) || {
@@ -5723,6 +5724,13 @@ async function getRegionalExecutionDashboardProgressTree(regionId, planVersionId
     };
     const nodeProgress = m.progressPercent;
     const hasProgress = Boolean(m.hasData);
+    const targetVal = node.period_target != null ? Number(node.period_target) : (node.annual_target != null ? Number(node.annual_target) : (m.computedTarget != null ? Number(m.computedTarget) : null));
+    const actualVal = m.computedActual != null ? Number(m.computedActual) : (node.period_actual != null ? Number(node.period_actual) : (node.annual_actual != null ? Number(node.annual_actual) : null));
+    const isReported = (node.period_actual !== null && node.period_actual !== undefined) || (node.annual_actual !== null && node.annual_actual !== undefined);
+    const remainingTgt = targetVal != null && targetVal > 0 ? Math.max(0, targetVal - (actualVal || 0)) : 0;
+    const varianceVal = targetVal != null && actualVal != null ? actualVal - targetVal : 0;
+    const variancePct = targetVal != null && targetVal > 0 && actualVal != null ? Math.round(((actualVal - targetVal) / targetVal) * 100) : 0;
+    const parentTitle = node.parent_id && nodeMap.has(node.parent_id) ? nodeMap.get(node.parent_id).title : null;
 
     const formattedNode = {
       id: node.regional_plan_node_id,
@@ -5740,7 +5748,13 @@ async function getRegionalExecutionDashboardProgressTree(regionId, planVersionId
       is_validation_required: node.is_validation_required,
       computed_actual: m.computedActual,
       computed_target: m.computedTarget,
+      remaining_target: remainingTgt,
+      variance: varianceVal,
+      variance_percentage: variancePct,
+      workflow_status: node.period_actual_status || (isReported ? "submitted" : "unreported"),
+      reporting_status: isReported ? "reported" : "unreported",
       parent_id: node.parent_id,
+      parent_title: parentTitle,
       sharingMode: node.assignment_sharing_mode === "shared" ? "shared" : "exclusive",
       progress: nodeProgress,
       has_progress: hasProgress,
@@ -5755,6 +5769,12 @@ async function getRegionalExecutionDashboardProgressTree(regionId, planVersionId
       evaluation_status: m.status,
       computed_actual: m.computedActual,
       computed_target: m.computedTarget,
+      remaining_target: remainingTgt,
+      variance: varianceVal,
+      variance_percentage: variancePct,
+      workflow_status: formattedNode.workflow_status,
+      reporting_status: formattedNode.reporting_status,
+      parent_title: parentTitle,
     });
 
     if (node.parent_id) {
@@ -5779,6 +5799,12 @@ async function getRegionalExecutionDashboardProgressTree(regionId, planVersionId
         status: "not_started",
       };
       const rootProgress = m.progressPercent;
+      const targetVal = rootRaw.period_target != null ? Number(rootRaw.period_target) : (rootRaw.annual_target != null ? Number(rootRaw.annual_target) : (m.computedTarget != null ? Number(m.computedTarget) : null));
+      const actualVal = m.computedActual != null ? Number(m.computedActual) : (rootRaw.period_actual != null ? Number(rootRaw.period_actual) : (rootRaw.annual_actual != null ? Number(rootRaw.annual_actual) : null));
+      const remainingTgt = targetVal != null && targetVal > 0 ? Math.max(0, targetVal - (actualVal || 0)) : 0;
+      const varianceVal = targetVal != null && actualVal != null ? actualVal - targetVal : 0;
+      const variancePct = targetVal != null && targetVal > 0 && actualVal != null ? Math.round(((actualVal - targetVal) / targetVal) * 100) : 0;
+
       const rootFormatted = {
         id: rootRaw.regional_plan_node_id,
         title: rootRaw.title,
@@ -5795,7 +5821,13 @@ async function getRegionalExecutionDashboardProgressTree(regionId, planVersionId
         is_validation_required: rootRaw.is_validation_required,
         computed_actual: m.computedActual,
         computed_target: m.computedTarget,
+        remaining_target: remainingTgt,
+        variance: varianceVal,
+        variance_percentage: variancePct,
+        workflow_status: rootRaw.period_actual_status || "not_reported",
+        reporting_status: (rootRaw.period_actual !== null && rootRaw.period_actual !== undefined) || (rootRaw.annual_actual !== null && rootRaw.annual_actual !== undefined) ? "reported" : "unreported",
         parent_id: null,
+        parent_title: null,
         sharingMode: rootRaw.assignment_sharing_mode === "shared" ? "shared" : "exclusive",
         progress: rootProgress,
         has_progress: Boolean(m.hasData),
@@ -5821,6 +5853,94 @@ async function getRegionalExecutionDashboardProgressTree(regionId, planVersionId
     color_hex: s.color_hex || "#059669",
   }));
 
+  // Authoritative Aggregate Metrics and Workflow Breakdown
+  let totalTargetsSum = 0;
+  let totalActualsSum = 0;
+  let totalSFCount = 0;
+  let totalGoalCount = 0;
+  let totalKpiCount = 0;
+  let totalTaskCount = 0;
+  let completedNodesCount = 0;
+  let incompleteNodesCount = 0;
+  let reportedKpisCount = 0;
+  let unreportedKpisCount = 0;
+  let pendingApprovalCount = 0;
+  let pendingValidationCount = 0;
+  let approvedCount = 0;
+  let rejectedCount = 0;
+  let draftCount = 0;
+
+  for (const node of rawNodes) {
+    const m = metricsMemo.get(node.regional_plan_node_id);
+    const progress = m ? m.progressPercent : 0;
+    if (progress >= 100) {
+      completedNodesCount++;
+    } else {
+      incompleteNodesCount++;
+    }
+
+    const lvl = Number(node.level) || 1;
+    const isLeaf = !(childrenMap.get(node.regional_plan_node_id) || []).length;
+    const stepConfig = (masterVersion.planRule?.steps || []).find((s) => s.level === lvl);
+    const isKpi = stepConfig ? (Boolean(stepConfig.allow_kpi) || stepConfig.node_type === "kpi") : (lvl === 3);
+    const isSf = lvl === 1 || (stepConfig && stepConfig.node_type === "strategic");
+    const isGoal = lvl === 2 || (stepConfig && stepConfig.node_type === "goal");
+    const isTask = lvl > 3 || (isLeaf && !isKpi && !isSf && !isGoal);
+
+    if (isSf) totalSFCount++;
+    else if (isGoal) totalGoalCount++;
+    else if (isKpi) totalKpiCount++;
+    else if (isTask) totalTaskCount++;
+
+    if (isKpi || isLeaf) {
+      const isReported = (node.period_actual !== null && node.period_actual !== undefined) || (node.annual_actual !== null && node.annual_actual !== undefined);
+      if (isReported) reportedKpisCount++;
+      else unreportedKpisCount++;
+
+      const st = node.period_actual_status;
+      if (st === "submitted") pendingApprovalCount++;
+      else if (st === "approved" && node.is_validation_required) pendingValidationCount++;
+      else if (st === "validated" || (st === "approved" && !node.is_validation_required)) approvedCount++;
+      else if (st === "rejected") rejectedCount++;
+      else if (st === "draft") draftCount++;
+    }
+  }
+
+  for (const r of rootNodes) {
+    totalTargetsSum += Number(r.computed_target || 0);
+    totalActualsSum += Number(r.computed_actual || 0);
+  }
+
+  const remainingTargetSum = Math.max(0, totalTargetsSum - totalActualsSum);
+  const totalVariance = totalActualsSum - totalTargetsSum;
+  const variancePercent = totalTargetsSum > 0 ? Math.round((totalVariance / totalTargetsSum) * 100) : 0;
+  const totalKpisAll = totalKpiCount > 0 ? totalKpiCount : (reportedKpisCount + unreportedKpisCount);
+  const reportingCompletionPercent = totalKpisAll > 0 ? Math.round((reportedKpisCount / totalKpisAll) * 100) : 0;
+
+  const aggregateMetrics = {
+    total_sf: totalSFCount,
+    total_goals: totalGoalCount,
+    total_kpis: totalKpiCount,
+    total_tasks: totalTaskCount,
+    total_nodes: rawNodes.length,
+    total_target: Math.round(totalTargetsSum * 100) / 100,
+    total_actual: Math.round(totalActualsSum * 100) / 100,
+    remaining_target: Math.round(remainingTargetSum * 100) / 100,
+    achievement_percent: overallPeriodProgress,
+    completed_nodes: completedNodesCount,
+    incomplete_nodes: incompleteNodesCount,
+    reported_kpis: reportedKpisCount,
+    unreported_kpis: unreportedKpisCount,
+    reporting_completion_percent: reportingCompletionPercent,
+    pending_approval_count: pendingApprovalCount,
+    pending_validation_count: pendingValidationCount,
+    approved_count: approvedCount,
+    rejected_count: rejectedCount,
+    draft_count: draftCount,
+    variance: Math.round(totalVariance * 100) / 100,
+    variance_percent: variancePercent,
+  };
+
   return {
     progress_tree: {
       period_label: selectedPeriodMeta?.period_label ?? null,
@@ -5831,12 +5951,14 @@ async function getRegionalExecutionDashboardProgressTree(regionId, planVersionId
       available_periods: availablePeriods,
       nodes: rootNodes,
       hierarchy_config: hierarchyConfig,
+      aggregate_metrics: aggregateMetrics,
     },
     focus_master_plan_version_id: masterVersion.regional_plan_version_id,
     generated_at: new Date().toISOString(),
     // Backward compatibility
     version: masterVersion,
     tree: flatNodesWithMetrics,
+    aggregate_metrics: aggregateMetrics,
   };
 }
 
@@ -6084,6 +6206,40 @@ async function getRegionalExecutionDashboardDepartmentUser(regionId, planVersion
     });
     const reportedCount = reportedNodes.length;
 
+    let deptTarget = 0;
+    let deptActual = 0;
+    let assignedSfs = 0;
+    let assignedGoals = 0;
+    let assignedKpis = 0;
+    let assignedTasks = 0;
+    let pendingApproval = 0;
+    let pendingValidation = 0;
+    let approvedExecution = 0;
+    let rejectedExecution = 0;
+
+    for (const n of assignedNodes) {
+      const tgt = Number(n.period_target ?? n.annual_target) || 0;
+      const act = n.period_actual !== null && n.period_actual !== undefined
+        ? Number(n.period_actual)
+        : (n.annual_actual !== null && n.annual_actual !== undefined ? Number(n.annual_actual) : null);
+      const isEligible = isRollupEligibleAchievement(n);
+
+      if (tgt > 0) deptTarget += tgt;
+      if (isEligible && act !== null) deptActual += act;
+
+      const lvl = Number(n.level) || 1;
+      if (lvl === 1) assignedSfs++;
+      else if (lvl === 2) assignedGoals++;
+      else if (lvl === 3 || n.target_unit) assignedKpis++;
+      else assignedTasks++;
+
+      const st = n.period_actual_status;
+      if (st === "submitted") pendingApproval++;
+      else if (st === "approved" && n.is_validation_required) pendingValidation++;
+      else if (st === "validated" || (st === "approved" && !n.is_validation_required)) approvedExecution++;
+      else if (st === "rejected") rejectedExecution++;
+    }
+
     let avgScore = 0;
     if (totalAssigned > 0) {
       const sum = assignedNodes.reduce((acc, n) => {
@@ -6101,6 +6257,8 @@ async function getRegionalExecutionDashboardDepartmentUser(regionId, planVersion
     }
 
     const deptUsers = users.filter((u) => u.regional_structure_id === dept.regional_structure_id);
+    const remainingTarget = Math.max(0, deptTarget - deptActual);
+    const reportingCompletion = totalAssigned > 0 ? Math.round((reportedCount / totalAssigned) * 100) : 0;
 
     return {
       regional_structure_id: dept.regional_structure_id,
@@ -6113,6 +6271,18 @@ async function getRegionalExecutionDashboardDepartmentUser(regionId, planVersion
       assignedNodeCount: totalAssigned,
       reported_nodes_count: reportedCount,
       reportedNodeCount: reportedCount,
+      total_target: Math.round(deptTarget * 100) / 100,
+      total_actual: Math.round(deptActual * 100) / 100,
+      remaining_target: Math.round(remainingTarget * 100) / 100,
+      assigned_sfs: assignedSfs,
+      assigned_goals: assignedGoals,
+      assigned_kpis: assignedKpis,
+      assigned_tasks: assignedTasks,
+      reporting_completion: reportingCompletion,
+      pending_approval: pendingApproval,
+      pending_validation: pendingValidation,
+      approved_execution: approvedExecution,
+      rejected_execution: rejectedExecution,
       avg_progress: avgScore,
       progress: avgScore,
       has_progress: reportedCount > 0,
@@ -6137,6 +6307,40 @@ async function getRegionalExecutionDashboardDepartmentUser(regionId, planVersion
       return actual !== null && isEligible;
     });
     const reportedCount = reportedNodes.length;
+
+    let userTarget = 0;
+    let userActual = 0;
+    let assignedSfs = 0;
+    let assignedGoals = 0;
+    let assignedKpis = 0;
+    let assignedTasks = 0;
+    let pendingApproval = 0;
+    let pendingValidation = 0;
+    let approvedExecution = 0;
+    let rejectedExecution = 0;
+
+    for (const n of assignedNodes) {
+      const tgt = Number(n.period_target ?? n.annual_target) || 0;
+      const act = n.period_actual !== null && n.period_actual !== undefined
+        ? Number(n.period_actual)
+        : (n.annual_actual !== null && n.annual_actual !== undefined ? Number(n.annual_actual) : null);
+      const isEligible = isRollupEligibleAchievement(n);
+
+      if (tgt > 0) userTarget += tgt;
+      if (isEligible && act !== null) userActual += act;
+
+      const lvl = Number(n.level) || 1;
+      if (lvl === 1) assignedSfs++;
+      else if (lvl === 2) assignedGoals++;
+      else if (lvl === 3 || n.target_unit) assignedKpis++;
+      else assignedTasks++;
+
+      const st = n.period_actual_status;
+      if (st === "submitted") pendingApproval++;
+      else if (st === "approved" && n.is_validation_required) pendingValidation++;
+      else if (st === "validated" || (st === "approved" && !n.is_validation_required)) approvedExecution++;
+      else if (st === "rejected") rejectedExecution++;
+    }
 
     let achievementPercent = null;
     if (totalAssigned > 0) {
@@ -6166,6 +6370,8 @@ async function getRegionalExecutionDashboardDepartmentUser(regionId, planVersion
         : "at-risk";
 
     const roleName = u.roles?.[0]?.name || "Regional Staff";
+    const remainingTarget = Math.max(0, userTarget - userActual);
+    const reportingCompletion = totalAssigned > 0 ? Math.round((reportedCount / totalAssigned) * 100) : 0;
 
     return {
       id: u.user_id,
@@ -6176,6 +6382,24 @@ async function getRegionalExecutionDashboardDepartmentUser(regionId, planVersion
       departmentName: u.regionalStructure?.name || "Unassigned",
       assignedNodeCount: totalAssigned,
       reportedNodeCount: reportedCount,
+      total_target: Math.round(userTarget * 100) / 100,
+      total_actual: Math.round(userActual * 100) / 100,
+      remaining_target: Math.round(remainingTarget * 100) / 100,
+      assigned_sfs: assignedSfs,
+      assigned_goals: assignedGoals,
+      assigned_kpis: assignedKpis,
+      assigned_tasks: assignedTasks,
+      reporting_completion: reportingCompletion,
+      pending_approval: pendingApproval,
+      pending_validation: pendingValidation,
+      approved_execution: approvedExecution,
+      rejected_execution: rejectedExecution,
+      achievementPercent,
+      has_progress: reportedCount > 0,
+      performance,
+      activityScore: achievementPercent ?? 0,
+    };
+  });
       achievementPercent,
       has_progress: reportedCount > 0,
       performance,

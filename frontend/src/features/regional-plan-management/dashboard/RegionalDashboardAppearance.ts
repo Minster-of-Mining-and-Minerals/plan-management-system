@@ -89,6 +89,13 @@ export function getPerformanceBadgeDetails(performance: "excellent" | "good" | "
   }
 }
 
+export function getPerformanceTier(percent: number): "excellent" | "good" | "average" | "at-risk" {
+  if (percent >= 85) return "excellent";
+  if (percent >= 70) return "good";
+  if (percent >= 50) return "average";
+  return "at-risk";
+}
+
 export function getStatusBadgeDetails(status: string) {
   switch (status?.toLowerCase()) {
     case "completed":

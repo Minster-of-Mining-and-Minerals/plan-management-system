@@ -15,6 +15,7 @@ import {
   RotateCcw,
   Calendar,
   ChevronRight,
+  UserCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +45,8 @@ export function RegionalPlanDashboardFiltersBar({
     activeSection,
     setActiveSection,
     plans,
+    departments,
+    users,
     availablePeriods,
     hierarchyConfig,
     levelNodeOptions,
@@ -63,8 +66,20 @@ export function RegionalPlanDashboardFiltersBar({
     filters.status !== "all" ||
     filters.sharingMode !== "all" ||
     filters.planSearch.trim() !== "" ||
+    filters.departmentId !== "all" ||
+    filters.userId !== "all" ||
     filters.selectedHierarchyLevel !== "all" ||
     Object.values(filters.selectedPathByLevel).some((v) => v && v !== "all");
+
+  const activeDeptName =
+    filters.departmentId !== "all"
+      ? departments.find((d) => d.id === filters.departmentId)?.name || "Selected Directorate"
+      : null;
+
+  const activeUserName =
+    filters.userId !== "all"
+      ? users.find((u) => u.id === filters.userId)?.name || "Selected Staff"
+      : null;
 
   return (
     <div className="space-y-4">
@@ -96,7 +111,7 @@ export function RegionalPlanDashboardFiltersBar({
       <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl border border-border/70 bg-card shadow-2xs">
         <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
           {/* Master Plan Selector */}
-          <div className="w-56">
+          <div className="w-52">
             <Select
               value={filters.masterPlanVersionId}
               onValueChange={(val) => updateFilter("masterPlanVersionId", val)}
@@ -141,8 +156,48 @@ export function RegionalPlanDashboardFiltersBar({
             </div>
           )}
 
+          {/* Directorate Filter */}
+          <div className="w-44">
+            <Select
+              value={filters.departmentId}
+              onValueChange={(val) => updateFilter("departmentId", val)}
+            >
+              <SelectTrigger className="h-9 text-xs rounded-xl border-border/80">
+                <SelectValue placeholder="Directorate" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs">All Directorates</SelectItem>
+                {departments.map((d) => (
+                  <SelectItem key={d.id} value={d.id} className="text-xs">
+                    {d.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Assignee / Staff Filter */}
+          <div className="w-44">
+            <Select
+              value={filters.userId}
+              onValueChange={(val) => updateFilter("userId", val)}
+            >
+              <SelectTrigger className="h-9 text-xs rounded-xl border-border/80">
+                <SelectValue placeholder="Staff Assignee" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs">All Staff Members</SelectItem>
+                {users.map((u) => (
+                  <SelectItem key={u.id} value={u.id} className="text-xs">
+                    {u.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Status Filter */}
-          <div className="w-36">
+          <div className="w-32">
             <Select
               value={filters.status}
               onValueChange={(val) => updateFilter("status", val)}
@@ -161,11 +216,11 @@ export function RegionalPlanDashboardFiltersBar({
           </div>
 
           {/* Search Box */}
-          <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <div className="relative flex-1 min-w-[180px] max-w-xs">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Search nodes, targets, KPIs…"
+              placeholder="Search targets, KPIs…"
               value={filters.planSearch}
               onChange={(e) => updateFilter("planSearch", e.target.value)}
               className="h-9 pl-9 pr-8 text-xs rounded-xl border-border/80"
@@ -196,6 +251,45 @@ export function RegionalPlanDashboardFiltersBar({
           </Button>
         )}
       </div>
+
+      {/* Active Filter Indicators */}
+      {(activeDeptName || activeUserName) && (
+        <div className="flex flex-wrap items-center gap-2 px-1 text-xs">
+          <span className="text-muted-foreground font-medium">Active filters:</span>
+          {activeDeptName && (
+            <Badge
+              variant="outline"
+              className="gap-1 bg-emerald-50 text-emerald-800 border-emerald-300"
+            >
+              <Building2 className="h-3 w-3" />
+              <span>Directorate: {activeDeptName}</span>
+              <button
+                type="button"
+                onClick={() => updateFilter("departmentId", "all")}
+                className="ml-1 hover:text-destructive"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {activeUserName && (
+            <Badge
+              variant="outline"
+              className="gap-1 bg-blue-50 text-blue-800 border-blue-300"
+            >
+              <Users className="h-3 w-3" />
+              <span>Staff: {activeUserName}</span>
+              <button
+                type="button"
+                onClick={() => updateFilter("userId", "all")}
+                className="ml-1 hover:text-destructive"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+        </div>
+      )}
 
       {/* Dynamic Hierarchy Depth Selector Pills */}
       {hierarchyConfig.length > 0 && (
@@ -306,4 +400,3 @@ export function RegionalPlanDashboardFiltersBar({
     </div>
   );
 }
-

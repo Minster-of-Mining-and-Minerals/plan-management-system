@@ -7,6 +7,7 @@ import type {
   RegionalDashboardAvailablePeriod,
   RegionalHierarchyStepConfig,
   RegionalExecutionDashboardSummary,
+  RegionalDashboardAggregateMetrics,
 } from "@/redux/types/regionalPlan";
 
 export type RegionalDashboardSectionId =
@@ -54,6 +55,7 @@ export interface RegionalPlanDashboardState {
   // Data
   summaryData: RegionalExecutionDashboardSummary | undefined;
   kpi: RegionalDashboardKpiSummary;
+  aggregate_metrics?: RegionalDashboardAggregateMetrics;
   plans: RegionalDashboardPlanRow[];
   departments: RegionalDashboardDepartment[];
   users: RegionalDashboardUser[];
@@ -83,4 +85,3 @@ export interface RegionalPlanDashboardState {
   error: string | null;
   refetch: () => void;
 }
-

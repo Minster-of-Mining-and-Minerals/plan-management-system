@@ -232,6 +232,30 @@ export interface RegionalDashboardPlanRow {
   actual_count?: number;
 }
 
+export interface RegionalDashboardAggregateMetrics {
+  total_sf: number;
+  total_goals: number;
+  total_kpis: number;
+  total_tasks: number;
+  total_nodes: number;
+  total_target: number;
+  total_actual: number;
+  remaining_target: number;
+  achievement_percent: number;
+  completed_nodes: number;
+  incomplete_nodes: number;
+  reported_kpis: number;
+  unreported_kpis: number;
+  reporting_completion_percent: number;
+  pending_approval_count: number;
+  pending_validation_count: number;
+  approved_count: number;
+  rejected_count: number;
+  draft_count: number;
+  variance: number;
+  variance_percent: number;
+}
+
 export interface RegionalDashboardDepartment {
   id: string;
   regional_structure_id: string;
@@ -244,6 +268,18 @@ export interface RegionalDashboardDepartment {
   assigned_nodes_count?: number;
   reportedNodeCount: number;
   reported_nodes_count?: number;
+  total_target?: number;
+  total_actual?: number;
+  remaining_target?: number;
+  assigned_sfs?: number;
+  assigned_goals?: number;
+  assigned_kpis?: number;
+  assigned_tasks?: number;
+  reporting_completion?: number;
+  pending_approval?: number;
+  pending_validation?: number;
+  approved_execution?: number;
+  rejected_execution?: number;
   progress: number;
   avg_progress?: number;
   has_progress: boolean;
@@ -260,6 +296,18 @@ export interface RegionalDashboardUser {
   departmentName?: string;
   assignedNodeCount: number;
   reportedNodeCount: number;
+  total_target?: number;
+  total_actual?: number;
+  remaining_target?: number;
+  assigned_sfs?: number;
+  assigned_goals?: number;
+  assigned_kpis?: number;
+  assigned_tasks?: number;
+  reporting_completion?: number;
+  pending_approval?: number;
+  pending_validation?: number;
+  approved_execution?: number;
+  rejected_execution?: number;
   achievementPercent: number | null;
   has_progress: boolean;
   performance: "excellent" | "good" | "average" | "at-risk";
@@ -272,12 +320,23 @@ export interface RegionalDashboardProgressNode {
   type?: string;
   level?: number;
   weight?: number;
+  contribution_weight?: number | null;
   target_unit?: string | null;
   annual_target?: number | null;
   annual_actual?: number | null;
   period_target?: number | null;
   period_actual?: number | null;
+  period_actual_status?: string | null;
+  is_validation_required?: boolean;
+  computed_actual?: number | null;
+  computed_target?: number | null;
+  remaining_target?: number;
+  variance?: number;
+  variance_percentage?: number;
+  workflow_status?: string;
+  reporting_status?: "reported" | "unreported";
   parent_id?: string | null;
+  parent_title?: string | null;
   sharingMode: "shared" | "exclusive";
   progress: number;
   has_progress?: boolean;
@@ -337,6 +396,7 @@ export interface RegionalExecutionDashboardSummary {
   };
   focus_master_plan_version_id: string | null;
   generated_at: string;
+  aggregate_metrics?: RegionalDashboardAggregateMetrics;
   total_plans?: number;
   active_plans?: number;
   portfolio_progress_percent?: number;
@@ -363,14 +423,17 @@ export interface RegionalExecutionDashboardProgressTreeResponse {
     planning_year: number | null;
     period_version_id: string | null;
     period_phase: "active" | "past" | "upcoming" | null;
+    execution_progress_percent?: number;
     available_periods: RegionalDashboardAvailablePeriod[];
     nodes: RegionalDashboardProgressNode[];
     hierarchy_config?: RegionalHierarchyStepConfig[];
+    aggregate_metrics?: RegionalDashboardAggregateMetrics;
   };
   focus_master_plan_version_id: string | null;
   generated_at: string;
   version?: RegionalPlanVersion;
   tree?: RegionalPlanNode[];
+  aggregate_metrics?: RegionalDashboardAggregateMetrics;
 }
 
 export interface RegionalExecutionDashboardDepartmentUserResponse {

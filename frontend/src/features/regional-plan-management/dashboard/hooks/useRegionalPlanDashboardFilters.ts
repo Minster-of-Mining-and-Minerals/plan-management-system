@@ -255,6 +255,102 @@ export function useRegionalPlanDashboardFilters(regionId: string): RegionalPlanD
     );
   }, [summaryData]);
 
+  const aggregate_metrics = useMemo(() => {
+    if (progressTreeData?.progress_tree?.aggregate_metrics) {
+      return progressTreeData.progress_tree.aggregate_metrics;
+    }
+    if (progressTreeData?.aggregate_metrics) {
+      return progressTreeData.aggregate_metrics;
+    }
+    if (summaryData?.aggregate_metrics) {
+      return summaryData.aggregate_metrics;
+    }
+
+    let totalTarget = 0;
+    let totalActual = 0;
+    let sfs = 0;
+    let goals = 0;
+    let kpis = 0;
+    let tasks = 0;
+    let completed = 0;
+    let incomplete = 0;
+    let reported = 0;
+    let unreported = 0;
+    let pendingApproval = 0;
+    let pendingValidation = 0;
+    let approved = 0;
+    let rejected = 0;
+    let draft = 0;
+
+    function traverse(nodes: RegionalDashboardProgressNode[]) {
+      for (const n of nodes) {
+        if (n.progress >= 100) completed++;
+        else incomplete++;
+
+        const lvl = n.level || 1;
+        const isLeaf = !(n.children && n.children.length > 0);
+        if (lvl === 1) sfs++;
+        else if (lvl === 2) goals++;
+        else if (lvl === 3 || n.target_unit) kpis++;
+        else tasks++;
+
+        if (lvl === 1) {
+          totalTarget += Number(n.computed_target ?? n.period_target ?? n.annual_target ?? 0);
+          totalActual += Number(n.computed_actual ?? n.period_actual ?? n.annual_actual ?? 0);
+        }
+
+        if (isLeaf || lvl >= 3) {
+          const isRep = n.reporting_status === "reported" || n.period_actual != null || n.annual_actual != null;
+          if (isRep) reported++;
+          else unreported++;
+
+          const st = n.workflow_status || n.period_actual_status;
+          if (st === "submitted") pendingApproval++;
+          else if (st === "approved" && n.is_validation_required) pendingValidation++;
+          else if (st === "validated" || (st === "approved" && !n.is_validation_required)) approved++;
+          else if (st === "rejected") rejected++;
+          else if (st === "draft") draft++;
+        }
+
+        if (n.children && n.children.length > 0) {
+          traverse(n.children);
+        }
+      }
+    }
+    traverse(treeNodes);
+
+    const totalKpisAll = kpis > 0 ? kpis : (reported + unreported);
+    const repPct = totalKpisAll > 0 ? Math.round((reported / totalKpisAll) * 100) : 0;
+    const remaining = Math.max(0, totalTarget - totalActual);
+    const variance = totalActual - totalTarget;
+    const variancePct = totalTarget > 0 ? Math.round((variance / totalTarget) * 100) : 0;
+    const achPct = progressTreeData?.progress_tree?.execution_progress_percent ?? summaryData?.portfolio_progress_percent ?? 0;
+
+    return {
+      total_sf: sfs,
+      total_goals: goals,
+      total_kpis: kpis,
+      total_tasks: tasks,
+      total_nodes: treeNodes.length,
+      total_target: Math.round(totalTarget * 100) / 100,
+      total_actual: Math.round(totalActual * 100) / 100,
+      remaining_target: Math.round(remaining * 100) / 100,
+      achievement_percent: achPct,
+      completed_nodes: completed,
+      incomplete_nodes: incomplete,
+      reported_kpis: reported,
+      unreported_kpis: unreported,
+      reporting_completion_percent: repPct,
+      pending_approval_count: pendingApproval,
+      pending_validation_count: pendingValidation,
+      approved_count: approved,
+      rejected_count: rejected,
+      draft_count: draft,
+      variance: Math.round(variance * 100) / 100,
+      variance_percent: variancePct,
+    };
+  }, [progressTreeData, summaryData, treeNodes]);
+
   const isLoading = isSummaryLoading && !summaryData;
   const isFetching = isSummaryFetching || isTreeFetching || isDeptUserFetching;
   const error = summaryError ? "Failed to load regional execution dashboard" : treeError ? "Failed to load execution tree" : deptUserError ? "Failed to load department metrics" : null;
@@ -270,6 +366,7 @@ export function useRegionalPlanDashboardFilters(regionId: string): RegionalPlanD
 
     summaryData,
     kpi,
+    aggregate_metrics,
     plans: summaryData?.plans || [],
     departments,
     users,
