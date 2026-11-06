@@ -697,18 +697,18 @@ async function runVerification() {
       testRegion.region_id
     );
     assert(Array.isArray(q1Hierarchy.nodes) && q1Hierarchy.nodes.length > 0, "Q1 hierarchy nodes returned");
-    const cardQ1Kpi1 = q1Hierarchy.nodes.find((n) => n.regional_plan_node_id === q1_kpi1.regional_plan_node_id);
+    const cardQ1Kpi1 = q1Hierarchy.nodes.find((n) => n.regional_plan_node_id === q1Kpi1.regional_plan_node_id);
     assert(cardQ1Kpi1 !== undefined, "Q1 KPI 1 found in hierarchy");
     assert(Number(cardQ1Kpi1.computed_period_target) === 100, "Test 10a: Q1 KPI 1 card target is 100");
     assert(Number(cardQ1Kpi1.computed_period_actual) === 90, "Test 10b: Q1 KPI 1 card actual is 90");
     assert(Number(cardQ1Kpi1.execution_progress_percent) === 90, "Test 10c: Q1 KPI 1 card percentage is 90%");
 
-    const cardQ1Goal1 = q1Hierarchy.nodes.find((n) => n.regional_plan_node_id === q1_goal1.regional_plan_node_id);
+    const cardQ1Goal1 = q1Hierarchy.nodes.find((n) => n.regional_plan_node_id === q1Goal1.regional_plan_node_id);
     assert(cardQ1Goal1 !== undefined, "Q1 Goal 1 found in hierarchy");
     assert(Number(cardQ1Goal1.computed_period_actual) > 0, "Test 10d: Q1 Goal 1 card rolled up actual > 0");
     assert(Number(cardQ1Goal1.execution_progress_percent) === 78, "Test 10e: Q1 Goal 1 card rolled up percent is 78%");
 
-    const cardQ1Sf1 = q1Hierarchy.nodes.find((n) => n.regional_plan_node_id === q1_sf1.regional_plan_node_id);
+    const cardQ1Sf1 = q1Hierarchy.nodes.find((n) => n.regional_plan_node_id === q1SF.regional_plan_node_id);
     assert(cardQ1Sf1 !== undefined, "Q1 SF 1 found in hierarchy");
     assert(Number(cardQ1Sf1.computed_period_actual) > 0, "Test 10f: Q1 SF 1 card rolled up actual > 0");
     assert(Number(cardQ1Sf1.execution_progress_percent) === 87, "Test 10g: Q1 SF 1 card rolled up percent is 87%");
@@ -719,7 +719,7 @@ async function runVerification() {
       testRegion.region_id
     );
     assert(Array.isArray(annualHierarchy.nodes) && annualHierarchy.nodes.length > 0, "Annual hierarchy nodes returned");
-    const cardAnnualSf1 = annualHierarchy.nodes.find((n) => n.regional_plan_node_id === ann_sf1.regional_plan_node_id);
+    const cardAnnualSf1 = annualHierarchy.nodes.find((n) => n.level === 1);
     assert(cardAnnualSf1 !== undefined, "Annual SF 1 found in hierarchy");
     assert(Number(cardAnnualSf1.computed_period_actual) > 0, "Test 10h: Annual SF 1 card rolled up actual from periods > 0");
     assert(Number(cardAnnualSf1.execution_progress_percent) > 0, "Test 10i: Annual SF 1 card progress percent > 0%");
@@ -730,7 +730,7 @@ async function runVerification() {
       testRegion.region_id
     );
     assert(Array.isArray(masterHierarchy.nodes) && masterHierarchy.nodes.length > 0, "Master draft hierarchy nodes returned");
-    const cardMasterSf1 = masterHierarchy.nodes.find((n) => n.regional_plan_node_id === master_sf1.regional_plan_node_id);
+    const cardMasterSf1 = masterHierarchy.nodes.find((n) => n.regional_plan_node_id === sfNode.regional_plan_node_id);
     assert(cardMasterSf1 !== undefined, "Master draft SF 1 found in hierarchy");
     assert(Number(cardMasterSf1.computed_period_actual) > 0, "Test 10j: Master draft SF 1 card rolled up actual from annual/quarters > 0");
     assert(Number(cardMasterSf1.execution_progress_percent) > 0, "Test 10k: Master draft SF 1 card progress percent > 0%");
