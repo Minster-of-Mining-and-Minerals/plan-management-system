@@ -589,7 +589,7 @@ async function runTests() {
     });
 
     // Temporarily deactivate regional approvers to simulate region without approvers
-    await User.update({ is_active: false }, { where: { user_id: [miningDirector.user_id, financeSupervisor.user_id] } });
+    await User.update({ is_active: false }, { where: { user_id: [miningDirector.user_id, financeSupervisor.user_id, bypassAdmin.user_id] } });
 
     // Submitting on isolated task (no approver in region)
     await submitRegionalAchievementWorkflow(
@@ -605,7 +605,7 @@ async function runTests() {
     );
 
     // Reactivate approvers
-    await User.update({ is_active: true }, { where: { user_id: [miningDirector.user_id, financeSupervisor.user_id] } });
+    await User.update({ is_active: true }, { where: { user_id: [miningDirector.user_id, financeSupervisor.user_id, bypassAdmin.user_id] } });
 
     // Test 14: When approval is required, submission alone does not contribute to dashboard aggregation
     // Set task 1 in submitted state

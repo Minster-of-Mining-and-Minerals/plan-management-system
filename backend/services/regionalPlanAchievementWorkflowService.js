@@ -89,7 +89,6 @@ function userCanApproveRegionalAchievement(user) {
   if (isSuperAdmin(user) || isAdministrator(user)) return true;
   return userHasAny(user, [
     REGIONAL_APPROVE_ACHIEVEMENT_KEY,
-    REGIONAL_VALIDATE_ACHIEVEMENT_KEY,
     REGIONAL_BYPASS_ACHIEVEMENT_KEY,
     REGIONAL_MANAGE_KEY,
     REGIONS_MANAGE_KEY,
