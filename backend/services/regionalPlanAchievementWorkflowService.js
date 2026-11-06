@@ -477,11 +477,13 @@ function normalizeStatus(status) {
  * - Submitted, Rejected, Draft, Empty: Excluded
  */
 function isRollupEligibleAchievement(node) {
-  if (!node) return false;
   const status = normalizeStatus(node.period_actual_status || node.annual_actual_status);
   if (status === ACHIEVEMENT_STATUS.VALIDATED) return true;
   if (status === ACHIEVEMENT_STATUS.APPROVED) {
     return node.is_validation_required === false;
+  }
+  if (!status || status === ACHIEVEMENT_STATUS.EMPTY) {
+    return node.period_actual !== null && node.period_actual !== undefined;
   }
   return false;
 }
