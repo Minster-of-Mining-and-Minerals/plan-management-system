@@ -340,17 +340,9 @@ async function assertUserCanExecuteAchievement(user, node, regionId, transaction
       transaction,
     });
 
-    const userAssignments = assignments.filter((a) => a.assigned_user_id);
-    if (userAssignments.length > 0) {
-      isAssigned = userAssignments.some((a) => a.assigned_user_id === user.user_id);
-    } else if (assignments.length > 0) {
-      isAssigned = assignments.some(
-        (a) =>
-          a.regional_structure_id &&
-          (user.regional_structure_id === a.regional_structure_id ||
-            user.department_id === a.regional_structure_id)
-      );
-    }
+    isAssigned = assignments.some(
+      (a) => a.assigned_user_id && a.assigned_user_id === user.user_id
+    );
 
     if (isAssigned) break;
     cur = cur.parent_id
@@ -1040,23 +1032,10 @@ async function resolveRegionalAchievementWorkflowScope(planVersionId, regionId, 
     let cur = targetNode;
     while (cur) {
       const assignments = cur.internalAssignments || [];
-      const userAssignments = assignments.filter((a) => a.assigned_user_id);
-      if (userAssignments.length > 0) {
-        if (userAssignments.some((a) => a.assigned_user_id === user.user_id)) {
-          return true;
-        }
-      } else if (assignments.length > 0) {
-        if (
-          assignments.some(
-            (a) =>
-              a.regional_structure_id &&
-              (user.regional_structure_id === a.regional_structure_id ||
-                user.department_id === a.regional_structure_id)
-          )
-        ) {
-          return true;
-        }
-      }
+      const matched = assignments.some(
+        (a) => a.assigned_user_id && a.assigned_user_id === user.user_id
+      );
+      if (matched) return true;
       cur = cur.parent_id ? nodeMap.get(cur.parent_id) : null;
     }
     return false;
