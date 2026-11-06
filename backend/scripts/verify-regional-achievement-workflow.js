@@ -599,6 +599,7 @@ async function runTests() {
       isolatedOfficer
     );
     const submittedIsolatedNode = await RegionalPlanNode.findByPk(isolatedTask.regional_plan_node_id);
+    console.log("DEBUG Test 13 submittedIsolatedNode status:", submittedIsolatedNode?.period_actual_status);
     assert(
       submittedIsolatedNode.period_actual_status === "approved",
       "Test 13: Approval stage skipped automatically when no approver exists in region"
