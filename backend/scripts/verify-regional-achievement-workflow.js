@@ -30,6 +30,7 @@ const {
   assertUserCanApproveAchievement,
   assertUserCanValidateAchievement,
   determineRegionalAchievementWorkflow,
+  findEligibleRegionalApprovers,
 } = require("../services/regionalPlanAchievementWorkflowService");
 
 async function runTests() {
@@ -590,6 +591,9 @@ async function runTests() {
 
     // Temporarily deactivate regional approvers to simulate region without approvers
     await User.update({ is_active: false }, { where: { user_id: [miningDirector.user_id, financeSupervisor.user_id, bypassAdmin.user_id] } });
+
+    const debugApprovers = await findEligibleRegionalApprovers(isolatedTask, regionA.region_id);
+    console.log("APPROVERS IN TEST 13:", debugApprovers.map(a => ({ name: a.full_name, roles: (a.roles||[]).map(r => r.name) })));
 
     // Submitting on isolated task (no approver in region)
     await submitRegionalAchievementWorkflow(
