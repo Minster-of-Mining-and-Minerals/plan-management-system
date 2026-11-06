@@ -590,10 +590,7 @@ async function runTests() {
     });
 
     // Temporarily deactivate regional approvers to simulate region without approvers
-    await User.update({ is_active: false }, { where: { user_id: [miningDirector.user_id, financeSupervisor.user_id, bypassAdmin.user_id] } });
-
-    const debugApprovers = await findEligibleRegionalApprovers(isolatedTask, regionA.region_id);
-    console.log("APPROVERS IN TEST 13:", debugApprovers.map(a => ({ name: a.full_name, roles: (a.roles||[]).map(r => r.name) })));
+    await User.update({ is_active: false }, { where: { user_id: [miningDirector.user_id, financeSupervisor.user_id, explorationSupervisor.user_id, bypassAdmin.user_id] } });
 
     // Submitting on isolated task (no approver in region)
     await submitRegionalAchievementWorkflow(
@@ -603,14 +600,13 @@ async function runTests() {
       isolatedOfficer
     );
     const submittedIsolatedNode = await RegionalPlanNode.findByPk(isolatedTask.regional_plan_node_id);
-    console.log("DEBUG Test 13 submittedIsolatedNode status:", submittedIsolatedNode?.period_actual_status);
     assert(
       submittedIsolatedNode.period_actual_status === "approved",
       "Test 13: Approval stage skipped automatically when no approver exists in region"
     );
 
     // Reactivate approvers
-    await User.update({ is_active: true }, { where: { user_id: [miningDirector.user_id, financeSupervisor.user_id, bypassAdmin.user_id] } });
+    await User.update({ is_active: true }, { where: { user_id: [miningDirector.user_id, financeSupervisor.user_id, explorationSupervisor.user_id, bypassAdmin.user_id] } });
 
     // Test 14: When approval is required, submission alone does not contribute to dashboard aggregation
     // Set task 1 in submitted state
