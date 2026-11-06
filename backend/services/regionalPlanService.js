@@ -6400,12 +6400,6 @@ async function getRegionalExecutionDashboardDepartmentUser(regionId, planVersion
       activityScore: achievementPercent ?? 0,
     };
   });
-      achievementPercent,
-      has_progress: reportedCount > 0,
-      performance,
-      activityScore: achievementPercent ?? 0,
-    };
-  });
 
   return {
     departments: deptPerformance,
