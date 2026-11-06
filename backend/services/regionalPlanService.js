@@ -3025,7 +3025,8 @@ async function getRegionalDraftFinalizationReadiness(versionId, regionId) {
 
   const rule = version.planRule || (await getRegionalPlanRuleForVersion(versionId, regionId));
 
-  // Check required assignments according to rule
+  // Check required assignments and weights according to rule
+  let weightedNodeCount = 0;
   for (const n of nodes) {
     if (stepRequiresAssignment(rule, n.level)) {
       const activeAssignments = (n.internalAssignments || []).filter((a) => a.is_active !== false);
@@ -3037,6 +3038,21 @@ async function getRegionalDraftFinalizationReadiness(versionId, regionId) {
         );
       }
     }
+
+    if (rule && stepRequiresWeight(rule, n.level)) {
+      weightedNodeCount++;
+      const w = Number(n.weight) || 0;
+      if (w <= 0) {
+        const stepLabel = getStepLabel(rule, n.level);
+        errors.push(
+          `${stepLabel} "${n.title}" requires a strategic draft target (weight > 0) before draft finalization.`
+        );
+      }
+    }
+  }
+
+  if (rule && weightedNodeCount === 0) {
+    errors.push("Plan hierarchy must contain at least one KPI or weighted node before draft finalization.");
   }
 
   for (const [parentId, children] of childrenByParent.entries()) {
@@ -3666,13 +3682,20 @@ async function getRegionalAnnualExecutionReadiness(masterVersionId, regionId) {
 
   const rule = master.planRule || (await RegionalPlanRule.findByPk(master.regional_plan_rule_id));
 
+  let weightedNodesCount = 0;
   for (const mNode of masterNodes) {
     if (rule && !stepRequiresWeight(rule, mNode.level)) {
       continue;
     }
+    weightedNodesCount++;
 
     const draftTarget = Number(mNode.weight) || 0;
-    if (draftTarget <= 0) continue;
+    if (draftTarget <= 0) {
+      errors.push(
+        `Strategic draft target is not set for "${mNode.title}" (must be greater than 0 before annual targets can be allocated)`
+      );
+      continue;
+    }
 
     let allocatedSum = 0;
 
@@ -3709,6 +3732,10 @@ async function getRegionalAnnualExecutionReadiness(masterVersionId, regionId) {
         `Total annual targets for "${mNode.title}" (${allocatedSum}) must equal the draft target (${draftTarget})`
       );
     }
+  }
+
+  if (weightedNodesCount === 0) {
+    errors.push("No KPI or weighted nodes found in plan hierarchy.");
   }
 
   return {
@@ -3821,10 +3848,18 @@ async function distributeRegionalAnnualTargetsEqually(masterVersionId, regionId,
 
   const t = await sequelize.transaction();
   try {
+    let weightedCount = 0;
     for (const mNode of masterNodes) {
       if (rule && !stepRequiresWeight(rule, mNode.level)) continue;
+      weightedCount++;
       const draftTarget = Number(mNode.weight) || 0;
-      if (draftTarget <= 0) continue;
+      if (draftTarget <= 0) {
+        const err = new Error(
+          `Cannot divide annual targets: "${mNode.title}" requires a strategic draft target greater than 0.`
+        );
+        err.status = 400;
+        throw err;
+      }
 
       const baseValue = Math.floor((draftTarget / duration) * 100) / 100;
       const remainder = Math.round((draftTarget - baseValue * duration) * 100) / 100;
@@ -3845,6 +3880,13 @@ async function distributeRegionalAnnualTargetsEqually(masterVersionId, regionId,
         );
       }
     }
+
+    if (weightedCount === 0) {
+      const err = new Error("No KPI or weighted nodes found in plan hierarchy to distribute targets.");
+      err.status = 400;
+      throw err;
+    }
+
     await t.commit();
     return { success: true, count: masterNodes.length };
   } catch (err) {
@@ -3882,10 +3924,18 @@ async function distributeRegionalPeriodTargetsEqually(annualVersionId, regionId,
 
   const t = await sequelize.transaction();
   try {
+    let weightedCount = 0;
     for (const aNode of annualNodes) {
       if (rule && !stepRequiresWeight(rule, aNode.level)) continue;
+      weightedCount++;
       const annualTarget = Number(aNode.annual_target) || 0;
-      if (annualTarget <= 0) continue;
+      if (annualTarget <= 0) {
+        const err = new Error(
+          `Cannot divide period targets: "${aNode.title}" has no annual target configured for Year ${annual.planning_year}.`
+        );
+        err.status = 400;
+        throw err;
+      }
 
       const baseValue = Math.floor((annualTarget / periodCount) * 100) / 100;
       const remainder = Math.round((annualTarget - baseValue * periodCount) * 100) / 100;
@@ -3905,6 +3955,12 @@ async function distributeRegionalPeriodTargetsEqually(annualVersionId, regionId,
           }
         );
       }
+    }
+
+    if (weightedCount === 0) {
+      const err = new Error("No KPI or weighted nodes found in plan hierarchy to distribute period targets.");
+      err.status = 400;
+      throw err;
     }
     await t.commit();
     return { success: true, count: annualNodes.length };
@@ -4301,16 +4357,22 @@ async function getRegionalPeriodFinalizationReadiness(masterOrAnnualId, regionId
 
     const rule = annual.planRule || (await RegionalPlanRule.findByPk(annual.regional_plan_rule_id));
 
+    let weightedCount = 0;
     for (const aNode of annualNodes) {
       if (rule && !stepRequiresWeight(rule, aNode.level)) continue;
-      const annualTarget = Number(aNode.annual_target) || 0;
-      if (annualTarget <= 0) continue;
 
       // Leaf check: validate period targets on leaves
       const weightedChildren = annualNodes.filter(
         (c) => c.parent_id === aNode.regional_plan_node_id && c.is_active && (!rule || stepRequiresWeight(rule, c.level))
       );
       if (weightedChildren.length > 0) continue;
+
+      weightedCount++;
+      const annualTarget = Number(aNode.annual_target) || 0;
+      if (annualTarget <= 0) {
+        errors.push(`Annual target is not set for "${aNode.title}" in Year ${annual.planning_year} (must be > 0)`);
+        continue;
+      }
 
       let allocatedSum = 0;
       for (const p of periods) {
@@ -4327,7 +4389,20 @@ async function getRegionalPeriodFinalizationReadiness(masterOrAnnualId, regionId
           continue;
         }
 
-        const pTarget = Number(pNode.period_target) || 0;
+        const pTarget = Number(pNode.period_target);
+        if (pNode.period_target == null || Number.isNaN(pTarget)) {
+          errors.push(
+            `Period target is not set for "${aNode.title}" in ${p.period_label || `Period ${p.sequence_index}`}`
+          );
+          continue;
+        }
+        if (pTarget < 0) {
+          errors.push(
+            `Period target for "${aNode.title}" in ${p.period_label || `Period ${p.sequence_index}`} cannot be negative`
+          );
+          continue;
+        }
+
         allocatedSum += pTarget;
       }
 
@@ -4336,6 +4411,10 @@ async function getRegionalPeriodFinalizationReadiness(masterOrAnnualId, regionId
           `Total period targets for "${aNode.title}" (${allocatedSum}) must equal the annual target (${annualTarget}) in Year ${annual.planning_year}`
         );
       }
+    }
+
+    if (weightedCount === 0) {
+      errors.push(`No KPI or weighted leaf nodes found for Year ${annual.planning_year}.`);
     }
   }
 
