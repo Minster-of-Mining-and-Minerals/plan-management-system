@@ -5251,10 +5251,10 @@ async function getRegionalExecutionDashboardSummary(regionId, filters = {}) {
         if (node.level >= 3 || node.target_unit || node.period_target || node.annual_target) {
           activeMilestones++;
           targetCount++;
-          if (m && m.computedTarget > 0 && (m.computedActual === null || p < 50)) {
+          if (m && m.computedTarget > 0 && m.hasData && p < 50) {
             delayedKpis++;
           }
-          if (m && m.computedActual !== null) {
+          if (m && m.hasData && m.computedActual !== null && m.computedActual > 0) {
             actualCount++;
             planHasProgress = true;
           }
