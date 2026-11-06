@@ -326,7 +326,7 @@ export function RegionalAnnualVersionsDashboard({
                           className="font-medium"
                           style={{ color: progressColor }}
                         >
-                          {`${completion.percent}%`}
+                          {`${completion.percent}% of 100%`}
                         </span>
                       </div>
                       <PerformanceProgressBar

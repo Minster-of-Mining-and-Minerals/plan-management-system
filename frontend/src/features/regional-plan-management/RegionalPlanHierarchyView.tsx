@@ -376,6 +376,12 @@ export function RegionalPlanHierarchyView() {
         execution_progress_percent: n.execution_progress_percent != null ? Number(n.execution_progress_percent) : null,
         computed_period_actual: (n as any).computed_period_actual != null ? Number((n as any).computed_period_actual) : null,
         computed_period_target: (n as any).computed_period_target != null ? Number((n as any).computed_period_target) : null,
+        is_evaluable: (n as any).is_evaluable ?? (n.execution_progress_percent != null),
+        has_contributing_data: (n as any).has_contributing_data ?? ((n as any).computed_period_actual != null),
+        evaluation_status: (n as any).evaluation_status || null,
+        variance: (n as any).variance ?? null,
+        variance_percentage: (n as any).variance_percentage ?? null,
+        variance_type: (n as any).variance_type ?? null,
         created_at: (n as any).created_at || "",
         updated_at: (n as any).updated_at || "",
         deleted_at: null,
@@ -418,6 +424,15 @@ export function RegionalPlanHierarchyView() {
     () => (isPeriodPlan && processStarted ? collectPendingValidationNodes(treeRoots as any) : []),
     [treeRoots, isPeriodPlan, processStarted]
   );
+
+  const periodHasRecordedActuals = useMemo(() => {
+    return rawNodes.some(
+      (n: any) =>
+        n.period_actual != null ||
+        n.computed_period_actual != null ||
+        n.has_contributing_data === true
+    );
+  }, [rawNodes]);
 
   const renderPeriodActualSection = useCallback(
     (node: PlanNode, options?: { variant?: "card" | "compact" | "table" }) => (
@@ -1127,6 +1142,7 @@ export function RegionalPlanHierarchyView() {
             canEditPeriodActual={canEditPeriodActual}
             useExecutionCompletion={useExecutionCompletion}
             processStarted={processStarted}
+            periodHasRecordedActuals={periodHasRecordedActuals}
             renderPeriodActualSection={renderPeriodActualSection}
           />
         ) : viewMode === "card" ? (
@@ -1155,6 +1171,7 @@ export function RegionalPlanHierarchyView() {
             canEditPeriodActual={canEditPeriodActual}
             useExecutionCompletion={useExecutionCompletion}
             processStarted={processStarted}
+            periodHasRecordedActuals={periodHasRecordedActuals}
             renderPeriodActualSection={renderPeriodActualSection}
           />
         ) : (
@@ -1184,6 +1201,7 @@ export function RegionalPlanHierarchyView() {
             canEditPeriodActual={canEditPeriodActual}
             useExecutionCompletion={useExecutionCompletion}
             processStarted={processStarted}
+            periodHasRecordedActuals={periodHasRecordedActuals}
             renderPeriodActualSection={renderPeriodActualSection}
           />
         )}

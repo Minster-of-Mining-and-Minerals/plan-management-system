@@ -1385,7 +1385,7 @@ async function listRegionalPlanVersions(regionId, filters = {}) {
     where.parent_plan_version_id = filters.parent_plan_version_id;
   }
 
-  return RegionalPlanVersion.findAll({
+  const plans = await RegionalPlanVersion.findAll({
     where,
     order: [["created_at", "DESC"]],
     include: [
@@ -1393,6 +1393,46 @@ async function listRegionalPlanVersions(regionId, filters = {}) {
       { association: "annualVersions" },
     ],
   });
+
+  for (const plan of plans) {
+    if (plan.process_started_at) {
+      if (plan.version_kind === "master") {
+        const progress = await computeRegionalMasterExecutionProgress(plan.regional_plan_version_id);
+        plan.setDataValue("execution_progress_percent", progress.execution_progress_percent);
+        plan.setDataValue("execution_is_evaluable", progress.is_evaluable);
+        plan.setDataValue("execution_has_contributing_progress", progress.has_contributing_data);
+        plan.setDataValue("execution_has_recorded_actuals", progress.has_contributing_data);
+        plan.setDataValue("active_planning_year", progress.active_planning_year);
+        plan.execution_progress_percent = progress.execution_progress_percent;
+        plan.execution_is_evaluable = progress.is_evaluable;
+        plan.execution_has_contributing_progress = progress.has_contributing_data;
+        plan.execution_has_recorded_actuals = progress.has_contributing_data;
+        plan.active_planning_year = progress.active_planning_year;
+      } else if (plan.version_kind === "annual") {
+        const progress = await computeRegionalAnnualExecutionProgress(plan.regional_plan_version_id);
+        plan.setDataValue("execution_progress_percent", progress.execution_progress_percent);
+        plan.setDataValue("execution_is_evaluable", progress.is_evaluable);
+        plan.setDataValue("execution_has_contributing_progress", progress.has_contributing_data);
+        plan.setDataValue("execution_has_recorded_actuals", progress.has_contributing_data);
+        plan.execution_progress_percent = progress.execution_progress_percent;
+        plan.execution_is_evaluable = progress.is_evaluable;
+        plan.execution_has_contributing_progress = progress.has_contributing_data;
+        plan.execution_has_recorded_actuals = progress.has_contributing_data;
+      } else if (plan.version_kind === "execution_period") {
+        const progress = await computeRegionalPeriodExecutionProgress(plan.regional_plan_version_id);
+        plan.setDataValue("execution_progress_percent", progress.execution_progress_percent);
+        plan.setDataValue("execution_is_evaluable", progress.is_evaluable);
+        plan.setDataValue("execution_has_contributing_progress", progress.has_contributing_data);
+        plan.setDataValue("execution_has_recorded_actuals", progress.has_contributing_data);
+        plan.execution_progress_percent = progress.execution_progress_percent;
+        plan.execution_is_evaluable = progress.is_evaluable;
+        plan.execution_has_contributing_progress = progress.has_contributing_data;
+        plan.execution_has_recorded_actuals = progress.has_contributing_data;
+      }
+    }
+  }
+
+  return plans;
 }
 
 async function getRegionalPlanVersionById(versionId, regionId) {
@@ -1439,6 +1479,43 @@ async function getRegionalPlanVersionById(versionId, regionId) {
         version.setDataValue("master_review_status", master.review_status);
       }
       version.setDataValue("live_master_version_id", master.regional_plan_version_id);
+    }
+  }
+
+  const effectiveProcessStarted = Boolean(version.process_started_at || version.getDataValue("process_started_at"));
+  if (effectiveProcessStarted) {
+    if (version.version_kind === "master") {
+      const progress = await computeRegionalMasterExecutionProgress(version.regional_plan_version_id);
+      version.setDataValue("execution_progress_percent", progress.execution_progress_percent);
+      version.setDataValue("execution_is_evaluable", progress.is_evaluable);
+      version.setDataValue("execution_has_contributing_progress", progress.has_contributing_data);
+      version.setDataValue("execution_has_recorded_actuals", progress.has_contributing_data);
+      version.setDataValue("active_planning_year", progress.active_planning_year);
+      version.execution_progress_percent = progress.execution_progress_percent;
+      version.execution_is_evaluable = progress.is_evaluable;
+      version.execution_has_contributing_progress = progress.has_contributing_data;
+      version.execution_has_recorded_actuals = progress.has_contributing_data;
+      version.active_planning_year = progress.active_planning_year;
+    } else if (version.version_kind === "annual") {
+      const progress = await computeRegionalAnnualExecutionProgress(version.regional_plan_version_id);
+      version.setDataValue("execution_progress_percent", progress.execution_progress_percent);
+      version.setDataValue("execution_is_evaluable", progress.is_evaluable);
+      version.setDataValue("execution_has_contributing_progress", progress.has_contributing_data);
+      version.setDataValue("execution_has_recorded_actuals", progress.has_contributing_data);
+      version.execution_progress_percent = progress.execution_progress_percent;
+      version.execution_is_evaluable = progress.is_evaluable;
+      version.execution_has_contributing_progress = progress.has_contributing_data;
+      version.execution_has_recorded_actuals = progress.has_contributing_data;
+    } else if (version.version_kind === "execution_period") {
+      const progress = await computeRegionalPeriodExecutionProgress(version.regional_plan_version_id);
+      version.setDataValue("execution_progress_percent", progress.execution_progress_percent);
+      version.setDataValue("execution_is_evaluable", progress.is_evaluable);
+      version.setDataValue("execution_has_contributing_progress", progress.has_contributing_data);
+      version.setDataValue("execution_has_recorded_actuals", progress.has_contributing_data);
+      version.execution_progress_percent = progress.execution_progress_percent;
+      version.execution_is_evaluable = progress.is_evaluable;
+      version.execution_has_contributing_progress = progress.has_contributing_data;
+      version.execution_has_recorded_actuals = progress.has_contributing_data;
     }
   }
 
@@ -2416,6 +2493,25 @@ async function getRegionalPlanHierarchy(versionId, regionId, user = null) {
   }
   if (version.getDataValue("master_review_status")) {
     versionJson.master_review_status = version.getDataValue("master_review_status");
+  }
+
+  if (versionJson.process_started_at) {
+    if (version.version_kind === "execution_period") {
+      const p = await computeRegionalPeriodExecutionProgress(versionId);
+      versionJson.execution_progress_percent = p.execution_progress_percent;
+      versionJson.execution_is_evaluable = p.is_evaluable;
+      versionJson.execution_has_contributing_progress = p.has_contributing_data;
+    } else if (version.version_kind === "annual") {
+      const a = await computeRegionalAnnualExecutionProgress(versionId);
+      versionJson.execution_progress_percent = a.execution_progress_percent;
+      versionJson.execution_is_evaluable = a.is_evaluable;
+      versionJson.execution_has_contributing_progress = a.has_contributing_data;
+    } else if (version.version_kind === "master") {
+      const m = await computeRegionalMasterExecutionProgress(versionId);
+      versionJson.execution_progress_percent = m.execution_progress_percent;
+      versionJson.execution_is_evaluable = m.is_evaluable;
+      versionJson.execution_has_contributing_progress = m.has_contributing_data;
+    }
   }
 
   return {
@@ -3930,9 +4026,28 @@ async function listRegionalAnnualVersions(masterVersionId, regionId) {
       uniqueMap.set(ann.sequence_index, ann);
     }
   }
-  return Array.from(uniqueMap.values()).sort(
+  const sortedAnnuals = Array.from(uniqueMap.values()).sort(
     (a, b) => (a.sequence_index || 0) - (b.sequence_index || 0)
   );
+
+  const processStarted = Boolean(master?.process_started_at);
+  for (const ann of sortedAnnuals) {
+    if (processStarted) {
+      const progress = await computeRegionalAnnualExecutionProgress(ann.regional_plan_version_id);
+      ann.setDataValue("execution_progress_percent", progress.execution_progress_percent);
+      ann.setDataValue("execution_is_evaluable", progress.is_evaluable);
+      ann.setDataValue("execution_has_contributing_progress", progress.has_contributing_data);
+      ann.setDataValue("execution_has_recorded_actuals", progress.has_contributing_data);
+      ann.setDataValue("periods", progress.periods);
+      ann.execution_progress_percent = progress.execution_progress_percent;
+      ann.execution_is_evaluable = progress.is_evaluable;
+      ann.execution_has_contributing_progress = progress.has_contributing_data;
+      ann.execution_has_recorded_actuals = progress.has_contributing_data;
+      ann.periods = progress.periods;
+    }
+  }
+
+  return sortedAnnuals;
 }
 
 async function getRegionalAnnualTargetAllocations(annualVersionId, regionId) {
@@ -4430,8 +4545,9 @@ async function distributeRegionalPeriodTargetsEqually(annualVersionId, regionId,
 async function listRegionalExecutionPeriods(annualOrMasterVersionId, regionId) {
   const version = await getRegionalPlanVersionById(annualOrMasterVersionId, regionId);
 
+  let periods = [];
   if (version.version_kind === "annual") {
-    return RegionalPlanVersion.findAll({
+    periods = await RegionalPlanVersion.findAll({
       where: {
         parent_plan_version_id: annualOrMasterVersionId,
         version_kind: "execution_period",
@@ -4439,19 +4555,33 @@ async function listRegionalExecutionPeriods(annualOrMasterVersionId, regionId) {
       },
       order: [["sequence_index", "ASC"]],
     });
+  } else {
+    const annuals = await listRegionalAnnualVersions(annualOrMasterVersionId, regionId);
+    const annualIds = annuals.map((a) => a.regional_plan_version_id);
+
+    periods = await RegionalPlanVersion.findAll({
+      where: {
+        parent_plan_version_id: { [Op.in]: annualIds },
+        version_kind: "execution_period",
+        region_id: regionId,
+      },
+      order: [["planning_year", "ASC"], ["sequence_index", "ASC"]],
+    });
   }
 
-  const annuals = await listRegionalAnnualVersions(annualOrMasterVersionId, regionId);
-  const annualIds = annuals.map((a) => a.regional_plan_version_id);
+  for (const p of periods) {
+    const progress = await computeRegionalPeriodExecutionProgress(p.regional_plan_version_id);
+    p.setDataValue("execution_progress_percent", progress.execution_progress_percent);
+    p.setDataValue("execution_is_evaluable", progress.is_evaluable);
+    p.setDataValue("execution_has_contributing_progress", progress.has_contributing_data);
+    p.setDataValue("execution_has_recorded_actuals", progress.has_contributing_data);
+    p.execution_progress_percent = progress.execution_progress_percent;
+    p.execution_is_evaluable = progress.is_evaluable;
+    p.execution_has_contributing_progress = progress.has_contributing_data;
+    p.execution_has_recorded_actuals = progress.has_contributing_data;
+  }
 
-  return RegionalPlanVersion.findAll({
-    where: {
-      parent_plan_version_id: { [Op.in]: annualIds },
-      version_kind: "execution_period",
-      region_id: regionId,
-    },
-    order: [["planning_year", "ASC"], ["sequence_index", "ASC"]],
-  });
+  return periods;
 }
 
 async function initializeRegionalExecutionPeriods(

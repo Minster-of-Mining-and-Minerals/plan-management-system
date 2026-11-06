@@ -52,6 +52,10 @@ import {
   useGetRegionalPlanRulesQuery,
 } from "@/redux/api/regionalPlanApi";
 import type { RegionalPlanVersion } from "@/redux/types/regionalPlan";
+import { resolveCompletionForVersion } from "@/utils/performanceColorUtils";
+import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
+import { PerformanceProgressBar } from "@/features/plan-management/components/PerformanceProgressBar";
+import { PerformanceColorBadge } from "@/features/plan-management/components/PerformanceColorBadge";
 
 export function RegionalPlanVersionTable() {
   const router = useRouter();
@@ -59,6 +63,7 @@ export function RegionalPlanVersionTable() {
   const regionId = params?.id;
   const { can } = usePermissions();
   const { branding } = useBranding();
+  const thresholds = usePerformanceColorThresholds();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -360,6 +365,50 @@ export function RegionalPlanVersionTable() {
             <Badge variant="outline" className={`capitalize font-semibold text-xs px-2.5 py-0.5 ${badgeClass}`}>
               {status}
             </Badge>
+          );
+        },
+      },
+      {
+        id: "achievement",
+        header: "Achievement",
+        cell: ({ row }) => {
+          const plan = row.original;
+          const processStarted = Boolean(plan.process_started_at);
+          const progress = resolveCompletionForVersion(
+            thresholds,
+            plan as any,
+            processStarted
+          );
+
+          if (!progress.visible) {
+            return (
+              <span className="text-xs text-muted-foreground">
+                {processStarted ? "—" : "Not started"}
+              </span>
+            );
+          }
+
+          return (
+            <div className="flex flex-col gap-1.5 min-w-[120px] max-w-[160px]">
+              <div className="flex items-center gap-1.5">
+                <PerformanceColorBadge
+                  color={progress.color}
+                  label={`${progress.percent}% of 100%`}
+                  variant="tint"
+                  className="text-[10px] py-0 h-4"
+                />
+                {(plan as any).active_planning_year != null && (
+                  <span className="text-[10px] text-muted-foreground truncate">
+                    Yr {(plan as any).active_planning_year}
+                  </span>
+                )}
+              </div>
+              <PerformanceProgressBar
+                value={progress.percent}
+                color={progress.color}
+                className="h-1.5"
+              />
+            </div>
           );
         },
       },

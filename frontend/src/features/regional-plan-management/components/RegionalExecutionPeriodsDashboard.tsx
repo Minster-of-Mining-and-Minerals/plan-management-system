@@ -264,7 +264,7 @@ export function RegionalExecutionPeriodsDashboard({
                         style={{ color: miniColor }}
                       >
                         {periodCompletion.visible
-                          ? `${periodCompletion.percent}%`
+                          ? `${periodCompletion.percent}% of 100%`
                           : "—"}
                       </p>
                     </div>
@@ -379,7 +379,7 @@ export function RegionalExecutionPeriodsDashboard({
                           className="font-medium"
                           style={{ color: progressColor }}
                         >
-                          {`${completion.percent}%`}
+                          {`${completion.percent}% of 100%`}
                         </span>
                       </div>
                       <PerformanceProgressBar

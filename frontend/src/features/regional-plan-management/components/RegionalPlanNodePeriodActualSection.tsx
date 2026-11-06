@@ -793,7 +793,7 @@ export function RegionalPlanNodePeriodActualSection({
       )}
       {achievementPercent != null && showAchievementPercent && (
         <Badge variant="outline" className="text-[10px] py-0 h-4 border-amber-200 text-amber-900 font-semibold bg-amber-50/70 dark:bg-amber-950/30 dark:text-amber-300">
-          {achievementPercent}%
+          {achievementPercent}% of 100%
         </Badge>
       )}
       {varianceTypeLabel && showAchievementPercent && (
@@ -995,7 +995,7 @@ export function RegionalPlanNodePeriodActualSection({
           </p>
           {achievementPercent != null && showAchievementPercent && (
             <p className="text-xs text-amber-800 dark:text-amber-300 font-medium mt-1">
-              {achievementPercent}% performance
+              {achievementPercent}% of 100% performance
               {varianceTypeLabel ? ` · ${varianceTypeLabel}` : ""}
             </p>
           )}
