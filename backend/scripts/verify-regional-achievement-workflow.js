@@ -643,7 +643,10 @@ async function runTests() {
     );
 
     // Test 16: A user from the same department with validation permission CAN validate (Federal/Private parity: no cross-branch restriction)
-    await task1Q1.update({ period_actual_status: "approved" });
+    await RegionalPlanNode.update(
+      { period_actual_status: "approved" },
+      { where: { regional_plan_node_id: task1Q1.regional_plan_node_id } }
+    );
     const sameDeptValidate = await validateRegionalAchievementWorkflow(
       task1Q1.regional_plan_node_id,
       regionA.region_id,
@@ -653,7 +656,10 @@ async function runTests() {
     assert(sameDeptValidate.period_actual_status === "validated", "Test 16: User from same department can perform validation");
 
     // Test 17: A user from parent or descendant department CAN validate
-    await task1Q1.update({ period_actual_status: "approved" });
+    await RegionalPlanNode.update(
+      { period_actual_status: "approved" },
+      { where: { regional_plan_node_id: task1Q1.regional_plan_node_id } }
+    );
     const parentValidate = await validateRegionalAchievementWorkflow(
       task1Q1.regional_plan_node_id,
       regionA.region_id,
@@ -662,7 +668,10 @@ async function runTests() {
     );
     assert(parentValidate.period_actual_status === "validated", "Test 17a: User from parent department can perform validation");
 
-    await task1Q1.update({ period_actual_status: "approved" });
+    await RegionalPlanNode.update(
+      { period_actual_status: "approved" },
+      { where: { regional_plan_node_id: task1Q1.regional_plan_node_id } }
+    );
     const childValidate = await validateRegionalAchievementWorkflow(
       task1Q1.regional_plan_node_id,
       regionA.region_id,
@@ -672,7 +681,10 @@ async function runTests() {
     assert(childValidate.period_actual_status === "validated", "Test 17b: User from descendant department can perform validation");
 
     // Test 18: A user without validation or approval permission cannot validate
-    await task1Q1.update({ period_actual_status: "approved" });
+    await RegionalPlanNode.update(
+      { period_actual_status: "approved" },
+      { where: { regional_plan_node_id: task1Q1.regional_plan_node_id } }
+    );
     let noPermValidateBlocked = false;
     try {
       await validateRegionalAchievementWorkflow(
