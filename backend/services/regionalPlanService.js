@@ -5592,7 +5592,7 @@ async function getRegionalExecutionDashboardProgressTree(regionId, planVersionId
       status: "not_started",
     };
     const nodeProgress = m.progressPercent;
-    const hasProgress = m.computedActual !== null;
+    const hasProgress = Boolean(m.hasData);
 
     const formattedNode = {
       id: node.regional_plan_node_id,
@@ -5668,8 +5668,8 @@ async function getRegionalExecutionDashboardProgressTree(regionId, planVersionId
         parent_id: null,
         sharingMode: rootRaw.assignment_sharing_mode === "shared" ? "shared" : "exclusive",
         progress: rootProgress,
-        has_progress: m.computedActual !== null,
-        status: rootProgress >= 100 ? "completed" : (rootProgress < 50 && m.computedActual !== null ? "delayed" : "active"),
+        has_progress: Boolean(m.hasData),
+        status: rootProgress >= 100 ? "completed" : (rootProgress < 50 && m.hasData ? "delayed" : "active"),
         internalAssignments: rootRaw.internalAssignments || [],
         children: [],
       };
