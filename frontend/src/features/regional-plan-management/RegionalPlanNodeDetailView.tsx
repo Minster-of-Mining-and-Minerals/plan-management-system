@@ -122,23 +122,35 @@ export function RegionalPlanNodeDetailView({
   const isAnnual = version?.version_kind === "annual";
   const isMaster = version?.version_kind === "master";
 
-  const parentMasterId = isAnnual
-    ? version?.parent_plan_version_id
-    : isExecutionPeriod
-    ? version?.parent_plan_version_id
-    : null;
-  const { data: parentVersion } = useGetRegionalPlanVersionByIdQuery(
-    { id: parentMasterId!, region_id: regionId },
-    { skip: !parentMasterId || !regionId }
+  const annualParentId = isExecutionPeriod ? version?.parent_plan_version_id : null;
+  const { data: annualParentVersion } = useGetRegionalPlanVersionByIdQuery(
+    { id: annualParentId!, region_id: regionId },
+    { skip: !annualParentId || !regionId }
   );
-  const masterVersion = isAnnual ? parentVersion : undefined;
+
+  const resolvedMasterVersionId =
+    version?.live_master_version_id ??
+    (isMaster
+      ? versionId
+      : isAnnual
+      ? version?.parent_plan_version_id
+      : isExecutionPeriod
+      ? annualParentVersion?.parent_plan_version_id ?? null
+      : null);
+
+  const { data: masterVersion } = useGetRegionalPlanVersionByIdQuery(
+    { id: resolvedMasterVersionId!, region_id: regionId },
+    { skip: !resolvedMasterVersionId || !regionId }
+  );
+
   const annualTargetsFinalized = Boolean(masterVersion?.annual_targets_finalized_at);
 
   const processStarted = Boolean(
     version?.process_started_at ||
-      parentVersion?.process_started_at ||
-      version?.execution_status === "open" ||
-      version?.status === "active"
+      masterVersion?.process_started_at ||
+      annualParentVersion?.process_started_at ||
+      (isExecutionPeriod && (version?.execution_status === "open" || version?.status === "active")) ||
+      (isAnnual && (version?.execution_status === "open" || version?.status === "active"))
   );
   const showPeriodActuals = isExecutionPeriod && processStarted;
   const canEditPeriodActual =

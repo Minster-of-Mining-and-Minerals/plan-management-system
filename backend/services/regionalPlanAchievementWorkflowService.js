@@ -284,17 +284,38 @@ async function assertUserCanExecuteAchievement(user, node, regionId, transaction
     return { allowed: true };
   }
 
-  const assignments = await RegionalInternalAssignment.findAll({
-    where: { regional_plan_node_id: node.regional_plan_node_id, is_active: true },
-    transaction,
-  });
+  // Check assignments on this node, its source node, or its ancestors
+  let isAssigned = false;
+  let cur = node;
+  while (cur && !isAssigned) {
+    const candidateIds = [cur.regional_plan_node_id];
+    if (cur.source_regional_plan_node_id) {
+      candidateIds.push(cur.source_regional_plan_node_id);
+    }
+    const assignments = await RegionalInternalAssignment.findAll({
+      where: {
+        regional_plan_node_id: candidateIds,
+        is_active: true,
+      },
+      transaction,
+    });
 
-  const isAssignedDirectly = assignments.some(
-    (a) => a.assigned_user_id && a.assigned_user_id === user.user_id
-  );
+    isAssigned = assignments.some(
+      (a) =>
+        (a.assigned_user_id && a.assigned_user_id === user.user_id) ||
+        (a.regional_structure_id &&
+          (user.regional_structure_id === a.regional_structure_id ||
+            user.department_id === a.regional_structure_id))
+    );
 
-  if (!isAssignedDirectly) {
-    const error = new Error("Forbidden: You must be directly assigned to this plan node to record achievement");
+    if (isAssigned) break;
+    cur = cur.parent_id
+      ? await RegionalPlanNode.findByPk(cur.parent_id, { transaction })
+      : null;
+  }
+
+  if (!isAssigned) {
+    const error = new Error("Forbidden: You must be assigned to this plan node or department to record achievement");
     error.status = 403;
     throw error;
   }
@@ -1138,22 +1159,36 @@ async function resolveRegionalAchievementWorkflowScope(planVersionId, regionId, 
   const canValidate = userCanValidateRegionalAchievement(user);
 
   let hasValidationGate = false;
+  const nodeMap = new Map(nodes.map((n) => [n.regional_plan_node_id, n]));
+
+  const isNodeAssignedToUser = (targetNode) => {
+    let cur = targetNode;
+    while (cur) {
+      const assignments = cur.internalAssignments || [];
+      const matched = assignments.some(
+        (a) =>
+          (a.assigned_user_id && a.assigned_user_id === user.user_id) ||
+          (a.regional_structure_id &&
+            (user.regional_structure_id === a.regional_structure_id ||
+              user.department_id === a.regional_structure_id))
+      );
+      if (matched) return true;
+      cur = cur.parent_id ? nodeMap.get(cur.parent_id) : null;
+    }
+    return false;
+  };
 
   for (const node of nodes) {
     if (node.is_validation_required) {
       hasValidationGate = true;
     }
 
-    // 1. Executor (must be directly assigned unless bypass)
+    // 1. Executor (must be assigned directly, via department, or via ancestor)
     if (canExec) {
       if (isBypass) {
         executorNodeIds.add(node.regional_plan_node_id);
-      } else {
-        const assignments = node.internalAssignments || [];
-        const isAssigned = assignments.some((a) => a.assigned_user_id === user.user_id);
-        if (isAssigned) {
-          executorNodeIds.add(node.regional_plan_node_id);
-        }
+      } else if (isNodeAssignedToUser(node)) {
+        executorNodeIds.add(node.regional_plan_node_id);
       }
     }
 

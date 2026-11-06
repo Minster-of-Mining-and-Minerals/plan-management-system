@@ -1419,6 +1419,29 @@ async function getRegionalPlanVersionById(versionId, regionId) {
     throw error;
   }
 
+  // Resolve root master context for annual and execution period versions
+  if (version.version_kind === "annual" || version.version_kind === "execution_period") {
+    let master = null;
+    if (version.version_kind === "annual") {
+      master = version.parentPlanVersion || (version.parent_plan_version_id ? await RegionalPlanVersion.findByPk(version.parent_plan_version_id) : null);
+    } else if (version.version_kind === "execution_period") {
+      const annual = version.parentPlanVersion || (version.parent_plan_version_id ? await RegionalPlanVersion.findByPk(version.parent_plan_version_id) : null);
+      if (annual?.parent_plan_version_id) {
+        master = await RegionalPlanVersion.findByPk(annual.parent_plan_version_id);
+      }
+    }
+
+    if (master) {
+      if (master.process_started_at) {
+        version.setDataValue("process_started_at", master.process_started_at);
+      }
+      if (master.review_status) {
+        version.setDataValue("master_review_status", master.review_status);
+      }
+      version.setDataValue("live_master_version_id", master.regional_plan_version_id);
+    }
+  }
+
   return version;
 }
 
@@ -1931,6 +1954,15 @@ async function getRegionalPlanHierarchy(versionId, regionId, user = null) {
   const versionJson = version.toJSON ? version.toJSON() : { ...version };
   if (version.planRule) {
     versionJson.planRule = formatRegionalRuleResponse(version.planRule);
+  }
+  if (version.getDataValue("process_started_at")) {
+    versionJson.process_started_at = version.getDataValue("process_started_at");
+  }
+  if (version.getDataValue("live_master_version_id")) {
+    versionJson.live_master_version_id = version.getDataValue("live_master_version_id");
+  }
+  if (version.getDataValue("master_review_status")) {
+    versionJson.master_review_status = version.getDataValue("master_review_status");
   }
 
   return {

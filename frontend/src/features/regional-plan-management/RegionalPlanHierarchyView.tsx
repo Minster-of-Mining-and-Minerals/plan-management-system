@@ -186,13 +186,31 @@ export function RegionalPlanHierarchyView() {
   const canUpdatePlan = can("REGIONAL_PLANS:UPDATE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
   const canFinalize = can("REGIONAL_PLANS:FINALIZE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
 
-  const parentMasterId = isAnnualPlan ? plan?.parent_plan_version_id : null;
+  const annualParentId = isPeriodPlan ? plan?.parent_plan_version_id : null;
+  const { data: annualParentVersion } = useGetRegionalPlanVersionByIdQuery(
+    { id: annualParentId!, region_id: regionId! },
+    { skip: !annualParentId || !regionId }
+  );
+
+  const resolvedMasterVersionId =
+    plan?.live_master_version_id ??
+    (isMasterPlan
+      ? versionId
+      : isAnnualPlan
+      ? plan?.parent_plan_version_id
+      : isPeriodPlan
+      ? annualParentVersion?.parent_plan_version_id ?? null
+      : null);
+
   const { data: masterVersion } = useGetRegionalPlanVersionByIdQuery(
-    { id: parentMasterId!, region_id: regionId! },
-    { skip: !parentMasterId || !regionId }
+    { id: resolvedMasterVersionId!, region_id: regionId! },
+    { skip: !resolvedMasterVersionId || !regionId }
   );
 
   // Lifecycle flags
+  const effectiveMasterVersion = isMasterPlan ? plan : masterVersion;
+  const masterReviewStatus = effectiveMasterVersion?.review_status ?? (plan as any)?.master_review_status;
+
   const annualTargetsFinalized = Boolean(
     isMasterPlan
       ? plan?.annual_targets_finalized_at
@@ -203,17 +221,31 @@ export function RegionalPlanHierarchyView() {
       ? plan?.period_subdivision_mode
       : masterVersion?.period_subdivision_mode ?? plan?.period_subdivision_mode
   );
-  const periodTargetsFinalized = Boolean(plan?.period_targets_finalized_at);
-  const processStarted = Boolean(
-    isMasterPlan
-      ? plan?.process_started_at
-      : masterVersion?.process_started_at || plan?.process_started_at
+  const periodTargetsFinalized = Boolean(
+    isPeriodPlan
+      ? annualParentVersion?.period_targets_finalized_at ?? plan?.period_targets_finalized_at
+      : isAnnualPlan
+      ? plan?.period_targets_finalized_at
+      : false
   );
+  const processStarted = Boolean(
+    plan?.process_started_at ||
+      masterVersion?.process_started_at ||
+      annualParentVersion?.process_started_at ||
+      effectiveMasterVersion?.process_started_at ||
+      (isPeriodPlan && (plan?.execution_status === "open" || plan?.status === "active")) ||
+      (isAnnualPlan && (plan?.execution_status === "open" || plan?.status === "active"))
+  );
+
+  const showPeriodTargets = isPeriodPlan && !processStarted;
+  const showPeriodActuals = isPeriodPlan && processStarted;
+  const canEditPeriodActual = isPeriodPlan && processStarted && plan?.execution_status === "open";
+  const showAnnualTargets = isAnnualPlan && !processStarted;
+  const canEditAnnualTarget = isAnnualPlan && !annualTargetsFinalized && canUpdatePlan && plan?.status !== "completed" && !processStarted;
+  const canEditPeriodTarget = isPeriodPlan && !periodTargetsFinalized && canUpdatePlan && plan?.status !== "completed" && !processStarted;
 
   const showAnnualDashboard = isMasterPlan && (plan?.status === "finalized" || annualVersions.length > 0);
   const showPeriodDashboard = isAnnualPlan && annualTargetsFinalized && periodsInitializedGlobally;
-  const effectiveMasterVersion = isMasterPlan ? plan : masterVersion;
-  const masterReviewStatus = effectiveMasterVersion?.review_status;
   const showReviewTab = Boolean(
     effectiveMasterVersion?.published_for_review_at ||
       effectiveMasterVersion?.review_status ||
@@ -849,7 +881,7 @@ export function RegionalPlanHierarchyView() {
         <div className="rounded-xl border border-gray-100 bg-white dark:bg-card shadow-sm overflow-hidden">
           <div className="flex flex-col gap-3 px-4 py-3 border-b border-gray-100 dark:border-border sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap gap-2">
-              {periodsInitializedGlobally && !periodTargetsFinalized && canFinalize && (
+              {periodsInitializedGlobally && !periodTargetsFinalized && canFinalize && !processStarted && (
                 <Button
                   className="gap-2 shadow-xs"
                   onClick={() => setIsFinalizePeriodModalOpen(true)}
@@ -1073,17 +1105,17 @@ export function RegionalPlanHierarchyView() {
             onMoveNode={handleMoveNode}
             isReordering={isReordering}
             readOnly={!canUpdatePlan || (isMasterPlan && plan.status !== "draft")}
-            showAnnualTargets={isAnnualPlan}
-            canEditAnnualTarget={isAnnualPlan && !annualTargetsFinalized && canUpdatePlan && plan.status !== "completed"}
+            showAnnualTargets={showAnnualTargets}
+            canEditAnnualTarget={canEditAnnualTarget}
             annualTargetAllocations={annualAllocationsMap}
             onSaveAnnualTarget={handleSaveAnnualTarget}
-            showPeriodTargets={isPeriodPlan && !processStarted}
-            canEditPeriodTarget={isPeriodPlan && !periodTargetsFinalized && canUpdatePlan && plan.status !== "completed"}
+            showPeriodTargets={showPeriodTargets}
+            canEditPeriodTarget={canEditPeriodTarget}
             periodTargetAllocations={periodAllocationsMap}
             onSavePeriodTarget={handleSavePeriodTarget}
-            showPeriodActuals={isPeriodPlan && processStarted}
-            canEditPeriodActual={isPeriodPlan && processStarted && plan.execution_status === "open"}
-            useExecutionCompletion={isPeriodPlan && processStarted}
+            showPeriodActuals={showPeriodActuals}
+            canEditPeriodActual={canEditPeriodActual}
+            useExecutionCompletion={showPeriodActuals}
             processStarted={processStarted}
             renderPeriodActualSection={renderPeriodActualSection}
           />
@@ -1101,17 +1133,17 @@ export function RegionalPlanHierarchyView() {
             onMoveNode={(nodeId, direction) => handleMoveNode(nodeId, direction, currentNodes)}
             isReordering={isReordering}
             readOnly={!canUpdatePlan || (isMasterPlan && plan.status !== "draft")}
-            showAnnualTargets={isAnnualPlan}
-            canEditAnnualTarget={isAnnualPlan && !annualTargetsFinalized && canUpdatePlan && plan.status !== "completed"}
+            showAnnualTargets={showAnnualTargets}
+            canEditAnnualTarget={canEditAnnualTarget}
             annualTargetAllocations={annualAllocationsMap}
             onSaveAnnualTarget={handleSaveAnnualTarget}
-            showPeriodTargets={isPeriodPlan && !processStarted}
-            canEditPeriodTarget={isPeriodPlan && !periodTargetsFinalized && canUpdatePlan && plan.status !== "completed"}
+            showPeriodTargets={showPeriodTargets}
+            canEditPeriodTarget={canEditPeriodTarget}
             periodTargetAllocations={periodAllocationsMap}
             onSavePeriodTarget={handleSavePeriodTarget}
-            showPeriodActuals={isPeriodPlan && processStarted}
-            canEditPeriodActual={isPeriodPlan && processStarted && plan.execution_status === "open"}
-            useExecutionCompletion={isPeriodPlan && processStarted}
+            showPeriodActuals={showPeriodActuals}
+            canEditPeriodActual={canEditPeriodActual}
+            useExecutionCompletion={showPeriodActuals}
             processStarted={processStarted}
             renderPeriodActualSection={renderPeriodActualSection}
           />
@@ -1130,17 +1162,17 @@ export function RegionalPlanHierarchyView() {
             isReordering={isReordering}
             scoped={false}
             readOnly={!canUpdatePlan || (isMasterPlan && plan.status !== "draft")}
-            showAnnualTargets={isAnnualPlan}
-            canEditAnnualTarget={isAnnualPlan && !annualTargetsFinalized && canUpdatePlan && plan.status !== "completed"}
+            showAnnualTargets={showAnnualTargets}
+            canEditAnnualTarget={canEditAnnualTarget}
             annualTargetAllocations={annualAllocationsMap}
             onSaveAnnualTarget={handleSaveAnnualTarget}
-            showPeriodTargets={isPeriodPlan && !processStarted}
-            canEditPeriodTarget={isPeriodPlan && !periodTargetsFinalized && canUpdatePlan && plan.status !== "completed"}
+            showPeriodTargets={showPeriodTargets}
+            canEditPeriodTarget={canEditPeriodTarget}
             periodTargetAllocations={periodAllocationsMap}
             onSavePeriodTarget={handleSavePeriodTarget}
-            showPeriodActuals={isPeriodPlan && processStarted}
-            canEditPeriodActual={isPeriodPlan && processStarted && plan.execution_status === "open"}
-            useExecutionCompletion={isPeriodPlan && processStarted}
+            showPeriodActuals={showPeriodActuals}
+            canEditPeriodActual={canEditPeriodActual}
+            useExecutionCompletion={showPeriodActuals}
             processStarted={processStarted}
             renderPeriodActualSection={renderPeriodActualSection}
           />

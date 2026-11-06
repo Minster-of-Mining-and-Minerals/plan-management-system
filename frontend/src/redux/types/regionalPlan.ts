@@ -174,6 +174,8 @@ export interface RegionalPlanVersion {
   annual_targets_finalized_at?: string | null;
   period_targets_finalized_at?: string | null;
   process_started_at?: string | null;
+  live_master_version_id?: string | null;
+  master_review_status?: string | null;
   published_for_review_at?: string | null;
   review_completed_at?: string | null;
   execution_status?: string | null;
