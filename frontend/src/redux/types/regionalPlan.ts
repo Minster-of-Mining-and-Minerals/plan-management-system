@@ -237,6 +237,8 @@ export interface RegionalDashboardDepartment {
   regional_structure_id: string;
   name: string;
   level: number;
+  parent_id?: string | null;
+  children?: RegionalDashboardDepartment[];
   structureId?: string;
   assignedNodeCount: number;
   assigned_nodes_count?: number;

@@ -5841,6 +5841,7 @@ async function getRegionalExecutionDashboardDepartmentUser(regionId, planVersion
       id: dept.regional_structure_id,
       name: dept.name,
       level: dept.level,
+      parent_id: dept.parent_id || null,
       structureId: dept.regional_structure_id,
       assigned_nodes_count: totalAssigned,
       assignedNodeCount: totalAssigned,
