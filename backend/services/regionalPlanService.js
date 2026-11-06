@@ -1829,8 +1829,9 @@ function computeRegionalTreeRollup(rawNodes, rule) {
           const scored = computePerformanceMetrics(target, rawActual, policy);
           progressPercent = scored.performance_percentage ?? 0;
         } else {
+          // Unreported, pending, or rejected execution counts as 0 actual
           hasData = false;
-          computedActual = null;
+          computedActual = 0;
           progressPercent = 0;
         }
       } else {
@@ -1841,66 +1842,73 @@ function computeRegionalTreeRollup(rawNodes, rule) {
         progressPercent = 0;
       }
     } else {
-      // Parent Node evaluation: recursively evaluate all children
+      // Parent Node evaluation: recursively evaluate all active children
       const childMetrics = children.map((c) => evaluateNode(c));
-      const evaluableChildren = [];
-      const childrenWithData = [];
+
+      let totalContributionTarget = 0;
+      let totalContributionActual = 0;
+      let hasAnyEvaluableChild = false;
+      let hasAnyEligibleData = false;
 
       for (let i = 0; i < children.length; i++) {
         const c = children[i];
         const m = childMetrics[i];
-        if (m.is_evaluable) {
-          evaluableChildren.push({ child: c, metrics: m });
-        }
-        if (m.hasData) {
-          childrenWithData.push({ child: c, metrics: m });
+
+        // Child's configured contribution value
+        const configuredContribution =
+          c.contribution_weight != null && Number(c.contribution_weight) > 0
+            ? Number(c.contribution_weight)
+            : null;
+
+        // Child's applicable target value
+        const applicableTarget =
+          m.computedTarget != null && m.computedTarget > 0
+            ? m.computedTarget
+            : Number(c.period_target ?? c.annual_target ?? c.weight) || 0;
+
+        // Use contribution if configured, otherwise use applicable target
+        const childContributionOrTarget =
+          configuredContribution != null ? configuredContribution : applicableTarget;
+
+        if (childContributionOrTarget > 0) {
+          hasAnyEvaluableChild = true;
+          totalContributionTarget += childContributionOrTarget;
+
+          let childContributionActual = 0;
+          if (m.hasData && m.computedActual != null && m.computedActual > 0) {
+            hasAnyEligibleData = true;
+            if (configuredContribution != null) {
+              const childProgressRatio = (m.progressPercent ?? 0) / 100;
+              childContributionActual = childProgressRatio * configuredContribution;
+            } else {
+              childContributionActual = m.computedActual;
+            }
+          }
+          // Unreported execution counts as 0 actual while childContributionOrTarget remains in denominator
+          totalContributionActual += childContributionActual;
         }
       }
 
-      if (childrenWithData.length > 0) {
+      if (hasAnyEvaluableChild && totalContributionTarget > 0) {
         is_evaluable = true;
-        hasData = true;
-        const totalWeight = childrenWithData.reduce(
-          (sum, item) => sum + (Number(item.child.contribution_weight ?? item.child.weight) || 0),
-          0
+        hasData = hasAnyEligibleData;
+        computedTarget = totalContributionTarget;
+        computedActual = totalContributionActual;
+
+        const maxPercent = policy === "ALLOW_OVER_ACHIEVEMENT" ? 999999 : 100;
+        progressPercent = Math.max(
+          0,
+          Math.min(
+            maxPercent,
+            Math.round((totalContributionActual / totalContributionTarget) * 100)
+          )
         );
-
-        if (totalWeight > 0) {
-          // Weighted rollup
-          const weightedSum = childrenWithData.reduce(
-            (sum, item) =>
-              sum +
-              item.metrics.progressPercent *
-                (Number(item.child.contribution_weight ?? item.child.weight) || 0),
-            0
-          );
-          progressPercent = Math.max(0, Math.round(weightedSum / totalWeight));
-        } else {
-          // Equal weight rollup
-          const totalProgress = childrenWithData.reduce(
-            (sum, item) => sum + item.metrics.progressPercent,
-            0
-          );
-          progressPercent = Math.max(0, Math.round(totalProgress / childrenWithData.length));
-        }
-
-        computedTarget =
-          childrenWithData.reduce((sum, item) => sum + (item.metrics.computedTarget || 0), 0) || null;
-        computedActual =
-          childrenWithData.reduce((sum, item) => sum + (item.metrics.computedActual || 0), 0);
-      } else if (evaluableChildren.length > 0) {
-        is_evaluable = true;
-        hasData = false;
-        progressPercent = 0;
-        computedTarget =
-          evaluableChildren.reduce((sum, item) => sum + (item.metrics.computedTarget || 0), 0) || null;
-        computedActual = null;
       } else {
         is_evaluable = false;
-        progressPercent = 0;
         hasData = false;
         computedTarget = null;
         computedActual = null;
+        progressPercent = 0;
       }
     }
 
@@ -2004,11 +2012,38 @@ async function computeRegionalPeriodExecutionProgress(periodVersionId, transacti
     };
   }
 
-  const totalProgress = evaluableRoots.reduce(
-    (sum, r) => sum + (metricsMemo.get(r.regional_plan_node_id)?.progressPercent ?? 0),
-    0
-  );
-  const progressPercent = Math.max(0, Math.round(totalProgress / evaluableRoots.length));
+  let totalRootTarget = 0;
+  let totalRootActual = 0;
+  for (const r of evaluableRoots) {
+    const m = metricsMemo.get(r.regional_plan_node_id);
+    const configuredContribution =
+      r.contribution_weight != null && Number(r.contribution_weight) > 0
+        ? Number(r.contribution_weight)
+        : null;
+    const applicableTarget =
+      m.computedTarget != null && m.computedTarget > 0
+        ? m.computedTarget
+        : Number(r.period_target ?? r.annual_target ?? r.weight) || 0;
+    const rootWeightOrTarget =
+      configuredContribution != null ? configuredContribution : applicableTarget;
+
+    if (rootWeightOrTarget > 0) {
+      totalRootTarget += rootWeightOrTarget;
+      if (m.hasData && m.computedActual != null && m.computedActual > 0) {
+        if (configuredContribution != null) {
+          totalRootActual += ((m.progressPercent ?? 0) / 100) * configuredContribution;
+        } else {
+          totalRootActual += m.computedActual;
+        }
+      }
+    }
+  }
+
+  const progressPercent =
+    totalRootTarget > 0
+      ? Math.max(0, Math.round((totalRootActual / totalRootTarget) * 100))
+      : 0;
+
   const hasContributing = evaluableRoots.some(
     (r) => metricsMemo.get(r.regional_plan_node_id)?.hasData
   );
@@ -2078,19 +2113,13 @@ async function computeRegionalAnnualExecutionProgress(annualVersionId, transacti
     });
   }
 
-  const evaluablePeriods = periodResults.filter((p) => p.is_evaluable);
-  if (evaluablePeriods.length === 0) {
-    return {
-      execution_progress_percent: 0,
-      is_evaluable: false,
-      has_contributing_data: false,
-      periods: periodResults,
-    };
-  }
-
-  const sumProgress = evaluablePeriods.reduce((sum, p) => sum + (p.execution_progress_percent ?? 0), 0);
-  const annualProgress = Math.max(0, Math.round(sumProgress / evaluablePeriods.length));
-  const hasContributing = evaluablePeriods.some((p) => p.has_contributing_data);
+  // Include ALL applicable periods in the annual plan (unreported quarters count as 0 actual)
+  const totalQuarterProgress = periodResults.reduce(
+    (sum, p) => sum + (p.execution_progress_percent != null ? p.execution_progress_percent : 0),
+    0
+  );
+  const annualProgress = periods.length > 0 ? Math.max(0, Math.round(totalQuarterProgress / periods.length)) : 0;
+  const hasContributing = periodResults.some((p) => p.has_contributing_data);
 
   return {
     execution_progress_percent: annualProgress,
@@ -2186,16 +2215,19 @@ async function computeRegionalMasterExecutionProgress(masterVersionId, transacti
     };
   }
 
-  const sumProgress = evaluableAnnuals.reduce((sum, a) => sum + (a.execution_progress_percent ?? 0), 0);
-  const masterProgress = Math.max(0, Math.round(sumProgress / evaluableAnnuals.length));
-  const hasContributing = evaluableAnnuals.some((a) => a.has_contributing_data);
+  const totalAnnualProgress = execution_annual_progress.reduce(
+    (sum, a) => sum + (a.execution_progress_percent != null ? a.execution_progress_percent : 0),
+    0
+  );
+  const masterProgress = annuals.length > 0 ? Math.max(0, Math.round(totalAnnualProgress / annuals.length)) : 0;
+  const hasContributing = execution_annual_progress.some((a) => a.has_contributing_data);
 
   return {
     execution_progress_percent: masterProgress,
     has_contributing_data: hasContributing,
     is_evaluable: true,
     execution_annual_progress,
-    active_planning_year: execution_annual_progress.find((a) => a.is_evaluable)?.planning_year ?? master.start_year,
+    active_planning_year: execution_annual_progress.find((a) => a.has_contributing_data)?.planning_year ?? master.start_year,
   };
 }
 
