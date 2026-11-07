@@ -42,8 +42,14 @@ import {
   AlertCircle,
   FileText,
   Filter,
+  Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  calculateAnnualEndDate,
+  validateAnnualDateRange,
+  generateReportingPeriods,
+} from "@/utils/nationalReportingPeriodUtils";
 
 const CATEGORIES = [
   { value: "all", label: "All Categories" },
@@ -99,6 +105,8 @@ export function NationalRequirementsTab() {
   const [assignNotes, setAssignNotes] = useState("");
 
   const handleOpenCreate = () => {
+    const defaultStart = `${new Date().getFullYear()}-07-01`;
+    const defaultEnd = calculateAnnualEndDate(defaultStart);
     setFormData({
       code: "",
       title: "",
@@ -110,8 +118,8 @@ export function NationalRequirementsTab() {
       requires_numeric: true,
       requires_narrative: false,
       requires_evidence: false,
-      effective_start_date: "",
-      effective_end_date: "",
+      effective_start_date: defaultStart,
+      effective_end_date: defaultEnd,
       is_active: true,
     });
     setEditingReq(null);
@@ -138,11 +146,31 @@ export function NationalRequirementsTab() {
     setIsCreateOpen(true);
   };
 
+  const previewPeriods =
+    formData.effective_start_date && formData.effective_end_date
+      ? generateReportingPeriods(
+          formData.effective_start_date,
+          formData.effective_end_date,
+          formData.frequency
+        )
+      : [];
+
   const handleSaveRequirement = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.code.trim() || !formData.title.trim()) {
       toast.error("Code and Title are required");
       return;
+    }
+
+    if (formData.effective_start_date && formData.effective_end_date) {
+      const check = validateAnnualDateRange(
+        formData.effective_start_date,
+        formData.effective_end_date
+      );
+      if (!check.valid) {
+        toast.error(check.message);
+        return;
+      }
     }
 
     const payload = {
@@ -312,8 +340,22 @@ export function NationalRequirementsTab() {
                         ({req.unit_category})
                       </span>
                     </td>
-                    <td className="px-5 py-4 capitalize text-slate-600 dark:text-slate-400">
-                      {req.frequency}
+                    <td className="px-5 py-4">
+                      <div className="capitalize font-medium text-slate-800 dark:text-slate-200">
+                        {req.frequency}
+                      </div>
+                      {req.effective_start_date && req.effective_end_date ? (
+                        <div className="text-[11px] font-mono text-emerald-700 dark:text-emerald-400 mt-0.5 flex items-center gap-1">
+                          <Calendar className="h-3 w-3 shrink-0" />
+                          <span>
+                            {req.effective_start_date} ~ {req.effective_end_date}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="text-[10px] text-slate-400 italic mt-0.5">
+                          Standard annual cycle
+                        </div>
+                      )}
                     </td>
                     <td className="px-5 py-4">
                       <Badge
@@ -501,6 +543,97 @@ export function NationalRequirementsTab() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Annual Reporting Period Configuration */}
+            <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-3">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-emerald-600" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  Annual Reporting Cycle & Date Selection
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">
+                Configure the annual start date and end date. The reporting cycle does not have to match January–December. Periods will be derived continuously across this annual range.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                <div>
+                  <Label htmlFor="req-start-date" className="text-xs font-medium">
+                    Annual Start Date *
+                  </Label>
+                  <Input
+                    id="req-start-date"
+                    type="date"
+                    value={formData.effective_start_date}
+                    onChange={(e) => {
+                      const newStart = e.target.value;
+                      const autoEnd = calculateAnnualEndDate(newStart);
+                      setFormData({
+                        ...formData,
+                        effective_start_date: newStart,
+                        effective_end_date: autoEnd || formData.effective_end_date,
+                      });
+                    }}
+                    required
+                    className="mt-1"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Selecting start date automatically computes standard 1-year end date.
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="req-end-date" className="text-xs font-medium">
+                    Annual End Date *
+                  </Label>
+                  <Input
+                    id="req-end-date"
+                    type="date"
+                    value={formData.effective_end_date}
+                    onChange={(e) =>
+                      setFormData({ ...formData, effective_end_date: e.target.value })
+                    }
+                    required
+                    className="mt-1"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    End of the full annual reporting window (~365 days).
+                  </p>
+                </div>
+              </div>
+
+              {/* Recurring Periods Live Preview */}
+              {previewPeriods.length > 0 && (
+                <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Recurring Submissions Schedule ({previewPeriods.length} Periods)
+                    </span>
+                    <Badge variant="outline" className="text-[10px] uppercase font-mono">
+                      {formData.frequency.replace(/_/g, " ")}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {previewPeriods.map((p) => (
+                      <div
+                        key={p.period_index}
+                        className="p-2 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center"
+                      >
+                        <div className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                          {p.period_label}
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">
+                          {p.start_date}
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          to {p.end_date}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Validation & Evidence Options */}

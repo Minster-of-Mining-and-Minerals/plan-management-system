@@ -5,7 +5,10 @@ import {
   useGetRegionalAssignedRequirementsQuery,
   useGetRegionNationalReportingConfigQuery,
 } from "@/redux/api/nationalReportingApi";
-import { NationalReportingAssignment } from "@/redux/types/nationalReporting";
+import {
+  NationalReportingAssignment,
+  ReportingPeriod,
+} from "@/redux/types/nationalReporting";
 import { RegionalMappingModal } from "./RegionalMappingModal";
 import { RegionalConfirmationModal } from "./RegionalConfirmationModal";
 import { RegionalPublicationModal } from "./RegionalPublicationModal";
@@ -25,6 +28,11 @@ import {
   FileText,
   Clock,
   Info,
+  Calendar,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  CheckCircle,
 } from "lucide-react";
 
 interface Props {
@@ -50,256 +58,417 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
     useState<NationalReportingAssignment | null>(null);
   const [directFormAssignment, setDirectFormAssignment] =
     useState<NationalReportingAssignment | null>(null);
+  const [selectedPeriodLabel, setSelectedPeriodLabel] = useState<string | undefined>(undefined);
+  const [viewReceiptData, setViewReceiptData] = useState<any | null>(null);
+
+  // Expanded state for requirements recurring periods table (default open)
+  const [expandedReqs, setExpandedReqs] = useState<Record<string, boolean>>({});
+
+  const toggleExpand = (assignmentId: string) => {
+    setExpandedReqs((prev) => ({
+      ...prev,
+      [assignmentId]: prev[assignmentId] === false ? true : false,
+    }));
+  };
+
+  const handleOpenForm = (assignment: NationalReportingAssignment, periodLabel?: string) => {
+    setSelectedPeriodLabel(periodLabel);
+    setDirectFormAssignment(assignment);
+  };
+
+  const handleViewReceipt = (
+    assignment: NationalReportingAssignment,
+    period: ReportingPeriod
+  ) => {
+    const req = assignment.requirement;
+    setViewReceiptData({
+      publicationReference: period.publication_reference || "NAT-REF-VERIFIED",
+      requirementCode: req?.code,
+      reportingPeriod: `${period.period_label} (${period.start_date || ""} ~ ${period.end_date || ""})`,
+      standardizedValue: `${period.reported_actual !== null ? period.reported_actual : "—"} ${req?.expected_unit}`,
+      achievementPercent: `${period.achievement_rate !== null ? period.achievement_rate : "—"}%`,
+      publishedAt: period.published_at || new Date().toISOString(),
+      revisionNumber: 1,
+    });
+    setPublishingAssignment(assignment);
+  };
 
   return (
     <div className="space-y-6">
-      {/* Option B Active Indicator Banner */}
-      {isFormReportingActive && (
-        <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/20 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
-          <div className="flex items-start gap-3">
-            <span className="p-2 rounded-lg bg-emerald-600 text-white shadow-sm mt-0.5">
-              <FileText className="h-5 w-5" />
-            </span>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
-                  Form-Based National Reporting (Option B) is Active
-                </h3>
-                <Badge className="bg-emerald-600 text-white text-[10px]">Active</Badge>
-              </div>
-              <p className="text-xs text-slate-500 mt-0.5 max-w-2xl">
-                National administrators have activated direct form reporting for this region. You can submit KPI targets and achievements directly via form, or use the standard regional plan-node mapping workflow.
-              </p>
-              {regionConfig?.form_reporting_end_date && (
-                <div className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400 mt-1">
-                  <Clock className="h-3.5 w-3.5" />
-                  <span>Effective until {regionConfig.form_reporting_end_date}</span>
-                </div>
-              )}
+      {/* Dual Reporting Policy & Active Status Banners */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Node Mapping Banner (Always Available) */}
+        <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 space-y-1">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Layers className="h-4 w-4 text-emerald-600" />
+              <h3 className="font-bold text-xs uppercase tracking-wider text-emerald-900 dark:text-emerald-300">
+                Regional Plan-Node Mapping
+              </h3>
             </div>
+            <Badge className="bg-emerald-600 text-white text-[10px] font-semibold">
+              Permanent / Always Active
+            </Badge>
           </div>
+          <p className="text-xs text-slate-600 dark:text-slate-400">
+            Primary national reporting foundation. Link regional KPIs, record periodic execution, and validate reports through the regional governance gateway.
+          </p>
         </div>
-      )}
 
-      {/* Overview Cards */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">
-              <tr>
-                <th className="px-5 py-3.5">National Requirement</th>
-                <th className="px-5 py-3.5">Category</th>
-                <th className="px-5 py-3.5">Required Unit</th>
-                <th className="px-5 py-3.5">Mapped Regional Node</th>
-                <th className="px-5 py-3.5">Workflow Status</th>
-                <th className="px-5 py-3.5 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={6} className="px-5 py-12 text-center text-slate-500">
-                    Loading assigned national reporting requirements...
-                  </td>
-                </tr>
-              ) : assignments.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-5 py-12 text-center text-slate-500">
-                    No national reporting requirements assigned to this regional state yet.
-                  </td>
-                </tr>
-              ) : (
-                assignments.map((assignment) => {
-                  const req = assignment.requirement;
-                  const mapping = assignment.activeMapping;
-                  const node = mapping?.planNode;
-                  const status = assignment.workflowStatus || "unmapped";
+        {/* Form-Based Reporting Banner (Configurable) */}
+        <div
+          className={`p-4 rounded-xl border space-y-1 ${
+            isFormReportingActive
+              ? "border-emerald-300 dark:border-emerald-700 bg-emerald-500/10"
+              : "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-emerald-600" />
+              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                Form-Based National Reporting
+              </h3>
+            </div>
+            {isFormReportingActive ? (
+              <Badge className="bg-emerald-600 text-white text-[10px] font-semibold">
+                Activated
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="text-[10px]">
+                Disabled
+              </Badge>
+            )}
+          </div>
+          <p className="text-xs text-slate-600 dark:text-slate-400">
+            {isFormReportingActive
+              ? `Direct KPI form reporting is currently active. You may submit targets and achievements directly for any period.`
+              : "Direct KPI form reporting is disabled by national administrators. Regional plan-node mapping remains fully operational."}
+          </p>
+          {isFormReportingActive && regionConfig?.form_reporting_end_date && (
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400 pt-0.5">
+              <Clock className="h-3 w-3" />
+              <span>Effective until {regionConfig.form_reporting_end_date}</span>
+            </div>
+          )}
+        </div>
+      </div>
 
-                  return (
-                    <tr
-                      key={assignment.assignment_id}
-                      className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
-                    >
-                      <td className="px-5 py-4">
-                        <div className="font-semibold text-slate-900 dark:text-slate-100">
-                          {req?.title}
-                        </div>
-                        <div className="text-xs font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">
-                          {req?.code} • {req?.frequency}
-                        </div>
-                        {assignment.is_mandatory && (
-                          <span className="inline-block mt-1 text-[10px] font-semibold uppercase tracking-wider text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
-                            Mandatory Federal Indicator
-                          </span>
-                        )}
-                      </td>
+      {/* Assigned Requirements List with Recurring Periods */}
+      <div className="space-y-4">
+        {isLoading ? (
+          <div className="p-12 text-center text-xs text-slate-400 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+            Loading assigned national reporting requirements and period schedules...
+          </div>
+        ) : assignments.length === 0 ? (
+          <div className="p-12 text-center text-xs text-slate-400 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+            No national reporting requirements assigned to this regional state yet.
+          </div>
+        ) : (
+          assignments.map((assignment) => {
+            const req = assignment.requirement;
+            const mapping = assignment.activeMapping;
+            const node = mapping?.planNode;
+            const periods = assignment.recurringPeriods || [];
+            const isExpanded = expandedReqs[assignment.assignment_id] !== false; // default expanded
 
-                      <td className="px-5 py-4">
-                        <Badge variant="outline" className="text-xs capitalize">
-                          {req?.category?.replace(/_/g, " ")}
-                        </Badge>
-                      </td>
-
-                      <td className="px-5 py-4 font-mono font-medium text-slate-700 dark:text-slate-300">
-                        {req?.expected_unit}{" "}
-                        <span className="text-xs text-slate-400 font-sans">
-                          ({req?.unit_category})
+            return (
+              <div
+                key={assignment.assignment_id}
+                className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden"
+              >
+                {/* Requirement Header */}
+                <div className="p-4 bg-slate-50/70 dark:bg-slate-950/50 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                        {req?.code}
+                      </span>
+                      <Badge variant="outline" className="text-xs capitalize">
+                        {req?.category?.replace(/_/g, " ")}
+                      </Badge>
+                      <Badge className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono text-xs">
+                        Unit: {req?.expected_unit} ({req?.unit_category})
+                      </Badge>
+                      {assignment.is_mandatory && (
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                          Mandatory Federal Indicator
                         </span>
-                      </td>
-
-                      <td className="px-5 py-4">
-                        {node ? (
-                          <div className="space-y-0.5">
-                            <div className="font-medium text-slate-800 dark:text-slate-200 line-clamp-1">
+                      )}
+                    </div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                      {req?.title}
+                    </h3>
+                    <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+                      <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-medium">
+                        <Calendar className="h-3.5 w-3.5" />
+                        Annual Cycle: {req?.effective_start_date || "2026-07-01"} ~{" "}
+                        {req?.effective_end_date || "2027-06-30"}
+                      </span>
+                      <span>•</span>
+                      <span className="capitalize font-medium">
+                        Frequency: {req?.frequency?.replace(/_/g, " ")} ({periods.length} Periods)
+                      </span>
+                      {node && (
+                        <>
+                          <span>•</span>
+                          <span>
+                            Mapped Node:{" "}
+                            <strong className="text-slate-700 dark:text-slate-300">
                               {node.title}
-                            </div>
-                            <div className="text-xs font-mono text-slate-400">
-                              Unit: {node.target_unit || mapping?.local_unit} • Status:{" "}
-                              <span className="font-semibold text-slate-600 dark:text-slate-300">
-                                {node.period_actual_status || "empty"}
-                              </span>
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-slate-400 italic">
-                            Not mapped to any regional node
+                            </strong>
                           </span>
-                        )}
-                      </td>
+                        </>
+                      )}
+                    </div>
+                  </div>
 
-                      <td className="px-5 py-4">
-                        {status === "published" ? (
-                          <Badge className="bg-emerald-600 text-white flex items-center gap-1 w-fit text-xs">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Published
-                          </Badge>
-                        ) : status === "ready_to_publish" ? (
-                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 flex items-center gap-1.5 w-fit text-xs animate-pulse">
-                            <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
-                            Ready to Publish (Validated)
-                          </Badge>
-                        ) : status === "confirmed" ? (
-                          <Badge className="bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 text-xs">
-                            Confirmed (Stage B)
-                          </Badge>
-                        ) : status === "potential" ? (
-                          <Badge className="bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950 dark:text-blue-300 text-xs">
-                            Potential (Stage A)
-                          </Badge>
+                  <div className="flex items-center gap-2 self-start md:self-center">
+                    {/* Direct Form Submit Button (if Form active) */}
+                    {isFormReportingActive && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleOpenForm(assignment)}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 flex items-center gap-1 font-semibold"
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        Submit KPI Form
+                      </Button>
+                    )}
+
+                    {/* Regional Node Mapping Button */}
+                    {!mapping && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setMappingAssignment(assignment)}
+                        className="text-xs h-8 flex items-center gap-1 border-emerald-300 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50"
+                      >
+                        <FolderTree className="h-3.5 w-3.5 mr-1" />
+                        Map Node
+                      </Button>
+                    )}
+
+                    {/* Expand/Collapse Toggle Button */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => toggleExpand(assignment.assignment_id)}
+                      className="text-xs h-8 px-2 text-slate-500 hover:text-slate-900"
+                    >
+                      {isExpanded ? (
+                        <>
+                          <ChevronUp className="h-4 w-4 mr-1" />
+                          Hide Periods
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="h-4 w-4 mr-1" />
+                          View Periods ({periods.length})
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Recurring Periods Schedule Table */}
+                {isExpanded && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left">
+                      <thead className="bg-slate-100/60 dark:bg-slate-950/70 border-b border-slate-200 dark:border-slate-800 text-[11px] font-semibold uppercase text-slate-500">
+                        <tr>
+                          <th className="px-4 py-2.5">Reporting Period</th>
+                          <th className="px-4 py-2.5">Calendar Window</th>
+                          <th className="px-4 py-2.5">Planned Target</th>
+                          <th className="px-4 py-2.5">Reported Actual</th>
+                          <th className="px-4 py-2.5">Achievement Rate</th>
+                          <th className="px-4 py-2.5">Method Used</th>
+                          <th className="px-4 py-2.5">Period Status</th>
+                          <th className="px-4 py-2.5 text-right">Period Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                        {periods.length === 0 ? (
+                          <tr>
+                            <td colSpan={8} className="px-4 py-6 text-center text-slate-400">
+                              No periods defined for this reporting cycle.
+                            </td>
+                          </tr>
                         ) : (
-                          <Badge variant="outline" className="text-slate-500 border-dashed text-xs">
-                            Unmapped
-                          </Badge>
+                          periods.map((p) => {
+                            const isPeriodPublished = p.status === "published";
+                            const isReadyToPublish = p.status === "ready_to_publish";
+                            const isConfirmed = p.status === "confirmed";
+
+                            return (
+                              <tr
+                                key={p.period_index || p.period_label}
+                                className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
+                              >
+                                <td className="px-4 py-3 font-bold text-slate-900 dark:text-slate-100">
+                                  {p.period_label}
+                                  {p.period_name && p.period_name !== p.period_label && (
+                                    <span className="text-[11px] font-normal text-slate-400 ml-1.5">
+                                      ({p.period_name})
+                                    </span>
+                                  )}
+                                </td>
+
+                                <td className="px-4 py-3 font-mono text-slate-500">
+                                  {p.start_date && p.end_date ? (
+                                    <span>
+                                      {p.start_date} ~ {p.end_date}
+                                    </span>
+                                  ) : (
+                                    <span className="italic text-slate-400">Configured Window</span>
+                                  )}
+                                </td>
+
+                                <td className="px-4 py-3 font-mono font-medium text-slate-800 dark:text-slate-200">
+                                  {p.planned_target !== null && p.planned_target !== undefined
+                                    ? `${Number(p.planned_target).toLocaleString()} ${req?.expected_unit}`
+                                    : "—"}
+                                </td>
+
+                                <td className="px-4 py-3 font-mono font-bold text-slate-900 dark:text-slate-100">
+                                  {p.reported_actual !== null && p.reported_actual !== undefined
+                                    ? `${Number(p.reported_actual).toLocaleString()} ${req?.expected_unit}`
+                                    : "—"}
+                                </td>
+
+                                <td className="px-4 py-3">
+                                  {p.achievement_rate !== null && p.achievement_rate !== undefined ? (
+                                    <div className="flex items-center gap-1.5">
+                                      <span
+                                        className={`font-mono font-bold ${
+                                          Number(p.achievement_rate) >= 100
+                                            ? "text-emerald-600 dark:text-emerald-400"
+                                            : Number(p.achievement_rate) >= 80
+                                            ? "text-blue-600 dark:text-blue-400"
+                                            : "text-amber-600 dark:text-amber-400"
+                                        }`}
+                                      >
+                                        {Number(p.achievement_rate).toFixed(1)}%
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-slate-400 italic">—</span>
+                                  )}
+                                </td>
+
+                                <td className="px-4 py-3">
+                                  {p.reporting_method_used === "form_based" ? (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-200"
+                                    >
+                                      Direct Form
+                                    </Badge>
+                                  ) : p.reporting_method_used === "node_mapping" ? (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] bg-blue-50 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-blue-200"
+                                    >
+                                      Node Mapping
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-slate-400 italic">—</span>
+                                  )}
+                                </td>
+
+                                <td className="px-4 py-3">
+                                  {isPeriodPublished ? (
+                                    <Badge className="bg-emerald-600 text-white flex items-center gap-1 w-fit text-[10px]">
+                                      <CheckCircle2 className="h-3 w-3" />
+                                      Published
+                                    </Badge>
+                                  ) : isReadyToPublish ? (
+                                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 flex items-center gap-1 w-fit text-[10px] animate-pulse">
+                                      <Sparkles className="h-3 w-3 text-emerald-600" />
+                                      Ready to Publish
+                                    </Badge>
+                                  ) : isConfirmed ? (
+                                    <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">
+                                      Confirmed
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-slate-400 border-dashed text-[10px]">
+                                      Unreported
+                                    </Badge>
+                                  )}
+                                </td>
+
+                                <td className="px-4 py-3 text-right">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    {/* View Published Proof / Receipt */}
+                                    {isPeriodPublished && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleViewReceipt(assignment, p)}
+                                        className="text-[11px] h-7 px-2 border-emerald-300 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50"
+                                        title="View official publication receipt"
+                                      >
+                                        <FileCheck className="h-3 w-3 mr-1 text-emerald-600" />
+                                        Proof
+                                      </Button>
+                                    )}
+
+                                    {/* Direct Form Action for this Period */}
+                                    {isFormReportingActive && (
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleOpenForm(assignment, p.period_label)}
+                                        className={`text-[11px] h-7 px-2 ${
+                                          isPeriodPublished
+                                            ? "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200"
+                                            : "bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+                                        }`}
+                                      >
+                                        <FileText className="h-3 w-3 mr-1" />
+                                        {isPeriodPublished ? "Edit Form" : "Submit Form"}
+                                      </Button>
+                                    )}
+
+                                    {/* Node Mapping Actions */}
+                                    {isReadyToPublish && (
+                                      <Button
+                                        size="sm"
+                                        onClick={() => {
+                                          setViewReceiptData(null);
+                                          setPublishingAssignment(assignment);
+                                        }}
+                                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] h-7 px-2 font-semibold"
+                                      >
+                                        <Send className="h-3 w-3 mr-1" />
+                                        Publish
+                                      </Button>
+                                    )}
+
+                                    {p.status === "potential" && (
+                                      <Button
+                                        size="sm"
+                                        onClick={() => setConfirmingAssignment(assignment)}
+                                        className="bg-amber-600 hover:bg-amber-700 text-white text-[11px] h-7 px-2"
+                                      >
+                                        <CalendarCheck className="h-3 w-3 mr-1" />
+                                        Confirm
+                                      </Button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
                         )}
-                      </td>
-
-                      <td className="px-5 py-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {/* Option B: Direct Form Submission Action (when activated) */}
-                          {isFormReportingActive && (
-                            <Button
-                              size="sm"
-                              onClick={() => setDirectFormAssignment(assignment)}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 flex items-center gap-1 font-semibold shadow-sm"
-                            >
-                              <FileText className="h-3.5 w-3.5" />
-                              {status === "published" ? "Update Form Report" : "Submit Form Report"}
-                            </Button>
-                          )}
-
-                          {/* Option A: Regional Plan-Node Mapping Actions */}
-                          {status === "unmapped" && !isFormReportingActive && (
-                            <Button
-                              size="sm"
-                              onClick={() => setMappingAssignment(assignment)}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8"
-                            >
-                              <FolderTree className="h-3.5 w-3.5 mr-1" />
-                              Map Node (Stage A)
-                            </Button>
-                          )}
-
-                          {status === "unmapped" && isFormReportingActive && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setMappingAssignment(assignment)}
-                              className="text-xs h-8 text-slate-600"
-                              title="Optionally map to a regional plan node"
-                            >
-                              <FolderTree className="h-3.5 w-3.5 mr-1" />
-                              Map Node
-                            </Button>
-                          )}
-
-                          {status === "potential" && (
-                            <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setMappingAssignment(assignment)}
-                                className="text-xs h-8"
-                              >
-                                Edit Mapping
-                              </Button>
-                              <Button
-                                size="sm"
-                                onClick={() => setConfirmingAssignment(assignment)}
-                                className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-8"
-                              >
-                                <CalendarCheck className="h-3.5 w-3.5 mr-1" />
-                                Confirm Period (Stage B)
-                              </Button>
-                            </>
-                          )}
-
-                          {status === "confirmed" && (
-                            <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setMappingAssignment(assignment)}
-                                className="text-xs h-8"
-                              >
-                                Change Node
-                              </Button>
-                              <span className="text-xs text-slate-400 italic mr-1">
-                                Awaiting Regional Validation
-                              </span>
-                            </>
-                          )}
-
-                          {status === "ready_to_publish" && (
-                            <Button
-                              size="sm"
-                              onClick={() => setPublishingAssignment(assignment)}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm text-xs h-8 flex items-center gap-1 font-semibold"
-                            >
-                              <Send className="h-3.5 w-3.5" />
-                              Publish Validated Report
-                            </Button>
-                          )}
-
-                          {status === "published" && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setPublishingAssignment(assignment)}
-                              className="text-xs h-8 border-emerald-300 text-emerald-800 dark:text-emerald-300"
-                            >
-                              <FileCheck className="h-3.5 w-3.5 mr-1 text-emerald-600" />
-                              View Proof / Receipt
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* Modals */}
@@ -324,18 +493,26 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
       {publishingAssignment && (
         <RegionalPublicationModal
           isOpen={!!publishingAssignment}
-          onClose={() => setPublishingAssignment(null)}
+          onClose={() => {
+            setPublishingAssignment(null);
+            setViewReceiptData(null);
+          }}
           assignment={publishingAssignment}
           regionId={regionId}
+          viewReceipt={viewReceiptData}
         />
       )}
 
       {directFormAssignment && (
         <RegionalDirectFormModal
           isOpen={!!directFormAssignment}
-          onClose={() => setDirectFormAssignment(null)}
+          onClose={() => {
+            setDirectFormAssignment(null);
+            setSelectedPeriodLabel(undefined);
+          }}
           assignment={directFormAssignment}
           regionId={regionId}
+          initialPeriodLabel={selectedPeriodLabel}
         />
       )}
     </div>

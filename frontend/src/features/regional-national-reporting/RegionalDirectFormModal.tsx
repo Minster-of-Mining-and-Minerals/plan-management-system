@@ -8,6 +8,7 @@ import {
 import {
   NationalReportingAssignment,
   NationalPublishedRecord,
+  ReportingPeriod,
 } from "@/redux/types/nationalReporting";
 import {
   Dialog,
@@ -37,14 +38,17 @@ import {
   Layers,
   Sparkles,
   Info,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
+import { generateReportingPeriods } from "@/utils/nationalReportingPeriodUtils";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   assignment: NationalReportingAssignment;
   regionId: string;
+  initialPeriodLabel?: string;
 }
 
 export function RegionalDirectFormModal({
@@ -52,33 +56,105 @@ export function RegionalDirectFormModal({
   onClose,
   assignment,
   regionId,
+  initialPeriodLabel,
 }: Props) {
   const req = assignment.requirement;
   const latestPub = assignment.latestPublishedRecord;
+
+  // Determine recurring periods list
+  const recurringPeriods: ReportingPeriod[] = React.useMemo(() => {
+    if (assignment.recurringPeriods && assignment.recurringPeriods.length > 0) {
+      return assignment.recurringPeriods;
+    }
+    if (req?.effective_start_date && req?.effective_end_date) {
+      return generateReportingPeriods(
+        req.effective_start_date,
+        req.effective_end_date,
+        req.frequency || "quarterly"
+      );
+    }
+    return [
+      { period_index: 1, period_label: "Q1", name: "Quarter 1", start_date: "", end_date: "" },
+      { period_index: 2, period_label: "Q2", name: "Quarter 2", start_date: "", end_date: "" },
+      { period_index: 3, period_label: "Q3", name: "Quarter 3", start_date: "", end_date: "" },
+      { period_index: 4, period_label: "Q4", name: "Quarter 4", start_date: "", end_date: "" },
+    ];
+  }, [assignment.recurringPeriods, req]);
+
+  const defaultPeriodLabel =
+    initialPeriodLabel ||
+    recurringPeriods[0]?.period_label ||
+    latestPub?.reporting_period_label ||
+    "Q1";
 
   const currentYear = new Date().getFullYear();
   const [reportingYear, setReportingYear] = useState<number>(
     latestPub?.reporting_year || currentYear
   );
   const [reportingPeriodLabel, setReportingPeriodLabel] = useState<string>(
-    latestPub?.reporting_period_label || "Q1"
+    defaultPeriodLabel
   );
-  const [plannedTarget, setPlannedTarget] = useState<string>(
-    latestPub?.planned_target !== undefined && latestPub?.planned_target !== null
-      ? String(latestPub.planned_target)
-      : ""
-  );
-  const [reportedActual, setReportedActual] = useState<string>(
-    latestPub?.reported_actual !== undefined && latestPub?.reported_actual !== null
-      ? String(latestPub.reported_actual)
-      : ""
-  );
+
+  // Look up existing submission for the selected period
+  const existingPeriodData = React.useMemo(() => {
+    return recurringPeriods.find(
+      (p) => String(p.period_label).toUpperCase() === String(reportingPeriodLabel).toUpperCase()
+    );
+  }, [recurringPeriods, reportingPeriodLabel]);
+
+  const [plannedTarget, setPlannedTarget] = useState<string>("");
+  const [reportedActual, setReportedActual] = useState<string>("");
   const [localUnit, setLocalUnit] = useState<string>(
     latestPub?.local_unit || req?.expected_unit || "count"
   );
-  const [narrative, setNarrative] = useState<string>(
-    latestPub?.narrative || ""
-  );
+  const [narrative, setNarrative] = useState<string>("");
+
+  // Sync state whenever modal opens or period changes
+  React.useEffect(() => {
+    if (isOpen) {
+      const activeLabel = initialPeriodLabel || defaultPeriodLabel;
+      setReportingPeriodLabel(activeLabel);
+
+      const periodMatch = recurringPeriods.find(
+        (p) => String(p.period_label).toUpperCase() === String(activeLabel).toUpperCase()
+      );
+
+      if (periodMatch && periodMatch.planned_target !== null && periodMatch.planned_target !== undefined) {
+        setPlannedTarget(String(periodMatch.planned_target));
+      } else if (latestPub && latestPub.reporting_period_label === activeLabel && latestPub.planned_target !== null) {
+        setPlannedTarget(String(latestPub.planned_target));
+      } else {
+        setPlannedTarget("");
+      }
+
+      if (periodMatch && periodMatch.reported_actual !== null && periodMatch.reported_actual !== undefined) {
+        setReportedActual(String(periodMatch.reported_actual));
+      } else if (latestPub && latestPub.reporting_period_label === activeLabel && latestPub.reported_actual !== null) {
+        setReportedActual(String(latestPub.reported_actual));
+      } else {
+        setReportedActual("");
+      }
+    }
+  }, [isOpen, initialPeriodLabel, recurringPeriods]);
+
+  const handlePeriodChange = (label: string) => {
+    setReportingPeriodLabel(label);
+    const periodMatch = recurringPeriods.find(
+      (p) => String(p.period_label).toUpperCase() === String(label).toUpperCase()
+    );
+
+    if (periodMatch && periodMatch.planned_target !== null && periodMatch.planned_target !== undefined) {
+      setPlannedTarget(String(periodMatch.planned_target));
+    } else {
+      setPlannedTarget("");
+    }
+
+    if (periodMatch && periodMatch.reported_actual !== null && periodMatch.reported_actual !== undefined) {
+      setReportedActual(String(periodMatch.reported_actual));
+    } else {
+      setReportedActual("");
+    }
+  };
 
   const { data: unitsCatalog = {} } = useGetNationalUnitsCatalogQuery();
   const [submitReport, { isLoading: isSubmitting }] =
@@ -206,24 +282,38 @@ export function RegionalDirectFormModal({
               />
             </div>
             <div>
-              <Label htmlFor="rep-period">Reporting Period Label *</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="rep-period">Reporting Period *</Label>
+                {existingPeriodData?.status === "published" && (
+                  <Badge className="bg-emerald-100 text-emerald-800 text-[10px]">
+                    Updating Period {reportingPeriodLabel}
+                  </Badge>
+                )}
+              </div>
               <Select
                 value={reportingPeriodLabel}
-                onValueChange={setReportingPeriodLabel}
+                onValueChange={handlePeriodChange}
               >
                 <SelectTrigger id="rep-period" className="mt-1">
                   <SelectValue placeholder="Select Period" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Q1">Quarter 1 (Q1)</SelectItem>
-                  <SelectItem value="Q2">Quarter 2 (Q2)</SelectItem>
-                  <SelectItem value="Q3">Quarter 3 (Q3)</SelectItem>
-                  <SelectItem value="Q4">Quarter 4 (Q4)</SelectItem>
-                  <SelectItem value="Annual">Annual / Full Year</SelectItem>
-                  <SelectItem value="Semester 1">Semester 1 (H1)</SelectItem>
-                  <SelectItem value="Semester 2">Semester 2 (H2)</SelectItem>
+                  {recurringPeriods.map((p) => (
+                    <SelectItem key={p.period_label} value={p.period_label}>
+                      {p.name || p.period_label}{" "}
+                      {p.start_date && p.end_date
+                        ? `(${p.start_date} ~ ${p.end_date})`
+                        : ""}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              {existingPeriodData?.start_date && existingPeriodData?.end_date && (
+                <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1 font-mono">
+                  <Clock className="h-3 w-3 text-emerald-600" />
+                  Period window: {existingPeriodData.start_date} to {existingPeriodData.end_date}
+                </p>
+              )}
             </div>
           </div>
 

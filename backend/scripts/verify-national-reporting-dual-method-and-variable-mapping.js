@@ -86,7 +86,7 @@ async function runVerification() {
       null
     );
 
-    assert(updatedConfig.national_reporting_method === "form_based", "Method set to form_based");
+    assert(updatedConfig.node_mapping_available === true, "Node mapping is permanent and always available");
     assert(updatedConfig.form_reporting_active === true, "form_reporting_active is true");
     assert(updatedConfig.is_form_reporting_effective === true, "Form reporting is currently effective within date range");
 
@@ -254,6 +254,168 @@ async function runVerification() {
       },
     });
     assert(historicalCount >= 2, `Historical records preserved after deactivation (count: ${historicalCount})`);
+
+    // -------------------------------------------------------------
+    // TEST 5: Annual Period Derivation & Period Generation
+    // -------------------------------------------------------------
+    console.log("\n--- TEST 5: Annual Period Derivation & Period Generation ---");
+    const {
+      calculateAnnualEndDate,
+      validateAnnualDateRange,
+      generateReportingPeriods,
+      getExpectedPeriodCount,
+    } = require("../utils/nationalReportingPeriodUtils");
+
+    const testStartDate = "2026-07-01";
+    const testEndDate = calculateAnnualEndDate(testStartDate);
+    assert(testEndDate === "2027-06-30", `calculateAnnualEndDate correctly returns 2027-06-30 (got: ${testEndDate})`);
+
+    const validCheck = validateAnnualDateRange(testStartDate, testEndDate);
+    assert(validCheck.valid === true, `validateAnnualDateRange confirms 365-day range is valid`);
+
+    const invalidCheck = validateAnnualDateRange("2026-07-01", "2026-10-01");
+    assert(invalidCheck.valid === false, `validateAnnualDateRange rejects invalid short range (~92 days)`);
+
+    const monthlyPeriods = generateReportingPeriods(testStartDate, testEndDate, "monthly");
+    assert(monthlyPeriods.length === 12, `Monthly frequency generates exactly 12 periods (got: ${monthlyPeriods.length})`);
+    assert(monthlyPeriods[0].period_label === "Month 1" && monthlyPeriods[11].period_label === "Month 12", "Monthly period labels match Month 1 .. Month 12");
+
+    const quarterlyPeriods = generateReportingPeriods(testStartDate, testEndDate, "quarterly");
+    assert(quarterlyPeriods.length === 4, `Quarterly frequency generates exactly 4 periods (got: ${quarterlyPeriods.length})`);
+    assert(quarterlyPeriods[0].period_label === "Q1" && quarterlyPeriods[0].start_date === "2026-07-01", "Q1 starts on configured annual start date 2026-07-01");
+    assert(quarterlyPeriods[3].period_label === "Q4" && quarterlyPeriods[3].end_date === "2027-06-30", "Q4 ends on configured annual end date 2027-06-30");
+
+    const semiannualPeriods = generateReportingPeriods(testStartDate, testEndDate, "semi_annually");
+    assert(semiannualPeriods.length === 2, `Semi-annual frequency generates exactly 2 periods (got: ${semiannualPeriods.length})`);
+
+    const annualPeriods = generateReportingPeriods(testStartDate, testEndDate, "annually");
+    assert(annualPeriods.length === 1, `Annual frequency generates exactly 1 period (got: ${annualPeriods.length})`);
+
+    // -------------------------------------------------------------
+    // TEST 6: Multi-Period Recurring KPI Submissions (No Overwriting)
+    // -------------------------------------------------------------
+    console.log("\n--- TEST 6: Multi-Period Recurring Submissions (No Overwriting) ---");
+    // Reactivate form reporting for testRegion
+    await regionalNationalReportingService.updateRegionReportingConfig(
+      testRegion.region_id,
+      {
+        form_reporting_active: true,
+        form_reporting_start_date: "2026-07-01",
+        form_reporting_end_date: "2027-06-30",
+        form_reporting_notes: "Testing multi-period recurring submissions",
+      },
+      null
+    );
+
+    // Create a new requirement with the fiscal calendar
+    const recurringReq = await NationalReportingRequirement.create({
+      code: "TEST-RECURRING-" + Date.now(),
+      title: "Test Recurring Multi-Period Submissions " + Date.now(),
+      category: "mining_and_extractive",
+      unit_category: "mass",
+      expected_unit: "kg",
+      frequency: "quarterly",
+      effective_start_date: "2026-07-01",
+      effective_end_date: "2027-06-30",
+      is_active: true,
+    });
+
+    const [recurringAssign] = await NationalReportingAssignment.findOrCreate({
+      where: {
+        requirement_id: recurringReq.requirement_id,
+        region_id: testRegion.region_id,
+      },
+      defaults: { is_mandatory: true, status: "active" },
+    });
+
+    // 6.1 Submit Period Q1
+    const q1Sub = await regionalNationalReportingService.submitDirectFormReport(
+      testRegion.region_id,
+      {
+        assignmentId: recurringAssign.assignment_id,
+        reportingYear: 2026,
+        reportingPeriodLabel: "Q1",
+        plannedTarget: 500,
+        reportedActual: 480,
+        localUnit: "kg",
+        narrative: "Submitting Q1 report",
+      },
+      null
+    );
+    assert(q1Sub && q1Sub.publishedRecord, "Q1 submission succeeded");
+
+    // 6.2 Submit Period Q2
+    const q2Sub = await regionalNationalReportingService.submitDirectFormReport(
+      testRegion.region_id,
+      {
+        assignmentId: recurringAssign.assignment_id,
+        reportingYear: 2026,
+        reportingPeriodLabel: "Q2",
+        plannedTarget: 600,
+        reportedActual: 620,
+        localUnit: "kg",
+        narrative: "Submitting subsequent Q2 report",
+      },
+      null
+    );
+    assert(q2Sub && q2Sub.publishedRecord, "Q2 submission succeeded");
+
+    // 6.3 Verify Q1 is NOT overwritten by Q2 submission
+    const q1Record = await NationalPublishedRecord.findOne({
+      where: {
+        requirement_id: recurringReq.requirement_id,
+        region_id: testRegion.region_id,
+        reporting_year: 2026,
+        reporting_period_label: "Q1",
+        status: "published",
+      },
+    });
+    assert(q1Record !== null, "Q1 record still exists with status = 'published'");
+    assert(Number(q1Record.planned_target) === 500, `Q1 planned target is still 500 (not overwritten, got: ${q1Record.planned_target})`);
+    assert(Number(q1Record.reported_actual) === 480, `Q1 reported actual is still 480 (not overwritten, got: ${q1Record.reported_actual})`);
+
+    const q2Record = await NationalPublishedRecord.findOne({
+      where: {
+        requirement_id: recurringReq.requirement_id,
+        region_id: testRegion.region_id,
+        reporting_year: 2026,
+        reporting_period_label: "Q2",
+        status: "published",
+      },
+    });
+    assert(q2Record !== null, "Q2 record exists with status = 'published'");
+    assert(Number(q2Record.planned_target) === 600, `Q2 planned target is 600 (got: ${q2Record.planned_target})`);
+    assert(Number(q2Record.reported_actual) === 620, `Q2 reported actual is 620 (got: ${q2Record.reported_actual})`);
+
+    // 6.4 Verify listAssignedRequirementsForRegion returns period-by-period granularity
+    const assignedList = await regionalNationalReportingService.listAssignedRequirementsForRegion(testRegion.region_id);
+    const assignedReq = assignedList.find((a) => a.requirement_id === recurringReq.requirement_id);
+    assert(assignedReq !== undefined, "Found assigned requirement in regional list");
+    assert(assignedReq.recurringPeriods && assignedReq.recurringPeriods.length === 4, "assigned requirement has 4 recurringPeriods");
+
+    const pQ1 = assignedReq.recurringPeriods.find((p) => p.period_label === "Q1");
+    const pQ2 = assignedReq.recurringPeriods.find((p) => p.period_label === "Q2");
+    const pQ3 = assignedReq.recurringPeriods.find((p) => p.period_label === "Q3");
+
+    assert(pQ1 && pQ1.status === "published" && Number(pQ1.reported_actual) === 480, "pQ1 has status published and actual 480");
+    assert(pQ2 && pQ2.status === "published" && Number(pQ2.reported_actual) === 620, "pQ2 has status published and actual 620");
+    assert(pQ3 && pQ3.status === "unmapped" && pQ3.reported_actual === null, "pQ3 is unmapped and unreported");
+
+    // -------------------------------------------------------------
+    // TEST 7: Node Mapping Permanent Availability Verification
+    // -------------------------------------------------------------
+    console.log("\n--- TEST 7: Regional Plan-Node Mapping Permanent Availability ---");
+    const cfgActive = await regionalNationalReportingService.getRegionReportingConfig(testRegion.region_id);
+    assert(cfgActive.node_mapping_available === true, "Node mapping available when form reporting active");
+
+    await regionalNationalReportingService.updateRegionReportingConfig(
+      testRegion.region_id,
+      { form_reporting_active: false },
+      null
+    );
+    const cfgDisabled = await regionalNationalReportingService.getRegionReportingConfig(testRegion.region_id);
+    assert(cfgDisabled.node_mapping_available === true, "Node mapping STILL available when form reporting disabled");
+    assert(cfgDisabled.form_reporting_active === false, "Form reporting confirmed disabled");
 
     console.log("\n==================================================================");
     console.log(`ALL VERIFICATION TESTS FINISHED: Passed: ${passed}, Failed: ${failed}`);

@@ -9,6 +9,11 @@ const {
   convertValue,
   getUnitCategory,
 } = require("../utils/nationalUnitCompatibilityUtils");
+const {
+  calculateAnnualEndDate,
+  validateAnnualDateRange,
+  generateReportingPeriods,
+} = require("../utils/nationalReportingPeriodUtils");
 
 const {
   NationalReportingRequirement,
@@ -75,7 +80,6 @@ async function resolvePlanNodeUnit(planNode, regionId) {
 function isRegionFormReportingEffective(region) {
   if (!region) return false;
   if (!region.form_reporting_active) return false;
-  if (region.national_reporting_method !== "form_based") return false;
 
   const todayStr = new Date().toISOString().slice(0, 10);
   if (region.form_reporting_start_date && String(region.form_reporting_start_date) > todayStr) {
@@ -152,6 +156,16 @@ class RegionalNationalReportingService {
       order: [["assigned_at", "DESC"]],
     });
 
+    const regionObj = await Region.findByPk(regionId, {
+      attributes: [
+        "region_id",
+        "form_reporting_active",
+        "form_reporting_start_date",
+        "form_reporting_end_date",
+      ],
+    });
+    const isFormEffective = isRegionFormReportingEffective(regionObj);
+
     return assignments.map((assignment) => {
       const item = assignment.toJSON();
       const activeMapping =
@@ -177,15 +191,85 @@ class RegionalNationalReportingService {
         }
       }
 
-      const hasPublished = item.publishedRecords && item.publishedRecords.length > 0;
-      if (hasPublished) {
-        workflowStatus = "published";
+      // 1. Generate applicable recurring periods for this requirement and annual date range
+      const req = item.requirement || {};
+      const startDate =
+        item.effective_start_date ||
+        req.effective_start_date ||
+        `${new Date().getFullYear()}-07-01`;
+      const endDate =
+        item.effective_end_date ||
+        req.effective_end_date ||
+        calculateAnnualEndDate(startDate);
+      const frequency = item.frequency_override || req.frequency || "quarterly";
+
+      const generatedPeriods = generateReportingPeriods(startDate, endDate, frequency);
+
+      // 2. Map period-specific submission records
+      const publishedRecords = item.publishedRecords || [];
+      const recurringPeriods = generatedPeriods.map((p) => {
+        const periodObj = { ...p };
+        const matchingRecord = publishedRecords.find(
+          (pub) =>
+            String(pub.reporting_period_label).trim().toLowerCase() ===
+              periodObj.period_label.trim().toLowerCase() &&
+            ["published", "clarification_requested"].includes(pub.status)
+        );
+
+        if (matchingRecord) {
+          periodObj.status = matchingRecord.status;
+          periodObj.planned_target = matchingRecord.planned_target;
+          periodObj.reported_actual = matchingRecord.reported_actual;
+          periodObj.local_unit = matchingRecord.local_unit;
+          periodObj.standardized_target = matchingRecord.standardized_target;
+          periodObj.standardized_actual = matchingRecord.standardized_actual;
+          periodObj.standardized_unit = matchingRecord.standardized_unit;
+          periodObj.achievement_percent = matchingRecord.achievement_percent;
+          periodObj.publication_reference = matchingRecord.publication_reference;
+          periodObj.published_record_id = matchingRecord.published_record_id;
+          periodObj.published_at = matchingRecord.published_at;
+          periodObj.submission_method = matchingRecord.submission_method;
+          periodObj.narrative = matchingRecord.narrative;
+        } else {
+          // If not published yet, determine status based on node mapping if available
+          if (activeMapping) {
+            if (isValidated) {
+              periodObj.status = "ready_to_publish";
+            } else if (activeMapping.stage === "confirmed") {
+              periodObj.status = "confirmed";
+            } else {
+              periodObj.status = "potential";
+            }
+            periodObj.planned_target = activeMapping.planNode?.period_target ?? null;
+            periodObj.reported_actual = activeMapping.planNode?.period_actual ?? null;
+          } else {
+            periodObj.status = "unmapped";
+            periodObj.planned_target = null;
+            periodObj.reported_actual = null;
+          }
+          periodObj.achievement_percent = null;
+          periodObj.published_record_id = null;
+          periodObj.publication_reference = null;
+        }
+
+        return periodObj;
+      });
+
+      const publishedCount = recurringPeriods.filter((p) => p.status === "published").length;
+      if (publishedCount > 0) {
+        workflowStatus =
+          publishedCount === recurringPeriods.length ? "published" : "partially_published";
       }
 
       item.workflowStatus = workflowStatus;
       item.activeMapping = activeMapping;
       item.isValidated = isValidated;
-      item.latestPublishedRecord = hasPublished ? item.publishedRecords[0] : null;
+      item.recurringPeriods = recurringPeriods;
+      item.annualRange = { startDate, endDate, frequency };
+      item.isFormReportingActive = isFormEffective;
+      item.nodeMappingAvailable = true; // Permanently available
+      item.latestPublishedRecord =
+        publishedRecords.length > 0 ? publishedRecords[0] : null;
 
       return item;
     });
@@ -715,13 +799,12 @@ class RegionalNationalReportingService {
       region_id: region.region_id,
       name: region.name,
       code: region.code,
-      national_reporting_method: region.national_reporting_method || "node_mapping",
+      node_mapping_available: true, // Node mapping is permanent and cannot be disabled
       form_reporting_active: Boolean(region.form_reporting_active),
       form_reporting_start_date: region.form_reporting_start_date,
       form_reporting_end_date: region.form_reporting_end_date,
       form_reporting_notes: region.form_reporting_notes,
       is_form_reporting_effective: isEffective,
-      effective_method: isEffective ? "form_based" : "node_mapping",
     };
   }
 
@@ -737,21 +820,11 @@ class RegionalNationalReportingService {
     }
 
     const {
-      national_reporting_method,
       form_reporting_active,
       form_reporting_start_date,
       form_reporting_end_date,
       form_reporting_notes,
     } = data;
-
-    if (national_reporting_method !== undefined) {
-      if (!["node_mapping", "form_based"].includes(national_reporting_method)) {
-        const err = new Error("Invalid national_reporting_method. Must be 'node_mapping' or 'form_based'.");
-        err.status = 400;
-        throw err;
-      }
-      region.national_reporting_method = national_reporting_method;
-    }
 
     if (form_reporting_active !== undefined) {
       region.form_reporting_active = Boolean(form_reporting_active);
@@ -768,6 +841,9 @@ class RegionalNationalReportingService {
     if (form_reporting_notes !== undefined) {
       region.form_reporting_notes = form_reporting_notes || null;
     }
+
+    // Node mapping is permanent and always available
+    region.national_reporting_method = "node_mapping";
 
     await region.save();
 

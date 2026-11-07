@@ -59,9 +59,7 @@ export function RegionalReportingMethodConfigModal({
   const [updateConfig, { isLoading: isUpdating }] =
     useUpdateRegionNationalReportingConfigMutation();
 
-  const [method, setMethod] = useState<"node_mapping" | "form_based">(
-    "node_mapping"
-  );
+  const [method, setMethod] = useState<string>("both");
   const [isActive, setIsActive] = useState<boolean>(false);
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
@@ -82,7 +80,7 @@ export function RegionalReportingMethodConfigModal({
       await updateConfig({
         regionId,
         data: {
-          national_reporting_method: method,
+          national_reporting_method: isActive ? "both" : "node_mapping",
           form_reporting_active: isActive,
           form_reporting_start_date: startDate ? startDate : null,
           form_reporting_end_date: endDate ? endDate : null,
@@ -92,8 +90,8 @@ export function RegionalReportingMethodConfigModal({
 
       toast.success(
         `Reporting method updated for ${regionName}. Form-based reporting is ${
-          isActive && method === "form_based" ? "Activated" : "Disabled"
-        }.`
+          isActive ? "Activated" : "Disabled"
+        }. Regional plan-node mapping remains permanently active.`
       );
       onClose();
     } catch (err: any) {
@@ -145,42 +143,35 @@ export function RegionalReportingMethodConfigModal({
               )}
             </div>
 
-            {/* Reporting Method Selection */}
-            <div>
-              <Label htmlFor="method-sel" className="text-xs font-semibold">
-                Reporting Method Workflow
-              </Label>
-              <Select
-                value={method}
-                onValueChange={(val: "node_mapping" | "form_based") => setMethod(val)}
-              >
-                <SelectTrigger id="method-sel" className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="node_mapping">
-                    Option A: Regional Plan-Node Mapping (Standard)
-                  </SelectItem>
-                  <SelectItem value="form_based">
-                    Option B: Form-Based National Reporting (Direct KPI Form)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] text-slate-500 mt-1">
-                {method === "form_based"
-                  ? "Allows the region to submit KPI target and achievement directly via forms without requiring regional plan-node linkage."
-                  : "Requires the region to map its regional plan hierarchy nodes to national requirements and undergo period validation."}
+            {/* Primary Method: Regional Plan-Node Mapping (Always Active) */}
+            <div className="p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 space-y-1">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Layers className="h-4 w-4 text-emerald-600" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-900 dark:text-emerald-300">
+                    Regional Plan-Node Mapping
+                  </span>
+                </div>
+                <Badge className="bg-emerald-600 text-white text-[10px] font-semibold">
+                  Permanent / Always Available
+                </Badge>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-400 pt-0.5">
+                Primary national reporting mechanism. Hierarchical plan-node linkage, target setting, execution tracking, and the regional validation gateway are permanently active and cannot be disabled.
               </p>
             </div>
 
-            {/* Form Reporting Activation Switch */}
+            {/* Optional Method: Form-Based National Reporting */}
             <div className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
               <div className="space-y-0.5">
-                <Label htmlFor="active-toggle" className="font-semibold text-sm cursor-pointer">
-                  Activate Form-Based Reporting
-                </Label>
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                  <Label htmlFor="active-toggle" className="font-semibold text-sm cursor-pointer">
+                    Enable Form-Based National Reporting
+                  </Label>
+                </div>
                 <p className="text-xs text-slate-500">
-                  Enable or disable direct KPI form submission for this specific region.
+                  Optional per-region mechanism. Allows submitting KPI targets and achievements directly via form, alongside or in addition to regional plan-node mapping.
                 </p>
               </div>
               <Switch
@@ -246,7 +237,7 @@ export function RegionalReportingMethodConfigModal({
             <div className="flex items-start gap-2 p-3 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 text-xs text-emerald-800 dark:text-emerald-300">
               <Info className="h-4 w-4 shrink-0 mt-0.5 text-emerald-600" />
               <div>
-                When deactivated, the region reverts immediately to Option A (Plan-Node Mapping). All historical form submissions and node mappings remain safely preserved without loss of data.
+                <strong>Dual Reporting Policy:</strong> Regional plan-node mapping is the permanent foundation and is always active. When Form-Based Reporting is enabled, the region can use either or both methods. Deactivating form reporting blocks new form submissions while safely preserving all historical submissions and receipts.
               </div>
             </div>
 

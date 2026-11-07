@@ -3,6 +3,12 @@
 const { Op } = require("sequelize");
 const db = require("../models");
 const {
+  calculateAnnualEndDate,
+  validateAnnualDateRange,
+  generateReportingPeriods,
+} = require("../utils/nationalReportingPeriodUtils");
+
+const {
   NationalReportingRequirement,
   NationalReportingAssignment,
   RegionalRequirementMapping,
@@ -34,6 +40,22 @@ class NationalReportingService {
       if (userExists) validUserId = userId;
     }
 
+    let startDate = data.effective_start_date ? String(data.effective_start_date).trim() : null;
+    let endDate = data.effective_end_date ? String(data.effective_end_date).trim() : null;
+
+    if (startDate && !endDate) {
+      endDate = calculateAnnualEndDate(startDate);
+    }
+
+    if (startDate && endDate) {
+      const val = validateAnnualDateRange(startDate, endDate);
+      if (!val.valid) {
+        const err = new Error(val.message);
+        err.status = 400;
+        throw err;
+      }
+    }
+
     const requirement = await NationalReportingRequirement.create({
       code: data.code.trim().toUpperCase(),
       title: data.title.trim(),
@@ -46,8 +68,8 @@ class NationalReportingService {
       requires_narrative: !!data.requires_narrative,
       requires_evidence: !!data.requires_evidence,
       validation_rules: typeof data.validation_rules === "string" ? JSON.parse(data.validation_rules) : (data.validation_rules || {}),
-      effective_start_date: data.effective_start_date ? data.effective_start_date : null,
-      effective_end_date: data.effective_end_date ? data.effective_end_date : null,
+      effective_start_date: startDate,
+      effective_end_date: endDate,
       is_active: data.is_active !== undefined ? !!data.is_active : true,
       version_number: 1,
       created_by: validUserId,
@@ -94,11 +116,31 @@ class NationalReportingService {
     if (data.validation_rules !== undefined) {
       requirement.validation_rules = typeof data.validation_rules === "string" ? JSON.parse(data.validation_rules) : (data.validation_rules || {});
     }
-    if (data.effective_start_date !== undefined) {
-      requirement.effective_start_date = data.effective_start_date ? data.effective_start_date : null;
-    }
-    if (data.effective_end_date !== undefined) {
-      requirement.effective_end_date = data.effective_end_date ? data.effective_end_date : null;
+    if (data.effective_start_date !== undefined || data.effective_end_date !== undefined) {
+      const newStart =
+        data.effective_start_date !== undefined
+          ? (data.effective_start_date ? String(data.effective_start_date).trim() : null)
+          : requirement.effective_start_date;
+      let newEnd =
+        data.effective_end_date !== undefined
+          ? (data.effective_end_date ? String(data.effective_end_date).trim() : null)
+          : requirement.effective_end_date;
+
+      if (newStart && !newEnd) {
+        newEnd = calculateAnnualEndDate(newStart);
+      }
+
+      if (newStart && newEnd) {
+        const val = validateAnnualDateRange(newStart, newEnd);
+        if (!val.valid) {
+          const err = new Error(val.message);
+          err.status = 400;
+          throw err;
+        }
+      }
+
+      requirement.effective_start_date = newStart;
+      requirement.effective_end_date = newEnd;
     }
     if (data.is_active !== undefined) requirement.is_active = !!data.is_active;
 
@@ -186,6 +228,11 @@ class NationalReportingService {
     return requirements.map((req) => {
       const item = req.toJSON();
       item.assignedRegionsCount = item.assignments ? item.assignments.length : 0;
+      item.periods = generateReportingPeriods(
+        item.effective_start_date,
+        item.effective_end_date,
+        item.frequency
+      );
       return item;
     });
   }
@@ -227,7 +274,13 @@ class NationalReportingService {
       throw err;
     }
 
-    return requirement;
+    const item = requirement.toJSON();
+    item.periods = generateReportingPeriods(
+      item.effective_start_date,
+      item.effective_end_date,
+      item.frequency
+    );
+    return item;
   }
 
   /**

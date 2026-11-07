@@ -35,6 +35,7 @@ interface Props {
   onClose: () => void;
   assignment: NationalReportingAssignment;
   regionId: string;
+  viewReceipt?: any;
 }
 
 export function RegionalPublicationModal({
@@ -42,12 +43,21 @@ export function RegionalPublicationModal({
   onClose,
   assignment,
   regionId,
+  viewReceipt,
 }: Props) {
   const req = assignment.requirement;
   const mapping = assignment.activeMapping;
   const node = mapping?.planNode;
   const [narrativeOverride, setNarrativeOverride] = useState("");
   const [publishedReceipt, setPublishedReceipt] = useState<any | null>(null);
+
+  React.useEffect(() => {
+    if (viewReceipt) {
+      setPublishedReceipt(viewReceipt);
+    } else if (!isOpen) {
+      setPublishedReceipt(null);
+    }
+  }, [viewReceipt, isOpen]);
 
   const [publishReport, { isLoading: isPublishing }] =
     usePublishRegionalValidatedReportMutation();

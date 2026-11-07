@@ -176,13 +176,29 @@ export function RegionalAssignmentsTab() {
                       key={a.assignment_id}
                       className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
                     >
-                      <td className="px-5 py-4 font-semibold text-slate-900 dark:text-slate-100">
-                        {a.region?.name || "Unknown Region"}
-                        {a.region?.code && (
-                          <span className="text-xs font-mono text-slate-400 ml-1.5">
-                            [{a.region.code}]
-                          </span>
-                        )}
+                      <td className="px-5 py-4">
+                        <div className="font-semibold text-slate-900 dark:text-slate-100">
+                          {a.region?.name || "Unknown Region"}
+                          {a.region?.code && (
+                            <span className="text-xs font-mono text-slate-400 ml-1.5">
+                              [{a.region.code}]
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <Badge variant="outline" className="text-[10px] bg-slate-50 dark:bg-slate-900 text-slate-600 border-slate-200">
+                            Node: Permanent
+                          </Badge>
+                          {a.region?.form_reporting_active ? (
+                            <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[10px]">
+                              Form: Active
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-[10px] text-slate-400">
+                              Form: Disabled
+                            </Badge>
+                          )}
+                        </div>
                       </td>
                       <td className="px-5 py-4">
                         <div className="font-medium text-slate-800 dark:text-slate-200">
@@ -250,7 +266,7 @@ export function RegionalAssignmentsTab() {
                               })
                             }
                             className="text-xs text-emerald-700 hover:text-emerald-900 dark:text-emerald-400 h-8 px-2"
-                            title="Configure Reporting Method (Option A vs Option B)"
+                            title="Configure Form-Based Reporting Controls"
                           >
                             <Settings className="h-3.5 w-3.5 mr-1" />
                             Method

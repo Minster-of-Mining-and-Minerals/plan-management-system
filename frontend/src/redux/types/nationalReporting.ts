@@ -21,11 +21,36 @@ export interface NationalReportingRequirement {
   updated_at: string;
   assignedRegionsCount?: number;
   assignments?: NationalReportingAssignment[];
+  periods?: ReportingPeriod[];
   creator?: {
     user_id: string;
     full_name: string;
     email: string;
   } | null;
+}
+
+export interface ReportingPeriod {
+  period_index: number;
+  period_label: string;
+  start_date: string;
+  end_date: string;
+  name?: string;
+  period_name?: string;
+  status?: "unmapped" | "potential" | "confirmed" | "ready_to_publish" | "published" | "clarification_requested" | "unreported" | string;
+  planned_target?: number | null;
+  reported_actual?: number | null;
+  local_unit?: string | null;
+  standardized_target?: number | null;
+  standardized_actual?: number | null;
+  standardized_unit?: string | null;
+  achievement_rate?: number | null;
+  achievement_percent?: number | null;
+  publication_reference?: string | null;
+  published_record_id?: string | null;
+  published_at?: string | null;
+  reporting_method_used?: "node_mapping" | "form_based" | string | null;
+  submission_method?: "node_mapping" | "form_based" | string | null;
+  narrative?: string | null;
 }
 
 export interface NationalReportingAssignment {
@@ -45,13 +70,23 @@ export interface NationalReportingAssignment {
     region_id: string;
     name: string;
     code: string;
+    form_reporting_active?: boolean;
+    national_reporting_method?: string;
   };
   mappings?: RegionalRequirementMapping[];
   publishedRecords?: NationalPublishedRecord[];
-  workflowStatus?: "unmapped" | "potential" | "confirmed" | "ready_to_publish" | "published";
+  workflowStatus?: "unmapped" | "potential" | "confirmed" | "ready_to_publish" | "published" | "partially_published";
   activeMapping?: RegionalRequirementMapping | null;
   isValidated?: boolean;
   latestPublishedRecord?: NationalPublishedRecord | null;
+  recurringPeriods?: ReportingPeriod[];
+  annualRange?: {
+    startDate: string;
+    endDate: string;
+    frequency: string;
+  };
+  isFormReportingActive?: boolean;
+  nodeMappingAvailable?: boolean;
 }
 
 export interface RegionalRequirementMapping {
@@ -250,13 +285,14 @@ export interface RegionNationalReportingConfig {
   region_id: string;
   name: string;
   code: string;
-  national_reporting_method: "node_mapping" | "form_based";
+  node_mapping_available: boolean;
   form_reporting_active: boolean;
   form_reporting_start_date?: string | null;
   form_reporting_end_date?: string | null;
   form_reporting_notes?: string | null;
   is_form_reporting_effective: boolean;
-  effective_method: "node_mapping" | "form_based";
+  national_reporting_method?: string;
+  effective_method?: string;
 }
 
 export interface DirectFormSubmissionPayload {
