@@ -37,6 +37,10 @@ const {
   rejectValidationRegionalAchievementWorkflow,
   resolveRegionalAchievementWorkflowScope,
   isRollupEligibleAchievement,
+  resolveUserObject,
+  isSuperAdmin,
+  isAdministrator,
+  userHasAny,
   userCanExecuteRegionalAchievement,
   userCanApproveRegionalAchievement,
   userCanValidateRegionalAchievement,
@@ -4579,6 +4583,17 @@ async function listRegionalExecutionPeriods(annualOrMasterVersionId, regionId) {
     p.execution_is_evaluable = progress.is_evaluable;
     p.execution_has_contributing_progress = progress.has_contributing_data;
     p.execution_has_recorded_actuals = progress.has_contributing_data;
+
+    try {
+      const readiness = await getRegionalExecutionPeriodCompletionReadiness(p.regional_plan_version_id, regionId);
+      p.setDataValue("execution_actuals_ready", readiness.ready);
+      p.setDataValue("execution_actuals_readiness", readiness);
+      p.execution_actuals_ready = readiness.ready;
+      p.execution_actuals_readiness = readiness;
+    } catch {
+      p.setDataValue("execution_actuals_ready", true);
+      p.execution_actuals_ready = true;
+    }
   }
 
   return periods;
@@ -5059,7 +5074,137 @@ async function finalizeRegionalPeriodTargets(masterOrAnnualId, regionId, userId)
   }
 }
 
+async function getRegionalExecutionPeriodCompletionReadiness(periodVersionId, regionId) {
+  const period = await getRegionalPlanVersionById(periodVersionId, regionId);
+  if (!period) {
+    const error = new Error("Execution period not found");
+    error.status = 404;
+    throw error;
+  }
+
+  const nodes = await RegionalPlanNode.findAll({
+    where: { regional_plan_version_id: periodVersionId, is_active: true },
+    order: [["level", "ASC"], ["order", "ASC"]],
+  });
+
+  const childrenMap = new Map();
+  for (const n of nodes) {
+    if (n.parent_id) {
+      if (!childrenMap.has(n.parent_id)) childrenMap.set(n.parent_id, []);
+      childrenMap.get(n.parent_id).push(n);
+    }
+  }
+
+  // Required leaf nodes with target > 0
+  const requiredNodes = nodes.filter((node) => {
+    const children = childrenMap.get(node.regional_plan_node_id) || [];
+    const isLeaf = children.length === 0 || Boolean(node.period_actual_override);
+    const target = Number(node.period_target) || 0;
+    return isLeaf && target > 0;
+  });
+
+  const missing = [];
+  const pendingApproval = [];
+  const pendingValidation = [];
+  const rejected = [];
+  let approvedCount = 0;
+  let recordedCount = 0;
+
+  for (const node of requiredNodes) {
+    const rawActual = node.period_actual;
+    const hasActual = rawActual !== null && rawActual !== undefined;
+    if (hasActual) {
+      recordedCount++;
+    }
+
+    const status = (node.period_actual_status || "").toLowerCase();
+
+    // Check if fully approved/validated and ready for closure
+    if (status === "validated" || (status === "approved" && node.is_validation_required === false)) {
+      approvedCount++;
+      continue;
+    }
+
+    if (!hasActual || status === "draft" || status === "empty" || !status) {
+      missing.push(node);
+    } else if (status === "submitted") {
+      pendingApproval.push(node);
+    } else if (status === "approved" && node.is_validation_required !== false) {
+      pendingValidation.push(node);
+    } else if (status === "rejected") {
+      rejected.push(node);
+    } else {
+      missing.push(node);
+    }
+  }
+
+  const ready =
+    requiredNodes.length === 0 ||
+    (missing.length === 0 &&
+      pendingApproval.length === 0 &&
+      pendingValidation.length === 0 &&
+      rejected.length === 0);
+
+  let message = "";
+  if (!ready) {
+    if (pendingApproval.length > 0) {
+      const preview = pendingApproval.slice(0, 3).map((n) => n.title).join(", ");
+      const suffix = pendingApproval.length > 3 ? ` and ${pendingApproval.length - 3} more` : "";
+      message = `Approve all pending achievements before completing this period (${preview}${suffix})`;
+    } else if (pendingValidation.length > 0) {
+      const preview = pendingValidation.slice(0, 3).map((n) => n.title).join(", ");
+      const suffix = pendingValidation.length > 3 ? ` and ${pendingValidation.length - 3} more` : "";
+      message = `Validate all execution-approved achievements before completing this period (${preview}${suffix})`;
+    } else if (rejected.length > 0) {
+      const preview = rejected.slice(0, 3).map((n) => n.title).join(", ");
+      const suffix = rejected.length > 3 ? ` and ${rejected.length - 3} more` : "";
+      message = `Resubmit rejected achievements before completing this period (${preview}${suffix})`;
+    } else {
+      const preview = missing.slice(0, 3).map((n) => n.title).join(", ");
+      const suffix = missing.length > 3 ? ` and ${missing.length - 3} more` : "";
+      message = `Record achievement for all required leaf targets before completing this period (${preview}${suffix})`;
+    }
+  }
+
+  const mapReadinessNode = (node) => ({
+    node_id: node.regional_plan_node_id,
+    title: node.title,
+    label: node.title,
+    period_target: node.period_target,
+    period_actual: node.period_actual,
+    period_actual_status: node.period_actual_status,
+  });
+
+  return {
+    ready,
+    message,
+    required_count: requiredNodes.length,
+    recorded_count: recordedCount,
+    approved_count: approvedCount,
+    pending_approval_count: pendingApproval.length,
+    pending_approval_titles: pendingApproval.map((n) => n.title),
+    pending_approval_nodes: pendingApproval.map(mapReadinessNode),
+    pending_validation_count: pendingValidation.length,
+    pending_validation_titles: pendingValidation.map((n) => n.title),
+    pending_validation_nodes: pendingValidation.map(mapReadinessNode),
+    rejected_count: rejected.length,
+    rejected_titles: rejected.map((n) => n.title),
+    rejected_nodes: rejected.map(mapReadinessNode),
+    missing_count: missing.length,
+    missing_titles: missing.map((n) => n.title),
+    missing_nodes: missing.map(mapReadinessNode),
+  };
+}
+
 async function completeRegionalExecutionPeriod(periodVersionId, regionId, userId) {
+  const readiness = await getRegionalExecutionPeriodCompletionReadiness(periodVersionId, regionId);
+  if (!readiness.ready) {
+    const error = new Error(readiness.message || "Cannot complete period: pending or missing execution achievements.");
+    error.status = 400;
+    error.readiness = readiness;
+    throw error;
+  }
+
   const period = await getRegionalPlanVersionById(periodVersionId, regionId);
   await period.update({ status: "completed", execution_status: "completed" });
 
@@ -5071,10 +5216,61 @@ async function completeRegionalExecutionPeriod(periodVersionId, regionId, userId
     },
   });
   if (nextPeriod) {
-    await nextPeriod.update({ status: "active", execution_status: "open" });
+    await nextPeriod.update({ status: "active", execution_status: "open", is_locked: false });
   }
 
-  return period;
+  return getRegionalPlanVersionById(periodVersionId, regionId);
+}
+
+async function reopenRegionalExecutionPeriod(periodVersionId, regionId, userOrUserId) {
+  const period = await getRegionalPlanVersionById(periodVersionId, regionId);
+  if (!period) {
+    const error = new Error("Execution period not found");
+    error.status = 404;
+    throw error;
+  }
+
+  if (period.version_kind !== "execution_period") {
+    const error = new Error("Only execution periods can be reopened");
+    error.status = 400;
+    throw error;
+  }
+
+  const isCompleted =
+    period.status === "completed" || period.execution_status === "completed";
+  if (!isCompleted) {
+    const error = new Error("This execution period is not completed");
+    error.status = 400;
+    throw error;
+  }
+
+  const user = await resolveUserObject(userOrUserId);
+  if (user) {
+    const allowed =
+      isSuperAdmin(user) ||
+      isAdministrator(user) ||
+      userHasAny(user, [
+        "regional_plans:finalize",
+        "regional_plans:manage",
+        "regional_plans:update",
+        "regions:manage",
+      ]);
+    if (!allowed) {
+      const error = new Error("You do not have permission to reopen this execution period");
+      error.status = 403;
+      throw error;
+    }
+  }
+
+  // Preserve all node actuals, status, narration, and attachments intact.
+  // Reopen the execution window for editing, revision, and resubmission.
+  await period.update({
+    status: "active",
+    execution_status: "open",
+    is_locked: false,
+  });
+
+  return getRegionalPlanVersionById(periodVersionId, regionId);
 }
 
 // -------------------------------------------------------------
@@ -5211,7 +5407,13 @@ async function updateRegionalPeriodActual(nodeId, regionId, payload, userOrUserI
     }
   }
 
-  if (!canEditAchievementValue(node.period_actual_status)) {
+  const isPeriodOpen =
+    node.planVersion?.version_kind === "execution_period" &&
+    node.planVersion?.execution_status === "open" &&
+    !node.planVersion?.is_locked &&
+    node.planVersion?.status !== "completed";
+
+  if (!canEditAchievementValue(node.period_actual_status) && !isPeriodOpen) {
     throw new Error(`Cannot edit actual value while status is "${node.period_actual_status}"`);
   }
 
@@ -5219,6 +5421,14 @@ async function updateRegionalPeriodActual(nodeId, regionId, payload, userOrUserI
   if (payload.narration !== undefined) node.narration = payload.narration;
   if (Array.isArray(payload.evidence_attachment_ids)) {
     node.evidence_attachment_ids = payload.evidence_attachment_ids;
+  }
+
+  if (node.period_actual_status === "validated" || node.period_actual_status === "approved") {
+    node.period_actual_status = "draft";
+    node.period_actual_validated_at = null;
+    node.period_actual_validated_by = null;
+    node.period_actual_approved_at = null;
+    node.period_actual_approved_by = null;
   }
 
   await node.save();
@@ -6523,7 +6733,9 @@ module.exports = {
   updateRegionalPeriodTarget,
   getRegionalPeriodFinalizationReadiness,
   finalizeRegionalPeriodTargets,
+  getRegionalExecutionPeriodCompletionReadiness,
   completeRegionalExecutionPeriod,
+  reopenRegionalExecutionPeriod,
 
   // Execution Reporting & Workflow
   resolveRegionalAchievementWorkflowScope,

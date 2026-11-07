@@ -755,12 +755,34 @@ async function distributePeriodTargetsEquallyHandler(req, res, next) {
   }
 }
 
+async function getCompletePeriodReadinessHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "read");
+    const data = await regionalPlanService.getRegionalExecutionPeriodCompletionReadiness(req.params.id, regionId);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function completeExecutionPeriodHandler(req, res, next) {
   try {
     const regionId = resolveEffectiveRegionId(req);
     assertRegionAccessible(req, regionId, "update");
     const data = await regionalPlanService.completeRegionalExecutionPeriod(req.params.id, regionId, req.user?.user_id);
     res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function reopenExecutionPeriodHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "update");
+    const data = await regionalPlanService.reopenRegionalExecutionPeriod(req.params.id, regionId, req.user);
+    res.json({ success: true, data, message: "Execution period reopened successfully" });
   } catch (err) {
     next(err);
   }
@@ -1012,7 +1034,9 @@ module.exports = {
   getPeriodFinalizationReadinessHandler,
   finalizePeriodTargetsHandler,
   distributePeriodTargetsEquallyHandler,
+  getCompletePeriodReadinessHandler,
   completeExecutionPeriodHandler,
+  reopenExecutionPeriodHandler,
 
   // Achievement Workflow
   getAchievementWorkflowScopeHandler,

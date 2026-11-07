@@ -167,6 +167,11 @@ export interface RegionalPlanVersion {
   year?: number | null;
   execution_evaluation_status?: any;
   execution_is_evaluable?: boolean;
+  execution_actuals_ready?: boolean;
+  execution_actuals_readiness?: any;
+  execution_progress_percent?: number | null;
+  execution_has_contributing_progress?: boolean;
+  execution_has_recorded_actuals?: boolean;
   planning_start_date?: string;
   planning_end_date?: string;
   is_locked: boolean;

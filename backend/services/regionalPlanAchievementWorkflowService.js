@@ -546,11 +546,23 @@ async function submitRegionalAchievementWorkflow(nodeId, regionId, payload, user
     }
 
     const currentStatus = normalizeStatus(node.period_actual_status);
-    if (
-      currentStatus !== ACHIEVEMENT_STATUS.EMPTY &&
-      currentStatus !== ACHIEVEMENT_STATUS.DRAFT &&
-      currentStatus !== ACHIEVEMENT_STATUS.REJECTED
-    ) {
+    const isPeriodOpen =
+      node.planVersion?.version_kind === "execution_period" &&
+      node.planVersion?.execution_status === "open" &&
+      !node.planVersion?.is_locked &&
+      node.planVersion?.status !== "completed";
+
+    const allowedStatuses = [
+      ACHIEVEMENT_STATUS.EMPTY,
+      ACHIEVEMENT_STATUS.DRAFT,
+      ACHIEVEMENT_STATUS.REJECTED,
+    ];
+    if (isPeriodOpen) {
+      // In an open or reopened execution period, allow revising and resubmitting previously approved/validated performance
+      allowedStatuses.push(ACHIEVEMENT_STATUS.APPROVED, ACHIEVEMENT_STATUS.VALIDATED);
+    }
+
+    if (!allowedStatuses.includes(currentStatus)) {
       const error = new Error(`Cannot submit achievement from status "${node.period_actual_status}"`);
       error.status = 400;
       throw error;
@@ -1105,6 +1117,10 @@ async function resolveRegionalAchievementWorkflowScope(planVersionId, regionId, 
 
 module.exports = {
   ACHIEVEMENT_STATUS,
+  resolveUserObject,
+  isSuperAdmin,
+  isAdministrator,
+  userHasAny,
   userCanExecuteRegionalAchievement,
   userCanApproveRegionalAchievement,
   userCanValidateRegionalAchievement,

@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, CheckCircle, Clock, ShieldCheck } from "lucide-react";
+import { Eye, CheckCircle, Clock, ShieldCheck, RotateCcw } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   useGetRegionalExecutionPeriodsQuery,
   useCompleteRegionalExecutionPeriodMutation,
+  useReopenRegionalExecutionPeriodMutation,
   useGetRegionalPlanVersionByIdQuery,
 } from "@/redux/api/regionalPlanApi";
 import type { RegionalPlanVersion } from "@/redux/types/regionalPlan";
@@ -21,10 +22,12 @@ import {
 import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresholds";
 import {
   canShowPeriodCompleteButton,
+  isPeriodReadyToComplete,
   resolvePlanVersionStatusLabel,
   resolveWorkflowDisplayStatus,
   resolveExecutionEvaluationStatus,
 } from "@/utils/planExecutionUtils";
+import { PeriodCompleteValidationModal } from "@/features/plan-management/components/PeriodCompleteValidationModal";
 import { PerformanceProgressBar } from "@/features/plan-management/components/PerformanceProgressBar";
 import { PerformanceColorBadge } from "@/features/plan-management/components/PerformanceColorBadge";
 import { EvaluationStatusBadge } from "@/features/plan-management/components/EvaluationStatusBadge";
@@ -76,6 +79,11 @@ export function RegionalExecutionPeriodsDashboard({
     { skip: !annualVersion?.regional_plan_version_id || !regionId }
   );
   const [completePeriod, { isLoading: isCompleting }] = useCompleteRegionalExecutionPeriodMutation();
+  const [reopenPeriod, { isLoading: isReopening }] = useReopenRegionalExecutionPeriodMutation();
+
+  const [validationModalOpen, setValidationModalOpen] = useState(false);
+  const [selectedValidationPeriod, setSelectedValidationPeriod] = useState<RegionalPlanVersion | null>(null);
+  const [selectedValidationPeriodLabel, setSelectedValidationPeriodLabel] = useState("");
 
   const periodsInitialized = Boolean(annualVersion.period_subdivision_mode);
   const periodTargetsFinalized = Boolean(annualVersion.period_targets_finalized_at);
@@ -91,6 +99,25 @@ export function RegionalExecutionPeriodsDashboard({
     } catch (error: unknown) {
       const err = error as { data?: { message?: string } };
       actionFeedback.error(err.data?.message || "Failed to complete execution period");
+    }
+  };
+
+  const handleReopen = async (versionId: string, periodLabel: string) => {
+    if (
+      !(await actionFeedback.confirm(
+        `Reopen ${periodLabel} for performance updates? All existing achievements, narrations, and history will be retained.`,
+        { title: `Reopen ${periodLabel}`, confirmLabel: "Reopen Period" }
+      ))
+    ) {
+      return;
+    }
+    try {
+      await reopenPeriod({ id: versionId, region_id: regionId }).unwrap();
+      actionFeedback.success(`${periodLabel} reopened successfully`);
+      refetch();
+    } catch (error: unknown) {
+      const err = error as { data?: { message?: string } };
+      actionFeedback.error(err.data?.message || "Failed to reopen execution period");
     }
   };
 
@@ -452,16 +479,40 @@ export function RegionalExecutionPeriodsDashboard({
                 </Button>
                 {showCompleteButton && (
                   <Button
-                    variant="default"
+                    variant={isPeriodReadyToComplete(period as any) ? "default" : "outline"}
                     size="sm"
-                    className="gap-2 flex-1"
+                    className={cn(
+                      "gap-2 flex-1",
+                      !isPeriodReadyToComplete(period as any) &&
+                        "opacity-85 border-amber-300 text-amber-900 dark:text-amber-300"
+                    )}
                     disabled={isCompleting}
-                    onClick={() =>
-                      handleComplete(period.regional_plan_version_id, periodLabel)
-                    }
+                    onClick={() => {
+                      if (!isPeriodReadyToComplete(period as any)) {
+                        setSelectedValidationPeriod(period);
+                        setSelectedValidationPeriodLabel(periodLabel);
+                        setValidationModalOpen(true);
+                        return;
+                      }
+                      handleComplete(period.regional_plan_version_id, periodLabel);
+                    }}
                   >
                     <CheckCircle className="h-4 w-4" />
                     Complete
+                  </Button>
+                )}
+                {isCompleted && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 flex-1 border-amber-300 text-amber-900 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-950/40"
+                    disabled={isReopening}
+                    onClick={() =>
+                      handleReopen(period.regional_plan_version_id, periodLabel)
+                    }
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Reopen Period
                   </Button>
                 )}
               </CardFooter>
@@ -469,6 +520,17 @@ export function RegionalExecutionPeriodsDashboard({
           );
         })}
       </div>
+
+      {selectedValidationPeriod && (
+        <PeriodCompleteValidationModal
+          open={validationModalOpen}
+          onOpenChange={setValidationModalOpen}
+          period={selectedValidationPeriod as any}
+          periodLabel={selectedValidationPeriodLabel}
+          plansBasePath={`/regions/${regionId}/plans`}
+          processStarted={processStarted}
+        />
+      )}
     </div>
   );
 }

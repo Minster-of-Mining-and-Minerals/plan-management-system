@@ -622,6 +622,24 @@ export const regionalPlanApi = baseApi.injectEndpoints({
       invalidatesTags: ["RegionalPlanVersions", "RegionalPlanNodes", "RegionalPlanDashboard"],
     }),
 
+    reopenRegionalExecutionPeriod: builder.mutation<RegionalPlanVersion, { id: string; region_id: string }>({
+      query: ({ id, region_id }) => ({
+        url: `/regional/plans/versions/${id}/reopen-period?region_id=${region_id}`,
+        method: "POST",
+      }),
+      transformResponse: (res: { data: RegionalPlanVersion }) => res.data,
+      invalidatesTags: ["RegionalPlanVersions", "RegionalPlanNodes", "RegionalPlanDashboard"],
+    }),
+
+    getRegionalCompletePeriodReadiness: builder.query<{ ready: boolean; message?: string; [key: string]: any }, { id: string; region_id: string }>({
+      query: ({ id, region_id }) => ({
+        url: `/regional/plans/versions/${id}/complete-period-readiness`,
+        params: { region_id },
+      }),
+      transformResponse: (res: { data: any }) => res.data,
+      providesTags: ["RegionalPlanVersions", "RegionalPlanNodes"],
+    }),
+
     completeRegionalAnnualPlan: builder.mutation<RegionalPlanVersion, { id: string; region_id: string }>({
       query: ({ id, region_id }) => ({
         url: `/regional/plans/versions/${id}/complete-annual?region_id=${region_id}`,
@@ -918,7 +936,9 @@ export const {
   useGetRegionalPeriodTargetAllocationsQuery,
   useUpdateRegionalPeriodTargetMutation,
   useFinalizeRegionalPeriodTargetsMutation,
+  useGetRegionalCompletePeriodReadinessQuery,
   useCompleteRegionalExecutionPeriodMutation,
+  useReopenRegionalExecutionPeriodMutation,
   useCompleteRegionalAnnualPlanMutation,
   useGetRegionalPlanHierarchyQuery,
   useCreateRegionalPlanNodeMutation,

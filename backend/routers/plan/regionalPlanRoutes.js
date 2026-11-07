@@ -249,7 +249,9 @@ router.get("/versions/:id/period-target-allocations", planReadAccess, regionalPl
 router.get("/versions/:id/execution-period-readiness", planReadAccess, regionalPlanController.getPeriodFinalizationReadinessHandler);
 router.post("/versions/:id/finalize-execution-periods", planFinalizeAccess, regionalPlanController.finalizePeriodTargetsHandler);
 router.post("/versions/:id/distribute-period-targets-equally", planUpdateAccess, regionalPlanController.distributePeriodTargetsEquallyHandler);
+router.get("/versions/:id/complete-period-readiness", planReadAccess, regionalPlanController.getCompletePeriodReadinessHandler);
 router.post("/versions/:id/complete-period", planFinalizeAccess, regionalPlanController.completeExecutionPeriodHandler);
+router.post("/versions/:id/reopen-period", planFinalizeAccess, regionalPlanController.reopenExecutionPeriodHandler);
 
 // Hierarchy
 router.get("/versions/:id/hierarchy", planReadAccess, regionalPlanController.getPlanHierarchyHandler);

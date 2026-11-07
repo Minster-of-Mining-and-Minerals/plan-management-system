@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
+import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -136,6 +137,7 @@ export function RegionalPlanNodePeriodActualSection({
   const [periodActualInput, setPeriodActualInput] = useState("");
   const [narrationInput, setNarrationInput] = useState("");
   const [pendingOverride, setPendingOverride] = useState(false);
+  const [isRevising, setIsRevising] = useState(false);
 
   // Rejection Dialog state
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
@@ -222,8 +224,17 @@ export function RegionalPlanNodePeriodActualSection({
     (isParentOverride || pendingOverride);
 
   const canEnter = canEnterLeaf || canEnterManual;
-  const canSubmitAchievement =
-    canEnter && canEditPlanAchievementValue(achievementStatus);
+  const isEditableStatus = canEditPlanAchievementValue(achievementStatus) || isRevising;
+  const canSubmitAchievement = canEnter && isEditableStatus;
+
+  const showReopenEditAction =
+    !isRevising &&
+    canEnterLeaf &&
+    periodTarget > 0 &&
+    canEdit &&
+    !isEditingManual &&
+    (achievementStatus === PLAN_ACHIEVEMENT_STATUS.APPROVED ||
+      achievementStatus === PLAN_ACHIEVEMENT_STATUS.VALIDATED);
 
   useEffect(() => {
     if (node.period_actual != null) {
@@ -345,6 +356,7 @@ export function RegionalPlanNodePeriodActualSection({
         },
       }).unwrap();
 
+      setIsRevising(false);
       actionFeedback.success(
         val == null ? "Achievement cleared" : "Achievement submitted for approval"
       );
@@ -605,10 +617,30 @@ export function RegionalPlanNodePeriodActualSection({
           }}
           className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-xs"
         >
-          {achievementStatus === PLAN_ACHIEVEMENT_STATUS.REJECTED
+          {achievementStatus === PLAN_ACHIEVEMENT_STATUS.REJECTED || isRevising
             ? "Resubmit"
             : "Submit"}
         </Button>
+        {isRevising && (
+          <Button
+            type="button"
+            variant="ghost"
+            size={variant === "compact" || variant === "table" ? "sm" : "default"}
+            disabled={isSaving}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsRevising(false);
+              if (node.period_actual != null) {
+                setPeriodActualInput(String(node.period_actual));
+              } else {
+                setPeriodActualInput("");
+              }
+              setNarrationInput((node as any).period_actual_narration ?? "");
+            }}
+          >
+            Cancel
+          </Button>
+        )}
       </div>
       {(narrationRequired || narrationInput.trim().length > 0 || draftActualValid) && (
         <div className="space-y-1">
@@ -727,6 +759,24 @@ export function RegionalPlanNodePeriodActualSection({
         )}
       </div>
     ) : null;
+
+  const reopenEditButton = showReopenEditAction ? (
+    <div className="flex flex-wrap gap-2" onClick={onClick}>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="h-8 text-xs border-amber-300 text-amber-900 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-950/30 gap-1.5"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsRevising(true);
+        }}
+      >
+        <Pencil className="h-3.5 w-3.5" />
+        Edit / Resubmit
+      </Button>
+    </div>
+  ) : null;
 
   const manualEditor = showManualEditor ? (
     <div
@@ -911,6 +961,7 @@ export function RegionalPlanNodePeriodActualSection({
             </p>
           )}
         {overrideActions}
+        {reopenEditButton}
         {approvalActions}
         {validationActions}
         {leafEditor}
@@ -938,6 +989,7 @@ export function RegionalPlanNodePeriodActualSection({
         </span>
         {statusNotice}
         {overrideActions}
+        {reopenEditButton}
         {approvalActions}
         {validationActions}
         {leafEditor}
@@ -1007,6 +1059,7 @@ export function RegionalPlanNodePeriodActualSection({
         </div>
       </div>
       {overrideActions}
+      {reopenEditButton}
       {approvalActions}
       {validationActions}
       {leafEditor}
