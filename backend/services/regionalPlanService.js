@@ -5206,14 +5206,18 @@ async function completeRegionalExecutionPeriod(periodVersionId, regionId, userId
   }
 
   const period = await getRegionalPlanVersionById(periodVersionId, regionId);
-  await period.update({ status: "completed", execution_status: "completed" });
+  await period.update({ status: "completed", execution_status: "completed", is_locked: true });
 
+  const currentSeq = Number(period.sequence_index) || 0;
   const nextPeriod = await RegionalPlanVersion.findOne({
     where: {
       parent_plan_version_id: period.parent_plan_version_id,
       version_kind: "execution_period",
-      sequence_index: (period.sequence_index || 0) + 1,
+      sequence_index: {
+        [Op.gt]: currentSeq,
+      },
     },
+    order: [["sequence_index", "ASC"]],
   });
   if (nextPeriod) {
     await nextPeriod.update({ status: "active", execution_status: "open", is_locked: false });
@@ -5392,11 +5396,18 @@ async function updateRegionalPeriodActual(nodeId, regionId, payload, userOrUserI
   await assertUserCanExecuteAchievement(user, node, regionId);
 
   if (node.planVersion?.version_kind === "execution_period") {
-    if (
-      node.planVersion.execution_status !== "open" ||
-      node.planVersion.is_locked ||
-      node.planVersion.status === "completed"
-    ) {
+    const isCompleted =
+      node.planVersion.status === "completed" ||
+      node.planVersion.execution_status === "completed";
+    const isExplicitlyLocked =
+      node.planVersion.execution_status === "locked";
+    const isOpen =
+      (node.planVersion.execution_status === "open" ||
+        node.planVersion.status === "active") &&
+      !isCompleted &&
+      !isExplicitlyLocked;
+
+    if (!isOpen) {
       const error = new Error(
         `Cannot update actual value: period is not open for execution (status: ${
           node.planVersion.execution_status || node.planVersion.status
@@ -5409,8 +5420,8 @@ async function updateRegionalPeriodActual(nodeId, regionId, payload, userOrUserI
 
   const isPeriodOpen =
     node.planVersion?.version_kind === "execution_period" &&
-    node.planVersion?.execution_status === "open" &&
-    !node.planVersion?.is_locked &&
+    (node.planVersion?.execution_status === "open" || node.planVersion?.status === "active") &&
+    node.planVersion?.execution_status !== "locked" &&
     node.planVersion?.status !== "completed";
 
   if (!canEditAchievementValue(node.period_actual_status) && !isPeriodOpen) {

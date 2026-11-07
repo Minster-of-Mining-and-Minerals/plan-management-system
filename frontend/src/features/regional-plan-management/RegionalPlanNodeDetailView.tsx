@@ -152,7 +152,11 @@ export function RegionalPlanNodeDetailView({
   );
   const showPeriodActuals = isExecutionPeriod && processStarted;
   const canEditPeriodActual =
-    isExecutionPeriod && processStarted && version?.execution_status === "open";
+    isExecutionPeriod &&
+    processStarted &&
+    (version?.execution_status === "open" || version?.status === "active") &&
+    version?.execution_status !== "locked" &&
+    version?.status !== "completed";
 
   const { data: hierarchyData } = useGetRegionalPlanHierarchyQuery(
     { id: versionId, region_id: regionId },

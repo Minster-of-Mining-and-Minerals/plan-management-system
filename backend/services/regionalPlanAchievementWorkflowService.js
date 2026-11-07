@@ -530,11 +530,18 @@ async function submitRegionalAchievementWorkflow(nodeId, regionId, payload, user
     await assertUserCanExecuteAchievement(user, node, regionId, t);
 
     if (node.planVersion?.version_kind === "execution_period") {
-      if (
-        node.planVersion.execution_status !== "open" ||
-        node.planVersion.is_locked ||
-        node.planVersion.status === "completed"
-      ) {
+      const isCompleted =
+        node.planVersion.status === "completed" ||
+        node.planVersion.execution_status === "completed";
+      const isExplicitlyLocked =
+        node.planVersion.execution_status === "locked";
+      const isOpen =
+        (node.planVersion.execution_status === "open" ||
+          node.planVersion.status === "active") &&
+        !isCompleted &&
+        !isExplicitlyLocked;
+
+      if (!isOpen) {
         const error = new Error(
           `Cannot submit achievement: period is not open for execution (status: ${
             node.planVersion.execution_status || node.planVersion.status
@@ -548,8 +555,8 @@ async function submitRegionalAchievementWorkflow(nodeId, regionId, payload, user
     const currentStatus = normalizeStatus(node.period_actual_status);
     const isPeriodOpen =
       node.planVersion?.version_kind === "execution_period" &&
-      node.planVersion?.execution_status === "open" &&
-      !node.planVersion?.is_locked &&
+      (node.planVersion?.execution_status === "open" || node.planVersion?.status === "active") &&
+      node.planVersion?.execution_status !== "locked" &&
       node.planVersion?.status !== "completed";
 
     const allowedStatuses = [
