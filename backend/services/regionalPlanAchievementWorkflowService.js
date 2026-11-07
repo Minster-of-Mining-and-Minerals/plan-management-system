@@ -530,37 +530,37 @@ async function submitRegionalAchievementWorkflow(nodeId, regionId, payload, user
     await assertUserCanExecuteAchievement(user, node, regionId, t);
 
     if (node.planVersion?.version_kind === "execution_period") {
-      // If period is completed or locked, auto-open/reopen it so execution and testing can continue
       if (
-        node.planVersion.execution_status === "locked" ||
+        node.planVersion.execution_status !== "open" ||
         node.planVersion.is_locked ||
-        node.planVersion.status === "completed" ||
-        node.planVersion.execution_status === "completed"
+        node.planVersion.status === "completed"
       ) {
-        await node.planVersion.update(
-          {
-            execution_status: "open",
-            status: "active",
-            is_locked: false,
-          },
-          { transaction: t }
+        const error = new Error(
+          `Cannot submit achievement: period is not open for execution (status: ${
+            node.planVersion.execution_status || node.planVersion.status
+          })`
         );
-        node.planVersion.execution_status = "open";
-        node.planVersion.status = "active";
-        node.planVersion.is_locked = false;
+        error.status = 400;
+        throw error;
       }
     }
 
     const currentStatus = normalizeStatus(node.period_actual_status);
-    const isPeriodOpen = node.planVersion?.version_kind === "execution_period";
+    const isPeriodOpen =
+      node.planVersion?.version_kind === "execution_period" &&
+      node.planVersion?.execution_status === "open" &&
+      !node.planVersion?.is_locked &&
+      node.planVersion?.status !== "completed";
 
     const allowedStatuses = [
       ACHIEVEMENT_STATUS.EMPTY,
       ACHIEVEMENT_STATUS.DRAFT,
       ACHIEVEMENT_STATUS.REJECTED,
-      ACHIEVEMENT_STATUS.APPROVED,
-      ACHIEVEMENT_STATUS.VALIDATED,
     ];
+    if (isPeriodOpen) {
+      // In an open or reopened execution period, allow revising and resubmitting previously approved/validated performance
+      allowedStatuses.push(ACHIEVEMENT_STATUS.APPROVED, ACHIEVEMENT_STATUS.VALIDATED);
+    }
 
     if (!allowedStatuses.includes(currentStatus)) {
       const error = new Error(`Cannot submit achievement from status "${node.period_actual_status}"`);

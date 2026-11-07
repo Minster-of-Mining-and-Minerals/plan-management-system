@@ -4574,19 +4574,6 @@ async function listRegionalExecutionPeriods(annualOrMasterVersionId, regionId) {
   }
 
   for (const p of periods) {
-    // For test and continuous execution across all quarters:
-    // Auto-unlock any locked period so users can immediately continue on next quarters
-    if (p.execution_status === "locked" || p.is_locked) {
-      p.execution_status = "open";
-      p.is_locked = false;
-      if (p.status !== "completed") p.status = "active";
-      await p.update({
-        execution_status: "open",
-        is_locked: false,
-        status: p.status === "completed" ? "completed" : "active",
-      });
-    }
-
     const progress = await computeRegionalPeriodExecutionProgress(p.regional_plan_version_id);
     p.setDataValue("execution_progress_percent", progress.execution_progress_percent);
     p.setDataValue("execution_is_evaluable", progress.is_evaluable);
@@ -5219,18 +5206,14 @@ async function completeRegionalExecutionPeriod(periodVersionId, regionId, userId
   }
 
   const period = await getRegionalPlanVersionById(periodVersionId, regionId);
-  await period.update({ status: "completed", execution_status: "completed", is_locked: false });
+  await period.update({ status: "completed", execution_status: "completed" });
 
-  const currentSeq = Number(period.sequence_index) || 0;
   const nextPeriod = await RegionalPlanVersion.findOne({
     where: {
       parent_plan_version_id: period.parent_plan_version_id,
       version_kind: "execution_period",
-      sequence_index: {
-        [Op.gt]: currentSeq,
-      },
+      sequence_index: (period.sequence_index || 0) + 1,
     },
-    order: [["sequence_index", "ASC"]],
   });
   if (nextPeriod) {
     await nextPeriod.update({ status: "active", execution_status: "open", is_locked: false });
@@ -5267,8 +5250,6 @@ async function reopenRegionalExecutionPeriod(periodVersionId, regionId, userOrUs
       isSuperAdmin(user) ||
       isAdministrator(user) ||
       userHasAny(user, [
-        "regional_plans:execute_achievement",
-        "regional_plans:execute",
         "regional_plans:finalize",
         "regional_plans:manage",
         "regional_plans:update",
@@ -5361,9 +5342,8 @@ async function startRegionalPlanProcess(versionId, regionId, userId) {
     });
     const allAnnualIds = allAnnuals.map((a) => a.regional_plan_version_id);
     if (allAnnualIds.length > 0) {
-      // Activate all execution periods so users can test and execute across all quarters without waiting
       await RegionalPlanVersion.update(
-        { is_locked: false, execution_status: "open", status: "active" },
+        { is_locked: true, execution_status: "locked" },
         {
           where: {
             parent_plan_version_id: allAnnualIds,
@@ -5412,25 +5392,26 @@ async function updateRegionalPeriodActual(nodeId, regionId, payload, userOrUserI
   await assertUserCanExecuteAchievement(user, node, regionId);
 
   if (node.planVersion?.version_kind === "execution_period") {
-    // If period is completed or locked, allow execution/testing and auto-open/reopen it
     if (
-      node.planVersion.execution_status === "locked" ||
+      node.planVersion.execution_status !== "open" ||
       node.planVersion.is_locked ||
-      node.planVersion.status === "completed" ||
-      node.planVersion.execution_status === "completed"
+      node.planVersion.status === "completed"
     ) {
-      await node.planVersion.update({
-        execution_status: "open",
-        status: "active",
-        is_locked: false,
-      });
-      node.planVersion.execution_status = "open";
-      node.planVersion.status = "active";
-      node.planVersion.is_locked = false;
+      const error = new Error(
+        `Cannot update actual value: period is not open for execution (status: ${
+          node.planVersion.execution_status || node.planVersion.status
+        })`
+      );
+      error.status = 400;
+      throw error;
     }
   }
 
-  const isPeriodOpen = node.planVersion?.version_kind === "execution_period";
+  const isPeriodOpen =
+    node.planVersion?.version_kind === "execution_period" &&
+    node.planVersion?.execution_status === "open" &&
+    !node.planVersion?.is_locked &&
+    node.planVersion?.status !== "completed";
 
   if (!canEditAchievementValue(node.period_actual_status) && !isPeriodOpen) {
     throw new Error(`Cannot edit actual value while status is "${node.period_actual_status}"`);

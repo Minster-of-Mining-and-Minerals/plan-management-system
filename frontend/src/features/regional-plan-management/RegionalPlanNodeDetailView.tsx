@@ -151,8 +151,8 @@ export function RegionalPlanNodeDetailView({
       version?.process_started_at
   );
   const showPeriodActuals = isExecutionPeriod && processStarted;
-  // Allow working on all quarters (including next quarters and completed quarters) once process is started
-  const canEditPeriodActual = Boolean(isExecutionPeriod && processStarted);
+  const canEditPeriodActual =
+    isExecutionPeriod && processStarted && version?.execution_status === "open";
 
   const { data: hierarchyData } = useGetRegionalPlanHierarchyQuery(
     { id: versionId, region_id: regionId },
