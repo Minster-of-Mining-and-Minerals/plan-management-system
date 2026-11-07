@@ -48,6 +48,14 @@ const planFinalizeAccess = checkAnyPermission([
   { resource: "REGIONS", action: "MANAGE" },
 ]);
 
+const planReopenPeriodAccess = checkAnyPermission([
+  { resource: "REGIONAL_PLANS", action: "REOPEN_PERIOD" },
+  { resource: "REGIONAL_PLANS", action: "REOPEN_EXECUTION_PERIOD" },
+  { resource: "REGIONAL_PLANS", action: "FINALIZE" },
+  { resource: "REGIONAL_PLANS", action: "MANAGE" },
+  { resource: "REGIONS", action: "MANAGE" },
+]);
+
 const planExecuteAccess = checkAnyPermission([
   { resource: "REGIONAL_PLANS", action: "EXECUTE_ACHIEVEMENT" },
   { resource: "REGIONAL_PLANS", action: "UPDATE" },
@@ -229,6 +237,7 @@ router.get("/versions/:id/review-dashboard", planReadAccess, regionalPlanControl
 router.get("/versions/:id/finalization-readiness", planReadAccess, regionalPlanController.getDraftFinalizationReadinessHandler);
 router.post("/versions/:id/finalize", planFinalizeAccess, regionalPlanController.finalizePlanDraftHandler);
 router.post("/versions/:id/reopen-for-edit", planUpdateAccess, regionalPlanController.reopenPlanDraftHandler);
+router.post("/versions/:id/sync-derived", planUpdateAccess, regionalPlanController.syncDerivedVersionsHandler);
 router.get("/versions/:id/start-process-readiness", planReadAccess, regionalPlanController.getStartProcessReadinessHandler);
 router.post("/versions/:id/start-process", planFinalizeAccess, regionalPlanController.startPlanProcessHandler);
 
@@ -251,7 +260,7 @@ router.post("/versions/:id/finalize-execution-periods", planFinalizeAccess, regi
 router.post("/versions/:id/distribute-period-targets-equally", planUpdateAccess, regionalPlanController.distributePeriodTargetsEquallyHandler);
 router.get("/versions/:id/complete-period-readiness", planReadAccess, regionalPlanController.getCompletePeriodReadinessHandler);
 router.post("/versions/:id/complete-period", planFinalizeAccess, regionalPlanController.completeExecutionPeriodHandler);
-router.post("/versions/:id/reopen-period", planFinalizeAccess, regionalPlanController.reopenExecutionPeriodHandler);
+router.post("/versions/:id/reopen-period", planReopenPeriodAccess, regionalPlanController.reopenExecutionPeriodHandler);
 
 // Hierarchy
 router.get("/versions/:id/hierarchy", planReadAccess, regionalPlanController.getPlanHierarchyHandler);

@@ -1798,6 +1798,63 @@ async function syncRegionalDerivedNodes(sourceVersionId, targetVersionId, transa
   }
 }
 
+/**
+ * Propagates master draft structural and node changes into all derived
+ * annual execution versions and their child execution periods.
+ */
+async function propagateRegionalMasterDraftChanges(masterVersionId, transaction = null) {
+  const master = await RegionalPlanVersion.findByPk(masterVersionId, { transaction });
+  if (!master || master.version_kind !== "master") return;
+
+  const annuals = await RegionalPlanVersion.findAll({
+    where: { parent_plan_version_id: masterVersionId, version_kind: "annual" },
+    order: [["sequence_index", "ASC"]],
+    transaction,
+  });
+
+  if (!annuals.length) return;
+
+  for (const ann of annuals) {
+    if (
+      ann.regional_plan_rule_id !== master.regional_plan_rule_id ||
+      ann.regional_planning_config_id !== master.regional_planning_config_id
+    ) {
+      await ann.update(
+        {
+          regional_plan_rule_id: master.regional_plan_rule_id,
+          regional_planning_config_id: master.regional_planning_config_id,
+        },
+        { transaction }
+      );
+    }
+
+    await syncRegionalDerivedNodes(masterVersionId, ann.regional_plan_version_id, transaction, "annual");
+
+    const periods = await RegionalPlanVersion.findAll({
+      where: { parent_plan_version_id: ann.regional_plan_version_id, version_kind: "execution_period" },
+      order: [["sequence_index", "ASC"]],
+      transaction,
+    });
+
+    for (const p of periods) {
+      if (
+        p.regional_plan_rule_id !== master.regional_plan_rule_id ||
+        p.regional_planning_config_id !== master.regional_planning_config_id
+      ) {
+        await p.update(
+          {
+            regional_plan_rule_id: master.regional_plan_rule_id,
+            regional_planning_config_id: master.regional_planning_config_id,
+          },
+          { transaction }
+        );
+      }
+
+      await syncRegionalDerivedNodes(ann.regional_plan_version_id, p.regional_plan_version_id, transaction, "period");
+    }
+  }
+}
+
 async function duplicateRegionalPlanDraft(sourceVersionId, regionId, payload, userId) {
   const sourceMaster = await getRegionalPlanVersionById(sourceVersionId, regionId);
   if (sourceMaster.version_kind !== "master") {
@@ -2972,6 +3029,10 @@ async function createRegionalPlanNode(versionId, regionId, payload, userId) {
       { transaction: t }
     );
 
+    if (version.version_kind === "master") {
+      await propagateRegionalMasterDraftChanges(versionId, t);
+    }
+
     await t.commit();
     return getRegionalPlanNodeById(nodeId, regionId);
   } catch (err) {
@@ -3142,6 +3203,11 @@ async function updateRegionalPlanNode(nodeId, regionId, payload, userId) {
       { transaction: t }
     );
 
+    const nodeVersion = await RegionalPlanVersion.findByPk(node.regional_plan_version_id, { transaction: t });
+    if (nodeVersion?.version_kind === "master") {
+      await propagateRegionalMasterDraftChanges(nodeVersion.regional_plan_version_id, t);
+    }
+
     await t.commit();
     return getRegionalPlanNodeById(nodeId, regionId);
   } catch (err) {
@@ -3152,7 +3218,14 @@ async function updateRegionalPlanNode(nodeId, regionId, payload, userId) {
 
 async function deleteRegionalPlanNode(nodeId, regionId, userId) {
   const node = await getRegionalPlanNodeById(nodeId, regionId);
+  const versionId = node.regional_plan_version_id;
   await node.destroy();
+
+  const version = await RegionalPlanVersion.findByPk(versionId);
+  if (version?.version_kind === "master") {
+    await propagateRegionalMasterDraftChanges(versionId);
+  }
+
   return { success: true };
 }
 
@@ -3299,6 +3372,11 @@ async function assignRegionalPlanNode(nodeId, regionId, payload, userId) {
       { transaction: t }
     );
 
+    const nodeVersion = await RegionalPlanVersion.findByPk(node.regional_plan_version_id, { transaction: t });
+    if (nodeVersion?.version_kind === "master") {
+      await propagateRegionalMasterDraftChanges(nodeVersion.regional_plan_version_id, t);
+    }
+
     await t.commit();
     return getRegionalPlanNodeById(nodeId, regionId);
   } catch (err) {
@@ -3308,7 +3386,7 @@ async function assignRegionalPlanNode(nodeId, regionId, payload, userId) {
 }
 
 async function removeRegionalPlanNodeAssignment(nodeId, assignmentId, regionId, userId) {
-  await getRegionalPlanNodeById(nodeId, regionId);
+  const node = await getRegionalPlanNodeById(nodeId, regionId);
   const assignment = await RegionalInternalAssignment.findOne({
     where: {
       regional_internal_assignment_id: assignmentId,
@@ -3337,6 +3415,11 @@ async function removeRegionalPlanNodeAssignment(nodeId, assignmentId, regionId, 
     action: "NODE_UNASSIGNED",
     details: { assignment_id: assignmentId },
   });
+
+  const nodeVersion = await RegionalPlanVersion.findByPk(node.regional_plan_version_id);
+  if (nodeVersion?.version_kind === "master") {
+    await propagateRegionalMasterDraftChanges(nodeVersion.regional_plan_version_id);
+  }
 
   return getRegionalPlanNodeById(nodeId, regionId);
 }
@@ -3509,6 +3592,10 @@ async function completeRegionalPlanReview(versionId, regionId, req, decision) {
     status: "finalized",
   });
 
+  if (isApproved) {
+    await propagateRegionalMasterDraftChanges(versionId);
+  }
+
   try {
     const recipients = await getRegionalReviewRecipients(versionId, regionId);
     await emitRegionalPlanReviewEvent(
@@ -3644,7 +3731,8 @@ async function getRegionalDraftFinalizationReadiness(versionId, regionId) {
 async function finalizeRegionalPlanDraft(versionId, regionId, userId) {
   const existing = await getRegionalPlanVersionById(versionId, regionId);
   if (existing.status === "finalized") {
-    return existing;
+    await propagateRegionalMasterDraftChanges(versionId);
+    return getRegionalPlanVersionById(versionId, regionId);
   }
 
   const readiness = await getRegionalDraftFinalizationReadiness(versionId, regionId);
@@ -4854,10 +4942,25 @@ async function updateRegionalPeriodTarget(nodeId, regionId, periodTarget, userId
     }
 
     const annualVersion = await RegionalPlanVersion.findByPk(version.parent_plan_version_id, { transaction: t });
-    if (annualVersion?.period_targets_finalized_at || version.period_targets_finalized_at) {
-      const err = new Error("Period targets are finalized for this annual year and cannot be changed");
-      err.status = 400;
-      throw err;
+    const isExecutionOpen =
+      version.execution_status === "open" &&
+      !version.is_locked &&
+      version.status !== "completed";
+
+    // If version is not open for execution, enforce lock/finalization rules
+    if (!isExecutionOpen) {
+      if (version.execution_status === "locked" || version.is_locked || version.status === "completed") {
+        const err = new Error(
+          `Cannot update target: period is not open (status: ${version.execution_status || version.status})`
+        );
+        err.status = 400;
+        throw err;
+      }
+      if (annualVersion?.period_targets_finalized_at || version.period_targets_finalized_at) {
+        const err = new Error("Period targets are finalized for this annual year and cannot be changed");
+        err.status = 400;
+        throw err;
+      }
     }
 
     if (!node.source_regional_plan_node_id) {
@@ -5217,6 +5320,33 @@ async function completeRegionalExecutionPeriod(periodVersionId, regionId, userId
   });
   if (nextPeriod) {
     await nextPeriod.update({ status: "active", execution_status: "open", is_locked: false });
+  } else {
+    // If no next period exists under this annual year, this was the final period of the annual plan!
+    // Complete the parent annual version and advance to the next annual version and open its Period 1.
+    const currentAnnual = await RegionalPlanVersion.findByPk(period.parent_plan_version_id);
+    if (currentAnnual) {
+      await currentAnnual.update({ status: "completed", execution_status: "completed" });
+      const nextAnnual = await RegionalPlanVersion.findOne({
+        where: {
+          parent_plan_version_id: currentAnnual.parent_plan_version_id,
+          version_kind: "annual",
+          sequence_index: (currentAnnual.sequence_index || 0) + 1,
+        },
+      });
+      if (nextAnnual) {
+        await nextAnnual.update({ status: "active", execution_status: "open", is_locked: false });
+        const firstPeriodOfNext = await RegionalPlanVersion.findOne({
+          where: {
+            parent_plan_version_id: nextAnnual.regional_plan_version_id,
+            version_kind: "execution_period",
+          },
+          order: [["sequence_index", "ASC"]],
+        });
+        if (firstPeriodOfNext) {
+          await firstPeriodOfNext.update({ status: "active", execution_status: "open", is_locked: false });
+        }
+      }
+    }
   }
 
   return getRegionalPlanVersionById(periodVersionId, regionId);
@@ -5250,9 +5380,10 @@ async function reopenRegionalExecutionPeriod(periodVersionId, regionId, userOrUs
       isSuperAdmin(user) ||
       isAdministrator(user) ||
       userHasAny(user, [
+        "regional_plans:reopen_period",
+        "regional_plans:reopen_execution_period",
         "regional_plans:finalize",
         "regional_plans:manage",
-        "regional_plans:update",
         "regions:manage",
       ]);
     if (!allowed) {
@@ -5269,6 +5400,18 @@ async function reopenRegionalExecutionPeriod(periodVersionId, regionId, userOrUs
     execution_status: "open",
     is_locked: false,
   });
+
+  // If the parent annual version was marked completed, reactivate it so the period is open within active annual context
+  if (period.parent_plan_version_id) {
+    const parentAnnual = await RegionalPlanVersion.findByPk(period.parent_plan_version_id);
+    if (parentAnnual && (parentAnnual.status === "completed" || parentAnnual.execution_status === "completed")) {
+      await parentAnnual.update({
+        status: "active",
+        execution_status: "open",
+        is_locked: false,
+      });
+    }
+  }
 
   return getRegionalPlanVersionById(periodVersionId, regionId);
 }
@@ -6711,6 +6854,7 @@ module.exports = {
   getRegionalDraftFinalizationReadiness,
   finalizeRegionalPlanDraft,
   reopenRegionalPlanDraftForEdit,
+  propagateRegionalMasterDraftChanges,
   getRegionalStartProcessReadiness,
   startRegionalPlanProcess,
 

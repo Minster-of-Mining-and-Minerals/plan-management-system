@@ -235,12 +235,18 @@ export function RegionalPlanHierarchyView() {
       plan?.process_started_at
   );
 
-  const showPeriodTargets = isPeriodPlan && !processStarted;
+  const isPeriodOpen = Boolean(
+    isPeriodPlan &&
+      plan?.execution_status === "open" &&
+      !plan?.is_locked &&
+      plan?.status !== "completed"
+  );
+  const showPeriodTargets = isPeriodPlan && (!processStarted || isPeriodOpen);
   const showPeriodActuals = isPeriodPlan && processStarted;
-  const canEditPeriodActual = isPeriodPlan && processStarted && plan?.execution_status === "open";
+  const canEditPeriodActual = isPeriodPlan && processStarted && isPeriodOpen;
   const showAnnualTargets = isAnnualPlan;
   const canEditAnnualTarget = isAnnualPlan && !annualTargetsFinalized && canUpdatePlan && plan?.status !== "completed";
-  const canEditPeriodTarget = isPeriodPlan && !periodTargetsFinalized && canUpdatePlan && plan?.status !== "completed" && !processStarted;
+  const canEditPeriodTarget = isPeriodPlan && canUpdatePlan && plan?.status !== "completed" && (!processStarted ? !periodTargetsFinalized : isPeriodOpen);
 
   const showAnnualActuals = isAnnualPlan && processStarted;
   const showMasterActuals = isMasterPlan && processStarted;

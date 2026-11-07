@@ -33,6 +33,8 @@ import { PerformanceColorBadge } from "@/features/plan-management/components/Per
 import { EvaluationStatusBadge } from "@/features/plan-management/components/EvaluationStatusBadge";
 import { cn } from "@/lib/utils";
 import Loading01 from "@/features/template/component/Loading/Loading01";
+import { usePermissions } from "@/hooks/usePermissions";
+import { canReopenRegionalExecutionPeriod } from "@/utils/planPermissionUtils";
 
 interface RegionalExecutionPeriodsDashboardProps {
   annualVersion: RegionalPlanVersion;
@@ -63,6 +65,8 @@ export function RegionalExecutionPeriodsDashboard({
 }: RegionalExecutionPeriodsDashboardProps) {
   const router = useRouter();
   const thresholds = usePerformanceColorThresholds();
+  const { can } = usePermissions();
+  const canReopenPeriodPerm = canReopenRegionalExecutionPeriod(can as any);
 
   const parentMasterId = annualVersion.parent_plan_version_id ?? "";
   const { data: fetchedMasterVersion, isLoading: isMasterLoading } = useGetRegionalPlanVersionByIdQuery(
@@ -501,7 +505,7 @@ export function RegionalExecutionPeriodsDashboard({
                     Complete
                   </Button>
                 )}
-                {isCompleted && (
+                {isCompleted && canReopenPeriodPerm && (
                   <Button
                     variant="outline"
                     size="sm"

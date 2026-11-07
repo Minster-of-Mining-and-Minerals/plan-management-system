@@ -76,6 +76,7 @@ const PERMISSION_LABELS: Partial<Record<PermissionKey, string>> = {
   "REGIONAL_BRANDING:MANAGE": "Manage regional branding",
   "REGIONAL_PLANS:READ": "View regional plans",
   "REGIONAL_PLANS:MANAGE": "Manage regional plans",
+  "REGIONAL_PLANS:REOPEN_PERIOD": "Reopen completed execution periods",
   "REGIONAL_PLAN_RULES:READ": "View regional plan rules",
   "REGIONAL_PLANNING_CONFIG:READ": "View regional planning configuration",
 

@@ -230,3 +230,16 @@ export const PLAN_ASSIGNMENT_DELETE_PERMISSIONS: PermissionKey[] = [
   PLAN_ASSIGNMENT_PERMISSIONS.DELETE,
   PLAN_PERMISSIONS.EDIT_FINALIZED,
 ];
+
+/** Reopen completed execution periods */
+export const REGIONAL_PLANS_REOPEN_PERMISSIONS: PermissionKey[] = [
+  "REGIONAL_PLANS:REOPEN_PERIOD",
+  "REGIONAL_PLANS:REOPEN_EXECUTION_PERIOD",
+  "REGIONAL_PLANS:FINALIZE",
+  "REGIONAL_PLANS:MANAGE",
+  "REGIONS:MANAGE",
+];
+
+export function canReopenRegionalExecutionPeriod(hasPermission: (perm: PermissionKey) => boolean): boolean {
+  return REGIONAL_PLANS_REOPEN_PERMISSIONS.some(hasPermission);
+}

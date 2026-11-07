@@ -493,6 +493,20 @@ export const regionalPlanApi = baseApi.injectEndpoints({
       invalidatesTags: (_res, _err, { id }) => [{ type: "RegionalPlanVersions", id }, "RegionalPlanVersions", "RegionalPlanDashboard"],
     }),
 
+    syncRegionalDerivedVersions: builder.mutation<RegionalPlanVersion, { id: string; region_id: string }>({
+      query: ({ id, region_id }) => ({
+        url: `/regional/plans/versions/${id}/sync-derived?region_id=${region_id}`,
+        method: "POST",
+      }),
+      transformResponse: (res: { data: RegionalPlanVersion }) => res.data,
+      invalidatesTags: (_res, _err, { id }) => [
+        { type: "RegionalPlanVersions", id },
+        "RegionalPlanVersions",
+        "RegionalPlanNodes",
+        "RegionalPlanDashboard",
+      ],
+    }),
+
     startRegionalPlanProcess: builder.mutation<RegionalPlanVersion, { id: string; region_id: string }>({
       query: ({ id, region_id }) => ({
         url: `/regional/plans/versions/${id}/start-process?region_id=${region_id}`,
@@ -924,6 +938,7 @@ export const {
   useGetRegionalStartProcessReadinessQuery,
   useFinalizeRegionalPlanDraftMutation,
   useReopenRegionalPlanDraftMutation,
+  useSyncRegionalDerivedVersionsMutation,
   useStartRegionalPlanProcessMutation,
   useGetRegionalAnnualVersionsQuery,
   useGetRegionalAnnualTargetAllocationsQuery,

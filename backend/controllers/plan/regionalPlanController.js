@@ -546,6 +546,18 @@ async function reopenPlanDraftHandler(req, res, next) {
   }
 }
 
+async function syncDerivedVersionsHandler(req, res, next) {
+  try {
+    const regionId = resolveEffectiveRegionId(req);
+    assertRegionAccessible(req, regionId, "update");
+    await regionalPlanService.propagateRegionalMasterDraftChanges(req.params.id);
+    const data = await regionalPlanService.getRegionalPlanVersionById(req.params.id, regionId);
+    res.json({ success: true, message: "Derived annual and execution periods synchronized", data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function getStartProcessReadinessHandler(req, res, next) {
   try {
     const regionId = resolveEffectiveRegionId(req);
@@ -1012,6 +1024,7 @@ module.exports = {
   getDraftFinalizationReadinessHandler,
   finalizePlanDraftHandler,
   reopenPlanDraftHandler,
+  syncDerivedVersionsHandler,
   getStartProcessReadinessHandler,
   startPlanProcessHandler,
 

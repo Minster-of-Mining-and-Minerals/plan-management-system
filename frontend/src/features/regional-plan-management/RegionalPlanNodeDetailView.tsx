@@ -150,9 +150,14 @@ export function RegionalPlanNodeDetailView({
       annualParentVersion?.process_started_at ||
       version?.process_started_at
   );
+  const isPeriodOpen = Boolean(
+    isExecutionPeriod &&
+      version?.execution_status === "open" &&
+      !version?.is_locked &&
+      version?.status !== "completed"
+  );
   const showPeriodActuals = isExecutionPeriod && processStarted;
-  const canEditPeriodActual =
-    isExecutionPeriod && processStarted && version?.execution_status === "open";
+  const canEditPeriodActual = isExecutionPeriod && processStarted && isPeriodOpen;
 
   const { data: hierarchyData } = useGetRegionalPlanHierarchyQuery(
     { id: versionId, region_id: regionId },
@@ -181,6 +186,12 @@ export function RegionalPlanNodeDetailView({
     can("REGIONAL_PLANS:UPDATE") ||
     can("REGIONAL_PLANS:MANAGE") ||
     can("REGIONS:MANAGE");
+
+  const canEditPeriodTarget = Boolean(
+    canUpdate &&
+      version?.status !== "completed" &&
+      (!processStarted ? !version?.period_targets_finalized_at : isPeriodOpen)
+  );
   const canExecute =
     can("REGIONAL_PLANS:EXECUTE_ACHIEVEMENT") ||
     can("REGIONAL_PLANS:UPDATE") ||
@@ -902,7 +913,7 @@ export function RegionalPlanNodeDetailView({
                     <span className="font-bold text-base text-foreground">
                       {node.period_target != null ? node.period_target : "—"} {node.target_unit || ""}
                     </span>
-                    {canUpdate && !version?.period_targets_finalized_at && !processStarted && (
+                    {canEditPeriodTarget && (
                       <div className="flex items-center gap-1.5 ml-auto">
                         <Input
                           type="number"
