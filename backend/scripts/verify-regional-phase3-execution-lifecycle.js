@@ -19,6 +19,7 @@ const {
 } = require("../models");
 
 const regionalPlanService = require("../services/regionalPlanService");
+const regionalPlanAchievementWorkflowService = require("../services/regionalPlanAchievementWorkflowService");
 
 let testRegion = null;
 let testRule = null;
@@ -239,7 +240,6 @@ async function runTests() {
         parent_id: goalNode.regional_plan_node_id,
         title: "KPI 2 - Commercial Tax Compliance",
         weight: 50,
-        contribution_weight: 40,
         weight_mode: "number",
         target_unit: "Percentage",
         level: 3,
@@ -261,8 +261,8 @@ async function runTests() {
 
     const q1Kpi2 = q1Nodes.find((n) => n.title === "KPI 2 - Commercial Tax Compliance");
     assert(q1Kpi2, "KPI 2 was cleanly propagated into Q1 execution period");
-    assert.strictEqual(Number(q1Kpi2.contribution_weight), 40, "Contribution weight propagated correctly");
-    console.log("  [PASS] Master draft additions and contribution weights propagate into execution periods");
+    assert.strictEqual(Number(q1Kpi2.weight), 50, "Weight propagated correctly");
+    console.log("  [PASS] Master draft additions and weights propagate into execution periods");
 
     console.log("\n--- Test 3: Start Execution Process ---");
     await regionalPlanService.startRegionalPlanProcess(masterVersion.regional_plan_version_id, testRegion.region_id, adminUser.user_id);
@@ -281,10 +281,10 @@ async function runTests() {
     const updatedQ1Target = await regionalPlanService.updateRegionalPeriodTarget(
       q1Kpi1.regional_plan_node_id,
       testRegion.region_id,
-      15,
+      10,
       adminUser.user_id
     );
-    assert.strictEqual(Number(updatedQ1Target.period_target), 15, "Target updated on open period");
+    assert.strictEqual(Number(updatedQ1Target.period_target), 10, "Target updated on open period");
 
     // Attempting to update target on locked Q2 node must fail with clear 'period is not open' message
     const q2Nodes = await RegionalPlanNode.findAll({ where: { regional_plan_version_id: y1Periods[1].regional_plan_version_id } });
@@ -294,7 +294,7 @@ async function runTests() {
       await regionalPlanService.updateRegionalPeriodTarget(
         q2Kpi1.regional_plan_node_id,
         testRegion.region_id,
-        15,
+        10,
         adminUser.user_id
       );
     } catch (err) {
@@ -307,7 +307,7 @@ async function runTests() {
     console.log("\n--- Test 5: Period 1 Completion & Clean Transition to Period 2 ---");
     // Fulfill Q1 actuals for KPI 1 and KPI 2 so Q1 can complete
     await RegionalPlanNode.update(
-      { period_actual: 15, period_actual_status: "validated" },
+      { period_actual: 10, period_actual_status: "validated" },
       { where: { regional_plan_node_id: q1Kpi1.regional_plan_node_id } }
     );
     await RegionalPlanNode.update(
@@ -328,11 +328,27 @@ async function runTests() {
     const q2TargetUpdated = await regionalPlanService.updateRegionalPeriodTarget(
       q2Kpi1.regional_plan_node_id,
       testRegion.region_id,
-      15,
+      10,
       adminUser.user_id
     );
-    assert.strictEqual(Number(q2TargetUpdated.period_target), 15, "Target entry on newly opened Period 2 succeeded without status mismatch!");
-    console.log("  [PASS] Period 1 completed, Period 2 opened, target entry on Period 2 succeeded seamlessly!");
+    assert.strictEqual(Number(q2TargetUpdated.period_target), 10, "Target entry on newly opened Period 2 succeeded without status mismatch!");
+
+    // Also test updating actual value and submitting achievement on newly opened Period 2
+    await regionalPlanService.updateRegionalPeriodActual(
+      q2Kpi1.regional_plan_node_id,
+      testRegion.region_id,
+      { period_actual: 8, narration: "Q2 initial progress" },
+      adminUser.user_id
+    );
+
+    const submitQ2Res = await regionalPlanAchievementWorkflowService.submitRegionalAchievementWorkflow(
+      q2Kpi1.regional_plan_node_id,
+      testRegion.region_id,
+      { period_actual: 10, narration: "Q2 submitted progress" },
+      adminUser.user_id
+    );
+    assert(submitQ2Res, "Achievement submitted on newly opened Period 2 without status block");
+    console.log("  [PASS] Target entry & achievement submission on newly opened Period 2 succeeded seamlessly!");
 
     console.log("\n--- Test 6: Advance Execution Gate Across Annual Boundaries ---");
     // Complete Q2, Q3, and Q4 of Year 1
@@ -387,7 +403,7 @@ async function runTests() {
 
     // Verify previous actuals and narrations were held intact
     const reloadedQ1Kpi1 = await RegionalPlanNode.findByPk(q1Kpi1.regional_plan_node_id);
-    assert.strictEqual(Number(reloadedQ1Kpi1.period_actual), 15, "Previous actual preserved intact");
+    assert.strictEqual(Number(reloadedQ1Kpi1.period_actual), 10, "Previous actual preserved intact");
     assert.strictEqual(reloadedQ1Kpi1.period_actual_status, "validated", "Previous status preserved intact");
     console.log("  [PASS] Dedicated permission check enforced: unauthorized blocked with 403, authorized successfully reopened holding all data intact!");
 

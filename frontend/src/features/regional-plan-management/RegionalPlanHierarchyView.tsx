@@ -238,7 +238,6 @@ export function RegionalPlanHierarchyView() {
   const isPeriodOpen = Boolean(
     isPeriodPlan &&
       plan?.execution_status === "open" &&
-      !plan?.is_locked &&
       plan?.status !== "completed"
   );
   const showPeriodTargets = isPeriodPlan && (!processStarted || isPeriodOpen);

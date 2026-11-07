@@ -153,7 +153,6 @@ export function RegionalPlanNodeDetailView({
   const isPeriodOpen = Boolean(
     isExecutionPeriod &&
       version?.execution_status === "open" &&
-      !version?.is_locked &&
       version?.status !== "completed"
   );
   const showPeriodActuals = isExecutionPeriod && processStarted;

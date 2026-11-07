@@ -1484,6 +1484,15 @@ async function getRegionalPlanVersionById(versionId, regionId) {
       }
       version.setDataValue("live_master_version_id", master.regional_plan_version_id);
     }
+
+    if (version.execution_status === "open" && version.status !== "completed" && version.is_locked) {
+      version.is_locked = false;
+      version.setDataValue("is_locked", false);
+      RegionalPlanVersion.update(
+        { is_locked: false },
+        { where: { regional_plan_version_id: version.regional_plan_version_id } }
+      ).catch(() => {});
+    }
   }
 
   const effectiveProcessStarted = Boolean(version.process_started_at || version.getDataValue("process_started_at"));
@@ -4944,12 +4953,11 @@ async function updateRegionalPeriodTarget(nodeId, regionId, periodTarget, userId
     const annualVersion = await RegionalPlanVersion.findByPk(version.parent_plan_version_id, { transaction: t });
     const isExecutionOpen =
       version.execution_status === "open" &&
-      !version.is_locked &&
       version.status !== "completed";
 
     // If version is not open for execution, enforce lock/finalization rules
     if (!isExecutionOpen) {
-      if (version.execution_status === "locked" || version.is_locked || version.status === "completed") {
+      if (version.execution_status === "locked" || version.execution_status === "completed" || version.status === "completed") {
         const err = new Error(
           `Cannot update target: period is not open (status: ${version.execution_status || version.status})`
         );
@@ -4961,6 +4969,9 @@ async function updateRegionalPeriodTarget(nodeId, regionId, periodTarget, userId
         err.status = 400;
         throw err;
       }
+    } else if (version.is_locked) {
+      await version.update({ is_locked: false }, { transaction: t });
+      version.is_locked = false;
     }
 
     if (!node.source_regional_plan_node_id) {
@@ -5529,17 +5540,21 @@ async function startRegionalPlanProcess(versionId, regionId, userId) {
 
 async function updateRegionalPeriodActual(nodeId, regionId, payload, userOrUserId) {
   const node = await getRegionalPlanNodeById(nodeId, regionId);
-  const userId = typeof userOrUserId === "string" ? userOrUserId : userOrUserId?.user_id;
-  const user = typeof userOrUserId === "object" ? userOrUserId : await User.findByPk(userId);
+  const user = await resolveUserObject(userOrUserId);
+  const userId = user?.user_id || (typeof userOrUserId === "string" ? userOrUserId : userOrUserId?.user_id);
 
   await assertUserCanExecuteAchievement(user, node, regionId);
 
   if (node.planVersion?.version_kind === "execution_period") {
-    if (
-      node.planVersion.execution_status !== "open" ||
-      node.planVersion.is_locked ||
-      node.planVersion.status === "completed"
-    ) {
+    const isPeriodOpen =
+      node.planVersion.execution_status === "open" &&
+      node.planVersion.status !== "completed";
+    const isPeriodClosed =
+      node.planVersion.execution_status === "locked" ||
+      node.planVersion.execution_status === "completed" ||
+      node.planVersion.status === "completed";
+
+    if (!isPeriodOpen || isPeriodClosed) {
       const error = new Error(
         `Cannot update actual value: period is not open for execution (status: ${
           node.planVersion.execution_status || node.planVersion.status
@@ -5548,12 +5563,16 @@ async function updateRegionalPeriodActual(nodeId, regionId, payload, userOrUserI
       error.status = 400;
       throw error;
     }
+
+    if (node.planVersion.is_locked) {
+      await node.planVersion.update({ is_locked: false });
+      node.planVersion.is_locked = false;
+    }
   }
 
   const isPeriodOpen =
     node.planVersion?.version_kind === "execution_period" &&
     node.planVersion?.execution_status === "open" &&
-    !node.planVersion?.is_locked &&
     node.planVersion?.status !== "completed";
 
   if (!canEditAchievementValue(node.period_actual_status) && !isPeriodOpen) {

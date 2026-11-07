@@ -530,11 +530,15 @@ async function submitRegionalAchievementWorkflow(nodeId, regionId, payload, user
     await assertUserCanExecuteAchievement(user, node, regionId, t);
 
     if (node.planVersion?.version_kind === "execution_period") {
-      if (
-        node.planVersion.execution_status !== "open" ||
-        node.planVersion.is_locked ||
-        node.planVersion.status === "completed"
-      ) {
+      const isPeriodOpen =
+        node.planVersion.execution_status === "open" &&
+        node.planVersion.status !== "completed";
+      const isPeriodClosed =
+        node.planVersion.execution_status === "locked" ||
+        node.planVersion.execution_status === "completed" ||
+        node.planVersion.status === "completed";
+
+      if (!isPeriodOpen || isPeriodClosed) {
         const error = new Error(
           `Cannot submit achievement: period is not open for execution (status: ${
             node.planVersion.execution_status || node.planVersion.status
@@ -543,13 +547,18 @@ async function submitRegionalAchievementWorkflow(nodeId, regionId, payload, user
         error.status = 400;
         throw error;
       }
+
+      // Self-heal stale lock flag if present on an open period
+      if (node.planVersion.is_locked) {
+        await node.planVersion.update({ is_locked: false }, { transaction: t });
+        node.planVersion.is_locked = false;
+      }
     }
 
     const currentStatus = normalizeStatus(node.period_actual_status);
     const isPeriodOpen =
       node.planVersion?.version_kind === "execution_period" &&
       node.planVersion?.execution_status === "open" &&
-      !node.planVersion?.is_locked &&
       node.planVersion?.status !== "completed";
 
     const allowedStatuses = [
