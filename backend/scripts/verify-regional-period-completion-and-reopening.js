@@ -19,6 +19,7 @@ const {
 } = require("../models");
 
 const regionalPlanService = require("../services/regionalPlanService");
+const regionalPlanAchievementWorkflowService = require("../services/regionalPlanAchievementWorkflowService");
 const {
   submitRegionalAchievementWorkflow,
   approveRegionalAchievementWorkflow,
@@ -484,6 +485,54 @@ async function runTests() {
       testUser.user_id
     );
     assert(reCompleted.execution_status === "completed", "Re-completed successfully");
+
+    // -------------------------------------------------------------
+    // Test 8: Working Again on Completed Period (Mistakenly Completed Recovery)
+    // -------------------------------------------------------------
+    console.log("\n--- Test 8: Working Again on Completed Period (Mistakenly Completed Recovery) ---");
+    // Verify that updating actual on a completed period auto-activates/reopens it without error
+    const updatedOnCompleted = await regionalPlanService.updateRegionalPeriodActual(
+      kpi1Node.regional_plan_node_id,
+      testRegion.region_id,
+      { period_actual: 99, narration: "Corrected after accidental completion" },
+      testUser
+    );
+    assert(Number(updatedOnCompleted.period_actual) === 99, "Actual updated to 99 on completed period");
+
+    const reloadedP1 = await RegionalPlanVersion.findByPk(period1Version.regional_plan_version_id);
+    assert(reloadedP1.status === "active", "Period 1 status auto-activated to active");
+    assert(reloadedP1.execution_status === "open", "Period 1 execution_status auto-activated to open");
+    assert(reloadedP1.is_locked === false, "Period 1 is_locked is false");
+
+    // -------------------------------------------------------------
+    // Test 9: Working Directly on Next Quarter (Period 2) Without Waiting
+    // -------------------------------------------------------------
+    console.log("\n--- Test 9: Working Directly on Next Quarter (Period 2) Without Waiting ---");
+    // Create node in Period 2
+    const p2Node = await RegionalPlanNode.create({
+      regional_plan_node_id: uuidv4(),
+      regional_plan_version_id: period2Version.regional_plan_version_id,
+      title: "Q2 - Mineral Production Target",
+      node_type: "kpi",
+      period_target: 200,
+      period_actual_status: "draft",
+    });
+
+    const p2Update = await regionalPlanService.updateRegionalPeriodActual(
+      p2Node.regional_plan_node_id,
+      testRegion.region_id,
+      { period_actual: 150, narration: "Q2 mineral production recorded early" },
+      testUser
+    );
+    assert(Number(p2Update.period_actual) === 150, "Period 2 actual recorded without date restriction");
+
+    const p2Submit = await regionalPlanAchievementWorkflowService.submitRegionalAchievementWorkflow(
+      p2Node.regional_plan_node_id,
+      testRegion.region_id,
+      { period_actual: 150, narration: "Q2 submitted" },
+      testUser
+    );
+    assert(p2Submit.period_actual_status !== "draft", "Period 2 achievement submitted into workflow");
 
     console.log("\n===============================================================================");
     console.log(`TEST SUMMARY: ${passedCount} PASSED, ${failedCount} FAILED`);

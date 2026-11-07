@@ -251,7 +251,7 @@ router.post("/versions/:id/finalize-execution-periods", planFinalizeAccess, regi
 router.post("/versions/:id/distribute-period-targets-equally", planUpdateAccess, regionalPlanController.distributePeriodTargetsEquallyHandler);
 router.get("/versions/:id/complete-period-readiness", planReadAccess, regionalPlanController.getCompletePeriodReadinessHandler);
 router.post("/versions/:id/complete-period", planFinalizeAccess, regionalPlanController.completeExecutionPeriodHandler);
-router.post("/versions/:id/reopen-period", planFinalizeAccess, regionalPlanController.reopenExecutionPeriodHandler);
+router.post("/versions/:id/reopen-period", planExecuteAccess, regionalPlanController.reopenExecutionPeriodHandler);
 
 // Hierarchy
 router.get("/versions/:id/hierarchy", planReadAccess, regionalPlanController.getPlanHierarchyHandler);

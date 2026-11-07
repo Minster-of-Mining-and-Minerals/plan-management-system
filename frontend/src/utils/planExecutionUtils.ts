@@ -169,7 +169,7 @@ export function canShowPeriodCompleteButton(
     if (version.status === "completed" || version.execution_status === "completed") {
         return false;
     }
-    return version.execution_status === "open";
+    return version.execution_status === "open" || version.status === "active";
 }
 
 export function isPeriodReadyToComplete(

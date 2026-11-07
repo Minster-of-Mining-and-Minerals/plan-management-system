@@ -241,36 +241,16 @@ export function RegionalExecutionPeriodsDashboard({
               </div>
               <div className="flex flex-wrap gap-2">
                 {executionPeriods.map((period) => {
-                  const periodLocked =
-                    processStarted && period.execution_status === "locked";
                   const periodCompletion = resolveCompletionForVersion(
                     thresholds,
                     period as any,
                     processStarted
                   );
                   if (
-                    !periodLocked &&
                     !periodCompletion.visible &&
                     !period.execution_is_evaluable
                   ) {
                     return null;
-                  }
-
-                  if (periodLocked) {
-                    return (
-                      <div
-                        key={period.regional_plan_version_id}
-                        className="rounded-lg border bg-muted/40 px-3 py-2 text-center min-w-[88px]"
-                        style={{ borderColor: LOCKED_STATUS_COLOR }}
-                      >
-                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                          {period.period_label || `Period ${period.sequence_index}`}
-                        </p>
-                        <p className="text-xs font-medium text-muted-foreground mt-0.5">
-                          Locked
-                        </p>
-                      </div>
-                    );
                   }
 
                   const miniColor = periodCompletion.visible
@@ -319,11 +299,11 @@ export function RegionalExecutionPeriodsDashboard({
             periodTargetsFinalized
           );
 
-          const executionLocked =
-            processStarted && period.execution_status === "locked" && !isCompleted;
+          // For testing and unrestricted execution: all quarters can be worked on without date restrictions or sequential locking
+          const executionLocked = false;
           const executionOpen =
-            processStarted && period.execution_status === "open";
-          const showProgress = completion.visible && !executionLocked;
+            processStarted && !isCompleted;
+          const showProgress = completion.visible;
 
           const statusAppearance = resolveWorkflowStatusAppearance(thresholds, {
             status: resolveWorkflowDisplayStatus(period as any, processStarted),
@@ -471,11 +451,7 @@ export function RegionalExecutionPeriodsDashboard({
                   }
                 >
                   <Eye className="h-4 w-4" />
-                  {processStarted
-                    ? executionLocked
-                      ? "View (locked)"
-                      : "Open execution"
-                    : "Open Period"}
+                  {processStarted ? "Open execution" : "Open Period"}
                 </Button>
                 {showCompleteButton && (
                   <Button

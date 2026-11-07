@@ -237,12 +237,8 @@ export function RegionalPlanHierarchyView() {
 
   const showPeriodTargets = isPeriodPlan && !processStarted;
   const showPeriodActuals = isPeriodPlan && processStarted;
-  const canEditPeriodActual =
-    isPeriodPlan &&
-    processStarted &&
-    (plan?.execution_status === "open" || plan?.status === "active") &&
-    plan?.execution_status !== "locked" &&
-    plan?.status !== "completed";
+  // Allow working on all quarters (including next quarters and completed quarters) once process is started
+  const canEditPeriodActual = Boolean(isPeriodPlan && processStarted);
   const showAnnualTargets = isAnnualPlan;
   const canEditAnnualTarget = isAnnualPlan && !annualTargetsFinalized && canUpdatePlan && plan?.status !== "completed";
   const canEditPeriodTarget = isPeriodPlan && !periodTargetsFinalized && canUpdatePlan && plan?.status !== "completed" && !processStarted;
@@ -445,20 +441,14 @@ export function RegionalPlanHierarchyView() {
         node={node}
         rule={plan?.planRule as any}
         configuredUnits={configuredUnits}
-        canEdit={
-          isPeriodPlan &&
-          processStarted &&
-          (plan?.execution_status === "open" || plan?.status === "active") &&
-          plan?.execution_status !== "locked" &&
-          plan?.status !== "completed"
-        }
+        canEdit={Boolean(isPeriodPlan && processStarted)}
         variant={options?.variant ?? "card"}
         regionId={regionId!}
         targetLabel={isPeriodPlan ? "Period Target" : isAnnualPlan ? "Annual Target" : "Strategic Target"}
         versionKind={plan?.version_kind}
       />
     ),
-    [plan?.planRule, plan?.version_kind, configuredUnits, isPeriodPlan, isAnnualPlan, processStarted, plan?.execution_status, plan?.status, regionId]
+    [plan?.planRule, plan?.version_kind, configuredUnits, isPeriodPlan, isAnnualPlan, processStarted, regionId]
   );
 
   // Current level nodes for cards view
