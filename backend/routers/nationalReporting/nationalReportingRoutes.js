@@ -49,6 +49,19 @@ router.put(
   nationalReportingController.updateAssignment
 );
 
+// Per-Region Reporting Method & Form Controls
+router.get(
+  "/regions/:regionId/config",
+  checkPermission("national_reporting", "read_assignment"),
+  nationalReportingController.getRegionReportingConfig
+);
+
+router.put(
+  "/regions/:regionId/config",
+  checkPermission("national_reporting", "assign_region"),
+  nationalReportingController.updateRegionReportingConfig
+);
+
 // Requirement CRUD & Regional Assignments
 router.get(
   "/",

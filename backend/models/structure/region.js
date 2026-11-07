@@ -107,6 +107,28 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.BOOLEAN,
         defaultValue: true,
       },
+      national_reporting_method: {
+        type: DataTypes.STRING(50),
+        allowNull: false,
+        defaultValue: "node_mapping", // node_mapping, form_based
+      },
+      form_reporting_active: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
+      form_reporting_start_date: {
+        type: DataTypes.DATEONLY,
+        allowNull: true,
+      },
+      form_reporting_end_date: {
+        type: DataTypes.DATEONLY,
+        allowNull: true,
+      },
+      form_reporting_notes: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
     },
     {
       sequelize,

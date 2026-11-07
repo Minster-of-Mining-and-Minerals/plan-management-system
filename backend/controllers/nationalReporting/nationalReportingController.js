@@ -1,6 +1,7 @@
 "use strict";
 
 const nationalReportingService = require("../../services/nationalReportingService");
+const regionalNationalReportingService = require("../../services/regionalNationalReportingService");
 const { getSupportedUnitsCatalog } = require("../../utils/nationalUnitCompatibilityUtils");
 
 async function createRequirement(req, res) {
@@ -239,6 +240,45 @@ async function getUnitsCatalog(req, res) {
   }
 }
 
+async function getRegionReportingConfig(req, res) {
+  try {
+    const { regionId } = req.params;
+    const config = await regionalNationalReportingService.getRegionReportingConfig(regionId);
+    return res.status(200).json({
+      success: true,
+      data: config,
+    });
+  } catch (error) {
+    console.error("Error getting regional reporting config:", error);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Failed to get regional reporting configuration.",
+    });
+  }
+}
+
+async function updateRegionReportingConfig(req, res) {
+  try {
+    const { regionId } = req.params;
+    const config = await regionalNationalReportingService.updateRegionReportingConfig(
+      regionId,
+      req.body,
+      req.user?.user_id
+    );
+    return res.status(200).json({
+      success: true,
+      message: "Region reporting configuration updated successfully.",
+      data: config,
+    });
+  } catch (error) {
+    console.error("Error updating regional reporting config:", error);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Failed to update regional reporting configuration.",
+    });
+  }
+}
+
 module.exports = {
   createRequirement,
   updateRequirement,
@@ -253,5 +293,7 @@ module.exports = {
   requestClarification,
   getNationalDashboardSummary,
   getUnitsCatalog,
+  getRegionReportingConfig,
+  updateRegionReportingConfig,
 };
 

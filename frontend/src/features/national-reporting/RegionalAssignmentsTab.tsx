@@ -25,9 +25,10 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { ShieldCheck, Filter, Globe, Edit, CheckCircle, XCircle } from "lucide-react";
+import { ShieldCheck, Filter, Globe, Edit, CheckCircle, XCircle, Settings, Layers, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { NationalReportingAssignment } from "@/redux/types/nationalReporting";
+import { RegionalReportingMethodConfigModal } from "./RegionalReportingMethodConfigModal";
 
 export function RegionalAssignmentsTab() {
   const [regionFilter, setRegionFilter] = useState("all");
@@ -36,6 +37,11 @@ export function RegionalAssignmentsTab() {
   const [statusDraft, setStatusDraft] = useState<"active" | "suspended" | "withdrawn">("active");
   const [isMandatoryDraft, setIsMandatoryDraft] = useState(true);
   const [notesDraft, setNotesDraft] = useState("");
+  const [configuringRegion, setConfiguringRegion] = useState<{
+    regionId: string;
+    regionName: string;
+    regionCode?: string;
+  } | null>(null);
 
   const { data: assignments = [], isLoading } = useGetNationalAssignmentsQuery({
     region_id: regionFilter !== "all" ? regionFilter : undefined,
@@ -105,6 +111,27 @@ export function RegionalAssignmentsTab() {
             </SelectContent>
           </Select>
         </div>
+
+        {regionFilter !== "all" && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const r = regions.find((x) => x.region_id === regionFilter);
+              if (r) {
+                setConfiguringRegion({
+                  regionId: r.region_id,
+                  regionName: r.name,
+                  regionCode: r.code,
+                });
+              }
+            }}
+            className="text-xs h-9 flex items-center gap-1.5 border-emerald-300 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950"
+          >
+            <Settings className="h-3.5 w-3.5 text-emerald-600" />
+            Reporting Method
+          </Button>
+        )}
 
         <div className="ml-auto text-xs text-slate-500 font-medium">
           Showing <span className="font-bold text-slate-900 dark:text-slate-100">{assignments.length}</span> active regional assignments
@@ -211,15 +238,33 @@ export function RegionalAssignmentsTab() {
                         )}
                       </td>
                       <td className="px-5 py-4 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleOpenEdit(a)}
-                          className="text-slate-600 hover:text-slate-900"
-                        >
-                          <Edit className="h-4 w-4 mr-1" />
-                          Manage
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              setConfiguringRegion({
+                                regionId: a.region_id,
+                                regionName: a.region?.name || "Region",
+                                regionCode: a.region?.code,
+                              })
+                            }
+                            className="text-xs text-emerald-700 hover:text-emerald-900 dark:text-emerald-400 h-8 px-2"
+                            title="Configure Reporting Method (Option A vs Option B)"
+                          >
+                            <Settings className="h-3.5 w-3.5 mr-1" />
+                            Method
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenEdit(a)}
+                            className="text-slate-600 hover:text-slate-900 text-xs h-8 px-2"
+                          >
+                            <Edit className="h-3.5 w-3.5 mr-1" />
+                            Manage
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -313,6 +358,16 @@ export function RegionalAssignmentsTab() {
           )}
         </DialogContent>
       </Dialog>
+      {/* Regional Reporting Method Config Modal */}
+      {configuringRegion && (
+        <RegionalReportingMethodConfigModal
+          isOpen={!!configuringRegion}
+          onClose={() => setConfiguringRegion(null)}
+          regionId={configuringRegion.regionId}
+          regionName={configuringRegion.regionName}
+          regionCode={configuringRegion.regionCode}
+        />
+      )}
     </div>
   );
 }

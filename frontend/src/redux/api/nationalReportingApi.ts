@@ -6,6 +6,8 @@ import {
   NationalPublishedRecord,
   NationalDashboardSummary,
   UnitsCatalog,
+  RegionNationalReportingConfig,
+  DirectFormSubmissionPayload,
 } from "../types/nationalReporting";
 
 export const nationalReportingApi = baseApi.injectEndpoints({
@@ -295,6 +297,52 @@ export const nationalReportingApi = baseApi.injectEndpoints({
         { type: "NationalPublishedRecord", id: `REGIONAL_${regionId}` },
       ],
     }),
+
+    getRegionNationalReportingConfig: builder.query<
+      RegionNationalReportingConfig,
+      string
+    >({
+      query: (regionId) => `/regional/national-reporting/${regionId}/config`,
+      transformResponse: (res: any) => res.data,
+      providesTags: (_res, _err, regionId) => [
+        { type: "NationalAssignment" as const, id: `CONFIG_${regionId}` },
+      ],
+    }),
+
+    updateRegionNationalReportingConfig: builder.mutation<
+      RegionNationalReportingConfig,
+      { regionId: string; data: Partial<RegionNationalReportingConfig> }
+    >({
+      query: ({ regionId, data }) => ({
+        url: `/national-reporting/regions/${regionId}/config`,
+        method: "PUT",
+        body: data,
+      }),
+      invalidatesTags: (_res, _err, { regionId }) => [
+        { type: "NationalAssignment" as const, id: `CONFIG_${regionId}` },
+        { type: "NationalAssignment" as const, id: `REGIONAL_${regionId}` },
+        { type: "NationalAssignment" as const, id: "LIST" },
+        "NationalDashboard",
+      ],
+    }),
+
+    submitDirectFormReport: builder.mutation<
+      { success: boolean; publishedRecord: NationalPublishedRecord; receipt: any },
+      { regionId: string; data: DirectFormSubmissionPayload }
+    >({
+      query: ({ regionId, data }) => ({
+        url: `/regional/national-reporting/${regionId}/direct-form-submissions`,
+        method: "POST",
+        body: data,
+      }),
+      invalidatesTags: (_res, _err, { regionId }) => [
+        { type: "NationalAssignment" as const, id: `REGIONAL_${regionId}` },
+        { type: "NationalAssignment" as const, id: "LIST" },
+        { type: "NationalPublishedRecord" as const, id: "LIST" },
+        { type: "NationalPublishedRecord" as const, id: `REGIONAL_${regionId}` },
+        "NationalDashboard",
+      ],
+    }),
   }),
 });
 
@@ -318,5 +366,8 @@ export const {
   useDeleteRegionalMappingMutation,
   usePublishRegionalValidatedReportMutation,
   useGetRegionalPublicationHistoryQuery,
+  useGetRegionNationalReportingConfigQuery,
+  useUpdateRegionNationalReportingConfigMutation,
+  useSubmitDirectFormReportMutation,
 } = nationalReportingApi;
 

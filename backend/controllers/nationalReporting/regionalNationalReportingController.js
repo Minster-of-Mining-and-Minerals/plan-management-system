@@ -161,6 +161,67 @@ async function listPublicationHistory(req, res) {
   }
 }
 
+async function getRegionReportingConfig(req, res) {
+  try {
+    const regionId = resolveAndVerifyRegionId(req);
+    const config = await regionalNationalReportingService.getRegionReportingConfig(regionId);
+    return res.status(200).json({
+      success: true,
+      data: config,
+    });
+  } catch (error) {
+    console.error("Error fetching regional reporting configuration:", error);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Failed to fetch reporting configuration.",
+    });
+  }
+}
+
+async function updateRegionReportingConfig(req, res) {
+  try {
+    const regionId = resolveAndVerifyRegionId(req);
+    const config = await regionalNationalReportingService.updateRegionReportingConfig(
+      regionId,
+      req.body,
+      req.user?.user_id
+    );
+    return res.status(200).json({
+      success: true,
+      message: "Regional reporting configuration updated successfully.",
+      data: config,
+    });
+  } catch (error) {
+    console.error("Error updating regional reporting configuration:", error);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Failed to update reporting configuration.",
+    });
+  }
+}
+
+async function submitDirectFormReport(req, res) {
+  try {
+    const regionId = resolveAndVerifyRegionId(req);
+    const result = await regionalNationalReportingService.submitDirectFormReport(
+      regionId,
+      req.body,
+      req.user?.user_id
+    );
+    return res.status(201).json({
+      success: true,
+      message: result.receipt?.message || "Direct KPI form report published successfully.",
+      data: result,
+    });
+  } catch (error) {
+    console.error("Error submitting direct form report:", error);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Failed to submit direct form report.",
+    });
+  }
+}
+
 module.exports = {
   listAssignedRequirements,
   createPotentialMapping,
@@ -168,5 +229,8 @@ module.exports = {
   deleteMapping,
   publishValidatedReport,
   listPublicationHistory,
+  getRegionReportingConfig,
+  updateRegionReportingConfig,
+  submitDirectFormReport,
 };
 

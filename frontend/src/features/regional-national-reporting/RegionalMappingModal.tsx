@@ -4,6 +4,7 @@ import React, { useState, useMemo } from "react";
 import {
   useGetRegionalPlanVersionsQuery,
   useGetRegionalPlanHierarchyQuery,
+  useGetRegionalPlanConfigQuery,
 } from "@/redux/api/regionalPlanApi";
 import {
   useCreateRegionalPotentialMappingMutation,
@@ -95,8 +96,39 @@ export function RegionalMappingModal({
     return nodes.find((n) => n.regional_plan_node_id === selectedNodeId) || null;
   }, [selectedNodeId, nodes]);
 
+  // Fetch planning configuration to dereference custom target unit IDs
+  const { data: planConfig } = useGetRegionalPlanConfigQuery(
+    { region_id: regionId },
+    { skip: !isOpen || !regionId }
+  );
+
+  const resolvedUnitLabel = useMemo(() => {
+    if (!selectedNode?.target_unit) return "count";
+    const raw = String(selectedNode.target_unit).trim();
+    if (!raw) return "count";
+
+    if (planConfig?.target_units && Array.isArray(planConfig.target_units)) {
+      for (const item of planConfig.target_units) {
+        if (typeof item === "string" && item.toLowerCase() === raw.toLowerCase()) {
+          return item;
+        }
+        if (typeof item === "object" && item) {
+          const uItem = item as { id?: string; label?: string; symbol?: string };
+          if (
+            (uItem.id && uItem.id.toLowerCase() === raw.toLowerCase()) ||
+            (uItem.label && uItem.label.toLowerCase() === raw.toLowerCase()) ||
+            (uItem.symbol && uItem.symbol.toLowerCase() === raw.toLowerCase())
+          ) {
+            return uItem.label || uItem.symbol || uItem.id || raw;
+          }
+        }
+      }
+    }
+    return raw;
+  }, [selectedNode, planConfig]);
+
   // Unit compatibility check
-  const localUnit = selectedNode?.target_unit?.trim().toLowerCase() || "count";
+  const localUnit = resolvedUnitLabel.trim().toLowerCase();
   const expectedUnit = req?.expected_unit?.trim().toLowerCase() || "kg";
   const unitCategory = req?.unit_category || "mass";
 
@@ -104,16 +136,29 @@ export function RegionalMappingModal({
 
   const isCompatible = useMemo(() => {
     if (!selectedNode) return true; // not chosen yet
+    if (!localUnit || !expectedUnit) return true;
     if (localUnit === expectedUnit) return true;
+
+    // Check singular/plural stem equivalence
+    const stemA = localUnit.replace(/(ies|es|s)$/, (m) => (m === "ies" ? "y" : ""));
+    const stemB = expectedUnit.replace(/(ies|es|s)$/, (m) => (m === "ies" ? "y" : ""));
+    if (stemA === stemB) return true;
 
     const allowedInCat = unitsCatalog[unitCategory]?.units || [];
     const localNorm = localUnit.replace(/[\s\-_]+/g, "_");
     const expectedNorm = expectedUnit.replace(/[\s\-_]+/g, "_");
 
-    const localInCat = allowedInCat.includes(localNorm);
-    const expInCat = allowedInCat.includes(expectedNorm);
+    if (allowedInCat.includes(localNorm) && allowedInCat.includes(expectedNorm)) {
+      return true;
+    }
 
-    return localInCat && expInCat;
+    for (const [, catData] of Object.entries(unitsCatalog)) {
+      if (catData.units?.includes(localNorm) && catData.units?.includes(expectedNorm)) {
+        return true;
+      }
+    }
+
+    return false;
   }, [selectedNode, localUnit, expectedUnit, unitCategory, unitsCatalog]);
 
   const [createPotentialMapping, { isLoading: isSaving }] =

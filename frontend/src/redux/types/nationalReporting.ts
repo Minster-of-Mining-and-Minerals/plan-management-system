@@ -100,10 +100,11 @@ export interface NationalPublishedRecord {
   publication_reference: string;
   requirement_id: string;
   assignment_id: string;
-  mapping_id: string;
+  mapping_id?: string | null;
   region_id: string;
-  regional_plan_node_id: string;
-  regional_plan_version_id: string;
+  regional_plan_node_id?: string | null;
+  regional_plan_version_id?: string | null;
+  submission_method?: "node_mapping" | "form_based";
   reporting_year: number;
   reporting_period_label: string;
   reporting_period_id?: string | null;
@@ -244,4 +245,29 @@ export type UnitsCatalog = Record<
     units: string[];
   }
 >;
+
+export interface RegionNationalReportingConfig {
+  region_id: string;
+  name: string;
+  code: string;
+  national_reporting_method: "node_mapping" | "form_based";
+  form_reporting_active: boolean;
+  form_reporting_start_date?: string | null;
+  form_reporting_end_date?: string | null;
+  form_reporting_notes?: string | null;
+  is_form_reporting_effective: boolean;
+  effective_method: "node_mapping" | "form_based";
+}
+
+export interface DirectFormSubmissionPayload {
+  requirementId?: string;
+  assignmentId?: string;
+  reportingYear: number;
+  reportingPeriodLabel: string;
+  plannedTarget?: number | null;
+  reportedActual?: number | null;
+  localUnit?: string | null;
+  narrative?: string | null;
+  evidenceAttachments?: any[];
+}
 

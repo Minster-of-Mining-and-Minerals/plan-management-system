@@ -72,7 +72,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       mapping_id: {
         type: DataTypes.UUID,
-        allowNull: false,
+        allowNull: true,
       },
       region_id: {
         type: DataTypes.UUID,
@@ -80,11 +80,16 @@ module.exports = (sequelize, DataTypes) => {
       },
       regional_plan_node_id: {
         type: DataTypes.UUID,
-        allowNull: false,
+        allowNull: true,
       },
       regional_plan_version_id: {
         type: DataTypes.UUID,
+        allowNull: true,
+      },
+      submission_method: {
+        type: DataTypes.STRING(50),
         allowNull: false,
+        defaultValue: "node_mapping", // node_mapping, form_based
       },
       reporting_year: {
         type: DataTypes.INTEGER,

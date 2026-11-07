@@ -18,6 +18,10 @@ const UNIT_CONVERSION_TABLE = {
       tonnes: 1000.0,
       metric_ton: 1000.0,
       metric_tons: 1000.0,
+      kuntal: 100.0,
+      kuntals: 100.0,
+      qtl: 100.0,
+      qtls: 100.0,
       ounce: 0.0283495,
       ounces: 0.0283495,
       oz: 0.0283495,
@@ -52,14 +56,64 @@ const UNIT_CONVERSION_TABLE = {
       pieces: 1.0,
       person: 1.0,
       people: 1.0,
+      persons: 1.0,
       site: 1.0,
       sites: 1.0,
+      area: 1.0,
+      areas: 1.0,
       license: 1.0,
       licenses: 1.0,
       certificate: 1.0,
       certificates: 1.0,
       number: 1.0,
       numbers: 1.0,
+      occurrence: 1.0,
+      occurrences: 1.0,
+      inspection: 1.0,
+      inspections: 1.0,
+      report: 1.0,
+      reports: 1.0,
+      dataset: 1.0,
+      datasets: 1.0,
+      sample: 1.0,
+      samples: 1.0,
+      cooperative: 1.0,
+      cooperatives: 1.0,
+      project: 1.0,
+      projects: 1.0,
+      system: 1.0,
+      systems: 1.0,
+      office: 1.0,
+      offices: 1.0,
+      procedure: 1.0,
+      procedures: 1.0,
+      beneficiary: 1.0,
+      beneficiaries: 1.0,
+      household: 1.0,
+      households: 1.0,
+      facility: 1.0,
+      facilities: 1.0,
+      school: 1.0,
+      schools: 1.0,
+      center: 1.0,
+      centers: 1.0,
+      training: 1.0,
+      trainings: 1.0,
+      session: 1.0,
+      sessions: 1.0,
+      meeting: 1.0,
+      meetings: 1.0,
+    },
+  },
+  percentage: {
+    base: "percentage",
+    units: {
+      percentage: 1.0,
+      percent: 1.0,
+      "%": 1.0,
+      pct: 1.0,
+      ratio: 100.0,
+      rate: 1.0,
     },
   },
   area: {
@@ -108,12 +162,24 @@ function getUnitCategory(unit) {
   return "custom";
 }
 
+function stripPlural(str) {
+  if (!str) return "";
+  return str.replace(/(ies|es|s)$/, (match) => {
+    if (match === "ies") return "y";
+    return "";
+  });
+}
+
 function areUnitsCompatible(unitA, unitB) {
   const normA = normalizeUnit(unitA);
   const normB = normalizeUnit(unitB);
 
-  if (!normA || !normB) return false;
+  // If either unit is empty or "none", preserve fallback compatibility
+  if (!normA || !normB || normA === "none" || normB === "none") return true;
   if (normA === normB) return true;
+
+  // Check singular/plural stem equivalence
+  if (stripPlural(normA) === stripPlural(normB)) return true;
 
   const catA = getUnitCategory(normA);
   const catB = getUnitCategory(normB);
@@ -129,7 +195,7 @@ function getConversionFactor(fromUnit, toUnit) {
   const normFrom = normalizeUnit(fromUnit);
   const normTo = normalizeUnit(toUnit);
 
-  if (normFrom === normTo) {
+  if (!normFrom || !normTo || normFrom === normTo || stripPlural(normFrom) === stripPlural(normTo)) {
     return 1.0;
   }
 

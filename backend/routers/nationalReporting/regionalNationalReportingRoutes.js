@@ -42,6 +42,20 @@ router.post(
   regionalNationalReportingController.publishValidatedReport
 );
 
+// Regional National Reporting Configuration & Method Status
+router.get(
+  "/:regionId/config",
+  checkPermission("regional_national_reporting", "read_assigned"),
+  regionalNationalReportingController.getRegionReportingConfig
+);
+
+// Option B: Direct Form Submission for KPI Target & Achievement
+router.post(
+  "/:regionId/direct-form-submissions",
+  checkPermission("regional_national_reporting", "publish_validated"),
+  regionalNationalReportingController.submitDirectFormReport
+);
+
 // Publication History & Receipts
 router.get(
   "/:regionId/publications",

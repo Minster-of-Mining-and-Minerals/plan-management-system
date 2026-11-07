@@ -1,11 +1,15 @@
 "use client";
 
 import React, { useState } from "react";
-import { useGetRegionalAssignedRequirementsQuery } from "@/redux/api/nationalReportingApi";
+import {
+  useGetRegionalAssignedRequirementsQuery,
+  useGetRegionNationalReportingConfigQuery,
+} from "@/redux/api/nationalReportingApi";
 import { NationalReportingAssignment } from "@/redux/types/nationalReporting";
 import { RegionalMappingModal } from "./RegionalMappingModal";
 import { RegionalConfirmationModal } from "./RegionalConfirmationModal";
 import { RegionalPublicationModal } from "./RegionalPublicationModal";
+import { RegionalDirectFormModal } from "./RegionalDirectFormModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -18,6 +22,9 @@ import {
   FolderTree,
   Scale,
   Sparkles,
+  FileText,
+  Clock,
+  Info,
 } from "lucide-react";
 
 interface Props {
@@ -28,15 +35,52 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
   const { data: assignments = [], isLoading } =
     useGetRegionalAssignedRequirementsQuery({ regionId });
 
+  const { data: regionConfig } = useGetRegionNationalReportingConfigQuery(
+    regionId,
+    { skip: !regionId }
+  );
+
+  const isFormReportingActive = Boolean(regionConfig?.is_form_reporting_effective);
+
   const [mappingAssignment, setMappingAssignment] =
     useState<NationalReportingAssignment | null>(null);
   const [confirmingAssignment, setConfirmingAssignment] =
     useState<NationalReportingAssignment | null>(null);
   const [publishingAssignment, setPublishingAssignment] =
     useState<NationalReportingAssignment | null>(null);
+  const [directFormAssignment, setDirectFormAssignment] =
+    useState<NationalReportingAssignment | null>(null);
 
   return (
     <div className="space-y-6">
+      {/* Option B Active Indicator Banner */}
+      {isFormReportingActive && (
+        <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/20 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-start gap-3">
+            <span className="p-2 rounded-lg bg-emerald-600 text-white shadow-sm mt-0.5">
+              <FileText className="h-5 w-5" />
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                  Form-Based National Reporting (Option B) is Active
+                </h3>
+                <Badge className="bg-emerald-600 text-white text-[10px]">Active</Badge>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5 max-w-2xl">
+                National administrators have activated direct form reporting for this region. You can submit KPI targets and achievements directly via form, or use the standard regional plan-node mapping workflow.
+              </p>
+              {regionConfig?.form_reporting_end_date && (
+                <div className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400 mt-1">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>Effective until {regionConfig.form_reporting_end_date}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Overview Cards */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
@@ -151,7 +195,20 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
 
                       <td className="px-5 py-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {status === "unmapped" && (
+                          {/* Option B: Direct Form Submission Action (when activated) */}
+                          {isFormReportingActive && (
+                            <Button
+                              size="sm"
+                              onClick={() => setDirectFormAssignment(assignment)}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 flex items-center gap-1 font-semibold shadow-sm"
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                              {status === "published" ? "Update Form Report" : "Submit Form Report"}
+                            </Button>
+                          )}
+
+                          {/* Option A: Regional Plan-Node Mapping Actions */}
+                          {status === "unmapped" && !isFormReportingActive && (
                             <Button
                               size="sm"
                               onClick={() => setMappingAssignment(assignment)}
@@ -159,6 +216,19 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
                             >
                               <FolderTree className="h-3.5 w-3.5 mr-1" />
                               Map Node (Stage A)
+                            </Button>
+                          )}
+
+                          {status === "unmapped" && isFormReportingActive && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setMappingAssignment(assignment)}
+                              className="text-xs h-8 text-slate-600"
+                              title="Optionally map to a regional plan node"
+                            >
+                              <FolderTree className="h-3.5 w-3.5 mr-1" />
+                              Map Node
                             </Button>
                           )}
 
@@ -256,6 +326,15 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
           isOpen={!!publishingAssignment}
           onClose={() => setPublishingAssignment(null)}
           assignment={publishingAssignment}
+          regionId={regionId}
+        />
+      )}
+
+      {directFormAssignment && (
+        <RegionalDirectFormModal
+          isOpen={!!directFormAssignment}
+          onClose={() => setDirectFormAssignment(null)}
+          assignment={directFormAssignment}
           regionId={regionId}
         />
       )}

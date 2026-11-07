@@ -7,6 +7,7 @@ const {
   areUnitsCompatible,
   getConversionFactor,
   convertValue,
+  getUnitCategory,
 } = require("../utils/nationalUnitCompatibilityUtils");
 
 const {
@@ -16,9 +17,75 @@ const {
   NationalPublishedRecord,
   RegionalPlanNode,
   RegionalPlanVersion,
+  RegionalPlanningConfiguration,
   Region,
   User,
 } = db;
+
+/**
+ * Resolve human/canonical unit for a regional plan node, checking RegionalPlanningConfiguration target_units
+ */
+async function resolvePlanNodeUnit(planNode, regionId) {
+  if (!planNode || !planNode.target_unit) return "count";
+  const rawUnit = String(planNode.target_unit).trim();
+  if (!rawUnit) return "count";
+
+  // If already matches a known standard unit
+  const cat = getUnitCategory(rawUnit);
+  if (cat !== "custom") {
+    return rawUnit;
+  }
+
+  // Look up RegionalPlanningConfiguration for the region
+  try {
+    const config = await RegionalPlanningConfiguration.findOne({
+      where: {
+        region_id: regionId || planNode.region_id,
+      },
+      order: [["created_at", "DESC"]],
+    });
+
+    if (config && Array.isArray(config.target_units)) {
+      for (const item of config.target_units) {
+        if (typeof item === "string") {
+          if (item.toLowerCase() === rawUnit.toLowerCase()) {
+            return item;
+          }
+        } else if (item && typeof item === "object") {
+          if (
+            (item.id && String(item.id).toLowerCase() === rawUnit.toLowerCase()) ||
+            (item.label && String(item.label).toLowerCase() === rawUnit.toLowerCase()) ||
+            (item.symbol && String(item.symbol).toLowerCase() === rawUnit.toLowerCase())
+          ) {
+            return item.label || item.symbol || item.id;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Error resolving regional plan node unit:", err);
+  }
+
+  return rawUnit;
+}
+
+/**
+ * Check if Form-Based National Reporting is currently effective for a Region
+ */
+function isRegionFormReportingEffective(region) {
+  if (!region) return false;
+  if (!region.form_reporting_active) return false;
+  if (region.national_reporting_method !== "form_based") return false;
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  if (region.form_reporting_start_date && String(region.form_reporting_start_date) > todayStr) {
+    return false;
+  }
+  if (region.form_reporting_end_date && String(region.form_reporting_end_date) < todayStr) {
+    return false;
+  }
+  return true;
+}
 
 /**
  * Regional National Reporting Service
@@ -160,7 +227,7 @@ class RegionalNationalReportingService {
     }
 
     const req = assignment.requirement;
-    const localUnit = planNode.target_unit || "count";
+    const localUnit = await resolvePlanNodeUnit(planNode, regionId);
 
     // 3. Unit Compatibility Verification
     if (!areUnitsCompatible(localUnit, req.expected_unit)) {
@@ -259,7 +326,8 @@ class RegionalNationalReportingService {
 
     // Re-verify unit compatibility
     const expectedUnit = mapping.assignment.requirement.expected_unit;
-    const localUnit = planNode.target_unit || mapping.local_unit;
+    const resolvedNodeUnit = await resolvePlanNodeUnit(planNode, regionId);
+    const localUnit = resolvedNodeUnit || mapping.local_unit || "count";
 
     if (!areUnitsCompatible(localUnit, expectedUnit)) {
       const err = new Error(
@@ -399,7 +467,8 @@ class RegionalNationalReportingService {
     const reportingPeriodId = planVersion.regional_plan_version_id || mapping.confirmed_period_version_id;
 
     // 5. Standardize target and actual with unit conversions
-    const localUnit = planNode.target_unit || mapping.local_unit;
+    const resolvedNodeUnit = await resolvePlanNodeUnit(planNode, regionId);
+    const localUnit = resolvedNodeUnit || mapping.local_unit || "count";
     const expectedUnit = requirement.expected_unit;
 
     if (!areUnitsCompatible(localUnit, expectedUnit)) {
@@ -615,6 +684,314 @@ class RegionalNationalReportingService {
         ["published_at", "DESC"],
       ],
     });
+  }
+
+  /**
+   * Get National Reporting Configuration for a Region
+   */
+  async getRegionReportingConfig(regionId) {
+    const region = await Region.findByPk(regionId, {
+      attributes: [
+        "region_id",
+        "name",
+        "code",
+        "national_reporting_method",
+        "form_reporting_active",
+        "form_reporting_start_date",
+        "form_reporting_end_date",
+        "form_reporting_notes",
+      ],
+    });
+
+    if (!region) {
+      const err = new Error("Region not found");
+      err.status = 404;
+      throw err;
+    }
+
+    const isEffective = isRegionFormReportingEffective(region);
+
+    return {
+      region_id: region.region_id,
+      name: region.name,
+      code: region.code,
+      national_reporting_method: region.national_reporting_method || "node_mapping",
+      form_reporting_active: Boolean(region.form_reporting_active),
+      form_reporting_start_date: region.form_reporting_start_date,
+      form_reporting_end_date: region.form_reporting_end_date,
+      form_reporting_notes: region.form_reporting_notes,
+      is_form_reporting_effective: isEffective,
+      effective_method: isEffective ? "form_based" : "node_mapping",
+    };
+  }
+
+  /**
+   * Update National Reporting Configuration for a Region (Federal / Private Admin)
+   */
+  async updateRegionReportingConfig(regionId, data, userId) {
+    const region = await Region.findByPk(regionId);
+    if (!region) {
+      const err = new Error("Region not found");
+      err.status = 404;
+      throw err;
+    }
+
+    const {
+      national_reporting_method,
+      form_reporting_active,
+      form_reporting_start_date,
+      form_reporting_end_date,
+      form_reporting_notes,
+    } = data;
+
+    if (national_reporting_method !== undefined) {
+      if (!["node_mapping", "form_based"].includes(national_reporting_method)) {
+        const err = new Error("Invalid national_reporting_method. Must be 'node_mapping' or 'form_based'.");
+        err.status = 400;
+        throw err;
+      }
+      region.national_reporting_method = national_reporting_method;
+    }
+
+    if (form_reporting_active !== undefined) {
+      region.form_reporting_active = Boolean(form_reporting_active);
+    }
+
+    if (form_reporting_start_date !== undefined) {
+      region.form_reporting_start_date = form_reporting_start_date || null;
+    }
+
+    if (form_reporting_end_date !== undefined) {
+      region.form_reporting_end_date = form_reporting_end_date || null;
+    }
+
+    if (form_reporting_notes !== undefined) {
+      region.form_reporting_notes = form_reporting_notes || null;
+    }
+
+    await region.save();
+
+    return this.getRegionReportingConfig(regionId);
+  }
+
+  /**
+   * Option B: Submit KPI Target and Achievement directly via Form
+   */
+  async submitDirectFormReport(regionId, payload, userId) {
+    const region = await Region.findByPk(regionId);
+    if (!region) {
+      const err = new Error("Region not found");
+      err.status = 404;
+      throw err;
+    }
+
+    // 1. Verify that Form-based Reporting is currently active and effective for this region
+    const isEffective = isRegionFormReportingEffective(region);
+    if (!isEffective) {
+      const err = new Error(
+        "Form-based National Reporting is currently deactivated or expired for this region. Please use the plan-node mapping workflow or contact the national administrator."
+      );
+      err.status = 403;
+      throw err;
+    }
+
+    const {
+      requirementId,
+      assignmentId,
+      reportingYear,
+      reportingPeriodLabel,
+      plannedTarget,
+      reportedActual,
+      localUnit,
+      narrative,
+      evidenceAttachments,
+    } = payload;
+
+    if (!requirementId && !assignmentId) {
+      const err = new Error("requirementId or assignmentId is required");
+      err.status = 400;
+      throw err;
+    }
+
+    if (!reportingYear || !reportingPeriodLabel) {
+      const err = new Error("reportingYear and reportingPeriodLabel are required");
+      err.status = 400;
+      throw err;
+    }
+
+    // 2. Find Assignment
+    let assignment = null;
+    if (assignmentId) {
+      assignment = await NationalReportingAssignment.findOne({
+        where: { assignment_id: assignmentId, region_id: regionId },
+        include: [{ model: NationalReportingRequirement, as: "requirement" }],
+      });
+    } else {
+      assignment = await NationalReportingAssignment.findOne({
+        where: { requirement_id: requirementId, region_id: regionId },
+        include: [{ model: NationalReportingRequirement, as: "requirement" }],
+      });
+    }
+
+    if (!assignment || !assignment.requirement) {
+      const err = new Error("National reporting requirement is not assigned to this region");
+      err.status = 404;
+      throw err;
+    }
+
+    const requirement = assignment.requirement;
+    const expectedUnit = requirement.expected_unit;
+    const submittedUnit = localUnit || expectedUnit;
+
+    // 3. Unit Compatibility Check
+    if (!areUnitsCompatible(submittedUnit, expectedUnit)) {
+      const err = new Error(
+        `Unit mismatch: Submitted unit '${submittedUnit}' is incompatible with required unit '${expectedUnit}' (Category: ${requirement.unit_category}). Conversion is not mathematically possible.`
+      );
+      err.status = 400;
+      throw err;
+    }
+
+    const numActual =
+      reportedActual !== undefined && reportedActual !== null && reportedActual !== ""
+        ? Number(reportedActual)
+        : null;
+    const numTarget =
+      plannedTarget !== undefined && plannedTarget !== null && plannedTarget !== ""
+        ? Number(plannedTarget)
+        : null;
+
+    if (numActual !== null && isNaN(numActual)) {
+      const err = new Error("Reported actual must be a valid number");
+      err.status = 400;
+      throw err;
+    }
+    if (numTarget !== null && isNaN(numTarget)) {
+      const err = new Error("Planned target must be a valid number");
+      err.status = 400;
+      throw err;
+    }
+
+    const standardizedActual = convertValue(numActual, submittedUnit, expectedUnit);
+    const standardizedTarget = convertValue(numTarget, submittedUnit, expectedUnit);
+
+    const achievementPercent =
+      standardizedTarget && standardizedTarget > 0 && standardizedActual !== null
+        ? Math.round((standardizedActual / standardizedTarget) * 1000) / 10
+        : null;
+
+    // 4. Supersede any existing active record for the same period to guarantee NO DOUBLE COUNTING
+    const existingRecord = await NationalPublishedRecord.findOne({
+      where: {
+        requirement_id: requirement.requirement_id,
+        region_id: regionId,
+        reporting_year: Number(reportingYear),
+        reporting_period_label: String(reportingPeriodLabel).trim(),
+        status: { [Op.in]: ["published", "clarification_requested"] },
+      },
+    });
+
+    let revisionNumber = 1;
+    let supersededId = null;
+
+    if (existingRecord) {
+      revisionNumber = existingRecord.revision_number + 1;
+      supersededId = existingRecord.published_record_id;
+      existingRecord.status = "superseded";
+      await existingRecord.save();
+    }
+
+    // 5. Generate publication reference code
+    const cleanPeriod = String(reportingPeriodLabel).replace(/[\s\-_]+/g, "");
+    const regionCode = (region.code || "REG").toUpperCase();
+    const hex = crypto.randomBytes(3).toString("hex").toUpperCase();
+    const publicationReference = `NAT-PUB-FORM-${reportingYear}-${cleanPeriod}-${regionCode}-${hex}`;
+
+    // 6. Snapshot data
+    const snapshotData = {
+      submissionMethod: "form_based",
+      publicationReference,
+      publicationTimestamp: new Date().toISOString(),
+      requirement: {
+        id: requirement.requirement_id,
+        code: requirement.code,
+        title: requirement.title,
+        category: requirement.category,
+        expectedUnit: requirement.expected_unit,
+        unitCategory: requirement.unit_category,
+      },
+      region: {
+        id: region.region_id,
+        name: region.name,
+        code: region.code,
+      },
+      values: {
+        reportingYear: Number(reportingYear),
+        reportingPeriodLabel: String(reportingPeriodLabel).trim(),
+        reportedActual: numActual,
+        plannedTarget: numTarget,
+        localUnit: submittedUnit,
+        standardizedActual,
+        standardizedTarget,
+        standardizedUnit: expectedUnit,
+        achievementPercent,
+      },
+      narrative: narrative || null,
+      evidenceAttachments: evidenceAttachments || [],
+      publishedBy: userId || null,
+    };
+
+    // 7. Create National Published Record
+    const publishedRecord = await NationalPublishedRecord.create({
+      publication_reference: publicationReference,
+      requirement_id: requirement.requirement_id,
+      assignment_id: assignment.assignment_id,
+      mapping_id: null,
+      region_id: regionId,
+      regional_plan_node_id: null,
+      regional_plan_version_id: null,
+      submission_method: "form_based",
+      reporting_year: Number(reportingYear),
+      reporting_period_label: String(reportingPeriodLabel).trim(),
+      reporting_period_id: null,
+      planned_target: numTarget,
+      reported_actual: numActual,
+      local_unit: submittedUnit,
+      standardized_target: standardizedTarget,
+      standardized_actual: standardizedActual,
+      standardized_unit: expectedUnit,
+      achievement_percent: achievementPercent,
+      narrative: narrative || null,
+      evidence_attachments: evidenceAttachments || [],
+      regional_validated_by: userId || null,
+      regional_validated_at: new Date(),
+      published_by: userId || null,
+      published_at: new Date(),
+      revision_number: revisionNumber,
+      status: "published",
+      snapshot_data: snapshotData,
+    });
+
+    if (supersededId && existingRecord) {
+      existingRecord.superseded_by_id = publishedRecord.published_record_id;
+      await existingRecord.save();
+    }
+
+    return {
+      publishedRecord,
+      receipt: {
+        publicationReference,
+        publishedAt: publishedRecord.published_at,
+        status: publishedRecord.status,
+        revisionNumber,
+        supersededRecordId: supersededId,
+        standardizedTarget,
+        standardizedActual,
+        standardizedUnit: expectedUnit,
+        achievementPercent,
+        message: "KPI Report published directly via National Reporting Form successfully.",
+      },
+    };
   }
 }
 
