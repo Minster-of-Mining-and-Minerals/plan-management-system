@@ -13,6 +13,17 @@ function isValidDateString(str) {
 }
 
 /**
+ * Sanitize error HTTP status to NEVER emit forced-logout status codes (401, 502, 503, 504)
+ * to the frontend, which would falsely trigger session termination.
+ */
+function sanitizeErrorStatus(status) {
+  if (status === 401 || status === 502 || status === 503 || status === 504) {
+    return 500;
+  }
+  return status || 500;
+}
+
+/**
  * Extract and validate query filters while enforcing user organizational scope
  */
 function parseAndValidateFilters(req) {
@@ -121,7 +132,7 @@ async function getAnalytics(req, res) {
     });
   } catch (error) {
     console.error("[InspectionAnalyticsController] Error in getAnalytics:", error.message);
-    const status = error.status || 500;
+    const status = sanitizeErrorStatus(error.status);
     return res.status(status).json({
       success: false,
       code: error.code || "ANALYTICS_ERROR",
@@ -146,7 +157,7 @@ async function getSummary(req, res) {
     });
   } catch (error) {
     console.error("[InspectionAnalyticsController] Error in getSummary:", error.message);
-    const status = error.status || 500;
+    const status = sanitizeErrorStatus(error.status);
     return res.status(status).json({
       success: false,
       code: error.code || "ANALYTICS_ERROR",
@@ -171,7 +182,7 @@ async function getByStatus(req, res) {
     });
   } catch (error) {
     console.error("[InspectionAnalyticsController] Error in getByStatus:", error.message);
-    const status = error.status || 500;
+    const status = sanitizeErrorStatus(error.status);
     return res.status(status).json({
       success: false,
       code: error.code || "ANALYTICS_ERROR",
@@ -196,7 +207,7 @@ async function getByCategory(req, res) {
     });
   } catch (error) {
     console.error("[InspectionAnalyticsController] Error in getByCategory:", error.message);
-    const status = error.status || 500;
+    const status = sanitizeErrorStatus(error.status);
     return res.status(status).json({
       success: false,
       code: error.code || "ANALYTICS_ERROR",
@@ -222,7 +233,7 @@ async function getByRegion(req, res) {
     });
   } catch (error) {
     console.error("[InspectionAnalyticsController] Error in getByRegion:", error.message);
-    const status = error.status || 500;
+    const status = sanitizeErrorStatus(error.status);
     return res.status(status).json({
       success: false,
       code: error.code || "ANALYTICS_ERROR",
@@ -247,7 +258,7 @@ async function getByTeam(req, res) {
     });
   } catch (error) {
     console.error("[InspectionAnalyticsController] Error in getByTeam:", error.message);
-    const status = error.status || 500;
+    const status = sanitizeErrorStatus(error.status);
     return res.status(status).json({
       success: false,
       code: error.code || "ANALYTICS_ERROR",
@@ -272,7 +283,7 @@ async function getTrends(req, res) {
     });
   } catch (error) {
     console.error("[InspectionAnalyticsController] Error in getTrends:", error.message);
-    const status = error.status || 500;
+    const status = sanitizeErrorStatus(error.status);
     return res.status(status).json({
       success: false,
       code: error.code || "ANALYTICS_ERROR",

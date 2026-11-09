@@ -56,7 +56,10 @@ function normalizeAnalyticsResponse(raw, params = {}, meta = {}) {
   const rawSummary = root.summary || root;
 
   const total = toNum(
-    rawSummary.total_inspections ?? rawSummary.total_inspections_due ?? rawSummary.total
+    rawSummary.total_inspections ??
+      rawSummary.total_inspections_due ??
+      rawSummary.total_due ??
+      rawSummary.total
   );
   const completed = toNum(
     rawSummary.completed_inspections ?? rawSummary.completed ?? rawSummary.submitted
@@ -71,7 +74,9 @@ function normalizeAnalyticsResponse(raw, params = {}, meta = {}) {
     rawSummary.overdue_inspections ?? rawSummary.overdue
   );
   const openInspections = toNum(
-    rawSummary.open_inspections ?? (inProgress + pending + overdue)
+    rawSummary.open_inspections ??
+      rawSummary.open ??
+      (inProgress + pending + overdue)
   );
 
   const onTimeSubmissions = toNum(
@@ -81,7 +86,9 @@ function normalizeAnalyticsResponse(raw, params = {}, meta = {}) {
     rawSummary.late_submissions ?? rawSummary.late
   );
   const returnedInspections = toNum(
-    rawSummary.returned_inspections ?? rawSummary.returned
+    rawSummary.returned_inspections ??
+      rawSummary.returned_for_revision ??
+      rawSummary.returned
   );
   const companiesInspected = toNum(
     rawSummary.companies_inspected ?? rawSummary.companies_count
@@ -265,7 +272,7 @@ function normalizeAnalyticsResponse(raw, params = {}, meta = {}) {
   }
 
   // Time-series trends
-  const rawTrends = root.trends || root.time_series || [];
+  const rawTrends = root.trends || root.trend || root.time_series || [];
   let trends = [];
   if (Array.isArray(rawTrends) && rawTrends.length > 0) {
     trends = rawTrends.map((item) => {
@@ -488,12 +495,20 @@ async function getInspectionAnalytics(params = {}, userContext = {}) {
       };
     }
 
-    // 4. If no fallback exists: return structured error or reject safely
-    const error = new Error("Inspection analytics service is currently unavailable");
-    error.code = externalError.code || "SERVICE_UNAVAILABLE";
-    error.status = externalError.status || 503;
-    error.originalMessage = externalError.message;
-    throw error;
+    // 4. If no fallback exists: return a safe normalized fallback response instead of throwing
+    console.info(
+      "[InspectionAnalyticsService] No fallback cache exists yet. Returning safe initial fallback dataset."
+    );
+    return normalizeAnalyticsResponse({}, params, {
+      dataFreshness: "unavailable",
+      isStale: true,
+      cachedAt: null,
+      staleReason:
+        externalError.code ||
+        externalError.message ||
+        "Inspection analytics service is currently unavailable",
+      executionTimeMs: Date.now() - startTime,
+    });
   }
 }
 

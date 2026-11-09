@@ -205,10 +205,9 @@ export function InspectionDashboardTab() {
             <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0" />
             <div className="text-xs sm:text-sm">
               <span className="font-semibold">Inspection System Connection Fallback: </span>
-              The external Inspection Analytics API is temporarily unreachable. Displaying cached data from{" "}
-              <span className="font-semibold">
-                {metadata?.cached_at ? new Date(metadata.cached_at).toLocaleString() : "prior fetch"}
-              </span>.
+              {metadata?.cached_at
+                ? `The external Inspection Analytics API is temporarily unreachable. Displaying cached data from ${new Date(metadata.cached_at).toLocaleString()}.`
+                : "The external Inspection Analytics API is currently unreachable. Displaying offline fallback data."}
             </div>
           </div>
           <Button
