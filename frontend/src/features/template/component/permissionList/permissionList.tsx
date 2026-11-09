@@ -21,6 +21,7 @@ import {
   Users2,
   Paintbrush,
   Info,
+  ClipboardCheck,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -126,6 +127,7 @@ export default function PermissionList({
     purchasing_center_roles: <Shield className="h-4 w-4 text-amber-500" />,
     purchasing_center_permission_groups: <Users className="h-4 w-4 text-amber-500" />,
     purchasing_center_permissions: <Shield className="h-4 w-4 text-amber-500" />,
+    inspection_analytics: <ClipboardCheck className="h-4 w-4 text-teal-600" />,
   };
 
   const isPurchasingCenterResource = (resource: string) => {

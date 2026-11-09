@@ -123,6 +123,10 @@ const PERMISSION_LABELS: Partial<Record<PermissionKey, string>> = {
   "GOLD_PURCHASES:CREATE": "Record gold purchase",
   "GOLD_PURCHASES:UPDATE": "Update gold purchase",
   "GOLD_PURCHASES:CANCEL": "Cancel gold purchase",
+
+  // Mining Inspection Analytics Integration
+  "INSPECTION_ANALYTICS:READ": "View inspection analytics dashboard",
+  "INSPECTION_ANALYTICS:MANAGE": "Manage inspection analytics integration",
   "GOLD_PURCHASES:MANAGE": "Manage gold purchases",
   "GOLD_REPORTS:READ": "View gold daily reports",
   "GOLD_REPORTS:GENERATE": "Generate gold daily report",

@@ -72,6 +72,7 @@ const issueCategoryRoutes = require("./routers/issue/issueCategoryRoutes");
 const formConfigContainerRoutes = require("./routers/issue/formConfigContainerRoutes");
 const regionalIssueRoutes = require("./routers/issue/regionalIssueRoutes");
 const federalRegionalEscalationRoutes = require("./routers/issue/federalRegionalEscalationRoutes");
+const inspectionAnalyticsRoutes = require("./routers/inspection/inspectionAnalyticsRoutes");
 
 // ================== Attachment Routes ==========================
 const attachmentRoute = require("./routers/attachment-routes/attachmentRoute");
@@ -225,6 +226,10 @@ app.use("/api/issues", issueRoutes);
 app.use("/api/issue-categories", issueCategoryRoutes);
 app.use("/api/form-config-containers", formConfigContainerRoutes);
 app.use("/api/federal-regional-escalations", federalRegionalEscalationRoutes);
+
+// Inspection Analytics Integration Routes
+app.use("/api/inspection-analytics", inspectionAnalyticsRoutes);
+app.use("/api/v1/inspection-analytics", inspectionAnalyticsRoutes);
 
 // ================== Api Attachment Routes =====================
 app.use("/api/attachments", attachmentRoute);

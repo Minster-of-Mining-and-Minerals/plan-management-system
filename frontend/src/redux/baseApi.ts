@@ -161,6 +161,7 @@ export const baseApi = createApi({
     "NationalMapping",
     "NationalPublishedRecord",
     "NationalDashboard",
+    "InspectionAnalytics",
   ],
   endpoints: () => ({}),
 });

@@ -2,7 +2,7 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { AlertCircle, ListTree, MapPin, Building2, Coins } from "lucide-react";
+import { AlertCircle, ListTree, MapPin, Building2, Coins, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import PlanDashboardView from "@/features/plan-management/dashboard/PlanDashboardView";
@@ -10,6 +10,7 @@ import IssueDashboardOverview from "@/features/issue-management/IssueDashboardOv
 import { RegionalDashboardTab } from "@/features/dashboard/RegionalDashboardTab";
 import { CompaniesDashboardTab } from "@/features/dashboard/CompaniesDashboardTab";
 import { PurchasingCentersDashboardTab } from "@/features/dashboard/PurchasingCentersDashboardTab";
+import { InspectionDashboardTab } from "@/features/dashboard/InspectionDashboardTab";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ISSUE_VIEW_PERMISSIONS } from "@/utils/issuePermissionUtils";
 
@@ -18,7 +19,8 @@ export type DashboardTab =
   | "issues"
   | "regional"
   | "companies"
-  | "purchasing_centers";
+  | "purchasing_centers"
+  | "inspection";
 
 export default function GlobalDashboardView() {
   const searchParams = useSearchParams();
@@ -58,6 +60,16 @@ export default function GlobalDashboardView() {
       "PURCHASING_CENTER_DASHBOARD:VIEW",
       "GOLD_REPORTS:READ",
     ]) || Boolean(user?.purchasing_center_id);
+  const isInternalFederal =
+    !user?.region_id && !user?.company_id && !user?.purchasing_center_id;
+  const canViewInspection =
+    isInternalFederal &&
+    canAny([
+      "INSPECTION_ANALYTICS:READ",
+      "INSPECTION_ANALYTICS:MANAGE",
+      "INSPECTIONS:READ",
+      "INSPECTIONS:MANAGE",
+    ]);
 
   const requestedTab = searchParams.get("tab") as DashboardTab | null;
 
@@ -70,6 +82,8 @@ export default function GlobalDashboardView() {
     activeTab = "companies";
   } else if (requestedTab === "purchasing_centers" && canViewPurchasingCenters) {
     activeTab = "purchasing_centers";
+  } else if (requestedTab === "inspection" && canViewInspection) {
+    activeTab = "inspection";
   }
 
   const setActiveTab = (tab: DashboardTab) => {
@@ -89,7 +103,7 @@ export default function GlobalDashboardView() {
         <h1 className="text-2xl font-bold text-primary">Integrated National Dashboard</h1>
         <p className="text-sm text-muted-foreground max-w-4xl">
           Centralized cross-domain analytics for the Ministry of Mines. Switch between
-          Plan Management, Issue Tracking, Regional Administrations, Mining Companies, and Gold Purchasing Centers.
+          Plan Management, Issue Tracking, Regional Administrations, Mining Companies, Gold Purchasing Centers, and Mining Inspection.
         </p>
       </div>
 
@@ -190,6 +204,25 @@ export default function GlobalDashboardView() {
             Purchasing Centers Dashboard
           </Button>
         )}
+
+        {canViewInspection && (
+          <Button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "inspection"}
+            variant={activeTab === "inspection" ? "default" : "outline"}
+            onClick={() => setActiveTab("inspection")}
+            className={cn(
+              "h-10 rounded-xl px-4 text-xs font-semibold shadow-none transition-all",
+              activeTab === "inspection"
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            <ClipboardCheck className="h-4 w-4 shrink-0" />
+            Inspection Dashboard
+          </Button>
+        )}
       </div>
 
       <div role="tabpanel">
@@ -198,6 +231,7 @@ export default function GlobalDashboardView() {
         {activeTab === "regional" && <RegionalDashboardTab />}
         {activeTab === "companies" && <CompaniesDashboardTab />}
         {activeTab === "purchasing_centers" && <PurchasingCentersDashboardTab />}
+        {activeTab === "inspection" && <InspectionDashboardTab />}
       </div>
     </div>
   );
