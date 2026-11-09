@@ -21,7 +21,12 @@ cd "$PROJECT_DIR"
 if docker compose ps --status running --services 2>/dev/null | grep -qx nginx; then
   docker compose exec -T nginx nginx -t
   docker compose exec -T nginx nginx -s reload
-  echo "[ssl-renew-hook] Certificate updated and nginx reloaded."
+  echo "[ssl-renew-hook] Certificate updated and container nginx reloaded."
 else
-  echo "[ssl-renew-hook] Certificate copied; nginx is not running, so no reload was needed."
+  echo "[ssl-renew-hook] Certificate copied; container nginx is not running, so no reload was needed."
+fi
+
+if systemctl is-active --quiet nginx 2>/dev/null; then
+  nginx -t && systemctl reload nginx
+  echo "[ssl-renew-hook] System-level Nginx reloaded."
 fi
