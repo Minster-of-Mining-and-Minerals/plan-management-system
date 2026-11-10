@@ -13,6 +13,7 @@ export interface NationalReportingRequirement {
   validation_rules?: Record<string, any> | null;
   effective_start_date?: string | null;
   effective_end_date?: string | null;
+  submission_deadline_days?: number | null;
   is_active: boolean;
   version_number: number;
   created_by?: string | null;
@@ -36,7 +37,9 @@ export interface ReportingPeriod {
   end_date: string;
   name?: string;
   period_name?: string;
+  planning_year?: number | null;
   status?: "unmapped" | "potential" | "confirmed" | "ready_to_publish" | "published" | "clarification_requested" | "unreported" | string;
+  submission_status?: string | null;
   planned_target?: number | null;
   reported_actual?: number | null;
   local_unit?: string | null;

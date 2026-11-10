@@ -5721,9 +5721,8 @@ async function getRegionalExecutionDashboardSummary(regionId, filters = {}) {
     let planIsShared = false;
 
     // 1. Calculate overall plan performance from annual & period versions
-    let masterExecution = null;
-    if (plan.process_started_at) {
-      masterExecution = await computeRegionalMasterExecutionProgress(plan.regional_plan_version_id);
+    let masterExecution = await computeRegionalMasterExecutionProgress(plan.regional_plan_version_id);
+    if (masterExecution && (masterExecution.execution_progress_percent !== null || masterExecution.has_contributing_data)) {
       planProgress = masterExecution.execution_progress_percent ?? 0;
       planHasProgress = masterExecution.has_contributing_data;
     }
@@ -5794,7 +5793,7 @@ async function getRegionalExecutionDashboardSummary(regionId, filters = {}) {
       }
     }
 
-    if (plan.process_started_at) {
+    if (plan.process_started_at || planHasProgress || planProgress > 0 || plan.status === "active") {
       portfolioTotalProgress += planProgress;
       portfolioEvaluatedCount++;
     }
@@ -5858,7 +5857,23 @@ async function getRegionalExecutionDashboardSummary(regionId, filters = {}) {
     }))
     .sort((a, b) => Number(a.label) - Number(b.label));
 
-  const avgProgress = portfolioEvaluatedCount > 0 ? Math.round(portfolioTotalProgress / portfolioEvaluatedCount) : 0;
+  const requestedMasterId = filters.master_plan_version_id || filters.plan_version_id;
+  let focusMasterPlanId = null;
+  if (requestedMasterId && requestedMasterId !== "auto") {
+    const matched = plans.find((p) => p.regional_plan_version_id === requestedMasterId);
+    if (matched) focusMasterPlanId = matched.regional_plan_version_id;
+  }
+  if (!focusMasterPlanId) {
+    focusMasterPlanId =
+      plans.find((p) => p.status === "active" || p.process_started_at)?.regional_plan_version_id ||
+      plans[0]?.regional_plan_version_id ||
+      null;
+  }
+
+  const selectedPlanRow = planRows.find((p) => p.plan_version_id === focusMasterPlanId);
+  const avgProgress = selectedPlanRow
+    ? (selectedPlanRow.execution_progress_percent ?? 0)
+    : (portfolioEvaluatedCount > 0 ? Math.round(portfolioTotalProgress / portfolioEvaluatedCount) : 0);
 
   let hierarchyConfig = [];
   const planWithRule = plans.find((p) => p.planRule && p.planRule.steps && p.planRule.steps.length > 0);
@@ -5891,11 +5906,6 @@ async function getRegionalExecutionDashboardSummary(regionId, filters = {}) {
     activeMilestones,
     delayedKpis,
   };
-
-  const focusMasterPlanId =
-    plans.find((p) => p.status === "active" || p.process_started_at)?.regional_plan_version_id ||
-    plans[0]?.regional_plan_version_id ||
-    null;
 
   return {
     region_id: regionId,
@@ -6020,6 +6030,16 @@ async function getRegionalExecutionDashboardProgressTree(regionId, planVersionId
     : [];
 
   const availablePeriods = [];
+  if (annuals.length > 0) {
+    availablePeriods.push({
+      plan_version_id: "all",
+      period_label: "Overall Plan Lifecycle",
+      planning_year: masterVersion.start_year,
+      sequence_index: 0,
+      execution_status: "open",
+      phase: "active",
+    });
+  }
   for (const annual of annuals) {
     const periodsForAnnual = periodVersions
       .filter((p) => p.parent_plan_version_id === annual.regional_plan_version_id)
@@ -6045,19 +6065,22 @@ async function getRegionalExecutionDashboardProgressTree(regionId, planVersionId
 
   // Select target execution period
   let selectedPeriodMeta = null;
-  if (periodVersionId && periodVersionId !== "auto") {
+  if (periodVersionId && periodVersionId !== "auto" && periodVersionId !== "all") {
     selectedPeriodMeta = availablePeriods.find((p) => p.plan_version_id === periodVersionId) || null;
   }
   if (!selectedPeriodMeta && availablePeriods.length > 0) {
     selectedPeriodMeta =
+      availablePeriods.find((p) => p.plan_version_id === "all") ||
       availablePeriods.find((p) => p.phase === "active") ||
       [...availablePeriods].reverse().find((p) => p.phase === "past") ||
       availablePeriods[0];
   }
 
-  // Determine node source version: period if nodes exist, else master
+  const isMasterLifecycle = !selectedPeriodMeta || selectedPeriodMeta.plan_version_id === "all";
+
+  // Determine node source version: period if nodes exist and not master lifecycle, else master
   let nodeSourceVersionId = masterVersion.regional_plan_version_id;
-  if (selectedPeriodMeta) {
+  if (!isMasterLifecycle && selectedPeriodMeta) {
     const periodNodeCount = await RegionalPlanNode.count({
       where: { regional_plan_version_id: selectedPeriodMeta.plan_version_id, is_active: true },
     });
@@ -6065,6 +6088,8 @@ async function getRegionalExecutionDashboardProgressTree(regionId, planVersionId
       nodeSourceVersionId = selectedPeriodMeta.plan_version_id;
     }
   }
+
+  const masterExecution = await computeRegionalMasterExecutionProgress(masterVersion.regional_plan_version_id);
 
   const rawNodes = await RegionalPlanNode.findAll({
     where: { regional_plan_version_id: nodeSourceVersionId, is_active: true },
@@ -6079,6 +6104,59 @@ async function getRegionalExecutionDashboardProgressTree(regionId, planVersionId
       },
     ],
   });
+
+  // If in master lifecycle and descendant periods exist, roll up actuals from descendant nodes onto master nodes
+  if (isMasterLifecycle && (annualIds.length > 0 || periodVersions.length > 0)) {
+    const descendantVersionIds = [...annualIds, ...periodVersions.map((p) => p.regional_plan_version_id)];
+    const childNodes = await RegionalPlanNode.findAll({
+      where: {
+        regional_plan_version_id: { [Op.in]: descendantVersionIds },
+        is_active: true,
+      },
+      attributes: [
+        "regional_plan_node_id",
+        "regional_plan_version_id",
+        "source_regional_plan_node_id",
+        "period_actual",
+        "annual_actual",
+        "period_actual_status",
+      ],
+    });
+
+    const annualToMaster = new Map();
+    for (const cn of childNodes) {
+      if (annualIds.includes(cn.regional_plan_version_id) && cn.source_regional_plan_node_id) {
+        annualToMaster.set(cn.regional_plan_node_id, cn.source_regional_plan_node_id);
+      }
+    }
+
+    const masterActualsMap = new Map();
+    for (const cn of childNodes) {
+      let masterNodeId = null;
+      if (annualToMaster.has(cn.regional_plan_node_id)) {
+        masterNodeId = annualToMaster.get(cn.regional_plan_node_id);
+      } else if (cn.source_regional_plan_node_id && annualToMaster.has(cn.source_regional_plan_node_id)) {
+        masterNodeId = annualToMaster.get(cn.source_regional_plan_node_id);
+      } else if (cn.source_regional_plan_node_id) {
+        masterNodeId = cn.source_regional_plan_node_id;
+      }
+
+      if (masterNodeId) {
+        const act = cn.period_actual != null ? Number(cn.period_actual) : (cn.annual_actual != null ? Number(cn.annual_actual) : null);
+        if (act !== null && !isNaN(act)) {
+          masterActualsMap.set(masterNodeId, (masterActualsMap.get(masterNodeId) || 0) + act);
+        }
+      }
+    }
+
+    for (const node of rawNodes) {
+      if (masterActualsMap.has(node.regional_plan_node_id)) {
+        node.annual_actual = masterActualsMap.get(node.regional_plan_node_id);
+        node.period_actual = masterActualsMap.get(node.regional_plan_node_id);
+        node.period_actual_status = "approved";
+      }
+    }
+  }
 
   const { metricsMemo } = computeRegionalTreeRollup(rawNodes, masterVersion.planRule);
 
@@ -6211,7 +6289,9 @@ async function getRegionalExecutionDashboardProgressTree(regionId, planVersionId
     });
 
   const overallPeriodProgress =
-    rootNodes.length > 0
+    isMasterLifecycle && masterExecution && masterExecution.execution_progress_percent !== null
+      ? masterExecution.execution_progress_percent
+      : rootNodes.length > 0
       ? Math.round(rootNodes.reduce((sum, r) => sum + r.progress, 0) / rootNodes.length)
       : 0;
 

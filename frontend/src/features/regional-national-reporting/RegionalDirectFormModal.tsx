@@ -19,19 +19,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   FileText,
   AlertTriangle,
   Clock,
   ArrowRight,
   ShieldCheck,
   Check,
+  Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
 import { generateReportingPeriods } from "@/utils/nationalReportingPeriodUtils";
@@ -43,6 +37,7 @@ interface Props {
   assignment: NationalReportingAssignment;
   regionId: string;
   initialPeriodLabel?: string;
+  selectedPeriod?: ReportingPeriod | null;
 }
 
 export function RegionalDirectFormModal({
@@ -51,6 +46,7 @@ export function RegionalDirectFormModal({
   assignment,
   regionId,
   initialPeriodLabel,
+  selectedPeriod,
 }: Props) {
   const req = assignment.requirement;
   const latestPub = assignment.latestPublishedRecord;
@@ -76,25 +72,33 @@ export function RegionalDirectFormModal({
   }, [assignment.recurringPeriods, req]);
 
   const defaultPeriodLabel =
+    selectedPeriod?.period_label ||
     initialPeriodLabel ||
     recurringPeriods[0]?.period_label ||
     latestPub?.reporting_period_label ||
     "Q1";
 
-  const currentYear = new Date().getFullYear();
-  const [reportingYear, setReportingYear] = useState<number>(
-    latestPub?.reporting_year || currentYear
-  );
-  const [reportingPeriodLabel, setReportingPeriodLabel] = useState<string>(
-    defaultPeriodLabel
-  );
+  // Pre-defined federal year derived from assignment start date or existing period
+  const assignedYear = React.useMemo(() => {
+    if ((selectedPeriod as any)?.planning_year) return Number((selectedPeriod as any).planning_year);
+    if (req?.effective_start_date) {
+      const parsed = new Date(req.effective_start_date).getFullYear();
+      if (!isNaN(parsed) && parsed > 2000) return parsed;
+    }
+    if (latestPub?.reporting_year) return latestPub.reporting_year;
+    return new Date().getFullYear();
+  }, [selectedPeriod, req, latestPub]);
+
+  const [reportingYear, setReportingYear] = useState<number>(assignedYear);
+  const [reportingPeriodLabel, setReportingPeriodLabel] = useState<string>(defaultPeriodLabel);
 
   // Look up existing submission for the selected period
   const existingPeriodData = React.useMemo(() => {
+    if (selectedPeriod) return selectedPeriod;
     return recurringPeriods.find(
       (p) => String(p.period_label).toUpperCase() === String(reportingPeriodLabel).toUpperCase()
     );
-  }, [recurringPeriods, reportingPeriodLabel]);
+  }, [selectedPeriod, recurringPeriods, reportingPeriodLabel]);
 
   const [plannedTarget, setPlannedTarget] = useState<string>("");
   const [reportedActual, setReportedActual] = useState<string>("");
@@ -112,10 +116,11 @@ export function RegionalDirectFormModal({
     if (isOpen) {
       setIsConfirming(false);
       setAmharicValidationError(null);
-      const activeLabel = initialPeriodLabel || defaultPeriodLabel;
+      const activeLabel = selectedPeriod?.period_label || initialPeriodLabel || defaultPeriodLabel;
       setReportingPeriodLabel(activeLabel);
+      setReportingYear(assignedYear);
 
-      const periodMatch = recurringPeriods.find(
+      const periodMatch = selectedPeriod || recurringPeriods.find(
         (p) => String(p.period_label).toUpperCase() === String(activeLabel).toUpperCase()
       );
 
@@ -137,29 +142,7 @@ export function RegionalDirectFormModal({
 
       setNarrative(periodMatch?.narrative || latestPub?.narrative || "");
     }
-  }, [isOpen, initialPeriodLabel, recurringPeriods]);
-
-  const handlePeriodChange = (label: string) => {
-    setReportingPeriodLabel(label);
-    const periodMatch = recurringPeriods.find(
-      (p) => String(p.period_label).toUpperCase() === String(label).toUpperCase()
-    );
-
-    if (periodMatch && periodMatch.planned_target !== null && periodMatch.planned_target !== undefined) {
-      setPlannedTarget(String(periodMatch.planned_target));
-    } else {
-      setPlannedTarget("");
-    }
-
-    if (periodMatch && periodMatch.reported_actual !== null && periodMatch.reported_actual !== undefined) {
-      setReportedActual(String(periodMatch.reported_actual));
-    } else {
-      setReportedActual("");
-    }
-
-    setNarrative(periodMatch?.narrative || "");
-    setAmharicValidationError(null);
-  };
+  }, [isOpen, initialPeriodLabel, selectedPeriod, recurringPeriods, assignedYear, defaultPeriodLabel, latestPub]);
 
   const [submitReport, { isLoading: isSubmitting }] =
     useSubmitDirectFormReportMutation();
@@ -432,54 +415,40 @@ export function RegionalDirectFormModal({
               </div>
             </div>
 
-            {/* Reporting Period & Year + Window Countdown */}
+            {/* Federal-Defined Reporting Period & Year (Pre-Defined / Read-Only) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="rep-year">Reporting Year *</Label>
-                <Input
-                  id="rep-year"
-                  type="number"
-                  min={2000}
-                  max={2050}
-                  value={reportingYear}
-                  onChange={(e) => setReportingYear(parseInt(e.target.value, 10))}
-                  required
-                  className="mt-1 font-mono"
-                />
+              <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
+                  Federal Reporting Year (Pre-Defined)
+                </span>
+                <div className="text-base font-bold font-mono text-slate-800 dark:text-slate-100 mt-1 flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+                  {reportingYear}
+                </div>
+                <span className="text-[11px] text-slate-500 block mt-0.5">
+                  Synchronized with National Reporting Mandate
+                </span>
               </div>
 
-              <div>
+              <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="rep-period">Reporting Period *</Label>
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
+                    Federal Assigned Period (Pre-Defined)
+                  </span>
                   {existingPeriodData?.status === "published" && (
                     <Badge className="bg-emerald-100 text-emerald-800 text-[10px]">
                       Revision Mode (v{(existingPeriodData as any).revision_number ? (existingPeriodData as any).revision_number + 1 : 2})
                     </Badge>
                   )}
                 </div>
-
-                <Select
-                  value={reportingPeriodLabel}
-                  onValueChange={handlePeriodChange}
-                >
-                  <SelectTrigger id="rep-period" className="mt-1">
-                    <SelectValue placeholder="Select Period" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {recurringPeriods.map((p) => (
-                      <SelectItem key={p.period_label} value={p.period_label}>
-                        {p.name || p.period_label}{" "}
-                        {p.start_date && p.end_date
-                          ? `(${p.start_date} ~ ${p.end_date})`
-                          : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                {/* Progress bar countdown for selected period window */}
+                <div className="text-base font-bold text-slate-800 dark:text-slate-100 mt-1 flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  {existingPeriodData?.name || reportingPeriodLabel}
+                  <span className="font-mono text-xs text-slate-400">({reportingPeriodLabel})</span>
+                </div>
+                {/* Progress bar countdown for assigned period window */}
                 {existingPeriodData?.start_date && existingPeriodData?.end_date && (
-                  <div className="mt-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                  <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                     <PeriodCountdownProgressBar
                       startDate={existingPeriodData.start_date}
                       endDate={existingPeriodData.end_date}

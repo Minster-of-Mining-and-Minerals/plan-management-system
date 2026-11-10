@@ -41,11 +41,12 @@ export function useRegionalPlanDashboardFilters(regionId: string): RegionalPlanD
   const summaryParams = useMemo(() => {
     return {
       region_id: regionId,
+      master_plan_version_id: filters.masterPlanVersionId !== "auto" ? filters.masterPlanVersionId : undefined,
       status: filters.status !== "all" ? filters.status : undefined,
       search: filters.planSearch.trim() || undefined,
       sharing_mode: filters.sharingMode !== "all" ? filters.sharingMode : undefined,
     };
-  }, [regionId, filters.status, filters.planSearch, filters.sharingMode]);
+  }, [regionId, filters.masterPlanVersionId, filters.status, filters.planSearch, filters.sharingMode]);
 
   const {
     data: summaryData,
@@ -240,20 +241,35 @@ export function useRegionalPlanDashboardFilters(regionId: string): RegionalPlanD
   }, [users, filters.departmentId, filters.userId, filters.planSearch]);
 
   const kpi: RegionalDashboardKpiSummary = useMemo(() => {
-    return (
-      summaryData?.kpi || {
-        totalPlans: summaryData?.total_plans || 0,
-        activePlans: summaryData?.active_plans || 0,
-        completedPlans: 0,
-        inExecutionPlans: 0,
-        sharedPlans: 0,
-        exclusivePlans: 0,
-        averageProgress: summaryData?.portfolio_progress_percent ?? 0,
-        activeMilestones: summaryData?.active_milestones || 0,
-        delayedKpis: summaryData?.delayed_kpis || 0,
-      }
+    const selectedPlanRow = summaryData?.plans?.find(
+      (p) => p.plan_version_id === focusMasterId
     );
-  }, [summaryData]);
+    const planProgress = selectedPlanRow?.execution_progress_percent;
+    const treeProgress = progressTreeData?.progress_tree?.execution_progress_percent;
+    const avgProgress =
+      planProgress ??
+      treeProgress ??
+      summaryData?.kpi?.averageProgress ??
+      summaryData?.portfolio_progress_percent ??
+      0;
+
+    return summaryData?.kpi
+      ? {
+          ...summaryData.kpi,
+          averageProgress: avgProgress,
+        }
+      : {
+          totalPlans: summaryData?.total_plans || 0,
+          activePlans: summaryData?.active_plans || 0,
+          completedPlans: 0,
+          inExecutionPlans: 0,
+          sharedPlans: 0,
+          exclusivePlans: 0,
+          averageProgress: avgProgress,
+          activeMilestones: summaryData?.active_milestones || 0,
+          delayedKpis: summaryData?.delayed_kpis || 0,
+        };
+  }, [summaryData, focusMasterId, progressTreeData]);
 
   const aggregate_metrics = useMemo(() => {
     if (progressTreeData?.progress_tree?.aggregate_metrics) {
