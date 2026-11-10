@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   useGetNationalRequirementsQuery,
   useCreateNationalRequirementMutation,
@@ -11,10 +11,16 @@ import {
 } from "@/redux/api/nationalReportingApi";
 import { useGetRegionsQuery } from "@/redux/api/regionApi";
 import { NationalReportingRequirement } from "@/redux/types/nationalReporting";
+import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { TableLayout } from "@/features/template/component/tableList/TableLayout";
+import { ColumnDef } from "@tanstack/react-table";
+import { ActiveStatusBadge } from "@/components/ui/active-status-badge";
+import type { FilterField, ActionButton } from "@/types/tableLayout";
+import { useSearchParams } from "next/navigation";
+import { matchesSearchQuery } from "@/utils/tableUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -34,15 +40,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
   Plus,
-  Search,
   Edit,
   Trash2,
   Share2,
-  CheckCircle2,
-  AlertCircle,
-  FileText,
-  Filter,
   Calendar,
+  Layers,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -61,17 +63,24 @@ const CATEGORIES = [
 ];
 
 export function NationalRequirementsTab() {
-  const [search, setSearch] = useState("");
+  const searchParams = useSearchParams();
+  const searchQuery = searchParams.get("search") || "";
+
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [frequencyFilter, setFrequencyFilter] = useState("all");
+
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingReq, setEditingReq] = useState<NationalReportingRequirement | null>(null);
   const [assigningReq, setAssigningReq] = useState<NationalReportingRequirement | null>(null);
 
   // Queries
-  const { data: requirements = [], isLoading } = useGetNationalRequirementsQuery({
-    category: categoryFilter !== "all" ? categoryFilter : undefined,
-    search: search ? search : undefined,
-  });
+  const {
+    data: requirements = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useGetNationalRequirementsQuery({});
 
   const { data: unitsCatalog = {} } = useGetNationalUnitsCatalogQuery();
   const { data: regions = [] } = useGetRegionsQuery({ is_active: true });
@@ -242,183 +251,231 @@ export function NationalRequirementsTab() {
   const availableUnits =
     unitsCatalog[formData.unit_category]?.units || [formData.expected_unit];
 
-  return (
-    <div className="space-y-6">
-      {/* Controls & Search */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="flex flex-1 items-center gap-3">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-            <Input
-              placeholder="Search code, title or description..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800"
-            />
+  // Filtering data
+  const filteredData = useMemo(() => {
+    return requirements.filter((req) => {
+      if (categoryFilter !== "all" && req.category !== categoryFilter) return false;
+      if (statusFilter === "active" && !req.is_active) return false;
+      if (statusFilter === "inactive" && req.is_active) return false;
+      if (frequencyFilter !== "all" && req.frequency !== frequencyFilter) return false;
+
+      return matchesSearchQuery(searchQuery, [
+        req.code,
+        req.title,
+        req.description,
+        req.expected_unit,
+        req.category,
+      ]);
+    });
+  }, [requirements, categoryFilter, statusFilter, frequencyFilter, searchQuery]);
+
+  // Table Columns
+  const columns: ColumnDef<NationalReportingRequirement>[] = [
+    {
+      accessorKey: "code",
+      header: "Code & Title",
+      cell: ({ row }) => {
+        const req = row.original;
+        return (
+          <div className="space-y-0.5 max-w-sm">
+            <div className="font-semibold text-slate-900 dark:text-slate-100">
+              {req.title}
+            </div>
+            <div className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
+              {req.code}
+            </div>
+            {req.description && (
+              <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
+                {req.description}
+              </p>
+            )}
           </div>
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-[200px] bg-slate-50 dark:bg-slate-950">
-              <Filter className="h-4 w-4 mr-2 text-slate-400" />
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              {CATEGORIES.map((c) => (
-                <SelectItem key={c.value} value={c.value}>
-                  {c.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        );
+      },
+    },
+    {
+      accessorKey: "category",
+      header: "Category",
+      cell: ({ row }) => (
+        <Badge variant="outline" className="capitalize text-xs bg-slate-100 dark:bg-slate-800">
+          {row.original.category?.replace(/_/g, " ")}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "expected_unit",
+      header: "Expected Unit",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1.5">
+          <span className="font-mono bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 px-2 py-0.5 rounded text-xs font-medium">
+            {row.original.expected_unit}
+          </span>
+          <span className="text-xs text-slate-400">
+            ({row.original.unit_category})
+          </span>
         </div>
+      ),
+    },
+    {
+      accessorKey: "frequency",
+      header: "Frequency & Annual Cycle",
+      cell: ({ row }) => {
+        const req = row.original;
+        return (
+          <div className="space-y-0.5">
+            <div className="capitalize font-medium text-slate-800 dark:text-slate-200 text-xs">
+              {req.frequency?.replace(/_/g, " ")}
+            </div>
+            {req.effective_start_date && req.effective_end_date ? (
+              <div className="text-[11px] font-mono text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                <Calendar className="h-3 w-3 shrink-0" />
+                <span>
+                  {req.effective_start_date} ~ {req.effective_end_date}
+                </span>
+              </div>
+            ) : (
+              <div className="text-[10px] text-slate-400 italic">
+                Standard annual cycle
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      id: "assignments",
+      header: "Assigned Regions",
+      cell: ({ row }) => {
+        const count = row.original.assignments?.length || 0;
+        return (
+          <Badge
+            variant="outline"
+            className={`text-xs ${
+              count > 0
+                ? "bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300"
+                : "text-slate-400"
+            }`}
+          >
+            {count} {count === 1 ? "Region" : "Regions"}
+          </Badge>
+        );
+      },
+    },
+    {
+      accessorKey: "is_active",
+      header: "Status",
+      cell: ({ row }) => <ActiveStatusBadge isActive={row.original.is_active} />,
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => {
+        const req = row.original;
+        return (
+          <div className="flex items-center justify-end gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleOpenAssign(req)}
+              className="h-8 px-2 text-xs border-emerald-300 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50"
+              title="Assign to Regions"
+            >
+              <Share2 className="h-3.5 w-3.5 mr-1 text-emerald-600" />
+              Assign
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleOpenEdit(req)}
+              title="Edit Requirement"
+              className="h-8 w-8 text-slate-600 hover:text-slate-900"
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleDelete(req)}
+              title="Delete Requirement"
+              className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        );
+      },
+    },
+  ];
 
-        <Button
-          onClick={handleOpenCreate}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          New Requirement
-        </Button>
-      </div>
+  // Filters for TableLayout
+  const filters: FilterField[] = [
+    {
+      key: "category",
+      label: "Category",
+      type: "select",
+      placeholder: "All Categories",
+      value: categoryFilter,
+      onChange: setCategoryFilter,
+      options: CATEGORIES.map((c) => ({ label: c.label, value: c.value })),
+    },
+    {
+      key: "status",
+      label: "Status",
+      type: "select",
+      placeholder: "All Statuses",
+      value: statusFilter,
+      onChange: setStatusFilter,
+      options: [
+        { label: "All Statuses", value: "all" },
+        { label: "Active", value: "active" },
+        { label: "Inactive", value: "inactive" },
+      ],
+    },
+    {
+      key: "frequency",
+      label: "Frequency",
+      type: "select",
+      placeholder: "All Frequencies",
+      value: frequencyFilter,
+      onChange: setFrequencyFilter,
+      options: [
+        { label: "All Frequencies", value: "all" },
+        { label: "Monthly", value: "monthly" },
+        { label: "Quarterly", value: "quarterly" },
+        { label: "Semi-Annually", value: "semi_annually" },
+        { label: "Annually", value: "annually" },
+      ],
+    },
+  ];
 
-      {/* Requirements Table */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">
-              <tr>
-                <th className="px-5 py-3.5">Code & Title</th>
-                <th className="px-5 py-3.5">Category</th>
-                <th className="px-5 py-3.5">Expected Unit</th>
-                <th className="px-5 py-3.5">Frequency</th>
-                <th className="px-5 py-3.5">Assigned Regions</th>
-                <th className="px-5 py-3.5">Status</th>
-                <th className="px-5 py-3.5 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={7} className="px-5 py-12 text-center text-slate-500">
-                    Loading national requirements...
-                  </td>
-                </tr>
-              ) : requirements.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-5 py-12 text-center text-slate-500">
-                    No national reporting requirements defined yet.
-                  </td>
-                </tr>
-              ) : (
-                requirements.map((req) => (
-                  <tr
-                    key={req.requirement_id}
-                    className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
-                  >
-                    <td className="px-5 py-4">
-                      <div className="font-semibold text-slate-900 dark:text-slate-100">
-                        {req.title}
-                      </div>
-                      <div className="text-xs font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">
-                        {req.code}
-                      </div>
-                      {req.description && (
-                        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 mt-1">
-                          {req.description}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-5 py-4">
-                      <Badge variant="outline" className="capitalize text-xs bg-slate-100 dark:bg-slate-800">
-                        {req.category.replace(/_/g, " ")}
-                      </Badge>
-                    </td>
-                    <td className="px-5 py-4 font-medium text-slate-700 dark:text-slate-300">
-                      <span className="font-mono bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs">
-                        {req.expected_unit}
-                      </span>
-                      <span className="text-xs text-slate-400 ml-1.5">
-                        ({req.unit_category})
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="capitalize font-medium text-slate-800 dark:text-slate-200">
-                        {req.frequency}
-                      </div>
-                      {req.effective_start_date && req.effective_end_date ? (
-                        <div className="text-[11px] font-mono text-emerald-700 dark:text-emerald-400 mt-0.5 flex items-center gap-1">
-                          <Calendar className="h-3 w-3 shrink-0" />
-                          <span>
-                            {req.effective_start_date} ~ {req.effective_end_date}
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="text-[10px] text-slate-400 italic mt-0.5">
-                          Standard annual cycle
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-5 py-4">
-                      <Badge
-                        variant={req.assignedRegionsCount ? "default" : "secondary"}
-                        className={
-                          req.assignedRegionsCount
-                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-200"
-                            : "bg-slate-100 text-slate-600"
-                        }
-                      >
-                        {req.assignedRegionsCount || 0} Regions
-                      </Badge>
-                    </td>
-                    <td className="px-5 py-4">
-                      {req.is_active ? (
-                        <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
-                          Active
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="text-slate-500">
-                          Inactive
-                        </Badge>
-                      )}
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleOpenAssign(req)}
-                          title="Assign to Regions"
-                          className="text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/50"
-                        >
-                          <Share2 className="h-4 w-4 mr-1" />
-                          Assign
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleOpenEdit(req)}
-                          title="Edit Requirement"
-                          className="h-8 w-8 text-slate-600 hover:text-slate-900"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(req)}
-                          title="Delete Requirement"
-                          className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+  // Top Actions for TableLayout
+  const actions: ActionButton[] = [
+    {
+      label: "New Requirement",
+      icon: <Plus className="h-4 w-4" />,
+      variant: "default",
+      onClick: handleOpenCreate,
+    },
+  ];
+
+  return (
+    <>
+      <TableLayout
+        title="National Reporting Requirements"
+        actions={actions}
+        filters={filters}
+        filterColumnsPerRow={3}
+      >
+        <DataTable
+          columns={columns}
+          data={filteredData}
+          isLoading={isLoading}
+          isError={isError}
+          errorMessage="Failed to load national reporting requirements."
+          onRetry={refetch}
+          resetKey={`${searchQuery}-${categoryFilter}-${statusFilter}-${frequencyFilter}`}
+        />
+      </TableLayout>
 
       {/* Create / Edit Requirement Modal */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -781,53 +838,44 @@ export function NationalRequirementsTab() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="mand-toggle">Mandatory Reporting</Label>
-                  <p className="text-xs text-slate-500">
-                    Mandatory indicators flag incomplete national data when missing
-                  </p>
-                </div>
+              <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-3">
+                <Label htmlFor="assign-mandatory" className="text-sm font-semibold">
+                  Mandatory for Selected Regions
+                </Label>
                 <Switch
-                  id="mand-toggle"
+                  id="assign-mandatory"
                   checked={isMandatory}
                   onCheckedChange={setIsMandatory}
                 />
               </div>
 
               <div>
-                <Label htmlFor="assign-notes">Assignment Directives / Notes</Label>
+                <Label htmlFor="assign-notes">Assignment Notes</Label>
                 <Textarea
                   id="assign-notes"
-                  placeholder="Specific regional reporting guidelines or target focus..."
+                  placeholder="Specific regional targets or instructions..."
                   value={assignNotes}
                   onChange={(e) => setAssignNotes(e.target.value)}
                   rows={2}
                 />
               </div>
 
-              <DialogFooter className="pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setAssigningReq(null)}
-                >
+              <DialogFooter className="pt-4">
+                <Button type="button" variant="outline" onClick={() => setAssigningReq(null)}>
                   Cancel
                 </Button>
                 <Button
-                  type="button"
-                  disabled={isAssigning || selectedRegionIds.length === 0}
                   onClick={handleSaveAssignment}
+                  disabled={isAssigning}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
-                  {isAssigning ? "Assigning..." : `Assign to ${selectedRegionIds.length} Regions`}
+                  {isAssigning ? "Saving..." : "Save Regional Assignments"}
                 </Button>
               </DialogFooter>
             </div>
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
-

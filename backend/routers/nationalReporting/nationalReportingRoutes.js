@@ -36,6 +36,19 @@ router.post(
   nationalReportingController.requestClarification
 );
 
+// Submissions & Published Records Versions
+router.get(
+  "/submissions/versions",
+  checkPermission("national_reporting", "read_published"),
+  nationalReportingController.getSubmissionVersions
+);
+
+router.get(
+  "/published-records/:recordId/versions",
+  checkPermission("national_reporting", "read_published"),
+  nationalReportingController.getSubmissionVersions
+);
+
 // Assignments
 router.get(
   "/assignments",

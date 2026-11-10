@@ -8,6 +8,7 @@ import {
   UnitsCatalog,
   RegionNationalReportingConfig,
   DirectFormSubmissionPayload,
+  SubmissionVersionHistoryResponse,
 } from "../types/nationalReporting";
 
 export const nationalReportingApi = baseApi.injectEndpoints({
@@ -343,6 +344,30 @@ export const nationalReportingApi = baseApi.injectEndpoints({
         "NationalDashboard",
       ],
     }),
+
+    getSubmissionVersions: builder.query<
+      SubmissionVersionHistoryResponse,
+      {
+        recordId?: string;
+        requirementId?: string;
+        regionId?: string;
+        reportingYear?: number;
+        reportingPeriodLabel?: string;
+      }
+    >({
+      query: (params) => ({
+        url: "/national-reporting/submissions/versions",
+        params: {
+          record_id: params.recordId,
+          requirement_id: params.requirementId,
+          region_id: params.regionId,
+          reporting_year: params.reportingYear,
+          reporting_period_label: params.reportingPeriodLabel,
+        },
+      }),
+      transformResponse: (res: any) => res.data,
+      providesTags: ["NationalPublishedRecord"],
+    }),
   }),
 });
 
@@ -369,5 +394,7 @@ export const {
   useGetRegionNationalReportingConfigQuery,
   useUpdateRegionNationalReportingConfigMutation,
   useSubmitDirectFormReportMutation,
+  useGetSubmissionVersionsQuery,
+  useLazyGetSubmissionVersionsQuery,
 } = nationalReportingApi;
 

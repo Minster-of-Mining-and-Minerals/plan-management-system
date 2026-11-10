@@ -63,5 +63,18 @@ router.get(
   regionalNationalReportingController.listPublicationHistory
 );
 
+// Submission Version History
+router.get(
+  "/:regionId/submissions/versions",
+  checkPermission("regional_national_reporting", "read_history"),
+  regionalNationalReportingController.getSubmissionVersions
+);
+
+router.get(
+  "/:regionId/records/:recordId/versions",
+  checkPermission("regional_national_reporting", "read_history"),
+  regionalNationalReportingController.getSubmissionVersions
+);
+
 module.exports = router;
 

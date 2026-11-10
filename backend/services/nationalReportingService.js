@@ -501,7 +501,12 @@ class NationalReportingService {
    * Request clarification from region on published record
    */
   async requestClarification(recordId, clarificationNotes, userId) {
-    const record = await NationalPublishedRecord.findByPk(recordId);
+    const record = await NationalPublishedRecord.findByPk(recordId, {
+      include: [
+        { model: NationalReportingRequirement, as: "requirement" },
+        { model: Region, as: "region" },
+      ],
+    });
     if (!record) {
       const err = new Error("Published national record not found");
       err.status = 404;
@@ -511,6 +516,36 @@ class NationalReportingService {
     record.status = "clarification_requested";
     record.clarification_notes = clarificationNotes;
     await record.save();
+
+    // Dispatch system-wide notification to regional stakeholders
+    try {
+      const { sendNotification } = require("../utils/notification");
+      const regionalUsers = await User.findAll({
+        where: {
+          region_id: record.region_id,
+          is_active: true,
+        },
+        attributes: ["user_id", "email"],
+      });
+
+      if (regionalUsers.length > 0) {
+        await sendNotification(regionalUsers, {
+          title: `Clarification Requested: ${record.requirement?.title || "National Indicator"}`,
+          message: `Federal administrator requested clarification on ${record.reporting_year} ${record.reporting_period_label} report: "${clarificationNotes}"`,
+          category: "national_reporting",
+          notification_type: "clarification_requested",
+          link_path: `/regions/${record.region_id}/national-reporting?tab=assigned`,
+          priority: "high",
+          metadata: {
+            published_record_id: record.published_record_id,
+            requirement_id: record.requirement_id,
+            region_id: record.region_id,
+          },
+        });
+      }
+    } catch (notifErr) {
+      console.error("[NationalReporting] Failed to dispatch clarification notification:", notifErr.message);
+    }
 
     return record;
   }

@@ -222,6 +222,27 @@ async function submitDirectFormReport(req, res) {
   }
 }
 
+async function getSubmissionVersions(req, res) {
+  try {
+    const regionId = resolveAndVerifyRegionId(req);
+    const versions = await regionalNationalReportingService.getSubmissionVersions({
+      ...req.query,
+      record_id: req.params.recordId || req.query.record_id,
+      region_id: regionId,
+    });
+    return res.status(200).json({
+      success: true,
+      data: versions,
+    });
+  } catch (error) {
+    console.error("Error retrieving regional submission versions:", error);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Failed to retrieve submission version history.",
+    });
+  }
+}
+
 module.exports = {
   listAssignedRequirements,
   createPotentialMapping,
@@ -232,5 +253,6 @@ module.exports = {
   getRegionReportingConfig,
   updateRegionReportingConfig,
   submitDirectFormReport,
+  getSubmissionVersions,
 };
 

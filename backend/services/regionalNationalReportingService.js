@@ -75,11 +75,17 @@ async function resolvePlanNodeUnit(planNode, regionId) {
 }
 
 /**
- * Check if Form-Based National Reporting is currently effective for a Region
+ * Check if Form-Based National Reporting is currently effective for a Region.
+ * Form-based reporting is the default method unless explicitly switched to node_mapping.
  */
 function isRegionFormReportingEffective(region) {
-  if (!region) return false;
-  if (!region.form_reporting_active) return false;
+  if (!region) return true;
+  const method =
+    region.national_reporting_method ||
+    (region.form_reporting_active ? "form_based" : "node_mapping") ||
+    "form_based";
+
+  if (method === "node_mapping") return false;
 
   const todayStr = new Date().toISOString().slice(0, 10);
   if (region.form_reporting_start_date && String(region.form_reporting_start_date) > todayStr) {
@@ -89,6 +95,84 @@ function isRegionFormReportingEffective(region) {
     return false;
   }
   return true;
+}
+
+/**
+ * Send system-wide notifications upon national report submission
+ */
+async function notifyNationalReportSubmission({
+  publishedRecord,
+  requirement,
+  region,
+  reportingPeriodLabel,
+  reportingYear,
+  numActual,
+  numTarget,
+  expectedUnit,
+  achievementPercent,
+  publicationReference,
+  userId,
+}) {
+  try {
+    const { sendNotification } = require("../utils/notification");
+    const { User, Role } = db;
+
+    // 1. Find internal federal administrators / national reporting officers to notify
+    const federalUsers = await User.findAll({
+      where: {
+        is_active: true,
+        region_id: null,
+        company_id: null,
+        purchasing_center_id: null,
+      },
+      attributes: ["user_id", "email", "full_name"],
+    });
+
+    const overAchievedText =
+      achievementPercent && achievementPercent > 100
+        ? ` (+${(achievementPercent - 100).toFixed(1)}% over-achievement)`
+        : "";
+
+    const federalPayload = {
+      title: `National Report Received: ${region.name}`,
+      message: `${region.name} submitted official report for '${requirement.title}' (${reportingYear} ${reportingPeriodLabel}) with achievement ${numActual != null ? numActual : "—"} ${expectedUnit} (${achievementPercent || 0}%${overAchievedText}).`,
+      category: "national_reporting",
+      notification_type: "report_received",
+      link_path: "/national-reporting?tab=published",
+      priority: "normal",
+      metadata: {
+        published_record_id: publishedRecord.published_record_id,
+        requirement_id: requirement.requirement_id,
+        region_id: region.region_id,
+        revision_number: publishedRecord.revision_number,
+        publication_reference: publicationReference,
+      },
+    };
+
+    if (federalUsers.length > 0) {
+      await sendNotification(federalUsers, federalPayload);
+    }
+
+    // 2. Notify the regional submitter confirming successful receipt
+    if (userId) {
+      const submitterPayload = {
+        title: "National Report Published Successfully",
+        message: `Your report for '${requirement.title}' (${reportingYear} ${reportingPeriodLabel}) was officially registered (Ref: ${publicationReference}, Rev #${publishedRecord.revision_number}).`,
+        category: "national_reporting",
+        notification_type: "report_published",
+        link_path: `/regions/${region.region_id}/national-reporting?tab=history`,
+        priority: "normal",
+        metadata: {
+          published_record_id: publishedRecord.published_record_id,
+          publication_reference: publicationReference,
+          revision_number: publishedRecord.revision_number,
+        },
+      };
+      await sendNotification([{ user_id: userId }], submitterPayload);
+    }
+  } catch (notifErr) {
+    console.error("[NationalReporting] Failed to dispatch notifications:", notifErr.message);
+  }
 }
 
 /**
@@ -386,6 +470,16 @@ class RegionalNationalReportingService {
       throw err;
     }
 
+    // Verify reporting method is configured for node mapping
+    const regionObj = mapping.region;
+    if (regionObj && regionObj.national_reporting_method === "form_based") {
+      const err = new Error(
+        "Regional plan-node mapping publishing is disabled. This region is currently configured for Form-Based National Reporting."
+      );
+      err.status = 403;
+      throw err;
+    }
+
     // Verify execution period version belongs to this region
     const periodVersion = await RegionalPlanVersion.findOne({
       where: {
@@ -495,6 +589,16 @@ class RegionalNationalReportingService {
     if (!mapping) {
       const err = new Error("Regional requirement mapping not found");
       err.status = 404;
+      throw err;
+    }
+
+    // Verify reporting method is configured for node mapping
+    const regionObj = mapping.region;
+    if (regionObj && regionObj.national_reporting_method === "form_based") {
+      const err = new Error(
+        "Regional plan-node mapping publishing is disabled. This region is currently configured for Form-Based National Reporting."
+      );
+      err.status = 403;
       throw err;
     }
 
@@ -717,6 +821,21 @@ class RegionalNationalReportingService {
       await existingRecord.save();
     }
 
+    // Dispatch system-wide notifications
+    await notifyNationalReportSubmission({
+      publishedRecord,
+      requirement,
+      region: mapping.region,
+      reportingPeriodLabel: periodLabel,
+      reportingYear,
+      numActual: reportedActual,
+      numTarget: plannedTarget,
+      expectedUnit,
+      achievementPercent,
+      publicationReference,
+      userId,
+    });
+
     return {
       success: true,
       publishedRecord,
@@ -772,6 +891,7 @@ class RegionalNationalReportingService {
 
   /**
    * Get National Reporting Configuration for a Region
+   * Node mapping and form-based reporting are mutually exclusive, with form_based as default.
    */
   async getRegionReportingConfig(regionId) {
     const region = await Region.findByPk(regionId, {
@@ -794,13 +914,18 @@ class RegionalNationalReportingService {
     }
 
     const isEffective = isRegionFormReportingEffective(region);
+    const activeMethod =
+      region.national_reporting_method ||
+      (region.form_reporting_active ? "form_based" : "node_mapping") ||
+      "form_based";
 
     return {
       region_id: region.region_id,
       name: region.name,
       code: region.code,
-      node_mapping_available: true, // Node mapping is permanent and cannot be disabled
-      form_reporting_active: Boolean(region.form_reporting_active),
+      national_reporting_method: activeMethod,
+      node_mapping_available: activeMethod === "node_mapping",
+      form_reporting_active: activeMethod === "form_based",
       form_reporting_start_date: region.form_reporting_start_date,
       form_reporting_end_date: region.form_reporting_end_date,
       form_reporting_notes: region.form_reporting_notes,
@@ -810,6 +935,7 @@ class RegionalNationalReportingService {
 
   /**
    * Update National Reporting Configuration for a Region (Federal / Private Admin)
+   * Enforces mutually exclusive selection: either form_based (default) or node_mapping.
    */
   async updateRegionReportingConfig(regionId, data, userId) {
     const region = await Region.findByPk(regionId);
@@ -820,15 +946,24 @@ class RegionalNationalReportingService {
     }
 
     const {
+      national_reporting_method,
       form_reporting_active,
       form_reporting_start_date,
       form_reporting_end_date,
       form_reporting_notes,
     } = data;
 
-    if (form_reporting_active !== undefined) {
-      region.form_reporting_active = Boolean(form_reporting_active);
-    }
+    // Mutually exclusive: either form_based (default) or node_mapping
+    const targetMethod =
+      national_reporting_method ||
+      (form_reporting_active === true
+        ? "form_based"
+        : form_reporting_active === false
+        ? "node_mapping"
+        : "form_based");
+
+    region.national_reporting_method = targetMethod;
+    region.form_reporting_active = targetMethod === "form_based";
 
     if (form_reporting_start_date !== undefined) {
       region.form_reporting_start_date = form_reporting_start_date || null;
@@ -841,9 +976,6 @@ class RegionalNationalReportingService {
     if (form_reporting_notes !== undefined) {
       region.form_reporting_notes = form_reporting_notes || null;
     }
-
-    // Node mapping is permanent and always available
-    region.national_reporting_method = "node_mapping";
 
     await region.save();
 
@@ -917,16 +1049,10 @@ class RegionalNationalReportingService {
 
     const requirement = assignment.requirement;
     const expectedUnit = requirement.expected_unit;
-    const submittedUnit = localUnit || expectedUnit;
 
-    // 3. Unit Compatibility Check
-    if (!areUnitsCompatible(submittedUnit, expectedUnit)) {
-      const err = new Error(
-        `Unit mismatch: Submitted unit '${submittedUnit}' is incompatible with required unit '${expectedUnit}' (Category: ${requirement.unit_category}). Conversion is not mathematically possible.`
-      );
-      err.status = 400;
-      throw err;
-    }
+    // Defined unit KPI from federal should NOT be edited in regional (display only).
+    // Enforce strictly using expectedUnit from federal requirement.
+    const submittedUnit = expectedUnit;
 
     const numActual =
       reportedActual !== undefined && reportedActual !== null && reportedActual !== ""
@@ -1053,6 +1179,21 @@ class RegionalNationalReportingService {
       await existingRecord.save();
     }
 
+    // Dispatch system-wide notifications
+    await notifyNationalReportSubmission({
+      publishedRecord,
+      requirement,
+      region,
+      reportingPeriodLabel,
+      reportingYear,
+      numActual,
+      numTarget,
+      expectedUnit,
+      achievementPercent,
+      publicationReference,
+      userId,
+    });
+
     return {
       publishedRecord,
       receipt: {
@@ -1068,6 +1209,119 @@ class RegionalNationalReportingService {
         message: "KPI Report published directly via National Reporting Form successfully.",
       },
     };
+  }
+
+  /**
+   * Get version history for a submitted requirement period
+   * Shows every revision (v1, v2, v3...), submitter provenance, and calculated diffs.
+   */
+  async getSubmissionVersions(params = {}) {
+    const { record_id, requirement_id, region_id, reporting_year, reporting_period_label } = params;
+
+    let targetReqId = requirement_id;
+    let targetRegId = region_id;
+    let targetYear = reporting_year ? Number(reporting_year) : null;
+    let targetPeriod = reporting_period_label ? String(reporting_period_label).trim() : null;
+
+    if (record_id) {
+      const baseRec = await NationalPublishedRecord.findByPk(record_id);
+      if (baseRec) {
+        targetReqId = baseRec.requirement_id;
+        targetRegId = baseRec.region_id;
+        targetYear = baseRec.reporting_year;
+        targetPeriod = baseRec.reporting_period_label;
+      }
+    }
+
+    if (!targetReqId || !targetRegId) {
+      const err = new Error("Requirement ID and Region ID are required to inspect version history.");
+      err.status = 400;
+      throw err;
+    }
+
+    const where = {
+      requirement_id: targetReqId,
+      region_id: targetRegId,
+    };
+    if (targetYear) where.reporting_year = targetYear;
+    if (targetPeriod) where.reporting_period_label = targetPeriod;
+
+    const rawRecords = await NationalPublishedRecord.findAll({
+      where,
+      include: [
+        {
+          model: NationalReportingRequirement,
+          as: "requirement",
+          attributes: ["requirement_id", "code", "title", "expected_unit", "unit_category", "frequency"],
+        },
+        {
+          model: Region,
+          as: "region",
+          attributes: ["region_id", "name", "code"],
+        },
+        {
+          model: User,
+          as: "publishedByUser",
+          attributes: ["user_id", "full_name", "email"],
+        },
+        {
+          model: User,
+          as: "validatedByUser",
+          attributes: ["user_id", "full_name", "email"],
+        },
+      ],
+      order: [
+        ["revision_number", "ASC"],
+        ["published_at", "ASC"],
+      ],
+    });
+
+    // Compute version diffs
+    const versions = rawRecords.map((rec, index) => {
+      const prev = index > 0 ? rawRecords[index - 1] : null;
+
+      const targetDiff =
+        prev && rec.planned_target !== null && prev.planned_target !== null
+          ? Math.round((rec.planned_target - prev.planned_target) * 100) / 100
+          : null;
+
+      const actualDiff =
+        prev && rec.reported_actual !== null && prev.reported_actual !== null
+          ? Math.round((rec.reported_actual - prev.reported_actual) * 100) / 100
+          : null;
+
+      const achievementDiff =
+        prev && rec.achievement_percent !== null && prev.achievement_percent !== null
+          ? Math.round((rec.achievement_percent - prev.achievement_percent) * 10) / 10
+          : null;
+
+      const narrativeChanged = Boolean(prev && rec.narrative !== prev.narrative);
+
+      return {
+        ...rec.toJSON(),
+        is_latest: rec.status === "published",
+        version_label: `v${rec.revision_number}`,
+        diff: prev
+          ? {
+              previous_version: `v${prev.revision_number}`,
+              target_diff: targetDiff,
+              actual_diff: actualDiff,
+              achievement_diff: achievementDiff,
+              narrative_changed: narrativeChanged,
+            }
+          : null,
+      };
+    });
+
+    return {
+      requirement_id: targetReqId,
+      region_id: targetRegId,
+      reporting_year: targetYear,
+      reporting_period_label: targetPeriod,
+      total_versions: versions.length,
+      versions,
+    };
+  }
   }
 }
 

@@ -13,6 +13,8 @@ import { RegionalMappingModal } from "./RegionalMappingModal";
 import { RegionalConfirmationModal } from "./RegionalConfirmationModal";
 import { RegionalPublicationModal } from "./RegionalPublicationModal";
 import { RegionalDirectFormModal } from "./RegionalDirectFormModal";
+import { PeriodCountdownProgressBar } from "./PeriodCountdownProgressBar";
+import { SubmissionVersionHistoryModal } from "../national-reporting/SubmissionVersionHistoryModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -31,8 +33,8 @@ import {
   Calendar,
   ChevronDown,
   ChevronUp,
-  Eye,
-  CheckCircle,
+  History,
+  TrendingUp,
 } from "lucide-react";
 
 interface Props {
@@ -48,7 +50,10 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
     { skip: !regionId }
   );
 
-  const isFormReportingActive = Boolean(regionConfig?.is_form_reporting_effective);
+  // Form-based reporting is the system default unless explicitly set to node_mapping
+  const isFormReportingActive = regionConfig
+    ? Boolean(regionConfig.is_form_reporting_effective)
+    : true;
 
   const [mappingAssignment, setMappingAssignment] =
     useState<NationalReportingAssignment | null>(null);
@@ -60,6 +65,11 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
     useState<NationalReportingAssignment | null>(null);
   const [selectedPeriodLabel, setSelectedPeriodLabel] = useState<string | undefined>(undefined);
   const [viewReceiptData, setViewReceiptData] = useState<any | null>(null);
+  const [versionHistoryParams, setVersionHistoryParams] = useState<{
+    requirementId: string;
+    reportingPeriodLabel?: string;
+    titleHint?: string;
+  } | null>(null);
 
   // Expanded state for requirements recurring periods table (default open)
   const [expandedReqs, setExpandedReqs] = useState<Record<string, boolean>>({});
@@ -95,55 +105,37 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Dual Reporting Policy & Active Status Banners */}
+      {/* Mutually Exclusive Reporting Policy Banner */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Node Mapping Banner (Always Available) */}
-        <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 space-y-1">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Layers className="h-4 w-4 text-emerald-600" />
-              <h3 className="font-bold text-xs uppercase tracking-wider text-emerald-900 dark:text-emerald-300">
-                Regional Plan-Node Mapping
-              </h3>
-            </div>
-            <Badge className="bg-emerald-600 text-white text-[10px] font-semibold">
-              Permanent / Always Active
-            </Badge>
-          </div>
-          <p className="text-xs text-slate-600 dark:text-slate-400">
-            Primary national reporting foundation. Link regional KPIs, record periodic execution, and validate reports through the regional governance gateway.
-          </p>
-        </div>
-
-        {/* Form-Based Reporting Banner (Configurable) */}
+        {/* Form-Based Reporting Banner (Default) */}
         <div
-          className={`p-4 rounded-xl border space-y-1 ${
+          className={`p-4 rounded-xl border space-y-1 transition-all ${
             isFormReportingActive
-              ? "border-emerald-300 dark:border-emerald-700 bg-emerald-500/10"
-              : "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900"
+              ? "border-emerald-300 dark:border-emerald-700 bg-emerald-500/10 shadow-sm"
+              : "border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 opacity-70"
           }`}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-emerald-600" />
+              <FileText className={`h-4 w-4 ${isFormReportingActive ? "text-emerald-600" : "text-slate-400"}`} />
               <h3 className="font-bold text-xs uppercase tracking-wider text-slate-900 dark:text-slate-100">
                 Form-Based National Reporting
               </h3>
             </div>
             {isFormReportingActive ? (
               <Badge className="bg-emerald-600 text-white text-[10px] font-semibold">
-                Activated
+                Default / Active
               </Badge>
             ) : (
               <Badge variant="secondary" className="text-[10px]">
-                Disabled
+                Inactive
               </Badge>
             )}
           </div>
           <p className="text-xs text-slate-600 dark:text-slate-400">
             {isFormReportingActive
-              ? `Direct KPI form reporting is currently active. You may submit targets and achievements directly for any period.`
-              : "Direct KPI form reporting is disabled by national administrators. Regional plan-node mapping remains fully operational."}
+              ? "Direct KPI form reporting is active. Submit periodic targets, achievements, and narratives with real-time validation and versioning."
+              : "Direct KPI form reporting is inactive for this region. Mode switchable from Federal administration."}
           </p>
           {isFormReportingActive && regionConfig?.form_reporting_end_date && (
             <div className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400 pt-0.5">
@@ -151,6 +143,38 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
               <span>Effective until {regionConfig.form_reporting_end_date}</span>
             </div>
           )}
+        </div>
+
+        {/* Node Mapping Banner */}
+        <div
+          className={`p-4 rounded-xl border space-y-1 transition-all ${
+            !isFormReportingActive
+              ? "border-blue-300 dark:border-blue-700 bg-blue-500/10 shadow-sm"
+              : "border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 opacity-70"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Layers className={`h-4 w-4 ${!isFormReportingActive ? "text-blue-600" : "text-slate-400"}`} />
+              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                Regional Plan-Node Mapping
+              </h3>
+            </div>
+            {!isFormReportingActive ? (
+              <Badge className="bg-blue-600 text-white text-[10px] font-semibold">
+                Active Method
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="text-[10px]">
+                Inactive
+              </Badge>
+            )}
+          </div>
+          <p className="text-xs text-slate-600 dark:text-slate-400">
+            {!isFormReportingActive
+              ? "Regional plan hierarchy mapping is active. Link regional KPIs, record periodic execution, and validate reports through the regional gateway."
+              : "Node mapping is inactive while Form-Based Reporting is active. One reporting method operates at a time."}
+          </p>
         </div>
       </div>
 
@@ -209,7 +233,7 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
                       <span className="capitalize font-medium">
                         Frequency: {req?.frequency?.replace(/_/g, " ")} ({periods.length} Periods)
                       </span>
-                      {node && (
+                      {!isFormReportingActive && node && (
                         <>
                           <span>•</span>
                           <span>
@@ -224,7 +248,7 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
                   </div>
 
                   <div className="flex items-center gap-2 self-start md:self-center">
-                    {/* Direct Form Submit Button (if Form active) */}
+                    {/* Direct Form Submit Button (when Form active) */}
                     {isFormReportingActive && (
                       <Button
                         size="sm"
@@ -236,13 +260,13 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
                       </Button>
                     )}
 
-                    {/* Regional Node Mapping Button */}
-                    {!mapping && (
+                    {/* Regional Node Mapping Button (when Node mapping active) */}
+                    {!isFormReportingActive && !mapping && (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setMappingAssignment(assignment)}
-                        className="text-xs h-8 flex items-center gap-1 border-emerald-300 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50"
+                        className="text-xs h-8 flex items-center gap-1 border-blue-300 text-blue-800 dark:text-blue-300 hover:bg-blue-50"
                       >
                         <FolderTree className="h-3.5 w-3.5 mr-1" />
                         Map Node
@@ -278,7 +302,7 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
                       <thead className="bg-slate-100/60 dark:bg-slate-950/70 border-b border-slate-200 dark:border-slate-800 text-[11px] font-semibold uppercase text-slate-500">
                         <tr>
                           <th className="px-4 py-2.5">Reporting Period</th>
-                          <th className="px-4 py-2.5">Calendar Window</th>
+                          <th className="px-4 py-2.5 min-w-[200px]">Window & Countdown</th>
                           <th className="px-4 py-2.5">Planned Target</th>
                           <th className="px-4 py-2.5">Reported Actual</th>
                           <th className="px-4 py-2.5">Achievement Rate</th>
@@ -299,6 +323,8 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
                             const isPeriodPublished = p.status === "published";
                             const isReadyToPublish = p.status === "ready_to_publish";
                             const isConfirmed = p.status === "confirmed";
+                            const achievementVal = p.achievement_rate !== null && p.achievement_rate !== undefined ? Number(p.achievement_rate) : null;
+                            const isOverAchieved = achievementVal !== null && achievementVal > 100;
 
                             return (
                               <tr
@@ -316,9 +342,16 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
 
                                 <td className="px-4 py-3 font-mono text-slate-500">
                                   {p.start_date && p.end_date ? (
-                                    <span>
-                                      {p.start_date} ~ {p.end_date}
-                                    </span>
+                                    <div className="space-y-1">
+                                      <div className="text-[11px]">
+                                        {p.start_date} ~ {p.end_date}
+                                      </div>
+                                      <PeriodCountdownProgressBar
+                                        startDate={p.start_date}
+                                        endDate={p.end_date}
+                                        status={p.status}
+                                      />
+                                    </div>
                                   ) : (
                                     <span className="italic text-slate-400">Configured Window</span>
                                   )}
@@ -337,19 +370,27 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
                                 </td>
 
                                 <td className="px-4 py-3">
-                                  {p.achievement_rate !== null && p.achievement_rate !== undefined ? (
-                                    <div className="flex items-center gap-1.5">
-                                      <span
-                                        className={`font-mono font-bold ${
-                                          Number(p.achievement_rate) >= 100
-                                            ? "text-emerald-600 dark:text-emerald-400"
-                                            : Number(p.achievement_rate) >= 80
-                                            ? "text-blue-600 dark:text-blue-400"
-                                            : "text-amber-600 dark:text-amber-400"
-                                        }`}
-                                      >
-                                        {Number(p.achievement_rate).toFixed(1)}%
-                                      </span>
+                                  {achievementVal !== null ? (
+                                    <div className="flex flex-col gap-1">
+                                      <div className="flex items-center gap-1.5">
+                                        <span
+                                          className={`font-mono font-bold ${
+                                            achievementVal >= 100
+                                              ? "text-emerald-600 dark:text-emerald-400"
+                                              : achievementVal >= 80
+                                              ? "text-blue-600 dark:text-blue-400"
+                                              : "text-amber-600 dark:text-amber-400"
+                                          }`}
+                                        >
+                                          {achievementVal.toFixed(1)}%
+                                        </span>
+                                      </div>
+                                      {isOverAchieved && (
+                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950 px-1.5 py-0.5 rounded border border-emerald-300 dark:border-emerald-700 w-fit">
+                                          <TrendingUp className="h-2.5 w-2.5" />
+                                          +{(achievementVal - 100).toFixed(1)}% Over
+                                        </span>
+                                      )}
                                     </div>
                                   ) : (
                                     <span className="text-slate-400 italic">—</span>
@@ -400,6 +441,26 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
 
                                 <td className="px-4 py-3 text-right">
                                   <div className="flex items-center justify-end gap-1.5">
+                                    {/* Version History Button */}
+                                    {(isPeriodPublished || p.reported_actual !== null) && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                          setVersionHistoryParams({
+                                            requirementId: req?.requirement_id || "",
+                                            reportingPeriodLabel: p.period_label,
+                                            titleHint: req?.title,
+                                          })
+                                        }
+                                        className="text-[11px] h-7 px-2 border-slate-300 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                                        title="View version revisions history"
+                                      >
+                                        <History className="h-3 w-3 mr-1 text-slate-500" />
+                                        History
+                                      </Button>
+                                    )}
+
                                     {/* View Published Proof / Receipt */}
                                     {isPeriodPublished && (
                                       <Button
@@ -414,7 +475,7 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
                                       </Button>
                                     )}
 
-                                    {/* Direct Form Action for this Period */}
+                                    {/* Direct Form Action for this Period (when Form Active) */}
                                     {isFormReportingActive && (
                                       <Button
                                         size="sm"
@@ -426,26 +487,26 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
                                         }`}
                                       >
                                         <FileText className="h-3 w-3 mr-1" />
-                                        {isPeriodPublished ? "Edit Form" : "Submit Form"}
+                                        {isPeriodPublished ? "Edit Version" : "Submit Form"}
                                       </Button>
                                     )}
 
-                                    {/* Node Mapping Actions */}
-                                    {isReadyToPublish && (
+                                    {/* Node Mapping Actions (when Node Mapping Active) */}
+                                    {!isFormReportingActive && isReadyToPublish && (
                                       <Button
                                         size="sm"
                                         onClick={() => {
                                           setViewReceiptData(null);
                                           setPublishingAssignment(assignment);
                                         }}
-                                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] h-7 px-2 font-semibold"
+                                        className="bg-blue-600 hover:bg-blue-700 text-white text-[11px] h-7 px-2 font-semibold"
                                       >
                                         <Send className="h-3 w-3 mr-1" />
                                         Publish
                                       </Button>
                                     )}
 
-                                    {p.status === "potential" && (
+                                    {!isFormReportingActive && p.status === "potential" && (
                                       <Button
                                         size="sm"
                                         onClick={() => setConfirmingAssignment(assignment)}
@@ -515,7 +576,18 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
           initialPeriodLabel={selectedPeriodLabel}
         />
       )}
+
+      {/* Version History Modal */}
+      {versionHistoryParams && (
+        <SubmissionVersionHistoryModal
+          isOpen={!!versionHistoryParams}
+          onClose={() => setVersionHistoryParams(null)}
+          regionId={regionId}
+          requirementId={versionHistoryParams.requirementId}
+          reportingPeriodLabel={versionHistoryParams.reportingPeriodLabel}
+          titleHint={versionHistoryParams.titleHint}
+        />
+      )}
     </div>
   );
 }
-

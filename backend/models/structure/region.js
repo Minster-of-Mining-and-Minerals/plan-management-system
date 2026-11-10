@@ -110,12 +110,12 @@ module.exports = (sequelize, DataTypes) => {
       national_reporting_method: {
         type: DataTypes.STRING(50),
         allowNull: false,
-        defaultValue: "node_mapping", // node_mapping, form_based
+        defaultValue: "form_based", // form_based (default), node_mapping (mutually exclusive)
       },
       form_reporting_active: {
         type: DataTypes.BOOLEAN,
         allowNull: false,
-        defaultValue: false,
+        defaultValue: true,
       },
       form_reporting_start_date: {
         type: DataTypes.DATEONLY,

@@ -89,6 +89,27 @@ export interface NationalReportingAssignment {
   nodeMappingAvailable?: boolean;
 }
 
+export interface SubmissionVersionItem extends NationalPublishedRecord {
+  is_latest: boolean;
+  version_label: string;
+  diff?: {
+    previous_version: string;
+    target_diff?: number | null;
+    actual_diff?: number | null;
+    achievement_diff?: number | null;
+    narrative_changed?: boolean;
+  } | null;
+}
+
+export interface SubmissionVersionHistoryResponse {
+  requirement_id: string;
+  region_id: string;
+  reporting_year?: number | null;
+  reporting_period_label?: string | null;
+  total_versions: number;
+  versions: SubmissionVersionItem[];
+}
+
 export interface RegionalRequirementMapping {
   mapping_id: string;
   assignment_id: string;
@@ -158,6 +179,7 @@ export interface NationalPublishedRecord {
   published_at: string;
   revision_number: number;
   superseded_by_id?: string | null;
+  hash_sha256?: string | null;
   status: "published" | "superseded" | "clarification_requested";
   clarification_notes?: string | null;
   snapshot_data: {

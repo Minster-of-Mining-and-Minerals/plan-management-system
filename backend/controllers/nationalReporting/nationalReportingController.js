@@ -279,6 +279,25 @@ async function updateRegionReportingConfig(req, res) {
   }
 }
 
+async function getSubmissionVersions(req, res) {
+  try {
+    const versions = await regionalNationalReportingService.getSubmissionVersions({
+      ...req.query,
+      record_id: req.params.recordId || req.query.record_id,
+    });
+    return res.status(200).json({
+      success: true,
+      data: versions,
+    });
+  } catch (error) {
+    console.error("Error retrieving federal submission versions:", error);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Failed to retrieve submission versions.",
+    });
+  }
+}
+
 module.exports = {
   createRequirement,
   updateRequirement,
@@ -295,5 +314,6 @@ module.exports = {
   getUnitsCatalog,
   getRegionReportingConfig,
   updateRegionReportingConfig,
+  getSubmissionVersions,
 };
 
