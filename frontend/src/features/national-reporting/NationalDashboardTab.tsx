@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useGetNationalDashboardSummaryQuery } from "@/redux/api/nationalReportingApi";
+import { useGetRegionsQuery } from "@/redux/api/regionApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -36,6 +38,11 @@ import {
   PieChart as PieChartIcon,
   BarChart3,
   Sparkles,
+  Lock,
+  Unlock,
+  ShieldCheck,
+  Search,
+  Filter,
 } from "lucide-react";
 
 const PIE_COLORS = ["#10b981", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899"];
@@ -44,10 +51,15 @@ export function NationalDashboardTab() {
   const currentYear = new Date().getFullYear();
   const [yearFilter, setYearFilter] = useState<string>(String(currentYear));
   const [periodFilter, setPeriodFilter] = useState<string>("all");
+  const [regionFilter, setRegionFilter] = useState<string>("all");
+  const [tableSearchQuery, setTableSearchQuery] = useState<string>("");
+
+  const { data: regions = [] } = useGetRegionsQuery({ is_active: true });
 
   const { data: summary, isLoading } = useGetNationalDashboardSummaryQuery({
     reporting_year: yearFilter !== "all" ? parseInt(yearFilter, 10) : undefined,
     reporting_period_label: periodFilter !== "all" ? periodFilter : undefined,
+    region_id: regionFilter !== "all" ? regionFilter : undefined,
   });
 
   const kpis = summary?.kpis || {
@@ -59,10 +71,24 @@ export function NationalDashboardTab() {
     totalPublishedSubmissions: 0,
     missingSubmissionsCount: 0,
     overallNationalComplianceRate: 0,
+    openWindowsCount: 0,
+    lockedWindowsCount: 0,
+    overriddenWindowsCount: 0,
+    totalWindowsCount: 0,
   };
 
   const regionalCompliance = summary?.regionalCompliance || [];
   const requirementSummaries = summary?.requirementSummaries || [];
+
+  const filteredRegionalCompliance = useMemo(() => {
+    if (!tableSearchQuery.trim()) return regionalCompliance;
+    const q = tableSearchQuery.toLowerCase();
+    return regionalCompliance.filter(
+      (r) =>
+        r.regionName.toLowerCase().includes(q) ||
+        r.regionCode.toLowerCase().includes(q)
+    );
+  }, [regionalCompliance, tableSearchQuery]);
 
   // Regional Submissions Bar Chart Data
   const regionalBarData = regionalCompliance.map((r) => ({
@@ -134,6 +160,20 @@ export function NationalDashboardTab() {
               <SelectItem value="Q3">Quarter 3 (Q3)</SelectItem>
               <SelectItem value="Q4">Quarter 4 (Q4)</SelectItem>
               <SelectItem value="Annual">Annual Review</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={regionFilter} onValueChange={setRegionFilter}>
+            <SelectTrigger className="w-[180px] bg-slate-50 dark:bg-slate-950">
+              <SelectValue placeholder="All Regional States" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Regional States</SelectItem>
+              {regions.map((r) => (
+                <SelectItem key={r.region_id} value={r.region_id}>
+                  {r.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -226,6 +266,102 @@ export function NationalDashboardTab() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Reporting Window Health & On-Demand Override Status */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="p-4 bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/40 rounded-xl flex items-center justify-between">
+          <div className="space-y-0.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+              Open Reporting Windows
+            </span>
+            <div className="text-2xl font-bold font-mono text-emerald-950 dark:text-emerald-100">
+              {kpis.openWindowsCount ?? 0}
+            </div>
+            <span className="text-[10px] text-emerald-600 dark:text-emerald-400">
+              Active timeframes accepting submissions
+            </span>
+          </div>
+          <div className="p-2.5 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 rounded-lg">
+            <Clock className="h-5 w-5" />
+          </div>
+        </div>
+
+        <div className="p-4 bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 rounded-xl flex items-center justify-between">
+          <div className="space-y-0.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-rose-800 dark:text-rose-300">
+              Locked / Closed Windows
+            </span>
+            <div className="text-2xl font-bold font-mono text-rose-950 dark:text-rose-100">
+              {kpis.lockedWindowsCount ?? 0}
+            </div>
+            <span className="text-[10px] text-rose-600 dark:text-rose-400">
+              Deadlines elapsed or upcoming cycles
+            </span>
+          </div>
+          <div className="p-2.5 bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300 rounded-lg">
+            <Lock className="h-5 w-5" />
+          </div>
+        </div>
+
+        <div className="p-4 bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 rounded-xl flex items-center justify-between">
+          <div className="space-y-0.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+              Admin Overrides Active
+            </span>
+            <div className="text-2xl font-bold font-mono text-amber-950 dark:text-amber-100">
+              {kpis.overriddenWindowsCount ?? 0}
+            </div>
+            <span className="text-[10px] text-amber-600 dark:text-amber-400">
+              Unlocked on demand by Federal Admin
+            </span>
+          </div>
+          <div className="p-2.5 bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 rounded-lg">
+            <Unlock className="h-5 w-5" />
+          </div>
+        </div>
+      </div>
+
+      {/* Category Thematic Performance Cards */}
+      {summary?.categoryBreakdown && summary.categoryBreakdown.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-2">
+            <Layers className="h-4 w-4 text-emerald-600" />
+            Performance by Category & Thematic Domain
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {summary.categoryBreakdown.map((cat) => (
+              <Card key={cat.category} className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm p-3.5">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold capitalize text-slate-800 dark:text-slate-200">
+                    {cat.category.replace(/_/g, " ")}
+                  </span>
+                  <Badge variant="outline" className="text-[10px] font-mono">
+                    {cat.publishedCount} / {cat.assignmentsCount}
+                  </Badge>
+                </div>
+                <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden mb-1.5">
+                  <div
+                    className={`h-full rounded-full ${
+                      cat.complianceRate >= 80
+                        ? "bg-emerald-600"
+                        : cat.complianceRate >= 50
+                        ? "bg-teal-500"
+                        : "bg-amber-500"
+                    }`}
+                    style={{ width: `${Math.min(100, cat.complianceRate)}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-slate-500">
+                  <span>Compliance</span>
+                  <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                    {cat.complianceRate}%
+                  </span>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Row 1: Primary Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -369,11 +505,20 @@ export function NationalDashboardTab() {
 
         {/* Regional Reporting Compliance Matrix Table */}
         <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm lg:col-span-2">
-          <CardHeader className="p-5 pb-2">
+          <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between gap-3">
             <CardTitle className="text-base font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <Building className="h-4 w-4 text-emerald-600" />
               Regional Compliance Breakdown
             </CardTitle>
+            <div className="relative w-48">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+              <Input
+                placeholder="Search region..."
+                value={tableSearchQuery}
+                onChange={(e) => setTableSearchQuery(e.target.value)}
+                className="h-8 pl-8 text-xs bg-slate-50 dark:bg-slate-950"
+              />
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -388,14 +533,14 @@ export function NationalDashboardTab() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {regionalCompliance.length === 0 ? (
+                  {filteredRegionalCompliance.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
-                        No regional data found.
+                        {tableSearchQuery ? "No matching regions found." : "No regional data found."}
                       </td>
                     </tr>
                   ) : (
-                    regionalCompliance.map((r) => (
+                    filteredRegionalCompliance.map((r) => (
                       <tr key={r.regionId} className="hover:bg-slate-50/50">
                         <td className="px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">
                           {r.regionName}

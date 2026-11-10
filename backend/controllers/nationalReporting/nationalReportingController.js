@@ -298,6 +298,35 @@ async function getSubmissionVersions(req, res) {
   }
 }
 
+async function togglePeriodLockOverride(req, res) {
+  try {
+    const { assignmentId } = req.params;
+    const { periodLabel, isUnlocked, reason, unlockedUntil } = req.body;
+    if (!periodLabel) {
+      return res.status(400).json({
+        success: false,
+        message: "periodLabel is required to toggle period lock override.",
+      });
+    }
+    const updatedAssignment = await nationalReportingService.toggleAssignmentPeriodLock(
+      assignmentId,
+      { periodLabel, isUnlocked, reason, unlockedUntil },
+      req.user?.user_id
+    );
+    return res.status(200).json({
+      success: true,
+      message: `Period ${periodLabel} lock override updated successfully.`,
+      data: updatedAssignment,
+    });
+  } catch (error) {
+    console.error("Error toggling period lock override:", error);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Failed to toggle period lock override.",
+    });
+  }
+}
+
 module.exports = {
   createRequirement,
   updateRequirement,
@@ -315,5 +344,6 @@ module.exports = {
   getRegionReportingConfig,
   updateRegionReportingConfig,
   getSubmissionVersions,
+  togglePeriodLockOverride,
 };
 

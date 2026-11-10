@@ -32,6 +32,8 @@ import {
   Target,
   BarChart3,
   Percent,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import { generateReportingPeriods } from "@/utils/nationalReportingPeriodUtils";
 
@@ -512,12 +514,37 @@ export function RegionalKpiDetailView({
 
                     {/* Window & Countdown */}
                     <td className="px-4 py-3.5">
-                      <PeriodCountdownProgressBar
-                        startDate={period.start_date}
-                        endDate={period.end_date}
-                        status={isReported ? "published" : period.status}
-                        compact={true}
-                      />
+                      <div className="space-y-1">
+                        <PeriodCountdownProgressBar
+                          startDate={period.start_date}
+                          endDate={period.end_date}
+                          status={isReported ? "published" : period.status}
+                          compact={true}
+                        />
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {period.is_manually_unlocked ? (
+                            <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[9px] px-1.5 py-0 flex items-center gap-1">
+                              <Unlock className="h-2.5 w-2.5" />
+                              Admin Override
+                            </Badge>
+                          ) : period.is_locked ? (
+                            <Badge className="bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 text-[9px] px-1.5 py-0 flex items-center gap-1">
+                              <Lock className="h-2.5 w-2.5" />
+                              {period.lock_state === "upcoming" ? "Upcoming" : "Window Locked"}
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 text-[9px] px-1.5 py-0 flex items-center gap-1">
+                              <Clock className="h-2.5 w-2.5" />
+                              Window Open
+                            </Badge>
+                          )}
+                          {period.deadline_date && (
+                            <span className="text-[10px] text-slate-400">
+                              (Due: {period.deadline_date})
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </td>
 
                     {/* Status & Version */}
@@ -554,32 +581,57 @@ export function RegionalKpiDetailView({
 
                     {/* Actions: Submit Form ONLY on period row! */}
                     <td className="px-4 py-3.5 text-right">
-                      <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                        {isFormReportingActive && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleOpenPeriodForm(period)}
-                            className={`h-7 px-2.5 text-xs font-semibold flex items-center gap-1 ${
-                              isReported
-                                ? "bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700"
-                                : "bg-emerald-600 hover:bg-emerald-700 text-white"
-                            }`}
-                          >
-                            <FileText className="h-3 w-3" />
-                            {isReported ? "Update (New Version)" : "Submit Form"}
-                          </Button>
-                        )}
+                      <div className="flex flex-col items-end gap-1">
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                          {isFormReportingActive && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleOpenPeriodForm(period)}
+                              disabled={period.is_locked}
+                              title={
+                                period.is_locked
+                                  ? period.lock_reason || "Reporting window is locked for this period."
+                                  : undefined
+                              }
+                              className={`h-7 px-2.5 text-xs font-semibold flex items-center gap-1 ${
+                                period.is_locked
+                                  ? "opacity-60 cursor-not-allowed bg-slate-200 dark:bg-slate-800 text-slate-500 border border-slate-300 dark:border-slate-700"
+                                  : isReported
+                                  ? "bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700"
+                                  : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                              }`}
+                            >
+                              {period.is_locked ? (
+                                <>
+                                  <Lock className="h-3 w-3" />
+                                  Locked
+                                </>
+                              ) : (
+                                <>
+                                  <FileText className="h-3 w-3" />
+                                  {isReported ? "Update (New Version)" : "Submit Form"}
+                                </>
+                              )}
+                            </Button>
+                          )}
 
-                        {isReported && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleViewReceipt(period)}
-                            className="h-7 px-2 text-xs text-slate-600 hover:text-slate-900"
-                            title="View Publication Receipt"
-                          >
-                            <Eye className="h-3 w-3" />
-                          </Button>
+                          {isReported && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleViewReceipt(period)}
+                              className="h-7 px-2 text-xs text-slate-600 hover:text-slate-900"
+                              title="View Publication Receipt"
+                            >
+                              <Eye className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+
+                        {period.is_locked && period.lock_reason && (
+                          <span className="text-[10px] text-slate-400 text-right max-w-[180px] truncate" title={period.lock_reason}>
+                            {period.lock_reason}
+                          </span>
                         )}
                       </div>
                     </td>

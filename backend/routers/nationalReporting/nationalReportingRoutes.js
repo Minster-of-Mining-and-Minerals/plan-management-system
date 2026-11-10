@@ -62,6 +62,12 @@ router.put(
   nationalReportingController.updateAssignment
 );
 
+router.post(
+  "/assignments/:assignmentId/lock-override",
+  checkPermission("national_reporting", "assign_region"),
+  nationalReportingController.togglePeriodLockOverride
+);
+
 // Per-Region Reporting Method & Form Controls
 router.get(
   "/regions/:regionId/config",

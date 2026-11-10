@@ -14,6 +14,7 @@ import type { FilterField, ActionButton } from "@/types/tableLayout";
 import { useSearchParams } from "next/navigation";
 import { matchesSearchQuery } from "@/utils/tableUtils";
 import { RegionalReportingMethodConfigModal } from "./RegionalReportingMethodConfigModal";
+import { PeriodLockOverrideModal } from "./PeriodLockOverrideModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -39,6 +40,7 @@ import {
   Settings,
   Layers,
   FileText,
+  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -59,6 +61,7 @@ export function RegionalAssignmentsTab() {
     regionName: string;
     regionCode?: string;
   } | null>(null);
+  const [managingLockAssignment, setManagingLockAssignment] = useState<NationalReportingAssignment | null>(null);
 
   const {
     data: assignments = [],
@@ -273,6 +276,17 @@ export function RegionalAssignmentsTab() {
             )}
 
             <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setManagingLockAssignment(a)}
+              className="text-xs h-8 px-2 border-amber-300 text-amber-800 dark:text-amber-400 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950 flex items-center gap-1"
+              title="Manage Period Windows & Locks"
+            >
+              <Lock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+              Windows / Lock
+            </Button>
+
+            <Button
               variant="ghost"
               size="icon"
               onClick={() => handleOpenEdit(a)}
@@ -430,6 +444,15 @@ export function RegionalAssignmentsTab() {
           regionId={configuringRegion.regionId}
           regionName={configuringRegion.regionName}
           regionCode={configuringRegion.regionCode}
+        />
+      )}
+
+      {/* Period Lock Override Modal */}
+      {managingLockAssignment && (
+        <PeriodLockOverrideModal
+          isOpen={!!managingLockAssignment}
+          onClose={() => setManagingLockAssignment(null)}
+          assignment={managingLockAssignment}
         />
       )}
     </>

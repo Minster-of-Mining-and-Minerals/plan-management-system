@@ -382,6 +382,45 @@ class NationalReportingService {
   }
 
   /**
+   * On-demand toggle or set period window lock override for a regional assignment
+   */
+  async toggleAssignmentPeriodLock(assignmentId, { periodLabel, isUnlocked, reason, unlockedUntil }, userId) {
+    const assignment = await NationalReportingAssignment.findByPk(assignmentId);
+    if (!assignment) {
+      const err = new Error("Assignment not found");
+      err.status = 404;
+      throw err;
+    }
+
+    const lockOverrides = { ...(assignment.lock_overrides || {}) };
+    const key = String(periodLabel).trim().toUpperCase();
+
+    let targetUnlocked = isUnlocked;
+    if (targetUnlocked === undefined || targetUnlocked === null) {
+      const current = lockOverrides[key]?.is_unlocked;
+      targetUnlocked = !current;
+    }
+
+    lockOverrides[key] = {
+      is_unlocked: Boolean(targetUnlocked),
+      unlocked_by: userId,
+      unlocked_at: new Date().toISOString(),
+      unlocked_until: unlockedUntil || null,
+      reason: reason || (targetUnlocked ? "Unlocked on demand by Federal Administration" : "Locked by Federal Administration"),
+    };
+
+    assignment.lock_overrides = lockOverrides;
+    await assignment.save();
+
+    return {
+      assignmentId,
+      periodLabel: key,
+      override: lockOverrides[key],
+      lockOverrides,
+    };
+  }
+
+  /**
    * List assignments with filtering
    */
   async listAssignments(filters = {}) {
@@ -556,14 +595,20 @@ class NationalReportingService {
   async getNationalDashboardSummary(filters = {}) {
     const currentYear = filters.reporting_year ? parseInt(filters.reporting_year, 10) : new Date().getFullYear();
     const periodLabel = filters.reporting_period_label || null;
+    const regionIdFilter = filters.region_id && filters.region_id !== "all" ? filters.region_id : null;
 
     // 1. High-level metric counts
     const totalRequirementsCount = await NationalReportingRequirement.count({
       where: { is_active: true },
     });
 
+    const assignmentWhere = { status: "active" };
+    if (regionIdFilter) {
+      assignmentWhere.region_id = regionIdFilter;
+    }
+
     const activeAssignments = await NationalReportingAssignment.findAll({
-      where: { status: "active" },
+      where: assignmentWhere,
       include: [
         { model: Region, as: "region", attributes: ["region_id", "name", "code"] },
         { model: NationalReportingRequirement, as: "requirement" },
@@ -594,6 +639,9 @@ class NationalReportingService {
     if (periodLabel && periodLabel !== "all") {
       pubWhere.reporting_period_label = periodLabel;
     }
+    if (regionIdFilter) {
+      pubWhere.region_id = regionIdFilter;
+    }
 
     const publishedRecords = await NationalPublishedRecord.findAll({
       where: pubWhere,
@@ -618,7 +666,50 @@ class NationalReportingService {
       }
     });
 
-    // 3. Regional compliance tracking
+    // 3. Reporting Window & Administrative Override Monitoring
+    let openWindowsCount = 0;
+    let lockedWindowsCount = 0;
+    let overriddenWindowsCount = 0;
+    const nowMs = Date.now();
+
+    for (const assignment of activeAssignments) {
+      const req = assignment.requirement;
+      if (!req) continue;
+      const startDate = assignment.effective_start_date || req.effective_start_date;
+      const endDate = assignment.effective_end_date || req.effective_end_date;
+      const freq = assignment.frequency_override || req.frequency || "quarterly";
+      if (!startDate || !endDate) continue;
+
+      const periods = generateReportingPeriods(startDate, endDate, freq);
+      const lockOverrides = assignment.lock_overrides || {};
+      const deadlineDays = req.submission_deadline_days != null ? Number(req.submission_deadline_days) : 15;
+
+      for (const p of periods) {
+        if (!p.start_date || !p.end_date) continue;
+        if (periodLabel && periodLabel !== "all" && p.period_label.trim().toLowerCase() !== periodLabel.trim().toLowerCase()) {
+          continue;
+        }
+
+        const key = p.period_label.trim().toUpperCase();
+        const override = lockOverrides[key] || lockOverrides[p.period_label];
+        const isManuallyUnlocked = Boolean(override && override.is_unlocked);
+
+        if (isManuallyUnlocked) {
+          overriddenWindowsCount++;
+          openWindowsCount++;
+        } else {
+          const s = new Date(p.start_date + "T00:00:00").getTime();
+          const e = new Date(p.end_date + "T23:59:59").getTime() + (deadlineDays * 86400000);
+          if (nowMs >= s && nowMs <= e) {
+            openWindowsCount++;
+          } else {
+            lockedWindowsCount++;
+          }
+        }
+      }
+    }
+
+    // 4. Regional compliance tracking
     const regionalCompliance = [];
     for (const [regionId, region] of assignedRegionMap.entries()) {
       const regionAssignments = activeAssignments.filter((a) => a.region_id === regionId);
@@ -640,9 +731,13 @@ class NationalReportingService {
       });
     }
 
-    // 4. Indicator / Requirement Aggregates (Standardized National Totals)
+    // Sort regional compliance by highest compliance first
+    regionalCompliance.sort((a, b) => b.complianceRate - a.complianceRate);
+
+    // 5. Indicator / Requirement Aggregates (Standardized National Totals)
     const requirementSummaries = [];
     const requirementsMap = new Map();
+    const categoryBreakdownMap = new Map();
 
     activeAssignments.forEach((a) => {
       if (!requirementsMap.has(a.requirement_id)) {
@@ -653,11 +748,26 @@ class NationalReportingService {
         });
       }
       requirementsMap.get(a.requirement_id).assignedRegionsCount += 1;
+
+      // Category breakdown aggregation
+      const cat = a.requirement?.category || "general";
+      if (!categoryBreakdownMap.has(cat)) {
+        categoryBreakdownMap.set(cat, {
+          category: cat,
+          assignmentsCount: 0,
+          publishedCount: 0,
+        });
+      }
+      categoryBreakdownMap.get(cat).assignmentsCount += 1;
     });
 
     publishedRecords.forEach((p) => {
       if (requirementsMap.has(p.requirement_id)) {
         requirementsMap.get(p.requirement_id).publishedRecords.push(p);
+      }
+      const cat = p.requirement?.category || "general";
+      if (categoryBreakdownMap.has(cat)) {
+        categoryBreakdownMap.get(cat).publishedCount += 1;
       }
     });
 
@@ -719,10 +829,16 @@ class NationalReportingService {
       });
     }
 
+    const categoryBreakdown = Array.from(categoryBreakdownMap.values()).map((c) => ({
+      ...c,
+      complianceRate: c.assignmentsCount > 0 ? Math.round((c.publishedCount / c.assignmentsCount) * 100) : 0,
+    }));
+
     return {
       filters: {
         reporting_year: currentYear,
         reporting_period_label: periodLabel,
+        region_id: regionIdFilter,
       },
       kpis: {
         totalRequirementsCount,
@@ -736,9 +852,14 @@ class NationalReportingService {
           totalAssignmentsCount > 0
             ? Math.round((totalPublishedSubmissions / totalAssignmentsCount) * 100)
             : 0,
+        openWindowsCount,
+        lockedWindowsCount,
+        overriddenWindowsCount,
+        totalWindowsCount: openWindowsCount + lockedWindowsCount,
       },
       regionalCompliance,
       requirementSummaries,
+      categoryBreakdown,
     };
   }
 }

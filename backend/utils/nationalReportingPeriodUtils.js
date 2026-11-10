@@ -164,10 +164,98 @@ function generateReportingPeriods(startDateStr, endDateStr, frequency) {
   return periods;
 }
 
+/**
+ * Compute the lock status of a reporting period based on date window, deadline days, and administrative overrides.
+ *
+ * @param {Object} params
+ * @param {Object} params.period - Period object with { period_label, start_date, end_date }
+ * @param {Object} [params.lockOverride] - Optional admin override object for this period { is_unlocked, reason, unlocked_until, unlocked_by, unlocked_at }
+ * @param {number} [params.deadlineDays=15] - Days after period end date before the window closes
+ * @returns {Object} { is_locked, lock_state, lock_reason, deadline_date, is_manually_unlocked, lock_override }
+ */
+function computePeriodLockStatus({ period, lockOverride, deadlineDays = 15 }) {
+  const todayStr = formatDate(new Date());
+  const now = new Date();
+
+  // Compute deadline date (end_date + deadlineDays)
+  const end = new Date(period.end_date);
+  const deadline = new Date(end.getTime());
+  const daysToAdd = isNaN(Number(deadlineDays)) ? 15 : Number(deadlineDays);
+  deadline.setDate(deadline.getDate() + daysToAdd);
+  const deadlineStr = formatDate(deadline);
+
+  // 1. Check administrative overrides first
+  if (lockOverride && typeof lockOverride.is_unlocked === "boolean") {
+    if (lockOverride.is_unlocked) {
+      // Check if temporary unlocked_until has expired
+      if (lockOverride.unlocked_until && new Date(lockOverride.unlocked_until) < now) {
+        return {
+          is_locked: true,
+          lock_state: "closed_deadline_passed",
+          lock_reason: `Admin unlock expired on ${formatDate(new Date(lockOverride.unlocked_until))}`,
+          deadline_date: deadlineStr,
+          is_manually_unlocked: false,
+          lock_override: lockOverride,
+        };
+      }
+      return {
+        is_locked: false,
+        lock_state: "unlocked_override",
+        lock_reason: lockOverride.reason || "Administratively unlocked on demand by Federal Administrator",
+        deadline_date: lockOverride.unlocked_until ? formatDate(new Date(lockOverride.unlocked_until)) : deadlineStr,
+        is_manually_unlocked: true,
+        lock_override: lockOverride,
+      };
+    } else {
+      return {
+        is_locked: true,
+        lock_state: "manually_locked",
+        lock_reason: lockOverride.reason || "Administratively locked by Federal Administrator",
+        deadline_date: deadlineStr,
+        is_manually_unlocked: false,
+        lock_override: lockOverride,
+      };
+    }
+  }
+
+  // 2. Natural timeline evaluation
+  if (todayStr < period.start_date) {
+    return {
+      is_locked: true,
+      lock_state: "upcoming",
+      lock_reason: `Reporting window opens on ${period.start_date}`,
+      deadline_date: deadlineStr,
+      is_manually_unlocked: false,
+      lock_override: null,
+    };
+  }
+
+  if (todayStr > deadlineStr) {
+    return {
+      is_locked: true,
+      lock_state: "closed_deadline_passed",
+      lock_reason: `Submission deadline closed on ${deadlineStr} (${daysToAdd} days after period end)`,
+      deadline_date: deadlineStr,
+      is_manually_unlocked: false,
+      lock_override: null,
+    };
+  }
+
+  return {
+    is_locked: false,
+    lock_state: "open",
+    lock_reason: `Open for submissions until deadline ${deadlineStr}`,
+    deadline_date: deadlineStr,
+    is_manually_unlocked: false,
+    lock_override: null,
+  };
+}
+
 module.exports = {
   calculateAnnualEndDate,
   validateAnnualDateRange,
   getExpectedPeriodCount,
   generateReportingPeriods,
+  computePeriodLockStatus,
 };
 

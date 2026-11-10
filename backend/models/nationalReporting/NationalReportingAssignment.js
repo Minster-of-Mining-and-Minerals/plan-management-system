@@ -75,6 +75,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.TEXT,
         allowNull: true,
       },
+      lock_overrides: {
+        type: DataTypes.JSONB,
+        allowNull: true,
+        defaultValue: {},
+      },
       assigned_by: {
         type: DataTypes.UUID,
         allowNull: true,

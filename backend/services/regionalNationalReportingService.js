@@ -13,6 +13,7 @@ const {
   calculateAnnualEndDate,
   validateAnnualDateRange,
   generateReportingPeriods,
+  computePeriodLockStatus,
 } = require("../utils/nationalReportingPeriodUtils");
 
 const {
@@ -291,6 +292,13 @@ class RegionalNationalReportingService {
 
       // 2. Map period-specific submission records
       const publishedRecords = item.publishedRecords || [];
+      const lockOverrides = item.lock_overrides || {};
+      const deadlineDays =
+        item.submission_deadline_days ||
+        req.submission_deadline_days ||
+        req.validation_rules?.submission_deadline_days ||
+        15;
+
       const recurringPeriods = generatedPeriods.map((p) => {
         const periodObj = { ...p };
         const matchingRecord = publishedRecords.find(
@@ -299,6 +307,19 @@ class RegionalNationalReportingService {
               periodObj.period_label.trim().toLowerCase() &&
             ["published", "clarification_requested"].includes(pub.status)
         );
+
+        const periodLock = computePeriodLockStatus({
+          period: p,
+          lockOverride: lockOverrides[p.period_label] || null,
+          deadlineDays,
+        });
+
+        periodObj.is_locked = periodLock.is_locked;
+        periodObj.lock_state = periodLock.lock_state;
+        periodObj.lock_reason = periodLock.lock_reason;
+        periodObj.deadline_date = periodLock.deadline_date;
+        periodObj.is_manually_unlocked = periodLock.is_manually_unlocked;
+        periodObj.lock_override = periodLock.lock_override;
 
         if (matchingRecord) {
           periodObj.status = matchingRecord.status;
@@ -352,6 +373,7 @@ class RegionalNationalReportingService {
       item.annualRange = { startDate, endDate, frequency };
       item.isFormReportingActive = isFormEffective;
       item.nodeMappingAvailable = true; // Permanently available
+      item.lock_overrides = lockOverrides;
       item.latestPublishedRecord =
         publishedRecords.length > 0 ? publishedRecords[0] : null;
 
@@ -1049,6 +1071,43 @@ class RegionalNationalReportingService {
 
     const requirement = assignment.requirement;
     const expectedUnit = requirement.expected_unit;
+
+    // 2b. Verify Period Lock & Window Status (Lock Enforcement)
+    const startDate =
+      assignment.effective_start_date ||
+      requirement.effective_start_date ||
+      `${new Date().getFullYear()}-07-01`;
+    const endDate =
+      assignment.effective_end_date ||
+      requirement.effective_end_date ||
+      calculateAnnualEndDate(startDate);
+    const frequency = assignment.frequency_override || requirement.frequency || "quarterly";
+    const generatedPeriods = generateReportingPeriods(startDate, endDate, frequency);
+    const targetPeriod = generatedPeriods.find(
+      (p) => p.period_label.toLowerCase() === String(reportingPeriodLabel).trim().toLowerCase()
+    );
+
+    if (targetPeriod) {
+      const lockOverrides = assignment.lock_overrides || {};
+      const deadlineDays =
+        assignment.submission_deadline_days ||
+        requirement.submission_deadline_days ||
+        requirement.validation_rules?.submission_deadline_days ||
+        15;
+      const periodLock = computePeriodLockStatus({
+        period: targetPeriod,
+        lockOverride: lockOverrides[targetPeriod.period_label] || null,
+        deadlineDays,
+      });
+
+      if (periodLock.is_locked) {
+        const err = new Error(
+          `Reporting for period '${reportingPeriodLabel}' is currently locked. ${periodLock.lock_reason}`
+        );
+        err.status = 403;
+        throw err;
+      }
+    }
 
     // Defined unit KPI from federal should NOT be edited in regional (display only).
     // Enforce strictly using expectedUnit from federal requirement.

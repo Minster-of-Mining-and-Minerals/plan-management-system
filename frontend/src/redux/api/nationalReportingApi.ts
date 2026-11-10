@@ -9,6 +9,7 @@ import {
   RegionNationalReportingConfig,
   DirectFormSubmissionPayload,
   SubmissionVersionHistoryResponse,
+  TogglePeriodLockPayload,
 } from "../types/nationalReporting";
 
 export const nationalReportingApi = baseApi.injectEndpoints({
@@ -134,6 +135,21 @@ export const nationalReportingApi = baseApi.injectEndpoints({
       ],
     }),
 
+    togglePeriodLockOverride: builder.mutation<
+      NationalReportingAssignment,
+      TogglePeriodLockPayload
+    >({
+      query: ({ assignmentId, ...body }) => ({
+        url: `/national-reporting/assignments/${assignmentId}/lock-override`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: [
+        { type: "NationalAssignment", id: "LIST" },
+        "NationalDashboard",
+      ],
+    }),
+
     getNationalPublishedRecords: builder.query<
       NationalPublishedRecord[],
       {
@@ -177,7 +193,7 @@ export const nationalReportingApi = baseApi.injectEndpoints({
 
     getNationalDashboardSummary: builder.query<
       NationalDashboardSummary,
-      { reporting_year?: number; reporting_period_label?: string } | void
+      { reporting_year?: number; reporting_period_label?: string; region_id?: string } | void
     >({
       query: (params) => ({
         url: "/national-reporting/dashboard-summary",
@@ -380,6 +396,7 @@ export const {
   useAssignRequirementToRegionsMutation,
   useGetNationalAssignmentsQuery,
   useUpdateNationalAssignmentMutation,
+  useTogglePeriodLockOverrideMutation,
   useGetNationalPublishedRecordsQuery,
   useGetNationalPublishedRecordByIdQuery,
   useRequestNationalClarificationMutation,

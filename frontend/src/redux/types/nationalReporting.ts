@@ -54,6 +54,18 @@ export interface ReportingPeriod {
   reporting_method_used?: "node_mapping" | "form_based" | string | null;
   submission_method?: "node_mapping" | "form_based" | string | null;
   narrative?: string | null;
+  is_locked?: boolean;
+  lock_state?: "open" | "upcoming" | "closed_deadline_passed" | "unlocked_override" | "manually_locked" | string;
+  lock_reason?: string | null;
+  deadline_date?: string | null;
+  is_manually_unlocked?: boolean;
+  lock_override?: {
+    is_unlocked: boolean;
+    reason?: string | null;
+    unlocked_until?: string | null;
+    unlocked_by?: string | null;
+    unlocked_at?: string | null;
+  } | null;
 }
 
 export interface NationalReportingAssignment {
@@ -66,6 +78,13 @@ export interface NationalReportingAssignment {
   frequency_override?: string | null;
   status: "active" | "suspended" | "withdrawn";
   notes?: string | null;
+  lock_overrides?: Record<string, {
+    is_unlocked: boolean;
+    reason?: string | null;
+    unlocked_until?: string | null;
+    unlocked_by?: string | null;
+    unlocked_at?: string | null;
+  }> | null;
   assigned_by?: string | null;
   assigned_at: string;
   requirement?: NationalReportingRequirement;
@@ -251,6 +270,7 @@ export interface NationalDashboardSummary {
   filters: {
     reporting_year: number;
     reporting_period_label?: string | null;
+    region_id?: string | null;
   };
   kpis: {
     totalRequirementsCount: number;
@@ -261,7 +281,17 @@ export interface NationalDashboardSummary {
     totalPublishedSubmissions: number;
     missingSubmissionsCount: number;
     overallNationalComplianceRate: number;
+    openWindowsCount?: number;
+    lockedWindowsCount?: number;
+    overriddenWindowsCount?: number;
+    totalWindowsCount?: number;
   };
+  categoryBreakdown?: Array<{
+    category: string;
+    assignmentsCount: number;
+    publishedCount: number;
+    complianceRate: number;
+  }>;
   regionalCompliance: Array<{
     regionId: string;
     regionName: string;
@@ -330,5 +360,13 @@ export interface DirectFormSubmissionPayload {
   localUnit?: string | null;
   narrative?: string | null;
   evidenceAttachments?: any[];
+}
+
+export interface TogglePeriodLockPayload {
+  assignmentId: string;
+  periodLabel: string;
+  isUnlocked: boolean;
+  reason?: string;
+  unlockedUntil?: string | null;
 }
 
