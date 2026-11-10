@@ -1322,7 +1322,6 @@ class RegionalNationalReportingService {
       versions,
     };
   }
-  }
 }
 
 module.exports = new RegionalNationalReportingService();
