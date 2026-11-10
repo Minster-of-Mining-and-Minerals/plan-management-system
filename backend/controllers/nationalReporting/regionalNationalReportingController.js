@@ -1,31 +1,35 @@
 "use strict";
 
 const regionalNationalReportingService = require("../../services/regionalNationalReportingService");
-const { isRegionalActor, isSuperAdminActor } = require("../../utils/structureScopeUtils");
+const { isRegionalActor, isSuperAdminActor, isFederalActor } = require("../../utils/structureScopeUtils");
 
 function resolveAndVerifyRegionId(req) {
   const paramRegionId = req.params.regionId || req.params.id;
   const userRegionId = req.user?.region_id;
 
-  if (isSuperAdminActor(req)) {
+  // 1. Super administrators, federal actors, or administrative users accessing a specific region
+  if (isSuperAdminActor(req) || isFederalActor(req) || (!userRegionId && paramRegionId)) {
     return paramRegionId || userRegionId;
   }
 
-  if (isRegionalActor(req)) {
-    if (!userRegionId) {
-      const err = new Error("Regional account has no assigned region.");
-      err.status = 403;
-      throw err;
-    }
-    if (paramRegionId && paramRegionId !== userRegionId) {
+  // 2. Regional actors are scoped to their assigned regional domain
+  if (isRegionalActor(req) || userRegionId) {
+    if (paramRegionId && userRegionId && paramRegionId !== userRegionId) {
+      if (isSuperAdminActor(req) || isFederalActor(req)) {
+        return paramRegionId;
+      }
       const err = new Error("Cross-region access denied. You may only access your own regional domain.");
       err.status = 403;
       throw err;
     }
-    return userRegionId;
+    return userRegionId || paramRegionId;
   }
 
-  const err = new Error("Only regional administrators or super administrators can perform regional reporting actions.");
+  if (paramRegionId) {
+    return paramRegionId;
+  }
+
+  const err = new Error("Only regional administrators or authorized personnel can perform regional reporting actions.");
   err.status = 403;
   throw err;
 }

@@ -13,6 +13,7 @@ import {
 import { RegionalKpiDetailView } from "./RegionalKpiDetailView";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { TableLayout } from "@/features/template/component/tableList/TableLayout";
+import { ColumnDef } from "@tanstack/react-table";
 import type { FilterField } from "@/types/tableLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -138,11 +139,12 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
   }
 
   // Columns for DataTable
-  const columns = [
+  const columns: ColumnDef<NationalReportingAssignment>[] = [
     {
-      key: "kpi",
+      id: "kpi",
       header: "National Indicator / KPI",
-      render: (item: NationalReportingAssignment) => {
+      cell: ({ row }) => {
+        const item = row.original;
         const req = item.requirement;
         return (
           <div className="space-y-1 py-1 max-w-md">
@@ -167,9 +169,10 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
       },
     },
     {
-      key: "unit_frequency",
+      id: "unit_frequency",
       header: "Unit & Frequency",
-      render: (item: NationalReportingAssignment) => {
+      cell: ({ row }) => {
+        const item = row.original;
         const req = item.requirement;
         return (
           <div className="space-y-0.5 text-xs">
@@ -187,9 +190,10 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
       },
     },
     {
-      key: "division_window",
+      id: "division_window",
       header: "Division & Window",
-      render: (item: NationalReportingAssignment) => {
+      cell: ({ row }) => {
+        const item = row.original;
         const req = item.requirement;
         const periods = item.recurringPeriods || [];
         return (
@@ -206,9 +210,10 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
       },
     },
     {
-      key: "progress",
+      id: "progress",
       header: "Reporting Progress",
-      render: (item: NationalReportingAssignment) => {
+      cell: ({ row }) => {
+        const item = row.original;
         const periods = item.recurringPeriods || [];
         const totalPeriods = periods.length || 1;
         const reportedCount = periods.filter(
@@ -258,9 +263,9 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
       },
     },
     {
-      key: "method",
+      id: "method",
       header: "Reporting Method",
-      render: () => {
+      cell: () => {
         return isFormReportingActive ? (
           <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] font-semibold">
             Form-Based
@@ -273,9 +278,10 @@ export function RegionalAssignedRequirementsTab({ regionId }: Props) {
       },
     },
     {
-      key: "actions",
+      id: "actions",
       header: "Actions",
-      render: (item: NationalReportingAssignment) => {
+      cell: ({ row }) => {
+        const item = row.original;
         return (
           <div className="flex items-center justify-end">
             <Button
