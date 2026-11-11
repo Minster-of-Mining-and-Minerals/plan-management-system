@@ -571,7 +571,7 @@ class NationalReportingService {
         await sendNotification(regionalUsers, {
           title: `Clarification Requested: ${record.requirement?.title || "National Indicator"}`,
           message: `Federal administrator requested clarification on ${record.reporting_year} ${record.reporting_period_label} report: "${clarificationNotes}"`,
-          category: "national_reporting",
+          category: "assignments",
           notification_type: "clarification_requested",
           link_path: `/regions/${record.region_id}/national-reporting?tab=assigned`,
           priority: "high",

@@ -1,14 +1,15 @@
 const jwt = require("jsonwebtoken");
 
 function signFileToken(payload) {
-  const secret = process.env.FILE_TOKEN_SECRET || process.env.JWT_SECRET;
-  const expiresIn = Number(process.env.FILE_TOKEN_TTL_SECONDS || 3600);
+  const secret = process.env.FILE_TOKEN_SECRET || process.env.JWT_SECRET || "collaboration-file-token-secret";
+  // Default to 7 days (604800s) so active editing sessions and force-saves don't expire prematurely
+  const expiresIn = Number(process.env.FILE_TOKEN_TTL_SECONDS || 604800);
   return jwt.sign(payload, secret, { expiresIn });
 }
 
-function verifyFileToken(token) {
-  const secret = process.env.FILE_TOKEN_SECRET || process.env.JWT_SECRET;
-  return jwt.verify(token, secret);
+function verifyFileToken(token, options = {}) {
+  const secret = process.env.FILE_TOKEN_SECRET || process.env.JWT_SECRET || "collaboration-file-token-secret";
+  return jwt.verify(token, secret, options);
 }
 
 function createDocumentFileToken(documentId) {

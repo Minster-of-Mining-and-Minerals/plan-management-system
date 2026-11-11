@@ -137,7 +137,7 @@ async function notifyNationalReportSubmission({
     const federalPayload = {
       title: `National Report Received: ${region.name}`,
       message: `${region.name} submitted official report for '${requirement.title}' (${reportingYear} ${reportingPeriodLabel}) with achievement ${numActual != null ? numActual : "—"} ${expectedUnit} (${achievementPercent || 0}%${overAchievedText}).`,
-      category: "national_reporting",
+      category: "assignments",
       notification_type: "report_received",
       link_path: "/national-reporting?tab=published",
       priority: "normal",
@@ -159,7 +159,7 @@ async function notifyNationalReportSubmission({
       const submitterPayload = {
         title: "National Report Published Successfully",
         message: `Your report for '${requirement.title}' (${reportingYear} ${reportingPeriodLabel}) was officially registered (Ref: ${publicationReference}, Rev #${publishedRecord.revision_number}).`,
-        category: "national_reporting",
+        category: "assignments",
         notification_type: "report_published",
         link_path: `/regions/${region.region_id}/national-reporting?tab=history`,
         priority: "normal",
@@ -1303,7 +1303,7 @@ class RegionalNationalReportingService {
       region_id: targetRegId,
     };
     if (targetYear) where.reporting_year = targetYear;
-    if (targetPeriod) where.reporting_period_label = targetPeriod;
+    if (targetPeriod) where.reporting_period_label = { [Op.iLike]: targetPeriod };
 
     const rawRecords = await NationalPublishedRecord.findAll({
       where,

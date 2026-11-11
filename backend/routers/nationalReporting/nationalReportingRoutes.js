@@ -3,7 +3,7 @@
 const express = require("express");
 const router = express.Router();
 const nationalReportingController = require("../../controllers/nationalReporting/nationalReportingController");
-const { authenticateToken, checkPermission } = require("../../middlewares/authMiddleware");
+const { authenticateToken, checkPermission, checkAnyPermission } = require("../../middlewares/authMiddleware");
 
 router.use(authenticateToken);
 
@@ -39,13 +39,21 @@ router.post(
 // Submissions & Published Records Versions
 router.get(
   "/submissions/versions",
-  checkPermission("national_reporting", "read_published"),
+  checkAnyPermission([
+    { resource: "national_reporting", action: "read_published" },
+    { resource: "regional_national_reporting", action: "read_history" },
+    { resource: "regional_national_reporting", action: "read_assigned" },
+  ]),
   nationalReportingController.getSubmissionVersions
 );
 
 router.get(
   "/published-records/:recordId/versions",
-  checkPermission("national_reporting", "read_published"),
+  checkAnyPermission([
+    { resource: "national_reporting", action: "read_published" },
+    { resource: "regional_national_reporting", action: "read_history" },
+    { resource: "regional_national_reporting", action: "read_assigned" },
+  ]),
   nationalReportingController.getSubmissionVersions
 );
 

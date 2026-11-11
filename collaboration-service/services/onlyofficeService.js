@@ -18,18 +18,36 @@ function buildEditorConfig(document, user, mode) {
   const fileToken = createDocumentFileToken(document.document_id);
   const callbackToken = createDocumentCallbackToken(document.document_id);
 
+  const canEdit = mode === "edit" && document.status !== "finalized" && document.file_type !== "pdf";
+  const fileName =
+    document.file_name ||
+    (document.title?.endsWith(`.${document.file_type}`)
+      ? document.title
+      : `${document.title || "document"}.${document.file_type}`);
+
   const config = {
     width: "100%",
     height: "100%",
     document: {
       fileType: document.file_type,
       key: document.document_key,
-      title: document.title,
+      title: fileName,
       url: `${publicBaseUrl}/api/v1/documents/${document.document_id}/file?token=${fileToken}`,
+      permissions: {
+        edit: canEdit,
+        download: true,
+        print: true,
+        review: canEdit,
+        comment: true,
+        copy: true,
+        modifyFilter: canEdit,
+        modifyContentControl: canEdit,
+        fillForms: canEdit,
+      },
     },
     documentType: onlyofficeDocumentType(document.file_type),
     editorConfig: {
-      mode,
+      mode: canEdit ? "edit" : "view",
       callbackUrl: `${publicBaseUrl}/api/v1/documents/${document.document_id}/callback?token=${callbackToken}`,
       user: {
         id: String(user.user_id),
@@ -41,15 +59,13 @@ function buildEditorConfig(document, user, mode) {
       },
       customization: {
         forcesave: true,
+        autosave: true,
         chat: true,
         comments: true,
+        submitForm: true,
       },
     },
   };
-
-  if (document.file_type === "pdf") {
-    config.editorConfig.mode = "view";
-  }
 
   const secret =
     process.env.ONLYOFFICE_JWT_ENABLED === "true"
@@ -66,14 +82,27 @@ function buildVersionEditorConfig(document, version, user, versionNumber) {
   const publicBaseUrl = getPublicBaseUrl();
   const fileToken = createDocumentVersionFileToken(document.document_id, versionNumber);
 
+  const versionFileName = `${document.title || "document"}_v${versionNumber}.${document.file_type}`;
+
   const config = {
     width: "100%",
     height: "100%",
     document: {
       fileType: document.file_type,
       key: `${version.document_key}_v${versionNumber}`,
-      title: `${document.title} (v${versionNumber})`,
+      title: versionFileName,
       url: `${publicBaseUrl}/api/v1/documents/${document.document_id}/versions/${versionNumber}/onlyoffice-file?token=${fileToken}`,
+      permissions: {
+        edit: false,
+        download: true,
+        print: true,
+        review: false,
+        comment: false,
+        copy: true,
+        modifyFilter: false,
+        modifyContentControl: false,
+        fillForms: false,
+      },
     },
     documentType: onlyofficeDocumentType(document.file_type),
     editorConfig: {

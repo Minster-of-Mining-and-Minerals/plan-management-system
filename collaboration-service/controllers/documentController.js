@@ -145,9 +145,14 @@ async function downloadDocumentFile(req, res) {
     }
 
     res.setHeader("Content-Type", result.document.mime_type);
-    res.setHeader("Content-Disposition", `attachment; filename="${result.document.file_name}"`);
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="${result.document.file_name}"`
+    );
+    res.setHeader("Content-Length", result.buffer.length);
     return res.send(result.buffer);
   } catch (error) {
+    console.error(`[documentController] Error downloading document ${req.params.id}:`, error);
     return res.status(500).json({ error: 1, message: error.message });
   }
 }

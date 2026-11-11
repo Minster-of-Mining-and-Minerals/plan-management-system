@@ -8,7 +8,8 @@ function requireFileToken(scope) {
     }
 
     try {
-      const decoded = verifyFileToken(token);
+      const verifyOptions = scope === "callback" ? { ignoreExpiration: true } : {};
+      const decoded = verifyFileToken(token, verifyOptions);
       if (decoded.scope !== scope) {
         return res.status(403).json({ error: 1, message: "Invalid token scope" });
       }

@@ -281,8 +281,10 @@ async function updateRegionReportingConfig(req, res) {
 
 async function getSubmissionVersions(req, res) {
   try {
+    const regionId = req.query.region_id || (req.user?.region_id ? req.user.region_id : undefined);
     const versions = await regionalNationalReportingService.getSubmissionVersions({
       ...req.query,
+      region_id: regionId,
       record_id: req.params.recordId || req.query.record_id,
     });
     return res.status(200).json({

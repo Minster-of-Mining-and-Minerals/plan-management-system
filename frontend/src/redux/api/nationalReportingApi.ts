@@ -372,7 +372,9 @@ export const nationalReportingApi = baseApi.injectEndpoints({
       }
     >({
       query: (params) => ({
-        url: "/national-reporting/submissions/versions",
+        url: params.regionId
+          ? `/regional/national-reporting/${params.regionId}/submissions/versions`
+          : "/national-reporting/submissions/versions",
         params: {
           record_id: params.recordId,
           requirement_id: params.requirementId,

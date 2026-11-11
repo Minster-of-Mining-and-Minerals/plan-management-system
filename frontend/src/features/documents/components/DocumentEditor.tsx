@@ -57,6 +57,9 @@ export function DocumentEditor({
   const config = useMemo((): OnlyOfficeConfig => {
     const editorConfig = (session.config.editorConfig || {}) as Record<string, unknown>;
     const customization = (editorConfig.customization || {}) as Record<string, unknown>;
+    const docConfig = (session.config.document || {}) as Record<string, unknown>;
+
+    const canEdit = session.access.canEdit && session.document.status !== "finalized";
 
     // Always include absolute documentServerUrl inside config — some DocsAPI
     // builds ignore the React prop and fall back to the current page origin.
@@ -65,11 +68,28 @@ export function DocumentEditor({
       documentServerUrl,
       height: "100%",
       width: "100%",
+      document: {
+        ...docConfig,
+        permissions: {
+          edit: canEdit,
+          download: true,
+          print: true,
+          review: canEdit,
+          comment: true,
+          copy: true,
+          modifyFilter: canEdit,
+          modifyContentControl: canEdit,
+          fillForms: canEdit,
+          ...((docConfig.permissions as Record<string, unknown>) || {}),
+        },
+      },
       editorConfig: {
         ...editorConfig,
+        mode: canEdit ? "edit" : "view",
         customization: {
+          forcesave: true,
+          autosave: true,
           ...customization,
-          forcesave: customization.forcesave ?? true,
         },
       },
     };

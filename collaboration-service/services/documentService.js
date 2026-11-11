@@ -355,9 +355,28 @@ async function getDocumentFileBuffer(documentId, versionNumber = null) {
   }
 
   if (versionNumber === null) {
+    let buffer;
+    try {
+      buffer = storageService.readFile(document.file_path);
+      if (!buffer || buffer.length === 0) {
+        throw new Error("File empty on disk");
+      }
+    } catch (readErr) {
+      console.warn(
+        `[documentService] File ${document.file_path} missing or empty, recreating from blank template:`,
+        readErr.message
+      );
+      try {
+        storageService.copyBlankTemplate(document.file_path, document.file_type);
+        buffer = storageService.readFile(document.file_path);
+      } catch (templateErr) {
+        console.error(`[documentService] Template fallback failed:`, templateErr.message);
+        throw readErr;
+      }
+    }
     return {
       document,
-      buffer: storageService.readFile(document.file_path),
+      buffer,
     };
   }
 
@@ -369,10 +388,21 @@ async function getDocumentFileBuffer(documentId, versionNumber = null) {
     return null;
   }
 
+  let buffer;
+  try {
+    buffer = storageService.readFile(version.file_path);
+  } catch (versionReadErr) {
+    console.warn(
+      `[documentService] Version file ${version.file_path} missing, falling back to current file:`,
+      versionReadErr.message
+    );
+    buffer = storageService.readFile(document.file_path);
+  }
+
   return {
     document,
     version,
-    buffer: storageService.readFile(version.file_path),
+    buffer,
   };
 }
 
@@ -552,8 +582,33 @@ async function handleOnlyofficeCallback(documentId, body) {
     return { error: 0 };
   }
 
-  const response = await fetch(body.url);
-  if (!response.ok) {
+  // Rewrite download URL so backend container can reach ONLYOFFICE container directly
+  let downloadUrl = body.url;
+  const internalOnlyofficeHost = process.env.ONLYOFFICE_INTERNAL_URL || "http://onlyoffice";
+  downloadUrl = downloadUrl.replace(
+    /^https?:\/\/(localhost|127\.0\.0\.1|prms\.mom\.gov\.et\/onlyoffice)(:\d+)?/,
+    internalOnlyofficeHost
+  );
+
+  let response;
+  try {
+    response = await fetch(downloadUrl);
+  } catch (fetchErr) {
+    console.error(`[documentService] Network error fetching saved file from ${downloadUrl}:`, fetchErr.message);
+    if (downloadUrl !== body.url) {
+      try {
+        response = await fetch(body.url);
+      } catch (fallbackErr) {
+        console.error(`[documentService] Fallback fetch from ${body.url} also failed:`, fallbackErr.message);
+        return { error: 1 };
+      }
+    } else {
+      return { error: 1 };
+    }
+  }
+
+  if (!response || !response.ok) {
+    console.error(`[documentService] Failed to fetch saved file from ONLYOFFICE at ${downloadUrl}: HTTP ${response?.status}`);
     return { error: 1 };
   }
 
