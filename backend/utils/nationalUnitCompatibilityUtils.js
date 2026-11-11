@@ -238,6 +238,7 @@ function getSupportedUnitsCatalog() {
     result[category] = {
       base: data.base,
       units: Object.keys(data.units),
+      factors: data.units,
     };
   }
   return result;

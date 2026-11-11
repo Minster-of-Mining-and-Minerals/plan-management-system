@@ -23,6 +23,8 @@ import {
   HardHat,
   Factory,
   BarChart3,
+  Layers,
+  Share2,
 } from "lucide-react";
 
 export type NavItem = {
@@ -105,6 +107,42 @@ export const NAVIGATION: NavItem[] = [
       "NATIONAL_REPORTING:READ_REQUIREMENT",
       "NATIONAL_REPORTING:READ_DASHBOARD",
       "NATIONAL_REPORTING:MANAGE",
+    ],
+    children: [
+      {
+        title: "National Dashboard",
+        url: "/national-reporting",
+        icon: LayoutDashboard,
+        anyPermissions: ["NATIONAL_REPORTING:READ_DASHBOARD", "NATIONAL_REPORTING:MANAGE"],
+      },
+      {
+        title: "Requirements Catalog",
+        url: "/national-reporting/catalog",
+        icon: Layers,
+        anyPermissions: ["NATIONAL_REPORTING:READ_REQUIREMENT", "NATIONAL_REPORTING:MANAGE"],
+      },
+      {
+        title: "Regional Assignments",
+        url: "/national-reporting/assignments",
+        icon: Share2,
+        anyPermissions: ["NATIONAL_REPORTING:READ_REQUIREMENT", "NATIONAL_REPORTING:MANAGE"],
+      },
+      {
+        title: "Published Submissions",
+        url: "/national-reporting/submissions",
+        icon: ClipboardCheck,
+        anyPermissions: [
+          "NATIONAL_REPORTING:READ_REQUIREMENT",
+          "NATIONAL_REPORTING:READ_DASHBOARD",
+          "NATIONAL_REPORTING:MANAGE",
+        ],
+      },
+      {
+        title: "Reporting Configuration",
+        url: "/national-reporting/configuration",
+        icon: Settings,
+        anyPermissions: ["NATIONAL_REPORTING:MANAGE", "NATIONAL_REPORTING:READ_REQUIREMENT"],
+      },
     ],
   },
   {

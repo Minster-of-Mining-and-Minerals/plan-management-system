@@ -1,21 +1,44 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NationalRequirementsTab } from "./NationalRequirementsTab";
 import { RegionalAssignmentsTab } from "./RegionalAssignmentsTab";
 import { PublishedSubmissionsTab } from "./PublishedSubmissionsTab";
 import { NationalDashboardTab } from "./NationalDashboardTab";
+import { NationalReportingConfigView } from "./NationalReportingConfigView";
 import {
   Layers,
   Share2,
   FileCheck,
   BarChart3,
   Globe2,
+  Settings,
 } from "lucide-react";
 
-export function NationalReportingView() {
-  const [activeTab, setActiveTab] = useState("dashboard");
+interface Props {
+  defaultTab?: string;
+}
+
+export function NationalReportingView({ defaultTab = "dashboard" }: Props) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const urlTab = searchParams.get("tab");
+
+  const [activeTab, setActiveTab] = useState<string>(urlTab || defaultTab);
+
+  useEffect(() => {
+    if (urlTab) {
+      setActiveTab(urlTab);
+    } else if (defaultTab) {
+      setActiveTab(defaultTab);
+    }
+  }, [urlTab, defaultTab]);
+
+  const handleTabChange = (val: string) => {
+    setActiveTab(val);
+  };
 
   return (
     <div className="space-y-6">
@@ -36,7 +59,7 @@ export function NationalReportingView() {
       </div>
 
       {/* Navigation Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <TabsList className="bg-slate-100 dark:bg-slate-800/60 p-1 border border-slate-200 dark:border-slate-700/50 rounded-xl">
           <TabsTrigger
             value="dashboard"
@@ -66,6 +89,13 @@ export function NationalReportingView() {
             <FileCheck className="h-4 w-4" />
             Published Submissions
           </TabsTrigger>
+          <TabsTrigger
+            value="configuration"
+            className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-sm rounded-lg text-xs font-semibold"
+          >
+            <Settings className="h-4 w-4" />
+            Reporting Configuration
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-6 outline-none">
@@ -82,6 +112,10 @@ export function NationalReportingView() {
 
         <TabsContent value="submissions" className="space-y-6 outline-none">
           <PublishedSubmissionsTab />
+        </TabsContent>
+
+        <TabsContent value="configuration" className="space-y-6 outline-none">
+          <NationalReportingConfigView />
         </TabsContent>
       </Tabs>
     </div>

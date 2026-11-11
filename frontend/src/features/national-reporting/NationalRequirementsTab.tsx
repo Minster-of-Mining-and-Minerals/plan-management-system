@@ -45,8 +45,10 @@ import {
   Share2,
   Calendar,
   Layers,
+  Scale,
 } from "lucide-react";
 import { toast } from "sonner";
+import { NationalUnitConfigTab } from "./NationalUnitConfigTab";
 import {
   calculateAnnualEndDate,
   validateAnnualDateRange,
@@ -69,6 +71,7 @@ export function NationalRequirementsTab() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [frequencyFilter, setFrequencyFilter] = useState("all");
+  const [subTab, setSubTab] = useState<"catalog" | "units">("catalog");
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingReq, setEditingReq] = useState<NationalReportingRequirement | null>(null);
@@ -459,23 +462,58 @@ export function NationalRequirementsTab() {
   ];
 
   return (
-    <>
-      <TableLayout
-        title="National Reporting Requirements"
-        actions={actions}
-        filters={filters}
-        filterColumnsPerRow={3}
-      >
-        <DataTable
-          columns={columns}
-          data={filteredData}
-          isLoading={isLoading}
-          isError={isError}
-          errorMessage="Failed to load national reporting requirements."
-          onRetry={refetch}
-          resetKey={`${searchQuery}-${categoryFilter}-${statusFilter}-${frequencyFilter}`}
-        />
-      </TableLayout>
+    <div className="space-y-4">
+      {/* Sub-Tabs for Requirements Catalog vs Unit Configuration */}
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+        <Button
+          variant={subTab === "catalog" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setSubTab("catalog")}
+          className={`h-8 text-xs flex items-center gap-1.5 ${
+            subTab === "catalog"
+              ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+              : "border-slate-300 text-slate-700 dark:text-slate-300"
+          }`}
+        >
+          <Layers className="h-3.5 w-3.5" />
+          <span>Requirements Catalog</span>
+        </Button>
+
+        <Button
+          variant={subTab === "units" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setSubTab("units")}
+          className={`h-8 text-xs flex items-center gap-1.5 ${
+            subTab === "units"
+              ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+              : "border-slate-300 text-slate-700 dark:text-slate-300"
+          }`}
+        >
+          <Scale className="h-3.5 w-3.5" />
+          <span>National Unit Configuration</span>
+        </Button>
+      </div>
+
+      {subTab === "catalog" ? (
+        <TableLayout
+          title="National Reporting Requirements"
+          actions={actions}
+          filters={filters}
+          filterColumnsPerRow={3}
+        >
+          <DataTable
+            columns={columns}
+            data={filteredData}
+            isLoading={isLoading}
+            isError={isError}
+            errorMessage="Failed to load national reporting requirements."
+            onRetry={refetch}
+            resetKey={`${searchQuery}-${categoryFilter}-${statusFilter}-${frequencyFilter}`}
+          />
+        </TableLayout>
+      ) : (
+        <NationalUnitConfigTab />
+      )}
 
       {/* Create / Edit Requirement Modal */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -876,6 +914,6 @@ export function NationalRequirementsTab() {
           )}
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }

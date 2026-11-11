@@ -357,6 +357,7 @@ export type UnitsCatalog = Record<
   {
     base: string;
     units: string[];
+    factors?: Record<string, number>;
   }
 >;
 
