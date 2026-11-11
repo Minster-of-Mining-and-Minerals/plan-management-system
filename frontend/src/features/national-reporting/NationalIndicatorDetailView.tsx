@@ -40,6 +40,7 @@ import {
   Search,
   Globe,
   Sparkles,
+  Eye,
 } from "lucide-react";
 
 export interface AssignedRegionInfo {
@@ -297,18 +298,22 @@ export function NationalIndicatorDetailView({
             <Button
               size="sm"
               variant="outline"
-              onClick={() => router.push(`/regions/${asgn.regionId}/national-reporting?tab=assigned`)}
+              onClick={() =>
+                router.push(
+                  `/national-reporting/regions/${asgn.regionId}?year=${reportingYear}&period=${periodLabel}`
+                )
+              }
               className="h-8 text-xs border-emerald-300 text-emerald-800 dark:text-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950 flex items-center gap-1.5"
               title={`View ${asgn.regionName}'s complete assigned national reporting KPIs and analytics`}
             >
-              <ExternalLink className="h-3.5 w-3.5" />
+              <Eye className="h-3.5 w-3.5" />
               <span>View Region's KPIs</span>
             </Button>
           );
         },
       },
     ],
-    [indicator.expectedUnit, router]
+    [indicator.expectedUnit, router, reportingYear, periodLabel]
   );
 
   return (

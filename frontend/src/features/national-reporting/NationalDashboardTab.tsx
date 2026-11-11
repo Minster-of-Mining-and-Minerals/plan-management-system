@@ -290,7 +290,11 @@ export function NationalDashboardTab() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => router.push(`/regions/${r.regionId}/national-reporting?tab=assigned`)}
+              onClick={() =>
+                router.push(
+                  `/national-reporting/regions/${r.regionId}?year=${yearFilter}&period=${periodFilter}`
+                )
+              }
               className="h-7 text-xs border-emerald-300 text-emerald-800 dark:text-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950 flex items-center gap-1.5"
               title={`View assigned national reporting KPI details for ${r.regionName}`}
             >
@@ -301,7 +305,7 @@ export function NationalDashboardTab() {
         },
       },
     ],
-    [router]
+    [router, yearFilter, periodFilter]
   );
 
   // TanStack Columns: National Indicator Aggregates Table
