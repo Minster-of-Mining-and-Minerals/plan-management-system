@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/select";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
-import { NationalIndicatorDetailModal } from "./NationalIndicatorDetailModal";
 import {
   BarChart,
   Bar,
@@ -72,9 +71,6 @@ export function NationalDashboardTab() {
   const [indicatorCategoryFilter, setIndicatorCategoryFilter] = useState<string>("all");
   const [indicatorCompletenessFilter, setIndicatorCompletenessFilter] = useState<string>("all");
   const [indicatorOverachievedOnly, setIndicatorOverachievedOnly] = useState<boolean>(false);
-
-  // Selected indicator for detail modal
-  const [viewingIndicator, setViewingIndicator] = useState<any | null>(null);
 
   const { data: regions = [] } = useGetRegionsQuery({ is_active: true });
 
@@ -474,7 +470,11 @@ export function NationalDashboardTab() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setViewingIndicator(req)}
+              onClick={() =>
+                router.push(
+                  `/national-reporting/indicators/${req.requirementId}?year=${yearFilter}&period=${periodFilter}`
+                )
+              }
               className="h-7 text-xs border-slate-300 hover:bg-slate-100 dark:border-slate-700 flex items-center gap-1.5"
               title="View full statistics and regional assignment distribution"
             >
@@ -485,7 +485,7 @@ export function NationalDashboardTab() {
         },
       },
     ],
-    []
+    [router, yearFilter, periodFilter]
   );
 
   return (
@@ -1000,17 +1000,6 @@ export function NationalDashboardTab() {
           />
         </CardContent>
       </Card>
-
-      {/* Indicator Detail Modal with Full Statistics & Assigned Regional Breakdown */}
-      {viewingIndicator && (
-        <NationalIndicatorDetailModal
-          isOpen={Boolean(viewingIndicator)}
-          onClose={() => setViewingIndicator(null)}
-          indicator={viewingIndicator}
-          reportingYear={yearFilter !== "all" ? parseInt(yearFilter, 10) : currentYear}
-          periodLabel={periodFilter}
-        />
-      )}
     </div>
   );
 }
