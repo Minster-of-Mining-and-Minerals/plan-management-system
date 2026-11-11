@@ -8,3 +8,4 @@ export const metadata = {
 export default function NationalReportingAssignmentsPage() {
   return <NationalReportingView defaultTab="assignments" />;
 }
+
