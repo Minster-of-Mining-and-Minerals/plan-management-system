@@ -494,7 +494,23 @@ export function NationalDashboardTab() {
 
   return (
     <div className="space-y-6">
-      {/* Header & Filter Bar */}
+      {/* Top Page Header Banner */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
+        <div>
+          <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-semibold text-xs tracking-wider uppercase">
+            <Globe className="h-4 w-4" />
+            Federal Gateway & National Aggregation Framework
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mt-1">
+            National Reporting Dashboard
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+            Monitor provincial compliance, standardized KPI performance rollups, and over-achievements across all regional states.
+          </p>
+        </div>
+      </div>
+
+      {/* Filter Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-xs font-semibold uppercase text-slate-500 tracking-wider">

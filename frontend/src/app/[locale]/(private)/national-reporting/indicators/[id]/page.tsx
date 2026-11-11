@@ -110,7 +110,7 @@ export default function NationalIndicatorDetailPage() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => router.push("/national-reporting?tab=dashboard")}
+          onClick={() => router.push("/national-reporting")}
           className="text-xs"
         >
           <ArrowLeft className="h-4 w-4 mr-1.5" />
@@ -123,7 +123,7 @@ export default function NationalIndicatorDetailPage() {
   return (
     <NationalIndicatorDetailView
       indicator={indicatorData}
-      onBack={() => router.push("/national-reporting?tab=dashboard")}
+      onBack={() => router.push("/national-reporting")}
       reportingYear={reportingYear}
       periodLabel={periodLabel}
     />

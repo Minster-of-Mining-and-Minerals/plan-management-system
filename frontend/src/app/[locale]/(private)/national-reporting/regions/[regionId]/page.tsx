@@ -66,7 +66,7 @@ export default function NationalRegionDetailPage() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => router.push("/national-reporting?tab=dashboard")}
+          onClick={() => router.push("/national-reporting")}
           className="text-xs"
         >
           <ArrowLeft className="h-4 w-4 mr-1.5" />
@@ -85,7 +85,7 @@ export default function NationalRegionDetailPage() {
       periodLabel={periodLabel}
       onYearChange={setReportingYear}
       onPeriodChange={setPeriodLabel}
-      onBack={() => router.push("/national-reporting?tab=dashboard")}
+      onBack={() => router.push("/national-reporting")}
     />
   );
 }
