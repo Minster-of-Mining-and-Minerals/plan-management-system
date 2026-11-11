@@ -2,19 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { NationalRequirementsTab } from "./NationalRequirementsTab";
-import { RegionalAssignmentsTab } from "./RegionalAssignmentsTab";
-import { PublishedSubmissionsTab } from "./PublishedSubmissionsTab";
-import { NationalDashboardTab } from "./NationalDashboardTab";
-import { NationalReportingConfigView } from "./NationalReportingConfigView";
 import {
-  Layers,
-  Share2,
-  FileCheck,
-  BarChart3,
   Globe2,
-  Settings,
 } from "lucide-react";
 
 interface Props {
@@ -57,67 +46,6 @@ export function NationalReportingView({ defaultTab = "dashboard" }: Props) {
           </p>
         </div>
       </div>
-
-      {/* Navigation Tabs */}
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="bg-slate-100 dark:bg-slate-800/60 p-1 border border-slate-200 dark:border-slate-700/50 rounded-xl">
-          <TabsTrigger
-            value="dashboard"
-            className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-sm rounded-lg text-xs font-semibold"
-          >
-            <BarChart3 className="h-4 w-4" />
-            National Dashboard
-          </TabsTrigger>
-          <TabsTrigger
-            value="requirements"
-            className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-sm rounded-lg text-xs font-semibold"
-          >
-            <Layers className="h-4 w-4" />
-            Requirements Catalog
-          </TabsTrigger>
-          <TabsTrigger
-            value="assignments"
-            className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-sm rounded-lg text-xs font-semibold"
-          >
-            <Share2 className="h-4 w-4" />
-            Regional Assignments
-          </TabsTrigger>
-          <TabsTrigger
-            value="submissions"
-            className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-sm rounded-lg text-xs font-semibold"
-          >
-            <FileCheck className="h-4 w-4" />
-            Published Submissions
-          </TabsTrigger>
-          <TabsTrigger
-            value="configuration"
-            className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-sm rounded-lg text-xs font-semibold"
-          >
-            <Settings className="h-4 w-4" />
-            Reporting Configuration
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="dashboard" className="space-y-6 outline-none">
-          <NationalDashboardTab />
-        </TabsContent>
-
-        <TabsContent value="requirements" className="space-y-6 outline-none">
-          <NationalRequirementsTab />
-        </TabsContent>
-
-        <TabsContent value="assignments" className="space-y-6 outline-none">
-          <RegionalAssignmentsTab />
-        </TabsContent>
-
-        <TabsContent value="submissions" className="space-y-6 outline-none">
-          <PublishedSubmissionsTab />
-        </TabsContent>
-
-        <TabsContent value="configuration" className="space-y-6 outline-none">
-          <NationalReportingConfigView />
-        </TabsContent>
-      </Tabs>
     </div>
   );
 }
