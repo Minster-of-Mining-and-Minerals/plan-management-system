@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useGetNationalDashboardSummaryQuery } from "@/redux/api/nationalReportingApi";
 import { useGetRegionsQuery } from "@/redux/api/regionApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -13,6 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DataTable } from "@/features/template/component/tableList/DataTable";
+import { ColumnDef } from "@tanstack/react-table";
+import { NationalIndicatorDetailModal } from "./NationalIndicatorDetailModal";
 import {
   BarChart,
   Bar,
@@ -43,16 +48,33 @@ import {
   ShieldCheck,
   Search,
   Filter,
+  Eye,
+  ExternalLink,
 } from "lucide-react";
 
 const PIE_COLORS = ["#10b981", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899"];
 
 export function NationalDashboardTab() {
+  const router = useRouter();
   const currentYear = new Date().getFullYear();
+
+  // Primary filters
   const [yearFilter, setYearFilter] = useState<string>(String(currentYear));
   const [periodFilter, setPeriodFilter] = useState<string>("all");
   const [regionFilter, setRegionFilter] = useState<string>("all");
-  const [tableSearchQuery, setTableSearchQuery] = useState<string>("");
+
+  // Regional table filters
+  const [regionalSearchQuery, setRegionalSearchQuery] = useState<string>("");
+  const [regionalStatusFilter, setRegionalStatusFilter] = useState<string>("all");
+
+  // Indicator table filters
+  const [indicatorSearchQuery, setIndicatorSearchQuery] = useState<string>("");
+  const [indicatorCategoryFilter, setIndicatorCategoryFilter] = useState<string>("all");
+  const [indicatorCompletenessFilter, setIndicatorCompletenessFilter] = useState<string>("all");
+  const [indicatorOverachievedOnly, setIndicatorOverachievedOnly] = useState<boolean>(false);
+
+  // Selected indicator for detail modal
+  const [viewingIndicator, setViewingIndicator] = useState<any | null>(null);
 
   const { data: regions = [] } = useGetRegionsQuery({ is_active: true });
 
@@ -80,15 +102,53 @@ export function NationalDashboardTab() {
   const regionalCompliance = summary?.regionalCompliance || [];
   const requirementSummaries = summary?.requirementSummaries || [];
 
+  // Regional Compliance Filtered Dataset
   const filteredRegionalCompliance = useMemo(() => {
-    if (!tableSearchQuery.trim()) return regionalCompliance;
-    const q = tableSearchQuery.toLowerCase();
-    return regionalCompliance.filter(
-      (r) =>
+    return regionalCompliance.filter((r) => {
+      if (regionalStatusFilter !== "all" && r.status !== regionalStatusFilter) return false;
+      if (!regionalSearchQuery.trim()) return true;
+      const q = regionalSearchQuery.toLowerCase();
+      return (
         r.regionName.toLowerCase().includes(q) ||
         r.regionCode.toLowerCase().includes(q)
-    );
-  }, [regionalCompliance, tableSearchQuery]);
+      );
+    });
+  }, [regionalCompliance, regionalSearchQuery, regionalStatusFilter]);
+
+  // Unique categories for filtering
+  const uniqueCategories = useMemo(() => {
+    const set = new Set<string>();
+    requirementSummaries.forEach((r) => {
+      if (r.category) set.add(r.category);
+    });
+    return Array.from(set);
+  }, [requirementSummaries]);
+
+  // Indicator Summaries Filtered Dataset
+  const filteredIndicators = useMemo(() => {
+    return requirementSummaries.filter((req) => {
+      if (indicatorCategoryFilter !== "all" && req.category !== indicatorCategoryFilter) return false;
+      if (indicatorCompletenessFilter === "complete" && !req.isCompleteData) return false;
+      if (indicatorCompletenessFilter === "partial" && (req.isCompleteData || req.submittedRegionsCount === 0)) return false;
+      if (indicatorCompletenessFilter === "pending" && req.submittedRegionsCount > 0) return false;
+      if (indicatorOverachievedOnly && (req.achievementRate == null || req.achievementRate <= 100)) return false;
+
+      if (!indicatorSearchQuery.trim()) return true;
+      const q = indicatorSearchQuery.toLowerCase();
+      return (
+        req.title.toLowerCase().includes(q) ||
+        req.code.toLowerCase().includes(q) ||
+        req.category.toLowerCase().includes(q) ||
+        req.expectedUnit.toLowerCase().includes(q)
+      );
+    });
+  }, [
+    requirementSummaries,
+    indicatorSearchQuery,
+    indicatorCategoryFilter,
+    indicatorCompletenessFilter,
+    indicatorOverachievedOnly,
+  ]);
 
   // Regional Submissions Bar Chart Data
   const regionalBarData = regionalCompliance.map((r) => ({
@@ -119,28 +179,325 @@ export function NationalDashboardTab() {
     { name: "Missing Submissions", value: kpis.missingSubmissionsCount, color: "#f59e0b" },
   ].filter((d) => d.value > 0);
 
-  // Category Distribution Data
-  const categoryCounts: Record<string, number> = {};
-  requirementSummaries.forEach((req) => {
-    const cat = req.category ? req.category.replace(/_/g, " ") : "Other";
-    categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
-  });
-  const categoryData = Object.entries(categoryCounts).map(([name, count], index) => ({
-    name,
-    count,
-    color: PIE_COLORS[index % PIE_COLORS.length],
-  }));
+  // TanStack Columns: Regional Compliance Table
+  const regionalColumns: ColumnDef<any>[] = useMemo(
+    () => [
+      {
+        id: "region",
+        header: "Regional State",
+        cell: ({ row }) => {
+          const r = row.original;
+          return (
+            <div className="space-y-0.5">
+              <div className="font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                <span>{r.regionName}</span>
+                {r.regionCode && (
+                  <span className="text-[10px] font-mono text-slate-400">[{r.regionCode}]</span>
+                )}
+              </div>
+              <span className="text-[10px] text-slate-500">Federal Assigned Jurisdiction</span>
+            </div>
+          );
+        },
+      },
+      {
+        id: "assigned",
+        header: "Assigned KPIs",
+        cell: ({ row }) => (
+          <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
+            {row.original.assignedRequirementsCount}
+          </span>
+        ),
+      },
+      {
+        id: "submitted",
+        header: "Submitted",
+        cell: ({ row }) => (
+          <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">
+            {row.original.publishedSubmissionsCount}
+          </span>
+        ),
+      },
+      {
+        id: "missing",
+        header: "Missing",
+        cell: ({ row }) => (
+          <span
+            className={`font-mono font-medium ${
+              row.original.missingSubmissionsCount > 0 ? "text-amber-600" : "text-slate-400"
+            }`}
+          >
+            {row.original.missingSubmissionsCount}
+          </span>
+        ),
+      },
+      {
+        id: "compliance",
+        header: "Compliance Rate",
+        cell: ({ row }) => {
+          const rate = row.original.complianceRate;
+          return (
+            <div className="flex items-center gap-2 min-w-[120px]">
+              <div className="w-24 bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${
+                    rate === 100
+                      ? "bg-emerald-600"
+                      : rate >= 50
+                      ? "bg-teal-500"
+                      : "bg-amber-500"
+                  }`}
+                  style={{ width: `${Math.min(100, rate)}%` }}
+                />
+              </div>
+              <span className="font-mono font-semibold text-xs text-slate-800 dark:text-slate-200">
+                {rate}%
+              </span>
+            </div>
+          );
+        },
+      },
+      {
+        id: "status",
+        header: "Status",
+        cell: ({ row }) => {
+          const s = row.original.status;
+          if (s === "complete") {
+            return (
+              <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 text-[10px] flex items-center gap-1 w-fit">
+                <CheckCircle2 className="h-3 w-3" />
+                Complete
+              </Badge>
+            );
+          }
+          if (s === "partial") {
+            return (
+              <Badge className="bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 border-teal-300 text-[10px] flex items-center gap-1 w-fit">
+                <Clock className="h-3 w-3" />
+                In Progress
+              </Badge>
+            );
+          }
+          return (
+            <Badge variant="outline" className="text-amber-600 border-amber-300 text-[10px] w-fit">
+              Pending
+            </Badge>
+          );
+        },
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => {
+          const r = row.original;
+          return (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => router.push(`/regions/${r.regionId}/national-reporting?tab=assigned`)}
+              className="h-7 text-xs border-emerald-300 text-emerald-800 dark:text-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950 flex items-center gap-1.5"
+              title={`View assigned national reporting KPI details for ${r.regionName}`}
+            >
+              <Eye className="h-3.5 w-3.5" />
+              <span>View Regional KPIs</span>
+            </Button>
+          );
+        },
+      },
+    ],
+    [router]
+  );
+
+  // TanStack Columns: National Indicator Aggregates Table
+  const indicatorColumns: ColumnDef<any>[] = useMemo(
+    () => [
+      {
+        id: "indicator",
+        header: "National Indicator",
+        cell: ({ row }) => {
+          const req = row.original;
+          return (
+            <div className="space-y-0.5 max-w-sm">
+              <div className="font-semibold text-slate-900 dark:text-slate-100 text-xs line-clamp-2">
+                {req.title}
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-mono text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 px-1.5 py-0.2 rounded">
+                  {req.code}
+                </span>
+                <span className="text-slate-300 dark:text-slate-700">•</span>
+                <Badge variant="outline" className="text-[9px] capitalize px-1.5 py-0">
+                  {req.category?.replace(/_/g, " ")}
+                </Badge>
+                <span className="text-[10px] font-mono text-slate-400 capitalize">
+                  ({req.frequency})
+                </span>
+              </div>
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: "expectedUnit",
+        header: "Unit",
+        cell: ({ row }) => (
+          <span className="font-mono text-xs text-slate-600 dark:text-slate-400">
+            {row.original.expectedUnit}
+          </span>
+        ),
+      },
+      {
+        id: "nationalTarget",
+        header: "National Target",
+        cell: ({ row }) => {
+          const val = row.original.nationalTotalTarget;
+          return val != null ? (
+            <span className="font-mono font-medium text-slate-700 dark:text-slate-300 text-xs">
+              {Number(val).toLocaleString()}{" "}
+              <span className="text-[10px] text-slate-400 font-sans">{row.original.expectedUnit}</span>
+            </span>
+          ) : (
+            <span className="text-slate-400">—</span>
+          );
+        },
+      },
+      {
+        id: "nationalActual",
+        header: "National Actual",
+        cell: ({ row }) => {
+          const val = row.original.nationalTotalActual;
+          return val != null ? (
+            <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400 text-xs">
+              {Number(val).toLocaleString()}{" "}
+              <span className="text-[10px] text-slate-400 font-normal">{row.original.expectedUnit}</span>
+            </span>
+          ) : (
+            <span className="text-slate-400 italic">Not reported</span>
+          );
+        },
+      },
+      {
+        id: "achievementRate",
+        header: "Achievement Rate",
+        cell: ({ row }) => {
+          const rate = row.original.achievementRate;
+          const isOver = rate != null && rate > 100;
+          return rate != null ? (
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`font-mono font-bold text-xs ${
+                  rate >= 100
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : rate >= 70
+                    ? "text-blue-600"
+                    : "text-amber-600"
+                }`}
+              >
+                {rate}%
+              </span>
+              {isOver && (
+                <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[9px] px-1 py-0 font-mono">
+                  +{(rate - 100).toFixed(1)}% Over
+                </Badge>
+              )}
+            </div>
+          ) : (
+            <span className="text-slate-400">—</span>
+          );
+        },
+      },
+      {
+        id: "regionalCompleteness",
+        header: "Regional Coverage",
+        cell: ({ row }) => {
+          const req = row.original;
+          return (
+            <div className="space-y-1 min-w-[130px]">
+              <div className="flex items-center justify-between text-[11px] font-mono">
+                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                  {req.dataCompletenessPercent}%
+                </span>
+                <span className="text-slate-500 text-[10px]">
+                  {req.submittedRegionsCount} / {req.assignedRegionsCount} regions
+                </span>
+              </div>
+              <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${
+                    req.isCompleteData
+                      ? "bg-emerald-600"
+                      : req.submittedRegionsCount > 0
+                      ? "bg-amber-500"
+                      : "bg-slate-300"
+                  }`}
+                  style={{ width: `${Math.min(100, req.dataCompletenessPercent)}%` }}
+                />
+              </div>
+            </div>
+          );
+        },
+      },
+      {
+        id: "status",
+        header: "Status",
+        cell: ({ row }) => {
+          const req = row.original;
+          if (req.isCompleteData) {
+            return (
+              <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 text-[10px] flex items-center gap-1 w-fit">
+                <CheckCircle2 className="h-2.5 w-2.5" />
+                Complete (100%)
+              </Badge>
+            );
+          }
+          if (req.submittedRegionsCount > 0) {
+            return (
+              <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300 text-[10px] flex items-center gap-1 w-fit">
+                <AlertTriangle className="h-2.5 w-2.5" />
+                Partial
+              </Badge>
+            );
+          }
+          return (
+            <Badge variant="outline" className="text-slate-400 border-dashed text-[10px] w-fit">
+              Pending
+            </Badge>
+          );
+        },
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => {
+          const req = row.original;
+          return (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setViewingIndicator(req)}
+              className="h-7 text-xs border-slate-300 hover:bg-slate-100 dark:border-slate-700 flex items-center gap-1.5"
+              title="View full statistics and regional assignment distribution"
+            >
+              <Eye className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400" />
+              <span>View Detail</span>
+            </Button>
+          );
+        },
+      },
+    ],
+    []
+  );
 
   return (
     <div className="space-y-6">
       {/* Header & Filter Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <span className="text-xs font-semibold uppercase text-slate-500 tracking-wider">
             Monitoring Window:
           </span>
           <Select value={yearFilter} onValueChange={setYearFilter}>
-            <SelectTrigger className="w-[140px] bg-slate-50 dark:bg-slate-950">
+            <SelectTrigger className="w-[140px] bg-slate-50 dark:bg-slate-950 text-xs">
               <SelectValue placeholder="Year" />
             </SelectTrigger>
             <SelectContent>
@@ -150,7 +507,7 @@ export function NationalDashboardTab() {
           </Select>
 
           <Select value={periodFilter} onValueChange={setPeriodFilter}>
-            <SelectTrigger className="w-[160px] bg-slate-50 dark:bg-slate-950">
+            <SelectTrigger className="w-[160px] bg-slate-50 dark:bg-slate-950 text-xs">
               <SelectValue placeholder="Period" />
             </SelectTrigger>
             <SelectContent>
@@ -164,7 +521,7 @@ export function NationalDashboardTab() {
           </Select>
 
           <Select value={regionFilter} onValueChange={setRegionFilter}>
-            <SelectTrigger className="w-[180px] bg-slate-50 dark:bg-slate-950">
+            <SelectTrigger className="w-[190px] bg-slate-50 dark:bg-slate-950 text-xs">
               <SelectValue placeholder="All Regional States" />
             </SelectTrigger>
             <SelectContent>
@@ -450,7 +807,7 @@ export function NationalDashboardTab() {
         </Card>
       </div>
 
-      {/* Row 2: Secondary Charts (Status Breakdown & Regional Matrix) */}
+      {/* Row 2: Submission Fulfillment Donut & Tabular Regional Compliance Breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Chart 3: Submission Status Donut */}
         <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
@@ -503,219 +860,158 @@ export function NationalDashboardTab() {
           </CardContent>
         </Card>
 
-        {/* Regional Reporting Compliance Matrix Table */}
+        {/* Regional Reporting Compliance Tabular Matrix (TanStack DataTable) */}
         <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm lg:col-span-2">
-          <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between gap-3">
-            <CardTitle className="text-base font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <Building className="h-4 w-4 text-emerald-600" />
-              Regional Compliance Breakdown
-            </CardTitle>
-            <div className="relative w-48">
-              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
-              <Input
-                placeholder="Search region..."
-                value={tableSearchQuery}
-                onChange={(e) => setTableSearchQuery(e.target.value)}
-                className="h-8 pl-8 text-xs bg-slate-50 dark:bg-slate-950"
-              />
+          <CardHeader className="p-4 pb-2 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <CardTitle className="text-base font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <Building className="h-4 w-4 text-emerald-600" />
+                Regional Compliance Breakdown
+              </CardTitle>
+              <span className="text-xs text-slate-500 font-mono">
+                {filteredRegionalCompliance.length} Regional States
+              </span>
+            </div>
+
+            {/* Table Search & Status Filters */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                <Input
+                  placeholder="Search by region name or code..."
+                  value={regionalSearchQuery}
+                  onChange={(e) => setRegionalSearchQuery(e.target.value)}
+                  className="h-8 pl-8 text-xs bg-slate-50 dark:bg-slate-950"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Select value={regionalStatusFilter} onValueChange={setRegionalStatusFilter}>
+                  <SelectTrigger className="w-[150px] h-8 text-xs bg-slate-50 dark:bg-slate-950">
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="complete">Complete (100%)</SelectItem>
+                    <SelectItem value="partial">In Progress</SelectItem>
+                    <SelectItem value="pending">Pending (0%)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 uppercase font-semibold text-slate-500">
-                  <tr>
-                    <th className="px-4 py-3">Region</th>
-                    <th className="px-4 py-3 text-center">Assigned</th>
-                    <th className="px-4 py-3 text-center">Submitted</th>
-                    <th className="px-4 py-3 text-center">Missing</th>
-                    <th className="px-4 py-3">Compliance Rate</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {filteredRegionalCompliance.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
-                        {tableSearchQuery ? "No matching regions found." : "No regional data found."}
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredRegionalCompliance.map((r) => (
-                      <tr key={r.regionId} className="hover:bg-slate-50/50">
-                        <td className="px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">
-                          {r.regionName}
-                        </td>
-                        <td className="px-4 py-3 text-center font-mono font-medium">
-                          {r.assignedRequirementsCount}
-                        </td>
-                        <td className="px-4 py-3 text-center font-mono font-bold text-emerald-700 dark:text-emerald-400">
-                          {r.publishedSubmissionsCount}
-                        </td>
-                        <td className="px-4 py-3 text-center font-mono text-amber-600">
-                          {r.missingSubmissionsCount}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-24 bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
-                              <div
-                                className={`h-full rounded-full ${
-                                  r.complianceRate === 100
-                                    ? "bg-emerald-600"
-                                    : r.complianceRate >= 50
-                                    ? "bg-teal-500"
-                                    : "bg-amber-500"
-                                }`}
-                                style={{ width: `${Math.min(100, r.complianceRate)}%` }}
-                              />
-                            </div>
-                            <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">
-                              {r.complianceRate}%
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+
+          <CardContent className="p-3 pt-1">
+            <DataTable
+              columns={regionalColumns}
+              data={filteredRegionalCompliance}
+              defaultPageSize={10}
+            />
           </CardContent>
         </Card>
       </div>
 
-      {/* Row 3: Standardized National Indicators & Commodity Aggregates */}
-      <div className="space-y-4">
-        <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-          <Scale className="h-5 w-5 text-emerald-600" />
-          Standardized National Indicator Aggregates & Over-Achievement
-        </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {requirementSummaries.length === 0 ? (
-            <div className="col-span-full p-8 text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-400 text-sm">
-              No national indicators configured with regional assignments.
+      {/* Row 3: Tabular Standardized National Indicator Aggregates & Over-Achievement */}
+      <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
+        <CardHeader className="p-5 pb-3 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <Scale className="h-5 w-5 text-emerald-600" />
+                Standardized National Indicator Aggregates & Over-Achievement
+              </CardTitle>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Full tabular rollups of national targets, reported actuals, over-achievement tracking, and regional assignments.
+              </p>
             </div>
-          ) : (
-            requirementSummaries.map((req) => {
-              const actual = req.nationalTotalActual || 0;
-              const target = req.nationalTotalTarget || 0;
-              const rate = target > 0 ? (actual / target) * 100 : null;
-              const isOverAchieved = rate !== null && rate > 100;
 
-              return (
-                <Card
-                  key={req.requirementId}
-                  className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between"
-                >
-                  <CardHeader className="p-4 pb-2 space-y-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                        {req.code}
-                      </span>
-                      <Badge variant="outline" className="text-[10px] capitalize">
-                        {req.category?.replace(/_/g, " ")}
-                      </Badge>
-                    </div>
-                    <CardTitle className="text-sm font-semibold text-slate-900 dark:text-slate-100 line-clamp-2">
-                      {req.title}
-                    </CardTitle>
-                  </CardHeader>
+            <Badge variant="outline" className="font-mono text-xs w-fit">
+              {filteredIndicators.length} Indicators
+            </Badge>
+          </div>
 
-                  <CardContent className="p-4 pt-2 space-y-3">
-                    {/* Completeness Indicator */}
-                    {!req.isCompleteData ? (
-                      <div className="flex items-center gap-1.5 p-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-300 text-xs">
-                        <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
-                        <span>
-                          Partial Aggregate: {req.submittedRegionsCount} of {req.assignedRegionsCount} regions reported ({req.dataCompletenessPercent}%)
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1.5 p-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg text-emerald-800 dark:text-emerald-300 text-xs">
-                        <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-                        <span>100% Complete: All {req.assignedRegionsCount} regions submitted</span>
-                      </div>
-                    )}
+          {/* Search & Filter Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+              <Input
+                placeholder="Search indicator code, title, unit..."
+                value={indicatorSearchQuery}
+                onChange={(e) => setIndicatorSearchQuery(e.target.value)}
+                className="h-8 pl-8 text-xs bg-slate-50 dark:bg-slate-950"
+              />
+            </div>
 
-                    {/* Standardized Values */}
-                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
-                      <div>
-                        <span className="text-[11px] uppercase tracking-wider text-slate-400 font-medium">
-                          National Actual
-                        </span>
-                        <div className="text-lg font-bold font-mono text-emerald-700 dark:text-emerald-400">
-                          {req.nationalTotalActual != null
-                            ? req.nationalTotalActual.toLocaleString()
-                            : "—"}{" "}
-                          <span className="text-xs font-sans font-medium text-slate-500">
-                            {req.expectedUnit}
-                          </span>
-                        </div>
-                      </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Category Filter */}
+              <Select value={indicatorCategoryFilter} onValueChange={setIndicatorCategoryFilter}>
+                <SelectTrigger className="w-[170px] h-8 text-xs bg-slate-50 dark:bg-slate-950">
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {uniqueCategories.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      <span className="capitalize">{cat.replace(/_/g, " ")}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-                      <div>
-                        <span className="text-[11px] uppercase tracking-wider text-slate-400 font-medium">
-                          National Target
-                        </span>
-                        <div className="text-lg font-bold font-mono text-slate-700 dark:text-slate-300">
-                          {req.nationalTotalTarget != null
-                            ? req.nationalTotalTarget.toLocaleString()
-                            : "—"}{" "}
-                          <span className="text-xs font-sans font-medium text-slate-500">
-                            {req.expectedUnit}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+              {/* Completeness Filter */}
+              <Select
+                value={indicatorCompletenessFilter}
+                onValueChange={setIndicatorCompletenessFilter}
+              >
+                <SelectTrigger className="w-[160px] h-8 text-xs bg-slate-50 dark:bg-slate-950">
+                  <SelectValue placeholder="All Coverage" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Coverage</SelectItem>
+                  <SelectItem value="complete">100% Complete</SelectItem>
+                  <SelectItem value="partial">Partial Submissions</SelectItem>
+                  <SelectItem value="pending">Pending (0%)</SelectItem>
+                </SelectContent>
+              </Select>
 
-                    {/* Achievement Rate & Over-Achievement Badge */}
-                    {rate !== null && (
-                      <div className="flex items-center justify-between pt-1">
-                        <span className="text-xs text-slate-500 font-medium">
-                          National Fulfillment:
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono font-bold text-xs text-slate-900 dark:text-slate-100">
-                            {rate.toFixed(1)}%
-                          </span>
-                          {isOverAchieved && (
-                            <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950 px-1.5 py-0.5 rounded border border-emerald-300 dark:border-emerald-700">
-                              <TrendingUp className="h-2.5 w-2.5" />
-                              +{(rate - 100).toFixed(1)}% Over
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )}
+              {/* Over-Achievement Filter Toggle */}
+              <Button
+                variant={indicatorOverachievedOnly ? "default" : "outline"}
+                size="sm"
+                onClick={() => setIndicatorOverachievedOnly(!indicatorOverachievedOnly)}
+                className={`h-8 text-xs flex items-center gap-1.5 ${
+                  indicatorOverachievedOnly
+                    ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                    : "border-slate-300 text-slate-700 dark:text-slate-300"
+                }`}
+              >
+                <TrendingUp className="h-3.5 w-3.5" />
+                <span>Over-Achieved Only</span>
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
 
-                    {/* Regional Contribution Pills */}
-                    {req.submissions.length > 0 && (
-                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                        <span className="text-[11px] text-slate-400 font-medium">
-                          Regional Submissions:
-                        </span>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {req.submissions.map((sub) => (
-                            <span
-                              key={sub.publishedRecordId}
-                              className="inline-flex items-center gap-1 text-[11px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded"
-                            >
-                              <span className="font-sans font-medium">{sub.regionName}:</span>
-                              <span className="font-bold text-emerald-700 dark:text-emerald-400">
-                                {sub.standardizedActual?.toLocaleString() || sub.reportedActual}
-                              </span>
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })
-          )}
-        </div>
-      </div>
+        <CardContent className="p-4 pt-1">
+          <DataTable
+            columns={indicatorColumns}
+            data={filteredIndicators}
+            defaultPageSize={10}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Indicator Detail Modal with Full Statistics & Assigned Regional Breakdown */}
+      {viewingIndicator && (
+        <NationalIndicatorDetailModal
+          isOpen={Boolean(viewingIndicator)}
+          onClose={() => setViewingIndicator(null)}
+          indicator={viewingIndicator}
+          reportingYear={yearFilter !== "all" ? parseInt(yearFilter, 10) : currentYear}
+          periodLabel={periodFilter}
+        />
+      )}
     </div>
   );
 }
+

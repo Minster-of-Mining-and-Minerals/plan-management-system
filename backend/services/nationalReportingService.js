@@ -610,7 +610,7 @@ class NationalReportingService {
     const activeAssignments = await NationalReportingAssignment.findAll({
       where: assignmentWhere,
       include: [
-        { model: Region, as: "region", attributes: ["region_id", "name", "code"] },
+        { model: Region, as: "region", attributes: ["region_id", "name", "code", "national_reporting_method"] },
         { model: NationalReportingRequirement, as: "requirement" },
         {
           model: RegionalRequirementMapping,
@@ -744,10 +744,12 @@ class NationalReportingService {
         requirementsMap.set(a.requirement_id, {
           requirement: a.requirement,
           assignedRegionsCount: 0,
+          assignments: [],
           publishedRecords: [],
         });
       }
       requirementsMap.get(a.requirement_id).assignedRegionsCount += 1;
+      requirementsMap.get(a.requirement_id).assignments.push(a);
 
       // Category breakdown aggregation
       const cat = a.requirement?.category || "general";
@@ -800,10 +802,35 @@ class NationalReportingService {
           ? Math.round((totalActual / totalTarget) * 1000) / 10
           : null;
 
+      const assignedRegionsBreakdown = (info.assignments || []).map((asgn) => {
+        const sub = submissions.find((s) => s.region_id === asgn.region_id);
+        return {
+          assignmentId: asgn.assignment_id,
+          regionId: asgn.region_id,
+          regionName: asgn.region?.name || "Unknown Region",
+          regionCode: asgn.region?.code || "",
+          isMandatory: asgn.is_mandatory,
+          status: sub ? sub.status : "pending_submission",
+          submissionMethod: sub?.submission_method || asgn.region?.national_reporting_method || "form_based",
+          reportedActual: sub?.reported_actual ?? null,
+          plannedTarget: sub?.planned_target ?? null,
+          localUnit: sub?.local_unit || req.expected_unit,
+          standardizedActual: sub?.standardized_actual ?? null,
+          standardizedTarget: sub?.standardized_target ?? null,
+          standardizedUnit: req.expected_unit,
+          achievementPercent: sub?.achievement_percent ?? null,
+          publicationReference: sub?.publication_reference || null,
+          publishedAt: sub?.published_at || null,
+          publishedRecordId: sub?.published_record_id || null,
+          narrative: sub?.narrative || null,
+        };
+      });
+
       requirementSummaries.push({
         requirementId: req.requirement_id,
         code: req.code,
         title: req.title,
+        description: req.description || null,
         category: req.category,
         expectedUnit: req.expected_unit,
         frequency: req.frequency,
@@ -817,14 +844,18 @@ class NationalReportingService {
         nationalTotalTarget: targetHasValue ? Math.round(totalTarget * 100) / 100 : null,
         nationalTotalActual: actualHasValue ? Math.round(totalActual * 100) / 100 : null,
         achievementRate,
+        assignedRegions: assignedRegionsBreakdown,
         submissions: submissions.map((s) => ({
           publishedRecordId: s.published_record_id,
+          regionId: s.region_id,
           regionName: s.region?.name || "Unknown Region",
           localUnit: s.local_unit,
           reportedActual: s.reported_actual,
           standardizedActual: s.standardized_actual,
           achievementPercent: s.achievement_percent,
           publishedAt: s.published_at,
+          publicationReference: s.publication_reference,
+          narrative: s.narrative,
         })),
       });
     }

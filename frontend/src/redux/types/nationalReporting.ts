@@ -306,6 +306,7 @@ export interface NationalDashboardSummary {
     requirementId: string;
     code: string;
     title: string;
+    description?: string | null;
     category: string;
     expectedUnit: string;
     frequency: string;
@@ -316,14 +317,37 @@ export interface NationalDashboardSummary {
     nationalTotalTarget?: number | null;
     nationalTotalActual?: number | null;
     achievementRate?: number | null;
+    assignedRegions?: Array<{
+      assignmentId: string;
+      regionId: string;
+      regionName: string;
+      regionCode: string;
+      isMandatory: boolean;
+      status: string;
+      submissionMethod?: string | null;
+      reportedActual?: number | null;
+      plannedTarget?: number | null;
+      localUnit?: string | null;
+      standardizedActual?: number | null;
+      standardizedTarget?: number | null;
+      standardizedUnit?: string | null;
+      achievementPercent?: number | null;
+      publicationReference?: string | null;
+      publishedAt?: string | null;
+      publishedRecordId?: string | null;
+      narrative?: string | null;
+    }>;
     submissions: Array<{
       publishedRecordId: string;
+      regionId?: string;
       regionName: string;
       localUnit: string;
       reportedActual?: number | null;
       standardizedActual?: number | null;
       achievementPercent?: number | null;
       publishedAt: string;
+      publicationReference?: string | null;
+      narrative?: string | null;
     }>;
   }>;
 }
