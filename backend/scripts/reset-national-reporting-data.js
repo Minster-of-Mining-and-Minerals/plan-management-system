@@ -75,6 +75,60 @@ async function resetNationalReportingData() {
     }
     console.log(`[6/6] Deleted ${customUnitCount} records from national_reporting_custom_units`);
 
+    // 6.5. Delete Test Regions and their data
+    const [testRegions] = await sequelize.query(
+      `SELECT region_id, name, code FROM regions 
+       WHERE name ILIKE '%Reporting Test Region%' 
+          OR name ILIKE '%Test Parity Region%' 
+          OR name ILIKE '%Test Dual Reporting%'
+          OR name ILIKE '%Test Region%'
+          OR code ILIKE 'TEST-%'`,
+      { transaction }
+    );
+
+    if (testRegions && testRegions.length > 0) {
+      const regionIds = testRegions.map((r) => r.region_id);
+      console.log(`\nPurging ${testRegions.length} test regions:`);
+      testRegions.forEach((r) => console.log(` - [${r.code}] ${r.name}`));
+
+      try {
+        await sequelize.query(`DELETE FROM regional_plan_nodes WHERE version_id IN (SELECT version_id FROM regional_plan_versions WHERE region_id IN (:regionIds))`, { replacements: { regionIds }, transaction });
+      } catch (_) {}
+      try {
+        await sequelize.query(`DELETE FROM regional_plan_rules WHERE region_id IN (:regionIds)`, { replacements: { regionIds }, transaction });
+      } catch (_) {}
+      try {
+        await sequelize.query(`DELETE FROM regional_planning_configurations WHERE region_id IN (:regionIds)`, { replacements: { regionIds }, transaction });
+      } catch (_) {}
+      try {
+        await sequelize.query(`DELETE FROM regional_plan_versions WHERE region_id IN (:regionIds)`, { replacements: { regionIds }, transaction });
+      } catch (_) {}
+      try {
+        await sequelize.query(`DELETE FROM regional_issues WHERE region_id IN (:regionIds)`, { replacements: { regionIds }, transaction });
+      } catch (_) {}
+      try {
+        await sequelize.query(`DELETE FROM regional_performance_color_thresholds WHERE region_id IN (:regionIds)`, { replacements: { regionIds }, transaction });
+      } catch (_) {}
+      try {
+        await sequelize.query(`DELETE FROM regional_reporting_configs WHERE region_id IN (:regionIds)`, { replacements: { regionIds }, transaction });
+      } catch (_) {}
+      try {
+        await sequelize.query(`DELETE FROM regional_branding_settings WHERE region_id IN (:regionIds)`, { replacements: { regionIds }, transaction });
+      } catch (_) {}
+      try {
+        await sequelize.query(`DELETE FROM regional_structures WHERE region_id IN (:regionIds)`, { replacements: { regionIds }, transaction });
+      } catch (_) {}
+      await sequelize.query(`DELETE FROM users WHERE region_id IN (:regionIds)`, { replacements: { regionIds }, transaction });
+      try {
+        await sequelize.query(`DELETE FROM roles WHERE region_id IN (:regionIds)`, { replacements: { regionIds }, transaction });
+      } catch (_) {}
+      try {
+        await sequelize.query(`DELETE FROM permission_groups WHERE region_id IN (:regionIds)`, { replacements: { regionIds }, transaction });
+      } catch (_) {}
+      await sequelize.query(`DELETE FROM regions WHERE region_id IN (:regionIds)`, { replacements: { regionIds }, transaction });
+      console.log(`Purged ${testRegions.length} test regions and their related tables.`);
+    }
+
     // 7. Update admin@gmail.com password
     const adminEmail = "admin@gmail.com";
     const newPassword = "#Admin@2026MoM";
