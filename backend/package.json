@@ -21,6 +21,8 @@
     "db:cutover:validate": "node scripts/db-cutover.js --validate-only",
     "db:cutover:apply": "node scripts/db-cutover.js --apply",
     "db:restore-plans": "node scripts/restore-plan-data-from-backup.js",
+    "national-kpi:reset": "node scripts/reset-national-reporting-data.js",
+    "admin:reset-password": "node scripts/reset-admin-password.js",
     "test:scope": "node scripts/verify-scope-unit-checks.js && node scripts/verify-scope-smoke.js",
     "test:regional": "node scripts/verify-regional-foundation.js",
     "test:regional-plan-lifecycle": "node scripts/verify-regional-plan-lifecycle.js",
