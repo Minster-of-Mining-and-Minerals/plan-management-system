@@ -194,31 +194,43 @@ module.exports = {
             { replacements: { userIds }, transaction }
           );
           await queryInterface.sequelize.query(
-            `UPDATE notes SET created_by = NULL, updated_by = NULL WHERE created_by IN (:userIds) OR updated_by IN (:userIds)`,
+            `DELETE FROM note_attachments WHERE note_id IN (SELECT note_id FROM notes WHERE created_by IN (:userIds))`,
             { replacements: { userIds }, transaction }
           );
           await queryInterface.sequelize.query(
-            `UPDATE system_audit_logs SET changed_by = NULL WHERE changed_by IN (:userIds)`,
+            `DELETE FROM notes WHERE created_by IN (:userIds)`,
             { replacements: { userIds }, transaction }
           );
           await queryInterface.sequelize.query(
-            `UPDATE branding_audit_logs SET changed_by = NULL WHERE changed_by IN (:userIds)`,
+            `DELETE FROM system_audit_logs WHERE changed_by IN (:userIds) OR (table_name = 'users' AND record_id IN (:userIds))`,
             { replacements: { userIds }, transaction }
           );
           await queryInterface.sequelize.query(
-            `UPDATE target_allocation_histories SET changed_by = NULL WHERE changed_by IN (:userIds)`,
+            `DELETE FROM branding_audit_logs WHERE changed_by IN (:userIds)`,
             { replacements: { userIds }, transaction }
           );
           await queryInterface.sequelize.query(
-            `UPDATE target_reallocation_requests SET requested_by = NULL, reviewed_by = NULL WHERE requested_by IN (:userIds) OR reviewed_by IN (:userIds)`,
+            `DELETE FROM target_allocation_histories WHERE changed_by IN (:userIds)`,
             { replacements: { userIds }, transaction }
           );
           await queryInterface.sequelize.query(
-            `UPDATE plan_amendments SET requested_by = NULL, reviewed_by = NULL WHERE requested_by IN (:userIds) OR reviewed_by IN (:userIds)`,
+            `DELETE FROM target_reallocation_requests WHERE requested_by IN (:userIds)`,
             { replacements: { userIds }, transaction }
           );
           await queryInterface.sequelize.query(
-            `UPDATE plan_amendment_histories SET changed_by = NULL WHERE changed_by IN (:userIds)`,
+            `UPDATE target_reallocation_requests SET reviewed_by = NULL WHERE reviewed_by IN (:userIds)`,
+            { replacements: { userIds }, transaction }
+          );
+          await queryInterface.sequelize.query(
+            `DELETE FROM plan_amendment_histories WHERE changed_by IN (:userIds)`,
+            { replacements: { userIds }, transaction }
+          );
+          await queryInterface.sequelize.query(
+            `DELETE FROM plan_amendments WHERE requested_by IN (:userIds)`,
+            { replacements: { userIds }, transaction }
+          );
+          await queryInterface.sequelize.query(
+            `UPDATE plan_amendments SET reviewed_by = NULL WHERE reviewed_by IN (:userIds)`,
             { replacements: { userIds }, transaction }
           );
 
