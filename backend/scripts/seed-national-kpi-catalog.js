@@ -159,7 +159,7 @@ async function removeTestRegionsAndData() {
      WHERE escalation_id IN (
        SELECT escalation_id FROM regional_issue_escalations 
        WHERE region_id IN (:regionIds) 
-          OR issue_id IN (SELECT issue_id FROM regional_issues WHERE region_id IN (:regionIds))
+          OR regional_issue_id IN (SELECT regional_issue_id FROM regional_issues WHERE region_id IN (:regionIds))
      )`,
     { replacements: { regionIds } }
   );
@@ -167,25 +167,25 @@ async function removeTestRegionsAndData() {
   await sequelize.query(
     `DELETE FROM regional_issue_escalations 
      WHERE region_id IN (:regionIds) 
-        OR issue_id IN (SELECT issue_id FROM regional_issues WHERE region_id IN (:regionIds))`,
+        OR regional_issue_id IN (SELECT regional_issue_id FROM regional_issues WHERE region_id IN (:regionIds))`,
     { replacements: { regionIds } }
   );
 
   await sequelize.query(
     `DELETE FROM regional_issue_comments 
-     WHERE issue_id IN (SELECT issue_id FROM regional_issues WHERE region_id IN (:regionIds))`,
+     WHERE regional_issue_id IN (SELECT regional_issue_id FROM regional_issues WHERE region_id IN (:regionIds))`,
     { replacements: { regionIds } }
   );
 
   await sequelize.query(
     `DELETE FROM regional_issue_attachments 
-     WHERE issue_id IN (SELECT issue_id FROM regional_issues WHERE region_id IN (:regionIds))`,
+     WHERE regional_issue_id IN (SELECT regional_issue_id FROM regional_issues WHERE region_id IN (:regionIds))`,
     { replacements: { regionIds } }
   );
 
   await sequelize.query(
     `DELETE FROM regional_issue_histories 
-     WHERE issue_id IN (SELECT issue_id FROM regional_issues WHERE region_id IN (:regionIds))`,
+     WHERE regional_issue_id IN (SELECT regional_issue_id FROM regional_issues WHERE region_id IN (:regionIds))`,
     { replacements: { regionIds } }
   );
 
@@ -252,34 +252,34 @@ async function removeTestRegionsAndData() {
   );
 
   await sequelize.query(
+    `UPDATE regional_structures SET parent_id = NULL WHERE region_id IN (:regionIds)`,
+    { replacements: { regionIds } }
+  );
+
+  await sequelize.query(
+    `UPDATE users SET region_id = NULL, regional_structure_id = NULL WHERE region_id IN (:regionIds)`,
+    { replacements: { regionIds } }
+  );
+
+  await sequelize.query(
     `DELETE FROM regional_structures WHERE region_id IN (:regionIds)`,
     { replacements: { regionIds } }
   );
 
-  // 7. User sessions and unlinking users
+  // 7. User sessions
   await sequelize.query(
     `DELETE FROM user_sessions WHERE region_id IN (:regionIds)`,
     { replacements: { regionIds } }
   );
 
-  await sequelize.query(
-    `DELETE FROM users WHERE region_id IN (:regionIds) AND (email ILIKE '%test%' OR email ILIKE '%parity%' OR email ILIKE '%fake%')`,
-    { replacements: { regionIds } }
-  );
-
-  await sequelize.query(
-    `UPDATE users SET region_id = NULL WHERE region_id IN (:regionIds)`,
-    { replacements: { regionIds } }
-  );
-
   // 8. Roles and permission groups
   await sequelize.query(
-    `DELETE FROM roles WHERE region_id IN (:regionIds)`,
+    `UPDATE roles SET region_id = NULL WHERE region_id IN (:regionIds)`,
     { replacements: { regionIds } }
   );
 
   await sequelize.query(
-    `DELETE FROM permission_groups WHERE region_id IN (:regionIds)`,
+    `UPDATE permission_groups SET region_id = NULL WHERE region_id IN (:regionIds)`,
     { replacements: { regionIds } }
   );
 
