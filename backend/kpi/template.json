@@ -1,0 +1,11 @@
+[
+    {
+        "kpi": "ከሌሎች ልዩ ልዩ ገቢ",
+        "unit": "birr",
+        "measurement_category": "currency",
+        "regions": ["gionsTigray Region", "Afar Region", "Amhara Region", "Oromia Region", "Somali Region", "Benshangul-Gumuz Region", "SNNP Region", "Gambella Region", "Harari Region", "Dire Dawa City Administration", "Addis Ababa City Administra:"],
+        "Annual-Target" : "1000",
+        "mothly-target": ["20", "10", "25", "50", "200"
+    ]
+    }
+]

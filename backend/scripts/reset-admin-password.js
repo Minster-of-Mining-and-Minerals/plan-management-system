@@ -5,7 +5,7 @@ const db = require("../models");
 const { User } = db;
 
 async function resetAdminPassword() {
-  const adminEmail = process.argv[2] || "admin@gmail.com";
+  const adminEmail = process.argv[2] || "plansystemadmin@gmail.com";
   const newPassword = process.argv[3] || "#Admin@2026MoM";
 
   try {

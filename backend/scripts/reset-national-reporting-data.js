@@ -224,8 +224,8 @@ async function resetNationalReportingData() {
       console.log(`Purged ${testRegions.length} test regions and their related tables.`);
     }
 
-    // 7. Update admin@gmail.com password
-    const adminEmail = "admin@gmail.com";
+    // 7. Update administration account password
+    const adminEmail = process.argv[2] || "plansystemadmin@gmail.com";
     const newPassword = "#Admin@2026MoM";
     const adminUser = await User.scope("withCredentials").findOne({
       where: { email: adminEmail },

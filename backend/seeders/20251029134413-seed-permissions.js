@@ -226,7 +226,7 @@ module.exports = {
         {
           user_id: ADMIN_USER_ID,
           full_name: "System Administrator",
-          email: "admin@gmail.com",
+          email: "plansystemadmin@gmail.com",
           password: passwordHash,
           phone_number: "251911000001",
           profile_image: null,

@@ -28,7 +28,7 @@ const queryInterface = sequelize.getQueryInterface();
     console.log("Syncing permissions and Super Admin role...");
     await seeder.up(queryInterface);
     console.log("✓ Admin account and Super Admin permissions are up to date.");
-    console.log("  Email: admin@gmail.com");
+    console.log("  Email: plansystemadmin@gmail.com");
     console.log("  Password: password (unchanged if user already existed)");
     process.exit(0);
   } catch (error) {
