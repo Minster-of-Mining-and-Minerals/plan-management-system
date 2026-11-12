@@ -78,7 +78,7 @@ function inferUnitCategory(unit) {
   return "count";
 }
 
-async function removeTestRegionsAndData(transaction) {
+async function removeTestRegionsAndData() {
   console.log("\n--- [Step 1/3] Removing Test Regions and Associated Data ---");
 
   // Query regions matching test naming patterns
@@ -88,8 +88,7 @@ async function removeTestRegionsAndData(transaction) {
         OR name ILIKE '%Test Parity Region%' 
         OR name ILIKE '%Test Dual Reporting%'
         OR name ILIKE '%Test Region%'
-        OR code ILIKE 'TEST-%'`,
-    { transaction }
+        OR code ILIKE 'TEST-%'`
   );
 
   if (!testRegions || testRegions.length === 0) {
@@ -102,159 +101,195 @@ async function removeTestRegionsAndData(transaction) {
 
   const regionIds = testRegions.map((r) => r.region_id);
 
-  // 1. Delete dependent national published records
+  // Execute in careful dependency order:
+  // 1. National published records
   await sequelize.query(
     `DELETE FROM national_published_records WHERE region_id IN (:regionIds)`,
-    { replacements: { regionIds }, transaction }
+    { replacements: { regionIds } }
   );
 
-  // 2. Delete regional requirement mappings
+  // 2. Regional requirement mappings
   await sequelize.query(
     `DELETE FROM regional_requirement_mappings WHERE region_id IN (:regionIds)`,
-    { replacements: { regionIds }, transaction }
+    { replacements: { regionIds } }
   );
 
-  // 3. Delete national reporting assignments
+  // 3. National reporting assignments
   await sequelize.query(
     `DELETE FROM national_reporting_assignments WHERE region_id IN (:regionIds)`,
-    { replacements: { regionIds }, transaction }
+    { replacements: { regionIds } }
   );
 
-  // 4. Delete regional plan nodes, versions, rules, configurations
-  try {
-    await sequelize.query(
-      `DELETE FROM regional_plan_nodes WHERE version_id IN (
-        SELECT version_id FROM regional_plan_versions WHERE region_id IN (:regionIds)
-      )`,
-      { replacements: { regionIds }, transaction }
-    );
-  } catch (_) {}
-
-  try {
-    await sequelize.query(
-      `DELETE FROM regional_plan_rules WHERE region_id IN (:regionIds)`,
-      { replacements: { regionIds }, transaction }
-    );
-  } catch (_) {}
-
-  try {
-    await sequelize.query(
-      `DELETE FROM regional_planning_configurations WHERE region_id IN (:regionIds)`,
-      { replacements: { regionIds }, transaction }
-    );
-  } catch (_) {}
-
-  try {
-    await sequelize.query(
-      `DELETE FROM regional_plan_versions WHERE region_id IN (:regionIds)`,
-      { replacements: { regionIds }, transaction }
-    );
-  } catch (_) {}
-
-  // 5. Delete regional issues and color thresholds
-  try {
-    await sequelize.query(
-      `DELETE FROM regional_issues WHERE region_id IN (:regionIds)`,
-      { replacements: { regionIds }, transaction }
-    );
-  } catch (_) {}
-
-  try {
-    await sequelize.query(
-      `DELETE FROM regional_performance_color_thresholds WHERE region_id IN (:regionIds)`,
-      { replacements: { regionIds }, transaction }
-    );
-  } catch (_) {}
-
-  try {
-    await sequelize.query(
-      `DELETE FROM regional_reporting_configs WHERE region_id IN (:regionIds)`,
-      { replacements: { regionIds }, transaction }
-    );
-  } catch (_) {}
-
-  // 6. Delete branding settings, structures
-  try {
-    await sequelize.query(
-      `DELETE FROM regional_branding_settings WHERE region_id IN (:regionIds)`,
-      { replacements: { regionIds }, transaction }
-    );
-  } catch (_) {}
-
-  try {
-    await sequelize.query(
-      `DELETE FROM regional_structures WHERE region_id IN (:regionIds)`,
-      { replacements: { regionIds }, transaction }
-    );
-  } catch (_) {}
-
-  // 7. Delete users assigned specifically to these test regions
+  // 4. Regional issues dependencies
   await sequelize.query(
-    `DELETE FROM users WHERE region_id IN (:regionIds)`,
-    { replacements: { regionIds }, transaction }
+    `DELETE FROM regional_issue_escalation_messages 
+     WHERE escalation_id IN (
+       SELECT escalation_id FROM regional_issue_escalations 
+       WHERE region_id IN (:regionIds) 
+          OR issue_id IN (SELECT issue_id FROM regional_issues WHERE region_id IN (:regionIds))
+     )`,
+    { replacements: { regionIds } }
   );
 
-  // 8. Delete test region roles and permission groups
-  try {
-    await sequelize.query(
-      `DELETE FROM roles WHERE region_id IN (:regionIds)`,
-      { replacements: { regionIds }, transaction }
-    );
-  } catch (_) {}
+  await sequelize.query(
+    `DELETE FROM regional_issue_escalations 
+     WHERE region_id IN (:regionIds) 
+        OR issue_id IN (SELECT issue_id FROM regional_issues WHERE region_id IN (:regionIds))`,
+    { replacements: { regionIds } }
+  );
 
-  try {
-    await sequelize.query(
-      `DELETE FROM permission_groups WHERE region_id IN (:regionIds)`,
-      { replacements: { regionIds }, transaction }
-    );
-  } catch (_) {}
+  await sequelize.query(
+    `DELETE FROM regional_issue_comments 
+     WHERE issue_id IN (SELECT issue_id FROM regional_issues WHERE region_id IN (:regionIds))`,
+    { replacements: { regionIds } }
+  );
 
-  // 9. Finally, delete the test regions themselves
+  await sequelize.query(
+    `DELETE FROM regional_issue_attachments 
+     WHERE issue_id IN (SELECT issue_id FROM regional_issues WHERE region_id IN (:regionIds))`,
+    { replacements: { regionIds } }
+  );
+
+  await sequelize.query(
+    `DELETE FROM regional_issue_histories 
+     WHERE issue_id IN (SELECT issue_id FROM regional_issues WHERE region_id IN (:regionIds))`,
+    { replacements: { regionIds } }
+  );
+
+  await sequelize.query(
+    `DELETE FROM regional_issues WHERE region_id IN (:regionIds)`,
+    { replacements: { regionIds } }
+  );
+
+  // 5. Regional plan nodes & versions
+  await sequelize.query(
+    `DELETE FROM regional_plan_node_action_logs 
+     WHERE node_id IN (
+       SELECT node_id FROM regional_plan_nodes 
+       WHERE version_id IN (SELECT version_id FROM regional_plan_versions WHERE region_id IN (:regionIds))
+     )`,
+    { replacements: { regionIds } }
+  );
+
+  await sequelize.query(
+    `DELETE FROM regional_internal_assignments 
+     WHERE node_id IN (
+       SELECT node_id FROM regional_plan_nodes 
+       WHERE version_id IN (SELECT version_id FROM regional_plan_versions WHERE region_id IN (:regionIds))
+     )`,
+    { replacements: { regionIds } }
+  );
+
+  await sequelize.query(
+    `DELETE FROM regional_plan_nodes 
+     WHERE version_id IN (SELECT version_id FROM regional_plan_versions WHERE region_id IN (:regionIds))`,
+    { replacements: { regionIds } }
+  );
+
+  await sequelize.query(
+    `DELETE FROM regional_plan_rule_steps 
+     WHERE rule_id IN (SELECT rule_id FROM regional_plan_rules WHERE region_id IN (:regionIds))`,
+    { replacements: { regionIds } }
+  );
+
+  await sequelize.query(
+    `DELETE FROM regional_plan_rules WHERE region_id IN (:regionIds)`,
+    { replacements: { regionIds } }
+  );
+
+  await sequelize.query(
+    `DELETE FROM regional_planning_configurations WHERE region_id IN (:regionIds)`,
+    { replacements: { regionIds } }
+  );
+
+  await sequelize.query(
+    `DELETE FROM regional_plan_versions WHERE region_id IN (:regionIds)`,
+    { replacements: { regionIds } }
+  );
+
+  // 6. Color thresholds & branding & structures
+  await sequelize.query(
+    `DELETE FROM regional_performance_color_thresholds WHERE region_id IN (:regionIds)`,
+    { replacements: { regionIds } }
+  );
+
+  await sequelize.query(
+    `DELETE FROM regional_branding_settings WHERE region_id IN (:regionIds)`,
+    { replacements: { regionIds } }
+  );
+
+  await sequelize.query(
+    `DELETE FROM regional_structures WHERE region_id IN (:regionIds)`,
+    { replacements: { regionIds } }
+  );
+
+  // 7. User sessions and users
+  await sequelize.query(
+    `DELETE FROM user_sessions WHERE region_id IN (:regionIds)`,
+    { replacements: { regionIds } }
+  );
+
+  // Unlink or delete users attached to test regions
+  await sequelize.query(
+    `DELETE FROM users WHERE region_id IN (:regionIds) AND (email ILIKE '%test%' OR email ILIKE '%parity%' OR email ILIKE '%fake%')`,
+    { replacements: { regionIds } }
+  );
+
+  await sequelize.query(
+    `UPDATE users SET region_id = NULL WHERE region_id IN (:regionIds)`,
+    { replacements: { regionIds } }
+  );
+
+  // 8. Roles and permission groups
+  await sequelize.query(
+    `DELETE FROM roles WHERE region_id IN (:regionIds)`,
+    { replacements: { regionIds } }
+  );
+
+  await sequelize.query(
+    `DELETE FROM permission_groups WHERE region_id IN (:regionIds)`,
+    { replacements: { regionIds } }
+  );
+
+  // 9. Finally, delete the test regions
   await sequelize.query(
     `DELETE FROM regions WHERE region_id IN (:regionIds)`,
-    { replacements: { regionIds }, transaction }
+    { replacements: { regionIds } }
   );
 
   console.log(`Successfully purged ${testRegions.length} test regions and all associated data.`);
   return testRegions.length;
 }
 
-async function seedCustomUnits(transaction) {
+async function seedCustomUnits() {
   console.log("\n--- [Step 2/3] Seeding / Registering Custom Units ---");
 
   let seededCount = 0;
   for (const def of UNIT_DEFINITIONS) {
     const existing = await NationalReportingCustomUnit.findOne({
       where: { unit_code: def.unit_code },
-      transaction,
     });
 
     if (!existing) {
-      await NationalReportingCustomUnit.create(
-        {
-          unit_id: uuidv4(),
-          unit_code: def.unit_code,
-          label: def.label,
-          category: def.category,
-          base_unit: def.base_unit,
-          multiplier: def.multiplier,
-          is_base: def.is_base,
-          created_by: null,
-        },
-        { transaction }
-      );
+      await NationalReportingCustomUnit.create({
+        unit_id: uuidv4(),
+        unit_code: def.unit_code,
+        label: def.label,
+        category: def.category,
+        base_unit: def.base_unit,
+        multiplier: def.multiplier,
+        is_base: def.is_base,
+        created_by: null,
+      });
       seededCount++;
     } else {
-      await existing.update(
-        {
-          label: def.label,
-          category: def.category,
-          base_unit: def.base_unit,
-          multiplier: def.multiplier,
-          is_base: def.is_base,
-        },
-        { transaction }
-      );
+      await existing.update({
+        label: def.label,
+        category: def.category,
+        base_unit: def.base_unit,
+        multiplier: def.multiplier,
+        is_base: def.is_base,
+      });
     }
   }
 
@@ -262,7 +297,7 @@ async function seedCustomUnits(transaction) {
   return UNIT_DEFINITIONS.length;
 }
 
-async function seedNationalKpis(transaction) {
+async function seedNationalKpis() {
   console.log("\n--- [Step 3/3] Seeding National KPI Catalog Requirements ---");
 
   const jsonPath = path.join(__dirname, "../kpi/kpi_units_only.json");
@@ -288,47 +323,40 @@ async function seedNationalKpis(transaction) {
 
     const existing = await NationalReportingRequirement.findOne({
       where: { code },
-      transaction,
     });
 
     if (!existing) {
-      await NationalReportingRequirement.create(
-        {
-          requirement_id: uuidv4(),
-          code,
-          title: kpiTitle,
-          description: `Standardized Federal KPI: ${kpiTitle}`,
-          category,
-          expected_unit: unit,
-          unit_category: unitCategory,
-          frequency: "monthly",
-          requires_numeric: true,
-          requires_narrative: false,
-          requires_evidence: false,
-          validation_rules: {},
-          is_active: true,
-          version_number: 1,
-          created_by: null,
-        },
-        { transaction }
-      );
+      await NationalReportingRequirement.create({
+        requirement_id: uuidv4(),
+        code,
+        title: kpiTitle,
+        description: `Standardized Federal KPI: ${kpiTitle}`,
+        category,
+        expected_unit: unit,
+        unit_category: unitCategory,
+        frequency: "monthly",
+        requires_numeric: true,
+        requires_narrative: false,
+        requires_evidence: false,
+        validation_rules: {},
+        is_active: true,
+        version_number: 1,
+        created_by: null,
+      });
       createdCount++;
     } else {
-      await existing.update(
-        {
-          title: kpiTitle,
-          description: `Standardized Federal KPI: ${kpiTitle}`,
-          category,
-          expected_unit: unit,
-          unit_category: unitCategory,
-          frequency: "monthly",
-          requires_numeric: true,
-          requires_narrative: false,
-          requires_evidence: false,
-          is_active: true,
-        },
-        { transaction }
-      );
+      await existing.update({
+        title: kpiTitle,
+        description: `Standardized Federal KPI: ${kpiTitle}`,
+        category,
+        expected_unit: unit,
+        unit_category: unitCategory,
+        frequency: "monthly",
+        requires_numeric: true,
+        requires_narrative: false,
+        requires_evidence: false,
+        is_active: true,
+      });
       updatedCount++;
     }
   }
@@ -342,14 +370,10 @@ async function main() {
   console.log("ETHIOPIAN MINISTRY OF MINES - NATIONAL REPORTING KPI SEEDER");
   console.log("==================================================================");
 
-  const transaction = await sequelize.transaction();
-
   try {
-    const removedRegions = await removeTestRegionsAndData(transaction);
-    const unitsCount = await seedCustomUnits(transaction);
-    const kpiCount = await seedNationalKpis(transaction);
-
-    await transaction.commit();
+    const removedRegions = await removeTestRegionsAndData();
+    const unitsCount = await seedCustomUnits();
+    const kpiCount = await seedNationalKpis();
 
     console.log("\n==================================================================");
     console.log("NATIONAL KPI CATALOG SEEDING COMPLETED SUCCESSFULLY!");
@@ -359,7 +383,6 @@ async function main() {
     console.log("==================================================================");
     process.exit(0);
   } catch (error) {
-    await transaction.rollback();
     console.error("\n[ERROR] Seeding national KPI catalog failed:", error);
     process.exit(1);
   }

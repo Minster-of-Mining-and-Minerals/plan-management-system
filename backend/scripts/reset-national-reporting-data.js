@@ -91,41 +91,136 @@ async function resetNationalReportingData() {
       console.log(`\nPurging ${testRegions.length} test regions:`);
       testRegions.forEach((r) => console.log(` - [${r.code}] ${r.name}`));
 
-      try {
-        await sequelize.query(`DELETE FROM regional_plan_nodes WHERE version_id IN (SELECT version_id FROM regional_plan_versions WHERE region_id IN (:regionIds))`, { replacements: { regionIds }, transaction });
-      } catch (_) {}
-      try {
-        await sequelize.query(`DELETE FROM regional_plan_rules WHERE region_id IN (:regionIds)`, { replacements: { regionIds }, transaction });
-      } catch (_) {}
-      try {
-        await sequelize.query(`DELETE FROM regional_planning_configurations WHERE region_id IN (:regionIds)`, { replacements: { regionIds }, transaction });
-      } catch (_) {}
-      try {
-        await sequelize.query(`DELETE FROM regional_plan_versions WHERE region_id IN (:regionIds)`, { replacements: { regionIds }, transaction });
-      } catch (_) {}
-      try {
-        await sequelize.query(`DELETE FROM regional_issues WHERE region_id IN (:regionIds)`, { replacements: { regionIds }, transaction });
-      } catch (_) {}
-      try {
-        await sequelize.query(`DELETE FROM regional_performance_color_thresholds WHERE region_id IN (:regionIds)`, { replacements: { regionIds }, transaction });
-      } catch (_) {}
-      try {
-        await sequelize.query(`DELETE FROM regional_reporting_configs WHERE region_id IN (:regionIds)`, { replacements: { regionIds }, transaction });
-      } catch (_) {}
-      try {
-        await sequelize.query(`DELETE FROM regional_branding_settings WHERE region_id IN (:regionIds)`, { replacements: { regionIds }, transaction });
-      } catch (_) {}
-      try {
-        await sequelize.query(`DELETE FROM regional_structures WHERE region_id IN (:regionIds)`, { replacements: { regionIds }, transaction });
-      } catch (_) {}
-      await sequelize.query(`DELETE FROM users WHERE region_id IN (:regionIds)`, { replacements: { regionIds }, transaction });
-      try {
-        await sequelize.query(`DELETE FROM roles WHERE region_id IN (:regionIds)`, { replacements: { regionIds }, transaction });
-      } catch (_) {}
-      try {
-        await sequelize.query(`DELETE FROM permission_groups WHERE region_id IN (:regionIds)`, { replacements: { regionIds }, transaction });
-      } catch (_) {}
-      await sequelize.query(`DELETE FROM regions WHERE region_id IN (:regionIds)`, { replacements: { regionIds }, transaction });
+      await sequelize.query(
+        `DELETE FROM regional_issue_escalation_messages 
+         WHERE escalation_id IN (
+           SELECT escalation_id FROM regional_issue_escalations 
+           WHERE region_id IN (:regionIds) 
+              OR issue_id IN (SELECT issue_id FROM regional_issues WHERE region_id IN (:regionIds))
+         )`,
+        { replacements: { regionIds }, transaction }
+      );
+
+      await sequelize.query(
+        `DELETE FROM regional_issue_escalations 
+         WHERE region_id IN (:regionIds) 
+            OR issue_id IN (SELECT issue_id FROM regional_issues WHERE region_id IN (:regionIds))`,
+        { replacements: { regionIds }, transaction }
+      );
+
+      await sequelize.query(
+        `DELETE FROM regional_issue_comments 
+         WHERE issue_id IN (SELECT issue_id FROM regional_issues WHERE region_id IN (:regionIds))`,
+        { replacements: { regionIds }, transaction }
+      );
+
+      await sequelize.query(
+        `DELETE FROM regional_issue_attachments 
+         WHERE issue_id IN (SELECT issue_id FROM regional_issues WHERE region_id IN (:regionIds))`,
+        { replacements: { regionIds }, transaction }
+      );
+
+      await sequelize.query(
+        `DELETE FROM regional_issue_histories 
+         WHERE issue_id IN (SELECT issue_id FROM regional_issues WHERE region_id IN (:regionIds))`,
+        { replacements: { regionIds }, transaction }
+      );
+
+      await sequelize.query(
+        `DELETE FROM regional_issues WHERE region_id IN (:regionIds)`,
+        { replacements: { regionIds }, transaction }
+      );
+
+      await sequelize.query(
+        `DELETE FROM regional_plan_node_action_logs 
+         WHERE node_id IN (
+           SELECT node_id FROM regional_plan_nodes 
+           WHERE version_id IN (SELECT version_id FROM regional_plan_versions WHERE region_id IN (:regionIds))
+         )`,
+        { replacements: { regionIds }, transaction }
+      );
+
+      await sequelize.query(
+        `DELETE FROM regional_internal_assignments 
+         WHERE node_id IN (
+           SELECT node_id FROM regional_plan_nodes 
+           WHERE version_id IN (SELECT version_id FROM regional_plan_versions WHERE region_id IN (:regionIds))
+         )`,
+        { replacements: { regionIds }, transaction }
+      );
+
+      await sequelize.query(
+        `DELETE FROM regional_plan_nodes 
+         WHERE version_id IN (SELECT version_id FROM regional_plan_versions WHERE region_id IN (:regionIds))`,
+        { replacements: { regionIds }, transaction }
+      );
+
+      await sequelize.query(
+        `DELETE FROM regional_plan_rule_steps 
+         WHERE rule_id IN (SELECT rule_id FROM regional_plan_rules WHERE region_id IN (:regionIds))`,
+        { replacements: { regionIds }, transaction }
+      );
+
+      await sequelize.query(
+        `DELETE FROM regional_plan_rules WHERE region_id IN (:regionIds)`,
+        { replacements: { regionIds }, transaction }
+      );
+
+      await sequelize.query(
+        `DELETE FROM regional_planning_configurations WHERE region_id IN (:regionIds)`,
+        { replacements: { regionIds }, transaction }
+      );
+
+      await sequelize.query(
+        `DELETE FROM regional_plan_versions WHERE region_id IN (:regionIds)`,
+        { replacements: { regionIds }, transaction }
+      );
+
+      await sequelize.query(
+        `DELETE FROM regional_performance_color_thresholds WHERE region_id IN (:regionIds)`,
+        { replacements: { regionIds }, transaction }
+      );
+
+      await sequelize.query(
+        `DELETE FROM regional_branding_settings WHERE region_id IN (:regionIds)`,
+        { replacements: { regionIds }, transaction }
+      );
+
+      await sequelize.query(
+        `DELETE FROM regional_structures WHERE region_id IN (:regionIds)`,
+        { replacements: { regionIds }, transaction }
+      );
+
+      await sequelize.query(
+        `DELETE FROM user_sessions WHERE region_id IN (:regionIds)`,
+        { replacements: { regionIds }, transaction }
+      );
+
+      await sequelize.query(
+        `DELETE FROM users WHERE region_id IN (:regionIds) AND (email ILIKE '%test%' OR email ILIKE '%parity%' OR email ILIKE '%fake%')`,
+        { replacements: { regionIds }, transaction }
+      );
+
+      await sequelize.query(
+        `UPDATE users SET region_id = NULL WHERE region_id IN (:regionIds)`,
+        { replacements: { regionIds }, transaction }
+      );
+
+      await sequelize.query(
+        `DELETE FROM roles WHERE region_id IN (:regionIds)`,
+        { replacements: { regionIds }, transaction }
+      );
+
+      await sequelize.query(
+        `DELETE FROM permission_groups WHERE region_id IN (:regionIds)`,
+        { replacements: { regionIds }, transaction }
+      );
+
+      await sequelize.query(
+        `DELETE FROM regions WHERE region_id IN (:regionIds)`,
+        { replacements: { regionIds }, transaction }
+      );
+
       console.log(`Purged ${testRegions.length} test regions and their related tables.`);
     }
 
