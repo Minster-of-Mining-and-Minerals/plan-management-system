@@ -302,10 +302,10 @@ export function RegionalKpiDetailView({
           </span>
         </div>
 
-        {/* Analytics Card 2: Total Planned Target */}
+        {/* Analytics Card 2: Federal Preset Annual Target */}
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 space-y-2 shadow-sm">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium">
-            <span>{analytics.presetAnnualTarget != null ? "Federal Preset Annual Target" : "Total Planned Target"}</span>
+            <span>Federal Preset Annual Target</span>
             <Target className="h-4 w-4 text-blue-600" />
           </div>
           <div className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100 flex items-baseline gap-2">
@@ -317,7 +317,7 @@ export function RegionalKpiDetailView({
             )}
           </div>
           <span className="text-[11px] text-slate-500 block truncate font-mono">
-            {req?.expected_unit} {analytics.presetAnnualTarget != null ? "annual allocation" : `across ${analytics.totalPeriods} periods`}
+            {req?.expected_unit} assigned annual target for this region
           </span>
         </div>
 
@@ -413,9 +413,8 @@ export function RegionalKpiDetailView({
               <tr>
                 <th className="px-4 py-3">Reporting Period</th>
                 <th className="px-4 py-3">Cycle Dates</th>
-                <th className="px-4 py-3">Planned Target</th>
                 <th className="px-4 py-3">Reported Actual</th>
-                <th className="px-4 py-3">Achievement</th>
+                <th className="px-4 py-3">Achievement against Annual Target</th>
                 <th className="px-4 py-3 min-w-[200px]">Window & Countdown</th>
                 <th className="px-4 py-3 text-center">Status / Version</th>
                 <th className="px-4 py-3 text-right">Actions</th>
@@ -431,18 +430,13 @@ export function RegionalKpiDetailView({
                     period.status === "published" ||
                     period.status === "submitted");
 
-                const presetPeriodBenchmark =
-                  analytics.presetAnnualTarget != null && analytics.totalPeriods > 0
-                    ? Math.round((analytics.presetAnnualTarget / analytics.totalPeriods) * 100) / 100
-                    : null;
-                const targetVal = period.planned_target != null ? period.planned_target : presetPeriodBenchmark;
                 const actualVal = period.reported_actual;
+                const annualTarget = analytics.presetAnnualTarget || analytics.totalTarget;
                 const achRate =
-                  targetVal && targetVal > 0 && actualVal !== null && actualVal !== undefined
-                    ? Math.round((Number(actualVal) / Number(targetVal)) * 1000) / 10
+                  annualTarget && annualTarget > 0 && actualVal !== null && actualVal !== undefined
+                    ? Math.round((Number(actualVal) / Number(annualTarget)) * 1000) / 10
                     : null;
 
-                const isOverAchieved = achRate !== null && achRate > 100;
                 const revisionNum = (period as any).revision_number || (isReported ? 1 : null);
 
                 return (
@@ -478,26 +472,12 @@ export function RegionalKpiDetailView({
                       )}
                     </td>
 
-                    {/* Planned Target */}
-                    <td className="px-4 py-3.5 font-mono">
-                      {targetVal !== null && targetVal !== undefined ? (
-                        <span className="font-semibold text-slate-800 dark:text-slate-200">
-                          {Number(targetVal).toLocaleString()}{" "}
-                          <span className="text-[10px] text-slate-500 font-sans">
-                            {req?.expected_unit}
-                          </span>
-                        </span>
-                      ) : (
-                        <span className="text-slate-400">—</span>
-                      )}
-                    </td>
-
                     {/* Reported Actual */}
                     <td className="px-4 py-3.5 font-mono">
                       {actualVal !== null && actualVal !== undefined ? (
-                        <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                        <span className="font-bold text-emerald-700 dark:text-emerald-400 text-sm">
                           {Number(actualVal).toLocaleString()}{" "}
-                          <span className="text-[10px] text-slate-500 font-sans">
+                          <span className="text-[10px] text-slate-500 font-sans font-normal">
                             {req?.expected_unit}
                           </span>
                         </span>
@@ -506,26 +486,16 @@ export function RegionalKpiDetailView({
                       )}
                     </td>
 
-                    {/* Achievement */}
+                    {/* Achievement against Annual Target */}
                     <td className="px-4 py-3.5 font-mono">
                       {achRate !== null ? (
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className={`font-bold ${
-                              achRate >= 100
-                                ? "text-emerald-600 dark:text-emerald-400"
-                                : achRate >= 70
-                                ? "text-blue-600 dark:text-blue-400"
-                                : "text-amber-600 dark:text-amber-400"
-                            }`}
-                          >
+                        <div>
+                          <div className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
                             {achRate}%
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-sans font-normal">
+                            of annual target ({annualTarget?.toLocaleString()} {req?.expected_unit})
                           </span>
-                          {isOverAchieved && (
-                            <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[9px] px-1 py-0 font-mono">
-                              +{(achRate - 100).toFixed(1)}%
-                            </Badge>
-                          )}
                         </div>
                       ) : (
                         <span className="text-slate-400">—</span>

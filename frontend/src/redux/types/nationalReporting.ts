@@ -78,7 +78,6 @@ export interface NationalReportingAssignment {
   frequency_override?: string | null;
   annual_target?: number | null;
   preset_annual_target?: number | null;
-  period_benchmark_target?: number | null;
   cumulative_actual?: number | null;
   annual_realization_rate?: number | null;
   status: "active" | "suspended" | "withdrawn";

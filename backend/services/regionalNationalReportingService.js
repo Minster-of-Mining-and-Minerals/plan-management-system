@@ -354,10 +354,9 @@ class RegionalNationalReportingService {
           }
 
           // If federal preset annual target exists and target is not set from node mapping,
-          // default the planned_target to the period benchmark (annual_target / periodCount)
+          // associate with the preset annual target directly
           if (!periodObj.planned_target && item.annual_target && !isNaN(Number(item.annual_target))) {
-            const periodCount = generatedPeriods.length || 1;
-            periodObj.planned_target = Math.round((Number(item.annual_target) / periodCount) * 100) / 100;
+            periodObj.planned_target = Number(item.annual_target);
           }
 
           periodObj.achievement_percent = null;
@@ -375,12 +374,6 @@ class RegionalNationalReportingService {
       }
 
       // Statistical analysis against regional preset annual target
-      const periodCount = generatedPeriods.length || 1;
-      const periodBenchmarkTarget =
-        item.annual_target && !isNaN(Number(item.annual_target))
-          ? Math.round((Number(item.annual_target) / periodCount) * 100) / 100
-          : null;
-
       let cumulativeActual = 0;
       for (const pub of publishedRecords) {
         if (["published", "clarification_requested"].includes(pub.status)) {
@@ -406,7 +399,6 @@ class RegionalNationalReportingService {
       item.nodeMappingAvailable = true; // Permanently available
       item.lock_overrides = lockOverrides;
       item.preset_annual_target = item.annual_target != null ? Number(item.annual_target) : null;
-      item.period_benchmark_target = periodBenchmarkTarget;
       item.cumulative_actual = cumulativeActual;
       item.annual_realization_rate = annualRealizationRate;
       item.latestPublishedRecord =
@@ -1160,17 +1152,15 @@ class RegionalNationalReportingService {
     }
 
     // Federal preset annual target resolution:
-    // If federal defined an annual_target on assignment, the period benchmark target is
-    // automatically computed as (annual_target / periodCount), leaving regional user ONLY
-    // responsible for reporting actual achievement for that month/period.
+    // Regional users report their actual achievement for that period/month, and the statistics
+    // are calculated directly against their preset annual target (e.g. 15% of annual target achieved this month).
     let resolvedTarget =
       plannedTarget !== undefined && plannedTarget !== null && plannedTarget !== ""
         ? Number(plannedTarget)
         : null;
 
     if (assignment.annual_target !== null && assignment.annual_target !== undefined && !isNaN(Number(assignment.annual_target))) {
-      const periodCount = generatedPeriods && generatedPeriods.length > 0 ? generatedPeriods.length : 1;
-      resolvedTarget = Math.round((Number(assignment.annual_target) / periodCount) * 100) / 100;
+      resolvedTarget = Number(assignment.annual_target);
     }
 
     if (resolvedTarget !== null && isNaN(resolvedTarget)) {

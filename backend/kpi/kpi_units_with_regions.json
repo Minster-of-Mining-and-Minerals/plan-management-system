@@ -1,0 +1,1780 @@
+[
+  {
+    "kpi": "ወርቅ",
+    "unit": "በኪ.ግራም",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Gambella",
+      "Benishangul-Gumuz",
+      "Afar",
+      "Dire Dawa",
+      "Tigray",
+      "South Ethiopia",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "ወርቅ በባህላዊ አምራቾች",
+    "unit": "በኪ.ግራም",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Gambella",
+      "Benishangul-Gumuz",
+      "Afar",
+      "Somali",
+      "Dire Dawa",
+      "Tigray",
+      "South Ethiopia",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "ወርቅ በኩባንያ",
+    "unit": "በኪ.ግራም",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Gambella",
+      "Benishangul-Gumuz",
+      "Afar",
+      "Dire Dawa",
+      "Tigray",
+      "South Ethiopia",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "ፕላትንየም",
+    "unit": "በኪ.ግራም",
+    "regions": [
+      "Oromia"
+    ]
+  },
+  {
+    "kpi": "ታንታለም በባህላዊ አምራቾች",
+    "unit": "በቶን",
+    "regions": [
+      "Oromia",
+      "Gambella",
+      "Dire Dawa",
+      "South Ethiopia",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "ታንታለም በኩባንያ",
+    "unit": "በቶን",
+    "regions": [
+      "Oromia",
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ጥሬ ኦፓል",
+    "unit": "በኪ.ግራም",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Afar",
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ዕሴት የተጨመረበት ኦፓል",
+    "unit": "በኪ.ግራም",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Afar",
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ዕምነበረድ",
+    "unit": "በሜ.ኩ",
+    "regions": [
+      "Oromia",
+      "Dire Dawa",
+      "Tigray",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ኤምራልድ",
+    "unit": "በኪ.ግራም",
+    "regions": [
+      "Oromia",
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ሳፋየር",
+    "unit": "በኪ.ግራም",
+    "regions": [
+      "Oromia",
+      "Dire Dawa",
+      "Tigray",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ክርስቶጰሬዝ",
+    "unit": "በኪ.ግራም",
+    "regions": [
+      "Oromia",
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ኳርትዝ",
+    "unit": "በኪ.ግራም",
+    "regions": [
+      "Oromia",
+      "Dire Dawa",
+      "South Ethiopia",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "ጋርኔት",
+    "unit": "በኪ.ግራም",
+    "regions": [
+      "Oromia",
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ቶርማሊን",
+    "unit": "በኪ.ግራም",
+    "regions": [
+      "Oromia",
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "አጌት",
+    "unit": "በኪ.ግራም",
+    "regions": [
+      "Oromia",
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "አኳማሪን",
+    "unit": "በኪ.ግራም",
+    "regions": [
+      "Oromia",
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "አማዞናይት",
+    "unit": "በኪ.ግራም",
+    "regions": [
+      "Oromia",
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ፍሎራይት",
+    "unit": "በኪ.ግራም",
+    "regions": [
+      "Oromia",
+      "Afar",
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ሩቢ (ኮሮንደም)",
+    "unit": "በኪ.ግራም",
+    "regions": [
+      "Oromia",
+      "Afar",
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ሞርጋናይት",
+    "unit": "በኪ.ግራም",
+    "regions": [
+      "Oromia",
+      "Afar",
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "አምበር",
+    "unit": "በኪ.ግራም",
+    "regions": [
+      "Oromia",
+      "Afar",
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ቤሪል",
+    "unit": "በኪ.ግራም",
+    "regions": [
+      "Oromia",
+      "Afar",
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ክሮማይት",
+    "unit": "በቶን",
+    "regions": [
+      "Oromia",
+      "Afar",
+      "Somali",
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ዚንክ",
+    "unit": "በቶን",
+    "regions": [
+      "Oromia",
+      "Afar"
+    ]
+  },
+  {
+    "kpi": "ቤሪል",
+    "unit": "በቶን",
+    "regions": [
+      "Oromia",
+      "Afar",
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ሲልካ ሳንድ",
+    "unit": "በቶን",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Afar",
+      "Dire Dawa",
+      "Central Ethiopia",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ባዛልት (ጥሬ)",
+    "unit": "በቶን",
+    "regions": [
+      "Oromia",
+      "Afar"
+    ]
+  },
+  {
+    "kpi": "ኒኬል",
+    "unit": "በቶን",
+    "regions": [
+      "Oromia",
+      "Afar",
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ኮፐር",
+    "unit": "በቶን",
+    "regions": [
+      "Oromia",
+      "Afar",
+      "Somali",
+      "Dire Dawa",
+      "South Ethiopia",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "የግንባታ ግብአት ማዕድናት",
+    "unit": "በሜ.ኪዩብ",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Afar"
+    ]
+  },
+  {
+    "kpi": "እብነበረድ",
+    "unit": "በሜ.ኪዩብ",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Gambella",
+      "Afar",
+      "Dire Dawa",
+      "Tigray",
+      "Central Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ግራናይት",
+    "unit": "በሜ.ኪዩብ",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Gambella",
+      "Afar",
+      "Somali",
+      "Dire Dawa",
+      "Tigray",
+      "Central Ethiopia"
+    ]
+  },
+  {
+    "kpi": "አሸዋ (የደለል)",
+    "unit": "በሜ.ኪዩብ",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Gambella",
+      "Benishangul-Gumuz",
+      "Afar",
+      "Somali",
+      "Dire Dawa",
+      "Tigray",
+      "Central Ethiopia",
+      "South Ethiopia",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "ጥቁር ድንጋይ (የተፈጨ)",
+    "unit": "በሜ.ኪዩብ",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Somali",
+      "Dire Dawa",
+      "Tigray",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "ነጭ ድንጋይ (ኖራ)",
+    "unit": "በሜ.ኪዩብ",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Somali",
+      "Dire Dawa",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "ገረጋንቲ (ሴሌክትድ ማቴሪያል)",
+    "unit": "በሜ.ኪዩብ",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Gambella",
+      "Afar",
+      "Somali",
+      "Dire Dawa",
+      "Tigray",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "ግራቭል",
+    "unit": "በሜ.ኪዩብ",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Benishangul-Gumuz",
+      "Afar"
+    ]
+  },
+  {
+    "kpi": "ሸክላ አፈር",
+    "unit": "በሜ.ኪዩብ",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Afar",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "እስኮሪያ",
+    "unit": "በሜ.ኪዩብ",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Afar"
+    ]
+  },
+  {
+    "kpi": "ድንጋይ ከሠል",
+    "unit": "በቶን",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Gambella",
+      "Benishangul-Gumuz",
+      "Afar",
+      "Dire Dawa",
+      "Central Ethiopia",
+      "South Ethiopia",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "ጂፕሰም",
+    "unit": "በቶን",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Gambella",
+      "Somali",
+      "Dire Dawa",
+      "Tigray"
+    ]
+  },
+  {
+    "kpi": "ፑሚስ",
+    "unit": "በቶን",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Gambella",
+      "Afar",
+      "Dire Dawa",
+      "Central Ethiopia",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "ላይምስቶን",
+    "unit": "በቶን",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Afar",
+      "Somali",
+      "Dire Dawa",
+      "Tigray",
+      "Central Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ሸክላ አፈር",
+    "unit": "በቶን",
+    "regions": [
+      "Oromia",
+      "Afar",
+      "Dire Dawa",
+      "Central Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ሶዳ አሽ",
+    "unit": "በቶን",
+    "regions": [
+      "Oromia",
+      "Afar",
+      "Dire Dawa"
+    ]
+  },
+  {
+    "kpi": "ዶሎማይት",
+    "unit": "በቶን",
+    "regions": [
+      "Oromia",
+      "Afar",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ጊራፋይት (Graphite)",
+    "unit": "በቶን",
+    "regions": [
+      "Oromia",
+      "Afar"
+    ]
+  },
+  {
+    "kpi": "ማይካ",
+    "unit": "በቶን",
+    "regions": [
+      "Oromia",
+      "Afar",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ካኦላይን",
+    "unit": "በቶን",
+    "regions": [
+      "Oromia",
+      "Afar"
+    ]
+  },
+  {
+    "kpi": "ፍልድስፕር",
+    "unit": "በቶን",
+    "regions": [
+      "Oromia",
+      "Afar"
+    ]
+  },
+  {
+    "kpi": "የኮንስትራክሽን ማዕድናት ማምረት ሥራ ፈቃድ መስጠት",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Gambella",
+      "Benishangul-Gumuz",
+      "Afar",
+      "Somali",
+      "Dire Dawa",
+      "Tigray",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "የኢንዱስትሪ ማዕድን ማምረት ሥራ ፈቃድ መስጠት",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Benishangul-Gumuz",
+      "Afar",
+      "Somali",
+      "Dire Dawa",
+      "Tigray",
+      "Central Ethiopia",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "የከበሩት ማዕድን ማምረት ሥራ ፈቃድ መስጠት",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "Oromia",
+      "Amhara"
+    ]
+  },
+  {
+    "kpi": "በባሕላዊ የማዕድን ማምረት ሥራ ፈቃድ መስጠት",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Gambella",
+      "Somali",
+      "Dire Dawa",
+      "Tigray",
+      "Central Ethiopia",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "በማዕድን ምርመራ ፈቃድ መስጠት",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Benishangul-Gumuz",
+      "Afar",
+      "Somali",
+      "Dire Dawa",
+      "Tigray",
+      "Central Ethiopia",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "በነዳጅና የነዳጅ ውጤቶች ችርቻሮ በማደያ ለሚሠማሩ የብቃት ማረጋገጫ ሰርቲፊኬት መስጠት፣",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "Oromia",
+      "Gambella",
+      "Benishangul-Gumuz",
+      "Afar",
+      "Dire Dawa",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "የማዕድናት አቅራቢነት ብቃት ማረጋገጫ የምስክር ወረቀት መስጠት",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "Oromia",
+      "Gambella",
+      "Benishangul-Gumuz",
+      "Afar",
+      "Dire Dawa",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "ሌሎች የተሰጡ ፈቃዶች",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "Oromia",
+      "Gambella",
+      "Benishangul-Gumuz",
+      "Afar",
+      "Dire Dawa",
+      "South Ethiopia",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "የምርመራ ፈቃድ ማደስ",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "Oromia",
+      "Gambella",
+      "Benishangul-Gumuz",
+      "Afar",
+      "Dire Dawa",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "በከፍተኛ ደረጃ የኮንስትራክሽን ማዕድን ማምረት ሥራ ፈቃድ ማደስ",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "Oromia",
+      "Gambella",
+      "Benishangul-Gumuz",
+      "Afar",
+      "Dire Dawa",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "በአነስተኛ ደረጃ የኮንስትራክሽን ማዕድን ማምረት ሥራ ፈቃድ ማደስ",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "Oromia",
+      "Gambella",
+      "Benishangul-Gumuz",
+      "Afar",
+      "Dire Dawa",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "በአነስተኛ ደረጃ የኢንዱስትሪ ማዕድን ማምረት ሥራ ፈቃድ ማደስ",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "Oromia",
+      "Gambella",
+      "Benishangul-Gumuz",
+      "Afar",
+      "Dire Dawa",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "በከበሩ ማዕድናት አዘዋዋሪነት ወይም ዕደጥበብ ብቃት ማረጋገጫ የምስክር ወረቀት ማደስ",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "Oromia",
+      "Gambella",
+      "Benishangul-Gumuz",
+      "Afar",
+      "Dire Dawa",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "በነዳጅና የነዳጅ ውጤቶች ችርቻሮ (በማደያ) ለሚሠማሩ የንግድ ብቃት ማረጋገጫ ሰርቲፊኬት ማደስ፣",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "Oromia",
+      "Gambella",
+      "Benishangul-Gumuz",
+      "Afar",
+      "Dire Dawa",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "የማዕድናት አቅራቢነት ብቃት ማረጋገጫ የምስክር ወረቀት ማደስ",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "Oromia",
+      "Gambella",
+      "Benishangul-Gumuz",
+      "Afar",
+      "Dire Dawa",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "የሚሰጥ የኢንተርፕራይዝ ፈቃድ",
+    "unit": "በቁጥር",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Afar"
+    ]
+  },
+  {
+    "kpi": "የሚሰበሰብ ገቢ",
+    "unit": "ብር",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Benishangul-Gumuz",
+      "Afar"
+    ]
+  },
+  {
+    "kpi": "ከሮያሊቲ",
+    "unit": "ብር",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Benishangul-Gumuz",
+      "Afar",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ከፈቃድ ማዉጫ የተገኘ ገቢ",
+    "unit": "ብር",
+    "regions": [
+      "Oromia",
+      "Benishangul-Gumuz"
+    ]
+  },
+  {
+    "kpi": "ከፈቃድ እድሳት የተገኘ ገቢ",
+    "unit": "ብር",
+    "regions": [
+      "Oromia",
+      "Benishangul-Gumuz"
+    ]
+  },
+  {
+    "kpi": "ከመሬት ክራይ",
+    "unit": "ብር",
+    "regions": [
+      "Oromia",
+      "Benishangul-Gumuz",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ከልዩ ልዩ አገልግሎት",
+    "unit": "ብር",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Benishangul-Gumuz",
+      "Afar"
+    ]
+  },
+  {
+    "kpi": "በዘርፉ የሚፈጠር የስራ ዕድል",
+    "unit": "በቁጥር",
+    "regions": [
+      "Oromia"
+    ]
+  },
+  {
+    "kpi": "በኮንስትራክሽን እና የኢንዱስትሪ ማዕድን ማምረትና በሌሎች የሚፈጠር የስራ ዕድል",
+    "unit": "በቁጥር",
+    "regions": [
+      "Oromia",
+      "Afar",
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ወንዶች",
+    "unit": "በቁጥር",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Benishangul-Gumuz",
+      "Afar",
+      "Central Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ሴቶች",
+    "unit": "በቁጥር",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Benishangul-Gumuz",
+      "Afar",
+      "Central Ethiopia"
+    ]
+  },
+  {
+    "kpi": "እሴት በሚጨምሩ ማዕድናት የሚፈጠር የስራ እድል",
+    "unit": "ቁጥር",
+    "regions": [
+      "Oromia"
+    ]
+  },
+  {
+    "kpi": "ወንድ",
+    "unit": "በቁጥር",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Gambella",
+      "Harari",
+      "Dire Dawa",
+      "Tigray",
+      "South Ethiopia",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "ሴት",
+    "unit": "በቁጥር",
+    "regions": [
+      "Oromia",
+      "Amhara",
+      "Gambella",
+      "Harari",
+      "Dire Dawa",
+      "Tigray",
+      "South Ethiopia",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "የማዕድን ልማት የተካሄደባቸውን ቦታዎች መልሰው እንዲያገግሙ ማድረግ",
+    "unit": "ሄክታር",
+    "regions": [
+      "Oromia"
+    ]
+  },
+  {
+    "kpi": "ቁርጥራጭ ብረታ ብረት(ስክራፕ)",
+    "unit": "በቶን",
+    "regions": [
+      "Amhara",
+      "Afar"
+    ]
+  },
+  {
+    "kpi": "አነስተኛ የማዕድን ማምረት ስራ ፈቃድ",
+    "unit": "በቁጥር",
+    "regions": [
+      "Amhara"
+    ]
+  },
+  {
+    "kpi": "ከቁርጥ ዋጋ",
+    "unit": "ብር",
+    "regions": [
+      "Amhara"
+    ]
+  },
+  {
+    "kpi": "በዘርፉ የተፈጠረ የስራ ዕድል",
+    "unit": "በቁጥር",
+    "regions": [
+      "Amhara",
+      "Gambella",
+      "Benishangul-Gumuz",
+      "Afar",
+      "Harari",
+      "Central Ethiopia",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "እሴት በሚጨምሩ ማዕድናት የተፈጠረ የስራ እድል",
+    "unit": "ቁጥር",
+    "regions": [
+      "Amhara"
+    ]
+  },
+  {
+    "kpi": "ጥቁር ድንጋይ",
+    "unit": "በሜ.ኪዩብ",
+    "regions": [
+      "Gambella"
+    ]
+  },
+  {
+    "kpi": "ጠጠር (የተፈጨ ድንጋይ)",
+    "unit": "በሜ.ኪዩብ",
+    "regions": [
+      "Gambella"
+    ]
+  },
+  {
+    "kpi": "የኢንዱስትሪ ማዕድን ማምረት ሥራ ፈቃድ መስጠት (ፑሚስ)",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "Gambella"
+    ]
+  },
+  {
+    "kpi": "የሚደራጁ የኢንተርፕራይዞች ብዛት",
+    "unit": "በቁጥር",
+    "regions": [
+      "Gambella",
+      "Tigray",
+      "South Ethiopia",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "ከሀገር ውስጥ ምርት ሽያጭ የሚገኝ ገቢ (construction minerals)",
+    "unit": "በሚ.ብር",
+    "regions": [
+      "Gambella"
+    ]
+  },
+  {
+    "kpi": "ማዕድን በሚመረትባቸው ወረዳዎች ከሌሎች ልዩ ልዩ ገቢየሚሰበሰብ ገቢ)",
+    "unit": "በሚ.ብር",
+    "regions": [
+      "Gambella"
+    ]
+  },
+  {
+    "kpi": "በክልል መስሪያ ቤት ከሌሎች ልዩ ልዩ ገቢ (ከመሬት ኪራይ፣ሮያሊቲ፤ከፈቃድ ማዉጫ፣ከፈቃድ እድሳት፣ ከላቦራቶሪ..ወዘተ)",
+    "unit": "በሚ.ብር",
+    "regions": [
+      "Gambella"
+    ]
+  },
+  {
+    "kpi": "ዕምነበረድ/ብሎክ/",
+    "unit": "በሜ.ኩ",
+    "regions": [
+      "Benishangul-Gumuz"
+    ]
+  },
+  {
+    "kpi": "ዕምነበረድ/ቺፕስ/",
+    "unit": "በሜ.ኩ",
+    "regions": [
+      "Benishangul-Gumuz"
+    ]
+  },
+  {
+    "kpi": "ዕምነበረድ/ቡልደር/",
+    "unit": "በሜ.ኩ",
+    "regions": [
+      "Benishangul-Gumuz"
+    ]
+  },
+  {
+    "kpi": "ድንጋይ",
+    "unit": "በሜ.ኪዩብ",
+    "regions": [
+      "Benishangul-Gumuz",
+      "Afar"
+    ]
+  },
+  {
+    "kpi": "የከበሩት ማዕድን ማምረት ሥራ ፈቃድ መስጠት/ወርቅ/",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "Benishangul-Gumuz"
+    ]
+  },
+  {
+    "kpi": "በባሕላዊ የማዕድን ማምረት ሥራ ፈቃድ መስጠት/ወርቅ/",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "Benishangul-Gumuz"
+    ]
+  },
+  {
+    "kpi": "በኮንስትራክሽን እና የኢንዱስትሪ ማዕድን ማምረትና በሌሎች የተፈጠረ የስራ ዕድል",
+    "unit": "በቁጥር",
+    "regions": [
+      "Benishangul-Gumuz"
+    ]
+  },
+  {
+    "kpi": "አርተፍሻል ጌጣጌጥ",
+    "unit": "በኪ.ግራም",
+    "regions": [
+      "Afar",
+      "Dire Dawa",
+      "South Ethiopia",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "ስትርን",
+    "unit": "በኪ.ግራም",
+    "regions": [
+      "Afar",
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ኦብስዲያ",
+    "unit": "በኪ.ግራም",
+    "regions": [
+      "Afar",
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ማንጋኒዝ",
+    "unit": "በቶን",
+    "regions": [
+      "Afar",
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ቤንቶናይት",
+    "unit": "በቶን",
+    "regions": [
+      "Afar",
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ብሮሚን",
+    "unit": "በቶን",
+    "regions": [
+      "Afar",
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ጠጠር",
+    "unit": "በሜ.ኪዩብ",
+    "regions": [
+      "Afar"
+    ]
+  },
+  {
+    "kpi": "ጨው",
+    "unit": "በቶን",
+    "regions": [
+      "Afar"
+    ]
+  },
+  {
+    "kpi": "ቶሊክ(Talc)",
+    "unit": "በቶን",
+    "regions": [
+      "Afar"
+    ]
+  },
+  {
+    "kpi": "የጨው ማምረት ሥራ ፈቃድ መስጠት",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "Afar"
+    ]
+  },
+  {
+    "kpi": "የወርቅና ጌጣጌጥ ሥራ ፈቃድ መስጠት",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "Afar"
+    ]
+  },
+  {
+    "kpi": "የተገኘ ገቢ ከመሬት ክራይ",
+    "unit": "ብር",
+    "regions": [
+      "Afar"
+    ]
+  },
+  {
+    "kpi": "ከፈቃድ ማዉጫ እና ከእድሳት",
+    "unit": "ብር",
+    "regions": [
+      "Afar"
+    ]
+  },
+  {
+    "kpi": "ኳርትዝ",
+    "unit": "በቶን",
+    "regions": [
+      "Somali"
+    ]
+  },
+  {
+    "kpi": "አይረን",
+    "unit": "በቶን",
+    "regions": [
+      "Somali"
+    ]
+  },
+  {
+    "kpi": "አስኮሪያ",
+    "unit": "በቶን",
+    "regions": [
+      "Somali"
+    ]
+  },
+  {
+    "kpi": "ጨዉ",
+    "unit": "በቶን",
+    "regions": [
+      "Somali"
+    ]
+  },
+  {
+    "kpi": "የተጠናቀረ የክልሉ የማዕድን ሀብት መረጃ (Collate)",
+    "unit": "በሰነድ",
+    "regions": [
+      "Harari"
+    ]
+  },
+  {
+    "kpi": "ፈቃድ ያገኙ የማዕድን አምራች ድርጅቶች",
+    "unit": "በቁጥር",
+    "regions": [
+      "Harari"
+    ]
+  },
+  {
+    "kpi": "ፈቃድ ያገኙ የማዕድን አምራች ማህበራት",
+    "unit": "በቁጥር",
+    "regions": [
+      "Harari"
+    ]
+  },
+  {
+    "kpi": "ወደ ተሻለ ደረጃ የተሸጋገሩ የማዕድን አምራች ማህበራት",
+    "unit": "በቁጥር",
+    "regions": [
+      "Harari"
+    ]
+  },
+  {
+    "kpi": "ከዘርፉ የተሰበሰበ ገቢ አጠቃላይ ገቢ",
+    "unit": "በብር",
+    "regions": [
+      "Harari"
+    ]
+  },
+  {
+    "kpi": "ከሮያሊቲይ የተሰበሰበ ገቢ",
+    "unit": "በብር",
+    "regions": [
+      "Harari"
+    ]
+  },
+  {
+    "kpi": "ከአከባቢ ጥበቃ ባለስልጣን የተሰጠ ፈቃድ (EIA)",
+    "unit": "በቁጥር",
+    "regions": [
+      "Harari"
+    ]
+  },
+  {
+    "kpi": "የተፅዕኖ መቀነሻና ማካካሻ ዕቅድ አቅርበዉ MOU የፈረሙ የማዕድን አምራች ድርጅቶችና ማህበራት",
+    "unit": "በቁጥር",
+    "regions": [
+      "Harari"
+    ]
+  },
+  {
+    "kpi": "ኃላፊነታቸዉን ስለመወጣታቸዉ ክትትልና ቁጥጥር የተደረገባቸዉ ድርጅቶችና ማህበራት",
+    "unit": "የሪፖርት ሰነድ",
+    "regions": [
+      "Harari"
+    ]
+  },
+  {
+    "kpi": "በተፈረመዉ MOU እና ዕቅድ መሰረት ኃላፊነታቸዉን የተወጡ ድርጅቶችና ማህበራት",
+    "unit": "በቁጥር",
+    "regions": [
+      "Harari"
+    ]
+  },
+  {
+    "kpi": "በብልሹ አሰራር ዙርያ ጥቆማ የተደረገባቸው ጉዳዮች ማስተካያ ማድረግ",
+    "unit": "በመቶኛ",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ለብልሹ አሰራር የተጋለጡ አሰራሮች በጥናት በመለየት የማሻሻያ ሀሳብ ማቅረብ",
+    "unit": "በቁጥር",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "የስነ-ምግባር ሞራል እሴት ማጎልበቻ ስልጠና ለባለሙያ መስጠት",
+    "unit": "በዙር",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ሥልጠና ያገኙ ሴቶች ድርሻ ማሳደግ",
+    "unit": "በቀጥር",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "የስራ ዕድል የተፈጠረላቸው ሴቶችና ወጣቶች በማዕድን ፣ አማራጭ ኢነርጅ ፤ በመስኖ እና በውሃ ግንባታ",
+    "unit": "በቁጥር",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "የአረንጓዴ አሻራ ተግባራት ማካሄድ/ችግኞችን መትከል",
+    "unit": "በቁጥር",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "የአቅመ ደካማ ማህበረሰቦች የመኖሪያ ቤቶች መገንባት",
+    "unit": "በቁጥር",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "የአቅመ ደካማ እና አካል ጉዳተኞት ተማሪዎች ድጋፍ",
+    "unit": "በቁጥር",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "አድስ ፈቃድ መረጃዎችን በካዳስተር ሲስተም /መረጃ ቋት/ መዝግቦ መያዝ",
+    "unit": "በቁጥር",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "የማዕድን ምርመራና ምርት ስራ ፈቃድ መስጠት",
+    "unit": "በቁጥር",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "የማዕድን ፈቃድ ዕድሳት መስጠት",
+    "unit": "በቁጥር",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ፈቃድ በተሰጠባቸው ቦታዎች በመገኘት ቁጥጥር ማድረግ",
+    "unit": "በቁጥር",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "የማዕድን ስራ አፈጻጸም መመሪያ እና ደንብ ማሻሻያ ማድረግ",
+    "unit": "በቁጥር",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "የነዳጅ ማደያ ብቃት ማረጋገጫ ፈቃድ መስጠት",
+    "unit": "በቁጥር",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "የነዳጅ ማደያ ብቃት ማረጋገጫ ፈቃድ ማደሰ",
+    "unit": "በቁጥር",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ለደንበኞች የሙያና የቴክኒክ ድጋፍ ማድረግ",
+    "unit": "በቁጥር",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "የወርቅ ማዕድን ምርት መጠን ማሳደግ",
+    "unit": "በኪ/ግ",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ከወርቅ ምርት ኤክስፖርት የተገኘ የውጭ ምንዛሬ",
+    "unit": "ሚ/ዶላር",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "የተመረተ የኢንዱስትሪ ማዕድን(የድንጋይ ከሰል)",
+    "unit": "በቶን",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ከዉጭ የሚገቡ ማዕድናትን በሀገር ዉስጥ በመተካት ማስቀረት የተቻለ የዉጭ ምንዛሬ",
+    "unit": "ሚ/ዶላር",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "የኮንስትራክሽን ማዕድንናት ምርት (ድንጋይ፤ አሸዋ፤ጠጠር)",
+    "unit": "ሜ/ኪዩብ",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ከፈቃድ፣ ከሮያሊቲ ገቢ እና ከማዕድን ስራዎች የሚሰበሰብ ልዩ ልዩ ገቢ ማሳግ",
+    "unit": "በሚ/ብር",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "በማዕድን ምርት ምክንያት የተጎዱ ቦታዎችን በመለየት መልሶ ማልማት",
+    "unit": "ካ/ኪ/ሜ",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "በማዕድን ምርት ምክንያት የተጎዳ ቦታ መለየት",
+    "unit": "ካ.ኪ.ሜ",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ማዕድን ልማት የተካሄደባቸውን ቦታዎች መልሰው እንዲያገግሙ ማድረግ",
+    "unit": "ካ.ኪ.ሜ",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "የተሰበሰበውን የአካባቢና ማህበረሰብ ልማት ፈንድ ማሰራጨት",
+    "unit": "በመቶኛ",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "የማዕድን ሀብት አለኝታ ጥናት",
+    "unit": "ካ.ኪ.ሜ",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "በማድን ዘርፍ የስራ ዕድል መፍጠር",
+    "unit": "ወንድ",
+    "regions": [
+      "South West Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ባዛልት",
+    "unit": "በቶን",
+    "regions": [
+      "Dire Dawa",
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ሌሎች ማዕድናት (ከላይ ከተጠቀሱ ማዕድናት ውጭ)",
+    "unit": "በቶን",
+    "regions": [
+      "Dire Dawa"
+    ]
+  },
+  {
+    "kpi": "ሌሎች የኢንዱስትሪ ማዕድናት(ኮብል ስቶን)",
+    "unit": "በሜ.ኪዩብ",
+    "regions": [
+      "Dire Dawa"
+    ]
+  },
+  {
+    "kpi": "ሌሎች የግንባታ ግብአት ማዕድናት(ጠጠር)",
+    "unit": "በሜ.ኪዩብ",
+    "regions": [
+      "Dire Dawa"
+    ]
+  },
+  {
+    "kpi": "(ስክራፕ) ቁርጥራጭ ብረታ ብረት",
+    "unit": "በቶን",
+    "regions": [
+      "Dire Dawa",
+      "Central Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ሌሎች የኢንዱስትሪ ማዕድናት",
+    "unit": "-",
+    "regions": [
+      "Dire Dawa"
+    ]
+  },
+  {
+    "kpi": "የፈቃድ ዕድሳት",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "Dire Dawa"
+    ]
+  },
+  {
+    "kpi": "ከሀገር ውስጥ ምርት ሽያጭ የሚገኝ ገቢ",
+    "unit": "በሚ.ብር",
+    "regions": [
+      "Dire Dawa",
+      "Tigray",
+      "Central Ethiopia",
+      "South Ethiopia",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "ከሮያሊቲ",
+    "unit": "በሚ.ብር",
+    "regions": [
+      "Dire Dawa",
+      "Tigray",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "ከሌሎች ልዩ ልዩ ገቢ (ከመሬት ኪራይ፣ከፈቃድ ማዉጫ፣ከፈቃድ እድሳት፣ ከላቦራቶሪ..ወዘተ)",
+    "unit": "በሚ.ብር",
+    "regions": [
+      "Dire Dawa",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "ለአዲስ የኮንስትራክሽን ማዕድን አልሚዎች ፈቃድ መስጠት",
+    "unit": "በቁጥር",
+    "regions": [
+      "Addis Ababa"
+    ]
+  },
+  {
+    "kpi": "የኮንስትራከሽን ማዕድን ፈቃድ አልሚዎች ዕድሳት መስጠት",
+    "unit": "በቁጥር",
+    "regions": [
+      "Addis Ababa"
+    ]
+  },
+  {
+    "kpi": "ከማዕድን ዘርፍ ልዩ ልዩ ገቢዎችን መሰብሰብ",
+    "unit": "በሚብር",
+    "regions": [
+      "Addis Ababa"
+    ]
+  },
+  {
+    "kpi": "የማዕድን አመራረት ሂደቱን ሙያዊ ድጋፍ ማድረግ",
+    "unit": "በሚብር",
+    "regions": [
+      "Addis Ababa"
+    ]
+  },
+  {
+    "kpi": "አዲስ የነዳጅና የነዳጅ ውጤቶች ተቋማት የብቃት ማረጋጫ ሰርተፊኬት ፍቃድ መስጠት",
+    "unit": "በ%",
+    "regions": [
+      "Addis Ababa"
+    ]
+  },
+  {
+    "kpi": "ነባር የነዳጅና የነዳጅ ውጤቶች ተቋማት የብቃት ማረጋጫ ሰርተፊኬት ፍቃድ ማደስ",
+    "unit": "በቁጥር",
+    "regions": [
+      "Addis Ababa"
+    ]
+  },
+  {
+    "kpi": "የነዳጅና ነዳጅ ውጤቶች ተቋማት ላይ ክትትልና ቁጥጥር ማድረግ",
+    "unit": "በቁጥር",
+    "regions": [
+      "Addis Ababa"
+    ]
+  },
+  {
+    "kpi": "የነዳጅና ነዳጅ ውጤቶች ተቋማት ላይ የነዳጅ ናሙና ፍተሻ ማካሄድ",
+    "unit": "በቁጥር",
+    "regions": [
+      "Addis Ababa"
+    ]
+  },
+  {
+    "kpi": "የማዕድን ዕደ ጥበብ አዲስ ሥራ የብቃት ማረጋገጫ ፈቃድ መስጠት",
+    "unit": "በ%",
+    "regions": [
+      "Addis Ababa"
+    ]
+  },
+  {
+    "kpi": "የማዕድን ዕደጥበብ ሥራ የብቃት ማረጋገጫ ፈቃድ ማደስ",
+    "unit": "በቁጥር",
+    "regions": [
+      "Addis Ababa"
+    ]
+  },
+  {
+    "kpi": "የማዕድን ዕደጥበብ እና የማዕድን ንግድ ፈቃድ ክትትልና ድጋፍ ማድረግ",
+    "unit": "በ%",
+    "regions": [
+      "Addis Ababa"
+    ]
+  },
+  {
+    "kpi": "ከሌሎች ልዩ ልዩ ገቢ (ከመሬት ኪራይ፣ከፈቃድ ማዉጫ..ወዘተ)",
+    "unit": "በሚ.ብር",
+    "regions": [
+      "Tigray"
+    ]
+  },
+  {
+    "kpi": "በባህላዊና ልዩ አነስተኛ የሚፈጠርየስራ እድል",
+    "unit": "በቁጥር",
+    "regions": [
+      "Tigray"
+    ]
+  },
+  {
+    "kpi": "የግንባታ ግብአት ማዕድናት",
+    "unit": "በሜ/ ኪዩብ",
+    "regions": [
+      "Central Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ጥቁር ድንጋይ (ጠጠር)",
+    "unit": "በሜ.ኪዩብ",
+    "regions": [
+      "Central Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ነጭ ድንጋይ (ኢግኒምብራይት)",
+    "unit": "በሜ.ኪዩብ",
+    "regions": [
+      "Central Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ገረጋንቲ (ሰሌክትድ ማቴሪያል)",
+    "unit": "በሜ.ኪዩብ",
+    "regions": [
+      "Central Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ሌሎች የግንባታ ግብአት ማዕድናት",
+    "unit": "በሜ.ኪዩብ",
+    "regions": [
+      "Central Ethiopia"
+    ]
+  },
+  {
+    "kpi": "የኢንዱስትሪ ማዕድናት",
+    "unit": "በቶን",
+    "regions": [
+      "Central Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ፌልድስፓር",
+    "unit": "በቶን",
+    "regions": [
+      "Central Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ካኦሊን",
+    "unit": "በቶን",
+    "regions": [
+      "Central Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ሌሎች የኢንዱስትሪ ማዕድናት",
+    "unit": "በቶን",
+    "regions": [
+      "Central Ethiopia",
+      "Sidama"
+    ]
+  },
+  {
+    "kpi": "የሚሰጡ ፈቃዶች",
+    "unit": "በቁጥር",
+    "regions": [
+      "Central Ethiopia"
+    ]
+  },
+  {
+    "kpi": "የኮንስትራክሽን ማዕድናት ማምረት ሥራ ፈቃድ መስጠት/በአነስተኛና በከፍተኛ ደረጃ/",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "Central Ethiopia"
+    ]
+  },
+  {
+    "kpi": "የሚሰበሰብ ገቢ",
+    "unit": "በሚሊዮን ብር",
+    "regions": [
+      "Central Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ከሮያሊቲ",
+    "unit": "በሚ/ብር",
+    "regions": [
+      "Central Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ከመሬት ኪራይ፣ከፈቃድ ማዉጫና እድሳት",
+    "unit": "በሚ/ሺ ብር",
+    "regions": [
+      "Central Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ከሌሎች ልዩ ልዩ ገቢ",
+    "unit": "በሚ/ብር",
+    "regions": [
+      "Central Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ድንጋይ (የተፈጨ)",
+    "unit": "በሜ.ኪዩብ",
+    "regions": [
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ሲልካ ሳንድ/ኳርትዝ",
+    "unit": "በቶን",
+    "regions": [
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ሌሎች",
+    "unit": "በቶን",
+    "regions": [
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "የጌጣጌጥ ማዕድን አዘዋዋሪነት",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ከፍተኛ ማዕድን የማምረት ፈቃድ",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "አነስተኛ ማዕድን የማምረት ፈቃድ",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ምርመራና ፍለጋ",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "የነዳጅ ተቋማት ብቃት ማረጋገጫ",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "የነዳጅ ተቋማት ብቃት ማደስ",
+    "unit": "በፈቃድ ቁጥር",
+    "regions": [
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ከፈቃድ አገልግሎት",
+    "unit": "ብር",
+    "regions": [
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ከመማዕድን ሥራዎች ቅጣት",
+    "unit": "ብር",
+    "regions": [
+      "South Ethiopia"
+    ]
+  },
+  {
+    "kpi": "ከሌሎች ልዩ ልዩ ገቢ",
+    "unit": "ብር",
+    "regions": [
+      "South Ethiopia"
+    ]
+  }
+]
