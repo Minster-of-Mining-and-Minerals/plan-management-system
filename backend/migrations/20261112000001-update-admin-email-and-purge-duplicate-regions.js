@@ -202,11 +202,23 @@ module.exports = {
             { replacements: { userIds }, transaction }
           );
           await queryInterface.sequelize.query(
-            `DELETE FROM system_audit_logs WHERE changed_by IN (:userIds) OR (table_name = 'users' AND record_id IN (:userIds))`,
+            `DELETE FROM system_audit_logs WHERE changed_by IN (:userIds) OR entity_id IN (:userIds)`,
             { replacements: { userIds }, transaction }
           );
           await queryInterface.sequelize.query(
             `DELETE FROM branding_audit_logs WHERE changed_by IN (:userIds)`,
+            { replacements: { userIds }, transaction }
+          );
+          await queryInterface.sequelize.query(
+            `DELETE FROM issues WHERE raised_by IN (:userIds)`,
+            { replacements: { userIds }, transaction }
+          );
+          await queryInterface.sequelize.query(
+            `DELETE FROM plan_node_action_logs WHERE user_id IN (:userIds)`,
+            { replacements: { userIds }, transaction }
+          );
+          await queryInterface.sequelize.query(
+            `DELETE FROM gold_purchases WHERE created_by_id IN (:userIds)`,
             { replacements: { userIds }, transaction }
           );
           await queryInterface.sequelize.query(
