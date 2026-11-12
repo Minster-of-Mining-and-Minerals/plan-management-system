@@ -133,31 +133,31 @@ async function resetNationalReportingData() {
 
       await sequelize.query(
         `DELETE FROM regional_plan_node_action_logs 
-         WHERE node_id IN (
-           SELECT node_id FROM regional_plan_nodes 
-           WHERE version_id IN (SELECT version_id FROM regional_plan_versions WHERE region_id IN (:regionIds))
+         WHERE regional_plan_node_id IN (
+           SELECT regional_plan_node_id FROM regional_plan_nodes 
+           WHERE regional_plan_version_id IN (SELECT regional_plan_version_id FROM regional_plan_versions WHERE region_id IN (:regionIds))
          )`,
         { replacements: { regionIds }, transaction }
       );
 
       await sequelize.query(
         `DELETE FROM regional_internal_assignments 
-         WHERE node_id IN (
-           SELECT node_id FROM regional_plan_nodes 
-           WHERE version_id IN (SELECT version_id FROM regional_plan_versions WHERE region_id IN (:regionIds))
+         WHERE regional_plan_node_id IN (
+           SELECT regional_plan_node_id FROM regional_plan_nodes 
+           WHERE regional_plan_version_id IN (SELECT regional_plan_version_id FROM regional_plan_versions WHERE region_id IN (:regionIds))
          )`,
         { replacements: { regionIds }, transaction }
       );
 
       await sequelize.query(
         `DELETE FROM regional_plan_nodes 
-         WHERE version_id IN (SELECT version_id FROM regional_plan_versions WHERE region_id IN (:regionIds))`,
+         WHERE regional_plan_version_id IN (SELECT regional_plan_version_id FROM regional_plan_versions WHERE region_id IN (:regionIds))`,
         { replacements: { regionIds }, transaction }
       );
 
       await sequelize.query(
         `DELETE FROM regional_plan_rule_steps 
-         WHERE rule_id IN (SELECT rule_id FROM regional_plan_rules WHERE region_id IN (:regionIds))`,
+         WHERE regional_plan_rule_id IN (SELECT regional_plan_rule_id FROM regional_plan_rules WHERE region_id IN (:regionIds))`,
         { replacements: { regionIds }, transaction }
       );
 

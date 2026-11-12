@@ -103,6 +103,10 @@ const UNIT_CONVERSION_TABLE = {
       sessions: 1.0,
       meeting: 1.0,
       meetings: 1.0,
+      document: 1.0,
+      documents: 1.0,
+      round: 1.0,
+      rounds: 1.0,
     },
   },
   percentage: {
@@ -128,6 +132,7 @@ const UNIT_CONVERSION_TABLE = {
       sq_km: 1000000.0,
       sqkm: 1000000.0,
       km2: 1000000.0,
+      skm: 1000000.0,
     },
   },
   currency: {
@@ -136,7 +141,11 @@ const UNIT_CONVERSION_TABLE = {
       etb: 1.0,
       birr: 1.0,
       ethiopian_birr: 1.0,
+      million_birr: 1000000.0,
+      millionbirr: 1000000.0,
       usd: 1.0,
+      million_usd: 1000000.0,
+      millionusd: 1000000.0,
     },
   },
 };

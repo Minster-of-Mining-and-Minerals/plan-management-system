@@ -1,0 +1,1027 @@
+[
+  {
+    "kpi": "ወርቅ",
+    "unit": "kg",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ወርቅ በባህላዊ አምራቾች",
+    "unit": "kg",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ወርቅ በኩባንያ",
+    "unit": "kg",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ፕላትንየም",
+    "unit": "kg",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ታንታለም በባህላዊ አምራቾች",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ታንታለም በኩባንያ",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ጥሬ ኦፓል",
+    "unit": "kg",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ዕሴት የተጨመረበት ኦፓል",
+    "unit": "kg",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ዕምነበረድ",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "ኤምራልድ",
+    "unit": "kg",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ሳፋየር",
+    "unit": "kg",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ክርስቶጰሬዝ",
+    "unit": "kg",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ኳርትዝ",
+    "unit": "kg",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ጋርኔት",
+    "unit": "kg",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ቶርማሊን",
+    "unit": "kg",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "አጌት",
+    "unit": "kg",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "አኳማሪን",
+    "unit": "kg",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "አማዞናይት",
+    "unit": "kg",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ፍሎራይት",
+    "unit": "kg",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ሩቢ (ኮሮንደም)",
+    "unit": "kg",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ሞርጋናይት",
+    "unit": "kg",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "አምበር",
+    "unit": "kg",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ቤሪል",
+    "unit": "kg",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ክሮማይት",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ዚንክ",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ቤሪል",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ሲልካ ሳንድ",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ባዛልት (ጥሬ)",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ኒኬል",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ኮፐር",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "የግንባታ ግብአት ማዕድናት",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "እብነበረድ",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "ግራናይት",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "አሸዋ (የደለል)",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "ጥቁር ድንጋይ (የተፈጨ)",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "ነጭ ድንጋይ (ኖራ)",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "ገረጋንቲ (ሴሌክትድ ማቴሪያል)",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "ግራቭል",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "ሸክላ አፈር",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "እስኮሪያ",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "ድንጋይ ከሠል",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ጂፕሰም",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ፑሚስ",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ላይምስቶን",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ሸክላ አፈር",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ሶዳ አሽ",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ዶሎማይት",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ጊራፋይት (Graphite)",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ማይካ",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ካኦላይን",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ፍልድስፕር",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "የኮንስትራክሽን ማዕድናት ማምረት ሥራ ፈቃድ መስጠት",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የኢንዱስትሪ ማዕድን ማምረት ሥራ ፈቃድ መስጠት",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የከበሩት ማዕድን ማምረት ሥራ ፈቃድ መስጠት",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "በባሕላዊ የማዕድን ማምረት ሥራ ፈቃድ መስጠት",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "በማዕድን ምርመራ ፈቃድ መስጠት",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "በነዳጅና የነዳጅ ውጤቶች ችርቻሮ በማደያ ለሚሠማሩ የብቃት ማረጋገጫ ሰርቲፊኬት መስጠት፣",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የማዕድናት አቅራቢነት ብቃት ማረጋገጫ የምስክር ወረቀት መስጠት",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "ሌሎች የተሰጡ ፈቃዶች",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የምርመራ ፈቃድ ማደስ",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "በከፍተኛ ደረጃ የኮንስትራክሽን ማዕድን ማምረት ሥራ ፈቃድ ማደስ",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "በአነስተኛ ደረጃ የኮንስትራክሽን ማዕድን ማምረት ሥራ ፈቃድ ማደስ",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "በአነስተኛ ደረጃ የኢንዱስትሪ ማዕድን ማምረት ሥራ ፈቃድ ማደስ",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "በከበሩ ማዕድናት አዘዋዋሪነት ወይም ዕደጥበብ ብቃት ማረጋገጫ የምስክር ወረቀት ማደስ",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "በነዳጅና የነዳጅ ውጤቶች ችርቻሮ (በማደያ) ለሚሠማሩ የንግድ ብቃት ማረጋገጫ ሰርቲፊኬት ማደስ፣",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የማዕድናት አቅራቢነት ብቃት ማረጋገጫ የምስክር ወረቀት ማደስ",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የሚሰጥ የኢንተርፕራይዝ ፈቃድ",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የሚሰበሰብ ገቢ",
+    "unit": "birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "ከሮያሊቲ",
+    "unit": "birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "ከፈቃድ ማዉጫ የተገኘ ገቢ",
+    "unit": "birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "ከፈቃድ እድሳት የተገኘ ገቢ",
+    "unit": "birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "ከመሬት ክራይ",
+    "unit": "birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "ከልዩ ልዩ አገልግሎት",
+    "unit": "birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "በዘርፉ የሚፈጠር የስራ ዕድል",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "በኮንስትራክሽን እና የኢንዱስትሪ ማዕድን ማምረትና በሌሎች የሚፈጠር የስራ ዕድል",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "ወንዶች",
+    "unit": "person",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "ሴቶች",
+    "unit": "person",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "እሴት በሚጨምሩ ማዕድናት የሚፈጠር የስራ እድል",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "ወንድ",
+    "unit": "person",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "ሴት",
+    "unit": "person",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የማዕድን ልማት የተካሄደባቸውን ቦታዎች መልሰው እንዲያገግሙ ማድረግ",
+    "unit": "hectare",
+    "measurement_category": "area"
+  },
+  {
+    "kpi": "ቁርጥራጭ ብረታ ብረት(ስክራፕ)",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "አነስተኛ የማዕድን ማምረት ስራ ፈቃድ",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "ከቁርጥ ዋጋ",
+    "unit": "birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "በዘርፉ የተፈጠረ የስራ ዕድል",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "እሴት በሚጨምሩ ማዕድናት የተፈጠረ የስራ እድል",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "ጥቁር ድንጋይ",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "ጠጠር (የተፈጨ ድንጋይ)",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "የኢንዱስትሪ ማዕድን ማምረት ሥራ ፈቃድ መስጠት (ፑሚስ)",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የሚደራጁ የኢንተርፕራይዞች ብዛት",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "ከሀገር ውስጥ ምርት ሽያጭ የሚገኝ ገቢ (construction minerals)",
+    "unit": "million_birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "ማዕድን በሚመረትባቸው ወረዳዎች ከሌሎች ልዩ ልዩ ገቢየሚሰበሰብ ገቢ)",
+    "unit": "million_birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "በክልል መስሪያ ቤት ከሌሎች ልዩ ልዩ ገቢ (ከመሬት ኪራይ፣ሮያሊቲ፤ከፈቃድ ማዉጫ፣ከፈቃድ እድሳት፣ ከላቦራቶሪ..ወዘተ)",
+    "unit": "million_birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "ዕምነበረድ/ብሎክ/",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "ዕምነበረድ/ቺፕስ/",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "ዕምነበረድ/ቡልደር/",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "ድንጋይ",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "የከበሩት ማዕድን ማምረት ሥራ ፈቃድ መስጠት/ወርቅ/",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "በባሕላዊ የማዕድን ማምረት ሥራ ፈቃድ መስጠት/ወርቅ/",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "በኮንስትራክሽን እና የኢንዱስትሪ ማዕድን ማምረትና በሌሎች የተፈጠረ የስራ ዕድል",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "አርተፍሻል ጌጣጌጥ",
+    "unit": "kg",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ስትርን",
+    "unit": "kg",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ኦብስዲያ",
+    "unit": "kg",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ማንጋኒዝ",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ቤንቶናይት",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ብሮሚን",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ጠጠር",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "ጨው",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ቶሊክ(Talc)",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "የጨው ማምረት ሥራ ፈቃድ መስጠት",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የወርቅና ጌጣጌጥ ሥራ ፈቃድ መስጠት",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የተገኘ ገቢ ከመሬት ክራይ",
+    "unit": "birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "ከፈቃድ ማዉጫ እና ከእድሳት",
+    "unit": "birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "ኳርትዝ",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "አይረን",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "አስኮሪያ",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ጨዉ",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "የተጠናቀረ የክልሉ የማዕድን ሀብት መረጃ (Collate)",
+    "unit": "documents",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "ፈቃድ ያገኙ የማዕድን አምራች ድርጅቶች",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "ፈቃድ ያገኙ የማዕድን አምራች ማህበራት",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "ወደ ተሻለ ደረጃ የተሸጋገሩ የማዕድን አምራች ማህበራት",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "ከዘርፉ የተሰበሰበ ገቢ አጠቃላይ ገቢ",
+    "unit": "birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "ከሮያሊቲይ የተሰበሰበ ገቢ",
+    "unit": "birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "ከአከባቢ ጥበቃ ባለስልጣን የተሰጠ ፈቃድ (EIA)",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የተፅዕኖ መቀነሻና ማካካሻ ዕቅድ አቅርበዉ MOU የፈረሙ የማዕድን አምራች ድርጅቶችና ማህበራት",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "ኃላፊነታቸዉን ስለመወጣታቸዉ ክትትልና ቁጥጥር የተደረገባቸዉ ድርጅቶችና ማህበራት",
+    "unit": "reports",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "በተፈረመዉ MOU እና ዕቅድ መሰረት ኃላፊነታቸዉን የተወጡ ድርጅቶችና ማህበራት",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "በብልሹ አሰራር ዙርያ ጥቆማ የተደረገባቸው ጉዳዮች ማስተካያ ማድረግ",
+    "unit": "percent",
+    "measurement_category": "percentage"
+  },
+  {
+    "kpi": "ለብልሹ አሰራር የተጋለጡ አሰራሮች በጥናት በመለየት የማሻሻያ ሀሳብ ማቅረብ",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የስነ-ምግባር ሞራል እሴት ማጎልበቻ ስልጠና ለባለሙያ መስጠት",
+    "unit": "rounds",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "ሥልጠና ያገኙ ሴቶች ድርሻ ማሳደግ",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የስራ ዕድል የተፈጠረላቸው ሴቶችና ወጣቶች በማዕድን ፣ አማራጭ ኢነርጅ ፤ በመስኖ እና በውሃ ግንባታ",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የአረንጓዴ አሻራ ተግባራት ማካሄድ/ችግኞችን መትከል",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የአቅመ ደካማ ማህበረሰቦች የመኖሪያ ቤቶች መገንባት",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የአቅመ ደካማ እና አካል ጉዳተኞት ተማሪዎች ድጋፍ",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "አድስ ፈቃድ መረጃዎችን በካዳስተር ሲስተም /መረጃ ቋት/ መዝግቦ መያዝ",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የማዕድን ምርመራና ምርት ስራ ፈቃድ መስጠት",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የማዕድን ፈቃድ ዕድሳት መስጠት",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "ፈቃድ በተሰጠባቸው ቦታዎች በመገኘት ቁጥጥር ማድረግ",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የማዕድን ስራ አፈጻጸም መመሪያ እና ደንብ ማሻሻያ ማድረግ",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የነዳጅ ማደያ ብቃት ማረጋገጫ ፈቃድ መስጠት",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የነዳጅ ማደያ ብቃት ማረጋገጫ ፈቃድ ማደሰ",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "ለደንበኞች የሙያና የቴክኒክ ድጋፍ ማድረግ",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የወርቅ ማዕድን ምርት መጠን ማሳደግ",
+    "unit": "kg",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ከወርቅ ምርት ኤክስፖርት የተገኘ የውጭ ምንዛሬ",
+    "unit": "million_usd",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "የተመረተ የኢንዱስትሪ ማዕድን(የድንጋይ ከሰል)",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ከዉጭ የሚገቡ ማዕድናትን በሀገር ዉስጥ በመተካት ማስቀረት የተቻለ የዉጭ ምንዛሬ",
+    "unit": "million_usd",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "የኮንስትራክሽን ማዕድንናት ምርት (ድንጋይ፤ አሸዋ፤ጠጠር)",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "ከፈቃድ፣ ከሮያሊቲ ገቢ እና ከማዕድን ስራዎች የሚሰበሰብ ልዩ ልዩ ገቢ ማሳግ",
+    "unit": "million_birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "በማዕድን ምርት ምክንያት የተጎዱ ቦታዎችን በመለየት መልሶ ማልማት",
+    "unit": "skm",
+    "measurement_category": "area"
+  },
+  {
+    "kpi": "በማዕድን ምርት ምክንያት የተጎዳ ቦታ መለየት",
+    "unit": "skm",
+    "measurement_category": "area"
+  },
+  {
+    "kpi": "ማዕድን ልማት የተካሄደባቸውን ቦታዎች መልሰው እንዲያገግሙ ማድረግ",
+    "unit": "skm",
+    "measurement_category": "area"
+  },
+  {
+    "kpi": "የተሰበሰበውን የአካባቢና ማህበረሰብ ልማት ፈንድ ማሰራጨት",
+    "unit": "percent",
+    "measurement_category": "percentage"
+  },
+  {
+    "kpi": "የማዕድን ሀብት አለኝታ ጥናት",
+    "unit": "skm",
+    "measurement_category": "area"
+  },
+  {
+    "kpi": "በማድን ዘርፍ የስራ ዕድል መፍጠር",
+    "unit": "person",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "ባዛልት",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ሌሎች ማዕድናት (ከላይ ከተጠቀሱ ማዕድናት ውጭ)",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ሌሎች የኢንዱስትሪ ማዕድናት(ኮብል ስቶን)",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "ሌሎች የግንባታ ግብአት ማዕድናት(ጠጠር)",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "(ስክራፕ) ቁርጥራጭ ብረታ ብረት",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ሌሎች የኢንዱስትሪ ማዕድናት",
+    "unit": "units",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የፈቃድ ዕድሳት",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "ከሀገር ውስጥ ምርት ሽያጭ የሚገኝ ገቢ",
+    "unit": "million_birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "ከሮያሊቲ",
+    "unit": "million_birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "ከሌሎች ልዩ ልዩ ገቢ (ከመሬት ኪራይ፣ከፈቃድ ማዉጫ፣ከፈቃድ እድሳት፣ ከላቦራቶሪ..ወዘተ)",
+    "unit": "million_birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "ለአዲስ የኮንስትራክሽን ማዕድን አልሚዎች ፈቃድ መስጠት",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የኮንስትራከሽን ማዕድን ፈቃድ አልሚዎች ዕድሳት መስጠት",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "ከማዕድን ዘርፍ ልዩ ልዩ ገቢዎችን መሰብሰብ",
+    "unit": "million_birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "የማዕድን አመራረት ሂደቱን ሙያዊ ድጋፍ ማድረግ",
+    "unit": "million_birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "አዲስ የነዳጅና የነዳጅ ውጤቶች ተቋማት የብቃት ማረጋጫ ሰርተፊኬት ፍቃድ መስጠት",
+    "unit": "%",
+    "measurement_category": "percentage"
+  },
+  {
+    "kpi": "ነባር የነዳጅና የነዳጅ ውጤቶች ተቋማት የብቃት ማረጋጫ ሰርተፊኬት ፍቃድ ማደስ",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የነዳጅና ነዳጅ ውጤቶች ተቋማት ላይ ክትትልና ቁጥጥር ማድረግ",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የነዳጅና ነዳጅ ውጤቶች ተቋማት ላይ የነዳጅ ናሙና ፍተሻ ማካሄድ",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የማዕድን ዕደ ጥበብ አዲስ ሥራ የብቃት ማረጋገጫ ፈቃድ መስጠት",
+    "unit": "%",
+    "measurement_category": "percentage"
+  },
+  {
+    "kpi": "የማዕድን ዕደጥበብ ሥራ የብቃት ማረጋገጫ ፈቃድ ማደስ",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የማዕድን ዕደጥበብ እና የማዕድን ንግድ ፈቃድ ክትትልና ድጋፍ ማድረግ",
+    "unit": "%",
+    "measurement_category": "percentage"
+  },
+  {
+    "kpi": "ከሌሎች ልዩ ልዩ ገቢ (ከመሬት ኪራይ፣ከፈቃድ ማዉጫ..ወዘተ)",
+    "unit": "million_birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "በባህላዊና ልዩ አነስተኛ የሚፈጠርየስራ እድል",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የግንባታ ግብአት ማዕድናት",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "ጥቁር ድንጋይ (ጠጠር)",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "ነጭ ድንጋይ (ኢግኒምብራይት)",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "ገረጋንቲ (ሰሌክትድ ማቴሪያል)",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "ሌሎች የግንባታ ግብአት ማዕድናት",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "የኢንዱስትሪ ማዕድናት",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ፌልድስፓር",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ካኦሊን",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ሌሎች የኢንዱስትሪ ማዕድናት",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "የሚሰጡ ፈቃዶች",
+    "unit": "counts",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የኮንስትራክሽን ማዕድናት ማምረት ሥራ ፈቃድ መስጠት/በአነስተኛና በከፍተኛ ደረጃ/",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የሚሰበሰብ ገቢ",
+    "unit": "million_birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "ከሮያሊቲ",
+    "unit": "million_birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "ከመሬት ኪራይ፣ከፈቃድ ማዉጫና እድሳት",
+    "unit": "million_birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "ከሌሎች ልዩ ልዩ ገቢ",
+    "unit": "million_birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "ድንጋይ (የተፈጨ)",
+    "unit": "m3",
+    "measurement_category": "volume"
+  },
+  {
+    "kpi": "ሲልካ ሳንድ/ኳርትዝ",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "ሌሎች",
+    "unit": "ton",
+    "measurement_category": "mass"
+  },
+  {
+    "kpi": "የጌጣጌጥ ማዕድን አዘዋዋሪነት",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "ከፍተኛ ማዕድን የማምረት ፈቃድ",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "አነስተኛ ማዕድን የማምረት ፈቃድ",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "ምርመራና ፍለጋ",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የነዳጅ ተቋማት ብቃት ማረጋገጫ",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "የነዳጅ ተቋማት ብቃት ማደስ",
+    "unit": "licenses",
+    "measurement_category": "count"
+  },
+  {
+    "kpi": "ከፈቃድ አገልግሎት",
+    "unit": "birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "ከመማዕድን ሥራዎች ቅጣት",
+    "unit": "birr",
+    "measurement_category": "currency"
+  },
+  {
+    "kpi": "ከሌሎች ልዩ ልዩ ገቢ",
+    "unit": "birr",
+    "measurement_category": "currency"
+  }
+]
