@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -54,6 +55,7 @@ export function RegionalAssignmentsTab() {
 
   const [editingAssignment, setEditingAssignment] = useState<NationalReportingAssignment | null>(null);
   const [statusDraft, setStatusDraft] = useState<"active" | "suspended" | "withdrawn">("active");
+  const [annualTargetDraft, setAnnualTargetDraft] = useState<string>("");
   const [isMandatoryDraft, setIsMandatoryDraft] = useState(true);
   const [notesDraft, setNotesDraft] = useState("");
   const [configuringRegion, setConfiguringRegion] = useState<{
@@ -76,6 +78,7 @@ export function RegionalAssignmentsTab() {
   const handleOpenEdit = (a: NationalReportingAssignment) => {
     setEditingAssignment(a);
     setStatusDraft(a.status);
+    setAnnualTargetDraft(a.annual_target != null ? String(a.annual_target) : "");
     setIsMandatoryDraft(a.is_mandatory);
     setNotesDraft(a.notes || "");
   };
@@ -87,6 +90,7 @@ export function RegionalAssignmentsTab() {
         assignmentId: editingAssignment.assignment_id,
         data: {
           status: statusDraft,
+          annual_target: annualTargetDraft ? Number(annualTargetDraft) : null,
           is_mandatory: isMandatoryDraft,
           notes: notesDraft,
         },
@@ -178,6 +182,23 @@ export function RegionalAssignmentsTab() {
           {row.original.requirement?.category?.replace(/_/g, " ")}
         </Badge>
       ),
+    },
+    {
+      id: "annual_target",
+      header: "Preset Annual Target",
+      cell: ({ row }) => {
+        const target = row.original.annual_target;
+        const unit = row.original.requirement?.expected_unit || "";
+        if (target == null || target === undefined) {
+          return <span className="text-xs text-slate-400 italic">Not set</span>;
+        }
+        return (
+          <div className="font-mono text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+            {Number(target).toLocaleString()}{" "}
+            <span className="text-slate-500 dark:text-slate-400 font-normal">{unit}</span>
+          </div>
+        );
+      },
     },
     {
       accessorKey: "is_mandatory",
@@ -395,6 +416,23 @@ export function RegionalAssignmentsTab() {
                     <SelectItem value="withdrawn">Withdrawn</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="edit-annual-target">
+                  Preset Annual Target ({editingAssignment.requirement?.expected_unit || ""})
+                </Label>
+                <Input
+                  id="edit-annual-target"
+                  type="number"
+                  placeholder="e.g. 50000"
+                  value={annualTargetDraft}
+                  onChange={(e) => setAnnualTargetDraft(e.target.value)}
+                  className="mt-1 font-mono text-xs"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Preset baseline target for this region. Regional reporting officers will submit period actuals against this target.
+                </p>
               </div>
 
               <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-3">

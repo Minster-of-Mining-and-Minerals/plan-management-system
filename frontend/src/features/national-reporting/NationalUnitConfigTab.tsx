@@ -1,12 +1,24 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { useGetNationalUnitsCatalogQuery } from "@/redux/api/nationalReportingApi";
+import {
+  useGetNationalUnitsCatalogQuery,
+  useCreateNationalUnitMutation,
+  useCreateNationalMeasurementCategoryMutation,
+} from "@/redux/api/nationalReportingApi";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -27,7 +39,9 @@ import {
   HelpCircle,
   Hash,
   Boxes,
+  Plus,
 } from "lucide-react";
+import { toast } from "sonner";
 
 // Standard canonical metadata for measurement categories
 const CATEGORY_META: Record<
@@ -74,15 +88,97 @@ const CATEGORY_META: Record<
 
 export function NationalUnitConfigTab() {
   const { data: unitsCatalog = {}, isLoading } = useGetNationalUnitsCatalogQuery();
+  const [createUnit, { isLoading: isCreatingUnit }] = useCreateNationalUnitMutation();
+  const [createCategory, { isLoading: isCreatingCategory }] = useCreateNationalMeasurementCategoryMutation();
 
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+
+  // Dialog States
+  const [isAddUnitOpen, setIsAddUnitOpen] = useState(false);
+  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
+
+  // Form State: Add Unit
+  const [newUnit, setNewUnit] = useState({
+    unit_code: "",
+    label: "",
+    category: "mass",
+    base_unit: "",
+    multiplier: "1.0",
+    is_base: false,
+  });
+
+  // Form State: Add Category
+  const [newCategory, setNewCategory] = useState({
+    category: "",
+    base_unit: "",
+    base_label: "",
+  });
 
   // Interactive standardizer test tool state
   const [calcCategory, setCalcCategory] = useState<string>("mass");
   const [calcAmount, setCalcAmount] = useState<string>("100");
   const [calcFromUnit, setCalcFromUnit] = useState<string>("quintal");
   const [calcToUnit, setCalcToUnit] = useState<string>("ton");
+
+  const handleCreateUnit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUnit.unit_code || !newUnit.category) {
+      toast.error("Unit Code and Category are required");
+      return;
+    }
+
+    try {
+      const catBase = unitsCatalog[newUnit.category]?.base || newUnit.unit_code;
+      await createUnit({
+        unit_code: newUnit.unit_code.trim().toLowerCase().replace(/[\s\-_]+/g, "_"),
+        label: newUnit.label.trim() || newUnit.unit_code.trim(),
+        category: newUnit.category.trim().toLowerCase(),
+        base_unit: newUnit.base_unit ? newUnit.base_unit.trim().toLowerCase() : catBase,
+        multiplier: parseFloat(newUnit.multiplier) || 1.0,
+        is_base: newUnit.is_base,
+      }).unwrap();
+
+      toast.success("Measurement unit registered successfully");
+      setIsAddUnitOpen(false);
+      setNewUnit({
+        unit_code: "",
+        label: "",
+        category: "mass",
+        base_unit: "",
+        multiplier: "1.0",
+        is_base: false,
+      });
+    } catch (err: any) {
+      toast.error(err?.data?.message || "Failed to create unit");
+    }
+  };
+
+  const handleCreateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategory.category || !newCategory.base_unit) {
+      toast.error("Category Name and Base Unit are required");
+      return;
+    }
+
+    try {
+      await createCategory({
+        category: newCategory.category.trim().toLowerCase().replace(/[\s\-_]+/g, "_"),
+        base_unit: newCategory.base_unit.trim().toLowerCase().replace(/[\s\-_]+/g, "_"),
+        base_label: newCategory.base_label.trim() || newCategory.base_unit.trim(),
+      }).unwrap();
+
+      toast.success("Measurement category and base unit registered successfully");
+      setIsAddCategoryOpen(false);
+      setNewCategory({
+        category: "",
+        base_unit: "",
+        base_label: "",
+      });
+    } catch (err: any) {
+      toast.error(err?.data?.message || "Failed to create measurement category");
+    }
+  };
 
   // Format catalog entries into flattened table rows
   const unitRows = useMemo(() => {
@@ -376,8 +472,8 @@ export function NationalUnitConfigTab() {
               </CardDescription>
             </div>
 
-            <div className="flex items-center gap-2">
-              <div className="relative w-44">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative w-40">
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                 <Input
                   placeholder="Search units..."
@@ -395,13 +491,35 @@ export function NationalUnitConfigTab() {
                   <SelectItem value="all" className="text-xs">
                     All Categories
                   </SelectItem>
-                  {Object.entries(CATEGORY_META).map(([k, m]) => (
-                    <SelectItem key={k} value={k} className="text-xs">
-                      {m.label}
-                    </SelectItem>
-                  ))}
+                  {Object.keys(unitsCatalog).map((catKey) => {
+                    const meta = CATEGORY_META[catKey];
+                    return (
+                      <SelectItem key={catKey} value={catKey} className="text-xs capitalize">
+                        {meta ? meta.label : catKey.replace(/_/g, " ")}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
+
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs flex items-center gap-1.5"
+                onClick={() => setIsAddCategoryOpen(true)}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>New Category</span>
+              </Button>
+
+              <Button
+                size="sm"
+                className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5"
+                onClick={() => setIsAddUnitOpen(true)}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>New Unit</span>
+              </Button>
             </div>
           </div>
         </CardHeader>
@@ -414,6 +532,161 @@ export function NationalUnitConfigTab() {
           />
         </CardContent>
       </Card>
+
+      {/* Add Measurement Category Dialog */}
+      <Dialog open={isAddCategoryOpen} onOpenChange={setIsAddCategoryOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Measurement Category</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreateCategory} className="space-y-3 py-2">
+            <div>
+              <Label htmlFor="m-cat-code" className="text-xs">Category Key *</Label>
+              <Input
+                id="m-cat-code"
+                placeholder="e.g. energy, radiation, linear_distance"
+                value={newCategory.category}
+                onChange={(e) => setNewCategory({ ...newCategory, category: e.target.value })}
+                required
+                className="text-xs font-mono h-8 mt-1"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor="m-base-unit" className="text-xs">Base Unit Code *</Label>
+                <Input
+                  id="m-base-unit"
+                  placeholder="e.g. kwh, m, bq"
+                  value={newCategory.base_unit}
+                  onChange={(e) => setNewCategory({ ...newCategory, base_unit: e.target.value })}
+                  required
+                  className="text-xs font-mono h-8 mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="m-base-label" className="text-xs">Base Unit Label</Label>
+                <Input
+                  id="m-base-label"
+                  placeholder="e.g. Kilowatt-Hour"
+                  value={newCategory.base_label}
+                  onChange={(e) => setNewCategory({ ...newCategory, base_label: e.target.value })}
+                  className="text-xs h-8 mt-1"
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              The base unit is the canonical anchor unit (multiplier 1.0) for this measurement class. All other units added to this category will convert relative to it.
+            </p>
+            <DialogFooter className="pt-3">
+              <Button type="button" variant="outline" size="sm" onClick={() => setIsAddCategoryOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={isCreatingCategory} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                {isCreatingCategory ? "Saving..." : "Create Category"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Custom Unit Dialog */}
+      <Dialog open={isAddUnitOpen} onOpenChange={setIsAddUnitOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Measurement Unit</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreateUnit} className="space-y-3 py-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor="u-code" className="text-xs">Unit Code *</Label>
+                <Input
+                  id="u-code"
+                  placeholder="e.g. carat, pound, liter"
+                  value={newUnit.unit_code}
+                  onChange={(e) => setNewUnit({ ...newUnit, unit_code: e.target.value })}
+                  required
+                  className="text-xs font-mono h-8 mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="u-label" className="text-xs">Display Label</Label>
+                <Input
+                  id="u-label"
+                  placeholder="e.g. Carat (0.2g)"
+                  value={newUnit.label}
+                  onChange={(e) => setNewUnit({ ...newUnit, label: e.target.value })}
+                  className="text-xs h-8 mt-1"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="u-category" className="text-xs">Measurement Category *</Label>
+              <Select
+                value={newUnit.category}
+                onValueChange={(val) => {
+                  const defaultBase = unitsCatalog[val]?.base || "";
+                  setNewUnit({ ...newUnit, category: val, base_unit: defaultBase });
+                }}
+              >
+                <SelectTrigger id="u-category" className="h-8 text-xs mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.keys(unitsCatalog).map((catKey) => {
+                    const meta = CATEGORY_META[catKey];
+                    return (
+                      <SelectItem key={catKey} value={catKey} className="text-xs capitalize">
+                        {meta ? `${meta.icon} ${meta.label}` : catKey.replace(/_/g, " ")}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor="u-base" className="text-xs">Base Unit of Category</Label>
+                <Input
+                  id="u-base"
+                  disabled
+                  value={unitsCatalog[newUnit.category]?.base || newUnit.category}
+                  className="text-xs font-mono h-8 mt-1 bg-slate-100 dark:bg-slate-800 text-slate-500"
+                />
+              </div>
+              <div>
+                <Label htmlFor="u-multiplier" className="text-xs">Multiplier to Base Unit *</Label>
+                <Input
+                  id="u-multiplier"
+                  type="number"
+                  step="any"
+                  placeholder="e.g. 0.0002"
+                  value={newUnit.multiplier}
+                  onChange={(e) => setNewUnit({ ...newUnit, multiplier: e.target.value })}
+                  required
+                  className="text-xs font-mono h-8 mt-1"
+                />
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-500">
+              Formula: 1 <strong>{newUnit.unit_code || "unit"}</strong> ={" "}
+              <strong>{newUnit.multiplier || "1"}</strong>{" "}
+              <strong>{unitsCatalog[newUnit.category]?.base || "base"}</strong>.
+            </p>
+
+            <DialogFooter className="pt-3">
+              <Button type="button" variant="outline" size="sm" onClick={() => setIsAddUnitOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={isCreatingUnit} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                {isCreatingUnit ? "Registering..." : "Register Unit"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

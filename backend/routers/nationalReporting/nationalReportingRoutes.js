@@ -7,8 +7,26 @@ const { authenticateToken, checkPermission, checkAnyPermission } = require("../.
 
 router.use(authenticateToken);
 
-// Units Catalog
+// Units Catalog & Custom Measurements
 router.get("/units-catalog", nationalReportingController.getUnitsCatalog);
+router.post(
+  "/units-catalog/unit",
+  checkPermission("national_reporting", "create_requirement"),
+  nationalReportingController.createCustomUnit
+);
+router.post(
+  "/units-catalog/category",
+  checkPermission("national_reporting", "create_requirement"),
+  nationalReportingController.createMeasurementCategory
+);
+
+// Reporting Categories (Built-in + Custom)
+router.get("/categories", nationalReportingController.listCategories);
+router.post(
+  "/categories",
+  checkPermission("national_reporting", "create_requirement"),
+  nationalReportingController.createCategory
+);
 
 // National Dashboard Summary
 router.get(

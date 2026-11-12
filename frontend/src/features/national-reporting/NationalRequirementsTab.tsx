@@ -8,6 +8,7 @@ import {
   useDeleteNationalRequirementMutation,
   useAssignRequirementToRegionsMutation,
   useGetNationalUnitsCatalogQuery,
+  useGetNationalCategoriesQuery,
 } from "@/redux/api/nationalReportingApi";
 import { useGetRegionsQuery } from "@/redux/api/regionApi";
 import { NationalReportingRequirement } from "@/redux/types/nationalReporting";
@@ -86,7 +87,34 @@ export function NationalRequirementsTab() {
   } = useGetNationalRequirementsQuery({});
 
   const { data: unitsCatalog = {} } = useGetNationalUnitsCatalogQuery();
+  const { data: customCategories = [] } = useGetNationalCategoriesQuery();
   const { data: regions = [] } = useGetRegionsQuery({ is_active: true });
+
+  const dynamicCategories = useMemo(() => {
+    const list: Array<{ value: string; label: string }> = [
+      { value: "all", label: "All Categories" },
+    ];
+    const seen = new Set<string>(["all"]);
+
+    CATEGORIES.forEach((c) => {
+      if (!seen.has(c.value)) {
+        list.push(c);
+        seen.add(c.value);
+      }
+    });
+
+    customCategories.forEach((cat) => {
+      if (!seen.has(cat.code)) {
+        list.push({
+          value: cat.code,
+          label: `${cat.icon || "📊"} ${cat.label}`,
+        });
+        seen.add(cat.code);
+      }
+    });
+
+    return list;
+  }, [customCategories]);
 
   // Mutations
   const [createRequirement, { isLoading: isCreating }] = useCreateNationalRequirementMutation();
@@ -113,6 +141,8 @@ export function NationalRequirementsTab() {
 
   // Assign Form State
   const [selectedRegionIds, setSelectedRegionIds] = useState<string[]>([]);
+  const [regionAnnualTargets, setRegionAnnualTargets] = useState<Record<string, string>>({});
+  const [bulkAnnualTarget, setBulkAnnualTarget] = useState<string>("");
   const [isMandatory, setIsMandatory] = useState(true);
   const [assignNotes, setAssignNotes] = useState("");
 
@@ -226,6 +256,14 @@ export function NationalRequirementsTab() {
     setAssigningReq(req);
     const existingIds = req.assignments?.map((a) => a.region_id) || [];
     setSelectedRegionIds(existingIds);
+    const targets: Record<string, string> = {};
+    req.assignments?.forEach((a) => {
+      if (a.annual_target != null) {
+        targets[a.region_id] = String(a.annual_target);
+      }
+    });
+    setRegionAnnualTargets(targets);
+    setBulkAnnualTarget("");
     setIsMandatory(true);
     setAssignNotes("");
   };
@@ -241,10 +279,12 @@ export function NationalRequirementsTab() {
       await assignToRegions({
         requirementId: assigningReq.requirement_id,
         regionIds: selectedRegionIds,
+        regionTargets: regionAnnualTargets,
+        annualTarget: bulkAnnualTarget ? Number(bulkAnnualTarget) : null,
         isMandatory,
         notes: assignNotes,
       }).unwrap();
-      toast.success("Requirement assigned to regional states successfully");
+      toast.success("Requirement assigned with regional annual targets successfully");
       setAssigningReq(null);
     } catch (err: any) {
       toast.error(err?.data?.message || "Failed to assign requirement");
@@ -547,7 +587,7 @@ export function NationalRequirementsTab() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {CATEGORIES.filter((c) => c.value !== "all").map((c) => (
+                    {dynamicCategories.filter((c) => c.value !== "all").map((c) => (
                       <SelectItem key={c.value} value={c.value}>
                         {c.label}
                       </SelectItem>
@@ -593,11 +633,21 @@ export function NationalRequirementsTab() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="mass">Mass / Weight</SelectItem>
-                    <SelectItem value="volume">Volume</SelectItem>
-                    <SelectItem value="count">Count / Quantity</SelectItem>
-                    <SelectItem value="area">Area</SelectItem>
-                    <SelectItem value="currency">Currency / Value</SelectItem>
+                    {Object.keys(unitsCatalog).length > 0 ? (
+                      Object.keys(unitsCatalog).map((catKey) => (
+                        <SelectItem key={catKey} value={catKey} className="capitalize">
+                          {catKey.replace(/_/g, " ")}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <>
+                        <SelectItem value="mass">Mass / Weight</SelectItem>
+                        <SelectItem value="volume">Volume</SelectItem>
+                        <SelectItem value="count">Count / Quantity</SelectItem>
+                        <SelectItem value="area">Area</SelectItem>
+                        <SelectItem value="currency">Currency / Value</SelectItem>
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -799,9 +849,9 @@ export function NationalRequirementsTab() {
 
       {/* Regional Assignment Modal */}
       <Dialog open={!!assigningReq} onOpenChange={() => setAssigningReq(null)}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Assign Requirement to Regional States</DialogTitle>
+            <DialogTitle>Assign Requirement & Preset Regional Annual Targets</DialogTitle>
           </DialogHeader>
 
           {assigningReq && (
@@ -818,9 +868,48 @@ export function NationalRequirementsTab() {
                 </div>
               </div>
 
+              {/* Baseline / Bulk Annual Target Helper */}
+              <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-lg border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Preset Baseline Annual Target ({assigningReq.expected_unit})
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7 px-2.5"
+                    onClick={() => {
+                      if (!bulkAnnualTarget) {
+                        toast.error("Please enter a baseline annual target value first");
+                        return;
+                      }
+                      const newTargets = { ...regionAnnualTargets };
+                      selectedRegionIds.forEach((rid) => {
+                        newTargets[rid] = bulkAnnualTarget;
+                      });
+                      setRegionAnnualTargets(newTargets);
+                      toast.info(`Applied target ${bulkAnnualTarget} ${assigningReq.expected_unit} to ${selectedRegionIds.length} selected regions`);
+                    }}
+                  >
+                    Apply Target to Selected Regions
+                  </Button>
+                </div>
+                <Input
+                  type="number"
+                  placeholder={`e.g. 50000 (${assigningReq.expected_unit})`}
+                  value={bulkAnnualTarget}
+                  onChange={(e) => setBulkAnnualTarget(e.target.value)}
+                  className="h-8 text-xs font-mono"
+                />
+                <p className="text-[11px] text-slate-500">
+                  Different regions can have different annual targets. Regional users only submit their period actuals, and all performance is analyzed against their preset target.
+                </p>
+              </div>
+
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <Label className="text-sm font-semibold">Select Regional States *</Label>
+                  <Label className="text-sm font-semibold">Select Regional States & Annual Targets *</Label>
                   <Button
                     type="button"
                     variant="link"
@@ -838,39 +927,68 @@ export function NationalRequirementsTab() {
                   </Button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto p-2 border border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50 dark:bg-slate-950">
+                <div className="space-y-2 max-h-64 overflow-y-auto p-2 border border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50 dark:bg-slate-950">
                   {regions.map((region) => {
                     const isChecked = selectedRegionIds.includes(region.region_id);
                     return (
-                      <label
+                      <div
                         key={region.region_id}
-                        className={`flex items-center gap-2 p-2 rounded cursor-pointer text-sm transition-colors border ${
+                        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded text-sm transition-colors border ${
                           isChecked
-                            ? "bg-emerald-100/60 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700 font-medium text-emerald-900 dark:text-emerald-100"
+                            ? "bg-emerald-50/70 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-700 font-medium text-emerald-950 dark:text-emerald-100"
                             : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300"
                         }`}
                       >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedRegionIds([...selectedRegionIds, region.region_id]);
-                            } else {
-                              setSelectedRegionIds(
-                                selectedRegionIds.filter((id) => id !== region.region_id)
-                              );
-                            }
-                          }}
-                          className="rounded text-emerald-600 focus:ring-emerald-500"
-                        />
-                        <span>{region.name}</span>
-                        {region.code && (
-                          <span className="text-xs text-slate-400 font-mono">
-                            ({region.code})
-                          </span>
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedRegionIds([...selectedRegionIds, region.region_id]);
+                                if (bulkAnnualTarget && !regionAnnualTargets[region.region_id]) {
+                                  setRegionAnnualTargets({
+                                    ...regionAnnualTargets,
+                                    [region.region_id]: bulkAnnualTarget,
+                                  });
+                                }
+                              } else {
+                                setSelectedRegionIds(
+                                  selectedRegionIds.filter((id) => id !== region.region_id)
+                                );
+                              }
+                            }}
+                            className="rounded text-emerald-600 focus:ring-emerald-500"
+                          />
+                          <span>{region.name}</span>
+                          {region.code && (
+                            <span className="text-xs text-slate-400 font-mono">
+                              ({region.code})
+                            </span>
+                          )}
+                        </label>
+
+                        {isChecked && (
+                          <div className="flex items-center gap-1.5 pl-6 sm:pl-0">
+                            <span className="text-xs text-slate-500 font-normal">Annual Target:</span>
+                            <Input
+                              type="number"
+                              placeholder="Preset target"
+                              value={regionAnnualTargets[region.region_id] || ""}
+                              onChange={(e) => {
+                                setRegionAnnualTargets({
+                                  ...regionAnnualTargets,
+                                  [region.region_id]: e.target.value,
+                                });
+                              }}
+                              className="w-32 h-7 text-xs font-mono px-2 py-0 bg-white dark:bg-slate-900 border-emerald-300 dark:border-emerald-700"
+                            />
+                            <span className="text-xs font-mono text-emerald-700 dark:text-emerald-400">
+                              {assigningReq.expected_unit}
+                            </span>
+                          </div>
                         )}
-                      </label>
+                      </div>
                     );
                   })}
                 </div>

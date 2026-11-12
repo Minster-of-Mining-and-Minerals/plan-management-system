@@ -10,6 +10,10 @@ import {
   DirectFormSubmissionPayload,
   SubmissionVersionHistoryResponse,
   TogglePeriodLockPayload,
+  NationalReportingCategoryDefinition,
+  CreateCategoryPayload,
+  CreateUnitPayload,
+  CreateMeasurementCategoryPayload,
 } from "../types/nationalReporting";
 
 export const nationalReportingApi = baseApi.injectEndpoints({
@@ -89,6 +93,8 @@ export const nationalReportingApi = baseApi.injectEndpoints({
       {
         requirementId: string;
         regionIds: string[];
+        regionTargets?: Record<string, number | string>;
+        annualTarget?: number | string | null;
         isMandatory?: boolean;
         effectiveStartDate?: string | null;
         effectiveEndDate?: string | null;
@@ -206,6 +212,43 @@ export const nationalReportingApi = baseApi.injectEndpoints({
     getNationalUnitsCatalog: builder.query<UnitsCatalog, void>({
       query: () => "/national-reporting/units-catalog",
       transformResponse: (res: any) => res.data,
+      providesTags: ["NationalUnitsCatalog"],
+    }),
+
+    getNationalCategories: builder.query<NationalReportingCategoryDefinition[], void>({
+      query: () => "/national-reporting/categories",
+      transformResponse: (res: any) => res.data,
+      providesTags: ["NationalCategories"],
+    }),
+
+    createNationalCategory: builder.mutation<
+      NationalReportingCategoryDefinition,
+      CreateCategoryPayload
+    >({
+      query: (body) => ({
+        url: "/national-reporting/categories",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["NationalCategories"],
+    }),
+
+    createNationalUnit: builder.mutation<any, CreateUnitPayload>({
+      query: (body) => ({
+        url: "/national-reporting/units-catalog/unit",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["NationalUnitsCatalog"],
+    }),
+
+    createNationalMeasurementCategory: builder.mutation<any, CreateMeasurementCategoryPayload>({
+      query: (body) => ({
+        url: "/national-reporting/units-catalog/category",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["NationalUnitsCatalog"],
     }),
 
     // ================= Regional Endpoints =================
@@ -404,6 +447,10 @@ export const {
   useRequestNationalClarificationMutation,
   useGetNationalDashboardSummaryQuery,
   useGetNationalUnitsCatalogQuery,
+  useGetNationalCategoriesQuery,
+  useCreateNationalCategoryMutation,
+  useCreateNationalUnitMutation,
+  useCreateNationalMeasurementCategoryMutation,
   useGetRegionalAssignedRequirementsQuery,
   useCreateRegionalPotentialMappingMutation,
   useConfirmRegionalMappingMutation,

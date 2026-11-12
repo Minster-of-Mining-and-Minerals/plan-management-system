@@ -76,6 +76,11 @@ export interface NationalReportingAssignment {
   effective_start_date?: string | null;
   effective_end_date?: string | null;
   frequency_override?: string | null;
+  annual_target?: number | null;
+  preset_annual_target?: number | null;
+  period_benchmark_target?: number | null;
+  cumulative_actual?: number | null;
+  annual_realization_rate?: number | null;
   status: "active" | "suspended" | "withdrawn";
   notes?: string | null;
   lock_overrides?: Record<string, {
@@ -393,5 +398,46 @@ export interface TogglePeriodLockPayload {
   isUnlocked: boolean;
   reason?: string;
   unlockedUntil?: string | null;
+}
+
+export interface NationalReportingCategoryDefinition {
+  category_id?: string;
+  code: string;
+  label: string;
+  icon?: string;
+  description?: string;
+  mandate_level?: string;
+  mandateLevel?: string;
+  frequency_default?: string;
+  frequencyDefault?: string;
+  typical_units?: string[];
+  typicalUnits?: string[];
+  is_custom?: boolean;
+  created_at?: string;
+}
+
+export interface CreateCategoryPayload {
+  code: string;
+  label: string;
+  icon?: string;
+  description?: string;
+  mandate_level?: string;
+  frequency_default?: string;
+  typical_units?: string[];
+}
+
+export interface CreateUnitPayload {
+  unit_code: string;
+  label: string;
+  category: string;
+  base_unit?: string;
+  multiplier?: number;
+  is_base?: boolean;
+}
+
+export interface CreateMeasurementCategoryPayload {
+  category: string;
+  base_unit: string;
+  base_label?: string;
 }
 

@@ -99,6 +99,16 @@ export function RegionalKpiDetailView({
     let totalActual = 0;
     let hasTarget = false;
 
+    const presetAnnualTarget =
+      assignment.annual_target != null && !isNaN(Number(assignment.annual_target))
+        ? Number(assignment.annual_target)
+        : null;
+
+    if (presetAnnualTarget != null) {
+      totalTarget = presetAnnualTarget;
+      hasTarget = true;
+    }
+
     for (const p of recurringPeriods) {
       const isReported =
         p.reported_actual !== null &&
@@ -113,7 +123,7 @@ export function RegionalKpiDetailView({
         totalActual += Number(p.reported_actual || 0);
       }
 
-      if (p.planned_target !== null && p.planned_target !== undefined) {
+      if (presetAnnualTarget == null && p.planned_target !== null && p.planned_target !== undefined) {
         hasTarget = true;
         totalTarget += Number(p.planned_target || 0);
       }
@@ -144,13 +154,14 @@ export function RegionalKpiDetailView({
       totalPeriods,
       reportedCount,
       reportingProgressPercent,
+      presetAnnualTarget,
       totalTarget: Math.round(totalTarget * 100) / 100,
       totalActual: Math.round(totalActual * 100) / 100,
       overallAchievementPercent,
       hasTarget,
       currentPeriod,
     };
-  }, [recurringPeriods]);
+  }, [recurringPeriods, assignment.annual_target]);
 
   const handleOpenPeriodForm = (period: ReportingPeriod) => {
     setActivePeriodForForm(period);
@@ -294,14 +305,19 @@ export function RegionalKpiDetailView({
         {/* Analytics Card 2: Total Planned Target */}
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 space-y-2 shadow-sm">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium">
-            <span>Total Planned Target</span>
+            <span>{analytics.presetAnnualTarget != null ? "Federal Preset Annual Target" : "Total Planned Target"}</span>
             <Target className="h-4 w-4 text-blue-600" />
           </div>
-          <div className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100">
-            {analytics.hasTarget ? analytics.totalTarget.toLocaleString() : "—"}
+          <div className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100 flex items-baseline gap-2">
+            <span>{analytics.hasTarget ? analytics.totalTarget.toLocaleString() : "—"}</span>
+            {analytics.presetAnnualTarget != null && (
+              <Badge variant="outline" className="text-[10px] text-emerald-600 dark:text-emerald-400 font-sans font-normal border-emerald-300">
+                Preset
+              </Badge>
+            )}
           </div>
           <span className="text-[11px] text-slate-500 block truncate font-mono">
-            {req?.expected_unit} across {analytics.totalPeriods} periods
+            {req?.expected_unit} {analytics.presetAnnualTarget != null ? "annual allocation" : `across ${analytics.totalPeriods} periods`}
           </span>
         </div>
 
@@ -415,7 +431,11 @@ export function RegionalKpiDetailView({
                     period.status === "published" ||
                     period.status === "submitted");
 
-                const targetVal = period.planned_target;
+                const presetPeriodBenchmark =
+                  analytics.presetAnnualTarget != null && analytics.totalPeriods > 0
+                    ? Math.round((analytics.presetAnnualTarget / analytics.totalPeriods) * 100) / 100
+                    : null;
+                const targetVal = period.planned_target != null ? period.planned_target : presetPeriodBenchmark;
                 const actualVal = period.reported_actual;
                 const achRate =
                   targetVal && targetVal > 0 && actualVal !== null && actualVal !== undefined

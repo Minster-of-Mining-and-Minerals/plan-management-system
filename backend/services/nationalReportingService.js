@@ -13,9 +13,75 @@ const {
   NationalReportingAssignment,
   RegionalRequirementMapping,
   NationalPublishedRecord,
+  NationalReportingCustomCategory,
+  NationalReportingCustomUnit,
   Region,
   User,
 } = db;
+
+const {
+  getSupportedUnitsCatalog,
+  loadCustomUnitsIntoTable,
+  registerCustomUnitInTable,
+  normalizeUnit,
+} = require("../utils/nationalUnitCompatibilityUtils");
+
+const BUILT_IN_CATEGORIES = [
+  {
+    code: "mining_production",
+    label: "Mining Production & Output",
+    icon: "⛏️",
+    description: "Extraction of metallic, non-metallic, construction, and strategic minerals across provinces.",
+    mandate_level: "mandatory_default",
+    frequency_default: "monthly",
+    typical_units: ["ton", "kg", "quintal", "carat"],
+  },
+  {
+    code: "revenue_royalties",
+    label: "Revenue, Royalties & Financial",
+    icon: "💰",
+    description: "Royalty collection, license fees, surface rentals, and regional tax sharing performance.",
+    mandate_level: "mandatory_default",
+    frequency_default: "monthly",
+    typical_units: ["etb", "birr", "usd"],
+  },
+  {
+    code: "cadastre_licensing",
+    label: "Cadastre, Licenses & Concessions",
+    icon: "📜",
+    description: "Issuance, renewal, revocation, and transfer of artisanal and large-scale mining licenses.",
+    mandate_level: "mandatory_default",
+    frequency_default: "quarterly",
+    typical_units: ["license", "certificate", "count"],
+  },
+  {
+    code: "inspections_compliance",
+    label: "Inspections, HSE & Environment",
+    icon: "🛡️",
+    description: "Mine safety audits, environmental rehabilitation compliance, and hazardous material storage.",
+    mandate_level: "mandatory_default",
+    frequency_default: "quarterly",
+    typical_units: ["inspection", "site", "report", "occurrence"],
+  },
+  {
+    code: "artisanal_cooperatives",
+    label: "Artisanal Mining & Cooperatives",
+    icon: "👥",
+    description: "Formalization of ASM operators, legal cooperative creation, and women in mining programs.",
+    mandate_level: "optional_default",
+    frequency_default: "quarterly",
+    typical_units: ["cooperative", "person", "household", "site"],
+  },
+  {
+    code: "geological_exploration",
+    label: "Geological Survey & Data",
+    icon: "🗺️",
+    description: "Geological mapping coverage, reserve estimations, geophysics datasets, and core sample logs.",
+    mandate_level: "optional_default",
+    frequency_default: "semi_annual",
+    typical_units: ["sq_km", "sample", "dataset", "report"],
+  },
+];
 
 /**
  * Federal National Reporting Service
@@ -284,11 +350,13 @@ class NationalReportingService {
   }
 
   /**
-   * Assign requirement to one or multiple regions
+   * Assign requirement to one or multiple regions with optional per-region annual target presets
    */
   async assignRequirementToRegions(requirementId, assignmentPayload, userId) {
     const {
       regionIds = [],
+      regionTargets = {}, // map of regionId -> annual_target
+      annualTarget = null,
       isMandatory = true,
       effectiveStartDate = null,
       effectiveEndDate = null,
@@ -311,6 +379,14 @@ class NationalReportingService {
 
     const createdAssignments = [];
     for (const regionId of regionIds) {
+      // Determine per-region annual target
+      let targetForRegion = null;
+      if (regionTargets && regionTargets[regionId] !== undefined && regionTargets[regionId] !== "" && regionTargets[regionId] !== null) {
+        targetForRegion = Number(regionTargets[regionId]);
+      } else if (annualTarget !== null && annualTarget !== undefined && annualTarget !== "") {
+        targetForRegion = Number(annualTarget);
+      }
+
       const existing = await NationalReportingAssignment.findOne({
         where: {
           requirement_id: requirementId,
@@ -324,6 +400,9 @@ class NationalReportingService {
         existing.effective_start_date = effectiveStartDate;
         existing.effective_end_date = effectiveEndDate;
         existing.frequency_override = frequencyOverride;
+        if (targetForRegion !== null && !isNaN(targetForRegion)) {
+          existing.annual_target = targetForRegion;
+        }
         existing.notes = notes;
         existing.assigned_by = userId || null;
         existing.assigned_at = new Date();
@@ -337,6 +416,7 @@ class NationalReportingService {
           effective_start_date: effectiveStartDate,
           effective_end_date: effectiveEndDate,
           frequency_override: frequencyOverride,
+          annual_target: targetForRegion !== null && !isNaN(targetForRegion) ? targetForRegion : null,
           status: "active",
           notes,
           assigned_by: userId || null,
@@ -350,7 +430,7 @@ class NationalReportingService {
   }
 
   /**
-   * Update an existing assignment (suspend, withdraw, or update properties)
+   * Update an existing assignment (suspend, withdraw, or update properties including annual_target)
    */
   async updateAssignment(assignmentId, updateData) {
     const assignment = await NationalReportingAssignment.findByPk(assignmentId, {
@@ -370,6 +450,12 @@ class NationalReportingService {
     if (updateData.is_mandatory !== undefined) assignment.is_mandatory = !!updateData.is_mandatory;
     if (updateData.frequency_override !== undefined) assignment.frequency_override = updateData.frequency_override;
     if (updateData.notes !== undefined) assignment.notes = updateData.notes ? updateData.notes.trim() : null;
+    if (updateData.annual_target !== undefined) {
+      assignment.annual_target =
+        updateData.annual_target !== null && updateData.annual_target !== "" && !isNaN(Number(updateData.annual_target))
+          ? Number(updateData.annual_target)
+          : null;
+    }
     if (updateData.effective_start_date !== undefined) {
       assignment.effective_start_date = updateData.effective_start_date ? updateData.effective_start_date : null;
     }
@@ -891,6 +977,191 @@ class NationalReportingService {
       regionalCompliance,
       requirementSummaries,
       categoryBreakdown,
+    };
+  }
+
+  /**
+   * List all reporting categories (built-in merged with user-defined custom categories)
+   */
+  async listCategories() {
+    let customCategories = [];
+    try {
+      if (NationalReportingCustomCategory) {
+        customCategories = await NationalReportingCustomCategory.findAll({
+          order: [["created_at", "ASC"]],
+        });
+      }
+    } catch (e) {
+      console.warn("Could not query NationalReportingCustomCategory:", e.message);
+    }
+
+    const merged = [...BUILT_IN_CATEGORIES.map((c) => ({ ...c, is_custom: false }))];
+    const existingCodes = new Set(merged.map((c) => c.code.toLowerCase()));
+
+    for (const cat of customCategories) {
+      const code = cat.code.toLowerCase();
+      if (!existingCodes.has(code)) {
+        merged.push({
+          category_id: cat.category_id,
+          code: cat.code,
+          label: cat.label,
+          icon: cat.icon || "📊",
+          description: cat.description || "",
+          mandate_level: cat.mandate_level || "mandatory_default",
+          frequency_default: cat.frequency_default || "monthly",
+          typical_units: Array.isArray(cat.typical_units) ? cat.typical_units : [],
+          is_custom: true,
+          created_at: cat.created_at,
+        });
+        existingCodes.add(code);
+      }
+    }
+
+    return merged;
+  }
+
+  /**
+   * Create a new custom reporting category group
+   */
+  async createCategory(data, userId) {
+    if (!data.code || !data.label) {
+      const err = new Error("Code and label are required for a reporting category");
+      err.status = 400;
+      throw err;
+    }
+
+    const cleanCode = data.code
+      .toLowerCase()
+      .trim()
+      .replace(/[\s\-_]+/g, "_");
+
+    // Check collision with built-in
+    if (BUILT_IN_CATEGORIES.some((c) => c.code.toLowerCase() === cleanCode)) {
+      const err = new Error(`Category code '${cleanCode}' is a reserved built-in category`);
+      err.status = 400;
+      throw err;
+    }
+
+    // Check collision with existing DB custom category
+    const existing = await NationalReportingCustomCategory.findOne({
+      where: { code: cleanCode },
+    });
+    if (existing) {
+      const err = new Error(`Reporting category '${cleanCode}' already exists`);
+      err.status = 400;
+      throw err;
+    }
+
+    const newCategory = await NationalReportingCustomCategory.create({
+      code: cleanCode,
+      label: data.label.trim(),
+      icon: data.icon ? data.icon.trim() : "📊",
+      description: data.description ? data.description.trim() : "",
+      mandate_level: data.mandate_level || "mandatory_default",
+      frequency_default: data.frequency_default || "monthly",
+      typical_units: Array.isArray(data.typical_units) ? data.typical_units : [],
+      created_by: userId || null,
+    });
+
+    return {
+      ...newCategory.toJSON(),
+      is_custom: true,
+    };
+  }
+
+  /**
+   * Get supported units catalog enriched with user-defined custom measurement units from DB
+   */
+  async getUnitsCatalogWithCustom() {
+    try {
+      if (NationalReportingCustomUnit) {
+        const customUnits = await NationalReportingCustomUnit.findAll();
+        loadCustomUnitsIntoTable(customUnits);
+      }
+    } catch (e) {
+      console.warn("Could not query NationalReportingCustomUnit:", e.message);
+    }
+
+    return getSupportedUnitsCatalog();
+  }
+
+  /**
+   * Create a new custom measurement unit
+   */
+  async createCustomUnit(data, userId) {
+    if (!data.unit_code || !data.category) {
+      const err = new Error("unit_code and category are required");
+      err.status = 400;
+      throw err;
+    }
+
+    const cleanUnit = normalizeUnit(data.unit_code);
+    const cleanCat = normalizeUnit(data.category);
+    const cleanBase = data.base_unit ? normalizeUnit(data.base_unit) : cleanUnit;
+    const mult = Number(data.multiplier) || 1.0;
+    const isBase = !!data.is_base;
+
+    const existing = await NationalReportingCustomUnit.findOne({
+      where: { unit_code: cleanUnit },
+    });
+    if (existing) {
+      const err = new Error(`Unit code '${cleanUnit}' already exists`);
+      err.status = 400;
+      throw err;
+    }
+
+    const newUnit = await NationalReportingCustomUnit.create({
+      unit_code: cleanUnit,
+      label: data.label ? data.label.trim() : cleanUnit,
+      category: cleanCat,
+      base_unit: cleanBase,
+      multiplier: mult,
+      is_base: isBase,
+      created_by: userId || null,
+    });
+
+    // Register in live runtime memory table immediately
+    registerCustomUnitInTable({
+      unitCode: cleanUnit,
+      category: cleanCat,
+      baseUnit: cleanBase,
+      multiplier: mult,
+      isBase,
+    });
+
+    return newUnit;
+  }
+
+  /**
+   * Create a new measurement category with initial base unit
+   */
+  async createMeasurementCategory(data, userId) {
+    if (!data.category || !data.base_unit) {
+      const err = new Error("category and base_unit are required");
+      err.status = 400;
+      throw err;
+    }
+
+    const cleanCat = normalizeUnit(data.category);
+    const cleanBase = normalizeUnit(data.base_unit);
+
+    // Create the base unit for this category
+    const baseUnitRecord = await this.createCustomUnit(
+      {
+        unit_code: cleanBase,
+        label: data.base_label || cleanBase,
+        category: cleanCat,
+        base_unit: cleanBase,
+        multiplier: 1.0,
+        is_base: true,
+      },
+      userId
+    );
+
+    return {
+      category: cleanCat,
+      base_unit: cleanBase,
+      baseRecord: baseUnitRecord,
     };
   }
 }

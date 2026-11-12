@@ -5,6 +5,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Collapsible,
@@ -13,7 +23,11 @@ import {
 } from "@/components/ui/collapsible";
 import { DataTable } from "@/features/template/component/tableList/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
-import { useGetNationalRequirementsQuery } from "@/redux/api/nationalReportingApi";
+import {
+  useGetNationalRequirementsQuery,
+  useGetNationalCategoriesQuery,
+  useCreateNationalCategoryMutation,
+} from "@/redux/api/nationalReportingApi";
 import { NationalUnitConfigTab } from "./NationalUnitConfigTab";
 import {
   Settings,
@@ -31,7 +45,9 @@ import {
   Coins,
   HardHat,
   Search,
+  Plus,
 } from "lucide-react";
+import { toast } from "sonner";
 
 export interface ReportingCategoryDefinition {
   code: string;
@@ -112,8 +128,44 @@ export const NATIONAL_REPORTING_CATEGORIES: ReportingCategoryDefinition[] = [
 export function NationalReportingConfigView() {
   const [activeTab, setActiveTab] = useState<string>("categories");
   const [categorySearch, setCategorySearch] = useState<string>("");
+  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
+  const [newCategory, setNewCategory] = useState({
+    code: "",
+    label: "",
+    icon: "📊",
+    description: "",
+    mandate_level: "mandatory_default",
+    frequency_default: "monthly",
+    typical_units: "",
+  });
 
   const { data: requirements = [] } = useGetNationalRequirementsQuery({});
+  const { data: customCategories = [] } = useGetNationalCategoriesQuery();
+  const [createCategory, { isLoading: isCreatingCategory }] = useCreateNationalCategoryMutation();
+
+  // Combine built-in categories with custom categories from DB
+  const allCategories = useMemo(() => {
+    const combined: any[] = [...NATIONAL_REPORTING_CATEGORIES.map((c) => ({ ...c, is_custom: false }))];
+    const seen = new Set(combined.map((c) => c.code.toLowerCase()));
+
+    customCategories.forEach((cat) => {
+      if (!seen.has(cat.code.toLowerCase())) {
+        combined.push({
+          code: cat.code,
+          label: cat.label,
+          icon: cat.icon || "📊",
+          description: cat.description || "",
+          mandateLevel: cat.mandate_level || cat.mandateLevel || "mandatory_default",
+          frequencyDefault: cat.frequency_default || cat.frequencyDefault || "monthly",
+          typicalUnits: cat.typical_units || cat.typicalUnits || [],
+          is_custom: true,
+        });
+        seen.add(cat.code.toLowerCase());
+      }
+    });
+
+    return combined;
+  }, [customCategories]);
 
   // Count active requirements per category
   const categoryStats = useMemo(() => {
@@ -126,7 +178,7 @@ export function NationalReportingConfigView() {
   }, [requirements]);
 
   const filteredCategories = useMemo(() => {
-    return NATIONAL_REPORTING_CATEGORIES.filter((c) => {
+    return allCategories.filter((c) => {
       if (!categorySearch.trim()) return true;
       const q = categorySearch.toLowerCase();
       return (
@@ -135,9 +187,47 @@ export function NationalReportingConfigView() {
         c.description.toLowerCase().includes(q)
       );
     });
-  }, [categorySearch]);
+  }, [allCategories, categorySearch]);
 
-  const categoryColumns: ColumnDef<ReportingCategoryDefinition>[] = useMemo(
+  const handleCreateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategory.code || !newCategory.label) {
+      toast.error("Category Code and Label are required");
+      return;
+    }
+
+    try {
+      const typicalUnitsArray = newCategory.typical_units
+        ? newCategory.typical_units.split(",").map((u) => u.trim()).filter(Boolean)
+        : [];
+
+      await createCategory({
+        code: newCategory.code.trim().toLowerCase().replace(/[\s\-_]+/g, "_"),
+        label: newCategory.label.trim(),
+        icon: newCategory.icon || "📊",
+        description: newCategory.description.trim(),
+        mandate_level: newCategory.mandate_level,
+        frequency_default: newCategory.frequency_default,
+        typical_units: typicalUnitsArray,
+      }).unwrap();
+
+      toast.success("Reporting category created successfully");
+      setIsAddCategoryOpen(false);
+      setNewCategory({
+        code: "",
+        label: "",
+        icon: "📊",
+        description: "",
+        mandate_level: "mandatory_default",
+        frequency_default: "monthly",
+        typical_units: "",
+      });
+    } catch (err: any) {
+      toast.error(err?.data?.message || "Failed to create category");
+    }
+  };
+
+  const categoryColumns: ColumnDef<any>[] = useMemo(
     () => [
       {
         id: "category",
@@ -155,6 +245,11 @@ export function NationalReportingConfigView() {
                   <span className="font-mono text-[10px] text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.2 rounded">
                     {item.code}
                   </span>
+                  {item.is_custom && (
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-emerald-300 text-emerald-700 dark:text-emerald-400">
+                      Custom
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-[11px] text-slate-500 line-clamp-2">
                   {item.description}
@@ -213,7 +308,7 @@ export function NationalReportingConfigView() {
           const units = row.original.typicalUnits;
           return (
             <div className="flex flex-wrap gap-1 max-w-xs">
-              {units.map((u) => (
+              {(units || []).map((u: string) => (
                 <span
                   key={u}
                   className="font-mono text-[9px] text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800"
@@ -290,14 +385,25 @@ export function NationalReportingConfigView() {
                   </CardDescription>
                 </div>
 
-                <div className="relative w-52">
-                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
-                  <Input
-                    placeholder="Search categories..."
-                    value={categorySearch}
-                    onChange={(e) => setCategorySearch(e.target.value)}
-                    className="pl-8 h-8 text-xs"
-                  />
+                <div className="flex items-center gap-2">
+                  <div className="relative w-52">
+                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                    <Input
+                      placeholder="Search categories..."
+                      value={categorySearch}
+                      onChange={(e) => setCategorySearch(e.target.value)}
+                      className="pl-8 h-8 text-xs"
+                    />
+                  </div>
+
+                  <Button
+                    size="sm"
+                    className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5"
+                    onClick={() => setIsAddCategoryOpen(true)}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Add Category</span>
+                  </Button>
                 </div>
               </div>
             </CardHeader>
@@ -408,6 +514,120 @@ export function NationalReportingConfigView() {
           <NationalUnitConfigTab />
         </TabsContent>
       </Tabs>
+
+      {/* Add Reporting Category Dialog */}
+      <Dialog open={isAddCategoryOpen} onOpenChange={setIsAddCategoryOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Reporting Category Group</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreateCategory} className="space-y-3 py-2">
+            <div>
+              <Label htmlFor="cat-code" className="text-xs">Category Code * (Unique Key)</Label>
+              <Input
+                id="cat-code"
+                placeholder="e.g. geothermal_energy"
+                value={newCategory.code}
+                onChange={(e) => setNewCategory({ ...newCategory, code: e.target.value })}
+                required
+                className="text-xs font-mono h-8 mt-1"
+              />
+            </div>
+
+            <div className="grid grid-cols-4 gap-2">
+              <div className="col-span-3">
+                <Label htmlFor="cat-label" className="text-xs">Category Label *</Label>
+                <Input
+                  id="cat-label"
+                  placeholder="e.g. Geothermal & Renewable Minerals"
+                  value={newCategory.label}
+                  onChange={(e) => setNewCategory({ ...newCategory, label: e.target.value })}
+                  required
+                  className="text-xs h-8 mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="cat-icon" className="text-xs">Icon Emoji</Label>
+                <Input
+                  id="cat-icon"
+                  placeholder="🌋"
+                  value={newCategory.icon}
+                  onChange={(e) => setNewCategory({ ...newCategory, icon: e.target.value })}
+                  className="text-xs h-8 mt-1 text-center"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="cat-desc" className="text-xs">Description</Label>
+              <Textarea
+                id="cat-desc"
+                placeholder="Briefly describe what this reporting category encompasses..."
+                value={newCategory.description}
+                onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })}
+                rows={2}
+                className="text-xs mt-1"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="cat-mandate" className="text-xs">Default Mandate</Label>
+                <Select
+                  value={newCategory.mandate_level}
+                  onValueChange={(val) => setNewCategory({ ...newCategory, mandate_level: val })}
+                >
+                  <SelectTrigger id="cat-mandate" className="h-8 text-xs mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mandatory_default" className="text-xs">Mandatory Default</SelectItem>
+                    <SelectItem value="optional_default" className="text-xs">Optional Default</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="cat-freq" className="text-xs">Default Frequency</Label>
+                <Select
+                  value={newCategory.frequency_default}
+                  onValueChange={(val) => setNewCategory({ ...newCategory, frequency_default: val })}
+                >
+                  <SelectTrigger id="cat-freq" className="h-8 text-xs mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="monthly" className="text-xs">Monthly</SelectItem>
+                    <SelectItem value="quarterly" className="text-xs">Quarterly</SelectItem>
+                    <SelectItem value="semi_annual" className="text-xs">Semi-Annual</SelectItem>
+                    <SelectItem value="annual" className="text-xs">Annual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="cat-units" className="text-xs">Typical Units (Comma-separated)</Label>
+              <Input
+                id="cat-units"
+                placeholder="e.g. kwh, mwh, count"
+                value={newCategory.typical_units}
+                onChange={(e) => setNewCategory({ ...newCategory, typical_units: e.target.value })}
+                className="text-xs font-mono h-8 mt-1"
+              />
+            </div>
+
+            <DialogFooter className="pt-3">
+              <Button type="button" variant="outline" size="sm" onClick={() => setIsAddCategoryOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={isCreatingCategory} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                {isCreatingCategory ? "Saving..." : "Create Category"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -244,6 +244,39 @@ function getSupportedUnitsCatalog() {
   return result;
 }
 
+function registerCustomUnitInTable({ unitCode, category, baseUnit, multiplier, isBase }) {
+  const normCat = normalizeUnit(category);
+  const normUnit = normalizeUnit(unitCode);
+  const normBase = normalizeUnit(baseUnit);
+  const mult = Number(multiplier) || 1.0;
+
+  if (!UNIT_CONVERSION_TABLE[normCat]) {
+    UNIT_CONVERSION_TABLE[normCat] = {
+      base: normBase || normUnit,
+      units: {},
+    };
+  }
+
+  if (isBase) {
+    UNIT_CONVERSION_TABLE[normCat].base = normUnit;
+  }
+
+  UNIT_CONVERSION_TABLE[normCat].units[normUnit] = mult;
+}
+
+function loadCustomUnitsIntoTable(customUnits = []) {
+  if (!Array.isArray(customUnits)) return;
+  customUnits.forEach((u) => {
+    registerCustomUnitInTable({
+      unitCode: u.unit_code,
+      category: u.category,
+      baseUnit: u.base_unit,
+      multiplier: u.multiplier,
+      isBase: u.is_base,
+    });
+  });
+}
+
 module.exports = {
   UNIT_CONVERSION_TABLE,
   normalizeUnit,
@@ -252,5 +285,7 @@ module.exports = {
   getConversionFactor,
   convertValue,
   getSupportedUnitsCatalog,
+  registerCustomUnitInTable,
+  loadCustomUnitsIntoTable,
 };
 

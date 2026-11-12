@@ -352,6 +352,14 @@ class RegionalNationalReportingService {
             periodObj.planned_target = null;
             periodObj.reported_actual = null;
           }
+
+          // If federal preset annual target exists and target is not set from node mapping,
+          // default the planned_target to the period benchmark (annual_target / periodCount)
+          if (!periodObj.planned_target && item.annual_target && !isNaN(Number(item.annual_target))) {
+            const periodCount = generatedPeriods.length || 1;
+            periodObj.planned_target = Math.round((Number(item.annual_target) / periodCount) * 100) / 100;
+          }
+
           periodObj.achievement_percent = null;
           periodObj.published_record_id = null;
           periodObj.publication_reference = null;
@@ -366,6 +374,29 @@ class RegionalNationalReportingService {
           publishedCount === recurringPeriods.length ? "published" : "partially_published";
       }
 
+      // Statistical analysis against regional preset annual target
+      const periodCount = generatedPeriods.length || 1;
+      const periodBenchmarkTarget =
+        item.annual_target && !isNaN(Number(item.annual_target))
+          ? Math.round((Number(item.annual_target) / periodCount) * 100) / 100
+          : null;
+
+      let cumulativeActual = 0;
+      for (const pub of publishedRecords) {
+        if (["published", "clarification_requested"].includes(pub.status)) {
+          const val = pub.standardized_actual != null ? pub.standardized_actual : pub.reported_actual;
+          if (val && !isNaN(Number(val))) {
+            cumulativeActual += Number(val);
+          }
+        }
+      }
+      cumulativeActual = Math.round(cumulativeActual * 100) / 100;
+
+      const annualRealizationRate =
+        item.annual_target && Number(item.annual_target) > 0
+          ? Math.round((cumulativeActual / Number(item.annual_target)) * 1000) / 10
+          : null;
+
       item.workflowStatus = workflowStatus;
       item.activeMapping = activeMapping;
       item.isValidated = isValidated;
@@ -374,6 +405,10 @@ class RegionalNationalReportingService {
       item.isFormReportingActive = isFormEffective;
       item.nodeMappingAvailable = true; // Permanently available
       item.lock_overrides = lockOverrides;
+      item.preset_annual_target = item.annual_target != null ? Number(item.annual_target) : null;
+      item.period_benchmark_target = periodBenchmarkTarget;
+      item.cumulative_actual = cumulativeActual;
+      item.annual_realization_rate = annualRealizationRate;
       item.latestPublishedRecord =
         publishedRecords.length > 0 ? publishedRecords[0] : null;
 
@@ -1117,24 +1152,35 @@ class RegionalNationalReportingService {
       reportedActual !== undefined && reportedActual !== null && reportedActual !== ""
         ? Number(reportedActual)
         : null;
-    const numTarget =
-      plannedTarget !== undefined && plannedTarget !== null && plannedTarget !== ""
-        ? Number(plannedTarget)
-        : null;
 
     if (numActual !== null && isNaN(numActual)) {
       const err = new Error("Reported actual must be a valid number");
       err.status = 400;
       throw err;
     }
-    if (numTarget !== null && isNaN(numTarget)) {
+
+    // Federal preset annual target resolution:
+    // If federal defined an annual_target on assignment, the period benchmark target is
+    // automatically computed as (annual_target / periodCount), leaving regional user ONLY
+    // responsible for reporting actual achievement for that month/period.
+    let resolvedTarget =
+      plannedTarget !== undefined && plannedTarget !== null && plannedTarget !== ""
+        ? Number(plannedTarget)
+        : null;
+
+    if (assignment.annual_target !== null && assignment.annual_target !== undefined && !isNaN(Number(assignment.annual_target))) {
+      const periodCount = generatedPeriods && generatedPeriods.length > 0 ? generatedPeriods.length : 1;
+      resolvedTarget = Math.round((Number(assignment.annual_target) / periodCount) * 100) / 100;
+    }
+
+    if (resolvedTarget !== null && isNaN(resolvedTarget)) {
       const err = new Error("Planned target must be a valid number");
       err.status = 400;
       throw err;
     }
 
     const standardizedActual = convertValue(numActual, submittedUnit, expectedUnit);
-    const standardizedTarget = convertValue(numTarget, submittedUnit, expectedUnit);
+    const standardizedTarget = convertValue(resolvedTarget, submittedUnit, expectedUnit);
 
     const achievementPercent =
       standardizedTarget && standardizedTarget > 0 && standardizedActual !== null

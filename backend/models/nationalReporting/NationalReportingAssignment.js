@@ -66,6 +66,10 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING(50),
         allowNull: true,
       },
+      annual_target: {
+        type: DataTypes.FLOAT,
+        allowNull: true,
+      },
       status: {
         type: DataTypes.STRING(50),
         allowNull: false,

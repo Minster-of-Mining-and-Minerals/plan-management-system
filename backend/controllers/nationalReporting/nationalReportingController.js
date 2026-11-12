@@ -227,7 +227,7 @@ async function getNationalDashboardSummary(req, res) {
 
 async function getUnitsCatalog(req, res) {
   try {
-    const catalog = getSupportedUnitsCatalog();
+    const catalog = await nationalReportingService.getUnitsCatalogWithCustom();
     return res.status(200).json({
       success: true,
       data: catalog,
@@ -236,6 +236,73 @@ async function getUnitsCatalog(req, res) {
     return res.status(500).json({
       success: false,
       message: error.message || "Failed to get units catalog.",
+    });
+  }
+}
+
+async function listCategories(req, res) {
+  try {
+    const categories = await nationalReportingService.listCategories();
+    return res.status(200).json({
+      success: true,
+      data: categories,
+    });
+  } catch (error) {
+    console.error("Error listing categories:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to list reporting categories.",
+    });
+  }
+}
+
+async function createCategory(req, res) {
+  try {
+    const category = await nationalReportingService.createCategory(req.body, req.user?.user_id);
+    return res.status(201).json({
+      success: true,
+      message: "Category created successfully",
+      data: category,
+    });
+  } catch (error) {
+    console.error("Error creating reporting category:", error);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Failed to create category.",
+    });
+  }
+}
+
+async function createCustomUnit(req, res) {
+  try {
+    const unit = await nationalReportingService.createCustomUnit(req.body, req.user?.user_id);
+    return res.status(201).json({
+      success: true,
+      message: "Custom measurement unit registered successfully",
+      data: unit,
+    });
+  } catch (error) {
+    console.error("Error creating custom unit:", error);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Failed to create custom unit.",
+    });
+  }
+}
+
+async function createMeasurementCategory(req, res) {
+  try {
+    const result = await nationalReportingService.createMeasurementCategory(req.body, req.user?.user_id);
+    return res.status(201).json({
+      success: true,
+      message: "Measurement category and base unit registered successfully",
+      data: result,
+    });
+  } catch (error) {
+    console.error("Error creating measurement category:", error);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Failed to create measurement category.",
     });
   }
 }
@@ -343,6 +410,10 @@ module.exports = {
   requestClarification,
   getNationalDashboardSummary,
   getUnitsCatalog,
+  listCategories,
+  createCategory,
+  createCustomUnit,
+  createMeasurementCategory,
   getRegionReportingConfig,
   updateRegionReportingConfig,
   getSubmissionVersions,
