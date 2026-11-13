@@ -398,9 +398,15 @@ class RegionalNationalReportingService {
             ["published", "clarification_requested"].includes(pub.status)
         );
 
+        const activeOverride =
+          lockOverrides[p.period_label] ||
+          lockOverrides[String(p.period_label).toUpperCase()] ||
+          (p.division_label ? lockOverrides[p.division_label] : null) ||
+          null;
+
         const periodLock = computePeriodLockStatus({
           period: p,
-          lockOverride: lockOverrides[p.period_label] || null,
+          lockOverride: activeOverride,
           deadlineDays,
         });
 
@@ -1234,9 +1240,15 @@ class RegionalNationalReportingService {
         requirement.submission_deadline_days ||
         requirement.validation_rules?.submission_deadline_days ||
         15;
+      const activeOverride =
+        lockOverrides[targetPeriod.period_label] ||
+        lockOverrides[String(targetPeriod.period_label).toUpperCase()] ||
+        (targetPeriod.division_label ? lockOverrides[targetPeriod.division_label] : null) ||
+        null;
+
       const periodLock = computePeriodLockStatus({
         period: targetPeriod,
-        lockOverride: lockOverrides[targetPeriod.period_label] || null,
+        lockOverride: activeOverride,
         deadlineDays,
       });
 

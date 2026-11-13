@@ -6,6 +6,7 @@ const {
   calculateAnnualEndDate,
   validateAnnualDateRange,
   generateReportingPeriods,
+  computePeriodLockStatus,
 } = require("../utils/nationalReportingPeriodUtils");
 
 const {
@@ -546,15 +547,16 @@ class NationalReportingService {
     }
 
     const lockOverrides = { ...(assignment.lock_overrides || {}) };
-    const key = String(periodLabel).trim().toUpperCase();
+    const rawKey = String(periodLabel).trim();
+    const upperKey = rawKey.toUpperCase();
 
     let targetUnlocked = isUnlocked;
     if (targetUnlocked === undefined || targetUnlocked === null) {
-      const current = lockOverrides[key]?.is_unlocked;
+      const current = (lockOverrides[rawKey] || lockOverrides[upperKey])?.is_unlocked;
       targetUnlocked = !current;
     }
 
-    lockOverrides[key] = {
+    const overrideObj = {
       is_unlocked: Boolean(targetUnlocked),
       unlocked_by: userId,
       unlocked_at: new Date().toISOString(),
@@ -562,19 +564,23 @@ class NationalReportingService {
       reason: reason || (targetUnlocked ? "Unlocked on demand by Federal Administration" : "Locked by Federal Administration"),
     };
 
+    // Store under both raw key and uppercase key for seamless matching
+    lockOverrides[rawKey] = overrideObj;
+    lockOverrides[upperKey] = overrideObj;
+
     assignment.lock_overrides = lockOverrides;
     await assignment.save();
 
     return {
       assignmentId,
-      periodLabel: key,
-      override: lockOverrides[key],
+      periodLabel: rawKey,
+      override: overrideObj,
       lockOverrides,
     };
   }
 
   /**
-   * List assignments with filtering
+   * List assignments with filtering and generated recurring periods
    */
   async listAssignments(filters = {}) {
     const where = {};
@@ -582,7 +588,7 @@ class NationalReportingService {
     if (filters.region_id) where.region_id = filters.region_id;
     if (filters.status) where.status = filters.status;
 
-    return await NationalReportingAssignment.findAll({
+    const assignments = await NationalReportingAssignment.findAll({
       where,
       include: [
         {
@@ -599,8 +605,72 @@ class NationalReportingService {
           as: "mappings",
           attributes: ["mapping_id", "stage", "local_unit", "unit_conversion_factor", "confirmed_at"],
         },
+        {
+          model: NationalPublishedRecord,
+          as: "publishedRecords",
+        },
       ],
       order: [["created_at", "DESC"]],
+    });
+
+    return assignments.map((assignment) => {
+      const item = assignment.toJSON();
+      const req = item.requirement || {};
+      const startDate =
+        item.effective_start_date ||
+        req.effective_start_date ||
+        "2026-07-08";
+      const endDate =
+        item.effective_end_date ||
+        req.effective_end_date ||
+        calculateAnnualEndDate(startDate);
+      const frequency = item.frequency_override || req.frequency || "monthly";
+
+      const generatedPeriods = generateReportingPeriods(startDate, endDate, frequency);
+      const publishedRecords = item.publishedRecords || [];
+      const lockOverrides = item.lock_overrides || {};
+
+      const recurringPeriods = generatedPeriods.map((p) => {
+        const periodObj = { ...p };
+        const matchingRecord = publishedRecords.find(
+          (pub) =>
+            String(pub.reporting_period_label).trim().toLowerCase() ===
+              periodObj.period_label.trim().toLowerCase() &&
+            ["published", "clarification_requested"].includes(pub.status)
+        );
+
+        const activeOverride =
+          lockOverrides[p.period_label] ||
+          lockOverrides[String(p.period_label).toUpperCase()] ||
+          (p.division_label ? lockOverrides[p.division_label] : null) ||
+          null;
+
+        const periodLock = computePeriodLockStatus({
+          period: p,
+          lockOverride: activeOverride,
+        });
+
+        periodObj.is_locked = periodLock.is_locked;
+        periodObj.lock_state = periodLock.lock_state;
+        periodObj.lock_reason = periodLock.lock_reason;
+        periodObj.deadline_date = periodLock.deadline_date;
+        periodObj.is_manually_unlocked = periodLock.is_manually_unlocked;
+        periodObj.lock_override = periodLock.lock_override;
+
+        if (matchingRecord) {
+          periodObj.status = matchingRecord.status;
+          periodObj.submission_status = matchingRecord.status;
+          periodObj.reported_actual = matchingRecord.reported_actual;
+          periodObj.achievement_rate = matchingRecord.achievement_percent;
+          periodObj.annual_achievement_percent = matchingRecord.annual_achievement_percent;
+        }
+
+        return periodObj;
+      });
+
+      item.recurringPeriods = recurringPeriods;
+      item.annualRange = { startDate, endDate };
+      return item;
     });
   }
 
