@@ -413,9 +413,11 @@ export function RegionalKpiDetailView({
               <tr>
                 <th className="px-4 py-3">Reporting Period</th>
                 <th className="px-4 py-3">Cycle Dates</th>
+                <th className="px-4 py-3">Monthly Target</th>
                 <th className="px-4 py-3">Reported Actual</th>
-                <th className="px-4 py-3">Achievement against Annual Target</th>
-                <th className="px-4 py-3 min-w-[200px]">Window & Countdown</th>
+                <th className="px-4 py-3">Monthly Achievement</th>
+                <th className="px-4 py-3">Annual Contribution</th>
+                <th className="px-4 py-3 min-w-[180px]">Window & Countdown</th>
                 <th className="px-4 py-3 text-center">Status / Version</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
@@ -432,10 +434,21 @@ export function RegionalKpiDetailView({
 
                 const actualVal = period.reported_actual;
                 const annualTarget = analytics.presetAnnualTarget || analytics.totalTarget;
-                const achRate =
-                  annualTarget && annualTarget > 0 && actualVal !== null && actualVal !== undefined
-                    ? Math.round((Number(actualVal) / Number(annualTarget)) * 1000) / 10
-                    : null;
+                const monthlyTarget = period.monthly_target ?? (period.planned_target != null && period.planned_target !== annualTarget ? period.planned_target : null);
+
+                const monthlyAchRate =
+                  period.monthly_achievement_percent != null
+                    ? period.monthly_achievement_percent
+                    : (monthlyTarget && monthlyTarget > 0 && actualVal !== null && actualVal !== undefined
+                        ? Math.round((Number(actualVal) / Number(monthlyTarget)) * 1000) / 10
+                        : null);
+
+                const annualAchRate =
+                  period.annual_achievement_percent != null
+                    ? period.annual_achievement_percent
+                    : (annualTarget && annualTarget > 0 && actualVal !== null && actualVal !== undefined
+                        ? Math.round((Number(actualVal) / Number(annualTarget)) * 1000) / 10
+                        : null);
 
                 const revisionNum = (period as any).revision_number || (isReported ? 1 : null);
 
@@ -472,6 +485,20 @@ export function RegionalKpiDetailView({
                       )}
                     </td>
 
+                    {/* Monthly Target */}
+                    <td className="px-4 py-3.5 font-mono">
+                      {monthlyTarget !== null && monthlyTarget !== undefined ? (
+                        <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
+                          {Number(monthlyTarget).toLocaleString()}{" "}
+                          <span className="text-[10px] text-slate-500 font-sans font-normal">
+                            {req?.expected_unit}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 italic">Not set</span>
+                      )}
+                    </td>
+
                     {/* Reported Actual */}
                     <td className="px-4 py-3.5 font-mono">
                       {actualVal !== null && actualVal !== undefined ? (
@@ -486,15 +513,35 @@ export function RegionalKpiDetailView({
                       )}
                     </td>
 
-                    {/* Achievement against Annual Target */}
+                    {/* Monthly Achievement */}
                     <td className="px-4 py-3.5 font-mono">
-                      {achRate !== null ? (
+                      {monthlyAchRate !== null ? (
+                        <Badge
+                          variant="outline"
+                          className={`font-mono text-xs ${
+                            monthlyAchRate >= 100
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300"
+                              : monthlyAchRate >= 70
+                              ? "bg-blue-50 text-blue-700 border-blue-300"
+                              : "bg-amber-50 text-amber-700 border-amber-300"
+                          }`}
+                        >
+                          {monthlyAchRate}%
+                        </Badge>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </td>
+
+                    {/* Annual Contribution */}
+                    <td className="px-4 py-3.5 font-mono">
+                      {annualAchRate !== null ? (
                         <div>
-                          <div className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
-                            {achRate}%
+                          <div className="font-bold text-blue-600 dark:text-blue-400 text-xs">
+                            {annualAchRate}%
                           </div>
                           <span className="text-[10px] text-slate-400 font-sans font-normal">
-                            of annual target ({annualTarget?.toLocaleString()} {req?.expected_unit})
+                            of annual ({annualTarget?.toLocaleString()})
                           </span>
                         </div>
                       ) : (

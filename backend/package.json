@@ -23,6 +23,7 @@
     "db:restore-plans": "node scripts/restore-plan-data-from-backup.js",
     "national-kpi:reset": "node scripts/reset-national-reporting-data.js",
     "national-kpi:seed": "node scripts/seed-national-kpi-catalog.js",
+    "national-kpi:seed-targets": "node scripts/seed-regional-kpi-targets-2019.js",
     "admin:reset-password": "node scripts/reset-admin-password.js",
     "test:scope": "node scripts/verify-scope-unit-checks.js && node scripts/verify-scope-smoke.js",
     "test:regional": "node scripts/verify-regional-foundation.js",

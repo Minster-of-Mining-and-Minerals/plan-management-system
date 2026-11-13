@@ -15,6 +15,7 @@ import { useSearchParams } from "next/navigation";
 import { matchesSearchQuery } from "@/utils/tableUtils";
 import { RegionalReportingMethodConfigModal } from "./RegionalReportingMethodConfigModal";
 import { PeriodLockOverrideModal } from "./PeriodLockOverrideModal";
+import { PeriodTargetsConfigModal } from "./PeriodTargetsConfigModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -42,6 +43,7 @@ import {
   Layers,
   FileText,
   Lock,
+  CalendarRange,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -64,6 +66,7 @@ export function RegionalAssignmentsTab() {
     regionCode?: string;
   } | null>(null);
   const [managingLockAssignment, setManagingLockAssignment] = useState<NationalReportingAssignment | null>(null);
+  const [managingPeriodTargetsAssignment, setManagingPeriodTargetsAssignment] = useState<NationalReportingAssignment | null>(null);
 
   const {
     data: assignments = [],
@@ -187,15 +190,40 @@ export function RegionalAssignmentsTab() {
       id: "annual_target",
       header: "Preset Annual Target",
       cell: ({ row }) => {
-        const target = row.original.annual_target;
-        const unit = row.original.requirement?.expected_unit || "";
+        const a = row.original;
+        const target = a.annual_target;
+        const unit = a.requirement?.expected_unit || "";
+        const periodTargetsCount = a.period_targets ? Object.keys(a.period_targets).length : 0;
+
         if (target == null || target === undefined) {
           return <span className="text-xs text-slate-400 italic">Not set</span>;
         }
         return (
-          <div className="font-mono text-xs font-semibold text-emerald-800 dark:text-emerald-300">
-            {Number(target).toLocaleString()}{" "}
-            <span className="text-slate-500 dark:text-slate-400 font-normal">{unit}</span>
+          <div className="space-y-1">
+            <div className="font-mono text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+              {Number(target).toLocaleString()}{" "}
+              <span className="text-slate-500 dark:text-slate-400 font-normal">{unit}</span>
+            </div>
+            {periodTargetsCount > 0 ? (
+              <Badge
+                variant="outline"
+                className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 text-[10px] font-mono py-0 px-1.5 flex items-center gap-1 w-fit cursor-pointer hover:bg-emerald-100"
+                onClick={() => setManagingPeriodTargetsAssignment(a)}
+                title="Click to view/edit monthly division"
+              >
+                <CalendarRange className="h-2.5 w-2.5" />
+                {periodTargetsCount} Monthly Divided
+              </Badge>
+            ) : (
+              <Badge
+                variant="outline"
+                className="text-slate-400 border-dashed text-[10px] py-0 px-1.5 flex items-center gap-1 w-fit cursor-pointer hover:border-slate-400"
+                onClick={() => setManagingPeriodTargetsAssignment(a)}
+                title="Click to configure monthly targets"
+              >
+                + Set Monthly
+              </Badge>
+            )}
           </div>
         );
       },
@@ -295,6 +323,17 @@ export function RegionalAssignmentsTab() {
                 Configure Method
               </Button>
             )}
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setManagingPeriodTargetsAssignment(a)}
+              className="text-xs h-8 px-2 border-emerald-300 text-emerald-800 dark:text-emerald-400 dark:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950 flex items-center gap-1"
+              title="Configure Monthly Division & Period Targets"
+            >
+              <CalendarRange className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              Monthly Targets
+            </Button>
 
             <Button
               variant="outline"
@@ -491,6 +530,15 @@ export function RegionalAssignmentsTab() {
           isOpen={!!managingLockAssignment}
           onClose={() => setManagingLockAssignment(null)}
           assignment={managingLockAssignment}
+        />
+      )}
+
+      {/* Monthly Division & Period Targets Config Modal */}
+      {managingPeriodTargetsAssignment && (
+        <PeriodTargetsConfigModal
+          isOpen={!!managingPeriodTargetsAssignment}
+          onClose={() => setManagingPeriodTargetsAssignment(null)}
+          assignment={managingPeriodTargetsAssignment}
         />
       )}
     </>

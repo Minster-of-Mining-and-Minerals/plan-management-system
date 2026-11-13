@@ -70,6 +70,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.FLOAT,
         allowNull: true,
       },
+      period_targets: {
+        type: DataTypes.JSONB,
+        allowNull: true,
+        defaultValue: {},
+      },
       status: {
         type: DataTypes.STRING(50),
         allowNull: false,

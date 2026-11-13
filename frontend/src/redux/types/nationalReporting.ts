@@ -41,6 +41,8 @@ export interface ReportingPeriod {
   status?: "unmapped" | "potential" | "confirmed" | "ready_to_publish" | "published" | "clarification_requested" | "unreported" | string;
   submission_status?: string | null;
   planned_target?: number | null;
+  monthly_target?: number | null;
+  annual_target?: number | null;
   reported_actual?: number | null;
   local_unit?: string | null;
   standardized_target?: number | null;
@@ -48,6 +50,10 @@ export interface ReportingPeriod {
   standardized_unit?: string | null;
   achievement_rate?: number | null;
   achievement_percent?: number | null;
+  annual_target?: number | null;
+  annual_achievement_percent?: number | null;
+  monthly_achievement_percent?: number | null;
+  annual_achievement_percent?: number | null;
   publication_reference?: string | null;
   published_record_id?: string | null;
   published_at?: string | null;
@@ -77,6 +83,7 @@ export interface NationalReportingAssignment {
   effective_end_date?: string | null;
   frequency_override?: string | null;
   annual_target?: number | null;
+  period_targets?: Record<string, number> | null;
   preset_annual_target?: number | null;
   cumulative_actual?: number | null;
   annual_realization_rate?: number | null;
@@ -197,6 +204,8 @@ export interface NationalPublishedRecord {
   standardized_actual?: number | null;
   standardized_unit: string;
   achievement_percent?: number | null;
+  annual_target?: number | null;
+  annual_achievement_percent?: number | null;
   narrative?: string | null;
   evidence_attachments?: any[];
   regional_validated_by?: string | null;

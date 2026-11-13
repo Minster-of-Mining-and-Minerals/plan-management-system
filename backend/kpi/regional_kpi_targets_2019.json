@@ -1,0 +1,7818 @@
+[
+  {
+    "kpi": "ወርቅ",
+    "unit": "kg",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 40,
+        "monthly_targets": {
+          "January": 3.33,
+          "February": 3.33,
+          "March": 3.33,
+          "April": 3.33,
+          "May": 3.33,
+          "June": 3.33,
+          "July": 3.33,
+          "August": 3.33,
+          "September": 3.33,
+          "October": 3.33,
+          "November": 4,
+          "December": 3
+        }
+      },
+      {
+        "region": "AMHARA",
+        "annual_target": 100,
+        "monthly_targets": {
+          "January": 7,
+          "February": 7,
+          "March": 8,
+          "April": 9,
+          "May": 9,
+          "June": 8,
+          "July": 9,
+          "August": 9,
+          "September": 8,
+          "October": 9,
+          "November": 8,
+          "December": 9
+        }
+      },
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 8520,
+        "monthly_targets": {
+          "January": 500,
+          "February": 500,
+          "March": 580,
+          "April": 720,
+          "May": 760,
+          "June": 950,
+          "July": 860,
+          "August": 770,
+          "September": 750,
+          "October": 710,
+          "November": 710,
+          "December": 710
+        }
+      },
+      {
+        "region": "GAMBELA",
+        "annual_target": 8000,
+        "monthly_targets": {
+          "January": 666.67,
+          "February": 666.67,
+          "March": 666.67,
+          "April": 666.67,
+          "May": 666.67,
+          "June": 666.67,
+          "July": 666.67,
+          "August": 666.67,
+          "September": 666.67,
+          "October": 666.67,
+          "November": 666.67,
+          "December": 666.67
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 8136.25,
+        "monthly_targets": {
+          "January": 678.02,
+          "February": 678.02,
+          "March": 678.02,
+          "April": 678.02,
+          "May": 678.02,
+          "June": 678.02,
+          "July": 678.02,
+          "August": 678.02,
+          "September": 678.02,
+          "October": 678.02,
+          "November": 678.02,
+          "December": 678.02
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 1200,
+        "monthly_targets": {
+          "January": 80,
+          "February": 80,
+          "March": 80,
+          "April": 120,
+          "May": 120,
+          "June": 120,
+          "July": 120,
+          "August": 120,
+          "September": 120,
+          "October": 80,
+          "November": 80,
+          "December": 80
+        }
+      },
+      {
+        "region": "TIGRAY",
+        "annual_target": 5300,
+        "monthly_targets": {
+          "January": 442,
+          "February": 442,
+          "March": 442,
+          "April": 440,
+          "May": 442,
+          "June": 440,
+          "July": 442,
+          "August": 442,
+          "September": 442,
+          "October": 442,
+          "November": 442,
+          "December": 442
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ወርቅ በባህላዊ አምራቾች",
+    "unit": "kg",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 40,
+        "monthly_targets": {
+          "January": 3.33,
+          "February": 3.33,
+          "March": 3.33,
+          "April": 3.33,
+          "May": 3.33,
+          "June": 3.33,
+          "July": 3.33,
+          "August": 3.33,
+          "September": 3.33,
+          "October": 3.33,
+          "November": 4,
+          "December": 3
+        }
+      },
+      {
+        "region": "AMHARA",
+        "annual_target": 70,
+        "monthly_targets": {
+          "January": 5,
+          "February": 5,
+          "March": 6,
+          "April": 6,
+          "May": 6,
+          "June": 6,
+          "July": 6,
+          "August": 6,
+          "September": 6,
+          "October": 6,
+          "November": 6,
+          "December": 6
+        }
+      },
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 7020,
+        "monthly_targets": {
+          "January": 400,
+          "February": 400,
+          "March": 470,
+          "April": 600,
+          "May": 620,
+          "June": 750,
+          "July": 660,
+          "August": 670,
+          "September": 640,
+          "October": 610,
+          "November": 600,
+          "December": 600
+        }
+      },
+      {
+        "region": "GAMBELA",
+        "annual_target": 7000,
+        "monthly_targets": {
+          "January": 583.33,
+          "February": 583.33,
+          "March": 583.33,
+          "April": 583.33,
+          "May": 583.33,
+          "June": 583.33,
+          "July": 583.33,
+          "August": 583.33,
+          "September": 583.33,
+          "October": 583.33,
+          "November": 583.33,
+          "December": 583.33
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 4686.25,
+        "monthly_targets": {
+          "January": 390.52,
+          "February": 390.52,
+          "March": 390.52,
+          "April": 390.52,
+          "May": 390.52,
+          "June": 390.52,
+          "July": 390.52,
+          "August": 390.52,
+          "September": 390.52,
+          "October": 390.52,
+          "November": 390.52,
+          "December": 390.52
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 1200,
+        "monthly_targets": {
+          "January": 80,
+          "February": 80,
+          "March": 80,
+          "April": 120,
+          "May": 120,
+          "June": 120,
+          "July": 120,
+          "August": 120,
+          "September": 120,
+          "October": 80,
+          "November": 80,
+          "December": 80
+        }
+      },
+      {
+        "region": "SOMALI",
+        "annual_target": 6,
+        "monthly_targets": {
+          "January": 0.5,
+          "February": 0.5,
+          "March": 0.5,
+          "April": 0.5,
+          "May": 0.5,
+          "June": 0.5,
+          "July": 0.5,
+          "August": 0.5,
+          "September": 0.5,
+          "October": 0.5,
+          "November": 0.5,
+          "December": 0.5
+        }
+      },
+      {
+        "region": "TIGRAY",
+        "annual_target": 5000,
+        "monthly_targets": {
+          "January": 417,
+          "February": 417,
+          "March": 417,
+          "April": 415,
+          "May": 417,
+          "June": 415,
+          "July": 417,
+          "August": 417,
+          "September": 417,
+          "October": 417,
+          "November": 417,
+          "December": 417
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ወርቅ በኩባንያ",
+    "unit": "kg",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 30,
+        "monthly_targets": {
+          "January": 2,
+          "February": 2,
+          "March": 2,
+          "April": 3,
+          "May": 3,
+          "June": 2,
+          "July": 3,
+          "August": 3,
+          "September": 2,
+          "October": 3,
+          "November": 2,
+          "December": 3
+        }
+      },
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 1500,
+        "monthly_targets": {
+          "January": 100,
+          "February": 100,
+          "March": 110,
+          "April": 120,
+          "May": 140,
+          "June": 200,
+          "July": 200,
+          "August": 100,
+          "September": 110,
+          "October": 100,
+          "November": 110,
+          "December": 110
+        }
+      },
+      {
+        "region": "GAMBELA",
+        "annual_target": 1000,
+        "monthly_targets": {
+          "January": 83.33,
+          "February": 83.33,
+          "March": 83.33,
+          "April": 83.33,
+          "May": 83.33,
+          "June": 83.33,
+          "July": 83.33,
+          "August": 83.33,
+          "September": 83.33,
+          "October": 83.33,
+          "November": 83.33,
+          "December": 83.33
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 3450,
+        "monthly_targets": {
+          "January": 287.5,
+          "February": 287.5,
+          "March": 287.5,
+          "April": 287.5,
+          "May": 287.5,
+          "June": 287.5,
+          "July": 287.5,
+          "August": 287.5,
+          "September": 287.5,
+          "October": 287.5,
+          "November": 287.5,
+          "December": 287.5
+        }
+      },
+      {
+        "region": "TIGRAY",
+        "annual_target": 300,
+        "monthly_targets": {
+          "January": 25,
+          "February": 25,
+          "March": 25,
+          "April": 25,
+          "May": 25,
+          "June": 25,
+          "July": 25,
+          "August": 25,
+          "September": 25,
+          "October": 25,
+          "November": 25,
+          "December": 25
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ፕላትንየም",
+    "unit": "kg",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "OROMIA",
+        "annual_target": 0.5,
+        "monthly_targets": {
+          "January": 0.04,
+          "February": 0.04,
+          "March": 0.04,
+          "April": 0.04,
+          "May": 0.04,
+          "June": 0.04,
+          "July": 0.04,
+          "August": 0.04,
+          "September": 0.04,
+          "October": 0.04,
+          "November": 0.04,
+          "December": 0.04
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ዕምነበረድ",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "OROMIA",
+        "annual_target": 139945.71,
+        "monthly_targets": {
+          "January": 11662.14,
+          "February": 11662.14,
+          "March": 11662.14,
+          "April": 11662.14,
+          "May": 11662.14,
+          "June": 11662.14,
+          "July": 11662.14,
+          "August": 11662.14,
+          "September": 11662.14,
+          "October": 11662.14,
+          "November": 11662.14,
+          "December": 11662.14
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ኤምራልድ",
+    "unit": "kg",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "OROMIA",
+        "annual_target": 1012,
+        "monthly_targets": {
+          "January": 84.33,
+          "February": 84.33,
+          "March": 84.33,
+          "April": 84.33,
+          "May": 84.33,
+          "June": 84.33,
+          "July": 84.33,
+          "August": 84.33,
+          "September": 84.33,
+          "October": 84.33,
+          "November": 84.33,
+          "December": 84.33
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ሳፋየር",
+    "unit": "kg",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "OROMIA",
+        "annual_target": 5.5,
+        "monthly_targets": {
+          "January": 0.46,
+          "February": 0.46,
+          "March": 0.46,
+          "April": 0.46,
+          "May": 0.46,
+          "June": 0.46,
+          "July": 0.46,
+          "August": 0.46,
+          "September": 0.46,
+          "October": 0.46,
+          "November": 0.46,
+          "December": 0.46
+        }
+      },
+      {
+        "region": "TIGRAY",
+        "annual_target": 50,
+        "monthly_targets": {
+          "January": 6,
+          "February": 6,
+          "March": 6,
+          "April": 6,
+          "May": 6,
+          "June": 4,
+          "July": 4,
+          "August": 3,
+          "September": 2,
+          "October": 3,
+          "November": 2,
+          "December": 2
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ኳርትዝ",
+    "unit": "kg",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "OROMIA",
+        "annual_target": 11000,
+        "monthly_targets": {
+          "January": 916.67,
+          "February": 916.67,
+          "March": 916.67,
+          "April": 916.67,
+          "May": 916.67,
+          "June": 916.67,
+          "July": 916.67,
+          "August": 916.67,
+          "September": 916.67,
+          "October": 916.67,
+          "November": 916.67,
+          "December": 916.67
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 20,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 5,
+          "April": 5,
+          "May": 5,
+          "June": 5,
+          "July": 0,
+          "August": 0,
+          "September": 0,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "አጌት",
+    "unit": "kg",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "OROMIA",
+        "annual_target": 56.1,
+        "monthly_targets": {
+          "January": 4.67,
+          "February": 4.67,
+          "March": 4.67,
+          "April": 4.67,
+          "May": 4.67,
+          "June": 4.67,
+          "July": 4.67,
+          "August": 4.67,
+          "September": 4.67,
+          "October": 4.67,
+          "November": 4.67,
+          "December": 4.67
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ሞርጋናይት",
+    "unit": "kg",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "OROMIA",
+        "annual_target": 217.8,
+        "monthly_targets": {
+          "January": 18.15,
+          "February": 18.15,
+          "March": 18.15,
+          "April": 18.15,
+          "May": 18.15,
+          "June": 18.15,
+          "July": 18.15,
+          "August": 18.15,
+          "September": 18.15,
+          "October": 18.15,
+          "November": 18.15,
+          "December": 18.15
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ቤሪል",
+    "unit": "kg",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "OROMIA",
+        "annual_target": 808.5,
+        "monthly_targets": {
+          "January": 67.38,
+          "February": 67.38,
+          "March": 67.38,
+          "April": 67.38,
+          "May": 67.38,
+          "June": 67.38,
+          "July": 67.38,
+          "August": 67.38,
+          "September": 67.38,
+          "October": 67.38,
+          "November": 67.38,
+          "December": 67.38
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ክሮማይት",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "OROMIA",
+        "annual_target": 341,
+        "monthly_targets": {
+          "January": 28.42,
+          "February": 28.42,
+          "March": 28.42,
+          "April": 28.42,
+          "May": 28.42,
+          "June": 28.42,
+          "July": 28.42,
+          "August": 28.42,
+          "September": 28.42,
+          "October": 28.42,
+          "November": 28.42,
+          "December": 28.42
+        }
+      },
+      {
+        "region": "SOMALI",
+        "annual_target": 25200,
+        "monthly_targets": {
+          "January": 2100,
+          "February": 2100,
+          "March": 2100,
+          "April": 2100,
+          "May": 2100,
+          "June": 2100,
+          "July": 2100,
+          "August": 2100,
+          "September": 2100,
+          "October": 2100,
+          "November": 2100,
+          "December": 2100
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ቤሪል",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "OROMIA",
+        "annual_target": 808.5,
+        "monthly_targets": {
+          "January": 67.38,
+          "February": 67.38,
+          "March": 67.38,
+          "April": 67.38,
+          "May": 67.38,
+          "June": 67.38,
+          "July": 67.38,
+          "August": 67.38,
+          "September": 67.38,
+          "October": 67.38,
+          "November": 67.38,
+          "December": 67.38
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ሲልካ ሳንድ",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 190985,
+        "monthly_targets": {
+          "January": 15915.42,
+          "February": 15915.42,
+          "March": 15915.42,
+          "April": 15915.42,
+          "May": 15915.42,
+          "June": 15915.42,
+          "July": 15915.42,
+          "August": 15915.42,
+          "September": 15915.42,
+          "October": 15915.42,
+          "November": 15915.42,
+          "December": 15915.42
+        }
+      },
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 15000,
+        "monthly_targets": {
+          "January": 1250,
+          "February": 1250,
+          "March": 1250,
+          "April": 1250,
+          "May": 1250,
+          "June": 1250,
+          "July": 1250,
+          "August": 1250,
+          "September": 1250,
+          "October": 1250,
+          "November": 1250,
+          "December": 1250
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 334256.96,
+        "monthly_targets": {
+          "January": 27854.75,
+          "February": 27854.75,
+          "March": 27854.75,
+          "April": 27854.75,
+          "May": 27854.75,
+          "June": 27854.75,
+          "July": 27854.75,
+          "August": 27854.75,
+          "September": 27854.75,
+          "October": 27854.75,
+          "November": 27854.75,
+          "December": 27854.75
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ኒኬል",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "OROMIA",
+        "annual_target": 121,
+        "monthly_targets": {
+          "January": 10.08,
+          "February": 10.08,
+          "March": 10.08,
+          "April": 10.08,
+          "May": 10.08,
+          "June": 10.08,
+          "July": 10.08,
+          "August": 10.08,
+          "September": 10.08,
+          "October": 10.08,
+          "November": 10.08,
+          "December": 10.08
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ኮፐር",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 4000,
+        "monthly_targets": {
+          "January": 333.3,
+          "February": 333.3,
+          "March": 333.3,
+          "April": 333.3,
+          "May": 333.3,
+          "June": 333.3,
+          "July": 333.3,
+          "August": 333.3,
+          "September": 333.3,
+          "October": 333.3,
+          "November": 333.3,
+          "December": 333.3
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 190.3,
+        "monthly_targets": {
+          "January": 15.86,
+          "February": 15.86,
+          "March": 15.86,
+          "April": 15.86,
+          "May": 15.86,
+          "June": 15.86,
+          "July": 15.86,
+          "August": 15.86,
+          "September": 15.86,
+          "October": 15.86,
+          "November": 15.86,
+          "December": 15.86
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 30,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 10,
+          "April": 10,
+          "May": 10,
+          "June": 0,
+          "July": 0,
+          "August": 0,
+          "September": 0,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      },
+      {
+        "region": "SOMALI",
+        "annual_target": 7200,
+        "monthly_targets": {
+          "January": 600,
+          "February": 600,
+          "March": 600,
+          "April": 600,
+          "May": 600,
+          "June": 600,
+          "July": 600,
+          "August": 600,
+          "September": 600,
+          "October": 600,
+          "November": 600,
+          "December": 600
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የግንባታ ግብአት ማዕድናት",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 9200,
+        "monthly_targets": {
+          "January": 766.6,
+          "February": 766.6,
+          "March": 766.8,
+          "April": 766.6,
+          "May": 766.8,
+          "June": 766.6,
+          "July": 766.8,
+          "August": 766.8,
+          "September": 766.6,
+          "October": 766.6,
+          "November": 766.8,
+          "December": 766.4
+        }
+      },
+      {
+        "region": "AMHARA",
+        "annual_target": 3077874.5,
+        "monthly_targets": {
+          "January": 256489.54,
+          "February": 256489.54,
+          "March": 256489.54,
+          "April": 256489.54,
+          "May": 256489.54,
+          "June": 256489.54,
+          "July": 256489.54,
+          "August": 256489.54,
+          "September": 256489.54,
+          "October": 256489.54,
+          "November": 256489.54,
+          "December": 256489.54
+        }
+      },
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 17000000,
+        "monthly_targets": {
+          "January": 1416666.67,
+          "February": 1416666.67,
+          "March": 1416666.67,
+          "April": 1416666.67,
+          "May": 1416666.67,
+          "June": 1416666.67,
+          "July": 1416666.67,
+          "August": 1416666.67,
+          "September": 1416666.67,
+          "October": 1416666.67,
+          "November": 1416666.67,
+          "December": 1416666.67
+        }
+      },
+      {
+        "region": "DIRE DAWA (CITY ADMINSTRATION)",
+        "annual_target": 2385000,
+        "monthly_targets": {
+          "January": 135000,
+          "February": 150000,
+          "March": 190000,
+          "April": 210000,
+          "May": 234496,
+          "June": 240000,
+          "July": 230000,
+          "August": 230000,
+          "September": 212000,
+          "October": 264079,
+          "November": 188081,
+          "December": 101344
+        }
+      },
+      {
+        "region": "GAMBELA",
+        "annual_target": 1160000,
+        "monthly_targets": {
+          "January": 96666.67,
+          "February": 96666.67,
+          "March": 96666.67,
+          "April": 96666.67,
+          "May": 96666.67,
+          "June": 96666.67,
+          "July": 96666.67,
+          "August": 96666.67,
+          "September": 96666.67,
+          "October": 96666.67,
+          "November": 96666.67,
+          "December": 96666.67
+        }
+      },
+      {
+        "region": "HARARI",
+        "annual_target": 100000,
+        "monthly_targets": {
+          "January": 6000,
+          "February": 7000,
+          "March": 7000,
+          "April": 10000,
+          "May": 10000,
+          "June": 10000,
+          "July": 10000,
+          "August": 10000,
+          "September": 10000,
+          "October": 6000,
+          "November": 7000,
+          "December": 7000
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 44561291.08,
+        "monthly_targets": {
+          "January": 3713440.92,
+          "February": 3713440.92,
+          "March": 3713440.92,
+          "April": 3713440.92,
+          "May": 3713440.92,
+          "June": 3713440.92,
+          "July": 3713440.92,
+          "August": 3713440.92,
+          "September": 3713440.92,
+          "October": 3713440.92,
+          "November": 3713440.92,
+          "December": 3713440.92
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 6500000,
+        "monthly_targets": {
+          "January": 491666.67,
+          "February": 491666.67,
+          "March": 541666.67,
+          "April": 641666.67,
+          "May": 641666.67,
+          "June": 991666.67,
+          "July": 1041666.67,
+          "August": 391666.67,
+          "September": 391666.67,
+          "October": 291666.67,
+          "November": 291666.67,
+          "December": 291666.67
+        }
+      },
+      {
+        "region": "SOMALI",
+        "annual_target": 1377000,
+        "monthly_targets": {
+          "January": 114750,
+          "February": 114750,
+          "March": 114750,
+          "April": 114750,
+          "May": 114750,
+          "June": 114750,
+          "July": 114750,
+          "August": 114750,
+          "September": 114750,
+          "October": 114750,
+          "November": 114750,
+          "December": 114750
+        }
+      },
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 8000000,
+        "monthly_targets": {
+          "January": 666666.67,
+          "February": 666666.67,
+          "March": 666666.67,
+          "April": 666666.67,
+          "May": 666666.67,
+          "June": 666666.67,
+          "July": 666666.67,
+          "August": 666666.67,
+          "September": 666666.67,
+          "October": 666666.67,
+          "November": 666666.67,
+          "December": 666666.67
+        }
+      },
+      {
+        "region": "TIGRAY",
+        "annual_target": 18409000,
+        "monthly_targets": {
+          "January": 1534083.33,
+          "February": 1534083.33,
+          "March": 1534083.33,
+          "April": 1534083.33,
+          "May": 1534083.33,
+          "June": 1534083.33,
+          "July": 1534083.33,
+          "August": 1534083.33,
+          "September": 1534083.33,
+          "October": 1534083.33,
+          "November": 1534083.33,
+          "December": 1534083.33
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "እብነበረድ",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 395,
+        "monthly_targets": {
+          "January": 32.92,
+          "February": 32.92,
+          "March": 32.92,
+          "April": 32.92,
+          "May": 32.92,
+          "June": 32.92,
+          "July": 32.92,
+          "August": 32.92,
+          "September": 32.92,
+          "October": 32.92,
+          "November": 32.92,
+          "December": 32.92
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 139945.71,
+        "monthly_targets": {
+          "January": 11662.14,
+          "February": 11662.14,
+          "March": 11662.14,
+          "April": 11662.14,
+          "May": 11662.14,
+          "June": 11662.14,
+          "July": 11662.14,
+          "August": 11662.14,
+          "September": 11662.14,
+          "October": 11662.14,
+          "November": 11662.14,
+          "December": 11662.14
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ግራናይት",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 9043,
+        "monthly_targets": {
+          "January": 753.58,
+          "February": 753.58,
+          "March": 753.58,
+          "April": 753.58,
+          "May": 753.58,
+          "June": 753.58,
+          "July": 753.58,
+          "August": 753.58,
+          "September": 753.58,
+          "October": 753.58,
+          "November": 753.58,
+          "December": 753.58
+        }
+      },
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 50000,
+        "monthly_targets": {
+          "January": 4166.67,
+          "February": 4166.67,
+          "March": 4166.67,
+          "April": 4166.67,
+          "May": 4166.67,
+          "June": 4166.67,
+          "July": 4166.67,
+          "August": 4166.67,
+          "September": 4166.67,
+          "October": 4166.67,
+          "November": 4166.67,
+          "December": 4166.67
+        }
+      },
+      {
+        "region": "GAMBELA",
+        "annual_target": 20000,
+        "monthly_targets": {
+          "January": 1666.67,
+          "February": 1666.67,
+          "March": 1666.67,
+          "April": 1666.67,
+          "May": 1666.67,
+          "June": 1666.67,
+          "July": 1666.67,
+          "August": 1666.67,
+          "September": 1666.67,
+          "October": 1666.67,
+          "November": 1666.67,
+          "December": 1666.67
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 212288.57,
+        "monthly_targets": {
+          "January": 17690.71,
+          "February": 17690.71,
+          "March": 17690.71,
+          "April": 17690.71,
+          "May": 17690.71,
+          "June": 17690.71,
+          "July": 17690.71,
+          "August": 17690.71,
+          "September": 17690.71,
+          "October": 17690.71,
+          "November": 17690.71,
+          "December": 17690.71
+        }
+      },
+      {
+        "region": "SOMALI",
+        "annual_target": 24000,
+        "monthly_targets": {
+          "January": 2000,
+          "February": 2000,
+          "March": 2000,
+          "April": 2000,
+          "May": 2000,
+          "June": 2000,
+          "July": 2000,
+          "August": 2000,
+          "September": 2000,
+          "October": 2000,
+          "November": 2000,
+          "December": 2000
+        }
+      },
+      {
+        "region": "TIGRAY",
+        "annual_target": 9000,
+        "monthly_targets": {
+          "January": 750,
+          "February": 750,
+          "March": 750,
+          "April": 750,
+          "May": 750,
+          "June": 750,
+          "July": 750,
+          "August": 750,
+          "September": 750,
+          "October": 750,
+          "November": 750,
+          "December": 750
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "አሸዋ (የደለል)",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 4000,
+        "monthly_targets": {
+          "January": 333.3,
+          "February": 333.3,
+          "March": 333.4,
+          "April": 333.3,
+          "May": 333.4,
+          "June": 333.3,
+          "July": 333.4,
+          "August": 333.4,
+          "September": 333.3,
+          "October": 333.3,
+          "November": 333.4,
+          "December": 333.2
+        }
+      },
+      {
+        "region": "AMHARA",
+        "annual_target": 557823.5,
+        "monthly_targets": {
+          "January": 46485.29,
+          "February": 46485.29,
+          "March": 46485.29,
+          "April": 46485.29,
+          "May": 46485.29,
+          "June": 46485.29,
+          "July": 46485.29,
+          "August": 46485.29,
+          "September": 46485.29,
+          "October": 46485.29,
+          "November": 46485.29,
+          "December": 46485.29
+        }
+      },
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 220000,
+        "monthly_targets": {
+          "January": 18333,
+          "February": 18334,
+          "March": 18333,
+          "April": 18330,
+          "May": 18335,
+          "June": 18337,
+          "July": 18333,
+          "August": 18333,
+          "September": 18333,
+          "October": 18333,
+          "November": 18333,
+          "December": 18333
+        }
+      },
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 2315207,
+        "monthly_targets": {
+          "January": 192933.92,
+          "February": 192933.92,
+          "March": 192933.92,
+          "April": 192933.92,
+          "May": 192933.92,
+          "June": 192933.92,
+          "July": 192933.92,
+          "August": 192933.92,
+          "September": 192933.92,
+          "October": 192933.92,
+          "November": 192933.92,
+          "December": 192933.92
+        }
+      },
+      {
+        "region": "DIRE DAWA (CITY ADMINSTRATION)",
+        "annual_target": 435000,
+        "monthly_targets": {
+          "January": 20000,
+          "February": 30000,
+          "March": 30000,
+          "April": 30000,
+          "May": 50000,
+          "June": 30000,
+          "July": 50000,
+          "August": 30000,
+          "September": 30000,
+          "October": 96919,
+          "November": 38081,
+          "December": 0
+        }
+      },
+      {
+        "region": "GAMBELA",
+        "annual_target": 400000,
+        "monthly_targets": {
+          "January": 33333.33,
+          "February": 33333.33,
+          "March": 33333.33,
+          "April": 33333.33,
+          "May": 33333.33,
+          "June": 33333.33,
+          "July": 33333.33,
+          "August": 33333.33,
+          "September": 33333.33,
+          "October": 33333.33,
+          "November": 33333.33,
+          "December": 33333.33
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 10464592.01,
+        "monthly_targets": {
+          "January": 872049.33,
+          "February": 872049.33,
+          "March": 872049.33,
+          "April": 872049.33,
+          "May": 872049.33,
+          "June": 872049.33,
+          "July": 872049.33,
+          "August": 872049.33,
+          "September": 872049.33,
+          "October": 872049.33,
+          "November": 872049.33,
+          "December": 872049.33
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 2000000,
+        "monthly_targets": {
+          "January": 100000,
+          "February": 100000,
+          "March": 200000,
+          "April": 200000,
+          "May": 200000,
+          "June": 300000,
+          "July": 400000,
+          "August": 100000,
+          "September": 100000,
+          "October": 100000,
+          "November": 100000,
+          "December": 100000
+        }
+      },
+      {
+        "region": "SOMALI",
+        "annual_target": 660000,
+        "monthly_targets": {
+          "January": 55000,
+          "February": 55000,
+          "March": 55000,
+          "April": 55000,
+          "May": 55000,
+          "June": 55000,
+          "July": 55000,
+          "August": 55000,
+          "September": 55000,
+          "October": 55000,
+          "November": 55000,
+          "December": 55000
+        }
+      },
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 4000000,
+        "monthly_targets": {
+          "January": 333333.33,
+          "February": 333333.33,
+          "March": 333333.33,
+          "April": 333333.33,
+          "May": 333333.33,
+          "June": 333333.33,
+          "July": 333333.33,
+          "August": 333333.33,
+          "September": 333333.33,
+          "October": 333333.33,
+          "November": 333333.33,
+          "December": 333333.33
+        }
+      },
+      {
+        "region": "TIGRAY",
+        "annual_target": 900000,
+        "monthly_targets": {
+          "January": 75000,
+          "February": 75000,
+          "March": 75000,
+          "April": 75000,
+          "May": 75000,
+          "June": 75000,
+          "July": 75000,
+          "August": 75000,
+          "September": 75000,
+          "October": 75000,
+          "November": 75000,
+          "December": 75000
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ጥቁር ድንጋይ (የተፈጨ)",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 1441903,
+        "monthly_targets": {
+          "January": 120158.58,
+          "February": 120158.58,
+          "March": 120158.58,
+          "April": 120158.58,
+          "May": 120158.58,
+          "June": 120158.58,
+          "July": 120158.58,
+          "August": 120158.58,
+          "September": 120158.58,
+          "October": 120158.58,
+          "November": 120158.58,
+          "December": 120158.58
+        }
+      },
+      {
+        "region": "DIRE DAWA (CITY ADMINSTRATION)",
+        "annual_target": 750000,
+        "monthly_targets": {
+          "January": 40000,
+          "February": 40000,
+          "March": 70000,
+          "April": 80000,
+          "May": 70000,
+          "June": 80000,
+          "July": 70000,
+          "August": 80000,
+          "September": 72000,
+          "October": 67160,
+          "November": 50000,
+          "December": 30840
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 17786530.29,
+        "monthly_targets": {
+          "January": 1482210.86,
+          "February": 1482210.86,
+          "March": 1482210.86,
+          "April": 1482210.86,
+          "May": 1482210.86,
+          "June": 1482210.86,
+          "July": 1482210.86,
+          "August": 1482210.86,
+          "September": 1482210.86,
+          "October": 1482210.86,
+          "November": 1482210.86,
+          "December": 1482210.86
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 3000000,
+        "monthly_targets": {
+          "January": 300000,
+          "February": 300000,
+          "March": 200000,
+          "April": 300000,
+          "May": 300000,
+          "June": 500000,
+          "July": 400000,
+          "August": 200000,
+          "September": 200000,
+          "October": 100000,
+          "November": 100000,
+          "December": 100000
+        }
+      },
+      {
+        "region": "SOMALI",
+        "annual_target": 120000,
+        "monthly_targets": {
+          "January": 10000,
+          "February": 10000,
+          "March": 10000,
+          "April": 10000,
+          "May": 10000,
+          "June": 10000,
+          "July": 10000,
+          "August": 10000,
+          "September": 10000,
+          "October": 10000,
+          "November": 10000,
+          "December": 10000
+        }
+      },
+      {
+        "region": "TIGRAY",
+        "annual_target": 2500000,
+        "monthly_targets": {
+          "January": 208333.33,
+          "February": 208333.33,
+          "March": 208333.33,
+          "April": 208333.33,
+          "May": 208333.33,
+          "June": 208333.33,
+          "July": 208333.33,
+          "August": 208333.33,
+          "September": 208333.33,
+          "October": 208333.33,
+          "November": 208333.33,
+          "December": 208333.33
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ነጭ ድንጋይ (ኖራ)",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 108710,
+        "monthly_targets": {
+          "January": 9059.17,
+          "February": 9059.17,
+          "March": 9059.17,
+          "April": 9059.17,
+          "May": 9059.17,
+          "June": 9059.17,
+          "July": 9059.17,
+          "August": 9059.17,
+          "September": 9059.17,
+          "October": 9059.17,
+          "November": 9059.17,
+          "December": 9059.17
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 4898568.41,
+        "monthly_targets": {
+          "January": 408214.03,
+          "February": 408214.03,
+          "March": 408214.03,
+          "April": 408214.03,
+          "May": 408214.03,
+          "June": 408214.03,
+          "July": 408214.03,
+          "August": 408214.03,
+          "September": 408214.03,
+          "October": 408214.03,
+          "November": 408214.03,
+          "December": 408214.03
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 500000,
+        "monthly_targets": {
+          "January": 41666.67,
+          "February": 41666.67,
+          "March": 41666.67,
+          "April": 41666.67,
+          "May": 41666.67,
+          "June": 41666.67,
+          "July": 41666.67,
+          "August": 41666.67,
+          "September": 41666.67,
+          "October": 41666.67,
+          "November": 41666.67,
+          "December": 41666.67
+        }
+      },
+      {
+        "region": "SOMALI",
+        "annual_target": 540000,
+        "monthly_targets": {
+          "January": 45000,
+          "February": 45000,
+          "March": 45000,
+          "April": 45000,
+          "May": 45000,
+          "June": 45000,
+          "July": 45000,
+          "August": 45000,
+          "September": 45000,
+          "October": 45000,
+          "November": 45000,
+          "December": 45000
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ገረጋንቲ (ሴሌክትድ ማቴሪያል)",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 900000,
+        "monthly_targets": {
+          "January": 75000,
+          "February": 75000,
+          "March": 75000,
+          "April": 75000,
+          "May": 75000,
+          "June": 75000,
+          "July": 75000,
+          "August": 75000,
+          "September": 75000,
+          "October": 75000,
+          "November": 75000,
+          "December": 75000
+        }
+      },
+      {
+        "region": "DIRE DAWA (CITY ADMINSTRATION)",
+        "annual_target": 400000,
+        "monthly_targets": {
+          "January": 30000,
+          "February": 30000,
+          "March": 20000,
+          "April": 40000,
+          "May": 30000,
+          "June": 40000,
+          "July": 30000,
+          "August": 40000,
+          "September": 30000,
+          "October": 40000,
+          "November": 30000,
+          "December": 40000
+        }
+      },
+      {
+        "region": "GAMBELA",
+        "annual_target": 420000,
+        "monthly_targets": {
+          "January": 35000,
+          "February": 35000,
+          "March": 35000,
+          "April": 35000,
+          "May": 35000,
+          "June": 35000,
+          "July": 35000,
+          "August": 35000,
+          "September": 35000,
+          "October": 35000,
+          "November": 35000,
+          "December": 35000
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 7240749.88,
+        "monthly_targets": {
+          "January": 603395.82,
+          "February": 603395.82,
+          "March": 603395.82,
+          "April": 603395.82,
+          "May": 603395.82,
+          "June": 603395.82,
+          "July": 603395.82,
+          "August": 603395.82,
+          "September": 603395.82,
+          "October": 603395.82,
+          "November": 603395.82,
+          "December": 603395.82
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 1000000,
+        "monthly_targets": {
+          "January": 50000,
+          "February": 50000,
+          "March": 100000,
+          "April": 100000,
+          "May": 100000,
+          "June": 150000,
+          "July": 200000,
+          "August": 50000,
+          "September": 50000,
+          "October": 50000,
+          "November": 50000,
+          "December": 50000
+        }
+      },
+      {
+        "region": "SOMALI",
+        "annual_target": 33000,
+        "monthly_targets": {
+          "January": 2750,
+          "February": 2750,
+          "March": 2750,
+          "April": 2750,
+          "May": 2750,
+          "June": 2750,
+          "July": 2750,
+          "August": 2750,
+          "September": 2750,
+          "October": 2750,
+          "November": 2750,
+          "December": 2750
+        }
+      },
+      {
+        "region": "TIGRAY",
+        "annual_target": 15000000,
+        "monthly_targets": {
+          "January": 1250000,
+          "February": 1250000,
+          "March": 1250000,
+          "April": 1250000,
+          "May": 1250000,
+          "June": 1250000,
+          "July": 1250000,
+          "August": 1250000,
+          "September": 1250000,
+          "October": 1250000,
+          "November": 1250000,
+          "December": 1250000
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ግራቭል",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 80000,
+        "monthly_targets": {
+          "January": 6666,
+          "February": 6664,
+          "March": 6668,
+          "April": 6668,
+          "May": 6666,
+          "June": 6668,
+          "July": 6666,
+          "August": 6667,
+          "September": 6668,
+          "October": 6666,
+          "November": 6667,
+          "December": 6666
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 1687973.57,
+        "monthly_targets": {
+          "January": 140664.46,
+          "February": 140664.46,
+          "March": 140664.46,
+          "April": 140664.46,
+          "May": 140664.46,
+          "June": 140664.46,
+          "July": 140664.46,
+          "August": 140664.46,
+          "September": 140664.46,
+          "October": 140664.46,
+          "November": 140664.46,
+          "December": 140664.46
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ሸክላ አፈር",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 15000,
+        "monthly_targets": {
+          "January": 1250,
+          "February": 1250,
+          "March": 1250,
+          "April": 1250,
+          "May": 1250,
+          "June": 1250,
+          "July": 1250,
+          "August": 1250,
+          "September": 1250,
+          "October": 1250,
+          "November": 1250,
+          "December": 1250
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 1155689.79,
+        "monthly_targets": {
+          "January": 96307.48,
+          "February": 96307.48,
+          "March": 96307.48,
+          "April": 96307.48,
+          "May": 96307.48,
+          "June": 96307.48,
+          "July": 96307.48,
+          "August": 96307.48,
+          "September": 96307.48,
+          "October": 96307.48,
+          "November": 96307.48,
+          "December": 96307.48
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 100000,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 17000,
+          "April": 3000,
+          "May": 10000,
+          "June": 10000,
+          "July": 20000,
+          "August": 10000,
+          "September": 10000,
+          "October": 10000,
+          "November": 10000,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "እስኮሪያ",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 45000,
+        "monthly_targets": {
+          "January": 3750,
+          "February": 3750,
+          "March": 3750,
+          "April": 3750,
+          "May": 3750,
+          "June": 3750,
+          "July": 3750,
+          "August": 3750,
+          "September": 3750,
+          "October": 3750,
+          "November": 3750,
+          "December": 3750
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 974952.86,
+        "monthly_targets": {
+          "January": 81246.07,
+          "February": 81246.07,
+          "March": 81246.07,
+          "April": 81246.07,
+          "May": 81246.07,
+          "June": 81246.07,
+          "July": 81246.07,
+          "August": 81246.07,
+          "September": 81246.07,
+          "October": 81246.07,
+          "November": 81246.07,
+          "December": 81246.07
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የኢንዱስትሪ ማዕድናት (ለሲሚንቶ፣ ግራናይት፣ ብርጭቆ፣ ሴራሚክስና ብረት)",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 1558303,
+        "monthly_targets": {
+          "January": 129858.58,
+          "February": 129858.58,
+          "March": 129858.58,
+          "April": 129858.58,
+          "May": 129858.58,
+          "June": 129858.58,
+          "July": 129858.58,
+          "August": 129858.58,
+          "September": 129858.58,
+          "October": 129858.58,
+          "November": 129858.58,
+          "December": 129858.58
+        }
+      },
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 120000,
+        "monthly_targets": {
+          "January": 9000,
+          "February": 10000,
+          "March": 9000,
+          "April": 8000,
+          "May": 11000,
+          "June": 10000,
+          "July": 11000,
+          "August": 10000,
+          "September": 10000,
+          "October": 12000,
+          "November": 10000,
+          "December": 10000
+        }
+      },
+      {
+        "region": "DIRE DAWA (CITY ADMINSTRATION)",
+        "annual_target": 1050000,
+        "monthly_targets": {
+          "January": 60000,
+          "February": 85000,
+          "March": 65000,
+          "April": 95000,
+          "May": 85000,
+          "June": 100000,
+          "July": 82732,
+          "August": 100000,
+          "September": 100000,
+          "October": 102000,
+          "November": 90000,
+          "December": 85268
+        }
+      },
+      {
+        "region": "GAMBELA",
+        "annual_target": 15500,
+        "monthly_targets": {
+          "January": 1291.67,
+          "February": 1291.7,
+          "March": 1291.7,
+          "April": 1291.7,
+          "May": 1291.7,
+          "June": 1291.7,
+          "July": 1291.7,
+          "August": 1291.7,
+          "September": 1291.7,
+          "October": 1291.7,
+          "November": 1291.7,
+          "December": 1291.7
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 19019055.16,
+        "monthly_targets": {
+          "January": 1584921.26,
+          "February": 1584921.26,
+          "March": 1584921.26,
+          "April": 1584921.26,
+          "May": 1584921.26,
+          "June": 1584921.26,
+          "July": 1584921.26,
+          "August": 1584921.26,
+          "September": 1584921.26,
+          "October": 1584921.26,
+          "November": 1584921.26,
+          "December": 1584921.26
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 305000,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 57500,
+          "April": 63500,
+          "May": 31000,
+          "June": 32000,
+          "July": 60500,
+          "August": 30500,
+          "September": 10000,
+          "October": 10000,
+          "November": 10000,
+          "December": 0
+        }
+      },
+      {
+        "region": "SOMALI",
+        "annual_target": 204000,
+        "monthly_targets": {
+          "January": 17000,
+          "February": 17000,
+          "March": 17000,
+          "April": 17000,
+          "May": 17000,
+          "June": 17000,
+          "July": 17000,
+          "August": 17000,
+          "September": 17000,
+          "October": 17000,
+          "November": 17000,
+          "December": 17000
+        }
+      },
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 27000,
+        "monthly_targets": {
+          "January": 2250,
+          "February": 2250,
+          "March": 2250,
+          "April": 2250,
+          "May": 2250,
+          "June": 2250,
+          "July": 2250,
+          "August": 2250,
+          "September": 2250,
+          "October": 2250,
+          "November": 2250,
+          "December": 2250
+        }
+      },
+      {
+        "region": "TIGRAY",
+        "annual_target": 1700000,
+        "monthly_targets": {
+          "January": 141666.67,
+          "February": 141666.67,
+          "March": 141666.67,
+          "April": 141666.67,
+          "May": 141666.67,
+          "June": 141666.67,
+          "July": 141666.67,
+          "August": 141666.67,
+          "September": 141666.67,
+          "October": 141666.67,
+          "November": 141666.67,
+          "December": 141666.67
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ጂፕሰም",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 203283,
+        "monthly_targets": {
+          "January": 16940.25,
+          "February": 16940.25,
+          "March": 16940.25,
+          "April": 16940.25,
+          "May": 16940.25,
+          "June": 16940.25,
+          "July": 16940.25,
+          "August": 16940.25,
+          "September": 16940.25,
+          "October": 16940.25,
+          "November": 16940.25,
+          "December": 16940.25
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 3393755.86,
+        "monthly_targets": {
+          "January": 282812.99,
+          "February": 282812.99,
+          "March": 282812.99,
+          "April": 282812.99,
+          "May": 282812.99,
+          "June": 282812.99,
+          "July": 282812.99,
+          "August": 282812.99,
+          "September": 282812.99,
+          "October": 282812.99,
+          "November": 282812.99,
+          "December": 282812.99
+        }
+      },
+      {
+        "region": "SOMALI",
+        "annual_target": 120000,
+        "monthly_targets": {
+          "January": 10000,
+          "February": 10000,
+          "March": 10000,
+          "April": 10000,
+          "May": 10000,
+          "June": 10000,
+          "July": 10000,
+          "August": 10000,
+          "September": 10000,
+          "October": 10000,
+          "November": 10000,
+          "December": 10000
+        }
+      },
+      {
+        "region": "TIGRAY",
+        "annual_target": 200000,
+        "monthly_targets": {
+          "January": 16666.67,
+          "February": 16666.67,
+          "March": 16666.67,
+          "April": 16666.67,
+          "May": 16666.67,
+          "June": 16666.67,
+          "July": 16666.67,
+          "August": 16666.67,
+          "September": 16666.67,
+          "October": 16666.67,
+          "November": 16666.67,
+          "December": 16666.67
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ፑሚስ",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 139185,
+        "monthly_targets": {
+          "January": 11598.75,
+          "February": 11598.75,
+          "March": 11598.75,
+          "April": 11598.75,
+          "May": 11598.75,
+          "June": 11598.75,
+          "July": 11598.75,
+          "August": 11598.75,
+          "September": 11598.75,
+          "October": 11598.75,
+          "November": 11598.75,
+          "December": 11598.75
+        }
+      },
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 50000,
+        "monthly_targets": {
+          "January": 4166.67,
+          "February": 4166.67,
+          "March": 4166.67,
+          "April": 4166.67,
+          "May": 4166.67,
+          "June": 4166.67,
+          "July": 4166.67,
+          "August": 4166.67,
+          "September": 4166.67,
+          "October": 4166.67,
+          "November": 4166.67,
+          "December": 4166.67
+        }
+      },
+      {
+        "region": "GAMBELA",
+        "annual_target": 15500,
+        "monthly_targets": {
+          "January": 1291.67,
+          "February": 1291.7,
+          "March": 1291.7,
+          "April": 1291.7,
+          "May": 1291.7,
+          "June": 1291.7,
+          "July": 1291.7,
+          "August": 1291.7,
+          "September": 1291.7,
+          "October": 1291.7,
+          "November": 1291.7,
+          "December": 1291.7
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 4882523.04,
+        "monthly_targets": {
+          "January": 406876.92,
+          "February": 406876.92,
+          "March": 406876.92,
+          "April": 406876.92,
+          "May": 406876.92,
+          "June": 406876.92,
+          "July": 406876.92,
+          "August": 406876.92,
+          "September": 406876.92,
+          "October": 406876.92,
+          "November": 406876.92,
+          "December": 406876.92
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 200000,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 40000,
+          "April": 60000,
+          "May": 20000,
+          "June": 20000,
+          "July": 40000,
+          "August": 20000,
+          "September": 0,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ላይምስቶን",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 1024850,
+        "monthly_targets": {
+          "January": 85404.17,
+          "February": 85404.17,
+          "March": 85404.17,
+          "April": 85404.17,
+          "May": 85404.17,
+          "June": 85404.17,
+          "July": 85404.17,
+          "August": 85404.17,
+          "September": 85404.17,
+          "October": 85404.17,
+          "November": 85404.17,
+          "December": 85404.17
+        }
+      },
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 10000,
+        "monthly_targets": {
+          "January": 833.33,
+          "February": 833.33,
+          "March": 833.33,
+          "April": 833.33,
+          "May": 833.33,
+          "June": 833.33,
+          "July": 833.33,
+          "August": 833.33,
+          "September": 833.33,
+          "October": 833.33,
+          "November": 833.33,
+          "December": 833.33
+        }
+      },
+      {
+        "region": "DIRE DAWA (CITY ADMINSTRATION)",
+        "annual_target": 800000,
+        "monthly_targets": {
+          "January": 50000,
+          "February": 60000,
+          "March": 50000,
+          "April": 70000,
+          "May": 70000,
+          "June": 80000,
+          "July": 60000,
+          "August": 80000,
+          "September": 70000,
+          "October": 82000,
+          "November": 70000,
+          "December": 58000
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 7122664.95,
+        "monthly_targets": {
+          "January": 593555.41,
+          "February": 593555.41,
+          "March": 593555.41,
+          "April": 593555.41,
+          "May": 593555.41,
+          "June": 593555.41,
+          "July": 593555.41,
+          "August": 593555.41,
+          "September": 593555.41,
+          "October": 593555.41,
+          "November": 593555.41,
+          "December": 593555.41
+        }
+      },
+      {
+        "region": "SOMALI",
+        "annual_target": 60000,
+        "monthly_targets": {
+          "January": 5000,
+          "February": 5000,
+          "March": 5000,
+          "April": 5000,
+          "May": 5000,
+          "June": 5000,
+          "July": 5000,
+          "August": 5000,
+          "September": 5000,
+          "October": 5000,
+          "November": 5000,
+          "December": 5000
+        }
+      },
+      {
+        "region": "TIGRAY",
+        "annual_target": 1500000,
+        "monthly_targets": {
+          "January": 125000,
+          "February": 125000,
+          "March": 125000,
+          "April": 125000,
+          "May": 125000,
+          "June": 125000,
+          "July": 125000,
+          "August": 125000,
+          "September": 125000,
+          "October": 125000,
+          "November": 125000,
+          "December": 125000
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ሸክላ አፈር",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 5000,
+        "monthly_targets": {
+          "January": 416.67,
+          "February": 416.67,
+          "March": 416.67,
+          "April": 416.67,
+          "May": 416.67,
+          "June": 416.67,
+          "July": 416.67,
+          "August": 416.67,
+          "September": 416.67,
+          "October": 416.67,
+          "November": 416.67,
+          "December": 416.67
+        }
+      },
+      {
+        "region": "DIRE DAWA (CITY ADMINSTRATION)",
+        "annual_target": 250000,
+        "monthly_targets": {
+          "January": 10000,
+          "February": 25000,
+          "March": 15000,
+          "April": 25000,
+          "May": 15000,
+          "June": 20000,
+          "July": 22732,
+          "August": 20000,
+          "September": 30000,
+          "October": 20000,
+          "November": 20000,
+          "December": 27268
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 2220728.57,
+        "monthly_targets": {
+          "January": 185060.71,
+          "February": 185060.71,
+          "March": 185060.71,
+          "April": 185060.71,
+          "May": 185060.71,
+          "June": 185060.71,
+          "July": 185060.71,
+          "August": 185060.71,
+          "September": 185060.71,
+          "October": 185060.71,
+          "November": 185060.71,
+          "December": 185060.71
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ሶዳ አሽ",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "OROMIA",
+        "annual_target": 530710.71,
+        "monthly_targets": {
+          "January": 44225.89,
+          "February": 44225.89,
+          "March": 44225.89,
+          "April": 44225.89,
+          "May": 44225.89,
+          "June": 44225.89,
+          "July": 44225.89,
+          "August": 44225.89,
+          "September": 44225.89,
+          "October": 44225.89,
+          "November": 44225.89,
+          "December": 44225.89
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ዶሎማይት",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "OROMIA",
+        "annual_target": 516006.43,
+        "monthly_targets": {
+          "January": 43000.54,
+          "February": 43000.54,
+          "March": 43000.54,
+          "April": 43000.54,
+          "May": 43000.54,
+          "June": 43000.54,
+          "July": 43000.54,
+          "August": 43000.54,
+          "September": 43000.54,
+          "October": 43000.54,
+          "November": 43000.54,
+          "December": 43000.54
+        }
+      },
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 15000,
+        "monthly_targets": {
+          "January": 1250,
+          "February": 1250,
+          "March": 1250,
+          "April": 1250,
+          "May": 1250,
+          "June": 1250,
+          "July": 1250,
+          "August": 1250,
+          "September": 1250,
+          "October": 1250,
+          "November": 1250,
+          "December": 1250
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ጊራፋይት (Graphite)",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "OROMIA",
+        "annual_target": 857.14,
+        "monthly_targets": {
+          "January": 71.43,
+          "February": 71.43,
+          "March": 71.43,
+          "April": 71.43,
+          "May": 71.43,
+          "June": 71.43,
+          "July": 71.43,
+          "August": 71.43,
+          "September": 71.43,
+          "October": 71.43,
+          "November": 71.43,
+          "December": 71.43
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ማይካ",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "OROMIA",
+        "annual_target": 3327.86,
+        "monthly_targets": {
+          "January": 277.32,
+          "February": 277.32,
+          "March": 277.32,
+          "April": 277.32,
+          "May": 277.32,
+          "June": 277.32,
+          "July": 277.32,
+          "August": 277.32,
+          "September": 277.32,
+          "October": 277.32,
+          "November": 277.32,
+          "December": 277.32
+        }
+      },
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 2000,
+        "monthly_targets": {
+          "January": 166.67,
+          "February": 166.67,
+          "March": 166.67,
+          "April": 166.67,
+          "May": 166.67,
+          "June": 166.67,
+          "July": 166.67,
+          "August": 166.67,
+          "September": 166.67,
+          "October": 166.67,
+          "November": 166.67,
+          "December": 166.67
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ካኦላይን",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "OROMIA",
+        "annual_target": 11510.79,
+        "monthly_targets": {
+          "January": 959.23,
+          "February": 959.23,
+          "March": 959.23,
+          "April": 959.23,
+          "May": 959.23,
+          "June": 959.23,
+          "July": 959.23,
+          "August": 959.23,
+          "September": 959.23,
+          "October": 959.23,
+          "November": 959.23,
+          "December": 959.23
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ፍልድስፕር",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "OROMIA",
+        "annual_target": 2712.86,
+        "monthly_targets": {
+          "January": 226.07,
+          "February": 226.07,
+          "March": 226.07,
+          "April": 226.07,
+          "May": 226.07,
+          "June": 226.07,
+          "July": 226.07,
+          "August": 226.07,
+          "September": 226.07,
+          "October": 226.07,
+          "November": 226.07,
+          "December": 226.07
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የሚሰበሰብ ገቢ",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 65230000,
+        "monthly_targets": {
+          "January": 5435833,
+          "February": 5435833,
+          "March": 5435833,
+          "April": 5435833,
+          "May": 5435833,
+          "June": 5435833,
+          "July": 5435833,
+          "August": 5435833,
+          "September": 5435834,
+          "October": 5435834,
+          "November": 5435834,
+          "December": 5435834
+        }
+      },
+      {
+        "region": "AMHARA",
+        "annual_target": 101911426.0,
+        "monthly_targets": {
+          "January": 8492618.83,
+          "February": 8492618.83,
+          "March": 8492618.83,
+          "April": 8492618.83,
+          "May": 8492618.83,
+          "June": 8492618.83,
+          "July": 8492618.83,
+          "August": 8492618.83,
+          "September": 8492618.83,
+          "October": 8492618.83,
+          "November": 8492618.83,
+          "December": 8492618.83
+        }
+      },
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 77175000,
+        "monthly_targets": {
+          "January": 6430085,
+          "February": 6387440,
+          "March": 7485699,
+          "April": 5734550,
+          "May": 6032707,
+          "June": 6481700,
+          "July": 6308600,
+          "August": 6540580,
+          "September": 6570860,
+          "October": 6226420,
+          "November": 6641285,
+          "December": 6335074
+        }
+      },
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 250000000,
+        "monthly_targets": {
+          "January": 20833333.33,
+          "February": 20833333.33,
+          "March": 20833333.33,
+          "April": 20833333.33,
+          "May": 20833333.33,
+          "June": 20833333.33,
+          "July": 20833333.33,
+          "August": 20833333.33,
+          "September": 20833333.33,
+          "October": 20833333.33,
+          "November": 20833333.33,
+          "December": 20833333.33
+        }
+      },
+      {
+        "region": "DIRE DAWA (CITY ADMINSTRATION)",
+        "annual_target": 12271700,
+        "monthly_targets": {
+          "January": 902179,
+          "February": 104303,
+          "March": 214303,
+          "April": 204303,
+          "May": 2025000,
+          "June": 2025000,
+          "July": 2025000,
+          "August": 1525000,
+          "September": 1525000,
+          "October": 1420529,
+          "November": 189700,
+          "December": 111383
+        }
+      },
+      {
+        "region": "GAMBELA",
+        "annual_target": 350000000,
+        "monthly_targets": {
+          "January": 29166666.67,
+          "February": 29166666.67,
+          "March": 29166666.67,
+          "April": 29166666.67,
+          "May": 29166666.67,
+          "June": 29166666.67,
+          "July": 29166666.67,
+          "August": 29166666.67,
+          "September": 29166666.67,
+          "October": 29166666.67,
+          "November": 29166666.67,
+          "December": 29166666.67
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 4903966411.8,
+        "monthly_targets": {
+          "January": 408663867.65,
+          "February": 408663867.65,
+          "March": 408663867.65,
+          "April": 408663867.65,
+          "May": 408663867.65,
+          "June": 408663867.65,
+          "July": 408663867.65,
+          "August": 408663867.65,
+          "September": 408663867.65,
+          "October": 408663867.65,
+          "November": 408663867.65,
+          "December": 408663867.65
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 30000000,
+        "monthly_targets": {
+          "January": 2100000,
+          "February": 2600000,
+          "March": 2700000,
+          "April": 1700000,
+          "May": 2800000,
+          "June": 2800000,
+          "July": 2700000,
+          "August": 3000000,
+          "September": 3200000,
+          "October": 3000000,
+          "November": 1700000,
+          "December": 1700000
+        }
+      },
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 500500000,
+        "monthly_targets": {
+          "January": 41708333.33,
+          "February": 41708333.33,
+          "March": 41708333.33,
+          "April": 41708333.33,
+          "May": 41708333.33,
+          "June": 41708333.33,
+          "July": 41708333.33,
+          "August": 41708333.33,
+          "September": 41708333.33,
+          "October": 41708333.33,
+          "November": 41708333.33,
+          "December": 41708333.33
+        }
+      },
+      {
+        "region": "TIGRAY",
+        "annual_target": 3020000000,
+        "monthly_targets": {
+          "January": 251666666.67,
+          "February": 251666666.67,
+          "March": 251666666.67,
+          "April": 251666666.67,
+          "May": 251666666.67,
+          "June": 251666666.67,
+          "July": 251666666.67,
+          "August": 251666666.67,
+          "September": 251666666.67,
+          "October": 251666666.67,
+          "November": 251666666.67,
+          "December": 251666666.67
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ከሮያሊቲ",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 55000000,
+        "monthly_targets": {
+          "January": 4583333,
+          "February": 4583333,
+          "March": 4583333,
+          "April": 4583333,
+          "May": 4583333,
+          "June": 4583333,
+          "July": 4583333,
+          "August": 4583333,
+          "September": 4583334,
+          "October": 4583334,
+          "November": 4583334,
+          "December": 4583334
+        }
+      },
+      {
+        "region": "AMHARA",
+        "annual_target": 42360141.7,
+        "monthly_targets": {
+          "January": 3530011.81,
+          "February": 3530011.81,
+          "March": 3530011.81,
+          "April": 3530011.81,
+          "May": 3530011.81,
+          "June": 3530011.81,
+          "July": 3530011.81,
+          "August": 3530011.81,
+          "September": 3530011.81,
+          "October": 3530011.81,
+          "November": 3530011.81,
+          "December": 3530011.81
+        }
+      },
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 24202500,
+        "monthly_targets": {
+          "January": 2011775,
+          "February": 2000000,
+          "March": 2400000,
+          "April": 1400000,
+          "May": 2010875,
+          "June": 2011820,
+          "July": 2012730,
+          "August": 2012730,
+          "September": 2300000,
+          "October": 2011720,
+          "November": 2013975,
+          "December": 2016875
+        }
+      },
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 70000000,
+        "monthly_targets": {
+          "January": 5833333.33,
+          "February": 5833333.33,
+          "March": 5833333.33,
+          "April": 5833333.33,
+          "May": 5833333.33,
+          "June": 5833333.33,
+          "July": 5833333.33,
+          "August": 5833333.33,
+          "September": 5833333.33,
+          "October": 5833333.33,
+          "November": 5833333.33,
+          "December": 5833333.33
+        }
+      },
+      {
+        "region": "DIRE DAWA (CITY ADMINSTRATION)",
+        "annual_target": 12005200,
+        "monthly_targets": {
+          "January": 879971,
+          "February": 85000,
+          "March": 195000,
+          "April": 185000,
+          "May": 2000000,
+          "June": 2000000,
+          "July": 2000000,
+          "August": 1500000,
+          "September": 1500000,
+          "October": 1395529,
+          "November": 169700,
+          "December": 95000
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 2545935957.99,
+        "monthly_targets": {
+          "January": 212161329.83,
+          "February": 212161329.83,
+          "March": 212161329.83,
+          "April": 212161329.83,
+          "May": 212161329.83,
+          "June": 212161329.83,
+          "July": 212161329.83,
+          "August": 212161329.83,
+          "September": 212161329.83,
+          "October": 212161329.83,
+          "November": 212161329.83,
+          "December": 212161329.83
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 10000000,
+        "monthly_targets": {
+          "January": 600000,
+          "February": 600000,
+          "March": 700000,
+          "April": 700000,
+          "May": 800000,
+          "June": 800000,
+          "July": 1200000,
+          "August": 1000000,
+          "September": 1200000,
+          "October": 1000000,
+          "November": 700000,
+          "December": 700000
+        }
+      },
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 429800000,
+        "monthly_targets": {
+          "January": 35816666.67,
+          "February": 35816666.67,
+          "March": 35816666.67,
+          "April": 35816666.67,
+          "May": 35816666.67,
+          "June": 35816666.67,
+          "July": 35816666.67,
+          "August": 35816666.67,
+          "September": 35816666.67,
+          "October": 35816666.67,
+          "November": 35816666.67,
+          "December": 35816666.67
+        }
+      },
+      {
+        "region": "TIGRAY",
+        "annual_target": 3000000000,
+        "monthly_targets": {
+          "January": 250000000,
+          "February": 250000000,
+          "March": 250000000,
+          "April": 250000000,
+          "May": 250000000,
+          "June": 250000000,
+          "July": 250000000,
+          "August": 250000000,
+          "September": 250000000,
+          "October": 250000000,
+          "November": 250000000,
+          "December": 250000000
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ከመሬት ክራይ",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 14175000,
+        "monthly_targets": {
+          "January": 1181240,
+          "February": 1183250,
+          "March": 1172250,
+          "April": 1191250,
+          "May": 1181200,
+          "June": 1191130,
+          "July": 1182110,
+          "August": 1181150,
+          "September": 1158110,
+          "October": 1181100,
+          "November": 1191110,
+          "December": 1181100
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 67022522.4,
+        "monthly_targets": {
+          "January": 5585210.2,
+          "February": 5585210.2,
+          "March": 5585210.2,
+          "April": 5585210.2,
+          "May": 5585210.2,
+          "June": 5585210.2,
+          "July": 5585210.2,
+          "August": 5585210.2,
+          "September": 5585210.2,
+          "October": 5585210.2,
+          "November": 5585210.2,
+          "December": 5585210.2
+        }
+      },
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 2000000,
+        "monthly_targets": {
+          "January": 166666.67,
+          "February": 166666.67,
+          "March": 166666.67,
+          "April": 166666.67,
+          "May": 166666.67,
+          "June": 166666.67,
+          "July": 166666.67,
+          "August": 166666.67,
+          "September": 166666.67,
+          "October": 166666.67,
+          "November": 166666.67,
+          "December": 166666.67
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ከልዩ ልዩ አገልግሎት",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 24382285.2,
+        "monthly_targets": {
+          "January": 2031857.1,
+          "February": 2031857.1,
+          "March": 2031857.1,
+          "April": 2031857.1,
+          "May": 2031857.1,
+          "June": 2031857.1,
+          "July": 2031857.1,
+          "August": 2031857.1,
+          "September": 2031857.1,
+          "October": 2031857.1,
+          "November": 2031857.1,
+          "December": 2031857.1
+        }
+      },
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 16485000,
+        "monthly_targets": {
+          "January": 1373710,
+          "February": 1373690,
+          "March": 1373700,
+          "April": 1473700,
+          "May": 1270740,
+          "June": 1373750,
+          "July": 1373760,
+          "August": 1373700,
+          "September": 1373750,
+          "October": 1373100,
+          "November": 1375700,
+          "December": 1375700
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 2291007931.41,
+        "monthly_targets": {
+          "January": 190917327.62,
+          "February": 190917327.62,
+          "March": 190917327.62,
+          "April": 190917327.62,
+          "May": 190917327.62,
+          "June": 190917327.62,
+          "July": 190917327.62,
+          "August": 190917327.62,
+          "September": 190917327.62,
+          "October": 190917327.62,
+          "November": 190917327.62,
+          "December": 190917327.62
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "በኮንስትራክሽን እና የኢንዱስትሪ ማዕድን ማምረትና በሌሎች የሚፈጠር የስራ ዕድል",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 830,
+        "monthly_targets": {
+          "January": 108,
+          "February": 96,
+          "March": 82,
+          "April": 66,
+          "May": 62,
+          "June": 67,
+          "July": 55,
+          "August": 71,
+          "September": 51,
+          "October": 53,
+          "November": 70,
+          "December": 49
+        }
+      },
+      {
+        "region": "DIRE DAWA (CITY ADMINSTRATION)",
+        "annual_target": 1350,
+        "monthly_targets": {
+          "January": 75,
+          "February": 105,
+          "March": 100,
+          "April": 135,
+          "May": 130,
+          "June": 130,
+          "July": 130,
+          "August": 130,
+          "September": 130,
+          "October": 120,
+          "November": 80,
+          "December": 85
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 195000,
+        "monthly_targets": {
+          "January": 16248,
+          "February": 16250,
+          "March": 16250,
+          "April": 16250,
+          "May": 16251,
+          "June": 16250,
+          "July": 16249,
+          "August": 16250,
+          "September": 16251,
+          "October": 16250,
+          "November": 16251,
+          "December": 16250
+        }
+      },
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 30000,
+        "monthly_targets": {
+          "January": 2500,
+          "February": 2500,
+          "March": 2500,
+          "April": 2500,
+          "May": 2500,
+          "June": 2500,
+          "July": 2500,
+          "August": 2500,
+          "September": 2500,
+          "October": 2500,
+          "November": 2500,
+          "December": 2500
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ወንዶች",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 530,
+        "monthly_targets": {
+          "January": 65,
+          "February": 65,
+          "March": 55,
+          "April": 45,
+          "May": 40,
+          "June": 45,
+          "July": 33,
+          "August": 48,
+          "September": 28,
+          "October": 29,
+          "November": 49,
+          "December": 28
+        }
+      },
+      {
+        "region": "AMHARA",
+        "annual_target": 22048,
+        "monthly_targets": {
+          "January": 1837,
+          "February": 1837,
+          "March": 1837,
+          "April": 1838,
+          "May": 1837,
+          "June": 1837,
+          "July": 1838,
+          "August": 1837,
+          "September": 1838,
+          "October": 1837,
+          "November": 1838,
+          "December": 1837
+        }
+      },
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 9168,
+        "monthly_targets": {
+          "January": 764,
+          "February": 764,
+          "March": 764,
+          "April": 764,
+          "May": 764,
+          "June": 764,
+          "July": 764,
+          "August": 764,
+          "September": 764,
+          "October": 764,
+          "November": 764,
+          "December": 764
+        }
+      },
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 10400,
+        "monthly_targets": {
+          "January": 693,
+          "February": 693,
+          "March": 693,
+          "April": 1040,
+          "May": 1040,
+          "June": 1040,
+          "July": 1040,
+          "August": 1040,
+          "September": 1040,
+          "October": 694,
+          "November": 694,
+          "December": 693
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 100100,
+        "monthly_targets": {
+          "January": 8340,
+          "February": 8342,
+          "March": 8342,
+          "April": 8342,
+          "May": 8342,
+          "June": 8342,
+          "July": 8340,
+          "August": 8342,
+          "September": 8342,
+          "October": 8342,
+          "November": 8342,
+          "December": 8342
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ሴቶች",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 300,
+        "monthly_targets": {
+          "January": 43,
+          "February": 31,
+          "March": 27,
+          "April": 21,
+          "May": 22,
+          "June": 22,
+          "July": 22,
+          "August": 23,
+          "September": 23,
+          "October": 24,
+          "November": 21,
+          "December": 21
+        }
+      },
+      {
+        "region": "AMHARA",
+        "annual_target": 8084,
+        "monthly_targets": {
+          "January": 674,
+          "February": 674,
+          "March": 674,
+          "April": 674,
+          "May": 674,
+          "June": 674,
+          "July": 674,
+          "August": 674,
+          "September": 674,
+          "October": 674,
+          "November": 672,
+          "December": 672
+        }
+      },
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 6655,
+        "monthly_targets": {
+          "January": 554.58,
+          "February": 554.58,
+          "March": 554.58,
+          "April": 554.58,
+          "May": 554.58,
+          "June": 554.58,
+          "July": 554.58,
+          "August": 554.58,
+          "September": 554.58,
+          "October": 554.58,
+          "November": 554.58,
+          "December": 554.58
+        }
+      },
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 2600,
+        "monthly_targets": {
+          "January": 173,
+          "February": 173,
+          "March": 173,
+          "April": 260,
+          "May": 260,
+          "June": 260,
+          "July": 260,
+          "August": 260,
+          "September": 260,
+          "October": 174,
+          "November": 174,
+          "December": 173
+        }
+      },
+      {
+        "region": "OROMIA",
+        "annual_target": 94900,
+        "monthly_targets": {
+          "January": 7908,
+          "February": 7908,
+          "March": 7908,
+          "April": 7908,
+          "May": 7909,
+          "June": 7908,
+          "July": 7909,
+          "August": 7908,
+          "September": 7909,
+          "October": 7908,
+          "November": 7909,
+          "December": 7908
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ጥሬ ኦፓል",
+    "unit": "kg",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 120,
+        "monthly_targets": {
+          "January": 10,
+          "February": 10,
+          "March": 10,
+          "April": 10,
+          "May": 10,
+          "June": 10,
+          "July": 10,
+          "August": 10,
+          "September": 10,
+          "October": 10,
+          "November": 10,
+          "December": 10
+        }
+      },
+      {
+        "region": "AMHARA",
+        "annual_target": 15350,
+        "monthly_targets": {
+          "January": 1279.17,
+          "February": 1279.17,
+          "March": 1279.17,
+          "April": 1279.17,
+          "May": 1279.17,
+          "June": 1279.17,
+          "July": 1279.17,
+          "August": 1279.17,
+          "September": 1279.17,
+          "October": 1279.17,
+          "November": 1279.17,
+          "December": 1279.17
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ዕሴት የተጨመረበት ኦፓል",
+    "unit": "kg",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 1750,
+        "monthly_targets": {
+          "January": 145.83,
+          "February": 145.83,
+          "March": 145.83,
+          "April": 145.83,
+          "May": 145.83,
+          "June": 145.83,
+          "July": 145.83,
+          "August": 145.83,
+          "September": 145.83,
+          "October": 145.83,
+          "November": 145.83,
+          "December": 145.83
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ለሀገር ውስጥ ኢንዱስትሪዎች የሚቀርቡ ማዕድናት",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 3077874.5,
+        "monthly_targets": {
+          "January": 256489.54,
+          "February": 256489.54,
+          "March": 256489.54,
+          "April": 256489.54,
+          "May": 256489.54,
+          "June": 256489.54,
+          "July": 256489.54,
+          "August": 256489.54,
+          "September": 256489.54,
+          "October": 256489.54,
+          "November": 256489.54,
+          "December": 256489.54
+        }
+      },
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 544500,
+        "monthly_targets": {
+          "January": 45372,
+          "February": 45274,
+          "March": 45377,
+          "April": 45613,
+          "May": 45131,
+          "June": 45344,
+          "July": 45312,
+          "August": 45365,
+          "September": 45405,
+          "October": 45600,
+          "November": 45335,
+          "December": 45372
+        }
+      },
+      {
+        "region": "SOMALI",
+        "annual_target": 0,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 0,
+          "April": 0,
+          "May": 0,
+          "June": 0,
+          "July": 0,
+          "August": 0,
+          "September": 0,
+          "October": 0,
+          "November": 0,
+          "December": 75
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ድንጋይ ከሠል",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 158277,
+        "monthly_targets": {
+          "January": 13189.75,
+          "February": 13189.75,
+          "March": 13189.75,
+          "April": 13189.75,
+          "May": 13189.75,
+          "June": 13189.75,
+          "July": 13189.75,
+          "August": 13189.75,
+          "September": 13189.75,
+          "October": 13189.75,
+          "November": 13189.75,
+          "December": 13189.75
+        }
+      },
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 120000,
+        "monthly_targets": {
+          "January": 9000,
+          "February": 10000,
+          "March": 9000,
+          "April": 8000,
+          "May": 11000,
+          "June": 10000,
+          "July": 11000,
+          "August": 10000,
+          "September": 10000,
+          "October": 12000,
+          "November": 10000,
+          "December": 10000
+        }
+      },
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 1000000,
+        "monthly_targets": {
+          "January": 83333.33,
+          "February": 83333.33,
+          "March": 83333.33,
+          "April": 83333.33,
+          "May": 83333.33,
+          "June": 83333.33,
+          "July": 83333.33,
+          "August": 83333.33,
+          "September": 83333.33,
+          "October": 83333.33,
+          "November": 83333.33,
+          "December": 83333.33
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የሚሰጡ ፈቃዶች",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 66,
+        "monthly_targets": {
+          "January": 5,
+          "February": 4,
+          "March": 6,
+          "April": 6,
+          "May": 4,
+          "June": 6,
+          "July": 6,
+          "August": 5,
+          "September": 7,
+          "October": 6,
+          "November": 5,
+          "December": 6
+        }
+      },
+      {
+        "region": "AMHARA",
+        "annual_target": 2521,
+        "monthly_targets": {
+          "January": 210,
+          "February": 210,
+          "March": 210,
+          "April": 211,
+          "May": 209,
+          "June": 210,
+          "July": 211,
+          "August": 210,
+          "September": 210,
+          "October": 210,
+          "November": 210,
+          "December": 210
+        }
+      },
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 938,
+        "monthly_targets": {
+          "January": 77,
+          "February": 78,
+          "March": 77,
+          "April": 76,
+          "May": 80,
+          "June": 81,
+          "July": 78,
+          "August": 79,
+          "September": 76,
+          "October": 78,
+          "November": 76,
+          "December": 82
+        }
+      },
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 640,
+        "monthly_targets": {
+          "January": 40,
+          "February": 40,
+          "March": 44,
+          "April": 66,
+          "May": 65,
+          "June": 64,
+          "July": 63,
+          "August": 66,
+          "September": 64,
+          "October": 43,
+          "November": 43,
+          "December": 42
+        }
+      },
+      {
+        "region": "DIRE DAWA (CITY ADMINSTRATION)",
+        "annual_target": 128,
+        "monthly_targets": {
+          "January": 8,
+          "February": 9,
+          "March": 12,
+          "April": 11,
+          "May": 11,
+          "June": 11,
+          "July": 11,
+          "August": 12,
+          "September": 12,
+          "October": 11,
+          "November": 10,
+          "December": 10
+        }
+      },
+      {
+        "region": "GAMBELA",
+        "annual_target": 1090,
+        "monthly_targets": {
+          "January": 90,
+          "February": 91,
+          "March": 90,
+          "April": 92,
+          "May": 91,
+          "June": 91,
+          "July": 91,
+          "August": 90,
+          "September": 91,
+          "October": 91,
+          "November": 91,
+          "December": 91
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 537,
+        "monthly_targets": {
+          "January": 50,
+          "February": 159,
+          "March": 162,
+          "April": 108,
+          "May": 58,
+          "June": 0,
+          "July": 0,
+          "August": 0,
+          "September": 0,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      },
+      {
+        "region": "SOMALI",
+        "annual_target": 252,
+        "monthly_targets": {
+          "January": 21,
+          "February": 21,
+          "March": 21,
+          "April": 21,
+          "May": 21,
+          "June": 21,
+          "July": 21,
+          "August": 21,
+          "September": 21,
+          "October": 21,
+          "November": 21,
+          "December": 21
+        }
+      },
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 104,
+        "monthly_targets": {
+          "January": 7,
+          "February": 10,
+          "March": 9,
+          "April": 8,
+          "May": 12,
+          "June": 9,
+          "July": 8,
+          "August": 9,
+          "September": 9,
+          "October": 9,
+          "November": 8,
+          "December": 6
+        }
+      },
+      {
+        "region": "TIGRAY",
+        "annual_target": 820,
+        "monthly_targets": {
+          "January": 75,
+          "February": 85,
+          "March": 75,
+          "April": 85,
+          "May": 75,
+          "June": 55,
+          "July": 75,
+          "August": 55,
+          "September": 55,
+          "October": 75,
+          "November": 55,
+          "December": 55
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የኮንስትራክሽን ማዕድናት ማምረት ሥራ ፈቃድ መስጠት",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 3,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 1,
+          "April": 0,
+          "May": 0,
+          "June": 1,
+          "July": 0,
+          "August": 0,
+          "September": 1,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      },
+      {
+        "region": "AMHARA",
+        "annual_target": 120,
+        "monthly_targets": {
+          "January": 10,
+          "February": 10,
+          "March": 10,
+          "April": 10,
+          "May": 10,
+          "June": 10,
+          "July": 10,
+          "August": 10,
+          "September": 10,
+          "October": 10,
+          "November": 10,
+          "December": 10
+        }
+      },
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 228,
+        "monthly_targets": {
+          "January": 19,
+          "February": 19,
+          "March": 19,
+          "April": 18,
+          "May": 20,
+          "June": 19,
+          "July": 21,
+          "August": 17,
+          "September": 18,
+          "October": 19,
+          "November": 19,
+          "December": 20
+        }
+      },
+      {
+        "region": "DIRE DAWA (CITY ADMINSTRATION)",
+        "annual_target": 25,
+        "monthly_targets": {
+          "January": 2,
+          "February": 2,
+          "March": 2,
+          "April": 2,
+          "May": 2,
+          "June": 2,
+          "July": 2,
+          "August": 2,
+          "September": 2,
+          "October": 2,
+          "November": 2,
+          "December": 3
+        }
+      },
+      {
+        "region": "GAMBELA",
+        "annual_target": 70,
+        "monthly_targets": {
+          "January": 6,
+          "February": 6,
+          "March": 5,
+          "April": 6,
+          "May": 6,
+          "June": 6,
+          "July": 6,
+          "August": 5,
+          "September": 6,
+          "October": 6,
+          "November": 6,
+          "December": 6
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 15,
+        "monthly_targets": {
+          "January": 0,
+          "February": 4,
+          "March": 4,
+          "April": 2,
+          "May": 5,
+          "June": 0,
+          "July": 0,
+          "August": 0,
+          "September": 0,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      },
+      {
+        "region": "SOMALI",
+        "annual_target": 120,
+        "monthly_targets": {
+          "January": 10,
+          "February": 10,
+          "March": 10,
+          "April": 10,
+          "May": 10,
+          "June": 10,
+          "July": 10,
+          "August": 10,
+          "September": 10,
+          "October": 10,
+          "November": 10,
+          "December": 10
+        }
+      },
+      {
+        "region": "TIGRAY",
+        "annual_target": 70,
+        "monthly_targets": {
+          "January": 10,
+          "February": 10,
+          "March": 10,
+          "April": 10,
+          "May": 10,
+          "June": 0,
+          "July": 10,
+          "August": 0,
+          "September": 0,
+          "October": 10,
+          "November": 0,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የኢንዱስትሪ ማዕድን ማምረት ሥራ ፈቃድ መስጠት",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 4,
+        "monthly_targets": {
+          "January": 1,
+          "February": 0,
+          "March": 0,
+          "April": 1,
+          "May": 0,
+          "June": 0,
+          "July": 1,
+          "August": 0,
+          "September": 0,
+          "October": 1,
+          "November": 0,
+          "December": 0
+        }
+      },
+      {
+        "region": "AMHARA",
+        "annual_target": 22,
+        "monthly_targets": {
+          "January": 2,
+          "February": 2,
+          "March": 2,
+          "April": 2,
+          "May": 1,
+          "June": 2,
+          "July": 2,
+          "August": 2,
+          "September": 2,
+          "October": 2,
+          "November": 1,
+          "December": 2
+        }
+      },
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 65,
+        "monthly_targets": {
+          "January": 5,
+          "February": 5,
+          "March": 4,
+          "April": 6,
+          "May": 5,
+          "June": 7,
+          "July": 6,
+          "August": 5,
+          "September": 5,
+          "October": 6,
+          "November": 5,
+          "December": 6
+        }
+      },
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 10,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 1,
+          "April": 1,
+          "May": 1,
+          "June": 2,
+          "July": 1,
+          "August": 2,
+          "September": 1,
+          "October": 0,
+          "November": 1,
+          "December": 0
+        }
+      },
+      {
+        "region": "DIRE DAWA (CITY ADMINSTRATION)",
+        "annual_target": 8,
+        "monthly_targets": {
+          "January": 0,
+          "February": 1,
+          "March": 1,
+          "April": 1,
+          "May": 1,
+          "June": 0,
+          "July": 0,
+          "August": 1,
+          "September": 2,
+          "October": 0,
+          "November": 1,
+          "December": 0
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 10,
+        "monthly_targets": {
+          "January": 0,
+          "February": 1,
+          "March": 4,
+          "April": 4,
+          "May": 1,
+          "June": 0,
+          "July": 0,
+          "August": 0,
+          "September": 0,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      },
+      {
+        "region": "SOMALI",
+        "annual_target": 60,
+        "monthly_targets": {
+          "January": 5,
+          "February": 5,
+          "March": 5,
+          "April": 5,
+          "May": 5,
+          "June": 5,
+          "July": 5,
+          "August": 5,
+          "September": 5,
+          "October": 5,
+          "November": 5,
+          "December": 5
+        }
+      },
+      {
+        "region": "TIGRAY",
+        "annual_target": 50,
+        "monthly_targets": {
+          "January": 10,
+          "February": 10,
+          "March": 10,
+          "April": 10,
+          "May": 10,
+          "June": 0,
+          "July": 0,
+          "August": 0,
+          "September": 0,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የከበሩት ማዕድን ማምረት ሥራ ፈቃድ መስጠት",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 15,
+        "monthly_targets": {
+          "January": 1,
+          "February": 1,
+          "March": 1,
+          "April": 2,
+          "May": 1,
+          "June": 1,
+          "July": 2,
+          "August": 1,
+          "September": 1,
+          "October": 1,
+          "November": 2,
+          "December": 1
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "በማዕድን ምርመራ ፈቃድ መስጠት",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 70,
+        "monthly_targets": {
+          "January": 6,
+          "February": 6,
+          "March": 5,
+          "April": 6,
+          "May": 6,
+          "June": 6,
+          "July": 5,
+          "August": 6,
+          "September": 6,
+          "October": 6,
+          "November": 6,
+          "December": 6
+        }
+      },
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 135,
+        "monthly_targets": {
+          "January": 11,
+          "February": 11,
+          "March": 11,
+          "April": 8,
+          "May": 11,
+          "June": 12,
+          "July": 11,
+          "August": 13,
+          "September": 12,
+          "October": 11,
+          "November": 11,
+          "December": 13
+        }
+      },
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 10,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 2,
+          "April": 2,
+          "May": 2,
+          "June": 0,
+          "July": 0,
+          "August": 2,
+          "September": 1,
+          "October": 1,
+          "November": 0,
+          "December": 0
+        }
+      },
+      {
+        "region": "DIRE DAWA (CITY ADMINSTRATION)",
+        "annual_target": 5,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 1,
+          "April": 0,
+          "May": 0,
+          "June": 1,
+          "July": 1,
+          "August": 1,
+          "September": 0,
+          "October": 1,
+          "November": 0,
+          "December": 0
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 12,
+        "monthly_targets": {
+          "January": 0,
+          "February": 4,
+          "March": 4,
+          "April": 2,
+          "May": 2,
+          "June": 0,
+          "July": 0,
+          "August": 0,
+          "September": 0,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      },
+      {
+        "region": "SOMALI",
+        "annual_target": 24,
+        "monthly_targets": {
+          "January": 2,
+          "February": 2,
+          "March": 2,
+          "April": 2,
+          "May": 2,
+          "June": 2,
+          "July": 2,
+          "August": 2,
+          "September": 2,
+          "October": 2,
+          "November": 2,
+          "December": 2
+        }
+      },
+      {
+        "region": "TIGRAY",
+        "annual_target": 400,
+        "monthly_targets": {
+          "January": 30,
+          "February": 40,
+          "March": 30,
+          "April": 40,
+          "May": 30,
+          "June": 30,
+          "July": 40,
+          "August": 30,
+          "September": 30,
+          "October": 40,
+          "November": 30,
+          "December": 30
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የሚሰጥ የኢንተርፕራይዝ ፈቃድ",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 2364,
+        "monthly_targets": {
+          "January": 197,
+          "February": 197,
+          "March": 197,
+          "April": 197,
+          "May": 197,
+          "June": 197,
+          "July": 197,
+          "August": 197,
+          "September": 197,
+          "October": 197,
+          "November": 197,
+          "December": 197
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "በባሕላዊ የማዕድን ማምረት ሥራ ፈቃድ መስጠት",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 2279,
+        "monthly_targets": {
+          "January": 189.92,
+          "February": 189.92,
+          "March": 189.92,
+          "April": 189.92,
+          "May": 189.92,
+          "June": 189.92,
+          "July": 189.92,
+          "August": 189.92,
+          "September": 189.92,
+          "October": 189.92,
+          "November": 189.92,
+          "December": 189.92
+        }
+      },
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 600,
+        "monthly_targets": {
+          "January": 40,
+          "February": 40,
+          "March": 40,
+          "April": 60,
+          "May": 60,
+          "June": 60,
+          "July": 60,
+          "August": 60,
+          "September": 60,
+          "October": 40,
+          "November": 40,
+          "December": 40
+        }
+      },
+      {
+        "region": "DIRE DAWA (CITY ADMINSTRATION)",
+        "annual_target": 90,
+        "monthly_targets": {
+          "January": 6,
+          "February": 6,
+          "March": 8,
+          "April": 8,
+          "May": 8,
+          "June": 8,
+          "July": 8,
+          "August": 8,
+          "September": 8,
+          "October": 8,
+          "November": 7,
+          "December": 7
+        }
+      },
+      {
+        "region": "GAMBELA",
+        "annual_target": 600,
+        "monthly_targets": {
+          "January": 50,
+          "February": 50,
+          "March": 50,
+          "April": 50,
+          "May": 50,
+          "June": 50,
+          "July": 50,
+          "August": 50,
+          "September": 50,
+          "October": 50,
+          "November": 50,
+          "December": 50
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 300,
+        "monthly_targets": {
+          "January": 0,
+          "February": 100,
+          "March": 100,
+          "April": 50,
+          "May": 50,
+          "June": 0,
+          "July": 0,
+          "August": 0,
+          "September": 0,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      },
+      {
+        "region": "SOMALI",
+        "annual_target": 48,
+        "monthly_targets": {
+          "January": 4,
+          "February": 4,
+          "March": 4,
+          "April": 4,
+          "May": 4,
+          "June": 4,
+          "July": 4,
+          "August": 4,
+          "September": 4,
+          "October": 4,
+          "November": 4,
+          "December": 4
+        }
+      },
+      {
+        "region": "TIGRAY",
+        "annual_target": 300,
+        "monthly_targets": {
+          "January": 25,
+          "February": 25,
+          "March": 25,
+          "April": 25,
+          "May": 25,
+          "June": 25,
+          "July": 25,
+          "August": 25,
+          "September": 25,
+          "October": 25,
+          "November": 25,
+          "December": 25
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "አነስተኛ የማዕድን ማምረት ስራ ፈቃድ",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 85,
+        "monthly_targets": {
+          "January": 7.08,
+          "February": 7.08,
+          "March": 7.08,
+          "April": 7.08,
+          "May": 7.08,
+          "June": 7.08,
+          "July": 7.08,
+          "August": 7.08,
+          "September": 7.08,
+          "October": 7.08,
+          "November": 7.08,
+          "December": 7.08
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ከቁርጥ ዋጋ",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 35168999.1,
+        "monthly_targets": {
+          "January": 2930749.93,
+          "February": 2930749.93,
+          "March": 2930749.93,
+          "April": 2930749.93,
+          "May": 2930749.93,
+          "June": 2930749.93,
+          "July": 2930749.93,
+          "August": 2930749.93,
+          "September": 2930749.93,
+          "October": 2930749.93,
+          "November": 2930749.93,
+          "December": 2930749.93
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "በዘርፉ የተፈጠረ የስራ ዕድል",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 30132,
+        "monthly_targets": {
+          "January": 2511,
+          "February": 2511,
+          "March": 2511,
+          "April": 2512,
+          "May": 2511,
+          "June": 2511,
+          "July": 2512,
+          "August": 2511,
+          "September": 2512,
+          "October": 2511,
+          "November": 2510,
+          "December": 2509
+        }
+      },
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 13000,
+        "monthly_targets": {
+          "January": 866,
+          "February": 866,
+          "March": 866,
+          "April": 1300,
+          "May": 1300,
+          "June": 1300,
+          "July": 1300,
+          "August": 1300,
+          "September": 1300,
+          "October": 868,
+          "November": 867,
+          "December": 867
+        }
+      },
+      {
+        "region": "GAMBELA",
+        "annual_target": 8000,
+        "monthly_targets": {
+          "January": 667,
+          "February": 667,
+          "March": 667,
+          "April": 667,
+          "May": 667,
+          "June": 667,
+          "July": 667,
+          "August": 667,
+          "September": 667,
+          "October": 667,
+          "November": 667,
+          "December": 663
+        }
+      },
+      {
+        "region": "HARARI",
+        "annual_target": 700,
+        "monthly_targets": {
+          "January": 60,
+          "February": 60,
+          "March": 60,
+          "April": 50,
+          "May": 50,
+          "June": 60,
+          "July": 60,
+          "August": 60,
+          "September": 60,
+          "October": 60,
+          "November": 60,
+          "December": 60
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 10000,
+        "monthly_targets": {
+          "January": 832,
+          "February": 834,
+          "March": 834,
+          "April": 834,
+          "May": 834,
+          "June": 832,
+          "July": 834,
+          "August": 834,
+          "September": 834,
+          "October": 834,
+          "November": 834,
+          "December": 830
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "እሴት በሚጨምሩ ማዕድናት የተፈጠረ የስራ እድል",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 139,
+        "monthly_targets": {
+          "January": 11.58,
+          "February": 11.58,
+          "March": 11.58,
+          "April": 11.58,
+          "May": 11.58,
+          "June": 11.58,
+          "July": 11.58,
+          "August": 11.58,
+          "September": 11.58,
+          "October": 11.58,
+          "November": 11.58,
+          "December": 11.58
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ወንድ",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 97,
+        "monthly_targets": {
+          "January": 8.08,
+          "February": 8.08,
+          "March": 8.08,
+          "April": 8.08,
+          "May": 8.08,
+          "June": 8.08,
+          "July": 8.08,
+          "August": 8.08,
+          "September": 8.08,
+          "October": 8.08,
+          "November": 8.08,
+          "December": 8.08
+        }
+      },
+      {
+        "region": "DIRE DAWA (CITY ADMINSTRATION)",
+        "annual_target": 900,
+        "monthly_targets": {
+          "January": 55,
+          "February": 80,
+          "March": 75,
+          "April": 85,
+          "May": 85,
+          "June": 85,
+          "July": 85,
+          "August": 85,
+          "September": 85,
+          "October": 85,
+          "November": 45,
+          "December": 50
+        }
+      },
+      {
+        "region": "GAMBELA",
+        "annual_target": 6000,
+        "monthly_targets": {
+          "January": 500,
+          "February": 500,
+          "March": 500,
+          "April": 500,
+          "May": 500,
+          "June": 500,
+          "July": 500,
+          "August": 500,
+          "September": 500,
+          "October": 500,
+          "November": 500,
+          "December": 500
+        }
+      },
+      {
+        "region": "HARARI",
+        "annual_target": 580,
+        "monthly_targets": {
+          "January": 48,
+          "February": 48,
+          "March": 49,
+          "April": 48,
+          "May": 48,
+          "June": 49,
+          "July": 48,
+          "August": 48,
+          "September": 49,
+          "October": 48,
+          "November": 48,
+          "December": 49
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 8000,
+        "monthly_targets": {
+          "January": 667,
+          "February": 667,
+          "March": 667,
+          "April": 667,
+          "May": 667,
+          "June": 665,
+          "July": 667,
+          "August": 667,
+          "September": 667,
+          "October": 667,
+          "November": 667,
+          "December": 665
+        }
+      },
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 24000,
+        "monthly_targets": {
+          "January": 2000,
+          "February": 2000,
+          "March": 2000,
+          "April": 2000,
+          "May": 2000,
+          "June": 2000,
+          "July": 2000,
+          "August": 2000,
+          "September": 2000,
+          "October": 2000,
+          "November": 2000,
+          "December": 2000
+        }
+      },
+      {
+        "region": "TIGRAY",
+        "annual_target": 25000,
+        "monthly_targets": {
+          "January": 2083,
+          "February": 2083,
+          "March": 2085,
+          "April": 2084,
+          "May": 2083,
+          "June": 2083,
+          "July": 2083,
+          "August": 2083,
+          "September": 2084,
+          "October": 2083,
+          "November": 2083,
+          "December": 2083
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ሴት",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "AMHARA",
+        "annual_target": 42,
+        "monthly_targets": {
+          "January": 3.5,
+          "February": 3.5,
+          "March": 3.5,
+          "April": 3.5,
+          "May": 3.5,
+          "June": 3.5,
+          "July": 3.5,
+          "August": 3.5,
+          "September": 3.5,
+          "October": 3.5,
+          "November": 3.5,
+          "December": 3.5
+        }
+      },
+      {
+        "region": "DIRE DAWA (CITY ADMINSTRATION)",
+        "annual_target": 450,
+        "monthly_targets": {
+          "January": 20,
+          "February": 25,
+          "March": 25,
+          "April": 50,
+          "May": 45,
+          "June": 45,
+          "July": 45,
+          "August": 45,
+          "September": 45,
+          "October": 35,
+          "November": 35,
+          "December": 35
+        }
+      },
+      {
+        "region": "GAMBELA",
+        "annual_target": 2000,
+        "monthly_targets": {
+          "January": 167,
+          "February": 167,
+          "March": 167,
+          "April": 167,
+          "May": 167,
+          "June": 167,
+          "July": 167,
+          "August": 167,
+          "September": 167,
+          "October": 167,
+          "November": 167,
+          "December": 163
+        }
+      },
+      {
+        "region": "HARARI",
+        "annual_target": 120,
+        "monthly_targets": {
+          "January": 10,
+          "February": 10,
+          "March": 10,
+          "April": 10,
+          "May": 10,
+          "June": 10,
+          "July": 10,
+          "August": 10,
+          "September": 10,
+          "October": 10,
+          "November": 10,
+          "December": 10
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 2000,
+        "monthly_targets": {
+          "January": 165,
+          "February": 167,
+          "March": 167,
+          "April": 167,
+          "May": 167,
+          "June": 167,
+          "July": 167,
+          "August": 167,
+          "September": 167,
+          "October": 167,
+          "November": 167,
+          "December": 165
+        }
+      },
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 6000,
+        "monthly_targets": {
+          "January": 500,
+          "February": 500,
+          "March": 500,
+          "April": 500,
+          "May": 500,
+          "June": 500,
+          "July": 500,
+          "August": 500,
+          "September": 500,
+          "October": 500,
+          "November": 500,
+          "December": 500
+        }
+      },
+      {
+        "region": "TIGRAY",
+        "annual_target": 25000,
+        "monthly_targets": {
+          "January": 2083,
+          "February": 2083,
+          "March": 2083,
+          "April": 2085,
+          "May": 2084,
+          "June": 2083,
+          "July": 2084,
+          "August": 2083,
+          "September": 2083,
+          "October": 2083,
+          "November": 2083,
+          "December": 2083
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ጥቁር ድንጋይ",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "GAMBELA",
+        "annual_target": 260000,
+        "monthly_targets": {
+          "January": 21666.67,
+          "February": 21666.67,
+          "March": 21666.67,
+          "April": 21666.67,
+          "May": 21666.67,
+          "June": 21666.67,
+          "July": 21666.67,
+          "August": 21666.67,
+          "September": 21666.67,
+          "October": 21666.67,
+          "November": 21666.67,
+          "December": 21666.67
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ጠጠር (የተፈጨ ድንጋይ)",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "GAMBELA",
+        "annual_target": 60000,
+        "monthly_targets": {
+          "January": 5000,
+          "February": 5000,
+          "March": 5000,
+          "April": 5000,
+          "May": 5000,
+          "June": 5000,
+          "July": 5000,
+          "August": 5000,
+          "September": 5000,
+          "October": 5000,
+          "November": 5000,
+          "December": 5000
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የኢንዱስትሪ ማዕድን ማምረት ሥራ ፈቃድ መስጠት (ፑሚስ)",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "GAMBELA",
+        "annual_target": 50,
+        "monthly_targets": {
+          "January": 4,
+          "February": 4,
+          "March": 4,
+          "April": 5,
+          "May": 4,
+          "June": 4,
+          "July": 4,
+          "August": 4,
+          "September": 4,
+          "October": 5,
+          "November": 4,
+          "December": 4
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የማዕድናት አቅራቢነት ብቃት ማረጋገጫ የምስክር ወረቀት መስጠት",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "GAMBELA",
+        "annual_target": 250,
+        "monthly_targets": {
+          "January": 20,
+          "February": 21,
+          "March": 21,
+          "April": 21,
+          "May": 21,
+          "June": 21,
+          "July": 21,
+          "August": 21,
+          "September": 21,
+          "October": 20,
+          "November": 21,
+          "December": 21
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የሚደራጁ የኢንተርፕራይዞች ብዛት",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "GAMBELA",
+        "annual_target": 120,
+        "monthly_targets": {
+          "January": 10,
+          "February": 10,
+          "March": 10,
+          "April": 10,
+          "May": 10,
+          "June": 10,
+          "July": 10,
+          "August": 10,
+          "September": 10,
+          "October": 10,
+          "November": 10,
+          "December": 10
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 200,
+        "monthly_targets": {
+          "January": 50,
+          "February": 50,
+          "March": 50,
+          "April": 50,
+          "May": 0,
+          "June": 0,
+          "July": 0,
+          "August": 0,
+          "September": 0,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      },
+      {
+        "region": "TIGRAY",
+        "annual_target": 400,
+        "monthly_targets": {
+          "January": 30,
+          "February": 40,
+          "March": 30,
+          "April": 40,
+          "May": 30,
+          "June": 30,
+          "July": 40,
+          "August": 30,
+          "September": 30,
+          "October": 40,
+          "November": 30,
+          "December": 30
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ከሀገር ውስጥ ምርት ሽያጭ የሚገኝ ገቢ (construction minerals)",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "GAMBELA",
+        "annual_target": 1940000000,
+        "monthly_targets": {
+          "January": 161666666.67,
+          "February": 161666666.67,
+          "March": 161666666.67,
+          "April": 161666666.67,
+          "May": 161666666.67,
+          "June": 161666666.67,
+          "July": 161666666.67,
+          "August": 161666666.67,
+          "September": 161666666.67,
+          "October": 161666666.67,
+          "November": 161666666.67,
+          "December": 161666666.67
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ማዕድን በሚመረትባቸው ወረዳዎች ከሌሎች ልዩ ልዩ ገቢየሚሰበሰብ ገቢ)",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "GAMBELA",
+        "annual_target": 346000000,
+        "monthly_targets": {
+          "January": 28833333.33,
+          "February": 28833333.33,
+          "March": 28833333.33,
+          "April": 28833333.33,
+          "May": 28833333.33,
+          "June": 28833333.33,
+          "July": 28833333.33,
+          "August": 28833333.33,
+          "September": 28833333.33,
+          "October": 28833333.33,
+          "November": 28833333.33,
+          "December": 28833333.33
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "በክልል መስሪያ ቤት ከሌሎች ልዩ ልዩ ገቢ (ከመሬት ኪራይ፣ሮያሊቲ፤ከፈቃድ ማዉጫ፣ከፈቃድ እድሳት፣ ከላቦራቶሪ..ወዘተ)",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "GAMBELA",
+        "annual_target": 4000000,
+        "monthly_targets": {
+          "January": 333333.33,
+          "February": 333333.33,
+          "March": 333333.33,
+          "April": 333333.33,
+          "May": 333333.33,
+          "June": 333333.33,
+          "July": 333333.33,
+          "August": 333333.33,
+          "September": 333333.33,
+          "October": 333333.33,
+          "November": 333333.33,
+          "December": 333333.33
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ዕምነበረድ/ብሎክ/",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 2500,
+        "monthly_targets": {
+          "January": 205,
+          "February": 205,
+          "March": 203,
+          "April": 252,
+          "May": 160,
+          "June": 200,
+          "July": 210,
+          "August": 230,
+          "September": 235,
+          "October": 200,
+          "November": 200,
+          "December": 200
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ዕምነበረድ/ቺፕስ/",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 10000,
+        "monthly_targets": {
+          "January": 835,
+          "February": 837,
+          "March": 840,
+          "April": 833,
+          "May": 835,
+          "June": 802,
+          "July": 870,
+          "August": 802,
+          "September": 836,
+          "October": 868,
+          "November": 802,
+          "December": 840
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ዕምነበረድ/ቡልደር/",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 12000,
+        "monthly_targets": {
+          "January": 1000,
+          "February": 900,
+          "March": 1000,
+          "April": 1200,
+          "May": 800,
+          "June": 1000,
+          "July": 900,
+          "August": 1000,
+          "September": 1000,
+          "October": 1200,
+          "November": 1000,
+          "December": 1000
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ድንጋይ",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 4000,
+        "monthly_targets": {
+          "January": 333.3,
+          "February": 333.3,
+          "March": 333.4,
+          "April": 333.3,
+          "May": 333.4,
+          "June": 333.3,
+          "July": 333.4,
+          "August": 333.4,
+          "September": 333.3,
+          "October": 333.3,
+          "November": 333.4,
+          "December": 333.2
+        }
+      },
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 220000,
+        "monthly_targets": {
+          "January": 18333,
+          "February": 18334,
+          "March": 18333,
+          "April": 18330,
+          "May": 18335,
+          "June": 18337,
+          "July": 18333,
+          "August": 18333,
+          "September": 18333,
+          "October": 18333,
+          "November": 18333,
+          "December": 18333
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የከበሩት ማዕድን ማምረት ሥራ ፈቃድ መስጠት/ወርቅ/",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 500,
+        "monthly_targets": {
+          "January": 41,
+          "February": 42,
+          "March": 42,
+          "April": 43,
+          "May": 43,
+          "June": 42,
+          "July": 40,
+          "August": 43,
+          "September": 41,
+          "October": 41,
+          "November": 41,
+          "December": 41
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "በባሕላዊ የማዕድን ማምረት ሥራ ፈቃድ መስጠት/ወርቅ/",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 10,
+        "monthly_targets": {
+          "January": 1,
+          "February": 1,
+          "March": 1,
+          "April": 1,
+          "May": 1,
+          "June": 1,
+          "July": 0,
+          "August": 1,
+          "September": 0,
+          "October": 1,
+          "November": 0,
+          "December": 2
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ከፈቃድ ማዉጫ የተገኘ ገቢ",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 15750000,
+        "monthly_targets": {
+          "January": 1312500,
+          "February": 1300000,
+          "March": 2000000,
+          "April": 1120000,
+          "May": 1000000,
+          "June": 1315000,
+          "July": 1240000,
+          "August": 1425000,
+          "September": 1200000,
+          "October": 1112500,
+          "November": 1512500,
+          "December": 1212500
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ከፈቃድ እድሳት የተገኘ ገቢ",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 6562500,
+        "monthly_targets": {
+          "January": 550860,
+          "February": 530500,
+          "March": 539749,
+          "April": 549600,
+          "May": 569892,
+          "June": 590000,
+          "July": 500000,
+          "August": 548000,
+          "September": 539000,
+          "October": 548000,
+          "November": 548000,
+          "December": 548899
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "በኮንስትራክሽን እና የኢንዱስትሪ ማዕድን ማምረትና በሌሎች የተፈጠረ የስራ ዕድል",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "BENISHANGUL-GUMUZ",
+        "annual_target": 15823,
+        "monthly_targets": {
+          "January": 1318.58,
+          "February": 1318.58,
+          "March": 1318.58,
+          "April": 1318.58,
+          "May": 1318.58,
+          "June": 1318.58,
+          "July": 1318.58,
+          "August": 1318.58,
+          "September": 1318.58,
+          "October": 1318.58,
+          "November": 1318.58,
+          "December": 1318.58
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ፍሎራይት",
+    "unit": "kg",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 40,
+        "monthly_targets": {
+          "January": 4,
+          "February": 4,
+          "March": 4,
+          "April": 4,
+          "May": 4,
+          "June": 4,
+          "July": 4,
+          "August": 4,
+          "September": 4,
+          "October": 4,
+          "November": 4,
+          "December": 4
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ማንጋኒዝ",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 1500,
+        "monthly_targets": {
+          "January": 125,
+          "February": 125,
+          "March": 125,
+          "April": 125,
+          "May": 125,
+          "June": 125,
+          "July": 125,
+          "August": 125,
+          "September": 125,
+          "October": 125,
+          "November": 125,
+          "December": 125
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ቤንቶናይት",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 5000,
+        "monthly_targets": {
+          "January": 416.6,
+          "February": 416.6,
+          "March": 416.6,
+          "April": 416.6,
+          "May": 416.6,
+          "June": 416.6,
+          "July": 416.6,
+          "August": 416.6,
+          "September": 416.6,
+          "October": 416.6,
+          "November": 416.6,
+          "December": 416.6
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ብሮሚን",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 10000,
+        "monthly_targets": {
+          "January": 833.33,
+          "February": 833.33,
+          "March": 833.33,
+          "April": 833.33,
+          "May": 833.33,
+          "June": 833.33,
+          "July": 833.33,
+          "August": 833.33,
+          "September": 833.33,
+          "October": 833.33,
+          "November": 833.33,
+          "December": 833.33
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ጠጠር",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 1200,
+        "monthly_targets": {
+          "January": 100,
+          "February": 100,
+          "March": 100,
+          "April": 100,
+          "May": 100,
+          "June": 100,
+          "July": 100,
+          "August": 100,
+          "September": 100,
+          "October": 100,
+          "November": 100,
+          "December": 100
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ጨው",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 7400000,
+        "monthly_targets": {
+          "January": 616666.67,
+          "February": 616666.67,
+          "March": 616666.67,
+          "April": 616666.67,
+          "May": 616666.67,
+          "June": 616666.67,
+          "July": 616666.67,
+          "August": 616666.67,
+          "September": 616666.67,
+          "October": 616666.67,
+          "November": 616666.67,
+          "December": 616666.67
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የጨው ማምረት ሥራ ፈቃድ መስጠት",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 55,
+        "monthly_targets": {
+          "January": 4,
+          "February": 4,
+          "March": 4,
+          "April": 5,
+          "May": 4,
+          "June": 4,
+          "July": 5,
+          "August": 5,
+          "September": 5,
+          "October": 5,
+          "November": 5,
+          "December": 5
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የወርቅና ጌጣጌጥ ሥራ ፈቃድ መስጠት",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 4,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 1,
+          "April": 0,
+          "May": 0,
+          "June": 1,
+          "July": 0,
+          "August": 0,
+          "September": 1,
+          "October": 0,
+          "November": 0,
+          "December": 1
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የተገኘ ገቢ ከመሬት ክራይ",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 9750000,
+        "monthly_targets": {
+          "January": 812500,
+          "February": 812500,
+          "March": 812500,
+          "April": 812500,
+          "May": 812500,
+          "June": 812500,
+          "July": 812500,
+          "August": 812500,
+          "September": 812500,
+          "October": 812500,
+          "November": 812500,
+          "December": 812500
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ከፈቃድ ማዉጫ እና ከእድሳት",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "AFAR",
+        "annual_target": 480000,
+        "monthly_targets": {
+          "January": 40000,
+          "February": 40000,
+          "March": 40000,
+          "April": 40000,
+          "May": 40000,
+          "June": 40000,
+          "July": 40000,
+          "August": 40000,
+          "September": 40000,
+          "October": 40000,
+          "November": 40000,
+          "December": 40000
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ኳርትዝ",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "SOMALI",
+        "annual_target": 1500000,
+        "monthly_targets": {
+          "January": 125000,
+          "February": 125000,
+          "March": 125000,
+          "April": 125000,
+          "May": 125000,
+          "June": 125000,
+          "July": 125000,
+          "August": 125000,
+          "September": 125000,
+          "October": 125000,
+          "November": 125000,
+          "December": 125000
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "አይረን",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "SOMALI",
+        "annual_target": 19800,
+        "monthly_targets": {
+          "January": 1650,
+          "February": 1650,
+          "March": 1650,
+          "April": 1650,
+          "May": 1650,
+          "June": 1650,
+          "July": 1650,
+          "August": 1650,
+          "September": 1650,
+          "October": 1650,
+          "November": 1650,
+          "December": 1650
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "አስኮሪያ",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "SOMALI",
+        "annual_target": 24000,
+        "monthly_targets": {
+          "January": 2000,
+          "February": 2000,
+          "March": 2000,
+          "April": 2000,
+          "May": 2000,
+          "June": 2000,
+          "July": 2000,
+          "August": 2000,
+          "September": 2000,
+          "October": 2000,
+          "November": 2000,
+          "December": 2000
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ጨዉ",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "SOMALI",
+        "annual_target": 126000,
+        "monthly_targets": {
+          "January": 10500,
+          "February": 10500,
+          "March": 10500,
+          "April": 10500,
+          "May": 10500,
+          "June": 10500,
+          "July": 10500,
+          "August": 10500,
+          "September": 10500,
+          "October": 10500,
+          "November": 10500,
+          "December": 10500
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የተጠናቀረ የክልሉ የማዕድን ሀብት መረጃ (Collate)",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "HARARI",
+        "annual_target": 1,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 0,
+          "April": 0,
+          "May": 1,
+          "June": 0,
+          "July": 0,
+          "August": 0,
+          "September": 0,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የማዕድን አምራች ድርጅቶችንና ማህበራትን ማሳደግ",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "HARARI",
+        "annual_target": 35,
+        "monthly_targets": {
+          "January": 3,
+          "February": 3,
+          "March": 4,
+          "April": 3,
+          "May": 2,
+          "June": 3,
+          "July": 3,
+          "August": 3,
+          "September": 3,
+          "October": 3,
+          "November": 3,
+          "December": 2
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ፈቃድ ያገኙ የማዕድን አምራች ድርጅቶች",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "HARARI",
+        "annual_target": 25,
+        "monthly_targets": {
+          "January": 2,
+          "February": 2,
+          "March": 3,
+          "April": 2,
+          "May": 2,
+          "June": 2,
+          "July": 2,
+          "August": 2,
+          "September": 2,
+          "October": 2,
+          "November": 2,
+          "December": 2
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ፈቃድ ያገኙ የማዕድን አምራች ማህበራት",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "HARARI",
+        "annual_target": 10,
+        "monthly_targets": {
+          "January": 1,
+          "February": 1,
+          "March": 1,
+          "April": 1,
+          "May": 0,
+          "June": 1,
+          "July": 1,
+          "August": 1,
+          "September": 1,
+          "October": 1,
+          "November": 1,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ወደ ተሻለ ደረጃ የተሸጋገሩ የማዕድን አምራች ማህበራት",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "HARARI",
+        "annual_target": 5,
+        "monthly_targets": {
+          "January": 0,
+          "February": 1,
+          "March": 1,
+          "April": 0,
+          "May": 0,
+          "June": 0,
+          "July": 0,
+          "August": 0,
+          "September": 0,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ኳሪ",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "HARARI",
+        "annual_target": 100000,
+        "monthly_targets": {
+          "January": 6000,
+          "February": 7000,
+          "March": 7000,
+          "April": 10000,
+          "May": 10000,
+          "June": 10000,
+          "July": 10000,
+          "August": 10000,
+          "September": 10000,
+          "October": 6000,
+          "November": 7000,
+          "December": 7000
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ጠቅላላ የሚሰበሰብ ገቢ",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "HARARI",
+        "annual_target": 3000000,
+        "monthly_targets": {
+          "January": 250000.0,
+          "February": 250000.0,
+          "March": 250000.03,
+          "April": 250000.0,
+          "May": 250000,
+          "June": 250000,
+          "July": 250000.0,
+          "August": 250000,
+          "September": 250000,
+          "October": 250000.0,
+          "November": 250000.0,
+          "December": 250000
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ከዘርፉ የተሰበሰበ ገቢ አጠቃላይ ገቢ",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "HARARI",
+        "annual_target": 1600000,
+        "monthly_targets": {
+          "January": 133333.33,
+          "February": 133333.33,
+          "March": 133333.33,
+          "April": 133333.33,
+          "May": 133333.33,
+          "June": 133333.33,
+          "July": 133333.33,
+          "August": 133333.33,
+          "September": 133333.33,
+          "October": 133333.33,
+          "November": 133333.33,
+          "December": 133333.33
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ከሮያሊቲይ የተሰበሰበ ገቢ",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "HARARI",
+        "annual_target": 1400000,
+        "monthly_targets": {
+          "January": 116666.67,
+          "February": 116666.67,
+          "March": 116666.7,
+          "April": 116666.67,
+          "May": 116666.67,
+          "June": 116666.67,
+          "July": 116666.67,
+          "August": 116666.67,
+          "September": 116666.67,
+          "October": 116666.67,
+          "November": 116666.67,
+          "December": 116666.67
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ከአከባቢ ጥበቃ ባለስልጣን የተሰጠ ፈቃድ (EIA)",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "HARARI",
+        "annual_target": 10,
+        "monthly_targets": {
+          "January": 1,
+          "February": 0,
+          "March": 1,
+          "April": 0,
+          "May": 1,
+          "June": 1,
+          "July": 0,
+          "August": 1,
+          "September": 1,
+          "October": 0,
+          "November": 1,
+          "December": 1
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የተፅዕኖ መቀነሻና ማካካሻ ዕቅድ አቅርበዉ MOU የፈረሙ የማዕድን አምራች ድርጅቶችና ማህበራት",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "HARARI",
+        "annual_target": 20,
+        "monthly_targets": {
+          "January": 1,
+          "February": 2,
+          "March": 2,
+          "April": 0,
+          "May": 0,
+          "June": 0,
+          "July": 0,
+          "August": 0,
+          "September": 0,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ኃላፊነታቸዉን ስለመወጣታቸዉ ክትትልና ቁጥጥር የተደረገባቸዉ ድርጅቶችና ማህበራት",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "HARARI",
+        "annual_target": 1,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 0,
+          "April": 0,
+          "May": 0,
+          "June": 0,
+          "July": 0,
+          "August": 0,
+          "September": 0,
+          "October": 0,
+          "November": 1,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "በተፈረመዉ MOU እና ዕቅድ መሰረት ኃላፊነታቸዉን የተወጡ ድርጅቶችና ማህበራት",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "HARARI",
+        "annual_target": 10,
+        "monthly_targets": {
+          "January": 1,
+          "February": 0,
+          "March": 1,
+          "April": 0,
+          "May": 1,
+          "June": 1,
+          "July": 0,
+          "August": 1,
+          "September": 1,
+          "October": 0,
+          "November": 1,
+          "December": 1
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "በብልሹ አሰራር ዙርያ ጥቆማ የተደረገባቸው ጉዳዮች ማስተካያ ማድረግ",
+    "unit": "percent",
+    "measurement_category": "percentage",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 100,
+        "monthly_targets": {
+          "January": 100,
+          "February": 100,
+          "March": 100,
+          "April": 100,
+          "May": 100,
+          "June": 100,
+          "July": 100,
+          "August": 100,
+          "September": 100,
+          "October": 100,
+          "November": 100,
+          "December": 100
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ለብልሹ አሰራር የተጋለጡ አሰራሮች በጥናት በመለየት የማሻሻያ ሀሳብ ማቅረብ",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 1,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 0,
+          "April": 0,
+          "May": 0,
+          "June": 0,
+          "July": 0,
+          "August": 0,
+          "September": 0,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የስነ-ምግባር ሞራል እሴት ማጎልበቻ ስልጠና ለባለሙያ መስጠት",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 2,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 1,
+          "April": 0,
+          "May": 0,
+          "June": 0,
+          "July": 0,
+          "August": 0,
+          "September": 1,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ሥልጠና ያገኙ ሴቶች ድርሻ ማሳደግ",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 500,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 0,
+          "April": 50,
+          "May": 50,
+          "June": 10,
+          "July": 50,
+          "August": 50,
+          "September": 100,
+          "October": 50,
+          "November": 50,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የስራ ዕድል የተፈጠረላቸው ሴቶችና ወጣቶች በማዕድን ፣ አማራጭ ኢነርጅ ፤ በመስኖ እና በውሃ ግንባታ",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 14150,
+        "monthly_targets": {
+          "January": 1179,
+          "February": 1179,
+          "March": 1179,
+          "April": 1179,
+          "May": 1179,
+          "June": 1179,
+          "July": 1179.33,
+          "August": 1179.33,
+          "September": 1179.33,
+          "October": 1179.33,
+          "November": 1179.33,
+          "December": 1179.33
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የአረንጓዴ አሻራ ተግባራት ማካሄድ/ችግኞችን መትከል",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 1200,
+        "monthly_targets": {
+          "January": 400,
+          "February": 400,
+          "March": 400,
+          "April": 0,
+          "May": 0,
+          "June": 0,
+          "July": 0,
+          "August": 0,
+          "September": 0,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የአቅመ ደካማ ማህበረሰቦች የመኖሪያ ቤቶች መገንባት",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 2,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 1,
+          "April": 0,
+          "May": 0,
+          "June": 1,
+          "July": 0,
+          "August": 0,
+          "September": 0,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የአቅመ ደካማ እና አካል ጉዳተኞት ተማሪዎች ድጋፍ",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 13,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 8,
+          "April": 0,
+          "May": 0,
+          "June": 5,
+          "July": 0,
+          "August": 0,
+          "September": 0,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "አድስ ፈቃድ መረጃዎችን በካዳስተር ሲስተም /መረጃ ቋት/ መዝግቦ መያዝ",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 113,
+        "monthly_targets": {
+          "January": 10,
+          "February": 10,
+          "March": 9,
+          "April": 10,
+          "May": 10,
+          "June": 9,
+          "July": 10,
+          "August": 10,
+          "September": 9,
+          "October": 10,
+          "November": 10,
+          "December": 9
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የማዕድን ምርመራና ምርት ስራ ፈቃድ መስጠት",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 50,
+        "monthly_targets": {
+          "January": 3,
+          "February": 5,
+          "March": 5,
+          "April": 3,
+          "May": 5,
+          "June": 5,
+          "July": 3,
+          "August": 5,
+          "September": 5,
+          "October": 3,
+          "November": 4,
+          "December": 4
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የማዕድን ፈቃድ ዕድሳት መስጠት",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 70,
+        "monthly_targets": {
+          "January": 6,
+          "February": 6,
+          "March": 6,
+          "April": 6,
+          "May": 6,
+          "June": 6,
+          "July": 6,
+          "August": 6,
+          "September": 6,
+          "October": 6,
+          "November": 6,
+          "December": 6
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ፈቃድ በተሰጠባቸው ቦታዎች በመገኘት ቁጥጥር ማድረግ",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 12,
+        "monthly_targets": {
+          "January": 1,
+          "February": 1,
+          "March": 1,
+          "April": 1,
+          "May": 1,
+          "June": 1,
+          "July": 1,
+          "August": 1,
+          "September": 1,
+          "October": 1,
+          "November": 1,
+          "December": 1
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የማዕድን ስራ አፈጻጸም መመሪያ እና ደንብ ማሻሻያ ማድረግ",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 1,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 0,
+          "April": 0,
+          "May": 0,
+          "June": 0,
+          "July": 0,
+          "August": 1,
+          "September": 0,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የነዳጅ ማደያ ብቃት ማረጋገጫ ፈቃድ መስጠት",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 2,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 0,
+          "April": 0,
+          "May": 1,
+          "June": 0,
+          "July": 0,
+          "August": 0,
+          "September": 0,
+          "October": 1,
+          "November": 0,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የነዳጅ ማደያ ብቃት ማረጋገጫ ፈቃድ ማደሰ",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 8,
+        "monthly_targets": {
+          "January": 0,
+          "February": 1,
+          "March": 1,
+          "April": 0,
+          "May": 1,
+          "June": 1,
+          "July": 0,
+          "August": 1,
+          "September": 1,
+          "October": 1,
+          "November": 1,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ለደንበኞች የሙያና የቴክኒክ ድጋፍ ማድረግ",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 50,
+        "monthly_targets": {
+          "January": 3,
+          "February": 5,
+          "March": 5,
+          "April": 3,
+          "May": 5,
+          "June": 5,
+          "July": 3,
+          "August": 5,
+          "September": 5,
+          "October": 4,
+          "November": 5,
+          "December": 5
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ከኤክስፖርት ማዕድን ምርት ግብይት ማጠናከር",
+    "unit": "kg",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 500,
+        "monthly_targets": {
+          "January": 41.67,
+          "February": 41.67,
+          "March": 41.67,
+          "April": 41.67,
+          "May": 41.67,
+          "June": 41.67,
+          "July": 41.67,
+          "August": 41.67,
+          "September": 41.67,
+          "October": 41.67,
+          "November": 41.67,
+          "December": 41.67
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የወርቅ ማዕድን ምርት መጠን ማሳደግ",
+    "unit": "kg",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 500,
+        "monthly_targets": {
+          "January": 41.67,
+          "February": 41.67,
+          "March": 41.67,
+          "April": 41.67,
+          "May": 41.67,
+          "June": 41.67,
+          "July": 41.67,
+          "August": 41.67,
+          "September": 41.67,
+          "October": 41.67,
+          "November": 41.67,
+          "December": 41.67
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ከወርቅ ምርት ኤክስፖርት የተገኘ የውጭ ምንዛሬ",
+    "unit": "usd",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 53,
+        "monthly_targets": {
+          "January": 4.42,
+          "February": 4.42,
+          "March": 4.42,
+          "April": 4.42,
+          "May": 4.42,
+          "June": 4.42,
+          "July": 4.42,
+          "August": 4.42,
+          "September": 4.42,
+          "October": 4.42,
+          "November": 4.42,
+          "December": 4.42
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የተመረተ የኢንዱስትሪ ማዕድን(የድንጋይ ከሰል)",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 341104.75,
+        "monthly_targets": {
+          "January": 28425.4,
+          "February": 28425.4,
+          "March": 28425.4,
+          "April": 28425.4,
+          "May": 28425.4,
+          "June": 28425.4,
+          "July": 28425.4,
+          "August": 28425.4,
+          "September": 28425.4,
+          "October": 28425.4,
+          "November": 28425.4,
+          "December": 28425.4
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ከዉጭ የሚገቡ ማዕድናትን በሀገር ዉስጥ በመተካት ማስቀረት የተቻለ የዉጭ ምንዛሬ",
+    "unit": "usd",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 99.25,
+        "monthly_targets": {
+          "January": 8.27,
+          "February": 8.27,
+          "March": 8.27,
+          "April": 8.27,
+          "May": 8.27,
+          "June": 8.27,
+          "July": 8.27,
+          "August": 8.27,
+          "September": 8.27,
+          "October": 8.27,
+          "November": 8.27,
+          "December": 8.27
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የኮንስትራክሽን",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 350000,
+        "monthly_targets": {
+          "January": 29166.67,
+          "February": 29166.67,
+          "March": 29166.67,
+          "April": 29166.67,
+          "May": 29166.67,
+          "June": 29166.67,
+          "July": 29166.67,
+          "August": 29166.67,
+          "September": 29166.67,
+          "October": 29166.67,
+          "November": 29166.67,
+          "December": 29166.67
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የኮንስትራክሽን ማዕድንናት ምርት (ድንጋይ፤ አሸዋ፤ጠጠር)",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 350000,
+        "monthly_targets": {
+          "January": 29166.67,
+          "February": 29166.67,
+          "March": 29166.67,
+          "April": 29166.67,
+          "May": 29166.67,
+          "June": 29166.67,
+          "July": 29166.67,
+          "August": 29166.67,
+          "September": 29166.67,
+          "October": 29166.67,
+          "November": 29166.67,
+          "December": 29166.67
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ማዕድን ክፍለ ኢኮኖሚ የሀገር ውስጥ ገቢ ማሳደግ",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 144000000,
+        "monthly_targets": {
+          "January": 12000000,
+          "February": 12000000,
+          "March": 12000000,
+          "April": 12000000,
+          "May": 12000000,
+          "June": 12000000,
+          "July": 12000000,
+          "August": 12000000,
+          "September": 12000000,
+          "October": 12000000,
+          "November": 12000000,
+          "December": 12000000
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ከፈቃድ፣ ከሮያሊቲ ገቢ እና ከማዕድን ስራዎች የሚሰበሰብ ልዩ ልዩ ገቢ ማሳግ",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 144000000,
+        "monthly_targets": {
+          "January": 12000000,
+          "February": 12000000,
+          "March": 12000000,
+          "April": 12000000,
+          "May": 12000000,
+          "June": 12000000,
+          "July": 12000000,
+          "August": 12000000,
+          "September": 12000000,
+          "October": 12000000,
+          "November": 12000000,
+          "December": 12000000
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "በማዕድን ምርት ምክንያት የተጎዳ ቦታ መለየት",
+    "unit": "skm",
+    "measurement_category": "area",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 13.48,
+        "monthly_targets": {
+          "January": 3.37,
+          "February": 0,
+          "March": 0,
+          "April": 3.37,
+          "May": 0,
+          "June": 0,
+          "July": 3.37,
+          "August": 0,
+          "September": 0,
+          "October": 3.37,
+          "November": 0,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ማዕድን ልማት የተካሄደባቸውን ቦታዎች መልሰው እንዲያገግሙ ማድረግ",
+    "unit": "skm",
+    "measurement_category": "area",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 13.48,
+        "monthly_targets": {
+          "January": 0,
+          "February": 3.37,
+          "March": 0,
+          "April": 0,
+          "May": 0,
+          "June": 3.37,
+          "July": 0,
+          "August": 0,
+          "September": 3.37,
+          "October": 0,
+          "November": 0,
+          "December": 3.37
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የተሰበሰበውን የአካባቢና ማህበረሰብ ልማት ፈንድ ማሰራጨት",
+    "unit": "percent",
+    "measurement_category": "percentage",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 1,
+        "monthly_targets": {
+          "January": 1,
+          "February": 1,
+          "March": 1,
+          "April": 1,
+          "May": 1,
+          "June": 1,
+          "July": 1,
+          "August": 1,
+          "September": 1,
+          "October": 1,
+          "November": 1,
+          "December": 1
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የማዕድን ሀብት አለኝታ ጥናት",
+    "unit": "skm",
+    "measurement_category": "area",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 35,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 0,
+          "April": 0,
+          "May": 0,
+          "June": 0,
+          "July": 0,
+          "August": 0,
+          "September": 0,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "በማድን ዘርፍ የስራ ዕድል መፍጠር",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 10000,
+        "monthly_targets": {
+          "January": 833,
+          "February": 833,
+          "March": 833,
+          "April": 833,
+          "May": 833,
+          "June": 833,
+          "July": 833,
+          "August": 835,
+          "September": 833,
+          "October": 833,
+          "November": 835,
+          "December": 833
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "በማድን ዘርፍ የስራ ዕድል መፍጠር (ወንድ)",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 7500,
+        "monthly_targets": {
+          "January": 625,
+          "February": 625,
+          "March": 625,
+          "April": 625,
+          "May": 625,
+          "June": 625,
+          "July": 625,
+          "August": 625,
+          "September": 625,
+          "October": 625,
+          "November": 625,
+          "December": 625
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "በማድን ዘርፍ የስራ ዕድል መፍጠር (ሴት)",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "SOUTH  WEST ETHIOPIA PEOPLES",
+        "annual_target": 2500,
+        "monthly_targets": {
+          "January": 208,
+          "February": 208,
+          "March": 208,
+          "April": 208,
+          "May": 208,
+          "June": 208,
+          "July": 208,
+          "August": 210,
+          "September": 208,
+          "October": 208,
+          "November": 210,
+          "December": 208
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ሌሎች የኢንዱስትሪ ማዕድናት(ኮብል ስቶን)",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "DIRE DAWA (CITY ADMINSTRATION)",
+        "annual_target": 450000,
+        "monthly_targets": {
+          "January": 25000,
+          "February": 30000,
+          "March": 40000,
+          "April": 30000,
+          "May": 44496,
+          "June": 40000,
+          "July": 50000,
+          "August": 40000,
+          "September": 50000,
+          "October": 30000,
+          "November": 40000,
+          "December": 30504
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ሌሎች የግንባታ ግብአት ማዕድናት(ጠጠር)",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "DIRE DAWA (CITY ADMINSTRATION)",
+        "annual_target": 350000,
+        "monthly_targets": {
+          "January": 20000,
+          "February": 20000,
+          "March": 30000,
+          "April": 30000,
+          "May": 40000,
+          "June": 50000,
+          "July": 30000,
+          "August": 40000,
+          "September": 30000,
+          "October": 30000,
+          "November": 30000,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የፈቃድ ዕድሳት",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "DIRE DAWA (CITY ADMINSTRATION)",
+        "annual_target": 125,
+        "monthly_targets": {
+          "January": 5,
+          "February": 5,
+          "March": 10,
+          "April": 10,
+          "May": 10,
+          "June": 10,
+          "July": 10,
+          "August": 10,
+          "September": 10,
+          "October": 10,
+          "November": 5,
+          "December": 5
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ከሀገር ውስጥ ምርት ሽያጭ የሚገኝ ገቢ",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "DIRE DAWA (CITY ADMINSTRATION)",
+        "annual_target": 300105000,
+        "monthly_targets": {
+          "January": 2232666,
+          "February": 30000000,
+          "March": 35000000,
+          "April": 35091816,
+          "May": 40000000,
+          "June": 30000000,
+          "July": 30000000,
+          "August": 30000000,
+          "September": 25013184,
+          "October": 25000000,
+          "November": 10000000,
+          "December": 10000000
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 30000000,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 0,
+          "April": 0,
+          "May": 0,
+          "June": 0,
+          "July": 0,
+          "August": 0,
+          "September": 0,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ከሌሎች ልዩ ልዩ ገቢ (ከመሬት ኪራይ፣ከፈቃድ ማዉጫ፣ከፈቃድ እድሳት፣ ከላቦራቶሪ..ወዘተ)",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "DIRE DAWA (CITY ADMINSTRATION)",
+        "annual_target": 266500,
+        "monthly_targets": {
+          "January": 22208,
+          "February": 19303,
+          "March": 19303,
+          "April": 19303,
+          "May": 25000,
+          "June": 25000,
+          "July": 25000,
+          "August": 25000,
+          "September": 25000,
+          "October": 25000,
+          "November": 20000,
+          "December": 16383
+        }
+      },
+      {
+        "region": "SIDAMA",
+        "annual_target": 20000000,
+        "monthly_targets": {
+          "January": 1500000,
+          "February": 2000000,
+          "March": 2000000,
+          "April": 1000000,
+          "May": 2000000,
+          "June": 2000000,
+          "July": 1500000,
+          "August": 2000000,
+          "September": 2000000,
+          "October": 2000000,
+          "November": 1000000,
+          "December": 1000000
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ለአዲስ የኮንስትራክሽን ማዕድን አልሚዎች ፈቃድ መስጠት",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "ADDIS ABABA (CITY ADMINSTRATION)",
+        "annual_target": 30,
+        "monthly_targets": {
+          "January": 0,
+          "February": 1,
+          "March": 1,
+          "April": 3,
+          "May": 3,
+          "June": 3,
+          "July": 3,
+          "August": 3,
+          "September": 3,
+          "October": 3,
+          "November": 4,
+          "December": 3
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የኮንስትራከሽን ማዕድን ፈቃድ አልሚዎች ዕድሳት መስጠት",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "ADDIS ABABA (CITY ADMINSTRATION)",
+        "annual_target": 55,
+        "monthly_targets": {
+          "January": 4,
+          "February": 4,
+          "March": 4,
+          "April": 4,
+          "May": 4,
+          "June": 4,
+          "July": 4,
+          "August": 4,
+          "September": 4,
+          "October": 5,
+          "November": 5,
+          "December": 4
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ከማዕድን ዘርፍ ልዩ ልዩ ገቢዎችን መሰብሰብ",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "ADDIS ABABA (CITY ADMINSTRATION)",
+        "annual_target": 80000000,
+        "monthly_targets": {
+          "January": 6000000,
+          "February": 6000000,
+          "March": 6000000,
+          "April": 7000000,
+          "May": 7000000,
+          "June": 7000000,
+          "July": 7000000,
+          "August": 7000000,
+          "September": 7000000,
+          "October": 7000000,
+          "November": 7000000,
+          "December": 6000000
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የማዕድን አመራረት ሂደቱን ሙያዊ ድጋፍ ማድረግ",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "ADDIS ABABA (CITY ADMINSTRATION)",
+        "annual_target": 100,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 8,
+          "April": 8,
+          "May": 8,
+          "June": 8,
+          "July": 8,
+          "August": 10,
+          "September": 9,
+          "October": 8,
+          "November": 8,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "አዲስ የነዳጅና የነዳጅ ውጤቶች ተቋማት የብቃት ማረጋጫ ሰርተፊኬት ፍቃድ መስጠት",
+    "unit": "percent",
+    "measurement_category": "percentage",
+    "assigned_regions": [
+      {
+        "region": "ADDIS ABABA (CITY ADMINSTRATION)",
+        "annual_target": 100,
+        "monthly_targets": {
+          "January": 100,
+          "February": 100,
+          "March": 100,
+          "April": 100,
+          "May": 100,
+          "June": 100,
+          "July": 100,
+          "August": 100,
+          "September": 100,
+          "October": 100,
+          "November": 100,
+          "December": 100
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ነባር የነዳጅና የነዳጅ ውጤቶች ተቋማት የብቃት ማረጋጫ ሰርተፊኬት ፍቃድ ማደስ",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "ADDIS ABABA (CITY ADMINSTRATION)",
+        "annual_target": 110,
+        "monthly_targets": {
+          "January": 7,
+          "February": 7,
+          "March": 9,
+          "April": 9,
+          "May": 10,
+          "June": 10,
+          "July": 10,
+          "August": 10,
+          "September": 10,
+          "October": 10,
+          "November": 9,
+          "December": 9
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የነዳጅና ነዳጅ ውጤቶች ተቋማት ላይ ክትትልና ቁጥጥር ማድረግ",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "ADDIS ABABA (CITY ADMINSTRATION)",
+        "annual_target": 150,
+        "monthly_targets": {
+          "January": 12,
+          "February": 12,
+          "March": 12,
+          "April": 13,
+          "May": 13,
+          "June": 13,
+          "July": 13,
+          "August": 13,
+          "September": 13,
+          "October": 12,
+          "November": 12,
+          "December": 12
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የነዳጅና ነዳጅ ውጤቶች ተቋማት ላይ የነዳጅ ናሙና ፍተሻ ማካሄድ",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "ADDIS ABABA (CITY ADMINSTRATION)",
+        "annual_target": 100,
+        "monthly_targets": {
+          "January": 7,
+          "February": 7,
+          "March": 9,
+          "April": 9,
+          "May": 10,
+          "June": 10,
+          "July": 10,
+          "August": 10,
+          "September": 10,
+          "October": 10,
+          "November": 9,
+          "December": 9
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የማዕድን ዕደ ጥበብ አዲስ ሥራ የብቃት ማረጋገጫ ፈቃድ መስጠት",
+    "unit": "percent",
+    "measurement_category": "percentage",
+    "assigned_regions": [
+      {
+        "region": "ADDIS ABABA (CITY ADMINSTRATION)",
+        "annual_target": 100,
+        "monthly_targets": {
+          "January": 100,
+          "February": 100,
+          "March": 100,
+          "April": 100,
+          "May": 100,
+          "June": 100,
+          "July": 100,
+          "August": 100,
+          "September": 100,
+          "October": 100,
+          "November": 100,
+          "December": 100
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የማዕድን ዕደጥበብ ሥራ የብቃት ማረጋገጫ ፈቃድ ማደስ",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "ADDIS ABABA (CITY ADMINSTRATION)",
+        "annual_target": 55,
+        "monthly_targets": {
+          "January": 4,
+          "February": 4,
+          "March": 4,
+          "April": 4,
+          "May": 4,
+          "June": 4,
+          "July": 4,
+          "August": 4,
+          "September": 4,
+          "October": 4,
+          "November": 5,
+          "December": 5
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የማዕድን ዕደጥበብ እና የማዕድን ንግድ ፈቃድ ክትትልና ድጋፍ ማድረግ",
+    "unit": "percent",
+    "measurement_category": "percentage",
+    "assigned_regions": [
+      {
+        "region": "ADDIS ABABA (CITY ADMINSTRATION)",
+        "annual_target": 80,
+        "monthly_targets": {
+          "January": 6,
+          "February": 6,
+          "March": 6,
+          "April": 6,
+          "May": 7,
+          "June": 7,
+          "July": 7,
+          "August": 7,
+          "September": 7,
+          "October": 7,
+          "November": 7,
+          "December": 7
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ከሌሎች ልዩ ልዩ ገቢ (ከመሬት ኪራይ፣ከፈቃድ ማዉጫ..ወዘተ)",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "TIGRAY",
+        "annual_target": 20000000,
+        "monthly_targets": {
+          "January": 1666666.67,
+          "February": 1666666.67,
+          "March": 1666666.67,
+          "April": 1666666.67,
+          "May": 1666666.67,
+          "June": 1666666.67,
+          "July": 1666666.67,
+          "August": 1666666.67,
+          "September": 1666666.67,
+          "October": 1666666.67,
+          "November": 1666666.67,
+          "December": 1666666.67
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "በባህላዊና ልዩ አነስተኛ የሚፈጠርየስራ እድል",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "TIGRAY",
+        "annual_target": 50000,
+        "monthly_targets": {
+          "January": 4166,
+          "February": 4166,
+          "March": 4168,
+          "April": 4169,
+          "May": 4167,
+          "June": 4166,
+          "July": 4167,
+          "August": 4166,
+          "September": 4167,
+          "October": 4166,
+          "November": 4166,
+          "December": 4166
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ጥቁር ድንጋይ (ጠጠር)",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 3536200,
+        "monthly_targets": {
+          "January": 294683.33,
+          "February": 294683.33,
+          "March": 294683.33,
+          "April": 294683.33,
+          "May": 294683.33,
+          "June": 294683.33,
+          "July": 294683.33,
+          "August": 294683.33,
+          "September": 294683.33,
+          "October": 294683.33,
+          "November": 294683.33,
+          "December": 294683.33
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ነጭ ድንጋይ (ኢግኒምብራይት)",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 2667247,
+        "monthly_targets": {
+          "January": 222270.58,
+          "February": 222270.58,
+          "March": 222270.58,
+          "April": 222270.58,
+          "May": 222270.58,
+          "June": 222270.58,
+          "July": 222270.58,
+          "August": 222270.58,
+          "September": 222270.58,
+          "October": 222270.58,
+          "November": 222270.58,
+          "December": 222270.58
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ገረጋንቲ (ሰሌክትድ ማቴሪያል)",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 5600027,
+        "monthly_targets": {
+          "January": 466668.92,
+          "February": 466668.92,
+          "March": 466668.92,
+          "April": 466668.92,
+          "May": 466668.92,
+          "June": 466668.92,
+          "July": 466668.92,
+          "August": 466668.92,
+          "September": 466668.92,
+          "October": 466668.92,
+          "November": 466668.92,
+          "December": 466668.92
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ሌሎች የግንባታ ግብአት ማዕድናት",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 2831319,
+        "monthly_targets": {
+          "January": 235943.25,
+          "February": 235943.25,
+          "March": 235943.25,
+          "April": 235943.25,
+          "May": 235943.25,
+          "June": 235943.25,
+          "July": 235943.25,
+          "August": 235943.25,
+          "September": 235943.25,
+          "October": 235943.25,
+          "November": 235943.25,
+          "December": 235943.25
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የኢንዱስትሪ ማዕድናት",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 150000,
+        "monthly_targets": {
+          "January": 12500.0,
+          "February": 12500.0,
+          "March": 12500.0,
+          "April": 12500.0,
+          "May": 12500.0,
+          "June": 12500.0,
+          "July": 12500.0,
+          "August": 12500.0,
+          "September": 12500.0,
+          "October": 12500.0,
+          "November": 12500.0,
+          "December": 12500.0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ፌልድስፓር",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 60000,
+        "monthly_targets": {
+          "January": 5000,
+          "February": 5000,
+          "March": 5000,
+          "April": 5000,
+          "May": 5000,
+          "June": 5000,
+          "July": 5000,
+          "August": 5000,
+          "September": 5000,
+          "October": 5000,
+          "November": 5000,
+          "December": 5000
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ካኦሊን",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 10000,
+        "monthly_targets": {
+          "January": 833.33,
+          "February": 833.33,
+          "March": 833.33,
+          "April": 833.33,
+          "May": 833.33,
+          "June": 833.33,
+          "July": 833.33,
+          "August": 833.33,
+          "September": 833.33,
+          "October": 833.33,
+          "November": 833.33,
+          "December": 833.33
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የኮንስትራክሽን ማዕድናት ማምረት ሥራ ፈቃድ መስጠት/በአነስተኛና በከፍተኛ ደረጃ/",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 20,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 1,
+          "April": 3,
+          "May": 2,
+          "June": 2,
+          "July": 2,
+          "August": 2,
+          "September": 2,
+          "October": 2,
+          "November": 2,
+          "December": 2
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ከመሬት ኪራይ፣ከፈቃድ ማዉጫና እድሳት",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 140000000,
+        "monthly_targets": {
+          "January": 11666666.67,
+          "February": 11666666.67,
+          "March": 11666666.67,
+          "April": 11666666.67,
+          "May": 11666666.67,
+          "June": 11666666.67,
+          "July": 11666666.67,
+          "August": 11666666.67,
+          "September": 11666666.67,
+          "October": 11666666.67,
+          "November": 11666666.67,
+          "December": 11666666.67
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ከሌሎች ልዩ ልዩ ገቢ",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "CENTRAL ETHIOPIA",
+        "annual_target": 40000000,
+        "monthly_targets": {
+          "January": 3333333.33,
+          "February": 3333333.33,
+          "March": 3333333.33,
+          "April": 3333333.33,
+          "May": 3333333.33,
+          "June": 3333333.33,
+          "July": 3333333.33,
+          "August": 3333333.33,
+          "September": 3333333.33,
+          "October": 3333333.33,
+          "November": 3333333.33,
+          "December": 3333333.33
+        }
+      },
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 65000000,
+        "monthly_targets": {
+          "January": 5416666.67,
+          "February": 5416666.67,
+          "March": 5416666.67,
+          "April": 5416666.67,
+          "May": 5416666.67,
+          "June": 5416666.67,
+          "July": 5416666.67,
+          "August": 5416666.67,
+          "September": 5416666.67,
+          "October": 5416666.67,
+          "November": 5416666.67,
+          "December": 5416666.67
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ድንጋይ (የተፈጨ)",
+    "unit": "cubic_meter",
+    "measurement_category": "volume",
+    "assigned_regions": [
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 4000000,
+        "monthly_targets": {
+          "January": 333333.33,
+          "February": 333333.33,
+          "March": 333333.33,
+          "April": 333333.33,
+          "May": 333333.33,
+          "June": 333333.33,
+          "July": 333333.33,
+          "August": 333333.33,
+          "September": 333333.33,
+          "October": 333333.33,
+          "November": 333333.33,
+          "December": 333333.33
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ሲልካ ሳንድ/ኳርትዝ",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 5000,
+        "monthly_targets": {
+          "January": 416.67,
+          "February": 416.67,
+          "March": 416.67,
+          "April": 416.67,
+          "May": 416.67,
+          "June": 416.67,
+          "July": 416.67,
+          "August": 416.67,
+          "September": 416.67,
+          "October": 416.67,
+          "November": 416.67,
+          "December": 416.67
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ሌሎች",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 5000,
+        "monthly_targets": {
+          "January": 416.67,
+          "February": 416.67,
+          "March": 416.67,
+          "April": 416.67,
+          "May": 416.67,
+          "June": 416.67,
+          "July": 416.67,
+          "August": 416.67,
+          "September": 416.67,
+          "October": 416.67,
+          "November": 416.67,
+          "December": 416.67
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የጌጣጌጥ ማዕድን አዘዋዋሪነት",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 15,
+        "monthly_targets": {
+          "January": 1,
+          "February": 1,
+          "March": 1,
+          "April": 2,
+          "May": 2,
+          "June": 1,
+          "July": 2,
+          "August": 1,
+          "September": 1,
+          "October": 1,
+          "November": 1,
+          "December": 1
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ከፍተኛ ማዕድን የማምረት ፈቃድ",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 1,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 0,
+          "April": 0,
+          "May": 1,
+          "June": 0,
+          "July": 0,
+          "August": 0,
+          "September": 0,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "አነስተኛ ማዕድን የማምረት ፈቃድ",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 53,
+        "monthly_targets": {
+          "January": 3,
+          "February": 5,
+          "March": 5,
+          "April": 3,
+          "May": 5,
+          "June": 5,
+          "July": 4,
+          "August": 5,
+          "September": 5,
+          "October": 5,
+          "November": 5,
+          "December": 3
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ምርመራና ፍለጋ",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 35,
+        "monthly_targets": {
+          "January": 3,
+          "February": 4,
+          "March": 3,
+          "April": 3,
+          "May": 4,
+          "June": 3,
+          "July": 2,
+          "August": 3,
+          "September": 3,
+          "October": 3,
+          "November": 2,
+          "December": 2
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የነዳጅ ተቋማት ብቃት ማረጋገጫ",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 20,
+        "monthly_targets": {
+          "January": 1,
+          "February": 2,
+          "March": 2,
+          "April": 1,
+          "May": 2,
+          "June": 2,
+          "July": 1,
+          "August": 2,
+          "September": 2,
+          "October": 1,
+          "November": 2,
+          "December": 2
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "የነዳጅ ተቋማት ብቃት ማደስ",
+    "unit": "counts",
+    "measurement_category": "count",
+    "assigned_regions": [
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 42,
+        "monthly_targets": {
+          "January": 3,
+          "February": 3,
+          "March": 4,
+          "April": 3,
+          "May": 3,
+          "June": 4,
+          "July": 3,
+          "August": 3,
+          "September": 4,
+          "October": 4,
+          "November": 4,
+          "December": 4
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ከፈቃድ አገልግሎት",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 2500000,
+        "monthly_targets": {
+          "January": 208333.33,
+          "February": 208333.33,
+          "March": 208333.33,
+          "April": 208333.33,
+          "May": 208333.33,
+          "June": 208333.33,
+          "July": 208333.33,
+          "August": 208333.33,
+          "September": 208333.33,
+          "October": 208333.33,
+          "November": 208333.33,
+          "December": 208333.33
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ከመማዕድን ሥራዎች ቅጣት",
+    "unit": "birr",
+    "measurement_category": "currency",
+    "assigned_regions": [
+      {
+        "region": "SOUTH ETHIOPIA",
+        "annual_target": 1200000,
+        "monthly_targets": {
+          "January": 100000,
+          "February": 100000,
+          "March": 100000,
+          "April": 100000,
+          "May": 100000,
+          "June": 100000,
+          "July": 100000,
+          "August": 100000,
+          "September": 100000,
+          "October": 100000,
+          "November": 100000,
+          "December": 100000
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ታንታለም በባህላዊ አምራቾች",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "SIDAMA",
+        "annual_target": 5,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 0,
+          "April": 1,
+          "May": 1,
+          "June": 1,
+          "July": 1,
+          "August": 1,
+          "September": 0,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      }
+    ]
+  },
+  {
+    "kpi": "ሌሎች የኢንዱስትሪ ማዕድናት",
+    "unit": "ton",
+    "measurement_category": "mass",
+    "assigned_regions": [
+      {
+        "region": "SIDAMA",
+        "annual_target": 5000,
+        "monthly_targets": {
+          "January": 0,
+          "February": 0,
+          "March": 500,
+          "April": 500,
+          "May": 1000,
+          "June": 2000,
+          "July": 500,
+          "August": 500,
+          "September": 0,
+          "October": 0,
+          "November": 0,
+          "December": 0
+        }
+      }
+    ]
+  }
+]

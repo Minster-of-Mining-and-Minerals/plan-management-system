@@ -131,6 +131,14 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.FLOAT,
         allowNull: true,
       },
+      annual_target: {
+        type: DataTypes.FLOAT,
+        allowNull: true,
+      },
+      annual_achievement_percent: {
+        type: DataTypes.FLOAT,
+        allowNull: true,
+      },
       narrative: {
         type: DataTypes.TEXT,
         allowNull: true,

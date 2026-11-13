@@ -356,6 +356,7 @@ class NationalReportingService {
     const {
       regionIds = [],
       regionTargets = {}, // map of regionId -> annual_target
+      regionPeriodTargets = {}, // map of regionId -> { [periodLabel]: number }
       annualTarget = null,
       isMandatory = true,
       effectiveStartDate = null,
@@ -387,6 +388,27 @@ class NationalReportingService {
         targetForRegion = Number(annualTarget);
       }
 
+      let periodTargetsForRegion = {};
+      if (regionPeriodTargets && regionPeriodTargets[regionId]) {
+        periodTargetsForRegion = regionPeriodTargets[regionId];
+        let totalMonthlySum = 0;
+        for (const [, v] of Object.entries(periodTargetsForRegion)) {
+          totalMonthlySum += Number(v) || 0;
+        }
+        if (targetForRegion !== null && !isNaN(targetForRegion) && Object.keys(periodTargetsForRegion).length > 0) {
+          const roundedSum = Math.round(totalMonthlySum * 100) / 100;
+          const roundedTarget = Math.round(targetForRegion * 100) / 100;
+          if (Math.abs(roundedSum - roundedTarget) > 0.01) {
+            const diff = (roundedSum - roundedTarget).toFixed(2);
+            const err = new Error(
+              `Validation Error: Sum of monthly targets (${roundedSum}) must equal the annual target (${roundedTarget}). Difference: ${diff}`
+            );
+            err.status = 400;
+            throw err;
+          }
+        }
+      }
+
       const existing = await NationalReportingAssignment.findOne({
         where: {
           requirement_id: requirementId,
@@ -403,6 +425,9 @@ class NationalReportingService {
         if (targetForRegion !== null && !isNaN(targetForRegion)) {
           existing.annual_target = targetForRegion;
         }
+        if (Object.keys(periodTargetsForRegion).length > 0) {
+          existing.period_targets = periodTargetsForRegion;
+        }
         existing.notes = notes;
         existing.assigned_by = userId || null;
         existing.assigned_at = new Date();
@@ -417,6 +442,7 @@ class NationalReportingService {
           effective_end_date: effectiveEndDate,
           frequency_override: frequencyOverride,
           annual_target: targetForRegion !== null && !isNaN(targetForRegion) ? targetForRegion : null,
+          period_targets: Object.keys(periodTargetsForRegion).length > 0 ? periodTargetsForRegion : {},
           status: "active",
           notes,
           assigned_by: userId || null,
@@ -430,7 +456,7 @@ class NationalReportingService {
   }
 
   /**
-   * Update an existing assignment (suspend, withdraw, or update properties including annual_target)
+   * Update an existing assignment (suspend, withdraw, or update properties including annual_target and period_targets)
    */
   async updateAssignment(assignmentId, updateData) {
     const assignment = await NationalReportingAssignment.findByPk(assignmentId, {
@@ -455,6 +481,47 @@ class NationalReportingService {
         updateData.annual_target !== null && updateData.annual_target !== "" && !isNaN(Number(updateData.annual_target))
           ? Number(updateData.annual_target)
           : null;
+    }
+    if (updateData.period_targets !== undefined) {
+      if (updateData.period_targets === null || Object.keys(updateData.period_targets).length === 0) {
+        assignment.period_targets = {};
+      } else if (typeof updateData.period_targets === "object") {
+        let totalMonthlySum = 0;
+        const cleanedTargets = {};
+        for (const [key, val] of Object.entries(updateData.period_targets)) {
+          if (val !== null && val !== undefined && val !== "") {
+            const numVal = Number(val);
+            if (isNaN(numVal) || numVal < 0) {
+              const err = new Error(`Target value for period "${key}" must be a non-negative number.`);
+              err.status = 400;
+              throw err;
+            }
+            cleanedTargets[key] = numVal;
+            totalMonthlySum += numVal;
+          }
+        }
+
+        const refAnnualTarget =
+          updateData.annual_target !== undefined
+            ? (updateData.annual_target !== null && updateData.annual_target !== "" ? Number(updateData.annual_target) : null)
+            : (assignment.annual_target != null ? Number(assignment.annual_target) : null);
+
+        if (refAnnualTarget !== null && !isNaN(refAnnualTarget) && Object.keys(cleanedTargets).length > 0) {
+          const roundedSum = Math.round(totalMonthlySum * 100) / 100;
+          const roundedTarget = Math.round(refAnnualTarget * 100) / 100;
+          if (Math.abs(roundedSum - roundedTarget) > 0.01) {
+            const diff = Math.round((roundedSum - roundedTarget) * 100) / 100;
+            const diffStr = diff > 0 ? `+${diff}` : `${diff}`;
+            const err = new Error(
+              `Validation Error: Sum of monthly targets (${roundedSum}) must equal the preset annual target (${roundedTarget}). Difference: ${diffStr}`
+            );
+            err.status = 400;
+            throw err;
+          }
+        }
+
+        assignment.period_targets = cleanedTargets;
+      }
     }
     if (updateData.effective_start_date !== undefined) {
       assignment.effective_start_date = updateData.effective_start_date ? updateData.effective_start_date : null;

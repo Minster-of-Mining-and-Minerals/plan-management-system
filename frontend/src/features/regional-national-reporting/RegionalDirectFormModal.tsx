@@ -26,6 +26,7 @@ import {
   ShieldCheck,
   Check,
   Calendar,
+  CalendarRange,
 } from "lucide-react";
 import { toast } from "sonner";
 import { generateReportingPeriods } from "@/utils/nationalReportingPeriodUtils";
@@ -152,12 +153,35 @@ export function RegionalDirectFormModal({
       ? Number(assignment.annual_target)
       : null;
 
+  // Monthly / Period Target for the currently selected period
+  const periodMatch =
+    recurringPeriods.find(
+      (p) => String(p.period_label).toUpperCase() === String(reportingPeriodLabel).toUpperCase()
+    ) || selectedPeriod;
+
+  const monthlyTarget =
+    periodMatch?.monthly_target != null && !isNaN(Number(periodMatch.monthly_target))
+      ? Number(periodMatch.monthly_target)
+      : (assignment.period_targets?.[reportingPeriodLabel] != null && !isNaN(Number(assignment.period_targets[reportingPeriodLabel]))
+          ? Number(assignment.period_targets[reportingPeriodLabel])
+          : (plannedTarget && !isNaN(parseFloat(plannedTarget)) ? parseFloat(plannedTarget) : null));
+
   const numTarget = presetAnnualTarget != null ? presetAnnualTarget : parseFloat(plannedTarget);
   const numActual = parseFloat(reportedActual);
-  const achievementRate =
-    !isNaN(numTarget) && numTarget > 0 && !isNaN(numActual)
-      ? Math.round((numActual / numTarget) * 1000) / 10
+
+  // Monthly Achievement Rate (against this month's target)
+  const monthlyAchievementRate =
+    monthlyTarget != null && monthlyTarget > 0 && !isNaN(numActual)
+      ? Math.round((numActual / monthlyTarget) * 1000) / 10
       : null;
+
+  // Annual Target Contribution Rate (against full annual preset target)
+  const annualContributionRate =
+    presetAnnualTarget != null && presetAnnualTarget > 0 && !isNaN(numActual)
+      ? Math.round((numActual / presetAnnualTarget) * 1000) / 10
+      : null;
+
+  const achievementRate = monthlyAchievementRate ?? annualContributionRate;
 
   // Validation function
   const validateForm = (): boolean => {
@@ -307,19 +331,28 @@ export function RegionalDirectFormModal({
                 </div>
               </div>
 
-              {/* Target & Actual Comparison */}
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200 dark:border-slate-800">
+              {/* Target & Actual Comparison (Dual Targets: Monthly & Annual) */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-200 dark:border-slate-800">
                 <div className="p-3 bg-white dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800">
-                  <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+                  <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold block">
+                    This Month's Target ({reportingPeriodLabel})
+                  </span>
+                  <div className="text-base font-bold font-mono text-emerald-700 dark:text-emerald-400 mt-0.5">
+                    {monthlyTarget != null ? `${monthlyTarget.toLocaleString()} ${expectedFederalUnit}` : "—"}
+                  </div>
+                </div>
+
+                <div className="p-3 bg-white dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800">
+                  <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold block">
                     Federal Preset Annual Target
                   </span>
                   <div className="text-base font-bold font-mono text-slate-800 dark:text-slate-200 mt-0.5">
-                    {!isNaN(numTarget) ? `${numTarget.toLocaleString()} ${expectedFederalUnit}` : "—"}
+                    {presetAnnualTarget != null ? `${presetAnnualTarget.toLocaleString()} ${expectedFederalUnit}` : "—"}
                   </div>
                 </div>
 
                 <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-lg border border-emerald-300 dark:border-emerald-800">
-                  <span className="text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-400 font-semibold">
+                  <span className="text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-400 font-semibold block">
                     Reported Actual
                   </span>
                   <div className="text-base font-bold font-mono text-emerald-800 dark:text-emerald-200 mt-0.5">
@@ -328,14 +361,23 @@ export function RegionalDirectFormModal({
                 </div>
               </div>
 
-              {/* Achievement against Annual Target highlight */}
-              <div className="p-3 rounded-lg bg-slate-100 dark:bg-slate-800/60 flex items-center justify-between text-xs font-mono">
-                <span className="font-sans font-medium text-slate-600 dark:text-slate-300">
-                  Period Achievement against Annual Target:
-                </span>
-                <div className="flex items-center gap-2">
+              {/* Dual Analytics: Monthly Achievement & Annual Contribution */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs font-mono">
+                  <span className="font-sans font-medium text-emerald-900 dark:text-emerald-200">
+                    Monthly Target Achievement:
+                  </span>
                   <span className="font-bold text-sm text-emerald-600 dark:text-emerald-400">
-                    {achievementRate !== null ? `${achievementRate}%` : "—"}
+                    {monthlyAchievementRate !== null ? `${monthlyAchievementRate}%` : "—"}
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-lg bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs font-mono">
+                  <span className="font-sans font-medium text-slate-700 dark:text-slate-300">
+                    Annual Target Contribution:
+                  </span>
+                  <span className="font-bold text-sm text-blue-600 dark:text-blue-400">
+                    {annualContributionRate !== null ? `${annualContributionRate}%` : "—"}
                   </span>
                 </div>
               </div>
@@ -450,31 +492,64 @@ export function RegionalDirectFormModal({
               </div>
             </div>
 
-            {/* Preset Annual Target Banner */}
-            {presetAnnualTarget != null && (
+            {/* Targets Banner: Annual Target & Monthly Division Target */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {presetAnnualTarget != null && (
+                <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                      Preset Annual Target
+                    </span>
+                    <Badge variant="outline" className="font-mono text-xs">
+                      {presetAnnualTarget.toLocaleString()} {expectedFederalUnit}
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Full year baseline benchmark allocated for {reportingYear}.
+                  </p>
+                </div>
+              )}
+
               <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800 space-y-1">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-semibold text-emerald-900 dark:text-emerald-100 flex items-center gap-1.5">
-                    <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                    Federal Preset Regional Annual Target
+                    <CalendarRange className="h-4 w-4 text-emerald-600" />
+                    Target for {reportingPeriodLabel}
                   </span>
                   <Badge className="bg-emerald-600 text-white font-mono text-xs">
-                    {presetAnnualTarget.toLocaleString()} {expectedFederalUnit}
+                    {monthlyTarget != null
+                      ? `${monthlyTarget.toLocaleString()} ${expectedFederalUnit}`
+                      : "Not Pre-set"}
                   </Badge>
                 </div>
                 <p className="text-[11px] text-emerald-700 dark:text-emerald-300">
-                  Report your actual achievement for this period. Achievement statistics are calculated directly against your assigned annual target.
+                  {monthlyTarget != null
+                    ? `Assigned monthly division target for this reporting period.`
+                    : `No period breakdown set. Compared against annual target.`}
                 </p>
               </div>
-            )}
+            </div>
 
             {/* Target, Actual, and Federal Display-Only Unit */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="plan-target">
-                  {presetAnnualTarget != null ? "Preset Annual Target" : "Planned Target Value"}
+                  {monthlyTarget != null
+                    ? `Monthly Target (${reportingPeriodLabel})`
+                    : (presetAnnualTarget != null ? "Preset Annual Target" : "Planned Target Value")}
                 </Label>
-                {presetAnnualTarget != null ? (
+                {monthlyTarget != null ? (
+                  <div
+                    id="plan-target"
+                    className="mt-1 h-9 px-3 rounded-md border border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/30 flex items-center justify-between font-mono font-semibold text-emerald-900 dark:text-emerald-200 text-sm select-none"
+                  >
+                    <span>{monthlyTarget.toLocaleString()}</span>
+                    <Badge variant="outline" className="text-[10px] font-sans font-normal border-emerald-400 text-emerald-700 dark:text-emerald-400">
+                      {reportingPeriodLabel} Target
+                    </Badge>
+                  </div>
+                ) : presetAnnualTarget != null ? (
                   <div
                     id="plan-target"
                     className="mt-1 h-9 px-3 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 flex items-center justify-between font-mono font-semibold text-slate-800 dark:text-slate-200 text-sm select-none"
@@ -496,7 +571,9 @@ export function RegionalDirectFormModal({
                   />
                 )}
                 <p className="text-[10px] text-slate-400 mt-1">
-                  {presetAnnualTarget != null ? "Assigned Annual Target for this region" : "Target value"}
+                  {monthlyTarget != null
+                    ? `Assigned for ${reportingPeriodLabel}`
+                    : (presetAnnualTarget != null ? "Assigned Annual Target for this region" : "Target value")}
                 </p>
               </div>
 
@@ -535,22 +612,44 @@ export function RegionalDirectFormModal({
               </div>
             </div>
 
-            {/* Achievement Rate against Annual Target Preview */}
-            {achievementRate !== null && (
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
-                <div>
-                  <span className="font-semibold text-slate-700 dark:text-slate-300">
-                    Period Achievement against Annual Target:
-                  </span>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="font-mono font-bold text-sm text-emerald-600 dark:text-emerald-400">
-                      {achievementRate}%
-                    </span>
-                    <span className="text-[11px] text-slate-500">
-                      ({numActual.toLocaleString()} of {numTarget.toLocaleString()} {expectedFederalUnit} achieved in {reportingPeriodLabel})
-                    </span>
+            {/* Dual Achievement Analytics Preview (Monthly Achievement & Annual Contribution) */}
+            {(monthlyAchievementRate !== null || annualContributionRate !== null) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {monthlyAchievementRate !== null && (
+                  <div className="p-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="font-semibold text-emerald-900 dark:text-emerald-200">
+                        Achievement vs {reportingPeriodLabel} Target:
+                      </span>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="font-mono font-bold text-sm text-emerald-700 dark:text-emerald-300">
+                          {monthlyAchievementRate}%
+                        </span>
+                        <span className="text-[11px] text-slate-500">
+                          ({numActual.toLocaleString()} of {monthlyTarget?.toLocaleString()} {expectedFederalUnit})
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {annualContributionRate !== null && (
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="font-semibold text-slate-700 dark:text-slate-300">
+                        Contribution to Annual Target:
+                      </span>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="font-mono font-bold text-sm text-blue-600 dark:text-blue-400">
+                          {annualContributionRate}%
+                        </span>
+                        <span className="text-[11px] text-slate-500">
+                          ({numActual.toLocaleString()} of {presetAnnualTarget?.toLocaleString()} {expectedFederalUnit})
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

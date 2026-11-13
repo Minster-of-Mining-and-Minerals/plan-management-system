@@ -214,32 +214,44 @@ export function PublishedSubmissionsTab() {
     },
     {
       accessorKey: "achievement_percent",
-      header: "Achievement Rate",
+      header: "Achievement Rates",
       cell: ({ row }) => {
-        const rate = row.original.achievement_percent;
-        if (rate === null || rate === undefined) {
+        const rec = row.original;
+        const rate = rec.achievement_percent;
+        const annualRate = rec.annual_achievement_percent;
+
+        if (rate === null && annualRate === null) {
           return <span className="text-slate-400 text-xs italic">N/A</span>;
         }
 
-        const isOverAchieved = rate > 100;
+        const isOverAchieved = rate != null && rate > 100;
         return (
-          <div className="flex flex-col gap-1">
-            <Badge
-              variant="outline"
-              className={`text-xs w-fit ${
-                rate >= 100
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300"
-                  : rate >= 70
-                  ? "bg-blue-50 text-blue-700 border-blue-300"
-                  : "bg-amber-50 text-amber-700 border-amber-300"
-              }`}
-            >
-              {rate}%
-            </Badge>
-            {isOverAchieved && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950 px-1 py-0.2 rounded border border-emerald-300 dark:border-emerald-700 w-fit">
-                <TrendingUp className="h-2.5 w-2.5" />
-                +{(rate - 100).toFixed(1)}% Over
+          <div className="flex flex-col gap-1 text-xs font-mono">
+            {rate !== null && (
+              <div className="flex items-center gap-1.5">
+                <Badge
+                  variant="outline"
+                  className={`text-[11px] py-0 px-1.5 ${
+                    rate >= 100
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300"
+                      : rate >= 70
+                      ? "bg-blue-50 text-blue-700 border-blue-300"
+                      : "bg-amber-50 text-amber-700 border-amber-300"
+                  }`}
+                >
+                  {rate}% Monthly
+                </Badge>
+                {isOverAchieved && (
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950 px-1 py-0.2 rounded border border-emerald-300 dark:border-emerald-700">
+                    <TrendingUp className="h-2 w-2" />
+                    +{(rate - 100).toFixed(1)}%
+                  </span>
+                )}
+              </div>
+            )}
+            {annualRate !== null && (
+              <span className="text-[10px] text-blue-600 dark:text-blue-400 font-sans">
+                {annualRate}% of Annual Target
               </span>
             )}
           </div>

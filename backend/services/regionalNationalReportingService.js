@@ -75,6 +75,80 @@ async function resolvePlanNodeUnit(planNode, regionId) {
   return rawUnit;
 }
 
+const GREGORIAN_MONTH_NAMES = [
+  "january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december"
+];
+
+/**
+ * Robustly resolve monthly / period target from period_targets mapping
+ */
+function resolveMonthlyTarget(periodTargets, periodLabel, periodIndex, periodStartDate) {
+  if (!periodTargets || typeof periodTargets !== "object") return null;
+  const labelClean = String(periodLabel || "").trim().toLowerCase();
+
+  // 1. Direct label match (case-insensitive)
+  for (const [k, v] of Object.entries(periodTargets)) {
+    if (k.trim().toLowerCase() === labelClean) {
+      const num = Number(v);
+      return !isNaN(num) ? num : null;
+    }
+  }
+
+  // 2. Month name from start_date
+  if (periodStartDate) {
+    const d = new Date(periodStartDate);
+    if (!isNaN(d.getTime())) {
+      const monthName = d.toLocaleString("en-US", { month: "long" }).toLowerCase();
+      for (const [k, v] of Object.entries(periodTargets)) {
+        if (k.trim().toLowerCase() === monthName) {
+          const num = Number(v);
+          return !isNaN(num) ? num : null;
+        }
+      }
+    }
+  }
+
+  // 3. Month index match ("Month 1" -> 1st month, or key "1")
+  if (periodIndex !== undefined && periodIndex !== null) {
+    if (periodTargets[String(periodIndex)] !== undefined) {
+      const num = Number(periodTargets[String(periodIndex)]);
+      return !isNaN(num) ? num : null;
+    }
+    if (periodTargets[`Month ${periodIndex}`] !== undefined) {
+      const num = Number(periodTargets[`Month ${periodIndex}`]);
+      return !isNaN(num) ? num : null;
+    }
+
+    if (periodIndex >= 1 && periodIndex <= 12) {
+      const mName = GREGORIAN_MONTH_NAMES[periodIndex - 1];
+      for (const [k, v] of Object.entries(periodTargets)) {
+        if (k.trim().toLowerCase() === mName) {
+          const num = Number(v);
+          return !isNaN(num) ? num : null;
+        }
+      }
+    }
+  }
+
+  // 4. Try parsing "Month X" from periodLabel if index was not provided
+  const matchMonth = labelClean.match(/month\s*(\d+)/i);
+  if (matchMonth) {
+    const parsedIdx = parseInt(matchMonth[1], 10);
+    if (parsedIdx >= 1 && parsedIdx <= 12) {
+      const mName = GREGORIAN_MONTH_NAMES[parsedIdx - 1];
+      for (const [k, v] of Object.entries(periodTargets)) {
+        if (k.trim().toLowerCase() === mName) {
+          const num = Number(v);
+          return !isNaN(num) ? num : null;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 /**
  * Check if Form-Based National Reporting is currently effective for a Region.
  * Form-based reporting is the default method unless explicitly switched to node_mapping.
@@ -321,15 +395,37 @@ class RegionalNationalReportingService {
         periodObj.is_manually_unlocked = periodLock.is_manually_unlocked;
         periodObj.lock_override = periodLock.lock_override;
 
+        const configuredMonthlyTarget = resolveMonthlyTarget(
+          item.period_targets,
+          p.period_label,
+          p.period_index,
+          p.start_date
+        );
+
+        periodObj.monthly_target = configuredMonthlyTarget;
+        periodObj.period_target = configuredMonthlyTarget;
+        periodObj.annual_target = item.annual_target != null ? Number(item.annual_target) : null;
+
         if (matchingRecord) {
           periodObj.status = matchingRecord.status;
-          periodObj.planned_target = matchingRecord.planned_target;
+          periodObj.planned_target = matchingRecord.planned_target ?? configuredMonthlyTarget;
           periodObj.reported_actual = matchingRecord.reported_actual;
           periodObj.local_unit = matchingRecord.local_unit;
           periodObj.standardized_target = matchingRecord.standardized_target;
           periodObj.standardized_actual = matchingRecord.standardized_actual;
           periodObj.standardized_unit = matchingRecord.standardized_unit;
           periodObj.achievement_percent = matchingRecord.achievement_percent;
+          periodObj.monthly_achievement_percent = matchingRecord.achievement_percent;
+
+          let annualAch = matchingRecord.annual_achievement_percent;
+          if ((annualAch == null || isNaN(annualAch)) && periodObj.annual_target && periodObj.annual_target > 0) {
+            const actualNum = Number(matchingRecord.standardized_actual ?? matchingRecord.reported_actual);
+            if (!isNaN(actualNum)) {
+              annualAch = Math.round((actualNum / periodObj.annual_target) * 1000) / 10;
+            }
+          }
+          periodObj.annual_achievement_percent = annualAch ?? null;
+
           periodObj.publication_reference = matchingRecord.publication_reference;
           periodObj.published_record_id = matchingRecord.published_record_id;
           periodObj.published_at = matchingRecord.published_at;
@@ -345,21 +441,17 @@ class RegionalNationalReportingService {
             } else {
               periodObj.status = "potential";
             }
-            periodObj.planned_target = activeMapping.planNode?.period_target ?? null;
+            periodObj.planned_target = activeMapping.planNode?.period_target ?? configuredMonthlyTarget ?? null;
             periodObj.reported_actual = activeMapping.planNode?.period_actual ?? null;
           } else {
             periodObj.status = "unmapped";
-            periodObj.planned_target = null;
+            periodObj.planned_target = configuredMonthlyTarget ?? (item.annual_target != null ? Number(item.annual_target) : null);
             periodObj.reported_actual = null;
           }
 
-          // If federal preset annual target exists and target is not set from node mapping,
-          // associate with the preset annual target directly
-          if (!periodObj.planned_target && item.annual_target && !isNaN(Number(item.annual_target))) {
-            periodObj.planned_target = Number(item.annual_target);
-          }
-
           periodObj.achievement_percent = null;
+          periodObj.monthly_achievement_percent = null;
+          periodObj.annual_achievement_percent = null;
           periodObj.published_record_id = null;
           periodObj.publication_reference = null;
         }
@@ -853,6 +945,11 @@ class RegionalNationalReportingService {
       standardized_actual: standardizedActual,
       standardized_unit: expectedUnit,
       achievement_percent: achievementPercent,
+      annual_target: assignment.annual_target != null ? Number(assignment.annual_target) : null,
+      annual_achievement_percent:
+        assignment.annual_target && Number(assignment.annual_target) > 0 && standardizedActual !== null
+          ? Math.round((standardizedActual / Number(assignment.annual_target)) * 1000) / 10
+          : null,
       narrative: narrativeOverride || planNode.narration || null,
       evidence_attachments: planNode.evidence_attachment_ids || [],
       regional_validated_by: planNode.period_actual_validated_by || null,
@@ -1151,30 +1248,45 @@ class RegionalNationalReportingService {
       throw err;
     }
 
-    // Federal preset annual target resolution:
-    // Regional users report their actual achievement for that period/month, and the statistics
-    // are calculated directly against their preset annual target (e.g. 15% of annual target achieved this month).
-    let resolvedTarget =
-      plannedTarget !== undefined && plannedTarget !== null && plannedTarget !== ""
-        ? Number(plannedTarget)
-        : null;
-
-    if (assignment.annual_target !== null && assignment.annual_target !== undefined && !isNaN(Number(assignment.annual_target))) {
-      resolvedTarget = Number(assignment.annual_target);
+    // 1. Resolve Monthly Target for this period
+    let monthlyTarget = resolveMonthlyTarget(
+      assignment.period_targets,
+      reportingPeriodLabel,
+      null,
+      null
+    );
+    if (monthlyTarget === null && plannedTarget !== undefined && plannedTarget !== null && plannedTarget !== "" && !isNaN(Number(plannedTarget))) {
+      monthlyTarget = Number(plannedTarget);
     }
 
-    if (resolvedTarget !== null && isNaN(resolvedTarget)) {
+    // 2. Resolve Annual Target
+    const annualTarget =
+      assignment.annual_target !== null && assignment.annual_target !== undefined && !isNaN(Number(assignment.annual_target))
+        ? Number(assignment.annual_target)
+        : null;
+
+    // Effective period planned target (monthly target if set, otherwise fallback to annual target)
+    const effectivePeriodTarget = monthlyTarget != null ? monthlyTarget : annualTarget;
+
+    if (effectivePeriodTarget !== null && isNaN(effectivePeriodTarget)) {
       const err = new Error("Planned target must be a valid number");
       err.status = 400;
       throw err;
     }
 
     const standardizedActual = convertValue(numActual, submittedUnit, expectedUnit);
-    const standardizedTarget = convertValue(resolvedTarget, submittedUnit, expectedUnit);
+    const standardizedTarget = convertValue(effectivePeriodTarget, submittedUnit, expectedUnit);
 
-    const achievementPercent =
+    // Monthly achievement rate
+    const monthlyAchievementPercent =
       standardizedTarget && standardizedTarget > 0 && standardizedActual !== null
         ? Math.round((standardizedActual / standardizedTarget) * 1000) / 10
+        : null;
+
+    // Annual contribution achievement rate
+    const annualAchievementPercent =
+      annualTarget && annualTarget > 0 && standardizedActual !== null
+        ? Math.round((standardizedActual / annualTarget) * 1000) / 10
         : null;
 
     // 4. Supersede any existing active record for the same period to guarantee NO DOUBLE COUNTING
@@ -1226,12 +1338,15 @@ class RegionalNationalReportingService {
         reportingYear: Number(reportingYear),
         reportingPeriodLabel: String(reportingPeriodLabel).trim(),
         reportedActual: numActual,
-        plannedTarget: numTarget,
+        plannedTarget: effectivePeriodTarget,
+        monthlyTarget,
+        annualTarget,
         localUnit: submittedUnit,
         standardizedActual,
         standardizedTarget,
         standardizedUnit: expectedUnit,
-        achievementPercent,
+        achievementPercent: monthlyAchievementPercent,
+        annualAchievementPercent,
       },
       narrative: narrative || null,
       evidenceAttachments: evidenceAttachments || [],
@@ -1251,6 +1366,27 @@ class RegionalNationalReportingService {
       reporting_year: Number(reportingYear),
       reporting_period_label: String(reportingPeriodLabel).trim(),
       reporting_period_id: null,
+      planned_target: effectivePeriodTarget,
+      reported_actual: numActual,
+      local_unit: submittedUnit,
+      standardized_target: standardizedTarget,
+      standardized_actual: standardizedActual,
+      standardized_unit: expectedUnit,
+      achievement_percent: monthlyAchievementPercent,
+      annual_target: annualTarget,
+      annual_achievement_percent: annualAchievementPercent,
+      narrative: narrative || null,
+      evidence_attachments: evidenceAttachments || [],
+      regional_validated_by: userId || null,
+      regional_validated_at: new Date(),
+      published_by: userId || null,
+      published_at: new Date(),
+      revision_number: revisionNumber,
+      status: "published",
+      snapshot_data: snapshotData,
+    });
+      reporting_period_label: String(reportingPeriodLabel).trim(),
+      reporting_period_id: null,
       planned_target: numTarget,
       reported_actual: numActual,
       local_unit: submittedUnit,
@@ -1258,6 +1394,11 @@ class RegionalNationalReportingService {
       standardized_actual: standardizedActual,
       standardized_unit: expectedUnit,
       achievement_percent: achievementPercent,
+      annual_target: assignment.annual_target != null ? Number(assignment.annual_target) : null,
+      annual_achievement_percent:
+        assignment.annual_target && Number(assignment.annual_target) > 0 && standardizedActual !== null
+          ? Math.round((standardizedActual / Number(assignment.annual_target)) * 1000) / 10
+          : null,
       narrative: narrative || null,
       evidence_attachments: evidenceAttachments || [],
       regional_validated_by: userId || null,
