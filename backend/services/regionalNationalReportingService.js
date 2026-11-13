@@ -1385,30 +1385,6 @@ class RegionalNationalReportingService {
       status: "published",
       snapshot_data: snapshotData,
     });
-      reporting_period_label: String(reportingPeriodLabel).trim(),
-      reporting_period_id: null,
-      planned_target: numTarget,
-      reported_actual: numActual,
-      local_unit: submittedUnit,
-      standardized_target: standardizedTarget,
-      standardized_actual: standardizedActual,
-      standardized_unit: expectedUnit,
-      achievement_percent: achievementPercent,
-      annual_target: assignment.annual_target != null ? Number(assignment.annual_target) : null,
-      annual_achievement_percent:
-        assignment.annual_target && Number(assignment.annual_target) > 0 && standardizedActual !== null
-          ? Math.round((standardizedActual / Number(assignment.annual_target)) * 1000) / 10
-          : null,
-      narrative: narrative || null,
-      evidence_attachments: evidenceAttachments || [],
-      regional_validated_by: userId || null,
-      regional_validated_at: new Date(),
-      published_by: userId || null,
-      published_at: new Date(),
-      revision_number: revisionNumber,
-      status: "published",
-      snapshot_data: snapshotData,
-    });
 
     if (supersededId && existingRecord) {
       existingRecord.superseded_by_id = publishedRecord.published_record_id;
