@@ -50,8 +50,6 @@ export interface ReportingPeriod {
   standardized_unit?: string | null;
   achievement_rate?: number | null;
   achievement_percent?: number | null;
-  annual_target?: number | null;
-  annual_achievement_percent?: number | null;
   monthly_achievement_percent?: number | null;
   annual_achievement_percent?: number | null;
   publication_reference?: string | null;
