@@ -88,6 +88,13 @@ export function PeriodTargetsConfigModal({
 
   const [targetsDraft, setTargetsDraft] = useState<Record<string, string>>({});
 
+  const hasExistingTargets = useMemo(() => {
+    if (!assignment?.period_targets) return false;
+    return Object.values(assignment.period_targets).some(
+      (v) => v !== null && v !== undefined && !isNaN(Number(v)) && Number(v) > 0
+    );
+  }, [assignment]);
+
   // Sync state when modal opens
   useEffect(() => {
     if (isOpen && assignment) {
@@ -194,7 +201,9 @@ export function PeriodTargetsConfigModal({
         },
       }).unwrap();
       toast.success(
-        `Monthly target breakdown configured successfully for ${assignment.region?.name}.`
+        hasExistingTargets
+          ? `Monthly target breakdown updated successfully for ${assignment.region?.name}.`
+          : `Monthly target breakdown configured successfully for ${assignment.region?.name}.`
       );
       onClose();
     } catch (err: any) {
@@ -211,15 +220,31 @@ export function PeriodTargetsConfigModal({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="border-b pb-3 border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-2">
-            <div className="p-2 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 rounded-lg">
+            <div className={`p-2 rounded-lg ${hasExistingTargets ? "bg-blue-50 dark:bg-blue-950/60 text-blue-600" : "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600"}`}>
               <CalendarRange className="h-5 w-5" />
             </div>
             <div>
-              <DialogTitle className="text-base font-bold text-slate-900 dark:text-slate-100">
-                Configure Monthly Division & Period Targets
-              </DialogTitle>
+              <div className="flex items-center gap-2">
+                <DialogTitle className="text-base font-bold text-slate-900 dark:text-slate-100">
+                  {hasExistingTargets
+                    ? "Update Monthly Division & Period Targets"
+                    : "Configure Monthly Division & Period Targets"}
+                </DialogTitle>
+                {hasExistingTargets ? (
+                  <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[10px] font-semibold flex items-center gap-1">
+                    <Sparkles className="h-3 w-3 text-blue-600" />
+                    Update Mode
+                  </Badge>
+                ) : (
+                  <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-semibold">
+                    New Configuration
+                  </Badge>
+                )}
+              </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Break down the regional annual target into scheduled monthly targets with sum validation.
+                {hasExistingTargets
+                  ? "Review and update existing monthly target breakdown with annual sum validation."
+                  : "Break down the regional annual target into scheduled monthly targets with sum validation."}
               </p>
             </div>
           </div>
@@ -454,10 +479,16 @@ export function PeriodTargetsConfigModal({
             size="sm"
             onClick={handleSave}
             disabled={isUpdating || (roundedAnnualTarget != null && !isExactMatch)}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center gap-1.5"
+            className={`${
+              hasExistingTargets
+                ? "bg-blue-600 hover:bg-blue-700"
+                : "bg-emerald-600 hover:bg-emerald-700"
+            } text-white font-semibold text-xs flex items-center gap-1.5`}
           >
             <CheckCircle2 className="h-4 w-4" />
-            {isUpdating ? "Saving Breakdown..." : "Save Monthly Breakdown"}
+            {isUpdating
+              ? (hasExistingTargets ? "Updating Breakdown..." : "Saving Breakdown...")
+              : (hasExistingTargets ? "Update Monthly Breakdown" : "Save Monthly Breakdown")}
           </Button>
         </DialogFooter>
       </DialogContent>

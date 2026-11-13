@@ -1283,8 +1283,17 @@ class RegionalNationalReportingService {
       null,
       null
     );
-    if (monthlyTarget === null && plannedTarget !== undefined && plannedTarget !== null && plannedTarget !== "" && !isNaN(Number(plannedTarget))) {
-      monthlyTarget = Number(plannedTarget);
+    if (plannedTarget !== undefined && plannedTarget !== null && plannedTarget !== "" && !isNaN(Number(plannedTarget))) {
+      const explicitPlanned = Number(plannedTarget);
+      monthlyTarget = explicitPlanned;
+      // Persist the edited or filled target into the assignment's period_targets
+      try {
+        const currentPeriodTargets = { ...(assignment.period_targets || {}) };
+        currentPeriodTargets[reportingPeriodLabel] = explicitPlanned;
+        await assignment.update({ period_targets: currentPeriodTargets });
+      } catch (err) {
+        console.warn("[WARN] Could not update period_targets on assignment:", err.message);
+      }
     }
 
     // 2. Resolve Annual Target

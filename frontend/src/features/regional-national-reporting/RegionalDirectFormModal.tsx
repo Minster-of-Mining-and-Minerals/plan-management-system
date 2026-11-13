@@ -27,6 +27,9 @@ import {
   Check,
   Calendar,
   CalendarRange,
+  Lock,
+  Unlock,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { generateReportingPeriods } from "@/utils/nationalReportingPeriodUtils";
@@ -105,6 +108,9 @@ export function RegionalDirectFormModal({
   const [reportedActual, setReportedActual] = useState<string>("");
   const [narrative, setNarrative] = useState<string>("");
 
+  // Target editing toggle: Allows regional/federal users to open and edit the setted target or fill it, then close it
+  const [isTargetEditingOpen, setIsTargetEditingOpen] = useState<boolean>(false);
+
   // Confirmation view state
   const [isConfirming, setIsConfirming] = useState<boolean>(false);
   const [amharicValidationError, setAmharicValidationError] = useState<string | null>(null);
@@ -116,6 +122,7 @@ export function RegionalDirectFormModal({
   React.useEffect(() => {
     if (isOpen) {
       setIsConfirming(false);
+      setIsTargetEditingOpen(false);
       setAmharicValidationError(null);
       const activeLabel = selectedPeriod?.period_label || initialPeriodLabel || defaultPeriodLabel;
       setReportingPeriodLabel(activeLabel);
@@ -125,13 +132,15 @@ export function RegionalDirectFormModal({
         (p) => String(p.period_label).toUpperCase() === String(activeLabel).toUpperCase()
       );
 
+      let initialTarget = "";
       if (periodMatch && periodMatch.planned_target !== null && periodMatch.planned_target !== undefined) {
-        setPlannedTarget(String(periodMatch.planned_target));
+        initialTarget = String(periodMatch.planned_target);
+      } else if (assignment.period_targets?.[activeLabel] != null) {
+        initialTarget = String(assignment.period_targets[activeLabel]);
       } else if (latestPub && latestPub.reporting_period_label === activeLabel && latestPub.planned_target !== null) {
-        setPlannedTarget(String(latestPub.planned_target));
-      } else {
-        setPlannedTarget("");
+        initialTarget = String(latestPub.planned_target);
       }
+      setPlannedTarget(initialTarget);
 
       if (periodMatch && periodMatch.reported_actual !== null && periodMatch.reported_actual !== undefined) {
         setReportedActual(String(periodMatch.reported_actual));
@@ -143,7 +152,7 @@ export function RegionalDirectFormModal({
 
       setNarrative(periodMatch?.narrative || latestPub?.narrative || "");
     }
-  }, [isOpen, initialPeriodLabel, selectedPeriod, recurringPeriods, assignedYear, defaultPeriodLabel, latestPub]);
+  }, [isOpen, initialPeriodLabel, selectedPeriod, recurringPeriods, assignedYear, defaultPeriodLabel, latestPub, assignment]);
 
   const [submitReport, { isLoading: isSubmitting }] =
     useSubmitDirectFormReportMutation();
@@ -159,20 +168,32 @@ export function RegionalDirectFormModal({
       (p) => String(p.period_label).toUpperCase() === String(reportingPeriodLabel).toUpperCase()
     ) || selectedPeriod;
 
-  const monthlyTarget =
-    periodMatch?.monthly_target != null && !isNaN(Number(periodMatch.monthly_target))
-      ? Number(periodMatch.monthly_target)
-      : (assignment.period_targets?.[reportingPeriodLabel] != null && !isNaN(Number(assignment.period_targets[reportingPeriodLabel]))
-          ? Number(assignment.period_targets[reportingPeriodLabel])
-          : (plannedTarget && !isNaN(parseFloat(plannedTarget)) ? parseFloat(plannedTarget) : null));
+  // Effective period target: prioritizes user-edited plannedTarget, then assignment period_targets, then period definition
+  const effectivePeriodTargetNum = React.useMemo(() => {
+    if (plannedTarget !== "" && !isNaN(parseFloat(plannedTarget))) {
+      return parseFloat(plannedTarget);
+    }
+    if (periodMatch?.monthly_target != null && !isNaN(Number(periodMatch.monthly_target))) {
+      return Number(periodMatch.monthly_target);
+    }
+    if (
+      assignment.period_targets?.[reportingPeriodLabel] != null &&
+      !isNaN(Number(assignment.period_targets[reportingPeriodLabel]))
+    ) {
+      return Number(assignment.period_targets[reportingPeriodLabel]);
+    }
+    return null;
+  }, [plannedTarget, periodMatch, assignment, reportingPeriodLabel]);
 
-  const numTarget = presetAnnualTarget != null ? presetAnnualTarget : parseFloat(plannedTarget);
+  const monthlyTarget = effectivePeriodTargetNum;
+
+  const numTarget = effectivePeriodTargetNum != null ? effectivePeriodTargetNum : (presetAnnualTarget != null ? presetAnnualTarget : NaN);
   const numActual = parseFloat(reportedActual);
 
   // Monthly Achievement Rate (against this month's target)
   const monthlyAchievementRate =
-    monthlyTarget != null && monthlyTarget > 0 && !isNaN(numActual)
-      ? Math.round((numActual / monthlyTarget) * 1000) / 10
+    effectivePeriodTargetNum != null && effectivePeriodTargetNum > 0 && !isNaN(numActual)
+      ? Math.round((numActual / effectivePeriodTargetNum) * 1000) / 10
       : null;
 
   // Annual Target Contribution Rate (against full annual preset target)
@@ -246,7 +267,7 @@ export function RegionalDirectFormModal({
           requirementId: req?.requirement_id,
           reportingYear: Number(reportingYear),
           reportingPeriodLabel: reportingPeriodLabel.trim(),
-          plannedTarget: !isNaN(numTarget) ? numTarget : null,
+          plannedTarget: effectivePeriodTargetNum != null ? effectivePeriodTargetNum : (!isNaN(numTarget) ? numTarget : null),
           reportedActual: numActual,
           localUnit: expectedFederalUnit, // Federal defined unit strictly enforced
           narrative: narrative.trim(),
@@ -534,47 +555,98 @@ export function RegionalDirectFormModal({
             {/* Target, Actual, and Federal Display-Only Unit */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <Label htmlFor="plan-target">
-                  {monthlyTarget != null
-                    ? `Monthly Target (${reportingPeriodLabel})`
-                    : (presetAnnualTarget != null ? "Preset Annual Target" : "Planned Target Value")}
-                </Label>
-                {monthlyTarget != null ? (
-                  <div
-                    id="plan-target"
-                    className="mt-1 h-9 px-3 rounded-md border border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/30 flex items-center justify-between font-mono font-semibold text-emerald-900 dark:text-emerald-200 text-sm select-none"
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="plan-target">
+                    {effectivePeriodTargetNum != null
+                      ? `Target (${reportingPeriodLabel})`
+                      : "Target Value"}
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsTargetEditingOpen(!isTargetEditingOpen)}
+                    className="h-6 px-1.5 text-[11px] text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950 flex items-center gap-1"
+                    title={isTargetEditingOpen ? "Close target editing" : "Open and edit regional target"}
                   >
-                    <span>{monthlyTarget.toLocaleString()}</span>
-                    <Badge variant="outline" className="text-[10px] font-sans font-normal border-emerald-400 text-emerald-700 dark:text-emerald-400">
-                      {reportingPeriodLabel} Target
-                    </Badge>
-                  </div>
-                ) : presetAnnualTarget != null ? (
-                  <div
-                    id="plan-target"
-                    className="mt-1 h-9 px-3 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 flex items-center justify-between font-mono font-semibold text-slate-800 dark:text-slate-200 text-sm select-none"
-                  >
-                    <span>{presetAnnualTarget.toLocaleString()}</span>
-                    <Badge variant="outline" className="text-[10px] font-sans font-normal border-emerald-300 text-emerald-700 dark:text-emerald-400">
-                      Annual Target
-                    </Badge>
+                    {isTargetEditingOpen ? (
+                      <>
+                        <Lock className="h-3 w-3" />
+                        <span>Close &amp; Lock</span>
+                      </>
+                    ) : (
+                      <>
+                        <Pencil className="h-3 w-3" />
+                        <span>{effectivePeriodTargetNum != null ? "Edit Target" : "Fill Target"}</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {isTargetEditingOpen ? (
+                  <div className="mt-1 space-y-1">
+                    <div className="relative">
+                      <Input
+                        id="plan-target"
+                        type="number"
+                        step="any"
+                        min="0"
+                        placeholder="Enter period target value..."
+                        value={plannedTarget}
+                        onChange={(e) => setPlannedTarget(e.target.value)}
+                        className="font-mono font-bold pr-16 border-emerald-400 focus-visible:ring-emerald-500"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setIsTargetEditingOpen(false)}
+                        className="absolute right-2 top-2 text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 px-1.5 py-0.5 rounded font-semibold hover:bg-emerald-200"
+                      >
+                        Done
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                      Editable target active. Click &apos;Close &amp; Lock&apos; when done.
+                    </p>
                   </div>
                 ) : (
-                  <Input
-                    id="plan-target"
-                    type="number"
-                    step="any"
-                    placeholder="e.g. 1000"
-                    value={plannedTarget}
-                    onChange={(e) => setPlannedTarget(e.target.value)}
-                    className="mt-1 font-mono"
-                  />
+                  <div>
+                    {effectivePeriodTargetNum != null ? (
+                      <div
+                        id="plan-target"
+                        className="mt-1 h-9 px-3 rounded-md border border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/30 flex items-center justify-between font-mono font-semibold text-emerald-900 dark:text-emerald-200 text-sm select-none"
+                      >
+                        <span>{effectivePeriodTargetNum.toLocaleString()}</span>
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] font-sans font-normal border-emerald-400 text-emerald-700 dark:text-emerald-400 cursor-pointer"
+                          onClick={() => setIsTargetEditingOpen(true)}
+                          title="Click to open and edit"
+                        >
+                          {reportingPeriodLabel} Target • Click to Edit
+                        </Badge>
+                      </div>
+                    ) : (
+                      <div className="mt-1">
+                        <Input
+                          id="plan-target"
+                          type="number"
+                          step="any"
+                          min="0"
+                          placeholder="No target set — Click to fill target..."
+                          value={plannedTarget}
+                          onChange={(e) => setPlannedTarget(e.target.value)}
+                          className="font-mono"
+                        />
+                      </div>
+                    )}
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      {effectivePeriodTargetNum != null
+                        ? `Target value for ${reportingPeriodLabel} (click Edit to modify)`
+                        : `Fill period target if not configured`}
+                    </p>
+                  </div>
                 )}
-                <p className="text-[10px] text-slate-400 mt-1">
-                  {monthlyTarget != null
-                    ? `Assigned for ${reportingPeriodLabel}`
-                    : (presetAnnualTarget != null ? "Assigned Annual Target for this region" : "Target value")}
-                </p>
               </div>
 
               <div>

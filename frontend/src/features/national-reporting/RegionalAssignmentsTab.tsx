@@ -16,6 +16,7 @@ import { matchesSearchQuery } from "@/utils/tableUtils";
 import { RegionalReportingMethodConfigModal } from "./RegionalReportingMethodConfigModal";
 import { PeriodLockOverrideModal } from "./PeriodLockOverrideModal";
 import { PeriodTargetsConfigModal } from "./PeriodTargetsConfigModal";
+import { RegionalDirectFormModal } from "../regional-national-reporting/RegionalDirectFormModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -67,6 +68,7 @@ export function RegionalAssignmentsTab() {
   } | null>(null);
   const [managingLockAssignment, setManagingLockAssignment] = useState<NationalReportingAssignment | null>(null);
   const [managingPeriodTargetsAssignment, setManagingPeriodTargetsAssignment] = useState<NationalReportingAssignment | null>(null);
+  const [submittingDirectFormAssignment, setSubmittingDirectFormAssignment] = useState<NationalReportingAssignment | null>(null);
 
   const {
     data: assignments = [],
@@ -324,15 +326,45 @@ export function RegionalAssignmentsTab() {
               </Button>
             )}
 
+            {(() => {
+              const hasTargets = Boolean(
+                a.period_targets &&
+                Object.keys(a.period_targets).length > 0 &&
+                Object.values(a.period_targets).some(
+                  (v) => v !== null && v !== undefined && !isNaN(Number(v)) && Number(v) > 0
+                )
+              );
+              return (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setManagingPeriodTargetsAssignment(a)}
+                  className={`text-xs h-8 px-2 flex items-center gap-1 ${
+                    hasTargets
+                      ? "border-blue-300 text-blue-700 dark:text-blue-400 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950 font-medium"
+                      : "border-emerald-300 text-emerald-800 dark:text-emerald-400 dark:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950"
+                  }`}
+                  title={hasTargets ? "Update Monthly Targets (Existing breakdown configured)" : "Configure Monthly Targets"}
+                >
+                  <CalendarRange
+                    className={`h-3.5 w-3.5 ${
+                      hasTargets ? "text-blue-600 dark:text-blue-400" : "text-emerald-600 dark:text-emerald-400"
+                    }`}
+                  />
+                  <span>{hasTargets ? "Update Targets" : "Set Targets"}</span>
+                </Button>
+              );
+            })()}
+
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setManagingPeriodTargetsAssignment(a)}
-              className="text-xs h-8 px-2 border-emerald-300 text-emerald-800 dark:text-emerald-400 dark:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950 flex items-center gap-1"
-              title="Configure Monthly Division & Period Targets"
+              onClick={() => setSubmittingDirectFormAssignment(a)}
+              className="text-xs h-8 px-2 border-indigo-300 text-indigo-700 dark:text-indigo-400 dark:border-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950 flex items-center gap-1 font-medium"
+              title="Record / Update Direct KPI Submission (Target, Achievement & Narration)"
             >
-              <CalendarRange className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-              Monthly Targets
+              <FileText className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+              <span>Report Submission</span>
             </Button>
 
             <Button
@@ -539,6 +571,16 @@ export function RegionalAssignmentsTab() {
           isOpen={!!managingPeriodTargetsAssignment}
           onClose={() => setManagingPeriodTargetsAssignment(null)}
           assignment={managingPeriodTargetsAssignment}
+        />
+      )}
+
+      {/* Federal Direct KPI Report Submission Modal */}
+      {submittingDirectFormAssignment && submittingDirectFormAssignment.region && (
+        <RegionalDirectFormModal
+          isOpen={!!submittingDirectFormAssignment}
+          onClose={() => setSubmittingDirectFormAssignment(null)}
+          assignment={submittingDirectFormAssignment}
+          regionId={submittingDirectFormAssignment.region.region_id}
         />
       )}
     </>
