@@ -220,14 +220,14 @@ export function PublishedSubmissionsTab() {
         const rate = rec.achievement_percent;
         const annualRate = rec.annual_achievement_percent;
 
-        if (rate === null && annualRate === null) {
+        if (rate == null && annualRate == null) {
           return <span className="text-slate-400 text-xs italic">N/A</span>;
         }
 
-        const isOverAchieved = rate != null && rate > 100;
+        const isOverAchieved = typeof rate === "number" && rate > 100;
         return (
           <div className="flex flex-col gap-1 text-xs font-mono">
-            {rate !== null && (
+            {typeof rate === "number" && (
               <div className="flex items-center gap-1.5">
                 <Badge
                   variant="outline"
@@ -249,7 +249,7 @@ export function PublishedSubmissionsTab() {
                 )}
               </div>
             )}
-            {annualRate !== null && (
+            {typeof annualRate === "number" && (
               <span className="text-[10px] text-blue-600 dark:text-blue-400 font-sans">
                 {annualRate}% of Annual Target
               </span>
