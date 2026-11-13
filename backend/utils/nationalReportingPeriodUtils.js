@@ -95,12 +95,17 @@ function generateReportingPeriods(startDateStr, endDateStr, frequency) {
     stepMonths = 12;
   }
 
-  // Check if start date is on the 1st of a month
+  // Check if start date is on the 1st of a month or aligned month cycle (e.g. 8th to 7th for Ethiopian fiscal year)
   const isFirstOfMonth = start.getDate() === 1;
+  const isMonthlyAlignedCycle = count === 12 && (
+    isFirstOfMonth ||
+    (start.getDate() === 8 && end.getDate() === 7) ||
+    Math.abs(start.getDate() - (end.getDate() + 1)) <= 1
+  );
 
   const periods = [];
 
-  if (isFirstOfMonth && count > 1) {
+  if ((isFirstOfMonth && count > 1) || isMonthlyAlignedCycle) {
     let currStart = new Date(start.getTime());
     for (let i = 0; i < count; i++) {
       const pStart = new Date(currStart.getTime());
@@ -128,6 +133,7 @@ function generateReportingPeriods(startDateStr, endDateStr, frequency) {
       periods.push({
         period_index: i + 1,
         period_label: label,
+        division_label: `Division ${i + 1}`,
         start_date: pStartStr,
         end_date: pEndStr,
         name: `${label} (${pStartStr} to ${pEndStr})`,

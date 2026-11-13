@@ -119,6 +119,10 @@ function resolveMonthlyTarget(periodTargets, periodLabel, periodIndex, periodSta
       const num = Number(periodTargets[`Month ${periodIndex}`]);
       return !isNaN(num) ? num : null;
     }
+    if (periodTargets[`Division ${periodIndex}`] !== undefined) {
+      const num = Number(periodTargets[`Division ${periodIndex}`]);
+      return !isNaN(num) ? num : null;
+    }
 
     if (periodIndex >= 1 && periodIndex <= 12) {
       const mName = GREGORIAN_MONTH_NAMES[periodIndex - 1];
@@ -131,10 +135,22 @@ function resolveMonthlyTarget(periodTargets, periodLabel, periodIndex, periodSta
     }
   }
 
-  // 4. Try parsing "Month X" from periodLabel if index was not provided
-  const matchMonth = labelClean.match(/month\s*(\d+)/i);
+  // 4. Try parsing "Month X" or "Division X" from periodLabel if index was not provided
+  const matchMonth = labelClean.match(/(?:month|division)\s*(\d+)/i);
   if (matchMonth) {
     const parsedIdx = parseInt(matchMonth[1], 10);
+    if (periodTargets[`Division ${parsedIdx}`] !== undefined) {
+      const num = Number(periodTargets[`Division ${parsedIdx}`]);
+      return !isNaN(num) ? num : null;
+    }
+    if (periodTargets[`Month ${parsedIdx}`] !== undefined) {
+      const num = Number(periodTargets[`Month ${parsedIdx}`]);
+      return !isNaN(num) ? num : null;
+    }
+    if (periodTargets[String(parsedIdx)] !== undefined) {
+      const num = Number(periodTargets[String(parsedIdx)]);
+      return !isNaN(num) ? num : null;
+    }
     if (parsedIdx >= 1 && parsedIdx <= 12) {
       const mName = GREGORIAN_MONTH_NAMES[parsedIdx - 1];
       for (const [k, v] of Object.entries(periodTargets)) {
