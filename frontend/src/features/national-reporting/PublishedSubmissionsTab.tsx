@@ -418,7 +418,7 @@ export function PublishedSubmissionsTab() {
       {/* Publication Receipt Modal */}
       {selectedRecord && !isClarificationOpen && (
         <Dialog open={!!selectedRecord} onOpenChange={() => setSelectedRecord(null)}>
-          <DialogContent className="max-w-xl">
+          <DialogContent className="w-full max-w-3xl sm:max-w-3xl lg:max-w-4xl max-h-[92vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-emerald-800 dark:text-emerald-400">
                 <CheckCircle2 className="h-5 w-5" />
@@ -527,7 +527,7 @@ export function PublishedSubmissionsTab() {
       {/* Request Clarification Modal */}
       {selectedRecord && isClarificationOpen && (
         <Dialog open={isClarificationOpen} onOpenChange={setIsClarificationOpen}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="w-full max-w-lg sm:max-w-lg">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-amber-700">
                 <AlertTriangle className="h-5 w-5" />

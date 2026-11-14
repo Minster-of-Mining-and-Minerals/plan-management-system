@@ -535,7 +535,7 @@ export function NationalUnitConfigTab() {
 
       {/* Add Measurement Category Dialog */}
       <Dialog open={isAddCategoryOpen} onOpenChange={setIsAddCategoryOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-full max-w-lg sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Add New Measurement Category</DialogTitle>
           </DialogHeader>
@@ -591,7 +591,7 @@ export function NationalUnitConfigTab() {
 
       {/* Add Custom Unit Dialog */}
       <Dialog open={isAddUnitOpen} onOpenChange={setIsAddUnitOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-full max-w-lg sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Add New Measurement Unit</DialogTitle>
           </DialogHeader>

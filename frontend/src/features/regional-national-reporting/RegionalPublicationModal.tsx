@@ -97,7 +97,7 @@ export function RegionalPublicationModal({
         onClose();
       }}
     >
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-full max-w-3xl sm:max-w-3xl lg:max-w-4xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
             <Send className="h-5 w-5 text-emerald-600" />

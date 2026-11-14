@@ -133,7 +133,7 @@ export function RegionalPublicationHistoryTab({ regionId }: Props) {
 
       {/* View Receipt Dialog */}
       <Dialog open={!!selectedRecord} onOpenChange={() => setSelectedRecord(null)}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-full max-w-3xl sm:max-w-3xl lg:max-w-4xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
               <CheckCircle2 className="h-5 w-5" />

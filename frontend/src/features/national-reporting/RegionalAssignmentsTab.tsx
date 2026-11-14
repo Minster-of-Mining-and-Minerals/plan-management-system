@@ -456,7 +456,7 @@ export function RegionalAssignmentsTab() {
 
       {/* Edit Assignment Dialog */}
       <Dialog open={!!editingAssignment} onOpenChange={() => setEditingAssignment(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-full max-w-xl sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Edit Regional Assignment</DialogTitle>
           </DialogHeader>

@@ -217,7 +217,7 @@ export function PeriodTargetsConfigModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-full max-w-4xl sm:max-w-4xl lg:max-w-5xl max-h-[92vh] overflow-y-auto">
         <DialogHeader className="border-b pb-3 border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-2">
             <div className={`p-2 rounded-lg ${hasExistingTargets ? "bg-blue-50 dark:bg-blue-950/60 text-blue-600" : "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600"}`}>
@@ -409,7 +409,7 @@ export function PeriodTargetsConfigModal({
           </div>
 
           {/* Period Inputs Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto p-1 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-900/50">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-80 overflow-y-auto p-1.5 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-900/50">
             {periodKeys.map((key, idx) => {
               const val = targetsDraft[key] || "";
               const numVal = parseFloat(val);

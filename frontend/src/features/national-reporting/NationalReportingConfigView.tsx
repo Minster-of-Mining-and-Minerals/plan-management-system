@@ -517,7 +517,7 @@ export function NationalReportingConfigView() {
 
       {/* Add Reporting Category Dialog */}
       <Dialog open={isAddCategoryOpen} onOpenChange={setIsAddCategoryOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-full max-w-lg sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Add New Reporting Category Group</DialogTitle>
           </DialogHeader>

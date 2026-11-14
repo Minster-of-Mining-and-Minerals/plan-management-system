@@ -248,7 +248,7 @@ export function RegionalPlanAchievementPendingPanel({
       </div>
 
       <Dialog open={rejectModalOpen} onOpenChange={setRejectModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="w-full max-w-lg sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-base text-rose-600 font-bold">
               Reject Achievement Submission

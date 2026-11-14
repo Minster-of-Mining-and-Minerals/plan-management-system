@@ -13,3 +13,4 @@ module.exports = {
     console.log("[MIGRATION] seedRegionalTestUsers down migration (noop)");
   },
 };
+

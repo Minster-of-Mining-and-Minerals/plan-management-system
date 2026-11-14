@@ -557,7 +557,7 @@ export function NationalRequirementsTab() {
 
       {/* Create / Edit Requirement Modal */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-full max-w-4xl sm:max-w-4xl lg:max-w-5xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingReq ? `Edit National Requirement: ${editingReq.code}` : "Create National Reporting Requirement"}
@@ -849,7 +849,7 @@ export function NationalRequirementsTab() {
 
       {/* Regional Assignment Modal */}
       <Dialog open={!!assigningReq} onOpenChange={() => setAssigningReq(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-full max-w-4xl sm:max-w-4xl lg:max-w-5xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Assign Requirement & Preset Regional Annual Targets</DialogTitle>
           </DialogHeader>

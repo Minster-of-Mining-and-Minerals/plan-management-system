@@ -87,7 +87,7 @@ export function RegionalConfirmationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="w-full max-w-xl sm:max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
             <CalendarCheck className="h-5 w-5 text-emerald-600" />
