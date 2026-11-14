@@ -29,7 +29,10 @@ import {
   NationalReportingAssignment,
   ReportingPeriod,
 } from "@/redux/types/nationalReporting";
-import { useTogglePeriodLockOverrideMutation } from "@/redux/api/nationalReportingApi";
+import {
+  useTogglePeriodLockOverrideMutation,
+  useGetPeriodConfigsQuery,
+} from "@/redux/api/nationalReportingApi";
 import { toast } from "sonner";
 
 interface PeriodLockOverrideModalProps {
@@ -66,6 +69,28 @@ export function PeriodLockOverrideModal({
   assignment,
 }: PeriodLockOverrideModalProps) {
   const [toggleLock, { isLoading: isToggling }] = useTogglePeriodLockOverrideMutation();
+  const { data: periodConfigs } = useGetPeriodConfigsQuery();
+
+  const divisionCustomNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (!periodConfigs) return map;
+    const freq = (
+      assignment?.frequency_override ||
+      assignment?.requirement?.frequency ||
+      "monthly"
+    ).toLowerCase();
+    const matchingConfig = periodConfigs.find((c) => c.frequency === freq);
+    if (matchingConfig?.divisions) {
+      matchingConfig.divisions.forEach((d) => {
+        if (d.custom_name) {
+          map[d.division_key] = d.custom_name;
+          map[d.default_name] = d.custom_name;
+          map[String(d.index)] = d.custom_name;
+        }
+      });
+    }
+    return map;
+  }, [periodConfigs, assignment]);
 
   const [activePeriod, setActivePeriod] = useState<ReportingPeriod | null>(null);
   const [targetAction, setTargetAction] = useState<"unlock" | "lock" | null>(null);
@@ -266,7 +291,13 @@ export function PeriodLockOverrideModal({
                   <>
                     <Unlock className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                     <span className="font-bold text-sm text-emerald-900 dark:text-emerald-200">
-                      Open {activePeriod.period_label} on Demand
+                      Open {activePeriod.period_label}
+                      {divisionCustomNameMap[activePeriod.period_label] && (
+                        <span className="ml-1 text-emerald-700 dark:text-emerald-300 font-medium">
+                          ({divisionCustomNameMap[activePeriod.period_label]})
+                        </span>
+                      )}{" "}
+                      on Demand
                     </span>
                   </>
                 ) : (
@@ -274,6 +305,11 @@ export function PeriodLockOverrideModal({
                     <Lock className="h-4 w-4 text-rose-600 dark:text-rose-400" />
                     <span className="font-bold text-sm text-rose-900 dark:text-rose-200">
                       Apply Administrative Lock to {activePeriod.period_label}
+                      {divisionCustomNameMap[activePeriod.period_label] && (
+                        <span className="ml-1 text-rose-700 dark:text-rose-300 font-medium">
+                          ({divisionCustomNameMap[activePeriod.period_label]})
+                        </span>
+                      )}
                     </span>
                   </>
                 )}
@@ -475,6 +511,11 @@ export function PeriodLockOverrideModal({
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-sm text-slate-900 dark:text-slate-100">
                         {p.period_label}
+                        {divisionCustomNameMap[p.period_label] && (
+                          <span className="text-emerald-700 dark:text-emerald-400 font-semibold ml-1.5">
+                            • {divisionCustomNameMap[p.period_label]}
+                          </span>
+                        )}
                       </span>
                       <span className="text-slate-500 font-mono text-[11px]">
                         ({p.start_date} to {p.end_date})

@@ -36,6 +36,7 @@ import {
   Unlock,
 } from "lucide-react";
 import { generateReportingPeriods } from "@/utils/nationalReportingPeriodUtils";
+import { useGetPeriodConfigsQuery } from "@/redux/api/nationalReportingApi";
 
 interface Props {
   assignment: NationalReportingAssignment;
@@ -53,6 +54,29 @@ export function RegionalKpiDetailView({
   const req = assignment.requirement;
   const activeMapping = assignment.activeMapping;
   const mappedNode = activeMapping?.planNode;
+
+  const { data: periodConfigs } = useGetPeriodConfigsQuery();
+
+  const divisionCustomNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (!periodConfigs) return map;
+    const freq = (
+      assignment?.frequency_override ||
+      assignment?.requirement?.frequency ||
+      "monthly"
+    ).toLowerCase();
+    const matchingConfig = periodConfigs.find((c) => c.frequency === freq);
+    if (matchingConfig?.divisions) {
+      matchingConfig.divisions.forEach((d) => {
+        if (d.custom_name) {
+          map[d.division_key] = d.custom_name;
+          map[d.default_name] = d.custom_name;
+          map[String(d.index)] = d.custom_name;
+        }
+      });
+    }
+    return map;
+  }, [periodConfigs, assignment]);
 
   // Selected period for direct form modal
   const [activePeriodForForm, setActivePeriodForForm] = useState<ReportingPeriod | null>(null);
@@ -463,8 +487,8 @@ export function RegionalKpiDetailView({
                         <span className="font-mono bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs">
                           {period.period_label}
                         </span>
-                        <span className="text-slate-600 dark:text-slate-400 text-xs">
-                          {period.name || period.period_label}
+                        <span className="text-slate-600 dark:text-slate-400 text-xs font-medium">
+                          {divisionCustomNameMap[period.period_label] || period.name || period.period_label}
                         </span>
                       </div>
                       <span className="text-[10px] text-slate-400 font-mono block mt-0.5">

@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import {
   useGetNationalPublishedRecordsQuery,
   useRequestNationalClarificationMutation,
+  useGetPeriodConfigsQuery,
 } from "@/redux/api/nationalReportingApi";
 import { useGetRegionsQuery } from "@/redux/api/regionApi";
 import { NationalPublishedRecord } from "@/redux/types/nationalReporting";
@@ -71,7 +72,22 @@ export function PublishedSubmissionsTab() {
   });
 
   const { data: regions = [] } = useGetRegionsQuery({ is_active: true });
+  const { data: periodConfigs } = useGetPeriodConfigsQuery();
   const [requestClarification, { isLoading: isRequesting }] = useRequestNationalClarificationMutation();
+
+  const divisionCustomNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (!periodConfigs) return map;
+    periodConfigs.forEach((cfg) => {
+      cfg.divisions?.forEach((d) => {
+        if (d.custom_name) {
+          map[d.division_key] = d.custom_name;
+          map[d.default_name] = d.custom_name;
+        }
+      });
+    });
+    return map;
+  }, [periodConfigs]);
 
   const handleOpenReceipt = (rec: NationalPublishedRecord) => {
     setSelectedRecord(rec);
@@ -178,11 +194,25 @@ export function PublishedSubmissionsTab() {
     {
       id: "period",
       header: "Period",
-      cell: ({ row }) => (
-        <div className="font-medium text-slate-700 dark:text-slate-300 text-xs whitespace-nowrap">
-          {row.original.reporting_year} {row.original.reporting_period_label}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const periodKey = row.original.reporting_period_label;
+        const customName = divisionCustomNameMap[periodKey];
+        return (
+          <div className="font-medium text-slate-700 dark:text-slate-300 text-xs whitespace-nowrap">
+            <div>
+              {customName ? customName : periodKey}
+              {customName && (
+                <span className="text-[10px] text-slate-400 font-mono ml-1">
+                  ({periodKey})
+                </span>
+              )}
+            </div>
+            <div className="text-[10px] text-slate-400 font-mono">
+              FY {row.original.reporting_year}
+            </div>
+          </div>
+        );
+      },
     },
     {
       id: "actual_local",
@@ -362,11 +392,28 @@ export function PublishedSubmissionsTab() {
       onChange: setPeriodFilter,
       options: [
         { label: "All Periods", value: "all" },
-        { label: "Quarter 1 (Q1)", value: "Q1" },
-        { label: "Quarter 2 (Q2)", value: "Q2" },
-        { label: "Quarter 3 (Q3)", value: "Q3" },
-        { label: "Quarter 4 (Q4)", value: "Q4" },
-        { label: "Annual", value: "Annual" },
+        ...Array.from({ length: 12 }, (_, i) => {
+          const key = `Month ${i + 1}`;
+          const cName = divisionCustomNameMap[key];
+          return {
+            label: cName ? `${cName} (${key})` : key,
+            value: key,
+          };
+        }),
+        ...[1, 2, 3, 4].map((q) => {
+          const key = `Q${q}`;
+          const cName = divisionCustomNameMap[key];
+          return {
+            label: cName ? `${cName} (${key})` : `Quarter ${q} (${key})`,
+            value: key,
+          };
+        }),
+        {
+          label: divisionCustomNameMap["Annual"]
+            ? `${divisionCustomNameMap["Annual"]} (Annual)`
+            : "Annual",
+          value: "Annual",
+        },
       ],
     },
     {
