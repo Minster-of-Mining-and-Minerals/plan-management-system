@@ -581,6 +581,7 @@ export function RegionalAssignmentsTab() {
           onClose={() => setSubmittingDirectFormAssignment(null)}
           assignment={submittingDirectFormAssignment}
           regionId={submittingDirectFormAssignment.region.region_id}
+          isFederalOverride={true}
         />
       )}
     </>

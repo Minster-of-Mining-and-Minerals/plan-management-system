@@ -1153,7 +1153,7 @@ class RegionalNationalReportingService {
   /**
    * Option B: Submit KPI Target and Achievement directly via Form
    */
-  async submitDirectFormReport(regionId, payload, userId) {
+  async submitDirectFormReport(regionId, payload, userId, options = {}) {
     const region = await Region.findByPk(regionId);
     if (!region) {
       const err = new Error("Region not found");
@@ -1161,9 +1161,11 @@ class RegionalNationalReportingService {
       throw err;
     }
 
-    // 1. Verify that Form-based Reporting is currently active and effective for this region
+    const isFederalOverride = Boolean(options?.isFederalOverride || payload?.isFederalOverride);
+
+    // 1. Verify that Form-based Reporting is currently active and effective for this region (federal override permitted)
     const isEffective = isRegionFormReportingEffective(region);
-    if (!isEffective) {
+    if (!isEffective && !isFederalOverride) {
       const err = new Error(
         "Form-based National Reporting is currently deactivated or expired for this region. Please use the plan-node mapping workflow or contact the national administrator."
       );
@@ -1252,7 +1254,7 @@ class RegionalNationalReportingService {
         deadlineDays,
       });
 
-      if (periodLock.is_locked) {
+      if (periodLock.is_locked && !isFederalOverride) {
         const err = new Error(
           `Reporting for period '${reportingPeriodLabel}' is currently locked. ${periodLock.lock_reason}`
         );
@@ -1356,6 +1358,7 @@ class RegionalNationalReportingService {
     // 6. Snapshot data
     const snapshotData = {
       submissionMethod: "form_based",
+      isFederalOverride: Boolean(isFederalOverride),
       publicationReference,
       publicationTimestamp: new Date().toISOString(),
       requirement: {

@@ -396,6 +396,7 @@ export interface DirectFormSubmissionPayload {
   localUnit?: string | null;
   narrative?: string | null;
   evidenceAttachments?: any[];
+  isFederalOverride?: boolean;
 }
 
 export interface TogglePeriodLockPayload {

@@ -207,10 +207,12 @@ async function updateRegionReportingConfig(req, res) {
 async function submitDirectFormReport(req, res) {
   try {
     const regionId = resolveAndVerifyRegionId(req);
+    const isFederalOrSuperAdmin = isSuperAdminActor(req) || isFederalActor(req);
     const result = await regionalNationalReportingService.submitDirectFormReport(
       regionId,
       req.body,
-      req.user?.user_id
+      req.user?.user_id,
+      { isFederalOverride: isFederalOrSuperAdmin }
     );
     return res.status(201).json({
       success: true,
