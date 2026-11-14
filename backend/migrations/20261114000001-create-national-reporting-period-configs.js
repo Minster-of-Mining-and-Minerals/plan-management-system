@@ -115,3 +115,4 @@ module.exports = {
     await queryInterface.dropTable("national_reporting_period_configs");
   },
 };
+
