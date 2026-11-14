@@ -837,8 +837,10 @@ class RegionalNationalReportingService {
     const standardizedTarget = convertValue(plannedTarget, localUnit, expectedUnit);
 
     const achievementPercent =
-      standardizedTarget && standardizedTarget > 0
-        ? Math.round((standardizedActual / standardizedTarget) * 1000) / 10
+      standardizedTarget !== null && standardizedActual !== null
+        ? standardizedTarget > 0
+          ? Math.round((standardizedActual / standardizedTarget) * 1000) / 10
+          : 0
         : null;
 
     // 6. Idempotency Check: Existing published record for this requirement, region, year, and period
@@ -1318,15 +1320,17 @@ class RegionalNationalReportingService {
 
     // Monthly achievement rate
     const monthlyAchievementPercent =
-      standardizedTarget && standardizedTarget > 0 && standardizedActual !== null
-        ? Math.round((standardizedActual / standardizedTarget) * 1000) / 10
+      standardizedTarget !== null && standardizedActual !== null
+        ? standardizedTarget > 0
+          ? Math.round((standardizedActual / standardizedTarget) * 1000) / 10
+          : 0
         : null;
 
     // Annual contribution achievement rate
     const annualAchievementPercent =
-      annualTarget && annualTarget > 0 && standardizedActual !== null
+      annualTarget !== null && annualTarget > 0 && standardizedActual !== null
         ? Math.round((standardizedActual / annualTarget) * 1000) / 10
-        : null;
+        : (annualTarget === 0 ? 0 : null);
 
     // 4. Supersede any existing active record for the same period to guarantee NO DOUBLE COUNTING
     const existingRecord = await NationalPublishedRecord.findOne({

@@ -301,18 +301,29 @@ export function RegionalDirectFormModal({
   // Performance variance & analytics (100% cap on target achievement, explicit over/under status)
   const performanceAnalytics = useMemo(() => {
     const target = effectivePeriodTargetNum ?? presetAnnualTarget;
-    if (target == null || target <= 0 || isNaN(numActual)) {
+    if (target == null || isNaN(numActual)) {
       return null;
     }
 
-    const rawPercent = (numActual / target) * 100;
-    const cappedPercent = Math.min(rawPercent, 100);
     const diff = numActual - target;
-    const diffPercent = ((numActual - target) / target) * 100;
-
     const isOver = numActual > target;
     const isUnder = numActual < target;
     const isExact = numActual === target;
+
+    let rawPercent = 0;
+    let cappedPercent = 0;
+    let diffPercent = 0;
+
+    if (target > 0) {
+      rawPercent = (numActual / target) * 100;
+      cappedPercent = Math.min(rawPercent, 100);
+      diffPercent = ((numActual - target) / target) * 100;
+    } else {
+      // When target is 0: achievement is calculated against zero, so keep it 0%
+      rawPercent = 0;
+      cappedPercent = 0;
+      diffPercent = 0;
+    }
 
     const surplusOrDeficitValue = Math.abs(diff);
     const formattedDiff = isOver
@@ -322,7 +333,7 @@ export function RegionalDirectFormModal({
       : `0 ${expectedFederalUnit}`;
 
     const formattedDiffPercent = isOver
-      ? `+${diffPercent.toFixed(1)}%`
+      ? (target > 0 ? `+${diffPercent.toFixed(1)}%` : `+${surplusOrDeficitValue.toLocaleString()} Surplus`)
       : isUnder
       ? `-${Math.abs(diffPercent).toFixed(1)}%`
       : `0.0%`;
@@ -335,16 +346,23 @@ export function RegionalDirectFormModal({
       isOver,
       isUnder,
       isExact,
+      target,
       formattedDiff,
       formattedDiffPercent,
     };
   }, [effectivePeriodTargetNum, presetAnnualTarget, numActual, expectedFederalUnit]);
 
   // Annual Target Contribution Rate (against full annual preset target)
-  const annualContributionRate =
-    presetAnnualTarget != null && presetAnnualTarget > 0 && !isNaN(numActual)
-      ? Math.round((numActual / presetAnnualTarget) * 1000) / 10
-      : null;
+  const annualContributionRate = useMemo(() => {
+    if (isNaN(numActual)) return null;
+    if (presetAnnualTarget != null && presetAnnualTarget > 0) {
+      return Math.round((numActual / presetAnnualTarget) * 1000) / 10;
+    }
+    if (presetAnnualTarget === 0) {
+      return 0;
+    }
+    return null;
+  }, [presetAnnualTarget, numActual]);
 
   // Validation function
   const validateForm = (): boolean => {
@@ -543,7 +561,9 @@ export function RegionalDirectFormModal({
                       {performanceAnalytics?.cappedPercent ?? 0}%
                     </span>
                     {performanceAnalytics?.isOver && (
-                      <Badge className="bg-emerald-600 text-white text-[10px]">100% Capped</Badge>
+                      <Badge className="bg-emerald-600 text-white text-[10px]">
+                        {effectivePeriodTargetNum === 0 ? "Target = 0 (0%)" : "100% Capped"}
+                      </Badge>
                     )}
                   </div>
                 </div>
@@ -915,7 +935,7 @@ export function RegionalDirectFormModal({
                         </span>
                         {performanceAnalytics?.isOver && (
                           <Badge className="bg-emerald-600 text-white text-[10px] h-5">
-                            100% Cap Met
+                            {effectivePeriodTargetNum === 0 ? "Target = 0 (0%)" : "100% Cap Met"}
                           </Badge>
                         )}
                       </div>
@@ -924,7 +944,7 @@ export function RegionalDirectFormModal({
                           {performanceAnalytics?.cappedPercent ?? 0}%
                         </span>
                         <span className="text-[11px] text-slate-400">
-                          (Cap: 100%)
+                          {effectivePeriodTargetNum === 0 ? "(Calculated against 0: 0%)" : "(Cap: 100%)"}
                         </span>
                       </div>
                       <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
@@ -935,6 +955,7 @@ export function RegionalDirectFormModal({
                       </div>
                       <p className="text-[11px] text-slate-500">
                         {numActual.toLocaleString()} of {effectivePeriodTargetNum != null ? effectivePeriodTargetNum.toLocaleString() : "—"} {expectedFederalUnit}
+                        {effectivePeriodTargetNum === 0 && " (Assigned target: 0)"}
                       </p>
                     </div>
 
@@ -983,7 +1004,9 @@ export function RegionalDirectFormModal({
 
                       <p className="text-[11px] leading-tight">
                         {performanceAnalytics?.isOver
-                          ? `Surplus of ${performanceAnalytics.formattedDiff} produced above the ${reportingPeriodLabel} assigned target.`
+                          ? effectivePeriodTargetNum === 0
+                            ? `Surplus of ${performanceAnalytics.formattedDiff} achieved beyond the zero-target allocation.`
+                            : `Surplus of ${performanceAnalytics.formattedDiff} produced above the ${reportingPeriodLabel} assigned target.`
                           : performanceAnalytics?.isUnder
                           ? `Deficit of ${Math.abs(performanceAnalytics.diff).toLocaleString()} ${expectedFederalUnit} remaining to satisfy this month's target.`
                           : "Target met with zero variance."}
