@@ -16,6 +16,7 @@ const {
   NationalPublishedRecord,
   NationalReportingCustomCategory,
   NationalReportingCustomUnit,
+  NationalReportingPeriodConfig,
   Region,
   User,
 } = db;
@@ -1299,6 +1300,119 @@ class NationalReportingService {
       category: cleanCat,
       base_unit: cleanBase,
       baseRecord: baseUnitRecord,
+    };
+  }
+
+  /**
+   * Get all period frequency configurations with their custom division names
+   */
+  async getPeriodConfigs() {
+    if (NationalReportingPeriodConfig) {
+      const records = await NationalReportingPeriodConfig.findAll({
+        order: [["division_count", "DESC"]],
+      });
+      if (records && records.length > 0) {
+        return records;
+      }
+    }
+
+    // Default configs if database is empty or not yet migrated
+    return [
+      {
+        frequency: "monthly",
+        display_title: "Monthly Reporting Divisions",
+        division_count: 12,
+        divisions: [
+          { index: 1, division_key: "Month 1", default_name: "Month 1", custom_name: "Month 1 / Hamle (ሐምሌ)", short_code: "M1" },
+          { index: 2, division_key: "Month 2", default_name: "Month 2", custom_name: "Month 2 / Nehase (ነሐሴ)", short_code: "M2" },
+          { index: 3, division_key: "Month 3", default_name: "Month 3", custom_name: "Month 3 / Meskerem (መስከረም)", short_code: "M3" },
+          { index: 4, division_key: "Month 4", default_name: "Month 4", custom_name: "Month 4 / Tikimt (ጥቅምት)", short_code: "M4" },
+          { index: 5, division_key: "Month 5", default_name: "Month 5", custom_name: "Month 5 / Hidar (ኅዳር)", short_code: "M5" },
+          { index: 6, division_key: "Month 6", default_name: "Month 6", custom_name: "Month 6 / Tahsas (ታኅሣሥ)", short_code: "M6" },
+          { index: 7, division_key: "Month 7", default_name: "Month 7", custom_name: "Month 7 / Tir (ጥር)", short_code: "M7" },
+          { index: 8, division_key: "Month 8", default_name: "Month 8", custom_name: "Month 8 / Yakatit (የካቲት)", short_code: "M8" },
+          { index: 9, division_key: "Month 9", default_name: "Month 9", custom_name: "Month 9 / Magabit (መጋቢት)", short_code: "M9" },
+          { index: 10, division_key: "Month 10", default_name: "Month 10", custom_name: "Month 10 / Miyazia (ሚያዝያ)", short_code: "M10" },
+          { index: 11, division_key: "Month 11", default_name: "Month 11", custom_name: "Month 11 / Ginbot (ግንቦት)", short_code: "M11" },
+          { index: 12, division_key: "Month 12", default_name: "Month 12", custom_name: "Month 12 / Sene (ሰኔ)", short_code: "M12" },
+        ],
+      },
+      {
+        frequency: "quarterly",
+        display_title: "Quarterly Reporting Divisions",
+        division_count: 4,
+        divisions: [
+          { index: 1, division_key: "Q1", default_name: "Quarter 1", custom_name: "Quarter 1 (Q1)", short_code: "Q1" },
+          { index: 2, division_key: "Q2", default_name: "Quarter 2", custom_name: "Quarter 2 (Q2)", short_code: "Q2" },
+          { index: 3, division_key: "Q3", default_name: "Quarter 3", custom_name: "Quarter 3 (Q3)", short_code: "Q3" },
+          { index: 4, division_key: "Q4", default_name: "Quarter 4", custom_name: "Quarter 4 (Q4)", short_code: "Q4" },
+        ],
+      },
+      {
+        frequency: "semi_annually",
+        display_title: "Semi-Annual Reporting Divisions",
+        division_count: 2,
+        divisions: [
+          { index: 1, division_key: "Semester 1", default_name: "Semester 1", custom_name: "First Half (H1)", short_code: "H1" },
+          { index: 2, division_key: "Semester 2", default_name: "Semester 2", custom_name: "Second Half (H2)", short_code: "H2" },
+        ],
+      },
+      {
+        frequency: "annually",
+        display_title: "Annual Reporting Division",
+        division_count: 1,
+        divisions: [
+          { index: 1, division_key: "Annual", default_name: "Annual", custom_name: "Annual Full Fiscal Year", short_code: "Annual" },
+        ],
+      },
+    ];
+  }
+
+  /**
+   * Update or create period division custom names for a reporting frequency
+   */
+  async updatePeriodConfig(frequency, divisions, userId) {
+    if (!frequency || !Array.isArray(divisions)) {
+      const err = new Error("frequency and divisions array are required");
+      err.status = 400;
+      throw err;
+    }
+
+    const cleanFreq = String(frequency).toLowerCase().replace(/[\s\-]/g, "_");
+
+    let record = null;
+    if (NationalReportingPeriodConfig) {
+      record = await NationalReportingPeriodConfig.findOne({
+        where: { frequency: cleanFreq },
+      });
+    }
+
+    const titleMap = {
+      monthly: "Monthly Reporting Divisions",
+      quarterly: "Quarterly Reporting Divisions",
+      semi_annually: "Semi-Annual Reporting Divisions",
+      annually: "Annual Reporting Division",
+    };
+
+    if (record) {
+      record.divisions = divisions;
+      record.updated_by = userId || null;
+      await record.save();
+      return record;
+    } else if (NationalReportingPeriodConfig) {
+      record = await NationalReportingPeriodConfig.create({
+        frequency: cleanFreq,
+        display_title: titleMap[cleanFreq] || `${frequency} Reporting Divisions`,
+        division_count: divisions.length,
+        divisions,
+        updated_by: userId || null,
+      });
+      return record;
+    }
+
+    return {
+      frequency: cleanFreq,
+      divisions,
     };
   }
 }

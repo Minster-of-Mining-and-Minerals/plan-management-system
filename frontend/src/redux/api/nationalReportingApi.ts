@@ -14,6 +14,8 @@ import {
   CreateCategoryPayload,
   CreateUnitPayload,
   CreateMeasurementCategoryPayload,
+  NationalReportingPeriodConfig,
+  UpdatePeriodConfigPayload,
 } from "../types/nationalReporting";
 
 export const nationalReportingApi = baseApi.injectEndpoints({
@@ -251,6 +253,21 @@ export const nationalReportingApi = baseApi.injectEndpoints({
       invalidatesTags: ["NationalUnitsCatalog"],
     }),
 
+    getPeriodConfigs: builder.query<NationalReportingPeriodConfig[], void>({
+      query: () => "/national-reporting/period-configs",
+      transformResponse: (res: any) => res.data || [],
+      providesTags: ["PeriodConfigs" as any],
+    }),
+
+    updatePeriodConfigs: builder.mutation<any, UpdatePeriodConfigPayload>({
+      query: (body) => ({
+        url: "/national-reporting/period-configs",
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: ["PeriodConfigs" as any],
+    }),
+
     // ================= Regional Endpoints =================
     getRegionalAssignedRequirements: builder.query<
       NationalReportingAssignment[],
@@ -462,5 +479,7 @@ export const {
   useSubmitDirectFormReportMutation,
   useGetSubmissionVersionsQuery,
   useLazyGetSubmissionVersionsQuery,
+  useGetPeriodConfigsQuery,
+  useUpdatePeriodConfigsMutation,
 } = nationalReportingApi;
 

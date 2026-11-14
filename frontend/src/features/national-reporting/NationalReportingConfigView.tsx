@@ -29,6 +29,7 @@ import {
   useCreateNationalCategoryMutation,
 } from "@/redux/api/nationalReportingApi";
 import { NationalUnitConfigTab } from "./NationalUnitConfigTab";
+import { NationalPeriodConfigTab } from "./NationalPeriodConfigTab";
 import {
   Settings,
   Scale,
@@ -46,6 +47,7 @@ import {
   HardHat,
   Search,
   Plus,
+  CalendarRange,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -368,6 +370,14 @@ export function NationalReportingConfigView() {
             <Scale className="h-4 w-4" />
             National Unit Configuration
           </TabsTrigger>
+
+          <TabsTrigger
+            value="periods"
+            className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-emerald-700 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-sm rounded-lg text-xs font-semibold"
+          >
+            <CalendarRange className="h-4 w-4" />
+            Period Classification &amp; Naming
+          </TabsTrigger>
         </TabsList>
 
         {/* Tab 1: Reporting Categories */}
@@ -512,6 +522,11 @@ export function NationalReportingConfigView() {
         {/* Tab 3: National Unit Configuration */}
         <TabsContent value="units" className="space-y-4 outline-none">
           <NationalUnitConfigTab />
+        </TabsContent>
+
+        {/* Tab 4: Period Classification & Custom Naming */}
+        <TabsContent value="periods" className="space-y-4 outline-none">
+          <NationalPeriodConfigTab />
         </TabsContent>
       </Tabs>
 

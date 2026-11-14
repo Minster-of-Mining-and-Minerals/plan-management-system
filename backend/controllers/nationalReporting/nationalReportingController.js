@@ -396,6 +396,44 @@ async function togglePeriodLockOverride(req, res) {
   }
 }
 
+async function getPeriodConfigs(req, res) {
+  try {
+    const configs = await nationalReportingService.getPeriodConfigs();
+    return res.status(200).json({
+      success: true,
+      data: configs,
+    });
+  } catch (error) {
+    console.error("Error retrieving national reporting period configs:", error);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Failed to retrieve period configs.",
+    });
+  }
+}
+
+async function updatePeriodConfigs(req, res) {
+  try {
+    const { frequency, divisions } = req.body;
+    const updated = await nationalReportingService.updatePeriodConfig(
+      frequency,
+      divisions,
+      req.user?.user_id
+    );
+    return res.status(200).json({
+      success: true,
+      message: `Period custom names for ${frequency} updated successfully.`,
+      data: updated,
+    });
+  } catch (error) {
+    console.error("Error updating national reporting period configs:", error);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Failed to update period configs.",
+    });
+  }
+}
+
 module.exports = {
   createRequirement,
   updateRequirement,
@@ -418,5 +456,7 @@ module.exports = {
   updateRegionReportingConfig,
   getSubmissionVersions,
   togglePeriodLockOverride,
+  getPeriodConfigs,
+  updatePeriodConfigs,
 };
 

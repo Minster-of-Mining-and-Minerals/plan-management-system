@@ -448,3 +448,26 @@ export interface CreateMeasurementCategoryPayload {
   base_label?: string;
 }
 
+export interface PeriodDivisionConfig {
+  index: number;
+  division_key: string;
+  default_name: string;
+  custom_name: string;
+  short_code?: string;
+  description?: string;
+}
+
+export interface NationalReportingPeriodConfig {
+  config_id?: string;
+  frequency: "monthly" | "quarterly" | "semi_annually" | "annually" | string;
+  display_title: string;
+  division_count: number;
+  divisions: PeriodDivisionConfig[];
+  updated_at?: string;
+}
+
+export interface UpdatePeriodConfigPayload {
+  frequency: string;
+  divisions: PeriodDivisionConfig[];
+}
+

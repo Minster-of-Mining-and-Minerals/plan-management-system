@@ -28,6 +28,14 @@ router.post(
   nationalReportingController.createCategory
 );
 
+// Period Configuration & Custom Division Naming
+router.get("/period-configs", nationalReportingController.getPeriodConfigs);
+router.put(
+  "/period-configs",
+  checkPermission("national_reporting", "create_requirement"),
+  nationalReportingController.updatePeriodConfigs
+);
+
 // National Dashboard Summary
 router.get(
   "/dashboard-summary",

@@ -22,7 +22,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { NationalReportingAssignment } from "@/redux/types/nationalReporting";
-import { useUpdateNationalAssignmentMutation } from "@/redux/api/nationalReportingApi";
+import {
+  useUpdateNationalAssignmentMutation,
+  useGetPeriodConfigsQuery,
+} from "@/redux/api/nationalReportingApi";
 
 interface PeriodTargetsConfigModalProps {
   assignment: NationalReportingAssignment | null;
@@ -57,6 +60,26 @@ export function PeriodTargetsConfigModal({
 }: PeriodTargetsConfigModalProps) {
   const [updateAssignment, { isLoading: isUpdating }] =
     useUpdateNationalAssignmentMutation();
+  const { data: periodConfigs = [] } = useGetPeriodConfigsQuery();
+
+  const customNamesMap = useMemo(() => {
+    const cleanFreq = (assignment?.frequency_override || assignment?.requirement?.frequency || "monthly").toLowerCase();
+    const matchingConfig =
+      periodConfigs.find((c) => c.frequency.toLowerCase() === cleanFreq) ||
+      periodConfigs.find((c) => c.frequency === "monthly");
+
+    const map: Record<string, string> = {};
+    if (matchingConfig?.divisions) {
+      matchingConfig.divisions.forEach((d) => {
+        if (d.custom_name) {
+          map[d.division_key] = d.custom_name;
+          map[d.default_name] = d.custom_name;
+          map[String(d.index)] = d.custom_name;
+        }
+      });
+    }
+    return map;
+  }, [periodConfigs, assignment]);
 
   const req = assignment?.requirement;
   const annualTarget =
@@ -418,10 +441,12 @@ export function PeriodTargetsConfigModal({
                   ? Math.round((numVal / roundedAnnualTarget) * 1000) / 10
                   : null;
 
-              const monthLabel =
-                frequency === "monthly" && ETHIOPIAN_MONTH_NAMES[idx]
-                  ? `${key} • ${ETHIOPIAN_MONTH_NAMES[idx]}`
-                  : key;
+              const customName = customNamesMap[key] || customNamesMap[String(idx + 1)];
+              const monthLabel = customName
+                ? `${key} • ${customName}`
+                : frequency === "monthly" && ETHIOPIAN_MONTH_NAMES[idx]
+                ? `${key} • ${ETHIOPIAN_MONTH_NAMES[idx]}`
+                : key;
 
               return (
                 <div

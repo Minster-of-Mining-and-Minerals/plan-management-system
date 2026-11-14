@@ -1,7 +1,10 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { useSubmitDirectFormReportMutation } from "@/redux/api/nationalReportingApi";
+import {
+  useSubmitDirectFormReportMutation,
+  useGetPeriodConfigsQuery,
+} from "@/redux/api/nationalReportingApi";
 import {
   NationalReportingAssignment,
   ReportingPeriod,
@@ -84,6 +87,28 @@ export function RegionalDirectFormModal({
   const todayStr = useMemo(() => formatDate(new Date()), []);
   const now = useMemo(() => new Date(), []);
 
+  // Fetch administrator period custom communication names
+  const { data: periodConfigs = [] } = useGetPeriodConfigsQuery();
+
+  const customNamesMap = useMemo(() => {
+    const activeFreq = req?.frequency || "monthly";
+    const matchingConfig =
+      periodConfigs.find((c) => c.frequency.toLowerCase() === activeFreq.toLowerCase()) ||
+      periodConfigs.find((c) => c.frequency === "monthly");
+
+    const map: Record<string, string> = {};
+    if (matchingConfig?.divisions) {
+      matchingConfig.divisions.forEach((d) => {
+        if (d.custom_name) {
+          map[d.division_key] = d.custom_name;
+          map[d.default_name] = d.custom_name;
+          map[String(d.index)] = d.custom_name;
+        }
+      });
+    }
+    return map;
+  }, [periodConfigs, req]);
+
   // Standardized federal unit (strictly display-only)
   const expectedFederalUnit = req?.expected_unit || "count";
 
@@ -122,6 +147,7 @@ export function RegionalDirectFormModal({
       const sDate = p.start_date || divMatch?.startDate || "";
       const eDate = p.end_date || divMatch?.endDate || "";
       const ethMonth = divMatch?.ethiopianMonth || "";
+      const customCommunicationName = customNamesMap[label] || customNamesMap[String(idx + 1)] || ethMonth || "";
 
       // 1. Resolve Target
       let targetValue: number | null = null;
@@ -207,7 +233,8 @@ export function RegionalDirectFormModal({
         ...p,
         period_index: p.period_index || idx + 1,
         period_label: label,
-        ethiopianMonth: ethMonth,
+        ethiopianMonth: customCommunicationName || ethMonth,
+        custom_name: customCommunicationName,
         start_date: sDate,
         end_date: eDate,
         targetValue,
