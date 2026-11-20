@@ -364,6 +364,17 @@ export const planApi = baseApi.injectEndpoints({
             invalidatesTags: ["PlanVersions", "PlanNodes"],
         }),
 
+        distributeAnnualTargetsEqually: builder.mutation<
+            { success: boolean; count: number; message?: string },
+            string
+        >({
+            query: (id) => ({
+                url: `/plan/versions/${id}/distribute-annual-targets-equally`,
+                method: "POST",
+            }),
+            invalidatesTags: ["PlanVersions", "PlanNodes"],
+        }),
+
         lockAnnualVersion: builder.mutation<PlanVersion, string>({
             query: (id) => ({
                 url: `/plan/versions/${id}/lock-annual`,
@@ -449,6 +460,17 @@ export const planApi = baseApi.injectEndpoints({
                 method: "POST",
             }),
             transformResponse: (response: { data: PlanVersion }) => response,
+            invalidatesTags: ["PlanVersions", "PlanNodes"],
+        }),
+
+        distributePeriodTargetsEqually: builder.mutation<
+            { success: boolean; count: number; message?: string },
+            string
+        >({
+            query: (id) => ({
+                url: `/plan/versions/${id}/distribute-period-targets-equally`,
+                method: "POST",
+            }),
             invalidatesTags: ["PlanVersions", "PlanNodes"],
         }),
 
@@ -1488,6 +1510,7 @@ export const {
     useGetAnnualTargetAllocationsQuery,
     useGetAnnualExecutionReadinessQuery,
     useFinalizeAnnualExecutionMutation,
+    useDistributeAnnualTargetsEquallyMutation,
     useLockAnnualVersionMutation,
     useUnlockAnnualVersionMutation,
     useCompleteAnnualVersionMutation,
@@ -1496,6 +1519,7 @@ export const {
     useGetExecutionPeriodFinalizationReadinessQuery,
     useInitializeExecutionPeriodsMutation,
     useFinalizeExecutionPeriodTargetsMutation,
+    useDistributePeriodTargetsEquallyMutation,
     useCompleteExecutionPeriodMutation,
     useUpdatePeriodTargetMutation,
     useUpdatePeriodActualMutation,

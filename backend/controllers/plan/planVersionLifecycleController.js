@@ -8,6 +8,7 @@ const {
     getAnnualTargetAllocationsForVersion,
     getAnnualExecutionReadiness,
     finalizeAnnualExecution,
+    distributeAnnualTargetsEqually,
     lockAnnualVersion,
     unlockAnnualVersion,
     setAnnualTarget,
@@ -16,6 +17,7 @@ const {
     initializeExecutionPeriods,
     getExecutionPeriodFinalizationReadiness,
     finalizeExecutionPeriodTargets,
+    distributePeriodTargetsEqually,
     getPeriodTargetAllocationsForVersion,
     getGlobalPeriodTargetFinalizationReadiness,
     finalizeGlobalPeriodTargets,
@@ -235,6 +237,42 @@ async function finalizeAnnualExecutionPlan(req, res) {
         });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
+    }
+}
+
+async function distributeAnnualTargetsEquallyHandler(req, res) {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            return res.status(400).json({ success: false, message: "Invalid ID" });
+        }
+        const data = await distributeAnnualTargetsEqually(id, req.user?.user_id);
+        return res.json({
+            success: true,
+            data,
+            message: "Annual targets distributed equally across years",
+        });
+    } catch (error) {
+        const status = error.status || 500;
+        return res.status(status).json({ success: false, message: error.message });
+    }
+}
+
+async function distributePeriodTargetsEquallyHandler(req, res) {
+    try {
+        const { id } = req.params;
+        if (!isUuid(id)) {
+            return res.status(400).json({ success: false, message: "Invalid ID" });
+        }
+        const data = await distributePeriodTargetsEqually(id, req.user?.user_id);
+        return res.json({
+            success: true,
+            data,
+            message: "Period targets distributed equally across execution periods",
+        });
+    } catch (error) {
+        const status = error.status || 500;
+        return res.status(status).json({ success: false, message: error.message });
     }
 }
 
@@ -542,6 +580,7 @@ module.exports = {
     listAnnualTargetAllocations,
     getAnnualExecutionFinalizationReadiness,
     finalizeAnnualExecutionPlan,
+    distributeAnnualTargetsEquallyHandler,
     lockAnnualPlanVersion,
     unlockAnnualPlanVersion,
     updateAnnualTarget,
@@ -550,6 +589,7 @@ module.exports = {
     initializeExecutionPeriodsForAnnual,
     getExecutionPeriodFinalizationReadinessHandler,
     finalizeExecutionPeriodTargetsHandler,
+    distributePeriodTargetsEquallyHandler,
     listPeriodTargetAllocations,
     getGlobalPeriodTargetFinalizationReadinessHandler,
     finalizeGlobalPeriodTargetsHandler,

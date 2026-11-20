@@ -2390,6 +2390,301 @@ async function reopenFinalizedPlanForEdit(masterVersionId) {
     }
 }
 
+async function distributeAnnualTargetsEqually(masterVersionId, userId) {
+    const master = await PlanVersion.findByPk(masterVersionId);
+    if (!master || master.version_kind !== "master") {
+        const err = new Error("Master plan version not found");
+        err.status = 404;
+        throw err;
+    }
+    if (master.status !== "finalized") {
+        const err = new Error("Master plan draft must be finalized to distribute annual targets");
+        err.status = 400;
+        throw err;
+    }
+    if (master.annual_targets_finalized_at) {
+        const err = new Error("Annual targets are already finalized");
+        err.status = 400;
+        throw err;
+    }
+
+    const annuals = await PlanVersion.findAll({
+        where: { parent_plan_version_id: masterVersionId, version_kind: "annual" },
+        order: [["sequence_index", "ASC"]],
+    });
+    if (annuals.length === 0) {
+        const err = new Error("No annual execution versions found");
+        err.status = 400;
+        throw err;
+    }
+
+    const duration = annuals.length;
+    const masterNodes = await PlanNode.findAll({
+        where: { plan_version_id: masterVersionId, is_active: true },
+        order: [["level", "DESC"]],
+    });
+
+    const rule = await resolvePlanRuleForVersion(master);
+
+    const t = await sequelize.transaction();
+    try {
+        let weightedCount = 0;
+        const allocationMap = new Map();
+
+        // 1. First pass: Allocate leaf nodes
+        for (const mNode of masterNodes) {
+            if (rule && !stepRequiresWeight(rule, mNode.level)) continue;
+
+            const weightedChildren = masterNodes.filter(
+                (candidate) =>
+                    candidate.parent_id === mNode.plan_node_id &&
+                    candidate.is_active !== false &&
+                    (!rule || stepRequiresWeight(rule, candidate.level))
+            );
+
+            if (weightedChildren.length > 0) continue;
+
+            weightedCount++;
+            const draftTarget = Number(mNode.weight) || 0;
+            if (draftTarget <= 0) {
+                const err = new Error(
+                    `Cannot divide annual targets: "${mNode.title}" requires a strategic draft target greater than 0.`
+                );
+                err.status = 400;
+                throw err;
+            }
+
+            const baseValue = Math.floor((draftTarget / duration) * 100) / 100;
+            const remainder = Math.round((draftTarget - baseValue * duration) * 100) / 100;
+
+            const yearTargets = [];
+            for (let i = 0; i < duration; i++) {
+                const yearTarget = i === 0 ? Math.round((baseValue + remainder) * 100) / 100 : baseValue;
+                yearTargets.push(yearTarget);
+            }
+            allocationMap.set(mNode.plan_node_id, yearTargets);
+        }
+
+        // 2. Second pass: Rollup parent nodes bottom-up
+        for (const mNode of masterNodes) {
+            if (rule && !stepRequiresWeight(rule, mNode.level)) continue;
+            if (allocationMap.has(mNode.plan_node_id)) continue;
+
+            const weightedChildren = masterNodes.filter(
+                (candidate) =>
+                    candidate.parent_id === mNode.plan_node_id &&
+                    candidate.is_active !== false &&
+                    (!rule || stepRequiresWeight(rule, candidate.level))
+            );
+
+            if (weightedChildren.length === 0) continue;
+
+            weightedCount++;
+            const yearTargets = [];
+            for (let i = 0; i < duration; i++) {
+                let sumChild = 0;
+                for (const child of weightedChildren) {
+                    const childTargets = allocationMap.get(child.plan_node_id) || [];
+                    sumChild += childTargets[i] || 0;
+                }
+                yearTargets.push(Math.round(sumChild * 100) / 100);
+            }
+            allocationMap.set(mNode.plan_node_id, yearTargets);
+        }
+
+        if (weightedCount === 0) {
+            const err = new Error("No KPI or weighted nodes found in plan hierarchy to distribute targets.");
+            err.status = 400;
+            throw err;
+        }
+
+        // 3. Persist allocations to annual versions
+        for (const [mNodeId, yearTargets] of allocationMap.entries()) {
+            for (let i = 0; i < duration; i++) {
+                const ann = annuals[i];
+                const yearTarget = yearTargets[i] || 0;
+                await PlanNode.update(
+                    { annual_target: yearTarget },
+                    {
+                        where: {
+                            plan_version_id: ann.plan_version_id,
+                            source_plan_node_id: mNodeId,
+                            is_active: true,
+                        },
+                        transaction: t,
+                    }
+                );
+            }
+        }
+
+        await t.commit();
+        return { success: true, count: masterNodes.length };
+    } catch (err) {
+        await t.rollback();
+        throw err;
+    }
+}
+
+async function distributeSingleAnnualPeriodTargetsEqually(annual, userId) {
+    if (annual.period_targets_finalized_at) {
+        const err = new Error(`Period targets are already finalized for Year ${annual.planning_year ?? annual.year}`);
+        err.status = 400;
+        throw err;
+    }
+
+    const periods = await PlanVersion.findAll({
+        where: { parent_plan_version_id: annual.plan_version_id, version_kind: "execution_period" },
+        order: [["sequence_index", "ASC"]],
+    });
+    if (periods.length === 0) {
+        const err = new Error(`Execution periods must be initialized first for Year ${annual.planning_year ?? annual.year}`);
+        err.status = 400;
+        throw err;
+    }
+
+    const periodCount = periods.length;
+    const annualNodes = await PlanNode.findAll({
+        where: { plan_version_id: annual.plan_version_id, is_active: true },
+        order: [["level", "DESC"]],
+    });
+
+    const rule = await resolvePlanRuleForVersion(annual);
+
+    const t = await sequelize.transaction();
+    try {
+        let weightedCount = 0;
+        const allocationMap = new Map();
+
+        // 1. First pass: Allocate leaf nodes
+        for (const aNode of annualNodes) {
+            if (rule && !stepRequiresWeight(rule, aNode.level)) continue;
+
+            const weightedChildren = annualNodes.filter(
+                (candidate) =>
+                    candidate.parent_id === aNode.plan_node_id &&
+                    candidate.is_active !== false &&
+                    (!rule || stepRequiresWeight(rule, candidate.level))
+            );
+
+            if (weightedChildren.length > 0) continue;
+
+            weightedCount++;
+            const annualTarget = Number(aNode.annual_target) || 0;
+            if (annualTarget <= 0) {
+                const err = new Error(
+                    `Cannot divide period targets: "${aNode.title}" has no annual target configured for Year ${annual.planning_year ?? annual.year}.`
+                );
+                err.status = 400;
+                throw err;
+            }
+
+            const baseValue = Math.floor((annualTarget / periodCount) * 100) / 100;
+            const remainder = Math.round((annualTarget - baseValue * periodCount) * 100) / 100;
+
+            const periodTargets = [];
+            for (let i = 0; i < periodCount; i++) {
+                const pTarget = i === 0 ? Math.round((baseValue + remainder) * 100) / 100 : baseValue;
+                periodTargets.push(pTarget);
+            }
+            allocationMap.set(aNode.plan_node_id, periodTargets);
+        }
+
+        // 2. Second pass: Rollup parent nodes bottom-up
+        for (const aNode of annualNodes) {
+            if (rule && !stepRequiresWeight(rule, aNode.level)) continue;
+            if (allocationMap.has(aNode.plan_node_id)) continue;
+
+            const weightedChildren = annualNodes.filter(
+                (candidate) =>
+                    candidate.parent_id === aNode.plan_node_id &&
+                    candidate.is_active !== false &&
+                    (!rule || stepRequiresWeight(rule, candidate.level))
+            );
+
+            if (weightedChildren.length === 0) continue;
+
+            weightedCount++;
+            const periodTargets = [];
+            for (let i = 0; i < periodCount; i++) {
+                let sumChild = 0;
+                for (const child of weightedChildren) {
+                    const childTargets = allocationMap.get(child.plan_node_id) || [];
+                    sumChild += childTargets[i] || 0;
+                }
+                periodTargets.push(Math.round(sumChild * 100) / 100);
+            }
+            allocationMap.set(aNode.plan_node_id, periodTargets);
+        }
+
+        if (weightedCount === 0) {
+            const err = new Error("No KPI or weighted nodes found in plan hierarchy to distribute period targets.");
+            err.status = 400;
+            throw err;
+        }
+
+        // 3. Persist allocations to period versions
+        for (const [aNodeId, periodTargets] of allocationMap.entries()) {
+            for (let i = 0; i < periodCount; i++) {
+                const period = periods[i];
+                const pTarget = periodTargets[i] || 0;
+                await PlanNode.update(
+                    { period_target: pTarget },
+                    {
+                        where: {
+                            plan_version_id: period.plan_version_id,
+                            source_plan_node_id: aNodeId,
+                            is_active: true,
+                        },
+                        transaction: t,
+                    }
+                );
+            }
+        }
+
+        await t.commit();
+        return { success: true, count: annualNodes.length };
+    } catch (err) {
+        await t.rollback();
+        throw err;
+    }
+}
+
+async function distributePeriodTargetsEqually(annualOrMasterVersionId, userId) {
+    const version = await PlanVersion.findByPk(annualOrMasterVersionId);
+    if (!version) {
+        const err = new Error("Plan version not found");
+        err.status = 404;
+        throw err;
+    }
+
+    if (version.version_kind === "master") {
+        const annuals = await PlanVersion.findAll({
+            where: { parent_plan_version_id: annualOrMasterVersionId, version_kind: "annual" },
+            order: [["sequence_index", "ASC"]],
+        });
+        if (annuals.length === 0) {
+            const err = new Error("No annual execution versions found for this master plan");
+            err.status = 400;
+            throw err;
+        }
+        let totalCount = 0;
+        for (const ann of annuals) {
+            if (ann.period_targets_finalized_at) continue;
+            const res = await distributeSingleAnnualPeriodTargetsEqually(ann, userId);
+            totalCount += res.count;
+        }
+        return { success: true, count: totalCount };
+    }
+
+    if (version.version_kind !== "annual") {
+        const err = new Error("Must be an annual or master plan version to distribute period targets");
+        err.status = 400;
+        throw err;
+    }
+
+    return distributeSingleAnnualPeriodTargetsEqually(version, userId);
+}
+
 module.exports = {
     enumeratePlanningYears,
     copyNodesWithAssignments,
@@ -2404,6 +2699,7 @@ module.exports = {
     validateAnnualExecutionFinalization,
     getAnnualExecutionReadiness,
     finalizeAnnualExecution,
+    distributeAnnualTargetsEqually,
     lockAnnualVersion,
     unlockAnnualVersion,
     setAnnualTarget,
@@ -2415,6 +2711,7 @@ module.exports = {
     validateExecutionPeriodFinalization,
     getExecutionPeriodFinalizationReadiness,
     finalizeExecutionPeriodTargets,
+    distributePeriodTargetsEqually,
     validatePeriodTargetAllocation,
     getPeriodTargetAllocationsForVersion,
     validateGlobalPeriodTargetFinalization,

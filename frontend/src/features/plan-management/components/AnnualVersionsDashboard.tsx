@@ -2,16 +2,18 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, CheckCircle, CalendarDays, ShieldCheck, Layers, Play } from "lucide-react";
+import { Eye, CheckCircle, CalendarDays, ShieldCheck, Layers, Play, Sparkles } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
     useGetAnnualVersionsQuery,
     useCompleteAnnualVersionMutation,
+    useDistributeAnnualTargetsEquallyMutation,
 } from "@/redux/api/planApi";
 import { PlanVersion } from "@/redux/types/plan";
 import { formatStatus } from "@/utils/statusFormatter";
 import { actionFeedback } from "@/components/action-feedback";
+import { getApiErrorMessage } from "@/utils/apiErrorUtils";
 import {
     resolveCompletionForVersion,
     resolveWorkflowStatusAppearance,
@@ -76,6 +78,8 @@ export function AnnualVersionsDashboard({
 
     const { data, isLoading, refetch } = useGetAnnualVersionsQuery(masterVersion.plan_version_id);
     const [completeAnnual, { isLoading: isCompleting }] = useCompleteAnnualVersionMutation();
+    const [distributeAnnualEqually, { isLoading: isDistributing }] =
+        useDistributeAnnualTargetsEquallyMutation();
 
     const master = data?.master ?? masterVersion;
     const annualVersions = data?.annualVersions ?? masterVersion.annualVersions ?? [];
@@ -92,6 +96,16 @@ export function AnnualVersionsDashboard({
         master,
         processStarted
     );
+
+    const handleDistributeEqually = async () => {
+        try {
+            await distributeAnnualEqually(master.plan_version_id).unwrap();
+            actionFeedback.success("Annual targets divided equally across planning years");
+            refetch();
+        } catch (err: unknown) {
+            actionFeedback.error(getApiErrorMessage(err, "Failed to distribute annual targets"));
+        }
+    };
 
     const handleComplete = async (versionId: string, year: number) => {
         if (!(await actionFeedback.confirm(`Mark the ${year} annual version as completed?`))) {
@@ -145,12 +159,25 @@ export function AnnualVersionsDashboard({
                 {!isReviewMode && (
                 <div className="flex flex-wrap gap-2 shrink-0">
                     {!annualTargetsFinalized && (
-                        <PermissionGuard requireAll={PLAN_FINALIZE_PERMISSIONS}>
-                            <Button className="gap-2" onClick={() => setFinalizeModalOpen(true)}>
-                                <ShieldCheck className="h-4 w-4" />
-                                Finalize Annual Execution
-                            </Button>
-                        </PermissionGuard>
+                        <>
+                            <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
+                                <Button
+                                    variant="outline"
+                                    className="gap-2 shadow-xs text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700/50 hover:bg-amber-50 dark:hover:bg-amber-950/20"
+                                    onClick={handleDistributeEqually}
+                                    disabled={isDistributing}
+                                >
+                                    <Sparkles className="h-4 w-4 text-amber-500" />
+                                    {isDistributing ? "Dividing..." : "Auto-Divide Annual Targets"}
+                                </Button>
+                            </PermissionGuard>
+                            <PermissionGuard requireAll={PLAN_FINALIZE_PERMISSIONS}>
+                                <Button className="gap-2" onClick={() => setFinalizeModalOpen(true)}>
+                                    <ShieldCheck className="h-4 w-4" />
+                                    Finalize Annual Execution
+                                </Button>
+                            </PermissionGuard>
+                        </>
                     )}
                     {annualTargetsFinalized && !periodsInitializedGlobally && (
                         <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>

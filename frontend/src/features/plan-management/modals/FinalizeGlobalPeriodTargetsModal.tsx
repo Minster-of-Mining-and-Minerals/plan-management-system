@@ -12,11 +12,12 @@ import { DIALOG_SCROLLABLE_CONTENT } from "@/lib/dialogLayout";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
 import { actionFeedback } from "@/components/action-feedback";
 import {
     useFinalizeGlobalPeriodTargetsMutation,
     useGetGlobalPeriodTargetFinalizationReadinessQuery,
+    useDistributePeriodTargetsEquallyMutation,
 } from "@/redux/api/planApi";
 import { PlanVersion } from "@/redux/types/plan";
 import { getApiErrorMessage } from "@/utils/apiErrorUtils";
@@ -42,10 +43,22 @@ export function FinalizeGlobalPeriodTargetsModal({
             skip: !isOpen,
         });
     const [finalize, { reset: resetFinalize }] = useFinalizeGlobalPeriodTargetsMutation();
+    const [distributePeriodEqually, { isLoading: isDistributing }] =
+        useDistributePeriodTargetsEquallyMutation();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const isSubmittingRef = useRef(false);
     const closedAfterSuccessRef = useRef(false);
     const isCheckingReadiness = isLoading && !readiness;
+
+    const handleAutoDistribute = async () => {
+        try {
+            await distributePeriodEqually(masterVersion.plan_version_id).unwrap();
+            actionFeedback.success("Period targets divided equally across all years and periods. Re-validating...");
+            refetch();
+        } catch (error: unknown) {
+            actionFeedback.error(getApiErrorMessage(error, "Failed to distribute period targets"));
+        }
+    };
 
     useEffect(() => {
         if (!isOpen) {
@@ -141,6 +154,19 @@ export function FinalizeGlobalPeriodTargetsModal({
                                         <li key={err}>{err}</li>
                                     ))}
                                 </ul>
+                                <div className="pt-2">
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="gap-2 border-amber-300 bg-white text-amber-900 hover:bg-amber-100 dark:bg-amber-950 dark:text-amber-100 text-xs shadow-xs"
+                                        onClick={handleAutoDistribute}
+                                        disabled={isDistributing}
+                                    >
+                                        <Sparkles className="h-3.5 w-3.5 text-amber-600" />
+                                        {isDistributing ? "Auto-dividing..." : "Auto-Divide Period Targets Equally"}
+                                    </Button>
+                                </div>
                             </div>
                         )}
 

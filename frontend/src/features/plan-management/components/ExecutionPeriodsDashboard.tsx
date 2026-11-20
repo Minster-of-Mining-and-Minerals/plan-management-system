@@ -2,17 +2,19 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, CheckCircle, Clock } from "lucide-react";
+import { Eye, CheckCircle, Clock, Sparkles } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
     useGetExecutionPeriodsQuery,
     useCompleteExecutionPeriodMutation,
     useGetPlanVersionByIdQuery,
+    useDistributePeriodTargetsEquallyMutation,
 } from "@/redux/api/planApi";
 import { PlanVersion } from "@/redux/types/plan";
 import { formatStatus } from "@/utils/statusFormatter";
 import { actionFeedback } from "@/components/action-feedback";
+import { getApiErrorMessage } from "@/utils/apiErrorUtils";
 import {
     resolveCompletionForVersion,
     resolveWorkflowStatusAppearance,
@@ -80,6 +82,8 @@ export function ExecutionPeriodsDashboard({
 
     const { data, isLoading, refetch } = useGetExecutionPeriodsQuery(annualVersion.plan_version_id);
     const [completePeriod, { isLoading: isCompleting }] = useCompleteExecutionPeriodMutation();
+    const [distributePeriodEqually, { isLoading: isDistributing }] =
+        useDistributePeriodTargetsEquallyMutation();
     const [validationPeriod, setValidationPeriod] = useState<PlanVersion | null>(null);
 
     const annual = data?.annual ?? annualVersion;
@@ -88,6 +92,16 @@ export function ExecutionPeriodsDashboard({
     const executionSnapshot = data?.executionSnapshot ?? null;
     const periodsInitialized = Boolean(annual.period_subdivision_mode);
     const periodTargetsFinalized = Boolean(annual.period_targets_finalized_at);
+
+    const handleDistributeEqually = async () => {
+        try {
+            await distributePeriodEqually(annual.plan_version_id).unwrap();
+            actionFeedback.success("Period targets divided equally across execution periods");
+            refetch();
+        } catch (err: unknown) {
+            actionFeedback.error(getApiErrorMessage(err, "Failed to distribute period targets"));
+        }
+    };
 
     const handleComplete = async (
         period: PlanVersion,
@@ -196,7 +210,19 @@ export function ExecutionPeriodsDashboard({
                             : `${formatSubdivisionMode(annual.period_subdivision_mode ?? masterVersion?.period_subdivision_mode)} subdivision — set period targets (divisible across all periods, or lump into delivery periods) so totals match this year's annual targets, then finalize execution period.`}
                     </p>
                 </div>
-                {/* Finalize button lives on PlanHierarchyView annual tab header */}
+                {!periodTargetsFinalized && (
+                    <div className="flex flex-wrap gap-2 shrink-0">
+                        <Button
+                            variant="outline"
+                            className="gap-2 shadow-xs text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700/50 hover:bg-amber-50 dark:hover:bg-amber-950/20"
+                            onClick={handleDistributeEqually}
+                            disabled={isDistributing}
+                        >
+                            <Sparkles className="h-4 w-4 text-amber-500" />
+                            {isDistributing ? "Dividing..." : "Auto-Divide Period Targets"}
+                        </Button>
+                    </div>
+                )}
             </div>
 
             {processStarted && (

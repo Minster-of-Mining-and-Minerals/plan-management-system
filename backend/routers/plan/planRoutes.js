@@ -52,6 +52,7 @@ const {
     listAnnualVersions,
     getAnnualExecutionFinalizationReadiness,
     finalizeAnnualExecutionPlan,
+    distributeAnnualTargetsEquallyHandler,
     lockAnnualPlanVersion,
     unlockAnnualPlanVersion,
     updateAnnualTarget,
@@ -61,6 +62,7 @@ const {
     listAnnualTargetAllocations,
     getExecutionPeriodFinalizationReadinessHandler,
     finalizeExecutionPeriodTargetsHandler,
+    distributePeriodTargetsEquallyHandler,
     listPeriodTargetAllocations,
     getGlobalPeriodTargetFinalizationReadinessHandler,
     finalizeGlobalPeriodTargetsHandler,
@@ -286,6 +288,7 @@ router.get("/versions/:id/annual-versions", planReadAccess, validateIdParam, req
 router.get("/versions/:id/annual-target-allocations", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), listAnnualTargetAllocations);
 router.get("/versions/:id/annual-execution-readiness", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), getAnnualExecutionFinalizationReadiness);
 router.post("/versions/:id/finalize-annual-execution", checkPermission("PLAN", "FINALIZE"), validateIdParam, finalizeAnnualExecutionPlan);
+router.post("/versions/:id/distribute-annual-targets-equally", checkPermission("PLANS", "UPDATE"), validateIdParam, distributeAnnualTargetsEquallyHandler);
 router.post("/versions/:id/lock-annual", checkPermission("PLANS", "UPDATE"), validateIdParam, lockAnnualPlanVersion);
 router.post("/versions/:id/unlock-annual", checkPermission("PLANS", "UPDATE"), validateIdParam, unlockAnnualPlanVersion);
 router.post("/versions/:id/complete-annual", checkPermission("PLAN", "COMPLETE_ANNUAL"), validateIdParam, completeAnnualPlanVersion);
@@ -293,6 +296,7 @@ router.get("/versions/:id/execution-periods", planReadAccess, validateIdParam, r
 router.post("/versions/:id/initialize-execution-periods", checkPermission("PLANS", "UPDATE"), validateIdParam, initializeExecutionPeriodsForAnnual);
 router.get("/versions/:id/execution-period-readiness", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), getExecutionPeriodFinalizationReadinessHandler);
 router.post("/versions/:id/finalize-execution-periods", checkPermission("PLAN", "FINALIZE"), validateIdParam, finalizeExecutionPeriodTargetsHandler);
+router.post("/versions/:id/distribute-period-targets-equally", checkPermission("PLANS", "UPDATE"), validateIdParam, distributePeriodTargetsEquallyHandler);
 router.post("/versions/:id/complete-period", checkPermission("PLAN", "COMPLETE_PERIOD"), validateIdParam, completeExecutionPeriodVersion);
 router.get("/versions/:id/period-target-allocations", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), listPeriodTargetAllocations);
 router.get(

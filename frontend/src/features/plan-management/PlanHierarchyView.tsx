@@ -10,6 +10,7 @@ import {
     useGetPeriodTargetAllocationsQuery,
     useReorderPlanNodesMutation,
     useUpdatePlanNodeMutation,
+    useDistributePeriodTargetsEquallyMutation,
 } from "@/redux/api/planApi";
 import { useGetPlanRuleForVersionQuery } from "@/redux/api/planRuleApi";
 import { PlanNodeHierarchy, PlanNode, AnnualTargetAllocation, PeriodTargetAllocation, PlanVersion } from "@/redux/types/plan";
@@ -27,6 +28,7 @@ import {
     Clock,
     ShieldCheck,
     FilePenLine,
+    Sparkles,
 } from "lucide-react";
 import { CreatePlanNodeModal } from "./modals/CreatePlanNodeModal";
 import { actionFeedback } from "@/components/action-feedback";
@@ -212,6 +214,8 @@ export default function PlanHierarchyView({
     const [pathIds, setPathIds] = useState<string[]>([]);
     const [isModalOpen, setModalOpen] = useState(false);
     const [finalizeExecutionPeriodOpen, setFinalizeExecutionPeriodOpen] = useState(false);
+    const [distributePeriodEqually, { isLoading: isDistributingPeriod }] =
+        useDistributePeriodTargetsEquallyMutation();
     const [selectedParent, setSelectedParent] = useState<PlanNode | null>(null);
     const [selectedNode, setSelectedNode] = useState<PlanNode | null>(null);
     const appliedDefaultTabForVersion = useRef<string | null>(null);
@@ -686,6 +690,18 @@ export default function PlanHierarchyView({
             refetch();
         } catch (error: unknown) {
             actionFeedback.error(getApiErrorMessage(error, "Failed to distribute contribution weights"));
+        }
+    };
+
+    const handleDistributePeriodEqually = async () => {
+        if (!version) return;
+        try {
+            await distributePeriodEqually(version.plan_version_id).unwrap();
+            actionFeedback.success("Period targets divided equally across execution periods");
+            refetch();
+            refetchVersion();
+        } catch (err: unknown) {
+            actionFeedback.error(getApiErrorMessage(err, "Failed to distribute period targets"));
         }
     };
 
@@ -1478,15 +1494,26 @@ export default function PlanHierarchyView({
                         <div className="flex flex-wrap gap-2">
                             {periodsInitializedGlobally &&
                                 !periodTargetsFinalized && (
-                                    <PermissionGuard requireAll={PLAN_FINALIZE_PERMISSIONS}>
+                                    <>
                                         <Button
-                                            className="gap-2"
-                                            onClick={() => setFinalizeExecutionPeriodOpen(true)}
+                                            variant="outline"
+                                            className="gap-2 shadow-xs text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700/50 hover:bg-amber-50 dark:hover:bg-amber-950/20"
+                                            onClick={handleDistributePeriodEqually}
+                                            disabled={isDistributingPeriod}
                                         >
-                                            <ShieldCheck className="h-4 w-4" />
-                                            Finalize Execution Period
+                                            <Sparkles className="h-4 w-4 text-amber-500" />
+                                            {isDistributingPeriod ? "Dividing..." : "Auto-Divide Period Targets"}
                                         </Button>
-                                    </PermissionGuard>
+                                        <PermissionGuard requireAll={PLAN_FINALIZE_PERMISSIONS}>
+                                            <Button
+                                                className="gap-2"
+                                                onClick={() => setFinalizeExecutionPeriodOpen(true)}
+                                            >
+                                                <ShieldCheck className="h-4 w-4" />
+                                                Finalize Execution Period
+                                            </Button>
+                                        </PermissionGuard>
+                                    </>
                                 )}
                         </div>
                         {detailTabToggle}
