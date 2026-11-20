@@ -1,6 +1,5 @@
 "use strict";
 
-const { shouldAllowAchievementAssignmentBypass } = require("../services/systemSettingsService");
 const { userHasSpecialPermission, normalizePermissionKey } = require("./userPermissionsUtils");
 const { isSuperAdminUser } = require("../services/planVisibilityService");
 
@@ -16,14 +15,14 @@ function userHasBypassAchievementPermission(user) {
 }
 
 /**
- * When the system setting is on, super admins or members with the special
- * bypass permission may execute/approve achievement without plan-tree assignment.
- * RBAC permissions (execute / approve / override) are still required.
+ * Super admins, and users holding the bypass permission, may execute/approve achievement
+ * without plan-tree assignment — the same rule the regional workflow uses. The permission
+ * itself is the control; the legacy global setting (allow_achievement_assignment_bypass) no
+ * longer has to be switched on as well. RBAC permissions (execute / approve / override) are
+ * still required for the action itself.
  */
 function userQualifiesForAchievementAssignmentBypass(user) {
-  if (!shouldAllowAchievementAssignmentBypass()) {
-    return false;
-  }
+  if (!user) return false;
   if (isSuperAdminUser(user)) {
     return true;
   }

@@ -7,6 +7,13 @@ const { resolveMasterVersionId } = require("./planReviewVisibilityService");
 const { userCanApproveAchievement } = require("../utils/planAchievementPermissionUtils");
 const { resolveApproverAnchorMasterNodeIds } = require("./planAchievementScopeUtils");
 const { masterNodeRequiresApproval } = require("../utils/planAchievementRollupUtils");
+
+/** Snapshot period/annual nodes resolve to snapshot-master ids; gates and assignments live on
+ *  the live master, so translate (lazy require avoids a load-order cycle). */
+function translateToLiveMasterNodeIds(map, transaction) {
+  const { toLiveMasterNodeIdMap } = require("./planAchievementScopeService");
+  return toLiveMasterNodeIdMap(map, transaction);
+}
 const {
   collectCandidateApproverUserIds,
   loadUsersWithEffectivePermissions,
@@ -190,7 +197,9 @@ async function buildRollupContextForPeriod(periodVersionId, transaction = null, 
           resolveApproverGateMasterNodeIds(masterVersionId, transaction, options)
         )
       : resolveApproverGateMasterNodeIds(masterVersionId, transaction, options),
-    buildMasterNodeIdByPeriodNodeId(periodVersionId, transaction, options),
+    buildMasterNodeIdByPeriodNodeId(periodVersionId, transaction, options).then((map) =>
+      translateToLiveMasterNodeIds(map, transaction)
+    ),
     contextCache?.publishGates
       ? getOrCompute(contextCache.publishGates, masterVersionId, () =>
           loadSectorPublishGates(masterVersionId, transaction, options)
@@ -342,7 +351,9 @@ async function buildRollupContextForAnnual(annualVersionId, transaction = null, 
           resolveApproverGateMasterNodeIds(masterVersionId, transaction, options)
         )
       : resolveApproverGateMasterNodeIds(masterVersionId, transaction, options),
-    buildMasterNodeIdByAnnualNodeId(annualVersionId, transaction),
+    buildMasterNodeIdByAnnualNodeId(annualVersionId, transaction).then((map) =>
+      translateToLiveMasterNodeIds(map, transaction)
+    ),
     contextCache?.publishGates
       ? getOrCompute(contextCache.publishGates, masterVersionId, () =>
           loadSectorPublishGates(masterVersionId, transaction, options)

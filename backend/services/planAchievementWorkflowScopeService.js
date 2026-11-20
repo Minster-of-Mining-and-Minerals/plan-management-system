@@ -7,6 +7,7 @@ const { buildMasterNodeIdByPeriodNodeId, buildMasterNodeIdByAnnualNodeId, buildR
 const {
   loadAchievementScopeContext,
   resolveExecutorLeafMasterNodeIdsForUser,
+  toLiveMasterNodeIdMap,
 } = require("./planAchievementScopeService");
 const {
   userCanApproveAchievement,
@@ -86,7 +87,9 @@ async function resolveAchievementWorkflowScopeForVersion(planVersionId, user, tr
     ] = await Promise.all([
       resolveExecutorLeafMasterNodeIdsForUser(masterVersionId, user, transaction),
       loadAchievementScopeContext(masterVersionId, transaction),
-      buildMasterNodeIdByAnnualNodeId(hierarchyVersionId, transaction),
+      buildMasterNodeIdByAnnualNodeId(hierarchyVersionId, transaction).then((map) =>
+        toLiveMasterNodeIdMap(map, transaction)
+      ),
       PlanNode.findAll({
         where: { plan_version_id: hierarchyVersionId, is_active: true },
         attributes: ["plan_node_id", "parent_id", "achievement_mode"],
@@ -174,7 +177,9 @@ async function resolveAchievementWorkflowScopeForVersion(planVersionId, user, tr
     await Promise.all([
       resolveExecutorLeafMasterNodeIdsForUser(masterVersionId, user, transaction),
       loadAchievementScopeContext(masterVersionId, transaction),
-      buildMasterNodeIdByPeriodNodeId(hierarchyVersionId, transaction),
+      buildMasterNodeIdByPeriodNodeId(hierarchyVersionId, transaction).then((map) =>
+        toLiveMasterNodeIdMap(map, transaction)
+      ),
       PlanNode.findAll({
         where: { plan_version_id: hierarchyVersionId, is_active: true },
         attributes: ["plan_node_id", "parent_id"],
