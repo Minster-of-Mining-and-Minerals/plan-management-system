@@ -22,6 +22,7 @@ import {
     formatNodeTarget,
     getStepLabel,
     stepRequiresWeight,
+    stepCarriesTarget,
     stepRequiresContributionWeight,
     childLevelRequiresContribution,
     getStepColorHex,
@@ -351,7 +352,7 @@ function StrategicFocusTable({
                                 const allocation = annualTargetAllocations?.[node.plan_node_id];
                                 const liveDraftTarget = resolveLiveDraftTarget(node, allocation);
                                 const showReferenceTarget = showPeriodTargets
-                                    ? stepRequiresWeight(rule, node.level) &&
+                                    ? stepCarriesTarget(rule, node.level) &&
                                       (node.annual_target ?? 0) > 0
                                     : stepRequiresWeight(rule, node.level) && liveDraftTarget > 0;
                                 const rowNumber = getHierarchyNumber(

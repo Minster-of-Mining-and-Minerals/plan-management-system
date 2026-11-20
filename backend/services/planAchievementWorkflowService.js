@@ -17,6 +17,18 @@ const {
 const { resolveApproverUsersForLeafMasterNode, loadSectorValidationUsers, assertUserCanValidateAchievement } = require("./planAchievementUserService");
 const { buildRollupContextForPeriod } = require("./planAchievementRollupService");
 const { userCanExecuteAchievement } = require("../utils/planAchievementPermissionUtils");
+const { userCanUpdatePlans } = require("../utils/planMasterEditUtils");
+
+/** Target planners (plan update/finalize permissions) may set period targets on any node. */
+function userCanPlanPeriodTargets(user) {
+  if (
+    Array.isArray(user?.roles) &&
+    user.roles.some((r) => String(r).toLowerCase() === "super admin")
+  ) {
+    return true;
+  }
+  return userCanUpdatePlans(user);
+}
 const {
   ACHIEVEMENT_STATUS,
   resolveAchievementStatus,
@@ -95,9 +107,10 @@ async function setPeriodTargetForExecutor(planNodeId, periodTarget, options = {}
   try {
     const { user, ipAddress = null } = options;
 
-    if (!userCanExecuteAchievement(user)) {
+    const isTargetPlanner = userCanPlanPeriodTargets(user);
+    if (!isTargetPlanner && !userCanExecuteAchievement(user)) {
       await t.rollback();
-      return { success: false, message: "Plan execute achievement permission required" };
+      return { success: false, message: "Plan update or execute achievement permission required" };
     }
 
     const node = await loadPeriodNode(planNodeId, t);
@@ -127,24 +140,48 @@ async function setPeriodTargetForExecutor(planNodeId, periodTarget, options = {}
       }
     }
 
-    const { masterVersionId, masterPlanNodeId } = await resolveAchievementScopeForPeriodNode(
-      node,
-      t
-    );
-    if (!masterPlanNodeId || !masterVersionId) {
-      await t.rollback();
-      return { success: false, message: "Node is not linked to a master plan assignment" };
-    }
+    if (isTargetPlanner) {
+      // Planning path: no executor-scope restriction, but respect review and finalization locks.
+      const annualVersion = await PlanVersion.findByPk(node.planVersion.parent_plan_version_id, {
+        transaction: t,
+      });
+      if (annualVersion?.period_targets_finalized_at) {
+        await t.rollback();
+        return {
+          success: false,
+          message: "Period targets are finalized for this annual year and cannot be changed",
+        };
+      }
+      if (annualVersion?.parent_plan_version_id) {
+        const reviewMaster = await PlanVersion.findByPk(annualVersion.parent_plan_version_id, {
+          attributes: ["plan_version_id", "review_status"],
+          transaction: t,
+        });
+        if (reviewMaster?.review_status === "under_review") {
+          await t.rollback();
+          return { success: false, message: "Plan is under review — period targets cannot be edited" };
+        }
+      }
+    } else {
+      const { masterVersionId, masterPlanNodeId } = await resolveAchievementScopeForPeriodNode(
+        node,
+        t
+      );
+      if (!masterPlanNodeId || !masterVersionId) {
+        await t.rollback();
+        return { success: false, message: "Node is not linked to a master plan assignment" };
+      }
 
-    const scope = await assertUserCanExecuteAchievementOnMasterNode(
-      user,
-      masterPlanNodeId,
-      masterVersionId,
-      t
-    );
-    if (!scope.allowed) {
-      await t.rollback();
-      return { success: false, message: scope.message };
+      const scope = await assertUserCanExecuteAchievementOnMasterNode(
+        user,
+        masterPlanNodeId,
+        masterVersionId,
+        t
+      );
+      if (!scope.allowed) {
+        await t.rollback();
+        return { success: false, message: scope.message };
+      }
     }
 
     if (!node.source_plan_node_id) {

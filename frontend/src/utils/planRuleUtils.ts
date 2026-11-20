@@ -168,6 +168,16 @@ export function stepRequiresWeight(rule: PlanRule | any | null | undefined, leve
     return start !== null && level >= start;
 }
 
+/**
+ * Like stepRequiresWeight, but treats a missing/unloaded rule as "every level carries a target".
+ * Mirrors the backend (`if (rule && !stepRequiresWeight(...))`) so target editors are not hidden
+ * for versions without a linked rule (common for regional annual/period versions).
+ */
+export function stepCarriesTarget(rule: PlanRule | any | null | undefined, level: number): boolean {
+    if (!rule?.steps?.length) return true;
+    return stepRequiresWeight(rule, level);
+}
+
 export function stepRequiresContributionWeight(
     rule: PlanRule | any | null | undefined,
     level: number

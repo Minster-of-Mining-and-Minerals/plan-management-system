@@ -11,13 +11,17 @@ import { useUpdatePeriodTargetMutation } from "@/redux/api/planApi";
 import {
     formatNodeTarget,
     formatNodeWeight,
-    stepRequiresWeight,
+    stepCarriesTarget,
 } from "@/utils/planRuleUtils";
 import { actionFeedback } from "@/components/action-feedback";
 import { PeriodTargetAllocationSummary } from "./PeriodTargetAllocationSummary";
 import { cn } from "@/lib/utils";
 import { PermissionGuard } from "@/utils/PermissionGuard";
-import { PLAN_EXECUTE_ACHIEVEMENT_PERMISSIONS, PLAN_LIFECYCLE_PERMISSIONS } from "@/utils/planPermissionUtils";
+import {
+    PLAN_DISTRIBUTION_PERMISSIONS,
+    PLAN_EXECUTE_ACHIEVEMENT_PERMISSIONS,
+    PLAN_LIFECYCLE_PERMISSIONS,
+} from "@/utils/planPermissionUtils";
 import { RaiseIssueButton } from "./RaiseIssueButton";
 import { canSetPeriodTargetOnNode } from "@/utils/planAchievementHierarchyUtils";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -58,8 +62,11 @@ export function PlanNodePeriodTargetSection({
     const [periodTargetInput, setPeriodTargetInput] = useState("");
 
     const canExecuteAchievement = can(PLAN_LIFECYCLE_PERMISSIONS.EXECUTE_ACHIEVEMENT);
+    // Target planners (plan update/finalize) set period targets on any leaf, not only
+    // the nodes in their achievement-execution scope.
+    const canPlanTargets = PLAN_DISTRIBUTION_PERMISSIONS.some((permission) => can(permission));
     const isTargetLeaf = canSetPeriodTargetOnNode(node);
-    const canEditTarget = onSaveTarget
+    const canEditTarget = onSaveTarget || canPlanTargets
         ? canEdit && isTargetLeaf
         : canEdit &&
           canExecuteAchievement &&
@@ -68,7 +75,7 @@ export function PlanNodePeriodTargetSection({
           canExecuteOnNode(node.plan_node_id);
 
     const nodeWeightMode = node.weight_mode;
-    const requiresWeight = stepRequiresWeight(rule, node.level);
+    const requiresWeight = stepCarriesTarget(rule, node.level);
     const resolvedAnnualTarget =
         allocation?.annual_target ?? node.annual_target ?? annualTarget ?? 0;
     const hasAnnualTarget = requiresWeight && resolvedAnnualTarget > 0;
@@ -195,7 +202,7 @@ export function PlanNodePeriodTargetSection({
                     </Button>
                 )}
             </div>
-            {onSaveTarget ? (
+            {onSaveTarget || canPlanTargets ? (
                 <Button
                     size={variant === "compact" || variant === "table" ? "sm" : "default"}
                     disabled={isSaving}

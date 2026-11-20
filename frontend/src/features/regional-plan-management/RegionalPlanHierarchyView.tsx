@@ -183,7 +183,11 @@ export function RegionalPlanHierarchyView() {
   const [updatePeriodTarget] = useUpdateRegionalPeriodTargetMutation();
 
   // Permissions
-  const canUpdatePlan = can("REGIONAL_PLANS:UPDATE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
+  const canUpdatePlan =
+    can("REGIONAL_PLANS:UPDATE") ||
+    can("REGIONAL_PLANS:FINALIZE") ||
+    can("REGIONAL_PLANS:MANAGE") ||
+    can("REGIONS:MANAGE");
   const canFinalize = can("REGIONAL_PLANS:FINALIZE") || can("REGIONAL_PLANS:MANAGE") || can("REGIONS:MANAGE");
 
   const annualParentId = isPeriodPlan ? plan?.parent_plan_version_id : null;

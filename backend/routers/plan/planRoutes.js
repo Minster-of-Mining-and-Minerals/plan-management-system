@@ -514,7 +514,18 @@ router.get("/versions/:id/review-dashboard", checkAnyPermission([
 router.patch("/nodes/:id/annual-target", planDistributionAccess, validateIdParam, validateUpdateAnnualTarget, updateAnnualTarget);
 router.patch(
     "/nodes/:id/period-target",
-    checkPermission("PLAN", "EXECUTE_ACHIEVEMENT"),
+    checkAnyPermission([
+        { resource: "PLAN", action: "EXECUTE_ACHIEVEMENT" },
+        { resource: "PLANS", action: "UPDATE" },
+        { resource: "PLANS", action: "EDIT_FINALIZED" },
+        { resource: "PLAN", action: "UPDATE" },
+        { resource: "PLAN", action: "FINALIZE" },
+        { resource: "PLAN", action: "DRAFT_PUBLISH" },
+        { resource: "REGIONAL_PLANS", action: "UPDATE" },
+        { resource: "REGIONAL_PLANS", action: "FINALIZE" },
+        { resource: "REGIONAL_PLANS", action: "MANAGE" },
+        { resource: "REGIONS", action: "MANAGE" },
+    ]),
     validateIdParam,
     validateUpdatePeriodTarget,
     updatePeriodTarget

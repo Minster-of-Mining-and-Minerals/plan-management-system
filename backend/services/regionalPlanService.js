@@ -4520,22 +4520,15 @@ async function distributeRegionalAnnualTargetsEqually(masterVersionId, regionId,
     let weightedCount = 0;
     for (const mNode of masterNodes) {
       if (rule && !stepRequiresWeight(rule, mNode.level)) continue;
-      weightedCount++;
+      // Nodes without a draft target are skipped; annual readiness reports them explicitly.
       const draftTarget = Number(mNode.weight) || 0;
-      if (draftTarget <= 0) {
-        const err = new Error(
-          `Cannot divide annual targets: "${mNode.title}" requires a strategic draft target greater than 0.`
-        );
-        err.status = 400;
-        throw err;
-      }
+      if (draftTarget <= 0) continue;
+      weightedCount++;
 
-      const baseValue = Math.floor((draftTarget / duration) * 100) / 100;
-      const remainder = Math.round((draftTarget - baseValue * duration) * 100) / 100;
-
+      const yearTargets = splitTargetEqually(draftTarget, duration);
       for (let i = 0; i < duration; i++) {
         const ann = annuals[i];
-        const yearTarget = i === 0 ? Math.round((baseValue + remainder) * 100) / 100 : baseValue;
+        const yearTarget = yearTargets[i];
         await RegionalPlanNode.update(
           { annual_target: yearTarget },
           {
@@ -4551,26 +4544,60 @@ async function distributeRegionalAnnualTargetsEqually(masterVersionId, regionId,
     }
 
     if (weightedCount === 0) {
-      const err = new Error("No KPI or weighted nodes found in plan hierarchy to distribute targets.");
+      const err = new Error("No nodes with a strategic draft target were found to divide across annual versions.");
       err.status = 400;
       throw err;
     }
 
     await t.commit();
-    return { success: true, count: masterNodes.length };
+    return { success: true, count: weightedCount };
   } catch (err) {
     await t.rollback();
     throw err;
   }
 }
 
-async function distributeRegionalPeriodTargetsEqually(annualVersionId, regionId, userId) {
-  const annual = await getRegionalPlanVersionById(annualVersionId, regionId);
-  if (annual.version_kind !== "annual") {
-    const err = new Error("Must be an annual version to distribute period targets");
+/** Split a total into `parts` 2-decimal shares; the rounding remainder goes to the first share. */
+function splitTargetEqually(total, parts) {
+  const baseValue = Math.floor((total / parts) * 100) / 100;
+  const remainder = Math.round((total - baseValue * parts) * 100) / 100;
+  const shares = [];
+  for (let i = 0; i < parts; i++) {
+    shares.push(i === 0 ? Math.round((baseValue + remainder) * 100) / 100 : baseValue);
+  }
+  return shares;
+}
+
+async function distributeRegionalPeriodTargetsEqually(versionId, regionId, userId) {
+  const version = await getRegionalPlanVersionById(versionId, regionId);
+
+  if (version.version_kind === "master") {
+    const annuals = await listRegionalAnnualVersions(versionId, regionId);
+    if (annuals.length === 0) {
+      const err = new Error("No annual execution versions found for this master plan");
+      err.status = 400;
+      throw err;
+    }
+    let count = 0;
+    for (const ann of annuals) {
+      if (ann.period_targets_finalized_at) continue;
+      const res = await distributeSingleRegionalAnnualPeriodTargets(ann, regionId);
+      count += res.count;
+    }
+    return { success: true, count };
+  }
+
+  if (version.version_kind !== "annual") {
+    const err = new Error("Must be an annual or master plan version to distribute period targets");
     err.status = 400;
     throw err;
   }
+
+  return distributeSingleRegionalAnnualPeriodTargets(version, regionId);
+}
+
+async function distributeSingleRegionalAnnualPeriodTargets(annual, regionId) {
+  const annualVersionId = annual.regional_plan_version_id;
   if (annual.period_targets_finalized_at) {
     const err = new Error("Period targets are already finalized for this annual year");
     err.status = 400;
@@ -4596,22 +4623,15 @@ async function distributeRegionalPeriodTargetsEqually(annualVersionId, regionId,
     let weightedCount = 0;
     for (const aNode of annualNodes) {
       if (rule && !stepRequiresWeight(rule, aNode.level)) continue;
-      weightedCount++;
+      // Nodes without an annual target are skipped; period readiness reports missing leaf targets.
       const annualTarget = Number(aNode.annual_target) || 0;
-      if (annualTarget <= 0) {
-        const err = new Error(
-          `Cannot divide period targets: "${aNode.title}" has no annual target configured for Year ${annual.planning_year}.`
-        );
-        err.status = 400;
-        throw err;
-      }
+      if (annualTarget <= 0) continue;
+      weightedCount++;
 
-      const baseValue = Math.floor((annualTarget / periodCount) * 100) / 100;
-      const remainder = Math.round((annualTarget - baseValue * periodCount) * 100) / 100;
-
+      const periodTargets = splitTargetEqually(annualTarget, periodCount);
       for (let i = 0; i < periodCount; i++) {
         const period = periods[i];
-        const periodTarget = i === 0 ? Math.round((baseValue + remainder) * 100) / 100 : baseValue;
+        const periodTarget = periodTargets[i];
         await RegionalPlanNode.update(
           { period_target: periodTarget },
           {

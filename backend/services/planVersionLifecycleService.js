@@ -2423,72 +2423,25 @@ async function distributeAnnualTargetsEqually(masterVersionId, userId) {
 
     const t = await sequelize.transaction();
     try {
-        let weightedCount = 0;
+        // Each weighted node's own draft target is split equally across years. This matches
+        // validateAnnualExecutionFinalization, which checks every node against its own draft
+        // target (not the sum of its children). Nodes without a draft target are skipped,
+        // as finalization skips them too.
         const allocationMap = new Map();
 
-        // 1. First pass: Allocate leaf nodes
         for (const mNode of masterNodes) {
             if (rule && !stepRequiresWeight(rule, mNode.level)) continue;
 
-            const weightedChildren = masterNodes.filter(
-                (candidate) =>
-                    candidate.parent_id === mNode.plan_node_id &&
-                    candidate.is_active !== false &&
-                    (!rule || stepRequiresWeight(rule, candidate.level))
-            );
-
-            if (weightedChildren.length > 0) continue;
-
-            weightedCount++;
             const draftTarget = Number(mNode.weight) || 0;
-            if (draftTarget <= 0) {
-                const err = new Error(
-                    `Cannot divide annual targets: "${mNode.title}" requires a strategic draft target greater than 0.`
-                );
-                err.status = 400;
-                throw err;
-            }
+            if (draftTarget <= 0) continue;
 
-            const baseValue = Math.floor((draftTarget / duration) * 100) / 100;
-            const remainder = Math.round((draftTarget - baseValue * duration) * 100) / 100;
-
-            const yearTargets = [];
-            for (let i = 0; i < duration; i++) {
-                const yearTarget = i === 0 ? Math.round((baseValue + remainder) * 100) / 100 : baseValue;
-                yearTargets.push(yearTarget);
-            }
-            allocationMap.set(mNode.plan_node_id, yearTargets);
+            allocationMap.set(mNode.plan_node_id, splitEqually(draftTarget, duration));
         }
 
-        // 2. Second pass: Rollup parent nodes bottom-up
-        for (const mNode of masterNodes) {
-            if (rule && !stepRequiresWeight(rule, mNode.level)) continue;
-            if (allocationMap.has(mNode.plan_node_id)) continue;
-
-            const weightedChildren = masterNodes.filter(
-                (candidate) =>
-                    candidate.parent_id === mNode.plan_node_id &&
-                    candidate.is_active !== false &&
-                    (!rule || stepRequiresWeight(rule, candidate.level))
+        if (allocationMap.size === 0) {
+            const err = new Error(
+                "No nodes with a strategic draft target were found to divide across annual versions."
             );
-
-            if (weightedChildren.length === 0) continue;
-
-            weightedCount++;
-            const yearTargets = [];
-            for (let i = 0; i < duration; i++) {
-                let sumChild = 0;
-                for (const child of weightedChildren) {
-                    const childTargets = allocationMap.get(child.plan_node_id) || [];
-                    sumChild += childTargets[i] || 0;
-                }
-                yearTargets.push(Math.round(sumChild * 100) / 100);
-            }
-            allocationMap.set(mNode.plan_node_id, yearTargets);
-        }
-
-        if (weightedCount === 0) {
-            const err = new Error("No KPI or weighted nodes found in plan hierarchy to distribute targets.");
             err.status = 400;
             throw err;
         }
@@ -2513,11 +2466,22 @@ async function distributeAnnualTargetsEqually(masterVersionId, userId) {
         }
 
         await t.commit();
-        return { success: true, count: masterNodes.length };
+        return { success: true, count: allocationMap.size };
     } catch (err) {
         await t.rollback();
         throw err;
     }
+}
+
+/** Split a total into `parts` 2-decimal shares; the rounding remainder goes to the first share. */
+function splitEqually(total, parts) {
+    const baseValue = Math.floor((total / parts) * 100) / 100;
+    const remainder = Math.round((total - baseValue * parts) * 100) / 100;
+    const shares = [];
+    for (let i = 0; i < parts; i++) {
+        shares.push(i === 0 ? Math.round((baseValue + remainder) * 100) / 100 : baseValue);
+    }
+    return shares;
 }
 
 async function distributeSingleAnnualPeriodTargetsEqually(annual, userId) {
@@ -2563,25 +2527,12 @@ async function distributeSingleAnnualPeriodTargetsEqually(annual, userId) {
 
             if (weightedChildren.length > 0) continue;
 
-            weightedCount++;
+            // Leaves without an annual target carry no period allocation (finalization skips them).
             const annualTarget = Number(aNode.annual_target) || 0;
-            if (annualTarget <= 0) {
-                const err = new Error(
-                    `Cannot divide period targets: "${aNode.title}" has no annual target configured for Year ${annual.planning_year ?? annual.year}.`
-                );
-                err.status = 400;
-                throw err;
-            }
+            if (annualTarget <= 0) continue;
 
-            const baseValue = Math.floor((annualTarget / periodCount) * 100) / 100;
-            const remainder = Math.round((annualTarget - baseValue * periodCount) * 100) / 100;
-
-            const periodTargets = [];
-            for (let i = 0; i < periodCount; i++) {
-                const pTarget = i === 0 ? Math.round((baseValue + remainder) * 100) / 100 : baseValue;
-                periodTargets.push(pTarget);
-            }
-            allocationMap.set(aNode.plan_node_id, periodTargets);
+            weightedCount++;
+            allocationMap.set(aNode.plan_node_id, splitEqually(annualTarget, periodCount));
         }
 
         // 2. Second pass: Rollup parent nodes bottom-up

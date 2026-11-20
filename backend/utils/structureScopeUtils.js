@@ -1071,6 +1071,7 @@ function assertRegionAccessible(req, regionId, requiredAction = "read") {
     perms.includes("regional_users:manage") ||
     perms.includes(`regional_plans:${actionLower}`) ||
     perms.includes("regional_plans:manage") ||
+    (actionLower === "update" && perms.includes("regional_plans:finalize")) ||
     perms.includes(`regional_plan_rules:${actionLower}`) ||
     perms.includes(`regional_planning_config:${actionLower}`);
 

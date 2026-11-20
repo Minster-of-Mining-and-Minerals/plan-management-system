@@ -87,6 +87,15 @@ export default function CreateRole({
     isEditMode &&
     (roleResponse?.scope === "global" || roleResponse?.scope === "private");
 
+  // Super Admin without a selected structure creates a global (system-wide) role.
+  const isGlobalRoleCreation =
+    !isEditMode &&
+    isSuperAdmin &&
+    !structureId &&
+    !isRegionalRole &&
+    !isCompanyRole &&
+    !isPurchasingCenterRole;
+
   const permissionQueryArgs =
     isPurchasingCenterRole
       ? { scope: "purchasing_center" as const }
@@ -362,7 +371,7 @@ export default function CreateRole({
       return;
     }
 
-    if (!isEditMode && !structureId && !isRegionalRole && !isCompanyRole && !isPurchasingCenterRole) {
+    if (!isEditMode && !isGlobalRoleCreation && !structureId && !isRegionalRole && !isCompanyRole && !isPurchasingCenterRole) {
       actionFeedback.error("Select a structure before creating a role.");
       return;
     }
@@ -409,7 +418,9 @@ export default function CreateRole({
                 scope: "regional" as any,
                 region_id: session?.user?.region_id || paramId || undefined,
               }
-            : { government_structure_id: structureId }),
+            : structureId
+            ? { government_structure_id: structureId }
+            : {}),
         }).unwrap();
 
         actionFeedback.success("Role created successfully!");
@@ -481,6 +492,17 @@ export default function CreateRole({
                   </p>
                   <p className="mt-0.5 text-emerald-800/90 dark:text-emerald-300/80">
                     This role is strictly restricted to Company Security Permissions. System, regional, and federal governance permissions are decoupled and excluded from assignment.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {isGlobalRoleCreation && (
+              <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 dark:bg-slate-900/40 dark:border-slate-800 p-4 text-xs text-slate-800 dark:text-slate-200">
+                <div>
+                  <p className="font-semibold">Global Role Scope</p>
+                  <p className="mt-0.5 text-slate-600 dark:text-slate-400">
+                    No structure is selected, so this role is created as a global role available across all structures.
                   </p>
                 </div>
               </div>

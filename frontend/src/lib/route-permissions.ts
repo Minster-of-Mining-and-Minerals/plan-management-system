@@ -393,13 +393,29 @@ export function matchRoutePermission(pathname: string): PermissionRule | null {
 export function matchRoutePermissionRule(pathname: string): RoutePermissionRule | null {
   const normalized = pathname.split("?")[0].replace(/\/+$/, "") || "/";
 
+  // Prefer the most specific match (fewest dynamic segments) so catch-all
+  // patterns like "/[id]" never shadow static routes like "/dashboard".
+  // Ties keep list order.
+  let best: RoutePermissionRule | null = null;
+  let bestDynamicCount = Number.POSITIVE_INFINITY;
+
   for (const rule of ROUTE_PERMISSION_RULES) {
-    if (patternToRegExp(rule.pattern).test(normalized)) {
-      return rule;
+    if (!patternToRegExp(rule.pattern).test(normalized)) continue;
+    const dynamicCount = countDynamicSegments(rule.pattern);
+    if (dynamicCount < bestDynamicCount) {
+      best = rule;
+      bestDynamicCount = dynamicCount;
+      if (dynamicCount === 0) break;
     }
   }
 
-  return null;
+  return best;
+}
+
+function countDynamicSegments(pattern: string): number {
+  return pattern
+    .split("/")
+    .filter((segment) => segment.startsWith("[") && segment.endsWith("]")).length;
 }
 
 /**
