@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 const { normalizeEmail } = require("../../utils/emailUtils");
 const { collectUserPermissionKeysUpper } = require("../../utils/userPermissionsUtils");
 const { loadDepartmentPermissionGroups } = require("../../utils/specialPermissionGroupUtils");
+const { loadUserAccessGraphs, clearUserAccessCache } = require("../../utils/userAccessGraphLoader");
 const { Op } = require("sequelize");
 const { createSession, terminateSession } = require("../../services/sessionSecurityService");
 const { hashToken } = require("../../utils/deviceDetector");
@@ -72,6 +73,9 @@ const login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch)
       return res.status(401).json({ message: "Invalid email or password" });
+
+    // Fresh login: always resolve current roles/permissions.
+    clearUserAccessCache(user.user_id);
 
     // ===== Create User Session & check restrictions =====
     let sessionResult;
@@ -260,52 +264,14 @@ const getMe = async (req, res) => {
 // Get current user's roles and aggregated permissions
 const getMyPermissions = async (req, res) => {
   try {
-    const user = await User.unscoped().findOne({
-      where: { user_id: req.user.user_id },
-      include: [
-        {
-          model: Role,
-          as: "roles",
-          through: { attributes: [] },
-          include: [
-            {
-              model: RolePermission,
-              as: "rolePermissions",
-              include: [
-                {
-                  model: Permission,
-                  as: "permission",
-                  attributes: ["resource", "action"],
-                },
-              ],
-            },
-          ],
-        },
-        {
-          model: PermissionGroup,
-          as: "permissionGroups",
-          through: { attributes: [] },
-          include: [
-            {
-              model: Permission,
-              as: "permissions",
-              attributes: ["resource", "action"],
-              through: { attributes: [] },
-            },
-          ],
-        },
-      ],
-    });
+    // Flat, cached loader (avoids the roles x permission-groups join explosion).
+    const user = (await loadUserAccessGraphs([req.user.user_id])).get(req.user.user_id);
 
     if (!user) {
       return res
         .status(404)
         .json({ success: false, message: "User not found" });
     }
-
-    user.departmentPermissionGroups = await loadDepartmentPermissionGroups(
-      user.internal_structure_id
-    );
 
     const permissionsSet = new Set(collectUserPermissionKeysUpper(user));
 

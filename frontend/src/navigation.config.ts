@@ -221,6 +221,9 @@ export const NAVIGATION: NavItem[] = [
     anyPermissions: [
       "PLANS:READ",
       "PLAN:VIEW_ASSIGNED_REVIEW",
+      "PLAN:PUBLISH_FOR_REVIEW",
+      "PLAN:COMPLETE_REVIEW",
+      "PLAN:VIEW_REVIEW_DASHBOARD",
       "PLAN_RULES:READ",
       "PERFORMANCE_COLOR_THRESHOLDS:READ",
     ],
@@ -235,7 +238,12 @@ export const NAVIGATION: NavItem[] = [
         title: "Plan Review",
         url: "/plans/review",
         icon: ClipboardCheck,
-        allPermissions: ["PLAN:VIEW_ASSIGNED_REVIEW"],
+        anyPermissions: [
+          "PLAN:VIEW_ASSIGNED_REVIEW",
+          "PLAN:PUBLISH_FOR_REVIEW",
+          "PLAN:COMPLETE_REVIEW",
+          "PLAN:VIEW_REVIEW_DASHBOARD",
+        ],
       },
       {
         title: "Planning Configuration",

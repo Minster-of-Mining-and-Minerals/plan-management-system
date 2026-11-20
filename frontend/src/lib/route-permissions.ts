@@ -31,16 +31,16 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   // Plans — nested before parent
   {
     pattern: "/plans/review/[id]/nodes/[nodeId]",
-    allPermissions: ["PLAN:VIEW_ASSIGNED_REVIEW"],
+    anyPermissions: ["PLAN:VIEW_ASSIGNED_REVIEW", "PLAN:PUBLISH_FOR_REVIEW", "PLAN:COMPLETE_REVIEW", "PLAN:VIEW_REVIEW_DASHBOARD"],
   },
   {
     pattern: "/plans/review/[id]",
-    allPermissions: ["PLAN:VIEW_ASSIGNED_REVIEW"],
+    anyPermissions: ["PLAN:VIEW_ASSIGNED_REVIEW", "PLAN:PUBLISH_FOR_REVIEW", "PLAN:COMPLETE_REVIEW", "PLAN:VIEW_REVIEW_DASHBOARD"],
   },
-  { pattern: "/plans/review", allPermissions: ["PLAN:VIEW_ASSIGNED_REVIEW"] },
+  { pattern: "/plans/review", anyPermissions: ["PLAN:VIEW_ASSIGNED_REVIEW", "PLAN:PUBLISH_FOR_REVIEW", "PLAN:COMPLETE_REVIEW", "PLAN:VIEW_REVIEW_DASHBOARD"] },
   {
     pattern: "/plans/review/[id]/details",
-    allPermissions: ["PLAN:VIEW_ASSIGNED_REVIEW"],
+    anyPermissions: ["PLAN:VIEW_ASSIGNED_REVIEW", "PLAN:PUBLISH_FOR_REVIEW", "PLAN:COMPLETE_REVIEW", "PLAN:VIEW_REVIEW_DASHBOARD"],
   },
   {
     pattern: "/plans/[id]/details",
@@ -475,7 +475,7 @@ export function getDefaultFallbackRoute(
     { path: "/issues", rule: { anyPermissions: ["ISSUES:READ", "ISSUES:READ_ALL"] } },
     {
       path: "/plans/review",
-      rule: { allPermissions: ["PLAN:VIEW_ASSIGNED_REVIEW"] },
+      rule: { anyPermissions: ["PLAN:VIEW_ASSIGNED_REVIEW", "PLAN:PUBLISH_FOR_REVIEW", "PLAN:COMPLETE_REVIEW", "PLAN:VIEW_REVIEW_DASHBOARD"] },
     },
     {
       path: "/plans",

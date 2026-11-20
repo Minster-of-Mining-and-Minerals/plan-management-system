@@ -1,10 +1,7 @@
 const jwt = require("jsonwebtoken");
 const db = require("../models");
 const { sendPermissionDenied, toPermissionKey } = require("../utils/permissionDeniedUtils");
-const {
-  collectUserPermissionKeys,
-} = require("../utils/userPermissionsUtils");
-const { loadDepartmentPermissionGroups } = require("../utils/specialPermissionGroupUtils");
+const { loadUserAccessGraphs } = require("../utils/userAccessGraphLoader");
 const { validateSession } = require("../services/sessionSecurityService");
 
 const authenticateToken = async (req, res, next) => {
@@ -18,10 +15,19 @@ const authenticateToken = async (req, res, next) => {
     });
   }
 
+  let decoded;
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (error) {
+    // Only a genuinely invalid/expired JWT is an auth failure (client logs out).
+    return res.status(403).json({
+      success: false,
+      message: "Invalid or expired token",
+    });
+  }
 
-    // Fetch user with roles, role permissions, permission groups, and regional associations
+  try {
+    // Fetch user with domain associations; roles/permissions come from the flat cached loader.
     const user = await db.User.findByPk(decoded.user_id, {
       attributes: { exclude: ["password"] },
       include: [
@@ -44,37 +50,6 @@ const authenticateToken = async (req, res, next) => {
         {
           model: db.PurchasingCenter,
           as: "purchasingCenter",
-        },
-        {
-          model: db.Role,
-          as: "roles",
-          through: { attributes: [] },
-          include: [
-            {
-              model: db.RolePermission,
-              as: "rolePermissions",
-              include: [
-                {
-                  model: db.Permission,
-                  as: "permission",
-                  attributes: ["resource", "action"],
-                },
-              ],
-            },
-          ],
-        },
-        {
-          model: db.PermissionGroup,
-          as: "permissionGroups",
-          through: { attributes: [] },
-          include: [
-            {
-              model: db.Permission,
-              as: "permissions",
-              attributes: ["resource", "action"],
-              through: { attributes: [] },
-            },
-          ],
         },
       ],
     });
@@ -134,12 +109,9 @@ const authenticateToken = async (req, res, next) => {
       }
     }
 
-    user.departmentPermissionGroups = await loadDepartmentPermissionGroups(
-      user.internal_structure_id
-    );
-
-    const roles = user.roles.map((r) => r.name);
-    const permissions = collectUserPermissionKeys(user);
+    const accessGraph = (await loadUserAccessGraphs([user.user_id])).get(user.user_id);
+    const roles = (accessGraph?.roles || []).map((r) => r.name);
+    const permissions = [...(accessGraph?.permissions || [])];
 
     const isRegional = !!user.region_id;
     const isCompany = !!user.company_id;
@@ -177,10 +149,13 @@ const authenticateToken = async (req, res, next) => {
 
     next();
   } catch (error) {
+    // Database/load failures are not auth failures: report "temporarily unavailable" so the
+    // client retries instead of logging the user out.
     console.error("Auth middleware error:", error);
-    return res.status(403).json({
+    return res.status(503).json({
       success: false,
-      message: "Invalid or expired token",
+      code: "AUTH_BACKEND_UNAVAILABLE",
+      message: "Service temporarily unavailable. Please retry.",
     });
   }
 };

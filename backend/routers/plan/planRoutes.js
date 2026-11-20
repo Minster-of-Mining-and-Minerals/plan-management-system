@@ -285,7 +285,12 @@ router.get(
 );
 router.get(
     "/versions/for-review",
-    checkPermission("PLAN", "VIEW_ASSIGNED_REVIEW"),
+    checkAnyPermission([
+        { resource: "PLAN", action: "VIEW_ASSIGNED_REVIEW" },
+        { resource: "PLAN", action: "PUBLISH_FOR_REVIEW" },
+        { resource: "PLAN", action: "COMPLETE_REVIEW" },
+        { resource: "PLAN", action: "VIEW_REVIEW_DASHBOARD" },
+    ]),
     validateGetPlanVersionsQuery,
     getPlanVersionsForReview
 );

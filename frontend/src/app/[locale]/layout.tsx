@@ -8,6 +8,7 @@ import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
 import NextTopLoader from "nextjs-toploader";
 import { ActionFeedbackProvider } from "@/components/action-feedback";
+import { Toaster } from "@/components/ui/sonner";
 import { BreadcrumbProvider } from "@/providers/BreadcrumbProvider";
 import { SessionProvider } from "next-auth/react";
 import AuthInitializer from "@/providers/AuthInitializer";
@@ -54,6 +55,7 @@ export default async function LocaleLayout({ children, params }: Props) {
                   <BreadcrumbProvider>
                     <AuthInitializer>{children}</AuthInitializer>
                   </BreadcrumbProvider>
+                  <Toaster position="top-right" richColors closeButton />
                 </ActionFeedbackProvider>
               </NextIntlClientProvider>
             </BrandingProvider>

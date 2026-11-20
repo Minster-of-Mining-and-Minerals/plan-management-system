@@ -7,8 +7,10 @@ const {
   InternalAssignment,
   ExternalAssignment,
   User,
+  GovernmentStructure,
 } = require("../models");
 const { hasBeenPublishedForReview } = require("../utils/planReviewUtils");
+const { loadUserAccessGraphs } = require("../utils/userAccessGraphLoader");
 
 const REVIEW_VISIBLE_STATUSES = [
   "under_review",
@@ -138,6 +140,66 @@ async function getMasterNodes(masterVersionId, transaction = null, options = {})
   return nodes;
 }
 
+/** Review coordinators see every plan published for review, with the full tree. */
+const REVIEW_COORDINATOR_PERMISSIONS = [
+  "plan:publish_for_review",
+  "plan:complete_review",
+  "plan:view_review_dashboard",
+  "plan:republish_review",
+  "plan:unlock_review_corrections",
+];
+
+function isReviewCoordinator(user) {
+  if (!user) return false;
+  if (isSuperAdminUser(user)) return true;
+  return REVIEW_COORDINATOR_PERMISSIONS.some((key) => user.permissions?.includes(key));
+}
+
+function hasReviewParticipationPermission(user) {
+  return hasAssignedReviewRead(user) || isReviewCoordinator(user);
+}
+
+async function loadStructureParentIndex(transaction = null) {
+  const structures = await GovernmentStructure.findAll({
+    attributes: ["government_structure_id", "parent_id"],
+    transaction,
+  });
+  return new Map(structures.map((s) => [s.government_structure_id, s.parent_id]));
+}
+
+/** The structure itself plus all of its ancestors. */
+function collectStructureLineage(structureId, parentById) {
+  const lineage = new Set();
+  let cursor = structureId;
+  while (cursor && !lineage.has(cursor)) {
+    lineage.add(cursor);
+    cursor = parentById.get(cursor) ?? null;
+  }
+  return lineage;
+}
+
+async function resolvePlanOwnerStructureId(masterVersionId, transaction = null) {
+  const version = await PlanVersion.findByPk(masterVersionId, {
+    attributes: ["plan_version_id", "government_structure_id", "review_snapshot_of_version_id"],
+    transaction,
+  });
+  if (!version) return null;
+  if (version.government_structure_id) return version.government_structure_id;
+  if (!version.review_snapshot_of_version_id) return null;
+  const live = await PlanVersion.findByPk(version.review_snapshot_of_version_id, {
+    attributes: ["government_structure_id"],
+    transaction,
+  });
+  return live?.government_structure_id ?? null;
+}
+
+/**
+ * Review participants:
+ *  - users assigned to a node (directly, via department, or via a sector at/above theirs) —
+ *    they see their assigned branches;
+ *  - review coordinators / Super Admin, and staff of the plan's owning sector (or its
+ *    sub-structures) — they see the whole plan.
+ */
 async function getAssignedMasterNodeIds(masterVersionId, userId, transaction = null) {
   const user = await User.findByPk(userId, { transaction });
   if (!user) return new Set();
@@ -145,6 +207,27 @@ async function getAssignedMasterNodeIds(masterVersionId, userId, transaction = n
   const masterNodes = await getMasterNodes(masterVersionId, transaction);
   const masterNodeIds = masterNodes.map((n) => n.plan_node_id);
   if (masterNodeIds.length === 0) return new Set();
+
+  const accessGraph = (await loadUserAccessGraphs([userId], { transaction })).get(userId);
+  const actor = {
+    user_id: userId,
+    roles: (accessGraph?.roles || []).map((r) => r.name),
+    permissions: accessGraph?.permissions || [],
+  };
+  if (isReviewCoordinator(actor)) {
+    return new Set(masterNodeIds);
+  }
+
+  const parentById = await loadStructureParentIndex(transaction);
+  const userLineage = user.government_structure_id
+    ? collectStructureLineage(user.government_structure_id, parentById)
+    : new Set();
+
+  const ownerStructureId = await resolvePlanOwnerStructureId(masterVersionId, transaction);
+  if (ownerStructureId && userLineage.has(ownerStructureId)) {
+    // User belongs to the owning sector or one of its sub-structures.
+    return new Set(masterNodeIds);
+  }
 
   const [allInternal, allExternal] = await Promise.all([
     InternalAssignment.findAll({
@@ -182,9 +265,10 @@ async function getAssignedMasterNodeIds(masterVersionId, userId, transaction = n
   }
 
   for (const assignment of allExternal) {
+    // Assigned sector itself, or a sub-structure of it.
     if (
-      user.government_structure_id &&
-      assignment.government_structure_id === user.government_structure_id
+      assignment.government_structure_id &&
+      userLineage.has(assignment.government_structure_id)
     ) {
       seedIds.add(assignment.plan_node_id);
     }
@@ -308,7 +392,7 @@ async function mapMasterNodeIdsToVersion(masterVisibleIds, targetVersionId, tran
 async function userCanViewPlanInReview(masterVersionId, user, transaction = null) {
   if (!user) return false;
   if (isSuperAdminUser(user)) return true;
-  if (!hasAssignedReviewRead(user)) return false;
+  if (!hasReviewParticipationPermission(user)) return false;
 
   const version = await PlanVersion.findByPk(masterVersionId, {
     attributes: [
@@ -346,7 +430,7 @@ async function userCanViewPlanInReview(masterVersionId, user, transaction = null
 async function userCanAccessPlanVersion(planVersionId, user, transaction = null) {
   if (!user) return false;
   if (isSuperAdminUser(user)) return true;
-  if (!hasAssignedReviewRead(user)) return false;
+  if (!hasReviewParticipationPermission(user)) return false;
 
   const masterId = await resolveMasterVersionId(planVersionId);
   if (!masterId) return false;
@@ -366,7 +450,7 @@ async function userCanAccessPlanNode(planNodeId, user, transaction = null) {
 async function getAssignedReviewMasterVersionIds(user, transaction = null) {
   if (!user) return [];
   if (isSuperAdminUser(user)) return null;
-  if (!hasAssignedReviewRead(user)) return [];
+  if (!hasReviewParticipationPermission(user)) return [];
 
   const masters = await PlanVersion.findAll({
     where: {

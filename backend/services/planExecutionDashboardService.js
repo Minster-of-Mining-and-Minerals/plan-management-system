@@ -622,9 +622,15 @@ async function getPlanExecutionDashboard(req, query = {}) {
     contextCache.planVersionById.set(m.plan_version_id, m);
   }
 
-  let planRows = [];
-  for (const master of masters) {
-    planRows.push(await enrichMasterPlanRow(master, options));
+  // Enrich rows with bounded concurrency (only started plans do real work), keeping order.
+  let planRows = new Array(masters.length);
+  const ENRICH_CONCURRENCY = 4;
+  for (let i = 0; i < masters.length; i += ENRICH_CONCURRENCY) {
+    const batch = masters.slice(i, i + ENRICH_CONCURRENCY);
+    const rows = await Promise.all(batch.map((master) => enrichMasterPlanRow(master, options)));
+    rows.forEach((row, offset) => {
+      planRows[i + offset] = row;
+    });
   }
 
   if (query.status === "delayed") {

@@ -66,9 +66,13 @@ export function isNetworkAuthFailure(
   return false;
 }
 
-/** Token rejected or backend unreachable — clear session and return to login. */
+/**
+ * Only a rejected token / terminated session logs the user out.
+ * A slow or temporarily unavailable backend (5xx, timeout, network error) must NOT end the
+ * session — the user keeps working and requests are retried.
+ */
 export function isForcedLogoutError(
   error: FetchBaseQueryError | undefined
 ): boolean {
-  return isTokenAuthFailure(error) || isNetworkAuthFailure(error);
+  return isTokenAuthFailure(error);
 }

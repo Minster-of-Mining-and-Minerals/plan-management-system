@@ -16,6 +16,7 @@ const {
   loadDepartmentPermissionGroupsBatch,
 } = require("../utils/specialPermissionGroupUtils");
 const { collectUserPermissionKeys } = require("../utils/userPermissionsUtils");
+const { loadUserAccessGraphs } = require("../utils/userAccessGraphLoader");
 const { userCanApproveAchievement, userCanValidateAchievement, userCanPublishSectorAggregation } = require("../utils/planAchievementPermissionUtils");
 const { buildVisibleGovernmentStructureIdSet } = require("../utils/structureScopeUtils");
 const {
@@ -35,95 +36,16 @@ async function loadUsersWithEffectivePermissions(
     return [];
   }
 
-  const users = await User.findAll({
-    where: {
-      user_id: { [Op.in]: uniqueIds },
-      is_active: true,
-    },
-    attributes: { exclude: ["password"] },
-    include: [
-      {
-        model: Role,
-        as: "roles",
-        through: { attributes: [] },
-        include: [
-          {
-            model: RolePermission,
-            as: "rolePermissions",
-            include: [
-              {
-                model: Permission,
-                as: "permission",
-                attributes: ["resource", "action", "is_active"],
-              },
-            ],
-          },
-        ],
-      },
-      {
-        model: PermissionGroup,
-        as: "permissionGroups",
-        through: { attributes: [] },
-        include: [
-          {
-            model: Permission,
-            as: "permissions",
-            attributes: ["resource", "action", "is_active"],
-            through: { attributes: [] },
-          },
-        ],
-      },
-    ],
-    transaction,
-  });
-
-  const departmentCache =
-    options.departmentGroupCache ||
-    options.cache ||
-    options.contextCache?.departmentGroupCache;
-
-  const departmentIds = [
-    ...new Set(users.map((u) => u.internal_structure_id).filter(Boolean)),
-  ];
-
-  const missingDepartmentIds = departmentCache
-    ? departmentIds.filter((id) => !departmentCache.has(id))
-    : departmentIds;
-
-  let localDepartmentMap = new Map();
-  if (missingDepartmentIds.length > 0) {
-    localDepartmentMap = await loadDepartmentPermissionGroupsBatch(
-      missingDepartmentIds,
-      { transaction }
-    );
-    if (departmentCache) {
-      for (const [id, groups] of localDepartmentMap.entries()) {
-        departmentCache.set(id, groups);
-      }
-    }
-  }
+  // Flat, cached loader (see utils/userAccessGraphLoader.js) — avoids the roles x groups
+  // join explosion that previously blocked the event loop for seconds per call.
+  const graphs = await loadUserAccessGraphs(uniqueIds, { transaction });
 
   const enriched = [];
-  for (const user of users) {
-    const plain = user.toJSON ? user.toJSON() : { ...user };
-    let groups = [];
-    if (plain.internal_structure_id) {
-      if (departmentCache && departmentCache.has(plain.internal_structure_id)) {
-        groups = departmentCache.get(plain.internal_structure_id) || [];
-      } else if (localDepartmentMap.has(plain.internal_structure_id)) {
-        groups = localDepartmentMap.get(plain.internal_structure_id) || [];
-      } else {
-        groups = await loadDepartmentPermissionGroups(
-          plain.internal_structure_id,
-          { transaction, cache: departmentCache }
-        );
-      }
-    }
-    plain.departmentPermissionGroups = groups.map((g) =>
-      g && typeof g.toJSON === "function" ? g.toJSON() : { ...g }
-    );
-    plain.permissions = collectUserPermissionKeys(plain);
-    enriched.push(plain);
+  for (const id of uniqueIds) {
+    const user = graphs.get(id);
+    if (!user || user.is_active === false) continue;
+    // Shallow clone so callers can attach fields without touching the shared cache entry.
+    enriched.push({ ...user, permissions: [...user.permissions] });
   }
 
   return enriched;
@@ -178,7 +100,32 @@ async function loadPlanSectorContext(masterVersionId, transaction = null) {
   return { planSectorId, structureIndex };
 }
 
+/** masterVersionId -> { expiresAt, promise } — the same plan is resolved many times per request. */
+const sectorApproverCache = new Map();
+const SECTOR_APPROVER_TTL_MS = 15000;
+
 async function loadSectorApproverUsers(
+  masterVersionId,
+  transaction = null,
+  options = {}
+) {
+  // Inside a transaction, read fresh data; otherwise share a short-lived result.
+  if (transaction) {
+    return loadSectorApproverUsersUncached(masterVersionId, transaction, options);
+  }
+  const now = Date.now();
+  const cached = sectorApproverCache.get(masterVersionId);
+  if (cached && cached.expiresAt > now) {
+    return cached.promise;
+  }
+  if (sectorApproverCache.size > 500) sectorApproverCache.clear();
+  const promise = loadSectorApproverUsersUncached(masterVersionId, null, options);
+  sectorApproverCache.set(masterVersionId, { expiresAt: now + SECTOR_APPROVER_TTL_MS, promise });
+  promise.catch(() => sectorApproverCache.delete(masterVersionId));
+  return promise;
+}
+
+async function loadSectorApproverUsersUncached(
   masterVersionId,
   transaction = null,
   options = {}
