@@ -267,6 +267,12 @@ module.exports = (sequelize, DataTypes) => {
                 type: DataTypes.TEXT,
                 allowNull: true,
             },
+            /** Evidence documents for the reported actual (required on over/under achievement). */
+            evidence_attachment_ids: {
+                type: DataTypes.JSONB,
+                allowNull: false,
+                defaultValue: [],
+            },
 
             assignment_context: {
                 type: DataTypes.JSONB,

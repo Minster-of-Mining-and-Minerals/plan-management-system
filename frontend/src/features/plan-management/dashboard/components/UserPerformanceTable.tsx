@@ -57,49 +57,84 @@ export function UserPerformanceTable({ state }: UserPerformanceTableProps) {
       },
       {
         accessorKey: "name",
-        header: "Full Name",
+        header: "Assignee",
         cell: ({ row }) => (
-          <span className="font-medium text-primary">{row.getValue("name")}</span>
+          <div className="flex flex-col">
+            <span className="font-semibold text-foreground">{row.original.name}</span>
+            {row.original.email && (
+              <span className="text-[11px] text-muted-foreground">{row.original.email}</span>
+            )}
+          </div>
         ),
       },
       {
         accessorKey: "role",
         header: "Role",
         cell: ({ row }) => (
-          <span className="text-muted-foreground">{row.getValue("role")}</span>
+          <span className="inline-flex items-center rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground font-medium">
+            {row.getValue("role")}
+          </span>
         ),
       },
       {
         id: "department",
         header: "Department",
-        cell: ({ row }) =>
-          row.original.departmentId
-            ? departmentNameById.get(row.original.departmentId) ?? "—"
-            : "—",
+        cell: ({ row }) => {
+          const dept =
+            row.original.departmentName ||
+            (row.original.departmentId ? departmentNameById.get(row.original.departmentId) : null);
+          return (
+            <span className="text-xs text-foreground font-medium">
+              {dept || <span className="text-muted-foreground italic">—</span>}
+            </span>
+          );
+        },
       },
       {
         id: "structure",
-        header: "Structure",
-        cell: ({ row }) =>
-          row.original.structureId
-            ? structureNameById.get(row.original.structureId) ?? "—"
-            : "—",
+        header: "Structure / Sector",
+        cell: ({ row }) => {
+          const struct =
+            row.original.structureName ||
+            (row.original.structureId ? structureNameById.get(row.original.structureId) : null);
+          return (
+            <span className="text-xs text-muted-foreground">
+              {struct || <span className="italic">—</span>}
+            </span>
+          );
+        },
       },
       {
         accessorKey: "assignedNodeCount",
-        header: "Assigned",
+        header: "Assigned Nodes",
         cell: ({ row }) => (
-          <span className="tabular-nums">{row.original.assignedNodeCount}</span>
+          <span className="tabular-nums font-medium">{row.original.assignedNodeCount}</span>
         ),
       },
       {
         id: "reported",
-        header: "Reported",
-        cell: ({ row }) => (
-          <span className="tabular-nums text-muted-foreground">
-            {row.original.reportedNodeCount}/{row.original.assignedNodeCount}
-          </span>
-        ),
+        header: "Reporting Coverage",
+        cell: ({ row }) => {
+          const total = row.original.assignedNodeCount;
+          const rep = row.original.reportedNodeCount;
+          const rate =
+            row.original.reportingRate ??
+            (total > 0 ? Math.round((rep / total) * 100) : 0);
+          return (
+            <div className="space-y-1">
+              <span className="tabular-nums text-xs font-medium">
+                {rep}/{total}{" "}
+                <span className="text-muted-foreground font-normal">({rate}%)</span>
+              </span>
+              <div className="w-20 bg-muted rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="bg-primary h-full rounded-full transition-all"
+                  style={{ width: `${Math.min(100, rate)}%` }}
+                />
+              </div>
+            </div>
+          );
+        },
       },
       {
         id: "achievement",
@@ -107,12 +142,16 @@ export function UserPerformanceTable({ state }: UserPerformanceTableProps) {
         cell: ({ row }) => {
           const user = row.original;
           if (!user.has_progress || user.achievementPercent == null) {
-            return <span className="text-muted-foreground italic">Not started</span>;
+            return (
+              <span className="inline-flex items-center rounded-md bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground italic">
+                Not started
+              </span>
+            );
           }
           return (
             <div className="min-w-[120px] space-y-1">
               <span
-                className="text-sm font-semibold tabular-nums"
+                className="text-sm font-bold tabular-nums"
                 style={{ color: performanceColor(user.achievementPercent) }}
               >
                 {user.achievementPercent}%
@@ -137,7 +176,7 @@ export function UserPerformanceTable({ state }: UserPerformanceTableProps) {
               percent={row.original.achievementPercent}
             />
           ) : (
-            <span className="text-xs text-muted-foreground">—</span>
+            <span className="text-xs text-muted-foreground italic">Pending</span>
           ),
       },
     ],
@@ -162,7 +201,21 @@ export function UserPerformanceTable({ state }: UserPerformanceTableProps) {
       if (progressFilter === "not_started" && user.has_progress) {
         return false;
       }
-      return matchesSearchQuery(searchQuery, [user.name, user.role]);
+      const deptName =
+        user.departmentName ||
+        (user.departmentId ? departmentNameById.get(user.departmentId) : "") ||
+        "";
+      const structName =
+        user.structureName ||
+        (user.structureId ? structureNameById.get(user.structureId) : "") ||
+        "";
+      return matchesSearchQuery(searchQuery, [
+        user.name,
+        user.role,
+        user.email || "",
+        deptName,
+        structName,
+      ]);
     });
   }, [state.filteredUsers, performanceFilter, progressFilter, searchQuery]);
 

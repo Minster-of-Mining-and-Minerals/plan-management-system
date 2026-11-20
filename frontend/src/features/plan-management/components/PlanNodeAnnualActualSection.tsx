@@ -34,6 +34,8 @@ import {
 } from "@/utils/planAchievementWorkflowUtils";
 import { canSetPeriodTargetOnNode } from "@/utils/planAchievementHierarchyUtils";
 import { usePermissions } from "@/hooks/usePermissions";
+import { FileUploadField } from "@/components/common/FileUploadField";
+import { AchievementEvidenceList } from "./AchievementEvidenceList";
 import { usePlanAchievementScope } from "@/hooks/usePlanAchievementScope";
 
 const NARRATION_MAX = 1000;
@@ -85,6 +87,7 @@ export function PlanNodeAnnualActualSection({
         useRejectValidationAnnualAchievementMutation();
     const [annualActualInput, setAnnualActualInput] = useState("");
     const [narrationInput, setNarrationInput] = useState("");
+    const [evidenceIds, setEvidenceIds] = useState<string[]>([]);
 
     const isSaving =
         isSubmitting || isApproving || isRejecting || isValidating || isValidationRejecting;
@@ -105,7 +108,8 @@ export function PlanNodeAnnualActualSection({
             setAnnualActualInput("");
         }
         setNarrationInput(node.annual_actual_narration ?? "");
-    }, [node.annual_actual, node.annual_actual_narration, node.plan_node_id]);
+        setEvidenceIds(node.evidence_attachment_ids ?? []);
+    }, [node.annual_actual, node.annual_actual_narration, node.evidence_attachment_ids, node.plan_node_id]);
 
     if (!isAnnualMode || !requiresWeight || annualTarget <= 0 || !isLeaf) {
         return null;
@@ -167,13 +171,19 @@ export function PlanNodeAnnualActualSection({
                 actionFeedback.error("Achievement must be zero or greater");
                 return;
             }
-            if (
+            const hasVariance =
                 val != null &&
-                Math.abs(val - annualTarget) > VARIANCE_EPSILON &&
-                !narrationInput.trim()
-            ) {
+                annualTarget > 0 &&
+                Math.abs(val - annualTarget) > VARIANCE_EPSILON;
+            if (hasVariance && !narrationInput.trim()) {
                 actionFeedback.error(
                     "Performance narration is required when actual achievement differs from the target."
+                );
+                return;
+            }
+            if (hasVariance && evidenceIds.length === 0) {
+                actionFeedback.error(
+                    "Attach at least one evidence document when actual achievement differs from the target."
                 );
                 return;
             }
@@ -181,6 +191,7 @@ export function PlanNodeAnnualActualSection({
                 id: node.plan_node_id,
                 annual_actual: val,
                 narration: narrationInput.trim() || null,
+                evidence_attachment_ids: val == null ? [] : evidenceIds,
             }).unwrap();
             actionFeedback.success(
                 val == null ? "Annual achievement cleared" : "Annual achievement submitted"
@@ -248,6 +259,9 @@ export function PlanNodeAnnualActualSection({
             {!canEditValue && node.annual_actual_narration && (
                 <p className="text-xs text-muted-foreground">{node.annual_actual_narration}</p>
             )}
+            {!canEditValue && (
+                <AchievementEvidenceList attachmentIds={node.evidence_attachment_ids} />
+            )}
 
             {canEditValue && (
                 <div className="space-y-2">
@@ -303,6 +317,28 @@ export function PlanNodeAnnualActualSection({
                             <p className="text-[10px] text-muted-foreground">
                                 {narrationInput.trim().length}/{NARRATION_MAX}
                             </p>
+                        </div>
+                    )}
+                    {(narrationRequired || evidenceIds.length > 0) && (
+                        <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
+                            <FileUploadField
+                                id={`annual_actual_evidence_${node.plan_node_id}`}
+                                label={
+                                    narrationRequired
+                                        ? "Evidence document (required)"
+                                        : "Evidence document (optional)"
+                                }
+                                value={evidenceIds}
+                                onChange={setEvidenceIds}
+                                required={narrationRequired}
+                                error={
+                                    narrationRequired && evidenceIds.length === 0
+                                        ? "Attach evidence supporting the over/under achievement"
+                                        : undefined
+                                }
+                                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                                labelClass="text-xs"
+                            />
                         </div>
                     )}
                 </div>

@@ -371,8 +371,39 @@ async function getPurchasingCenterDashboard(centerId, query = {}, actor) {
  *
  * @param {Object} query - { business_date, date_from, date_to }
  */
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Inclusive list of YYYY-MM-DD dates between from and to (capped to avoid runaway ranges). */
+function enumerateBusinessDates(from, to, maxDays = 366) {
+  const dates = [];
+  const cursor = new Date(`${from}T00:00:00Z`);
+  const end = new Date(`${to}T00:00:00Z`);
+  while (cursor <= end && dates.length < maxDays) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
+}
+
+/**
+ * Resolve the selected business-date window. Supports date_from/date_to (range) and the legacy
+ * single business_date. Defaults to today.
+ */
+function resolveBusinessDateRange(query = {}) {
+  const fallback = query.business_date && ISO_DATE_RE.test(query.business_date)
+    ? query.business_date
+    : getTodayBusinessDate();
+  let from = ISO_DATE_RE.test(query.date_from || "") ? query.date_from : fallback;
+  let to = ISO_DATE_RE.test(query.date_to || "") ? query.date_to : from;
+  if (from > to) [from, to] = [to, from];
+  return { from, to, dates: enumerateBusinessDates(from, to) };
+}
+
 async function getFederalOversightDashboard(query = {}) {
-  const today = query.business_date || getTodayBusinessDate();
+  const { from: rangeFrom, to: rangeTo, dates: rangeDates } = resolveBusinessDateRange(query);
+  const isInRange = (businessDate) =>
+    Boolean(businessDate) && businessDate >= rangeFrom && businessDate <= rangeTo;
+  const today = rangeFrom;
 
   // 1. Purchasing centers count
   const [totalCenters, activeCenters] = await Promise.all([
@@ -425,7 +456,7 @@ async function getFederalOversightDashboard(query = {}) {
       asmAmount += amt;
     }
 
-    if (p.business_date === today) {
+    if (isInRange(p.business_date)) {
       todayPurchasesCount += 1;
       todayCanonicalQuantity += canonical;
       todayAmount += amt;
@@ -447,21 +478,25 @@ async function getFederalOversightDashboard(query = {}) {
     cEntry.canonical_quantity = parseFloat((cEntry.canonical_quantity + canonical).toFixed(4));
     cEntry.total_amount = parseFloat((cEntry.total_amount + amt).toFixed(2));
 
-    if (p.business_date === today) {
+    if (isInRange(p.business_date)) {
       cEntry.today_purchases_count += 1;
       cEntry.today_canonical_quantity = parseFloat((cEntry.today_canonical_quantity + canonical).toFixed(4));
       cEntry.today_amount = parseFloat((cEntry.today_amount + amt).toFixed(2));
+      if (!cEntry.active_dates) cEntry.active_dates = new Set();
+      cEntry.active_dates.add(p.business_date);
     }
   }
 
-  // 3. Today's submitted daily reports across centers
-  const reportsToday = await GoldDailyReport.findAll({
-    where: { business_date: today },
-    attributes: ["purchasing_center_id", "status", "submitted_at"],
+  // 3. Daily reports across centers for the selected window
+  const reportsInRange = await GoldDailyReport.findAll({
+    where: { business_date: { [Op.between]: [rangeFrom, rangeTo] } },
+    attributes: ["purchasing_center_id", "business_date", "status", "submitted_at"],
   });
-  const reportsMap = new Map();
-  for (const r of reportsToday) {
-    reportsMap.set(r.purchasing_center_id, r);
+  const isSubmittedStatus = (status) => status === "submitted" || status === "reviewed";
+  const reportsByCenter = new Map();
+  for (const r of reportsInRange) {
+    if (!reportsByCenter.has(r.purchasing_center_id)) reportsByCenter.set(r.purchasing_center_id, []);
+    reportsByCenter.get(r.purchasing_center_id).push(r);
   }
 
   // 4. Center list with enriched statistics
@@ -480,17 +515,34 @@ async function getFederalOversightDashboard(query = {}) {
       today_canonical_quantity: 0,
       today_amount: 0,
     };
-    const rep = reportsMap.get(c.purchasing_center_id);
-    let todayReportStatus = "no_activity";
-    if (agg.today_purchases_count > 0) {
-      todayReportStatus = rep ? rep.status : "unsubmitted";
-    } else if (rep) {
-      todayReportStatus = rep.status;
-    }
+    const centerReports = reportsByCenter.get(c.purchasing_center_id) || [];
+    const submittedDates = new Set(
+      centerReports.filter((r) => isSubmittedStatus(r.status)).map((r) => r.business_date)
+    );
+    const activeDates = agg.active_dates || new Set();
+    const pendingActiveDates = [...activeDates].filter((d) => !submittedDates.has(d));
+    submittedReportsCount += submittedDates.size;
 
-    if (rep && (rep.status === "submitted" || rep.status === "reviewed")) {
-      submittedReportsCount += 1;
+    // Single day keeps the original statuses; a range summarizes across days.
+    let todayReportStatus = "no_activity";
+    if (activeDates.size > 0) {
+      if (pendingActiveDates.length === 0) {
+        todayReportStatus = rangeDates.length === 1
+          ? centerReports.find((r) => isSubmittedStatus(r.status))?.status || "submitted"
+          : "submitted";
+      } else if (submittedDates.size > 0) {
+        todayReportStatus = "partial";
+      } else {
+        todayReportStatus = "unsubmitted";
+      }
+    } else if (centerReports.length > 0) {
+      todayReportStatus = rangeDates.length === 1 ? centerReports[0].status : "submitted";
     }
+    const latestSubmittedAt = centerReports
+      .map((r) => r.submitted_at)
+      .filter(Boolean)
+      .sort((a, b) => new Date(b) - new Date(a))[0];
+    const rep = latestSubmittedAt ? { submitted_at: latestSubmittedAt } : null;
 
     return {
       purchasing_center_id: c.purchasing_center_id,
@@ -506,11 +558,15 @@ async function getFederalOversightDashboard(query = {}) {
       today_amount: agg.today_amount,
       today_report_status: todayReportStatus,
       today_report_submitted_at: rep?.submitted_at || null,
+      active_days: activeDates.size,
+      submitted_days: submittedDates.size,
     };
   });
 
-  const reportingCompletionRate = activeCenters > 0
-    ? parseFloat(((submittedReportsCount / activeCenters) * 100).toFixed(1))
+  // Expected reports = one per active center per day in the window.
+  const expectedReports = activeCenters * rangeDates.length;
+  const reportingCompletionRate = expectedReports > 0
+    ? parseFloat((Math.min(1, submittedReportsCount / expectedReports) * 100).toFixed(1))
     : 0;
 
   // 5. Recent 10 purchases across all centers
@@ -543,6 +599,10 @@ async function getFederalOversightDashboard(query = {}) {
     },
     today: {
       business_date: today,
+      date_from: rangeFrom,
+      date_to: rangeTo,
+      days: rangeDates.length,
+      expected_reports: expectedReports,
       purchases_count: todayPurchasesCount,
       canonical_quantity: parseFloat(todayCanonicalQuantity.toFixed(4)),
       amount: parseFloat(todayAmount.toFixed(2)),

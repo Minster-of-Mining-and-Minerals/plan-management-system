@@ -19,6 +19,7 @@ const {
 } = require("./planAchievementUserService");
 const { buildRollupContextForAnnual } = require("./planAchievementRollupService");
 const { userCanExecuteAchievement } = require("../utils/planAchievementPermissionUtils");
+const { validateAchievementEvidence } = require("./planAchievementEvidenceService");
 const { isAnnualAchievementMode } = require("../utils/planAchievementModeUtils");
 const {
   ACHIEVEMENT_STATUS,
@@ -98,7 +99,7 @@ function isAnnualWeightedLeaf(node, rule, childrenByParent) {
 async function submitAnnualAchievement(planNodeId, annualActual, options = {}) {
   const t = await sequelize.transaction();
   try {
-    const { user, ipAddress = null, narration = null } = options;
+    const { user, ipAddress = null, narration = null, evidence_attachment_ids = [] } = options;
 
     if (!userCanExecuteAchievement(user)) {
       await t.rollback();
@@ -207,6 +208,7 @@ async function submitAnnualAchievement(planNodeId, annualActual, options = {}) {
         {
           annual_actual: null,
           annual_actual_narration: null,
+          evidence_attachment_ids: [],
           ...buildEmptyAnnualAchievementWorkflowFields(),
         },
         { transaction: t }
@@ -257,10 +259,22 @@ async function submitAnnualAchievement(planNodeId, annualActual, options = {}) {
       return { success: false, message: narrationCheck.message };
     }
 
+    const evidenceCheck = await validateAchievementEvidence(
+      annualTarget,
+      numericActual,
+      evidence_attachment_ids,
+      t
+    );
+    if (!evidenceCheck.valid) {
+      await t.rollback();
+      return { success: false, message: evidenceCheck.message };
+    }
+
     const previousValues = {
       annual_actual: node.annual_actual,
       annual_actual_status: node.annual_actual_status,
       annual_actual_narration: node.annual_actual_narration,
+      evidence_attachment_ids: node.evidence_attachment_ids ?? [],
     };
 
     const rollupContext = await buildRollupContextForAnnual(node.plan_version_id, t);
@@ -277,6 +291,7 @@ async function submitAnnualAchievement(planNodeId, annualActual, options = {}) {
       {
         annual_actual: numericActual,
         annual_actual_narration: narrationCheck.narration,
+        evidence_attachment_ids: evidenceCheck.attachmentIds,
         ...workflowFields,
       },
       { transaction: t }
@@ -294,6 +309,7 @@ async function submitAnnualAchievement(planNodeId, annualActual, options = {}) {
         newValues: {
           annual_actual: numericActual,
           annual_actual_narration: narrationCheck.narration,
+          evidence_attachment_ids: evidenceCheck.attachmentIds,
           ...workflowFields,
         },
         summary: requiresApproval

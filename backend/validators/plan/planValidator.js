@@ -87,11 +87,13 @@ const updatePeriodActualSchema = Joi.object({
 const submitAchievementSchema = Joi.object({
     period_actual: Joi.number().min(0).allow(null).required(),
     narration: Joi.string().trim().max(1000).allow(null, "").optional(),
+    evidence_attachment_ids: Joi.array().items(Joi.string().guid()).max(20).optional(),
 });
 
 const submitAnnualAchievementSchema = Joi.object({
     annual_actual: Joi.number().min(0).allow(null).required(),
     narration: Joi.string().trim().max(1000).allow(null, "").optional(),
+    evidence_attachment_ids: Joi.array().items(Joi.string().guid()).max(20).optional(),
 });
 
 const rejectAchievementSchema = Joi.object({

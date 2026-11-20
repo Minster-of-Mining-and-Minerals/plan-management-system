@@ -29,7 +29,7 @@ const PublicHeader = () => {
               የማዕድን ሚኒስቴር
             </p>
             <p className="text-sm font-semibold text-[#f4d986] tracking-wide">
-              Minister of Mining
+              Ministry of Mines
             </p>
           </div>
         </Link>

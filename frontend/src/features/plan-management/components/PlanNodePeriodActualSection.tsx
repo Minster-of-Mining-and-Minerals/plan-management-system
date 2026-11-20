@@ -35,6 +35,8 @@ import {
 } from "@/utils/planAchievementWorkflowUtils";
 import { planAchievementExecutorHint } from "@/utils/planAchievementHierarchyUtils";
 import { usePermissions } from "@/hooks/usePermissions";
+import { FileUploadField } from "@/components/common/FileUploadField";
+import { AchievementEvidenceList } from "./AchievementEvidenceList";
 import { usePlanAchievementScope } from "@/hooks/usePlanAchievementScope";
 import { PeriodTargetReallocationIndicator } from "./PeriodTargetReallocationIndicator";
 
@@ -92,6 +94,7 @@ export function PlanNodePeriodActualSection({
     const [updatePeriodActual, { isLoading: isOverrideSaving }] = useUpdatePeriodActualMutation();
     const [periodActualInput, setPeriodActualInput] = useState("");
     const [narrationInput, setNarrationInput] = useState("");
+    const [evidenceIds, setEvidenceIds] = useState<string[]>([]);
     const [pendingOverride, setPendingOverride] = useState(false);
 
     const isSaving = isSubmitting || isApproving || isRejecting || isValidating || isValidationRejecting || isOverrideSaving;
@@ -143,7 +146,8 @@ export function PlanNodePeriodActualSection({
             setPeriodActualInput("");
         }
         setNarrationInput(node.period_actual_narration ?? "");
-    }, [node.period_actual, node.period_actual_narration, node.plan_node_id]);
+        setEvidenceIds(node.evidence_attachment_ids ?? []);
+    }, [node.period_actual, node.period_actual_narration, node.evidence_attachment_ids, node.plan_node_id]);
 
     useEffect(() => {
         setPendingOverride(false);
@@ -232,14 +236,19 @@ export function PlanNodePeriodActualSection({
                 actionFeedback.error("Achievement must be zero or greater");
                 return;
             }
-            if (
+            const hasVariance =
                 val != null &&
                 periodTarget > 0 &&
-                Math.abs(val - periodTarget) > VARIANCE_EPSILON &&
-                !narrationInput.trim()
-            ) {
+                Math.abs(val - periodTarget) > VARIANCE_EPSILON;
+            if (hasVariance && !narrationInput.trim()) {
                 actionFeedback.error(
                     "Performance narration is required when actual achievement differs from the target."
+                );
+                return;
+            }
+            if (hasVariance && evidenceIds.length === 0) {
+                actionFeedback.error(
+                    "Attach at least one evidence document when actual achievement differs from the target."
                 );
                 return;
             }
@@ -247,6 +256,7 @@ export function PlanNodePeriodActualSection({
                 id: node.plan_node_id,
                 period_actual: val,
                 narration: narrationInput.trim() || null,
+                evidence_attachment_ids: val == null ? [] : evidenceIds,
             }).unwrap();
             actionFeedback.success(
                 val == null ? "Achievement cleared" : "Achievement submitted for approval"
@@ -545,6 +555,28 @@ export function PlanNodePeriodActualSection({
                         </p>
                     </div>
                 )}
+                {(narrationRequired || evidenceIds.length > 0) && (
+                    <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
+                        <FileUploadField
+                            id={`period_actual_evidence_${node.plan_node_id}`}
+                            label={
+                                narrationRequired
+                                    ? "Evidence document (required)"
+                                    : "Evidence document (optional)"
+                            }
+                            value={evidenceIds}
+                            onChange={setEvidenceIds}
+                            required={narrationRequired}
+                            error={
+                                narrationRequired && evidenceIds.length === 0
+                                    ? "Attach evidence supporting the over/under achievement"
+                                    : undefined
+                            }
+                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                            labelClass="text-xs"
+                        />
+                    </div>
+                )}
             </div>
         ) : null;
 
@@ -730,6 +762,12 @@ export function PlanNodePeriodActualSection({
                         {node.period_actual_narration}
                     </p>
                 )}
+            {!isEditingManual && !isRollupEntry && (node.evidence_attachment_ids?.length ?? 0) > 0 && (
+                <AchievementEvidenceList
+                    attachmentIds={node.evidence_attachment_ids}
+                    className="w-full basis-full"
+                />
+            )}
         </>
     );
 
@@ -870,6 +908,10 @@ export function PlanNodePeriodActualSection({
                             {node.period_actual_narration}
                         </p>
                     )}
+                    <AchievementEvidenceList
+                        attachmentIds={node.evidence_attachment_ids}
+                        className="mt-1.5"
+                    />
                 </div>
             </div>
             <PeriodTargetReallocationIndicator

@@ -21,7 +21,7 @@ type Props = {
 
 export const metadata: Metadata = {
   title: "MoM Plan Management System",
-  description: "Ministry of Mining Plan Management System",
+  description: "Ministry of Mines Plan Management System",
   icons: {
     icon: [
       { url: "/favicon_io/favicon.ico" },

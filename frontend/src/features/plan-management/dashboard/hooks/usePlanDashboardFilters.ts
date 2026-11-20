@@ -11,6 +11,7 @@ import {
   type DashboardFilters,
   type PlanDashboardData,
   type DashboardSectionId,
+  type DashboardStructure,
 } from "../types";
 
 export function usePlanDashboardFilters() {
@@ -97,13 +98,23 @@ export function usePlanDashboardFilters() {
   const shouldFetchDeptUser =
     (hasOpenedDeptUser || isDeptUserSection) && !isOverviewLoading;
 
+  const deptUserParams = useMemo(() => {
+    return {
+      ...overviewParams,
+      master_plan_version_id:
+        filters.masterPlanVersionId !== "auto" ? filters.masterPlanVersionId : undefined,
+      period_version_id:
+        filters.periodVersionId !== "auto" ? filters.periodVersionId : undefined,
+    };
+  }, [overviewParams, filters.masterPlanVersionId, filters.periodVersionId]);
+
   const {
     data: deptUserData,
     isLoading: isDeptUserLoading,
     isFetching: isDeptUserFetching,
     error: deptUserError,
     refetch: refetchDeptUser,
-  } = useGetPlanExecutionDashboardDepartmentUserQuery(overviewParams, {
+  } = useGetPlanExecutionDashboardDepartmentUserQuery(deptUserParams, {
     skip: !shouldFetchDeptUser,
   });
 
@@ -159,7 +170,14 @@ export function usePlanDashboardFilters() {
         averageProgress: null,
       },
       plans: overviewData?.plans ?? [],
-      structures: overviewData?.structures ?? deptUserData?.structures ?? [],
+      structures: (() => {
+        const map = new Map<string, DashboardStructure>();
+        for (const s of overviewData?.structures ?? []) map.set(s.id, s);
+        for (const s of deptUserData?.structures ?? []) {
+          if (!map.has(s.id)) map.set(s.id, s);
+        }
+        return Array.from(map.values());
+      })(),
       departments: deptUserData?.departments ?? [],
       users: deptUserData?.users ?? [],
       planTree: progressTreeData?.progress_tree?.nodes ?? [],
@@ -207,12 +225,15 @@ export function usePlanDashboardFilters() {
       if (filters.structureId !== "all" && dept.structureId !== filters.structureId) {
         return false;
       }
+      if (filters.departmentId !== "all" && dept.id !== filters.departmentId) {
+        return false;
+      }
       if (filters.status !== "all" && dept.status !== filters.status) {
         return false;
       }
       return true;
     });
-  }, [data.departments, filters.structureId, filters.status]);
+  }, [data.departments, filters.structureId, filters.departmentId, filters.status]);
 
   const filteredUsers = useMemo(() => {
     return data.users.filter((user) => {
@@ -225,9 +246,12 @@ export function usePlanDashboardFilters() {
       if (filters.userId !== "all" && user.id !== filters.userId) {
         return false;
       }
+      if (filters.status !== "all" && user.status && user.status !== filters.status) {
+        return false;
+      }
       return true;
     });
-  }, [data.users, filters.structureId, filters.departmentId, filters.userId]);
+  }, [data.users, filters.structureId, filters.departmentId, filters.userId, filters.status]);
 
   const departmentOptions = useMemo(() => {
     if (filters.structureId === "all") return data.departments;

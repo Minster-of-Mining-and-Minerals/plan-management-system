@@ -10,6 +10,7 @@ const {
 } = require("../models");
 const { computePeriodExecutionProgress } = require("./planExecutionRollupService");
 const { buildMasterNodeIdByPeriodNodeId } = require("./planAchievementRollupService");
+const { toLiveMasterNodeIdMap } = require("./planAchievementScopeService");
 const { nodeContributesToRollup } = require("../utils/planAchievementRollupUtils");
 
 function roundPercent(value) {
@@ -108,9 +109,47 @@ function finalizeAggregateBucket(bucket) {
     reportedNodeCount: bucket.reportedNodes,
     assignmentCount: bucket.assignmentCount,
     userIds: Array.from(bucket.userIds),
-    performance: performanceLevel(progress),
-    status: progress != null && progress < 50 ? "delayed" : "active",
+    reportingRate:
+      bucket.nodeKeys.size > 0
+        ? roundPercent((bucket.reportedNodes / bucket.nodeKeys.size) * 100)
+        : null,
+    performance: bucket.reportedNodes > 0 ? performanceLevel(progress) : "no-data",
+    status:
+      bucket.reportedNodes === 0
+        ? "not_started"
+        : progress != null && progress < 50
+          ? "delayed"
+          : "active",
   };
+}
+
+async function loadStructureNames(structureIds, transaction = null) {
+  const ids = (structureIds || []).filter(Boolean);
+  if (!ids.length) return new Map();
+  const { GovernmentStructure } = require("../models");
+  const rows = await GovernmentStructure.findAll({
+    where: { government_structure_id: { [Op.in]: ids } },
+    attributes: ["government_structure_id", "name", "parent_id"],
+    transaction,
+  });
+  const parentIds = [...new Set(rows.map((r) => r.parent_id).filter(Boolean))];
+  const parents = parentIds.length
+    ? await GovernmentStructure.findAll({
+        where: { government_structure_id: { [Op.in]: parentIds } },
+        attributes: ["government_structure_id", "name"],
+        transaction,
+      })
+    : [];
+  const parentName = new Map(parents.map((p) => [p.government_structure_id, p.name]));
+  // Qualify with the parent when present so same-named sub-sectors are distinguishable.
+  return new Map(
+    rows.map((r) => [
+      r.government_structure_id,
+      r.parent_id && parentName.get(r.parent_id)
+        ? `${r.name} (${parentName.get(r.parent_id)})`
+        : r.name,
+    ])
+  );
 }
 
 async function buildAssignmentAchievementMetrics(focusContexts, options = {}) {
@@ -121,10 +160,11 @@ async function buildAssignmentAchievementMetrics(focusContexts, options = {}) {
   for (const context of focusContexts) {
     const { liveMasterPlanId, periodVersionId, structureId } = context;
 
-    const masterNodeIdByPeriodNodeId = await buildMasterNodeIdByPeriodNodeId(
-      periodVersionId,
-      options.transaction || null,
-      options
+    // Dashboard periods come from the execution snapshot, whose nodes resolve to snapshot-master
+    // ids; assignments live on the LIVE master, so translate before matching.
+    const masterNodeIdByPeriodNodeId = await toLiveMasterNodeIdMap(
+      await buildMasterNodeIdByPeriodNodeId(periodVersionId, options.transaction || null, options),
+      options.transaction || null
     );
     const periodNodeIdByMasterNodeId = new Map();
     for (const [periodNodeId, masterNodeId] of masterNodeIdByPeriodNodeId) {
@@ -248,6 +288,7 @@ async function buildAssignmentAchievementMetrics(focusContexts, options = {}) {
             assignment.role?.name ?? user.roles?.[0]?.name ?? "Plan assignee";
           userMeta.set(userId, {
             id: userId,
+            email: user.email ?? null,
             name: user.full_name?.trim() || user.email || "User",
             role: roleName,
             structureId: user.government_structure_id ?? structureId ?? null,
@@ -281,20 +322,26 @@ async function buildDepartmentAndUserMetrics(focusContexts, structures, options 
   const { departmentBuckets, userBuckets, userMeta } =
     await buildAssignmentAchievementMetrics(focusContexts, options);
 
-  const internalStructures =
-    structures.length > 0
-      ? await InternalStructure.findAll({
-          where: {
-            government_structure_id: {
-              [Op.in]: structures.map((structure) => structure.id),
-            },
-            is_active: true,
-          },
-          attributes: ["internal_structure_id", "name", "government_structure_id"],
-          order: [["name", "ASC"]],
-          transaction: options.transaction || null,
-        })
-      : [];
+  const participatingDepartmentIds = new Set(departmentBuckets.keys());
+  for (const meta of userMeta.values()) {
+    if (meta.departmentId) participatingDepartmentIds.add(meta.departmentId);
+  }
+
+  const internalStructures = participatingDepartmentIds.size
+    ? await InternalStructure.findAll({
+        where: { internal_structure_id: { [Op.in]: [...participatingDepartmentIds] } },
+        attributes: ["internal_structure_id", "name", "government_structure_id"],
+        order: [["name", "ASC"]],
+        transaction: options.transaction || null,
+      })
+    : [];
+  const departmentById = new Map(internalStructures.map((d) => [d.internal_structure_id, d]));
+
+  const structureIds = new Set(internalStructures.map((d) => d.government_structure_id));
+  for (const meta of userMeta.values()) {
+    if (meta.structureId) structureIds.add(meta.structureId);
+  }
+  const structureNameById = await loadStructureNames([...structureIds], options.transaction);
 
   const departments = internalStructures.map((dept) => {
     const bucket = departmentBuckets.get(dept.internal_structure_id) ?? createAggregateBucket();
@@ -304,12 +351,15 @@ async function buildDepartmentAndUserMetrics(focusContexts, structures, options 
       id: dept.internal_structure_id,
       name: dept.name,
       structureId: dept.government_structure_id,
+      structureName: structureNameById.get(dept.government_structure_id) ?? null,
       planCount: finalized.planCount,
       assignedNodeCount: finalized.assignedNodeCount,
       reportedNodeCount: finalized.reportedNodeCount,
+      reportingRate: finalized.reportingRate,
       progress: finalized.progress ?? 0,
       has_progress: finalized.has_progress,
       status: finalized.status,
+      performance: finalized.performance,
       userIds: finalized.userIds,
     };
   });
@@ -328,11 +378,16 @@ async function buildDepartmentAndUserMetrics(focusContexts, structures, options 
       return {
         id: meta.id,
         name: meta.name,
+        email: meta.email ?? null,
         role: meta.role,
         structureId: meta.structureId,
+        structureName: structureNameById.get(meta.structureId) ?? null,
         departmentId: meta.departmentId,
+        departmentName: departmentById.get(meta.departmentId)?.name ?? null,
+        planCount: finalized.planCount,
         assignedNodeCount: finalized.assignedNodeCount,
         reportedNodeCount: finalized.reportedNodeCount,
+        reportingRate: finalized.reportingRate,
         achievementPercent: finalized.progress,
         has_progress: finalized.has_progress,
         performance: finalized.performance,
@@ -345,6 +400,7 @@ async function buildDepartmentAndUserMetrics(focusContexts, structures, options 
 }
 
 module.exports = {
+  loadStructureNames,
   getAssignedNodeContribution,
   buildAssignmentAchievementMetrics,
   buildDepartmentAndUserMetrics,

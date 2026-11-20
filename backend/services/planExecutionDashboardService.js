@@ -443,10 +443,11 @@ async function buildStructureMetrics(planRows) {
 
 async function collectFocusPeriodContexts(planRows, options = {}) {
   const contexts = [];
+  const requestedPeriodId = options.query?.period_version_id || null;
 
   for (const plan of planRows) {
     if (!plan.process_started_at) continue;
-    const period = await resolveFocusPeriodForMaster(plan.plan_version_id, null, options);
+    const period = await resolveFocusPeriodForMaster(plan.plan_version_id, requestedPeriodId, options);
     if (!period) continue;
     contexts.push({
       liveMasterPlanId: plan.plan_version_id,
@@ -490,7 +491,7 @@ async function getPlanExecutionDashboard(req, query = {}) {
     periodsByAnnualId: new Map(),
     internalAssignmentsByMasterId: new Map(),
   };
-  const options = { contextCache };
+  const options = { contextCache, query };
 
   const accessibleMasterIds = await resolveAccessibleMasterPlanIds(req, null, options);
   if (accessibleMasterIds !== null && accessibleMasterIds.length === 0) {
@@ -714,7 +715,12 @@ async function getPlanExecutionDashboard(req, query = {}) {
     };
   }
 
-  const focusContexts = await collectFocusPeriodContexts(planRows, options);
+  let activePlanRows = planRows;
+  if (query.master_plan_version_id) {
+    const matched = planRows.filter((plan) => plan.plan_version_id === query.master_plan_version_id);
+    if (matched.length > 0) activePlanRows = matched;
+  }
+  const focusContexts = await collectFocusPeriodContexts(activePlanRows, options);
   const { departments, users } = await buildDepartmentAndUserMetrics(focusContexts, structures, options);
 
   // Progressive section: Department and User metrics request

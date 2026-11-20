@@ -71,7 +71,7 @@ async function updatePeriodTarget(req, res) {
 async function submitAchievementHandler(req, res) {
   try {
     const { id: nodeId } = req.params;
-    const { period_actual, narration } = req.body;
+    const { period_actual, narration, evidence_attachment_ids } = req.body;
 
     if (!isUuid(nodeId)) {
       return res.status(400).json({ success: false, message: "Invalid node ID" });
@@ -80,6 +80,7 @@ async function submitAchievementHandler(req, res) {
     const result = await submitAchievement(nodeId, period_actual, {
       ...workflowOptions(req),
       narration,
+      evidence_attachment_ids,
     });
     if (!result.success) {
       return res.status(result.message?.includes("permission") ? 403 : 400).json({
@@ -365,7 +366,7 @@ async function rejectSectorAggregationPublishHandler(req, res) {
 async function submitAnnualAchievementHandler(req, res) {
   try {
     const { id: nodeId } = req.params;
-    const { annual_actual, narration } = req.body;
+    const { annual_actual, narration, evidence_attachment_ids } = req.body;
 
     if (!isUuid(nodeId)) {
       return res.status(400).json({ success: false, message: "Invalid node ID" });
@@ -374,6 +375,7 @@ async function submitAnnualAchievementHandler(req, res) {
     const result = await submitAnnualAchievement(nodeId, annual_actual, {
       ...workflowOptions(req),
       narration,
+      evidence_attachment_ids,
     });
     if (!result.success) {
       return res.status(result.message?.includes("permission") ? 403 : 400).json({

@@ -741,6 +741,8 @@ export interface PlanNode {
     annual_actual_validated_by?: string | null;
     annual_actual_rejection_comment?: string | null;
     annual_actual_narration?: string | null;
+    /** Evidence documents for the reported actual (required on over/under achievement). */
+    evidence_attachment_ids?: string[] | null;
     periodActualSubmittedBy?: User;
     periodActualApprovedBy?: User;
     execution_progress_percent?: number | null;

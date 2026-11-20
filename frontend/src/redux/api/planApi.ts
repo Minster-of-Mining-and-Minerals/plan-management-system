@@ -176,6 +176,8 @@ export const planApi = baseApi.injectEndpoints({
                 sharing_mode?: string;
                 date_from?: string;
                 date_to?: string;
+                master_plan_version_id?: string;
+                period_version_id?: string;
             } | void
         >({
             query: (params) => {
@@ -530,12 +532,12 @@ export const planApi = baseApi.injectEndpoints({
 
         submitAchievement: builder.mutation<
             PlanNode,
-            { id: string; period_actual: number | null; narration?: string | null }
+            { id: string; period_actual: number | null; narration?: string | null; evidence_attachment_ids?: string[] }
         >({
-            query: ({ id, period_actual, narration }) => ({
+            query: ({ id, period_actual, narration, evidence_attachment_ids }) => ({
                 url: `/plan/nodes/${id}/achievement/submit`,
                 method: "POST",
-                body: { period_actual, narration },
+                body: { period_actual, narration, evidence_attachment_ids },
             }),
             transformResponse: (response: { data: PlanNode }) => response.data,
             invalidatesTags: (_r, _e, { id }) => [
@@ -550,12 +552,12 @@ export const planApi = baseApi.injectEndpoints({
 
         submitAnnualAchievement: builder.mutation<
             PlanNode,
-            { id: string; annual_actual: number | null; narration?: string | null }
+            { id: string; annual_actual: number | null; narration?: string | null; evidence_attachment_ids?: string[] }
         >({
-            query: ({ id, annual_actual, narration }) => ({
+            query: ({ id, annual_actual, narration, evidence_attachment_ids }) => ({
                 url: `/plan/nodes/${id}/annual-achievement/submit`,
                 method: "POST",
-                body: { annual_actual, narration },
+                body: { annual_actual, narration, evidence_attachment_ids },
             }),
             transformResponse: (response: { data: PlanNode }) => response.data,
             invalidatesTags: (_r, _e, { id }) => [

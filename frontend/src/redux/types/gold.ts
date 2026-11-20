@@ -344,6 +344,9 @@ export interface CenterOversightSummary {
   today_amount: number;
   today_report_status: string;
   today_report_submitted_at?: string | null;
+  /** Days in the selected window with purchases / with a submitted report. */
+  active_days?: number;
+  submitted_days?: number;
 }
 
 export interface FederalOversightDashboardData {
@@ -358,6 +361,10 @@ export interface FederalOversightDashboardData {
   };
   today: {
     business_date: string;
+    date_from?: string;
+    date_to?: string;
+    days?: number;
+    expected_reports?: number;
     purchases_count: number;
     canonical_quantity: number;
     amount: number;

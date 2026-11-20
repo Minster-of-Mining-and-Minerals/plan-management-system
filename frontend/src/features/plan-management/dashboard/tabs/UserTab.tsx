@@ -88,7 +88,7 @@ export function UserTab({ state }: UserTabProps) {
           entries={topPerformers.map((user) => ({
             id: user.id,
             title: user.name,
-            subtitle: `${user.reportedNodeCount}/${user.assignedNodeCount} nodes · ${user.role}`,
+            subtitle: `${user.departmentName ? `${user.departmentName} · ` : user.structureName ? `${user.structureName} · ` : ""}${user.reportedNodeCount}/${user.assignedNodeCount} nodes · ${user.role}`,
             value: user.achievementPercent ?? 0,
           }))}
         />

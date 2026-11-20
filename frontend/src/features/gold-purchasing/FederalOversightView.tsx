@@ -29,24 +29,61 @@ import { KpiCard } from "@/features/plan-management/dashboard/components/KpiCard
 import { AnalyticsPanel } from "@/features/plan-management/dashboard/components/AnalyticsPanel";
 import { GoldOperationsTabsHeader } from "./GoldOperationsTabsHeader";
 
+/** Business dates are in Addis Ababa time (YYYY-MM-DD). */
+function addisDate(offsetDays = 0): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + offsetDays);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Addis_Ababa",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+const RANGE_PRESETS: { key: string; label: string; range: () => [string, string] }[] = [
+  { key: "today", label: "Today", range: () => [addisDate(), addisDate()] },
+  { key: "7d", label: "Last 7 days", range: () => [addisDate(-6), addisDate()] },
+  { key: "30d", label: "Last 30 days", range: () => [addisDate(-29), addisDate()] },
+  {
+    key: "month",
+    label: "This month",
+    range: () => {
+      const today = addisDate();
+      return [`${today.slice(0, 8)}01`, today];
+    },
+  },
+];
+
 export function FederalOversightView() {
-  const [businessDate, setBusinessDate] = useState(() => {
-    return new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Africa/Addis_Ababa",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(new Date());
-  });
+  const [dateFrom, setDateFrom] = useState(() => addisDate());
+  const [dateTo, setDateTo] = useState(() => addisDate());
 
   const { data, isLoading, isFetching, refetch } = useGetFederalGoldOversightQuery({
-    business_date: businessDate || undefined,
+    date_from: dateFrom || undefined,
+    date_to: dateTo || dateFrom || undefined,
   });
 
   const overview = data?.overview;
   const today = data?.today;
   const sellerDistribution = data?.seller_distribution;
   const centers = data?.centers || [];
+
+  const isSingleDay = !today?.days || today.days <= 1;
+  const periodFrom = today?.date_from ?? today?.business_date ?? dateFrom;
+  const periodTo = today?.date_to ?? periodFrom;
+  const periodLabel = isSingleDay ? periodFrom : `${periodFrom} → ${periodTo}`;
+  const periodPrefix = isSingleDay && periodFrom === addisDate() ? "Today's" : "Period";
+  const activePreset = RANGE_PRESETS.find((preset) => {
+    const [from, to] = preset.range();
+    return from === dateFrom && to === dateTo;
+  })?.key;
+
+  const applyPreset = (range: () => [string, string]) => {
+    const [from, to] = range();
+    setDateFrom(from);
+    setDateTo(to);
+  };
 
   const centerColumns: ColumnDef<any>[] = [
     {
@@ -66,7 +103,7 @@ export function FederalOversightView() {
     },
     {
       accessorKey: "today_purchases",
-      header: "Today's Purchases",
+      header: `${periodPrefix} Purchases`,
       cell: ({ row }) => (
         <span className="font-mono font-medium text-xs text-foreground">
           {row.original.today_purchases}
@@ -75,7 +112,7 @@ export function FederalOversightView() {
     },
     {
       id: "today_quantity_canonical",
-      header: "Today's Gold (g)",
+      header: `${periodPrefix} Gold (g)`,
       cell: ({ row }) => (
         <span className="font-mono font-bold text-amber-600 dark:text-amber-400 text-xs">
           {parseFloat(String(row.original.today_quantity_canonical)).toLocaleString(undefined, {
@@ -88,7 +125,7 @@ export function FederalOversightView() {
     },
     {
       id: "today_amount",
-      header: "Today's Amount",
+      header: `${periodPrefix} Amount`,
       cell: ({ row }) => (
         <span className="font-mono text-foreground font-semibold text-xs">
           {parseFloat(String(row.original.today_amount)).toLocaleString()} ETB
@@ -97,33 +134,43 @@ export function FederalOversightView() {
     },
     {
       id: "today_report",
-      header: "Today's Report",
+      header: isSingleDay ? "Daily Report" : "Reports (submitted / active days)",
       cell: ({ row }) => {
         const c = row.original;
+        const status = c.today_report_status;
+        const isDone = status === "submitted" || status === "reviewed";
+        const isPartial = status === "partial";
+        const isPending = status === "unsubmitted";
+        const dayCounts =
+          !isSingleDay && (c.active_days ?? 0) > 0
+            ? ` ${c.submitted_days ?? 0}/${c.active_days}`
+            : "";
         return (
           <Badge
-            variant={
-              c.today_report_status === "submitted" || c.today_report_status === "reviewed"
-                ? "default"
-                : c.today_report_status === "unsubmitted"
-                ? "outline"
-                : "secondary"
-            }
+            variant={isDone ? "default" : isPending || isPartial ? "outline" : "secondary"}
             className={
-              c.today_report_status === "submitted" || c.today_report_status === "reviewed"
+              isDone
                 ? "bg-emerald-600 text-white text-[10px] gap-1"
-                : c.today_report_status === "unsubmitted"
+                : isPartial
+                ? "border-sky-500 text-sky-700 dark:text-sky-300 text-[10px] gap-1"
+                : isPending
                 ? "border-amber-500 text-amber-700 dark:text-amber-300 text-[10px] gap-1"
                 : "text-[10px] gap-1"
             }
           >
-            {c.today_report_status === "submitted" ? (
+            {isDone ? (
               <>
-                <CheckCircle2 className="h-3 w-3" /> Submitted
+                <CheckCircle2 className="h-3 w-3" />
+                {status === "reviewed" ? "Reviewed" : "Submitted"}
+                {dayCounts}
               </>
-            ) : c.today_report_status === "unsubmitted" ? (
+            ) : isPartial ? (
               <>
-                <AlertCircle className="h-3 w-3" /> Pending
+                <AlertCircle className="h-3 w-3" /> Partial{dayCounts}
+              </>
+            ) : isPending ? (
+              <>
+                <AlertCircle className="h-3 w-3" /> Pending{dayCounts}
               </>
             ) : (
               <>
@@ -175,12 +222,39 @@ export function FederalOversightView() {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="flex items-center gap-2 bg-card border border-border rounded-xl p-1 shadow-xs">
+          <div className="flex items-center gap-1 bg-card border border-border rounded-xl p-1 shadow-xs flex-wrap">
+            {RANGE_PRESETS.map((preset) => (
+              <Button
+                key={preset.key}
+                type="button"
+                size="sm"
+                variant={activePreset === preset.key ? "default" : "ghost"}
+                className="h-8 px-2.5 text-xs"
+                onClick={() => applyPreset(preset.range)}
+              >
+                {preset.label}
+              </Button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-1.5 bg-card border border-border rounded-xl px-2 py-1 shadow-xs">
+            <span className="text-[11px] font-medium text-muted-foreground">From</span>
             <Input
               type="date"
-              value={businessDate}
-              onChange={(e) => setBusinessDate(e.target.value)}
+              value={dateFrom}
+              max={dateTo || undefined}
+              onChange={(e) => setDateFrom(e.target.value)}
               className="h-8 border-none text-xs w-36 shadow-none focus-visible:ring-0"
+              aria-label="From date"
+            />
+            <span className="text-[11px] font-medium text-muted-foreground">To</span>
+            <Input
+              type="date"
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="h-8 border-none text-xs w-36 shadow-none focus-visible:ring-0"
+              aria-label="To date"
             />
           </div>
 
@@ -206,26 +280,27 @@ export function FederalOversightView() {
       {/* ----------------- TODAY'S NATIONAL PERFORMANCE ----------------- */}
       <div className="space-y-4">
         <h3 className="text-base font-bold text-foreground">
-          Today&apos;s National Performance ({today?.business_date})
+          {periodPrefix === "Today's" ? "Today's" : "Selected Period"} National Performance ({periodLabel}
+          {!isSingleDay ? `, ${today?.days} days` : ""})
         </h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard
-            title="Today's Nationwide Purchases"
+            title={`${periodPrefix} Nationwide Purchases`}
             value={today?.purchases_count?.toLocaleString() || "0"}
-            subtitle="Transactions completed today"
+            subtitle={isSingleDay ? "Transactions completed on this day" : "Transactions completed in the period"}
             icon={Coins}
             accent="primary"
           />
           <KpiCard
-            title="Today's Canonical Volume"
+            title={`${periodPrefix} Canonical Volume`}
             value={`${(today?.canonical_quantity || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} g`}
             subtitle="Standardized metric gold weight"
             icon={Scale}
             accent="success"
           />
           <KpiCard
-            title="Today's Total Value"
+            title={`${periodPrefix} Total Value`}
             value={`${(today?.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB`}
             subtitle="Settled purchasing capital"
             icon={DollarSign}
@@ -234,7 +309,11 @@ export function FederalOversightView() {
           <KpiCard
             title="Daily Reporting Completion"
             value={`${today?.reporting_completion_rate || 0}%`}
-            subtitle={`${today?.submitted_reports_count || 0} of ${overview?.active_centers || 0} centers submitted`}
+            subtitle={
+              isSingleDay
+                ? `${today?.submitted_reports_count || 0} of ${overview?.active_centers || 0} centers submitted`
+                : `${today?.submitted_reports_count || 0} of ${today?.expected_reports || 0} daily reports submitted`
+            }
             icon={FileCheck2}
             accent={Number(today?.reporting_completion_rate || 0) >= 80 ? "success" : "info"}
           />
@@ -363,7 +442,7 @@ export function FederalOversightView() {
       {/* ----------------- PURCHASING CENTERS COMPARISON TABLE ----------------- */}
       <AnalyticsPanel
         title="Purchasing Centers Activity & Daily Reporting Matrix"
-        description={`Live purchasing totals and daily reporting submission status for ${today?.business_date}`}
+        description={`Purchasing totals and daily reporting submission status for ${periodLabel}`}
       >
         <DataTable
           columns={centerColumns}

@@ -17,6 +17,7 @@ const {
 const { resolveApproverUsersForLeafMasterNode, loadSectorValidationUsers, assertUserCanValidateAchievement } = require("./planAchievementUserService");
 const { buildRollupContextForPeriod } = require("./planAchievementRollupService");
 const { userCanExecuteAchievement } = require("../utils/planAchievementPermissionUtils");
+const { validateAchievementEvidence } = require("./planAchievementEvidenceService");
 const { userCanUpdatePlans } = require("../utils/planMasterEditUtils");
 
 /** Target planners (plan update/finalize permissions) may set period targets on any node. */
@@ -231,7 +232,7 @@ async function setPeriodTargetForExecutor(planNodeId, periodTarget, options = {}
 async function submitAchievement(planNodeId, periodActual, options = {}) {
   const t = await sequelize.transaction();
   try {
-    const { user, ipAddress = null, narration = null } = options;
+    const { user, ipAddress = null, narration = null, evidence_attachment_ids = [] } = options;
 
     if (!userCanExecuteAchievement(user)) {
       await t.rollback();
@@ -348,6 +349,7 @@ async function submitAchievement(planNodeId, periodActual, options = {}) {
         {
           period_actual: null,
           period_actual_narration: null,
+          evidence_attachment_ids: [],
           ...buildEmptyAchievementWorkflowFields(),
         },
         { transaction: t }
@@ -399,10 +401,22 @@ async function submitAchievement(planNodeId, periodActual, options = {}) {
       return { success: false, message: narrationCheck.message };
     }
 
+    const evidenceCheck = await validateAchievementEvidence(
+      periodTarget,
+      numericActual,
+      evidence_attachment_ids,
+      t
+    );
+    if (!evidenceCheck.valid) {
+      await t.rollback();
+      return { success: false, message: evidenceCheck.message };
+    }
+
     const previousValues = {
       period_actual: node.period_actual,
       period_actual_status: node.period_actual_status,
       period_actual_narration: node.period_actual_narration,
+      evidence_attachment_ids: node.evidence_attachment_ids ?? [],
     };
 
     const rollupContext = await buildRollupContextForPeriod(node.plan_version_id, t);
@@ -420,6 +434,7 @@ async function submitAchievement(planNodeId, periodActual, options = {}) {
         period_actual: numericActual,
         period_actual_override: false,
         period_actual_narration: narrationCheck.narration,
+        evidence_attachment_ids: evidenceCheck.attachmentIds,
         ...workflowFields,
       },
       { transaction: t }
@@ -435,6 +450,7 @@ async function submitAchievement(planNodeId, periodActual, options = {}) {
         newValues: {
           period_actual: numericActual,
           period_actual_narration: narrationCheck.narration,
+          evidence_attachment_ids: evidenceCheck.attachmentIds,
           ...workflowFields,
         },
         summary: requiresApproval

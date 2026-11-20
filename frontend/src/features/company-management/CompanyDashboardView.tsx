@@ -719,7 +719,7 @@ export function CompanyDashboardView({
                   </span>
                 </div>
                 <p className="text-sm text-amber-800/90 dark:text-amber-300/90 leading-relaxed">
-                  Statutory reporting to the federal Ministry of Mining, environmental impact filings,
+                  Statutory reporting to the federal Ministry of Mines, environmental impact filings,
                   and mineral royalty clearances will be implemented in subsequent phases.
                 </p>
               </div>
@@ -745,7 +745,7 @@ export function CompanyDashboardView({
 
             <AnalyticsPanel
               title="Mineral Royalty & Clearance Audits"
-              description="Annual royalty settlements with Ministry of Mining"
+              description="Annual royalty settlements with the Ministry of Mines"
               tone="secondary"
             >
               <div className="h-44 flex flex-col items-center justify-center text-center p-4 border border-dashed rounded-xl bg-muted/20">

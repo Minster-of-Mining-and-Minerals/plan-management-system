@@ -146,7 +146,7 @@ export default function ExternalLogin() {
               <span lang="am" className="text-lg font-semibold text-[#f4d986]">
                 የማዕድን ሚኒስቴር
               </span>
-              <span className="text-base font-semibold text-white">Minister of Mining</span>
+              <span className="text-base font-semibold text-white">Ministry of Mines</span>
             </div>
             {branding.system_tagline && (
               <p className="max-w-[34ch] text-[0.95rem] text-[#d4dee4]">{branding.system_tagline}</p>

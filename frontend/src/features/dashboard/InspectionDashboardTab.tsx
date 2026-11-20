@@ -63,6 +63,12 @@ import { KpiCard } from "@/features/plan-management/dashboard/components/KpiCard
 import Loading01 from "@/features/template/component/Loading/Loading01";
 import { cn } from "@/lib/utils";
 
+const INTERVAL_LABELS: Record<InspectionInterval, string> = {
+  day: "Daily",
+  week: "Weekly",
+  month: "Monthly",
+};
+
 const STATUS_COLORS: Record<string, string> = {
   submitted: "#10b981", // emerald-500
   completed: "#10b981",
@@ -867,7 +873,7 @@ export function InspectionDashboardTab() {
                   Inspection Activity Progression Over Time
                 </h4>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Completed vs Scheduled inspections by {interval} interval.
+                  Completed vs scheduled inspections, {INTERVAL_LABELS[interval].toLowerCase()}.
                 </p>
               </div>
               <div className="flex items-center gap-1.5">
@@ -877,9 +883,9 @@ export function InspectionDashboardTab() {
                     variant={interval === int ? "default" : "outline"}
                     size="sm"
                     onClick={() => setInterval(int)}
-                    className="h-7 text-xs px-2.5 rounded-lg capitalize"
+                    className="h-7 text-xs px-2.5 rounded-lg"
                   >
-                    {int}ly
+                    {INTERVAL_LABELS[int]}
                   </Button>
                 ))}
               </div>

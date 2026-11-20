@@ -16,26 +16,35 @@ export interface DashboardDepartment {
   id: string;
   name: string;
   structureId: string;
+  structureName?: string | null;
   planCount: number;
   assignedNodeCount: number;
   reportedNodeCount: number;
+  reportingRate?: number | null;
   progress: number;
   has_progress: boolean;
-  status: Exclude<PlanStatus, "all">;
+  performance?: PerformanceLevel | "no-data";
+  status: Exclude<PlanStatus, "all"> | "not_started";
   userIds: string[];
 }
 
 export interface DashboardUser {
   id: string;
   name: string;
+  email?: string | null;
   role: string;
   departmentId?: string | null;
+  departmentName?: string | null;
   structureId?: string | null;
+  structureName?: string | null;
+  planCount?: number;
   assignedNodeCount: number;
   reportedNodeCount: number;
+  reportingRate?: number | null;
   achievementPercent: number | null;
   has_progress: boolean;
   performance: PerformanceLevel;
+  status?: string;
   /** @deprecated Use achievementPercent */
   activityScore: number;
 }
