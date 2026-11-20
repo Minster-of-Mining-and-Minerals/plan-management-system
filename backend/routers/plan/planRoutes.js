@@ -187,6 +187,24 @@ const {
 const planStructureMutation = checkAnyPermission([
     { resource: "PLANS", action: "UPDATE" },
     { resource: "PLANS", action: "EDIT_FINALIZED" },
+    { resource: "PLAN", action: "UPDATE" },
+    { resource: "PLAN", action: "DRAFT_PUBLISH" },
+    { resource: "PLAN", action: "FINALIZE" },
+    { resource: "REGIONAL_PLANS", action: "UPDATE" },
+    { resource: "REGIONAL_PLANS", action: "MANAGE" },
+    { resource: "REGIONS", action: "MANAGE" },
+]);
+
+const planDistributionAccess = checkAnyPermission([
+    { resource: "PLANS", action: "UPDATE" },
+    { resource: "PLANS", action: "EDIT_FINALIZED" },
+    { resource: "PLAN", action: "UPDATE" },
+    { resource: "PLAN", action: "FINALIZE" },
+    { resource: "PLAN", action: "DRAFT_PUBLISH" },
+    { resource: "REGIONAL_PLANS", action: "UPDATE" },
+    { resource: "REGIONAL_PLANS", action: "FINALIZE" },
+    { resource: "REGIONAL_PLANS", action: "MANAGE" },
+    { resource: "REGIONS", action: "MANAGE" },
 ]);
 
 const planReadAccess = checkAnyPermission([
@@ -288,15 +306,15 @@ router.get("/versions/:id/annual-versions", planReadAccess, validateIdParam, req
 router.get("/versions/:id/annual-target-allocations", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), listAnnualTargetAllocations);
 router.get("/versions/:id/annual-execution-readiness", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), getAnnualExecutionFinalizationReadiness);
 router.post("/versions/:id/finalize-annual-execution", checkPermission("PLAN", "FINALIZE"), validateIdParam, finalizeAnnualExecutionPlan);
-router.post("/versions/:id/distribute-annual-targets-equally", checkPermission("PLANS", "UPDATE"), validateIdParam, distributeAnnualTargetsEquallyHandler);
-router.post("/versions/:id/lock-annual", checkPermission("PLANS", "UPDATE"), validateIdParam, lockAnnualPlanVersion);
-router.post("/versions/:id/unlock-annual", checkPermission("PLANS", "UPDATE"), validateIdParam, unlockAnnualPlanVersion);
+router.post("/versions/:id/distribute-annual-targets-equally", planDistributionAccess, validateIdParam, distributeAnnualTargetsEquallyHandler);
+router.post("/versions/:id/lock-annual", planDistributionAccess, validateIdParam, lockAnnualPlanVersion);
+router.post("/versions/:id/unlock-annual", planDistributionAccess, validateIdParam, unlockAnnualPlanVersion);
 router.post("/versions/:id/complete-annual", checkPermission("PLAN", "COMPLETE_ANNUAL"), validateIdParam, completeAnnualPlanVersion);
 router.get("/versions/:id/execution-periods", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), listExecutionPeriods);
-router.post("/versions/:id/initialize-execution-periods", checkPermission("PLANS", "UPDATE"), validateIdParam, initializeExecutionPeriodsForAnnual);
+router.post("/versions/:id/initialize-execution-periods", planDistributionAccess, validateIdParam, initializeExecutionPeriodsForAnnual);
 router.get("/versions/:id/execution-period-readiness", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), getExecutionPeriodFinalizationReadinessHandler);
 router.post("/versions/:id/finalize-execution-periods", checkPermission("PLAN", "FINALIZE"), validateIdParam, finalizeExecutionPeriodTargetsHandler);
-router.post("/versions/:id/distribute-period-targets-equally", checkPermission("PLANS", "UPDATE"), validateIdParam, distributePeriodTargetsEquallyHandler);
+router.post("/versions/:id/distribute-period-targets-equally", planDistributionAccess, validateIdParam, distributePeriodTargetsEquallyHandler);
 router.post("/versions/:id/complete-period", checkPermission("PLAN", "COMPLETE_PERIOD"), validateIdParam, completeExecutionPeriodVersion);
 router.get("/versions/:id/period-target-allocations", planReadAccess, validateIdParam, requirePlanVersionReadAccess(), listPeriodTargetAllocations);
 router.get(
@@ -493,7 +511,7 @@ router.get("/versions/:id/review-dashboard", checkAnyPermission([
     { resource: "PLAN", action: "COMPLETE_REVIEW" },
     { resource: "PLAN", action: "PUBLISH_FOR_REVIEW" },
 ]), validateIdParam, requirePlanVersionReadAccess(), getPlanReviewDashboardHandler);
-router.patch("/nodes/:id/annual-target", checkPermission("PLANS", "UPDATE"), validateIdParam, validateUpdateAnnualTarget, updateAnnualTarget);
+router.patch("/nodes/:id/annual-target", planDistributionAccess, validateIdParam, validateUpdateAnnualTarget, updateAnnualTarget);
 router.patch(
     "/nodes/:id/period-target",
     checkPermission("PLAN", "EXECUTE_ACHIEVEMENT"),

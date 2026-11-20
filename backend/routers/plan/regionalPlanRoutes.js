@@ -22,8 +22,13 @@ const planCreateAccess = checkAnyPermission([
 
 const planUpdateAccess = checkAnyPermission([
   { resource: "REGIONAL_PLANS", action: "UPDATE" },
+  { resource: "REGIONAL_PLANS", action: "FINALIZE" },
   { resource: "REGIONAL_PLANS", action: "MANAGE" },
   { resource: "REGIONS", action: "MANAGE" },
+  { resource: "PLANS", action: "UPDATE" },
+  { resource: "PLANS", action: "EDIT_FINALIZED" },
+  { resource: "PLAN", action: "UPDATE" },
+  { resource: "PLAN", action: "FINALIZE" },
 ]);
 
 const planNodeMutationAccess = checkAnyPermission([

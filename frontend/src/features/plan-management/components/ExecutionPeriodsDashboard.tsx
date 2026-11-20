@@ -24,6 +24,7 @@ import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresh
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import {
     PLAN_COMPLETE_PERIOD_PERMISSIONS,
+    PLAN_DISTRIBUTION_PERMISSIONS,
 } from "@/utils/planPermissionUtils";
 import { PerformanceProgressBar } from "./PerformanceProgressBar";
 import { PerformanceColorBadge } from "./PerformanceColorBadge";
@@ -212,15 +213,17 @@ export function ExecutionPeriodsDashboard({
                 </div>
                 {!periodTargetsFinalized && (
                     <div className="flex flex-wrap gap-2 shrink-0">
-                        <Button
-                            variant="outline"
-                            className="gap-2 shadow-xs text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700/50 hover:bg-amber-50 dark:hover:bg-amber-950/20"
-                            onClick={handleDistributeEqually}
-                            disabled={isDistributing}
-                        >
-                            <Sparkles className="h-4 w-4 text-amber-500" />
-                            {isDistributing ? "Dividing..." : "Auto-Divide Period Targets"}
-                        </Button>
+                        <PermissionGuard requireAny={PLAN_DISTRIBUTION_PERMISSIONS}>
+                            <Button
+                                variant="outline"
+                                className="gap-2 shadow-xs text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700/50 hover:bg-amber-50 dark:hover:bg-amber-950/20"
+                                onClick={handleDistributeEqually}
+                                disabled={isDistributing}
+                            >
+                                <Sparkles className="h-4 w-4 text-amber-500" />
+                                {isDistributing ? "Dividing..." : "Auto-Divide Period Targets"}
+                            </Button>
+                        </PermissionGuard>
                     </div>
                 )}
             </div>

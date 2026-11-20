@@ -16,12 +16,35 @@ function isMasterFinalized(planVersion) {
     return planVersion?.version_kind === "master" && planVersion?.status === "finalized";
 }
 
+const PERMITTED_UPDATE_PERMISSIONS = [
+    UPDATE_PERMISSION,
+    EDIT_FINALIZED_PERMISSION,
+    "plan:update",
+    "plan:draft_publish",
+    "plan:finalize",
+    "regional_plans:update",
+    "regional_plans:finalize",
+    "regional_plans:manage",
+    "regions:manage",
+];
+
 function userCanUpdatePlans(user) {
-    return Boolean(user?.permissions?.includes(UPDATE_PERMISSION));
+    if (!user?.permissions) return false;
+    return PERMITTED_UPDATE_PERMISSIONS.some((p) => user.permissions.includes(p));
 }
 
 function userCanEditFinalizedMaster(user) {
-    return Boolean(user?.permissions?.includes(EDIT_FINALIZED_PERMISSION));
+    if (!user?.permissions) return false;
+    return [
+        EDIT_FINALIZED_PERMISSION,
+        UPDATE_PERMISSION,
+        "plan:update",
+        "plan:finalize",
+        "regional_plans:update",
+        "regional_plans:finalize",
+        "regional_plans:manage",
+        "regions:manage",
+    ].some((p) => user.permissions.includes(p));
 }
 
 function canEditMasterPlanStructure(planVersion, user) {

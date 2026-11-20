@@ -57,6 +57,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import {
     PLAN_AMENDMENT_TAB_PERMISSIONS,
+    PLAN_DISTRIBUTION_PERMISSIONS,
     PLAN_FINALIZE_PERMISSIONS,
     PLAN_REVIEW_DASHBOARD_ACCESS_PERMISSIONS,
     PLAN_REVIEW_RAISE_PERMISSIONS,
@@ -1495,15 +1496,17 @@ export default function PlanHierarchyView({
                             {periodsInitializedGlobally &&
                                 !periodTargetsFinalized && (
                                     <>
-                                        <Button
-                                            variant="outline"
-                                            className="gap-2 shadow-xs text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700/50 hover:bg-amber-50 dark:hover:bg-amber-950/20"
-                                            onClick={handleDistributePeriodEqually}
-                                            disabled={isDistributingPeriod}
-                                        >
-                                            <Sparkles className="h-4 w-4 text-amber-500" />
-                                            {isDistributingPeriod ? "Dividing..." : "Auto-Divide Period Targets"}
-                                        </Button>
+                                        <PermissionGuard requireAny={PLAN_DISTRIBUTION_PERMISSIONS}>
+                                            <Button
+                                                variant="outline"
+                                                className="gap-2 shadow-xs text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700/50 hover:bg-amber-50 dark:hover:bg-amber-950/20"
+                                                onClick={handleDistributePeriodEqually}
+                                                disabled={isDistributingPeriod}
+                                            >
+                                                <Sparkles className="h-4 w-4 text-amber-500" />
+                                                {isDistributingPeriod ? "Dividing..." : "Auto-Divide Period Targets"}
+                                            </Button>
+                                        </PermissionGuard>
                                         <PermissionGuard requireAll={PLAN_FINALIZE_PERMISSIONS}>
                                             <Button
                                                 className="gap-2"

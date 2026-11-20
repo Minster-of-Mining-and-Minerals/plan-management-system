@@ -37,7 +37,15 @@ export function canEditMasterPlanStructure(
         }
     }
     if (version?.version_kind === "master" && version?.status === "draft") {
-        return can(PLAN_PERMISSIONS.UPDATE);
+        return (
+            can(PLAN_PERMISSIONS.UPDATE) ||
+            can(PLAN_LIFECYCLE_PERMISSIONS.DRAFT_PUBLISH) ||
+            can(PLAN_LIFECYCLE_PERMISSIONS.FINALIZE) ||
+            can(PLAN_PERMISSIONS.EDIT_FINALIZED) ||
+            can("REGIONAL_PLANS:UPDATE") ||
+            can("REGIONAL_PLANS:MANAGE") ||
+            can("REGIONS:MANAGE")
+        );
     }
     return canEditFinalizedMasterPlan(version, can);
 }

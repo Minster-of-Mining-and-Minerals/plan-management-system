@@ -23,6 +23,7 @@ import { usePerformanceColorThresholds } from "@/hooks/usePerformanceColorThresh
 import { PermissionGuard } from "@/utils/PermissionGuard";
 import {
     PLAN_COMPLETE_ANNUAL_PERMISSIONS,
+    PLAN_DISTRIBUTION_PERMISSIONS,
     PLAN_FINALIZE_PERMISSIONS,
     PLAN_START_PROCESS_PERMISSIONS,
     PLAN_UPDATE_PERMISSIONS,
@@ -160,7 +161,7 @@ export function AnnualVersionsDashboard({
                 <div className="flex flex-wrap gap-2 shrink-0">
                     {!annualTargetsFinalized && (
                         <>
-                            <PermissionGuard requireAll={PLAN_UPDATE_PERMISSIONS}>
+                            <PermissionGuard requireAny={PLAN_DISTRIBUTION_PERMISSIONS}>
                                 <Button
                                     variant="outline"
                                     className="gap-2 shadow-xs text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700/50 hover:bg-amber-50 dark:hover:bg-amber-950/20"

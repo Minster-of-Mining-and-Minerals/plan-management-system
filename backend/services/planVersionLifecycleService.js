@@ -2397,23 +2397,18 @@ async function distributeAnnualTargetsEqually(masterVersionId, userId) {
         err.status = 404;
         throw err;
     }
-    if (master.status !== "finalized") {
-        const err = new Error("Master plan draft must be finalized to distribute annual targets");
-        err.status = 400;
-        throw err;
-    }
-    if (master.annual_targets_finalized_at) {
-        const err = new Error("Annual targets are already finalized");
-        err.status = 400;
-        throw err;
-    }
 
     const annuals = await PlanVersion.findAll({
         where: { parent_plan_version_id: masterVersionId, version_kind: "annual" },
         order: [["sequence_index", "ASC"]],
     });
     if (annuals.length === 0) {
-        const err = new Error("No annual execution versions found");
+        const err = new Error("Master plan draft must be finalized to generate annual versions before distributing targets");
+        err.status = 400;
+        throw err;
+    }
+    if (master.annual_targets_finalized_at) {
+        const err = new Error("Annual targets are already finalized");
         err.status = 400;
         throw err;
     }
