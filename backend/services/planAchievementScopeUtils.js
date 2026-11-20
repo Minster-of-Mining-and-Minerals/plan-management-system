@@ -138,6 +138,41 @@ function userHasSectorAccessToMasterNode(
   return false;
 }
 
+/**
+ * Strict "who records achievement on this node" rule:
+ *  - assignment names a user        -> only that user;
+ *  - assignment names a department  -> members of that department;
+ *  - neither (legacy rows)          -> fall back to the delegation chain match.
+ * Delegation links (branch_internal / branch_external) record where an assignment came from;
+ * they must not make the parent department or sector an executor of a personal assignment.
+ */
+function internalAssignmentAssignsExecutor(assignment, user, internalById, externalById) {
+  if (!assignment || assignment.is_active === false) return false;
+
+  if (assignment.user_id) {
+    return assignment.user_id === user.user_id;
+  }
+
+  if (assignment.internal_structure_id) {
+    return Boolean(
+      user.internal_structure_id &&
+        assignment.internal_structure_id === user.internal_structure_id
+    );
+  }
+
+  return internalAssignmentMatchesUser(assignment, user, internalById, externalById);
+}
+
+function collectExecutorAssignedMasterNodeIds(user, internalAssignments, internalById, externalById) {
+  const seedIds = new Set();
+  for (const assignment of internalAssignments) {
+    if (internalAssignmentAssignsExecutor(assignment, user, internalById, externalById)) {
+      seedIds.add(assignment.plan_node_id);
+    }
+  }
+  return seedIds;
+}
+
 function collectInternallyAssignedMasterNodeIds(
   user,
   internalAssignments,
@@ -170,7 +205,8 @@ function resolveExecutorLeafMasterNodeIds({
     externalAssignments.map((row) => [row.external_assignment_id, row])
   );
   const childrenByParent = buildChildrenByParent(masterNodes);
-  const assignedIds = collectInternallyAssignedMasterNodeIds(
+  // Executors: strict assignee match (approver anchors keep the broader delegation-aware rule).
+  const assignedIds = collectExecutorAssignedMasterNodeIds(
     user,
     internalAssignments,
     internalById,
@@ -297,8 +333,10 @@ module.exports = {
   collectDescendantIds,
   collectAllMasterLeafIds,
   internalAssignmentMatchesUser,
+  internalAssignmentAssignsExecutor,
   userHasSectorAccessToMasterNode,
   collectInternallyAssignedMasterNodeIds,
+  collectExecutorAssignedMasterNodeIds,
   resolveExecutorLeafMasterNodeIds,
   resolveApproverAnchorMasterNodeIds,
   resolveApproverScopeMasterNodeIds,
