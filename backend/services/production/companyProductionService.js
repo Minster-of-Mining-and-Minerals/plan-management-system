@@ -11,6 +11,10 @@ const {
   CompanyProductionAssignment,
   CompanyProductionTarget,
   CompanyProductionReport,
+  CompanyProductionTargetApprovalHistory,
+  CompanyProductionReportingAssignment,
+  CompanyStructure,
+  Role,
   GoldMeasurementUnit,
   User,
   sequelize,
@@ -586,6 +590,73 @@ async function submitReport(data, userId, companyScope = null) {
     throw err;
   }
 
+  // 1. Target Approval Enforcement (Reporting is locked until target proposal is approved)
+  const approvedTarget = await CompanyProductionTarget.findOne({
+    where: {
+      assignment_id: assignment.assignment_id,
+      status: ["approved", "published"],
+      target_period_type: "year",
+    },
+    order: [["version_number", "DESC"]],
+  });
+
+  if (!approvedTarget) {
+    const err = new Error(
+      "Production reporting is locked. The annual production target proposal for this license must be reviewed and approved by the Federal Ministry before periodic reports can be submitted."
+    );
+    err.status = 403;
+    throw err;
+  }
+
+  // 2. License Validity Check
+  if (assignment.license_id) {
+    const license = await CompanyLicense.findByPk(assignment.license_id);
+    if (!license || license.status !== "active") {
+      const err = new Error(
+        `Cannot submit production report. Associated license '${license ? license.license_number : assignment.license_id}' is not active (${license ? license.status : "missing"}).`
+      );
+      err.status = 403;
+      throw err;
+    }
+    if (license.effective_start_date && new Date(report_date) < new Date(license.effective_start_date)) {
+      const err = new Error(
+        `Report date (${report_date}) is earlier than license effective start date (${license.effective_start_date}).`
+      );
+      err.status = 400;
+      throw err;
+    }
+    if (license.effective_end_date && new Date(report_date) > new Date(license.effective_end_date)) {
+      const err = new Error(
+        `Report date (${report_date}) exceeds license effective end date (${license.effective_end_date}).`
+      );
+      err.status = 400;
+      throw err;
+    }
+  }
+
+  // 3. Reporting Responsibilities Authorization Check
+  const activeResponsibilities = await CompanyProductionReportingAssignment.findAll({
+    where: { assignment_id: assignment.assignment_id, is_active: true },
+  });
+  if (activeResponsibilities.length > 0 && userId) {
+    const user = await User.findByPk(userId);
+    const isPrivileged = user && (user.role === "company_admin" || user.role === "super_admin" || user.role === "admin");
+    if (!isPrivileged) {
+      const hasUserMatch = activeResponsibilities.some((r) => r.user_id === userId);
+      const hasDeptMatch = activeResponsibilities.some(
+        (r) => r.company_structure_id && user && user.company_structure_id === r.company_structure_id
+      );
+      const hasRoleMatch = activeResponsibilities.some((r) => r.role_id && user && user.role_id === r.role_id);
+      if (!hasUserMatch && !hasDeptMatch && !hasRoleMatch) {
+        const err = new Error(
+          "Forbidden: You are not assigned reporting responsibilities for this production item."
+        );
+        err.status = 403;
+        throw err;
+      }
+    }
+  }
+
   if (!report_date) {
     const err = new Error("Report date is required.");
     err.status = 400;
@@ -645,6 +716,9 @@ async function submitReport(data, userId, companyScope = null) {
   const report = await CompanyProductionReport.create({
     company_id: assignment.company_id,
     assignment_id: assignment.assignment_id,
+    license_id: assignment.license_id || null,
+    approved_target_version: approvedTarget ? approvedTarget.version_number : null,
+    company_structure_id: data.company_structure_id || null,
     production_item_id: assignment.production_item_id,
     report_date,
     period_label: resolvedPeriodLabel,
@@ -1160,6 +1234,643 @@ async function getCompanyDashboard(companyId, query = {}) {
   };
 }
 
+
+/**
+ * Propose target hierarchy (annual target, period allocations, and optional department allocations).
+ */
+async function saveTargetProposal({
+  assignmentId,
+  annualTarget,
+  periodType,
+  periodAllocations,
+  submissionNotes,
+  userId,
+  autoSubmit = false,
+  companyScope = null,
+}) {
+  const assignment = await CompanyProductionAssignment.findByPk(assignmentId, {
+    include: [
+      { model: ProductionItem, as: "productionItem" },
+      { model: CompanyLicense, as: "license" },
+    ],
+  });
+  if (!assignment) {
+    const err = new Error("Company production assignment not found.");
+    err.status = 404;
+    throw err;
+  }
+
+  if (companyScope && assignment.company_id !== companyScope) {
+    const err = new Error("Forbidden: You cannot configure targets for another company.");
+    err.status = 403;
+    throw err;
+  }
+
+  // Validate license validity
+  if (assignment.license) {
+    if (assignment.license.status !== "active") {
+      const err = new Error(`Cannot propose targets for inactive license '${assignment.license.license_number}'.`);
+      err.status = 400;
+      throw err;
+    }
+  }
+
+  const numAnnual = Number(annualTarget);
+  if (isNaN(numAnnual) || numAnnual <= 0) {
+    const err = new Error("Annual production target must be a positive number.");
+    err.status = 400;
+    throw err;
+  }
+
+  if (!Array.isArray(periodAllocations) || periodAllocations.length === 0) {
+    const err = new Error("At least one period allocation must be provided.");
+    err.status = 400;
+    throw err;
+  }
+
+  // Find latest target version
+  const latestTarget = await CompanyProductionTarget.findOne({
+    where: { assignment_id: assignmentId, target_period_type: "year" },
+    order: [["version_number", "DESC"]],
+  });
+
+  let targetVersion = 1;
+  if (latestTarget) {
+    if (latestTarget.status === "approved" || latestTarget.status === "published") {
+      targetVersion = latestTarget.version_number + 1;
+    } else if (latestTarget.status === "submitted" || latestTarget.status === "under_review") {
+      const err = new Error(
+        `A target proposal (Version ${latestTarget.version_number}) is currently under review by the Federal Ministry. You cannot modify it until a review decision is issued.`
+      );
+      err.status = 400;
+      throw err;
+    } else {
+      // draft or revision_requested or rejected -> update existing version
+      targetVersion = latestTarget.version_number;
+    }
+  }
+
+  // Validate sum of period allocations equals annual target
+  let totalPeriodSum = 0;
+  for (const p of periodAllocations) {
+    const pQty = Number(p.target_quantity);
+    if (isNaN(pQty) || pQty < 0) {
+      const err = new Error(`Invalid target quantity for period '${p.period_label}'.`);
+      err.status = 400;
+      throw err;
+    }
+    totalPeriodSum += pQty;
+
+    // If department allocations provided for this period, validate child sum
+    if (Array.isArray(p.department_allocations) && p.department_allocations.length > 0) {
+      let deptSum = 0;
+      for (const d of p.department_allocations) {
+        const dQty = Number(d.target_quantity);
+        if (isNaN(dQty) || dQty < 0) {
+          const err = new Error(`Invalid department target quantity in '${p.period_label}'.`);
+          err.status = 400;
+          throw err;
+        }
+        deptSum += dQty;
+      }
+      deptSum = roundDecimal(deptSum, 4);
+      if (Math.abs(deptSum - roundDecimal(pQty, 4)) > 0.0001) {
+        const err = new Error(
+          `Department allocations total (${deptSum}) does not match period target '${p.period_label}' (${pQty}).`
+        );
+        err.status = 400;
+        throw err;
+      }
+    }
+  }
+
+  totalPeriodSum = roundDecimal(totalPeriodSum, 4);
+  const roundedAnnual = roundDecimal(numAnnual, 4);
+  if (Math.abs(totalPeriodSum - roundedAnnual) > 0.0001) {
+    const err = new Error(
+      `Sum of period allocations (${totalPeriodSum}) does not equal the annual target (${roundedAnnual}).`
+    );
+    err.status = 400;
+    throw err;
+  }
+
+  const initialStatus = autoSubmit ? "submitted" : "draft";
+  const unitId = assignment.default_reporting_unit_id;
+  const factorToBase = await getUnitFactorToBase(assignment.production_item_id, unitId);
+  const annualQuantityBase = roundDecimal(numAnnual * factorToBase, 4);
+
+  // Derive start/end dates from allocations
+  const sortedStarts = [...periodAllocations].map((p) => p.period_start_date).sort();
+  const sortedEnds = [...periodAllocations].map((p) => p.period_end_date).sort();
+  const yearStart = sortedStarts[0] || assignment.effective_from;
+  const yearEnd = sortedEnds[sortedEnds.length - 1] || assignment.effective_to || yearStart;
+  const yearLabel = String(new Date(yearStart).getFullYear() || "Annual Target");
+
+  await sequelize.transaction(async (t) => {
+    // Delete existing targets for this specific (assignmentId, targetVersion) if overwriting draft/revision
+    await CompanyProductionTarget.destroy({
+      where: { assignment_id: assignmentId, version_number: targetVersion },
+      transaction: t,
+    });
+
+    // 1. Root Annual Target
+    const rootTarget = await CompanyProductionTarget.create(
+      {
+        assignment_id: assignmentId,
+        parent_target_id: null,
+        company_structure_id: null,
+        version_number: targetVersion,
+        target_period_type: "year",
+        period_label: yearLabel,
+        period_start_date: yearStart,
+        period_end_date: yearEnd,
+        target_quantity: numAnnual,
+        unit_id: unitId,
+        target_quantity_base: annualQuantityBase,
+        status: initialStatus,
+        submission_notes: submissionNotes || null,
+        submitted_by: autoSubmit ? userId : null,
+        submitted_at: autoSubmit ? new Date() : null,
+        created_by: userId,
+      },
+      { transaction: t }
+    );
+
+    // 2. Child Period Targets
+    for (const p of periodAllocations) {
+      const pQty = Number(p.target_quantity);
+      const pQtyBase = roundDecimal(pQty * factorToBase, 4);
+      const periodRecord = await CompanyProductionTarget.create(
+        {
+          assignment_id: assignmentId,
+          parent_target_id: rootTarget.target_id,
+          company_structure_id: null,
+          version_number: targetVersion,
+          target_period_type: p.target_period_type || periodType || assignment.target_allocation_depth || "quarter",
+          period_label: p.period_label,
+          period_start_date: p.period_start_date,
+          period_end_date: p.period_end_date,
+          target_quantity: pQty,
+          unit_id: unitId,
+          target_quantity_base: pQtyBase,
+          status: initialStatus,
+          submission_notes: submissionNotes || null,
+          submitted_by: autoSubmit ? userId : null,
+          submitted_at: autoSubmit ? new Date() : null,
+          created_by: userId,
+        },
+        { transaction: t }
+      );
+
+      // 3. Department child allocations under this period
+      if (Array.isArray(p.department_allocations) && p.department_allocations.length > 0) {
+        for (const d of p.department_allocations) {
+          const dQty = Number(d.target_quantity);
+          const dQtyBase = roundDecimal(dQty * factorToBase, 4);
+          await CompanyProductionTarget.create(
+            {
+              assignment_id: assignmentId,
+              parent_target_id: periodRecord.target_id,
+              company_structure_id: d.company_structure_id,
+              version_number: targetVersion,
+              target_period_type: p.target_period_type || periodType || assignment.target_allocation_depth || "quarter",
+              period_label: `${p.period_label} - Dept`,
+              period_start_date: p.period_start_date,
+              period_end_date: p.period_end_date,
+              target_quantity: dQty,
+              unit_id: unitId,
+              target_quantity_base: dQtyBase,
+              status: initialStatus,
+              created_by: userId,
+            },
+            { transaction: t }
+          );
+        }
+      }
+    }
+
+    // If autoSubmit, record in approval history
+    if (autoSubmit) {
+      await CompanyProductionTargetApprovalHistory.create(
+        {
+          assignment_id: assignmentId,
+          version_number: targetVersion,
+          action: "submitted",
+          previous_status: latestTarget ? latestTarget.status : "draft",
+          new_status: "submitted",
+          comments: submissionNotes || "Target proposal submitted for Federal review.",
+          actor_id: userId,
+        },
+        { transaction: t }
+      );
+    }
+  });
+
+  return await getTargetProposal(assignmentId, targetVersion);
+}
+
+/**
+ * Submit target proposal to Federal level for review.
+ */
+async function submitTargetProposal({ assignmentId, versionNumber, submissionNotes, userId, companyScope = null }) {
+  const assignment = await CompanyProductionAssignment.findByPk(assignmentId);
+  if (!assignment) {
+    const err = new Error("Assignment not found.");
+    err.status = 404;
+    throw err;
+  }
+  if (companyScope && assignment.company_id !== companyScope) {
+    const err = new Error("Forbidden: You cannot submit targets for another company.");
+    err.status = 403;
+    throw err;
+  }
+
+  const ver = versionNumber || 1;
+  const targets = await CompanyProductionTarget.findAll({
+    where: { assignment_id: assignmentId, version_number: ver },
+  });
+  if (targets.length === 0) {
+    const err = new Error("No target proposal found for version " + ver);
+    err.status = 404;
+    throw err;
+  }
+
+  const rootTarget = targets.find((t) => t.target_period_type === "year");
+  const previousStatus = rootTarget ? rootTarget.status : "draft";
+
+  if (previousStatus === "submitted" || previousStatus === "under_review") {
+    const err = new Error("This target proposal has already been submitted and is currently under review.");
+    err.status = 400;
+    throw err;
+  }
+
+  await sequelize.transaction(async (t) => {
+    await CompanyProductionTarget.update(
+      {
+        status: "submitted",
+        submission_notes: submissionNotes || (rootTarget ? rootTarget.submission_notes : null),
+        submitted_by: userId,
+        submitted_at: new Date(),
+      },
+      {
+        where: { assignment_id: assignmentId, version_number: ver },
+        transaction: t,
+      }
+    );
+
+    await CompanyProductionTargetApprovalHistory.create(
+      {
+        assignment_id: assignmentId,
+        version_number: ver,
+        action: "submitted",
+        previous_status: previousStatus,
+        new_status: "submitted",
+        comments: submissionNotes || "Submitted target proposal for Federal approval.",
+        actor_id: userId,
+      },
+      { transaction: t }
+    );
+  });
+
+  return await getTargetProposal(assignmentId, ver);
+}
+
+/**
+ * Review target proposal (Federal/Private authority only).
+ */
+async function reviewTargetProposal({ assignmentId, versionNumber, decision, reviewComments, userId }) {
+  const validDecisions = ["approved", "revision_requested", "rejected", "under_review"];
+  if (!validDecisions.includes(decision)) {
+    const err = new Error(`Invalid review decision '${decision}'. Must be one of: ${validDecisions.join(", ")}`);
+    err.status = 400;
+    throw err;
+  }
+
+  const assignment = await CompanyProductionAssignment.findByPk(assignmentId);
+  if (!assignment) {
+    const err = new Error("Assignment not found.");
+    err.status = 404;
+    throw err;
+  }
+
+  const ver = versionNumber || 1;
+  const targets = await CompanyProductionTarget.findAll({
+    where: { assignment_id: assignmentId, version_number: ver },
+  });
+  if (targets.length === 0) {
+    const err = new Error("No target proposal found for version " + ver);
+    err.status = 404;
+    throw err;
+  }
+
+  const rootTarget = targets.find((t) => t.target_period_type === "year");
+  const previousStatus = rootTarget ? rootTarget.status : "submitted";
+
+  await sequelize.transaction(async (t) => {
+    // If approved, supersede any previous approved/published targets for this assignment
+    if (decision === "approved") {
+      await CompanyProductionTarget.update(
+        { status: "superseded" },
+        {
+          where: {
+            assignment_id: assignmentId,
+            status: ["approved", "published"],
+            version_number: { [Op.ne]: ver },
+          },
+          transaction: t,
+        }
+      );
+    }
+
+    // Update targets for this version
+    await CompanyProductionTarget.update(
+      {
+        status: decision,
+        reviewed_by: userId,
+        reviewed_at: new Date(),
+        review_comments: reviewComments || null,
+      },
+      {
+        where: { assignment_id: assignmentId, version_number: ver },
+        transaction: t,
+      }
+    );
+
+    // Record approval history
+    await CompanyProductionTargetApprovalHistory.create(
+      {
+        assignment_id: assignmentId,
+        version_number: ver,
+        action: decision,
+        previous_status: previousStatus,
+        new_status: decision,
+        comments: reviewComments || `Target proposal ${decision} by Federal Reviewer.`,
+        actor_id: userId,
+      },
+      { transaction: t }
+    );
+  });
+
+  return await getTargetProposal(assignmentId, ver);
+}
+
+/**
+ * Retrieve target proposal tree by version.
+ */
+async function getTargetProposal(assignmentId, versionNumber = null) {
+  const where = { assignment_id: assignmentId };
+  if (versionNumber) {
+    where.version_number = versionNumber;
+  }
+
+  const allTargets = await CompanyProductionTarget.findAll({
+    where,
+    include: [
+      { model: GoldMeasurementUnit, as: "unit" },
+      { model: CompanyStructure, as: "department", attributes: ["company_structure_id", "name", "level"] },
+      { model: User, as: "submitter", attributes: ["user_id", "full_name", "email"] },
+      { model: User, as: "reviewer", attributes: ["user_id", "full_name", "email"] },
+    ],
+    order: [
+      ["version_number", "DESC"],
+      ["period_start_date", "ASC"],
+    ],
+  });
+
+  if (allTargets.length === 0) return null;
+
+  const targetVersion = versionNumber || allTargets[0].version_number;
+  const versionTargets = allTargets.filter((t) => t.version_number === targetVersion);
+
+  const rootNode = versionTargets.find((t) => t.target_period_type === "year" && !t.parent_target_id);
+  const periodNodes = versionTargets.filter(
+    (t) => t.parent_target_id === (rootNode ? rootNode.target_id : null)
+  );
+
+  const periodsWithDepts = periodNodes.map((p) => {
+    const depts = versionTargets.filter((t) => t.parent_target_id === p.target_id);
+    return {
+      ...p.toJSON(),
+      department_allocations: depts.map((d) => d.toJSON()),
+    };
+  });
+
+  return {
+    version_number: targetVersion,
+    status: rootNode ? rootNode.status : versionTargets[0].status,
+    root: rootNode ? rootNode.toJSON() : null,
+    annual_target: rootNode ? Number(rootNode.target_quantity) : null,
+    unit: rootNode ? rootNode.unit : null,
+    submission_notes: rootNode ? rootNode.submission_notes : null,
+    review_comments: rootNode ? rootNode.review_comments : null,
+    submitted_at: rootNode ? rootNode.submitted_at : null,
+    submitted_by: rootNode ? rootNode.submitter : null,
+    reviewed_at: rootNode ? rootNode.reviewed_at : null,
+    reviewed_by: rootNode ? rootNode.reviewer : null,
+    periods: periodsWithDepts,
+    all_targets: versionTargets,
+  };
+}
+
+/**
+ * Get approval history for an assignment.
+ */
+async function getApprovalHistory(assignmentId, versionNumber = null) {
+  const where = { assignment_id: assignmentId };
+  if (versionNumber) {
+    where.version_number = versionNumber;
+  }
+
+  return await CompanyProductionTargetApprovalHistory.findAll({
+    where,
+    include: [{ model: User, as: "actor", attributes: ["user_id", "full_name", "email"] }],
+    order: [["created_at", "ASC"]],
+  });
+}
+
+/**
+ * Manage reporting responsibilities.
+ */
+async function manageReportingResponsibilities({ assignmentId, responsibilities, userId }) {
+  const assignment = await CompanyProductionAssignment.findByPk(assignmentId);
+  if (!assignment) {
+    const err = new Error("Assignment not found.");
+    err.status = 404;
+    throw err;
+  }
+
+  await sequelize.transaction(async (t) => {
+    // Soft delete existing responsibilities
+    await CompanyProductionReportingAssignment.destroy({
+      where: { assignment_id: assignmentId },
+      transaction: t,
+    });
+
+    if (Array.isArray(responsibilities) && responsibilities.length > 0) {
+      for (const r of responsibilities) {
+        await CompanyProductionReportingAssignment.create(
+          {
+            assignment_id: assignmentId,
+            company_id: assignment.company_id,
+            company_structure_id: r.company_structure_id || null,
+            user_id: r.user_id || null,
+            role_id: r.role_id || null,
+            notes: r.notes || null,
+            created_by: userId,
+            is_active: true,
+          },
+          { transaction: t }
+        );
+      }
+    }
+  });
+
+  return await listReportingResponsibilities(assignmentId);
+}
+
+/**
+ * List reporting responsibilities for an assignment.
+ */
+async function listReportingResponsibilities(assignmentId) {
+  return await CompanyProductionReportingAssignment.findAll({
+    where: { assignment_id: assignmentId, is_active: true },
+    include: [
+      { model: CompanyStructure, as: "department", attributes: ["company_structure_id", "name", "level"] },
+      { model: User, as: "user", attributes: ["user_id", "full_name", "email"] },
+      { model: Role, as: "role", attributes: ["role_id", "name"] },
+    ],
+    order: [["created_at", "ASC"]],
+  });
+}
+
+/**
+ * Get comprehensive production detail for an assignment.
+ */
+async function getProductionDetail(assignmentId, companyScope = null) {
+  const assignment = await CompanyProductionAssignment.findByPk(assignmentId, {
+    include: [
+      {
+        model: Company,
+        as: "company",
+        attributes: ["company_id", "name", "code"],
+      },
+      {
+        model: CompanyLicense,
+        as: "license",
+        include: [{ model: LicenseType, as: "licenseType" }],
+      },
+      {
+        model: ProductionItem,
+        as: "productionItem",
+        include: [
+          { model: GoldMeasurementUnit, as: "baseUnit" },
+          { model: GoldMeasurementUnit, as: "defaultReportingUnit" },
+          {
+            model: ProductionItemUnit,
+            as: "supportedUnits",
+            include: [{ model: GoldMeasurementUnit, as: "measurementUnit" }],
+          },
+        ],
+      },
+      {
+        model: ProductionReportingFrequency,
+        as: "reportingFrequency",
+      },
+      {
+        model: GoldMeasurementUnit,
+        as: "defaultReportingUnit",
+      },
+    ],
+  });
+
+  if (!assignment) {
+    const err = new Error("Company production assignment not found.");
+    err.status = 404;
+    throw err;
+  }
+
+  if (companyScope && assignment.company_id !== companyScope) {
+    const err = new Error("Forbidden: You cannot access an assignment belonging to another company.");
+    err.status = 403;
+    throw err;
+  }
+
+  // Fetch active approved target
+  const approvedTarget = await CompanyProductionTarget.findOne({
+    where: {
+      assignment_id: assignmentId,
+      status: "approved",
+      target_period_type: "year",
+    },
+    order: [["version_number", "DESC"]],
+  });
+
+  // Fetch latest target proposal (any status)
+  const latestTarget = await CompanyProductionTarget.findOne({
+    where: { assignment_id: assignmentId, target_period_type: "year" },
+    order: [["version_number", "DESC"]],
+  });
+
+  const activeTargetVersion = approvedTarget ? approvedTarget.version_number : null;
+  const proposalVersion = latestTarget ? latestTarget.version_number : null;
+
+  // Fetch full proposal tree if exists
+  const targetProposal = proposalVersion ? await getTargetProposal(assignmentId, proposalVersion) : null;
+  const approvedTargetsTree = activeTargetVersion ? await getTargetProposal(assignmentId, activeTargetVersion) : null;
+
+  // Fetch approval history
+  const approvalHistory = await getApprovalHistory(assignmentId);
+
+  // Fetch responsibilities
+  const responsibilities = await listReportingResponsibilities(assignmentId);
+
+  // Check license validity
+  const license = assignment.license;
+  const nowStr = new Date().toISOString().slice(0, 10);
+  let licenseEligible = false;
+  let licenseIneligibilityReason = null;
+
+  if (!license) {
+    licenseIneligibilityReason = "No license is linked to this production assignment.";
+  } else if (license.status !== "active") {
+    licenseIneligibilityReason = `License '${license.license_number}' is ${license.status}. Only active licenses are eligible for reporting.`;
+  } else if (license.effective_start_date && nowStr < license.effective_start_date) {
+    licenseIneligibilityReason = `License effective period has not started yet (starts ${license.effective_start_date}).`;
+  } else if (license.effective_end_date && nowStr > license.effective_end_date) {
+    licenseIneligibilityReason = `License expired on ${license.effective_end_date}.`;
+  } else {
+    licenseEligible = true;
+  }
+
+  const isReportingUnlocked = Boolean(approvedTarget && licenseEligible);
+
+  // Recent reports
+  const recentReports = await CompanyProductionReport.findAll({
+    where: { assignment_id: assignmentId },
+    include: [
+      { model: GoldMeasurementUnit, as: "reportedUnit" },
+      { model: CompanyStructure, as: "department", attributes: ["name", "level"] },
+      { model: User, as: "submitter", attributes: ["full_name", "email"] },
+    ],
+    order: [["report_date", "DESC"]],
+    limit: 20,
+  });
+
+  return {
+    assignment,
+    approvedTarget,
+    latestTarget,
+    targetProposal,
+    approvedTargetsTree,
+    approvalHistory,
+    responsibilities,
+    licenseEligible,
+    licenseIneligibilityReason,
+    isReportingUnlocked,
+    recentReports,
+  };
+}
+
 module.exports = {
   listAssignments,
   getAssignmentById,
@@ -1167,6 +1878,14 @@ module.exports = {
   updateAssignment,
   saveTargetHierarchy,
   getTargetsByAssignment,
+  saveTargetProposal,
+  submitTargetProposal,
+  reviewTargetProposal,
+  getTargetProposal,
+  getApprovalHistory,
+  manageReportingResponsibilities,
+  listReportingResponsibilities,
+  getProductionDetail,
   submitReport,
   getReportById,
   updateReport,

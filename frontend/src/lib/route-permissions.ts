@@ -267,6 +267,10 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/regional", anyPermissions: ["REGIONAL_DASHBOARD:VIEW", "REGIONAL_STRUCTURES:READ", "REGIONAL_USERS:READ", "REGIONAL_BRANDING:READ"] },
 
   // Dynamic Company Workspace
+  { pattern: "/companies/[id]/licenses/[licenseId]", anyPermissions: ["COMPANY_PRODUCTION:READ", "COMPANY_DASHBOARD:VIEW"] },
+  { pattern: "/companies/[id]/licenses", anyPermissions: ["COMPANY_PRODUCTION:READ", "COMPANY_DASHBOARD:VIEW"] },
+  { pattern: "/companies/[id]/productions/[assignmentId]", anyPermissions: ["COMPANY_PRODUCTION:READ", "COMPANY_PRODUCTION_REPORTS:READ", "COMPANY_DASHBOARD:VIEW"] },
+  { pattern: "/companies/[id]/productions", anyPermissions: ["COMPANY_PRODUCTION:READ", "COMPANY_PRODUCTION_REPORTS:READ", "COMPANY_DASHBOARD:VIEW"] },
   { pattern: "/companies/[id]/production/submit", anyPermissions: ["COMPANY_PRODUCTION_REPORTS:CREATE", "COMPANY_PRODUCTION_REPORTS:UPDATE", "COMPANY_PRODUCTION_REPORTS:MANAGE"] },
   { pattern: "/companies/[id]/production/reports", anyPermissions: ["COMPANY_PRODUCTION_REPORTS:READ", "COMPANY_PRODUCTION_REPORTS:MANAGE"] },
   { pattern: "/companies/[id]/production", anyPermissions: ["COMPANY_PRODUCTION:READ", "COMPANY_PRODUCTION_REPORTS:READ", "COMPANY_DASHBOARD:VIEW"] },
@@ -286,6 +290,10 @@ export const ROUTE_PERMISSION_RULES: RoutePermissionRule[] = [
   { pattern: "/companies/[id]", anyPermissions: ["COMPANY_DASHBOARD:VIEW"] },
 
   // Company Workspace fallback aliases
+  { pattern: "/company/licenses/[licenseId]", anyPermissions: ["COMPANY_PRODUCTION:READ", "COMPANY_DASHBOARD:VIEW"] },
+  { pattern: "/company/licenses", anyPermissions: ["COMPANY_PRODUCTION:READ", "COMPANY_DASHBOARD:VIEW"] },
+  { pattern: "/company/productions/[assignmentId]", anyPermissions: ["COMPANY_PRODUCTION:READ", "COMPANY_PRODUCTION_REPORTS:READ", "COMPANY_DASHBOARD:VIEW"] },
+  { pattern: "/company/productions", anyPermissions: ["COMPANY_PRODUCTION:READ", "COMPANY_PRODUCTION_REPORTS:READ", "COMPANY_DASHBOARD:VIEW"] },
   { pattern: "/company/production/submit", anyPermissions: ["COMPANY_PRODUCTION_REPORTS:CREATE", "COMPANY_PRODUCTION_REPORTS:UPDATE", "COMPANY_PRODUCTION_REPORTS:MANAGE"] },
   { pattern: "/company/production/reports", anyPermissions: ["COMPANY_PRODUCTION_REPORTS:READ", "COMPANY_PRODUCTION_REPORTS:MANAGE"] },
   { pattern: "/company/production", anyPermissions: ["COMPANY_PRODUCTION:READ", "COMPANY_PRODUCTION_REPORTS:READ", "COMPANY_DASHBOARD:VIEW"] },

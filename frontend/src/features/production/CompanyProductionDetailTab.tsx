@@ -13,6 +13,7 @@ import {
   Settings2,
   FileText,
   Factory,
+  ShieldCheck,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ import {
 import { useGetCompanyLicensesQuery } from "@/redux/api/licenseApi";
 import type { CompanyProductionAssignment, TargetPeriodNode } from "@/redux/types/production";
 import type { CompanyLicense } from "@/redux/types/license";
+import { FederalProductionTargetReviewModal } from "@/features/production/FederalProductionTargetReviewModal";
 
 export function CompanyProductionDetailTab({ companyId }: { companyId: string }) {
   const { data: assignments = [], isLoading, refetch } = useGetAssignmentsQuery({ company_id: companyId });
@@ -42,6 +44,9 @@ export function CompanyProductionDetailTab({ companyId }: { companyId: string })
   const [createAssignment, { isLoading: isCreating }] = useCreateAssignmentMutation();
   const [updateAssignment, { isLoading: isUpdating }] = useUpdateAssignmentMutation();
   const [saveTargetHierarchy, { isLoading: isSavingTargets }] = useSaveTargetHierarchyMutation();
+
+  // Review Modal State
+  const [reviewAssignmentId, setReviewAssignmentId] = useState<string | null>(null);
 
   // Edit Assignment Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -359,6 +364,15 @@ export function CompanyProductionDetailTab({ companyId }: { companyId: string })
                   </div>
 
                   <div className="flex items-center gap-2">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => setReviewAssignmentId(a.assignment_id)}
+                      className="text-xs flex items-center gap-1.5 font-medium bg-amber-600 hover:bg-amber-700 text-white"
+                    >
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      Review Targets
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
@@ -861,6 +875,14 @@ export function CompanyProductionDetailTab({ companyId }: { companyId: string })
           </div>
         </div>
       )}
+
+      {/* Review Modal */}
+      <FederalProductionTargetReviewModal
+        assignmentId={reviewAssignmentId || ""}
+        isOpen={!!reviewAssignmentId}
+        onClose={() => setReviewAssignmentId(null)}
+        onSuccess={() => refetch()}
+      />
     </div>
   );
 }

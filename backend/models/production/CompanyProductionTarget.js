@@ -20,6 +20,11 @@ module.exports = (sequelize, DataTypes) => {
         as: "childTargets",
       });
 
+      CompanyProductionTarget.belongsTo(models.CompanyStructure, {
+        foreignKey: "company_structure_id",
+        as: "department",
+      });
+
       CompanyProductionTarget.belongsTo(models.GoldMeasurementUnit, {
         foreignKey: "unit_id",
         as: "unit",
@@ -28,6 +33,16 @@ module.exports = (sequelize, DataTypes) => {
       CompanyProductionTarget.belongsTo(models.User, {
         foreignKey: "created_by",
         as: "creator",
+      });
+
+      CompanyProductionTarget.belongsTo(models.User, {
+        foreignKey: "submitted_by",
+        as: "submitter",
+      });
+
+      CompanyProductionTarget.belongsTo(models.User, {
+        foreignKey: "reviewed_by",
+        as: "reviewer",
       });
     }
   }
@@ -44,6 +59,10 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       parent_target_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      company_structure_id: {
         type: DataTypes.UUID,
         allowNull: true,
       },
@@ -83,7 +102,15 @@ module.exports = (sequelize, DataTypes) => {
       status: {
         type: DataTypes.STRING(50),
         allowNull: false,
-        defaultValue: "published", // 'draft', 'published', 'superseded'
+        defaultValue: "draft", // 'draft', 'submitted', 'under_review', 'revision_requested', 'approved', 'rejected', 'superseded'
+      },
+      submission_notes: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
+      review_comments: {
+        type: DataTypes.TEXT,
+        allowNull: true,
       },
       revision_reason: {
         type: DataTypes.TEXT,
@@ -91,6 +118,22 @@ module.exports = (sequelize, DataTypes) => {
       },
       created_by: {
         type: DataTypes.UUID,
+        allowNull: true,
+      },
+      submitted_by: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      submitted_at: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+      reviewed_by: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      reviewed_at: {
+        type: DataTypes.DATE,
         allowNull: true,
       },
     },

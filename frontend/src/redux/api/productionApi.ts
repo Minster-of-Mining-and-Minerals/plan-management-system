@@ -8,6 +8,9 @@ import type {
   CompanyProductionTarget,
   CompanyProductionAssignment,
   CompanyProductionReport,
+  CompanyProductionTargetApprovalHistory,
+  CompanyProductionReportingAssignment,
+  ProductionDetailBundle,
   ProductionPerformance,
   FederalProductionDashboard,
   CompanyProductionDashboard,
@@ -254,6 +257,124 @@ export const productionApi = baseApi.injectEndpoints({
       providesTags: (result, error, { id }) => [{ type: "CompanyProductionTargets", id }],
     }),
 
+    getProductionDetail: builder.query<ProductionDetailBundle, string>({
+      query: (id) => ({
+        url: `/production/company/assignments/${id}/detail`,
+        method: "GET",
+      }),
+      transformResponse: (response: { success: boolean; data: ProductionDetailBundle }) =>
+        response.data,
+      providesTags: (result, error, id) => [
+        { type: "CompanyProductionAssignments", id },
+        { type: "CompanyProductionTargets", id },
+      ],
+    }),
+
+    saveTargetProposal: builder.mutation<
+      any,
+      {
+        id: string;
+        annual_target: number;
+        period_type?: string;
+        period_allocations: TargetPeriodNode[];
+        submission_notes?: string;
+        auto_submit?: boolean;
+      }
+    >({
+      query: ({ id, ...body }) => ({
+        url: `/production/company/assignments/${id}/propose-targets`,
+        method: "POST",
+        body,
+      }),
+      transformResponse: (response: { success: boolean; data: any }) => response.data,
+      invalidatesTags: (result, error, { id }) => [
+        { type: "CompanyProductionAssignments", id },
+        { type: "CompanyProductionTargets", id },
+        { type: "ProductionDashboard", id: "FEDERAL" },
+        { type: "ProductionDashboard", id: "COMPANY" },
+      ],
+    }),
+
+    submitTargetProposal: builder.mutation<
+      any,
+      { id: string; version_number?: number; submission_notes?: string }
+    >({
+      query: ({ id, ...body }) => ({
+        url: `/production/company/assignments/${id}/submit-targets`,
+        method: "POST",
+        body,
+      }),
+      transformResponse: (response: { success: boolean; data: any }) => response.data,
+      invalidatesTags: (result, error, { id }) => [
+        { type: "CompanyProductionAssignments", id },
+        { type: "CompanyProductionTargets", id },
+        { type: "ProductionDashboard", id: "FEDERAL" },
+        { type: "ProductionDashboard", id: "COMPANY" },
+      ],
+    }),
+
+    reviewTargetProposal: builder.mutation<
+      any,
+      { id: string; version_number?: number; decision: string; review_comments?: string }
+    >({
+      query: ({ id, ...body }) => ({
+        url: `/production/company/assignments/${id}/review-targets`,
+        method: "POST",
+        body,
+      }),
+      transformResponse: (response: { success: boolean; data: any }) => response.data,
+      invalidatesTags: (result, error, { id }) => [
+        { type: "CompanyProductionAssignments", id },
+        { type: "CompanyProductionTargets", id },
+        { type: "ProductionDashboard", id: "FEDERAL" },
+        { type: "ProductionDashboard", id: "COMPANY" },
+      ],
+    }),
+
+    getApprovalHistory: builder.query<
+      CompanyProductionTargetApprovalHistory[],
+      { id: string; version?: number | string }
+    >({
+      query: ({ id, version }) => ({
+        url: `/production/company/assignments/${id}/approval-history`,
+        method: "GET",
+        params: version ? { version } : {},
+      }),
+      transformResponse: (response: {
+        success: boolean;
+        data: CompanyProductionTargetApprovalHistory[];
+      }) => response.data,
+      providesTags: (result, error, { id }) => [{ type: "CompanyProductionTargets", id }],
+    }),
+
+    getReportingResponsibilities: builder.query<CompanyProductionReportingAssignment[], string>({
+      query: (id) => ({
+        url: `/production/company/assignments/${id}/responsibilities`,
+        method: "GET",
+      }),
+      transformResponse: (response: {
+        success: boolean;
+        data: CompanyProductionReportingAssignment[];
+      }) => response.data,
+      providesTags: (result, error, id) => [{ type: "CompanyProductionAssignments", id }],
+    }),
+
+    manageReportingResponsibilities: builder.mutation<
+      CompanyProductionReportingAssignment[],
+      { id: string; responsibilities: any[] }
+    >({
+      query: ({ id, responsibilities }) => ({
+        url: `/production/company/assignments/${id}/responsibilities`,
+        method: "POST",
+        body: { responsibilities },
+      }),
+      transformResponse: (response: {
+        success: boolean;
+        data: CompanyProductionReportingAssignment[];
+      }) => response.data,
+      invalidatesTags: (result, error, { id }) => [{ type: "CompanyProductionAssignments", id }],
+    }),
+
     // ------------------------------------------------------------------
     // Production Reports
     // ------------------------------------------------------------------
@@ -439,6 +560,13 @@ export const {
   useUpdateAssignmentMutation,
   useSaveTargetHierarchyMutation,
   useGetTargetsByAssignmentQuery,
+  useGetProductionDetailQuery,
+  useSaveTargetProposalMutation,
+  useSubmitTargetProposalMutation,
+  useReviewTargetProposalMutation,
+  useGetApprovalHistoryQuery,
+  useGetReportingResponsibilitiesQuery,
+  useManageReportingResponsibilitiesMutation,
   useGetReportsQuery,
   useGetReportByIdQuery,
   useSubmitReportMutation,

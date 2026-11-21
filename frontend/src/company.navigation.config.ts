@@ -8,6 +8,7 @@ import {
   Key,
   Paintbrush,
   Factory,
+  FileBadge,
   FilePlus2,
   ClipboardList,
   type LucideIcon,
@@ -31,8 +32,8 @@ export const COMPANY_NAVIGATION: NavItem[] = [
     anyPermissions: ["COMPANY_DASHBOARD:VIEW"],
   },
   {
-    title: "Production Reporting",
-    url: "/company/production",
+    title: "License & Production",
+    url: "/company/licenses",
     icon: Factory,
     anyPermissions: [
       "COMPANY_PRODUCTION:READ",
@@ -42,32 +43,22 @@ export const COMPANY_NAVIGATION: NavItem[] = [
     ],
     children: [
       {
-        title: "Production Dashboard",
-        url: "/company/production",
-        icon: LayoutDashboard,
+        title: "Licenses",
+        url: "/company/licenses",
+        icon: FileBadge,
         anyPermissions: [
           "COMPANY_PRODUCTION:READ",
-          "COMPANY_PRODUCTION_REPORTS:READ",
           "COMPANY_DASHBOARD:VIEW",
         ],
       },
       {
-        title: "Submit Daily Report",
-        url: "/company/production/submit",
-        icon: FilePlus2,
+        title: "Productions",
+        url: "/company/productions",
+        icon: Factory,
         anyPermissions: [
-          "COMPANY_PRODUCTION_REPORTS:CREATE",
-          "COMPANY_PRODUCTION_REPORTS:UPDATE",
-          "COMPANY_PRODUCTION_REPORTS:MANAGE",
-        ],
-      },
-      {
-        title: "Report History",
-        url: "/company/production/reports",
-        icon: ClipboardList,
-        anyPermissions: [
+          "COMPANY_PRODUCTION:READ",
           "COMPANY_PRODUCTION_REPORTS:READ",
-          "COMPANY_PRODUCTION_REPORTS:MANAGE",
+          "COMPANY_DASHBOARD:VIEW",
         ],
       },
     ],

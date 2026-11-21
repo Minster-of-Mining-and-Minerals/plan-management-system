@@ -9,6 +9,7 @@ import {
   Clock,
   AlertTriangle,
   Settings2,
+  ShieldCheck,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ import {
 import { useGetCompaniesQuery } from "@/redux/api/companyApi";
 import { useGetCompanyLicensesQuery } from "@/redux/api/licenseApi";
 import type { CompanyProductionAssignment, TargetPeriodNode } from "@/redux/types/production";
+import { FederalProductionTargetReviewModal } from "@/features/production/FederalProductionTargetReviewModal";
 
 export function CompanyProductionAssignmentsView() {
   const searchParams = useSearchParams();
@@ -63,6 +65,9 @@ export function CompanyProductionAssignmentsView() {
   const [childQuantities, setChildQuantities] = useState<Record<string, string>>({});
   const [revisionReason, setRevisionReason] = useState("");
   const [targetError, setTargetError] = useState("");
+
+  // Review Modal State
+  const [reviewAssignmentId, setReviewAssignmentId] = useState<string | null>(null);
 
   // Edit Assignment Modal
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -424,6 +429,15 @@ export function CompanyProductionAssignmentsView() {
         const rootTarget = row.original.targets?.find((t) => t.target_period_type === "year");
         return (
           <div className="text-right flex items-center justify-end gap-2">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setReviewAssignmentId(row.original.assignment_id)}
+              className="h-8 text-xs flex items-center gap-1.5 font-medium bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Review Targets
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -991,6 +1005,14 @@ export function CompanyProductionAssignmentsView() {
           </div>
         </div>
       )}
+
+      {/* Review Modal */}
+      <FederalProductionTargetReviewModal
+        assignmentId={reviewAssignmentId || ""}
+        isOpen={!!reviewAssignmentId}
+        onClose={() => setReviewAssignmentId(null)}
+        onSuccess={() => refetch()}
+      />
     </>
   );
 }

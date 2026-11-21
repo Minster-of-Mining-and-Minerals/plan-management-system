@@ -52,6 +52,12 @@ export interface TargetPeriodNode {
   period_end_date: string;
   target_quantity?: number | string;
   unit_id?: string;
+  department_allocations?: Array<{
+    company_structure_id: string;
+    target_quantity: number | string;
+    name?: string;
+    level?: number;
+  }>;
   children?: TargetPeriodNode[];
 }
 
@@ -59,6 +65,7 @@ export interface CompanyProductionTarget {
   target_id: string;
   assignment_id: string;
   parent_target_id?: string | null;
+  company_structure_id?: string | null;
   version_number: number;
   target_period_type: "year" | "half_year" | "quarter" | "month" | "day";
   period_label: string;
@@ -67,11 +74,70 @@ export interface CompanyProductionTarget {
   target_quantity: number | string;
   unit_id: string;
   target_quantity_base: number | string;
-  status: "draft" | "published" | "superseded";
+  status:
+    | "draft"
+    | "submitted"
+    | "under_review"
+    | "revision_requested"
+    | "approved"
+    | "rejected"
+    | "published"
+    | "superseded";
+  submission_notes?: string | null;
+  review_comments?: string | null;
   revision_reason?: string | null;
   created_by?: string | null;
+  submitted_by?: { user_id: string; full_name: string; email: string } | string | null;
+  submitted_at?: string | null;
+  reviewed_by?: { user_id: string; full_name: string; email: string } | string | null;
+  reviewed_at?: string | null;
   unit?: GoldMeasurementUnit;
+  department?: { company_structure_id: string; name: string; level: number };
+  department_allocations?: CompanyProductionTarget[];
   children?: CompanyProductionTarget[];
+  created_at?: string;
+}
+
+export interface CompanyProductionTargetApprovalHistory {
+  history_id: string;
+  assignment_id: string;
+  version_number: number;
+  action: "submitted" | "under_review" | "revision_requested" | "approved" | "rejected";
+  previous_status?: string | null;
+  new_status: string;
+  comments?: string | null;
+  actor?: {
+    user_id: string;
+    full_name: string;
+    email: string;
+  } | null;
+  created_at: string;
+}
+
+export interface CompanyProductionReportingAssignment {
+  assignment_responsibility_id: string;
+  assignment_id: string;
+  company_id: string;
+  company_structure_id?: string | null;
+  user_id?: string | null;
+  role_id?: string | null;
+  target_version_number?: number | null;
+  is_active: boolean;
+  notes?: string | null;
+  department?: {
+    company_structure_id: string;
+    name: string;
+    level: number;
+  } | null;
+  user?: {
+    user_id: string;
+    full_name: string;
+    email: string;
+  } | null;
+  role?: {
+    role_id: string;
+    name: string;
+  } | null;
   created_at?: string;
 }
 
@@ -101,9 +167,17 @@ export interface CompanyProductionAssignment {
     region?: string | null;
     zone?: string | null;
     woreda?: string | null;
+    location_details?: string | null;
     status: string;
+    issued_date?: string | null;
     effective_start_date?: string | null;
     effective_end_date?: string | null;
+    effective_year_from?: number | null;
+    effective_year_to?: number | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    boundary_geojson?: any;
+    spatial_reference?: string | null;
     licenseType?: {
       name: string;
       code?: string;
@@ -113,6 +187,8 @@ export interface CompanyProductionAssignment {
   reportingFrequency?: ProductionReportingFrequency;
   defaultReportingUnit?: GoldMeasurementUnit;
   targets?: CompanyProductionTarget[];
+  responsibilities?: CompanyProductionReportingAssignment[];
+  approvalHistories?: CompanyProductionTargetApprovalHistory[];
   created_at?: string;
 }
 
@@ -120,7 +196,10 @@ export interface CompanyProductionReport {
   report_id: string;
   company_id: string;
   assignment_id: string;
+  license_id?: string | null;
   production_item_id: string;
+  company_structure_id?: string | null;
+  approved_target_version?: number | null;
   report_date: string;
   period_label?: string | null;
   quantity_reported: number | string;
@@ -155,6 +234,11 @@ export interface CompanyProductionReport {
   } | null;
   productionItem?: ProductionItem;
   reportedUnit?: GoldMeasurementUnit;
+  department?: {
+    company_structure_id: string;
+    name: string;
+    level: number;
+  } | null;
   submittedByUser?: {
     user_id: string;
     full_name: string;
@@ -215,6 +299,34 @@ export interface ProductionPerformance {
   };
   report_count: number;
   target_version?: number | null;
+}
+
+export interface ProductionDetailBundle {
+  assignment: CompanyProductionAssignment;
+  approvedTarget?: CompanyProductionTarget | null;
+  latestTarget?: CompanyProductionTarget | null;
+  targetProposal?: {
+    version_number: number;
+    status: string;
+    root: CompanyProductionTarget;
+    annual_target: number;
+    unit: GoldMeasurementUnit;
+    submission_notes?: string | null;
+    review_comments?: string | null;
+    submitted_at?: string | null;
+    submitted_by?: any;
+    reviewed_at?: string | null;
+    reviewed_by?: any;
+    periods: Array<CompanyProductionTarget & { department_allocations?: CompanyProductionTarget[] }>;
+    all_targets: CompanyProductionTarget[];
+  } | null;
+  approvedTargetsTree?: any;
+  approvalHistory: CompanyProductionTargetApprovalHistory[];
+  responsibilities: CompanyProductionReportingAssignment[];
+  licenseEligible: boolean;
+  licenseIneligibilityReason?: string | null;
+  isReportingUnlocked: boolean;
+  recentReports: CompanyProductionReport[];
 }
 
 export interface FederalProductionDashboard {

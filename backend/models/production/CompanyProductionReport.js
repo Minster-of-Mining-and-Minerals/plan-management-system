@@ -15,6 +15,11 @@ module.exports = (sequelize, DataTypes) => {
         as: "assignment",
       });
 
+      CompanyProductionReport.belongsTo(models.CompanyLicense, {
+        foreignKey: "license_id",
+        as: "license",
+      });
+
       CompanyProductionReport.belongsTo(models.ProductionItem, {
         foreignKey: "production_item_id",
         as: "productionItem",
@@ -25,14 +30,19 @@ module.exports = (sequelize, DataTypes) => {
         as: "reportedUnit",
       });
 
+      CompanyProductionReport.belongsTo(models.CompanyStructure, {
+        foreignKey: "company_structure_id",
+        as: "department",
+      });
+
       CompanyProductionReport.belongsTo(models.User, {
         foreignKey: "submitted_by",
-        as: "submittedByUser",
+        as: "submitter",
       });
 
       CompanyProductionReport.belongsTo(models.User, {
         foreignKey: "reviewed_by",
-        as: "reviewedByUser",
+        as: "reviewer",
       });
     }
   }
@@ -52,9 +62,21 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.UUID,
         allowNull: false,
       },
+      license_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
       production_item_id: {
         type: DataTypes.UUID,
         allowNull: false,
+      },
+      company_structure_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      approved_target_version: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
       },
       report_date: {
         type: DataTypes.DATEONLY,
